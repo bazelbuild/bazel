@@ -1,77 +1,28 @@
-Protocol Buffers - Google's data interchange format
-===================================================
+### Updating the jar binary
 
-[![Build Status](https://travis-ci.org/google/protobuf.svg?branch=master)](https://travis-ci.org/google/protobuf) [![Build status](https://ci.appveyor.com/api/projects/status/73ctee6ua4w2ruin?svg=true)](https://ci.appveyor.com/project/protobuf/protobuf) [![Build Status](https://grpc-testing.appspot.com/buildStatus/icon?job=protobuf_branch)](https://grpc-testing.appspot.com/job/protobuf_branch) [![Build Status](https://grpc-testing.appspot.com/job/protobuf_branch_32/badge/icon)](https://grpc-testing.appspot.com/job/protobuf_branch_32) [![Build Status](http://ci.bazel.io/buildStatus/icon?job=protobuf)](http://ci.bazel.io/job/protobuf/)
+1. Go to http://search.maven.org/
+2. Search for g:"com.google.protobuf"
+3. Download the "jar" link from protobuf-java and put them in `<Bazel tree>/third_party/protobuf/<version>`
 
-Copyright 2008 Google Inc.
+* * *
+### Updating `protobuf.bzl` and the `src/` directory:
 
-https://developers.google.com/protocol-buffers/
+1. `git clone http://github.com/google/protobuf.git`
+2. `git checkout <tag or commithash>` (e.g. `v3.0.0` or `e8ae137`)
+3. `mkdir -p third_party/protobuf/<version>/src/google` in the root of the Bazel tree.
+4. `cp -R <root of protobuf tree>/src/google/protobuf third_party/protobuf/src/google`
+5. Update the rules in `third_party/protobuf/BUILD` with the rules in the protobuf repository.
 
-Overview
---------
+Finally, update the rules:
 
-Protocol Buffers (a.k.a., protobuf) are Google's language-neutral,
-platform-neutral, extensible mechanism for serializing structured data. You
-can find [protobuf's documentation on the Google Developers site](https://developers.google.com/protocol-buffers/).
+1. Add a BUILD file to `third_party/protobuf/<version>/`. Use the BUILD file
+   for the previous version as a template. Update the `cc_library` rules to
+   match the rules in the BUILD file in the protobuf repository. Also copy
+   `protobuf.bzl` from the protobuf repository into
+   `third_party/protobuf/<version>/`.
+2. Modify `third_party/protobuf/BUILD` to point to the new rules.
+3. Delete the old version of protobuf.
 
-This README file contains protobuf installation instructions. To install
-protobuf, you need to install the protocol compiler (used to compile .proto
-files) and the protobuf runtime for your chosen programming language.
-
-Protocol Compiler Installation
-------------------------------
-
-The protocol compiler is written in C++. If you are using C++, please follow
-the [C++ Installation Instructions](src/README.md) to install protoc along
-with the C++ runtime.
-
-For non-C++ users, the simplest way to install the protocol compiler is to
-download a pre-built binary from our release page:
-
-  [https://github.com/google/protobuf/releases](https://github.com/google/protobuf/releases)
-
-In the downloads section of each release, you can find pre-built binaries in
-zip packages: protoc-$VERSION-$PLATFORM.zip. It contains the protoc binary
-as well as a set of standard .proto files distributed along with protobuf.
-
-If you are looking for an old version that is not available in the release
-page, check out the maven repo here:
-
-  [http://repo1.maven.org/maven2/com/google/protobuf/protoc/](http://repo1.maven.org/maven2/com/google/protobuf/protoc/)
-
-These pre-built binaries are only provided for released versions. If you want
-to use the github master version at HEAD, or you need to modify protobuf code,
-or you are using C++, it's recommended to build your own protoc binary from
-source.
-
-If you would like to build protoc binary from source, see the [C++ Installation
-Instructions](src/README.md).
-
-Protobuf Runtime Installation
------------------------------
-
-Protobuf supports several different programming languages. For each programming
-language, you can find instructions in the corresponding source directory about
-how to install protobuf runtime for that specific language:
-
-| Language                             | Source                                                |
-|--------------------------------------|-------------------------------------------------------|
-| C++ (include C++ runtime and protoc) | [src](src)                                            |
-| Java                                 | [java](java)                                          |
-| Python                               | [python](python)                                      |
-| Objective-C                          | [objectivec](objectivec)                              |
-| C#                                   | [csharp](csharp)                                      |
-| JavaNano                             | [javanano](javanano)                                  |
-| JavaScript                           | [js](js)                                              |
-| Ruby                                 | [ruby](ruby)                                          |
-| Go                                   | [golang/protobuf](https://github.com/golang/protobuf) |
-| PHP                                  | [php](php)                                            |
-
-
-Usage
------
-
-The complete documentation for Protocol Buffers is available via the
-web at:
-
-https://developers.google.com/protocol-buffers/
+* * *
+### Updating anything else in the directory
+Follow usual procedure as described on https://www.bazel.build/contributing.html
