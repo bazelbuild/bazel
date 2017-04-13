@@ -80,7 +80,6 @@ load(":self_extract_binary.bzl", "self_extract_binary")
 
 self_extract_binary(
     name = "install.sh",
-    empty_files = ["tools/defaults/BUILD"],
     flatten_resources = [
         ":bazel-real",
         ":bazel",
