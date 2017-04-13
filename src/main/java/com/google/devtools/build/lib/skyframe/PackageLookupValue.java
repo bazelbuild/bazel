@@ -33,7 +33,8 @@ import com.google.devtools.build.skyframe.SkyValue;
  *
  * <p>Implementation detail: we use inheritance here to optimize for memory usage.
  */
-public abstract class PackageLookupValue implements SkyValue {
+public abstract class
+    PackageLookupValue implements SkyValue {
 
   /**
    * The file (BUILD, WORKSPACE, etc.) that defines this package, referred to as the "build file".
