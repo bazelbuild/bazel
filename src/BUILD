@@ -148,7 +148,6 @@ filegroup(
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:ExperimentalRunner_deploy.jar",
         "//src/java_tools/junitrunner/java/com/google/testing/coverage:embedded_tools",
         "//third_party/ijar",
-        "//third_party/java/apkbuilder:embedded_tools",
         "//third_party/java/jacoco:srcs",
     ] + select({
         ":darwin": [
