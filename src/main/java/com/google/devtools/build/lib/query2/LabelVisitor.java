@@ -85,7 +85,6 @@ final class LabelVisitor {
   private class VisitationAttributes {
     private Collection<Target> targetsToVisit;
     private boolean success = false;
-    private boolean visitSubincludes = true;
     private int maxDepth = 0;
 
     /**
@@ -93,8 +92,7 @@ final class LabelVisitor {
      */
     boolean current() {
       return targetsToVisit.equals(lastVisitation.targetsToVisit)
-          && maxDepth <= lastVisitation.maxDepth
-          && visitSubincludes == lastVisitation.visitSubincludes;
+          && maxDepth <= lastVisitation.maxDepth;
     }
   }
 
@@ -139,10 +137,7 @@ final class LabelVisitor {
    * terminate prematurely.
    *
    * The interruption of the loading of an individual package can happen in two
-   * different ways depending on whether Python preprocessing is in effect or
-   * not.
-   *
-   * If there is no Python preprocessing:
+   * different ways.
    *
    * 1. We periodically check the interruption state of the thread in
    * UnixGlob.reallyGlob(). If it is interrupted, an InterruptedException is
@@ -152,36 +147,6 @@ final class LabelVisitor {
    * responsible for package loading. This either means that the worker thread
    * terminates or that the label parsing terminates if the package that is
    * being loaded was specified on the command line.
-   *
-   * If there is Python preprocessing, events are a bit more complicated. In
-   * this case, the real work happens on the thread the Python preprocessor is
-   * called from, but in a bit more convoluted way: a new thread is spawned by
-   * to handle the input from the Python process and
-   * the output to the Python process is handled on the main thread. The reading
-   * thread parses requests from the preprocessor, and passes them using a queue
-   * to the writing thread (that is, the main thread), so that we can do the
-   * work there. This is important because this way, we don't have any work that
-   * we need to interrupt in a thread that is not spawned by us. So:
-   *
-   * 1. The interrupted state of the main thread is set.
-   *
-   * 2. This results in an InterruptedException during the execution of the task
-   * in PythonStdinInputStream.getNextMessage().
-   *
-   * 3. We exit from RequestParser.Request.run() prematurely, set a flag to
-   * signal that we were interrupted, and throw an InterruptedIOException.
-   *
-   * 4. The Python child process and reading thread are terminated.
-   *
-   * 5. Based on the flag we set in step 3, we realize that the termination was
-   * due to an interruption, and an InterruptedException is thrown. This can
-   * either raise an AbnormalTerminationException, or make Command.execute()
-   * return normally, so we check for both cases.
-   *
-   * 6. This InterruptedException causes the loading of the package to terminate
-   * prematurely.
-   *
-   * Life is not simple.
    */
   private final TargetProvider targetProvider;
   private final DependencyFilter edgeFilter;

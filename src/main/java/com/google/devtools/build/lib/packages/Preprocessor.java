@@ -22,12 +22,10 @@ public interface Preprocessor {
   /** The result of parsing a preprocessed BUILD file. */
   static class AstAfterPreprocessing {
     public final BuildFileAST ast;
-    public final boolean containsAstParsingErrors;
     public final Iterable<Event> allEvents;
 
     public AstAfterPreprocessing(BuildFileAST ast, StoredEventHandler astParsingEventHandler) {
       this.ast = ast;
-      this.containsAstParsingErrors = astParsingEventHandler.hasErrors();
       this.allEvents = astParsingEventHandler.getEvents();
     }
   }
