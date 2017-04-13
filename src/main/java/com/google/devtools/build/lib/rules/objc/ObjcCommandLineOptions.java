@@ -173,7 +173,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
 
   @Option(
     name = "objc_includes_prioritize_static_libs",
-    defaultValue = "false",
+    defaultValue = "true",
     category = "flags",
     help =
         "If set, the linker invocation will contain static library includes before frameworks"
