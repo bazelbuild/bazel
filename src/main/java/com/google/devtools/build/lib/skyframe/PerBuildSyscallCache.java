@@ -30,13 +30,14 @@ import java.util.Collection;
  */
 public class PerBuildSyscallCache implements UnixGlob.FilesystemCalls {
 
-  private final LoadingCache<Pair<Path, Symlinks>, FileStatus> statCache;
+  private final LoadingCache<Pair<Path, Symlinks>, Pair<FileStatus, IOException>> statCache;
   private final LoadingCache<Pair<Path, Symlinks>, Pair<Collection<Dirent>, IOException>>
       readdirCache;
 
   private static final FileStatus NO_STATUS = new FakeFileStatus();
 
-  private PerBuildSyscallCache(LoadingCache<Pair<Path, Symlinks>, FileStatus> statCache,
+  private PerBuildSyscallCache(
+      LoadingCache<Pair<Path, Symlinks>, Pair<FileStatus, IOException>> statCache,
       LoadingCache<Pair<Path, Symlinks>, Pair<Collection<Dirent>, IOException>> readdirCache) {
     this.statCache = statCache;
     this.readdirCache = readdirCache;
@@ -104,9 +105,12 @@ public class PerBuildSyscallCache implements UnixGlob.FilesystemCalls {
   }
 
   @Override
-  public FileStatus statNullable(Path path, Symlinks symlinks) {
-    FileStatus status = statCache.getUnchecked(Pair.of(path, symlinks));
-    return (status == NO_STATUS) ? null : status;
+  public FileStatus statIfFound(Path path, Symlinks symlinks) throws IOException {
+    Pair<FileStatus, IOException> status = statCache.getUnchecked(Pair.of(path, symlinks));
+    if (status.getFirst() != null) {
+      return (status.getFirst() == NO_STATUS) ? null : status.getFirst();
+    }
+    throw status.getSecond();
   }
 
   public void clear() {
@@ -162,12 +166,16 @@ public class PerBuildSyscallCache implements UnixGlob.FilesystemCalls {
    * Input: (path, following_symlinks)
    * Output: FileStatus
    */
-  private static CacheLoader<Pair<Path, Symlinks>, FileStatus> newStatLoader() {
-    return new CacheLoader<Pair<Path, Symlinks>, FileStatus>() {
+  private static CacheLoader<Pair<Path, Symlinks>, Pair<FileStatus, IOException>> newStatLoader() {
+    return new CacheLoader<Pair<Path, Symlinks>, Pair<FileStatus, IOException>>() {
         @Override
-        public FileStatus load(Pair<Path, Symlinks> p) {
-          FileStatus f = p.first.statNullable(p.second);
-          return (f == null) ? NO_STATUS : f;
+        public Pair<FileStatus, IOException> load(Pair<Path, Symlinks> p) {
+          try {
+            FileStatus f = p.first.statIfFound(p.second);
+            return Pair.of((f == null) ? NO_STATUS : f, null);
+          } catch (IOException e) {
+            return Pair.of(null, e);
+          }
         }
       };
   }
