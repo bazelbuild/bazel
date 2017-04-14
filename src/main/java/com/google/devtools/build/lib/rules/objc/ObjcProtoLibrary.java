@@ -39,6 +39,9 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
     if (attributes.hasPortableProtoFilters()) {
       return createProtobufTarget(ruleContext);
     } else {
+      ruleContext.ruleWarning("The usage of objc_proto_library without the portable_proto_filters "
+          + "attribute has been deprecated with a deadline to migrate set to June 30th. Please "
+          + "refer to b/37274743 for more information.");
       return createProtocolBuffers2Target(ruleContext);
     }
   }

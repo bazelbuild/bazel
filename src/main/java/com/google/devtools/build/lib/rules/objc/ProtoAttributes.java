@@ -140,12 +140,6 @@ final class ProtoAttributes {
       if (getProtoFiles().isEmpty()) {
         ruleContext.throwWithRuleError(NO_PROTOS_ERROR);
       }
-
-      if (!usesObjcHeaderNames()) {
-        ruleContext.ruleWarning(
-            "As part of the migration process, it is recommended to enable "
-                + "use_objc_header_names. Please refer to b/29368416 for more information.");
-      }
       if (hasObjcProtoLibraryDependencies()) {
         ruleContext.throwWithRuleError(OBJC_PROTO_LIB_DEP_IN_PROTOCOL_BUFFERS2_DEPS_ERROR);
       }
