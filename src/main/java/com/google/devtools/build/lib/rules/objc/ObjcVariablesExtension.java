@@ -46,6 +46,7 @@ class ObjcVariablesExtension implements VariablesExtension {
   static final String OBJC_LIBRARY_EXEC_PATHS_VARIABLE_NAME = "objc_library_exec_paths";
   static final String CC_LIBRARY_EXEC_PATHS_VARIABLE_NAME = "cc_library_exec_paths";
   static final String IMPORTED_LIBRARY_EXEC_PATHS_VARIABLE_NAME = "imported_library_exec_paths";
+  static final String LINKMAP_EXEC_PATH = "linkmap_exec_path";
 
   // executable linking variables
   static final String FRAMEWORK_NAMES_VARIABLE_NAME = "framework_names";
@@ -60,7 +61,7 @@ class ObjcVariablesExtension implements VariablesExtension {
   // dsym variables
   static final String DSYM_PATH_VARIABLE_NAME = "dsym_path";
   static final String DSYM_BUNDLE_ZIP_VARIABLE_NAME = "dsym_bundle_zip";
-  
+
   private final RuleContext ruleContext;
   private final ObjcProvider objcProvider;
   private final CompilationArtifacts compilationArtifacts;
@@ -75,6 +76,7 @@ class ObjcVariablesExtension implements VariablesExtension {
   private final ImmutableSet<VariableCategory> activeVariableCategories;
   private final DsymOutputType dsymOutputType;
   private final Artifact dsymBundleZip;
+  private final Artifact linkmap;
 
   private ObjcVariablesExtension(
       RuleContext ruleContext,
@@ -89,7 +91,8 @@ class ObjcVariablesExtension implements VariablesExtension {
       ImmutableList<String> attributeLinkopts,
       ImmutableSet<VariableCategory> activeVariableCategories,
       DsymOutputType dsymOutputType,
-      Artifact dsymBundleZip) {
+      Artifact dsymBundleZip,
+      Artifact linkmap) {
     this.ruleContext = ruleContext;
     this.objcProvider = objcProvider;
     this.compilationArtifacts = compilationArtifacts;
@@ -104,6 +107,7 @@ class ObjcVariablesExtension implements VariablesExtension {
     this.activeVariableCategories = activeVariableCategories;
     this.dsymOutputType = dsymOutputType;
     this.dsymBundleZip = dsymBundleZip;
+    this.linkmap = linkmap;
   }
 
   /** Type of build variable that can optionally exported by this extension. */
@@ -111,7 +115,8 @@ class ObjcVariablesExtension implements VariablesExtension {
     ARCHIVE_VARIABLES,
     FULLY_LINK_VARIABLES,
     EXECUTABLE_LINKING_VARIABLES,
-    DSYM_VARIABLES;
+    DSYM_VARIABLES,
+    LINKMAP_VARIABLES;
   }
 
   @Override
@@ -130,6 +135,9 @@ class ObjcVariablesExtension implements VariablesExtension {
     }
     if (activeVariableCategories.contains(VariableCategory.DSYM_VARIABLES)) {
       addDsymVariables(builder);
+    }
+    if (activeVariableCategories.contains(VariableCategory.LINKMAP_VARIABLES)) {
+      addLinkmapVariables(builder);
     }
   }
 
@@ -217,6 +225,10 @@ class ObjcVariablesExtension implements VariablesExtension {
         FileSystemUtils.removeExtension(dsymBundleZip.getExecPath()).getPathString());
   }
 
+  private void addLinkmapVariables(CcToolchainFeatures.Variables.Builder builder) {
+    builder.addStringVariable(LINKMAP_EXEC_PATH, linkmap.getExecPathString());
+  }
+
   /** A Builder for {@link ObjcVariablesExtension}. */
   static class Builder {
     private RuleContext ruleContext;
@@ -231,6 +243,7 @@ class ObjcVariablesExtension implements VariablesExtension {
     private ImmutableList<String> attributeLinkopts;
     private DsymOutputType dsymOutputType;
     private Artifact dsymBundleZip;
+    private Artifact linkmap;
     
     private final ImmutableSet.Builder<VariableCategory> activeVariableCategoriesBuilder =
         ImmutableSet.builder();
@@ -313,6 +326,12 @@ class ObjcVariablesExtension implements VariablesExtension {
       return this;
     }
 
+    /** Sets the Artifact for the linkmap. */
+    public Builder setLinkmap(Artifact linkmap) {
+      this.linkmap = linkmap;
+      return this;
+    }
+
     public ObjcVariablesExtension build() {
       
       ImmutableSet<VariableCategory> activeVariableCategories =
@@ -337,6 +356,9 @@ class ObjcVariablesExtension implements VariablesExtension {
       if (activeVariableCategories.contains(VariableCategory.DSYM_VARIABLES)) {
         Preconditions.checkNotNull(dsymOutputType, "missing dsym output type");
       }
+      if (activeVariableCategories.contains(VariableCategory.LINKMAP_VARIABLES)) {
+        Preconditions.checkNotNull(linkmap, "missing linkmap artifact");
+      }
 
       return new ObjcVariablesExtension(
           ruleContext,
@@ -351,7 +373,8 @@ class ObjcVariablesExtension implements VariablesExtension {
           attributeLinkopts,
           activeVariableCategories,
           dsymOutputType,
-          dsymBundleZip);
+          dsymBundleZip,
+          linkmap);
     }
   }
 }

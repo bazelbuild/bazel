@@ -100,6 +100,8 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
    */
   private static final String NO_GENERATE_DEBUG_SYMBOLS_FEATURE_NAME = "no_generate_debug_symbols";
 
+  private static final String GENERATE_LINKMAP_FEATURE_NAME = "generate_linkmap";
+
   private static final ImmutableList<String> ACTIVATED_ACTIONS =
       ImmutableList.of(
           "objc-compile",
@@ -306,6 +308,14 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
       executableLinkAction.addActionOutput(dsymBundleZip);
     }
 
+    if (objcConfiguration.generateLinkmap()) {
+      Artifact linkmap = intermediateArtifacts.linkmap();
+      extensionBuilder
+          .setLinkmap(linkmap)
+          .addVariableCategory(VariableCategory.LINKMAP_VARIABLES);
+      executableLinkAction.addActionOutput(linkmap);
+    }
+
     executableLinkAction.addVariablesExtension(extensionBuilder.build());
     ruleContext.registerAction(executableLinkAction.build());
 
@@ -446,6 +456,9 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
       activatedCrosstoolSelectables.add(GENERATE_DSYM_FILE_FEATURE_NAME);
     } else {
       activatedCrosstoolSelectables.add(NO_GENERATE_DEBUG_SYMBOLS_FEATURE_NAME);
+    }
+    if (configuration.getFragment(ObjcConfiguration.class).generateLinkmap()) {
+      activatedCrosstoolSelectables.add(GENERATE_LINKMAP_FEATURE_NAME);
     }
 
     activatedCrosstoolSelectables.addAll(ruleContext.getFeatures());
