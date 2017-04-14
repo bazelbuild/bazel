@@ -867,6 +867,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "def _impl(ctx):",
         "    provider = ctx.attr.deps[0][DefaultInfo]",
         "    return struct(",
+        "        is_provided = DefaultInfo in ctx.attr.deps[0],",
         "        provider = provider,",
         "        dir = str(sorted(dir(provider))),",
         "        rule_data_runfiles = provider.data_runfiles,",
@@ -888,6 +889,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "bar_rule(name = 'my_rule', deps = [':dep_rule', 'file.txt'])");
     ConfiguredTarget configuredTarget = getConfiguredTarget("//test:my_rule");
     SkylarkProviders providers = configuredTarget.getProvider(SkylarkProviders.class);
+
+    assertThat((Boolean) providers.getValue("is_provided")).isTrue();
 
     Object provider = providers.getValue("provider");
     assertThat(provider).isInstanceOf(DefaultProvider.class);
@@ -925,6 +928,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "def _impl(ctx):",
         "    provider = ctx.attr.deps[0][DefaultInfo]",
         "    return struct(",
+        "        is_provided = DefaultInfo in ctx.attr.deps[0],",
         "        provider = provider,",
         "        dir = str(sorted(dir(provider))),",
         "        file_data_runfiles = provider.data_runfiles,",
@@ -944,6 +948,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "bar_rule(name = 'my_rule', deps = ['file.txt'])");
     ConfiguredTarget configuredTarget = getConfiguredTarget("//test:my_rule");
     SkylarkProviders providers = configuredTarget.getProvider(SkylarkProviders.class);
+
+    assertThat((Boolean) providers.getValue("is_provided")).isTrue();
 
     Object provider = providers.getValue("provider");
     assertThat(provider).isInstanceOf(DefaultProvider.class);

@@ -149,15 +149,7 @@ public abstract class AbstractConfiguredTarget
           "Type Target only supports querying by object constructors, got %s instead",
           EvalUtils.getDataTypeName(key)));
     }
-    ClassObjectConstructor constructor = (ClassObjectConstructor) key;
-    SkylarkProviders provider = getProvider(SkylarkProviders.class);
-    if (provider != null) {
-      Object declaredProvider = provider.getDeclaredProvider(constructor.getKey());
-      if (declaredProvider != null) {
-        return true;
-      }
-    }
-    return false;
+    return get(((ClassObjectConstructor) key).getKey()) != null;
   }
 
   @Override
