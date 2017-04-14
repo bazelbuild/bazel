@@ -244,6 +244,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
           throw new MissingDepException();
         }
 
+        // TODO(ulfjack): DO NOT SUBMIT! Throw an exception if the repository does not exist.
         roots.add(repositoryValue.getPath());
       }
 

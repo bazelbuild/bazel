@@ -132,6 +132,7 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
         throw new MissingDepException();
       }
 
+      // TODO(ulfjack): DO NOT SUBMIT! Throw an exception if the repository does not exist.
       roots.add(repositoryValue.getPath());
     }
 

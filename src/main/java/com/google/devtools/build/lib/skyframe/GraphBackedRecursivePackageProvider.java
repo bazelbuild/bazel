@@ -197,6 +197,7 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
         // "nothing".
         return ImmutableList.of();
       }
+      // TODO(ulfjack): DO NOT SUBMIT! Throw an exception if the repository does not exist.
       roots.add(repositoryValue.getPath());
     }
 

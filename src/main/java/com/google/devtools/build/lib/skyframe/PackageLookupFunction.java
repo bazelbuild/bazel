@@ -307,6 +307,10 @@ public class PackageLookupFunction implements SkyFunction {
       throw new PackageLookupFunctionException(new BuildFileNotFoundException(id, e.getMessage()),
           Transience.PERSISTENT);
     }
+    if (!repositoryValue.repositoryExists()) {
+      // TODO(ulfjack): Convert the repository not found cause to a reasonable package not found cause.
+      return PackageLookupValue.NO_SUCH_REPOSITORY_VALUE;
+    }
 
     // This checks for the build file names in the correct precedence order.
     for (BuildFileName buildFileName : buildFilesByPriority) {
