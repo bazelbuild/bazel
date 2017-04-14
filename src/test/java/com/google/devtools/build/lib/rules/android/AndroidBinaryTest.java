@@ -1539,6 +1539,86 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
+  public void testInheritedRNotInRuntimeJars() throws Exception {
+    String dir = "java/r/android/";
+    scratch.file(
+        dir + "BUILD",
+        "android_library(name = 'sublib',",
+        "                manifest = 'AndroidManifest.xml',",
+        "                resource_files = glob(['res3/**']),",
+        "                srcs =['sublib.java'],",
+        "                )",
+        "android_library(name = 'lib',",
+        "                manifest = 'AndroidManifest.xml',",
+        "                resource_files = glob(['res2/**']),",
+        "                deps = [':sublib'],",
+        "                srcs =['lib.java'],",
+        "                )",
+        "android_binary(name = 'bin',",
+        "               manifest = 'AndroidManifest.xml',",
+        "               resource_files = glob(['res/**']),",
+        "               deps = [':lib'],",
+        "               srcs =['bin.java'],",
+        "               )");
+
+    // TODO(b/37087277): Remove this once this behavior is the default
+    useConfiguration("--noexperimental_android_include_library_resource_jars");
+
+    Action deployJarAction =
+        getGeneratingAction(
+            getFileConfiguredTarget("//java/r/android:bin_deploy.jar").getArtifact());
+    List<String> inputs = ActionsTestUtil.prettyArtifactNames(deployJarAction.getInputs());
+
+    assertThat(inputs)
+        .containsAllOf(
+            dir + "libsublib.jar",
+            dir + "liblib.jar",
+            dir + "libbin.jar",
+            dir + "bin_resources.jar");
+    assertThat(inputs).containsNoneOf(dir + "lib_resources.jar", dir + "sublib_resources.jar");
+  }
+
+  @Test
+  public void testInheritedRInRuntimeJarsWhenSpecified() throws Exception {
+    String dir = "java/r/android/";
+    scratch.file(
+        dir + "BUILD",
+        "android_library(name = 'sublib',",
+        "                manifest = 'AndroidManifest.xml',",
+        "                resource_files = glob(['res3/**']),",
+        "                srcs =['sublib.java'],",
+        "                )",
+        "android_library(name = 'lib',",
+        "                manifest = 'AndroidManifest.xml',",
+        "                resource_files = glob(['res2/**']),",
+        "                deps = [':sublib'],",
+        "                srcs =['lib.java'],",
+        "                )",
+        "android_binary(name = 'bin',",
+        "               manifest = 'AndroidManifest.xml',",
+        "               resource_files = glob(['res/**']),",
+        "               deps = [':lib'],",
+        "               srcs =['bin.java'],",
+        "               )");
+
+    // TODO(b/37087277): Add a configuration flag once this behavior is no longer the default.
+
+    Action deployJarAction =
+        getGeneratingAction(
+            getFileConfiguredTarget("//java/r/android:bin_deploy.jar").getArtifact());
+    List<String> inputs = ActionsTestUtil.prettyArtifactNames(deployJarAction.getInputs());
+
+    assertThat(inputs)
+        .containsAllOf(
+            dir + "libsublib.jar",
+            dir + "liblib.jar",
+            dir + "libbin.jar",
+            dir + "bin_resources.jar",
+            dir + "lib_resources.jar",
+            dir + "sublib_resources.jar");
+  }
+
+  @Test
   public void testLocalResourcesUseRClassGenerator() throws Exception {
     scratch.file("java/r/android/BUILD",
         "android_library(name = 'lib',",

@@ -444,6 +444,15 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
         help = "Compress Java resources in APKs")
     public boolean compressJavaResources;
 
+    @Option(name = "experimental_android_include_library_resource_jars",
+        defaultValue = "true",
+        category = "undocumented",
+        help = "Specifies whether resource JAR files for android_library targets should be included"
+            + " as runtime dependencies. Defaults to the old behavior, including them. These JARs"
+            + " are not nessecary for normal use as all required resources are included in the"
+            + " top-level android_binary resource JAR.")
+    public boolean includeLibraryResourceJars;
+
     @Override
     public void addAllLabels(Multimap<String, Label> labelMap) {
       if (androidCrosstoolTop != null) {
@@ -528,6 +537,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final ResourceFilter resourceFilter;
   private final boolean useSingleJarForProguardLibraryJars;
   private final boolean compressJavaResources;
+  private final boolean includeLibraryResourceJars;
 
   AndroidConfiguration(Options options, Label androidSdk) throws InvalidConfigurationException {
     this.sdk = androidSdk;
@@ -559,6 +569,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.useRexToCompressDexFiles = options.useRexToCompressDexFiles;
     this.resourceFilter = options.resourceFilter;
     this.compressJavaResources = options.compressJavaResources;
+    this.includeLibraryResourceJars = options.includeLibraryResourceJars;
 
     if (!dexoptsSupportedInIncrementalDexing.contains("--no-locals")) {
       // TODO(bazel-team): Still needed? See DexArchiveAspect
@@ -669,6 +680,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   boolean compressJavaResources() {
     return compressJavaResources;
+  }
+
+  public boolean includeLibraryResourceJars() {
+    return includeLibraryResourceJars;
   }
 
   @Override
