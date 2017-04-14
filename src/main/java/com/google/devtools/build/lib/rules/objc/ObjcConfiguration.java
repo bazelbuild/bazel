@@ -81,6 +81,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final boolean enableAppleBinaryNativeProtos;
   private final HeaderDiscovery.DotdPruningMode dotdPruningPlan;
   private final boolean experimentalHeaderThinning;
+  private final int objcHeaderThinningPartitionSize;
   private final Label objcHeaderScannerTool;
   private final Label appleSdk;
   private final boolean generateXcodeProject;
@@ -123,6 +124,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
             ? HeaderDiscovery.DotdPruningMode.USE
             : HeaderDiscovery.DotdPruningMode.DO_NOT_USE;
     this.experimentalHeaderThinning = objcOptions.experimentalObjcHeaderThinning;
+    this.objcHeaderThinningPartitionSize = objcOptions.objcHeaderThinningPartitionSize;
     this.objcHeaderScannerTool = objcOptions.objcHeaderScannerTool;
     this.appleSdk = objcOptions.appleSdk;
     this.generateXcodeProject = objcOptions.generateXcodeProject;
@@ -360,6 +362,11 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   /** Returns true if header thinning of ObjcCompile actions is enabled to reduce action inputs. */
   public boolean useExperimentalHeaderThinning() {
     return experimentalHeaderThinning;
+  }
+
+  /** Returns the max number of source files to add to each header scanning action. */
+  public int objcHeaderThinningPartitionSize() {
+    return objcHeaderThinningPartitionSize;
   }
 
   /** Returns the label for the ObjC header scanner tool. */

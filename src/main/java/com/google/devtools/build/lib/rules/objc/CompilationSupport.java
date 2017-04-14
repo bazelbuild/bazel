@@ -1330,6 +1330,13 @@ public abstract class CompilationSupport {
   /**
    * Creates and registers ObjcHeaderScanning {@link SpawnAction}. Groups all the actions by their
    * compilation command line arguments and creates a ObjcHeaderScanning action for each unique one.
+   *
+   * <p>The number of sources to scan per actions are bounded so that targets with a high number of
+   * sources are not penalized. A large number of sources may require a lot of processing
+   * particularly when the headers required for different sources vary greatly and the caching
+   * mechanism in the tool is largely useless. In these instances these actions would benefit by
+   * being distributed so they don't contribute to the critical path. The partition size is
+   * configurable so that it can be tuned.
    */
   protected void registerHeaderScanningActions(
       ImmutableList<ObjcHeaderThinningInfo> headerThinningInfo,
@@ -1339,49 +1346,63 @@ public abstract class CompilationSupport {
       return;
     }
 
-    FilesToRunProvider headerScannerTool = getHeaderThinningToolExecutable();
-    PrerequisiteArtifacts appleSdks =
-        ruleContext.getPrerequisiteArtifacts(ObjcRuleClasses.APPLE_SDK_ATTRIBUTE, Mode.TARGET);
     ListMultimap<ImmutableList<String>, ObjcHeaderThinningInfo>
         objcHeaderThinningInfoByCommandLine = groupActionsByCommandLine(headerThinningInfo);
     // Register a header scanning spawn action for each unique set of command line arguments
     for (ImmutableList<String> args : objcHeaderThinningInfoByCommandLine.keySet()) {
-      SpawnAction.Builder builder =
-          new SpawnAction.Builder()
-              .setMnemonic("ObjcHeaderScanning")
-              .setExecutable(headerScannerTool)
-              .addInputs(appleSdks.list());
-      CustomCommandLine.Builder cmdLine =
-          CustomCommandLine.builder()
-              .add("--arch")
-              .add(appleConfiguration.getSingleArchitecture().toLowerCase())
-              .add("--platform")
-              .add(appleConfiguration.getSingleArchPlatform().getLowerCaseNameInPlist())
-              .add("--sdk_version")
-              .add(
-                  appleConfiguration
-                      .getSdkVersionForPlatform(appleConfiguration.getSingleArchPlatform())
-                      .toStringWithMinimumComponents(2))
-              .add("--xcode_version")
-              .add(appleConfiguration.getXcodeVersion().toStringWithMinimumComponents(2))
-              .add("--");
-      for (ObjcHeaderThinningInfo info : objcHeaderThinningInfoByCommandLine.get(args)) {
-        cmdLine.addJoinPaths(
-            ":",
-            Lists.newArrayList(info.sourceFile.getExecPath(), info.headersListFile.getExecPath()));
-        builder.addInput(info.sourceFile).addOutput(info.headersListFile);
+      // As infos is in insertion order we should reliably get the same sublists below
+      for (List<ObjcHeaderThinningInfo> partition :
+          Lists.partition(
+              objcHeaderThinningInfoByCommandLine.get(args),
+              objcConfiguration.objcHeaderThinningPartitionSize())) {
+        registerHeaderScanningAction(objcProvider, compilationArtifacts, args, partition);
       }
-      ruleContext.registerAction(
-          builder
-              .setCommandLine(cmdLine.add("--").add(args).build())
-              .addInputs(compilationArtifacts.getPrivateHdrs())
-              .addTransitiveInputs(attributes.hdrs())
-              .addTransitiveInputs(objcProvider.get(ObjcProvider.HEADER))
-              .addInputs(compilationArtifacts.getPchFile().asSet())
-              .addTransitiveInputs(objcProvider.get(ObjcProvider.STATIC_FRAMEWORK_FILE))
-              .addTransitiveInputs(objcProvider.get(ObjcProvider.DYNAMIC_FRAMEWORK_FILE))
-              .build(ruleContext));
     }
+  }
+
+  private void registerHeaderScanningAction(
+      ObjcProvider objcProvider,
+      CompilationArtifacts compilationArtifacts,
+      ImmutableList<String> args,
+      List<ObjcHeaderThinningInfo> infos) {
+    SpawnAction.Builder builder =
+        new SpawnAction.Builder()
+            .setMnemonic("ObjcHeaderScanning")
+            .setExecutable(getHeaderThinningToolExecutable())
+            .addInputs(
+                ruleContext
+                    .getPrerequisiteArtifacts(ObjcRuleClasses.APPLE_SDK_ATTRIBUTE, Mode.TARGET)
+                    .list());
+    CustomCommandLine.Builder cmdLine =
+        CustomCommandLine.builder()
+            .add("--arch")
+            .add(appleConfiguration.getSingleArchitecture().toLowerCase())
+            .add("--platform")
+            .add(appleConfiguration.getSingleArchPlatform().getLowerCaseNameInPlist())
+            .add("--sdk_version")
+            .add(
+                appleConfiguration
+                    .getSdkVersionForPlatform(appleConfiguration.getSingleArchPlatform())
+                    .toStringWithMinimumComponents(2))
+            .add("--xcode_version")
+            .add(appleConfiguration.getXcodeVersion().toStringWithMinimumComponents(2))
+            .add("--");
+    for (ObjcHeaderThinningInfo info : infos) {
+      cmdLine.addJoinPaths(
+          ":",
+          Lists.newArrayList(info.sourceFile.getExecPath(), info.headersListFile.getExecPath()));
+      builder.addInput(info.sourceFile).addOutput(info.headersListFile);
+    }
+    ruleContext.registerAction(
+        builder
+            .setCommandLine(cmdLine.add("--").add(args).build())
+            .addInputs(compilationArtifacts.getPrivateHdrs())
+            .addTransitiveInputs(attributes.hdrs())
+            .addTransitiveInputs(objcProvider.get(ObjcProvider.HEADER))
+            .addInputs(compilationArtifacts.getPchFile().asSet())
+            .addTransitiveInputs(objcProvider.get(ObjcProvider.STATIC_FRAMEWORK_FILE))
+            .addTransitiveInputs(objcProvider.get(ObjcProvider.DYNAMIC_FRAMEWORK_FILE))
+            .build(ruleContext));
   }
 
   /**

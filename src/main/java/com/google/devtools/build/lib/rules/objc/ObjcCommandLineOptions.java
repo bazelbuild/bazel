@@ -293,6 +293,14 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public boolean experimentalObjcHeaderThinning;
 
   @Option(
+    name = "objc_header_thinning_partition_size",
+    defaultValue = "120",
+    category = "undocumented",
+    help = "The maximum number of source files to process within in each header scanning action."
+  )
+  public int objcHeaderThinningPartitionSize;
+
+  @Option(
     name = "objc_header_scanner_tool",
     defaultValue = "@bazel_tools//tools/objc:header_scanner",
     category = "undocumented",
