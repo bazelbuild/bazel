@@ -22,8 +22,6 @@ import com.android.annotations.Nullable;
 import com.android.builder.core.VariantConfiguration;
 import com.android.builder.core.VariantType;
 import com.android.builder.dependency.SymbolFileProvider;
-import com.android.builder.internal.SymbolLoader;
-import com.android.builder.internal.SymbolWriter;
 import com.android.builder.model.AaptOptions;
 import com.android.ide.common.internal.CommandLineRunner;
 import com.android.ide.common.internal.ExecutorSingleton;
@@ -33,13 +31,12 @@ import com.android.io.StreamException;
 import com.android.repository.Revision;
 import com.android.utils.ILogger;
 import com.android.utils.StdLogger;
+import com.android.utils.StdLogger.Level;
 import com.android.xml.AndroidManifest;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -47,12 +44,12 @@ import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.RevisionConverter;
 import com.google.devtools.build.android.SplitConfigurationFilter.UnrecognizedSplitsException;
 import com.google.devtools.build.android.resources.RClassGenerator;
+import com.google.devtools.build.android.resources.ResourceSymbols;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.TriState;
 import java.io.Closeable;
-import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
@@ -62,10 +59,9 @@ import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Callable;
+import java.util.Map.Entry;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.logging.Logger;
@@ -487,43 +483,12 @@ public class AndroidResourceProcessor {
     return processedResourceDir;
   }
 
-  /** Task to parse java package from AndroidManifest.xml */
-  private static final class PackageParsingTask implements Callable<String> {
-
-    private final File manifest;
-
-    PackageParsingTask(File manifest) {
-      this.manifest = manifest;
-    }
-
-    @Override
-    public String call() throws Exception {
-      return VariantConfiguration.getManifestPackage(manifest);
-    }
-  }
-
-  /** Task to load and parse R.txt symbols */
-  private static final class SymbolLoadingTask implements Callable<Object> {
-
-    private final SymbolLoader symbolLoader;
-
-    SymbolLoadingTask(SymbolLoader symbolLoader) {
-      this.symbolLoader = symbolLoader;
-    }
-
-    @Override
-    public Object call() throws Exception {
-      symbolLoader.load();
-      return null;
-    }
-  }
-
-  @Nullable
-  public SymbolLoader loadResourceSymbolTable(
+  public ResourceSymbols loadResourceSymbolTable(
       List<SymbolFileProvider> libraries,
       String appPackageName,
       Path primaryRTxt,
-      Multimap<String, SymbolLoader> libMap) throws IOException {
+      Multimap<String, ResourceSymbols> libMap)
+      throws IOException {
     // The reported availableProcessors may be higher than the actual resources
     // (on a shared system). On the other hand, a lot of the work is I/O, so it's not completely
     // CPU bound. As a compromise, divide by 2 the reported availableProcessors.
@@ -531,56 +496,17 @@ public class AndroidResourceProcessor {
     ListeningExecutorService executorService = MoreExecutors.listeningDecorator(
         Executors.newFixedThreadPool(numThreads));
     try (Closeable closeable = ExecutorServiceCloser.createWith(executorService)) {
-      // Load the package names from the manifest files.
-      Map<SymbolFileProvider, ListenableFuture<String>> packageJobs = new HashMap<>();
-      for (final SymbolFileProvider lib : libraries) {
-        packageJobs.put(lib, executorService.submit(new PackageParsingTask(lib.getManifest())));
+      StdLogger iLogger = new StdLogger(Level.INFO);
+      for (Entry<String, ListenableFuture<ResourceSymbols>> entry :
+          ResourceSymbols.loadFrom(libraries, executorService, iLogger, appPackageName).entries()) {
+        libMap.put(entry.getKey(), entry.getValue().get());
       }
-      Map<SymbolFileProvider, String> packageNames = new HashMap<>();
-      try {
-        for (Map.Entry<SymbolFileProvider, ListenableFuture<String>> entry : packageJobs
-            .entrySet()) {
-          packageNames.put(entry.getKey(), entry.getValue().get());
-        }
-      } catch (InterruptedException | ExecutionException e) {
-        throw new IOException("Failed to load package name: ", e);
+      if (primaryRTxt != null && Files.exists(primaryRTxt)) {
+        return ResourceSymbols.load(primaryRTxt, executorService, iLogger).get();
       }
-      // Associate the packages with symbol files.
-      for (SymbolFileProvider lib : libraries) {
-        String packageName = packageNames.get(lib);
-        // If the library package matches the app package skip -- the final app resource IDs are
-        // stored in the primaryRTxt file.
-        if (appPackageName.equals(packageName)) {
-          continue;
-        }
-        File rFile = lib.getSymbolFile();
-        // If the library has no resource, this file won't exist.
-        if (rFile.isFile()) {
-          SymbolLoader libSymbols = new SymbolLoader(rFile, stdLogger);
-          libMap.put(packageName, libSymbols);
-        }
-      }
-      // Even if there are no libraries, load fullSymbolValues, in case we only have resources
-      // defined for the binary.
-      File primaryRTxtFile = primaryRTxt.toFile();
-      SymbolLoader fullSymbolValues = null;
-      if (primaryRTxtFile.isFile()) {
-        fullSymbolValues = new SymbolLoader(primaryRTxtFile, stdLogger);
-      }
-      // Now load the symbol files in parallel.
-      List<ListenableFuture<?>> loadJobs = new ArrayList<>();
-      Iterable<SymbolLoader> toLoad = fullSymbolValues != null
-          ? Iterables.concat(libMap.values(), ImmutableList.of(fullSymbolValues))
-          : libMap.values();
-      for (final SymbolLoader loader : toLoad) {
-        loadJobs.add(executorService.submit(new SymbolLoadingTask(loader)));
-      }
-      try {
-        Futures.allAsList(loadJobs).get();
-      } catch (InterruptedException | ExecutionException e) {
-        throw new IOException("Failed to load SymbolFile: ", e);
-      }
-      return fullSymbolValues;
+      return ResourceSymbols.merge(libMap.values());
+    } catch (InterruptedException | ExecutionException e) {
+      throw new IOException("Failed to load SymbolFile: ", e);
     }
   }
 
@@ -598,49 +524,44 @@ public class AndroidResourceProcessor {
     if (appPackageName == null) {
       appPackageName = VariantConfiguration.getManifestPackage(androidManifest.toFile());
     }
-    Multimap<String, SymbolLoader> libSymbolMap = ArrayListMultimap.create();
+    Multimap<String, ResourceSymbols> libSymbolMap = ArrayListMultimap.create();
     Path primaryRTxt = sourceOut != null ? sourceOut.resolve("R.txt") : null;
     if (primaryRTxt != null && !libraries.isEmpty()) {
-      SymbolLoader fullSymbolValues = loadResourceSymbolTable(libraries,
-          appPackageName, primaryRTxt, libSymbolMap);
-      if (fullSymbolValues != null) {
-        writePackageRJavaFiles(libSymbolMap, fullSymbolValues, sourceOut);
+      ResourceSymbols fullSymbolValues =
+          loadResourceSymbolTable(libraries, appPackageName, primaryRTxt, libSymbolMap);
+      // Loop on all the package name, merge all the symbols to write, and write.
+      for (String packageName : libSymbolMap.keySet()) {
+        Collection<ResourceSymbols> symbols = libSymbolMap.get(packageName);
+        fullSymbolValues.writeTo(sourceOut, packageName, symbols);
       }
-    }
-  }
-
-  private void writePackageRJavaFiles(
-      Multimap<String, SymbolLoader> libMap,
-      SymbolLoader fullSymbolValues,
-      Path sourceOut) throws IOException {
-    // Loop on all the package name, merge all the symbols to write, and write.
-    for (String packageName : libMap.keySet()) {
-      Collection<SymbolLoader> symbols = libMap.get(packageName);
-      SymbolWriter writer = new SymbolWriter(sourceOut.toString(), packageName, fullSymbolValues);
-      for (SymbolLoader symbolLoader : symbols) {
-        writer.addSymbolsToWrite(symbolLoader);
-      }
-      writer.write();
     }
   }
 
   void writePackageRClasses(
-      Multimap<String, SymbolLoader> libMap,
-      SymbolLoader fullSymbolValues,
-      String appPackageName,
+      Multimap<String, ResourceSymbols> libMap,
+      ResourceSymbols fullSymbolValues,
+      @Nullable String appPackageName,
       Path classesOut,
-      boolean finalFields) throws IOException {
+      boolean finalFields)
+      throws IOException {
     for (String packageName : libMap.keySet()) {
-      Collection<SymbolLoader> symbols = libMap.get(packageName);
+      Collection<ResourceSymbols> symbols = libMap.get(packageName);
       RClassGenerator classWriter = RClassGenerator.fromSymbols(
           classesOut, packageName, fullSymbolValues, symbols, finalFields);
       classWriter.write();
     }
-    // Unlike the R.java generation, we also write the app's R.class file so that the class
-    // jar file can be complete (aapt doesn't generate it for us).
-    RClassGenerator classWriter = RClassGenerator.fromSymbols(classesOut, appPackageName,
-        fullSymbolValues, ImmutableList.of(fullSymbolValues), finalFields);
-    classWriter.write();
+    if (appPackageName != null) {
+      // Unlike the R.java generation, we also write the app's R.class file so that the class
+      // jar file can be complete (aapt doesn't generate it for us).
+      RClassGenerator classWriter =
+          RClassGenerator.fromSymbols(
+              classesOut,
+              appPackageName,
+              fullSymbolValues,
+              ImmutableList.of(fullSymbolValues),
+              finalFields);
+      classWriter.write();
+    }
   }
 
   /** Finds aapt's split outputs and renames them according to the input flags. */

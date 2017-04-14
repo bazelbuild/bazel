@@ -15,23 +15,15 @@ package com.google.devtools.build.android.resources;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.android.utils.ILogger;
+import com.android.utils.StdLogger;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-
-import com.android.builder.internal.SymbolLoader;
-import com.android.utils.ILogger;
-import com.android.utils.StdLogger;
-
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -41,6 +33,13 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.ExpectedException;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests for {@link RClassGenerator}.
@@ -71,20 +70,21 @@ public class RClassGeneratorTest {
 
   private void checkSimpleInts(boolean finalFields) throws Exception {
     // R.txt with the real IDs after linking together libraries.
-    SymbolLoader symbolValues = createSymbolFile("R.txt",
-        "int attr agility 0x7f010000",
-        "int attr dexterity 0x7f010001",
-        "int drawable heart 0x7f020000",
-        "int id someTextView 0x7f080000",
-        "int integer maxNotifications 0x7f090000",
-        "int string alphabet 0x7f100000",
-        "int string ok 0x7f100001");
+    ResourceSymbols symbolValues =
+        createSymbolFile(
+            "R.txt",
+            "int attr agility 0x7f010000",
+            "int attr dexterity 0x7f010001",
+            "int drawable heart 0x7f020000",
+            "int id someTextView 0x7f080000",
+            "int integer maxNotifications 0x7f090000",
+            "int string alphabet 0x7f100000",
+            "int string ok 0x7f100001");
     // R.txt for the library, where the values are not the final ones (so ignore them). We only use
     // this to keep the # of inner classes small (exactly the set needed by the library).
-    SymbolLoader symbolsInLibrary = createSymbolFile("lib.R.txt",
-        "int attr agility 0x1",
-        "int id someTextView 0x1",
-        "int string ok 0x1");
+    ResourceSymbols symbolsInLibrary =
+        createSymbolFile(
+            "lib.R.txt", "int attr agility 0x1", "int id someTextView 0x1", "int string ok 0x1");
     Path out = temp.resolve("classes");
     Files.createDirectories(out);
     RClassGenerator writer = RClassGenerator.fromSymbols(
@@ -125,9 +125,8 @@ public class RClassGeneratorTest {
   public void emptyIntArrays() throws Exception {
     boolean finalFields = true;
     // Make sure we parse an empty array the way the R.txt writes it.
-    SymbolLoader symbolValues = createSymbolFile("R.txt",
-        "int[] styleable ActionMenuView { }");
-    SymbolLoader symbolsInLibrary = symbolValues;
+    ResourceSymbols symbolValues = createSymbolFile("R.txt", "int[] styleable ActionMenuView { }");
+    ResourceSymbols symbolsInLibrary = symbolValues;
     Path out = temp.resolve("classes");
     Files.createDirectories(out);
     RClassGenerator writer = RClassGenerator.fromSymbols(out, "com.testEmptyIntArray",
@@ -155,9 +154,9 @@ public class RClassGeneratorTest {
     boolean finalFields = true;
     // Test a few cases of what happens if the R.txt is corrupted. It shouldn't happen unless there
     // is a bug in aapt, or R.txt is manually written the wrong way.
-    SymbolLoader symbolValues = createSymbolFile("R.txt",
-        "int[] styleable ActionMenuView { 1, }");
-    SymbolLoader symbolsInLibrary = symbolValues;
+    ResourceSymbols symbolValues =
+        createSymbolFile("R.txt", "int[] styleable ActionMenuView { 1, }");
+    ResourceSymbols symbolsInLibrary = symbolValues;
     Path out = temp.resolve("classes");
     Files.createDirectories(out);
     thrown.expect(NumberFormatException.class);
@@ -169,9 +168,9 @@ public class RClassGeneratorTest {
   @Test
   public void corruptIntArraysOmittedMiddle() throws Exception {
     boolean finalFields = true;
-    SymbolLoader symbolValues = createSymbolFile("R.txt",
-        "int[] styleable ActionMenuView { 1, , 2 }");
-    SymbolLoader symbolsInLibrary = symbolValues;
+    ResourceSymbols symbolValues =
+        createSymbolFile("R.txt", "int[] styleable ActionMenuView { 1, , 2 }");
+    ResourceSymbols symbolsInLibrary = symbolValues;
     Path out = temp.resolve("classes");
     Files.createDirectories(out);
     thrown.expect(NumberFormatException.class);
@@ -185,12 +184,14 @@ public class RClassGeneratorTest {
     boolean finalFields = true;
     // Test what happens if the binary R.txt is not a strict superset of the
     // library R.txt (overrides that drop elements).
-    SymbolLoader symbolValues = createSymbolFile("R.txt",
-        "int layout stubbable_activity 0x7f020000");
-    SymbolLoader symbolsInLibrary = createSymbolFile("lib.R.txt",
-        "int id debug_text_field 0x1",
-        "int id debug_text_field2 0x1",
-        "int layout stubbable_activity 0x1");
+    ResourceSymbols symbolValues =
+        createSymbolFile("R.txt", "int layout stubbable_activity 0x7f020000");
+    ResourceSymbols symbolsInLibrary =
+        createSymbolFile(
+            "lib.R.txt",
+            "int id debug_text_field 0x1",
+            "int id debug_text_field2 0x1",
+            "int layout stubbable_activity 0x1");
     Path out = temp.resolve("classes");
     Files.createDirectories(out);
     RClassGenerator writer = RClassGenerator.fromSymbols(out, "com.foo",
@@ -230,27 +231,28 @@ public class RClassGeneratorTest {
   }
 
   public void checkIntArrays(boolean finalFields) throws Exception {
-    SymbolLoader symbolValues = createSymbolFile("R.txt",
-        "int attr android_layout 0x010100f2",
-        "int attr bar 0x7f010001",
-        "int attr baz 0x7f010002",
-        "int attr fox 0x7f010003",
-        "int attr attr 0x7f010004",
-        "int attr another_attr 0x7f010005",
-        "int attr zoo 0x7f010006",
-        // Test several > 5 elements, so that clinit must use bytecodes other than iconst_0 to 5.
-        "int[] styleable ActionButton { 0x010100f2, 0x7f010001, 0x7f010002, 0x7f010003, "
-            + "0x7f010004, 0x7f010005, 0x7f010006 }",
-        // The array indices of each attribute.
-        "int styleable ActionButton_android_layout 0",
-        "int styleable ActionButton_another_attr 5",
-        "int styleable ActionButton_attr 4",
-        "int styleable ActionButton_bar 1",
-        "int styleable ActionButton_baz 2",
-        "int styleable ActionButton_fox 3",
-        "int styleable ActionButton_zoo 6"
-    );
-    SymbolLoader symbolsInLibrary = symbolValues;
+    ResourceSymbols symbolValues =
+        createSymbolFile(
+            "R.txt",
+            "int attr android_layout 0x010100f2",
+            "int attr bar 0x7f010001",
+            "int attr baz 0x7f010002",
+            "int attr fox 0x7f010003",
+            "int attr attr 0x7f010004",
+            "int attr another_attr 0x7f010005",
+            "int attr zoo 0x7f010006",
+            // Test several > 5 elements, clinit must use bytecodes other than iconst_0 to 5.
+            "int[] styleable ActionButton { 0x010100f2, 0x7f010001, 0x7f010002, 0x7f010003, "
+                + "0x7f010004, 0x7f010005, 0x7f010006 }",
+            // The array indices of each attribute.
+            "int styleable ActionButton_android_layout 0",
+            "int styleable ActionButton_another_attr 5",
+            "int styleable ActionButton_attr 4",
+            "int styleable ActionButton_bar 1",
+            "int styleable ActionButton_baz 2",
+            "int styleable ActionButton_fox 3",
+            "int styleable ActionButton_zoo 6");
+    ResourceSymbols symbolsInLibrary = symbolValues;
     Path out = temp.resolve("classes");
     Files.createDirectories(out);
     RClassGenerator writer = RClassGenerator.fromSymbols(
@@ -303,8 +305,8 @@ public class RClassGeneratorTest {
   public void emptyPackage() throws Exception {
     boolean finalFields = true;
     // Make sure we handle an empty package string.
-    SymbolLoader symbolValues = createSymbolFile("R.txt", "int string some_string 0x7f200000");
-    SymbolLoader symbolsInLibrary = symbolValues;
+    ResourceSymbols symbolValues = createSymbolFile("R.txt", "int string some_string 0x7f200000");
+    ResourceSymbols symbolsInLibrary = symbolValues;
     Path out = temp.resolve("classes");
     Files.createDirectories(out);
     RClassGenerator writer =
@@ -334,10 +336,11 @@ public class RClassGeneratorTest {
     return path;
   }
 
-  private SymbolLoader createSymbolFile(String name, String... contents) throws IOException {
+  private ResourceSymbols createSymbolFile(String name, String... contents)
+      throws IOException, InterruptedException, ExecutionException {
     Path path = createFile(name, contents);
-    SymbolLoader symbolFile = new SymbolLoader(path.toFile(), stdLogger);
-    symbolFile.load();
+    ListeningExecutorService executorService = MoreExecutors.newDirectExecutorService();
+    ResourceSymbols symbolFile = ResourceSymbols.load(path, executorService, stdLogger).get();
     return symbolFile;
   }
 
@@ -356,27 +359,25 @@ public class RClassGeneratorTest {
   }
 
   private static Class<?> checkTopLevelClass(
-      Path baseDir,
-      String expectedClassName,
-      String... expectedInnerClasses)
-      throws Exception {
-    URLClassLoader urlClassLoader = new URLClassLoader(new URL[]{baseDir.toUri().toURL()});
-    Class<?> toplevelClass = urlClassLoader.loadClass(expectedClassName);
-    assertThat(toplevelClass.getSuperclass()).isEqualTo(Object.class);
-    int outerModifiers = toplevelClass.getModifiers();
-    assertThat(Modifier.isFinal(outerModifiers)).isTrue();
-    assertThat(Modifier.isPublic(outerModifiers)).isTrue();
-    ImmutableList.Builder<String> actualClasses = ImmutableList.builder();
-    for (Class<?> innerClass : toplevelClass.getClasses()) {
-      assertThat(innerClass.getDeclaredClasses()).isEmpty();
-      int modifiers = innerClass.getModifiers();
-      assertThat(Modifier.isFinal(modifiers)).isTrue();
-      assertThat(Modifier.isPublic(modifiers)).isTrue();
-      assertThat(Modifier.isStatic(modifiers)).isTrue();
-      actualClasses.add(innerClass.getName());
+      Path baseDir, String expectedClassName, String... expectedInnerClasses) throws Exception {
+    try (URLClassLoader urlClassLoader = new URLClassLoader(new URL[] {baseDir.toUri().toURL()})) {
+      Class<?> toplevelClass = urlClassLoader.loadClass(expectedClassName);
+      assertThat(toplevelClass.getSuperclass()).isEqualTo(Object.class);
+      int outerModifiers = toplevelClass.getModifiers();
+      assertThat(Modifier.isFinal(outerModifiers)).isTrue();
+      assertThat(Modifier.isPublic(outerModifiers)).isTrue();
+      ImmutableList.Builder<String> actualClasses = ImmutableList.builder();
+      for (Class<?> innerClass : toplevelClass.getClasses()) {
+        assertThat(innerClass.getDeclaredClasses()).isEmpty();
+        int modifiers = innerClass.getModifiers();
+        assertThat(Modifier.isFinal(modifiers)).isTrue();
+        assertThat(Modifier.isPublic(modifiers)).isTrue();
+        assertThat(Modifier.isStatic(modifiers)).isTrue();
+        actualClasses.add(innerClass.getName());
+      }
+      assertThat(actualClasses.build()).containsExactly((Object[]) expectedInnerClasses);
+      return toplevelClass;
     }
-    assertThat(actualClasses.build()).containsExactly((Object[]) expectedInnerClasses);
-    return toplevelClass;
   }
 
   private void checkInnerClass(
@@ -385,36 +386,37 @@ public class RClassGeneratorTest {
       Class<?> outerClass,
       ImmutableMap<String, Integer> intFields,
       ImmutableMap<String, List<Integer>> intArrayFields,
-      boolean areFieldsFinal) throws Exception {
-    URLClassLoader urlClassLoader = new URLClassLoader(new URL[]{baseDir.toUri().toURL()});
-    Class<?> innerClass = urlClassLoader.loadClass(expectedClassName);
-    assertThat(innerClass.getSuperclass()).isEqualTo(Object.class);
-    assertThat(innerClass.getEnclosingClass().toString())
-        .isEqualTo(outerClass.toString());
-    ImmutableMap.Builder<String, Integer> actualIntFields = ImmutableMap.builder();
-    ImmutableMap.Builder<String, List<Integer>> actualIntArrayFields = ImmutableMap.builder();
-    for (Field f : innerClass.getFields()) {
-      int fieldModifiers = f.getModifiers();
-      assertThat(Modifier.isFinal(fieldModifiers)).isEqualTo(areFieldsFinal);
-      assertThat(Modifier.isPublic(fieldModifiers)).isTrue();
-      assertThat(Modifier.isStatic(fieldModifiers)).isTrue();
+      boolean areFieldsFinal)
+      throws Exception {
+    try (URLClassLoader urlClassLoader = new URLClassLoader(new URL[] {baseDir.toUri().toURL()})) {
+      Class<?> innerClass = urlClassLoader.loadClass(expectedClassName);
+      assertThat(innerClass.getSuperclass()).isEqualTo(Object.class);
+      assertThat(innerClass.getEnclosingClass().toString()).isEqualTo(outerClass.toString());
+      ImmutableMap.Builder<String, Integer> actualIntFields = ImmutableMap.builder();
+      ImmutableMap.Builder<String, List<Integer>> actualIntArrayFields = ImmutableMap.builder();
+      for (Field f : innerClass.getFields()) {
+        int fieldModifiers = f.getModifiers();
+        assertThat(Modifier.isFinal(fieldModifiers)).isEqualTo(areFieldsFinal);
+        assertThat(Modifier.isPublic(fieldModifiers)).isTrue();
+        assertThat(Modifier.isStatic(fieldModifiers)).isTrue();
 
-      Class<?> fieldType = f.getType();
-      if (fieldType.isPrimitive()) {
-        assertThat(fieldType).isEqualTo(Integer.TYPE);
-        actualIntFields.put(f.getName(), (Integer) f.get(null));
-      } else {
-        assertThat(fieldType.isArray()).isTrue();
-        int[] asArray = (int[]) f.get(null);
-        ImmutableList.Builder<Integer> list = ImmutableList.builder();
-        for (int i : asArray) {
-          list.add(i);
+        Class<?> fieldType = f.getType();
+        if (fieldType.isPrimitive()) {
+          assertThat(fieldType).isEqualTo(Integer.TYPE);
+          actualIntFields.put(f.getName(), (Integer) f.get(null));
+        } else {
+          assertThat(fieldType.isArray()).isTrue();
+          int[] asArray = (int[]) f.get(null);
+          ImmutableList.Builder<Integer> list = ImmutableList.builder();
+          for (int i : asArray) {
+            list.add(i);
+          }
+          actualIntArrayFields.put(f.getName(), list.build());
         }
-        actualIntArrayFields.put(f.getName(), list.build());
       }
+      assertThat(actualIntFields.build()).containsExactlyEntriesIn(intFields);
+      assertThat(actualIntArrayFields.build()).containsExactlyEntriesIn(intArrayFields);
     }
-    assertThat(actualIntFields.build()).containsExactlyEntriesIn(intFields);
-    assertThat(actualIntArrayFields.build()).containsExactlyEntriesIn(intArrayFields);
   }
 
 }

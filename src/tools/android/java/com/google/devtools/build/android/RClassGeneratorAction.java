@@ -15,7 +15,6 @@ package com.google.devtools.build.android;
 
 import com.android.builder.core.VariantConfiguration;
 import com.android.builder.dependency.SymbolFileProvider;
-import com.android.builder.internal.SymbolLoader;
 import com.android.utils.StdLogger;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
@@ -23,14 +22,13 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.android.Converters.DependencySymbolFileProviderListConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
+import com.google.devtools.build.android.resources.ResourceSymbols;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -106,11 +104,6 @@ public class RClassGeneratorAction {
     final Stopwatch timer = Stopwatch.createStarted();
     OptionsParser optionsParser = OptionsParser.newOptionsParser(Options.class);
     optionsParser.enableParamsFileSupport(FileSystems.getDefault());
-    if (args.length == 1 && args[0].startsWith("@")) {
-      args = Files.readAllLines(Paths.get(args[0].substring(1)), StandardCharsets.UTF_8)
-          .toArray(new String[0]);
-    }
-
     optionsParser.parseAndExitUponError(args);
     Options options = optionsParser.getOptions(Options.class);
     Preconditions.checkNotNull(options.classJarOutput);
@@ -133,18 +126,28 @@ public class RClassGeneratorAction {
           appPackageName = VariantConfiguration
               .getManifestPackage(options.primaryManifest.toFile());
         }
-        Multimap<String, SymbolLoader> libSymbolMap = ArrayListMultimap.create();
-        SymbolLoader fullSymbolValues = resourceProcessor.loadResourceSymbolTable(
-            libraries, appPackageName, options.primaryRTxt, libSymbolMap);
+        Multimap<String, ResourceSymbols> libSymbolMap = ArrayListMultimap.create();
+        ResourceSymbols fullSymbolValues =
+            resourceProcessor.loadResourceSymbolTable(
+                libraries, appPackageName, options.primaryRTxt, libSymbolMap);
         logger.fine(
             String.format("Load symbols finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
         // For now, assuming not used for libraries and setting final access for fields.
-        if (fullSymbolValues != null) {
           resourceProcessor.writePackageRClasses(libSymbolMap, fullSymbolValues, appPackageName,
               classOutPath, true /* finalFields */);
-          logger.fine(
-              String.format("Finished R.class at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
-        }
+        logger.fine(
+            String.format("Finished R.class at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
+      } else if (!libraries.isEmpty()) {
+        Multimap<String, ResourceSymbols> libSymbolMap = ArrayListMultimap.create();
+        ResourceSymbols fullSymbolValues =
+            resourceProcessor.loadResourceSymbolTable(libraries, null, null, libSymbolMap);
+        logger.fine(
+            String.format("Load symbols finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
+        // For now, assuming not used for libraries and setting final access for fields.
+        resourceProcessor.writePackageRClasses(
+            libSymbolMap, fullSymbolValues, null, classOutPath, true /* finalFields */);
+        logger.fine(
+            String.format("Finished R.class at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
       } else {
         Files.createDirectories(classOutPath);
       }

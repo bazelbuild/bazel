@@ -14,7 +14,6 @@
 package com.google.devtools.build.android;
 
 import com.android.ide.common.res2.MergingException;
-import com.android.utils.StdLogger;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Strings;
 import com.google.devtools.build.android.AndroidResourceProcessor.AaptConfigOptions;
@@ -42,8 +41,6 @@ public class LibraryRClassGeneratorAction {
 
   private static final Logger logger =
       Logger.getLogger(LibraryRClassGeneratorAction.class.getName());
-
-  private static final StdLogger stdLogger = new StdLogger(StdLogger.Level.WARNING);
 
   /** Flag specifications for this action. */
   public static final class Options extends OptionsBase {

@@ -92,6 +92,21 @@ class DependencyAndroidData extends SerializedAndroidData {
       public boolean isOptional() {
         return false;
       }
+
+      @Override
+      public int hashCode() {
+        return Objects.hash(getManifest(), getSymbolFile());
+      }
+
+      @Override
+      public boolean equals(Object obj) {
+        if (obj instanceof SymbolFileProvider) {
+          SymbolFileProvider other = (SymbolFileProvider) obj;
+          return Objects.equals(getManifest(), other.getManifest())
+              && Objects.equals(getSymbolFile(), other.getSymbolFile());
+        }
+        return false;
+      }
     };
   }
 
