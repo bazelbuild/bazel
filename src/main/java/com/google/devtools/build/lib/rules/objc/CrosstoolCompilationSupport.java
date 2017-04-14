@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcLibraryHelper;
 import com.google.devtools.build.lib.rules.cpp.CcLibraryHelper.Info;
@@ -316,6 +317,14 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
       executableLinkAction.addActionOutput(linkmap);
     }
 
+    if (appleConfiguration.getBitcodeMode() == AppleBitcodeMode.EMBEDDED) {
+      Artifact bitcodeSymbolMap = intermediateArtifacts.bitcodeSymbolMap();
+      extensionBuilder
+          .setBitcodeSymbolMap(bitcodeSymbolMap)
+          .addVariableCategory(VariableCategory.BITCODE_VARIABLES);
+      executableLinkAction.addActionOutput(bitcodeSymbolMap);
+    }
+
     executableLinkAction.addVariablesExtension(extensionBuilder.build());
     ruleContext.registerAction(executableLinkAction.build());
 
@@ -459,6 +468,11 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
     }
     if (configuration.getFragment(ObjcConfiguration.class).generateLinkmap()) {
       activatedCrosstoolSelectables.add(GENERATE_LINKMAP_FEATURE_NAME);
+    }
+    AppleBitcodeMode bitcodeMode =
+        configuration.getFragment(AppleConfiguration.class).getBitcodeMode();
+    if (bitcodeMode != AppleBitcodeMode.NONE) {
+      activatedCrosstoolSelectables.addAll(bitcodeMode.getFeatureNames());
     }
 
     activatedCrosstoolSelectables.addAll(ruleContext.getFeatures());

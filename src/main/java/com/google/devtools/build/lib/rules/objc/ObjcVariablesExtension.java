@@ -47,6 +47,7 @@ class ObjcVariablesExtension implements VariablesExtension {
   static final String CC_LIBRARY_EXEC_PATHS_VARIABLE_NAME = "cc_library_exec_paths";
   static final String IMPORTED_LIBRARY_EXEC_PATHS_VARIABLE_NAME = "imported_library_exec_paths";
   static final String LINKMAP_EXEC_PATH = "linkmap_exec_path";
+  static final String BITCODE_SYMBOL_MAP_PATH_VARAIBLE_NAME = "bitcode_symbol_map_path";
 
   // executable linking variables
   static final String FRAMEWORK_NAMES_VARIABLE_NAME = "framework_names";
@@ -77,6 +78,7 @@ class ObjcVariablesExtension implements VariablesExtension {
   private final DsymOutputType dsymOutputType;
   private final Artifact dsymBundleZip;
   private final Artifact linkmap;
+  private final Artifact bitcodeSymbolMap;
 
   private ObjcVariablesExtension(
       RuleContext ruleContext,
@@ -92,7 +94,8 @@ class ObjcVariablesExtension implements VariablesExtension {
       ImmutableSet<VariableCategory> activeVariableCategories,
       DsymOutputType dsymOutputType,
       Artifact dsymBundleZip,
-      Artifact linkmap) {
+      Artifact linkmap,
+      Artifact bitcodeSymbolMap) {
     this.ruleContext = ruleContext;
     this.objcProvider = objcProvider;
     this.compilationArtifacts = compilationArtifacts;
@@ -108,6 +111,7 @@ class ObjcVariablesExtension implements VariablesExtension {
     this.dsymOutputType = dsymOutputType;
     this.dsymBundleZip = dsymBundleZip;
     this.linkmap = linkmap;
+    this.bitcodeSymbolMap = bitcodeSymbolMap;
   }
 
   /** Type of build variable that can optionally exported by this extension. */
@@ -116,7 +120,8 @@ class ObjcVariablesExtension implements VariablesExtension {
     FULLY_LINK_VARIABLES,
     EXECUTABLE_LINKING_VARIABLES,
     DSYM_VARIABLES,
-    LINKMAP_VARIABLES;
+    LINKMAP_VARIABLES,
+    BITCODE_VARIABLES;
   }
 
   @Override
@@ -138,6 +143,9 @@ class ObjcVariablesExtension implements VariablesExtension {
     }
     if (activeVariableCategories.contains(VariableCategory.LINKMAP_VARIABLES)) {
       addLinkmapVariables(builder);
+    }
+    if (activeVariableCategories.contains(VariableCategory.BITCODE_VARIABLES)) {
+      addBitcodeVariables(builder);
     }
   }
 
@@ -229,6 +237,11 @@ class ObjcVariablesExtension implements VariablesExtension {
     builder.addStringVariable(LINKMAP_EXEC_PATH, linkmap.getExecPathString());
   }
 
+  private void addBitcodeVariables(CcToolchainFeatures.Variables.Builder builder) {
+    builder.addStringVariable(
+        BITCODE_SYMBOL_MAP_PATH_VARAIBLE_NAME, bitcodeSymbolMap.getExecPathString());
+  }
+
   /** A Builder for {@link ObjcVariablesExtension}. */
   static class Builder {
     private RuleContext ruleContext;
@@ -244,6 +257,7 @@ class ObjcVariablesExtension implements VariablesExtension {
     private DsymOutputType dsymOutputType;
     private Artifact dsymBundleZip;
     private Artifact linkmap;
+    private Artifact bitcodeSymbolMap;
     
     private final ImmutableSet.Builder<VariableCategory> activeVariableCategoriesBuilder =
         ImmutableSet.builder();
@@ -332,6 +346,12 @@ class ObjcVariablesExtension implements VariablesExtension {
       return this;
     }
 
+    /** Sets the Artifact for the bitcode symbol map. */
+    public Builder setBitcodeSymbolMap(Artifact bitcodeSymbolMap) {
+      this.bitcodeSymbolMap = bitcodeSymbolMap;
+      return this;
+    }
+
     public ObjcVariablesExtension build() {
       
       ImmutableSet<VariableCategory> activeVariableCategories =
@@ -359,6 +379,9 @@ class ObjcVariablesExtension implements VariablesExtension {
       if (activeVariableCategories.contains(VariableCategory.LINKMAP_VARIABLES)) {
         Preconditions.checkNotNull(linkmap, "missing linkmap artifact");
       }
+      if (activeVariableCategories.contains(VariableCategory.BITCODE_VARIABLES)) {
+        Preconditions.checkNotNull(bitcodeSymbolMap, "missing bitcode symbol map artifact");
+      }
 
       return new ObjcVariablesExtension(
           ruleContext,
@@ -374,7 +397,8 @@ class ObjcVariablesExtension implements VariablesExtension {
           activeVariableCategories,
           dsymOutputType,
           dsymBundleZip,
-          linkmap);
+          linkmap,
+          bitcodeSymbolMap);
     }
   }
 }
