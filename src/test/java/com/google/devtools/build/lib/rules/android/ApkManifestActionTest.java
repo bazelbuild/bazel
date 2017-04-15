@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.actions.util.LabelArtifactOwner;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
@@ -87,11 +89,16 @@ public class ApkManifestActionTest {
         null, // mainDexProguardConfig
         false /* legacy */);
 
-    NativeLibs nativeLibs = new NativeLibs(
-        ImmutableMap.<String, Iterable<Artifact>>of(
-            "x86", ImmutableList.of(createArtifact("/workspace/java/test/x86.so")),
-            "arm", ImmutableList.of(createArtifact("/workspace/java/test/arm.so"))),
-        null /* nativeLibsName */);
+    NativeLibs nativeLibs =
+        new NativeLibs(
+            ImmutableMap.<String, NestedSet<Artifact>>of(
+                "x86", NestedSetBuilder.<Artifact>stableOrder()
+                    .add(createArtifact("/workspace/java/test/x86.so"))
+                    .build(),
+                "arm", NestedSetBuilder.<Artifact>stableOrder()
+                    .add(createArtifact("/workspace/java/test/arm.so"))
+                    .build()),
+            null /* nativeLibsName */);
 
     Artifact debugKeystore = createArtifact("/workspace/tools/android/debug_keystore");
 

@@ -799,7 +799,13 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         debugKeystore);
 
     androidCommon.addTransitiveInfoProviders(
-        builder, androidSemantics, null /* aar */, resourceApk, zipAlignedApk, apksUnderTest);
+        builder,
+        androidSemantics,
+        null /* aar */,
+        resourceApk,
+        zipAlignedApk,
+        apksUnderTest,
+        nativeLibs);
     androidSemantics.addTransitiveInfoProviders(builder, ruleContext, javaCommon, androidCommon);
 
     if (proguardOutput.getMapping() != null) {
@@ -909,7 +915,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     }
 
     if (ruleContext.getFragment(AndroidConfiguration.class).useIncrementalNativeLibs()) {
-      for (Map.Entry<String, Iterable<Artifact>> arch : nativeLibs.getMap().entrySet()) {
+      for (Map.Entry<String, NestedSet<Artifact>> arch : nativeLibs.getMap().entrySet()) {
         for (Artifact lib : arch.getValue()) {
           builder
               .addArgument("--native_lib")

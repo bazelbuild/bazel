@@ -233,13 +233,15 @@ public class AndroidCommon {
       Artifact aar,
       ResourceApk resourceApk,
       Artifact zipAlignedApk,
-      Iterable<Artifact> apksUnderTest) {
+      Iterable<Artifact> apksUnderTest,
+      NativeLibs nativeLibs) {
     AndroidIdeInfoProvider.Builder ideInfoProviderBuilder =
         new AndroidIdeInfoProvider.Builder()
             .setIdlClassJar(idlHelper.getIdlClassJar())
             .setIdlSourceJar(idlHelper.getIdlSourceJar())
             .setResourceJar(resourceJar)
             .setAar(aar)
+            .setNativeLibs(nativeLibs.getMap())
             .addIdlImportRoot(idlHelper.getIdlImportRoot())
             .addIdlParcelables(idlHelper.getIdlParcelables())
             .addIdlSrcs(idlHelper.getIdlSources())
@@ -703,7 +705,8 @@ public class AndroidCommon {
       Artifact aar,
       ResourceApk resourceApk,
       Artifact zipAlignedApk,
-      Iterable<Artifact> apksUnderTest) {
+      Iterable<Artifact> apksUnderTest,
+      NativeLibs nativeLibs) {
 
     idlHelper.addTransitiveInfoProviders(builder, classJar, manifestProtoOutput);
 
@@ -757,7 +760,8 @@ public class AndroidCommon {
                 aar,
                 resourceApk,
                 zipAlignedApk,
-                apksUnderTest))
+                apksUnderTest,
+                nativeLibs))
         .add(JavaCompilationArgsProvider.class, compilationArgsProvider)
         .addSkylarkTransitiveInfo(AndroidSkylarkApiProvider.NAME, new AndroidSkylarkApiProvider())
         .addOutputGroup(
