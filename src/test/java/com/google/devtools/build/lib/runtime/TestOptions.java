@@ -132,6 +132,23 @@ public class TestOptions extends OptionsBase {
   public String expandedD;
 
   /*
+   * Expansion into repeatable flags.
+   */
+
+  public static final String EXPANDED_MULTIPLE_1 = "expandedFirstValue";
+  public static final String EXPANDED_MULTIPLE_2 = "expandedSecondValue";
+
+  @Option(name = "test_expansion_to_repeatable",
+      defaultValue = "null",
+      expansion = {
+          "--test_multiple_string=expandedFirstValue",
+          "--test_multiple_string=expandedSecondValue"
+      }
+  )
+  public Void testExpansionToRepeatable;
+
+
+  /*
    * Implicit requirement flags
    */
 

@@ -267,6 +267,34 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
   }
 
   @Test
+  public void testOverridableSetValueWithExpansionToRepeatingFlag() throws Exception {
+    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
+    invocationPolicyBuilder
+        .addFlagPoliciesBuilder()
+        .setFlagName("test_expansion_to_repeatable")
+        .getSetValueBuilder()
+        .addFlagValue("") // this value is arbitrary, the value for a Void flag is ignored
+        .setOverridable(true);
+
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    // Unrelated flag, but --test_expansion is not set
+    parser.parse("--test_multiple_string=foo");
+
+    // The flags that --test_expansion expands into should still be their default values
+    // except for the explicitly marked flag.
+    TestOptions testOptions = getTestOptions();
+    assertThat(testOptions.testMultipleString).containsExactly("foo");
+
+    enforcer.enforce(parser, "build");
+
+    // After policy enforcement, the flags should be the values from --test_expansion,
+    // except for the user-set value, since the expansion flag was set to overridable.
+    testOptions = getTestOptions();
+    assertThat(testOptions.testMultipleString).containsExactly(
+        "foo", TestOptions.EXPANDED_MULTIPLE_1, TestOptions.EXPANDED_MULTIPLE_2);
+  }
+
+  @Test
   public void testNonOverridableSetValueWithExpansionFlags() throws Exception {
     InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
     invocationPolicyBuilder
@@ -299,6 +327,35 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     assertThat(testOptions.expandedC).isEqualTo(TestOptions.EXPANDED_C_TEST_EXPANSION);
     assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_TEST_EXPANSION);
   }
+
+  @Test
+  public void testNonOverridableSetValueWithExpansionToRepeatingFlag() throws Exception {
+    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
+    invocationPolicyBuilder
+        .addFlagPoliciesBuilder()
+        .setFlagName("test_expansion_to_repeatable")
+        .getSetValueBuilder()
+        .addFlagValue("") // this value is arbitrary, the value for a Void flag is ignored
+        .setOverridable(false);
+
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    // Unrelated flag, but --test_expansion is not set
+    parser.parse("--test_multiple_string=foo");
+
+    // The flags that --test_expansion expands into should still be their default values
+    // except for the explicitly marked flag.
+    TestOptions testOptions = getTestOptions();
+    assertThat(testOptions.testMultipleString).contains("foo");
+
+    enforcer.enforce(parser, "build");
+
+    // After policy enforcement, the flag should no longer have the user's value.
+    testOptions = getTestOptions();
+    assertThat(testOptions.testMultipleString).doesNotContain("foo");
+    assertThat(testOptions.testMultipleString).contains(TestOptions.EXPANDED_MULTIPLE_1);
+    assertThat(testOptions.testMultipleString).contains(TestOptions.EXPANDED_MULTIPLE_2);
+  }
+
 
   @Test
   public void testSetValueWithExpandedFlags() throws Exception {

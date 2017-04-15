@@ -372,6 +372,10 @@ public class OptionsParser implements OptionsProvider {
       return expandedFrom != null;
     }
 
+    public boolean getAllowMultiple() {
+      return allowMultiple;
+    }
+
     @Override
     public String toString() {
       StringBuilder result = new StringBuilder();
