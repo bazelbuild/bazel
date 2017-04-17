@@ -18,24 +18,23 @@ import com.google.common.collect.ImmutableList;
 import java.util.Set;
 
 /**
- * A helper class for creating action_configs for the c++ actions.
+ * A helper class for creating action_configs for the c++ link action.
  *
  * <p>TODO(b/30109612): Replace this with action_configs in the crosstool instead of putting it in
  * legacy features.
  */
-public class CppActionConfigs {
+public class CppLinkActionConfigs {
 
   /** A platform for linker invocations. */
-  public enum CppPlatform {
+  public static enum CppLinkPlatform {
     LINUX,
     MAC
   }
 
-  public static String getCppActionConfigs(
-      CppPlatform platform,
+  public static String getCppLinkActionConfigs(
+      CppLinkPlatform platform,
       Set<String> features,
-      String gccToolPath,
-      String linkerToolPath,
+      String cppLinkDynamicLibraryToolPath,
       boolean supportsEmbeddedRuntimes) {
     String cppDynamicLibraryLinkerTool = "";
     if (!features.contains("dynamic_library_linker_tool")) {
@@ -47,7 +46,7 @@ public class CppActionConfigs {
               + "       action: 'c++-link-dynamic-library'"
               + "       flag_group {"
               + "           flag: '"
-              + linkerToolPath
+              + cppLinkDynamicLibraryToolPath
               + "'"
               + "       }"
               + "   }"
@@ -57,20 +56,6 @@ public class CppActionConfigs {
     return Joiner.on("\n")
         .join(
             ImmutableList.of(
-                "action_config {",
-                "   config_name: 'c-compile'",
-                "   action_name: 'c-compile'",
-                "   tool {",
-                "       tool_path: '" + gccToolPath + "'",
-                "   }",
-                "}",
-                "action_config {",
-                "   config_name: 'c++-compile'",
-                "   action_name: 'c++-compile'",
-                "   tool {",
-                "       tool_path: '" + gccToolPath + "'",
-                "   }",
-                "}",
                 "action_config {",
                 "   config_name: 'c++-link-executable'",
                 "   action_name: 'c++-link-executable'",
@@ -513,12 +498,12 @@ public class CppActionConfigs {
                 "}"));
   }
 
-  private static String ifLinux(CppPlatform platform, String... lines) {
-    return ifTrue(platform == CppPlatform.LINUX, lines);
+  private static String ifLinux(CppLinkPlatform platform, String... lines) {
+    return ifTrue(platform == CppLinkPlatform.LINUX, lines);
   }
 
-  private static String ifMac(CppPlatform platform, String... lines) {
-    return ifTrue(platform == CppPlatform.MAC, lines);
+  private static String ifMac(CppLinkPlatform platform, String... lines) {
+    return ifTrue(platform == CppLinkPlatform.MAC, lines);
   }
 
   private static String ifTrue(boolean condition, String... lines) {

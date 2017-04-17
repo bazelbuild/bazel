@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariableValue;
-import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
+import com.google.devtools.build.lib.rules.cpp.CppLinkActionConfigs.CppLinkPlatform;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.Staticness;
@@ -83,10 +83,9 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
   private final FeatureConfiguration getMockFeatureConfiguration() throws Exception {
     return CcToolchainFeaturesTest.buildFeatures(
-            CppActionConfigs.getCppActionConfigs(
-                CppPlatform.LINUX,
+            CppLinkActionConfigs.getCppLinkActionConfigs(
+                CppLinkPlatform.LINUX,
                 ImmutableSet.<String>of(),
-                "gcc_tool",
                 "dynamic_library_linker_tool",
                 true))
         .getFeatureConfiguration(
