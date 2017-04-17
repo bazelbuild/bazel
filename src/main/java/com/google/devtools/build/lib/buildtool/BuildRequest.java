@@ -38,6 +38,7 @@ import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClassProvider;
+import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
 import java.util.ArrayList;
@@ -83,193 +84,234 @@ public class BuildRequest implements OptionsClassProvider {
     )
     public int jobs;
 
-    @Option(name = "progress_report_interval",
-            defaultValue = "0",
-            category = "verbosity",
-            converter = ProgressReportIntervalConverter.class,
-            help = "The number of seconds to wait between two reports on"
-                + " still running jobs.  The default value 0 means to use"
-                + " the default 10:30:60 incremental algorithm.")
+    @Option(
+      name = "progress_report_interval",
+      defaultValue = "0",
+      category = "verbosity",
+      converter = ProgressReportIntervalConverter.class,
+      help =
+          "The number of seconds to wait between two reports on still running jobs. The "
+              + "default value 0 means to use the default 10:30:60 incremental algorithm."
+    )
     public int progressReportInterval;
 
-    @Option(name = "explain",
-            defaultValue = "null",
-            category = "verbosity",
-            converter = OptionsUtils.PathFragmentConverter.class,
-            help = "Causes the build system to explain each executed step of the "
-            + "build. The explanation is written to the specified log file.")
+    @Option(
+      name = "explain",
+      defaultValue = "null",
+      category = "verbosity",
+      converter = OptionsUtils.PathFragmentConverter.class,
+      help =
+          "Causes the build system to explain each executed step of the "
+              + "build. The explanation is written to the specified log file."
+    )
     public PathFragment explanationPath;
 
-    @Option(name = "verbose_explanations",
-            defaultValue = "false",
-            category = "verbosity",
-            help = "Increases the verbosity of the explanations issued if --explain is enabled. "
-            + "Has no effect if --explain is not enabled.")
+    @Option(
+      name = "verbose_explanations",
+      defaultValue = "false",
+      category = "verbosity",
+      help =
+          "Increases the verbosity of the explanations issued if --explain is enabled. "
+              + "Has no effect if --explain is not enabled."
+    )
     public boolean verboseExplanations;
 
-    @Option(name = "output_filter",
-        converter = Converters.RegexPatternConverter.class,
-        defaultValue = "null",
-        category = "flags",
-        help = "Only shows warnings for rules with a name matching the provided regular "
-            + "expression.")
+    @Option(
+      name = "output_filter",
+      converter = Converters.RegexPatternConverter.class,
+      defaultValue = "null",
+      category = "flags",
+      help = "Only shows warnings for rules with a name matching the provided regular expression."
+    )
     public Pattern outputFilter;
 
     @Deprecated
-    @Option(name = "dump_makefile",
-            defaultValue = "false",
-            category = "undocumented",
-            help = "this flag has no effect.")
+    @Option(
+      name = "dump_makefile",
+      defaultValue = "false",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      help = "this flag has no effect."
+    )
     public boolean dumpMakefile;
 
     @Deprecated
-    @Option(name = "dump_action_graph",
-        defaultValue = "false",
-        category = "undocumented",
-        help = "this flag has no effect.")
-
+    @Option(
+      name = "dump_action_graph",
+      defaultValue = "false",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      help = "this flag has no effect."
+    )
     public boolean dumpActionGraph;
 
     @Deprecated
-    @Option(name = "dump_action_graph_for_package",
-        allowMultiple = true,
-        defaultValue = "",
-        category = "undocumented",
-        help = "this flag has no effect.")
+    @Option(
+      name = "dump_action_graph_for_package",
+      allowMultiple = true,
+      defaultValue = "",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      help = "this flag has no effect."
+    )
     public List<String> dumpActionGraphForPackage = new ArrayList<>();
 
     @Deprecated
-    @Option(name = "dump_action_graph_with_middlemen",
-        defaultValue = "true",
-        category = "undocumented",
-        help = "this flag has no effect.")
+    @Option(
+      name = "dump_action_graph_with_middlemen",
+      defaultValue = "true",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      help = "this flag has no effect."
+    )
     public boolean dumpActionGraphWithMiddlemen;
 
     @Deprecated
-    @Option(name = "dump_providers",
-        defaultValue = "false",
-        category = "undocumented",
-        help = "This is a no-op.")
+    @Option(
+      name = "dump_providers",
+      defaultValue = "false",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      help = "This is a no-op."
+    )
     public boolean dumpProviders;
 
     @Deprecated
-    @Option(name = "dump_targets",
-            defaultValue = "null",
-            category = "undocumented",
-        help = "this flag has no effect.")
+    @Option(
+      name = "dump_targets",
+      defaultValue = "null",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      help = "this flag has no effect."
+    )
     public String dumpTargets;
 
     @Deprecated
-    @Option(name = "dump_host_deps",
-        defaultValue = "true",
-        category = "undocumented",
-        help = "Deprecated")
+    @Option(
+      name = "dump_host_deps",
+      defaultValue = "true",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      help = "Deprecated"
+    )
     public boolean dumpHostDeps;
 
     @Deprecated
-    @Option(name = "dump_to_stdout",
-        defaultValue = "false",
-        category = "undocumented",
-        help = "Deprecated")
+    @Option(
+      name = "dump_to_stdout",
+      defaultValue = "false",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      help = "Deprecated"
+    )
     public boolean dumpToStdout;
 
-    @Option(name = "analyze",
-            defaultValue = "true",
-            category = "undocumented",
-            help = "Execute the analysis phase; this is the usual behaviour. "
-                + "Specifying --noanalyze causes the build to stop before starting the "
-                + "analysis phase, returning zero iff the package loading completed "
-                + "successfully; this mode is useful for testing.")
+    @Option(
+      name = "analyze",
+      defaultValue = "true",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      help =
+          "Execute the analysis phase; this is the usual behaviour. Specifying --noanalyze causes "
+              + "the build to stop before starting the analysis phase, returning zero iff the "
+              + "package loading completed successfully; this mode is useful for testing."
+    )
     public boolean performAnalysisPhase;
 
-    @Option(name = "build",
-            defaultValue = "true",
-            category = "what",
-            help = "Execute the build; this is the usual behaviour. "
-            + "Specifying --nobuild causes the build to stop before executing the "
-            + "build actions, returning zero iff the package loading and analysis "
-            + "phases completed successfully; this mode is useful for testing "
-            + "those phases.")
+    @Option(
+      name = "build",
+      defaultValue = "true",
+      category = "what",
+      help =
+          "Execute the build; this is the usual behaviour. "
+              + "Specifying --nobuild causes the build to stop before executing the build "
+              + "actions, returning zero iff the package loading and analysis phases completed "
+              + "successfully; this mode is useful for testing those phases."
+    )
     public boolean performExecutionPhase;
 
-    @Option(name = "output_groups",
-        converter = Converters.CommaSeparatedOptionListConverter.class,
-        allowMultiple = true,
-        defaultValue = "",
-        category = "undocumented",
-        help = "Specifies which output groups of the top-level targets to build. "
-            + "If omitted, a default set of output groups are built."
-            + "When specified the default set is overridden."
-            + "However you may use --output_groups=+<output_group> "
-            + "or --output_groups=-<output_group> "
-            + "to instead modify the set of output groups.")
+    @Option(
+      name = "output_groups",
+      converter = Converters.CommaSeparatedOptionListConverter.class,
+      allowMultiple = true,
+      defaultValue = "",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      help =
+          "Specifies which output groups of the top-level targets to build. If omitted, a default "
+              + "set of output groups are built. When specified the default set is overridden."
+              + "However you may use --output_groups=+<output_group> or "
+              + "--output_groups=-<output_group> to instead modify the set of output groups."
+    )
     public List<String> outputGroups;
 
-    @Option(name = "show_result",
-            defaultValue = "1",
-            category = "verbosity",
-            help = "Show the results of the build.  For each "
-            + "target, state whether or not it was brought up-to-date, and if "
-            + "so, a list of output files that were built.  The printed files "
-            + "are convenient strings for copy+pasting to the shell, to "
-            + "execute them.\n"
-            + "This option requires an integer argument, which "
-            + "is the threshold number of targets above which result "
-            + "information is not printed. "
-            + "Thus zero causes suppression of the message and MAX_INT "
-            + "causes printing of the result to occur always.  The default is one.")
+    @Option(
+      name = "show_result",
+      defaultValue = "1",
+      category = "verbosity",
+      help =
+          "Show the results of the build.  For each target, state whether or not it was brought "
+              + "up-to-date, and if so, a list of output files that were built.  The printed files "
+              + "are convenient strings for copy+pasting to the shell, to execute them.\n"
+              + "This option requires an integer argument, which is the threshold number of "
+              + "targets above which result information is not printed. Thus zero causes "
+              + "suppression of the message and MAX_INT causes printing of the result to occur "
+              + "always.  The default is one."
+    )
     public int maxResultTargets;
 
-    @Option(name = "experimental_show_artifacts",
-        defaultValue = "false",
-        category = "undocumented",
-        help = "Output a list of all top level artifacts produced by this build."
-            + "Use output format suitable for tool consumption. "
-            + "This flag is temporary and intended to facilitate Android Studio integration. "
-            + "This output format will likely change in the future or disappear completely."
+    @Option(
+      name = "experimental_show_artifacts",
+      defaultValue = "false",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      help =
+          "Output a list of all top level artifacts produced by this build."
+              + "Use output format suitable for tool consumption. "
+              + "This flag is temporary and intended to facilitate Android Studio integration. "
+              + "This output format will likely change in the future or disappear completely."
     )
     public boolean showArtifacts;
 
-    @Option(name = "announce",
-            defaultValue = "false",
-            category = "verbosity",
-            help = "Deprecated. No-op.",
-            deprecationWarning = "This option is now deprecated and is a no-op")
+    @Option(
+      name = "announce",
+      defaultValue = "false",
+      category = "verbosity",
+      help = "Deprecated. No-op.",
+      deprecationWarning = "This option is now deprecated and is a no-op"
+    )
     public boolean announce;
 
-    @Option(name = "symlink_prefix",
-        defaultValue = "null",
-        category = "misc",
-        help = "The prefix that is prepended to any of the convenience symlinks that are created "
-            + "after a build. If '/' is passed, then no symlinks are created and no warning is "
-            + "emitted. If omitted, the default value is the name of the build tool."
-        )
+    @Option(
+      name = "symlink_prefix",
+      defaultValue = "null",
+      category = "misc",
+      help =
+          "The prefix that is prepended to any of the convenience symlinks that are created "
+              + "after a build. If '/' is passed, then no symlinks are created and no warning is "
+              + "emitted. If omitted, the default value is the name of the build tool."
+    )
     public String symlinkPrefix;
 
-    @Option(name = "experimental_multi_cpu",
-            converter = Converters.CommaSeparatedOptionListConverter.class,
-            allowMultiple = true,
-            defaultValue = "",
-            category = "semantics",
-            help = "This flag allows specifying multiple target CPUs. If this is specified, "
-                + "the --cpu option is ignored.")
+    @Option(
+      name = "experimental_multi_cpu",
+      converter = Converters.CommaSeparatedOptionListConverter.class,
+      allowMultiple = true,
+      defaultValue = "",
+      category = "semantics",
+      help =
+          "This flag allows specifying multiple target CPUs. If this is specified, "
+              + "the --cpu option is ignored."
+    )
     public List<String> multiCpus;
 
-    @Option(name = "output_tree_tracking",
-            oldName =  "experimental_output_tree_tracking",
-            defaultValue = "true",
-            category = "undocumented",
-            help = "If set, tell the output service (if any) to track when files in the output "
-                + "tree have been modified externally (not by the build system). "
-                + "This should improve incremental build speed when an appropriate output service "
-                + "is enabled.")
+    @Option(
+      name = "output_tree_tracking",
+      oldName = "experimental_output_tree_tracking",
+      defaultValue = "true",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      help =
+          "If set, tell the output service (if any) to track when files in the output "
+              + "tree have been modified externally (not by the build system). "
+              + "This should improve incremental build speed when an appropriate output service "
+              + "is enabled."
+    )
     public boolean finalizeActions;
 
     @Option(
       name = "aspects",
       converter = Converters.CommaSeparatedOptionListConverter.class,
       defaultValue = "",
-      category = "undocumented", // for now
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED, // for now
       help = "List of top-level aspects"
     )
     public List<String> aspects;
@@ -281,7 +323,7 @@ public class BuildRequest implements OptionsClassProvider {
     @Option(
       name = "use_action_cache",
       defaultValue = "true",
-      category = "undocumented",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       help = "Whether to use the action cache"
     )
     public boolean useActionCache;

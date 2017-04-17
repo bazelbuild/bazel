@@ -95,6 +95,7 @@ import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -156,9 +157,9 @@ import javax.annotation.Nullable;
 public class BuildView {
 
   /**
-   * Options that affect the <i>mechanism</i> of analysis.  These are distinct from {@link
-   * com.google.devtools.build.lib.analysis.config.BuildOptions}, which affect the <i>value</i>
-   * of a BuildConfiguration.
+   * Options that affect the <i>mechanism</i> of analysis. These are distinct from {@link
+   * com.google.devtools.build.lib.analysis.config.BuildOptions}, which affect the <i>value</i> of a
+   * BuildConfiguration.
    */
   public static class Options extends OptionsBase {
     @Option(
@@ -170,42 +171,54 @@ public class BuildView {
     )
     public int loadingPhaseThreads;
 
-    @Option(name = "keep_going",
-            abbrev = 'k',
-            defaultValue = "false",
-            category = "strategy",
-            help = "Continue as much as possible after an error.  While the"
-                + " target that failed, and those that depend on it, cannot be"
-                + " analyzed (or built), the other prerequisites of these"
-                + " targets can be analyzed (or built) all the same.")
+    @Option(
+      name = "keep_going",
+      abbrev = 'k',
+      defaultValue = "false",
+      category = "strategy",
+      help =
+          "Continue as much as possible after an error.  While the target that failed, and those "
+              + "that depend on it, cannot be analyzed (or built), the other prerequisites of "
+              + "these targets can be analyzed (or built) all the same."
+    )
     public boolean keepGoing;
 
-    @Option(name = "analysis_warnings_as_errors",
-            deprecationWarning = "analysis_warnings_as_errors is now a no-op and will be removed in"
-                              + " an upcoming Blaze release",
-            defaultValue = "false",
-            category = "strategy",
-            help = "Treat visible analysis warnings as errors.")
+    @Option(
+      name = "analysis_warnings_as_errors",
+      deprecationWarning =
+          "analysis_warnings_as_errors is now a no-op and will be removed in"
+              + " an upcoming Blaze release",
+      defaultValue = "false",
+      category = "strategy",
+      help = "Treat visible analysis warnings as errors."
+    )
     public boolean analysisWarningsAsErrors;
 
-    @Option(name = "discard_analysis_cache",
-            defaultValue = "false",
-            category = "strategy",
-            help = "Discard the analysis cache immediately after the analysis phase completes."
-                + " Reduces memory usage by ~10%, but makes further incremental builds slower.")
+    @Option(
+      name = "discard_analysis_cache",
+      defaultValue = "false",
+      category = "strategy",
+      help =
+          "Discard the analysis cache immediately after the analysis phase completes."
+              + " Reduces memory usage by ~10%, but makes further incremental builds slower."
+    )
     public boolean discardAnalysisCache;
 
-    @Option(name = "experimental_extra_action_filter",
-            defaultValue = "",
-            category = "experimental",
-            converter = RegexFilter.RegexFilterConverter.class,
-            help = "Filters set of targets to schedule extra_actions for.")
+    @Option(
+      name = "experimental_extra_action_filter",
+      defaultValue = "",
+      category = "experimental",
+      converter = RegexFilter.RegexFilterConverter.class,
+      help = "Filters set of targets to schedule extra_actions for."
+    )
     public RegexFilter extraActionFilter;
 
-    @Option(name = "experimental_extra_action_top_level_only",
-            defaultValue = "false",
-            category = "experimental",
-            help = "Only schedules extra_actions for top level targets.")
+    @Option(
+      name = "experimental_extra_action_top_level_only",
+      defaultValue = "false",
+      category = "experimental",
+      help = "Only schedules extra_actions for top level targets."
+    )
     public boolean extraActionTopLevelOnly;
 
     @Option(
@@ -220,12 +233,15 @@ public class BuildView {
     )
     public boolean extraActionTopLevelOnlyWithAspects;
 
-    @Option(name = "version_window_for_dirty_node_gc",
-            defaultValue = "0",
-            category = "undocumented",
-            help = "Nodes that have been dirty for more than this many versions will be deleted"
-                + " from the graph upon the next update. Values must be non-negative long integers,"
-                + " or -1 indicating the maximum possible window.")
+    @Option(
+      name = "version_window_for_dirty_node_gc",
+      defaultValue = "0",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      help =
+          "Nodes that have been dirty for more than this many versions will be deleted"
+              + " from the graph upon the next update. Values must be non-negative long integers,"
+              + " or -1 indicating the maximum possible window."
+    )
     public long versionWindowForDirtyNodeGc;
 
     @Deprecated

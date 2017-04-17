@@ -18,18 +18,22 @@ import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 
 /**
  * Command-line options for repositories.
  */
 public class RepositoryOptions extends OptionsBase {
 
-  @Option(name = "experimental_repository_cache",
-          defaultValue = "null",
-          category = "hidden",
-          converter = OptionsUtils.PathFragmentConverter.class,
-          help = "Specifies the cache location of the downloaded values obtained "
-              + "during the fetching of external repositories.")
+  @Option(
+    name = "experimental_repository_cache",
+    defaultValue = "null",
+    optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    converter = OptionsUtils.PathFragmentConverter.class,
+    help =
+        "Specifies the cache location of the downloaded values obtained "
+            + "during the fetching of external repositories."
+  )
   public PathFragment experimentalRepositoryCache;
 
 }

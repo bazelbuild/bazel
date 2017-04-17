@@ -36,6 +36,7 @@ import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
 import java.util.Set;
@@ -189,35 +190,41 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     }
   }
 
-  /**
-   * Android configuration options.
-   */
+  /** Android configuration options. */
   public static class Options extends FragmentOptions {
-    @Option(name = "Android configuration distinguisher",
-        defaultValue = "MAIN",
-        converter = ConfigurationDistinguisherConverter.class,
-        category = "internal")
+    @Option(
+      name = "Android configuration distinguisher",
+      defaultValue = "MAIN",
+      converter = ConfigurationDistinguisherConverter.class,
+      optionUsageRestrictions = OptionUsageRestrictions.INTERNAL
+    )
     public ConfigurationDistinguisher configurationDistinguisher;
 
     // For deploying incremental installation of native libraries. Do not use on the command line.
     // The idea is that once this option works, we'll flip the default value in a config file, then
     // once it is proven that it works, remove it from Bazel and said config file.
-    @Option(name = "android_incremental_native_libs",
-        defaultValue = "false",
-        category = "undocumented")
+    @Option(
+      name = "android_incremental_native_libs",
+      defaultValue = "false",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED
+    )
     public boolean incrementalNativeLibs;
 
-    @Option(name = "android_crosstool_top",
-        defaultValue = "//external:android/crosstool",
-        category = "semantics",
-        converter = EmptyToNullLabelConverter.class,
-        help = "The location of the C++ compiler used for Android builds.")
+    @Option(
+      name = "android_crosstool_top",
+      defaultValue = "//external:android/crosstool",
+      category = "semantics",
+      converter = EmptyToNullLabelConverter.class,
+      help = "The location of the C++ compiler used for Android builds."
+    )
     public Label androidCrosstoolTop;
 
-    @Option(name = "android_cpu",
-        defaultValue = "armeabi",
-        category = "semantics",
-        help = "The Android target CPU.")
+    @Option(
+      name = "android_cpu",
+      defaultValue = "armeabi",
+      category = "semantics",
+      help = "The Android target CPU."
+    )
     public String cpu;
 
     @Option(
@@ -232,79 +239,94 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       name = "android_dynamic_mode",
       defaultValue = "off",
       converter = DynamicModeConverter.class,
-      category = "undocumented",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       help =
-        "Determines whether C++ deps of Android rules will be linked dynamically when a cc_binary "
-            + "does not explicitly create a shared library. 'default' means blaze will choose "
-            + "whether to link dynamically.  'fully' means all libraries will be linked "
-            + "dynamically. 'off' means that all libraries will be linked in mostly static mode."
+          "Determines whether C++ deps of Android rules will be linked dynamically when a "
+              + "cc_binary does not explicitly create a shared library. "
+              + "'default' means blaze will choose whether to link dynamically.  "
+              + "'fully' means all libraries will be linked dynamically. "
+              + "'off' means that all libraries will be linked in mostly static mode."
     )
     public DynamicMode dynamicMode;
 
     // Label of filegroup combining all Android tools used as implicit dependencies of
     // android_* rules
-    @Option(name = "android_sdk",
-            defaultValue = "@bazel_tools//tools/android:sdk",
-            category = "version",
-            converter = LabelConverter.class,
-            help = "Specifies Android SDK/platform that is used to build Android applications.")
+    @Option(
+      name = "android_sdk",
+      defaultValue = "@bazel_tools//tools/android:sdk",
+      category = "version",
+      converter = LabelConverter.class,
+      help = "Specifies Android SDK/platform that is used to build Android applications."
+    )
     public Label sdk;
 
     // TODO(bazel-team): Maybe merge this with --android_cpu above.
-    @Option(name = "fat_apk_cpu",
-            converter = Converters.CommaSeparatedOptionListConverter.class,
-            defaultValue = "armeabi-v7a",
-            category = "semantics",
-            help = "Setting this option enables fat APKs, which contain native binaries for all "
-                + "specified target architectures, e.g., --fat_apk_cpu=x86,armeabi-v7a. If this "
-                + "flag is specified, then --android_cpu is ignored for dependencies of "
-                + "android_binary rules.")
+    @Option(
+      name = "fat_apk_cpu",
+      converter = Converters.CommaSeparatedOptionListConverter.class,
+      defaultValue = "armeabi-v7a",
+      category = "semantics",
+      help =
+          "Setting this option enables fat APKs, which contain native binaries for all "
+              + "specified target architectures, e.g., --fat_apk_cpu=x86,armeabi-v7a. If this "
+              + "flag is specified, then --android_cpu is ignored for dependencies of "
+              + "android_binary rules."
+    )
     public List<String> fatApkCpus;
 
     // For desugaring lambdas when compiling Java 8 sources. Do not use on the command line.
     // The idea is that once this option works, we'll flip the default value in a config file, then
     // once it is proven that it works, remove it from Bazel and said config file.
-    @Option(name = "experimental_desugar_for_android",
-        defaultValue = "false",
-        category = "undocumented",
-        help = "Whether to desugar Java 8 bytecode before dexing.")
+    @Option(
+      name = "experimental_desugar_for_android",
+      defaultValue = "false",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      help = "Whether to desugar Java 8 bytecode before dexing."
+    )
     public boolean desugarJava8;
 
-    @Option(name = "incremental_dexing",
-        defaultValue = "false",
-        category = "semantics",
-        help = "Does most of the work for dexing separately for each Jar file.")
+    @Option(
+      name = "incremental_dexing",
+      defaultValue = "false",
+      category = "semantics",
+      help = "Does most of the work for dexing separately for each Jar file."
+    )
     public boolean incrementalDexing;
 
     // TODO(b/31711689): remove this flag from config files and here
-    @Option(name = "host_incremental_dexing",
-        defaultValue = "false",
-        category = "hidden",
-        help = "This flag is deprecated in favor of applying --incremental_dexing to both host "
-            + "and target configuration.  This flag will be removed in a future release.")
+    @Option(
+      name = "host_incremental_dexing",
+      defaultValue = "false",
+      optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+      help =
+          "This flag is deprecated in favor of applying --incremental_dexing to both host "
+              + "and target configuration.  This flag will be removed in a future release."
+    )
     public boolean hostIncrementalDexing;
 
     // Do not use on the command line.
     // The idea is that this option lets us gradually turn on incremental dexing for different
     // binaries.  Users should rely on --noincremental_dexing to turn it off.
     // TODO(b/31711689): remove this flag from config files and here
-    @Option(name = "incremental_dexing_binary_types",
-        defaultValue = "all",
-        category = "undocumented",
-        converter = AndroidBinaryTypesConverter.class,
-        implicitRequirements = "--incremental_dexing",
-        help = "Kinds of binaries to incrementally dex if --incremental_dexing is true.")
+    @Option(
+      name = "incremental_dexing_binary_types",
+      defaultValue = "all",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      converter = AndroidBinaryTypesConverter.class,
+      implicitRequirements = "--incremental_dexing",
+      help = "Kinds of binaries to incrementally dex if --incremental_dexing is true."
+    )
     public Set<AndroidBinaryType> incrementalDexingBinaries;
 
-    /**
-     * Whether to look for incrementally dex protos built with java_lite_proto_library.
-     */
+    /** Whether to look for incrementally dex protos built with java_lite_proto_library. */
     // TODO(b/31711689): remove this flag from config files and here
     @Option(
       name = "experimental_incremental_dexing_for_lite_protos",
       defaultValue = "true",
       category = "experimental",
-      help = "Do not use.")
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      help = "Do not use."
+    )
     public boolean incrementalDexingForLiteProtos;
 
     /**
@@ -315,142 +337,181 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       name = "experimental_incremental_dexing_error_on_missed_jars",
       defaultValue = "true",
       category = "experimental",
-      help = "Do not use.")
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      help = "Do not use."
+    )
     public boolean incrementalDexingErrorOnMissedJars;
 
     // Do not use on the command line.
     // This flag is intended to be updated as we add supported flags to the incremental dexing tools
-    @Option(name = "non_incremental_per_target_dexopts",
-        converter = Converters.CommaSeparatedOptionListConverter.class,
-        defaultValue = "--positions",
-        category = "semantics",
-        help = "dx flags that that prevent incremental dexing for binary targets that list any of "
-            + "the flags listed here in their 'dexopts' attribute, which are ignored with "
-            + "incremental dexing (superseding --dexopts_supported_in_incremental_dexing).  "
-            + "Defaults to --no-locals for safety but can in general be used "
-            + "to make sure the listed dx flags are honored, with additional build latency.  "
-            + "Please notify us if you find yourself needing this flag.")
+    @Option(
+      name = "non_incremental_per_target_dexopts",
+      converter = Converters.CommaSeparatedOptionListConverter.class,
+      defaultValue = "--positions",
+      category = "semantics",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      help =
+          "dx flags that that prevent incremental dexing for binary targets that list any of "
+              + "the flags listed here in their 'dexopts' attribute, which are ignored with "
+              + "incremental dexing (superseding --dexopts_supported_in_incremental_dexing).  "
+              + "Defaults to --no-locals for safety but can in general be used "
+              + "to make sure the listed dx flags are honored, with additional build latency.  "
+              + "Please notify us if you find yourself needing this flag."
+    )
     public List<String> nonIncrementalPerTargetDexopts;
 
     // Do not use on the command line.
     // This flag is intended to be updated as we add supported flags to the incremental dexing tools
-    @Option(name = "dexopts_supported_in_incremental_dexing",
-        converter = Converters.CommaSeparatedOptionListConverter.class,
-        defaultValue = "--no-optimize,--no-locals",
-        category = "hidden",
-        help = "dx flags supported when converting Jars to dex archives incrementally.")
+    @Option(
+      name = "dexopts_supported_in_incremental_dexing",
+      converter = Converters.CommaSeparatedOptionListConverter.class,
+      defaultValue = "--no-optimize,--no-locals",
+      optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+      help = "dx flags supported when converting Jars to dex archives incrementally."
+    )
     public List<String> dexoptsSupportedInIncrementalDexing;
 
     // Do not use on the command line.
     // This flag is intended to be updated as we add supported flags to the incremental dexing tools
     // TODO(b/31711689): remove --no-optimize and --no-locals as DexFileMerger no longer needs them
-    @Option(name = "dexopts_supported_in_dexmerger",
-        converter = Converters.CommaSeparatedOptionListConverter.class,
-        defaultValue = "--no-optimize,--no-locals,--minimal-main-dex,--set-max-idx-number",
-        category = "hidden",
-        help = "dx flags supported in tool that merges dex archives into final classes.dex files.")
+    @Option(
+      name = "dexopts_supported_in_dexmerger",
+      converter = Converters.CommaSeparatedOptionListConverter.class,
+      defaultValue = "--no-optimize,--no-locals,--minimal-main-dex,--set-max-idx-number",
+      optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+      help = "dx flags supported in tool that merges dex archives into final classes.dex files."
+    )
     public List<String> dexoptsSupportedInDexMerger;
 
     @Option(
       name = "experimental_android_rewrite_dexes_with_rex",
       defaultValue = "false",
-      category = "undocumented",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       help = "use rex tool to rewrite dex files"
     )
     public boolean useRexToCompressDexFiles;
 
-    @Option(name = "experimental_allow_android_library_deps_without_srcs",
-        defaultValue = "true",
-        category = "undocumented",
-        help = "Flag to help transition from allowing to disallowing srcs-less android_library"
-            + " rules with deps. The depot needs to be cleaned up to roll this out by default.")
+    @Option(
+      name = "experimental_allow_android_library_deps_without_srcs",
+      defaultValue = "true",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      help =
+          "Flag to help transition from allowing to disallowing srcs-less android_library"
+              + " rules with deps. The depot needs to be cleaned up to roll this out by default."
+    )
     public boolean allowAndroidLibraryDepsWithoutSrcs;
 
-    @Option(name = "experimental_android_resource_shrinking",
-        defaultValue = "false",
-        category = "undocumented",
-        help = "Enables resource shrinking for android_binary APKs that use ProGuard.")
+    @Option(
+      name = "experimental_android_resource_shrinking",
+      defaultValue = "false",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      help = "Enables resource shrinking for android_binary APKs that use ProGuard."
+    )
     public boolean useExperimentalAndroidResourceShrinking;
 
-    @Option(name = "android_resource_shrinking",
-        defaultValue = "false",
-        category = "semantics",
-        help = "Enables resource shrinking for android_binary APKs that use ProGuard.")
+    @Option(
+      name = "android_resource_shrinking",
+      defaultValue = "false",
+      category = "semantics",
+      help = "Enables resource shrinking for android_binary APKs that use ProGuard."
+    )
     public boolean useAndroidResourceShrinking;
 
-    @Option(name = "android_manifest_merger",
-        defaultValue = "android",
-        category = "semantics",
-        converter = AndroidManifestMergerConverter.class,
-        help = "Selects the manifest merger to use for android_binary rules. Flag to help the"
-            + "transition to the Android manifest merger from the legacy merger.")
+    @Option(
+      name = "android_manifest_merger",
+      defaultValue = "android",
+      category = "semantics",
+      converter = AndroidManifestMergerConverter.class,
+      help =
+          "Selects the manifest merger to use for android_binary rules. Flag to help the"
+              + "transition to the Android manifest merger from the legacy merger."
+    )
     public AndroidManifestMerger manifestMerger;
 
     // Do not use on the command line.
-    @Option(name = "experimental_use_parallel_android_resource_processing",
+    @Option(
+      name = "experimental_use_parallel_android_resource_processing",
       defaultValue = "true",
-      category = "undocumented",
-      help = "Process android_library resources with higher parallelism. Generates library "
-              + "R classes from a merge action, separately from aapt.")
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      help =
+          "Process android_library resources with higher parallelism. Generates library "
+              + "R classes from a merge action, separately from aapt."
+    )
     public boolean useParallelResourceProcessing;
 
-    @Option(name = "apk_signing_method",
-        converter = ApkSigningMethodConverter.class,
-        defaultValue = "v1_v2",
-        category = "undocumented",
-        help = "Implementation to use to sign APKs")
+    @Option(
+      name = "apk_signing_method",
+      converter = ApkSigningMethodConverter.class,
+      defaultValue = "v1_v2",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      help = "Implementation to use to sign APKs"
+    )
     public ApkSigningMethod apkSigningMethod;
 
-    @Option(name = "use_singlejar_apkbuilder",
-        defaultValue = "true",
-        category = "undocumented",
-        help = "Build Android APKs with SingleJar.")
+    @Option(
+      name = "use_singlejar_apkbuilder",
+      defaultValue = "true",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      help = "Build Android APKs with SingleJar."
+    )
     public boolean useSingleJarApkBuilder;
 
-    @Option(name = "experimental_android_use_singlejar_for_multidex",
-        defaultValue = "true",
-        category = "undocumented",
-        help = "Use SingleJar for multidex dex extraction.")
+    @Option(
+      name = "experimental_android_use_singlejar_for_multidex",
+      defaultValue = "true",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      help = "Use SingleJar for multidex dex extraction."
+    )
     public boolean useSingleJarForMultidex;
 
-    @Option(name = "experimental_android_resource_filtering_method",
+    @Option(
+      name = "experimental_android_resource_filtering_method",
       converter = ResourceFilter.Converter.class,
       defaultValue = "filter_in_execution",
-      category = "undocumented",
-      help = "Determines when resource filtering attributes, such as the android_binary "
-          + "'resource_configuration_filters' and 'densities' attributes, are applied. By default, "
-          + "bazel will 'filter_in_execution'. The experimental 'filter_in_analysis' option "
-          + "instead applies these filters earlier in the build process, with corresponding gains "
-          + "in speed. The experimental 'filter_in_analysis_with_dynamic_configuration' option "
-          + "also passes these options to the android_binary's dependencies, which also filter "
-          + "their internal resources in analysis, possibly making the build even faster "
-          + "(especially in systems that do not cache the results of those dependencies)."
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      help =
+          "Determines when resource filtering attributes, such as the android_binary "
+              + "'resource_configuration_filters' and 'densities' attributes, are applied. "
+              + "By default, bazel will 'filter_in_execution'. The experimental "
+              + "'filter_in_analysis' option instead applies these filters earlier in the build "
+              + "process, with corresponding gains in speed. The experimental "
+              + "'filter_in_analysis_with_dynamic_configuration' option also passes these options "
+              + "to the android_binary's dependencies, which also filter their internal resources "
+              + "in analysis, possibly making the build even faster (especially in systems that "
+              + "do not cache the results of those dependencies)."
     )
     // The ResourceFilter object holds the filtering behavior as well as settings for which
     // resources should be filtered. The filtering behavior is set from the command line, but the
     // other settings default to empty and are set or modified via dynamic configuration.
     public ResourceFilter resourceFilter;
 
-    @Option(name = "use_singlejar_for_proguard_libraryjars",
-        defaultValue = "false",
-        category = "undocumented",
-        help = "Use SingleJar to combine all ProGuard library jars.")
+    @Option(
+      name = "use_singlejar_for_proguard_libraryjars",
+      defaultValue = "false",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      help = "Use SingleJar to combine all ProGuard library jars."
+    )
     public boolean useSingleJarForProguardLibraryJars;
 
-    @Option(name = "experimental_android_compress_java_resources",
-        defaultValue = "false",
-        category = "undocumented",
-        implicitRequirements = "--use_singlejar_apkbuilder",
-        help = "Compress Java resources in APKs")
+    @Option(
+      name = "experimental_android_compress_java_resources",
+      defaultValue = "false",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      implicitRequirements = "--use_singlejar_apkbuilder",
+      help = "Compress Java resources in APKs"
+    )
     public boolean compressJavaResources;
 
-    @Option(name = "experimental_android_include_library_resource_jars",
-        defaultValue = "true",
-        category = "undocumented",
-        help = "Specifies whether resource JAR files for android_library targets should be included"
-            + " as runtime dependencies. Defaults to the old behavior, including them. These JARs"
-            + " are not nessecary for normal use as all required resources are included in the"
-            + " top-level android_binary resource JAR.")
+    @Option(
+      name = "experimental_android_include_library_resource_jars",
+      defaultValue = "true",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      help =
+          "Specifies whether resource JAR files for android_library targets should be included"
+              + " as runtime dependencies. Defaults to the old behavior, including them. These JARs"
+              + " are not nessecary for normal use as all required resources are included in the"
+              + " top-level android_binary resource JAR."
+    )
     public boolean includeLibraryResourceJars;
 
     @Override

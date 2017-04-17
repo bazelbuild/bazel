@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
@@ -56,102 +57,130 @@ public class BlazeCommandEventHandler implements EventHandler {
 
   public static class Options extends OptionsBase {
 
-    @Option(name = "show_progress",
-            defaultValue = "true",
-            category = "verbosity",
-            help = "Display progress messages during a build.")
+    @Option(
+      name = "show_progress",
+      defaultValue = "true",
+      category = "verbosity",
+      help = "Display progress messages during a build."
+    )
     public boolean showProgress;
 
-    @Option(name = "show_task_finish",
-            defaultValue = "false",
-            category = "verbosity",
-            help = "Display progress messages when tasks complete, not just when they start.")
+    @Option(
+      name = "show_task_finish",
+      defaultValue = "false",
+      category = "verbosity",
+      help = "Display progress messages when tasks complete, not just when they start."
+    )
     public boolean showTaskFinish;
 
-    @Option(name = "show_progress_rate_limit",
-            defaultValue = "0.03",  // A nice middle ground; snappy but not too spammy in logs.
-            category = "verbosity",
-            help = "Minimum number of seconds between progress messages in the output.")
+    @Option(
+      name = "show_progress_rate_limit",
+      defaultValue = "0.03", // A nice middle ground; snappy but not too spammy in logs.
+      category = "verbosity",
+      help = "Minimum number of seconds between progress messages in the output."
+    )
     public double showProgressRateLimit;
 
-    @Option(name = "color",
-            defaultValue = "auto",
-            converter = UseColorConverter.class,
-            category = "verbosity",
-            help = "Use terminal controls to colorize output.")
+    @Option(
+      name = "color",
+      defaultValue = "auto",
+      converter = UseColorConverter.class,
+      category = "verbosity",
+      help = "Use terminal controls to colorize output."
+    )
     public UseColor useColorEnum;
 
-    @Option(name = "curses",
-            defaultValue = "auto",
-            converter = UseCursesConverter.class,
-            category = "verbosity",
-            help = "Use terminal cursor controls to minimize scrolling output")
+    @Option(
+      name = "curses",
+      defaultValue = "auto",
+      converter = UseCursesConverter.class,
+      category = "verbosity",
+      help = "Use terminal cursor controls to minimize scrolling output"
+    )
     public UseCurses useCursesEnum;
 
-    @Option(name = "terminal_columns",
-            defaultValue = "80",
-            category = "hidden",
-            help = "A system-generated parameter which specifies the terminal "
-               + " width in columns.")
+    @Option(
+      name = "terminal_columns",
+      defaultValue = "80",
+      optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+      help = "A system-generated parameter which specifies the terminal width in columns."
+    )
     public int terminalColumns;
 
-    @Option(name = "isatty",
-            defaultValue = "false",
-            category = "hidden",
-            help = "A system-generated parameter which is used to notify the "
-                + "server whether this client is running in a terminal. "
-                + "If this is set to false, then '--color=auto' will be treated as '--color=no'. "
-                + "If this is set to true, then '--color=auto' will be treated as '--color=yes'.")
+    @Option(
+      name = "isatty",
+      defaultValue = "false",
+      optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+      help =
+          "A system-generated parameter which is used to notify the "
+              + "server whether this client is running in a terminal. "
+              + "If this is set to false, then '--color=auto' will be treated as '--color=no'. "
+              + "If this is set to true, then '--color=auto' will be treated as '--color=yes'."
+    )
     public boolean isATty;
 
     // This lives here (as opposed to the more logical BuildRequest.Options)
     // because the client passes it to the server *always*.  We don't want the
     // client to have to figure out when it should or shouldn't to send it.
-    @Option(name = "emacs",
-            defaultValue = "false",
-            category = "undocumented",
-            help = "A system-generated parameter which is true iff EMACS=t or INSIDE_EMACS is set "
-               + "in the environment of the client.  This option controls certain display "
-               + "features.")
+    @Option(
+      name = "emacs",
+      defaultValue = "false",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      help =
+          "A system-generated parameter which is true iff EMACS=t or INSIDE_EMACS is set "
+              + "in the environment of the client.  This option controls certain display "
+              + "features."
+    )
     public boolean runningInEmacs;
 
-    @Option(name = "show_timestamps",
-        defaultValue = "false",
-        category = "verbosity",
-        help = "Include timestamps in messages")
+    @Option(
+      name = "show_timestamps",
+      defaultValue = "false",
+      category = "verbosity",
+      help = "Include timestamps in messages"
+    )
     public boolean showTimestamp;
 
-    @Option(name = "progress_in_terminal_title",
-        defaultValue = "false",
-        category = "verbosity",
-        help = "Show the command progress in the terminal title. "
-            + "Useful to see what blaze is doing when having multiple terminal tabs.")
+    @Option(
+      name = "progress_in_terminal_title",
+      defaultValue = "false",
+      category = "verbosity",
+      help =
+          "Show the command progress in the terminal title. "
+              + "Useful to see what blaze is doing when having multiple terminal tabs."
+    )
     public boolean progressInTermTitle;
 
-    @Option(name = "experimental_external_repositories",
-        defaultValue = "false",
-        category = "verbosity",
-        help = "Use external repositories for improved stability and speed when available.")
+    @Option(
+      name = "experimental_external_repositories",
+      defaultValue = "false",
+      category = "verbosity",
+      help = "Use external repositories for improved stability and speed when available."
+    )
     public boolean externalRepositories;
 
-    @Option(name = "force_experimental_external_repositories",
-        defaultValue = "false",
-        category = "verbosity",
-        help = "Forces --experimental_external_repositories.")
+    @Option(
+      name = "force_experimental_external_repositories",
+      defaultValue = "false",
+      category = "verbosity",
+      help = "Forces --experimental_external_repositories."
+    )
     public boolean forceExternalRepositories;
 
     @Option(
       name = "experimental_ui",
       defaultValue = "false",
       category = "verbosity",
-      help = "Switches to an alternative progress bar that more explicitly shows progress, such "
-          + "as loaded packages and executed actions.")
+      help =
+          "Switches to an alternative progress bar that more explicitly shows progress, such "
+              + "as loaded packages and executed actions."
+    )
     public boolean experimentalUi;
 
     @Option(
       name = "experimental_ui_debug_all_events",
       defaultValue = "false",
-      category = "hidden",
+      optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
       help = "Report all events known to the experimental new Bazel UI."
     )
     public boolean experimentalUiDebugAllEvents;

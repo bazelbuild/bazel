@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoM
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -129,7 +130,7 @@ public class CppOptions extends FragmentOptions {
   @Option(
     name = "lipo input collector",
     defaultValue = "false",
-    category = "internal",
+    optionUsageRestrictions = OptionUsageRestrictions.INTERNAL,
     help = "Internal flag, only used to create configurations with the LIPO-collector flag set."
   )
   public boolean lipoCollector;
@@ -603,7 +604,7 @@ public class CppOptions extends FragmentOptions {
     category = "strategy",
     help =
         "If true, headers found through system include paths (-isystem) are also required to be "
-        + "declared."
+            + "declared."
   )
   public boolean strictSystemIncludes;
 

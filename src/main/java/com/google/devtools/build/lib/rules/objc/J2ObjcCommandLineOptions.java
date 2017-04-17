@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import java.util.List;
 
 /**
@@ -28,44 +29,51 @@ import java.util.List;
  * (specifically, J2ObjCAspects thereof).
  */
 public class J2ObjcCommandLineOptions extends FragmentOptions {
-  @Option(name = "j2objc_translation_flags",
-      converter = Converters.CommaSeparatedOptionListConverter.class,
-      allowMultiple = true,
-      defaultValue = "",
-      category = "flags",
-      help = "Additional options to pass to the J2ObjC tool."
-      )
+  @Option(
+    name = "j2objc_translation_flags",
+    converter = Converters.CommaSeparatedOptionListConverter.class,
+    allowMultiple = true,
+    defaultValue = "",
+    category = "flags",
+    help = "Additional options to pass to the J2ObjC tool."
+  )
   public List<String> translationFlags;
 
-  @Option(name = "j2objc_dead_code_removal",
-      defaultValue = "false",
-      category = "undocumented",
-      help = "Whether to perform J2ObjC dead code removal to strip unused code from the final app "
-          + "bundle."
-      )
+  @Option(
+    name = "j2objc_dead_code_removal",
+    defaultValue = "false",
+    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+    help =
+        "Whether to perform J2ObjC dead code removal to strip unused code from the final app "
+            + "bundle."
+  )
   public boolean removeDeadCode;
 
-  @Option(name = "j2objc_dead_code_report",
-      defaultValue = "null",
-      category = "undocumented",
-      converter = LabelConverter.class,
-      help = "Allows J2ObjC to strip dead code reported by ProGuard. Takes a label that can "
-          + "generate a dead code report as argument."
+  @Option(
+    name = "j2objc_dead_code_report",
+    defaultValue = "null",
+    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+    converter = LabelConverter.class,
+    help =
+        "Allows J2ObjC to strip dead code reported by ProGuard. Takes a label that can "
+            + "generate a dead code report as argument."
   )
   public Label deadCodeReport;
 
-  @Option(name = "explicit_jre_deps",
-      defaultValue = "true",
-      category = "flags",
-      help = "Requires JRE dependencies to be declared in j2objc_library's jre_deps attribute."
-      )
+  @Option(
+    name = "explicit_jre_deps",
+    defaultValue = "true",
+    category = "flags",
+    help = "Requires JRE dependencies to be declared in j2objc_library's jre_deps attribute."
+  )
   public boolean explicitJreDeps;
 
-  @Option(name = "experimental_j2objc_header_map",
-      defaultValue = "false",
-      category = "flags",
-      help = "Whether to generate J2ObjC header map in parallel of J2ObjC transpilation."
-      )
+  @Option(
+    name = "experimental_j2objc_header_map",
+    defaultValue = "false",
+    category = "flags",
+    help = "Whether to generate J2ObjC header map in parallel of J2ObjC transpilation."
+  )
   public boolean experimentalJ2ObjcHeaderMap;
 
   @Override

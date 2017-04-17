@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -86,7 +87,11 @@ public class ConfigSettingTest extends BuildViewTestCase {
   public static class InternalTestOptions extends FragmentOptions {
     public InternalTestOptions() {}
 
-    @Option(name = "internal_option", defaultValue = "super secret", category = "internal")
+    @Option(
+      name = "internal_option",
+      defaultValue = "super secret",
+      optionUsageRestrictions = OptionUsageRestrictions.INTERNAL
+    )
     public String optwithDefault;
   }
 

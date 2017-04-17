@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import java.util.List;
 
 /**
@@ -91,38 +92,38 @@ public class AppleCommandLineOptions extends FragmentOptions {
   public DottedVersion macOsSdkVersion;
 
   @Option(
-      name = "ios_minimum_os",
-      defaultValue = DEFAULT_MINIMUM_IOS,
-      category = "flags",
-      converter = DottedVersionConverter.class,
-      help = "Minimum compatible iOS version for target simulators and devices."
+    name = "ios_minimum_os",
+    defaultValue = DEFAULT_MINIMUM_IOS,
+    category = "flags",
+    converter = DottedVersionConverter.class,
+    help = "Minimum compatible iOS version for target simulators and devices."
   )
   public DottedVersion iosMinimumOs;
 
   @Option(
-      name = "watchos_minimum_os",
-      defaultValue = "null",
-      category = "flags",
-      converter = DottedVersionConverter.class,
-      help = "Minimum compatible watchOS version for target simulators and devices."
+    name = "watchos_minimum_os",
+    defaultValue = "null",
+    category = "flags",
+    converter = DottedVersionConverter.class,
+    help = "Minimum compatible watchOS version for target simulators and devices."
   )
   public DottedVersion watchosMinimumOs;
 
   @Option(
-      name = "tvos_minimum_os",
-      defaultValue = "null",
-      category = "flags",
-      converter = DottedVersionConverter.class,
-      help = "Minimum compatible tvOS version for target simulators and devices."
+    name = "tvos_minimum_os",
+    defaultValue = "null",
+    category = "flags",
+    converter = DottedVersionConverter.class,
+    help = "Minimum compatible tvOS version for target simulators and devices."
   )
   public DottedVersion tvosMinimumOs;
 
   @Option(
-      name = "macos_minimum_os",
-      defaultValue = DEFAULT_MINIMUM_MACOS,
-      category = "flags",
-      converter = DottedVersionConverter.class,
-      help = "Minimum compatible macOS version for targets."
+    name = "macos_minimum_os",
+    defaultValue = DEFAULT_MINIMUM_MACOS,
+    category = "flags",
+    converter = DottedVersionConverter.class,
+    help = "Minimum compatible macOS version for targets."
   )
   public DottedVersion macosMinimumOs;
 
@@ -147,37 +148,44 @@ public class AppleCommandLineOptions extends FragmentOptions {
    */
   public static final String DEFAULT_MACOS_CPU = "x86_64";
 
-  @Option(name = "ios_cpu",
-      defaultValue = DEFAULT_IOS_CPU,
-      category = "build",
-      help = "Specifies to target CPU of iOS compilation.")
+  @Option(
+    name = "ios_cpu",
+    defaultValue = DEFAULT_IOS_CPU,
+    category = "build",
+    help = "Specifies to target CPU of iOS compilation."
+  )
   public String iosCpu;
 
   @Option(
-      name = "apple_crosstool_top",
-      defaultValue = "@bazel_tools//tools/cpp:toolchain",
-      category = "version",
-      converter = LabelConverter.class,
-      help = "The label of the crosstool package to be used in Apple and Objc rules and their"
+    name = "apple_crosstool_top",
+    defaultValue = "@bazel_tools//tools/cpp:toolchain",
+    category = "version",
+    converter = LabelConverter.class,
+    help =
+        "The label of the crosstool package to be used in Apple and Objc rules and their"
             + " dependencies."
-    )
-  public Label appleCrosstoolTop;  
+  )
+  public Label appleCrosstoolTop;
 
-  @Option(name = "apple_platform_type",
-      defaultValue = "IOS",
-      category = "undocumented",
-      converter = PlatformTypeConverter.class,
-      help =
-          "Don't set this value from the command line - it is derived from other flags and "
-          + "configuration transitions derived from rule attributes")
+  @Option(
+    name = "apple_platform_type",
+    defaultValue = "IOS",
+    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+    converter = PlatformTypeConverter.class,
+    help =
+        "Don't set this value from the command line - it is derived from other flags and "
+            + "configuration transitions derived from rule attributes"
+  )
   public PlatformType applePlatformType;
 
-  @Option(name = "apple_split_cpu",
-      defaultValue = "",
-      category = "undocumented",
-      help =
-          "Don't set this value from the command line - it is derived from other flags and "
-          + "configuration transitions derived from rule attributes")
+  @Option(
+    name = "apple_split_cpu",
+    defaultValue = "",
+    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+    help =
+        "Don't set this value from the command line - it is derived from other flags and "
+            + "configuration transitions derived from rule attributes"
+  )
   public String appleSplitCpu;
 
   // This option exists because two configurations are not allowed to have the same cache key
@@ -186,51 +194,64 @@ public class AppleCommandLineOptions extends FragmentOptions {
   // This option must only be set by those transitions for this purpose.
   // TODO(bazel-team): Remove this once we have dynamic configurations but make sure that different
   // configurations (e.g. by min os version) always use different output paths.
-  @Option(name = "apple configuration distinguisher",
-      defaultValue = "UNKNOWN",
-      converter = ConfigurationDistinguisherConverter.class,
-      category = "internal")
+  @Option(
+    name = "apple configuration distinguisher",
+    defaultValue = "UNKNOWN",
+    converter = ConfigurationDistinguisherConverter.class,
+    optionUsageRestrictions = OptionUsageRestrictions.INTERNAL
+  )
   public ConfigurationDistinguisher configurationDistinguisher;
 
-  @Option(name = "ios_multi_cpus",
-      converter = CommaSeparatedOptionListConverter.class,
-      defaultValue = "",
-      category = "flags",
-      help = "Comma-separated list of architectures to build an ios_application with. The result "
-          + "is a universal binary containing all specified architectures.")
+  @Option(
+    name = "ios_multi_cpus",
+    converter = CommaSeparatedOptionListConverter.class,
+    defaultValue = "",
+    category = "flags",
+    help =
+        "Comma-separated list of architectures to build an ios_application with. The result "
+            + "is a universal binary containing all specified architectures."
+  )
   public List<String> iosMultiCpus;
 
-  @Option(name = "watchos_cpus",
-      converter = CommaSeparatedOptionListConverter.class,
-      defaultValue = DEFAULT_WATCHOS_CPU,
-      category = "flags",
-      help = "Comma-separated list of architectures for which to build Apple watchOS binaries.")
+  @Option(
+    name = "watchos_cpus",
+    converter = CommaSeparatedOptionListConverter.class,
+    defaultValue = DEFAULT_WATCHOS_CPU,
+    category = "flags",
+    help = "Comma-separated list of architectures for which to build Apple watchOS binaries."
+  )
   public List<String> watchosCpus;
 
-  @Option(name = "tvos_cpus",
-      converter = CommaSeparatedOptionListConverter.class,
-      defaultValue = DEFAULT_TVOS_CPU,
-      category = "flags",
-      help = "Comma-separated list of architectures for which to build Apple tvOS binaries.")
+  @Option(
+    name = "tvos_cpus",
+    converter = CommaSeparatedOptionListConverter.class,
+    defaultValue = DEFAULT_TVOS_CPU,
+    category = "flags",
+    help = "Comma-separated list of architectures for which to build Apple tvOS binaries."
+  )
   public List<String> tvosCpus;
 
-  @Option(name = "macos_cpus",
-      converter = CommaSeparatedOptionListConverter.class,
-      defaultValue = DEFAULT_MACOS_CPU,
-      category = "flags",
-      help = "Comma-separated list of architectures for which to build Apple macOS binaries.")
+  @Option(
+    name = "macos_cpus",
+    converter = CommaSeparatedOptionListConverter.class,
+    defaultValue = DEFAULT_MACOS_CPU,
+    category = "flags",
+    help = "Comma-separated list of architectures for which to build Apple macOS binaries."
+  )
   public List<String> macosCpus;
 
-  @Option(name = "default_ios_provisioning_profile",
-      defaultValue = "",
-      category = "undocumented",
-      converter = DefaultProvisioningProfileConverter.class)
+  @Option(
+    name = "default_ios_provisioning_profile",
+    defaultValue = "",
+    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+    converter = DefaultProvisioningProfileConverter.class
+  )
   public Label defaultProvisioningProfile;
 
   @Option(
     name = "xcode_version_config",
     defaultValue = "@local_config_xcode//:host_xcodes",
-    category = "undocumented",
+    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     converter = LabelConverter.class,
     help =
         "The label of the xcode_config rule to be used for selecting the Xcode version "
@@ -256,26 +277,30 @@ public class AppleCommandLineOptions extends FragmentOptions {
     name = "xcode_toolchain",
     defaultValue = "null",
     category = "flags",
-    help = "The identifier of an Xcode toolchain to use for builds. Currently only the toolchains "
-           + "that ship with Xcode are supported. For example, in addition to the default toolchain"
-           + " Xcode 8 has 'com.apple.dt.toolchain.Swift_2_3' which can be used for building legacy"
-           + " Swift code."
+    help =
+        "The identifier of an Xcode toolchain to use for builds. Currently only the toolchains "
+            + "that ship with Xcode are supported. For example, in addition to the default "
+            + "toolchain Xcode 8 has 'com.apple.dt.toolchain.Swift_2_3' which can be used for "
+            + "building legacy Swift code."
   )
   public String xcodeToolchain;
 
-  @Option(name = "apple_bitcode",
-      converter = AppleBitcodeMode.Converter.class,
-      // TODO(blaze-team): Default to embedded_markers when fully implemented.
-      defaultValue = "none",
-      category = "flags",
-      help = "Specify the Apple bitcode mode for compile steps. "
-             + "Values: 'none', 'embedded_markers', 'embedded'.")
+  @Option(
+    name = "apple_bitcode",
+    converter = AppleBitcodeMode.Converter.class,
+    // TODO(blaze-team): Default to embedded_markers when fully implemented.
+    defaultValue = "none",
+    category = "flags",
+    help =
+        "Specify the Apple bitcode mode for compile steps. "
+            + "Values: 'none', 'embedded_markers', 'embedded'."
+  )
   public AppleBitcodeMode appleBitcodeMode;
 
   @Option(
     name = "apple_crosstool_transition",
     defaultValue = "false",
-    category = "undocumented",
+    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     help = "If true, the apple crosstool is used for all apple rules."
   )
   public boolean enableAppleCrosstoolTransition;
@@ -283,7 +308,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
   @Option(
     name = "target_uses_apple_crosstool",
     defaultValue = "false",
-    category = "undocumented",
+    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     help = "If true, this target uses the apple crosstool.  Do not set this flag manually."
   )
   public boolean targetUsesAppleCrosstool;

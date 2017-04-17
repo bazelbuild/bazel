@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.exec.local;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import java.util.regex.Pattern;
 
 /**
@@ -23,19 +24,25 @@ import java.util.regex.Pattern;
  */
 public class LocalExecutionOptions extends OptionsBase {
 
-  @Option(name = "local_termination_grace_seconds",
-      oldName = "local_sigkill_grace_seconds",
-      category = "remote execution",
-      defaultValue = "15",
-      help = "Time to wait between terminating a local process due to timeout and forcefully "
-          + "shutting it down.")
+  @Option(
+    name = "local_termination_grace_seconds",
+    oldName = "local_sigkill_grace_seconds",
+    category = "remote execution",
+    defaultValue = "15",
+    help =
+        "Time to wait between terminating a local process due to timeout and forcefully "
+            + "shutting it down."
+  )
   public double localSigkillGraceSeconds;
 
-  @Option(name = "allowed_local_actions_regex",
-      category = "undocumented",
-      converter = Converters.RegexPatternConverter.class,
-      defaultValue = "null",
-      help = "A regex whitelist for action types which may be run locally. If unset, "
-             + "all actions are allowed to execute locally")
+  @Option(
+    name = "allowed_local_actions_regex",
+    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+    converter = Converters.RegexPatternConverter.class,
+    defaultValue = "null",
+    help =
+        "A regex whitelist for action types which may be run locally. If unset, "
+            + "all actions are allowed to execute locally"
+  )
   public Pattern allowedLocalAction;
 }

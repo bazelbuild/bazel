@@ -29,6 +29,7 @@ import com.google.devtools.build.android.desugar.CoreLibraryRewriter.Unprefixing
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.errorprone.annotations.MustBeClosed;
 import java.io.IOException;
 import java.io.InputStream;
@@ -61,8 +62,8 @@ class Desugar {
       converter = ExistingPathConverter.class,
       abbrev = 'i',
       help =
-        "Input Jar or directory with classes to desugar (required, the n-th input is paired with"
-        + "the n-th output)."
+          "Input Jar or directory with classes to desugar (required, the n-th input is paired with"
+              + "the n-th output)."
     )
     public List<Path> inputJars;
 
@@ -74,7 +75,7 @@ class Desugar {
       converter = ExistingPathConverter.class,
       help =
           "Ordered classpath (Jar or directory) to resolve symbols in the --input Jar, like "
-          + "javac's -cp flag."
+              + "javac's -cp flag."
     )
     public List<Path> classpath;
 
@@ -84,15 +85,16 @@ class Desugar {
       defaultValue = "",
       category = "input",
       converter = ExistingPathConverter.class,
-      help = "Bootclasspath that was used to compile the --input Jar with, like javac's "
-          + "-bootclasspath flag (required)."
+      help =
+          "Bootclasspath that was used to compile the --input Jar with, like javac's "
+              + "-bootclasspath flag (required)."
     )
     public List<Path> bootclasspath;
 
     @Option(
       name = "allow_empty_bootclasspath",
       defaultValue = "false",
-      category = "undocumented"
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED
     )
     public boolean allowEmptyBootclasspath;
 
@@ -101,7 +103,7 @@ class Desugar {
       defaultValue = "false",
       help =
           "A temporary flag specifically for android lint, subject to removal anytime (DO NOT USE)",
-      category = "undocumented"
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED
     )
     public boolean onlyDesugarJavac9ForLint;
 
@@ -154,7 +156,7 @@ class Desugar {
     @Option(
       name = "core_library",
       defaultValue = "false",
-      category = "undocumented",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       implicitRequirements = "--allow_empty_bootclasspath",
       help = "Enables rewriting to desugar java.* classes."
     )
