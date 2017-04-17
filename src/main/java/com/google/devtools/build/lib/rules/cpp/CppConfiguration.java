@@ -632,16 +632,30 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     // and libc versions, you must always choose compatible ones.
     runtimeSysroot = defaultSysroot;
 
-    unfilteredCompilerFlags =
-        new FlagList(
-            ImmutableList.copyOf(toolchain.getUnfilteredCxxFlagList()),
-            convertOptionalOptions(toolchain.getOptionalUnfilteredCxxFlagList()),
-            ImmutableList.<String>of());
+    String sysrootFlag;
+    if (sysroot != null) {
+      sysrootFlag = "--sysroot=" + sysroot;
+    } else {
+      sysrootFlag = null;
+    }
+
+    ImmutableList.Builder<String> unfilteredCoptsBuilder = ImmutableList.builder();
+    if (sysrootFlag != null) {
+      unfilteredCoptsBuilder.add(sysrootFlag);
+    }
+    unfilteredCoptsBuilder.addAll(toolchain.getUnfilteredCxxFlagList());
+    unfilteredCompilerFlags = new FlagList(
+        unfilteredCoptsBuilder.build(),
+        convertOptionalOptions(toolchain.getOptionalUnfilteredCxxFlagList()),
+        ImmutableList.<String>of());
 
     ImmutableList.Builder<String> linkoptsBuilder = ImmutableList.builder();
     linkoptsBuilder.addAll(cppOptions.linkoptList);
     if (cppOptions.experimentalOmitfp) {
       linkoptsBuilder.add("-Wl,--eh-frame-hdr");
+    }
+    if (sysrootFlag != null) {
+      linkoptsBuilder.add(sysrootFlag);
     }
     this.linkOptions = linkoptsBuilder.build();
 
@@ -704,14 +718,10 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     for (CrosstoolConfig.MakeVariable variable : toolchain.getMakeVariableList()) {
       makeVariablesBuilder.put(variable.getName(), variable.getValue());
     }
-    // TODO(b/36544671): Remove after crosstools have been updated to add sysroot to CC_FLAGS
-    if (sysroot != null) {
+    if (sysrootFlag != null) {
       String ccFlags = makeVariablesBuilder.get("CC_FLAGS");
-      if (!ccFlags.contains(sysroot.getSafePathString())) {
-        String sysrootFlag = "--sysroot=" + sysroot.getSafePathString();
-        ccFlags = ccFlags.isEmpty() ? sysrootFlag : ccFlags + " " + sysrootFlag;
-        makeVariablesBuilder.put("CC_FLAGS", ccFlags);
-      }
+      ccFlags = ccFlags.isEmpty() ? sysrootFlag : ccFlags + " " + sysrootFlag;
+      makeVariablesBuilder.put("CC_FLAGS", ccFlags);
     }
     this.additionalMakeVariables = ImmutableMap.copyOf(makeVariablesBuilder);
   }
@@ -730,7 +740,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
 
     return result.build();
   }
-
+  
   private static boolean actionsAreConfigured(CToolchain toolchain) {
     return Iterables.any(
         toolchain.getActionConfigList(),
@@ -905,6 +915,26 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
               toolchainBuilder);
         }
 
+        if (!features.contains("preprocessor_defines")) {
+          TextFormat.merge(
+              ""
+                  + "feature {"
+                  + "  name: 'preprocessor_defines'"
+                  + "  flag_set {"
+                  + "    action: 'preprocess-assemble'"
+                  + "    action: 'c-compile'"
+                  + "    action: 'c++-compile'"
+                  + "    action: 'c++-header-parsing'"
+                  + "    action: 'c++-header-preprocessing'"
+                  + "    action: 'c++-module-compile'"
+                  + "    action: 'clif-match'"
+                  + "    flag_group {"
+                  + "      flag: '-D%{preprocessor_defines}'"
+                  + "    }"
+                  + "  }"
+                  + "}",
+              toolchainBuilder);
+        }
         if (!features.contains("include_paths")) {
           TextFormat.merge(
               ""
