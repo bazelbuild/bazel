@@ -27,6 +27,7 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
+import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.OptionsParser.OptionValueDescription;
 import com.google.devtools.common.options.OptionsParser.UnparsedOptionValueDescription;
 import java.io.IOException;
@@ -100,10 +101,12 @@ public class OptionsParserTest {
             allowMultiple = true)
     public List<String> bang;
 
-    @Option(name = "nodoc",
-        category = "undocumented",
-        defaultValue = "",
-        allowMultiple = false)
+    @Option(
+      name = "nodoc",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      defaultValue = "",
+      allowMultiple = false
+    )
     public String nodoc;
   }
 
@@ -138,19 +141,25 @@ public class OptionsParserTest {
    * Example with internal options
    */
   public static class ExampleInternalOptions extends OptionsBase {
-    @Option(name = "internal_boolean",
-            category = "internal",
-            defaultValue = "true")
+    @Option(
+      name = "internal_boolean",
+      optionUsageRestrictions = OptionUsageRestrictions.INTERNAL,
+      defaultValue = "true"
+    )
     public boolean privateBoolean;
 
-    @Option(name = "internal_string",
-            category = "internal",
-            defaultValue = "super secret")
+    @Option(
+      name = "internal_string",
+      optionUsageRestrictions = OptionUsageRestrictions.INTERNAL,
+      defaultValue = "super secret"
+    )
     public String privateString;
 
-    @Option(name = "public string",
-            category = "undocumented",
-            defaultValue = "not a secret")
+    @Option(
+      name = "public string",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      defaultValue = "not a secret"
+    )
     public String publicString;
   }
 
@@ -603,9 +612,12 @@ public class OptionsParserTest {
   }
 
   public static class CategoryTest extends OptionsBase {
-    @Option(name = "swiss_bank_account_number",
-            category = "undocumented", // Not printed in usage messages!
-            defaultValue = "123456789")
+    @Option(
+      name = "swiss_bank_account_number",
+      optionUsageRestrictions =
+          OptionUsageRestrictions.UNDOCUMENTED, // Not printed in usage messages!
+      defaultValue = "123456789"
+    )
     public int swissBankAccountNumber;
 
     @Option(name = "student_bank_account_number",
@@ -1234,19 +1246,25 @@ public class OptionsParserTest {
             defaultValue = "beta")
     public String beta;
 
-    @Option(name = "gamma",
-        category = "undocumented",
-        defaultValue = "gamma")
+    @Option(
+      name = "gamma",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      defaultValue = "gamma"
+    )
     public String gamma;
 
-    @Option(name = "delta",
-        category = "undocumented",
-        defaultValue = "delta")
+    @Option(
+      name = "delta",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      defaultValue = "delta"
+    )
     public String delta;
 
-    @Option(name = "echo",
-        category = "hidden",
-        defaultValue = "echo")
+    @Option(
+      name = "echo",
+      optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+      defaultValue = "echo"
+    )
     public String echo;
   }
 

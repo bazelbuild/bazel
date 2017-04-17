@@ -22,6 +22,7 @@ import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -77,13 +78,17 @@ public class TransitiveOptionDetailsTest {
     @Option(name = "multi_option", defaultValue = "n/a (allows multiple)", allowMultiple = true)
     public List<String> multiOption;
 
-    @Option(name = "internal option", defaultValue = "secret", category = "internal")
+    @Option(
+      name = "internal option",
+      defaultValue = "secret",
+      optionUsageRestrictions = OptionUsageRestrictions.INTERNAL
+    )
     public String internalOption;
 
     @Option(
       name = "internal multi option",
       defaultValue = "n/a",
-      category = "internal",
+      optionUsageRestrictions = OptionUsageRestrictions.INTERNAL,
       allowMultiple = true
     )
     public List<String> internalMultiOption;

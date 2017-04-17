@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
+import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -71,21 +72,39 @@ public @interface Option {
   String defaultValue();
 
   /**
-   * A string describing the category of options that this belongs to. {@link
-   * OptionsParser#describeOptions} prints options of the same category grouped together.
+   * A string describing the role of the option. Some existing categories are "input," "output,"
+   * "config," "semantics," and "strategy," among others.
    *
-   * <p>There are three special category values:
+   * <p>The category of options that this belongs to dictates how options are grouped by {@link
+   * OptionsParser#describeOptions}, for the usage documentation.
+   *
+   * <p>For undocumented flags that aren't listed anywhere, this is currently a no-op. Feel free to
+   * set the value that it would have if it were documented, which might be helpful if a flag is
+   * part of an experimental feature that might become documented in the future, or just leave it
+   * unset as the default.
+   *
+   * <p>For hidden or internal options, use the category field only if it is helpful for yourself or
+   * other Bazel developers.
+   */
+  String category() default "misc";
+
+  // TODO(b/37353610) the old convention was to include documentation level in the category(),
+  // which is still permitted for backwards compatibility. This field should be used for any new
+  // options, as the old category use will be removed.
+  /**
+   * Options have multiple uses, some flags, some not. For user-visible flags, they are
+   * "documented," but otherwise, there are 3 types of undocumented options.
    *
    * <ul>
-   *   <li>{@code "undocumented"}: options which are useful for (some subset of) users, but not
-   *       meant to be publicly advertised. For example, experimental options which are only meant
-   *       to be used by specific testers or team members, but which should otherwise be treated
-   *       normally. These options will not be listed in the usage info displayed for the {@code
-   *       --help} option. They are otherwise normal - {@link
+   *   <li>{@code UNDOCUMENTED}: undocumented but user-usable flags. These options are useful for
+   *       (some subset of) users, but not meant to be publicly advertised. For example,
+   *       experimental options which are only meant to be used by specific testers or team members.
+   *       These options will not be listed in the usage info displayed for the {@code --help}
+   *       option. They are otherwise normal - {@link
    *       OptionsParser.UnparsedOptionValueDescription#isHidden()} returns {@code false} for them,
    *       and they can be parsed normally from the command line or RC files.
-   *   <li>{@code "hidden"}: options which users should not pass or know about, but which are used
-   *       by the program (e.g., communication between a command-line client and a backend server).
+   *   <li>{@code HIDDEN}: flags which users should not pass or know about, but which are used by
+   *       the program (e.g., communication between a command-line client and a backend server).
    *       Like {@code "undocumented"} options, these options will not be listed in the usage info
    *       displayed for the {@code --help} option. However, in addition to this, calling {@link
    *       OptionsParser.UnparsedOptionValueDescription#isHidden()} on these options will return
@@ -93,16 +112,16 @@ public @interface Option {
    *       logging or otherwise reporting the command line to the user. This category does not
    *       affect the option in any other way; it can still be parsed normally from the command line
    *       or an RC file.
-   *   <li>{@code "internal"}: options which are purely for internal use within the JVM, and should
-   *       never be shown to the user, nor ever need to be parsed by the options parser. Like {@code
-   *       "hidden"} options, these options will not be listed in the usage info displayed for the
-   *       --help option, and are considered hidden by {@link
+   *   <li>{@code INTERNAL}: these are not flags, but options which are purely for internal use
+   *       within the JVM, and should never be shown to the user, nor be parsed by the options
+   *       parser. Like {@code "hidden"} options, these options will not be listed in the usage info
+   *       displayed for the --help option, and are considered hidden by {@link
    *       OptionsParser.UnparsedOptionValueDescription#isHidden()}. Unlike those, this type of
    *       option cannot be parsed by any call to {@link OptionsParser#parse} - it will be treated
    *       as if it was not defined.
    * </ul>
    */
-  String category() default "misc";
+  OptionUsageRestrictions optionUsageRestrictions() default OptionUsageRestrictions.DOCUMENTED;
 
   /**
    * The converter that we'll use to convert the string representation of this option's value into

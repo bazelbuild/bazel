@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.analysis.config;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.util.Map;
@@ -43,7 +45,7 @@ public final class TransitiveOptionDetails implements Serializable {
         for (Field field : options.getClass().getFields()) {
           if (field.isAnnotationPresent(Option.class)) {
             Option option = field.getAnnotation(Option.class);
-            if (option.category().equals("internal")) {
+            if (OptionsParser.documentationLevel(option).equals(OptionUsageRestrictions.INTERNAL)) {
               // ignore internal options
               continue;
             }

@@ -26,6 +26,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionPriority;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.Test;
@@ -49,19 +50,25 @@ public class OptionsUtilsTest {
             defaultValue = "beta")
     public String beta;
 
-    @Option(name = "gamma",
-            category = "undocumented",
-            defaultValue = "gamma")
+    @Option(
+      name = "gamma",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      defaultValue = "gamma"
+    )
     public String gamma;
 
-    @Option(name = "delta",
-            category = "undocumented",
-            defaultValue = "delta")
+    @Option(
+      name = "delta",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      defaultValue = "delta"
+    )
     public String delta;
 
-    @Option(name = "echo",
-            category = "hidden",
-            defaultValue = "echo")
+    @Option(
+      name = "echo",
+      optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+      defaultValue = "echo"
+    )
     public String echo;
   }
 
