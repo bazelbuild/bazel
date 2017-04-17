@@ -188,6 +188,27 @@ public final class DottedVersion implements Comparable<DottedVersion> {
     return Joiner.on('.').join(stringComponents.build());
   }
 
+  /**
+   * Returns true if this version number has any alphabetic characters, such as 'alpha' in
+   * "7.3alpha.2".
+   */
+  public boolean hasAlphabeticCharacters() {
+    for (Component component : components) {
+      if (!Objects.equals(component.alphaSequence, NO_ALPHA_SEQUENCE)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Returns the number of components in this version number. For example, "7.3.0" has three
+   * components.
+   */
+  public int numComponents() {
+    return components.size();
+  }
+
   @Override
   public String toString() {
     return stringRepresentation;
