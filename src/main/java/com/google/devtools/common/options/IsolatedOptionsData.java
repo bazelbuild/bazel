@@ -16,73 +16,89 @@ package com.google.devtools.common.options;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
+import com.google.common.collect.Ordering;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.concurrent.Immutable;
 
 /**
- * An immutable selection of options data corresponding to a set of options classes. The data is
- * collected using reflection, which can be expensive. Therefore this class can be used internally
- * to cache the results.
+ * A selection of options data corresponding to a set of {@link OptionsBase} subclasses (options
+ * classes). The data is collected using reflection, which can be expensive. Therefore this class
+ * can be used internally to cache the results.
  *
- * <p>The data is isolated in the sense that it has not yet been processed to add inter-option-
- * dependent information -- namely, the results of evaluating expansion functions. The {@link
- * OptionsData} subclass stores this added information. The reason for the split is so that we can
- * avoid exposing to expansion functions the effects of evaluating other expansion functions, to
- * ensure that the order in which they run is not significant.
+ * <p>The data is isolated in the sense that it has not yet been processed to add
+ * inter-option-dependent information -- namely, the results of evaluating expansion functions. The
+ * {@link OptionsData} subclass stores this added information. The reason for the split is so that
+ * we can avoid exposing to expansion functions the effects of evaluating other expansion functions,
+ * to ensure that the order in which they run is not significant.
+ *
+ * <p>This class is immutable so long as the converters and default values associated with the
+ * options are immutable.
  */
-// TODO(brandjon): This class is technically not necessarily immutable due to optionsDefault
-// accepting Object values, and the List in allOptionsField should be ImmutableList. Either fix
-// this or remove @Immutable.
 @Immutable
 public class IsolatedOptionsData extends OpaqueOptionsData {
 
   /**
-   * These are the options-declaring classes which are annotated with {@link Option} annotations.
+   * Mapping from each options class to its no-arg constructor. Entries appear in the same order
+   * that they were passed to {@link #from(Collection)}.
    */
   private final ImmutableMap<Class<? extends OptionsBase>, Constructor<?>> optionsClasses;
 
-  /** Maps option name to Option-annotated Field. */
+  /**
+   * Mapping from option name to {@code @Option}-annotated field. Entries appear ordered first by
+   * their options class (the order in which they were passed to {@link #from(Collection)}, and then
+   * in alphabetic order within each options class.
+   */
   private final ImmutableMap<String, Field> nameToField;
 
-  /** Maps option abbreviation to Option-annotated Field. */
+  /** Mapping from option abbreviation to {@code Option}-annotated field (unordered). */
   private final ImmutableMap<Character, Field> abbrevToField;
 
-  /** For each options class, contains a list of all Option-annotated fields in that class. */
-  private final ImmutableMap<Class<? extends OptionsBase>, List<Field>> allOptionsFields;
+  /**
+   * Mapping from options class to a list of all {@code Option}-annotated fields in that class. The
+   * map entries are unordered, but the fields in the lists are ordered alphabetically.
+   */
+  private final ImmutableMap<Class<? extends OptionsBase>, ImmutableList<Field>> allOptionsFields;
 
-  /** Mapping from each Option-annotated field to the default value for that field. */
-  // Immutable like the others, but uses Collections.unmodifiableMap because of null values.
+  /**
+   * Mapping from each {@code Option}-annotated field to the default value for that field
+   * (unordered).
+   *
+   * <p>(This is immutable like the others, but uses {@code Collections.unmodifiableMap} to support
+   * null values.)
+   */
   private final Map<Field, Object> optionDefaults;
 
   /**
-   * Mapping from each Option-annotated field to the proper converter.
+   * Mapping from each {@code Option}-annotated field to the proper converter (unordered).
    *
    * @see #findConverter
    */
   private final ImmutableMap<Field, Converter<?>> converters;
 
   /**
-   * Mapping from each Option-annotated field to a boolean for whether that field allows multiple
-   * values.
+   * Mapping from each {@code Option}-annotated field to a boolean for whether that field allows
+   * multiple values (unordered).
    */
   private final ImmutableMap<Field, Boolean> allowMultiple;
 
   private IsolatedOptionsData(
-      Map<Class<? extends OptionsBase>, Constructor<?>> optionsClasses,
+      Map<Class<? extends OptionsBase>,
+      Constructor<?>> optionsClasses,
       Map<String, Field> nameToField,
       Map<Character, Field> abbrevToField,
-      Map<Class<? extends OptionsBase>, List<Field>> allOptionsFields,
+      Map<Class<? extends OptionsBase>, ImmutableList<Field>> allOptionsFields,
       Map<Field, Object> optionDefaults,
       Map<Field, Converter<?>> converters,
       Map<Field, Boolean> allowMultiple) {
@@ -107,6 +123,10 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
         other.allowMultiple);
   }
 
+  /**
+   * Returns all options classes indexed by this options data object, in the order they were passed
+   * to {@link #from(Collection)}.
+   */
   public Collection<Class<? extends OptionsBase>> getOptionsClasses() {
     return optionsClasses.keySet();
   }
@@ -120,6 +140,11 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
     return nameToField.get(name);
   }
 
+  /**
+   * Returns all pairs of option names (not field names) and their corresponding {@link Field}
+   * objects. Entries appear ordered first by their options class (the order in which they were
+   * passed to {@link #from(Collection)}, and then in alphabetic order within each options class.
+   */
   public Iterable<Map.Entry<String, Field>> getAllNamedFields() {
     return nameToField.entrySet();
   }
@@ -128,7 +153,11 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
     return abbrevToField.get(abbrev);
   }
 
-  public List<Field> getFieldsForClass(Class<? extends OptionsBase> optionsClass) {
+  /**
+   * Returns a list of all {@link Field} objects for options in the given options class, ordered
+   * alphabetically by option name.
+   */
+  public ImmutableList<Field> getFieldsForClass(Class<? extends OptionsBase> optionsClass) {
     return allOptionsFields.get(optionsClass);
   }
 
@@ -226,17 +255,29 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
     }
   }
 
-  private static List<Field> getAllAnnotatedFields(Class<? extends OptionsBase> optionsClass) {
-    List<Field> allFields = Lists.newArrayList();
+  private static final Ordering<Field> fieldOrdering =
+      new Ordering<Field>() {
+    @Override
+    public int compare(Field f1, Field f2) {
+      String n1 = f1.getAnnotation(Option.class).name();
+      String n2 = f2.getAnnotation(Option.class).name();
+      return n1.compareTo(n2);
+    }
+  };
+
+  /**
+   * Return all {@code @Option}-annotated fields, alphabetically ordered by their option name (not
+   * their field name).
+   */
+  private static ImmutableList<Field> getAllAnnotatedFieldsSorted(
+      Class<? extends OptionsBase> optionsClass) {
+    List<Field> unsortedFields = new ArrayList<>();
     for (Field field : optionsClass.getFields()) {
       if (field.isAnnotationPresent(Option.class)) {
-        allFields.add(field);
+        unsortedFields.add(field);
       }
     }
-    if (allFields.isEmpty()) {
-      throw new IllegalStateException(optionsClass + " has no public @Option-annotated fields");
-    }
-    return ImmutableList.copyOf(allFields);
+    return fieldOrdering.immutableSortedCopy(unsortedFields);
   }
 
   private static Object retrieveDefaultFromAnnotation(Field optionField) {
@@ -300,23 +341,25 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
     // Record that the boolean option takes up additional namespace for its negating alias.
     booleanAliasMap.put("no" + optionName, optionName);
   }
-  
+
   /**
    * Constructs an {@link IsolatedOptionsData} object for a parser that knows about the given
    * {@link OptionsBase} classes. No inter-option analysis is done. Performs basic sanity checking
    * on each option in isolation.
    */
   static IsolatedOptionsData from(Collection<Class<? extends OptionsBase>> classes) {
-    Map<Class<? extends OptionsBase>, Constructor<?>> constructorBuilder = Maps.newHashMap();
-    Map<Class<? extends OptionsBase>, List<Field>> allOptionsFieldsBuilder = Maps.newHashMap();
-    Map<String, Field> nameToFieldBuilder = Maps.newHashMap();
-    Map<Character, Field> abbrevToFieldBuilder = Maps.newHashMap();
-    Map<Field, Object> optionDefaultsBuilder = Maps.newHashMap();
-    Map<Field, Converter<?>> convertersBuilder = Maps.newHashMap();
-    Map<Field, Boolean> allowMultipleBuilder = Maps.newHashMap();
+    // Mind which fields have to preserve order.
+    Map<Class<? extends OptionsBase>, Constructor<?>> constructorBuilder = new LinkedHashMap<>();
+    Map<Class<? extends OptionsBase>, ImmutableList<Field>> allOptionsFieldsBuilder =
+        new HashMap<>();
+    Map<String, Field> nameToFieldBuilder = new LinkedHashMap<>();
+    Map<Character, Field> abbrevToFieldBuilder = new HashMap<>();
+    Map<Field, Object> optionDefaultsBuilder = new HashMap<>();
+    Map<Field, Converter<?>> convertersBuilder = new HashMap<>();
+    Map<Field, Boolean> allowMultipleBuilder = new HashMap<>();
 
     // Maps the negated boolean flag aliases to the original option name.
-    Map<String, String> booleanAliasMap = Maps.newHashMap();
+    Map<String, String> booleanAliasMap = new HashMap<>();
 
     // Read all Option annotations:
     for (Class<? extends OptionsBase> parsedOptionsClass : classes) {
@@ -328,7 +371,7 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
         throw new IllegalArgumentException(parsedOptionsClass
             + " lacks an accessible default constructor");
       }
-      List<Field> fields = getAllAnnotatedFields(parsedOptionsClass);
+      ImmutableList<Field> fields = getAllAnnotatedFieldsSorted(parsedOptionsClass);
       allOptionsFieldsBuilder.put(parsedOptionsClass, fields);
 
       for (Field field : fields) {

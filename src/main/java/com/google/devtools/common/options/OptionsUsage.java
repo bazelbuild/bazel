@@ -270,6 +270,7 @@ class OptionsUsage {
     }
   }
 
+  // TODO(brandjon): Should this use sorting by option name instead of field name?
   private static final Comparator<Field> BY_NAME = new Comparator<Field>() {
     @Override
     public int compare(Field left, Field right) {

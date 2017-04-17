@@ -18,7 +18,10 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
+import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -33,13 +36,24 @@ public class OptionsDataTest {
   }
 
   private static IsolatedOptionsData construct(
-      Class<? extends OptionsBase> optionsClass1, Class<? extends OptionsBase> optionsClass2)
+      Class<? extends OptionsBase> optionsClass1,
+      Class<? extends OptionsBase> optionsClass2)
       throws OptionsParser.ConstructionException {
     return IsolatedOptionsData.from(
         ImmutableList.<Class<? extends OptionsBase>>of(optionsClass1, optionsClass2));
   }
 
-  /** Dummy comment (linter suppression) */
+  private static IsolatedOptionsData construct(
+      Class<? extends OptionsBase> optionsClass1,
+      Class<? extends OptionsBase> optionsClass2,
+      Class<? extends OptionsBase> optionsClass3)
+      throws OptionsParser.ConstructionException {
+    return IsolatedOptionsData.from(
+        ImmutableList.<Class<? extends OptionsBase>>of(
+            optionsClass1, optionsClass2, optionsClass3));
+  }
+
+  /** Dummy options class. */
   public static class ExampleNameConflictOptions extends OptionsBase {
     @Option(
       name = "foo",
@@ -65,7 +79,7 @@ public class OptionsDataTest {
     }
   }
 
-  /** Dummy comment (linter suppression) */
+  /** Dummy options class. */
   public static class ExampleIntegerFooOptions extends OptionsBase {
     @Option(
       name = "foo",
@@ -74,7 +88,7 @@ public class OptionsDataTest {
     public int foo;
   }
 
-  /** Dummy comment (linter suppression) */
+  /** Dummy options class. */
   public static class ExampleBooleanFooOptions extends OptionsBase {
     @Option(
       name = "foo",
@@ -94,7 +108,7 @@ public class OptionsDataTest {
     }
   }
 
-  /** Dummy comment (linter suppression) */
+  /** Dummy options class. */
   public static class ExamplePrefixFooOptions extends OptionsBase {
     @Option(
       name = "nofoo",
@@ -127,7 +141,7 @@ public class OptionsDataTest {
     }
   }
 
-  /** Dummy comment (linter suppression) */
+  /** Dummy options class. */
   public static class ExampleBarWasNamedFooOption extends OptionsBase {
     @Option(
       name = "bar",
@@ -151,7 +165,7 @@ public class OptionsDataTest {
     }
   }
 
-  /** Dummy comment (linter suppression) */
+  /** Dummy options class. */
   public static class ExampleBarWasNamedNoFooOption extends OptionsBase {
     @Option(
       name = "bar",
@@ -176,7 +190,7 @@ public class OptionsDataTest {
     }
   }
 
-  /** Dummy comment (linter suppression) */
+  /** Dummy options class. */
   public static class OldNameConflictExample extends OptionsBase {
     @Option(
       name = "new_name",
@@ -201,7 +215,7 @@ public class OptionsDataTest {
     }
   }
 
-  /** Dummy comment (linter suppression) */
+  /** Dummy options class. */
   public static class StringConverter implements Converter<String> {
     @Override
     public String convert(String input) {
@@ -214,7 +228,7 @@ public class OptionsDataTest {
     }
   }
 
-  /** Dummy comment (linter suppression) */
+  /** Dummy options class. */
   public static class InvalidOptionConverter extends OptionsBase {
     @Option(
       name = "foo",
@@ -235,7 +249,7 @@ public class OptionsDataTest {
     fail();
   }
 
-  /** Dummy comment (linter suppression) */
+  /** Dummy options class. */
   public static class InvalidListOptionConverter extends OptionsBase {
     @Option(
       name = "foo",
@@ -255,5 +269,123 @@ public class OptionsDataTest {
       return;
     }
     fail();
+  }
+
+  /**
+   * Dummy options class.
+   *
+   * <p>Option name order is different from field name order.
+   * 
+   * <p>There are four fields to increase the likelihood of a non-deterministic order being noticed.
+   */
+  public static class FieldNamesDifferOptions extends OptionsBase {
+
+    @Option(
+      name = "foo",
+      defaultValue = "0"
+    )
+    public int aFoo;
+
+    @Option(
+      name = "bar",
+      defaultValue = "0"
+    )
+    public int bBar;
+
+    @Option(
+      name = "baz",
+      defaultValue = "0"
+    )
+    public int cBaz;
+
+    @Option(
+      name = "qux",
+      defaultValue = "0"
+    )
+    public int dQux;
+  }
+
+  /** Dummy options class. */
+  public static class EndOfAlphabetOptions extends OptionsBase {
+    @Option(
+      name = "X",
+      defaultValue = "0"
+    )
+    public int x;
+
+    @Option(
+      name = "Y",
+      defaultValue = "0"
+    )
+    public int y;
+  }
+
+  /** Dummy options class. */
+  public static class ReverseOrderedOptions extends OptionsBase {
+    @Option(
+      name = "C",
+      defaultValue = "0"
+    )
+    public int c;
+
+    @Option(
+      name = "B",
+      defaultValue = "0"
+    )
+    public int b;
+
+    @Option(
+      name = "A",
+      defaultValue = "0"
+    )
+    public int a;
+  }
+
+  @Test
+  public void optionsClassesIsOrdered() throws Exception {
+    IsolatedOptionsData data = construct(
+        FieldNamesDifferOptions.class,
+        EndOfAlphabetOptions.class,
+        ReverseOrderedOptions.class);
+    assertThat(data.getOptionsClasses()).containsExactly(
+        FieldNamesDifferOptions.class,
+        EndOfAlphabetOptions.class,
+        ReverseOrderedOptions.class).inOrder();
+  }
+
+  @Test
+  public void getAllNamedFieldsIsOrdered() throws Exception {
+    IsolatedOptionsData data = construct(
+        FieldNamesDifferOptions.class,
+        EndOfAlphabetOptions.class,
+        ReverseOrderedOptions.class);
+    ArrayList<String> names = new ArrayList<>();
+    for (Map.Entry<String, Field> entry : data.getAllNamedFields()) {
+      names.add(entry.getKey());
+    }
+    assertThat(names).containsExactly(
+        "bar", "baz", "foo", "qux", "X", "Y", "A", "B", "C").inOrder();
+  }
+
+  private List<String> getOptionNames(Iterable<Field> fields) {
+    ArrayList<String> result = new ArrayList<>();
+    for (Field field : fields) {
+      result.add(field.getAnnotation(Option.class).name());
+    }
+    return result;
+  }
+
+  @Test
+  public void getFieldsForClassIsOrdered() throws Exception {
+    IsolatedOptionsData data = construct(
+        FieldNamesDifferOptions.class,
+        EndOfAlphabetOptions.class,
+        ReverseOrderedOptions.class);
+    assertThat(getOptionNames(data.getFieldsForClass(FieldNamesDifferOptions.class)))
+        .containsExactly("bar", "baz", "foo", "qux").inOrder();
+    assertThat(getOptionNames(data.getFieldsForClass(EndOfAlphabetOptions.class)))
+        .containsExactly("X", "Y").inOrder();
+    assertThat(getOptionNames(data.getFieldsForClass(ReverseOrderedOptions.class)))
+        .containsExactly("A", "B", "C").inOrder();
   }
 }
