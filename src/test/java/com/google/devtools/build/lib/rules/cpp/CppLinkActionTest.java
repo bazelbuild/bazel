@@ -88,7 +88,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 ImmutableSet.<String>of(),
                 "gcc_tool",
                 "dynamic_library_linker_tool",
-                "ar_tool",
                 true))
         .getFeatureConfiguration(
             Link.LinkTargetType.EXECUTABLE.getActionName(),

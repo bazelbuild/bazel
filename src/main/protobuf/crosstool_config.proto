@@ -384,7 +384,6 @@ message CToolchain {
   repeated string ld_embed_flag = 23;
   // Ar flags for combining object files into archives. If this is not set, it
   // defaults to "rcsD".
-  // TODO(b/37271982): Remove after blaze with ar action_config release
   repeated string ar_flag = 47;
   // Legacy field, ignored by Bazel.
   repeated string ar_thin_archives_flag = 48;

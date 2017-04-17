@@ -269,6 +269,7 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
               repository_ctx, cc, "-pass-exit-codes"
           )
       ),
+      "ar_flag": ["-static", "-s", "-o"] if darwin else [],
       "cxx_builtin_include_directory": _get_cxx_inc_directories(repository_ctx, cc),
       "objcopy_embed_flag": ["-I", "binary"],
       "unfiltered_cxx_flag":

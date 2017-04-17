@@ -220,6 +220,9 @@ toolchain {
   tool_path { name: "dwp" path: "/usr/bin/dwp" }
   tool_path { name: "gcc" path: "osx_cc_wrapper.sh" }
   cxx_flag: "-std=c++0x"
+  ar_flag: "-static"
+  ar_flag: "-s"
+  ar_flag: "-o"
   linker_flag: "-lstdc++"
   linker_flag: "-undefined"
   linker_flag: "dynamic_lookup"

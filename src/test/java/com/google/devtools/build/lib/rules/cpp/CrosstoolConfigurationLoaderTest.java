@@ -223,6 +223,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
 
     assertEquals(Arrays.asList("objcopy"), toolchain.getObjCopyOptionsForEmbedding());
     assertEquals(Arrays.<String>asList(), toolchain.getLdOptionsForEmbedding());
+    assertEquals(Arrays.asList("rcsD"), toolchain.getArFlags());
 
     assertThat(toolchain.getAdditionalMakeVariables().entrySet())
         .containsExactlyElementsIn(
@@ -296,6 +297,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                 + "  objcopy_embed_flag: \"objcopy-embed-flag-A-2\"\n"
                 + "  ld_embed_flag: \"ld-embed-flag-A-1\"\n"
                 + "  ld_embed_flag: \"ld-embed-flag-A-2\"\n"
+                + "  ar_flag : \"ar-flag-A\"\n"
                 + "  compilation_mode_flags {\n"
                 + "    mode: FASTBUILD\n"
                 + "    compiler_flag: \"fastbuild-flag-A-1\"\n"
@@ -387,6 +389,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                 + "  objcopy_embed_flag: \"objcopy-embed-flag-B-2\"\n"
                 + "  ld_embed_flag: \"ld-embed-flag-B-1\"\n"
                 + "  ld_embed_flag: \"ld-embed-flag-B-2\"\n"
+                + "  ar_flag : \"ar-flag-B\"\n"
                 + "  compilation_mode_flags {\n"
                 + "    mode: FASTBUILD\n"
                 + "    compiler_flag: \"fastbuild-flag-B-1\"\n"
@@ -579,6 +582,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertEquals(
         Arrays.asList("ld-embed-flag-A-1", "ld-embed-flag-A-2"),
         toolchainA.getLdOptionsForEmbedding());
+    assertEquals(Arrays.asList("ar-flag-A"), toolchainA.getArFlags());
 
     assertThat(toolchainA.getAdditionalMakeVariables().entrySet())
         .containsExactlyElementsIn(

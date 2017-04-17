@@ -131,13 +131,6 @@ public class CppLinkActionBuilder {
   public static final String IS_CC_TEST_LINK_ACTION_VARIABLE = "is_cc_test_link_action";
 
   /**
-   * Temporary build variable for migrating osx crosstool.
-   * TODO(b/37271982): Remove after blaze with ar action_config release
-   */
-  public static final String USES_ACTION_CONFIG_FOR_AR_VARIABLE =
-      "uses_action_configs_for_cc_archiver";
-
-  /**
    *  A build variable whose presence indicates that files were compiled with fission (debug
    *  info is in .dwo files instead of .o files and linker needs to know).
    */
@@ -1375,9 +1368,6 @@ public class CppLinkActionBuilder {
       } else {
         buildVariables.addStringVariable(IS_NOT_CC_TEST_LINK_ACTION_VARIABLE, "");
       }
-
-      // TODO(b/37271982): Remove after blaze with ar action_config release
-      buildVariables.addStringVariable(USES_ACTION_CONFIG_FOR_AR_VARIABLE, "");
 
       if (linkArgCollector.getRuntimeLibrarySearchDirectories() != null) {
         buildVariables.addStringSequenceVariable(
