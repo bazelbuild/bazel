@@ -50,16 +50,29 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class OptionsParserTest {
 
-  /**
-   * Asserts that the given ConstructionException wraps an expected exception type with an expected
-   * message.
-   */
-  private static void assertConstructionErrorCausedBy(
-      OptionsParser.ConstructionException e,
-      Class<? extends Throwable> expectedType,
-      String expectedMessage) {
-    assertThat(e.getCause()).isInstanceOf(expectedType);
-    assertThat(e.getCause().getMessage()).contains(expectedMessage);
+  /** Dummy comment (linter suppression) */
+  public static class BadOptions extends OptionsBase {
+    @Option(
+      name = "foo",
+      defaultValue = "false"
+    )
+    public boolean foo1;
+
+    @Option(
+      name = "foo",
+      defaultValue = "false"
+    )
+    public boolean foo2;
+  }
+
+  @Test
+  public void errorsDuringConstructionAreWrapped() {
+    try {
+      newOptionsParser(BadOptions.class);
+      fail();
+    } catch (OptionsParser.ConstructionException e) {
+      assertThat(e.getCause()).isInstanceOf(DuplicateOptionDeclarationException.class);
+    }
   }
 
   public static class ExampleFoo extends OptionsBase {
@@ -859,7 +872,7 @@ public class OptionsParserTest {
   @Test
   public void conflictingExpansions() throws Exception {
     try {
-      OptionsParser.newOptionsParser(ConflictingExpansionsOptions.class);
+      newOptionsParser(ConflictingExpansionsOptions.class);
       fail("Should have failed due to specifying both expansion and expansionFunction");
     } catch (AssertionError e) {
       assertThat(e.getMessage())
@@ -887,10 +900,11 @@ public class OptionsParserTest {
     // Ensure that we get the NPE at the time of parser construction, not later when actually
     // parsing.
     try {
-      OptionsParser.newOptionsParser(NullExpansionsOptions.class);
+      newOptionsParser(NullExpansionsOptions.class);
       fail("Should have failed due to null expansion function result");
     } catch (OptionsParser.ConstructionException e) {
-      assertConstructionErrorCausedBy(e, NullPointerException.class, "null value in entry");
+      assertThat(e.getCause()).isInstanceOf(NullPointerException.class);
+      assertThat(e.getCause().getMessage()).contains("null value in entry");
     }
   }
 
@@ -1158,60 +1172,42 @@ public class OptionsParserTest {
   }
 
   public static class ExpansionWarningOptions extends OptionsBase {
-    @Option(name = "first",
-            expansion = "--second=other",
-            defaultValue = "null")
+    @Option(
+      name = "first",
+      expansion = "--underlying=other",
+      defaultValue = "null"
+    )
     public Void first;
 
-    @Option(name = "second",
-            defaultValue = "null")
-    public String second;
+    @Option(
+      name = "second",
+      expansion = "--underlying=other",
+      defaultValue = "null"
+    )
+    public Void second;
+
+    @Option(
+      name = "underlying",
+      defaultValue = "null"
+    )
+    public String underlying;
   }
 
   @Test
   public void warningForExpansionOverridingExplicitOption() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(ExpansionWarningOptions.class);
-    parser.parse("--second=second", "--first");
-    assertThat(parser.getWarnings())
-        .containsExactly("The option 'first' was expanded and now overrides a "
-                         + "previous explicitly specified option 'second'");
-  }
-
-  public static class InvalidOptionConverter extends OptionsBase {
-    @Option(name = "foo",
-            converter = StringConverter.class,
-            defaultValue = "1")
-    public Integer foo;
+    parser.parse("--underlying=underlying", "--first");
+    assertThat(parser.getWarnings()).containsExactly(
+        "The option 'first' was expanded and now overrides a "
+        + "previous explicitly specified option 'underlying'");
   }
 
   @Test
-  public void errorForInvalidOptionConverter() throws Exception {
-    try {
-      OptionsParser.newOptionsParser(InvalidOptionConverter.class);
-    } catch (AssertionError e) {
-      // Expected exception
-      return;
-    }
-    fail();
-  }
-
-  public static class InvalidListOptionConverter extends OptionsBase {
-    @Option(name = "foo",
-            converter = StringConverter.class,
-            defaultValue = "1",
-            allowMultiple = true)
-    public List<Integer> foo;
-  }
-
-  @Test
-  public void errorForInvalidListOptionConverter() throws Exception {
-    try {
-      OptionsParser.newOptionsParser(InvalidListOptionConverter.class);
-    } catch (AssertionError e) {
-      // Expected exception
-      return;
-    }
-    fail();
+  public void warningForTwoConflictingExpansionOptions() throws Exception {
+    OptionsParser parser = OptionsParser.newOptionsParser(ExpansionWarningOptions.class);
+    parser.parse("--first", "--second");
+    assertThat(parser.getWarnings()).containsExactly(
+        "The option 'underlying' was expanded to from both options 'first' " + "and 'second'");
   }
 
   // This test is here to make sure that nobody accidentally changes the
@@ -1562,79 +1558,12 @@ public class OptionsParserTest {
         Arrays.asList("--new_name=foo"), canonicalize(OldNameExample.class, "--old_name=foo"));
   }
 
-  public static class ExampleNameConflictOptions extends OptionsBase {
-    @Option(name = "foo", defaultValue = "1")
-    public int foo;
-
-    @Option(name = "foo", defaultValue = "I should conflict with foo")
-    public String anotherFoo;
-  }
-
-  @Test
-  public void testNameConflictInSingleClass() {
-    try {
-      newOptionsParser(ExampleNameConflictOptions.class);
-      fail("foo should conflict with the previous flag foo");
-    } catch (OptionsParser.ConstructionException e) {
-      assertConstructionErrorCausedBy(
-          e,
-          DuplicateOptionDeclarationException.class,
-          "Duplicate option name, due to option: --foo");
-    }
-  }
-
   public static class ExampleBooleanFooOptions extends OptionsBase {
     @Option(name = "foo", defaultValue = "false")
     public boolean foo;
   }
 
   @Test
-  public void testNameConflictInTwoClasses() {
-    try {
-      newOptionsParser(ExampleFoo.class, ExampleBooleanFooOptions.class);
-      fail("foo should conflict with the previous flag foo");
-    } catch (OptionsParser.ConstructionException e) {
-      assertConstructionErrorCausedBy(
-          e,
-          DuplicateOptionDeclarationException.class,
-          "Duplicate option name, due to option: --foo");
-    }
-  }
-
-  public static class ExamplePrefixFooOptions extends OptionsBase {
-    @Option(name = "nofoo", defaultValue = "false")
-    public boolean noFoo;
-  }
-
-  @Test
-  public void testBooleanPrefixNameConflict() {
-    // Try the same test in both orders, the parser should fail if the overlapping flag is defined
-    // before or after the boolean flag introduces the alias.
-    try {
-      newOptionsParser(ExampleBooleanFooOptions.class, ExamplePrefixFooOptions.class);
-      fail("nofoo should conflict with the previous flag foo, since foo, as a boolean flag, "
-              + "can be written as --nofoo");
-    } catch (OptionsParser.ConstructionException e) {
-      assertConstructionErrorCausedBy(
-          e,
-          DuplicateOptionDeclarationException.class,
-          "Duplicate option name, due to option --nofoo, it conflicts with a negating alias "
-              + "for boolean flag --foo");
-    }
-
-    try {
-      newOptionsParser(ExamplePrefixFooOptions.class, ExampleBooleanFooOptions.class);
-      fail("nofoo should conflict with the previous flag foo, since foo, as a boolean flag, "
-              + "can be written as --nofoo");
-    } catch (OptionsParser.ConstructionException e) {
-      assertConstructionErrorCausedBy(
-          e,
-          DuplicateOptionDeclarationException.class,
-          "Duplicate option name, due to boolean option alias: --nofoo");
-    }
-  }
-
-    @Test
   public void testBooleanUnderscorePrefixError() {
     try {
       OptionsParser parser = newOptionsParser(ExampleBooleanFooOptions.class);
@@ -1644,71 +1573,6 @@ public class OptionsParserTest {
     } catch (OptionsParsingException e) {
       assertThat(e.getMessage()).contains(
           "'no_' prefixes are no longer accepted, --no<flag> is an accepted alternative.");
-    }
-  }
-
-  public static class ExampleBarWasNamedFooOption extends OptionsBase {
-    @Option(name = "bar", oldName = "foo", defaultValue = "false")
-    public boolean bar;
-  }
-
-  @Test
-  public void testBooleanAliasWithOldNameConflict() {
-    // Try the same test in both orders, the parser should fail if the overlapping flag is defined
-    // before or after the boolean flag introduces the alias.
-    try {
-      newOptionsParser(ExamplePrefixFooOptions.class, ExampleBarWasNamedFooOption.class);
-      fail("nofoo should conflict with the previous flag foo, since foo, as a boolean flag, "
-              + "can be written as --nofoo");
-    } catch (OptionsParser.ConstructionException e) {
-      assertConstructionErrorCausedBy(
-          e,
-          DuplicateOptionDeclarationException.class,
-          "Duplicate option name, due to boolean option alias: --nofoo");
-    }
-  }
-
-
-  public static class ExampleBarWasNamedNoFooOption extends OptionsBase {
-    @Option(name = "bar", oldName = "nofoo", defaultValue = "false")
-    public boolean bar;
-  }
-
-  @Test
-  public void testBooleanWithOldNameAsAliasOfBooleanConflict() {
-    // Try the same test in both orders, the parser should fail if the overlapping flag is defined
-    // before or after the boolean flag introduces the alias.
-    try {
-      newOptionsParser(ExampleBooleanFooOptions.class, ExampleBarWasNamedNoFooOption.class);
-      fail("nofoo, the old name for bar, should conflict with the previous flag foo, since foo, "
-          + "as a boolean flag, can be written as --nofoo");
-    } catch (OptionsParser.ConstructionException e) {
-      assertConstructionErrorCausedBy(
-          e,
-          DuplicateOptionDeclarationException.class,
-          "Duplicate option name, due to old option name --nofoo, it conflicts with a negating "
-              + "alias for boolean flag --foo");
-    }
-  }
-
-  public static class OldNameConflictExample extends OptionsBase {
-    @Option(name = "new_name",
-            oldName = "old_name",
-            defaultValue = "defaultValue")
-    public String flag1;
-
-    @Option(name = "old_name",
-            defaultValue = "defaultValue")
-    public String flag2;
-  }
-
-  @Test
-  public void testOldNameConflict() {
-    try {
-      newOptionsParser(OldNameConflictExample.class);
-      fail("old_name should conflict with the flag already named old_name");
-    } catch (OptionsParser.ConstructionException e) {
-      assertThat(e.getCause()).isInstanceOf(DuplicateOptionDeclarationException.class);
     }
   }
 
