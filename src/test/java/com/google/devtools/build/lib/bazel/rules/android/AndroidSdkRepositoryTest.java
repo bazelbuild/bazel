@@ -60,10 +60,12 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
   }
 
   private void scratchExtrasLibrary(
-      String groupId, String artifactId, String version, String packaging) throws Exception {
+      String mavenRepoPath, String groupId, String artifactId, String version, String packaging)
+      throws Exception {
     scratch.file(
         String.format(
-            "/sdk/extras/google/m2repository/%s/%s/%s/%s.pom",
+            "/sdk/%s/%s/%s/%s/%s.pom",
+            mavenRepoPath,
             groupId.replace(".", "/"),
             artifactId,
             version,
@@ -80,7 +82,7 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
   public void testGeneratedAarImport() throws Exception {
     scratchPlatformsDirectories(25);
     scratchBuildToolsDirectories("25.0.0");
-    scratchExtrasLibrary("com.google.android", "foo", "1.0.0", "aar");
+    scratchExtrasLibrary("extras/google/m2repository", "com.google.android", "foo", "1.0.0", "aar");
     FileSystemUtils.appendIsoLatin1(scratch.resolve("WORKSPACE"),
         "local_repository(name = 'bazel_tools', path = '/bazel_tools_workspace')",
         "android_sdk_repository(",
@@ -100,7 +102,7 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
   public void testExportsExtrasLibraryArtifacts() throws Exception {
     scratchPlatformsDirectories(25);
     scratchBuildToolsDirectories("25.0.0");
-    scratchExtrasLibrary("com.google.android", "foo", "1.0.0", "aar");
+    scratchExtrasLibrary("extras/google/m2repository", "com.google.android", "foo", "1.0.0", "aar");
     FileSystemUtils.appendIsoLatin1(scratch.resolve("WORKSPACE"),
         "local_repository(name = 'bazel_tools', path = '/bazel_tools_workspace')",
         "android_sdk_repository(",
@@ -112,6 +114,35 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
     ConfiguredTarget aarTarget = getConfiguredTarget(
         "@androidsdk//:extras/google/m2repository/com/google/android/foo/1.0.0/foo.aar");
     assertThat(aarTarget).isNotNull();
+  }
+
+  @Test
+  public void testKnownSdkMavenRepositories() throws Exception {
+    scratchPlatformsDirectories(25);
+    scratchBuildToolsDirectories("25.0.0");
+    scratchExtrasLibrary("extras/google/m2repository", "com.google.android", "a", "1.0.0", "jar");
+    scratchExtrasLibrary("extras/android/m2repository", "com.android.support", "b", "1.0.0", "aar");
+    scratchExtrasLibrary("extras/m2repository", "com.android.support", "c", "1.0.1", "aar");
+    FileSystemUtils.appendIsoLatin1(scratch.resolve("WORKSPACE"),
+        "local_repository(name = 'bazel_tools', path = '/bazel_tools_workspace')",
+        "android_sdk_repository(",
+        "    name = 'androidsdk',",
+        "    path = '/sdk',",
+        ")");
+    invalidatePackages();
+
+    assertThat(
+            getConfiguredTarget(
+                "@androidsdk//:extras/google/m2repository/com/google/android/a/1.0.0/a.jar"))
+        .isNotNull();
+    assertThat(
+            getConfiguredTarget(
+                "@androidsdk//:extras/android/m2repository/com/android/support/b/1.0.0/b.aar"))
+        .isNotNull();
+    assertThat(
+            getConfiguredTarget(
+                "@androidsdk//:extras/m2repository/com/android/support/c/1.0.1/c.aar"))
+        .isNotNull();
   }
 
   @Test
