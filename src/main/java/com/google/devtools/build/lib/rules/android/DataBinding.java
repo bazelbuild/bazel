@@ -61,9 +61,9 @@ import java.util.List;
  */
 public final class DataBinding {
   /**
-   * The rule attribute supplying the data binding annotation processor.
+   * The rule attribute supplying data binding's annotation processor.
    */
-  private static final String DATABINDING_ANNOTATION_PROCESSOR_ATTR =
+  public static final String DATABINDING_ANNOTATION_PROCESSOR_ATTR =
       "$databinding_annotation_processor";
 
   /**

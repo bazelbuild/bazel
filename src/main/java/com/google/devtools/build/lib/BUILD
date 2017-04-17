@@ -979,6 +979,7 @@ java_library(
     ),
     resources = [
         "rules/android/android_device_stub_template.txt",
+        "rules/android/databinding_annotation_template.txt",
     ],
     deps = [
         ":build-base",

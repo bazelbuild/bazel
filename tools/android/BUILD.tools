@@ -205,3 +205,8 @@ filegroup(
     name = "debug_keystore",
     srcs = ["bazel_debug.keystore"],
 )
+
+alias(
+    name = "databinding_annotation_processor",
+    actual = "@android_databinding//:annotation_processor",
+)

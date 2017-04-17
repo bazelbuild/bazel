@@ -35,10 +35,12 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Rule;
@@ -55,6 +57,7 @@ import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.ProguardHelper;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import java.util.List;
 
@@ -440,7 +443,7 @@ public final class AndroidRuleClasses {
    */
   public static final class AndroidResourceSupportRule implements RuleDefinition {
     @Override
-    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
+    public RuleClass build(RuleClass.Builder builder, final RuleDefinitionEnvironment env) {
       return builder
           /* <!-- #BLAZE_RULE($android_resource_support).ATTRIBUTE(manifest) -->
           The name of the Android manifest file, normally <code>AndroidManifest.xml</code>.
@@ -491,6 +494,43 @@ public final class AndroidRuleClasses {
           libraries that will only be detected at runtime.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("custom_package", STRING))
+          /* <!-- #BLAZE_RULE($android_resource_support).ATTRIBUTE(enable_data_binding) -->
+          If true, this rule processes
+          <a href="https://developer.android.com/topic/libraries/data-binding/index.html">data
+          binding</a> expressions in layout resources included through the
+          <a href="${link android_binary.resource_files}">resource_files</a> attribute. Without this
+          setting, data binding expressions produce build failures.
+          <p>
+          To build an Android app with data binding, you must also do the following:
+          <ol>
+            <li>Set this attribute for all Android rules that transitively depend on this one.
+              This is because of resource merging: when a rule declares data binding XML expressions
+              its dependers implicitly inherit those expressions. So they also need to build with
+              data binding in order to parse those expressions correctly.
+            <li>Add a <code>deps =</code> entry for the data binding runtime library to all targets
+            that set this attribute. The location of this library depends on your depot setup.
+          </ol>
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(attr("enable_data_binding", Type.BOOLEAN))
+          // The javac annotation processor from Android's data binding library that turns
+          // processed XML expressions into Java code.
+          .add(attr(DataBinding.DATABINDING_ANNOTATION_PROCESSOR_ATTR, BuildType.LABEL)
+              // This has to be a computed default because the annotation processor is a
+              // java_plugin, which means it needs the Jvm configuration fragment. That conflicts
+              // with Android builds that use --experimental_disable_jvm.
+              // TODO(gregce): The Jvm dependency is only needed for the host configuration.
+              //   --experimental_disable_jvm is really intended for target configurations without
+              //   a JDK. So this case isn't conceptually a conflict. Clean this up so we can remove
+              //   this computed default.
+              .value(new Attribute.ComputedDefault("enable_data_binding") {
+                @Override
+                public Object getDefault(AttributeMap rule) {
+                  return rule.get("enable_data_binding", Type.BOOLEAN)
+                      ? env.getToolsLabel("//tools/android:databinding_annotation_processor")
+                      : null;
+                }
+              }))
+
           .build();
     }
 
