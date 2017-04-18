@@ -1048,10 +1048,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     EvaluationResult<ConfigurationCollectionValue> result =
         buildDriver.evaluate(Arrays.asList(skyKey), keepGoing, DEFAULT_THREAD_COUNT, eventHandler);
     if (result.hasError()) {
-      Throwable e = result.getError(skyKey).getException();
+      ErrorInfo error = result.getError(skyKey);
+      Throwable e = error.getException();
       // Wrap loading failed exceptions
       if (e instanceof NoSuchThingException) {
         e = new InvalidConfigurationException(e);
+      } else if (e == null && !Iterables.isEmpty(error.getCycleInfo())) {
+        getCyclesReporter().reportCycles(error.getCycleInfo(), skyKey, eventHandler);
+        e = new InvalidConfigurationException(
+            "cannot load build configuration because of this cycle");
       }
       Throwables.propagateIfInstanceOf(e, InvalidConfigurationException.class);
       throw new IllegalStateException(
