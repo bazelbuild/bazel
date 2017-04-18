@@ -16,10 +16,10 @@ package com.google.devtools.common.options;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
-import com.google.common.collect.Lists;
 import com.google.common.escape.Escaper;
 import java.lang.reflect.Field;
 import java.text.BreakIterator;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -40,8 +40,8 @@ class OptionsUsage {
    * OptionsBase} subclasses they depend on until a complete parser is constructed).
    */
   static void getUsage(Class<? extends OptionsBase> optionsClass, StringBuilder usage) {
-    List<Field> optionFields =
-        Lists.newArrayList(OptionsParser.getAllAnnotatedFields(optionsClass));
+    OptionsData data = OptionsParser.getOptionsDataInternal(optionsClass);
+    List<Field> optionFields = new ArrayList<>(data.getFieldsForClass(optionsClass));
     Collections.sort(optionFields, BY_NAME);
     for (Field optionField : optionFields) {
       getUsage(optionField, usage, OptionsParser.HelpVerbosity.LONG, null);
