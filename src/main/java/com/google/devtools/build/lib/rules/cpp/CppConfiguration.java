@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
+import com.google.common.base.Verify;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -445,9 +446,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     this.stlLabel = params.stlLabel;
     this.compilationMode = params.commonOptions.compilationMode;
     this.useLLVMCoverageMap = params.commonOptions.useLLVMCoverageMapFormat;
-    this.lipoContextCollector = cppOptions.lipoCollector;
-
-
+    this.lipoContextCollector = cppOptions.isLipoContextCollector();
     this.crosstoolTopPathFragment = crosstoolTop.getPackageIdentifier().getPathUnderExecRoot();
 
     try {
@@ -467,7 +466,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       throw new AssertionError(e);
     }
 
-    if (cppOptions.lipoMode == LipoMode.BINARY) {
+    if (cppOptions.getLipoMode() == LipoMode.BINARY) {
       // TODO(bazel-team): implement dynamic linking with LIPO
       this.dynamicMode = DynamicMode.OFF;
     } else {
@@ -1685,7 +1684,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * AutoFDO mode.
    */
   public boolean getAutoFdoLipoData() {
-    return cppOptions.autoFdoLipoData;
+    return cppOptions.getAutoFdoLipoData();
   }
 
   /**
@@ -1700,16 +1699,29 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * Returns the currently active LIPO compilation mode.
    */
   public LipoMode getLipoMode() {
-    return cppOptions.lipoMode;
+    return cppOptions.getLipoMode();
   }
 
   public boolean isFdo() {
     return cppOptions.isFdo();
   }
 
+  /**
+   * Returns true if LIPO optimization should be applied for this configuration.
+   */
   public boolean isLipoOptimization() {
     // The LIPO optimization bits are set in the LIPO context collector configuration, too.
     return cppOptions.isLipoOptimization();
+  }
+
+  /**
+   * Returns true if this is a data configuration for a LIPO-optimizing build.
+   *
+   * <p>This means LIPO is not applied for this configuration, but LIPO might be reenabled further
+   * down the dependency tree.
+   */
+  public boolean isDataConfigurationForLipoOptimization() {
+    return cppOptions.isDataConfigurationForLipoOptimization();
   }
 
   public boolean isLipoOptimizationOrInstrumentation() {
@@ -1720,8 +1732,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * Returns true if it is AutoFDO LIPO build.
    */
   public boolean isAutoFdoLipo() {
-    return cppOptions.fdoOptimize != null
-        && CppFileTypes.GCC_AUTO_PROFILE.matches(cppOptions.fdoOptimize)
+    return cppOptions.getFdoOptimize() != null
+        && CppFileTypes.GCC_AUTO_PROFILE.matches(cppOptions.getFdoOptimize())
         && getLipoMode() != LipoMode.OFF;
   }
 
@@ -1755,8 +1767,29 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     return ImmutableList.copyOf(cppOptions.perFileCopts);
   }
 
+  /**
+   * Returns the LIPO context for this configuration.
+   *
+   * <p>This only exists for configurations that apply LIPO in LIPO-optimized builds. It does
+   * <b>not</b> exist for data configurations, which contain LIPO state but don't actually apply
+   * LIPO. Nor does it exist for host configurations, which contain no LIPO state.
+   */
   public Label getLipoContextLabel() {
-    return cppOptions.getLipoContextLabel();
+    return cppOptions.getLipoContext();
+  }
+
+  /**
+   * Returns the LIPO context for this build, even if LIPO isn't enabled in the current
+   * configuration.
+   *
+   * <p>Unlike {@link #getLipoContextLabel}, this returns the LIPO context for the data
+   * configuration.
+   *
+   * <p>Unless you have a clear reason to use this version (which basically involves
+   * inspecting oher configurations' state), always use {@link #getLipoContextLabel}.
+   */
+  public Label getLipoContextForBuild() {
+    return cppOptions.getLipoContextForBuild();
   }
 
   /**
@@ -2038,23 +2071,23 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       }
     }
 
-    if (cppOptions.fdoInstrument != null && cppOptions.fdoOptimize != null) {
+    if (cppOptions.getFdoInstrument() != null && cppOptions.getFdoOptimize() != null) {
       reporter.handle(Event.error("Cannot instrument and optimize for FDO at the same time. "
           + "Remove one of the '--fdo_instrument' and '--fdo_optimize' options"));
     }
 
-    if (cppOptions.lipoContext != null) {
-      if (cppOptions.lipoMode != LipoMode.BINARY || cppOptions.fdoOptimize == null) {
+    if (cppOptions.lipoContextForBuild != null) {
+      if (cppOptions.getLipoMode() != LipoMode.BINARY || cppOptions.getFdoOptimize() == null) {
         reporter.handle(Event.warn("The --lipo_context option can only be used together with "
             + "--fdo_optimize=<profile zip> and --lipo=binary. LIPO context will be ignored."));
       }
     } else {
-      if (cppOptions.lipoMode == LipoMode.BINARY && cppOptions.fdoOptimize != null) {
+      if (cppOptions.getLipoMode() == LipoMode.BINARY && cppOptions.getFdoOptimize() != null) {
         reporter.handle(Event.error("The --lipo_context option must be specified when using "
             + "--fdo_optimize=<profile zip> and --lipo=binary"));
       }
     }
-    if (cppOptions.lipoMode == LipoMode.BINARY && compilationMode != CompilationMode.OPT) {
+    if (cppOptions.getLipoMode() == LipoMode.BINARY && compilationMode != CompilationMode.OPT) {
       reporter.handle(Event.error(
           "'--lipo=binary' can only be used with '--compilation_mode=opt' (or '-c opt')"));
     }
@@ -2070,6 +2103,11 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
           + "generate a dwp for the test executable, use '--fission=yes' with a toolchain "
           + "that supports Fission and build statically."));
     }
+
+    // This is an assertion check vs. user error because users can't trigger this state.
+    Verify.verify(
+        !(buildOptions.get(BuildConfiguration.Options.class).isHost && cppOptions.isFdo()),
+        "FDO/LIPO state should not propagate to the host configuration");
   }
 
   @Override
@@ -2156,7 +2194,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   public PathFragment getFdoInstrument() {
-    return cppOptions.fdoInstrument;
+    return cppOptions.getFdoInstrument();
   }
 
   public Path getFdoZip() {
@@ -2170,7 +2208,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   @Override
   public ImmutableSet<String> configurationEnabledFeatures(RuleContext ruleContext) {
     ImmutableSet.Builder<String> requestedFeatures = ImmutableSet.builder();
-    if (cppOptions.fdoInstrument != null) {
+    if (cppOptions.getFdoInstrument() != null) {
       requestedFeatures.add(CppRuleClasses.FDO_INSTRUMENT);
     }
 

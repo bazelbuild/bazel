@@ -153,11 +153,11 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
     // FDO
     // TODO(bazel-team): move this to CppConfiguration.prepareHook
     Path fdoZip;
-    if (cppOptions.fdoOptimize == null) {
+    if (cppOptions.getFdoOptimize() == null) {
       fdoZip = null;
-    } else if (cppOptions.fdoOptimize.startsWith("//")) {
+    } else if (cppOptions.getFdoOptimize().startsWith("//")) {
       try {
-        Target target = env.getTarget(Label.parseAbsolute(cppOptions.fdoOptimize));
+        Target target = env.getTarget(Label.parseAbsolute(cppOptions.getFdoOptimize()));
         if (target == null) {
           return null;
         }
@@ -175,7 +175,7 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
         throw new InvalidConfigurationException(e);
       }
     } else {
-      fdoZip = directories.getWorkspace().getRelative(cppOptions.fdoOptimize);
+      fdoZip = directories.getWorkspace().getRelative(cppOptions.getFdoOptimize());
       try {
         // We don't check for file existence, but at least the filename should be well-formed.
         FileSystemUtils.checkBaseName(fdoZip.getBaseName());

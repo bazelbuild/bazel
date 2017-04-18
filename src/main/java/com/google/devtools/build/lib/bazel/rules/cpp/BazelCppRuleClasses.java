@@ -37,6 +37,7 @@ import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -44,7 +45,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -75,28 +75,15 @@ public class BazelCppRuleClasses {
       new RuleClass.Configurator<BuildConfiguration, Rule>() {
         @Override
         public BuildConfiguration apply(Rule rule, BuildConfiguration configuration) {
-          if (configuration.useDynamicConfigurations()) {
-            // Dynamic configurations don't currently work with LIPO. partially because of lack of
-            // support for TARGET_CONFIG_FOR_LIPO. We can't check for LIPO here because we have
-            // to apply TARGET_CONFIG_FOR_LIPO to determine it, So we just assume LIPO is disabled.
-            // This is safe because Bazel errors out if the two options are combined.
-            return configuration;
-          }
+          Preconditions.checkState(!configuration.useDynamicConfigurations(),
+              "Dynamic configurations don't use rule class configurators for LIPO");
           BuildConfiguration toplevelConfig =
               configuration.getConfiguration(LipoTransition.TARGET_CONFIG_FOR_LIPO);
-          // If LIPO is enabled, override the default configuration.
+          CppConfiguration cppConfig = configuration.getFragment(CppConfiguration.class);
           if (toplevelConfig != null
-              && toplevelConfig.getFragment(CppConfiguration.class).isLipoOptimization()
-              && !configuration.isHostConfiguration()
-              && !configuration.getFragment(CppConfiguration.class).isLipoContextCollector()) {
-            // Switch back to data when the cc_binary is not the LIPO context.
-            return (rule.getLabel()
-                    .equals(
-                        toplevelConfig.getFragment(CppConfiguration.class).getLipoContextLabel()))
-                ? toplevelConfig
-                : configuration
-                    .getTransitions()
-                    .getStaticConfiguration(ConfigurationTransition.DATA);
+              && cppConfig.isDataConfigurationForLipoOptimization()
+              && rule.getLabel().equals(cppConfig.getLipoContextForBuild())) {
+            return toplevelConfig;
           }
           return configuration;
         }
