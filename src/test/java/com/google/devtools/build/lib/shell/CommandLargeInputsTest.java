@@ -62,7 +62,7 @@ public class CommandLargeInputsTest {
     final Command command = new Command(new String[] {"cat"});
     byte[] randomBytes = getRandomBytes();
     final CommandResult result = command.execute(randomBytes);
-    assertEquals(0, result.getTerminationStatus().getRawResult());
+    assertEquals(0, result.getTerminationStatus().getRawExitCode());
     TestUtil.assertArrayEquals(randomBytes, result.getStdout());
     assertEquals(0, result.getStderr().length);
    }
@@ -75,7 +75,7 @@ public class CommandLargeInputsTest {
     byte[] randomBytes = getRandomBytes();
     final CommandResult result = command.execute(randomBytes,
                                                  Command.NO_OBSERVER, out, err);
-    assertEquals(0, result.getTerminationStatus().getRawResult());
+    assertEquals(0, result.getTerminationStatus().getRawExitCode());
     TestUtil.assertArrayEquals(randomBytes, out.toByteArray());
     assertEquals(0, err.toByteArray().length);
     assertOutAndErrNotAvailable(result);
@@ -89,7 +89,7 @@ public class CommandLargeInputsTest {
     byte[] randomBytes = getRandomBytes();
     final CommandResult result = command.execute(randomBytes,
                                                  Command.NO_OBSERVER, out, err);
-    assertEquals(0, result.getTerminationStatus().getRawResult());
+    assertEquals(0, result.getTerminationStatus().getRawExitCode());
     assertEquals(0, out.toByteArray().length);
     TestUtil.assertArrayEquals(randomBytes, err.toByteArray());
     assertOutAndErrNotAvailable(result);
@@ -106,7 +106,7 @@ public class CommandLargeInputsTest {
 
     final CommandResult result = command.execute(in,
                                                  Command.NO_OBSERVER, out, err);
-    assertEquals(0, result.getTerminationStatus().getRawResult());
+    assertEquals(0, result.getTerminationStatus().getRawExitCode());
     assertEquals(0, out.toByteArray().length);
     TestUtil.assertArrayEquals(randomBytes, err.toByteArray());
     assertOutAndErrNotAvailable(result);
@@ -146,7 +146,7 @@ public class CommandLargeInputsTest {
     final Command command = new Command(new String[] {"cat"});
     byte[] allByteValues = getAllByteValues();
     final CommandResult result = command.execute(allByteValues);
-    assertEquals(0, result.getTerminationStatus().getRawResult());
+    assertEquals(0, result.getTerminationStatus().getRawExitCode());
     assertEquals(0, result.getStderr().length);
     TestUtil.assertArrayEquals(allByteValues, result.getStdout());
   }

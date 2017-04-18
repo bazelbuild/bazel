@@ -105,11 +105,11 @@ genrule(
         "if [[ $$(uname -a) =~ MSYS ]] || [[ $$(uname -a) =~ CYGWIN ]] || [[ $$(uname -a) =~ freebsd ]]; then",
         "  cp \"$(location :JacocoCoverage_deploy.jar)\" \"$@\";",
         "else",
-        "  \"$(JAVA)\" -jar \"$(location //third_party/java/jarjar:jarjar_command_deploy.jar)\" --rules \"$(location :JacocoCoverage.jarjar)\" --output \"$@\" \"$(location :JacocoCoverage_deploy.jar)\"",
+        "  \"$(JAVA)\" -jar \"$(location //third_party/java/jarjar:jarjar_bin_deploy.jar)\" process \"$(location :JacocoCoverage.jarjar)\" \"$(location :JacocoCoverage_deploy.jar)\" \"$@\"",
         "fi",
     ]),
     tools = [
-        "//third_party/java/jarjar:jarjar_command_deploy.jar",
+        "//third_party/java/jarjar:jarjar_bin_deploy.jar",
         "//tools/defaults:jdk",
     ],
 )

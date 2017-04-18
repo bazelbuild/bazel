@@ -17,10 +17,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.logging.Level.INFO;
 import static java.util.logging.Level.SEVERE;
 
-import com.google.common.collect.Maps;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -33,20 +31,17 @@ import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
-import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.util.NetUtil;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
-import java.util.SortedMap;
 import java.util.logging.Level;
 import javax.annotation.Nullable;
 
@@ -58,6 +53,7 @@ import javax.annotation.Nullable;
 public final class LocalSpawnRunner implements SpawnRunner {
   private static final String UNHANDLED_EXCEPTION_MSG = "Unhandled exception running a local spawn";
   private static final int LOCAL_EXEC_ERROR = -1;
+  private static final int POSIX_TIMEOUT_EXIT_CODE = /*SIGNAL_BASE=*/128 + /*SIGWINCH=*/28;
 
   private final Path execRoot;
   private final ResourceManager resourceManager;
@@ -108,55 +104,30 @@ public final class LocalSpawnRunner implements SpawnRunner {
       Spawn spawn,
       SpawnExecutionPolicy policy) throws IOException, InterruptedException {
     ActionExecutionMetadata owner = spawn.getResourceOwner();
-    if (owner.getOwner() != null) {
-      policy.report(ProgressStatus.SCHEDULING);
-    }
+    policy.report(ProgressStatus.SCHEDULING);
     try (ResourceHandle handle =
         resourceManager.acquireResources(owner, spawn.getLocalResources())) {
+      policy.report(ProgressStatus.EXECUTING);
       policy.lockOutputFiles();
-      if (owner.getOwner() != null) {
-        policy.report(ProgressStatus.EXECUTING);
-      }
-      return new SubprocessHandler(
-          spawn,
-          policy.shouldPrefetchInputsForLocalExecution(spawn),
-          policy.getFileOutErr(),
-          policy.getTimeoutMillis() / 1000.0f,
-          policy).run();
+      return new SubprocessHandler(spawn, policy).run();
     }
   }
 
   private final class SubprocessHandler {
-    private final List<String> args;
-
-    private final Map<String, String> env;
-    private final FileOutErr outErr;
-    private final SortedMap<PathFragment, ActionInput> inputMappings;
-    private final boolean localPrefetch;
-
-    private final float timeout;
-    private final String actionType;
+    private final Spawn spawn;
+    private final SpawnExecutionPolicy policy;
 
     private final long creationTime = System.currentTimeMillis();
     private long stateStartTime = creationTime;
     private State currentState = State.INITIALIZING;
-    private Map<State, Long> stateTimes = new EnumMap<>(State.class);
+    private final Map<State, Long> stateTimes = new EnumMap<>(State.class);
 
     public SubprocessHandler(
         Spawn spawn,
-        boolean localPrefetch,
-        FileOutErr outErr,
-        float timeout,
-        SpawnExecutionPolicy policy) throws IOException {
-      this.args = spawn.getArguments();
-      this.env = Maps.newHashMap(spawn.getEnvironment());
-      this.timeout = timeout;
-
-      this.actionType = spawn.getResourceOwner().getMnemonic();
-
-      this.inputMappings = policy.getInputMapping();
-      this.localPrefetch = localPrefetch;
-      this.outErr = outErr;
+        SpawnExecutionPolicy policy) {
+      Preconditions.checkArgument(!spawn.getArguments().isEmpty());
+      this.spawn = spawn;
+      this.policy = policy;
       setState(State.PARSING);
     }
 
@@ -195,50 +166,54 @@ public final class LocalSpawnRunner implements SpawnRunner {
 
     /** Parse the request and run it locally. */
     private SpawnResult start() throws InterruptedException, IOException {
-      Preconditions.checkArgument(!args.isEmpty());
+      FileOutErr outErr = policy.getFileOutErr();
+      String actionType = spawn.getResourceOwner().getMnemonic();
+      if (localExecutionOptions.allowedLocalAction != null
+          && !localExecutionOptions.allowedLocalAction.matcher(actionType).matches()) {
+        setState(State.PERMANENT_ERROR);
+        outErr.getErrorStream().write(
+            ("Action type " + actionType + " is not allowed to run locally due to regex filter: "
+                + localExecutionOptions.allowedLocalAction + "\n").getBytes(UTF_8));
+        return new SpawnResult.Builder()
+            .setStatus(Status.LOCAL_ACTION_NOT_ALLOWED)
+            .setExitCode(LOCAL_EXEC_ERROR)
+            .setExecutorHostname(hostName)
+            .build();
+      }
 
-      // The old code was dumping action inputs even for local execution.
-      // See distributorOptions.dumpActionInputsRegex.
-
-      stepLog(INFO, "prefetching inputs for local execution");
-      setState(State.PREFETCHING_LOCAL_INPUTS);
-
-      if (localPrefetch) {
-        actionInputPrefetcher.prefetchFiles(inputMappings.values());
+      if (policy.shouldPrefetchInputsForLocalExecution(spawn)) {
+        stepLog(INFO, "prefetching inputs for local execution");
+        setState(State.PREFETCHING_LOCAL_INPUTS);
+        actionInputPrefetcher.prefetchFiles(policy.getInputMapping().values());
       }
 
       stepLog(INFO, "running locally");
       setState(State.LOCAL_ACTION_RUNNING);
 
-      if (localExecutionOptions.allowedLocalAction != null
-          && !localExecutionOptions.allowedLocalAction.matcher(actionType).matches()) {
-        return completeWithError(
-            "Action type " + actionType + " is not allowed to run locally "
-            + "due to regex filter: " + localExecutionOptions.allowedLocalAction,
-            LOCAL_EXEC_ERROR,
-            Status.LOCAL_ACTION_NOT_ALLOWED);
-      }
-
+      int timeoutSeconds = (int) (policy.getTimeoutMillis() / 1000);
       Command cmd;
       OutputStream stdOut = ByteStreams.nullOutputStream();
       OutputStream stdErr = ByteStreams.nullOutputStream();
       if (useProcessWrapper) {
         List<String> cmdLine = new ArrayList<>();
         cmdLine.add(processWrapper);
-        cmdLine.add(Float.toString(timeout));
+        cmdLine.add(Float.toString(timeoutSeconds));
         cmdLine.add(Double.toString(localExecutionOptions.localSigkillGraceSeconds));
         cmdLine.add(getPathOrDevNull(outErr.getOutputPath()));
         cmdLine.add(getPathOrDevNull(outErr.getErrorPath()));
-        cmdLine.addAll(args);
-        cmd = new Command(cmdLine.toArray(new String[]{}), env, execRoot.getPathFile());
+        cmdLine.addAll(spawn.getArguments());
+        cmd = new Command(
+            cmdLine.toArray(new String[]{}),
+            spawn.getEnvironment(),
+            execRoot.getPathFile());
       } else {
         stdOut = outErr.getOutputStream();
         stdErr = outErr.getErrorStream();
         cmd = new Command(
-            args.toArray(new String[0]),
-            env,
+            spawn.getArguments().toArray(new String[0]),
+            spawn.getEnvironment(),
             execRoot.getPathFile(),
-            (int) timeout);
+            timeoutSeconds);
       }
 
       long startTime = System.currentTimeMillis();
@@ -257,58 +232,38 @@ public final class LocalSpawnRunner implements SpawnRunner {
         // At the time this comment was written, this must be a ExecFailedException encapsulating an
         // IOException from the underlying Subprocess.Factory.
         String msg = e.getMessage() == null ? e.getClass().getName() : e.getMessage();
-        return completeWithError(
-            "Action failed to execute: " + msg,
-            LOCAL_EXEC_ERROR,
-            Status.EXECUTION_FAILED);
+        setState(State.PERMANENT_ERROR);
+        outErr.getErrorStream().write(("Action failed to execute: " + msg + "\n").getBytes(UTF_8));
+        return new SpawnResult.Builder()
+            .setStatus(Status.EXECUTION_FAILED)
+            .setExitCode(LOCAL_EXEC_ERROR)
+            .setExecutorHostname(hostName)
+            .build();
       }
-      return complete(
-          condense(result.getTerminationStatus()),
-          wasTimeout(timeout, startTime) ? Status.TIMEOUT : Status.SUCCESS,
-          System.currentTimeMillis() - startTime);
+      setState(State.SUCCESS);
+
+      long wallTime = System.currentTimeMillis() - startTime;
+      boolean wasTimeout = result.getTerminationStatus().timedout()
+          || wasTimeout(timeoutSeconds, wallTime)
+          || result.getTerminationStatus().getRawExitCode() == POSIX_TIMEOUT_EXIT_CODE;
+      Status status = wasTimeout ? Status.TIMEOUT : Status.SUCCESS;
+      int exitCode = status == Status.TIMEOUT
+          ? POSIX_TIMEOUT_EXIT_CODE
+          : result.getTerminationStatus().getRawExitCode();
+      return new SpawnResult.Builder()
+          .setStatus(status)
+          .setExitCode(exitCode)
+          .setExecutorHostname(hostName)
+          .setWallTimeMillis(wallTime)
+          .build();
     }
 
     private String getPathOrDevNull(Path path) {
       return path == null ? "/dev/null" : path.getPathString();
     }
 
-    private boolean wasTimeout(float timeout, long startTime) {
-      return timeout > 0 && (System.currentTimeMillis() - startTime) / 1000.0 > timeout;
-    }
-
-    private SpawnResult completeWithError(
-        String msg, int exitCode, Status status) throws IOException {
-      setState(State.PERMANENT_ERROR);
-      writeToStdErr(msg);
-      SpawnResult.Builder builder = new SpawnResult.Builder();
-      builder.setStatus(status);
-      builder.setExitCode(exitCode);
-      builder.setExecutorHostname(hostName);
-      return builder.build();
-    }
-
-    private void writeToStdErr(String message) throws IOException {
-      outErr.getErrorStream().write((message + "\n").getBytes(UTF_8));
-    }
-
-    private SpawnResult complete(int exitCode, Status status, long wallTimeMillis) {
-      setState(State.SUCCESS);
-
-      SpawnResult.Builder builder = new SpawnResult.Builder();
-      builder.setStatus(status);
-      builder.setExitCode(
-          status == Status.TIMEOUT ? /*SIGNAL_BASE=*/128 + /*SIGWINCH=*/28 : exitCode);
-      builder.setExecutorHostname(hostName);
-      builder.setWallTimeMillis(wallTimeMillis);
-      return builder.build();
-    }
-
-    // TODO(ulfjack): Move this to the TerminationStatus class. It doesn't make sense that we work
-    // around APIs that we control ourselves.
-    private int condense(TerminationStatus status) {
-      // The termination status is already condensed, but it doesn't give easy access to the
-      // underlying raw code it wraps.
-      return status.exited() ? status.getExitCode() : (128 + status.getTerminatingSignal());
+    private boolean wasTimeout(int timeoutSeconds, long wallTimeMillis) {
+      return timeoutSeconds > 0 && wallTimeMillis / 1000.0 > timeoutSeconds;
     }
   }
 
