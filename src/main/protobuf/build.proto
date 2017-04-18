@@ -32,11 +32,6 @@ message StringDictEntry {
   required string value = 2;
 }
 
-message StringDictUnaryEntry {
-  required string key = 1;
-  required string value = 2;
-}
-
 message LabelDictUnaryEntry {
   required string key = 1;
   required string value = 2;
@@ -133,11 +128,13 @@ message Attribute {
     BOOLEAN = 14;            // int, bool and string value
     TRISTATE = 15;           // tristate, int and string value
     INTEGER_LIST = 16;       // int_list_value
-    STRING_DICT_UNARY = 17;  // string_dict_unary_value (DEPRECATED)
     UNKNOWN = 18;            // unknown type, use only for build extensions
     LABEL_DICT_UNARY = 19;   // label_dict_unary_value
     SELECTOR_LIST = 20;      // selector_list
     LABEL_KEYED_STRING_DICT = 21; // label_keyed_string_dict
+
+    DEPRECATED_STRING_DICT_UNARY = 17;
+
   }
 
   // Values for the TriState field type.
@@ -176,9 +173,10 @@ message Attribute {
     repeated StringListDictEntry string_list_dict_value = 11;
     repeated GlobCriteria glob_criteria = 12;
     repeated int32 int_list_value = 13;
-    repeated StringDictUnaryEntry string_dict_unary_value = 14;
     repeated LabelDictUnaryEntry label_dict_unary_value = 15;
     repeated LabelKeyedStringDictEntry label_keyed_string_dict_value = 17;
+
+    repeated bytes DEPRECATED_string_dict_unary_value = 14;
   }
 
   message Selector {
@@ -268,9 +266,6 @@ message Attribute {
   // The value of the attribute has a list of int32 values
   repeated int32 int_list_value = 17;
 
-  // If this is a string dict unary, each entry will be stored here.
-  repeated StringDictUnaryEntry string_dict_unary_value = 18;
-
   // If this is a label dict unary, each entry will be stored here.
   repeated LabelDictUnaryEntry label_dict_unary_value = 19;
 
@@ -281,6 +276,8 @@ message Attribute {
   // expressions, then its type is SELECTOR_LIST and a SelectorList will be
   // stored here.
   optional SelectorList selector_list = 21;
+
+  repeated bytes DEPRECATED_string_dict_unary_value = 18;
 }
 
 // A rule from a BUILD file (e.g., cc_library, java_binary).  The rule class
