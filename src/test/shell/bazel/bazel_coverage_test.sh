@@ -79,8 +79,18 @@ EOF
 
   bazel coverage //:test &>$TEST_log || fail "Coverage for //:test failed"
 
+  echo ================ TL ======================
+  cat $TEST_log
+  echo ================ TL END ==================
+
   ending_part=$(sed -n -e '/PASSED/,$p' $TEST_log)
+
+  echo ====== EP ======
+  echo "$ending_part"
+  echo ====== END EP ======
+
   coverage_file_path=$(grep -Eo "/[/a-zA-Z0-9\.\_\-]+\.dat$" <<< "$ending_part")
+  echo ========= CFP "$coverage_file_path"
   [ -e $coverage_file_path ] || fail "Coverage output file not exists!"
 
   cat <<EOF > result.dat
@@ -107,5 +117,4 @@ EOF
   fi
 }
 
-# TODO(#2227): Re-enable when the jacoco processor issue is fixed.
-#run_suite "test tests"
+run_suite "test tests"
