@@ -17,7 +17,8 @@ load(":filetype.bzl",
      tar_filetype="tar",
      deb_filetype="deb",
      docker_filetype="docker")
-load(":hash.bzl", _hash_tools="tools", _sha256="sha256")
+load("//tools/build_defs/hash:hash.bzl",
+     _hash_tools="tools", _sha256="sha256")
 load(":label.bzl", _string_to_label="string_to_label")
 load(":layers.bzl",
      _assemble_image="assemble",

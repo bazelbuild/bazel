@@ -27,7 +27,7 @@ def sha256(ctx, artifact):
 
 tools = {
     "sha256": attr.label(
-        default=Label("//tools/build_defs/docker:sha256"),
+        default=Label("//tools/build_defs/hash:sha256"),
         cfg="host",
         executable=True,
         allow_files=True)
