@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -457,7 +456,6 @@ public final class JavaCompilationHelper {
                         .add("--temp_dir")
                         .addPath(tempDir(genClassJar))
                         .build())
-                .useParameterFile(ParameterFileType.SHELL_QUOTED)
                 .setProgressMessage("Building genclass jar " + genClassJar.prettyPrint())
                 .setMnemonic("JavaSourceJar")
                 .build(getRuleContext()));
