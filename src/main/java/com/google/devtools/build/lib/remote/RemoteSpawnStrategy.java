@@ -152,6 +152,15 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
       try {
         ActionResult.Builder result = ActionResult.newBuilder();
         actionCache.uploadAllResults(execRoot, outputFiles, result);
+        FileOutErr outErr = actionExecutionContext.getFileOutErr();
+        if (outErr.getErrorPath().exists()) {
+          ContentDigest stderr = actionCache.uploadFileContents(outErr.getErrorPath());
+          result.setStderrDigest(stderr);
+        }
+        if (outErr.getOutputPath().exists()) {
+          ContentDigest stdout = actionCache.uploadFileContents(outErr.getOutputPath());
+          result.setStdoutDigest(stdout);
+        }
         actionCache.setCachedActionResult(actionKey, result.build());
         // Handle all cache errors here.
       } catch (IOException e) {
