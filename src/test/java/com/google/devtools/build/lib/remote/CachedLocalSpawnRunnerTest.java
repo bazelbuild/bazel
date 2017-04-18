@@ -66,6 +66,8 @@ public class CachedLocalSpawnRunnerTest {
     }
   };
 
+  private static final ContentDigest DIGEST_FOR_EMPTY = ContentDigests.computeDigest(new byte[0]);
+
   private FileSystem fs;
   private Path execRoot;
   private SimpleSpawn simpleSpawn;
@@ -219,6 +221,7 @@ public class CachedLocalSpawnRunnerTest {
     scratch(simpleSpawn.getInputFiles().get(0), "xyz");
 
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
+    when(cache.uploadFileContents(any(Path.class))).thenReturn(DIGEST_FOR_EMPTY);
     SpawnResult delegateResult = new SpawnResult.Builder()
         .setExitCode(0)
         .setStatus(Status.SUCCESS)
@@ -227,9 +230,11 @@ public class CachedLocalSpawnRunnerTest {
         .thenReturn(delegateResult);
 
     SpawnResult result = runner.exec(simpleSpawn, simplePolicy);
-    // We use verify to check that each method is called exactly once.
+    // We use verify to check that each method is called the correct number of times.
     verify(cache)
         .uploadAllResults(any(Path.class), any(Collection.class), any(ActionResult.Builder.class));
+    // Two additional uploads for stdout and stderr.
+    verify(cache, Mockito.times(2)).uploadFileContents(any(Path.class));
     verify(cache).setCachedActionResult(any(ActionKey.class), any(ActionResult.class));
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
