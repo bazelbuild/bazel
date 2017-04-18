@@ -57,6 +57,10 @@ function assert_binary_run_from_subdir() {
 function test_cpp() {
   local cpp_pkg=examples/cpp
   assert_build_output ./bazel-bin/${cpp_pkg}/libhello-lib.a ${cpp_pkg}:hello-world
+  assert_build_output ./bazel-bin/${cpp_pkg}/hello-world.pdb ${cpp_pkg}:hello-world --output_groups=pdb_file
+  assert_build_output ./bazel-bin/${cpp_pkg}/hello-world.pdb -c dbg ${cpp_pkg}:hello-world --output_groups=pdb_file
+  assert_build -c opt ${cpp_pkg}:hello-world --output_groups=pdb_file
+  test -f ./bazel-bin/${cpp_pkg}/hello-world.pdb && fail "PDB file should not be generated in OPT mode"
   assert_bazel_run "//examples/cpp:hello-world foo" "Hello foo"
   assert_test_ok "//examples/cpp:hello-success_test"
   assert_test_fails "//examples/cpp:hello-fail_test"

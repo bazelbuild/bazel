@@ -263,8 +263,6 @@ class ArgParser(object):
       if arg.startswith('/Fo') or arg.startswith('/Fa') or arg.startswith(
           '/Fi'):
         self.output_file = arg[3:]
-        self.options.append(
-            '/Fd%s.pdb' % self.NormPath(os.path.splitext(self.output_file)[0]))
       if num_matched == 0:
         # Strip out any .a's that have 0 size, they are header or intermediate
         # dependency libraries and don't contain any code. 0-length files are

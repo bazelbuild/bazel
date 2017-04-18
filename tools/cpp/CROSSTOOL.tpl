@@ -463,6 +463,16 @@ toolchain {
   }
 
   feature {
+    name: 'generate_pdb_file'
+    requires: {
+      feature: 'dbg'
+    }
+    requires: {
+      feature: 'fastbuild'
+    }
+  }
+
+  feature {
     name: 'has_configured_linker_path'
   }
 
@@ -641,7 +651,6 @@ toolchain {
     }
   }
 
-
   feature {
     name: 'linker_param_file'
     flag_set {
@@ -664,31 +673,78 @@ toolchain {
     }
   }
 
+  feature {
+    name: 'dbg'
+    flag_set {
+      action: 'c-compile'
+      action: 'c++-compile'
+      flag_group {
+        flag: "/Od"
+        flag: '/MTd'
+        flag: "/Z7"
+      }
+    }
+    flag_set {
+      action: 'c++-link-executable'
+      action: 'c++-link-dynamic-library'
+      flag_group {
+        flag: "/DEBUG:FULL"
+        flag: "/INCREMENTAL:NO"
+      }
+    }
+    implies: 'generate_pdb_file'
+  }
+
+  feature {
+    name: 'fastbuild'
+    flag_set {
+      action: 'c-compile'
+      action: 'c++-compile'
+      flag_group {
+        flag: "/Od"
+        flag: '/MT'
+        flag: "/Z7"
+      }
+    }
+    flag_set {
+      action: 'c++-link-executable'
+      action: 'c++-link-dynamic-library'
+      flag_group {
+        flag: "/DEBUG:FASTLINK"
+        flag: "/INCREMENTAL:NO"
+      }
+    }
+    implies: 'generate_pdb_file'
+  }
+
+  feature {
+    name: 'opt'
+    flag_set {
+      action: 'c-compile'
+      action: 'c++-compile'
+      flag_group {
+        flag: "/O2"
+        flag: '/MT'
+      }
+    }
+  }
+
   compilation_mode_flags {
     mode: DBG
-    compiler_flag: "/DDEBUG=1"
-    # This will signal the wrapper that we are doing a debug build, which sets
-    # some internal state of the toolchain wrapper. It is intentionally a "-"
-    # flag to make this very obvious.
-    compiler_flag: "-g"
-    compiler_flag: "/Od"
     compiler_flag: "-Xcompilation-mode=dbg"
     linker_flag: "-Xcompilation-mode=dbg"
   }
 
   compilation_mode_flags {
     mode: FASTBUILD
-    compiler_flag: "/DNDEBUG"
-    compiler_flag: "/Od"
     compiler_flag: "-Xcompilation-mode=fastbuild"
     linker_flag: "-Xcompilation-mode=fastbuild"
   }
 
   compilation_mode_flags {
     mode: OPT
-    compiler_flag: "/DNDEBUG"
-    compiler_flag: "/O2"
     compiler_flag: "-Xcompilation-mode=opt"
     linker_flag: "-Xcompilation-mode=opt"
   }
+
 }

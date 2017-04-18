@@ -283,6 +283,12 @@ public class CppRuleClasses {
    */
   public static final String THIN_LTO = "thin_lto";
 
+  /**
+   * A string constant for the PDB file generation feature, should only be used for toolchains
+   * targeting Windows that include a linker producing PDB files
+   */
+  public static final String GENERATE_PDB_FILE = "generate_pdb_file";
+
   /*
    * A string constant for the fdo_instrument feature.
    */
