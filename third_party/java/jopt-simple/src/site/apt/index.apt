@@ -1,0 +1,71 @@
+                      -----------
+                      JOpt Simple
+                      -----------
+
+    JOpt Simple is a Java library for parsing command line options, such as those you
+    might pass to an invocation of <<<javac>>>.
+
+    In the interest of striving for simplicity, as closely as possible JOpt Simple
+    attempts to honor the command line option syntaxes of
+    {{{http://www.opengroup.org/onlinepubs/009695399/basedefs/xbd_chap12.html} POSIX <<<getopt()>>>}}
+    and
+    GNU {{{http://www.gnu.org/software/libc/manual/html_node/Getopt-Long-Options.html} <<<getopt_long()>>>}}.
+    It also aims to make option parser configuration and retrieval of options and their
+    arguments simple and expressive, without being overly clever.
+
+    Here are some libraries that perform the same duties as JOpt Simple:
+
+    * {{{http://jargs.sourceforge.net} JArgs}}
+
+    * {{{http://jakarta.apache.org/commons/cli/} Jakarta Commons CLI}}
+
+    * {{{http://te-code.sourceforge.net/} TE-Code}} has a command line parsing library.
+
+    * {{{http://www.cs.ubc.ca/spider/lloyd/java/argparser.html} argparser}}
+
+    * {{{http://www.urbanophile.com/arenn/hacking/download.html} Java port of GNU getopt}}
+
+    * {{{https://args4j.dev.java.net/} Args4J}}
+
+    * {{{http://www.martiansoftware.com/jsap/} JSAP}}
+
+    * {{{http://clajr.sourceforge.net} CLAJR}}
+
+    * {{{http://ostermiller.org/utils/CmdLn.html} CmdLn}}
+
+    * {{{http://jewelcli.sourceforge.net} JewelCli}}
+
+    * {{{http://jcommando.sourceforge.net} JCommando}}
+
+    * {{{http://code.google.com/p/parse-cmd/} parse-cmd}}
+
+    * {{{http://jcommander.org} JCommander}}
+
+    * {{{http://types.cs.washington.edu/plume-lib/api/plume/Options.html} plume-lib Options}}
+
+    []
+
+    I hope you'll agree that JOpt Simple tops them all in ease of use and cleanliness of
+    code (although I admire JewelCli quite a bit).
+
+    I'd love to hear your constructive {{{mailto:pholser@alumni.rice.edu} feedback}},
+    especially suggestions for improvements to the library or the site!  If your project
+    is using JOpt Simple, do let me know.
+
+Projects Using JOpt Simple
+
+    Here are some we know of or have known of:
+
+    * {{{http://openjdk.java.net/} OpenJDK}}.
+    From {{{http://weblogs.java.net/blog/mreinhold/} Mark Reinhold}}: "I thought you might
+    be interested to know that we're using your jopt-simple library in the open-source
+    Java Development Kit.  Thanks for writing such a nice little library!  It's far
+    cleaner than any of the other alternatives out there."
+
+    * {{{http://www.gradle.org/} Gradle}}
+
+    * {{{http://natbraille.free.fr} NATBraille}}
+
+    * {{{https://minecraft.net} Minecraft}}
+
+    []

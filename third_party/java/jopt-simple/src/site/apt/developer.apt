@@ -1,0 +1,48 @@
+                                   --------------
+                                   Developer Docs
+                                   --------------
+
+Help for developing JOpt Simple
+
+  This page has notes and hints for contributing to JOpt Simple, mostly around getting started and style questions.
+
+* Code Style
+
+  Style is important.  Why?  Chiefly to aid merges.  Reformatting code makes merging more difficult.  When needing to reformat unchanged code, please do so on a separate commit with a clear commit message indicating a non-code change.
+
+  In general use the Eclipse formatter (there is a plugin for IntelliJ IDEA).  See <<<jopt-simple-eclipse-formatting.xml>>> and <<<jopt-simple.importorder>>> in the project root.
+
+  The ultimate arbiter of good style is Paul Holser.
+
+** Braces
+
+  * Yes:
+
++----+
+for (int i = 0; i < 10; ++i) {
+    if (i < 5)
+        println(i);
+}
++----+
+
+  * No:
+
++----+
+for (int i = 0; i < 10; ++i)
+    if (i < 5)
+        println(i);
++----+
+
+* {{Building}}
+
+  There are no integration tests.  Your typical command line is:
+
++----+
+$ mvn clean test
++----+
+
+  Before pushing commits, please check that the site fully builds:
+
++----+
+$ mvn clean post-site
++----+
