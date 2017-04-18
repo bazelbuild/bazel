@@ -136,8 +136,7 @@ final class LabelVisitor {
    * 9. This exception causes the execution of the currently running command to
    * terminate prematurely.
    *
-   * The interruption of the loading of an individual package can happen in two
-   * different ways.
+   * The interruption of the loading of an individual package happens as follow:
    *
    * 1. We periodically check the interruption state of the thread in
    * UnixGlob.reallyGlob(). If it is interrupted, an InterruptedException is
