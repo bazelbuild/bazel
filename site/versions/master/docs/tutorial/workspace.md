@@ -8,8 +8,8 @@ title: Tutorial - Set Up a Workspace
 A [workspace](/docs/build-ref.html#workspaces) is a directory that contains the
 source files for one or more software projects, as well as a `WORKSPACE` file
 and `BUILD` files that contain the instructions that Bazel uses to build
-the software. It also contains symbolic links to output directories in the
-Bazel home directory.
+the software. The workspace may also contain symbolic links to output
+directories.
 
 A workspace directory can be located anywhere on your filesystem. In this
 tutorial, your workspace directory is `$HOME/examples/tutorial/`, which
