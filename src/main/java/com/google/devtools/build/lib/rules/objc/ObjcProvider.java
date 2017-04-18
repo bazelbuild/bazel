@@ -485,6 +485,7 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
           HEADER,
           INCLUDE,
           INCLUDE_SYSTEM,
+          IQUOTE,
           LINKOPT,
           SDK_DYLIB,
           SDK_FRAMEWORK,
