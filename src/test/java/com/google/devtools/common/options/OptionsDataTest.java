@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.common.options.OptionsParser.ConstructionException;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
@@ -242,7 +243,7 @@ public class OptionsDataTest {
   public void errorForInvalidOptionConverter() throws Exception {
     try {
       construct(InvalidOptionConverter.class);
-    } catch (AssertionError e) {
+    } catch (ConstructionException e) {
       // Expected exception
       return;
     }
@@ -264,11 +265,35 @@ public class OptionsDataTest {
   public void errorForInvalidListOptionConverter() throws Exception {
     try {
       construct(InvalidListOptionConverter.class);
-    } catch (AssertionError e) {
+    } catch (ConstructionException e) {
       // Expected exception
       return;
     }
     fail();
+  }
+
+  /** Dummy options class using deprecated category. */
+  public static class InvalidUndocumentedCategory extends OptionsBase {
+    @Option(
+        name = "experimental_foo",
+        category = "undocumented",
+        defaultValue = "true"
+    )
+    public boolean experimentalFoo;
+  }
+
+  @Test
+  public void invalidUndocumentedCategoryFails() {
+    try {
+      construct(InvalidUndocumentedCategory.class);
+      fail();
+    } catch (ConstructionException e) {
+      // Expected exception
+      assertThat(e).hasMessageThat().contains(
+          "Documentation level is no longer read from the option category.");
+      assertThat(e).hasMessageThat().contains("undocumented");
+      assertThat(e).hasMessageThat().contains("experimental_foo");
+    }
   }
 
   /**

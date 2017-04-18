@@ -88,9 +88,6 @@ public @interface Option {
    */
   String category() default "misc";
 
-  // TODO(b/37353610) the old convention was to include documentation level in the category(),
-  // which is still permitted for backwards compatibility. This field should be used for any new
-  // options, as the old category use will be removed.
   /**
    * Options have multiple uses, some flags, some not. For user-visible flags, they are
    * "documented," but otherwise, there are 3 types of undocumented options.

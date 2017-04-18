@@ -444,8 +444,7 @@ public class OptionsParser implements OptionsProvider {
     }
 
     private OptionUsageRestrictions optionUsageRestrictions() {
-      Option option = field.getAnnotation(Option.class);
-      return OptionsParser.documentationLevel(option);
+      return field.getAnnotation(Option.class).optionUsageRestrictions();
     }
 
     public boolean isDocumented() {
@@ -556,12 +555,12 @@ public class OptionsParser implements OptionsProvider {
           if (description == null) {
             description = "Options category '" + category + "'";
           }
-          if (documentationLevel(option) == OptionUsageRestrictions.DOCUMENTED) {
+          if (option.optionUsageRestrictions() == OptionUsageRestrictions.DOCUMENTED) {
             desc.append("\n").append(description).append(":\n");
           }
         }
 
-        if (documentationLevel(option) == OptionUsageRestrictions.DOCUMENTED) {
+        if (option.optionUsageRestrictions() == OptionUsageRestrictions.DOCUMENTED) {
           OptionsUsage.getUsage(optionField, desc, helpVerbosity, impl.getOptionsData());
         }
       }
@@ -594,8 +593,8 @@ public class OptionsParser implements OptionsProvider {
       for (Field optionField : allFields) {
         Option option = optionField.getAnnotation(Option.class);
         String category = option.category();
-        OptionUsageRestrictions level = documentationLevel(option);
-        if (!category.equals(prevCategory) && level == OptionUsageRestrictions.DOCUMENTED) {
+        if (!category.equals(prevCategory)
+            && option.optionUsageRestrictions() == OptionUsageRestrictions.DOCUMENTED) {
           String description = categoryDescriptions.get(category);
           if (description == null) {
             description = "Options category '" + category + "'";
@@ -608,7 +607,7 @@ public class OptionsParser implements OptionsProvider {
           prevCategory = category;
         }
 
-        if (level == OptionUsageRestrictions.DOCUMENTED) {
+        if (option.optionUsageRestrictions() == OptionUsageRestrictions.DOCUMENTED) {
           OptionsUsage.getUsageHtml(optionField, desc, escaper, impl.getOptionsData());
         }
       }
@@ -642,7 +641,7 @@ public class OptionsParser implements OptionsProvider {
     });
     for (Field optionField : allFields) {
       Option option = optionField.getAnnotation(Option.class);
-      if (documentationLevel(option) == OptionUsageRestrictions.DOCUMENTED) {
+      if (option.optionUsageRestrictions() == OptionUsageRestrictions.DOCUMENTED) {
         OptionsUsage.getCompletion(optionField, desc);
       }
     }
@@ -672,30 +671,6 @@ public class OptionsParser implements OptionsProvider {
    */
   public OptionValueDescription getOptionValueDescription(String name) {
     return impl.getOptionValueDescription(name);
-  }
-
-  @Deprecated
-  // TODO(b/37353610) the old convention was to include documentation level in the category(),
-  // which is still permitted for backwards compatibility. The enum field should be used for any new
-  // options, as the old category, and this function, will be removed.
-  public static OptionUsageRestrictions documentationLevel(Option option) {
-    // Until all options use the new documentationLabel attribute of an option, only rely on it if
-    // it is not set to the default value.
-    if (option.optionUsageRestrictions() != OptionUsageRestrictions.DOCUMENTED) {
-      return option.optionUsageRestrictions();
-    }
-
-    // Otherwise, continue reading from the category.
-    String category = option.category();
-    if ("undocumented".equals(category)) {
-      return OptionUsageRestrictions.UNDOCUMENTED;
-    } else if ("hidden".equals(category)) {
-      return OptionUsageRestrictions.HIDDEN;
-    } else if ("internal".equals(category)) {
-      return OptionUsageRestrictions.INTERNAL;
-    } else {
-      return OptionUsageRestrictions.DOCUMENTED;
-    }
   }
 
   /**
