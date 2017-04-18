@@ -212,7 +212,7 @@ EOF
   bazel build --verbose_failures --objccopt=-DCOPTS_FOO=1 -s \
       --xcode_version=$XCODE_VERSION \
       //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
-  expect_log "-module-cache-path bazel-out/darwin_x86_64-fastbuild/genfiles/_objc_module_cache"
+  expect_log "-module-cache-path bazel-out/local-fastbuild/genfiles/_objc_module_cache"
 }
 
 function test_swift_import_objc_framework() {
@@ -766,8 +766,8 @@ EOF
 
   bazel build --verbose_failures --xcode_version=$XCODE_VERSION -s \
       //ios:bin >$TEST_log 2>&1 || fail "should build"
-  expect_log "-Xlinker -add_ast_path -Xlinker bazel-out/darwin_x86_64-fastbuild/genfiles/ios/dep/_objs/ios_dep.swiftmodule"
-  expect_log "-Xlinker -add_ast_path -Xlinker bazel-out/darwin_x86_64-fastbuild/genfiles/ios/swift_lib/_objs/ios_swift_lib.swiftmodule"
+  expect_log "-Xlinker -add_ast_path -Xlinker bazel-out/local-fastbuild/genfiles/ios/dep/_objs/ios_dep.swiftmodule"
+  expect_log "-Xlinker -add_ast_path -Xlinker bazel-out/local-fastbuild/genfiles/ios/swift_lib/_objs/ios_swift_lib.swiftmodule"
 }
 
 function test_swiftc_script_mode() {
@@ -912,136 +912,6 @@ EOF
   dwarfdump -R bazel-genfiles/ios/swift_lib/_objs/ios_swift_lib.a \
       | grep -sq "__DWARF" \
       || fail "should contain DWARF data"
-}
-
-function test_apple_binary_crosstool_ios() {
-  rm -rf package
-  mkdir -p package
-  cat > package/BUILD <<EOF
-objc_library(
-    name = "lib_a",
-    srcs = ["a.m"],
-)
-objc_library(
-    name = "lib_b",
-    srcs = ["b.m"],
-    deps = [":cc_lib"],
-)
-cc_library(
-    name = "cc_lib",
-    srcs = ["cc_lib.cc"],
-)
-apple_binary(
-    name = "main_binary",
-    deps = [":lib_a", ":lib_b"],
-    srcs = ["main.m"],
-)
-genrule(
-  name = "lipo_run",
-  srcs = [":main_binary_lipobin"],
-  outs = ["lipo_out"],
-  cmd =
-      "set -e && " +
-      "lipo -info \$(location :main_binary_lipobin) > \$(@)",
-  tags = ["requires-darwin"],
-)
-EOF
-  touch package/a.m
-  touch package/b.m
-  cat > package/main.m <<EOF
-int main() {
-  return 0;
-}
-EOF
-  cat > package/cc_lib.cc << EOF
-#include <string>
-
-std::string GetString() { return "h3ll0"; }
-EOF
-
-  bazel build --verbose_failures //package:lipo_out \
-    --experimental_enable_objc_cc_deps \
-    --experimental_objc_crosstool=all \
-    --apple_crosstool_transition \
-    --ios_multi_cpus=i386,x86_64 \
-    --xcode_version=$XCODE_VERSION \
-    || fail "should build apple_binary and obtain info via lipo"
-
-  cat bazel-genfiles/package/lipo_out | grep "i386 x86_64" \
-    || fail "expected output binary to be for x86_64 architecture"
-}
-
-function test_apple_binary_crosstool_watchos() {
-  rm -rf package
-  mkdir -p package
-  cat > package/BUILD <<EOF
-genrule(
-  name = "lipo_run",
-  srcs = [":main_binary_lipobin"],
-  outs = ["lipo_out"],
-  cmd =
-      "set -e && " +
-      "lipo -info \$(location :main_binary_lipobin) > \$(@)",
-  tags = ["requires-darwin"],
-)
-
-apple_binary(
-    name = "main_binary",
-    srcs = ["main.m"],
-    deps = [":lib_a"],
-    platform_type = "watchos",
-)
-cc_library(
-    name = "cc_lib",
-    srcs = ["cc_lib.cc"],
-)
-# By depending on a library which requires it is built for watchos,
-# this test verifies that dependencies of apple_binary are compiled
-# for the specified platform_type.
-objc_library(
-    name = "lib_a",
-    srcs = ["a.m"],
-    deps = [":cc_lib"],
-)
-EOF
-  cat > package/main.m <<EOF
-#import <WatchKit/WatchKit.h>
-
-// Note that WKExtensionDelegate is only available in Watch SDK.
-@interface TestInterfaceMain : NSObject <WKExtensionDelegate>
-@end
-
-int main() {
-  return 0;
-}
-EOF
-  cat > package/a.m <<EOF
-#import <WatchKit/WatchKit.h>
-
-// Note that WKExtensionDelegate is only available in Watch SDK.
-@interface TestInterfaceA : NSObject <WKExtensionDelegate>
-@end
-
-int aFunction() {
-  return 0;
-}
-EOF
-  cat > package/cc_lib.cc << EOF
-#include <string>
-
-std::string GetString() { return "h3ll0"; }
-EOF
-
-  bazel build --verbose_failures //package:lipo_out \
-      --experimental_enable_objc_cc_deps \
-      --experimental_objc_crosstool=library \
-      --apple_crosstool_transition \
-      --watchos_cpus=armv7k \
-      --xcode_version=$XCODE_VERSION \
-      || fail "should build watch binary"
-
-  cat bazel-genfiles/package/lipo_out | grep "armv7k" \
-    || fail "expected output binary to be for armv7k architecture"
 }
 
 run_suite "apple_tests"

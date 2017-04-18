@@ -110,7 +110,7 @@ def _execute(repository_ctx, command, environment = None,
   return stripped_stdout
 
 
-def _get_tool_paths(repository_ctx, cc):
+def _get_tool_paths(repository_ctx, darwin, cc):
   """Compute the path to the various tools."""
   return {k: _which(repository_ctx, k, "/usr/bin/" + k)
           for k in [
@@ -124,7 +124,8 @@ def _get_tool_paths(repository_ctx, cc):
               "strip",
           ]} + {
               "gcc": cc,
-              "ar": _which(repository_ctx, "ar", "/usr/bin/ar")
+              "ar": "/usr/bin/libtool"
+                    if darwin else _which(repository_ctx, "ar", "/usr/bin/ar")
           }
 
 
@@ -219,7 +220,7 @@ def _is_gold_supported(repository_ctx, cc):
   ])
   return result.return_code == 0
 
-def _crosstool_content(repository_ctx, cc, cpu_value):
+def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
   """Return the content for the CROSSTOOL file, in a dictionary."""
   supports_gold_linker = _is_gold_supported(repository_ctx, cc)
   return {
@@ -235,7 +236,7 @@ def _crosstool_content(repository_ctx, cc, cpu_value):
       "supports_interface_shared_objects": False,
       "supports_normalizing_ar": False,
       "supports_start_end_lib": supports_gold_linker,
-      "target_libc": _get_env_var(repository_ctx, "BAZEL_TARGET_LIBC", "local", False),
+      "target_libc": "macosx" if darwin else _get_env_var(repository_ctx, "BAZEL_TARGET_LIBC", "local", False),
       "target_cpu": _get_env_var(repository_ctx, "BAZEL_TARGET_CPU", cpu_value, False),
       "target_system_name": _get_env_var(repository_ctx, "BAZEL_TARGET_SYSTEM", "local", False),
       "cxx_flag": [
@@ -251,17 +252,24 @@ def _crosstool_content(repository_ctx, cc, cpu_value):
           repository_ctx, cc, "-Wl,-no-as-needed"
       ) + _add_option_if_supported(
           repository_ctx, cc, "-Wl,-z,relro,-z,now"
-      ) + (["-B" + str(repository_ctx.path(cc).dirname),
-            # Always have -B/usr/bin, see https://github.com/bazelbuild/bazel/issues/760.
-            "-B/usr/bin",
-            # Gold linker only? Can we enable this by default?
-            # "-Wl,--warn-execstack",
-            # "-Wl,--detect-odr-violations"
-           ] + _add_option_if_supported(
-               # Have gcc return the exit code from ld.
-               repository_ctx, cc, "-pass-exit-codes")
-          ),
-      "ar_flag": [],
+      ) + (
+          [
+              "-undefined",
+              "dynamic_lookup",
+              "-headerpad_max_install_names",
+          ] if darwin else [
+              "-B" + str(repository_ctx.path(cc).dirname),
+              # Always have -B/usr/bin, see https://github.com/bazelbuild/bazel/issues/760.
+              "-B/usr/bin",
+              # Gold linker only? Can we enable this by default?
+              # "-Wl,--warn-execstack",
+              # "-Wl,--detect-odr-violations"
+          ] + _add_option_if_supported(
+              # Have gcc return the exit code from ld.
+              repository_ctx, cc, "-pass-exit-codes"
+          )
+      ),
+      "ar_flag": ["-static", "-s", "-o"] if darwin else [],
       "cxx_builtin_include_directory": _get_cxx_inc_directories(repository_ctx, cc),
       "objcopy_embed_flag": ["-I", "binary"],
       "unfiltered_cxx_flag":
@@ -284,7 +292,7 @@ def _crosstool_content(repository_ctx, cc, cpu_value):
           # All warnings are enabled. Maybe enable -Werror as well?
           "-Wall",
           # Enable a few more warnings that aren't part of -Wall.
-      ] + ([
+      ] + (["-Wthread-safety", "-Wself-assign"] if darwin else [
           "-B" + str(repository_ctx.path(cc).dirname),
           # Always have -B/usr/bin, see https://github.com/bazelbuild/bazel/issues/760.
           "-B/usr/bin",
@@ -342,7 +350,7 @@ def _get_windows_msys_crosstool_content(repository_ctx):
       '   tool_path { name: "objdump" path: "%susr/bin/objdump" }\n' % msys_root +
       '   tool_path { name: "strip" path: "%susr/bin/strip" }'% msys_root )
 
-def _opt_content():
+def _opt_content(darwin):
   """Return the content of the opt specific section of the CROSSTOOL file."""
   return {
       "compiler_flag": [
@@ -368,7 +376,7 @@ def _opt_content():
           "-ffunction-sections",
           "-fdata-sections"
       ],
-      "linker_flag": ["-Wl,--gc-sections"]
+      "linker_flag": [] if darwin else ["-Wl,--gc-sections"]
   }
 
 
@@ -620,7 +628,23 @@ def _get_env(repository_ctx):
   else:
     return ""
 
-def _coverage_feature():
+def _coverage_feature(darwin):
+  if darwin:
+    compile_flags = """flag_group {
+        flag: '-fprofile-instr-generate'
+        flag: '-fcoverage-mapping'
+      }"""
+    link_flags = """flag_group {
+        flag: '-fprofile-instr-generate'
+      }"""
+  else:
+    compile_flags = """flag_group {
+        flag: '-fprofile-arcs'
+        flag: '-ftest-coverage'
+      }"""
+    link_flags = """flag_group {
+        flag: '-lgcov'
+      }"""
   return """
     feature {
       name: 'coverage'
@@ -632,18 +656,13 @@ def _coverage_feature():
         action: 'c++-header-parsing'
         action: 'c++-header-preprocessing'
         action: 'c++-module-compile'
-        flag_group {
-          flag: '-fprofile-arcs'
-          flag: '-ftest-coverage'
-        }
+        """ + compile_flags + """
       }
       flag_set {
         action: 'c++-link-interface-dynamic-library'
         action: 'c++-link-dynamic-library'
         action: 'c++-link-executable'
-        flag_group {
-          flag: '-lgcov'
-        }
+        """ + link_flags + """
       }
     }
   """
@@ -716,62 +735,37 @@ def _impl(repository_ctx):
   else:
     darwin = cpu_value == "darwin"
     cc = _find_cc(repository_ctx)
+    tool_paths = _get_tool_paths(repository_ctx, darwin,
+                                 "cc_wrapper.sh" if darwin else str(cc))
+    crosstool_content = _crosstool_content(repository_ctx, cc, cpu_value, darwin)
+    opt_content = _opt_content(darwin)
+    dbg_content = _dbg_content()
+    _tpl(repository_ctx, "BUILD", {
+        "%{name}": cpu_value,
+        "%{supports_param_files}": "0" if darwin else "1",
+        "%{cc_compiler_deps}": ":cc_wrapper" if darwin else ":empty",
+        "%{compiler}": _get_env_var(repository_ctx, "BAZEL_COMPILER", "compiler", False),
+    })
     _tpl(repository_ctx,
-         "osx_cc_wrapper.sh" if darwin else "linux_cc_wrapper.sh",
-         {"%{cc}": str(cc), "%{env}": _get_env(repository_ctx)},
-         "cc_wrapper.sh")
-    if darwin:
-      repository_ctx.symlink(
-          Label("@bazel_tools//tools/objc:xcrunwrapper.sh"), "xcrunwrapper.sh")
-      repository_ctx.symlink(
-          Label("@bazel_tools//tools/objc:libtool.sh"), "libtool")
-      repository_ctx.symlink(
-          Label("@bazel_tools//tools/objc:make_hashed_objlist.py"),
-          "make_hashed_objlist.py")
-      repository_ctx.symlink(
-          Label("@bazel_tools//tools/osx/crosstool:wrapped_clang.tpl"),
-          "wrapped_clang")
-      repository_ctx.symlink(
-          Label("@bazel_tools//tools/osx/crosstool:wrapped_clang_pp.tpl"),
-          "wrapped_clang_pp")
-      repository_ctx.symlink(
-          Label("@bazel_tools//tools/osx/crosstool:CROSSTOOL.tpl"),
-          "CROSSTOOL")
-      repository_ctx.symlink(
-          Label("@bazel_tools//tools/osx/crosstool:BUILD.tpl"),
-          "BUILD")
-      repository_ctx.symlink(
-          Label("@bazel_tools//tools/osx/crosstool:osx_archs.bzl"),
-          "osx_archs.bzl")
-    else:
-      tool_paths = _get_tool_paths(repository_ctx, str(cc))
-      crosstool_content = _crosstool_content(repository_ctx, cc, cpu_value)
-      opt_content = _opt_content()
-      dbg_content = _dbg_content()
-      _tpl(repository_ctx, "BUILD", {
-          "%{name}": cpu_value,
-          "%{supports_param_files}": "1",
-          "%{cc_compiler_deps}": ":empty",
-          "%{compiler}": _get_env_var(repository_ctx, "BAZEL_COMPILER", "compiler", False),
-      })
-      _tpl(repository_ctx, "CROSSTOOL", {
-          "%{cpu}": cpu_value,
-          "%{default_toolchain_name}": _get_env_var(repository_ctx,
-                                                    "CC_TOOLCHAIN_NAME",
-                                                    "local",
-                                                    False),
-          "%{toolchain_name}": _get_env_var(repository_ctx, "CC_TOOLCHAIN_NAME", "local", False),
-          "%{content}": _build_crosstool(crosstool_content) + "\n" +
-                        _build_tool_path(tool_paths),
-          "%{opt_content}": _build_crosstool(opt_content, "    "),
-          "%{dbg_content}": _build_crosstool(dbg_content, "    "),
-          "%{cxx_builtin_include_directory}": "",
-          "%{coverage}": _coverage_feature(),
-          "%{msvc_env_tmp}": "",
-          "%{msvc_env_path}": "",
-          "%{msvc_env_include}": "",
-          "%{msvc_env_lib}": "",
-      })
+        "osx_cc_wrapper.sh" if darwin else "linux_cc_wrapper.sh",
+        {"%{cc}": str(cc), "%{env}": _get_env(repository_ctx)},
+        "cc_wrapper.sh")
+    _tpl(repository_ctx, "CROSSTOOL", {
+        "%{cpu}": cpu_value,
+        "%{default_toolchain_name}": _get_env_var(repository_ctx, "CC_TOOLCHAIN_NAME", "local", False),
+        "%{toolchain_name}": _get_env_var(repository_ctx, "CC_TOOLCHAIN_NAME", "local", False),
+        "%{content}": _build_crosstool(crosstool_content) + "\n" +
+                      _build_tool_path(tool_paths),
+        "%{opt_content}": _build_crosstool(opt_content, "    "),
+        "%{dbg_content}": _build_crosstool(dbg_content, "    "),
+        "%{cxx_builtin_include_directory}": "",
+        "%{coverage}": _coverage_feature(darwin),
+        "%{msvc_env_tmp}": "",
+        "%{msvc_env_path}": "",
+        "%{msvc_env_include}": "",
+        "%{msvc_env_lib}": "",
+    })
+
 
 cc_autoconf = repository_rule(
     implementation=_impl,
