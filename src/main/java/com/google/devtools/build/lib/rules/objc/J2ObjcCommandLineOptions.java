@@ -70,7 +70,7 @@ public class J2ObjcCommandLineOptions extends FragmentOptions {
 
   @Option(
     name = "experimental_j2objc_header_map",
-    defaultValue = "false",
+    defaultValue = "true",
     category = "flags",
     help = "Whether to generate J2ObjC header map in parallel of J2ObjC transpilation."
   )
