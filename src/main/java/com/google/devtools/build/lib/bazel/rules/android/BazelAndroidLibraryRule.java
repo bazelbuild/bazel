@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.bazel.rules.android;
 
+import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
+
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses;
@@ -44,6 +47,7 @@ public class BazelAndroidLibraryRule implements RuleDefinition {
         </ul>
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS --> */
         .setImplicitOutputsFunction(AndroidRuleClasses.ANDROID_LIBRARY_IMPLICIT_OUTPUTS)
+        .override(attr("exports_manifest", BOOLEAN).value(true))
         .build();
 
   }
