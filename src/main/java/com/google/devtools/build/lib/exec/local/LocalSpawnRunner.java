@@ -17,6 +17,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.logging.Level.INFO;
 import static java.util.logging.Level.SEVERE;
 
+import com.google.common.base.Joiner;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ResourceManager;
@@ -42,7 +43,9 @@ import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -51,14 +54,18 @@ import javax.annotation.Nullable;
  */
 @ThreadSafe
 public final class LocalSpawnRunner implements SpawnRunner {
+  private static final Joiner SPACE_JOINER = Joiner.on(' ');
   private static final String UNHANDLED_EXCEPTION_MSG = "Unhandled exception running a local spawn";
   private static final int LOCAL_EXEC_ERROR = -1;
   private static final int POSIX_TIMEOUT_EXIT_CODE = /*SIGNAL_BASE=*/128 + /*SIGWINCH=*/28;
+
+  private final Logger logger;
 
   private final Path execRoot;
   private final ResourceManager resourceManager;
 
   private final String hostName;
+  private final AtomicInteger execCount;
 
   private final ActionInputPrefetcher actionInputPrefetcher;
 
@@ -68,16 +75,20 @@ public final class LocalSpawnRunner implements SpawnRunner {
   private final String processWrapper;
 
   public LocalSpawnRunner(
+      Logger logger,
+      AtomicInteger execCount,
       Path execRoot,
       ActionInputPrefetcher actionInputPrefetcher,
       LocalExecutionOptions localExecutionOptions,
       ResourceManager resourceManager,
       boolean useProcessWrapper) {
+    this.logger = logger;
     this.execRoot = execRoot;
     this.actionInputPrefetcher = Preconditions.checkNotNull(actionInputPrefetcher);
     this.processWrapper = execRoot.getRelative("_bin/process-wrapper").getPathString();
     this.localExecutionOptions = localExecutionOptions;
     this.hostName = NetUtil.findShortHostName();
+    this.execCount = execCount;
     this.resourceManager = resourceManager;
     this.useProcessWrapper = useProcessWrapper;
   }
@@ -88,6 +99,8 @@ public final class LocalSpawnRunner implements SpawnRunner {
       LocalExecutionOptions localExecutionOptions,
       ResourceManager resourceManager) {
     this(
+        null,
+        new AtomicInteger(),
         execRoot,
         actionInputPrefetcher,
         localExecutionOptions,
@@ -122,6 +135,8 @@ public final class LocalSpawnRunner implements SpawnRunner {
     private State currentState = State.INITIALIZING;
     private final Map<State, Long> stateTimes = new EnumMap<>(State.class);
 
+    private final int id = execCount.getAndIncrement();
+
     public SubprocessHandler(
         Spawn spawn,
         SpawnExecutionPolicy policy) {
@@ -137,6 +152,9 @@ public final class LocalSpawnRunner implements SpawnRunner {
       } catch (Error e) {
         stepLog(SEVERE, UNHANDLED_EXCEPTION_MSG, e);
         throw e;
+      } catch (IOException e) {
+        stepLog(SEVERE, "Local I/O error", e);
+        throw e;
       } catch (RuntimeException e) {
         stepLog(SEVERE, UNHANDLED_EXCEPTION_MSG, e);
         throw new RuntimeException(UNHANDLED_EXCEPTION_MSG, e);
@@ -149,11 +167,21 @@ public final class LocalSpawnRunner implements SpawnRunner {
 
     @SuppressWarnings("unused")
     private void stepLog(Level level, String fmt, @Nullable Throwable cause, Object... args) {
-      // Do nothing for now.
+      String msg = String.format(fmt, args);
+      String toLog = String.format("%s (#%d %s)", msg, id, desc());
+      logger.log(level, toLog, cause);
+    }
+
+    private String desc() {
+      String progressMessage = spawn.getResourceOwner().getProgressMessage();
+      return progressMessage != null
+          ? progressMessage
+          : "ActionType=" + spawn.getResourceOwner().getMnemonic();
     }
 
     private void setState(State newState) {
       long now = System.currentTimeMillis();
+      long totalDelta = now - creationTime;
       long stepDelta = now - stateStartTime;
       stateStartTime = now;
 
@@ -161,11 +189,25 @@ public final class LocalSpawnRunner implements SpawnRunner {
       long stateTime = (stateTimeBoxed == null) ? 0 : stateTimeBoxed;
       stateTimes.put(currentState, stateTime + stepDelta);
 
+      logger.info(String.format(
+          "Step #%d time: %.3f delta: %.3f state: %s --> %s",
+          id, totalDelta / 1000f, stepDelta / 1000f, currentState, newState));
       currentState = newState;
+    }
+
+    private String debugCmdString() {
+      String cmd = SPACE_JOINER.join(spawn.getArguments());
+      if (cmd.length() > 500) {
+        // Shrink argstr by replacing middle of string with "...".
+        return cmd.substring(0, 250) + "..." + cmd.substring(cmd.length() - 250);
+      }
+      return cmd;
     }
 
     /** Parse the request and run it locally. */
     private SpawnResult start() throws InterruptedException, IOException {
+      logger.info(String.format("starting local subprocess #%d, argv: %s", id, debugCmdString()));
+
       FileOutErr outErr = policy.getFileOutErr();
       String actionType = spawn.getResourceOwner().getMnemonic();
       if (localExecutionOptions.allowedLocalAction != null

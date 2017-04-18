@@ -47,6 +47,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.SortedMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Filter;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import org.junit.After;
 import org.junit.Before;
@@ -130,6 +134,8 @@ public class LocalSpawnRunnerTest {
   private final ActionInputFileCache mockFileCache = mock(ActionInputFileCache.class);
   private final ResourceManager resourceManager = ResourceManager.instanceForTestingOnly();
 
+  private Logger logger;
+  private AtomicInteger execCount = new AtomicInteger();
   private FileOutErr outErr;
   private long timeoutMillis = 0;
   private boolean calledLockOutputFiles;
@@ -174,6 +180,13 @@ public class LocalSpawnRunnerTest {
 
   @Before
   public final void setup() throws Exception  {
+    logger = Logger.getAnonymousLogger();
+    logger.setFilter(new Filter() {
+      @Override
+      public boolean isLoggable(LogRecord record) {
+        return false;
+      }
+    });
     fs = new InMemoryFileSystem();
     // Prevent any subprocess execution at all.
     SubprocessBuilder.setSubprocessFactory(new SubprocessInterceptor());
@@ -196,7 +209,8 @@ public class LocalSpawnRunnerTest {
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     options.localSigkillGraceSeconds = 456;
     LocalSpawnRunner runner = new LocalSpawnRunner(
-        fs.getPath("/execroot"), ActionInputPrefetcher.NONE, options, resourceManager, USE_WRAPPER);
+        logger, execCount, fs.getPath("/execroot"), ActionInputPrefetcher.NONE, options,
+        resourceManager, USE_WRAPPER);
 
     timeoutMillis = 123 * 1000L;
     outErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
@@ -228,7 +242,8 @@ public class LocalSpawnRunnerTest {
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     options.localSigkillGraceSeconds = 456;
     LocalSpawnRunner runner = new LocalSpawnRunner(
-        fs.getPath("/execroot"), ActionInputPrefetcher.NONE, options, resourceManager, NO_WRAPPER);
+        logger, execCount, fs.getPath("/execroot"), ActionInputPrefetcher.NONE, options,
+        resourceManager, NO_WRAPPER);
 
     timeoutMillis = 123 * 1000L;
     outErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
@@ -257,7 +272,8 @@ public class LocalSpawnRunnerTest {
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     LocalSpawnRunner runner = new LocalSpawnRunner(
-        fs.getPath("/execroot"), ActionInputPrefetcher.NONE, options, resourceManager, USE_WRAPPER);
+        logger, execCount, fs.getPath("/execroot"), ActionInputPrefetcher.NONE, options,
+        resourceManager, USE_WRAPPER);
 
     outErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
     SpawnResult result = runner.exec(SIMPLE_SPAWN, policy);
@@ -286,7 +302,8 @@ public class LocalSpawnRunnerTest {
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     LocalSpawnRunner runner = new LocalSpawnRunner(
-        fs.getPath("/execroot"), ActionInputPrefetcher.NONE, options, resourceManager, USE_WRAPPER);
+        logger, execCount, fs.getPath("/execroot"), ActionInputPrefetcher.NONE, options,
+        resourceManager, USE_WRAPPER);
 
     outErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
     SpawnResult result = runner.exec(SIMPLE_SPAWN, policy);
@@ -305,7 +322,8 @@ public class LocalSpawnRunnerTest {
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     options.allowedLocalAction = Pattern.compile("none");
     LocalSpawnRunner runner = new LocalSpawnRunner(
-        fs.getPath("/execroot"), ActionInputPrefetcher.NONE, options, resourceManager, USE_WRAPPER);
+        logger, execCount, fs.getPath("/execroot"), ActionInputPrefetcher.NONE, options,
+        resourceManager, USE_WRAPPER);
 
     outErr = new FileOutErr();
     SpawnResult reply = runner.exec(SIMPLE_SPAWN, policy);
@@ -343,7 +361,8 @@ public class LocalSpawnRunnerTest {
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     LocalSpawnRunner runner = new LocalSpawnRunner(
-        fs.getPath("/execroot"), ActionInputPrefetcher.NONE, options, resourceManager, USE_WRAPPER);
+        logger, execCount, fs.getPath("/execroot"), ActionInputPrefetcher.NONE, options,
+        resourceManager, USE_WRAPPER);
 
     outErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
     try {
