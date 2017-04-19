@@ -38,6 +38,7 @@ filegroup(
         "//tools/android:embedded_tools",
         "//tools/build_defs/apple:srcs",
         "//tools/build_defs/docker:srcs",
+        "//tools/build_defs/hash:srcs",
         "//tools/build_defs/pkg:srcs",
         "//tools/build_defs/repo:srcs",
         "//tools/build_rules:embedded_tools_srcs",
