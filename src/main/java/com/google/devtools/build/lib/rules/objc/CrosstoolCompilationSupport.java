@@ -303,8 +303,7 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
       Artifact dsymBundleZip = intermediateArtifacts.tempDsymBundleZip(dsymOutputType);
       extensionBuilder
           .setDsymBundleZip(dsymBundleZip)
-          .addVariableCategory(VariableCategory.DSYM_VARIABLES)
-          .setDsymOutputType(dsymOutputType);
+          .addVariableCategory(VariableCategory.DSYM_VARIABLES);
       registerDsymActions(dsymOutputType);
       executableLinkAction.addActionOutput(dsymBundleZip);
     }
