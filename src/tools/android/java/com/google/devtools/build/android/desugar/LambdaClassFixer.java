@@ -61,7 +61,6 @@ class LambdaClassFixer extends ClassVisitor {
   private String desc;
   private String signature;
 
-
   public LambdaClassFixer(ClassVisitor dest, LambdaInfo lambdaInfo, ClassReaderFactory factory,
       ImmutableSet<String> interfaceLambdaMethods, boolean allowDefaultMethods) {
     super(Opcodes.ASM5, dest);
@@ -200,6 +199,7 @@ class LambdaClassFixer extends ClassVisitor {
       CopyOneMethod copier = new CopyOneMethod(methodName);
       // TODO(kmb): Set source file attribute for lambda classes so lambda debug info makes sense
       bytecode.accept(copier, ClassReader.SKIP_DEBUG);
+      checkState(copier.copied(), "Didn't find %s", rewritten);
     }
   }
 
@@ -232,15 +232,16 @@ class LambdaClassFixer extends ClassVisitor {
         owner = getInternalName();
         itf = false; // owner was interface but is now a class
         methodsToMoveIn.add(method);
-      } else {
-        if (originalInternalName.equals(owner)) {
-          // Reflect renaming of lambda classes
-          owner = getInternalName();
-        }
-        if (name.startsWith("lambda$")) {
-          // Reflect renaming of lambda$ instance methods to avoid accidental overrides
-          name = LambdaDesugaring.uniqueInPackage(owner, name);
-        }
+      } else if (originalInternalName.equals(owner)) {
+        // Reflect renaming of lambda classes
+        owner = getInternalName();
+      }
+
+      if (name.startsWith("lambda$")) {
+        // Reflect renaming of lambda$ instance methods in LambdaDesugaring.  Do this even if we'll
+        // move the method into the lambda class we're processing so the renaming done in
+        // LambdaDesugaring doesn't kick in if the class were desugared a second time.
+        name = LambdaDesugaring.uniqueInPackage(owner, name);
       }
       super.visitMethodInsn(opcode, owner, name, desc, itf);
     }
@@ -350,6 +351,10 @@ class LambdaClassFixer extends ClassVisitor {
       this.methodName = methodName;
     }
 
+    public boolean copied() {
+      return copied > 0;
+    }
+
     @Override
     public void visit(
         int version,
@@ -367,6 +372,8 @@ class LambdaClassFixer extends ClassVisitor {
       if (name.equals(methodName)) {
         checkState(copied == 0, "Found unexpected second method %s with descriptor %s", name, desc);
         ++copied;
+        // Rename for consistency with what we do in LambdaClassMethodRewriter
+        name = LambdaDesugaring.uniqueInPackage(getInternalName(), name);
         return new AvoidJacocoInit(
             LambdaClassFixer.super.visitMethod(access, name, desc, signature, exceptions));
       }
