@@ -620,18 +620,14 @@ class OptionsParserImpl {
       // Look for a "no"-prefixed option name: "no<optionName>".
       if (field == null && name.startsWith("no")) {
         // Give a nice error if someone is using the deprecated --no_ prefix.
-        // Note: With this check in place, is impossible to specify "--no_foo" for a flag named
-        // "--_foo", if a --foo flag also exists, since that'll be interpreted as the "no_"
-        // negating prefix for "--foo". Let that be a warning to anyone wanting to make flags that
-        // start with underscores.
         // TODO(Bazel-team): Remove the --no_ check when sufficient time has passed for users of
         // that feature to have stopped using it.
-        if (name.startsWith("no_") && optionsData.getFieldFromName(name.substring(3)) != null) {
-          throw new OptionsParsingException(
-              "'no_' prefixes are no longer accepted, --no<flag> is an accepted alternative.",
-              name.substring(3));
-        }
         name = name.substring(2);
+        if (name.startsWith("_") && optionsData.getFieldFromName(name.substring(1)) != null) {
+          name = name.substring(1);
+          warnings.add("Option '" + name + "' is specified using the deprecated --no_ prefix. "
+            + "Use --no without the underscore instead.");
+        }
         field = optionsData.getFieldFromName(name);
         booleanValue = false;
         if (field != null) {

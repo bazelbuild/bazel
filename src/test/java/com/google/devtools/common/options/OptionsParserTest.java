@@ -1583,16 +1583,16 @@ public class OptionsParserTest {
   }
 
   @Test
-  public void testBooleanUnderscorePrefixError() {
-    try {
-      OptionsParser parser = newOptionsParser(ExampleBooleanFooOptions.class);
-      parser.parse("--no_foo");
+  public void testBooleanUnderscorePrefixError() throws OptionsParsingException {
+    OptionsParser parser = newOptionsParser(ExampleBooleanFooOptions.class);
+    parser.parse("--no_foo");
+    ExampleBooleanFooOptions result = parser.getOptions(ExampleBooleanFooOptions.class);
+    assertThat(result.foo).isFalse();
+    List<String> warning = parser.getWarnings();
+    assertThat(warning).hasSize(1);
+    assertThat(warning.get(0)).contains("Option 'foo' is specified using the deprecated "
+          + "--no_ prefix. Use --no without the underscore instead");
 
-      fail("--no_foo should fail to parse and provide a nice error message.");
-    } catch (OptionsParsingException e) {
-      assertThat(e.getMessage()).contains(
-          "'no_' prefixes are no longer accepted, --no<flag> is an accepted alternative.");
-    }
   }
 
   public static class WrapperOptionExample extends OptionsBase {
