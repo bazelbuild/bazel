@@ -7,6 +7,15 @@ filegroup(
     srcs = glob(["**"]),
 )
 
+filegroup(
+    name = "embedded_tools_srcs",
+    srcs = [
+        "BUILD.tools",
+        "LICENSE",
+        ":jarjar_command_deploy.jar",
+    ],
+)
+
 java_library(
     name = "jarjar_core",
     srcs = glob(["jarjar-core/src/main/**/*.java"]),
@@ -28,4 +37,15 @@ java_binary(
         "//third_party:jsr305",
         "//third_party/java/jopt-simple",
     ],
+)
+
+java_import(
+    name = "jarjar_import",
+    jars = [":jarjar_command_deploy.jar"],
+)
+
+java_binary(
+    name = "jarjar_bin",
+    main_class = "com.tonicsystems.jarjar.Main",
+    runtime_deps = [":jarjar_import"],
 )
