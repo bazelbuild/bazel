@@ -16,15 +16,15 @@ package com.google.devtools.common.options;
 
 import com.google.common.escape.CharEscaperBuilder;
 import com.google.common.escape.Escaper;
-
+import java.lang.reflect.Field;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
 /**
- * Base class for all options classes.  Extend this class, adding public
- * instance fields annotated with @Option.  Then you can create instances
- * either programmatically:
+ * Base class for all options classes. Extend this class, adding public instance fields annotated
+ * with {@link Option}. Then you can create instances either programmatically:
  *
  * <pre>
  *   X x = Options.getDefaults(X.class);
@@ -40,11 +40,10 @@ import java.util.Map.Entry;
  *   X x = parser.getOptions(X.class);
  * </pre>
  *
- * <p>Subclasses of OptionsBase <b>must</b> be constructed reflectively,
- * i.e. using not {@code new MyOptions}, but one of the two methods above
- * instead.  (Direct construction creates an empty instance, not containing
- * default values.  This leads to surprising behavior and often
- * NullPointerExceptions, etc.)
+ * <p>Subclasses of {@code OptionsBase} <i>must</i> be constructed reflectively, i.e. using not
+ * {@code new MyOptions()}, but one of the above methods instead. (Direct construction creates an
+ * empty instance, not containing default values. This leads to surprising behavior and often {@code
+ * NullPointerExceptions}, etc.)
  */
 public abstract class OptionsBase {
 
@@ -61,13 +60,24 @@ public abstract class OptionsBase {
   }
 
   /**
-   * Returns this options object in the form of a (new) mapping from option
-   * names, including inherited ones, to option values.  If the public fields
-   * are mutated, this will be reflected in subsequent calls to {@code asMap}.
-   * Mutation of this map by the caller does not affect this options object.
+   * Returns a mapping from option names to values, for each option on this object, including
+   * inherited ones. The mapping is a copy, so subsequent mutations to it or to this object are
+   * independent. Entries are sorted alphabetically.
    */
-  public final Map<String, Object> asMap() {
-    return OptionsParserImpl.optionsAsMap(this);
+  public final <O extends OptionsBase> Map<String, Object> asMap() {
+    // Generic O is needed to tell the type system that the toMap() call is safe.
+    // The casts are safe because this <= O <= OptionsBase.
+    @SuppressWarnings("unchecked")
+    O castThis = (O) this;
+    @SuppressWarnings("unchecked")
+    Class<O> castClass = (Class<O>) getClass();
+
+    Map<String, Object> map = new LinkedHashMap<>();
+    for (Map.Entry<Field, Object> entry : OptionsParser.toMap(castClass, castThis).entrySet()) {
+      String name = entry.getKey().getAnnotation(Option.class).name();
+      map.put(name, entry.getValue());
+    }
+    return map;
   }
 
   @Override

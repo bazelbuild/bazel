@@ -21,6 +21,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ListMultimap;
 import com.google.common.escape.Escaper;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.nio.file.FileSystem;
 import java.util.ArrayList;
@@ -28,6 +29,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -780,5 +783,110 @@ public class OptionsParser implements OptionsProvider {
   @Override
   public List<String> canonicalize() {
     return impl.asCanonicalizedList();
+  }
+
+  /**
+   * Returns a mapping from each option {@link Field} in {@code optionsClass} (including inherited
+   * ones) to its value in {@code options}.
+   *
+   * <p>The map is a mutable copy; changing the map won't affect {@code options} and vice versa.
+   * The map entries appear sorted alphabetically by option name.
+   *
+   * If {@code options} is an instance of a subclass of {@code optionsClass}, any options defined
+   * by the subclass are not included in the map.
+   *
+   * @throws IllegalArgumentException if {@code options} is not an instance of {@code optionsClass}
+   */
+  static <O extends OptionsBase> Map<Field, Object> toMap(Class<O> optionsClass, O options) {
+    OptionsData data = getOptionsDataInternal(optionsClass);
+    // Alphabetized due to getFieldsForClass()'s order.
+    Map<Field, Object> map = new LinkedHashMap<>();
+    for (Field field : data.getFieldsForClass(optionsClass)) {
+      try {
+        map.put(field, field.get(options));
+      } catch (IllegalAccessException e) {
+        // All options fields of options classes should be public.
+        throw new IllegalStateException(e);
+      } catch (IllegalArgumentException e) {
+        // This would indicate an inconsistency in the cached OptionsData.
+        throw new IllegalStateException(e);
+      }
+    }
+    return map;
+  }
+
+  /**
+   * Given a mapping as returned by {@link #toMap}, and the options class it that its entries
+   * correspond to, this constructs the corresponding instance of the options class.
+   *
+   * @throws IllegalArgumentException if {@code map} does not contain exactly the fields of {@code
+   *     optionsClass}, with values of the appropriate type
+   */
+  static <O extends OptionsBase> O fromMap(Class<O> optionsClass, Map<Field, Object> map) {
+    // Instantiate the options class.
+    OptionsData data = getOptionsDataInternal(optionsClass);
+    O optionsInstance;
+    try {
+      Constructor<O> constructor = data.getConstructor(optionsClass);
+      Preconditions.checkNotNull(constructor, "No options class constructor available");
+      optionsInstance = constructor.newInstance();
+    } catch (ReflectiveOperationException e) {
+      throw new IllegalStateException("Error while instantiating options class", e);
+    }
+
+    List<Field> fields = data.getFieldsForClass(optionsClass);
+    // Ensure all fields are covered, no extraneous fields.
+    validateFieldsSets(new LinkedHashSet<>(fields), new LinkedHashSet<>(map.keySet()));
+    // Populate the instance.
+    for (Field field : fields) {
+      // Non-null as per above check.
+      Object value = map.get(field);
+      try {
+        field.set(optionsInstance, value);
+      } catch (IllegalAccessException e) {
+        throw new IllegalStateException(e);
+      }
+      // May also throw IllegalArgumentException if map value is ill typed.
+    }
+    return optionsInstance;
+  }
+
+  /**
+   * Raises a pretty {@link IllegalArgumentException} if the two sets of fields are not equal.
+   *
+   * <p>The entries in {@code fieldsFromMap} may be ill formed by being null or lacking an {@link
+   * Option} annotation. (This isn't done for {@code fieldsFromClass} because they come from an
+   * {@link OptionsData} object.)
+   */
+  private static void validateFieldsSets(
+      LinkedHashSet<Field> fieldsFromClass, LinkedHashSet<Field> fieldsFromMap) {
+    if (!fieldsFromClass.equals(fieldsFromMap)) {
+      List<String> extraNamesFromClass = new ArrayList<>();
+      List<String> extraNamesFromMap = new ArrayList<>();
+      for (Field field : fieldsFromClass) {
+        if (!fieldsFromMap.contains(field)) {
+          extraNamesFromClass.add("'" + field.getAnnotation(Option.class).name() + "'");
+        }
+      }
+      for (Field field : fieldsFromMap) {
+        // Extra validation on the map keys since they don't come from OptionsData.
+        if (!fieldsFromClass.contains(field)) {
+          if (field == null) {
+            extraNamesFromMap.add("<null field>");
+          } else {
+            Option annotation = field.getAnnotation(Option.class);
+            if (annotation == null) {
+              extraNamesFromMap.add("<non-Option field>");
+            } else {
+              extraNamesFromMap.add("'" + annotation.name() + "'");
+            }
+          }
+        }
+      }
+      throw new IllegalArgumentException(
+          "Map keys do not match fields of options class; extra map keys: {"
+          + Joiner.on(", ").join(extraNamesFromMap) + "}; extra options class options: {"
+          + Joiner.on(", ").join(extraNamesFromClass) + "}");
+    }
   }
 }

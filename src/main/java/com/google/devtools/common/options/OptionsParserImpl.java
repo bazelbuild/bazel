@@ -85,7 +85,7 @@ class OptionsParserImpl {
   private final List<String> warnings = new ArrayList<>();
 
   private boolean allowSingleDashLongOptions = false;
-  
+
   private ArgsPreProcessor argsPreProcessor =
       new ArgsPreProcessor() {
         @Override
@@ -93,7 +93,7 @@ class OptionsParserImpl {
           return args;
         }
       };
-  
+
   /**
    * Create a new parser object
    */
@@ -112,29 +112,10 @@ class OptionsParserImpl {
   void setAllowSingleDashLongOptions(boolean allowSingleDashLongOptions) {
     this.allowSingleDashLongOptions = allowSingleDashLongOptions;
   }
-  
+
   /** Sets the ArgsPreProcessor for manipulations of the options before parsing. */
   void setArgsPreProcessor(ArgsPreProcessor preProcessor) {
     this.argsPreProcessor = Preconditions.checkNotNull(preProcessor);
-  }
-
-  /**
-   * The implementation of {@link OptionsBase#asMap}.
-   */
-  static Map<String, Object> optionsAsMap(OptionsBase optionsInstance) {
-    Class<? extends OptionsBase> optionsClass = optionsInstance.getClass();
-    OptionsData data = OptionsParser.getOptionsDataInternal(optionsClass);
-    Map<String, Object> map = new HashMap<>();
-    for (Field field : data.getFieldsForClass(optionsClass)) {
-      try {
-        String name = field.getAnnotation(Option.class).name();
-        Object value = field.get(optionsInstance);
-        map.put(name, value);
-      } catch (IllegalAccessException e) {
-        throw new IllegalStateException(e); // unreachable
-      }
-    }
-    return map;
   }
 
   /**
@@ -707,8 +688,8 @@ class OptionsParserImpl {
         return null;
       }
       optionsInstance = constructor.newInstance();
-    } catch (Exception e) {
-      throw new IllegalStateException(e);
+    } catch (ReflectiveOperationException e) {
+      throw new IllegalStateException("Error while instantiating options class", e);
     }
 
     // Set the fields
