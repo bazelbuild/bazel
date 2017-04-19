@@ -27,6 +27,7 @@ import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.PackageFactory;
@@ -143,6 +144,8 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
     PrecomputedValue.BLACKLISTED_PACKAGE_PREFIXES_FILE.set(
         differencer, PathFragment.EMPTY_FRAGMENT);
     PrecomputedValue.BLAZE_DIRECTORIES.set(differencer, directories);
+    RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(
+        differencer, ImmutableMap.<RepositoryName, PathFragment>of());
   }
 
   protected PackageLookupValue lookupPackage(String packageName) throws InterruptedException {

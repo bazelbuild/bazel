@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.rules.test.CoverageReportActionFactory;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -289,5 +290,9 @@ public abstract class BlazeModule {
      * Exits Blaze as early as possible by sending an interrupt to the command's main thread.
      */
     void exit(AbruptExitException exception);
+  }
+
+  public ImmutableList<PrecomputedValue.Injected> getPrecomputedValues() {
+    return ImmutableList.of();
   }
 }

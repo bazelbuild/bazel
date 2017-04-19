@@ -14,11 +14,17 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
+import com.google.auto.value.AutoValue;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
+import com.google.devtools.common.options.OptionsParsingException;
+import java.util.List;
 
 /**
  * Command-line options for repositories.
@@ -36,4 +42,54 @@ public class RepositoryOptions extends OptionsBase {
   )
   public PathFragment experimentalRepositoryCache;
 
+  @Option(name = "override_repository",
+      defaultValue = "null",
+      allowMultiple = true,
+      converter = RepositoryOverrideConverter.class,
+      help = "Overrides a repository with a local directory.")
+  public List<RepositoryOverride> repositoryOverrides;
+
+  /**
+   * Converts from an equals-separated pair of strings into RepositoryName->PathFragment mapping.
+   */
+  public static class RepositoryOverrideConverter implements Converter<RepositoryOverride> {
+
+    @Override
+    public RepositoryOverride convert(String input) throws OptionsParsingException {
+      String[] pieces = input.split("=");
+      if (pieces.length != 2) {
+        throw new OptionsParsingException(
+            "Repository overrides must be of the form 'repository-name=path'", input);
+      }
+      PathFragment path = PathFragment.create(pieces[1]);
+      if (!path.isAbsolute()) {
+        throw new OptionsParsingException(
+            "Repository override directory must be an absolute path", input);
+      }
+      try {
+        return RepositoryOverride.create(RepositoryName.create("@" + pieces[0]), path);
+      } catch (LabelSyntaxException e) {
+        throw new OptionsParsingException("Invalid repository name given to override", input);
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "an equals-separated mapping of repository name to path";
+    }
+  }
+
+  /**
+   * A repository override, represented by a name and an absolute path to a repository.
+   */
+  @AutoValue
+  public abstract static class RepositoryOverride {
+
+    private static RepositoryOverride create(RepositoryName repositoryName, PathFragment path) {
+      return new AutoValue_RepositoryOptions_RepositoryOverride(repositoryName, path);
+    }
+
+    public abstract RepositoryName repositoryName();
+    public abstract PathFragment path();
+  }
 }

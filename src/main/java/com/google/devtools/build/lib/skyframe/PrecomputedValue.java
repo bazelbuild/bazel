@@ -60,6 +60,11 @@ public final class PrecomputedValue implements SkyValue {
     void inject(Injectable injectable) {
       injectable.inject(precomputed.key, new PrecomputedValue(supplier.get()));
     }
+
+    @Override
+    public String toString() {
+      return precomputed + ": " + supplier.get();
+    }
   }
 
   public static <T> Injected injected(Precomputed<T> precomputed, Supplier<T> value) {

@@ -495,6 +495,10 @@ public final class CommandEnvironment {
     if (!skyframeExecutor.hasIncrementalState()) {
       skyframeExecutor.resetEvaluator();
     }
+
+    for (BlazeModule module : runtime.getBlazeModules()) {
+      skyframeExecutor.injectExtraPrecomputedValues(module.getPrecomputedValues());
+    }
     skyframeExecutor.sync(
         reporter,
         options.getOptions(PackageCacheOptions.class),

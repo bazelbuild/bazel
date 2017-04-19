@@ -470,7 +470,12 @@ public abstract class RepositoryFunction {
         // function so we get invalidation when the repository is fetched.
         // For the repository directory itself, we cannot depends on the RepositoryDirectoryValue
         // (cycle).
-        env.getValue(RepositoryDirectoryValue.key(RepositoryName.create("@" + repositoryName)));
+        env.getValue(
+            RepositoryDirectoryValue.key(
+                RepositoryName.createFromValidStrippedName(repositoryName)));
+      } else {
+        // Invalidate external/<repo> if the repository overrides change.
+        RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.get(env);
       }
     } catch (RepositoryFunction.RepositoryNotFoundException ex) {
       // The repository we are looking for does not exist so we should depend on the whole
@@ -478,7 +483,7 @@ public abstract class RepositoryFunction {
       // already requested all repository functions from the WORKSPACE file from Skyframe as part
       // of the resolution. Therefore we are safe to ignore that Exception.
       return;
-    } catch (RepositoryFunctionException | LabelSyntaxException ex) {
+    } catch (RepositoryFunctionException ex) {
       // This should never happen.
       throw new IllegalStateException(
           "Repository " + repositoryName + " cannot be resolved for path " + rootedPath, ex);

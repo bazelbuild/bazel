@@ -701,12 +701,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       PrecomputedValue.BLAZE_DIRECTORIES.set(injectable(), directories);
       PrecomputedValue.PRODUCT_NAME.set(injectable(), productName);
       injectBuildInfoFactories();
-      injectExtraPrecomputedValues();
+      injectExtraPrecomputedValues(extraPrecomputedValues);
       needToInjectPrecomputedValuesForAnalysis = false;
     }
   }
 
-  private void injectExtraPrecomputedValues() {
+  public void injectExtraPrecomputedValues(
+      List<PrecomputedValue.Injected> extraPrecomputedValues) {
     for (PrecomputedValue.Injected injected : extraPrecomputedValues) {
       injected.inject(injectable());
     }

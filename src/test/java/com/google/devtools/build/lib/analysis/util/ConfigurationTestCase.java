@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
@@ -116,7 +117,9 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
             analysisMock.getProductName(),
             CrossRepositoryLabelViolationStrategy.ERROR,
             ImmutableList.of(BuildFileName.BUILD_DOT_BAZEL, BuildFileName.BUILD));
-
+    skyframeExecutor.injectExtraPrecomputedValues(ImmutableList.of(PrecomputedValue.injected(
+        RepositoryDelegatorFunction.REPOSITORY_OVERRIDES,
+        ImmutableMap.<RepositoryName, PathFragment>of())));
     PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
     packageCacheOptions.showLoadingProgress = true;
     packageCacheOptions.globbingThreads = 7;

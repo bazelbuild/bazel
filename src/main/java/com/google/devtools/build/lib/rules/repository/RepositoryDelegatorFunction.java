@@ -25,10 +25,13 @@ import com.google.devtools.build.lib.packages.RuleFormatter;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -49,6 +52,8 @@ import javax.annotation.Nullable;
  * this function.
  */
 public final class RepositoryDelegatorFunction implements SkyFunction {
+  public static final Precomputed<Map<RepositoryName, PathFragment>> REPOSITORY_OVERRIDES =
+      new Precomputed<>(SkyKey.create(SkyFunctions.PRECOMPUTED, "repository_overrides"));
 
   // The marker file version is inject in the rule key digest so the rule key is always different
   // when we decide to update the format.
@@ -93,13 +98,22 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
     RepositoryName repositoryName = (RepositoryName) skyKey.argument();
-    Rule rule = RepositoryFunction.getRule(repositoryName, null, env);
-    if (rule == null) {
+    BlazeDirectories directories = PrecomputedValue.BLAZE_DIRECTORIES.get(env);
+    Map<RepositoryName, PathFragment> overrides = REPOSITORY_OVERRIDES.get(env);
+    if (env.valuesMissing()) {
       return null;
     }
 
-    BlazeDirectories directories = PrecomputedValue.BLAZE_DIRECTORIES.get(env);
-    if (directories == null) {
+    Path repoRoot = RepositoryFunction.getExternalRepositoryDirectory(directories)
+        .getRelative(repositoryName.strippedName());
+    Path markerPath = getMarkerPath(directories, repositoryName.strippedName());
+    if (overrides.containsKey(repositoryName)) {
+      return setupOverride(
+          repositoryName, overrides.get(repositoryName), env, repoRoot, markerPath);
+    }
+
+    Rule rule = RepositoryFunction.getRule(repositoryName, null, env);
+    if (rule == null) {
       return null;
     }
     RepositoryFunction handler;
@@ -110,23 +124,20 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     }
     if (handler == null) {
       throw new RepositoryFunctionException(
-          new EvalException(Location.fromFile(directories.getWorkspace().getRelative("WORKSPACE")),
+          new EvalException(
+              Location.fromFile(directories.getWorkspace().getRelative("WORKSPACE")),
               "Could not find handler for " + rule),
           Transience.PERSISTENT);
     }
 
     handler.setClientEnvironment(clientEnvironment);
 
-    Path repoRoot =
-        RepositoryFunction.getExternalRepositoryDirectory(directories).getRelative(rule.getName());
     byte[] ruleSpecificData = handler.getRuleSpecificMarkerData(rule, env);
     if (ruleSpecificData == null) {
       return null;
     }
     String ruleKey = computeRuleKey(rule, ruleSpecificData);
     Map<String, String> markerData = new TreeMap<>();
-    Path markerPath = getMarkerPath(directories, rule);
-
     if (handler.isLocal(rule)) {
       // Local repositories are always fetched because the operation is generally fast and they do
       // not depend on non-local data, so it does not make much sense to try to cache from across
@@ -207,7 +218,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         .setFetchingDelayed().build();
   }
 
-  private final String computeRuleKey(Rule rule, byte[] ruleSpecificData) {
+  private String computeRuleKey(Rule rule, byte[] ruleSpecificData) {
     return new Fingerprint().addBytes(RuleFormatter.serializeRule(rule).build().toByteArray())
         .addBytes(ruleSpecificData)
         .addInt(MARKER_FILE_VERSION).hexDigestAndReset();
@@ -226,7 +237,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
    * system is up to date.
    */
   @Nullable
-  private final byte[] isFilesystemUpToDate(Path markerPath, Rule rule, String ruleKey,
+  private byte[] isFilesystemUpToDate(Path markerPath, Rule rule, String ruleKey,
       RepositoryFunction handler, Environment env)
       throws RepositoryFunctionException, InterruptedException {
     try {
@@ -310,7 +321,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     return result.toString();
   }
 
-  private final byte[] writeMarkerFile(
+  private byte[] writeMarkerFile(
       Path markerPath, Map<String, String> markerData, String ruleKey)
       throws RepositoryFunctionException {
     try {
@@ -329,13 +340,30 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     }
   }
 
-  private static Path getMarkerPath(BlazeDirectories directories, Rule rule) {
+  private static Path getMarkerPath(BlazeDirectories directories, String ruleName) {
     return RepositoryFunction.getExternalRepositoryDirectory(directories)
-        .getChild("@" + rule.getName() + ".marker");
+        .getChild("@" + ruleName + ".marker");
   }
 
   @Override
   public String extractTag(SkyKey skyKey) {
     return null;
+  }
+
+  private RepositoryDirectoryValue setupOverride(
+      RepositoryName repositoryName, PathFragment sourcePath, Environment env, Path repoRoot,
+      Path markerPath)
+      throws RepositoryFunctionException, InterruptedException {
+    setupRepositoryRoot(repoRoot);
+    RepositoryDirectoryValue.Builder directoryValue = LocalRepositoryFunction.symlink(
+        repoRoot, sourcePath, env);
+    if (directoryValue == null) {
+      return null;
+    }
+    String ruleKey = new Fingerprint().addBytes(repositoryName.strippedName().getBytes())
+        .addBytes(repoRoot.getFileSystem().getPath(sourcePath).getPathString().getBytes())
+        .addInt(MARKER_FILE_VERSION).hexDigestAndReset();
+    byte[] digest = writeMarkerFile(markerPath, new TreeMap<String, String>(), ruleKey);
+    return directoryValue.setDigest(digest).build();
   }
 }

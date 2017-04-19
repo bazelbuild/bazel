@@ -511,6 +511,10 @@ public class BlazeCommandDispatcher {
 
       env.getEventBus().post(originalCommandLine);
 
+      for (BlazeModule module : runtime.getBlazeModules()) {
+        env.getSkyframeExecutor().injectExtraPrecomputedValues(module.getPrecomputedValues());
+      }
+
       ExitCode outcome = command.exec(env, optionsParser);
       outcome = env.precompleteCommand(outcome);
       numericExitCode = outcome.getNumericExitCode();

@@ -98,5 +98,10 @@ public class WorkspaceNameValue implements SkyValue {
     public int hashCode() {
       return HASHCODE;
     }
+
+    @Override
+    public String toString() {
+      return "#";
+    }
   }
 }

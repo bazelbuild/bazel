@@ -40,14 +40,20 @@ public class LocalRepositoryFunction extends RepositoryFunction {
       BlazeDirectories directories, Environment env, Map<String, String> markerData)
       throws InterruptedException, RepositoryFunctionException {
     PathFragment pathFragment = RepositoryFunction.getTargetPath(rule, directories.getWorkspace());
+    return LocalRepositoryFunction.symlink(outputDirectory, pathFragment, env);
+  }
+
+  public static RepositoryDirectoryValue.Builder symlink(
+      Path source, PathFragment destination, Environment env)
+      throws RepositoryFunctionException, InterruptedException {
     try {
-      outputDirectory.createSymbolicLink(pathFragment);
+      source.createSymbolicLink(destination);
     } catch (IOException e) {
       throw new RepositoryFunctionException(
-          new IOException("Could not create symlink to repository " + pathFragment + ": "
+          new IOException("Could not create symlink to repository " + destination + ": "
               + e.getMessage(), e), Transience.TRANSIENT);
     }
-    FileValue repositoryValue = getRepositoryDirectory(outputDirectory, env);
+    FileValue repositoryValue = getRepositoryDirectory(source, env);
     if (repositoryValue == null) {
       // TODO(bazel-team): If this returns null, we unnecessarily recreate the symlink above on the
       // second execution.
@@ -56,10 +62,10 @@ public class LocalRepositoryFunction extends RepositoryFunction {
 
     if (!repositoryValue.isDirectory()) {
       throw new RepositoryFunctionException(
-          new IOException(rule + " must specify an existing directory"), Transience.TRANSIENT);
+          new IOException(source + " must be an existing directory"), Transience.TRANSIENT);
     }
 
-    return RepositoryDirectoryValue.builder().setPath(outputDirectory);
+    return RepositoryDirectoryValue.builder().setPath(source);
   }
 
   @Override
