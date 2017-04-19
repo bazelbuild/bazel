@@ -61,6 +61,7 @@ public class CppCompileActionBuilder {
   private Artifact optionalSourceFile;
   private Artifact outputFile;
   private Artifact dwoFile;
+  private Artifact ltoIndexingFile;
   private PathFragment tempOutputFile;
   private DotdFile dotdFile;
   private Artifact gcnoFile;
@@ -168,6 +169,7 @@ public class CppCompileActionBuilder {
     this.optionalSourceFile = other.optionalSourceFile;
     this.outputFile = other.outputFile;
     this.dwoFile = other.dwoFile;
+    this.ltoIndexingFile = other.ltoIndexingFile;
     this.tempOutputFile = other.tempOutputFile;
     this.dotdFile = other.dotdFile;
     this.gcnoFile = other.gcnoFile;
@@ -404,6 +406,7 @@ public class CppCompileActionBuilder {
           dotdFile,
           gcnoFile,
           dwoFile,
+          ltoIndexingFile,
           optionalSourceFile,
           localShellEnvironment,
           cppConfiguration,
@@ -602,6 +605,15 @@ public class CppCompileActionBuilder {
 
   public CppCompileActionBuilder setDwoFile(Artifact dwoFile) {
     this.dwoFile = dwoFile;
+    return this;
+  }
+
+  /**
+   * Set the minimized bitcode file emitted by this (ThinLTO) compilation that can be used in place
+   * of the full bitcode outputFile in the LTO indexing step.
+   */
+  public CppCompileActionBuilder setLTOIndexingFile(Artifact ltoIndexingFile) {
+    this.ltoIndexingFile = ltoIndexingFile;
     return this;
   }
 

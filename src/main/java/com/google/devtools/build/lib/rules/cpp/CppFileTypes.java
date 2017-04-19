@@ -127,6 +127,8 @@ public final class CppFileTypes {
       }
     };
 
+  // Minimized bitcode file emitted by the ThinLTO compile step and used just for LTO indexing.
+  public static final FileType LTO_INDEXING_OBJECT_FILE = FileType.of(".indexing.o");
 
   public static final FileType SHARED_LIBRARY = FileType.of(".so", ".dylib", ".dll");
   public static final FileType INTERFACE_SHARED_LIBRARY = FileType.of(".ifso");

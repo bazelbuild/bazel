@@ -552,7 +552,7 @@ public final class CppLinkAction extends AbstractAction
     final ImmutableSet<Artifact> nonCodeInputs;
     final NestedSet<LibraryToLink> libraries;
     final NestedSet<Artifact> crosstoolInputs;
-    final ImmutableList<Artifact> ltoBitcodeFiles;
+    final ImmutableMap<Artifact, Artifact> ltoBitcodeFiles;
     final Artifact runtimeMiddleman;
     final NestedSet<Artifact> runtimeInputs;
     final ArtifactCategory runtimeType;
@@ -578,7 +578,7 @@ public final class CppLinkAction extends AbstractAction
           .addTransitive(builder.getLibraries().build()).build();
       this.crosstoolInputs =
           NestedSetBuilder.<Artifact>stableOrder().addTransitive(builder.getCrosstoolInputs()).build();
-      this.ltoBitcodeFiles = ImmutableList.copyOf(builder.getLtoBitcodeFiles());
+      this.ltoBitcodeFiles = ImmutableMap.copyOf(builder.getLtoBitcodeFiles());
       this.runtimeMiddleman = builder.getRuntimeMiddleman();
       this.runtimeInputs =
           NestedSetBuilder.<Artifact>stableOrder().addTransitive(builder.getRuntimeInputs()).build();
@@ -613,11 +613,6 @@ public final class CppLinkAction extends AbstractAction
      */
     public NestedSet<Artifact> getCrosstoolInputs() {
       return this.crosstoolInputs;
-    }
-    
-    /** Returns linker inputs that are lto bitcode files. */
-    public ImmutableList<Artifact> getLtoBitcodeFiles() {
-      return this.ltoBitcodeFiles;
     }
     
     /**

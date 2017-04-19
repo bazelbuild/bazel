@@ -87,6 +87,13 @@ public class CppLinkActionBuilder {
   public static final String THINLTO_PREFIX_REPLACE_VARIABLE = "thinlto_prefix_replace";
 
   /**
+   * A build variable to let the LTO indexing step know how to map from the minimized bitcode file
+   * to the full bitcode file used by the LTO Backends.
+   */
+  public static final String THINLTO_OBJECT_SUFFIX_REPLACE_VARIABLE =
+      "thinlto_object_suffix_replace";
+
+  /**
    * A build variable for linker param file created by Bazel to overcome the command line length
    * limit.
    */
@@ -175,7 +182,7 @@ public class CppLinkActionBuilder {
   private LinkTargetType linkType = LinkTargetType.STATIC_LIBRARY;
   private LinkStaticness linkStaticness = LinkStaticness.FULLY_STATIC;
   private String libraryIdentifier = null;
-  private List<Artifact> ltoBitcodeFiles = new ArrayList<>();
+  private ImmutableMap<Artifact, Artifact> ltoBitcodeFiles;
 
   private boolean fake;
   private boolean isNativeDeps;
@@ -296,7 +303,7 @@ public class CppLinkActionBuilder {
     this.nonCodeInputs.addAll(linkContext.nonCodeInputs);
     this.libraries.addTransitive(linkContext.libraries);
     this.crosstoolInputs = linkContext.crosstoolInputs;
-    this.ltoBitcodeFiles.addAll(linkContext.ltoBitcodeFiles);
+    this.ltoBitcodeFiles = linkContext.ltoBitcodeFiles;
     this.runtimeMiddleman = linkContext.runtimeMiddleman;
     this.runtimeInputs = linkContext.runtimeInputs;
     this.runtimeType = linkContext.runtimeType;
@@ -396,9 +403,10 @@ public class CppLinkActionBuilder {
     return this.linkStaticness;
   }
   /**
-   * Returns lto bitcode files for this link action.
+   * Returns linker inputs that are lto bitcode files in a map from the full bitcode file used by
+   * the LTO Backend to the minimized bitcode used by the LTO indexing.
    */
-  public List<Artifact> getLtoBitcodeFiles() {
+  public ImmutableMap<Artifact, Artifact> getLtoBitcodeFiles() {
     return this.ltoBitcodeFiles;
   }
 
@@ -428,11 +436,54 @@ public class CppLinkActionBuilder {
     return this.useTestOnlyFlags;
   }
 
+  /**
+   * Maps bitcode object files used by the LTO backends to the corresponding minimized bitcode file
+   * used as input to the LTO indexing step.
+   */
+  private ImmutableSet<LinkerInput> computeLTOIndexingObjectFileInputs() {
+    ImmutableSet.Builder<LinkerInput> objectFileInputsBuilder = ImmutableSet.<LinkerInput>builder();
+    for (LinkerInput input : objectFiles) {
+      Artifact objectFile = input.getArtifact();
+      objectFileInputsBuilder.add(
+          LinkerInputs.simpleLinkerInput(
+              this.ltoBitcodeFiles.getOrDefault(objectFile, objectFile),
+              ArtifactCategory.OBJECT_FILE));
+    }
+    return objectFileInputsBuilder.build();
+  }
+
+  /**
+   * Maps bitcode library files used by the LTO backends to the corresponding minimized bitcode file
+   * used as input to the LTO indexing step.
+   */
+  private static NestedSet<LibraryToLink> computeLTOIndexingUniqueLibraries(
+      NestedSet<LibraryToLink> originalUniqueLibraries) {
+    NestedSetBuilder<LibraryToLink> uniqueLibrariesBuilder = NestedSetBuilder.linkOrder();
+    for (LibraryToLink lib : originalUniqueLibraries) {
+      if (!lib.containsObjectFiles()) {
+        uniqueLibrariesBuilder.add(lib);
+        continue;
+      }
+      ImmutableSet.Builder<Artifact> newObjectFilesBuilder = ImmutableSet.<Artifact>builder();
+      for (Artifact a : lib.getObjectFiles()) {
+        newObjectFilesBuilder.add(lib.getLTOBitcodeFiles().getOrDefault(a, a));
+      }
+      uniqueLibrariesBuilder.add(
+          LinkerInputs.newInputLibrary(
+              lib.getArtifact(),
+              lib.getArtifactCategory(),
+              lib.getLibraryIdentifier(),
+              newObjectFilesBuilder.build(),
+              lib.getLTOBitcodeFiles()));
+    }
+    return uniqueLibrariesBuilder.build();
+  }
+
   private Iterable<LTOBackendArtifacts> createLTOArtifacts(
       PathFragment ltoOutputRootPrefix, NestedSet<LibraryToLink> uniqueLibraries) {
     Set<Artifact> compiled = new LinkedHashSet<>();
     for (LibraryToLink lib : uniqueLibraries) {
-      Iterables.addAll(compiled, lib.getLTOBitcodeFiles());
+      compiled.addAll(lib.getLTOBitcodeFiles().keySet());
     }
 
     // This flattens the set of object files, so for M binaries and N .o files,
@@ -449,7 +500,7 @@ public class CppLinkActionBuilder {
       }
     }
     for (LinkerInput input : objectFiles) {
-      if (this.ltoBitcodeFiles.contains(input.getArtifact())) {
+      if (this.ltoBitcodeFiles.containsKey(input.getArtifact())) {
         allBitcode.put(input.getArtifact().getExecPath(), input.getArtifact());
       }
     }
@@ -512,12 +563,25 @@ public class CppLinkActionBuilder {
         wholeArchive
             || needWholeArchive(linkStaticness, linkType, linkopts, isNativeDeps, cppConfiguration);
 
-    NestedSet<LibraryToLink> uniqueLibraries = libraries.build();
-    final Iterable<Artifact> objectArtifacts = LinkerInputs.toLibraryArtifacts(objectFiles);
+    NestedSet<LibraryToLink> originalUniqueLibraries = libraries.build();
+
+    // Get the set of object files and libraries containing the correct
+    // inputs for this link, depending on whether this is LTO indexing or
+    // a native link.
+    NestedSet<LibraryToLink> uniqueLibraries;
+    ImmutableSet<LinkerInput> objectFileInputs;
+    if (isLTOIndexing) {
+      objectFileInputs = computeLTOIndexingObjectFileInputs();
+      uniqueLibraries = computeLTOIndexingUniqueLibraries(originalUniqueLibraries);
+    } else {
+      objectFileInputs = ImmutableSet.copyOf(objectFiles);
+      uniqueLibraries = originalUniqueLibraries;
+    }
+    final Iterable<Artifact> objectArtifacts = LinkerInputs.toLibraryArtifacts(objectFileInputs);
 
     final Iterable<LinkerInput> linkerInputs =
         IterablesChain.<LinkerInput>builder()
-            .add(ImmutableList.copyOf(objectFiles))
+            .add(objectFileInputs)
             .add(
                 ImmutableIterable.from(
                     Link.mergeInputsCmdLine(
@@ -561,7 +625,10 @@ public class CppLinkActionBuilder {
       ltoOutputRootPrefix =
           FileSystemUtils.appendExtension(
               output.getRootRelativePath(), ".lto");
-      allLTOArtifacts = createLTOArtifacts(ltoOutputRootPrefix, uniqueLibraries);
+      // Use the originalUniqueLibraries which contains the full bitcode files
+      // needed by the LTO backends (as opposed to the minimized bitcode files
+      // that can be used by the LTO indexing step).
+      allLTOArtifacts = createLTOArtifacts(ltoOutputRootPrefix, originalUniqueLibraries);
     }
 
     PathFragment linkerParamFileRootPath = null;
@@ -718,7 +785,7 @@ public class CppLinkActionBuilder {
         LinkerInputs.toLibraryArtifacts(
             Link.mergeInputsDependencies(
                 uniqueLibraries, needWholeArchive, cppConfiguration.archiveType()));
-    Iterable<Artifact> expandedNonLibraryInputs = LinkerInputs.toLibraryArtifacts(objectFiles);
+    Iterable<Artifact> expandedNonLibraryInputs = LinkerInputs.toLibraryArtifacts(objectFileInputs);
 
     if (!isLTOIndexing && allLTOArtifacts != null) {
       // We are doing LTO, and this is the real link, so substitute
@@ -1007,10 +1074,9 @@ public class CppLinkActionBuilder {
     this.objectFiles.add(input);
   }
 
-  public CppLinkActionBuilder addLTOBitcodeFiles(Iterable<Artifact> files) {
-    for (Artifact a : files) {
-      ltoBitcodeFiles.add(a);
-    }
+  public CppLinkActionBuilder addLTOBitcodeFiles(ImmutableMap<Artifact, Artifact> files) {
+    Preconditions.checkState(ltoBitcodeFiles == null);
+    ltoBitcodeFiles = files;
     return this;
   }
 
@@ -1414,6 +1480,11 @@ public class CppLinkActionBuilder {
             configuration.getBinDirectory().getExecPathString()
                 + ";"
                 + configuration.getBinDirectory().getExecPath().getRelative(ltoOutputRootPrefix));
+        buildVariables.addStringVariable(
+            THINLTO_OBJECT_SUFFIX_REPLACE_VARIABLE,
+            Iterables.getOnlyElement(CppFileTypes.LTO_INDEXING_OBJECT_FILE.getExtensions())
+                + ";"
+                + Iterables.getOnlyElement(CppFileTypes.OBJECT_FILE.getExtensions()));
       } else {
         if (thinltoParamFile != null) {
           // This is a normal link action and we need to use param file created by lto-indexing.

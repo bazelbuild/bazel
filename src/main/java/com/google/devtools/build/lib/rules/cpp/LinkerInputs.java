@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Function;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.CollectionUtils;
@@ -137,7 +137,7 @@ public abstract class LinkerInputs {
    * has a library identifier.
    */
   public interface LibraryToLink extends LinkerInput {
-    Iterable<Artifact> getLTOBitcodeFiles();
+    ImmutableMap<Artifact, Artifact> getLTOBitcodeFiles();
 
     /**
      * Return the identifier for the library. This is used for de-duplication of linker inputs: two
@@ -193,8 +193,8 @@ public abstract class LinkerInputs {
     }
 
     @Override
-    public Iterable<Artifact> getLTOBitcodeFiles() {
-      return ImmutableList.of();
+    public ImmutableMap<Artifact, Artifact> getLTOBitcodeFiles() {
+      return ImmutableMap.of();
     }
 
     @Override
@@ -244,14 +244,14 @@ public abstract class LinkerInputs {
     private final ArtifactCategory category;
     private final String libraryIdentifier;
     private final Iterable<Artifact> objectFiles;
-    private final Iterable<Artifact> ltoBitcodeFiles;
+    private final ImmutableMap<Artifact, Artifact> ltoBitcodeFiles;
 
     private CompoundLibraryToLink(
         Artifact libraryArtifact,
         ArtifactCategory category,
         String libraryIdentifier,
         Iterable<Artifact> objectFiles,
-        Iterable<Artifact> ltoBitcodeFiles) {
+        ImmutableMap<Artifact, Artifact> ltoBitcodeFiles) {
       String basename = libraryArtifact.getFilename();
       switch (category) {
         case ALWAYSLINK_STATIC_LIBRARY:
@@ -275,9 +275,7 @@ public abstract class LinkerInputs {
       this.libraryIdentifier = libraryIdentifier;
       this.objectFiles = objectFiles == null ? null : CollectionUtils.makeImmutable(objectFiles);
       this.ltoBitcodeFiles =
-          (ltoBitcodeFiles == null)
-              ? ImmutableList.<Artifact>of()
-              : CollectionUtils.makeImmutable(ltoBitcodeFiles);
+          (ltoBitcodeFiles == null) ? ImmutableMap.<Artifact, Artifact>of() : ltoBitcodeFiles;
     }
 
     @Override
@@ -322,7 +320,7 @@ public abstract class LinkerInputs {
     }
 
     @Override
-    public Iterable<Artifact> getLTOBitcodeFiles() {
+    public ImmutableMap<Artifact, Artifact> getLTOBitcodeFiles() {
       return ltoBitcodeFiles;
     }
 
@@ -420,12 +418,13 @@ public abstract class LinkerInputs {
     return new CompoundLibraryToLink(artifact, category, libraryIdentifier, null, null);
   }
 
-  /**
-   * Creates a library to link with the specified object files.
-   */
+  /** Creates a library to link with the specified object files. */
   public static LibraryToLink newInputLibrary(
-      Artifact library, ArtifactCategory category, String libraryIdentifier,
-      Iterable<Artifact> objectFiles, Iterable<Artifact> ltoBitcodeFiles) {
+      Artifact library,
+      ArtifactCategory category,
+      String libraryIdentifier,
+      Iterable<Artifact> objectFiles,
+      ImmutableMap<Artifact, Artifact> ltoBitcodeFiles) {
     return new CompoundLibraryToLink(
         library, category, libraryIdentifier, objectFiles, ltoBitcodeFiles);
   }

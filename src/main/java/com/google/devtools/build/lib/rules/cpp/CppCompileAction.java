@@ -293,6 +293,7 @@ public class CppCompileAction extends AbstractAction
       DotdFile dotdFile,
       @Nullable Artifact gcnoFile,
       @Nullable Artifact dwoFile,
+      @Nullable Artifact ltoIndexingFile,
       Artifact optionalSourceFile,
       ImmutableMap<String, String> localShellEnvironment,
       CppConfiguration cppConfiguration,
@@ -313,7 +314,11 @@ public class CppCompileAction extends AbstractAction
         owner,
         allInputs,
         CollectionUtils.asListWithoutNulls(
-            outputFile, (dotdFile == null ? null : dotdFile.artifact()), gcnoFile, dwoFile));
+            outputFile,
+            (dotdFile == null ? null : dotdFile.artifact()),
+            gcnoFile,
+            dwoFile,
+            ltoIndexingFile));
     this.localShellEnvironment = localShellEnvironment;
     this.sourceLabel = sourceLabel;
     this.sourceFile = sourceFile;
