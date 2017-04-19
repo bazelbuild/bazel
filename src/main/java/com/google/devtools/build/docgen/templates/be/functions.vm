@@ -642,12 +642,12 @@ sh_binary(
 <ul>
   <li>Exactly one condition is selected on any invocation.
   </li>
-  <li>If two conditions match and one is a specialization of the other
-    (i.e. it matches on the same flags as the other plus additional ones),
-    the specialization takes precedence.
+  <li>If multiple conditions match and one is a specialization of the others
+    (i.e. it matches on the same flags as any of the others plus additional
+    ones), the specialization takes precedence.
   </li>
-  <li>If two conditions match and neither is a specialization of the other,
-    Bazel fails with an error.
+  <li>If multiple conditions match and one is not a specialization of all the
+    others, Bazel fails with an error.
   </li>
   <li>The special pseudo-label <code>//conditions:default</code> is
     considered to match if no other condition matches. If this condition

@@ -97,4 +97,9 @@ public final class ConfigMatchingProvider implements TransitiveInfoProvider {
 
     return true;
   }
+
+  /** Format this provider as its label. */
+  public String toString() {
+    return label.toString();
+  }
 }
