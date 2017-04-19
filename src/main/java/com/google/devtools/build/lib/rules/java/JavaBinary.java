@@ -187,10 +187,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
           semantics.translate(ruleContext, javaConfig, attributes.getMessages()));
     }
 
-    // TODO(b/37425618): this should be attributes.hasResources()
-    boolean hasResources =
-        !attributes.getResources().isEmpty() || !attributes.getClassPathResources().isEmpty();
-    if (attributes.hasSources() || hasResources) {
+    if (attributes.hasSources() || attributes.hasResources()) {
       // We only want to add a jar to the classpath of a dependent rule if it has content.
       javaArtifactsBuilder.addRuntimeJar(classJar);
     }
