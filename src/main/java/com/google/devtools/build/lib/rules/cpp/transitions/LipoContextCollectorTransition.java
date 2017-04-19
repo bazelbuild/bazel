@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2017 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,51 +14,38 @@
 
 package com.google.devtools.build.lib.rules.cpp.transitions;
 
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.cpp.FdoSupport;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 
 /**
- * Dynamic transition that turns off LIPO/FDO settings.
+ * Configuration transition that enters "LIPO context collector" mode on a
+ * "LIPO optimization"-enabled input configuration.
  *
- * <p>This is suitable, for example, when visiting data dependencies of a C++ rule built with LIPO.
+ * <p>See {@link FdoSupport} for details.
  */
-public final class LipoDataTransition implements PatchTransition {
-  public static final LipoDataTransition INSTANCE = new LipoDataTransition();
+public class LipoContextCollectorTransition implements PatchTransition {
+  public static final LipoContextCollectorTransition INSTANCE =
+      new LipoContextCollectorTransition();
 
-  private LipoDataTransition() {}
+  private LipoContextCollectorTransition() {}
 
   @Override
   public BuildOptions apply(BuildOptions options) {
-    if (options.get(BuildConfiguration.Options.class).isHost) {
-      return options;
-    }
-
     // If this target and its transitive closure don't have C++ options, there's no
     // LIPO context to change.
     if (!options.contains(CppOptions.class)) {
       return options;
     }
-
     CppOptions cppOptions = options.get(CppOptions.class);
-    if (cppOptions.getLipoMode() == CrosstoolConfig.LipoMode.OFF) {
+    if (!cppOptions.isLipoOptimization()) {
       return options;
     }
-
-    options = options.clone();
-    cppOptions = options.get(CppOptions.class);
-
-    // Once autoFdoLipoData is on, it stays on (through all future transitions).
-    if (!cppOptions.getAutoFdoLipoData() && cppOptions.getFdoOptimize() != null) {
-      cppOptions.autoFdoLipoDataForBuild = FdoSupport.isAutoFdo(cppOptions.getFdoOptimize());
-    }
-    cppOptions.lipoModeForBuild = CrosstoolConfig.LipoMode.OFF;
-    cppOptions.fdoInstrumentForBuild = null;
-    cppOptions.fdoOptimizeForBuild = null;
-    return options;
+    BuildOptions collectorOptions = options.clone();
+    collectorOptions.get(CppOptions.class).lipoConfigurationState =
+        CppOptions.LipoConfigurationState.LIPO_CONTEXT_COLLECTOR;
+    return collectorOptions;
   }
 
   @Override
