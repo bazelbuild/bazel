@@ -18,18 +18,19 @@ import com.android.builder.internal.SymbolLoader.SymbolEntry;
 import com.android.resources.ResourceType;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.Table;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
+import java.util.logging.Logger;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -43,83 +44,112 @@ import org.objectweb.asm.commons.InstructionAdapter;
  * information. Also, the order of the constant pool tends to be different.
  */
 public class RClassGenerator {
+
+  private static final Logger logger = Logger.getLogger(RClassGenerator.class.getName());
   private static final int JAVA_VERSION = Opcodes.V1_7;
   private static final String SUPER_CLASS = "java/lang/Object";
   private final Path outFolder;
+  private final String packageName;
   private final Map<ResourceType, List<FieldInitializer>> initializers;
   private final boolean finalFields;
   private static final Splitter PACKAGE_SPLITTER = Splitter.on('.');
 
   /**
-   * Create an RClassGenerator initialized with the ResourceSymbols values.
+   * Create an RClassGenerator given the final binary's symbol values, and a collection of symbols
+   * for the given package.
    *
    * @param outFolder base folder to place the output R class files.
-   * @param values the final symbol values
+   * @param packageName the java package to use for the R class
+   * @param values the final symbol values (may include more symbols than needed for this package)
+   * @param packageSymbols the symbols in this package
    * @param finalFields true if the fields should be marked final
    */
   public static RClassGenerator fromSymbols(
       Path outFolder,
+      String packageName,
       ResourceSymbols values,
+      Collection<ResourceSymbols> packageSymbols,
       boolean finalFields)
       throws IOException {
+    Table<String, String, SymbolEntry> symbolsTable = getAllSymbols(packageSymbols);
     Table<String, String, SymbolEntry> valuesTable = values.asTable();
     Map<ResourceType, List<FieldInitializer>> initializers =
-        getInitializers(valuesTable);
-    return new RClassGenerator(outFolder, initializers, finalFields);
+        getInitializers(symbolsTable, valuesTable);
+    return new RClassGenerator(outFolder, packageName, initializers, finalFields);
   }
 
   /**
    * Create an RClassGenerator given a collection of initializers.
    *
    * @param outFolder base folder to place the output R class files.
+   * @param packageName the java package to use for the R class
    * @param initializers the list of initializers to use for each inner class
    * @param finalFields true if the fields should be marked final
    */
   public RClassGenerator(
       Path outFolder,
+      String packageName,
       Map<ResourceType, List<FieldInitializer>> initializers,
       boolean finalFields) {
     this.outFolder = outFolder;
+    this.packageName = packageName;
     this.finalFields = finalFields;
     this.initializers = initializers;
   }
-  /** Convert the {@link ResourceSymbols} data, to a map of {@link FieldInitializer}. */
+
+  private static Table<String, String, SymbolEntry> getAllSymbols(
+      Collection<ResourceSymbols> symbols) throws IOException {
+    Table<String, String, SymbolEntry> mergedSymbols = HashBasedTable.create();
+    for (ResourceSymbols tableProvider : symbols) {
+      mergedSymbols.putAll(tableProvider.asTable());
+    }
+    return mergedSymbols;
+  }
+
+  /** Convert the {@link SymbolTableProvider} data, to a map of {@link FieldInitializer}. */
   private static Map<ResourceType, List<FieldInitializer>> getInitializers(
-      Table<String, String, SymbolEntry> values) {
+      Table<String, String, SymbolEntry> symbols, Table<String, String, SymbolEntry> values) {
     Map<ResourceType, List<FieldInitializer>> initializers = new EnumMap<>(ResourceType.class);
-    for (String typeName : values.rowKeySet()) {
+    for (String typeName : symbols.rowKeySet()) {
       ResourceType resourceType = ResourceType.getEnum(typeName);
       Preconditions.checkNotNull(resourceType);
-      initializers.put(resourceType, getInitializers(typeName, values));
+      initializers.put(resourceType, getInitializers(typeName, symbols, values));
     }
     return initializers;
   }
 
   private static List<FieldInitializer> getInitializers(
       String typeName,
-      Table<String, String, SymbolEntry> symbols) {
+      Table<String, String, SymbolEntry> symbols,
+      Table<String, String, SymbolEntry> values) {
     Map<String, SymbolEntry> rowMap = symbols.row(typeName);
-    List<String> symbolList = new ArrayList<>(rowMap.keySet());
+    Set<String> symbolSet = rowMap.keySet();
+    List<String> symbolList = new ArrayList<>(symbolSet);
     Collections.sort(symbolList);
     List<FieldInitializer> initializers = new ArrayList<>();
     for (String symbolName : symbolList) {
-      SymbolEntry value = symbols.get(typeName, symbolName);
-      if (value.getType().equals("int")) {
-        initializers.add(IntFieldInitializer.of(value.getName(), value.getValue()));
+      // get the matching SymbolEntry from the values Table.
+      SymbolEntry value = values.get(typeName, symbolName);
+      if (value != null) {
+        if (value.getType().equals("int")) {
+          initializers.add(IntFieldInitializer.of(value.getName(), value.getValue()));
+        } else {
+          Preconditions.checkArgument(value.getType().equals("int[]"));
+          initializers.add(IntArrayFieldInitializer.of(value.getName(), value.getValue()));
+        }
       } else {
-        Preconditions.checkArgument(value.getType().equals("int[]"));
-        initializers.add(IntArrayFieldInitializer.of(value.getName(), value.getValue()));
+        // Value may be missing if resource overriding eliminates resources at the binary
+        // level, which were originally present at the library level.
+        logger.fine(
+            String.format(
+                "Skipping R.%s.%s -- value not known in binary's R.txt", typeName, symbolName));
       }
     }
     return initializers;
   }
 
-  /**
-   * Builds bytecode and writes out R.class file, and R$inner.class files for provided package and
-   * symbols
-   */
-  public void write(String packageName, Map<ResourceType, Set<String>> symbolsToWrite)
-      throws IOException {
+  /** Builds the bytecode and writes out the R.class file, and R$inner.class files. */
+  public void write() throws IOException {
     Iterable<String> folders = PACKAGE_SPLITTER.split(packageName);
     Path packageDir = outFolder;
     for (String folder : folders) {
@@ -128,9 +158,7 @@ public class RClassGenerator {
     // At least create the outFolder that was requested. However, if there are no symbols, don't
     // create the R.class and inner class files (no need to have an empty class).
     Files.createDirectories(packageDir);
-    Map<ResourceType, List<FieldInitializer>> initializersToWrite =
-        filterInitializers(symbolsToWrite);
-    if (initializersToWrite.isEmpty()) {
+    if (initializers.isEmpty()) {
       return;
     }
     Path rClassFile = packageDir.resolve(SdkConstants.FN_COMPILED_RESOURCE_CLASS);
@@ -149,7 +177,7 @@ public class RClassGenerator {
     writeConstructor(classWriter);
 
     // Build the R.class w/ the inner classes, then later build the individual R$inner.class.
-    for (ResourceType resourceType : initializersToWrite.keySet()) {
+    for (ResourceType resourceType : initializers.keySet()) {
       String innerClassName = rClassName + "$" + resourceType;
       classWriter.visitInnerClass(
           innerClassName,
@@ -161,39 +189,9 @@ public class RClassGenerator {
     Files.write(rClassFile, classWriter.toByteArray());
 
     // Now generate the R$inner.class files.
-    for (Map.Entry<ResourceType, List<FieldInitializer>> entry : initializersToWrite.entrySet()) {
+    for (Map.Entry<ResourceType, List<FieldInitializer>> entry : initializers.entrySet()) {
       writeInnerClass(entry.getValue(), packageDir, rClassName, entry.getKey().toString());
     }
-  }
-
-  /** Builds bytecode and writes out R.class file, and R$inner.class files for provided package. */
-  public void write(String packageName) throws IOException {
-    write(packageName, ImmutableMap.<ResourceType, Set<String>>of());
-  }
-  
-  private Map<ResourceType, List<FieldInitializer>> filterInitializers(
-      Map<ResourceType, Set<String>> symbolsToWrite) {
-    Map<ResourceType, List<FieldInitializer>> initializersToWrite =
-        new EnumMap<>(ResourceType.class);
-    if (symbolsToWrite.isEmpty()) {
-      return initializers;
-    }
-    for (Entry<ResourceType, Set<String>> entry : symbolsToWrite.entrySet()) {
-      List<FieldInitializer> fieldsToWrite = new ArrayList<>();
-      // Resource type may be missing if resource overriding eliminates resources at the binary
-      // level, which were originally present at the library level.
-      if (initializers.containsKey(entry.getKey())) {
-        for (FieldInitializer field : initializers.get(entry.getKey())) {
-          if (field.nameIsIn(entry.getValue())) {
-            fieldsToWrite.add(field);
-          }
-        }
-      }
-      if (!fieldsToWrite.isEmpty()) {
-        initializersToWrite.put(entry.getKey(), fieldsToWrite);
-      }
-    }
-    return initializersToWrite;
   }
 
   private void writeInnerClass(

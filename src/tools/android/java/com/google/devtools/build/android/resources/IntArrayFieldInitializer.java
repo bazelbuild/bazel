@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.io.Writer;
-import java.util.Set;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.InstructionAdapter;
@@ -93,13 +92,7 @@ public final class IntArrayFieldInitializer implements FieldInitializer {
         builder.append(String.format(", 0x%x", attrId));
       }
     }
-
     writer.write(String.format("        public static int[] %s = { %s };\n",
         fieldName, builder.toString()));
-  }
-
-  @Override
-  public boolean nameIsIn(Set<String> fieldNames) {
-    return fieldNames.contains(fieldName);
   }
 }

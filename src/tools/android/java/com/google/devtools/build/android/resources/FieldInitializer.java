@@ -15,7 +15,6 @@ package com.google.devtools.build.android.resources;
 
 import java.io.IOException;
 import java.io.Writer;
-import java.util.Set;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.commons.InstructionAdapter;
 
@@ -44,7 +43,4 @@ public interface FieldInitializer {
    * for final fields yet.
    */
   void writeInitSource(Writer writer) throws IOException;
-
-  /** Tests if the field's name is in the provided set. */
-  boolean nameIsIn(Set<String> fieldNames);
 }
