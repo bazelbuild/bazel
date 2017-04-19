@@ -514,6 +514,14 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     )
     public boolean includeLibraryResourceJars;
 
+    @Option(name = "experimental_android_use_nocompress_extensions_on_apk",
+        defaultValue = "false",
+        optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+        implicitRequirements = "--use_singlejar_apkbuilder",
+        help = "Use the value of nocompress_extensions attribute with the SingleJar "
+            + "--nocompress_suffixes flag when building the APK.")
+    public boolean useNocompressExtensionsOnApk;
+
     @Override
     public void addAllLabels(Multimap<String, Label> labelMap) {
       if (androidCrosstoolTop != null) {
@@ -599,6 +607,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean useSingleJarForProguardLibraryJars;
   private final boolean compressJavaResources;
   private final boolean includeLibraryResourceJars;
+  private final boolean useNocompressExtensionsOnApk;
 
   AndroidConfiguration(Options options, Label androidSdk) throws InvalidConfigurationException {
     this.sdk = androidSdk;
@@ -631,6 +640,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.resourceFilter = options.resourceFilter;
     this.compressJavaResources = options.compressJavaResources;
     this.includeLibraryResourceJars = options.includeLibraryResourceJars;
+    this.useNocompressExtensionsOnApk = options.useNocompressExtensionsOnApk;
 
     if (!dexoptsSupportedInIncrementalDexing.contains("--no-locals")) {
       // TODO(bazel-team): Still needed? See DexArchiveAspect
@@ -745,6 +755,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   public boolean includeLibraryResourceJars() {
     return includeLibraryResourceJars;
+  }
+
+  boolean useNocompressExtensionsOnApk() {
+    return useNocompressExtensionsOnApk;
   }
 
   @Override

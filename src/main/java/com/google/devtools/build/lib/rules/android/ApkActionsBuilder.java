@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -356,6 +357,18 @@ public class ApkActionsBuilder {
             .addArgument("--sources")
             .addInputArgument(nativeLibsZip);
       }
+    }
+
+    ImmutableList<String> noCompressExtensions =
+        ruleContext.getTokenizedStringListAttr("nocompress_extensions");
+    if (ruleContext.getFragment(AndroidConfiguration.class).useNocompressExtensionsOnApk()
+        && !noCompressExtensions.isEmpty()) {
+      compressedApkActionBuilder
+          .addArgument("--nocompress_suffixes")
+          .addArguments(noCompressExtensions);
+      singleJarActionBuilder
+          .addArgument("--nocompress_suffixes")
+          .addArguments(noCompressExtensions);
     }
 
     ruleContext.registerAction(compressedApkActionBuilder.build(ruleContext));

@@ -2738,4 +2738,50 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     assertThat(action.getFileContents())
         .isEqualTo("//java/com/foo:flag1: on\n//java/com/foo:flag2: off");
   }
+
+  @Test
+  public void testNocompressExtensions() throws Exception {
+    scratch.file(
+        "java/r/android/BUILD",
+        "android_binary(",
+        "  name = 'r',",
+        "  srcs = ['Foo.java'],",
+        "  manifest = 'AndroidManifest.xml',",
+        "  resource_files = ['res/raw/foo.apk'],",
+        "  nocompress_extensions = ['.apk', '.so'],",
+        ")");
+    ConfiguredTarget binary = getConfiguredTarget("//java/r/android:r");
+    ResourceContainer resource = getResourceContainer(binary);
+    List<String> args = resourceArguments(resource);
+    Artifact inputManifest =
+        getFirstArtifactEndingWith(
+            getGeneratingSpawnAction(resource.getManifest()).getInputs(), "AndroidManifest.xml");
+    assertContainsSublist(
+        args,
+        ImmutableList.of(
+            "--primaryData", "java/r/android/res::" + inputManifest.getExecPathString()));
+    assertThat(args).contains("--uncompressedExtensions");
+    assertThat(args.get(args.indexOf("--uncompressedExtensions") + 1)).isEqualTo(".apk,.so");
+  }
+
+  @Test
+  public void testNocompressExtensions_useNocompressExtensionsOnApk() throws Exception {
+    scratch.file(
+        "java/r/android/BUILD",
+        "android_binary(",
+        "  name = 'r',",
+        "  srcs = ['Foo.java'],",
+        "  manifest = 'AndroidManifest.xml',",
+        "  resource_files = ['res/raw/foo.apk'],",
+        "  nocompress_extensions = ['.apk', '.so'],",
+        ")");
+    useConfiguration("--experimental_android_use_nocompress_extensions_on_apk");
+    ConfiguredTarget binary = getConfiguredTarget("//java/r/android:r");
+    assertThat(getCompressedUnsignedApkAction(binary).getArguments())
+        .containsAllOf("--nocompress_suffixes", ".apk", ".so")
+        .inOrder();
+    assertThat(getFinalUnsignedApkAction(binary).getArguments())
+        .containsAllOf("--nocompress_suffixes", ".apk", ".so")
+        .inOrder();
+  }
 }
