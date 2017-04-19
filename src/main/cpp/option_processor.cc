@@ -160,8 +160,9 @@ blaze_exit_code::ExitCode OptionProcessor::RcFile::Parse(
   if (!startup_options.empty()) {
     string startup_args;
     blaze_util::JoinStrings(startup_options, ' ', &startup_args);
-    fprintf(stderr, "INFO: Reading 'startup' options from %s: %s\n",
-            filename.c_str(), startup_args.c_str());
+    BAZEL_LOG(INFO)
+        << "Reading 'startup' options from " << filename << ": "
+        << startup_args;
   }
   return blaze_exit_code::SUCCESS;
 }
