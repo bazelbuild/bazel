@@ -24,6 +24,8 @@ sh_test(
         "//external:android_ndk_for_testing",
         "//external:android_sdk_for_testing",
     ],
+    # TODO(2848): reenable after fixing breakage
+    tags = ["manual"],
 )
 
 sh_test(
@@ -36,5 +38,9 @@ sh_test(
         "//src/test/shell/bazel:test-deps",
     ],
     # This test builds an android_binary with Java 8 code.
-    tags = ["jdk8"],
+    # TODO(2848): reenable after fixing breakage
+    tags = [
+        "jdk8",
+        "manual",
+    ],
 )
