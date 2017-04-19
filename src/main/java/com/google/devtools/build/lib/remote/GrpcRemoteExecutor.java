@@ -39,12 +39,15 @@ public class GrpcRemoteExecutor extends GrpcActionCache {
     this.executionIface = executionIface;
   }
 
-  public GrpcRemoteExecutor(ManagedChannel channel, RemoteOptions options) {
+  public GrpcRemoteExecutor(
+      ManagedChannel channel, ChannelOptions channelOptions, RemoteOptions options) {
     super(
         options,
-        GrpcInterfaces.casInterface(options.grpcTimeoutSeconds, channel),
-        GrpcInterfaces.executionCacheInterface(options.grpcTimeoutSeconds, channel));
-    this.executionIface = GrpcInterfaces.executionInterface(options.grpcTimeoutSeconds, channel);
+        GrpcInterfaces.casInterface(options.grpcTimeoutSeconds, channel, channelOptions),
+        GrpcInterfaces.executionCacheInterface(
+            options.grpcTimeoutSeconds, channel, channelOptions));
+    this.executionIface =
+        GrpcInterfaces.executionInterface(options.grpcTimeoutSeconds, channel, channelOptions);
   }
 
   public ExecuteReply executeRemotely(ExecuteRequest request) {

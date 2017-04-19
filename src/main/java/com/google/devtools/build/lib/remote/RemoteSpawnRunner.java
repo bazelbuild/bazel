@@ -41,10 +41,8 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.TextFormat.ParseException;
-import io.grpc.ManagedChannel;
 import io.grpc.StatusRuntimeException;
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.List;
 import java.util.SortedMap;
@@ -90,19 +88,14 @@ final class RemoteSpawnRunner implements SpawnRunner {
 
   private static GrpcRemoteExecutor connect(RemoteOptions options) {
     Preconditions.checkArgument(GrpcRemoteExecutor.isRemoteExecutionOptions(options));
-    ManagedChannel channel;
-    try {
-      channel = RemoteUtils.createChannel(options.remoteWorker);
-    } catch (URISyntaxException e) {
-      throw new RuntimeException(e);
-    }
-    return new GrpcRemoteExecutor(channel, options);
+    ChannelOptions channelOptions = ChannelOptions.create(options);
+    return new GrpcRemoteExecutor(
+        RemoteUtils.createChannel(options.remoteWorker, channelOptions), channelOptions, options);
   }
 
   @Override
-  public SpawnResult exec(
-      Spawn spawn,
-      SpawnExecutionPolicy policy) throws InterruptedException, IOException {
+  public SpawnResult exec(Spawn spawn, SpawnExecutionPolicy policy)
+      throws InterruptedException, IOException {
     ActionExecutionMetadata owner = spawn.getResourceOwner();
     if (owner.getOwner() != null) {
       policy.report(ProgressStatus.EXECUTING);
@@ -193,7 +186,7 @@ final class RemoteSpawnRunner implements SpawnRunner {
 
   private static void passRemoteOutErr(
       RemoteActionCache cache, ActionResult result, FileOutErr outErr)
-          throws CacheNotFoundException {
+      throws CacheNotFoundException {
     ImmutableList<byte[]> streams =
         cache.downloadBlobs(ImmutableList.of(result.getStdoutDigest(), result.getStderrDigest()));
     outErr.printOut(new String(streams.get(0), UTF_8));

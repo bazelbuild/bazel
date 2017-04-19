@@ -14,34 +14,24 @@
 
 package com.google.devtools.build.lib.remote;
 
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import io.grpc.ManagedChannel;
+import io.grpc.netty.NegotiationType;
 import io.grpc.netty.NettyChannelBuilder;
-import java.net.URI;
-import java.net.URISyntaxException;
 
 /** Helper methods for gRPC calls */
 @ThreadSafe
 public final class RemoteUtils {
-  public static ManagedChannel createChannelLegacy(String hostAndPort)
-      throws InvalidConfigurationException {
-    try {
-      return createChannel(hostAndPort);
-    } catch (URISyntaxException e) {
-      throw new InvalidConfigurationException(
-          "Invalid argument for the address of remote cache server: " + hostAndPort);
+  public static ManagedChannel createChannel(String target, ChannelOptions channelOptions) {
+    NettyChannelBuilder builder = NettyChannelBuilder.forTarget(target);
+    builder.negotiationType(
+        channelOptions.tlsEnabled() ? NegotiationType.TLS : NegotiationType.PLAINTEXT);
+    if (channelOptions.getSslContext() != null) {
+      builder.sslContext(channelOptions.getSslContext());
+      if (channelOptions.getTlsAuthorityOverride() != null) {
+        builder.overrideAuthority(channelOptions.getTlsAuthorityOverride());
+      }
     }
-  }
-
-  public static ManagedChannel createChannel(String hostAndPort)
-      throws URISyntaxException {
-    URI uri = new URI("dummy://" + hostAndPort);
-    if (uri.getHost() == null || uri.getPort() == -1) {
-      throw new URISyntaxException("Invalid host or port.", "");
-    }
-    return NettyChannelBuilder.forAddress(uri.getHost(), uri.getPort())
-        .usePlaintext(true)
-        .build();
+    return builder.build();
   }
 }

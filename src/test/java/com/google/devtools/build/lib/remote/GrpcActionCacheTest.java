@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.api.client.json.GenericJson;
+import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -36,11 +38,18 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
+import io.grpc.CallOptions;
+import io.grpc.Channel;
+import io.grpc.ClientCall;
+import io.grpc.ClientInterceptor;
+import io.grpc.ClientInterceptors;
 import io.grpc.ManagedChannel;
+import io.grpc.MethodDescriptor;
 import io.grpc.Server;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
+import java.io.IOException;
 import java.util.concurrent.ConcurrentMap;
 import org.junit.After;
 import org.junit.Before;
@@ -79,9 +88,42 @@ public class GrpcActionCacheTest {
     channel.shutdownNow();
   }
 
+  private static class ChannelOptionsInterceptor implements ClientInterceptor {
+    private final ChannelOptions channelOptions;
+
+    public ChannelOptionsInterceptor(ChannelOptions channelOptions) {
+      this.channelOptions = channelOptions;
+    }
+
+    @Override
+    public <RequestT, ResponseT> ClientCall<RequestT, ResponseT> interceptCall(
+        MethodDescriptor<RequestT, ResponseT> method, CallOptions callOptions, Channel next) {
+      assertThat(callOptions.getCredentials()).isEqualTo(channelOptions.getCallCredentials());
+      // Remove the call credentials to allow testing with dummy ones.
+      return next.newCall(method, callOptions.withCallCredentials(null));
+    }
+  }
+
+  private GrpcActionCache newClient() throws IOException {
+    return newClient(Options.getDefaults(RemoteOptions.class));
+  }
+
+  private GrpcActionCache newClient(RemoteOptions options) throws IOException {
+    ChannelOptions channelOptions =
+        options.authCredentialsJson != null
+            ? ChannelOptions.create(
+                options, scratch.resolve(options.authCredentialsJson).getInputStream())
+            : ChannelOptions.create(options);
+    return new GrpcActionCache(
+        ClientInterceptors.intercept(
+            channel, ImmutableList.of(new ChannelOptionsInterceptor(channelOptions))),
+        options,
+        channelOptions);
+  }
+
   @Test
   public void testDownloadEmptyBlobs() throws Exception {
-    GrpcActionCache client = new GrpcActionCache(channel, Options.getDefaults(RemoteOptions.class));
+    GrpcActionCache client = newClient();
     ContentDigest fooDigest = fakeRemoteCacheService.put("foo".getBytes(UTF_8));
     ContentDigest emptyDigest = ContentDigests.computeDigest(new byte[0]);
     ImmutableList<byte[]> results =
@@ -96,7 +138,7 @@ public class GrpcActionCacheTest {
 
   @Test
   public void testDownloadBlobs() throws Exception {
-    GrpcActionCache client = new GrpcActionCache(channel, Options.getDefaults(RemoteOptions.class));
+    GrpcActionCache client = newClient();
     ContentDigest fooDigest = fakeRemoteCacheService.put("foo".getBytes(UTF_8));
     ContentDigest barDigest = fakeRemoteCacheService.put("bar".getBytes(UTF_8));
     ImmutableList<byte[]> results =
@@ -112,7 +154,7 @@ public class GrpcActionCacheTest {
     options.grpcMaxChunkSizeBytes = 2;
     options.grpcMaxBatchSizeBytes = 10;
     options.grpcTimeoutSeconds = 10;
-    GrpcActionCache client = new GrpcActionCache(channel, options);
+    GrpcActionCache client = newClient(options);
     ContentDigest fooDigest = fakeRemoteCacheService.put("fooooooo".getBytes(UTF_8));
     ContentDigest barDigest = fakeRemoteCacheService.put("baaaar".getBytes(UTF_8));
     ContentDigest s1Digest = fakeRemoteCacheService.put("1".getBytes(UTF_8));
@@ -130,7 +172,7 @@ public class GrpcActionCacheTest {
 
   @Test
   public void testUploadBlobs() throws Exception {
-    GrpcActionCache client = new GrpcActionCache(channel, Options.getDefaults(RemoteOptions.class));
+    GrpcActionCache client = newClient();
     byte[] foo = "foo".getBytes(UTF_8);
     byte[] bar = "bar".getBytes(UTF_8);
     ContentDigest fooDigest = ContentDigests.computeDigest(foo);
@@ -148,7 +190,7 @@ public class GrpcActionCacheTest {
     options.grpcMaxChunkSizeBytes = 2;
     options.grpcMaxBatchSizeBytes = 10;
     options.grpcTimeoutSeconds = 10;
-    GrpcActionCache client = new GrpcActionCache(channel, options);
+    GrpcActionCache client = newClient(options);
 
     byte[] foo = "fooooooo".getBytes(UTF_8);
     byte[] bar = "baaaar".getBytes(UTF_8);
@@ -172,7 +214,7 @@ public class GrpcActionCacheTest {
 
   @Test
   public void testUploadAllResults() throws Exception {
-    GrpcActionCache client = new GrpcActionCache(channel, Options.getDefaults(RemoteOptions.class));
+    GrpcActionCache client = newClient();
     byte[] foo = "foo".getBytes(UTF_8);
     byte[] bar = "bar".getBytes(UTF_8);
     Path fooFile = scratch.file("/exec/root/a/foo", foo);
@@ -207,7 +249,7 @@ public class GrpcActionCacheTest {
 
   @Test
   public void testDownloadAllResults() throws Exception {
-    GrpcActionCache client = new GrpcActionCache(channel, Options.getDefaults(RemoteOptions.class));
+    GrpcActionCache client = newClient();
     ContentDigest fooDigest = fakeRemoteCacheService.put("foo".getBytes(UTF_8));
     ContentDigest barDigest = fakeRemoteCacheService.put("bar".getBytes(UTF_8));
     ContentDigest emptyDigest = ContentDigests.computeDigest(new byte[0]);
@@ -222,6 +264,28 @@ public class GrpcActionCacheTest {
     assertThat(ContentDigests.computeDigest(fooFile)).isEqualTo(fooDigest);
     assertThat(ContentDigests.computeDigest(emptyFile)).isEqualTo(emptyDigest);
     assertThat(ContentDigests.computeDigest(barFile)).isEqualTo(barDigest);
+  }
+
+  @Test
+  public void testAuthCredentials() throws Exception {
+    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    options.authEnabled = true;
+    options.authCredentialsJson = "/exec/root/creds.json";
+    options.authScope = "dummy.scope";
+
+    GenericJson json = new GenericJson();
+    json.put("type", "authorized_user");
+    json.put("client_id", "some_client");
+    json.put("client_secret", "foo");
+    json.put("refresh_token", "bar");
+    scratch.file(options.authCredentialsJson, new JacksonFactory().toString(json));
+
+    GrpcActionCache client = newClient(options);
+    byte[] foo = "foo".getBytes(UTF_8);
+    ContentDigest fooDigest = ContentDigests.computeDigest(foo);
+    ImmutableList<ContentDigest> digests = client.uploadBlobs(ImmutableList.<byte[]>of(foo));
+    assertThat(digests).containsExactly(fooDigest);
+    assertThat(fakeRemoteCacheService.get(fooDigest)).isEqualTo(foo);
   }
 
   private static class FakeRemoteCacheService extends CasServiceImplBase {

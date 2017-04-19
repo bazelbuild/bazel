@@ -33,28 +33,28 @@ import com.google.devtools.build.lib.remote.RemoteProtocol.ExecutionCacheReply;
 import com.google.devtools.build.lib.remote.RemoteProtocol.ExecutionCacheRequest;
 import com.google.devtools.build.lib.remote.RemoteProtocol.ExecutionCacheSetReply;
 import com.google.devtools.build.lib.remote.RemoteProtocol.ExecutionCacheSetRequest;
-import io.grpc.ManagedChannel;
+import io.grpc.Channel;
 import io.grpc.stub.StreamObserver;
 import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Implementations of the gRPC interfaces that actually talk to gRPC.
- */
+/** Implementations of the gRPC interfaces that actually talk to gRPC. */
 public class GrpcInterfaces {
-  /**
-   * Create a {@link GrpcCasInterface} instance that actually talks to gRPC.
-   */
+  /** Create a {@link GrpcCasInterface} instance that actually talks to gRPC. */
   public static GrpcCasInterface casInterface(
-      final int grpcTimeoutSeconds, final ManagedChannel channel) {
+      final int grpcTimeoutSeconds,
+      final Channel channel,
+      final ChannelOptions channelOptions) {
     return new GrpcCasInterface() {
       private CasServiceBlockingStub getCasServiceBlockingStub() {
         return CasServiceGrpc.newBlockingStub(channel)
+            .withCallCredentials(channelOptions.getCallCredentials())
             .withDeadlineAfter(grpcTimeoutSeconds, TimeUnit.SECONDS);
       }
 
       private CasServiceStub getCasServiceStub() {
         return CasServiceGrpc.newStub(channel)
+            .withCallCredentials(channelOptions.getCallCredentials())
             .withDeadlineAfter(grpcTimeoutSeconds, TimeUnit.SECONDS);
       }
 
@@ -87,14 +87,15 @@ public class GrpcInterfaces {
     };
   }
 
-  /**
-   * Create a {@link GrpcCasInterface} instance that actually talks to gRPC.
-   */
+  /** Create a {@link GrpcCasInterface} instance that actually talks to gRPC. */
   public static GrpcExecutionCacheInterface executionCacheInterface(
-      final int grpcTimeoutSeconds, final ManagedChannel channel) {
+      final int grpcTimeoutSeconds,
+      final Channel channel,
+      final ChannelOptions channelOptions) {
     return new GrpcExecutionCacheInterface() {
       private ExecutionCacheServiceBlockingStub getExecutionCacheServiceBlockingStub() {
-        return  ExecutionCacheServiceGrpc.newBlockingStub(channel)
+        return ExecutionCacheServiceGrpc.newBlockingStub(channel)
+            .withCallCredentials(channelOptions.getCallCredentials())
             .withDeadlineAfter(grpcTimeoutSeconds, TimeUnit.SECONDS);
       }
 
@@ -110,18 +111,19 @@ public class GrpcInterfaces {
     };
   }
 
-  /**
-   * Create a {@link GrpcExecutionInterface} instance that actually talks to gRPC.
-   */
+  /** Create a {@link GrpcExecutionInterface} instance that actually talks to gRPC. */
   public static GrpcExecutionInterface executionInterface(
-      final int grpcTimeoutSeconds, final ManagedChannel channel) {
+      final int grpcTimeoutSeconds,
+      final Channel channel,
+      final ChannelOptions channelOptions) {
     return new GrpcExecutionInterface() {
       @Override
       public Iterator<ExecuteReply> execute(ExecuteRequest request) {
         ExecuteServiceBlockingStub stub =
             ExecuteServiceGrpc.newBlockingStub(channel)
-              .withDeadlineAfter(
-                  grpcTimeoutSeconds + request.getTimeoutMillis() / 1000, TimeUnit.SECONDS);
+                .withCallCredentials(channelOptions.getCallCredentials())
+                .withDeadlineAfter(
+                    grpcTimeoutSeconds + request.getTimeoutMillis() / 1000, TimeUnit.SECONDS);
         return stub.execute(request);
       }
     };

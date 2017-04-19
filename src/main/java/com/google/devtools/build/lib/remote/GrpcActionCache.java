@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.ContentDigests.ActionKey;
 import com.google.devtools.build.lib.remote.RemoteProtocol.ActionResult;
@@ -48,7 +47,7 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
-import io.grpc.ManagedChannel;
+import io.grpc.Channel;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
@@ -84,14 +83,17 @@ public class GrpcActionCache implements RemoteActionCache {
   }
 
   @VisibleForTesting
-  public GrpcActionCache(ManagedChannel channel, RemoteOptions options) {
+  public GrpcActionCache(
+      Channel channel, RemoteOptions options, ChannelOptions channelOptions) {
     this.options = options;
-    this.casIface = GrpcInterfaces.casInterface(options.grpcTimeoutSeconds, channel);
-    this.iface = GrpcInterfaces.executionCacheInterface(options.grpcTimeoutSeconds, channel);
+    this.casIface =
+        GrpcInterfaces.casInterface(options.grpcTimeoutSeconds, channel, channelOptions);
+    this.iface =
+        GrpcInterfaces.executionCacheInterface(options.grpcTimeoutSeconds, channel, channelOptions);
   }
 
-  public GrpcActionCache(RemoteOptions options) throws InvalidConfigurationException {
-    this(RemoteUtils.createChannelLegacy(options.remoteCache), options);
+  public GrpcActionCache(RemoteOptions options, ChannelOptions channelOptions) {
+    this(RemoteUtils.createChannel(options.remoteCache, channelOptions), options, channelOptions);
   }
 
   public static boolean isRemoteCacheOptions(RemoteOptions options) {
@@ -340,8 +342,7 @@ public class GrpcActionCache implements RemoteActionCache {
     }
   }
 
-  private void uploadChunks(int numItems, Chunker blobs)
-      throws InterruptedException, IOException {
+  private void uploadChunks(int numItems, Chunker blobs) throws InterruptedException, IOException {
     CountDownLatch finishLatch = new CountDownLatch(numItems); // Maximal number of batches.
     AtomicReference<RuntimeException> exception = new AtomicReference<>(null);
     UploadBlobReplyStreamObserver responseObserver = null;
