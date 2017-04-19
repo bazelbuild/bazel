@@ -15,6 +15,7 @@ package com.google.devtools.build.android.resources;
 
 import java.io.IOException;
 import java.io.Writer;
+import java.util.Set;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.commons.InstructionAdapter;
 
@@ -55,5 +56,10 @@ public final class IntFieldInitializer implements FieldInitializer {
   public void writeInitSource(Writer writer) throws IOException {
     writer.write(String.format("        public static int %s = 0x%x;\n",
         fieldName, value));
+  }
+
+  @Override
+  public boolean nameIsIn(Set<String> fieldNames) {
+    return fieldNames.contains(fieldName);
   }
 }

@@ -87,9 +87,8 @@ public class RClassGeneratorTest {
             "lib.R.txt", "int attr agility 0x1", "int id someTextView 0x1", "int string ok 0x1");
     Path out = temp.resolve("classes");
     Files.createDirectories(out);
-    RClassGenerator writer = RClassGenerator.fromSymbols(
-        out, "com.bar", symbolValues, ImmutableList.of(symbolsInLibrary), finalFields);
-    writer.write();
+    RClassGenerator writer = RClassGenerator.fromSymbols(out, symbolValues, finalFields);
+    writer.write("com.bar", symbolsInLibrary.asFilterMap());
 
     Path packageDir = out.resolve("com/bar");
     checkFilesInPackage(packageDir, "R.class", "R$attr.class", "R$id.class", "R$string.class");
@@ -129,9 +128,8 @@ public class RClassGeneratorTest {
     ResourceSymbols symbolsInLibrary = symbolValues;
     Path out = temp.resolve("classes");
     Files.createDirectories(out);
-    RClassGenerator writer = RClassGenerator.fromSymbols(out, "com.testEmptyIntArray",
-        symbolValues, ImmutableList.of(symbolsInLibrary), finalFields);
-    writer.write();
+    RClassGenerator writer = RClassGenerator.fromSymbols(out, symbolValues, finalFields);
+    writer.write("com.testEmptyIntArray", symbolsInLibrary.asFilterMap());
 
     Path packageDir = out.resolve("com/testEmptyIntArray");
     checkFilesInPackage(packageDir, "R.class", "R$styleable.class");
@@ -160,9 +158,8 @@ public class RClassGeneratorTest {
     Path out = temp.resolve("classes");
     Files.createDirectories(out);
     thrown.expect(NumberFormatException.class);
-    RClassGenerator writer = RClassGenerator.fromSymbols(out, "com.foo",
-        symbolValues, ImmutableList.of(symbolsInLibrary), finalFields);
-    writer.write();
+    RClassGenerator writer = RClassGenerator.fromSymbols(out, symbolValues, finalFields);
+    writer.write("com.foo", symbolsInLibrary.asFilterMap());
   }
 
   @Test
@@ -174,9 +171,8 @@ public class RClassGeneratorTest {
     Path out = temp.resolve("classes");
     Files.createDirectories(out);
     thrown.expect(NumberFormatException.class);
-    RClassGenerator writer = RClassGenerator.fromSymbols(out, "com.foo",
-        symbolValues, ImmutableList.of(symbolsInLibrary), finalFields);
-    writer.write();
+    RClassGenerator writer = RClassGenerator.fromSymbols(out, symbolValues, finalFields);
+    writer.write("com.foo", symbolsInLibrary.asFilterMap());
   }
 
   @Test
@@ -194,23 +190,14 @@ public class RClassGeneratorTest {
             "int layout stubbable_activity 0x1");
     Path out = temp.resolve("classes");
     Files.createDirectories(out);
-    RClassGenerator writer = RClassGenerator.fromSymbols(out, "com.foo",
-        symbolValues, ImmutableList.of(symbolsInLibrary), finalFields);
-    writer.write();
+    RClassGenerator writer = RClassGenerator.fromSymbols(out, symbolValues, finalFields);
+    writer.write("com.foo", symbolsInLibrary.asFilterMap());
 
     Path packageDir = out.resolve("com/foo");
-    checkFilesInPackage(packageDir, "R.class", "R$id.class", "R$layout.class");
+    checkFilesInPackage(packageDir, "R.class", "R$layout.class");
     Class<?> outerClass = checkTopLevelClass(out,
         "com.foo.R",
-        "com.foo.R$id",
         "com.foo.R$layout");
-    checkInnerClass(out,
-        "com.foo.R$id",
-        outerClass,
-        ImmutableMap.<String, Integer>of(),
-        ImmutableMap.<String, List<Integer>>of(),
-        finalFields
-    );
     checkInnerClass(out,
         "com.foo.R$layout",
         outerClass,
@@ -255,9 +242,8 @@ public class RClassGeneratorTest {
     ResourceSymbols symbolsInLibrary = symbolValues;
     Path out = temp.resolve("classes");
     Files.createDirectories(out);
-    RClassGenerator writer = RClassGenerator.fromSymbols(
-        out, "com.intArray", symbolValues, ImmutableList.of(symbolsInLibrary), finalFields);
-    writer.write();
+    RClassGenerator writer = RClassGenerator.fromSymbols(out, symbolValues, finalFields);
+    writer.write("com.intArray", symbolsInLibrary.asFilterMap());
 
     Path packageDir = out.resolve("com/intArray");
     checkFilesInPackage(packageDir, "R.class", "R$attr.class", "R$styleable.class");
@@ -309,10 +295,8 @@ public class RClassGeneratorTest {
     ResourceSymbols symbolsInLibrary = symbolValues;
     Path out = temp.resolve("classes");
     Files.createDirectories(out);
-    RClassGenerator writer =
-        RClassGenerator.fromSymbols(
-            out, "", symbolValues, ImmutableList.of(symbolsInLibrary), finalFields);
-    writer.write();
+    RClassGenerator writer = RClassGenerator.fromSymbols(out, symbolValues, finalFields);
+    writer.write("", symbolsInLibrary.asFilterMap());
 
     Path packageDir = out.resolve("");
     checkFilesInPackage(packageDir, "R.class", "R$string.class");

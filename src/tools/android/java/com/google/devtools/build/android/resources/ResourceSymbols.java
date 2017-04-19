@@ -18,6 +18,7 @@ import com.android.builder.dependency.SymbolFileProvider;
 import com.android.builder.internal.SymbolLoader;
 import com.android.builder.internal.SymbolLoader.SymbolEntry;
 import com.android.builder.internal.SymbolWriter;
+import com.android.resources.ResourceType;
 import com.android.utils.ILogger;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.HashMultimap;
@@ -31,10 +32,13 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.util.Collection;
+import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
@@ -184,5 +188,20 @@ public class ResourceSymbols {
       writer.addSymbolsToWrite(packageSymbol.symbolLoader);
     }
     writer.write();
+  }
+
+  public Map<ResourceType, Set<String>> asFilterMap() throws IOException {
+    Map<ResourceType, Set<String>> filter = new EnumMap<>(ResourceType.class);
+    Table<String, String, SymbolEntry> symbolTable = asTable();
+    for (String typeName : symbolTable.rowKeySet()) {
+      Set<String> fields = new HashSet<>();
+      for (SymbolEntry symbolEntry : symbolTable.row(typeName).values()) {
+        fields.add(symbolEntry.getName());
+      }
+      if (!fields.isEmpty()) {
+        filter.put(ResourceType.getEnum(typeName), fields);
+      }
+    }
+    return filter;
   }
 }
