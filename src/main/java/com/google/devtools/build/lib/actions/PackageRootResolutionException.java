@@ -18,6 +18,7 @@ package com.google.devtools.build.lib.actions;
  * Exception signaling an error occurred determining package roots. See
  * {@link PackageRootResolver#findPackageRootsForFiles(Iterable)} for further details.
  */
+// TODO: Delete this class.
 public class PackageRootResolutionException extends Exception {
 
   public PackageRootResolutionException(String msg, Throwable cause) {

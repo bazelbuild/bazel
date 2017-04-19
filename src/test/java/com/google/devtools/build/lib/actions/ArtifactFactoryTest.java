@@ -256,8 +256,7 @@ public class ArtifactFactoryTest {
     
     @Override
     @Nullable
-    public Map<PathFragment, Root> findPackageRoots(Iterable<PathFragment> execPaths)
-        throws PackageRootResolutionException {
+    public Map<PathFragment, Root> findPackageRoots(Iterable<PathFragment> execPaths) {
       return null; // unused
     }
   }

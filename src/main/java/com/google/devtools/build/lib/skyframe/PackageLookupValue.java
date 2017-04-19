@@ -33,7 +33,8 @@ import com.google.devtools.build.skyframe.SkyValue;
  *
  * <p>Implementation detail: we use inheritance here to optimize for memory usage.
  */
-public abstract class PackageLookupValue implements SkyValue {
+public abstract class
+    PackageLookupValue implements SkyValue {
 
   /**
    * The file (BUILD, WORKSPACE, etc.) that defines this package, referred to as the "build file".
@@ -88,16 +89,21 @@ public abstract class PackageLookupValue implements SkyValue {
       new NoBuildFilePackageLookupValue();
   public static final DeletedPackageLookupValue DELETED_PACKAGE_VALUE =
       new DeletedPackageLookupValue();
+  public static final NoRepositoryPackageLookupValue NO_SUCH_REPOSITORY_VALUE =
+      new NoRepositoryPackageLookupValue();
 
   enum ErrorReason {
-    // There is no BUILD file.
+    /** There is no BUILD file. */
     NO_BUILD_FILE,
 
-    // The package name is invalid.
+    /** The package name is invalid. */
     INVALID_PACKAGE_NAME,
 
-    // The package is considered deleted because of --deleted_packages.
-    DELETED_PACKAGE
+    /** The package is considered deleted because of --deleted_packages. */
+    DELETED_PACKAGE,
+
+    /** The repository was not found. */
+    REPOSITORY_NOT_FOUND
   }
 
   protected PackageLookupValue() {
@@ -288,6 +294,23 @@ public abstract class PackageLookupValue implements SkyValue {
     @Override
     public String getErrorMsg() {
       return "Package is considered deleted due to --deleted_packages";
+    }
+  }
+
+  /** Marker value for a deleted package. */
+  public static class NoRepositoryPackageLookupValue extends UnsuccessfulPackageLookupValue {
+
+    private NoRepositoryPackageLookupValue() {
+    }
+
+    @Override
+    ErrorReason getErrorReason() {
+      return ErrorReason.REPOSITORY_NOT_FOUND;
+    }
+
+    @Override
+    public String getErrorMsg() {
+      return "No such repository";
     }
   }
 }

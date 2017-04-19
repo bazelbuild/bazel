@@ -758,20 +758,18 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   public Map<PathFragment, Root> getArtifactRootsForFiles(
-      final ExtendedEventHandler eventHandler, Iterable<PathFragment> execPaths)
-      throws PackageRootResolutionException, InterruptedException {
+      final ExtendedEventHandler eventHandler, Iterable<PathFragment> execPaths) throws InterruptedException {
     return getArtifactRoots(eventHandler, execPaths, true);
   }
 
   public Map<PathFragment, Root> getArtifactRoots(
-      final ExtendedEventHandler eventHandler, Iterable<PathFragment> execPaths)
-      throws PackageRootResolutionException, InterruptedException {
+      final ExtendedEventHandler eventHandler, Iterable<PathFragment> execPaths) throws InterruptedException {
     return getArtifactRoots(eventHandler, execPaths, false);
   }
 
   private Map<PathFragment, Root> getArtifactRoots(
       final ExtendedEventHandler eventHandler, Iterable<PathFragment> execPaths, boolean forFiles)
-      throws PackageRootResolutionException, InterruptedException {
+          throws InterruptedException {
     final Map<PathFragment, SkyKey> packageKeys = new HashMap<>();
     for (PathFragment execPath : execPaths) {
       try {
@@ -779,8 +777,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             PackageIdentifier.discoverFromExecPath(execPath, forFiles);
         packageKeys.put(execPath, ContainingPackageLookupValue.key(pkgIdentifier));
       } catch (LabelSyntaxException e) {
-        throw new PackageRootResolutionException(
-            String.format("Could not find the external repository for %s", execPath), e);
+        continue;
       }
     }
 
@@ -792,8 +789,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
 
     if (result.hasError()) {
-      throw new PackageRootResolutionException("Exception encountered determining package roots",
-          result.getError().getException());
+      return new HashMap<>();
     }
 
     Map<PathFragment, Root> roots = new HashMap<>();

@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.packages.RuleFormatter;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.RepositoryValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -91,9 +92,15 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
+      // TODO(ulfjack): Make this more specific to RepositoryFunctionException.
       throws SkyFunctionException, InterruptedException {
     RepositoryName repositoryName = (RepositoryName) skyKey.argument();
-    Rule rule = RepositoryFunction.getRule(repositoryName, null, env);
+    Rule rule;
+    try {
+      rule = RepositoryFunction.getRule(repositoryName, null, env);
+    } catch (RepositoryFunction.RepositoryNotFoundException e) {
+      return RepositoryDirectoryValue.NO_SUCH_REPOSITORY_VALUE;
+    }
     if (rule == null) {
       return null;
     }

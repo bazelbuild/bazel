@@ -356,8 +356,7 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
 
   @Override
   public synchronized Map<PathFragment, Artifact> resolveSourceArtifacts(
-      Iterable<PathFragment> execPaths, PackageRootResolver resolver)
-      throws PackageRootResolutionException, InterruptedException {
+      Iterable<PathFragment> execPaths, PackageRootResolver resolver) throws InterruptedException {
     Map<PathFragment, Artifact> result = new HashMap<>();
     ArrayList<PathFragment> unresolvedPaths = new ArrayList<>();
 

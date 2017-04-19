@@ -49,6 +49,9 @@ public class RepositoryLoaderFunction implements SkyFunction {
     if (repository == null) {
       return null;
     }
+    if (!repository.repositoryExists()) {
+      return RepositoryValue.notFound(nameFromRule);
+    }
 
     SkyKey workspaceKey =
         WorkspaceFileValue.key(
@@ -77,7 +80,7 @@ public class RepositoryLoaderFunction implements SkyFunction {
               + "cause a build error in future versions"));
     }
 
-    return new RepositoryValue(nameFromRule, repository);
+    return RepositoryValue.success(nameFromRule, repository);
   }
 
   @Nullable
