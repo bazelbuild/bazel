@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import io.grpc.CallCredentials;
 import io.grpc.auth.MoreCallCredentials;
+import io.grpc.internal.GrpcUtil;
 import io.grpc.netty.GrpcSslContexts;
 import io.netty.handler.ssl.SslContext;
 import java.io.File;
@@ -32,20 +33,24 @@ import javax.net.ssl.SSLException;
 /** Instantiate all authentication helpers from build options. */
 @ThreadSafe
 public final class ChannelOptions {
+  private final int maxMessageSize;
   private final boolean tlsEnabled;
   private final SslContext sslContext;
   private final String tlsAuthorityOverride;
   private final CallCredentials credentials;
+  private static final int CHUNK_MESSAGE_OVERHEAD = 1024;
 
   private ChannelOptions(
       boolean tlsEnabled,
       SslContext sslContext,
       String tlsAuthorityOverride,
-      CallCredentials credentials) {
+      CallCredentials credentials,
+      int maxMessageSize) {
     this.tlsEnabled = tlsEnabled;
     this.sslContext = sslContext;
     this.tlsAuthorityOverride = tlsAuthorityOverride;
     this.credentials = credentials;
+    this.maxMessageSize = maxMessageSize;
   }
 
   public boolean tlsEnabled() {
@@ -62,6 +67,10 @@ public final class ChannelOptions {
 
   public SslContext getSslContext() {
     return sslContext;
+  }
+
+  public int maxMessageSize() {
+    return maxMessageSize;
   }
 
   public static ChannelOptions create(RemoteOptions options) {
@@ -107,6 +116,11 @@ public final class ChannelOptions {
             "Failed initializing auth credentials for remote cache/execution " + e);
       }
     }
-    return new ChannelOptions(tlsEnabled, sslContext, tlsAuthorityOverride, credentials);
+    final int maxMessageSize =
+        Math.max(
+            GrpcUtil.DEFAULT_MAX_MESSAGE_SIZE,
+            options.grpcMaxChunkSizeBytes + CHUNK_MESSAGE_OVERHEAD);
+    return new ChannelOptions(
+        tlsEnabled, sslContext, tlsAuthorityOverride, credentials, maxMessageSize);
   }
 }

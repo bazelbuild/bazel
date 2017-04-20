@@ -73,9 +73,9 @@ public final class RemoteOptions extends OptionsBase {
 
   @Option(
     name = "grpc_max_chunk_size_bytes",
-    defaultValue = "400000", // <4MB. Bounded by the gRPC size limit on the overall message.
+    defaultValue = "16000",
     category = "remote",
-    help = "The maximal number of bytes to be sent in a single message."
+    help = "The maximal number of data bytes to be sent in a single message."
   )
   public int grpcMaxChunkSizeBytes;
 
@@ -83,7 +83,7 @@ public final class RemoteOptions extends OptionsBase {
     name = "grpc_max_batch_inputs",
     defaultValue = "100",
     category = "remote",
-    help = "The maximal number of input file to be sent in a single batch."
+    help = "The maximal number of input files to be sent in a single batch."
   )
   public int grpcMaxBatchInputs;
 

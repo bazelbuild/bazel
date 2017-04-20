@@ -17,6 +17,8 @@ package com.google.devtools.build.remote;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.remote.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.CasServiceGrpc.CasServiceImplBase;
+import com.google.devtools.build.lib.remote.ChannelOptions;
+import com.google.devtools.build.lib.remote.Chunker;
 import com.google.devtools.build.lib.remote.ContentDigests;
 import com.google.devtools.build.lib.remote.ContentDigests.ActionKey;
 import com.google.devtools.build.lib.remote.ExecuteServiceGrpc.ExecuteServiceImplBase;
@@ -63,7 +65,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.protobuf.ByteString;
 import com.google.protobuf.Duration;
 import com.google.protobuf.util.Durations;
 import io.grpc.Server;
@@ -96,11 +97,16 @@ public class RemoteWorker {
   private final ExecutionCacheServiceImplBase execCacheServer;
   private final SimpleBlobStoreActionCache cache;
   private final RemoteWorkerOptions workerOptions;
+  private final RemoteOptions remoteOptions;
 
-  public RemoteWorker(RemoteWorkerOptions workerOptions, SimpleBlobStoreActionCache cache)
+  public RemoteWorker(
+      RemoteWorkerOptions workerOptions,
+      RemoteOptions remoteOptions,
+      SimpleBlobStoreActionCache cache)
       throws IOException {
     this.cache = cache;
     this.workerOptions = workerOptions;
+    this.remoteOptions = remoteOptions;
     if (workerOptions.workPath != null) {
       Path workPath = getFileSystem().getPath(workerOptions.workPath);
       FileSystemUtils.createDirectoryAndParents(workPath);
@@ -115,13 +121,13 @@ public class RemoteWorker {
   public Server startServer() throws IOException {
     NettyServerBuilder b =
         NettyServerBuilder.forPort(workerOptions.listenPort)
+            .maxMessageSize(ChannelOptions.create(remoteOptions).maxMessageSize())
             .addService(casServer)
             .addService(execCacheServer);
     if (execServer != null) {
       b.addService(execServer);
     } else {
-      System.out.println(
-          "*** Execution disabled, only serving cache requests.");
+      System.out.println("*** Execution disabled, only serving cache requests.");
     }
     Server server = b.build();
     System.out.println(
@@ -199,17 +205,23 @@ public class RemoteWorker {
       }
       status.setSucceeded(true);
       try {
+        // This still relies on the total blob size to be small enough to fit in memory
+        // simultaneously! TODO(olaola): refactor to fix this if the need arises.
+        Chunker.Builder b = new Chunker.Builder().chunkSize(remoteOptions.grpcMaxChunkSizeBytes);
         for (ContentDigest digest : request.getDigestList()) {
-          reply.setData(
-              BlobChunk.newBuilder()
-                  .setDigest(digest)
-                  .setData(ByteString.copyFrom(cache.downloadBlob(digest)))
-                  .build());
+          b.addInput(cache.downloadBlob(digest));
+        }
+        Chunker c = b.build();
+        while (c.hasNext()) {
+          reply.setData(c.next());
           responseObserver.onNext(reply.build());
           if (reply.hasStatus()) {
             reply.clearStatus(); // Only send status on first chunk.
           }
         }
+      } catch (IOException e) {
+        // This cannot happen, as we are chunking in-memory blobs.
+        throw new RuntimeException("Internal error: " + e);
       } catch (CacheNotFoundException e) {
         // This can only happen if an item gets evicted right after we check.
         reply.clearData();
@@ -604,7 +616,8 @@ public class RemoteWorker {
                 new ConcurrentHashMap<String, byte[]>());
 
     RemoteWorker worker =
-        new RemoteWorker(remoteWorkerOptions, new SimpleBlobStoreActionCache(blobStore));
+        new RemoteWorker(
+            remoteWorkerOptions, remoteOptions, new SimpleBlobStoreActionCache(blobStore));
     final Server server = worker.startServer();
 
     final Path pidFile;

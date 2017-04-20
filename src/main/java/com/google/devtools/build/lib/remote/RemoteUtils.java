@@ -23,9 +23,11 @@ import io.grpc.netty.NettyChannelBuilder;
 @ThreadSafe
 public final class RemoteUtils {
   public static ManagedChannel createChannel(String target, ChannelOptions channelOptions) {
-    NettyChannelBuilder builder = NettyChannelBuilder.forTarget(target);
-    builder.negotiationType(
-        channelOptions.tlsEnabled() ? NegotiationType.TLS : NegotiationType.PLAINTEXT);
+    NettyChannelBuilder builder =
+        NettyChannelBuilder.forTarget(target)
+            .negotiationType(
+                channelOptions.tlsEnabled() ? NegotiationType.TLS : NegotiationType.PLAINTEXT)
+            .maxMessageSize(channelOptions.maxMessageSize());
     if (channelOptions.getSslContext() != null) {
       builder.sslContext(channelOptions.getSslContext());
       if (channelOptions.getTlsAuthorityOverride() != null) {
