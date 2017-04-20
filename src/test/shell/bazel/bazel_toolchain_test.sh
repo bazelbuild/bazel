@@ -40,9 +40,6 @@ for i in $(find . -name BUILD.linaro); do
   mv "$i" "$(dirname "$i")/BUILD"
 done
 
-# Make sure that the wrapper scripts have the execution permission
-chmod +x tools/arm_compiler/linaro_linux_gcc/arm-linux-gnueabihf-*
-
 bazel clean --expunge
 bazel build --crosstool_top=//tools/arm_compiler:toolchain --cpu=armeabi-v7a \
   --spawn_strategy=standalone hello || fail "Should build"
