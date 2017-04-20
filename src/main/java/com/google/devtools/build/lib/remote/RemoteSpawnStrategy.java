@@ -269,6 +269,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
         // just update the TreeNodeRepository and continue the build.
         try {
           actionCache.downloadAllResults(result, execRoot);
+          passRemoteOutErr(actionCache, result, actionExecutionContext.getFileOutErr());
           return;
         } catch (CacheNotFoundException e) {
           acceptCachedResult = false; // Retry the action remotely and invalidate the results.
