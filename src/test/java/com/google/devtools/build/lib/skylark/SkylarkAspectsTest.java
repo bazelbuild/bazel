@@ -184,6 +184,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         scratch.readFile("WORKSPACE"),
         "local_repository(name='local', path='local/repo')"
     );
+    scratch.file("local/repo/WORKSPACE");
     scratch.file(
         "local/repo/aspect.bzl",
         "def _impl(target, ctx):",

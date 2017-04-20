@@ -114,6 +114,7 @@ public class ASTFileLookupFunctionTest extends BuildViewTestCase {
         "    name = 'a_remote_repo',",
         "    path = '/a_remote_repo'",
         ")");
+    scratch.file("/a_remote_repo/WORKSPACE");
     scratch.file("/a_remote_repo/remote_pkg/BUILD",
         "load(':ext.bzl', 'CONST')");
     scratch.file("/a_remote_repo/remote_pkg/ext.bzl",
@@ -138,6 +139,7 @@ public class ASTFileLookupFunctionTest extends BuildViewTestCase {
         "    name = 'a_remote_repo',",
         "    path = '/a_remote_repo'",
         ")");
+    scratch.file("/a_remote_repo/WORKSPACE");
     scratch.file("/a_remote_repo/remote_pkg/BUILD");
     scratch.file("/a_remote_repo/remote_pkg/ext1.bzl",
         "load(':ext2.bzl', 'CONST')");

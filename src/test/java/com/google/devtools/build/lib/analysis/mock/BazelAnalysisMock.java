@@ -81,6 +81,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
     List<String> workspaceContents = getWorkspaceContents(config);
     config.create(
         "/local_config_xcode/BUILD", "xcode_config(name = 'host_xcodes')");
+    config.create("/local_config_xcode/WORKSPACE");
     config.overwrite("WORKSPACE", workspaceContents.toArray(new String[workspaceContents.size()]));
     config.create("/bazel_tools_workspace/WORKSPACE", "workspace(name = 'bazel_tools')");
     config.create(

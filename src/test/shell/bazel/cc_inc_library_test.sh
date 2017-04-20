@@ -53,6 +53,7 @@ EOF
 function test_cc_library_include_prefix_external_repository() {
   r="$TEST_TMPDIR/r"
   mkdir -p "$TEST_TMPDIR/r/foo/v1"
+  touch "$TEST_TMPDIR/r/WORKSPACE"
   echo "#define FOO 42" > "$TEST_TMPDIR/r/foo/v1/foo.h"
   cat > "$TEST_TMPDIR/r/foo/BUILD" <<EOF
 cc_library(

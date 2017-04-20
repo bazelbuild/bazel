@@ -81,6 +81,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   public void testAssetsInExternalRepository() throws Exception {
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"), "local_repository(name='r', path='/r')");
+    scratch.file("/r/WORKSPACE");
     scratch.file("/r/p/BUILD", "filegroup(name='assets', srcs=['a/b'])");
     scratch.file("/r/p/a/b");
     invalidatePackages();

@@ -340,6 +340,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   /* The error message for this case used to be wrong. */
   @Test
   public void testPackageBoundaryError_ExternalRepository() throws Exception {
+    scratch.file("/r/WORKSPACE");
     scratch.file("/r/BUILD", "cc_library(name = 'cclib',", "  srcs = ['sub/my_sub_lib.h'])");
     scratch.file("/r/sub/BUILD", "cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
     scratch.overwriteFile("WORKSPACE",
@@ -1181,6 +1182,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     scratch.file("BUILD",
         "filegroup(name='dep')");
 
+    scratch.file("/r/WORKSPACE");
     scratch.file("/r/a/BUILD",
         "load('/external_rule', 'external_rule')",
         "external_rule(name='r')");
@@ -1212,6 +1214,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         "  }",
         ")");
 
+    scratch.file("/r/WORKSPACE");
     scratch.file("/r/BUILD",
         "filegroup(name='dep')");
 
@@ -1246,6 +1249,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         "def macro(name, path):",
         "  native.local_repository(name = name, path = path)"
     );
+    scratch.file("/r2/WORKSPACE");
     scratch.file(
         "/r2/other_test.bzl",
         "def other_macro(name, path):",
