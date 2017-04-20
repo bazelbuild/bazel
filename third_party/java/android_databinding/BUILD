@@ -28,5 +28,5 @@ filegroup(
 # Executable for the databinding resource compiler.
 java_import(
     name = "exec",
-    jars = ["exec.jar"],
+    jars = ["v2_3_1/exec.jar"],
 )
