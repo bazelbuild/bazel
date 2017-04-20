@@ -41,7 +41,6 @@ public final class BazelMain {
           com.google.devtools.build.lib.bazel.BazelWorkspaceStatusModule.class,
           com.google.devtools.build.lib.bazel.BazelDiffAwarenessModule.class,
           com.google.devtools.build.lib.bazel.BazelRepositoryModule.class,
-          com.google.devtools.build.lib.bazel.dash.DashModule.class,
           com.google.devtools.build.lib.ssd.SsdModule.class,
           com.google.devtools.build.lib.worker.WorkerModule.class,
           com.google.devtools.build.lib.remote.RemoteModule.class,

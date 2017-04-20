@@ -3,6 +3,8 @@ layout: posts
 title: Build dashboard dogfood
 ---
 
+__WARNING__: This feature has been removed (2017-04-19).
+
 We've added a basic dashboard where you can see and share build and test
 results.  It's not ready for an official release yet, but if any adventurous
 people would like to try it out (and please report any issues you find!), feel

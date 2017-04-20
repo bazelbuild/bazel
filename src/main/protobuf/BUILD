@@ -5,7 +5,6 @@ load("//third_party/protobuf/3.0.0:protobuf.bzl", "cc_proto_library", "py_proto_
 
 FILES = [
     "build",
-    "dash",
     "deps",
     "java_compilation",
     "crosstool_config",
