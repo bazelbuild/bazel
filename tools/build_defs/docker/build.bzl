@@ -222,10 +222,10 @@ def _repository_name(ctx):
   """Compute the repository name for the current rule."""
   if ctx.attr.legacy_repository_naming:
     # Legacy behavior, off by default.
-    return "%s/%s" % (ctx.attr.repository, ctx.label.package.replace("/", "_"))
+    return _join_path(ctx.attr.repository, ctx.label.package.replace("/", "_"))
   # Newer Docker clients support multi-level names, which are a part of
   # the v2 registry specification.
-  return "%s/%s" % (ctx.attr.repository, ctx.label.package)
+  return _join_path(ctx.attr.repository, ctx.label.package)
 
 
 def _create_image(ctx, layers, identifier, config, name, metadata, tags):
