@@ -28,7 +28,7 @@ class ClassReaderFactory {
   }
 
   /**
-   * Returns a reader for the given/internal/Class$Name if the class is defined in the wrapped Jar
+   * Returns a reader for the given/internal/Class$Name if the class is defined in the wrapped input
    * and {@code null} otherwise.  For simplicity this method turns checked into runtime exceptions
    * under the assumption that all classes have already been read once when this method is called.
    */
@@ -49,5 +49,13 @@ class ClassReaderFactory {
     }
 
     return null;
+  }
+
+  /**
+   * Returns {@code true} if the given given/internal/Class$Name is defined in the wrapped input.
+   */
+  public boolean isKnown(String internalClassName) {
+    String filename = rewriter.unprefix(internalClassName) + ".class";
+    return indexedInputs.getInputFileProvider(filename) != null;
   }
 }
