@@ -100,7 +100,10 @@ public class StandaloneTestStrategy extends TestStrategy {
             action.isEnableRunfiles());
     Path tmpDir =
         tmpDirRoot.getChild(
-            getTmpDirName(action.getExecutionSettings().getExecutable().getExecPath()));
+            getTmpDirName(
+                action.getExecutionSettings().getExecutable().getExecPath(),
+                action.getShardNum(),
+                action.getRunNumber()));
     Map<String, String> env = setupEnvironment(action, execRoot, runfilesDir, tmpDir);
     Path workingDirectory = runfilesDir.getRelative(action.getRunfilesPrefix());
 

@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.rules.test.TestActionContext;
 import com.google.devtools.build.lib.rules.test.TestResult;
 import com.google.devtools.build.lib.rules.test.TestRunnerAction;
 import com.google.devtools.build.lib.rules.test.TestTargetExecutionSettings;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileWatcher;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -260,6 +261,14 @@ public abstract class TestStrategy implements TestActionContext {
       tmpIndex.put(basename, index + 1);
       return basename + "_" + index;
     }
+  }
+
+  protected String getTmpDirName(PathFragment execPath, int shard, int run) {
+    Fingerprint digest = new Fingerprint();
+    digest.addPath(execPath);
+    digest.addInt(shard);
+    digest.addInt(run);
+    return digest.hexDigestAndReset();
   }
 
   /** Parse a test result XML file into a {@link TestCase}. */
