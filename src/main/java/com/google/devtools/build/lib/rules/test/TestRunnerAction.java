@@ -86,7 +86,6 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   private final PathFragment testInfrastructureFailure;
   private final PathFragment baseDir;
   private final Artifact coverageData;
-  private final Artifact microCoverageData;
   private final TestTargetProperties testProperties;
   private final TestTargetExecutionSettings executionSettings;
   private final int shardNum;
@@ -123,7 +122,6 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
       Artifact testLog,
       Artifact cacheStatus,
       Artifact coverageArtifact,
-      Artifact microCoverageArtifact,
       TestTargetProperties testProperties,
       Map<String, String> extraTestEnv,
       TestTargetExecutionSettings executionSettings,
@@ -135,13 +133,12 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
     super(owner, inputs,
         // Note that this action only cares about the runfiles, not the mapping.
         new RunfilesSupplierImpl(PathFragment.create("runfiles"), executionSettings.getRunfiles()),
-        list(testLog, cacheStatus, coverageArtifact, microCoverageArtifact));
+        list(testLog, cacheStatus, coverageArtifact));
     this.runtime = runtime;
     this.configuration = Preconditions.checkNotNull(configuration);
     this.testLog = testLog;
     this.cacheStatus = cacheStatus;
     this.coverageData = coverageArtifact;
-    this.microCoverageData = microCoverageArtifact;
     this.shardNum = shardNum;
     this.runNumber = runNumber;
     this.testProperties = Preconditions.checkNotNull(testProperties);
@@ -207,9 +204,6 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
     outputs.add(ActionInputHelper.fromPath(getUndeclaredOutputsAnnotationsPath()));
     if (isCoverageMode()) {
       outputs.add(getCoverageData());
-      if (isMicroCoverageMode()) {
-        outputs.add(getMicroCoverageData());
-      }
     }
     return outputs;
   }
@@ -358,8 +352,6 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
 
     // We cannot use coverageData artifact since it may be null. Generate coverage name instead.
     execRoot.getRelative(baseDir.getChild(coveragePrefix + ".dat")).delete();
-    // We cannot use microcoverageData artifact since it may be null. Generate filename instead.
-    execRoot.getRelative(baseDir.getChild(coveragePrefix + ".micro.dat")).delete();
 
     // Delete files fetched from remote execution.
     execRoot.getRelative(baseDir.getChild("test.zip")).delete();
@@ -441,12 +433,6 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
       env.put("COVERAGE_MANIFEST", getCoverageManifest().getExecPathString());
       env.put("COVERAGE_DIR", getCoverageDirectory().getPathString());
       env.put("COVERAGE_OUTPUT_FILE", getCoverageData().getExecPathString());
-      if (isMicroCoverageMode()) {
-        env.put("MICROCOVERAGE_REQUESTED", "true");
-        env.put("MICROCOVERAGE_OUTPUT_FILE", getMicroCoverageData().getExecPathString());
-      } else {
-        env.put("MICROCOVERAGE_REQUESTED", "false");
-      }
     }
   }
 
@@ -573,18 +559,6 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   /** Returns true if coverage data should be gathered. */
   public boolean isCoverageMode() {
     return coverageData != null;
-  }
-
-  /**
-   * @return microcoverage data artifact or null if code coverage was not requested.
-   */
-  @Nullable public Artifact getMicroCoverageData() {
-    return microCoverageData;
-  }
-
-  /** Returns true if micro-coverage data should be gathered. */
-  public boolean isMicroCoverageMode() {
-    return microCoverageData != null;
   }
 
   /**

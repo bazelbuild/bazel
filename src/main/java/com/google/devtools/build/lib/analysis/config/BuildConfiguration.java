@@ -700,19 +700,6 @@ public final class BuildConfiguration {
     public boolean collectCodeCoverage;
 
     @Option(
-      name = "microcoverage",
-      defaultValue = "false",
-      category = "testing",
-      help =
-          "If specified with coverage, Blaze will collect microcoverage (per test method "
-              + "coverage) information during tests. Only targets that match "
-              + "--instrumentation_filter will be affected. Usually this option should not be "
-              + "specified directly - 'blaze coverage --microcoverage' command should be used "
-              + "instead."
-    )
-    public boolean collectMicroCoverage;
-
-    @Option(
       name = "coverage_support",
       converter = LabelConverter.class,
       defaultValue = "@bazel_tools//tools/test:coverage_support",
@@ -2411,10 +2398,6 @@ public final class BuildConfiguration {
           + "ctx.coverage_instrumented</code></a> function.")
   public boolean isCodeCoverageEnabled() {
     return options.collectCodeCoverage;
-  }
-
-  public boolean isMicroCoverageEnabled() {
-    return options.collectMicroCoverage;
   }
 
   public boolean isLLVMCoverageMapFormatEnabled() {
