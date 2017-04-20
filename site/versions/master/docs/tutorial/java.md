@@ -1,284 +1,576 @@
 ---
 layout: documentation
-title: Build Java
+title: Introduction to Bazel
 ---
 
-Build Java
+Introduction to Bazel: Build Java
 ==========
 
-You can use Bazel to build your Java application. In this tutorial you'll learn how to:
+This tutorial is an introduction for anyone getting started with Bazel. It
+focuses on the concepts, setup, and use of Bazel using a Java sample project.
 
-* Build your first Java target
-* Add dependencies to your target
-* Use multiple packages
-* Deploy your target
+Estimated time: 30 min
 
-## Setting up your workspace
+## What you will learn
 
-Suppose that you have an existing project in a directory, say,
-`~/gitroot/my-project/`. Create an empty file at
-`~/gitroot/my-project/WORKSPACE` to show Bazel where your project's root is.
+In this tutorial you'll learn how to:
 
-## Creating Your Own Build File
+*  Build a target from source files
+*  Produce a visual representation of the dependency graph
+*  Break a monolithic binary into smaller libraries
+*  Use multiple Bazel packages
+*  Control the visibility of a target between packages
+*  Use labels to reference a target
+*  Deploy your target
 
-Use the following commands to make a small Java project for this example:
+## Before you begin
 
-{% highlight bash %}
-# If you're not already there, move to your workspace directory.
-cd ~/gitroot/my-project
-mkdir -p src/main/java/com/example
-cat > src/main/java/com/example/ProjectRunner.java <<'EOF'
-package com.example;
+*  [Install Bazel](/docs/install.md)
 
-public class ProjectRunner {
-    public static void main(String args[]) {
-        Greeting.sayHi();
+## Create the sample Java project
+
+The first step in this tutorial is to create a small Java project. Even though
+the project is in Java, this tutorial will focus on concepts that are helpful
+for using Bazel in any language.
+
+1.  Create the directory `~/my-project/`
+
+2.  Move to this directory:
+
+    ```
+    cd ~/my-project
+    ```
+
+3.  Create the following directories under `my-project`:
+
+    ```
+    mkdir -p src/main/java/com/example
+    ```
+
+    Note that path uses conventions specific to Java  programs. Programs written
+    in other languages may have a different workspace path and directory
+    structure.
+
+4.  In the directory you created, add a file called `Greetings.java` with the
+    following contents:
+
+    ```java
+    package com.example;
+
+    public class Greeting {
+        public static void sayHi() {
+            System.out.println("Hi!");
+        }
     }
-}
-EOF
+    ```
 
-cat > src/main/java/com/example/Greeting.java <<'EOF'
-package com.example;
+5.  Add a second file `ProjectRunner.java` with the following contents:
 
-public class Greeting {
-    public static void sayHi() {
-        System.out.println("Hi!");
+    ```java
+    package com.example;
+
+    public class ProjectRunner {
+        public static void main(String args[]) {
+            Greeting.sayHi();
+        }
     }
-}
-EOF
-{% endhighlight %}
+    ```
 
-Bazel figures out what to build by looking for files named `BUILD` in your
-workspace, so we'll create a `BUILD` file in the `~/gitroot/my-project`
-directory.  Add the following lines to this BUILD file:
+You’ve now created a small Java project. It contains one file that will be
+compiled into a library, and another which will be an executable that uses the
+library.
 
-{% highlight python %}
-# ~/gitroot/my-project/BUILD
-java_binary(
-    name = "my-runner",
-    srcs = glob(["**/*.java"]),
-    main_class = "com.example.ProjectRunner",
-)
-{% endhighlight %}
+The rest of this tutorial focuses on setting up and using Bazel to build these
+source files.
 
-`java_binary` is the type of thing this rule will build.
-`glob(["**/*.java"])` is a handy shorthand for "recursively include every file
-that ends with .java" (see the
-[build encyclopedia](/docs/be/functions.html#glob) for more information about
-globbing). `com.example.ProjectRunner` specifies the class that contains the
-main method.
+## Build with Bazel
 
-Now you are ready to build your Java binary:
+### Set up the workspace
 
-{% highlight bash %}
-cd ~/gitroot/my-project
-bazel build //:my-runner
-{% endhighlight %}
+Workspaces are directories that contain the source files for one or more
+software projects, as well as a WORKSPACE file and BUILD files that contain
+the instructions that Bazel uses to build the software. The workspace may also
+contain symbolic links to output directories.
 
-This produces the following output:
+To define the workspace, create an empty text file at the root of the project
+and name it `WORKSPACE`. You now have: `~/my-project/WORKSPACE`.
 
-{% highlight bash %}
-INFO: Found 1 target...
-Target //:my-runner up-to-date:
-  bazel-bin/my-runner.jar
-  bazel-bin/my-runner
-INFO: Elapsed time: 1.021s, Critical Path: 0.83s
-{% endhighlight %}
+This directory and its subdirectories are now part of the same workspace. When
+Bazel builds an output, all inputs and dependencies must be in the same
+workspace. Anything in different workspaces are independent of each other,
+though there are ways to link workspaces that are beyond the scope of this
+introduction tutorial.
 
-{% highlight bash %}
-bazel-bin/my-runner
-{% endhighlight %}
+If you also do the [C++ tutorial](/docs/tutorial/cpp.md), you’ll notice it uses
+the same workspace. Bazel can understand multiple targets in multiple languages
+in a single workspace.
 
-This produces the following output:
+### Create a BUILD file
 
-{% highlight bash %}
-Hi!
-{% endhighlight %}
+Bazel looks for files named `BUILD` which describe how to build the project.
 
-Congratulations, you've just built your first Bazel target!
+1.  In the `~/my-project` directory, create a file and name it BUILD. This BUILD
+    file is a sibling of the WORKSPACE file.
 
-## Adding Dependencies
+    In the BUILD file, you use a declarative language similar to Python to
+    create instances of Bazel rules. These instances are called *rule targets*.
+    In Bazel, *targets* are either files or rule targets and they are the
+    elements in a workspace that you can ask Bazel to build.
 
-Creating one rule to build your entire project may be sufficient for small
-projects, but as projects get larger it's important to break up the build into
-self-contained libraries that can be assembled into a final product.  This way
-the entire world doesn't need to be rebuilt on small changes and Bazel can
-parallelize more of the build steps.
+    For this project, you’ll use the built-in rule `java_binary`. Bazel's
+    built-in rules are all documented in the
+    [Build Encyclopedia](/docs/be/overview.html). You can also create your own
+    rules using the [Bazel rule extension framework](/docs/skylark/concepts.md).
 
-To break up a project, create separate rules for each subcomponent and then
-make them depend on each other. For the example above, add the following rules
-to the `BUILD` file:
+2.  Add this text to the BUILD file:
 
-{% highlight python %}
-java_binary(
-    name = "my-other-runner",
-    srcs = ["src/main/java/com/example/ProjectRunner.java"],
-    main_class = "com.example.ProjectRunner",
-    deps = [":greeter"],
-)
+    ```
+    java_binary(
+        name = "my-runner",
+        srcs = glob(["src/main/java/com/example/*.java"]),
+        main_class = "com.example.ProjectRunner",
+    )
+    ```
+As you can see, the text in the BUILD file doesn’t describe what Bazel does
+when it executes this rule target. The rule’s implementation handles the
+complexity of how it works (such as the compiler used).
 
-java_library(
-    name = "greeter",
-    srcs = ["src/main/java/com/example/Greeting.java"],
-)
-{% endhighlight %}
+You can treat the rule as a black box, focusing on what inputs it needs, and
+the outputs it produces. This rule builds a Java archive ("jar file") as well
+as a wrapper shell script with the same name as the rule target.
 
-This builds the same files as before, but in a different way: now Bazel will
-build the `greeter` library first and then build `my-other-runner`. Try building
-and running `//:my-other-runner`:
+When you’re writing your own BUILD file, go to the
+[Build Encyclopedia](/docs/be/overview.html) for a description of what a rule
+does and for its list of possible attributes you can define. For example,
+here’s the entry for the [java_binary](/docs/be/java.html#java_binary) rule in
+the Build Encyclopedia. The Build Encyclopedia has information about all of the
+rules that are compiled into Bazel.
 
-{% highlight bash %}
-bazel run //:my-other-runner
-{% endhighlight %}
+Let’s take a look at the rule target that you added to the BUILD file.
 
-This produces the following output:
+Each rule instantiation in the BUILD file creates one rule target. Here, you’ve
+instantiated the rule `java_binary`, creating the target `my-runner`.
 
-{% highlight bash %}
-INFO: Found 1 target...
-Target //:my-other-runner up-to-date:
-  bazel-bin/my-other-runner.jar
-  bazel-bin/my-other-runner
-INFO: Elapsed time: 2.454s, Critical Path: 1.58s
+Different rules will require different attributes, though all must include a
+“name” attribute. You use these attributes to explicitly list all of the
+target’s dependencies and options. In the target above:
 
-INFO: Running command line: bazel-bin/my-other-runner
-Hi!
-{% endhighlight %}
+*  `my-runner` is the name of the rule target created
 
-Now if you edit `ProjectRunner.java` and rebuild `my-other-runner`,
-`Greeting.java` will not need to be recompiled.
+*  `glob(["src/main/java/com/example/*.java"])` includes every file in that
+   directory that ends with .java (see the Build Encyclopedia for more
+   information about [globbing](/docs/be/functions.html#glob))
 
-## Using Multiple Packages
+*  `"com.example.ProjectRunner"` specifies the class that contains the main
+   method.
 
-For larger projects, you will often be dealing with several directories. You
-can refer to targets defined in other BUILD files using the syntax
-`//path/to/directory:target-name`.  For example, suppose
-`src/main/java/com/example/` has a `cmdline/` subdirectory with the following
-file:
+### Build with Bazel
 
-{% highlight bash %}
-mkdir -p src/main/java/com/example/cmdline
-cat > src/main/java/com/example/cmdline/Runner.java <<'EOF'
-package com.example.cmdline;
+Now you’re ready to build the Java binary. To do so, you’ll use the command
+`bazel build` with the target label `//:my-runner`. You reference targets by
+using their label. Label syntax is described later in this tutorial.
 
-import com.example.Greeting;
+1.  Build my-runner by using this command:
 
-public class Runner {
-    public static void main(String args[]) {
-        Greeting.sayHi();
-    }
-}
-EOF
-{% endhighlight %}
+    ```
+    bazel build //:my-runner
+    ```
 
-`Runner.java` depends on `com.example.Greeting`, so we could add a `BUILD` file
-at `src/main/java/com/example/cmdline/BUILD` that contained the following rule:
+    You’ll see output similar to:
 
-{% highlight python %}
-# ~/gitroot/my-project/src/main/java/com/example/cmdline/BUILD
-java_binary(
-    name = "runner",
-    srcs = ["Runner.java"],
-    main_class = "com.example.cmdline.Runner",
-    deps = ["//:greeter"]
-)
-{% endhighlight %}
+    ```
+    INFO: Found 1 target...
+    Target //:my-runner up-to-date:
+      bazel-bin/my-runner.jar
+      bazel-bin/my-runner
+    INFO: Elapsed time: 1.021s, Critical Path: 0.83s
+    ```
 
-However, by default, build rules are _private_. This means that they can only be
-referred to by rules in the same BUILD file. This prevents libraries that are
-implementation details from leaking into public APIs, but it also means that you
-must explicitly allow `runner` to depend on `//:greeter`. As is, if we
-build `runner` we'll get a permissions error:
+2.  Now execute the file by using this command:
 
-{% highlight bash %}
-bazel build //src/main/java/com/example/cmdline:runner
-{% endhighlight %}
+    ```
+    bazel-bin/my-runner
+    ```
 
-This produces the following output:
+Congratulations, you've built your first Bazel target!
 
-{% highlight bash %}
-ERROR: /home/user/gitroot/my-project/src/main/java/com/example/cmdline/BUILD:2:1:
-  Target '//:greeter' is not visible from target '//src/main/java/com/example/cmdline:runner'.
-  Check the visibility declaration of the former target if you think the dependency is legitimate.
-ERROR: Analysis of target '//src/main/java/com/example/cmdline:runner' failed; build aborted.
-INFO: Elapsed time: 0.091s
-{% endhighlight %}
+Let’s take a look at what you built. In `~/my-project`, Bazel created the
+directory `bazel-bin` as well as other directories to store information about
+the build. Open this directory to look at the files created during the build
+process. These output directories keep the outputs separate from your source
+tree.
 
-You can make a rule visible to rules in other BUILD files by adding a
-`visibility = level` attribute.  Change the `greeter` rule in
-`~/gitroot/my-project/BUILD` to be visible to our new rule:
+### Review the dependency graph
 
-{% highlight python %}
-java_library(
-    name = "greeter",
-    srcs = ["src/main/java/com/example/Greeting.java"],
-    visibility = ["//src/main/java/com/example/cmdline:__pkg__"],
-)
-{% endhighlight %}
+Bazel requires build dependencies to be explicitly declared in BUILD
+files. The build will fail if dependencies are missing, so when a build works
+the declared dependencies are accurate. With this explicit information about
+dependencies, Bazel creates a build graph and uses it to accurately perform
+incremental builds. Our small Java project isn’t too exciting, but let’s check
+out its build graph.
 
-This makes `//:greeter` visible to any rule in the
-`//src/main/java/com/example/cmdline` package. Now we can build and
-run the `runner` binary:
+The command `bazel query` retrieves information about the graph and the
+relationships between targets. Let’s use it to produce a visual representation
+of the build graph.
 
-{% highlight bash %}
-bazel run //src/main/java/com/example/cmdline:runner
-{% endhighlight %}
+1.  From the root of the workspace (`my-project`), produce a text description
+    of the graph by using the command:
 
-This produces the following output:
+    ```
+    bazel query --noimplicit_deps 'deps(//:my-runner)' --output graph
+    ```
 
-{% highlight bash %}
-INFO: Found 1 target...
-Target //src/main/java/com/example/cmdline:runner up-to-date:
-  bazel-bin/src/main/java/com/example/cmdline/runner.jar
-  bazel-bin/src/main/java/com/example/cmdline/runner
-INFO: Elapsed time: 1.576s, Critical Path: 0.81s
+2.  Then, paste the output into Graphviz
+    ([http://www.webgraphviz.com/](http://www.webgraphviz.com/)) to see the
+    visual representation.
 
-INFO: Running command line: bazel-bin/src/main/java/com/example/cmdline/runner
-Hi!
-{% endhighlight %}
+    The graph for the target my-runner will look like this:
 
-See the [build encyclopedia](/docs/be/common-definitions.html#common.visibility) for more
-visibility options.
+    ![Dependency graph of the target 'my-runner'](/assets/tutorial_java_01.svg)
 
-## Deploying
+You can see that `my-runner` depends on the two source files in your Java
+project.
 
-If you look at the contents of
-_bazel-bin/src/main/java/com/example/cmdline/runner.jar_, you can see that it
-only contains `Runner.class`, not its dependencies (`Greeting.class`):
+You have now set up the workspace and BUILD file, and used Bazel to build your
+project. You have also created a visual representation of the build graph to
+see the structure of your build.
 
-{% highlight bash %}
-jar tf bazel-bin/src/main/java/com/example/cmdline/runner.jar
-{% endhighlight %}
+## Refine your Bazel build
 
-This produces the following output:
+### Add dependencies
 
-{% highlight bash %}
-META-INF/
-META-INF/MANIFEST.MF
-com/
-com/example/
-com/example/cmdline/
-com/example/cmdline/Runner.class
-{% endhighlight %}
+Creating one rule target to build your entire project may be sufficient for
+small projects. As projects get larger it's important to break up the build
+into self-contained libraries that can be assembled into a final product.
+Self-contained libraries mean that everything doesn't need to be rebuilt after
+small changes and that Bazel can parallelize more of the build steps. These
+self-contained libraries also encourages good code hygiene.
 
-This works for running locally (the `runner` script Bazel generates adds the
-greeter jar to the classpath) but will not work if we want to copy `runner.jar`
-to another machine and use it as a standalone binary. To build a self-contained
-jar that can be deployed, build `runner_deploy.jar` (or, more generally,
-`<target-name>_deploy.jar`):
+To break up a project, create a separate rule target for the each subcomponent
+and then add the subcomponents as dependencies. For the project in this
+tutorial, create a rule target to compile the library, and make the executable
+depend on it.
 
-{% highlight bash %}
-bazel build //src/main/java/com/example/cmdline:runner_deploy.jar
-{% endhighlight %}
+1.  Replace the text in the BUILD file with the text below:
 
-This produces the following output:
+    ```
+    java_binary(
+        name = "my-runner",
+        srcs = ["src/main/java/com/example/ProjectRunner.java"],
+        main_class = "com.example.ProjectRunner",
+        deps = [":greeter"],
+    )
 
-{% highlight bash %}
-INFO: Found 1 target...
-Target //src/main/java/com/example/cmdline:runner_deploy.jar up-to-date:
-  bazel-bin/src/main/java/com/example/cmdline/runner_deploy.jar
-INFO: Elapsed time: 1.700s, Critical Path: 0.23s
-{% endhighlight %}
+    java_library(
+        name = "greeter",
+        srcs = ["src/main/java/com/example/Greeting.java"],
+    )
+    ```
 
-`runner_deploy.jar` will contain all of its dependencies.
+The new `deps` attribute in `java_binary` tells Bazel that the `greeter` library
+will be needed to compile the binary. Rules for many languages support the
+`deps` attribute, though the exact semantics of the attribute will vary based
+on the language and the type of target. The rule
+[java_library](/docs/be/java.html#java_library) compiles sources into
+a .jar file. Remember to go to the [Build Encyclopedia](/docs/be/overview.html)
+for details about specific rules.
 
+This BUILD file builds the same files as before, but in a different way: now
+Bazel will first build the `greeter` library and then build `my-runner`.
+
+2.  Try building //:my-runner using the command:
+
+    ```
+    bazel build //:my-runner
+    ```
+
+    You’ll see output similar to:
+
+    ```
+    INFO: Found 1 target...
+    Target //:my-runner up-to-date:
+      bazel-bin/my-runner.jar
+      bazel-bin/my-runner
+    INFO: Elapsed time: 2.454s, Critical Path: 1.58s
+    ```
+
+    3. Execute the file by using this command::
+
+    ```
+    bazel-bin/my-runner
+    ```
+
+If you now edit `ProjectRunner.java` and rebuild `my-runner`, the source file
+`Greeting.java` will not be recompiled. When the BUILD file had only the one
+target, both source files would be recompiled after any change.
+
+Looking at the dependency graph, you can see that `my-runner` depends on the
+same inputs as it did before, but the structure of the build is different.
+
+The original dependency graph for `my-runner` looked link this:
+
+![Original dependency graph of the target 'my-runner'](/assets/tutorial_java_01.svg)
+
+The dependency graph for `my-runner` after adding a dependency looks like this:
+
+![Dependency graph of the target 'my-runner' after adding a dependency](/assets/tutorial_java_02.svg)
+
+### Use multiple packages
+
+For larger projects, you will often be dealing with several directories in your
+workspace. You can organize your build process by adding a BUILD file to the
+top directory of source files that you want to organize together. A directory
+containing a BUILD file is called a package.
+
+Note that Bazel and Java both have the concept of a package. These are
+unrelated to each other, though both are related to the structure of the
+directories.
+
+Let’s build the java project using multiple packages.
+
+1.  First, let’s make the Java project a bit more complex.
+
+    1.  Add the following directory and file:
+
+        ```
+        mkdir -p src/main/java/com/example/cmdline
+        ```
+    2. In the directory cmdline, add the file Runner.java with the following
+       contents:
+
+        ```java
+        package com.example.cmdline;
+
+        import com.example.Greeting;
+
+        public class Runner {
+            public static void main(String args[]) {
+                Greeting.sayHi();
+            }
+        }
+        ```
+
+        Now you have a slightly larger Java project that you can organize with
+        multiple packages.
+
+2.  In the directory `src/main/java/com/example/cmdline`, add an empty text
+    file and name it BUILD. The structure of the Java project is now:
+
+    ```
+    ├── BUILD
+    ├── src
+    │   └── main
+    │       └── java
+    │           └── com
+    │               └── example
+    │                   ├── cmdline
+    │                   │   ├── BUILD
+    │                   │   └── Runner.java
+    │                   ├── Greeting.java
+    │                   └── ProjectRunner.java
+    └── WORKSPACE
+    ```
+
+    Each directory in the workspace can be part of only one package. The
+    workspace now has two BUILD files, and so has two packages:
+
+    1.  The directory `my-project` and its subdirectories (but not including
+    subdirectories with their own BUILD file, such as `cmdline`), and
+
+    2.  The directory `cmdline` and any subdirectories.
+
+3.  In the new BUILD file, add the following text:
+
+    ```
+    java_binary(
+        name = "runner",
+        srcs = ["Runner.java"],
+        main_class = "com.example.cmdline.Runner",
+        deps = ["//:greeter"]
+    )
+    ```
+
+    The file `Runner.java` depends on `com.example.Greeting`. In the BUILD file
+    this dependency is shown by listing the rule target `greeter` (with the
+    label `//:greeter`).
+
+    Below is what the dependency graph for runner will look like. You can see
+    how `//:greeter` gives the dependency on `Greeting.java`.
+
+    ![Dependency graph of the target 'runner'](/assets/tutorial_java_03.svg)
+
+
+4.  However, if you try to build runner right now you'll get a permissions
+    error. You can see the permission error by trying to build the target using
+    the command:
+
+    ```
+    bazel build //src/main/java/com/example/cmdline:runner
+    ```
+
+    By default, rule targets are private, which means that they can only be
+    depended on by targets in the same BUILD file. This privacy prevents
+    libraries that are implementation details from leaking into public APIs,
+    but it also means that you must explicitly allow `runner` to depend on
+    `//:greeter`.
+
+
+5.  Make a rule target visible to rule targets in other BUILD files by adding
+    a `visibility` attribute. To make the `greeter` rule target in
+    `~/my-project/BUILD` visible to any rule target in the new package, add the
+    following visibility attribute:
+
+    ```
+    java_library(
+        name = "greeter",
+        srcs = ["src/main/java/com/example/Greeting.java"],
+        visibility = ["//src/main/java/com/example/cmdline:__pkg__"],
+    )
+    ```
+
+    The target `//:greeter` is now visible to any target in the
+    `//src/main/java/com/example/cmdline` package.
+
+    See the Build Encyclopedia for more
+    [visibility options](/docs/be/common-definitions.html#common.visibility).
+
+
+6.  Now you can build the runner binary by using the command:
+
+    ```
+    bazel build //src/main/java/com/example/cmdline:runner
+    ```
+
+    You’ll see output similar to:
+
+    ```
+    INFO: Found 1 target...
+    Target //src/main/java/com/example/cmdline:runner up-to-date:
+      bazel-bin/src/main/java/com/example/cmdline/runner.jar
+      bazel-bin/src/main/java/com/example/cmdline/runner
+    INFO: Elapsed time: 1.576s, Critical Path: 0.81s
+    ```
+
+
+7.  Execute the file by using this command:
+
+    ```
+    bazel-bin/src/main/java/com/example/cmdline/runner
+    ```
+
+You’ve now refined your build so that it is broken down into smaller
+self-contained libraries, and so that the explicit dependencies are more
+granular. You’ve also built the Java project using multiple packages.
+
+## Use labels to reference targets
+
+In the BUILD files and in the command line, you have been using target labels
+to reference targets. The label’s syntax is: `//path/to/package:target-name`,
+where “`//`” is the workspace’s root, and “`:`” separates the package name and
+the target name. If the target is a rule target and so defined in a BUILD file,
+“`path/to/package`” would be the path of the BUILD file itself. “`Target-name`”
+would be the same as the “`name`” attribute in the target in the BUILD file.
+
+The first BUILD file you created in this tutorial is in the same directory as
+the WORKSPACE file. When referencing rule targets defined in that file, nothing
+is needed for the path to the package because the workspace root and the package
+root are the same directory. Here are the labels of the two targets defined
+in that first BUILD file:
+
+```
+//:my-runner
+//:greeter
+```
+
+The second BUILD file has a longer path from the workspace root to the package
+root. The label for the target in that BUILD file is:
+
+```
+//src/main/java/com/example/cmdline:runner
+```
+
+Target labels can be shortened in a variety of ways. Within a BUILD file, if
+you’re referencing a target from the same package, you can write the label
+starting at “`:`”. For example, the rule target `greeter` can always be written
+as `//:greeter`, and in the BUILD file where it’s defined, it can also be
+written as `:greeter`. This shortened label in a BUILD file makes it immediately
+clear which targets are in the current package.
+
+A rule target’s name will always be defined by its name attribute. A target’s
+name is a bit more complex when it’s in a directory other than the root
+of the package. In that case, the target’s label is:
+`//path/to/package:path/to/file/file_name`.
+
+## Package a Java target for deployment
+
+To understand what you’ve built and what else can be built with Bazel, you need
+to understand the capabilities of the rules used in your BUILD files. Always go
+to the [Build Encyclopedia](/docs/be/overview.html) for this information.
+
+Let’s look at packaging a Java target for deployment, which requires you to
+know the capabilities of the rule `java_binary`.
+
+You’re able to run the Java binaries you created in this tutorial, but you
+can’t simply run it on a server, because it relies on the greeting library jar
+to actually run. "Packaging an artifact so it can be run reliably outside the
+development environment involves bundling it with all of its runtime
+dependencies.  Let's see now what’s needed to package the binaries.
+
+The rule [java_binary](/docs/be/java.html#java_binary) produces a Java archive
+(“jar file”) and a wrapper shell script. The file `<target-name>_deploy.jar`
+is suitable for deployment, but it’s only built by this rule if explicitly
+requested. Let’s investigate.
+
+1.  Look at the contents of the output `runner.jar` by using this command:
+
+    ```
+    jar tf bazel-bin/src/main/java/com/example/cmdline/runner.jar
+    ```
+
+    You’ll see output similar to:
+
+    ```
+    META-INF/
+    META-INF/MANIFEST.MF
+    com/
+    com/example/
+    com/example/cmdline/
+    com/example/cmdline/Runner.class
+    ```
+
+    You can see that `runner.jar` contains `Runner.class`, but not its
+    dependency `Greeting.class`. The `runner` script that Bazel generates adds
+    the greeter jar to the classpath, so running this program works locally. It
+    will not work if you want to copy `runner.jar` to another machine and use
+    it as a standalone binary.
+
+
+2.  The rule `java_binary` allows you to build a self-contained binary that can
+    be deployed. To create this binary, build `runner_deploy.jar` (or, more
+    generally, `<target-name>_deploy.jar`)  by using this command:
+
+    ```
+    bazel build //src/main/java/com/example/cmdline:runner_deploy.jar
+    ```
+
+    You’ll see output similar to:
+
+    ```
+    INFO: Found 1 target...
+    Target //src/main/java/com/example/cmdline:runner_deploy.jar up-to-date:
+      bazel-bin/src/main/java/com/example/cmdline/runner_deploy.jar
+    INFO: Elapsed time: 1.700s, Critical Path: 0.23s
+    ```
+
+    The file runner_deploy.jar will contain all of its dependencies, and so can
+    be used as a standalone binary.
+
+You’ve now created a Java target that you can distribute and deploy. To do so,
+you had to be aware of what outputs the Bazel Java rule `java_binary` is able to
+produce.
+
+## Further topics
+
+*  Try the tutorial [Build C++](/docs/tutorial/cpp.md).
+*  Try the tutorial [Build Mobile Application](/docs/tutorial/app.md).
 
