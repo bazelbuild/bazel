@@ -48,11 +48,13 @@ fi
 ${BOOTSTRAP_BAZEL} --bazelrc=${BAZELRC:-/dev/null} --nomaster_bazelrc build \
     --embed_label=${release_label} --stamp \
     ${MSVC_OPTS} \
-    //src:bazel
+    //src:bazel //src:bazel_with_jdk
 
-
-# Copy the resulting artifact.
+# Copy the resulting artifacts.
 mkdir -p output/ci
-cp bazel-bin/src/bazel output/ci/bazel${MSVC_LABEL}-$(get_full_release_name).exe
+cp bazel-bin/src/bazel output/ci/bazel${MSVC_LABEL}-$(get_full_release_name)-without-jdk.exe
+cp bazel-bin/src/bazel_with_jdk output/ci/bazel${MSVC_LABEL}-$(get_full_release_name).exe
 cp bazel-bin/src/bazel output/bazel.exe
+zip -j output/ci/bazel${MSVC_LABEL}-$(get_full_release_name)-without-jdk.zip output/bazel.exe
+cp -f bazel-bin/src/bazel_with_jdk output/bazel.exe
 zip -j output/ci/bazel${MSVC_LABEL}-$(get_full_release_name).zip output/bazel.exe
