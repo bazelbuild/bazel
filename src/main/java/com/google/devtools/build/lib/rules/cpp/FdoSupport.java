@@ -510,10 +510,6 @@ public class FdoSupport {
       CcToolchainFeatures.Variables.Builder buildVariables, RuleContext ruleContext,
       PathFragment sourceName, PathFragment sourceExecPath, boolean usePic,
       FeatureConfiguration featureConfiguration, FdoSupportProvider fdoSupportProvider) {
-    // It is a bug if this method is called with useLipo if lipo is disabled. However, it is legal
-    // if is is called with !useLipo, even though lipo is enabled.
-    LipoContextProvider lipoInputProvider = CppHelper.getLipoContextProvider(ruleContext);
-    Preconditions.checkArgument(lipoInputProvider == null || lipoMode != LipoMode.OFF);
 
     // FDO is disabled -> do nothing.
     if ((fdoInstrument == null) && (fdoRoot == null)) {
@@ -532,7 +528,7 @@ public class FdoSupport {
         return;
       }
       Iterable<Artifact> auxiliaryInputs = getAuxiliaryInputs(
-          ruleContext, sourceName, sourceExecPath, usePic, lipoInputProvider, fdoSupportProvider);
+          ruleContext, sourceName, sourceExecPath, usePic, fdoSupportProvider);
       builder.addMandatoryInputs(auxiliaryInputs);
       if (!Iterables.isEmpty(auxiliaryInputs)) {
         if (featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)) {
@@ -557,7 +553,9 @@ public class FdoSupport {
    */
   private Iterable<Artifact> getAuxiliaryInputs(
       RuleContext ruleContext, PathFragment sourceName, PathFragment sourceExecPath, boolean usePic,
-      LipoContextProvider lipoContextProvider, FdoSupportProvider fdoSupportProvider) {
+      FdoSupportProvider fdoSupportProvider) {
+    LipoContextProvider lipoContextProvider = CppHelper.getLipoContextProvider(ruleContext);
+
     // If --fdo_optimize was not specified, we don't have any additional inputs.
     if (fdoProfile == null) {
       return ImmutableSet.of();

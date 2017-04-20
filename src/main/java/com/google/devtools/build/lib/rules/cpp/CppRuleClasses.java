@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplic
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 
 /**
  * Rule class definitions for C++ rules.
@@ -56,10 +55,7 @@ public class CppRuleClasses {
       // This attribute connects a target to the LIPO context target configured with the
       // lipo input collector configuration.
       CppConfiguration cppConfiguration = configuration.getFragment(CppConfiguration.class);
-      return !cppConfiguration.isLipoContextCollector()
-          && (cppConfiguration.getLipoMode() == LipoMode.BINARY)
-          ? cppConfiguration.getLipoContextLabel()
-          : null;
+      return cppConfiguration.isLipoOptimization() ? cppConfiguration.getLipoContextLabel() : null;
     }
   };
 
