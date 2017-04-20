@@ -584,7 +584,7 @@ public class FdoSupport {
             getNonLipoObjDir(ruleContext, lipoLabel), objectName)) {
           if (CppFileTypes.COVERAGE_DATA.matches(importedFile.getBaseName())) {
             Artifact gcdaArtifact =
-                getGcdaArtifactsForGcdaPath(ruleContext, fdoSupportProvider, importedFile);
+                getGcdaArtifactsForGcdaPath(fdoSupportProvider, importedFile);
             if (gcdaArtifact == null) {
               ruleContext.ruleError(String.format(
                   ".gcda file %s is not in the FDO zip (referenced by source file %s)",
@@ -613,8 +613,8 @@ public class FdoSupport {
    * Returns the .gcda file artifacts for a .gcda path from the .gcda.imports file or null if the
    * referenced .gcda file is not in the FDO zip.
    */
-  private Artifact getGcdaArtifactsForGcdaPath(RuleContext ruleContext,
-      FdoSupportProvider fdoSupportProvider, PathFragment gcdaPath) {
+  private Artifact getGcdaArtifactsForGcdaPath(FdoSupportProvider fdoSupportProvider,
+      PathFragment gcdaPath) {
     if (!gcdaFiles.contains(gcdaPath)) {
       return null;
     }
