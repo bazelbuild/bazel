@@ -188,7 +188,71 @@ Creates a tar file from a list of inputs.
         <p>
           <code>
           modes = {
-           "tools/py/2to3.sh": "0755
+           "tools/py/2to3.sh": "0755",
+           ...
+          },
+          </code>
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>owner</code></td>
+      <td>
+        <code>String, default to '0.0'</code>
+        <p>
+          <code>UID.GID</code> to set the default numeric owner for all files
+          provided in <code>files</code>.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>owners</code></td>
+      <td>
+        <code>Dictionary, default to '{}'</code>
+        <p>
+          A string dictionary to change default owner of specific files from
+          <code>files</code>. Each key should be a path to a file before
+          appending the prefix <code>package_dir</code> and the corresponding
+          value the <code>UID.GID</code> numeric string for the owner of the
+          file. When determining owner ids, this attribute is looked first then
+          <code>owner</code>.
+        </p>
+        <p>
+          <code>
+          owners = {
+           "tools/py/2to3.sh": "42.24",
+           ...
+          },
+          </code>
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>ownername</code></td>
+      <td>
+        <code>String, optional</code>
+        <p>
+          <code>username.groupname</code> to set the default owner for all files
+          provided in <code>files</code> (by default there is no owner names).
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>ownernames</code></td>
+      <td>
+        <code>Dictionary, default to '{}'</code>
+        <p>
+          A string dictionary to change default owner of specific files from
+          <code>files</code>. Each key should be a path to a file before
+          appending the prefix <code>package_dir</code> and the corresponding
+          value the <code>username.groupname</code> string for the owner of the
+          file. When determining ownernames, this attribute is looked first then
+          <code>ownername</code>.
+        </p>
+        <p>
+          <code>
+          owners = {
+           "tools/py/2to3.sh": "leeroy.jenkins",
            ...
           },
           </code>

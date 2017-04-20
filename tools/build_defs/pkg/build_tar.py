@@ -53,6 +53,21 @@ gflags.DEFINE_multistring(
     'Specific mode to apply to specific file (from the file argument),'
     ' e.g., path/to/file=0455.')
 
+gflags.DEFINE_multistring('owners', None,
+                          'Specify the numeric owners of individual files, '
+                          'e.g. path/to/file=0.0.')
+
+gflags.DEFINE_string('owner', '0.0',
+                     'Specify the numeric default owner of all files,'
+                     ' e.g., 0.0')
+
+gflags.DEFINE_string('owner_name', None,
+                     'Specify the owner name of all files, e.g. root.root.')
+
+gflags.DEFINE_multistring('owner_names', None,
+                          'Specify the owner names of individual files, e.g. '
+                          'path/to/file=root.root.')
+
 FLAGS = gflags.FLAGS
 
 
@@ -74,7 +89,7 @@ class TarFile(object):
   def __exit__(self, t, v, traceback):
     self.tarfile.close()
 
-  def add_file(self, f, destfile, mode=None):
+  def add_file(self, f, destfile, mode=None, ids=None, names=None):
     """Add a file to the tar file.
 
     Args:
@@ -82,6 +97,8 @@ class TarFile(object):
        destfile: the name of the file in the layer
        mode: force to set the specified mode, by
           default the value from the source is taken.
+       ids: (uid, gid) for the file to set ownership
+       names: (username, groupname) for the file to set ownership.
     `f` will be copied to `self.directory/destfile` in the layer.
     """
     dest = destfile.lstrip('/')  # Remove leading slashes
@@ -90,7 +107,18 @@ class TarFile(object):
     # If mode is unspecified, derive the mode from the file's mode.
     if mode is None:
       mode = 0o755 if os.access(f, os.X_OK) else 0o644
-    self.tarfile.add_file(dest, file_content=f, mode=mode)
+    if ids is None:
+      ids = (0, 0)
+    if names is None:
+      names = ('', '')
+    self.tarfile.add_file(
+        dest,
+        file_content=f,
+        mode=mode,
+        uid=ids[0],
+        gid=ids[1],
+        uname=names[0],
+        gname=names[1])
 
   def add_tar(self, tar):
     """Merge a tar file into the destination tar file.
@@ -157,16 +185,46 @@ def main(unused_argv):
         f = f[1:]
       mode_map[f] = int(mode, 8)
 
+  default_ownername = ('', '')
+  if FLAGS.owner_name:
+    default_ownername = FLAGS.owner_name.split('.', 1)
+  names_map = {}
+  if FLAGS.owner_names:
+    for file_owner in FLAGS.owner_names:
+      (f, owner) = file_owner.split('=', 1)
+      (user, group) = owner.split('.', 1)
+      if f[0] == '/':
+        f = f[1:]
+      names_map[f] = (user, group)
+
+  default_ids = FLAGS.owner.split('.', 1)
+  default_ids = (int(default_ids[0]), int(default_ids[1]))
+  ids_map = {}
+  if FLAGS.owners:
+    for file_owner in FLAGS.owners:
+      (f, owner) = file_owner.split('=', 1)
+      (user, group) = owner.split('.', 1)
+      if f[0] == '/':
+        f = f[1:]
+      ids_map[f] = (int(user), int(group))
+
   # Add objects to the tar file
   with TarFile(FLAGS.output, FLAGS.directory, FLAGS.compression) as output:
     for f in FLAGS.file:
       (inf, tof) = f.split('=', 1)
       mode = default_mode
-      if tof[0] == '/' and (tof[1:] in mode_map):
-        mode = mode_map[tof[1:]]
-      elif tof in mode_map:
-        mode = mode_map[tof]
-      output.add_file(inf, tof, mode)
+      ids = default_ids
+      names = default_ownername
+      map_filename = tof
+      if tof[0] == '/':
+        map_filename = tof[1:]
+      if map_filename in mode_map:
+        mode = mode_map[map_filename]
+      if map_filename in ids_map:
+        ids = ids_map[map_filename]
+      if map_filename in names_map:
+        names = names_map[map_filename]
+      output.add_file(inf, tof, mode, ids, names)
     for tar in FLAGS.tar:
       output.add_tar(tar)
     for deb in FLAGS.deb:

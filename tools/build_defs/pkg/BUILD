@@ -51,7 +51,7 @@ py_binary(
     visibility = ["//visibility:public"],
     deps = [
         ":archive",
-        "@bazel_tools//third_party/py/gflags",
+        "//third_party/py/gflags",
     ],
 )
 
@@ -62,7 +62,7 @@ py_binary(
     visibility = ["//visibility:public"],
     deps = [
         ":archive",
-        "@bazel_tools//third_party/py/gflags",
+        "//third_party/py/gflags",
     ],
 )
 
@@ -72,7 +72,7 @@ py_binary(
     srcs = ["make_rpm.py"],
     visibility = ["//visibility:public"],
     deps = [
-        "@bazel_tools//third_party/py/gflags",
+        "//third_party/py/gflags",
     ],
 )
 
@@ -106,6 +106,10 @@ genrule(
     ],
     mode = "0644",
     modes = {"usr/titi": "0755"},
+    owner = "42.24",
+    ownername = "titi.tata",
+    ownernames = {"etc/nsswitch.conf": "tata.titi"},
+    owners = {"etc/nsswitch.conf": "24.42"},
     package_dir = "/",
     strip_prefix = ".",
     symlinks = {"usr/bin/java": "/path/to/bin/java"},
