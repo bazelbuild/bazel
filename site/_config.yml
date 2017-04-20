@@ -5,3 +5,4 @@ highlighter: pygments
 sass:
   sass_dir: _sass
 default_version: "master"
+gems: [jekyll-paginate]
