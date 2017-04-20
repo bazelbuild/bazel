@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.platform;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -25,7 +24,6 @@ import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -36,9 +34,8 @@ import com.google.devtools.build.lib.util.Preconditions;
   doc = "A specific constraint setting that may be used to define a platform.",
   category = SkylarkModuleCategory.PROVIDER
 )
-@AutoValue
 @Immutable
-public abstract class ConstraintSettingInfo extends SkylarkClassObject {
+public class ConstraintSettingInfo extends SkylarkClassObject {
 
   /** Name used in Skylark for accessing this provider. */
   static final String SKYLARK_NAME = "ConstraintSettingInfo";
@@ -51,16 +48,17 @@ public abstract class ConstraintSettingInfo extends SkylarkClassObject {
   public static final SkylarkProviderIdentifier SKYLARK_IDENTIFIER =
       SkylarkProviderIdentifier.forKey(SKYLARK_CONSTRUCTOR.getKey());
 
-  ConstraintSettingInfo() {
-    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of());
+  private final Label label;
+
+  private ConstraintSettingInfo(Label label) {
+    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of("label", label));
+
+    this.label = label;
   }
 
-  @SkylarkCallable(
-    name = "label",
-    doc = "The label used to identify this constraint setting.",
-    structField = true
-  )
-  public abstract Label label();
+  public Label label() {
+    return label;
+  }
 
   /** Retrieves and casts the provider from the given target. */
   public static ConstraintSettingInfo fromTarget(TransitiveInfoCollection target) {
@@ -87,6 +85,6 @@ public abstract class ConstraintSettingInfo extends SkylarkClassObject {
 
   /** Returns a new {@link ConstraintSettingInfo} with the given data. */
   public static ConstraintSettingInfo create(Label constraintSetting) {
-    return new AutoValue_ConstraintSettingInfo(constraintSetting);
+    return new ConstraintSettingInfo(constraintSetting);
   }
 }

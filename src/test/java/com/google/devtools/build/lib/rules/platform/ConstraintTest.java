@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.platform;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -94,5 +95,33 @@ public class ConstraintTest extends BuildViewTestCase {
     Label valueLabel = (Label) configuredTarget.get("value");
     assertThat(valueLabel).isNotNull();
     assertThat(valueLabel).isEqualTo(makeLabel("//constraint:foo"));
+  }
+
+  @Test
+  public void constraintSetting_equalsTester() {
+    new EqualsTester()
+        .addEqualityGroup(
+            ConstraintSettingInfo.create(makeLabel("//constraint:basic")),
+            ConstraintSettingInfo.create(makeLabel("//constraint:basic")))
+        .addEqualityGroup(ConstraintSettingInfo.create(makeLabel("//constraint:other")))
+        .testEquals();
+  }
+
+  @Test
+  public void constraintValue_equalsTester() {
+    ConstraintSettingInfo setting1 = ConstraintSettingInfo.create(makeLabel("//constraint:basic"));
+    ConstraintSettingInfo setting2 = ConstraintSettingInfo.create(makeLabel("//constraint:other"));
+    new EqualsTester()
+        .addEqualityGroup(
+            // Base case.
+            ConstraintValueInfo.create(setting1, makeLabel("//constraint:value")),
+            ConstraintValueInfo.create(setting1, makeLabel("//constraint:value")))
+        .addEqualityGroup(
+            // Different label.
+            ConstraintValueInfo.create(setting1, makeLabel("//constraint:otherValue")))
+        .addEqualityGroup(
+            // Different setting.
+            ConstraintValueInfo.create(setting2, makeLabel("//constraint:ovalue")))
+        .testEquals();
   }
 }

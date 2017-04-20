@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.platform;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -25,7 +24,6 @@ import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -36,9 +34,8 @@ import com.google.devtools.build.lib.util.Preconditions;
   doc = "A value for a constraint setting that can be used to define a platform.",
   category = SkylarkModuleCategory.PROVIDER
 )
-@AutoValue
 @Immutable
-public abstract class ConstraintValueInfo extends SkylarkClassObject {
+public class ConstraintValueInfo extends SkylarkClassObject {
 
   /** Name used in Skylark for accessing this provider. */
   static final String SKYLARK_NAME = "ConstraintValueInfo";
@@ -51,23 +48,27 @@ public abstract class ConstraintValueInfo extends SkylarkClassObject {
   public static final SkylarkProviderIdentifier SKYLARK_IDENTIFIER =
       SkylarkProviderIdentifier.forKey(SKYLARK_CONSTRUCTOR.getKey());
 
-  ConstraintValueInfo() {
-    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of());
+  private final ConstraintSettingInfo constraint;
+  private final Label label;
+
+  private ConstraintValueInfo(ConstraintSettingInfo constraint, Label label) {
+    super(
+        SKYLARK_CONSTRUCTOR,
+        ImmutableMap.<String, Object>of(
+            "constraint", constraint,
+            "label", label));
+
+    this.constraint = constraint;
+    this.label = label;
   }
 
-  @SkylarkCallable(
-    name = "constraint",
-    doc = "The constraint setting that this value fulfills.",
-    structField = true
-  )
-  public abstract ConstraintSettingInfo constraint();
+  public ConstraintSettingInfo constraint() {
+    return constraint;
+  }
 
-  @SkylarkCallable(
-    name = "label",
-    doc = "The label used to identify this constraint value.",
-    structField = true
-  )
-  public abstract Label label();
+  public Label label() {
+    return label;
+  }
 
   /** Retrieves and casts the provider from the given target. */
   public static ConstraintValueInfo fromTarget(TransitiveInfoCollection target) {
@@ -94,6 +95,6 @@ public abstract class ConstraintValueInfo extends SkylarkClassObject {
 
   /** Returns a new {@link ConstraintValueInfo} with the given data. */
   public static ConstraintValueInfo create(ConstraintSettingInfo constraint, Label value) {
-    return new AutoValue_ConstraintValueInfo(constraint, value);
+    return new ConstraintValueInfo(constraint, value);
   }
 }

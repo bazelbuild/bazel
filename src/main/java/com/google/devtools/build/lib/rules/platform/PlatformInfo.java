@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.platform;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -29,6 +28,9 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.Preconditions;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /** Provider for a platform, which is a group of constraints and values. */
@@ -37,9 +39,8 @@ import java.util.Map;
   doc = "Provides access to data about a specific platform.",
   category = SkylarkModuleCategory.PROVIDER
 )
-@AutoValue
 @Immutable
-public abstract class PlatformInfo extends SkylarkClassObject {
+public class PlatformInfo extends SkylarkClassObject {
 
   /** Name used in Skylark for accessing this provider. */
   static final String SKYLARK_NAME = "PlatformInfo";
@@ -52,23 +53,30 @@ public abstract class PlatformInfo extends SkylarkClassObject {
   public static final SkylarkProviderIdentifier SKYLARK_IDENTIFIER =
       SkylarkProviderIdentifier.forKey(SKYLARK_CONSTRUCTOR.getKey());
 
-  PlatformInfo() {
-    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of());
+  private ImmutableList<ConstraintValueInfo> constraints;
+  private ImmutableMap<String, String> remoteExecutionProperties;
+
+  private PlatformInfo(
+      ImmutableList<ConstraintValueInfo> constraints,
+      ImmutableMap<String, String> remoteExecutionProperties) {
+    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of("constraints", constraints));
+
+    this.constraints = constraints;
+    this.remoteExecutionProperties = remoteExecutionProperties;
   }
 
-  @SkylarkCallable(
-    name = "constraints",
-    doc = "The constraint values fulfilled by this Platform.",
-    structField = true
-  )
-  public abstract ImmutableList<ConstraintValueInfo> constraints();
+  public ImmutableList<ConstraintValueInfo> constraints() {
+    return constraints;
+  }
 
   @SkylarkCallable(
     name = "remoteExecutionProperties",
     doc = "Properties that are available for the use of remote execution.",
     structField = true
   )
-  public abstract ImmutableMap<String, String> remoteExecutionProperties();
+  public ImmutableMap<String, String> remoteExecutionProperties() {
+    return remoteExecutionProperties;
+  }
 
   /** Retrieves and casts the provider from the given target. */
   public static PlatformInfo fromTarget(TransitiveInfoCollection target) {
@@ -93,18 +101,45 @@ public abstract class PlatformInfo extends SkylarkClassObject {
         });
   }
 
-  /** Returns a {@link Builder} to create a new provider instance. */
   public static Builder builder() {
-    return new AutoValue_PlatformInfo.Builder();
+    return new Builder();
   }
 
-  /** A Builder instance to configure a new {@link PlatformInfo}. */
-  @AutoValue.Builder
-  public abstract static class Builder {
-    public abstract Builder constraints(Iterable<ConstraintValueInfo> constraints);
+  /**
+   * Builder class to facilitate creating valid {@link PlatformInfo} instances.
+   */
+  public static class Builder {
+    private List<ConstraintValueInfo> constraints = new ArrayList<>();
+    private Map<String, String> remoteExecutionProperties = new HashMap<>();
 
-    public abstract Builder remoteExecutionProperties(Map<String, String> properties);
+    public Builder addConstraint(ConstraintValueInfo constraint) {
+      this.constraints.add(constraint);
+      return this;
+    }
 
-    public abstract PlatformInfo build();
+    public Builder addConstraints(Iterable<ConstraintValueInfo> constraints) {
+      for (ConstraintValueInfo constraint : constraints) {
+        this.addConstraint(constraint);
+      }
+
+      return this;
+    }
+
+    public Builder addRemoteExecutionProperty(String key, String value) {
+      this.remoteExecutionProperties.put(key, value);
+      return this;
+    }
+
+    public Builder addRemoteExecutionProperties(Map<String, String> properties) {
+      for (Map.Entry<String, String> entry : properties.entrySet()) {
+        this.addRemoteExecutionProperty(entry.getKey(), entry.getValue());
+      }
+      return this;
+    }
+
+    public PlatformInfo build() {
+      return new PlatformInfo(
+          ImmutableList.copyOf(constraints), ImmutableMap.copyOf(remoteExecutionProperties));
+    }
   }
 }

@@ -47,18 +47,18 @@ public class Platform implements RuleConfiguredTargetFactory {
       return null;
     }
 
-    PlatformInfo.Builder platformProviderBuilder = PlatformInfo.builder();
-    platformProviderBuilder.constraints(constraints.values());
+    PlatformInfo.Builder platformBuilder = PlatformInfo.builder();
+    platformBuilder.addConstraints(constraints.values());
 
     Map<String, String> remoteExecutionProperties =
         ruleContext.attributes().get(PlatformRule.REMOTE_EXECUTION_PROPS_ATTR, Type.STRING_DICT);
-    platformProviderBuilder.remoteExecutionProperties(remoteExecutionProperties);
+    platformBuilder.addRemoteExecutionProperties(remoteExecutionProperties);
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
         .addProvider(FileProvider.class, FileProvider.EMPTY)
         .addProvider(FilesToRunProvider.class, FilesToRunProvider.EMPTY)
-        .addNativeDeclaredProvider(platformProviderBuilder.build())
+        .addNativeDeclaredProvider(platformBuilder.build())
         .build();
   }
 

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.platform;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -133,5 +134,36 @@ public class PlatformTest extends BuildViewTestCase {
     Label valueLabel = (Label) configuredTarget.get("first_value");
     assertThat(valueLabel).isNotNull();
     assertThat(valueLabel).isEqualTo(makeLabel("//constraint:foo"));
+  }
+
+  @Test
+  public void equalsTester() {
+    ConstraintSettingInfo setting1 = ConstraintSettingInfo.create(makeLabel("//constraint:basic"));
+    ConstraintSettingInfo setting2 = ConstraintSettingInfo.create(makeLabel("//constraint:other"));
+
+    ConstraintValueInfo value1 =
+        ConstraintValueInfo.create(setting1, makeLabel("//constraint:value"));
+    ConstraintValueInfo value2 =
+        ConstraintValueInfo.create(setting1, makeLabel("//constraint:otherValue"));
+    ConstraintValueInfo value3 =
+        ConstraintValueInfo.create(setting2, makeLabel("//constraint:value"));
+
+    new EqualsTester()
+        .addEqualityGroup(
+            // Base case.
+            PlatformInfo.builder().addConstraint(value1).addConstraint(value2).build(),
+            PlatformInfo.builder().addConstraint(value1).addConstraint(value2).build(),
+            PlatformInfo.builder()
+                .addConstraint(value1)
+                .addConstraint(value2)
+                .addRemoteExecutionProperty("key", "val") // execution properties are ignored.
+                .build())
+        .addEqualityGroup(
+            // Extra constraint.
+            PlatformInfo.builder().addConstraint(value1).addConstraint(value3).build())
+        .addEqualityGroup(
+            // Missing constraint.
+            PlatformInfo.builder().addConstraint(value1).build())
+        .testEquals();
   }
 }

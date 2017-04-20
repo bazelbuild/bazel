@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.rules.config;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
+import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext;
@@ -283,5 +285,20 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
     assertContainsEvent(
         "in config_feature_flag rule //test:flag: "
             + "value must be one of ['configured', 'default', 'other'], but was 'invalid'");
+  }
+
+  @Test
+  public void equalsTester() {
+    new EqualsTester()
+        .addEqualityGroup(
+            // Basic case.
+            ConfigFeatureFlagProvider.create("flag1", Predicates.<String>alwaysTrue()))
+        .addEqualityGroup(
+            // Will be distinct from the first group because CFFP instances are all distinct.
+            ConfigFeatureFlagProvider.create("flag1", Predicates.<String>alwaysTrue()))
+        .addEqualityGroup(
+            // Change the value, still distinct from the above.
+            ConfigFeatureFlagProvider.create("flag2", Predicates.<String>alwaysTrue()))
+        .testEquals();
   }
 }

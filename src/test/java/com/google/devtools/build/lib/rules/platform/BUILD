@@ -17,6 +17,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib:packages_testutil",
         "//src/test/java/com/google/devtools/build/lib/skylark:testutil",
         "//third_party:guava",
+        "//third_party:guava-testlib",
         "//third_party:junit4",
         "//third_party:truth",
     ],

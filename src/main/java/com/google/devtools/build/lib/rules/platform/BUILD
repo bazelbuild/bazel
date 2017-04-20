@@ -14,7 +14,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:packages",
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
-        "//third_party:auto_value",
         "//third_party:guava",
     ],
 )
