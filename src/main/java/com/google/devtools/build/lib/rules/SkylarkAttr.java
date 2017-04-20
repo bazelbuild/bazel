@@ -1481,7 +1481,7 @@ public final class SkylarkAttr {
      */
     private final Object lock = new Object();
 
-    private Descriptor(
+    public Descriptor(
         Attribute.Builder<?> attributeBuilder) {
       this.attributeBuilder = attributeBuilder;
     }
