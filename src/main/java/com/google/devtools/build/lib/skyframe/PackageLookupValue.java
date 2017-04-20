@@ -88,16 +88,21 @@ public abstract class PackageLookupValue implements SkyValue {
       new NoBuildFilePackageLookupValue();
   public static final DeletedPackageLookupValue DELETED_PACKAGE_VALUE =
       new DeletedPackageLookupValue();
+  public static final NoRepositoryPackageLookupValue NO_SUCH_REPOSITORY_VALUE =
+      new NoRepositoryPackageLookupValue();
 
   enum ErrorReason {
-    // There is no BUILD file.
+    /** There is no BUILD file. */
     NO_BUILD_FILE,
 
-    // The package name is invalid.
+    /** The package name is invalid. */
     INVALID_PACKAGE_NAME,
 
-    // The package is considered deleted because of --deleted_packages.
-    DELETED_PACKAGE
+    /** The package is considered deleted because of --deleted_packages. */
+    DELETED_PACKAGE,
+
+    /** The repository was not found. */
+    REPOSITORY_NOT_FOUND
   }
 
   protected PackageLookupValue() {
@@ -288,6 +293,25 @@ public abstract class PackageLookupValue implements SkyValue {
     @Override
     public String getErrorMsg() {
       return "Package is considered deleted due to --deleted_packages";
+    }
+  }
+
+  /**
+   * Marker value for repository we could not find. This can happen when looking for a label that
+   * specifies a non-existent repository.
+   */
+  public static class NoRepositoryPackageLookupValue extends UnsuccessfulPackageLookupValue {
+
+    private NoRepositoryPackageLookupValue() {}
+
+    @Override
+    ErrorReason getErrorReason() {
+      return ErrorReason.REPOSITORY_NOT_FOUND;
+    }
+
+    @Override
+    public String getErrorMsg() {
+      return "The repository could not be resolved";
     }
   }
 }

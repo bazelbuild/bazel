@@ -142,7 +142,7 @@ public class BazelRepositoryModule extends BlazeModule {
         public DirtyResult check(
             SkyKey skyKey, SkyValue skyValue, @Nullable TimestampGranularityMonitor tsgm) {
           RepositoryDirectoryValue repositoryValue = (RepositoryDirectoryValue) skyValue;
-          return repositoryValue.isFetchingDelayed()
+          return repositoryValue.repositoryExists() && repositoryValue.isFetchingDelayed()
               ? DirtyResult.dirty(skyValue)
               : DirtyResult.notDirty(skyValue);
         }

@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionExcep
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
-import com.google.devtools.build.lib.actions.PackageRootResolutionException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.causes.Cause;
@@ -39,7 +38,6 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -240,13 +238,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
 
     Preconditions.checkState(action.discoversInputs(), action);
     PackageRootResolverWithEnvironment resolver = new PackageRootResolverWithEnvironment(env);
-    Iterable<Artifact> actionCacheInputs;
-    try {
-      actionCacheInputs = skyframeActionExecutor.getActionCachedInputs(action, resolver);
-    } catch (PackageRootResolutionException rre) {
-      throw new ActionExecutionFunctionException(
-          new ActionExecutionException("Failed to get cached inputs", rre, action, true));
-    }
+    Iterable<Artifact> actionCacheInputs =
+        skyframeActionExecutor.getActionCachedInputs(action, resolver);
     if (actionCacheInputs == null) {
       Preconditions.checkState(env.valuesMissing(), action);
       return null;
@@ -295,7 +288,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
 
     @Override
     public Map<PathFragment, Root> findPackageRootsForFiles(Iterable<PathFragment> execPaths)
-        throws PackageRootResolutionException, InterruptedException {
+        throws InterruptedException {
       Preconditions.checkState(keysRequested.isEmpty(),
           "resolver should only be called once: %s %s", keysRequested, execPaths);
       // Create SkyKeys list based on execPaths.
@@ -310,32 +303,27 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
           depKeys.put(path, depKey);
           keysRequested.add(depKey);
         } catch (LabelSyntaxException e) {
-          throw new PackageRootResolutionException(
-              String.format("Could not find the external repository for %s", path), e);
+          // This code is only used to do action cache checks. If one of the file names we got from
+          // the action cache is corrupted, or if the action cache is from a different Bazel
+          // binary, then the path may not be valid for this Bazel binary, and trigger this
+          // exception. In that case, it's acceptable for us to ignore the exception - we'll get an
+          // action cache miss and re-execute the action, which is what we should do.
+          continue;
         }
       }
 
-      Map<SkyKey,
-          ValueOrException2<NoSuchPackageException, InconsistentFilesystemException>> values =
-          env.getValuesOrThrow(depKeys.values(), NoSuchPackageException.class,
-              InconsistentFilesystemException.class);
-      // Check values even if some are missing so that we can throw an appropriate exception if
-      // needed.
+      Map<SkyKey, SkyValue> values = env.getValues(depKeys.values());
+      if (env.valuesMissing()) {
+        return null;
+      }
 
       Map<PathFragment, Root> result = new HashMap<>();
       for (PathFragment path : execPaths) {
-        ContainingPackageLookupValue value;
-        try {
-          value = (ContainingPackageLookupValue) values.get(depKeys.get(path)).get();
-        } catch (NoSuchPackageException | InconsistentFilesystemException e) {
-          throw new PackageRootResolutionException(
-              String.format("Could not determine containing package for %s", path), e);
-        }
-
-        if (value == null) {
-          Preconditions.checkState(env.valuesMissing(), path);
+        if (!depKeys.containsKey(path)) {
           continue;
         }
+        ContainingPackageLookupValue value =
+            (ContainingPackageLookupValue) values.get(depKeys.get(path));
         if (value.hasContainingPackage()) {
           // We have found corresponding root for current execPath.
           result.put(path,
@@ -347,15 +335,13 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
           result.put(path, null);
         }
       }
-
-      // If some values are missing, return null.
-      return env.valuesMissing() ? null : result;
+      return result;
     }
 
     @Override
     @Nullable
     public Map<PathFragment, Root> findPackageRoots(Iterable<PathFragment> execPaths)
-        throws PackageRootResolutionException, InterruptedException {
+        throws InterruptedException {
       // call sites for this implementation of PackageRootResolver shouldn't be passing in
       // directories.
       return findPackageRootsForFiles(execPaths);

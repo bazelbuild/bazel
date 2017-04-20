@@ -80,8 +80,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     checkError(
         "test/skylark",
         "the_rule",
-        "no such package '@r//': error loading package 'external': "
-            + "The repository named 'r' could not be resolved",
+        "no such package '@r//': The repository could not be resolved",
         "load('/test/skylark/extension', 'my_rule')",
         "",
         "my_rule(name='the_rule')");

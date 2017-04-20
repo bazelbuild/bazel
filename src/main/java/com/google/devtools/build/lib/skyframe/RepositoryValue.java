@@ -15,51 +15,109 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
-/**
- * A repository's name and directory.
- */
-public class RepositoryValue implements SkyValue {
-  private final RepositoryName repositoryName;
-  private final RepositoryDirectoryValue repositoryDirectory;
+/** A repository's name and directory. */
+public abstract class RepositoryValue implements SkyValue {
+  public abstract boolean repositoryExists();
 
-  /**
-   * Creates a repository with a given name in a certain directory.
-   */
-  public RepositoryValue(RepositoryName repositoryName, RepositoryDirectoryValue repository) {
-    this.repositoryName = repositoryName;
-    this.repositoryDirectory = repository;
-  }
+  /** Returns the path to the repository. */
+  public abstract Path getPath();
 
-  /**
-   * Returns the path to the repository.
-   */
-  public Path getPath() {
-    return repositoryDirectory.getPath();
-  }
+  /** Successful lookup value. */
+  public static final class SuccessfulRepositoryValue extends RepositoryValue {
+    private final RepositoryName repositoryName;
+    private final RepositoryDirectoryValue repositoryDirectory;
 
-  @Override
-  public boolean equals(Object other) {
-    if (this == other) {
+    /** Creates a repository with a given name in a certain directory. */
+    public SuccessfulRepositoryValue(
+        RepositoryName repositoryName, RepositoryDirectoryValue repository) {
+      Preconditions.checkArgument(repository.repositoryExists());
+      this.repositoryName = repositoryName;
+      this.repositoryDirectory = repository;
+    }
+
+    @Override
+    public boolean repositoryExists() {
       return true;
     }
-    if (other == null || getClass() != other.getClass()) {
+
+    @Override
+    public Path getPath() {
+      return repositoryDirectory.getPath();
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (this == other) {
+        return true;
+      }
+      if (other == null || getClass() != other.getClass()) {
+        return false;
+      }
+
+      SuccessfulRepositoryValue that = (SuccessfulRepositoryValue) other;
+      return Objects.equal(repositoryName, that.repositoryName)
+          && Objects.equal(repositoryDirectory, that.repositoryDirectory);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(repositoryName, repositoryDirectory);
+    }
+  }
+
+  /** Repository could not be resolved. */
+  public static final class NoRepositoryValue extends RepositoryValue {
+    private final RepositoryName repositoryName;
+
+    private NoRepositoryValue(RepositoryName repositoryName) {
+      this.repositoryName = repositoryName;
+    }
+
+    @Override
+    public boolean repositoryExists() {
       return false;
     }
 
-    RepositoryValue that = (RepositoryValue) other;
-    return Objects.equal(repositoryName, that.repositoryName)
-        && Objects.equal(repositoryDirectory, that.repositoryDirectory);
+    @Override
+    public Path getPath() {
+      throw new IllegalStateException();
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (this == other) {
+        return true;
+      }
+      if (other == null || getClass() != other.getClass()) {
+        return false;
+      }
+
+      NoRepositoryValue that = (NoRepositoryValue) other;
+      return Objects.equal(repositoryName, that.repositoryName);
+    }
+
+    @Override
+    public int hashCode() {
+      return repositoryName.hashCode();
+    }
   }
 
-  @Override
-  public int hashCode() {
-    return Objects.hashCode(repositoryName, repositoryDirectory);
+  public static RepositoryValue success(
+      RepositoryName repositoryName, RepositoryDirectoryValue repository) {
+    return new SuccessfulRepositoryValue(repositoryName, repository);
+  }
+
+  public static RepositoryValue notFound(RepositoryName repositoryName) {
+    // TODO(ulfjack): Store the cause here? The two possible causes are that the external package
+    // contains errors, or that the repository with the given name does not exist.
+    return new NoRepositoryValue(repositoryName);
   }
 
   public static SkyKey key(RepositoryName repositoryName) {

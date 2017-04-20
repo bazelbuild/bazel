@@ -244,6 +244,11 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
           throw new MissingDepException();
         }
 
+        if (!repositoryValue.repositoryExists()) {
+          // This shouldn't be possible; we're given a repository, so we assume that the caller has
+          // already checked for its existence.
+          throw new IllegalStateException(String.format("No such repository '%s'", repository));
+        }
         roots.add(repositoryValue.getPath());
       }
 

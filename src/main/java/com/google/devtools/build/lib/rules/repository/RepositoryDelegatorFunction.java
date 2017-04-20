@@ -112,7 +112,12 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           repositoryName, overrides.get(repositoryName), env, repoRoot, markerPath);
     }
 
-    Rule rule = RepositoryFunction.getRule(repositoryName, null, env);
+    Rule rule;
+    try {
+      rule = RepositoryFunction.getRule(repositoryName, null, env);
+    } catch (RepositoryFunction.RepositoryNotFoundException e) {
+      return RepositoryDirectoryValue.NO_SUCH_REPOSITORY_VALUE;
+    }
     if (rule == null) {
       return null;
     }

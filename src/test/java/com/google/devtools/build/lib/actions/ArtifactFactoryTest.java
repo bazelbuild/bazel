@@ -32,17 +32,14 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Map.Entry;
-
-import javax.annotation.Nullable;
 
 /**
  * Tests {@link ArtifactFactory}. Also see {@link ArtifactTest} for a test
@@ -256,8 +253,7 @@ public class ArtifactFactoryTest {
     
     @Override
     @Nullable
-    public Map<PathFragment, Root> findPackageRoots(Iterable<PathFragment> execPaths)
-        throws PackageRootResolutionException {
+    public Map<PathFragment, Root> findPackageRoots(Iterable<PathFragment> execPaths) {
       return null; // unused
     }
   }
