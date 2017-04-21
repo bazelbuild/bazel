@@ -15,71 +15,66 @@
 #ifndef PROCESS_TOOLS_H__
 #define PROCESS_TOOLS_H__
 
-#include <sys/types.h>
-#include <stdbool.h>
+#include <string>
+#include <vector>
 
-// see
-// http://stackoverflow.com/questions/5641427/how-to-make-preprocessor-generate-a-string-for-line-keyword
 #define S(x) #x
 #define S_(x) S(x)
 #define S__LINE__ S_(__LINE__)
 
-#define DIE(args...)                                   \
-  {                                                    \
-    fprintf(stderr, __FILE__ ":" S__LINE__ ": " args); \
-    exit(EXIT_FAILURE);                                \
+#define DIE(...)                                                \
+  {                                                             \
+    fprintf(stderr, __FILE__ ":" S__LINE__ ": \"" __VA_ARGS__); \
+    fprintf(stderr, "\": ");                                    \
+    perror(nullptr);                                            \
+    exit(EXIT_FAILURE);                                         \
   }
 
-#define CHECK_CALL(x)                             \
-  if ((x) == -1) {                                \
-    fprintf(stderr, __FILE__ ":" S__LINE__ ": "); \
-    perror(#x);                                   \
-    exit(EXIT_FAILURE);                           \
-  }
+#define PRINT_DEBUG(...)                                        \
+  do {                                                          \
+    if (opt.debug) {                                            \
+      fprintf(stderr, __FILE__ ":" S__LINE__ ": " __VA_ARGS__); \
+      fprintf(stderr, "\n");                                    \
+    }                                                           \
+  } while (0)
 
-#define CHECK_NOT_NULL(x) \
-  if (x == NULL) {        \
-    perror(#x);           \
-    exit(EXIT_FAILURE);   \
-  }
+// Set the effective and saved uid / gid to the real uid / gid.
+void DropPrivileges();
 
-// Switch completely to the effective uid.
-// Some programs (notably, bash) ignore the euid and just use the uid. This
-// limits the ability for us to use process-wrapper as a setuid binary for
-// security/user-isolation.
-int SwitchToEuid();
+// Redirect the open file descriptor fd to the file target_path. Do nothing if
+// target_path is '-'.
+void Redirect(const std::string &target_path, int fd);
 
-// Switch completely to the effective gid.
-int SwitchToEgid();
+// Write formatted contents into the file filename.
+void WriteFile(const std::string &filename, const char *fmt, ...);
 
-// Redirect stdout to the file stdout_path (but not if stdout_path is "-").
-void RedirectStdout(const char *stdout_path);
-
-// Redirect stderr to the file stdout_path (but not if stderr_path is "-").
-void RedirectStderr(const char *stderr_path);
-
-// Make sure the process group "pgrp" and all its subprocesses are killed.
-// If "gracefully" is true, sends SIGTERM first and after a timeout of
-// "graceful_kill_delay" seconds, sends SIGKILL.
-// If not, send SIGKILL immediately.
-void KillEverything(int pgrp, bool gracefully, double graceful_kill_delay);
-
-// Set up a signal handler for a signal.
-void HandleSignal(int sig, void (*handler)(int));
-
-// Revert signal handler for a signal to the default.
-void UnHandle(int sig);
-
-// Use an empty signal mask for the process and set all signal handlers to their
-// default.
-void ClearSignalMask();
-
-// Receive SIGALRM after the given timeout. No-op if the timeout is
-// non-positive.
+// Receive SIGALRM after the given timeout. timeout_secs must be positive.
 void SetTimeout(double timeout_secs);
 
-// Wait for "pid" to exit and return its exit code.
-// "name" is used for the error message only.
-int WaitChild(pid_t pid, const char *name);
+// Installs a signal handler for signum and sets all signals to block during
+// that signal.
+void InstallSignalHandler(int signum, void (*handler)(int));
+
+// Sets the signal handler of signum to SIG_IGN.
+void IgnoreSignal(int signum);
+
+// Reset the signal mask and restore the default handler for all signals.
+void RestoreSignalHandlersAndMask();
+
+// Ask the kernel to kill us with signum if our parent dies.
+void KillMeWhenMyParentDies(int signum);
+
+// This is the magic that makes waiting for all children (even grandchildren)
+// work. By becoming a subreaper, all grandchildren that are not waited for by
+// our direct child will be reparented to us, which allows us to wait for them.
+void BecomeSubreaper();
+
+// Forks and execvp's the process specified in args in its own process group.
+// Returns the pid of the spawned process.
+int SpawnCommand(const std::vector<char *> &args);
+
+// Waits for child_pid to exit, then kills all remaining (grand)children, waits
+// for them to exit, then returns the exitcode of child_pid.
+int WaitForChild(int child_pid);
 
 #endif  // PROCESS_TOOLS_H__

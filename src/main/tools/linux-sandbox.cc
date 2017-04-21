@@ -37,18 +37,6 @@
  *    system are invisible.
  */
 
-#include "linux-sandbox-options.h"
-#include "linux-sandbox-pid1.h"
-#include "linux-sandbox-utils.h"
-
-#define DIE(args...)                                     \
-  {                                                      \
-    fprintf(stderr, __FILE__ ":" S__LINE__ ": \"" args); \
-    fprintf(stderr, "\": ");                             \
-    perror(NULL);                                        \
-    exit(EXIT_FAILURE);                                  \
-  }
-
 #include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
@@ -70,20 +58,26 @@
 #include <string>
 #include <vector>
 
+#include "src/main/tools/linux-sandbox-options.h"
+#include "src/main/tools/linux-sandbox-pid1.h"
+#include "src/main/tools/linux-sandbox-utils.h"
+#include "src/main/tools/process-tools.h"
+
 int global_outer_uid;
 int global_outer_gid;
 
-static int global_child_pid;
+// The PID of our child.
+static volatile sig_atomic_t global_child_pid;
 
 // The signal that will be sent to the child when a timeout occurs.
 static volatile sig_atomic_t global_next_timeout_signal = SIGTERM;
 
-// The signal that caused us to kill the child (e.g. on timeout).
-static volatile sig_atomic_t global_signal;
+// Whether the child was killed due to a timeout.
+static volatile sig_atomic_t global_timeout_occurred;
 
 static void CloseFds() {
   DIR *fds = opendir("/proc/self/fd");
-  if (fds == NULL) {
+  if (fds == nullptr) {
     DIE("opendir");
   }
 
@@ -91,7 +85,7 @@ static void CloseFds() {
     errno = 0;
     struct dirent *dent = readdir(fds);
 
-    if (dent == NULL) {
+    if (dent == nullptr) {
       if (errno != 0) {
         DIE("readdir");
       }
@@ -118,28 +112,67 @@ static void CloseFds() {
   }
 }
 
-static void HandleSignal(int signum, void (*handler)(int)) {
-  struct sigaction sa;
-  memset(&sa, 0, sizeof(sa));
-  sa.sa_handler = handler;
-  if (sigemptyset(&sa.sa_mask) < 0) {
-    DIE("sigemptyset");
-  }
-  if (sigaction(signum, &sa, NULL) < 0) {
-    DIE("sigaction");
-  }
-}
-
 static void OnTimeout(int sig) {
-  global_signal = sig;
+  global_timeout_occurred = true;
   kill(global_child_pid, global_next_timeout_signal);
   if (global_next_timeout_signal == SIGTERM && opt.kill_delay_secs > 0) {
     global_next_timeout_signal = SIGKILL;
-    alarm(opt.kill_delay_secs);
+    SetTimeout(opt.kill_delay_secs);
   }
 }
 
-static void SpawnPid1() {
+static void ForwardSignal(int signum) {
+  if (global_child_pid > 0) {
+    kill(global_child_pid, signum);
+  }
+}
+
+static void SetupSignalHandlers() {
+  RestoreSignalHandlersAndMask();
+
+  for (int signum = 1; signum < NSIG; signum++) {
+    switch (signum) {
+      // Some signals should indeed kill us and not be forwarded to the child,
+      // thus we can use the default handler.
+      case SIGABRT:
+      case SIGBUS:
+      case SIGFPE:
+      case SIGILL:
+      case SIGSEGV:
+      case SIGSYS:
+      case SIGTRAP:
+        break;
+      // It's fine to use the default handler for SIGCHLD, because we use
+      // waitpid() in the main loop to wait for our child to die anyway.
+      case SIGCHLD:
+        break;
+      // One does not simply install a signal handler for these two signals
+      case SIGKILL:
+      case SIGSTOP:
+        break;
+      // Ignore SIGTTIN and SIGTTOU, as we hand off the terminal to the child in
+      // SpawnChild() later.
+      case SIGTTIN:
+      case SIGTTOU:
+        IgnoreSignal(signum);
+        break;
+      // We need a special signal handler for this if we use a timeout.
+      case SIGALRM:
+        if (opt.timeout_secs > 0) {
+          InstallSignalHandler(signum, OnTimeout);
+        } else {
+          InstallSignalHandler(signum, ForwardSignal);
+        }
+        break;
+      // All other signals should be forwarded to the child.
+      default:
+        InstallSignalHandler(signum, ForwardSignal);
+        break;
+    }
+  }
+}
+
+static int SpawnPid1() {
   const int kStackSize = 1024 * 1024;
   std::vector<char> child_stack(kStackSize);
 
@@ -160,13 +193,13 @@ static void SpawnPid1() {
   // We use clone instead of unshare, because unshare sometimes fails with
   // EINVAL due to a race condition in the Linux kernel (see
   // https://lkml.org/lkml/2015/7/28/833).
-  global_child_pid =
+  int child_pid =
       clone(Pid1Main, child_stack.data() + kStackSize, clone_flags, sync_pipe);
-  if (global_child_pid < 0) {
+  if (child_pid < 0) {
     DIE("clone");
   }
 
-  PRINT_DEBUG("linux-sandbox-pid1 has PID %d", global_child_pid);
+  PRINT_DEBUG("linux-sandbox-pid1 has PID %d", child_pid);
 
   // We close the write end of the sync pipe, read a byte and then close the
   // pipe. This proves to the linux-sandbox-pid1 process that we still existed
@@ -182,25 +215,26 @@ static void SpawnPid1() {
   if (close(sync_pipe[0]) < 0) {
     DIE("close");
   }
+
+  return child_pid;
 }
 
-static int WaitForPid1() {
+static int WaitForPid1(int child_pid) {
   int err, status;
   do {
-    err = waitpid(global_child_pid, &status, 0);
+    err = waitpid(child_pid, &status, 0);
   } while (err < 0 && errno == EINTR);
 
   if (err < 0) {
     DIE("waitpid");
   }
 
-  if (global_signal > 0) {
+  if (global_timeout_occurred) {
     // The child exited because we killed it due to receiving a signal
     // ourselves. Do not trust the exitcode in this case, just calculate it from
     // the signal.
-    PRINT_DEBUG("child exited due to us catching signal: %s",
-                strsignal(global_signal));
-    return 128 + global_signal;
+    PRINT_DEBUG("child exited due to timeout");
+    return 128 + SIGALRM;
   } else if (WIFSIGNALED(status)) {
     PRINT_DEBUG("child exited due to receiving signal: %s",
                 strsignal(WTERMSIG(status)));
@@ -211,47 +245,13 @@ static int WaitForPid1() {
   }
 }
 
-static void Redirect(const std::string &target_path, int fd) {
-  if (!target_path.empty() && target_path != "-") {
-    const int flags = O_WRONLY | O_CREAT | O_TRUNC | O_APPEND;
-    int fd_out = open(target_path.c_str(), flags, 0666);
-    if (fd_out < 0) {
-      DIE("open(%s)", target_path.c_str());
-    }
-    // If we were launched with less than 3 fds (stdin, stdout, stderr) open,
-    // but redirection is still requested via a command-line flag, something is
-    // wacky and the following code would not do what we intend to do, so let's
-    // bail.
-    if (fd_out < 3) {
-      DIE("open(%s) returned a handle that is reserved for stdin / stdout / "
-          "stderr",
-          target_path.c_str());
-    }
-    if (dup2(fd_out, fd) < 0) {
-      DIE("dup2()");
-    }
-    if (close(fd_out) < 0) {
-      DIE("close()");
-    }
-  }
-}
-
 int main(int argc, char *argv[]) {
-  // Ask the kernel to kill us with SIGKILL if our parent dies.
-  if (prctl(PR_SET_PDEATHSIG, SIGKILL) < 0) {
-    DIE("prctl");
-  }
-
+  KillMeWhenMyParentDies(SIGKILL);
+  DropPrivileges();
   ParseOptions(argc, argv);
 
   Redirect(opt.stdout_path, STDOUT_FILENO);
   Redirect(opt.stderr_path, STDERR_FILENO);
-
-  // This should never be called as a setuid binary, drop privileges just in
-  // case. We don't need to be root, because we use user namespaces anyway.
-  if (setuid(getuid()) < 0) {
-    DIE("setuid");
-  }
 
   global_outer_uid = getuid();
   global_outer_gid = getgid();
@@ -260,11 +260,12 @@ int main(int argc, char *argv[]) {
   // file handles from our parent.
   CloseFds();
 
-  HandleSignal(SIGALRM, OnTimeout);
+  SetupSignalHandlers();
+  global_child_pid = SpawnPid1();
+
   if (opt.timeout_secs > 0) {
-    alarm(opt.timeout_secs);
+    SetTimeout(opt.timeout_secs);
   }
 
-  SpawnPid1();
-  return WaitForPid1();
+  return WaitForPid1(global_child_pid);
 }

@@ -1,20 +1,28 @@
 package(default_visibility = ["//src:__subpackages__"])
 
+cc_library(
+    name = "process-tools",
+    srcs = [
+        "process-tools.cc",
+        "process-tools.h",
+    ],
+)
+
 cc_binary(
     name = "process-wrapper",
     srcs = select({
         "//src:windows_msvc": ["process-wrapper-windows.cc"],
         "//conditions:default": [
-            "process-tools.c",
-            "process-tools.h",
-            "process-wrapper.c",
+            "process-wrapper.cc",
         ],
     }),
-    copts = select({
-        "//src:windows_msvc": [],
-        "//conditions:default": ["-std=c99"],
-    }),
     linkopts = ["-lm"],
+    deps = select({
+        "//src:windows_msvc": [],
+        "//conditions:default": [
+            ":process-tools",
+        ],
+    }),
 )
 
 cc_binary(
@@ -45,6 +53,17 @@ cc_binary(
         ],
     }),
     linkopts = ["-lm"],
+    deps = select({
+        "//src:darwin": [],
+        "//src:darwin_x86_64": [],
+        "//src:freebsd": [],
+        "//src:windows": [],
+        "//src:windows_msys": [],
+        "//src:windows_msvc": [],
+        "//conditions:default": [
+            ":process-tools",
+        ],
+    }),
 )
 
 filegroup(
