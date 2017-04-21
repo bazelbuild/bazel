@@ -21,14 +21,19 @@ import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.rules.platform.PlatformInfo.DuplicateConstraintException;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests of {@link Platform}. */
 @RunWith(JUnit4.class)
 public class PlatformTest extends BuildViewTestCase {
+
+  @Rule public ExpectedException expectedException = ExpectedException.none();
 
   @Before
   public void createPlatform() throws Exception {
@@ -137,16 +142,33 @@ public class PlatformTest extends BuildViewTestCase {
   }
 
   @Test
-  public void equalsTester() {
+  public void platformInfo_overlappingConstraintsError() throws DuplicateConstraintException {
+    ConstraintSettingInfo setting = ConstraintSettingInfo.create(makeLabel("//constraint:basic"));
+
+    ConstraintValueInfo value1 = ConstraintValueInfo.create(setting, makeLabel("//constraint:foo"));
+    ConstraintValueInfo value2 = ConstraintValueInfo.create(setting, makeLabel("//constraint:bar"));
+
+    PlatformInfo.Builder builder =
+        PlatformInfo.builder().addConstraint(value1).addConstraint(value2);
+
+    expectedException.expect(DuplicateConstraintException.class);
+    expectedException.expectMessage(
+        "Duplicate constraint_values for constraint_setting //constraint:basic: "
+            + "//constraint:foo, //constraint:bar");
+    builder.build();
+  }
+
+  @Test
+  public void platformInfo_equalsTester() throws DuplicateConstraintException {
     ConstraintSettingInfo setting1 = ConstraintSettingInfo.create(makeLabel("//constraint:basic"));
     ConstraintSettingInfo setting2 = ConstraintSettingInfo.create(makeLabel("//constraint:other"));
 
     ConstraintValueInfo value1 =
-        ConstraintValueInfo.create(setting1, makeLabel("//constraint:value"));
+        ConstraintValueInfo.create(setting1, makeLabel("//constraint:value1"));
     ConstraintValueInfo value2 =
-        ConstraintValueInfo.create(setting1, makeLabel("//constraint:otherValue"));
+        ConstraintValueInfo.create(setting2, makeLabel("//constraint:value2"));
     ConstraintValueInfo value3 =
-        ConstraintValueInfo.create(setting2, makeLabel("//constraint:value"));
+        ConstraintValueInfo.create(setting2, makeLabel("//constraint:value3"));
 
     new EqualsTester()
         .addEqualityGroup(

@@ -15,9 +15,12 @@
 package com.google.devtools.build.lib.rules.platform;
 
 import com.google.common.base.Function;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.ClassObjectConstructor;
@@ -53,8 +56,8 @@ public class PlatformInfo extends SkylarkClassObject {
   public static final SkylarkProviderIdentifier SKYLARK_IDENTIFIER =
       SkylarkProviderIdentifier.forKey(SKYLARK_CONSTRUCTOR.getKey());
 
-  private ImmutableList<ConstraintValueInfo> constraints;
-  private ImmutableMap<String, String> remoteExecutionProperties;
+  private final ImmutableList<ConstraintValueInfo> constraints;
+  private final ImmutableMap<String, String> remoteExecutionProperties;
 
   private PlatformInfo(
       ImmutableList<ConstraintValueInfo> constraints,
@@ -101,22 +104,33 @@ public class PlatformInfo extends SkylarkClassObject {
         });
   }
 
+  /** Returns a new {@link Builder} for creating a fresh {@link PlatformInfo} instance. */
   public static Builder builder() {
     return new Builder();
   }
 
-  /**
-   * Builder class to facilitate creating valid {@link PlatformInfo} instances.
-   */
+  /** Builder class to facilitate creating valid {@link PlatformInfo} instances. */
   public static class Builder {
-    private List<ConstraintValueInfo> constraints = new ArrayList<>();
-    private Map<String, String> remoteExecutionProperties = new HashMap<>();
+    private final List<ConstraintValueInfo> constraints = new ArrayList<>();
+    private final Map<String, String> remoteExecutionProperties = new HashMap<>();
 
+    /**
+     * Adds the given constraint value to the constraints that define this {@link PlatformInfo}.
+     *
+     * @param constraint the constraint to add
+     * @return the {@link Builder} instance for method chaining
+     */
     public Builder addConstraint(ConstraintValueInfo constraint) {
       this.constraints.add(constraint);
       return this;
     }
 
+    /**
+     * Adds the given constraint values to the constraints that define this {@link PlatformInfo}.
+     *
+     * @param constraints the constraints to add
+     * @return the {@link Builder} instance for method chaining
+     */
     public Builder addConstraints(Iterable<ConstraintValueInfo> constraints) {
       for (ConstraintValueInfo constraint : constraints) {
         this.addConstraint(constraint);
@@ -125,11 +139,26 @@ public class PlatformInfo extends SkylarkClassObject {
       return this;
     }
 
+    /**
+     * Adds the given key/value pair to the data being sent to a potential remote executor. If the
+     * key already exists in the map, the previous value will be overwritten.
+     *
+     * @param key the key to be used
+     * @param value the value to be used
+     * @return the {@link Builder} instance for method chaining
+     */
     public Builder addRemoteExecutionProperty(String key, String value) {
       this.remoteExecutionProperties.put(key, value);
       return this;
     }
 
+    /**
+     * Adds the given properties to the data being sent to a potential remote executor. If any key
+     * already exists in the map, the previous value will be overwritten.
+     *
+     * @param properties the properties to be added
+     * @return the {@link Builder} instance for method chaining
+     */
     public Builder addRemoteExecutionProperties(Map<String, String> properties) {
       for (Map.Entry<String, String> entry : properties.entrySet()) {
         this.addRemoteExecutionProperty(entry.getKey(), entry.getValue());
@@ -137,9 +166,69 @@ public class PlatformInfo extends SkylarkClassObject {
       return this;
     }
 
-    public PlatformInfo build() {
-      return new PlatformInfo(
-          ImmutableList.copyOf(constraints), ImmutableMap.copyOf(remoteExecutionProperties));
+    /**
+     * Returns the new {@link PlatformInfo} instance.
+     *
+     * @throws DuplicateConstraintException if more than one constraint value exists for the same
+     *     constraint setting
+     */
+    public PlatformInfo build() throws DuplicateConstraintException {
+      ImmutableList<ConstraintValueInfo> validatedConstraints = validateConstraints(constraints);
+      return new PlatformInfo(validatedConstraints, ImmutableMap.copyOf(remoteExecutionProperties));
+    }
+
+    private ImmutableList<ConstraintValueInfo> validateConstraints(
+        Iterable<ConstraintValueInfo> constraintValues) throws DuplicateConstraintException {
+      Multimap<ConstraintSettingInfo, ConstraintValueInfo> constraints = ArrayListMultimap.create();
+
+      for (ConstraintValueInfo constraintValue : constraintValues) {
+        constraints.put(constraintValue.constraint(), constraintValue);
+      }
+
+      // Are there any settings with more than one value?
+      for (ConstraintSettingInfo constraintSetting : constraints.keySet()) {
+        if (constraints.get(constraintSetting).size() > 1) {
+          // Only reports the first case of this error.
+          throw new DuplicateConstraintException(
+              constraintSetting, constraints.get(constraintSetting));
+        }
+      }
+
+      return ImmutableList.copyOf(constraints.values());
+    }
+  }
+
+  /**
+   * Exception class used when more than one {@link ConstraintValueInfo} for the same {@link
+   * ConstraintSettingInfo} is added to a {@link Builder}.
+   */
+  public static class DuplicateConstraintException extends Exception {
+    private final ImmutableSet<ConstraintValueInfo> duplicateConstraints;
+
+    public DuplicateConstraintException(
+        ConstraintSettingInfo constraintSetting,
+        Iterable<ConstraintValueInfo> duplicateConstraintValues) {
+      super(formatError(constraintSetting, duplicateConstraintValues));
+      this.duplicateConstraints = ImmutableSet.copyOf(duplicateConstraintValues);
+    }
+
+    public ImmutableSet<ConstraintValueInfo> duplicateConstraints() {
+      return duplicateConstraints;
+    }
+
+    private static String formatError(
+        ConstraintSettingInfo constraintSetting,
+        Iterable<ConstraintValueInfo> duplicateConstraints) {
+      StringBuilder constraintValuesDescription = new StringBuilder();
+      for (ConstraintValueInfo constraintValue : duplicateConstraints) {
+        if (constraintValuesDescription.length() > 0) {
+          constraintValuesDescription.append(", ");
+        }
+        constraintValuesDescription.append(constraintValue.label());
+      }
+      return String.format(
+          "Duplicate constraint_values for constraint_setting %s: %s",
+          constraintSetting.label(), constraintValuesDescription.toString());
     }
   }
 }
