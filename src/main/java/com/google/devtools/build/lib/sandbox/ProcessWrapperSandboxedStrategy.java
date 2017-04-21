@@ -34,7 +34,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /** Strategy that uses sandboxing to execute a process. */
 @ExecutionStrategy(
-  name = {"sandboxed"},
+  name = {"sandboxed", "processwrapper-sandbox"},
   contextType = SpawnActionContext.class
 )
 public class ProcessWrapperSandboxedStrategy extends SandboxStrategy {
