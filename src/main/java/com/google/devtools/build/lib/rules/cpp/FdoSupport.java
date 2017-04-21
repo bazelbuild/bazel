@@ -72,6 +72,24 @@ import java.util.zip.ZipException;
  * implicit dependency of every cc_* rule through their :lipo_context_collector attribute. The
  * collected information is encapsulated in {@link LipoContextProvider}.
  *
+ * <p>Note that the LIPO context can be different from the actual binary we are compiling because
+ * it's beneficial to compile sources in a test in the exact same way as they would be compiled
+ * for a particular {@code cc_binary} so that the code tested is the same as the one being run in
+ * production. Thus, the {@code --lipo_context} command line flag, which takes the label of a
+ * {@code cc_binary} rule as an argument which will be used as the LIPO context.
+ *
+ * <p>In this case, it can happen that files are needed for the compilation (because code in them
+ * is inlined) that are not in the transitive closure of the tests being run. To cover this case,
+ * we have the otherwise unused {@code :lipo_context} attribute, which depends on the LIPO context
+ * without any configuration transition. Its purpose is to give a chance for the configured targets
+ * containing the inlined code to run and thus create generating actions for the artifacts
+ * {@link LipoContextProvider} contains. That is, configured targets in the LIPO context collector
+ * configuration collect these artifacts but do not generate actions for them, and configured
+ * targets under {@code :lipo_context} generate actions, but the artifacts they create are
+ * discarded. This works because {@link Artifact} is a value object and the artifacts in
+ * {@link LipoContextProvider} are {@code #equals()} to the ones created under
+ * {@code :lipo_context}.
+ *
  * <p>For each C++ compile action in the target configuration, {@link #configureCompilation} is
  * called, which adds command line options and input files required for the build. There are
  * three cases:
