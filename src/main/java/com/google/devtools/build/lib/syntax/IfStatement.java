@@ -25,7 +25,7 @@ public final class IfStatement extends Statement {
   /**
    * Syntax node for an [el]if statement.
    */
-  static final class ConditionalStatements extends Statement {
+  public static final class ConditionalStatements extends Statement {
 
     private final Expression condition;
     private final ImmutableList<Statement> stmts;
@@ -52,11 +52,11 @@ public final class IfStatement extends Statement {
       visitor.visit(this);
     }
 
-    Expression getCondition() {
+    public Expression getCondition() {
       return condition;
     }
 
-    ImmutableList<Statement> getStmts() {
+    public ImmutableList<Statement> getStmts() {
       return stmts;
     }
 
