@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.File;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.OutputGroup;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
@@ -143,6 +144,18 @@ public final class TargetCompleteEvent
     builder.setSuccess(!failed());
     builder.addAllTag(getTags());
     builder.addAllOutputGroup(getOutputFilesByGroup(converters.artifactGroupNamer()));
+
+    // TODO(aehlig): remove direct reporting of artifacts as soon as clients no longer
+    // need it.
+    for (ArtifactsInOutputGroup group : outputs) {
+      if (group.areImportant()) {
+        for (Artifact artifact : group.getArtifacts()) {
+          String name = artifact.getFilename();
+          String uri = converters.pathConverter().apply(artifact.getPath());
+          builder.addImportantOutput(File.newBuilder().setName(name).setUri(uri).build());
+        }
+      }
+    }
 
     BuildEventStreamProtos.TargetComplete complete = builder.build();
     return GenericBuildEvent.protoChaining(this).setCompleted(complete).build();

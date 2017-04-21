@@ -355,14 +355,17 @@ function test_loading_failure_keep_going() {
   expect_not_log 'aborted'
 }
 
-function test_artifact_dedup() {
-  bazel build --experimental_build_event_text_file=$TEST_log \
-      pkg:innergroup pkg:outergroup \
-  || fail "bazel build failed"
-  expect_log_once "name.*sourcefileA"
-  expect_log_once "name.*sourcefileB"
-  expect_log_once "name.*sourcefileC"
-  expect_not_log 'aborted'
-}
+# TODO(aehlig): readd, once we stop reporting the important artifacts
+#               for every target completion
+#
+# function test_artifact_dedup() {
+#   bazel build --experimental_build_event_text_file=$TEST_log \
+#       pkg:innergroup pkg:outergroup \
+#   || fail "bazel build failed"
+#   expect_log_once "name.*sourcefileA"
+#   expect_log_once "name.*sourcefileB"
+#   expect_log_once "name.*sourcefileC"
+#   expect_not_log 'aborted'
+# }
 
 run_suite "Integration tests for the build event stream"
