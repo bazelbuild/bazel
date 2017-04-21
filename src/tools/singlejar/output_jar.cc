@@ -830,6 +830,15 @@ bool OutputJar::Close() {
   return true;
 }
 
+bool IsDir(const std::string &path) {
+  struct stat st;
+  if (stat(path.c_str(), &st)) {
+    diag_warn("%s:%d: stat %s:", __FILE__, __LINE__, path.c_str());
+    return false;
+  }
+  return S_ISDIR(st.st_mode);
+}
+
 void OutputJar::ClasspathResource(const std::string &resource_name,
                                   const std::string &resource_path) {
   if (known_members_.count(resource_name)) {
@@ -845,14 +854,21 @@ void OutputJar::ClasspathResource(const std::string &resource_name,
     }
   }
   MappedFile mapped_file;
-  if (!mapped_file.Open(resource_path)) {
+  if (mapped_file.Open(resource_path)) {
+    Concatenator *classpath_resource = new Concatenator(resource_name);
+    classpath_resource->Append(
+        reinterpret_cast<const char *>(mapped_file.start()),
+        mapped_file.size());
+    classpath_resources_.emplace_back(classpath_resource);
+    known_members_.emplace(resource_name, EntryInfo{classpath_resource});
+  } else if (IsDir(resource_path)) {
+    // add an empty entry for the directory so its path ends up in the
+    // manifest
+    classpath_resources_.emplace_back(new Concatenator(resource_name + "/"));
+    known_members_.emplace(resource_name, EntryInfo{&null_combiner_});
+  } else {
     diag_err(1, "%s:%d: %s", __FILE__, __LINE__, resource_path.c_str());
   }
-  Concatenator *classpath_resource = new Concatenator(resource_name);
-  classpath_resource->Append(
-      reinterpret_cast<const char *>(mapped_file.start()), mapped_file.size());
-  classpath_resources_.emplace_back(classpath_resource);
-  known_members_.emplace(resource_name, EntryInfo{classpath_resource});
 }
 
 ssize_t OutputJar::AppendFile(int in_fd, off_t offset, size_t count) {

@@ -351,6 +351,30 @@ TEST_F(OutputJarSimpleTest, ResourcesParentDirectories) {
   EXPECT_EQ(expected_entries, jar_entries);
 }
 
+TEST_F(OutputJarSimpleTest, ResourcesDirectories) {
+  string dir_path = OutputFilePath("resource_dir");
+  blaze_util::MakeDirectories(dir_path, 0777);
+
+  string out_path = OutputFilePath("out.jar");
+  CreateOutput(out_path,
+               {"--exclude_build_data", "--resources", dir_path + ":the/dir"});
+
+  // The output should contain entries for the directory
+  std::vector<string> expected_entries({
+      "META-INF/", "META-INF/MANIFEST.MF", "the/", "the/dir/",
+  });
+  std::vector<string> jar_entries;
+  InputJar input_jar;
+  ASSERT_TRUE(input_jar.Open(out_path));
+  const LH *lh;
+  const CDH *cdh;
+  while ((cdh = input_jar.NextEntry(&lh))) {
+    jar_entries.push_back(cdh->file_name_string());
+  }
+  input_jar.Close();
+  EXPECT_EQ(expected_entries, jar_entries);
+}
+
 // --classpath_resources
 TEST_F(OutputJarSimpleTest, ClasspathResources) {
   string res1_path = OutputFilePath("cp_res");
