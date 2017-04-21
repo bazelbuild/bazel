@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -102,13 +101,13 @@ public class ProcessWrapperSandboxedStrategy extends SandboxStrategy {
         try {
           FileSystemUtils.deleteTree(sandboxPath);
         } catch (IOException e) {
-          executor
-              .getEventHandler()
-              .handle(
-                  Event.warn(
-                      String.format(
-                          "Cannot delete sandbox directory after action execution: %s (%s)",
-                          sandboxPath.getPathString(), e)));
+          // This usually means that the Spawn itself exited, but still has children running that
+          // we couldn't wait for, which now block deletion of the sandbox directory. On Linux this
+          // should never happen, as we use PID namespaces and where they are not available the
+          // subreaper feature to make sure all children have been reliably killed before returning,
+          // but on other OS this might not always work. The SandboxModule will try to delete them
+          // again when the build is all done, at which point it hopefully works, so let's just go
+          // on here.
         }
       }
     }
