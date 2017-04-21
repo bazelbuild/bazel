@@ -357,25 +357,24 @@ class ArgParser(object):
     self.leftover = unmatched
 
     # Select runtime option
-    # Find the last runtime option passed
+    # Find the last runtime option passed.
+    # Prune out all runtime options and append the one we want to the end, 
+    # to avoid possible compiler warnings about overrides.
     rt = None
-    rt_idx = -1
-    for i, opt in enumerate(reversed(self.options)):
+    new_options = []
+    for opt in self.options:
       if opt in ['/MT', '/MTd', '/MD', '/MDd']:
         if opt[-1] == 'd':
           enforce_debug_rt = True
         rt = opt[:3]
-        rt_idx = len(self.options) - i - 1
-        break
+      else:
+        new_options.append(opt)
     rt = rt or '/MT'  # Default to static runtime
     # Add debug if necessary
     if enforce_debug_rt:
       rt += 'd'
-    # Include runtime option
-    if rt_idx >= 0:
-      self.options[rt_idx] = rt
-    else:
-      self.options.append(rt)
+    new_options.append(rt)
+    self.options = new_options
 
     # Add in any parsed files
     self.options += files
