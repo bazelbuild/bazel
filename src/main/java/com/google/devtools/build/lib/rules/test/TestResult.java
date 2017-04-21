@@ -48,7 +48,7 @@ public class TestResult {
    * @param testAction The test that was run.
    * @param data test result protobuffer.
    * @param cached true if this is a locally cached test result.
-   * @param execRooot The execution root in which the action was carried out; can be null, in which
+   * @param execRoot The execution root in which the action was carried out; can be null, in which
    *     case everything depending on the execution root is ignored.
    */
   public TestResult(
