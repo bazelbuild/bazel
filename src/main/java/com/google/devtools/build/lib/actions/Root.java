@@ -142,6 +142,7 @@ public final class Root implements Comparable<Root>, Serializable {
   private final boolean isMainRepo;
   private final PathFragment execPath;
 
+
   private Root(@Nullable Path execRoot, Path path, boolean isMiddlemanRoot, boolean isMainRepo) {
     this.execRoot = execRoot;
     this.path = Preconditions.checkNotNull(path);

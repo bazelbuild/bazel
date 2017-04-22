@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.integration.util.IntegrationMock;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestFileOutErr;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.BlazeClock;
@@ -92,7 +93,7 @@ public class StandaloneSpawnStrategyTest {
     BlazeDirectories directories =
         new BlazeDirectories(outputBase, outputBase, workspaceDir, "mock-product-name");
     // This call implicitly symlinks the integration bin tools into the exec root.
-    IntegrationMock.get().getIntegrationBinTools(directories);
+    IntegrationMock.get().getIntegrationBinTools(directories, TestConstants.WORKSPACE_NAME);
     OptionsParser optionsParser = OptionsParser.newOptionsParser(ExecutionOptions.class);
     optionsParser.parse("--verbose_failures");
 
@@ -101,9 +102,10 @@ public class StandaloneSpawnStrategyTest {
     ResourceManager resourceManager = ResourceManager.instanceForTestingOnly();
     resourceManager.setAvailableResources(
         ResourceSet.create(/*memoryMb=*/1, /*cpuUsage=*/1, /*ioUsage=*/1, /*localTestCount=*/1));
+    Path execRoot = directories.getExecRoot(TestConstants.WORKSPACE_NAME);
     this.executor =
         new BlazeExecutor(
-            directories.getExecRoot(),
+            execRoot,
             reporter,
             bus,
             BlazeClock.instance(),
@@ -112,7 +114,7 @@ public class StandaloneSpawnStrategyTest {
             ImmutableMap.<String, SpawnActionContext>of(
                 "",
                 new StandaloneSpawnStrategy(
-                    directories.getExecRoot(), false, "mock-product-name", resourceManager)),
+                    execRoot, false, "mock-product-name", resourceManager)),
             ImmutableList.<ActionContextProvider>of());
 
     executor.getExecRoot().createDirectory();

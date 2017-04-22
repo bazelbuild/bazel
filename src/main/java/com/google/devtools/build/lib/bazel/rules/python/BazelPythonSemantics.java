@@ -217,7 +217,7 @@ public class BazelPythonSemantics implements PythonSemantics {
       zipRunfilesPath = workspaceName.getRelative(path).normalize().toString();
     } else {
       // If the file is in external package, strip "external"
-      zipRunfilesPath = path.relativeTo(Label.EXTERNAL_PACKAGE_NAME).normalize().toString();
+      zipRunfilesPath = path.relativeTo(Label.EXTERNAL_PATH_PREFIX).normalize().toString();
     }
     // We put the whole runfiles tree under the ZIP_RUNFILES_DIRECTORY_NAME directory, by doing this
     // , we avoid the conflict between default workspace name "__main__" and __main__.py file.

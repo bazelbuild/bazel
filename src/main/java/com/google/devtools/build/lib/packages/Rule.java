@@ -728,7 +728,7 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
    * @return The repository name.
    */
   public RepositoryName getRepository() {
-    return getLabel().getPackageIdentifier().getRepository();
+    return RepositoryName.createFromValidStrippedName(pkg.getWorkspaceName());
   }
 
   /** Returns the suffix of target kind for all rules. */

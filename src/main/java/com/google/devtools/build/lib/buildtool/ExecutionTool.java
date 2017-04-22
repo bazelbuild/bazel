@@ -184,7 +184,6 @@ public class ExecutionTool {
     this.runtime = env.getRuntime();
     this.request = request;
 
-
     // Create tools before getting the strategies from the modules as some of them need tools to
     // determine whether the host actually supports certain strategies (e.g. sandboxing).
     createToolsSymlinks();
@@ -333,7 +332,7 @@ public class ExecutionTool {
       TopLevelArtifactContext topLevelArtifactContext)
       throws BuildFailedException, InterruptedException, TestExecException, AbruptExitException {
     Stopwatch timer = Stopwatch.createStarted();
-    prepare(packageRoots, analysisResult.getWorkspaceName());
+    prepare(packageRoots);
 
     ActionGraph actionGraph = analysisResult.getActionGraph();
 
@@ -347,7 +346,7 @@ public class ExecutionTool {
               request.getBuildOptions().finalizeActions);
     } else {
       // TODO(bazel-team): this could be just another OutputService
-      startLocalOutputBuild(analysisResult.getWorkspaceName());
+      startLocalOutputBuild();
     }
 
     // Must be created after the output path is created above.
@@ -358,10 +357,10 @@ public class ExecutionTool {
         ? targetConfigurations.get(0) : null;
     if (targetConfigurations.size() == 1) {
       String productName = runtime.getProductName();
-      String dirName = env.getWorkspaceName();
+      String workspaceName = env.getWorkspaceName();
       OutputDirectoryLinksUtils.createOutputDirectoryLinks(
-          dirName, env.getWorkspace(), env.getDirectories().getExecRoot(),
-          env.getDirectories().getOutputPath(), getReporter(), targetConfiguration,
+          workspaceName, env.getWorkspace(), env.getDirectories().getExecRoot(workspaceName),
+          env.getDirectories().getOutputPath(workspaceName), getReporter(), targetConfiguration,
           request.getBuildOptions().getSymlinkPrefix(productName), productName);
     }
 
@@ -493,7 +492,7 @@ public class ExecutionTool {
     }
   }
 
-  private void prepare(ImmutableMap<PackageIdentifier, Path> packageRoots, String workspaceName)
+  private void prepare(ImmutableMap<PackageIdentifier, Path> packageRoots)
       throws ExecutorInitException {
     // Prepare for build.
     Profiler.instance().markPhase(ProfilePhase.PREPARE);
@@ -501,7 +500,7 @@ public class ExecutionTool {
     // Plant the symlink forest.
     try {
       new SymlinkForest(
-          packageRoots, getExecRoot(), runtime.getProductName(), workspaceName)
+          packageRoots, getExecRoot(), runtime.getProductName(), env.getWorkspaceName())
           .plantSymlinkForest();
     } catch (IOException e) {
       throw new ExecutorInitException("Source forest creation failed", e);
@@ -510,7 +509,7 @@ public class ExecutionTool {
 
   private void createToolsSymlinks() throws ExecutorInitException {
     try {
-      env.getBlazeWorkspace().getBinTools().setupBuildTools();
+      env.getBlazeWorkspace().getBinTools().setupBuildTools(env.getWorkspaceName());
     } catch (ExecException e) {
       throw new ExecutorInitException("Tools symlink creation failed", e);
     }
@@ -531,9 +530,9 @@ public class ExecutionTool {
   /**
    * Prepare for a local output build.
    */
-  private void startLocalOutputBuild(String workspaceName) throws ExecutorInitException {
+  private void startLocalOutputBuild() throws ExecutorInitException {
     try (AutoProfiler p = AutoProfiler.profiled("Starting local output build", ProfilerTask.INFO)) {
-      Path outputPath = env.getDirectories().getOutputPath(workspaceName);
+      Path outputPath = env.getDirectories().getOutputPath(env.getWorkspaceName());
       Path localOutputPath = env.getDirectories().getLocalOutputPath();
 
       if (outputPath.isSymbolicLink()) {

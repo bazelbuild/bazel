@@ -141,8 +141,6 @@ public class WorkspaceFactory {
 
   /**
    * Parses the given WORKSPACE file without resolving skylark imports.
-   *
-   * <p>Called by com.google.devtools.build.workspace.Resolver from //src/tools/generate_workspace.
    */
   public void parse(ParserInputSource source)
       throws BuildFileContainsErrorsException, InterruptedException {

@@ -74,7 +74,7 @@ public class LinuxSandboxedStrategy extends SandboxStrategy {
         buildRequest.getOptions(SandboxOptions.class));
     this.sandboxOptions = buildRequest.getOptions(SandboxOptions.class);
     this.blazeDirs = cmdEnv.getDirectories();
-    this.execRoot = blazeDirs.getExecRoot();
+    this.execRoot = cmdEnv.getExecRoot();
     this.verboseFailures = verboseFailures;
     this.spawnInputExpander = new SpawnInputExpander(false);
     this.inaccessibleHelperFile = inaccessibleHelperFile;

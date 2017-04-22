@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.rules.test.TestRunnerAction.ResolvedPaths;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import java.util.Collection;
@@ -93,9 +92,9 @@ public class TestResult {
   /**
    * @return Coverage data artifact, if available and null otherwise.
    */
-  public PathFragment getCoverageData() {
+  public Path getCoverageData() {
     if (data.getHasCoverage()) {
-      return testAction.getCoverageData().getExecPath();
+      return testAction.getCoverageData().getPath();
     }
     return null;
   }

@@ -56,11 +56,17 @@ public class ConfigurationCollectionFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException,
       ConfigurationCollectionFunctionException {
+    WorkspaceNameValue workspaceNameValue = (WorkspaceNameValue) env
+        .getValue(WorkspaceNameValue.key());
+    if (workspaceNameValue == null) {
+      return null;
+    }
     ConfigurationCollectionKey collectionKey = (ConfigurationCollectionKey) skyKey.argument();
     try {
       BuildConfigurationCollection result = getConfigurations(env,
           new SkyframePackageLoaderWithValueEnvironment(env, ruleClassProvider),
-          collectionKey.getBuildOptions(), collectionKey.getMultiCpu());
+          collectionKey.getBuildOptions(), collectionKey.getMultiCpu(),
+          workspaceNameValue.getName());
 
       // BuildConfigurationCollection can be created, but dependencies to some files might be
       // missing. In that case we need to build configurationCollection again.
@@ -79,7 +85,8 @@ public class ConfigurationCollectionFunction implements SkyFunction {
       Environment env,
       PackageProviderForConfigurations loadedPackageProvider,
       BuildOptions buildOptions,
-      ImmutableSet<String> multiCpu)
+      ImmutableSet<String> multiCpu,
+      String repositoryName)
       throws InvalidConfigurationException, InterruptedException {
     // We cache all the related configurations for this target configuration in a cache that is
     // dropped at the end of this method call. We instead rely on the cache for entire collections
@@ -92,7 +99,7 @@ public class ConfigurationCollectionFunction implements SkyFunction {
     if (!multiCpu.isEmpty()) {
       for (String cpu : multiCpu) {
         BuildConfiguration targetConfiguration = createConfiguration(
-         cache, env.getListener(), loadedPackageProvider, buildOptions, cpu);
+         cache, env.getListener(), loadedPackageProvider, buildOptions, cpu, repositoryName);
         if (targetConfiguration == null || targetConfigurations.contains(targetConfiguration)) {
           continue;
         }
@@ -103,7 +110,7 @@ public class ConfigurationCollectionFunction implements SkyFunction {
       }
     } else {
       BuildConfiguration targetConfiguration = createConfiguration(
-         cache, env.getListener(), loadedPackageProvider, buildOptions, null);
+         cache, env.getListener(), loadedPackageProvider, buildOptions, null, repositoryName);
       if (targetConfiguration == null) {
         return null;
       }
@@ -168,7 +175,8 @@ public class ConfigurationCollectionFunction implements SkyFunction {
       ExtendedEventHandler originalEventListener,
       PackageProviderForConfigurations loadedPackageProvider,
       BuildOptions buildOptions,
-      String cpuOverride)
+      String cpuOverride,
+      String repositoryName)
       throws InvalidConfigurationException, InterruptedException {
     ErrorSensingEventHandler eventHandler = new ErrorSensingEventHandler(originalEventListener);
     if (cpuOverride != null) {
@@ -180,7 +188,7 @@ public class ConfigurationCollectionFunction implements SkyFunction {
     }
 
     BuildConfiguration targetConfig = configurationFactory.get().createConfigurations(
-        cache, loadedPackageProvider, buildOptions, eventHandler);
+        cache, loadedPackageProvider, buildOptions, eventHandler, repositoryName);
     if (targetConfig == null) {
       return null;
     }

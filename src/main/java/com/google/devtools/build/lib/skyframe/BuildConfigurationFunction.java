@@ -53,6 +53,12 @@ public class BuildConfigurationFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, BuildConfigurationFunctionException {
+    WorkspaceNameValue workspaceNameValue = (WorkspaceNameValue) env
+        .getValue(WorkspaceNameValue.key());
+    if (workspaceNameValue == null) {
+      return null;
+    }
+
     BuildConfigurationValue.Key key = (BuildConfigurationValue.Key) skyKey.argument();
     Set<Fragment> fragments;
     try {
@@ -70,7 +76,7 @@ public class BuildConfigurationFunction implements SkyFunction {
     }
 
     BuildConfiguration config = new BuildConfiguration(directories, fragmentsMap,
-        key.getBuildOptions());
+        key.getBuildOptions(), workspaceNameValue.getName());
     // Unlike static configurations, dynamic configurations don't need to embed transition logic
     // within the configuration itself. However we still use this interface to provide a mapping
     // between Transition types (e.g. HOST) and the dynamic transitions that apply those

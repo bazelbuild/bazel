@@ -257,7 +257,7 @@ public final class RuleContext extends TargetContext
    * Returns the workspace name for the rule.
    */
   public String getWorkspaceName() {
-    return rule.getPackage().getWorkspaceName();
+    return rule.getRepository().strippedName();
   }
 
   /**

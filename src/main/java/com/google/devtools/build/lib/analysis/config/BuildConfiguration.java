@@ -1137,6 +1137,7 @@ public final class BuildConfiguration implements BuildEvent {
 
   private final ImmutableMap<Class<? extends Fragment>, Fragment> fragments;
   private final ImmutableMap<String, Class<? extends Fragment>> skylarkVisibleFragments;
+  private final RepositoryName mainRepositoryName;
 
 
   /**
@@ -1207,21 +1208,21 @@ public final class BuildConfiguration implements BuildEvent {
     }
 
     Root getRoot(
-        RepositoryName repositoryName, String outputDirName, BlazeDirectories directories) {
+        RepositoryName repositoryName, String outputDirName, BlazeDirectories directories,
+        RepositoryName mainRepositoryName) {
       // e.g., execroot/repo1
-      Path execRoot = directories.getExecRoot();
+      Path execRoot = directories.getExecRoot(mainRepositoryName.strippedName());
       // e.g., execroot/repo1/bazel-out/config/bin
       Path outputDir = execRoot.getRelative(directories.getRelativeOutputPath())
           .getRelative(outputDirName);
       if (middleman) {
-        return INTERNER.intern(Root.middlemanRoot(execRoot, outputDir, repositoryName.isMain()));
+        return INTERNER.intern(Root.middlemanRoot(execRoot, outputDir,
+            repositoryName.equals(mainRepositoryName)));
       }
       // e.g., [[execroot/repo1]/bazel-out/config/bin]
       return INTERNER.intern(
-          Root.asDerivedRoot(
-              execRoot,
-              outputDir.getRelative(nameFragment),
-              repositoryName.isMain()));
+          Root.asDerivedRoot(execRoot, outputDir.getRelative(nameFragment),
+              repositoryName.equals(mainRepositoryName)));
     }
   }
 
@@ -1446,7 +1447,8 @@ public final class BuildConfiguration implements BuildEvent {
    */
   public BuildConfiguration(BlazeDirectories directories,
       Map<Class<? extends Fragment>, Fragment> fragmentsMap,
-      BuildOptions buildOptions) {
+      BuildOptions buildOptions,
+      String repositoryName) {
     this.directories = directories;
     this.fragments = ImmutableSortedMap.copyOf(fragmentsMap, lexicalFragmentSorter);
 
@@ -1455,6 +1457,7 @@ public final class BuildConfiguration implements BuildEvent {
     this.buildOptions = buildOptions.clone();
     this.actionsEnabled = buildOptions.enableActions();
     this.options = buildOptions.get(Options.class);
+    this.mainRepositoryName = RepositoryName.createFromValidStrippedName(repositoryName);
 
     Map<String, String> testEnv = new TreeMap<>();
     for (Map.Entry<String, String> entry : this.options.testEnvironment) {
@@ -1479,19 +1482,26 @@ public final class BuildConfiguration implements BuildEvent {
         ? options.outputDirectoryName : mnemonic;
 
     this.outputDirectoryForMainRepository =
-        OutputDirectory.OUTPUT.getRoot(RepositoryName.MAIN, outputDirName, directories);
+        OutputDirectory.OUTPUT.getRoot(
+            RepositoryName.MAIN, outputDirName, directories, mainRepositoryName);
     this.binDirectoryForMainRepository =
-        OutputDirectory.BIN.getRoot(RepositoryName.MAIN, outputDirName, directories);
+        OutputDirectory.BIN.getRoot(
+            RepositoryName.MAIN, outputDirName, directories, mainRepositoryName);
     this.includeDirectoryForMainRepository =
-        OutputDirectory.INCLUDE.getRoot(RepositoryName.MAIN, outputDirName, directories);
+        OutputDirectory.INCLUDE.getRoot(
+            RepositoryName.MAIN, outputDirName, directories, mainRepositoryName);
     this.genfilesDirectoryForMainRepository =
-        OutputDirectory.GENFILES.getRoot(RepositoryName.MAIN, outputDirName, directories);
+        OutputDirectory.GENFILES.getRoot(
+            RepositoryName.MAIN, outputDirName, directories, mainRepositoryName);
     this.coverageDirectoryForMainRepository =
-        OutputDirectory.COVERAGE.getRoot(RepositoryName.MAIN, outputDirName, directories);
+        OutputDirectory.COVERAGE.getRoot(
+            RepositoryName.MAIN, outputDirName, directories, mainRepositoryName);
     this.testlogsDirectoryForMainRepository =
-        OutputDirectory.TESTLOGS.getRoot(RepositoryName.MAIN, outputDirName, directories);
+        OutputDirectory.TESTLOGS.getRoot(
+            RepositoryName.MAIN, outputDirName, directories, mainRepositoryName);
     this.middlemanDirectoryForMainRepository =
-        OutputDirectory.MIDDLEMAN.getRoot(RepositoryName.MAIN, outputDirName, directories);
+        OutputDirectory.MIDDLEMAN.getRoot(
+            RepositoryName.MAIN, outputDirName, directories, mainRepositoryName);
 
     this.platformName = buildPlatformName();
 
@@ -1540,8 +1550,8 @@ public final class BuildConfiguration implements BuildEvent {
     }
     BuildOptions options = buildOptions.trim(
         getOptionsClasses(fragmentsMap.keySet(), ruleClassProvider));
-    BuildConfiguration newConfig =
-        new BuildConfiguration(directories, fragmentsMap, options);
+    BuildConfiguration newConfig = new BuildConfiguration(
+        directories, fragmentsMap, options, mainRepositoryName.strippedName());
     newConfig.setConfigurationTransitions(this.transitions);
     return newConfig;
   }
@@ -2117,9 +2127,10 @@ public final class BuildConfiguration implements BuildEvent {
    * Returns the output directory for this build configuration.
    */
   public Root getOutputDirectory(RepositoryName repositoryName) {
-    return repositoryName.equals(RepositoryName.MAIN)
+    return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
         ? outputDirectoryForMainRepository
-        : OutputDirectory.OUTPUT.getRoot(repositoryName, outputDirName, directories);
+        : OutputDirectory.OUTPUT.getRoot(
+            repositoryName, outputDirName, directories, mainRepositoryName);
   }
 
   /**
@@ -2138,9 +2149,10 @@ public final class BuildConfiguration implements BuildEvent {
    * repositories (external) but will need to be fixed.
    */
   public Root getBinDirectory(RepositoryName repositoryName) {
-    return repositoryName.equals(RepositoryName.MAIN)
+    return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
         ? binDirectoryForMainRepository
-        : OutputDirectory.BIN.getRoot(repositoryName, outputDirName, directories);
+        : OutputDirectory.BIN.getRoot(
+            repositoryName, outputDirName, directories, mainRepositoryName);
   }
 
   /**
@@ -2154,9 +2166,10 @@ public final class BuildConfiguration implements BuildEvent {
    * Returns the include directory for this build configuration.
    */
   public Root getIncludeDirectory(RepositoryName repositoryName) {
-    return repositoryName.equals(RepositoryName.MAIN)
+    return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
         ? includeDirectoryForMainRepository
-        : OutputDirectory.INCLUDE.getRoot(repositoryName, outputDirName, directories);
+        : OutputDirectory.INCLUDE.getRoot(
+            repositoryName, outputDirName, directories, mainRepositoryName);
   }
 
   /**
@@ -2169,9 +2182,10 @@ public final class BuildConfiguration implements BuildEvent {
   }
 
   public Root getGenfilesDirectory(RepositoryName repositoryName) {
-    return repositoryName.equals(RepositoryName.MAIN)
+    return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
         ? genfilesDirectoryForMainRepository
-        : OutputDirectory.GENFILES.getRoot(repositoryName, outputDirName, directories);
+        : OutputDirectory.GENFILES.getRoot(
+            repositoryName, outputDirName, directories, mainRepositoryName);
   }
 
   /**
@@ -2180,18 +2194,20 @@ public final class BuildConfiguration implements BuildEvent {
    * needed for Jacoco's coverage reporting tools.
    */
   public Root getCoverageMetadataDirectory(RepositoryName repositoryName) {
-    return repositoryName.equals(RepositoryName.MAIN)
+    return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
         ? coverageDirectoryForMainRepository
-        : OutputDirectory.COVERAGE.getRoot(repositoryName, outputDirName, directories);
+        : OutputDirectory.COVERAGE.getRoot(
+            repositoryName, outputDirName, directories, mainRepositoryName);
   }
 
   /**
    * Returns the testlogs directory for this build configuration.
    */
   public Root getTestLogsDirectory(RepositoryName repositoryName) {
-    return repositoryName.equals(RepositoryName.MAIN)
+    return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
         ? testlogsDirectoryForMainRepository
-        : OutputDirectory.TESTLOGS.getRoot(repositoryName, outputDirName, directories);
+        : OutputDirectory.TESTLOGS.getRoot(
+            repositoryName, outputDirName, directories, mainRepositoryName);
   }
 
   /**
@@ -2218,9 +2234,10 @@ public final class BuildConfiguration implements BuildEvent {
    * Returns the internal directory (used for middlemen) for this build configuration.
    */
   public Root getMiddlemanDirectory(RepositoryName repositoryName) {
-    return repositoryName.equals(RepositoryName.MAIN)
+    return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
         ? middlemanDirectoryForMainRepository
-        : OutputDirectory.MIDDLEMAN.getRoot(repositoryName, outputDirName, directories);
+        : OutputDirectory.MIDDLEMAN.getRoot(
+            repositoryName, outputDirName, directories, mainRepositoryName);
   }
 
   public boolean getAllowRuntimeDepsOnNeverLink() {
@@ -2233,6 +2250,10 @@ public final class BuildConfiguration implements BuildEvent {
 
   public List<Label> getPlugins() {
     return options.pluginList;
+  }
+
+  public String getMainRepositoryName() {
+    return mainRepositoryName.strippedName();
   }
 
   /**

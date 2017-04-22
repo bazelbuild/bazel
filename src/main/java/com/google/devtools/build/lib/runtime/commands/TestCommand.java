@@ -85,7 +85,6 @@ public class TestCommand implements BlazeCommand {
   @Override
   public ExitCode exec(CommandEnvironment env, OptionsProvider options) {
     TestResultAnalyzer resultAnalyzer = new TestResultAnalyzer(
-        env.getDirectories().getExecRoot(),
         options.getOptions(TestSummaryOptions.class),
         options.getOptions(ExecutionOptions.class),
         env.getEventBus());

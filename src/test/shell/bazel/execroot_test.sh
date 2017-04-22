@@ -41,7 +41,7 @@ EOF
   execroot="$(bazel info execution_root)"
   test -e "$execroot/../${ws_name}"
   ls -l bazel-out | tee out
-  assert_contains "$execroot/bazel-out" out
+  assert_contains "$(dirname $execroot)/${ws_name}/bazel-out" out
 }
 
 run_suite "execution root tests"

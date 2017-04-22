@@ -143,12 +143,6 @@ public final class BuildTool {
     try {
       env.getEventBus().post(new BuildStartingEvent(env, request));
       LOG.info("Build identifier: " + request.getId());
-      executionTool = new ExecutionTool(env, request);
-      if (needsExecutionPhase(request.getBuildOptions())) {
-        // Initialize the execution tool early if we need it. This hides the latency of setting up
-        // the execution backends.
-        executionTool.init();
-      }
 
       // Error out early if multi_cpus is set, but we're not in build or test command.
       if (!request.getMultiCpus().isEmpty()) {
@@ -168,6 +162,11 @@ public final class BuildTool {
 
       // Target pattern evaluation.
       LoadingResult loadingResult = evaluateTargetPatterns(request, validator);
+      env.setWorkspaceName(loadingResult.getWorkspaceName());
+      executionTool = new ExecutionTool(env, request);
+      if (needsExecutionPhase(request.getBuildOptions())) {
+        executionTool.init();
+      }
 
       // Exit if there are any pending exceptions from modules.
       env.throwPendingException();

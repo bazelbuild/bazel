@@ -454,13 +454,7 @@ public class PackageFunction implements SkyFunction {
     if (workspaceNameValue == null) {
       return null;
     }
-    String workspaceName = workspaceNameValue.maybeGetName();
-    if (workspaceName == null) {
-      throw new PackageFunctionException(
-          new BuildFileContainsErrorsException(Label.EXTERNAL_PACKAGE_IDENTIFIER),
-          Transience.PERSISTENT);
-    }
-
+    String workspaceName = workspaceNameValue.getName();
     RootedPath buildFileRootedPath = packageLookupValue.getRootedPath(packageId);
     FileValue buildFileValue = null;
     Path buildFilePath = buildFileRootedPath.asPath();

@@ -610,7 +610,8 @@ public class BuildEventStreamerTest extends FoundationTestCase {
             ImmutableMap.<Class<? extends BuildConfiguration.Fragment>,
                           BuildConfiguration.Fragment>of(),
             BuildOptions.of(ImmutableList.<Class<? extends FragmentOptions>>of(
-              BuildConfiguration.Options.class)));
+              BuildConfiguration.Options.class)),
+            "workspace");
     BuildEvent firstWithConfiguration =
         new GenericConfigurationEvent(testId("first"), configuration);
     BuildEvent secondWithConfiguration =

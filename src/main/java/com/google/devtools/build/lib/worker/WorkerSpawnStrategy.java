@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.actions.SandboxedSpawnActionContext;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.UserExecException;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
@@ -88,13 +87,13 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
   private final SpawnInputExpander spawnInputExpander;
 
   public WorkerSpawnStrategy(
-      BlazeDirectories blazeDirs,
+      Path execRoot,
       WorkerPool workers,
       boolean verboseFailures,
       Multimap<String, String> extraFlags) {
     Preconditions.checkNotNull(workers);
     this.workers = Preconditions.checkNotNull(workers);
-    this.execRoot = blazeDirs.getExecRoot();
+    this.execRoot = execRoot;
     this.verboseFailures = verboseFailures;
     this.extraFlags = extraFlags;
     this.spawnInputExpander = new SpawnInputExpander(false);

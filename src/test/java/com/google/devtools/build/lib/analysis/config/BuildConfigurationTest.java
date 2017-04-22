@@ -52,7 +52,8 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
 
     BuildConfiguration config = create("--cpu=piii");
     String outputDirPrefix = outputBase
-        + "/workspace/blaze-out/gcc-4.4.0-glibc-2.3.6-grte-piii-fastbuild";
+        + "/" + config.getMainRepositoryName()
+        + "/blaze-out/gcc-4.4.0-glibc-2.3.6-grte-piii-fastbuild";
 
     assertEquals(outputDirPrefix,
                  config.getOutputDirectory(RepositoryName.MAIN).getPath().toString());
@@ -73,7 +74,8 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
     }
 
     BuildConfiguration config = create("--platform_suffix=-test");
-    assertEquals(outputBase + "/workspace/blaze-out/gcc-4.4.0-glibc-2.3.6-grte-k8-fastbuild-test",
+    assertEquals(outputBase + "/" + config.getMainRepositoryName()
+            + "/blaze-out/gcc-4.4.0-glibc-2.3.6-grte-k8-fastbuild-test",
         config.getOutputDirectory(RepositoryName.MAIN).getPath().toString());
   }
 

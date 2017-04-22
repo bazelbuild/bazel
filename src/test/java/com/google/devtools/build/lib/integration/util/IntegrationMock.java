@@ -36,7 +36,8 @@ public class IntegrationMock {
    * Populates the _embedded_binaries/ directory, containing all binaries/libraries, by symlinking
    * directories#getEmbeddedBinariesRoot() to the test's runfiles tree.
    */
-  public BinTools getIntegrationBinTools(BlazeDirectories directories) throws IOException {
+  public BinTools getIntegrationBinTools(BlazeDirectories directories, String workspaceName)
+      throws IOException {
     Path embeddedDir = directories.getEmbeddedBinariesRoot();
     FileSystemUtils.createDirectoryAndParents(embeddedDir);
 
@@ -61,6 +62,6 @@ public class IntegrationMock {
     }
 
     return BinTools.forIntegrationTesting(
-        directories, embeddedDir.toString(), TestConstants.EMBEDDED_TOOLS);
+        directories, embeddedDir.toString(), TestConstants.EMBEDDED_TOOLS, workspaceName);
   }
 }
