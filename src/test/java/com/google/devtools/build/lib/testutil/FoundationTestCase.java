@@ -38,8 +38,6 @@ public abstract class FoundationTestCase {
 
   // May be overridden by subclasses:
   protected Reporter reporter;
-  // The event bus of the reporter
-  protected EventBus eventBus;
   protected EventCollector eventCollector;
   protected Scratch scratch;
 
@@ -78,8 +76,7 @@ public abstract class FoundationTestCase {
   @Before
   public final void initializeLogging() throws Exception {
     eventCollector = new EventCollector(EventKind.ERRORS_AND_WARNINGS);
-    eventBus = new EventBus();
-    reporter = new Reporter(eventBus, eventCollector);
+    reporter = new Reporter(new EventBus(), eventCollector);
     reporter.addHandler(failFastHandler);
   }
 

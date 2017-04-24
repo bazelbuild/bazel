@@ -13,15 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
-import static org.hamcrest.CoreMatchers.containsString;
-import static org.hamcrest.CoreMatchers.not;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.when;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
@@ -35,11 +31,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadProgressEvent;
-import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
-import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
-import com.google.devtools.build.lib.buildeventstream.BuildEventTransportClosedEvent;
-import com.google.devtools.build.lib.buildtool.BuildResult;
-import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
@@ -47,7 +38,6 @@ import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.PackageProgressReceiver;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.ManualClock;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.LoggingTerminalWriter;
 import com.google.devtools.build.lib.vfs.Path;
@@ -678,121 +668,4 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
         output.contains("example.org"));
   }
 
-  @Test
-  public void testMultipleBuildEventProtocolTransports() throws Exception {
-    // Verify that all announced transports are present in the progress bar
-    // and that as transports are closed they disappear from the progress bar.
-    // Verify that the wait duration is displayed.
-    // Verify that after all transports have been closed, the build status is displayed.
-    ManualClock clock = new ManualClock();
-    BuildEventTransport transport1 = newBepTransport("BuildEventTransport1");
-    BuildEventTransport transport2 = newBepTransport("BuildEventTransport2");
-    BuildEventTransport transport3 = newBepTransport("BuildEventTransport3");
-    BuildResult buildResult = new BuildResult(clock.currentTimeMillis());
-    buildResult.setExitCondition(ExitCode.SUCCESS);
-    clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
-    buildResult.setStopTime(clock.currentTimeMillis());
-
-    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock, 80);
-    stateTracker.buildStarted(null);
-    stateTracker.buildEventTransportsAnnounced(
-        new AnnounceBuildEventTransportsEvent(
-            ImmutableList.of(transport1, transport2, transport3)));
-    stateTracker.buildComplete(new BuildCompleteEvent(buildResult));
-
-    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(true);
-
-    clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
-    stateTracker.writeProgressBar(terminalWriter);
-    String output = terminalWriter.getTranscript();
-    assertThat(output, containsString("1s"));
-    assertThat(output, containsString("BuildEventTransport1"));
-    assertThat(output, containsString("BuildEventTransport2"));
-    assertThat(output, containsString("BuildEventTransport3"));
-    assertThat(output, containsString("success"));
-    assertThat(output, containsString("complete"));
-
-    clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
-    stateTracker.buildEventTransportClosed(new BuildEventTransportClosedEvent(transport1));
-    terminalWriter = new LoggingTerminalWriter(true);
-    stateTracker.writeProgressBar(terminalWriter);
-    output = terminalWriter.getTranscript();
-    assertThat(output, containsString("2s"));
-    assertThat(output, not(containsString("BuildEventTransport1")));
-    assertThat(output, containsString("BuildEventTransport2"));
-    assertThat(output, containsString("BuildEventTransport3"));
-    assertThat(output, containsString("success"));
-    assertThat(output, containsString("complete"));
-
-    clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
-    stateTracker.buildEventTransportClosed(new BuildEventTransportClosedEvent(transport3));
-    terminalWriter = new LoggingTerminalWriter(true);
-    stateTracker.writeProgressBar(terminalWriter);
-    output = terminalWriter.getTranscript();
-    assertThat(output, containsString("3s"));
-    assertThat(output, not(containsString("BuildEventTransport1")));
-    assertThat(output, containsString("BuildEventTransport2"));
-    assertThat(output, not(containsString("BuildEventTransport3")));
-    assertThat(output, containsString("success"));
-    assertThat(output, containsString("complete"));
-
-    clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
-    stateTracker.buildEventTransportClosed(new BuildEventTransportClosedEvent(transport2));
-    terminalWriter = new LoggingTerminalWriter(true);
-    stateTracker.writeProgressBar(terminalWriter);
-    output = terminalWriter.getTranscript();
-    assertThat(output, not(containsString("3s")));
-    assertThat(output, not(containsString("BuildEventTransport1")));
-    assertThat(output, not(containsString("BuildEventTransport2")));
-    assertThat(output, not(containsString("BuildEventTransport3")));
-    assertThat(output, containsString("success"));
-    assertThat(output, containsString("complete"));
-    assertEquals(1, output.split("\\n").length);
-  }
-
-  @Test
-  public void testBuildEventTransportsOnNarrowTerminal() throws IOException{
-    // Verify that the progress bar contains useful information on a 60-character terminal.
-    //   - Too long names should be shortened to reasonably long prefixes of the name.
-    ManualClock clock = new ManualClock();
-    BuildEventTransport transport1 =
-        newBepTransport(Strings.repeat("A", 61));
-    BuildEventTransport transport2 = newBepTransport("BuildEventTransport");
-    BuildResult buildResult = new BuildResult(clock.currentTimeMillis());
-    buildResult.setExitCondition(ExitCode.SUCCESS);
-    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(true);
-    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock, 60);
-    stateTracker.buildStarted(null);
-    stateTracker.buildEventTransportsAnnounced(
-        new AnnounceBuildEventTransportsEvent(ImmutableList.of(transport1, transport2)));
-    stateTracker.buildComplete(new BuildCompleteEvent(buildResult));
-    clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
-    stateTracker.writeProgressBar(terminalWriter);
-    String output = terminalWriter.getTranscript();
-    assertTrue(longestLine(output) <= 60);
-    assertThat(output, containsString("1s"));
-    assertThat(output, containsString(Strings.repeat("A", 30) + "..."));
-    assertThat(output, containsString("BuildEventTransport"));
-    assertThat(output, containsString("success"));
-    assertThat(output, containsString("complete"));
-
-    clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
-    stateTracker.buildEventTransportClosed(new BuildEventTransportClosedEvent(transport2));
-    terminalWriter = new LoggingTerminalWriter(true);
-    stateTracker.writeProgressBar(terminalWriter);
-    output = terminalWriter.getTranscript();
-    assertTrue(longestLine(output) <= 60);
-    assertThat(output, containsString("2s"));
-    assertThat(output, containsString(Strings.repeat("A", 30) + "..."));
-    assertThat(output, not(containsString("BuildEventTransport")));
-    assertThat(output, containsString("success"));
-    assertThat(output, containsString("complete"));
-    assertEquals(2, output.split("\\n").length);
-  }
-
-  private BuildEventTransport newBepTransport(String name) {
-    BuildEventTransport transport = Mockito.mock(BuildEventTransport.class);
-    when(transport.name()).thenReturn(name);
-    return transport;
-  }
 }

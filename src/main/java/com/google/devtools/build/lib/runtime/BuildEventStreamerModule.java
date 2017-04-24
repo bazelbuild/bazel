@@ -108,8 +108,7 @@ public class BuildEventStreamerModule extends BlazeModule {
       ImmutableSet<BuildEventTransport> buildEventTransports
           = createFromOptions(besOptions, pathConverter);
       if (!buildEventTransports.isEmpty()) {
-        BuildEventStreamer streamer = new BuildEventStreamer(buildEventTransports,
-            commandEnvironment != null ? commandEnvironment.getReporter() : null);
+        BuildEventStreamer streamer = new BuildEventStreamer(buildEventTransports);
         return Optional.of(streamer);
       }
     } catch (IOException e) {
