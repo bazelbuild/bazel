@@ -37,7 +37,7 @@ for i in $*; do
     *JavaBuilder*_deploy.jar) OUTPUT_PATH=tools/jdk/${i##*/} ;;
     *JacocoCoverage*_deploy.jar) OUTPUT_PATH=tools/jdk/JacocoCoverage_deploy.jar ;;
     *turbine_deploy.jar) OUTPUT_PATH=tools/jdk/turbine_deploy.jar ;;
-    *javac-9-dev-r3297-4.jar) OUTPUT_PATH=third_party/java/jdk/langtools/javac-9-dev-r3297-4.jar ;;
+    *javac-9-dev-r4023-1.jar) OUTPUT_PATH=third_party/java/jdk/langtools/javac-9-dev-r4023-1.jar ;;
     *javac7.jar) OUTPUT_PATH=third_party/java/jdk/langtools/javac7.jar ;;
     *SingleJar_deploy.jar) OUTPUT_PATH=tools/jdk/SingleJar_deploy.jar ;;
     *GenClass_deploy.jar) OUTPUT_PATH=tools/jdk/GenClass_deploy.jar ;;
@@ -76,9 +76,9 @@ if [ -f ${PACKAGE_DIR}/jdk.zip ]; then
   mv ${PACKAGE_DIR}/zulu* ${PACKAGE_DIR}/jdk
 fi
 
-if [ ! -f ${PACKAGE_DIR}/third_party/java/jdk/langtools/javac-9-dev-r3297-4.jar ]; then
+if [ ! -f ${PACKAGE_DIR}/third_party/java/jdk/langtools/javac-9-dev-r4023-1.jar ]; then
   cp ${PACKAGE_DIR}/third_party/java/jdk/langtools/javac7.jar \
-      ${PACKAGE_DIR}/third_party/java/jdk/langtools/javac-9-dev-r3297-4.jar
+      ${PACKAGE_DIR}/third_party/java/jdk/langtools/javac-9-dev-r4023-1.jar
 fi
 
 cat > "${PACKAGE_DIR}/WORKSPACE" <<EOF

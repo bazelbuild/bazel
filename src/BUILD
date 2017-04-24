@@ -130,7 +130,7 @@ filegroup(
         "//tools:embedded_tools_srcs",
         "//third_party:gpl-srcs",
         "//third_party/java/jarjar:embedded_tools_srcs",
-        "//third_party/java/jdk/langtools:test-srcs",
+        "//third_party/java/jdk/langtools:test-srcs-9-dev-r4023-1",
         "//third_party/py/concurrent:srcs",
         "//third_party/py/gflags:srcs",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",

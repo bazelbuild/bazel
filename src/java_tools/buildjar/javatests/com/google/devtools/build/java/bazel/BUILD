@@ -9,11 +9,11 @@ java_test(
     size = "small",
     srcs = ["BazelJavaCompilerTest.java"],
     data = [
-        "//third_party/java/jdk/langtools:javac_jar",
+        "//third_party/java/jdk/langtools:javac_jar-9-dev-r4023-1",
     ],
     jvm_flags = [
         # Simulates how Bazel invokes JavaBuilder
-        "-Xbootclasspath/p:$(location //third_party/java/jdk/langtools:javac_jar)",
+        "-Xbootclasspath/p:$(location //third_party/java/jdk/langtools:javac_jar-9-dev-r4023-1)",
     ],
     tags = ["jdk8"],
     test_class = "com.google.devtools.build.java.bazel.BazelJavaCompilerTest",

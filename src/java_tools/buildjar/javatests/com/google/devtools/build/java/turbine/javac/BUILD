@@ -8,11 +8,11 @@ java_test(
     name = "JavacTurbineTest",
     srcs = ["JavacTurbineTest.java"],
     data = [
-        "//third_party/java/jdk/langtools:javac_jar",
+        "//third_party/java/jdk/langtools:javac_jar-9-dev-r4023-1",
     ],
     jvm_flags = [
         # Simulates how Bazel invokes turbine
-        "-Xbootclasspath/p:$(location //third_party/java/jdk/langtools:javac_jar)",
+        "-Xbootclasspath/p:$(location //third_party/java/jdk/langtools:javac_jar-9-dev-r4023-1)",
     ],
     tags = ["jdk8"],
     deps = [
@@ -25,7 +25,7 @@ java_test(
         "//third_party:junit4",
         "//third_party:truth",
         "//third_party:turbine",
-        "//third_party/java/jdk/langtools:javac",
+        "//third_party/java/jdk/langtools:javac-9-dev-r4023-1",
     ],
 )
 
@@ -38,6 +38,6 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-        "//third_party/java/jdk/langtools:javac",
+        "//third_party/java/jdk/langtools:javac-9-dev-r4023-1",
     ],
 )

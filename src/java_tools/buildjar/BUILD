@@ -69,7 +69,7 @@ java_toolchain(
     genclass = ["bootstrap_genclass_deploy.jar"],
     ijar = ["//third_party/ijar"],
     javabuilder = ["bootstrap_deploy.jar"],
-    javac = ["//third_party/java/jdk/langtools:javac_jar"],
+    javac = ["//third_party/java/jdk/langtools:javac_jar-9-dev-r4023-1"],
     jvm_opts = [
         "-XX:+TieredCompilation",
         "-XX:TieredStopAtLevel=1",

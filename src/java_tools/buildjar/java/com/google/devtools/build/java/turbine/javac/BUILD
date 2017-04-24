@@ -20,7 +20,7 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:turbine",
-        "//third_party/java/jdk/langtools:javac",
+        "//third_party/java/jdk/langtools:javac-9-dev-r4023-1",
     ],
 )
 
@@ -31,7 +31,7 @@ java_library(
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:dependency",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/java/jdk/langtools:javac",
+        "//third_party/java/jdk/langtools:javac-9-dev-r4023-1",
     ],
 )
 
@@ -41,7 +41,7 @@ java_library(
     deps = [
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/java/jdk/langtools:javac",
+        "//third_party/java/jdk/langtools:javac-9-dev-r4023-1",
     ],
 )
 
@@ -56,7 +56,7 @@ java_library(
         "//third_party:guava",
         "//third_party:jimfs",
         "//third_party:jsr305",
-        "//third_party/java/jdk/langtools:javac",
+        "//third_party/java/jdk/langtools:javac-9-dev-r4023-1",
     ],
 )
 
@@ -68,7 +68,7 @@ java_library(
         ":tree_pruner",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:dependency",
         "//third_party:jsr305",
-        "//third_party/java/jdk/langtools:javac",
+        "//third_party/java/jdk/langtools:javac-9-dev-r4023-1",
     ],
 )
 
@@ -77,7 +77,7 @@ java_library(
     srcs = ["ZipUtil.java"],
     deps = [
         "//third_party:jsr305",
-        "//third_party/java/jdk/langtools:javac",
+        "//third_party/java/jdk/langtools:javac-9-dev-r4023-1",
     ],
 )
 
@@ -87,7 +87,7 @@ java_library(
     deps = [
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/java/jdk/langtools:javac",
+        "//third_party/java/jdk/langtools:javac-9-dev-r4023-1",
     ],
 )
 

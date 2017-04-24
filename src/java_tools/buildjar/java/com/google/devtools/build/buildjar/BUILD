@@ -40,7 +40,7 @@ java_library(
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/java/jdk/langtools:javac",
+        "//third_party/java/jdk/langtools:javac-9-dev-r4023-1",
     ],
 )
 
@@ -71,7 +71,7 @@ java_library(
         "//src/main/protobuf:worker_protocol_java_proto",
         "//third_party:guava",
         "//third_party/java/jacoco:core",
-        "//third_party/java/jdk/langtools:javac",
+        "//third_party/java/jdk/langtools:javac-9-dev-r4023-1",
     ],
 )
 
@@ -130,12 +130,12 @@ bootstrap_java_library(
     name = "skylark-deps",
     jars = [
         "//third_party:auto_value-jars",
-        "//third_party:bootstrap_guava_and_error_prone-jars",
+        "//third_party:bootstrap_guava_and_error_prone-jars-2.0.20-SNAPSHOT",
         "//third_party:jsr305-jars",
         "//third_party/protobuf:protobuf-jars",
         "//third_party/java/jacoco:core-jars",
     ],
-    neverlink_jars = ["//third_party/java/jdk/langtools:javac_jar"],
+    neverlink_jars = ["//third_party/java/jdk/langtools:javac_jar-9-dev-r4023-1"],
     srcjars = [
         "//src/main/protobuf:deps_java_proto_srcjar",
         "//src/main/protobuf:worker_protocol_java_proto_srcjar",
@@ -172,7 +172,7 @@ bootstrap_java_library(
     jars = [
         "//third_party:jsr305-jars",
         "//third_party:auto_value-jars",
-        "//third_party:bootstrap_guava_and_error_prone-jars",
+        "//third_party:bootstrap_guava_and_error_prone-jars-2.0.20-SNAPSHOT",
     ],
 )
 

@@ -114,7 +114,7 @@ alias(
 
 filegroup(
     name = "langtools",
-    srcs = ["//third_party/java/jdk/langtools:javac_jar"],
+    srcs = ["//third_party/java/jdk/langtools:javac_jar-9-dev-r4023-1"],
 )
 
 java_import(
@@ -143,7 +143,7 @@ java_toolchain(
     header_compiler = ["@bazel_tools//tools/jdk:turbine"],
     ijar = ["@bazel_tools//tools/jdk:ijar"],
     javabuilder = ["@bazel_tools//tools/jdk:javabuilder"],
-    javac = ["//third_party/java/jdk/langtools:javac_jar"],
+    javac = ["//third_party/java/jdk/langtools:javac_jar-9-dev-r4023-1"],
     javac_supports_workers = 1,
     jvm_opts = [
         "-XX:+TieredCompilation",

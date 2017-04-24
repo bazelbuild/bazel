@@ -16,7 +16,7 @@ java_library(
     srcs = ["BlazeJavaCompilerPlugin.java"],
     deps = [
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:invalid_command_line_exception",
-        "//third_party/java/jdk/langtools:javac",
+        "//third_party/java/jdk/langtools:javac-9-dev-r4023-1",
     ],
 )
 
@@ -28,7 +28,7 @@ java_library(
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:JarOwner",
         "//src/main/protobuf:deps_java_proto",
         "//third_party:guava",
-        "//third_party/java/jdk/langtools:javac",
+        "//third_party/java/jdk/langtools:javac-9-dev-r4023-1",
     ],
 )
 
@@ -38,9 +38,9 @@ java_library(
     deps = [
         ":plugins",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:invalid_command_line_exception",
-        "//third_party:error_prone",
+        "//third_party:error_prone-2.0.20-SNAPSHOT",
         "//third_party:guava",
-        "//third_party/java/jdk/langtools:javac",
+        "//third_party/java/jdk/langtools:javac-9-dev-r4023-1",
     ],
 )
 
@@ -51,7 +51,7 @@ java_library(
         ":plugins",
         "//src/main/protobuf:java_compilation_java_proto",
         "//third_party:guava",
-        "//third_party/java/jdk/langtools:javac",
+        "//third_party/java/jdk/langtools:javac-9-dev-r4023-1",
     ],
 )
 

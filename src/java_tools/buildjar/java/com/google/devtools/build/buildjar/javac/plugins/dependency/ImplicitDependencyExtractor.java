@@ -71,9 +71,6 @@ public class ImplicitDependencyExtractor {
    */
   public void accumulate(Context context, Set<ClassSymbol> roots) {
     Symtab symtab = Symtab.instance(context);
-    if (symtab.classes == null) {
-      return;
-    }
 
     // Collect transitive references for root types
     for (ClassSymbol root : roots) {
@@ -83,7 +80,7 @@ public class ImplicitDependencyExtractor {
     Set<String> platformJars = getPlatformJars(fileManager);
 
     // Collect all other partially resolved types
-    for (ClassSymbol cs : symtab.classes.values()) {
+    for (ClassSymbol cs : symtab.getAllClasses()) {
       // When recording we want to differentiate between jar references through completed symbols
       // and incomplete symbols
       boolean completed = cs.isCompleted();
