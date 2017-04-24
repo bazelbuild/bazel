@@ -444,4 +444,4 @@ EOF
   assert_equals "fail" "$(sed -n '3p' < bazel-testlogs/fail/test.log)"
 }
 
-run_suite "test tests"
+run_suite "bazel test tests"

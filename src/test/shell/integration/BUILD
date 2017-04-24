@@ -265,6 +265,12 @@ sh_test(
     data = [":test-deps"],
 )
 
+sh_test(
+    name = "test_test",
+    srcs = ["test_test.sh"],
+    data = [":test-deps"],
+)
+
 test_suite(
     name = "all_tests",
     visibility = ["//visibility:public"],

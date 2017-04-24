@@ -244,7 +244,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     for (int i = 0; i < data.getFailedLogsCount(); i++) {
       dataBuilder.addFailedLogs(data.getFailedLogs(i));
     }
-    if (data.hasTestPassed()) {
+    if (data.getTestPassed()) {
       dataBuilder.setPassedLog(data.getPassedLog());
     }
     dataBuilder.addTestTimes(data.getTestTimes(0));
