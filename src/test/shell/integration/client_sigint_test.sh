@@ -45,7 +45,9 @@ EOF
   mkfifo $testfifo $sleepyfifo || fail "Couldn't create FIFOs under x"
 
   set -m
-  bazel $startup_opt build --package_path . //x:sleepy >& $TEST_log &
+  # TODO(b/37617303): make test UI-independent
+  bazel $startup_opt build --noexperimental_ui \
+      --package_path . //x:sleepy >& $TEST_log &
   local pid=$!
 
   echo "${PRODUCT_NAME} running in background with pid $pid"

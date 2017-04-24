@@ -133,7 +133,8 @@ EOF
 
   chmod +x foo/bar/test.sh
 
-  bazel test --output_filter="dummy" foo/bar:test 2> stderr.txt
+  # TODO(b/37617303): make tests UI-independent
+  bazel test --noexperimental_ui --output_filter="dummy" foo/bar:test 2> stderr.txt
   grep "PASS: //foo/bar:test" stderr.txt || fail "no PASSED message"
 }
 
