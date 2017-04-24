@@ -441,13 +441,12 @@ class WindowsRunner(object):
           % (str(abspath), MAX_PATH_ADJUSTED, len(abspath)))
     return abspath
 
-  def RunBinary(self, binary, args, build_arch, parser):
+  def RunBinary(self, binary, args, parser):
     """Runs binary on Windows with the passed args.
 
     Args:
       binary: The binary to run.
       args: The arguments to pass to binary.
-      build_arch: Either 'x64' or 'x86', which binary architecture to build for.
       parser: An ArgParser that contains parsed arguments.
 
     Returns:

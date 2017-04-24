@@ -106,13 +106,11 @@ class MsvcCompiler(msvc_tools.WindowsRunner):
       ValueError: if target architecture isn't specified
     """
     parser = msvc_tools.ArgParser(self, argv, GCCPATTERNS)
-    if not parser.target_arch:
-      raise ValueError('Must specify target architecture (-m32 or -m64)')
 
     compiler = 'cl'
     if parser.is_cuda_compilation:
       compiler = 'nvcc'
-    return self.RunBinary(compiler, parser.options, parser.target_arch, parser)
+    return self.RunBinary(compiler, parser.options, parser)
 
 
 def main(argv):

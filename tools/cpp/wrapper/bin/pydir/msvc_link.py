@@ -62,7 +62,7 @@ class MsvcLinker(msvc_tools.WindowsRunner):
     """
     # For now assume we are building a library.
     tool = 'lib'
-    default_args = ['/nologo']
+    default_args = []
 
     # Build argument list.
     parser = msvc_tools.ArgParser(self, argv, LINKPATTERNS)
@@ -90,19 +90,6 @@ class MsvcLinker(msvc_tools.WindowsRunner):
       if os.path.splitext(name)[1] not in ['.a', '.lo']:
         tool = 'link'
 
-        if not parser.target_arch:
-          raise ValueError('Must specify target architecture (-m32 or -m64)')
-
-        # Append explicit machine type.
-        if parser.target_arch == 'x64':
-          default_args.append('/MACHINE:X64')
-        else:
-          default_args.append('/MACHINE:X86')
-
-        # Args for buildng a console application. These must appear here since
-        # blaze will not properly pass them to the linker.
-        # /SUBSYSTEM:CONSOLE: Build a console application.
-        default_args += ['/SUBSYSTEM:CONSOLE']
         # If there is no .o on the command line, then we need to add the
         # run-time library for the target. Without this the linker gives a
         # LNK4001 error and cannot find an entry point.
@@ -123,8 +110,7 @@ class MsvcLinker(msvc_tools.WindowsRunner):
           default_args.insert(0, rtlib %
                               ('d' if parser.compilation_mode == 'dbg' else ''))
 
-      return self.RunBinary(tool, default_args + parser.options,
-                            parser.target_arch, parser)
+      return self.RunBinary(tool, default_args + parser.options, parser)
 
 
 def main(argv):

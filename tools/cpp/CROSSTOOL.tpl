@@ -171,8 +171,6 @@ toolchain {
   supports_normalizing_ar: true
   needsPic: false
 
-  compiler_flag: "-m64"
-  compiler_flag: "/D__inline__=__inline"
   # TODO(pcloudy): Review those flags below, they should be defined by cl.exe
   compiler_flag: "/DOS_WINDOWS=OS_WINDOWS"
   compiler_flag: "/DCOMPILER_MSVC"
@@ -192,8 +190,6 @@ toolchain {
   compiler_flag: "/D_USE_MATH_DEFINES"
 
   # Useful options to have on for compilation.
-  # Suppress startup banner.
-  compiler_flag: "/nologo"
   # Increase the capacity of object files to 2^32 sections.
   compiler_flag: "/bigobj"
   # Allocate 500MB for precomputed headers.
@@ -219,7 +215,33 @@ toolchain {
   # Don't warn about insecure functions (e.g. non _s functions).
   compiler_flag: "/wd4996"
 
-  linker_flag: "-m64"
+  linker_flag: "/MACHINE:X64"
+
+  linker_flag: "/SUBSYSTEM:CONSOLE"
+
+  # Suppress startup banner.
+  feature {
+    name: "nologo"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-static-library"
+      action: "c++-link-alwayslink-static-library"
+      action: "c++-link-pic-static-library"
+      action: "c++-link-alwayslink-pic-static-library"
+      flag_group {
+        flag: "/nologo"
+      }
+    }
+  }
 
   feature {
     name: "msvc_env"
@@ -227,6 +249,7 @@ toolchain {
       action: "c-compile"
       action: "c++-compile"
       action: "c++-module-compile"
+      action: "c++-module-codegen"
       action: "c++-header-parsing"
       action: "c++-header-preprocessing"
       action: "assemble"
@@ -336,6 +359,7 @@ toolchain {
         flag: '/Fi%{output_preprocess_file}'
       }
     }
+    implies: 'nologo'
     implies: 'msvc_env'
   }
 
@@ -370,6 +394,7 @@ toolchain {
         flag: '/Fi%{output_preprocess_file}'
       }
     }
+    implies: 'nologo'
     implies: 'msvc_env'
   }
 
@@ -379,6 +404,7 @@ toolchain {
      tool {
          tool_path: 'wrapper/bin/msvc_link.bat'
      }
+     implies: 'nologo'
      implies: 'strip_debug_symbols'
      implies: 'linkstamps'
      implies: 'output_execpath_flags'
@@ -394,6 +420,7 @@ toolchain {
      tool {
          tool_path: 'wrapper/bin/msvc_link.bat'
      }
+     implies: 'nologo'
      implies: 'strip_debug_symbols'
      implies: 'shared_flag'
      implies: 'linkstamps'
@@ -411,6 +438,7 @@ toolchain {
      tool {
          tool_path: 'wrapper/bin/msvc_link.bat'
      }
+     implies: 'nologo'
      implies: 'input_param_flags'
      implies: 'linker_param_file'
      implies: 'msvc_env'
@@ -422,6 +450,7 @@ toolchain {
      tool {
          tool_path: 'wrapper/bin/msvc_link.bat'
      }
+     implies: 'nologo'
      implies: 'input_param_flags'
      implies: 'linker_param_file'
      implies: 'msvc_env'
@@ -435,6 +464,7 @@ toolchain {
      tool {
          tool_path: 'wrapper/bin/msvc_link.bat'
      }
+     implies: 'nologo'
      implies: 'input_param_flags'
      implies: 'linker_param_file'
      implies: 'msvc_env'
@@ -446,6 +476,7 @@ toolchain {
      tool {
          tool_path: 'wrapper/bin/msvc_link.bat'
      }
+     implies: 'nologo'
      implies: 'input_param_flags'
      implies: 'linker_param_file'
      implies: 'msvc_env'
@@ -457,6 +488,7 @@ toolchain {
     tool {
       tool_path: 'wrapper/bin/msvc_link.bat'
     }
+    implies: 'nologo'
     implies: 'strip_debug_symbols'
     implies: 'linker_param_file'
     implies: 'msvc_env'
@@ -680,8 +712,11 @@ toolchain {
       action: 'c++-compile'
       flag_group {
         flag: "/Od"
-        flag: '/MTd'
         flag: "/Z7"
+        # This will signal the wrapper that we are doing a debug build, which sets
+        # some internal state of the toolchain wrapper. It is intentionally a "-"
+        # flag to make this very obvious.
+        flag: "-g"
       }
     }
     flag_set {
@@ -702,7 +737,6 @@ toolchain {
       action: 'c++-compile'
       flag_group {
         flag: "/Od"
-        flag: '/MT'
         flag: "/Z7"
       }
     }
@@ -724,7 +758,6 @@ toolchain {
       action: 'c++-compile'
       flag_group {
         flag: "/O2"
-        flag: '/MT'
       }
     }
   }
