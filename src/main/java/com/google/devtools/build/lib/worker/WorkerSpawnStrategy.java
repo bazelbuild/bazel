@@ -53,12 +53,8 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.protobuf.ByteString;
-import java.io.ByteArrayOutputStream;
-import java.io.FilterInputStream;
+import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
-import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -77,93 +73,6 @@ import java.util.regex.Pattern;
   contextType = SpawnActionContext.class
 )
 public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
-
-  /**
-   * An input stream filter that records the first X bytes read from its wrapped stream.
-   *
-   * <p>The number bytes to record can be set via {@link #startRecording(int)}}, which also discards
-   * any already recorded data. The recorded data can be retrieved via {@link
-   * #getRecordedDataAsString(Charset)}.
-   */
-  private static final class RecordingInputStream extends FilterInputStream {
-    private static final Pattern NON_PRINTABLE_CHARS =
-        Pattern.compile("[^\\p{Print}\\t\\r\\n]", Pattern.UNICODE_CHARACTER_CLASS);
-
-    private ByteArrayOutputStream recordedData;
-    private int maxRecordedSize;
-
-    protected RecordingInputStream(InputStream in) {
-      super(in);
-    }
-
-    /**
-     * Returns the maximum number of bytes that can still be recorded in our buffer (but not more
-     * than {@code size}).
-     */
-    private int getRecordableBytes(int size) {
-      if (recordedData == null) {
-        return 0;
-      }
-      return Math.min(maxRecordedSize - recordedData.size(), size);
-    }
-
-    @Override
-    public int read() throws IOException {
-      int bytesRead = super.read();
-      if (getRecordableBytes(bytesRead) > 0) {
-        recordedData.write(bytesRead);
-      }
-      return bytesRead;
-    }
-
-    @Override
-    public int read(byte[] b) throws IOException {
-      int bytesRead = super.read(b);
-      int recordableBytes = getRecordableBytes(bytesRead);
-      if (recordableBytes > 0) {
-        recordedData.write(b, 0, recordableBytes);
-      }
-      return bytesRead;
-    }
-
-    @Override
-    public int read(byte[] b, int off, int len) throws IOException {
-      int bytesRead = super.read(b, off, len);
-      int recordableBytes = getRecordableBytes(bytesRead);
-      if (recordableBytes > 0) {
-        recordedData.write(b, off, recordableBytes);
-      }
-      return bytesRead;
-    }
-
-    public void startRecording(int maxSize) {
-      recordedData = new ByteArrayOutputStream(maxSize);
-      maxRecordedSize = maxSize;
-    }
-
-    /**
-     * Reads whatever remaining data is available on the input stream if we still have space left in
-     * the recording buffer, in order to maximize the usefulness of the recorded data for the
-     * caller.
-     */
-    public void readRemaining() {
-      try {
-        byte[] dummy = new byte[getRecordableBytes(available())];
-        read(dummy);
-      } catch (IOException e) {
-        // Ignore.
-      }
-    }
-
-    /**
-     * Returns the recorded data as a string, where non-printable characters are replaced with a '?'
-     * symbol.
-     */
-    public String getRecordedDataAsString(Charset charsetName) throws UnsupportedEncodingException {
-      String recordedString = recordedData.toString(charsetName.name());
-      return NON_PRINTABLE_CHARS.matcher(recordedString).replaceAll("?").trim();
-    }
-  }
 
   public static final String ERROR_MESSAGE_PREFIX =
       "Worker strategy cannot execute this %s action, ";
@@ -387,7 +296,7 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
       recordingStream.startRecording(4096);
       try {
         response = WorkResponse.parseDelimitedFrom(recordingStream);
-      } catch (IOException e2) {
+      } catch (InvalidProtocolBufferException e2) {
         // If protobuf couldn't parse the response, try to print whatever the failing worker wrote
         // to stdout - it's probably a stack trace or some kind of error message that will help the
         // user figure out why the compiler is failing.

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.worker;
 
+import com.google.common.base.Charsets;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -40,6 +41,7 @@ import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.devtools.common.options.OptionsClassProvider;
+import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -152,7 +154,23 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
       request.writeDelimitedTo(worker.getOutputStream());
       worker.getOutputStream().flush();
 
-      WorkResponse response = WorkResponse.parseDelimitedFrom(worker.getInputStream());
+      RecordingInputStream recordingStream = new RecordingInputStream(worker.getInputStream());
+      recordingStream.startRecording(4096);
+      WorkResponse response;
+      try {
+        response = WorkResponse.parseDelimitedFrom(recordingStream);
+      } catch (InvalidProtocolBufferException e) {
+        // If protobuf couldn't parse the response, try to print whatever the failing worker wrote
+        // to stdout - it's probably a stack trace or some kind of error message that will help the
+        // user figure out why the compiler is failing.
+        recordingStream.readRemaining();
+        String data = recordingStream.getRecordedDataAsString(Charsets.UTF_8);
+        executor
+            .getEventHandler()
+            .handle(Event.warn("Worker process returned an unparseable WorkResponse:\n" + data));
+        throw e;
+      }
+
       actionExecutionContext.getFileOutErr().getErrorStream().write(
           response.getOutputBytes().toByteArray());
 
