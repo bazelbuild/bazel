@@ -1621,38 +1621,24 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   }
 
   /**
-   * Creates an action that copies a .zip file to a specified path, filtering all non-.dex files
-   * out of the output.
+   * Creates an action that copies a .zip file to a specified path, filtering all non-.dex files out
+   * of the output.
    */
-  static void createCleanDexZipAction(RuleContext ruleContext, Artifact inputZip,
-      Artifact outputZip) {
-    if (ruleContext.getFragment(AndroidConfiguration.class).useSingleJarForMultidex()) {
-      ruleContext.registerAction(singleJarSpawnActionBuilder(ruleContext)
-          .addArgument("--exclude_build_data")
-          .addArgument("--dont_change_compression")
-          .addArgument("--sources")
-          .addInputArgument(inputZip)
-          .addArgument("--output")
-          .addOutputArgument(outputZip)
-          .addArgument("--include_prefixes")
-          .addArgument("classes")
-          .setProgressMessage("Trimming " + inputZip.getExecPath().getBaseName())
-          .setMnemonic("TrimDexZip")
-          .build(ruleContext));
-    } else {
-      ruleContext.registerAction(new SpawnAction.Builder()
-          .setExecutable(ruleContext.getExecutablePrerequisite("$zip", Mode.HOST))
-          .addInput(inputZip)
-          .addOutput(outputZip)
-          .addArgument(inputZip.getExecPathString())
-          .addArgument("--out")
-          .addArgument(outputZip.getExecPathString())
-          .addArgument("--copy")
-          .addArgument("classes*.dex")
-          .setProgressMessage("Trimming " + inputZip.getExecPath().getBaseName())
-          .setMnemonic("TrimDexZip")
-          .build(ruleContext));
-    }
+  static void createCleanDexZipAction(
+      RuleContext ruleContext, Artifact inputZip, Artifact outputZip) {
+    ruleContext.registerAction(
+        singleJarSpawnActionBuilder(ruleContext)
+            .addArgument("--exclude_build_data")
+            .addArgument("--dont_change_compression")
+            .addArgument("--sources")
+            .addInputArgument(inputZip)
+            .addArgument("--output")
+            .addOutputArgument(outputZip)
+            .addArgument("--include_prefixes")
+            .addArgument("classes")
+            .setProgressMessage("Trimming " + inputZip.getExecPath().getBaseName())
+            .setMnemonic("TrimDexZip")
+            .build(ruleContext));
   }
 
   /**

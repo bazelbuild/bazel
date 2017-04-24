@@ -460,7 +460,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       name = "experimental_android_use_singlejar_for_multidex",
       defaultValue = "true",
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-      help = "Use SingleJar for multidex dex extraction."
+      deprecationWarning =
+          "This flag is deprecated and is a no-op. It will be removed in a future release.",
+      help = "This flag is deprecated and is a no-op. It will be removed in a future release."
     )
     public boolean useSingleJarForMultidex;
 
@@ -602,7 +604,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final AndroidManifestMerger manifestMerger;
   private final ApkSigningMethod apkSigningMethod;
   private final boolean useSingleJarApkBuilder;
-  private final boolean useSingleJarForMultidex;
   private final ResourceFilter resourceFilter;
   private final boolean useSingleJarForProguardLibraryJars;
   private final boolean compressJavaResources;
@@ -634,7 +635,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.manifestMerger = options.manifestMerger;
     this.apkSigningMethod = options.apkSigningMethod;
     this.useSingleJarApkBuilder = options.useSingleJarApkBuilder;
-    this.useSingleJarForMultidex = options.useSingleJarForMultidex;
     this.useSingleJarForProguardLibraryJars = options.useSingleJarForProguardLibraryJars;
     this.useRexToCompressDexFiles = options.useRexToCompressDexFiles;
     this.resourceFilter = options.resourceFilter;
@@ -735,10 +735,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   public boolean useSingleJarApkBuilder() {
     return useSingleJarApkBuilder;
-  }
-
-  public boolean useSingleJarForMultidex() {
-    return useSingleJarForMultidex;
   }
 
   public ResourceFilter getResourceFilter() {
