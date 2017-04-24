@@ -374,7 +374,7 @@ static vector<string> GetArgumentArray() {
   for (const auto &it : globals->extracted_binaries) {
     if (IsSharedLibrary(it)) {
       if (!first) {
-        java_library_path += blaze::ListSeparator();
+        java_library_path += kListSeparator;
       }
       first = false;
       java_library_path += blaze::PathAsJvmFlag(

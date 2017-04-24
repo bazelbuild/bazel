@@ -135,8 +135,8 @@ std::string ConvertPathList(const std::string& path_list);
 // See https://github.com/bazelbuild/bazel/issues/2576
 std::string PathAsJvmFlag(const std::string& path);
 
-// Return a string used to separate paths in a list.
-std::string ListSeparator();
+// A character used to separate paths in a list.
+extern const char kListSeparator;
 
 // Create a symlink to directory ``target`` at location ``link``.
 // Returns true on success, false on failure. The target must be absolute.

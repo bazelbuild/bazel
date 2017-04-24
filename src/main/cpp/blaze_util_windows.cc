@@ -904,7 +904,7 @@ void ExecuteProgram(const string& exe, const std::vector<string>& args_vector) {
   exit(exit_code);
 }
 
-string ListSeparator() { return ";"; }
+const char kListSeparator = ';';
 
 string PathAsJvmFlag(const string& path) {
   string spath;
