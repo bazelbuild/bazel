@@ -9,7 +9,7 @@ title: Rules
 
 A rule defines a series of [actions](#actions) that Bazel should perform on
 inputs to get a set of outputs. For example, a C++ binary rule might take a set
-of .cpp files (the inputs), run `g++` on them (the action), and return an
+of `.cpp` files (the inputs), run `g++` on them (the action), and return an
 executable file (the output).
 
 Note that, from Bazel's perspective, `g++` and the standard C++ libraries are
@@ -55,7 +55,7 @@ the attributes and their types when you define a rule.
 
 ```python
 sum = rule(
-    implementation = impl,
+    implementation = _impl,
     attrs = {
         "number": attr.int(default = 1),
         "deps": attr.label_list(),
@@ -78,19 +78,23 @@ See [an example](cookbook.md#attr) of using `attr` in a rule.
 
 ### <a name="private-attributes"></a> Private Attributes
 
-If an attribute name starts with `_` it is private and users cannot set it. It
-is useful in particular for label attributes (your rule will have an
+In Python, we use one leading underscore(`_`) for non-public methods and
+instance variables (see [PEP-8][1]).
+
+Similarly, if an attribute name starts with `_` it is private and users cannot
+set it.
+It is useful in particular for label attributes (your rule will have an
 implicit dependency on this label).
 
 ```python
 metal_compile = rule(
-    implementation=impl,
-    attrs={
+    implementation = _impl,
+    attrs = {
         "srcs": attr.label_list(),
         "_compiler": attr.label(
-            default=Label("//tools:metalc"),
-            allow_single_file=True,
-            executable=True,
+            default = Label("//tools:metalc"),
+            allow_single_file = True,
+            executable = True,
         ),
     },
 )
@@ -108,16 +112,16 @@ has some helper functions. See [the library](lib/ctx.html) for more context.
 Example:
 
 ```python
-def impl(ctx):
+def _impl(ctx):
   ...
   return struct(
-      runfiles=...,
-      my_provider=...,
+      runfiles = ...,
+      my_provider = ...,
       ...
   )
 
 my_rule = rule(
-    implementation=impl,
+    implementation = _impl,
     ...
 )
 ```
@@ -153,14 +157,14 @@ my_rule(
 In the above case, it's possible to access targets declared in `my_rule.deps`:
 
 ```python
-def impl(ctx):
+def _impl(ctx):
   for dep in ctx.attr.deps:
     # Do something with dep
   ...
 
 my_rule = rule(
-    implementation=impl,
-    attrs={
+    implementation = _impl,
+    attrs = {
         "deps": attr.label_list(),
     },
     ...
@@ -310,15 +314,15 @@ such as `cpp`, `java` and `jvm`. However, all required fragments must be
 declared in order to avoid access errors:
 
 ```python
-def impl(ctx):
+def _impl(ctx):
     # Using ctx.fragments.cpp would lead to an error since it was not declared.
     x = ctx.fragments.java
     ...
 
 my_rule = rule(
-    implementation=impl,
-    fragments=["java"],      # Required fragments of the target configuration
-    host_fragments=["java"], # Required fragments of the host configuration
+    implementation = _impl,
+    fragments = ["java"],      # Required fragments of the target configuration
+    host_fragments = ["java"], # Required fragments of the host configuration
     ...
 )
 ```
@@ -364,7 +368,7 @@ Providers are created from the return value of the rule implementation function:
 def rule_implementation(ctx):
   ...
   return struct(
-    transitive_data=depset(["a", "b", "c"])
+    transitive_data = depset(["a", "b", "c"])
   )
 ```
 
@@ -399,7 +403,7 @@ Runfiles can be added manually during rule creation and/or collected
 transitively from the rule's dependencies:
 
 ```python
-def rule_implementation(ctx):
+def _rule_implementation(ctx):
   ...
   transitive_runfiles = depset()
   for dep in ctx.attr.special_dependencies:
@@ -407,16 +411,16 @@ def rule_implementation(ctx):
 
   runfiles = ctx.runfiles(
       # Add some files manually.
-      files=[ctx.file.some_data_file],
+      files = [ctx.file.some_data_file],
       # Add transitive files from dependencies manually.
-      transitive_files=transitive_runfiles,
+      transitive_files = transitive_runfiles,
       # Collect runfiles from the common locations: transitively from srcs,
       # deps and data attributes.
-      collect_default=True,
+      collect_default = True,
   )
   # Add a field named "runfiles" to the return struct in order to actually
   # create the symlink tree.
-  return struct(runfiles=runfiles)
+  return struct(runfiles = runfiles)
 ```
 
 Note that non-executable rule outputs can also have runfiles. For example, a
@@ -437,8 +441,8 @@ name of the workspace.
 ```python
     ...
     runfiles = ctx.runfiles(
-        root_symlinks={"some/path/here.foo": ctx.file.some_data_file2}
-        symlinks={"some/path/here.bar": ctx.file.some_data_file3}
+        root_symlinks = {"some/path/here.foo": ctx.file.some_data_file2}
+        symlinks = {"some/path/here.bar": ctx.file.some_data_file3}
     )
     # Creates something like:
     # sometarget.runfiles/
@@ -464,19 +468,19 @@ A rule can use the `instrumented_files` provider to provide information about
 which files should be measured when code coverage data collection is enabled:
 
 ```python
-def rule_implementation(ctx):
+def _rule_implementation(ctx):
   ...
-  return struct(instrumented_files=struct(
+  return struct(instrumented_files = struct(
       # Optional: File extensions used to filter files from source_attributes.
       # If not provided, then all files from source_attributes will be
       # added to instrumented files, if an empty list is provided, then
       # no files from source attributes will be added.
-      extensions=["ext1", "ext2"],
+      extensions = ["ext1", "ext2"],
       # Optional: Attributes that contain source files for this rule.
-      source_attributes=["srcs"],
+      source_attributes = ["srcs"],
       # Optional: Attributes for dependencies that could include instrumented
       # files.
-      dependency_attributes=["data", "deps"]))
+      dependency_attributes = ["data", "deps"]))
 ```
 
 [ctx.config.coverage_enabled](lib/configuration.html#coverage_enabled) notes
@@ -531,3 +535,5 @@ the `implementation` function of the rule must generate the output file
 
 Test rules inherit the following attributes: `args`, `flaky`, `local`,
 `shard_count`, `size`, `timeout`.
+
+[1]: https://www.python.org/dev/peps/pep-0008/#id46
