@@ -77,9 +77,6 @@ using std::set;
 using std::string;
 using std::vector;
 
-static int GetServerPid(const string &server_dir);
-static void VerifyJavaVersionAndSetJvm();
-
 // The following is a treatise on how the interaction between the client and the
 // server works.
 //
