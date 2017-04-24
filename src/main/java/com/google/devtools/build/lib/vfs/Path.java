@@ -724,9 +724,7 @@ public class Path implements Comparable<Path>, Serializable {
       return this;
     } else if (path.equals("..")) {
       return isTopLevelDirectory() ? this : parent;
-    } else if (path.indexOf('/') != -1) {
-      return getRelative(PathFragment.create(path));
-    } else if (path.indexOf(PathFragment.EXTRA_SEPARATOR_CHAR) != -1) {
+    } else if (PathFragment.containsSeparator(path)) {
       return getRelative(PathFragment.create(path));
     } else {
       return getCachedChildPath(path);
@@ -745,7 +743,7 @@ public class Path implements Comparable<Path>, Serializable {
 
   /** Returns an absolute PathFragment representing this path. */
   public PathFragment asFragment() {
-    return PathFragment.createNoClone('\0', true, getSegments());
+    return PathFragment.createAlreadyInterned('\0', true, getSegments());
   }
 
   /**
@@ -777,7 +775,7 @@ public class Path implements Comparable<Path>, Serializable {
           currentPath = currentPath.getParentDirectory();
         }
         if (ancestorPath.equals(currentPath)) {
-          return PathFragment.createNoClone('\0', false, resultSegments);
+          return PathFragment.createAlreadyInterned('\0', false, resultSegments);
         }
       }
     }

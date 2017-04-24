@@ -131,7 +131,7 @@ public class PathFragmentWindowsTest {
 
   private void assertRelativeTo(String path, String relativeTo, String... expectedPathSegments)
       throws Exception {
-    PathFragment expected = PathFragment.createNoClone('\0', false, expectedPathSegments);
+    PathFragment expected = PathFragment.createAlreadyInterned('\0', false, expectedPathSegments);
     PathFragment actual = PathFragment.create(path).relativeTo(relativeTo);
     assertThat(actual.getPathString()).isEqualTo(expected.getPathString());
     assertThat(actual).isEqualTo(expected);
@@ -149,7 +149,7 @@ public class PathFragmentWindowsTest {
   }
 
   private static PathFragment makePath(char drive, boolean absolute, String... segments) {
-    return PathFragment.createNoClone(drive, absolute, segments);
+    return PathFragment.createAlreadyInterned(drive, absolute, segments);
   }
 
   @Test
@@ -235,9 +235,9 @@ public class PathFragmentWindowsTest {
         PathFragment.EMPTY_FRAGMENT,
         PathFragment.create("C:"),
         PathFragment.create("D:"),
-        PathFragment.createNoClone('\0', false, new String[0]),
-        PathFragment.createNoClone('C', false, new String[0]),
-        PathFragment.createNoClone('D', false, new String[0]));
+        PathFragment.createAlreadyInterned('\0', false, new String[0]),
+        PathFragment.createAlreadyInterned('C', false, new String[0]),
+        PathFragment.createAlreadyInterned('D', false, new String[0]));
     assertAllEqual(PathFragment.create("/c"), PathFragment.create("/c/"));
     assertThat(PathFragment.create("C:/")).isNotEqualTo(PathFragment.create("/c"));
     assertThat(PathFragment.create("C:/foo")).isNotEqualTo(PathFragment.create("/c/foo"));
