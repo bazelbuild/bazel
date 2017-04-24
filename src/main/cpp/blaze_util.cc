@@ -29,7 +29,6 @@
 #include "src/main/cpp/util/port.h"
 
 using blaze_util::die;
-using blaze_util::pdie;
 
 namespace blaze {
 
