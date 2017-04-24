@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildeventstream;
 
-import java.util.concurrent.Future;
+import com.google.common.util.concurrent.ListenableFuture;
 import javax.annotation.concurrent.ThreadSafe;
 
 /**
@@ -26,6 +26,11 @@ import javax.annotation.concurrent.ThreadSafe;
  */
 @ThreadSafe
 public interface BuildEventTransport {
+
+  /**
+   * The name of this transport as can be displayed to a user.
+   */
+  String name();
 
   /**
    * Writes a build event to an endpoint. This method will always return quickly and will not
@@ -49,5 +54,5 @@ public interface BuildEventTransport {
    *
    * <p>This method should not throw any exceptions.
    */
-  Future<Void> close();
+  ListenableFuture<Void> close();
 }
