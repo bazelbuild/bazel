@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
@@ -43,6 +44,8 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.objc.AppleDebugOutputsProvider.OutputType;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.MultiArchBinarySupport.DependencySpecificConfiguration;
+import java.util.Map;
+import java.util.TreeMap;
 
 /** Implementation for the "apple_binary" rule. */
 public class AppleBinary implements RuleConfiguredTargetFactory {
@@ -135,13 +138,15 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
             getDylibProviders(ruleContext),
             getDylibProtoProviders(ruleContext));
 
+    Map<String, NestedSet<Artifact>> outputGroupCollector = new TreeMap<>();
     multiArchBinarySupport.registerActions(
         platform,
         getExtraLinkArgs(ruleContext),
         dependencySpecificConfigurations,
         getExtraLinkInputs(ruleContext),
         configToDepsCollectionMap,
-        outputArtifact);
+        outputArtifact,
+        outputGroupCollector);
 
     NestedSetBuilder<Artifact> filesToBuild =
         NestedSetBuilder.<Artifact>stableOrder().add(outputArtifact);
@@ -204,7 +209,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
       }
     }
 
-    targetBuilder.addNativeDeclaredProvider(builder.build());
+    targetBuilder.addNativeDeclaredProvider(builder.build()).addOutputGroups(outputGroupCollector);
 
     return targetBuilder.build();
   }

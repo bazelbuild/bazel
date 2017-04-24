@@ -44,6 +44,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -70,6 +71,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -144,8 +146,15 @@ public class LegacyCompilationSupport extends CompilationSupport {
       BuildConfiguration buildConfiguration,
       IntermediateArtifacts intermediateArtifacts,
       CompilationAttributes compilationAttributes,
-      boolean useDeps) {
-    super(ruleContext, buildConfiguration, intermediateArtifacts, compilationAttributes, useDeps);
+      boolean useDeps,
+      Map<String, NestedSet<Artifact>> outputGroupCollector) {
+    super(
+        ruleContext,
+        buildConfiguration,
+        intermediateArtifacts,
+        compilationAttributes,
+        useDeps,
+        outputGroupCollector);
   }
 
   @Override
@@ -179,12 +188,12 @@ public class LegacyCompilationSupport extends CompilationSupport {
       ExtraCompileArgs extraCompileArgs,
       Iterable<PathFragment> priorityHeaders,
       Optional<CppModuleMap> moduleMap) {
-    ImmutableList.Builder<Artifact> objFiles = ImmutableList.builder();
+    ImmutableList.Builder<Artifact> objFilesBuilder = ImmutableList.builder();
     ImmutableList.Builder<ObjcHeaderThinningInfo> objcHeaderThinningInfos = ImmutableList.builder();
 
     for (Artifact sourceFile : compilationArtifacts.getSrcs()) {
       Artifact objFile = intermediateArtifacts.objFile(sourceFile);
-      objFiles.add(objFile);
+      objFilesBuilder.add(objFile);
 
       if (objFile.isTreeArtifact()) {
         registerCompileActionTemplate(
@@ -212,7 +221,7 @@ public class LegacyCompilationSupport extends CompilationSupport {
     }
     for (Artifact nonArcSourceFile : compilationArtifacts.getNonArcSrcs()) {
       Artifact objFile = intermediateArtifacts.objFile(nonArcSourceFile);
-      objFiles.add(objFile);
+      objFilesBuilder.add(objFile);
       if (objFile.isTreeArtifact()) {
         registerCompileActionTemplate(
             nonArcSourceFile,
@@ -238,10 +247,15 @@ public class LegacyCompilationSupport extends CompilationSupport {
       }
     }
 
-    objFiles.addAll(compilationArtifacts.getPrecompiledSrcs());
+    objFilesBuilder.addAll(compilationArtifacts.getPrecompiledSrcs());
+
+    ImmutableList<Artifact> objFiles = objFilesBuilder.build();
+    outputGroupCollector.put(
+        OutputGroupProvider.FILES_TO_COMPILE,
+        NestedSetBuilder.<Artifact>stableOrder().addAll(objFiles).build());
 
     for (Artifact archive : compilationArtifacts.getArchive().asSet()) {
-      registerArchiveActions(objFiles.build(), archive);
+      registerArchiveActions(objFiles, archive);
     }
 
     registerHeaderScanningActions(

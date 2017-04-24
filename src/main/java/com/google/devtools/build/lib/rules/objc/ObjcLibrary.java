@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
@@ -27,6 +28,8 @@ import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCross
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.syntax.Type;
+import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * Implementation for {@code objc_library}.
@@ -72,13 +75,20 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.<Artifact>stableOrder()
         .addAll(common.getCompiledArchive().asSet());
 
+    Map<String, NestedSet<Artifact>> outputGroupCollector = new TreeMap<>();
     CompilationSupport compilationSupport =
-        CompilationSupport.create(ruleContext)
-            .registerCompileAndArchiveActions(common)
-            .registerFullyLinkAction(common.getObjcProvider(),
-                ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB))
-            .addXcodeSettings(xcodeProviderBuilder, common)
-            .validateAttributes();
+        new CompilationSupport.Builder()
+            .setRuleContext(ruleContext)
+            .setOutputGroupCollector(outputGroupCollector)
+            .build();
+
+    compilationSupport
+        .registerCompileAndArchiveActions(common)
+        .registerFullyLinkAction(
+            common.getObjcProvider(),
+            ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB))
+        .addXcodeSettings(xcodeProviderBuilder, common)
+        .validateAttributes();
 
     new ResourceSupport(ruleContext)
         .validateAttributes()
@@ -110,6 +120,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         .addProvider(
             CcLinkParamsProvider.class,
             new CcLinkParamsProvider(new ObjcLibraryCcLinkParamsStore(common)))
+        .addOutputGroups(outputGroupCollector)
         .build();
   }
 }

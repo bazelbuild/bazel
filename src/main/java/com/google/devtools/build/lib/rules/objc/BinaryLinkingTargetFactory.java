@@ -27,8 +27,8 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.Platform;
@@ -38,6 +38,8 @@ import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
+import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * Implementation for rules that link binaries.
@@ -127,21 +129,27 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
                 ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcEntryClassProvider.class))
             .build();
 
+    Map<String, NestedSet<Artifact>> outputGroupCollector = new TreeMap<>();
     CompilationSupport compilationSupport =
-        CompilationSupport.create(ruleContext)
-            .validateAttributes()
-            .addXcodeSettings(xcodeProviderBuilder, common)
-            .registerCompileAndArchiveActions(common)
-            .registerFullyLinkAction(
-                common.getObjcProvider(),
-                ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB))
-            .registerLinkActions(
-                objcProvider,
-                j2ObjcMappingFileProvider,
-                j2ObjcEntryClassProvider,
-                getExtraLinkArgs(ruleContext),
-                ImmutableList.<Artifact>of(),
-                DsymOutputType.APP);
+        new CompilationSupport.Builder()
+            .setRuleContext(ruleContext)
+            .setOutputGroupCollector(outputGroupCollector)
+            .build();
+
+    compilationSupport
+        .validateAttributes()
+        .addXcodeSettings(xcodeProviderBuilder, common)
+        .registerCompileAndArchiveActions(common)
+        .registerFullyLinkAction(
+            common.getObjcProvider(),
+            ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB))
+        .registerLinkActions(
+            objcProvider,
+            j2ObjcMappingFileProvider,
+            j2ObjcEntryClassProvider,
+            getExtraLinkArgs(ruleContext),
+            ImmutableList.<Artifact>of(),
+            DsymOutputType.APP);
 
     Optional<XcTestAppProvider> xcTestAppProvider;
     Optional<RunfilesSupport> maybeRunfilesSupport = Optional.absent();
@@ -202,7 +210,9 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
             .addProvider(ObjcProvider.class, objcProvider)
             .addProvider(
                 InstrumentedFilesProvider.class,
-                compilationSupport.getInstrumentedFilesProvider(common));
+                compilationSupport.getInstrumentedFilesProvider(common))
+            .addOutputGroups(outputGroupCollector);
+
     if (xcTestAppProvider.isPresent()) {
       // TODO(bazel-team): Stop exporting an XcTestAppProvider once objc_binary no longer creates an
       // application bundle.

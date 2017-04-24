@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -61,6 +62,7 @@ import com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag;
 import com.google.devtools.build.lib.rules.objc.ObjcVariablesExtension.VariableCategory;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -120,14 +122,18 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
    * Creates a new CompilationSupport instance that uses the c++ rule backend
    *
    * @param ruleContext the RuleContext for the calling target
+   * @param outputGroupCollector a map that will be updated with output groups produced by compile
+   *     action generation.
    */
-  public CrosstoolCompilationSupport(RuleContext ruleContext) {
+  public CrosstoolCompilationSupport(
+      RuleContext ruleContext, Map<String, NestedSet<Artifact>> outputGroupCollector) {
     this(
         ruleContext,
         ruleContext.getConfiguration(),
         ObjcRuleClasses.intermediateArtifacts(ruleContext),
         CompilationAttributes.Builder.fromRuleContext(ruleContext).build(),
-        /*useDeps=*/true);
+        /*useDeps=*/ true,
+        outputGroupCollector);
   }
 
   /**
@@ -139,12 +145,20 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
    * @param compilationAttributes attributes of the calling target
    * @param useDeps true if deps should be used
    */
-  public CrosstoolCompilationSupport(RuleContext ruleContext,
+  public CrosstoolCompilationSupport(
+      RuleContext ruleContext,
       BuildConfiguration buildConfiguration,
       IntermediateArtifacts intermediateArtifacts,
       CompilationAttributes compilationAttributes,
-      boolean useDeps) {
-    super(ruleContext, buildConfiguration, intermediateArtifacts, compilationAttributes, useDeps);
+      boolean useDeps,
+      Map<String, NestedSet<Artifact>> outputGroupCollector) {
+    super(
+        ruleContext,
+        buildConfiguration,
+        intermediateArtifacts,
+        compilationAttributes,
+        useDeps,
+        outputGroupCollector);
   }
 
   @Override
@@ -184,7 +198,10 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
               objcProvider, compilationArtifacts, extension.build(), ccToolchain, fdoSupport);
     }
 
-    registerHeaderScanningActions(helper.build(), objcProvider, compilationArtifacts);
+    Info info = helper.build();
+    outputGroupCollector.putAll(info.getOutputGroups());
+
+    registerHeaderScanningActions(info, objcProvider, compilationArtifacts);
 
     return this;
   }

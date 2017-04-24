@@ -20,12 +20,15 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.syntax.Type;
+import java.util.Map;
+import java.util.TreeMap;
 
 /** Implementation for experimental_objc_library. */
 public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
@@ -48,8 +51,9 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
 
     ObjcCommon common = common(ruleContext);
 
+    Map<String, NestedSet<Artifact>> outputGroupCollector = new TreeMap<>();
     CompilationSupport compilationSupport =
-        new CrosstoolCompilationSupport(ruleContext)
+        new CrosstoolCompilationSupport(ruleContext, outputGroupCollector)
             .registerCompileAndArchiveActions(common)
             .registerFullyLinkAction(
                 common.getObjcProvider(),
@@ -87,13 +91,15 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
         .addProvider(ObjcProvider.class, common.getObjcProvider())
         .addProvider(J2ObjcEntryClassProvider.class, j2ObjcEntryClassProvider)
         .addProvider(J2ObjcMappingFileProvider.class, j2ObjcMappingFileProvider)
-        .addProvider(InstrumentedFilesProvider.class,
+        .addProvider(
+            InstrumentedFilesProvider.class,
             compilationSupport.getInstrumentedFilesProvider(common))
         .addProvider(
             CcLinkParamsProvider.class,
             new CcLinkParamsProvider(new ObjcLibraryCcLinkParamsStore(common)))
         .addProvider(ObjcProvider.class, common.getObjcProvider())
         .addProvider(XcodeProvider.class, xcodeProviderBuilder.build())
+        .addOutputGroups(outputGroupCollector)
         .build();
   }
 
