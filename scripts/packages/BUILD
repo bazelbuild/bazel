@@ -17,20 +17,16 @@ filegroup(
     srcs = select({
         "//src:windows": [],
         "//src:windows_msvc": [],
-        "//src:freebsd": [],
         "//src:darwin": [
-            ":with-jdk/install.sh",
-            ":without-jdk/install.sh",
+            ":install.sh",
             ":generate-package-info",
         ],
         "//src:darwin_x86_64": [
-            ":with-jdk/install.sh",
-            ":without-jdk/install.sh",
+            ":install.sh",
             ":generate-package-info",
         ],
         "//conditions:default": [
-            ":with-jdk/install.sh",
-            ":without-jdk/install.sh",
+            ":install.sh",
             ":generate-package-info",
             "//:bazel-distfile",
             "//scripts/packages/debian:bazel-debian",
@@ -68,16 +64,9 @@ genrule(
 
 genrule(
     name = "rename-bazel-bin",
-    srcs = ["//src:bazel_with_jdk"],
-    outs = ["with-jdk/bazel-real"],
-    cmd = "mkdir -p $$(dirname $@); cp $< $@",
-)
-
-genrule(
-    name = "rename-bazel-bin-without-jdk",
     srcs = ["//src:bazel"],
-    outs = ["without-jdk/bazel-real"],
-    cmd = "mkdir -p $$(dirname $@); cp $< $@",
+    outs = ["bazel-real"],
+    cmd = "cp $< $@",
 )
 
 genrule(
@@ -89,15 +78,15 @@ genrule(
 
 load(":self_extract_binary.bzl", "self_extract_binary")
 
-[self_extract_binary(
-    name = "%s/install.sh" % kind,
+self_extract_binary(
+    name = "install.sh",
     flatten_resources = [
-        ":%s/bazel-real" % kind,
+        ":bazel-real",
         ":bazel",
         "//scripts:bash_completion",
     ],
     launcher = ":launcher_bin.sh",
-) for kind in ("with-jdk", "without-jdk")]
+)
 
 genrule(
     name = "embedded_label",
