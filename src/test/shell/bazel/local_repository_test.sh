@@ -361,6 +361,7 @@ EOF
 function test_external_includes() {
   clib=$TEST_TMPDIR/clib
   mkdir -p $clib/include
+  touch $clib/WORKSPACE
   cat > $clib/include/clib.h <<EOF
 int x();
 EOF
@@ -512,6 +513,7 @@ function test_external_deps_in_remote_repo() {
   local r=$TEST_TMPDIR/r
   rm -fr $r
   mkdir -p $r
+  touch $r/WORKSPACE
   cat > WORKSPACE <<EOF
 local_repository(
     name = "r",
@@ -549,12 +551,7 @@ function test_local_deps() {
   local r=$TEST_TMPDIR/r
   rm -fr $r
   mkdir -p $r
-  cat > WORKSPACE <<EOF
-local_repository(
-    name = "r",
-    path = "$r",
-)
-EOF
+  touch $r/WORKSPACE
 
   mkdir -p $r/a
   cat > $r/a/BUILD <<'EOF'
@@ -577,6 +574,13 @@ genrule(
 )
 EOF
 
+  cat > WORKSPACE <<EOF
+local_repository(
+    name = "r",
+    path = "$r",
+)
+EOF
+
   bazel build @r//a || fail "build failed"
 }
 
@@ -584,13 +588,7 @@ function test_globs() {
   local r=$TEST_TMPDIR/r
   rm -fr $r
   mkdir -p $r
-  cat > WORKSPACE <<EOF
-local_repository(
-    name = "r",
-    path = "$r",
-)
-
-EOF
+  touch $r/WORKSPACE
 
   cat > $r/BUILD <<EOF
 filegroup(
@@ -602,6 +600,14 @@ EOF
   touch $r/a
   mkdir -p $r/b
   touch $r/b/{BUILD,b}
+
+  cat > WORKSPACE <<EOF
+local_repository(
+    name = "r",
+    path = "$r",
+)
+
+EOF
 
   bazel build @r//:fg || fail "build failed"
 }
@@ -710,6 +716,7 @@ function test_visibility_through_bind() {
   rm -fr $r
   mkdir $r
 
+  touch $r/WORKSPACE
   cat > $r/BUILD <<EOF
 genrule(
     name = "public",
@@ -769,6 +776,7 @@ function test_load_in_remote_repository() {
   local r=$TEST_TMPDIR/r
   rm -fr $r
   mkdir -p $r
+  touch $r/WORKSPACE
   cat > $r/BUILD <<EOF
 package(default_visibility=["//visibility:public"])
 load("r", "r_filegroup")
@@ -797,6 +805,7 @@ function test_python_in_remote_repository() {
   local r=$TEST_TMPDIR/r
   rm -fr $r
   mkdir -p $r/bin
+  touch $r/WORKSPACE
   cat > $r/bin/BUILD <<EOF
 package(default_visibility=["//visibility:public"])
 py_binary(name="bin", srcs=["bin.py"], deps=["//lib:lib"])
@@ -833,6 +842,7 @@ function test_package_wildcard_in_remote_repository() {
   local r=$TEST_TMPDIR/r
   rm -fr $r
   mkdir -p $r/a
+  touch $r/WORKSPACE
   touch $r/{x,y,a/g,a/h}
   cat > $r/BUILD <<EOF
 exports_files(["x", "y"])
@@ -857,6 +867,7 @@ function test_recursive_wildcard_in_remote_repository() {
   local r=$TEST_TMPDIR/r
   rm -fr $r
   mkdir -p $r/a/{x,y/z}
+  touch $r/WORKSPACE
   touch $r/a/{x,y/z}/{m,n}
 
   echo 'exports_files(["m", "n"])' > $r/a/x/BUILD
@@ -880,6 +891,7 @@ function test_package_name_constants() {
   local r=$TEST_TMPDIR/r
   rm -fr $r
   mkdir -p $r/a
+  touch $r/WORKSPACE
   cat > $r/a/BUILD <<'EOF'
 genrule(
   name = 'b',
@@ -1038,6 +1050,52 @@ EOF
   bazel build :* || fail "build failed"
 }
 
+function test_local_repository_path_does_not_exist() {
+  rm -rf $TEST_TMPDIR/r
+  cat > WORKSPACE <<EOF
+local_repository(
+    name = "r",
+    path = "$TEST_TMPDIR/r",
+)
+EOF
+  bazel build @r//... &> $TEST_log && fail "Build succeeded unexpectedly"
+  expect_log "must be an existing directory"
+}
+
+# Regression test for #2841.
+function test_local_repository_missing_workspace_file() {
+  local r=$TEST_TMPDIR/r
+  rm -rf $r
+  mkdir -p $r
+  cat > $r/BUILD <<'EOF'
+genrule(
+    name = "orig",
+    cmd = "echo foo > $@",
+    outs = ["orig.out"],
+)
+EOF
+
+  cat > WORKSPACE <<EOF
+local_repository(
+    name = "r",
+    path = "$TEST_TMPDIR/r",
+)
+EOF
+
+  bazel build @r//... &> $TEST_log && fail "Build succeeded unexpectedly"
+  expect_log "No WORKSPACE file found"
+
+  # Create the workspace and verify it now succeeds.
+  touch $r/WORKSPACE
+  bazel build @r//... &> $TEST_log || fail "Build failed unexpectedly"
+  expect_not_log "No WORKSPACE file found"
+
+  # Remove again and verify it fails again.
+  rm -f $r/WORKSPACE
+  bazel build @r//... &> $TEST_log && fail "Build succeeded unexpectedly"
+  expect_log "No WORKSPACE file found"
+}
+
 # Regression test for #1697.
 function test_overwrite_build_file() {
   local r=$TEST_TMPDIR/r
@@ -1046,7 +1104,7 @@ function test_overwrite_build_file() {
   touch $r/WORKSPACE
   cat > $r/BUILD <<'EOF'
 genrule(
-    name = "orig"
+    name = "orig",
     cmd = "echo foo > $@",
     outs = ["orig.out"],
 )

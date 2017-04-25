@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.skyframe.FileSymlinkException;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.InconsistentFilesystemException;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
+import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
 import com.google.devtools.build.lib.skyframe.WorkspaceFileValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
@@ -462,11 +463,23 @@ public abstract class RepositoryFunction {
     String repositoryName = repositoryPath.getSegment(0);
 
     try {
-      // Add a dependency to the repository rule. RepositoryDirectoryValue does add this dependency
-      // already but we want to catch RepositoryNotFoundException, so invoke #getRule first.
-      RepositoryFunction.getRule(repositoryName, env);
+      // Add a dependency to the repository rule. RepositoryDirectoryValue does add this
+      // dependency already but we want to catch RepositoryNotFoundException, so invoke #getRule
+      // first.
+      Rule rule = RepositoryFunction.getRule(repositoryName, env);
+      if (rule == null) {
+        return;
+      }
+
       if (repositoryPath.segmentCount() > 1) {
-        // For all file under the repository directory, depends on the actual RepositoryDirectory
+        if (rule.getRuleClass().equals(LocalRepositoryRule.NAME)
+            && repositoryPath.endsWith(
+                PathFragment.create(BuildFileName.WORKSPACE.getFilename()))) {
+          // Ignore this, there is a dependency from LocalRepositoryFunction->WORKSPACE file already
+          return;
+        }
+
+        // For all files under the repository directory, depend on the actual RepositoryDirectory
         // function so we get invalidation when the repository is fetched.
         // For the repository directory itself, we cannot depends on the RepositoryDirectoryValue
         // (cycle).

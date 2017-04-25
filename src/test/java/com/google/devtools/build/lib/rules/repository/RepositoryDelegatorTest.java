@@ -115,6 +115,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             differencer);
     driver = new SequentialBuildDriver(evaluator);
     overrideDirectory = scratch.dir("/foo");
+    scratch.file("/foo/WORKSPACE");
     RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(
         differencer,
         ImmutableMap.<RepositoryName, PathFragment>builder()
