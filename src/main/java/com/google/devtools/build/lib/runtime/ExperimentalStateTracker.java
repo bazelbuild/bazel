@@ -13,12 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
+import com.google.devtools.build.lib.buildeventstream.BuildEventTransportClosedEvent;
 import com.google.devtools.build.lib.buildtool.ExecutionProgressReceiver;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
@@ -36,7 +41,9 @@ import com.google.devtools.build.lib.util.io.PositionAwareAnsiTerminalWriter;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import java.io.IOException;
 import java.util.ArrayDeque;
+import java.util.Collections;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -93,9 +100,15 @@ class ExperimentalStateTracker {
   private TestSummary mostRecentTest;
   private int failedTests;
   private boolean ok;
+  private boolean buildComplete;
 
   private ExecutionProgressReceiver executionProgressReceiver;
   private PackageProgressReceiver packageProgressReceiver;
+
+  // Set of build event protocol transports that need yet to be closed.
+  private Set<BuildEventTransport> bepOpenTransports = Collections.emptySet();
+  // The point in time when closing of BEP transports was started.
+  private long bepTransportClosingStartTimeMillis;
 
   ExperimentalStateTracker(Clock clock, int targetWidth) {
     this.runningActions = new ArrayDeque<>();
@@ -167,6 +180,10 @@ class ExperimentalStateTracker {
   }
 
   void buildComplete(BuildCompleteEvent event, String additionalInfo) {
+    buildComplete = true;
+    // Build event protocol transports are closed right after the build complete event.
+    bepTransportClosingStartTimeMillis = clock.currentTimeMillis();
+
     if (event.getResult().getSuccess()) {
       status = "INFO";
       if (failedTests == 0) {
@@ -305,6 +322,13 @@ class ExperimentalStateTracker {
       return ELLIPSIS + suffix(label.toString(), width - ELLIPSIS.length());
     }
     return label.toString();
+  }
+
+  private String shortenedString(String s, int maxWidth) {
+    if (maxWidth <= 3 * ELLIPSIS.length() || s.length() <= maxWidth) {
+      return s;
+    }
+    return s.substring(0, maxWidth - ELLIPSIS.length()) + ELLIPSIS;
   }
 
   // Describe a group of actions running for the same test.
@@ -471,6 +495,14 @@ class ExperimentalStateTracker {
     }
   }
 
+  synchronized void buildEventTransportsAnnounced(AnnounceBuildEventTransportsEvent event) {
+    this.bepOpenTransports = new HashSet<BuildEventTransport>(event.transports());
+  }
+
+  synchronized void buildEventTransportClosed(BuildEventTransportClosedEvent event) {
+    bepOpenTransports.remove(event.transport());
+  }
+
   /***
    * Predicate indicating whether the contents of the progress bar can change, if the
    * only thing that happens is that time passes; this is the case, e.g., if the progress
@@ -481,6 +513,9 @@ class ExperimentalStateTracker {
       return true;
     }
     if (runningDownloads.size() >= 1) {
+      return true;
+    }
+    if (buildComplete && !bepOpenTransports.isEmpty()) {
       return true;
     }
     if (status != null) {
@@ -606,6 +641,46 @@ class ExperimentalStateTracker {
     }
   }
 
+  /**
+   * Display any BEP transports that are still open after the build. Most likely, because
+   * uploading build events takes longer than the build itself.
+   */
+  private void maybeReportBepTransports(PositionAwareAnsiTerminalWriter terminalWriter)
+      throws IOException {
+    if (!buildComplete || bepOpenTransports.isEmpty()) {
+      return;
+    }
+    long sinceSeconds =
+        MILLISECONDS.toSeconds(clock.currentTimeMillis() - bepTransportClosingStartTimeMillis);
+    if (sinceSeconds == 0) {
+      // Special case for when bazel was interrupted, in which case we don't want to have
+      // a BEP upload message.
+      return;
+    }
+    int count = bepOpenTransports.size();
+    // Can just use targetWidth, because we always write to a new line
+    int maxWidth = targetWidth;
+
+    String waitMessage = "Waiting for build events upload: ";
+    String name = bepOpenTransports.iterator().next().name();
+    String line = waitMessage + name + " " + sinceSeconds + "s";
+
+    if (count == 1 && line.length() <= maxWidth) {
+      terminalWriter.newline().append(line);
+    } else if (count == 1) {
+      waitMessage = "Waiting for: ";
+      String waitSecs = " " + sinceSeconds + "s";
+      int maxNameWidth = maxWidth - waitMessage.length() - waitSecs.length();
+      terminalWriter.newline().append(waitMessage + shortenedString(name, maxNameWidth) + waitSecs);
+    } else {
+      terminalWriter.newline().append(waitMessage + sinceSeconds + "s");
+      for (BuildEventTransport transport : bepOpenTransports) {
+        name = "  " + transport.name();
+        terminalWriter.newline().append(shortenedString(name, maxWidth));
+      }
+    }
+  }
+
   synchronized void writeProgressBar(AnsiTerminalWriter rawTerminalWriter, boolean shortVersion)
       throws IOException {
     PositionAwareAnsiTerminalWriter terminalWriter =
@@ -626,6 +701,7 @@ class ExperimentalStateTracker {
       }
       if (!shortVersion) {
         reportOnDownloads(terminalWriter);
+        maybeReportBepTransports(terminalWriter);
       }
       return;
     }

@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.devtools.build.lib.util.Preconditions.checkState;
+
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.primitives.Bytes;
@@ -22,6 +24,8 @@ import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
+import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventTransportClosedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
@@ -85,6 +89,8 @@ public class ExperimentalEventHandler implements EventHandler {
   private long mustRefreshAfterMillis;
   private int numLinesProgressBar;
   private boolean buildComplete;
+  // Number of open build even protocol transports.
+  private int openBepTransports;
   private boolean progressBarNeedsRefresh;
   private Thread updateThread;
   private byte[] stdoutBuffer;
@@ -320,7 +326,7 @@ public class ExperimentalEventHandler implements EventHandler {
   @Subscribe
   public void buildComplete(BuildCompleteEvent event) {
     // The final progress bar will flow into the scroll-back buffer, to if treat
-    // it as an event and add a time stamp, if events are supposed to have a time stmap.
+    // it as an event and add a timestamp, if events are supposed to have a timestmap.
     synchronized (this) {
       if (showTimestamp) {
         stateTracker.buildComplete(event, TIMESTAMP_FORMAT.print(clock.currentTimeMillis()));
@@ -329,10 +335,15 @@ public class ExperimentalEventHandler implements EventHandler {
       }
       ignoreRefreshLimitOnce();
       refresh();
-      buildComplete = true;
+
+      // After a build has completed, only stop updating the UI if there is no more BEP
+      // upload happening.
+      if (openBepTransports == 0) {
+        buildComplete = true;
+        stopUpdateThread();
+        flushStdOutStdErrBuffers();
+      }
     }
-    stopUpdateThread();
-    flushStdOutStdErrBuffers();
   }
 
   @Subscribe
@@ -429,6 +440,28 @@ public class ExperimentalEventHandler implements EventHandler {
       } catch (IOException e) {
         LOG.warning("IO Error writing to output stream: " + e);
       }
+    } else {
+      refresh();
+    }
+  }
+
+  @Subscribe
+  public synchronized void buildEventTransportsAnnounced(AnnounceBuildEventTransportsEvent event) {
+    openBepTransports = event.transports().size();
+    stateTracker.buildEventTransportsAnnounced(event);
+  }
+
+  @Subscribe
+  public synchronized void buildEventTransportClosed(BuildEventTransportClosedEvent event) {
+    checkState(openBepTransports > 0);
+    openBepTransports--;
+    stateTracker.buildEventTransportClosed(event);
+
+    if (openBepTransports == 0) {
+      stopUpdateThread();
+      flushStdOutStdErrBuffers();
+      ignoreRefreshLimitOnce();
+      refresh();
     } else {
       refresh();
     }

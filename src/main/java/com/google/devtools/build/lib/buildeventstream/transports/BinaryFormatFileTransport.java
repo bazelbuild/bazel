@@ -44,6 +44,11 @@ public final class BinaryFormatFileTransport extends FileTransport {
   }
 
   @Override
+  public String name() {
+    return this.getClass().getSimpleName();
+  }
+  
+  @Override
   public synchronized void sendBuildEvent(BuildEvent event, final ArtifactGroupNamer namer) {
     BuildEventConverters converters =
         new BuildEventConverters() {
