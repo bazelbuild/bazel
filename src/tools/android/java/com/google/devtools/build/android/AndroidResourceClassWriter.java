@@ -474,8 +474,8 @@ public class AndroidResourceClassWriter implements Flushable {
   private void writeAsClass(Map<ResourceType, List<FieldInitializer>> initializers)
       throws IOException {
     RClassGenerator rClassGenerator =
-        new RClassGenerator(outputBasePath, packageName, initializers, false /* finalFields */);
-    rClassGenerator.write();
+        new RClassGenerator(outputBasePath, initializers, false /* finalFields */);
+    rClassGenerator.write(packageName);
   }
 
   private static String normalizeName(String resourceName) {
