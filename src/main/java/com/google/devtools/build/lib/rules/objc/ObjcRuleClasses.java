@@ -934,8 +934,11 @@ public class ObjcRuleClasses {
               .value(ObjcRuleClasses.APPLE_TOOLCHAIN))
           /* <!-- #BLAZE_RULE($apple_multiarch_rule).ATTRIBUTE(platform_type) -->
           The type of platform for which to create artifacts in this rule.
-          For example, if <code>ios</code> is selected, then the output binaries/libraries will
-          be created combining all architectures specified in <code>--ios_multi_cpus</code>.
+
+          This dictates which Apple platform SDK is used for compilation/linking and which flag is
+          used to determine the architectures for which to build. For example, if <code>ios</code>
+          is selected, then the output binaries/libraries will be created combining all
+          architectures specified in <code>--ios_multi_cpus</code>.
 
           Options are:
           <ul>
@@ -943,10 +946,17 @@ public class ObjcRuleClasses {
               <code>ios</code> (default): architectures gathered from <code>--ios_multi_cpus</code>.
             </li>
             <li>
-              <code>watchos</code>: architectures gathered from <code>--watchos_multi_cpus</code>
+              <code>macos</code>: architectures gathered from <code>--macos_cpus</code>.
+            </li>
+            <li>
+              <code>tvos</code>: architectures gathered from <code>--tvos_cpus</code>.
+            </li>
+            <li>
+              <code>watchos</code>: architectures gathered from <code>--watchos_cpus</code>.
             </li>
           </ul>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          // TODO(b/37635370): Remove the "ios" default and make this mandatory.
           .add(attr(PLATFORM_TYPE_ATTR_NAME, STRING)
               .value(PlatformType.IOS.toString())
               .nonconfigurable("Determines the configuration transition on deps"))
