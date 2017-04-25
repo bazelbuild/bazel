@@ -296,15 +296,18 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
       recordingStream.startRecording(4096);
       try {
         response = WorkResponse.parseDelimitedFrom(recordingStream);
-      } catch (InvalidProtocolBufferException e2) {
+      } catch (InvalidProtocolBufferException e) {
         // If protobuf couldn't parse the response, try to print whatever the failing worker wrote
         // to stdout - it's probably a stack trace or some kind of error message that will help the
         // user figure out why the compiler is failing.
         recordingStream.readRemaining();
-        String data = recordingStream.getRecordedDataAsString(Charsets.UTF_8);
-        eventHandler.handle(
-            Event.warn("Worker process returned an unparseable WorkResponse:\n" + data));
-        throw e2;
+        ErrorMessage errorMessage =
+            ErrorMessage.builder()
+                .message("Worker process returned an unparseable WorkResponse:")
+                .logText(recordingStream.getRecordedDataAsString(Charsets.UTF_8))
+                .build();
+        eventHandler.handle(Event.warn(errorMessage.toString()));
+        throw e;
       }
 
       if (writeOutputFiles != null
@@ -315,9 +318,15 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
       worker.finishExecution(key);
 
       if (response == null) {
-        throw new UserExecException(
-            "Worker process did not return a WorkResponse. This is probably caused by a "
-                + "bug in the worker, writing unexpected other data to stdout.");
+        ErrorMessage errorMessage =
+            ErrorMessage.builder()
+                .message(
+                    "Worker process did not return a WorkResponse. This is usually caused by a bug"
+                        + " in the worker, thus dumping its log file for debugging purposes:")
+                .logFile(worker.getLogFile())
+                .logSizeLimit(4096)
+                .build();
+        throw new UserExecException(errorMessage.toString());
       }
     } catch (IOException e) {
       if (worker != null) {

@@ -21,6 +21,7 @@ java_library(
         "//src/main/protobuf:test_status_java_proto",
         "//src/main/protobuf:worker_protocol_java_proto",
         "//third_party:apache_commons_pool2",
+        "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",

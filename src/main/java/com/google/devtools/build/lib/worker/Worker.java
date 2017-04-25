@@ -150,4 +150,8 @@ class Worker {
   public void prepareExecution(WorkerKey key) throws IOException {}
 
   public void finishExecution(WorkerKey key) throws IOException {}
+
+  public Path getLogFile() {
+    return logFile;
+  }
 }

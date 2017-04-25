@@ -523,4 +523,28 @@ EOF
   expect_log "Destroying Work worker (id [0-9]\+)"
 }
 
+function test_crashed_worker_causes_log_dump() {
+  prepare_example_worker
+  cat >>BUILD <<'EOF'
+[work(
+  name = "hello_world_%s" % idx,
+  worker = ":worker",
+  worker_args = ["--poison_after=1", "--hard_poison"],
+  args = ["--write_uuid", "--write_counter"],
+) for idx in range(10)]
+EOF
+
+  bazel build :hello_world_1 &> $TEST_log \
+    || fail "build failed"
+  worker_uuid_1=$(cat $BINS/hello_world_1.out | grep UUID | cut -d' ' -f2)
+
+  bazel build :hello_world_2 &> $TEST_log \
+    && fail "expected build to fail" || /bin/true
+  worker_uuid_2=$(cat $BINS/hello_world_2.out | grep UUID | cut -d' ' -f2)
+
+  expect_log "^---8<---8<--- (start of log, file at /"
+  expect_log "thus dumping its log file for debugging purposes:"
+  expect_log "I'm a very poisoned worker and will just crash."
+  expect_log "^---8<---8<--- (end of log) ---8<---8<---"
+}
 run_suite "Worker integration tests"
