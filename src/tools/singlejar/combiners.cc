@@ -122,20 +122,50 @@ XmlCombiner::~XmlCombiner() {}
 bool XmlCombiner::Merge(const CDH *cdh, const LH *lh) {
   if (!concatenator_.get()) {
     concatenator_.reset(new Concatenator(filename_, false));
-    concatenator_->Append("<");
-    concatenator_->Append(xml_tag_);
-    concatenator_->Append(">\n");
+    concatenator_->Append(start_tag_);
+    concatenator_->Append("\n");
   }
-  return concatenator_->Merge(cdh, lh);
+  // To ensure xml concatentation is idempotent, read in the entry being added
+  // and remove the start and end tags if they are present.
+  TransientBytes bytes_;
+  if (Z_NO_COMPRESSION == lh->compression_method()) {
+    bytes_.ReadEntryContents(lh);
+  } else if (Z_DEFLATED == lh->compression_method()) {
+    if (!inflater_.get()) {
+      inflater_.reset(new Inflater());
+    }
+    bytes_.DecompressEntryContents(cdh, lh, inflater_.get());
+  } else {
+    errx(2, "%s is neither stored nor deflated", filename_.c_str());
+  }
+  uint32_t checksum;
+  char *buf = reinterpret_cast<char *>(malloc(bytes_.data_size()));
+  // TODO(b/37631490): optimize this to avoid copying the bytes twice
+  bytes_.CopyOut(reinterpret_cast<uint8_t *>(buf), &checksum);
+  int start_offset = 0;
+  if (strncmp(buf, start_tag_.c_str(), start_tag_.length()) == 0) {
+    start_offset = start_tag_.length();
+  }
+  int end = bytes_.data_size();
+  while (end >= end_tag_.length() && std::isspace(buf[end - 1])) end--;
+  if (strncmp(buf + end - end_tag_.length(), end_tag_.c_str(),
+              end_tag_.length()) == 0) {
+    end -= end_tag_.length();
+  } else {
+    // Leave trailing whitespace alone if we didn't find a match.
+    end = bytes_.data_size();
+  }
+  concatenator_->Append(buf + start_offset, end - start_offset);
+  free(buf);
+  return true;
 }
 
 void *XmlCombiner::OutputEntry(bool compress) {
   if (!concatenator_.get()) {
     return nullptr;
   }
-  concatenator_->Append("</");
-  concatenator_->Append(xml_tag_);
-  concatenator_->Append(">\n");
+  concatenator_->Append(end_tag_);
+  concatenator_->Append("\n");
   return concatenator_->OutputEntry(compress);
 }
 
