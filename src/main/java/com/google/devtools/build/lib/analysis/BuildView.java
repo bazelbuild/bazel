@@ -526,9 +526,12 @@ public class BuildView {
       } else {
         final NativeAspectClass aspectFactoryClass =
             ruleClassProvider.getNativeAspectClassMap().get(aspect);
+
         if (aspectFactoryClass != null) {
+          AspectParameters aspectParameters = AspectParameters.EMPTY;
+          boolean applyToFiles = aspectFactoryClass.getDefinition(aspectParameters).applyToFiles();
           for (TargetAndConfiguration targetSpec : topLevelTargetsWithConfigs) {
-            if (!(targetSpec.getTarget() instanceof Rule)) {
+            if (!applyToFiles && !(targetSpec.getTarget() instanceof Rule)) {
               continue;
             }
             // For invoking top-level aspects, use the top-level configuration for both the
@@ -538,7 +541,7 @@ public class BuildView {
                 AspectValue.createAspectKey(
                     targetSpec.getLabel(),
                     configuration,
-                    new AspectDescriptor(aspectFactoryClass, AspectParameters.EMPTY),
+                    new AspectDescriptor(aspectFactoryClass, aspectParameters),
                     configuration
                 ));
           }

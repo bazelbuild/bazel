@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
-import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
@@ -180,21 +179,6 @@ public final class AspectFunction implements SkyFunction {
           new BuildFileContainsErrorsException(key.getLabel().getPackageIdentifier()));
     }
 
-    Target target;
-    try {
-      target = pkg.getTarget(key.getLabel().getName());
-    } catch (NoSuchTargetException e) {
-      throw new AspectFunctionException(e);
-    }
-
-    if (!(target instanceof Rule)) {
-      env.getListener().handle(Event.error(
-          target.getLocation(),
-          String.format("%s is attached to %s %s but aspects must be attached to rules",
-              aspect.getAspectClass().getName(), target.getTargetKind(), target.getName())));
-      throw new AspectFunctionException(new AspectCreationException(
-          "aspects must be attached to rules"));
-    }
 
     ConfiguredTargetValue configuredTargetValue;
     try {
@@ -218,13 +202,24 @@ public final class AspectFunction implements SkyFunction {
       return null;
     }
 
+    ConfiguredTarget associatedTarget = configuredTargetValue.getConfiguredTarget();
+
+    Target target = associatedTarget.getTarget();
+    if (!aspect.getDefinition().applyToFiles() && !(target instanceof Rule)) {
+      env.getListener().handle(Event.error(
+          target.getLocation(),
+          String.format("%s is attached to %s %s but aspects must be attached to rules",
+              aspect.getAspectClass().getName(), target.getTargetKind(), target.getName())));
+      throw new AspectFunctionException(new AspectCreationException(
+          "aspects must be attached to rules"));
+    }
+
+
     if (configuredTargetValue.getConfiguredTarget().getProvider(AliasProvider.class) != null) {
       return createAliasAspect(env, target, aspect, key,
           configuredTargetValue.getConfiguredTarget());
     }
 
-    ConfiguredTarget associatedTarget =
-      configuredTargetValue.getConfiguredTarget();
 
     ImmutableList.Builder<Aspect> aspectPathBuilder = ImmutableList.builder();
 

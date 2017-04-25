@@ -24,10 +24,14 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
+import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
+import com.google.devtools.build.lib.analysis.util.TestAspects.AspectApplyingToFiles;
 import com.google.devtools.build.lib.analysis.util.TestAspects.AspectInfo;
 import com.google.devtools.build.lib.analysis.util.TestAspects.AspectRequiringRule;
 import com.google.devtools.build.lib.analysis.util.TestAspects.BaseRule;
@@ -42,6 +46,7 @@ import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import java.util.ArrayList;
 import java.util.List;
@@ -780,5 +785,25 @@ public class AspectTest extends AnalysisTestCase {
     assertContainsEvent(
         "Aspect 'FalseAdvertisementAspect', applied to '//a:s',"
             + " does not provide advertised provider 'advertised_provider'");
+  }
+
+  @Test
+  public void aspectApplyingtToFiles() throws Exception {
+    AspectApplyingToFiles aspectApplyingToFiles = new AspectApplyingToFiles();
+    setRulesAndAspectsAvailableInTests(
+        ImmutableList.<NativeAspectClass>of(aspectApplyingToFiles),
+        ImmutableList.<RuleDefinition>of());
+    pkg(
+        "a",
+        "java_binary(name = 'x', main_class = 'x.FooBar', srcs = ['x.java'])"
+    );
+    AnalysisResult analysisResult = update(new EventBus(), defaultFlags(),
+        ImmutableList.of(aspectApplyingToFiles.getName()),
+        "//a:x_deploy.jar");
+    AspectValue aspect = Iterables.getOnlyElement(analysisResult.getAspects());
+    AspectApplyingToFiles.Provider provider =
+        aspect.getConfiguredAspect().getProvider(AspectApplyingToFiles.Provider.class);
+    assertThat(provider.getLabel())
+        .isEqualTo(Label.parseAbsoluteUnchecked("//a:x_deploy.jar"));
   }
 }

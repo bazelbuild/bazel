@@ -36,11 +36,6 @@ public interface ConfiguredTarget extends TransitiveInfoCollection {
   String LABEL_FIELD = "label";
 
   /**
-   *  All <code>ConfiguredTarget</code>s have a "aspect_ids" field.
-   */
-  String ASPECTS_FIELD = "aspect_ids";
-
-  /**
    *  All <code>ConfiguredTarget</code>s have a "files" field.
    */
   String FILES_FIELD = "files";

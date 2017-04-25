@@ -1124,4 +1124,36 @@ public class TestAspects {
           .build();
     }
   }
+
+  /** Aspect that propagates over rule outputs. */
+  public static class AspectApplyingToFiles extends NativeAspectClass
+      implements ConfiguredAspectFactory {
+
+    /** Simple provider for testing */
+    @Immutable
+    public static final class Provider implements TransitiveInfoProvider {
+      private final Label label;
+
+      private Provider(Label label) {
+        this.label = label;
+      }
+
+      public Label getLabel() {
+        return label;
+      }
+    }
+
+    @Override
+    public AspectDefinition getDefinition(AspectParameters aspectParameters) {
+      return AspectDefinition.builder(this).applyToFiles(true).build();
+    }
+
+    @Override
+    public ConfiguredAspect create(ConfiguredTarget base, RuleContext context,
+        AspectParameters parameters) throws InterruptedException {
+      return ConfiguredAspect.builder(this, parameters, context)
+          .addProvider(Provider.class, new Provider(base.getLabel()))
+          .build();
+    }
+  }
 }

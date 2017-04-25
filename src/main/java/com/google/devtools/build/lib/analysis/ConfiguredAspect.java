@@ -103,6 +103,11 @@ public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> 
     return new ConfiguredAspect(descriptor, TransitiveInfoProviderMap.of());
   }
 
+  public static Builder builder(
+      AspectClass aspectClass, AspectParameters parameters, RuleContext ruleContext) {
+    return new Builder(aspectClass, parameters, ruleContext);
+  }
+
   /**
    * Builder for {@link ConfiguredAspect}.
    */

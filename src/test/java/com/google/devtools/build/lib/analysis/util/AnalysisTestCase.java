@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
+import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
@@ -465,11 +466,28 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   /**
    * Makes {@code rules} available in tests, in addition to all the rules available to Blaze at
    * running time (e.g., java_library).
+   *
+   * Also see {@link AnalysisTestCase#setRulesAndAspectsAvailableInTests(Iterable, Iterable)}.
    */
   protected final void setRulesAvailableInTests(RuleDefinition... rules) throws Exception {
+    setRulesAndAspectsAvailableInTests(
+        ImmutableList.<NativeAspectClass>of(),
+        ImmutableList.copyOf(rules));
+  }
+
+  /**
+   * Makes {@code aspects} and {@code rules} available in tests, in addition to
+   * all the rules available to Blaze at running time (e.g., java_library).
+   */
+  protected final void setRulesAndAspectsAvailableInTests(
+      Iterable<NativeAspectClass> aspects,
+      Iterable<RuleDefinition> rules) throws Exception {
     ConfiguredRuleClassProvider.Builder builder =
         new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
+    for (NativeAspectClass aspect : aspects) {
+      builder.addNativeAspectClass(aspect);
+    }
     for (RuleDefinition rule : rules) {
       builder.addRuleDefinition(rule);
     }
