@@ -64,36 +64,6 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    **/
   public static final String APPLE_SDK_PLATFORM_ENV_NAME = "APPLE_SDK_PLATFORM";
 
-  /**
-   * Rule classes that need a top level transition to the apple crosstool if static configurations
-   * are being used.
-   *
-   * <p>This list must not contain any rule classes that require some other split transition, as
-   * that transition would be suppressed by the top level transition to the apple crosstool. For
-   * example, if "apple_binary" were in this list, the multi-arch transition would not occur.
-   */
-  public static final ImmutableList<String> APPLE_CROSSTOOL_RULE_CLASSES_FOR_STATIC_CONFIGS =
-      ImmutableList.of(
-          "objc_library",
-          "objc_binary",
-          "experimental_objc_library");
-
-  /**
-   * Rule classes that need a top level transition to the apple crosstool.  Dynamic configurations
-   * must be in place until these can be used - for static configurations, use
-   * {@code APPLE_CROSSTOOL_RULE_CLASSES_FOR_STATIC_CONFIGS}.
-   */
-  public static final ImmutableList<String> APPLE_CROSSTOOL_RULE_CLASSES =
-      ImmutableList.of(
-          "apple_binary",
-          "apple_static_library",
-          "apple_watch_extension_binary",
-          "experimental_objc_library",
-          "ios_extension_binary",
-          "ios_test",
-          "objc_binary",
-          "objc_library");
-
   private static final DottedVersion MINIMUM_BITCODE_XCODE_VERSION = DottedVersion.fromString("7");
 
   @Nullable private final DottedVersion xcodeVersion;

@@ -81,6 +81,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options.
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
+import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -97,6 +98,7 @@ import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
@@ -1443,6 +1445,27 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected BuildConfiguration getHostConfiguration() {
     return masterConfig.getHostConfiguration();
+  }
+
+  /**
+   * Returns the configuration created by applying the given transition to the source
+   * configuration. Works for both static and dynamic configuration tests.
+   */
+  protected BuildConfiguration getConfiguration(BuildConfiguration fromConfig,
+      Attribute.Transition transition) throws InterruptedException {
+    if (transition == ConfigurationTransition.NONE) {
+      return fromConfig;
+    } else if (transition == ConfigurationTransition.NULL) {
+      return null;
+    } else if (!fromConfig.useDynamicConfigurations()) {
+      return fromConfig.getConfiguration(transition);
+    } else {
+      PatchTransition patchTransition = (transition instanceof PatchTransition)
+          ? (PatchTransition) transition
+          : (PatchTransition) fromConfig.getTransitions().getDynamicTransition(transition);
+      return skyframeExecutor.getConfigurationForTesting(reporter, fromConfig.fragmentClasses(),
+          patchTransition.apply(fromConfig.getOptions()));
+    }
   }
 
   /**
