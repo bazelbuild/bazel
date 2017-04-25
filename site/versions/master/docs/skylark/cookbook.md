@@ -503,7 +503,7 @@ def _impl(ctx):
       content=command,
       executable=True)
 
-  return struct(
+  return [DefaultInfo(
       # Create runfiles from the files specified in the data attribute.
       # The shell executable - the output of this rule - can use them at runtime.
       # It is also possible to define data_runfiles and default_runfiles.
@@ -513,7 +513,7 @@ def _impl(ctx):
       # to have a field named "runfiles" in order to create the actual runfiles
       # symlink tree.
       runfiles=ctx.runfiles(files=ctx.files.data)
-  )
+  )]
 
 execute = rule(
   implementation=_impl,
@@ -661,14 +661,16 @@ to its dependents.
 `sum.bzl`:
 
 ```python
+NumberInfo = provider()
+
 def _impl(ctx):
   result = ctx.attr.number
-  for i in ctx.attr.deps:
-    result += i.number
+  for dep in ctx.attr.deps:
+    result += dep[NumberInfo].number
   ctx.file_action(output=ctx.outputs.out, content=str(result))
 
-  # Fields in the struct will be visible by other rules.
-  return struct(number=result)
+  # Return the provider with result, visible to other rules.
+  return [NumberInfo(number=result)]
 
 sum = rule(
   implementation=_impl,
@@ -709,15 +711,17 @@ This is a similar example, but dependencies may not provide a number.
 `sum.bzl`:
 
 ```python
+NumberInfo = provider()
+
 def _impl(ctx):
   result = ctx.attr.number
-  for i in ctx.attr.deps:
-    if hasattr(i, "number"):
-      result += i.number
+  for dep in ctx.attr.deps:
+    if NumberInfo in dep:
+      result += dep[NumberInfo].number
   ctx.file_action(output=ctx.outputs.out, content=str(result))
 
-  # Fields in the struct will be visible by other rules.
-  return struct(number=result)
+  # Return the provider with result, visible to other rules.
+  return [NumberInfo(number=result)]
 
 sum = rule(
   implementation=_impl,
@@ -864,7 +868,7 @@ def _impl(ctx):
   files = depset()
   files += ctx.attr.dep_rule_1.files
   files += ctx.attr.dep_rule_2.files
-  return struct(files=files)
+  return [DefaultInfo(files=files)]
 
 # This rule binds the depending rules together
 master_rule = rule(

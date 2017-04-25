@@ -114,11 +114,7 @@ Example:
 ```python
 def _impl(ctx):
   ...
-  return struct(
-      runfiles = ...,
-      my_provider = ...,
-      ...
-  )
+  return [DefaultInfo(runfiles=...),  MyInfo(...)]
 
 my_rule = rule(
     implementation = _impl,
@@ -350,45 +346,71 @@ information can be accumulated from all dependencies. In such cases, consider
 using [depsets](depsets.md) to hold the data more efficiently without excessive
 copying.
 
-The following data types can be passed using providers:
+Providers can be declared using the [provider()](lib/globals.html#provider) function:
 
-* [bool](lib/bool.html)
-* [integer](lib/int.html)
-* [string](lib/string.html)
-* [file](lib/File.html)
-* [label](lib/Label.html)
-* [None](lib/globals.html#None)
-* anything composed of these types and [lists](lib/list.html),
- [dicts](lib/dict.html),  [depsets](lib/depset.html) or
- [structs](lib/struct.html).
+```python
+TransitiveDataInfo = provider()
+```
 
-Providers are created from the return value of the rule implementation function:
+Rule implementation function can then construct and return provider instances:
 
 ```python
 def rule_implementation(ctx):
   ...
-  return struct(
-    transitive_data = depset(["a", "b", "c"])
-  )
+  return [TransitiveDataInfo(value = ["a", "b", "c"])]
 ```
 
-A dependent rule might access these data as struct fields of the `target` being
-depended upon:
+`TransitiveDataInfo` acts both as a constructor for provider instances and as a key to access them.
+A [target](lib/Target.html) serves as a map from each provider that the target supports, to the
+target's corresponding instance of that provider.
+A rule can access the providers of its dependencies using the square bracket notation (`[]`):
 
 ```python
 def dependent_rule_implementation(ctx):
   ...
   s = depset()
   for dep_target in ctx.attr.deps:
-    # Use `print(dir(dep_target))` to see the list of providers.
-    s += dep_target.transitive_data
+    s += dep_target[TransitiveDataInfo].value
   ...
 ```
+
+All targets have a [`DefaultInfo`](lib/globals.html#DefaultInfo) provider that can be used to access
+some information relevant to all targets.
 
 Providers are only available during the analysis phase. Examples of usage:
 
 * [mandatory providers](cookbook.md#mandatory-providers)
 * [optional providers](cookbook.md#optional-providers)
+
+> *Note:*
+> Historically, Bazel also supported provider instances that are identified by strings and
+> accessed as fields on the `target` object instead of as keys. This style is deprecated
+> but still supported. Return legacy providers as follows:
+>
+```python
+def rule_implementation(ctx):
+  ...
+  modern_provider = TransitiveDataInfo(value = ["a", "b", "c"])
+  # Legacy style.
+  return struct(legacy_provider = struct(...),
+                another_legacy_provider = struct(...),
+                # The `providers` field contains provider instances that can be accessed
+                # the "modern" way.
+                providers = [modern_provider])
+```
+> To access legacy providers, use the dot notation.
+> Note that the same target can define both modern and legacy providers:
+>
+```python
+def dependent_rule_implementation(ctx):
+  ...
+  s = depset()
+  for dep_target in ctx.attr.deps:
+    x = dep_target.legacy_provider            # legacy style
+    s += dep_target[TransitiveDataInfo].value # modern style
+  ...
+```
+> **We recommend using modern providers for all future code.**
 
 ## Runfiles
 
@@ -418,9 +440,9 @@ def _rule_implementation(ctx):
       # deps and data attributes.
       collect_default = True,
   )
-  # Add a field named "runfiles" to the return struct in order to actually
+  # Add a field named "runfiles" to the DefaultInfo provider in order to actually
   # create the symlink tree.
-  return struct(runfiles = runfiles)
+  return [DefaultInfo(runfiles=runfiles)]
 ```
 
 Note that non-executable rule outputs can also have runfiles. For example, a
