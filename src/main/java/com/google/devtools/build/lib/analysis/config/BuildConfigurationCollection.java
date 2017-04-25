@@ -260,7 +260,7 @@ public final class BuildConfigurationCollection {
      * in which they must co-exist. Once dynamic configurations are production-ready, we'll remove
      * the static configuration code entirely.
      */
-    protected Transition getDynamicTransition(Transition transition) {
+    public Transition getDynamicTransition(Transition transition) {
       Preconditions.checkState(configuration.useDynamicConfigurations());
       if (transition == Attribute.ConfigurationTransition.NONE) {
         return transition;

@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PackageProviderForConfigurations;
+import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.events.ErrorSensingEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -122,10 +123,19 @@ public class ConfigurationCollectionFunction implements SkyFunction {
       throws InvalidConfigurationException, InterruptedException {
     if (targetConfiguration.useDynamicConfigurations()) {
       BuildOptions targetOptions = targetConfiguration.getOptions();
+      // The host configuration builds from the data, not the target options. This is done
+      // so that host tools are always built without LIPO.
+      BuildOptions dataOptions = targetOptions;
+      Attribute.Transition dataTransition = targetConfiguration.getTransitions()
+          .getDynamicTransition(Attribute.ConfigurationTransition.DATA);
+      if (dataTransition != Attribute.ConfigurationTransition.NONE) {
+        dataOptions = ((PatchTransition) dataTransition).apply(targetOptions);
+      }
+
       BuildOptions hostOptions =
           targetOptions.get(BuildConfiguration.Options.class).useDistinctHostConfiguration
-              ? HostTransition.INSTANCE.apply(targetConfiguration.getOptions())
-              : targetOptions;
+              ? HostTransition.INSTANCE.apply(dataOptions)
+              : dataOptions;
 
       SkyKey hostConfigKey =
           BuildConfigurationValue.key(

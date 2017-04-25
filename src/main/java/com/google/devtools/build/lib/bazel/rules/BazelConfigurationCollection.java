@@ -103,7 +103,7 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
     }
 
     @Override
-    protected Transition getDynamicTransition(Transition configurationTransition) {
+    public Transition getDynamicTransition(Transition configurationTransition) {
       if (configurationTransition == ConfigurationTransition.DATA) {
         return ConfigurationTransition.NONE;
       } else {
