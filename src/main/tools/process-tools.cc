@@ -177,10 +177,10 @@ void BecomeSubreaper() {
     DIE("procctl");
   }
 #endif
-#if defined(__linux__)
-  if (prctl(PR_SET_CHILD_SUBREAPER, 1) < 0) {
-    DIE("prctl");
-  }
+#if defined(PR_SET_CHILD_SUBREAPER)
+  // The "child subreaper" feature needs Linux 3.4 or higher.
+  // TODO(philwo) print a warning when this fails.
+  prctl(PR_SET_CHILD_SUBREAPER, 1);
 #endif
 }
 
