@@ -409,8 +409,8 @@ public final class CppModel {
       buildVariables.addStringVariable("output_object_file", realOutputFilePath);
     }
 
-    DotdFile dotdFile = CppFileTypes.mustProduceDotdFile(sourceFile)
-        ? Preconditions.checkNotNull(builder.getDotdFile()) : null;
+    DotdFile dotdFile =
+        isGenerateDotdFile(sourceFile) ? Preconditions.checkNotNull(builder.getDotdFile()) : null;
     // Set dependency_file to enable <object>.d file generation.
     if (dotdFile != null) {
       buildVariables.addStringVariable(
@@ -496,6 +496,12 @@ public final class CppModel {
     CcToolchainFeatures.Variables variables = buildVariables.build();
     builder.setVariables(variables);
   }
+
+  /** Returns true if Dotd file should be generated. */
+  private boolean isGenerateDotdFile(Artifact sourceArtifact) {
+    return CppFileTypes.headerDiscoveryRequired(sourceArtifact)
+        && !featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES);
+  }
   
   /**
    * Constructs the C++ compiler actions. It generally creates one action for every specified source
@@ -533,8 +539,8 @@ public final class CppModel {
       if (!sourceArtifact.isTreeArtifact()) {
         switch (source.getType()) {
           case HEADER:
-            createHeaderAction(outputName, result, env, builder,
-                CppFileTypes.mustProduceDotdFile(sourceArtifact));
+            createHeaderAction(
+                outputName, result, env, builder, isGenerateDotdFile(sourceArtifact));
             break;
           case CLIF_INPUT_PROTO:
             createClifMatchAction(outputName, result, env, builder);
@@ -557,7 +563,7 @@ public final class CppModel {
                 // output (since it isn't generating a native object with debug
                 // info). In that case the LTOBackendAction will generate the dwo.
                 /*generateDwo=*/ cppConfiguration.useFission() && !bitcodeOutput,
-                CppFileTypes.mustProduceDotdFile(sourceArtifact),
+                isGenerateDotdFile(sourceArtifact),
                 source.getBuildVariables());
             break;
         }
@@ -635,10 +641,7 @@ public final class CppModel {
     builder.setSemantics(semantics);
     builder.setPicMode(pic);
     builder.setOutputs(
-        ruleContext,
-        ArtifactCategory.OBJECT_FILE,
-        outputName,
-        CppFileTypes.mustProduceDotdFile(module));
+        ruleContext, ArtifactCategory.OBJECT_FILE, outputName, isGenerateDotdFile(module));
     PathFragment ccRelativeName = semantics.getEffectiveSourcePath(module);
 
     String gcnoFileName =
@@ -708,7 +711,7 @@ public final class CppModel {
         /*addObject=*/ false,
         /*enableCoverage=*/ false,
         /*generateDwo=*/ false,
-        CppFileTypes.mustProduceDotdFile(moduleMapArtifact),
+        isGenerateDotdFile(moduleMapArtifact),
         ImmutableMap.<String, String>of());
   }
 

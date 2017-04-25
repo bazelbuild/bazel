@@ -20,6 +20,7 @@ import ntpath
 import os
 import re
 import subprocess
+import sys
 
 MAX_PATH = 260  # The maximum number of characters in a Windows path.
 MAX_OPTION_LENGTH = 10  # The maximum length of a compiler/linker option.
@@ -58,6 +59,7 @@ class ArgParser(object):
     self.global_whole_archive = None
     self.is_cuda_compilation = None
     self.cuda_log = False
+    self.enforce_debug_rt = False
     self._ParseArgs(argv)
 
   def ReplaceLibrary(self, arg):
@@ -256,7 +258,6 @@ class ArgParser(object):
     matched = []
     unmatched = []
     files = []
-    enforce_debug_rt = False
     while i < len(argv):
       num_matched, action, groups = self._MatchOneArg(argv[i:])
       arg = argv[i]
@@ -308,7 +309,7 @@ class ArgParser(object):
           continue
 
         if entry == '$DEBUG_RT':
-          enforce_debug_rt = True
+          self.enforce_debug_rt = True
           continue
 
         if not groups:
@@ -338,11 +339,6 @@ class ArgParser(object):
                 exit(-1)
               continue
 
-            if entry == ('$GENERATE_DEPS%d' % g):
-              self.options.append('/showIncludes')
-              self.deps_file = value
-              continue
-
             # Regular substitution.
             patterns = {
                 '$%d' % g: value,
@@ -355,27 +351,6 @@ class ArgParser(object):
             self.options.append(result)
       i += num_matched
     self.leftover = unmatched
-
-    # Select runtime option
-    # Find the last runtime option passed
-    rt = None
-    rt_idx = -1
-    for i, opt in enumerate(reversed(self.options)):
-      if opt in ['/MT', '/MTd', '/MD', '/MDd']:
-        if opt[-1] == 'd':
-          enforce_debug_rt = True
-        rt = opt[:3]
-        rt_idx = len(self.options) - i - 1
-        break
-    rt = rt or '/MT'  # Default to static runtime
-    # Add debug if necessary
-    if enforce_debug_rt:
-      rt += 'd'
-    # Include runtime option
-    if rt_idx >= 0:
-      self.options[rt_idx] = rt
-    else:
-      self.options.append(rt)
 
     # Add in any parsed files
     self.options += files
@@ -452,28 +427,7 @@ class WindowsRunner(object):
     Returns:
       The return code from executing binary.
     """
-    # Filter out some not-so-useful cl windows messages.
-    filters = [
-        '.*warning LNK4006: __NULL_IMPORT_DESCRIPTOR already defined.*\n',
-        '.*warning LNK4044: unrecognized option \'/MT\'; ignored.*\n',
-        '.*warning LNK4044: unrecognized option \'/link\'; ignored.*\n',
-        '.*warning LNK4221: This object file does not define any '
-        'previously.*\n',
-        '\r\n',
-        '\n\r',
-    ]
 
-    # Check again the arguments are within MAX_PATH.
-    for arg in args:
-      if os.path.splitext(arg)[1].lower() in ['.c', '.cc', '.cpp', '.s']:
-        # cl.exe prints out the file name it is compiling; add that to the
-        # filter.
-        name = arg.rpartition(ntpath.sep)[2]
-        filters.append(name)
-
-    # Construct a large regular expression for all filters.
-    output_filter = re.compile('(' + ')|('.join(filters) + ')')
-    includes_filter = re.compile(r'Note: including file:\s+(.*)')
     # Run the command.
     if parser.params_file:
       try:
@@ -493,32 +447,9 @@ class WindowsRunner(object):
     # Unconmment the following line to see what exact command is executed.
     # print("Running: " + " ".join(cmd))
     proc = subprocess.Popen(cmd,
+                            stdout=sys.stdout,
+                            stderr=sys.stderr,
                             env=os.environ.copy(),
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT,
                             shell=True)
-    deps = []
-    for line in proc.stdout:
-      line = line.decode('utf-8')
-      if not output_filter.match(line):
-        includes = includes_filter.match(line)
-        if includes:
-          filename = includes.group(1).rstrip()
-          deps += [filename]
-        else:
-          print(line.rstrip())
     proc.wait()
-
-    # Generate deps file if requested.
-    if parser.deps_file:
-      with open(parser.deps_file, 'w') as deps_file:
-        # Start with the name of the output file.
-        deps_file.write(parser.output_file + ': \\\n')
-        for i, dep in enumerate(deps):
-          dep = dep.replace('\\', '/').replace(' ', '\\ ')
-          deps_file.write('  ' + dep)
-          if i < len(deps) - 1:
-            deps_file.write(' \\')
-          deps_file.write('\n')
-
     return proc.returncode

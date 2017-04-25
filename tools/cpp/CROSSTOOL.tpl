@@ -300,8 +300,15 @@ toolchain {
     }
   }
 
+  # Stop adding any flag for dotD file, Bazel knows how to parse the output of /showIncludes option
+  # TODO(bazel-team): Remove this empty feature. https://github.com/bazelbuild/bazel/issues/2868
   feature {
     name: 'dependency_file'
+  }
+
+  # Tell Bazel to parse the output of /showIncludes
+  feature {
+    name: 'parse_showincludes'
     flag_set {
       action: 'assemble'
       action: 'preprocess-assemble'
@@ -310,10 +317,8 @@ toolchain {
       action: 'c++-module-compile'
       action: 'c++-header-preprocessing'
       action: 'c++-header-parsing'
-      expand_if_all_available: 'dependency_file'
       flag_group {
-        flag: '/DEPENDENCY_FILE'
-        flag: '%{dependency_file}'
+        flag: "/showIncludes"
       }
     }
   }
@@ -361,6 +366,7 @@ toolchain {
     }
     implies: 'nologo'
     implies: 'msvc_env'
+    implies: 'parse_showincludes'
   }
 
   action_config {
@@ -396,6 +402,7 @@ toolchain {
     }
     implies: 'nologo'
     implies: 'msvc_env'
+    implies: 'parse_showincludes'
   }
 
   action_config {

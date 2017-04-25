@@ -236,12 +236,11 @@ public class ObjcCompileAction extends SpawnAction {
     return new HeaderDiscovery.Builder()
         .setAction(this)
         .setSourceFile(sourceFile)
-        .setDotdFile(dotdFile)
-        .setDependencySet(processDepset(execRoot))
+        .setDependencies(processDepset(execRoot).getDependencies())
         .setPermittedSystemIncludePrefixes(ImmutableList.<Path>of())
         .setAllowedDerivedinputsMap(getAllowedDerivedInputsMap(true))
         .build()
-        .discoverInputsFromDotdFiles(execRoot, artifactResolver);
+        .discoverInputsFromDependencies(execRoot, artifactResolver);
   }
 
   private DependencySet processDepset(Path execRoot) throws ActionExecutionException {

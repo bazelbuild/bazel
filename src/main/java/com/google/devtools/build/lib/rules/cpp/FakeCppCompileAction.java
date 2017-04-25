@@ -156,10 +156,9 @@ public class FakeCppCompileAction extends CppCompileAction {
       HeaderDiscovery.Builder discoveryBuilder =
           new HeaderDiscovery.Builder()
               .setAction(this)
-              .setDotdFile(getDotdFile())
               .setSourceFile(getSourceFile())
               .setSpecialInputsHandler(specialInputsHandler)
-              .setDependencySet(processDepset(execRoot, reply))
+              .setDependencies(processDepset(execRoot, reply).getDependencies())
               .setPermittedSystemIncludePrefixes(getPermittedSystemIncludePrefixes(execRoot))
               .setAllowedDerivedinputsMap(getAllowedDerivedInputsMap());
 
@@ -170,7 +169,7 @@ public class FakeCppCompileAction extends CppCompileAction {
       discoveredInputs =
           discoveryBuilder
               .build()
-              .discoverInputsFromDotdFiles(execRoot, scanningContext.getArtifactResolver());
+              .discoverInputsFromDependencies(execRoot, scanningContext.getArtifactResolver());
     }
      
     reply = null; // Clear in-memory .d files early.

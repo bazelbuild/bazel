@@ -185,7 +185,7 @@ public final class CppFileTypes {
         }
       };
 
-  public static final boolean mustProduceDotdFile(Artifact source) {
+  public static final boolean headerDiscoveryRequired(Artifact source) {
     // Sources from TreeArtifacts and TreeFileArtifacts will not generate dotd file.
     if (source.isTreeArtifact() || source.hasParent()) {
       return false;

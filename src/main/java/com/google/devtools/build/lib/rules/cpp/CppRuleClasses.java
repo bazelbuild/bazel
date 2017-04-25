@@ -285,6 +285,9 @@ public class CppRuleClasses {
    */
   public static final String GENERATE_PDB_FILE = "generate_pdb_file";
 
+  /** A string constant for /showIncludes parsing feature, should only be used for MSVC toolchain */
+  public static final String PARSE_SHOWINCLUDES = "parse_showincludes";
+
   /*
    * A string constant for the fdo_instrument feature.
    */
