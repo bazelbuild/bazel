@@ -77,22 +77,22 @@ darwin)
   fi
   ;;
 
-msys*|mingw*)
+msys*|mingw*|cygwin*)
   # Use a simplified platform string.
-  PLATFORM="mingw"
+  PLATFORM="windows"
   PATHSEP=";"
   # Find the latest available version of the SDK.
-  JAVA_HOME="${JAVA_HOME:-$(ls -d /c/Program\ Files/Java/jdk* | sort | tail -n 1)}"
+  JAVA_HOME="${JAVA_HOME:-$(ls -d C:/Program\ Files/Java/jdk* | sort | tail -n 1)}"
   # Replace backslashes with forward slashes.
   JAVA_HOME="${JAVA_HOME//\\//}"
 esac
 
 EXE_EXT=""
-if [ "${PLATFORM}" == "mingw" ]; then
+if [ "${PLATFORM}" == "windows" ]; then
   # Extension for executables.
   EXE_EXT=".exe"
 
-  # Fix TMPDIR on msys
+  # Fix TMPDIR on windows
   default_tmp=${TMP:-$(cygpath -mO)/Temp}
   TMPDIR=$(cygpath -ml "${TMPDIR:-$default_tmp}")
 fi
@@ -235,13 +235,13 @@ function new_step() {
 }
 
 function git_sha1() {
-  if [ -x "$(which git || true)" ] && [ -d .git ]; then
+  if [ -x "$(which git 2>/dev/null)" ] && [ -d .git ]; then
     git rev-parse --short HEAD 2>/dev/null || true
   fi
 }
 
 function git_date() {
-  if [ -x "$(which git || true)" ] && [ -d .git ]; then
+  if [ -x "$(which git 2>/dev/null)" ] && [ -d .git ]; then
     git log -1 --pretty=%ai | cut -d " " -f 1 || true
   fi
 }

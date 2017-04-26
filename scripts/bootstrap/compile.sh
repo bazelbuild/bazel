@@ -272,8 +272,7 @@ chmod 0755 ${ARCHIVE_DIR}/_embedded_binaries/process-wrapper${EXE_EXT}
 function build_jni() {
   local -r output_dir=$1
 
-  case "${PLATFORM}" in
-  msys*|mingw*)
+  if [ "${PLATFORM}" = "windows" ]; then
     # We need JNI on Windows because some filesystem operations are not (and
     # cannot be) implemented in native Java.
     log "Building Windows JNI library..."
@@ -297,13 +296,10 @@ function build_jni() {
     chmod 0555 "$output"
 
     JNI_FLAGS="-Dio.bazel.EnableJni=1 -Djava.library.path=${output_dir}"
-    ;;
-
-  *)
+  else
     # We don't need JNI on other platforms.
     JNI_FLAGS="-Dio.bazel.EnableJni=0"
-    ;;
-  esac
+  fi
 }
 
 build_jni "${ARCHIVE_DIR}/_embedded_binaries"
@@ -318,6 +314,12 @@ if [[ $PLATFORM == "darwin" ]]; then
 else
   cp tools/osx/xcode_locator_stub.sh ${ARCHIVE_DIR}/_embedded_binaries/xcode-locator
 fi
+
+function get_cwd() {
+  local result=${PWD}
+  [ "$PLATFORM" = "windows" ] && result="$(cygpath -m "$result")"
+  echo "$result"
+}
 
 function run_bazel_jar() {
   local command=$1
@@ -369,7 +371,7 @@ function run_bazel_jar() {
       --install_base=${ARCHIVE_DIR} \
       --output_base=${OUTPUT_DIR}/out \
       --install_md5= \
-      --workspace_directory=${PWD} \
+      --workspace_directory="$(get_cwd)" \
       --nofatal_event_bus_exceptions \
       ${BAZEL_DIR_STARTUP_OPTIONS} \
       ${BAZEL_BOOTSTRAP_STARTUP_OPTIONS:-} \
@@ -378,6 +380,6 @@ function run_bazel_jar() {
       --startup_time=329 --extract_data_time=523 \
       --rc_source=/dev/null --isatty=1 \
       "${client_env[@]}" \
-      --client_cwd=${PWD} \
+      --client_cwd="$(get_cwd)" \
       "${@}"
 }

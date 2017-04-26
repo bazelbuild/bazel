@@ -62,7 +62,8 @@ if [ -z "${BAZEL-}" ]; then
         --javacopt="-g -source ${JAVA_VERSION} -target ${JAVA_VERSION}" "${@}"
   }
 else
-  function _run_bootstrapping_bazel() { local command=$1
+  function _run_bootstrapping_bazel() {
+    local command=$1
     shift
     ${BAZEL} --bazelrc=${BAZELRC} ${BAZEL_DIR_STARTUP_OPTIONS} $command \
         ${_BAZEL_ARGS} --verbose_failures \
