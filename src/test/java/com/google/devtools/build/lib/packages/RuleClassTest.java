@@ -724,15 +724,15 @@ public class RuleClassTest extends PackageLoadingTestCase {
     AttributeMap rule = RawAttributeMapper.of(
         createRule(ruleClass, "testrule", attributeValues, testRuleLocation));
 
-    assertThat(substitutePlaceholderIntoTemplate("foo", rule)).containsExactly("foo");
-    assertThat(substitutePlaceholderIntoTemplate("foo-%{baz}-bar", rule)).containsExactly(
+    assertThat(substitutePlaceholderIntoTemplate("foo", rule).singular()).isEqualTo("foo");
+    assertThat(substitutePlaceholderIntoTemplate("foo-%{baz}-bar", rule).plural()).containsExactly(
         "foo-baz-bar", "foo-BAZ-bar").inOrder();
-    assertThat(substitutePlaceholderIntoTemplate("%{a}-%{b}-%{c}", rule)).containsExactly("a-b-c",
+    assertThat(substitutePlaceholderIntoTemplate("%{a}-%{b}-%{c}", rule).plural()).containsExactly("a-b-c",
         "a-b-C", "a-B-c", "a-B-C", "A-b-c", "A-b-C", "A-B-c", "A-B-C").inOrder();
-    assertThat(substitutePlaceholderIntoTemplate("%{a", rule)).containsExactly("%{a");
-    assertThat(substitutePlaceholderIntoTemplate("%{a}}", rule)).containsExactly("a}", "A}")
+    assertThat(substitutePlaceholderIntoTemplate("%{a", rule).singular()).isEqualTo("%{a");
+    assertThat(substitutePlaceholderIntoTemplate("%{a}}", rule).plural()).containsExactly("a}", "A}")
         .inOrder();
-    assertThat(substitutePlaceholderIntoTemplate("x%{a}y%{empty}", rule)).isEmpty();
+    assertThat(substitutePlaceholderIntoTemplate("x%{a}y%{empty}", rule).plural()).isEmpty();
   }
 
   @Test

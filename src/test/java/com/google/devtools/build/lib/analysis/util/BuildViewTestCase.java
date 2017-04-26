@@ -2006,7 +2006,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     RawAttributeMapper attr = RawAttributeMapper.of(associatedRule);
 
-    String path = Iterables.getOnlyElement(outputFunction.getImplicitOutputs(eventCollector, attr));
+    String path = outputFunction.getImplicitOutputs(eventCollector, attr).singular();
 
     return view.getArtifactFactory()
         .getDerivedArtifact(target.getLabel().getPackageFragment().getRelative(path), root, owner);

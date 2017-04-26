@@ -343,7 +343,7 @@ public final class AndroidRuleClasses {
       new SafeImplicitOutputsFunction() {
 
         @Override
-        public Iterable<String> getImplicitOutputs(EventHandler eventHandler, AttributeMap rule) {
+        public TemplateSubstitution getImplicitOutputs(EventHandler eventHandler, AttributeMap rule) {
           List<SafeImplicitOutputsFunction> functions = Lists.newArrayList();
           functions.add(AndroidRuleClasses.ANDROID_BINARY_APK);
           functions.add(AndroidRuleClasses.ANDROID_BINARY_UNSIGNED_APK);
@@ -363,7 +363,7 @@ public final class AndroidRuleClasses {
   public static final SafeImplicitOutputsFunction ANDROID_LIBRARY_IMPLICIT_OUTPUTS =
       new SafeImplicitOutputsFunction() {
         @Override
-        public Iterable<String> getImplicitOutputs(
+        public TemplateSubstitution getImplicitOutputs(
             EventHandler eventHandler, AttributeMap attributes) {
 
           ImmutableList.Builder<SafeImplicitOutputsFunction> implicitOutputs =

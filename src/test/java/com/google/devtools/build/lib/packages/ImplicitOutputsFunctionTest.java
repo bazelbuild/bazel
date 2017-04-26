@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.AttributeValueGetter;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.TemplateSubstitution;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import java.util.ArrayList;
@@ -145,9 +146,10 @@ public final class ImplicitOutputsFunctionTest {
         .inOrder();
 
     // Test the actual substitution code.
-    List<String> substitutions =
+    TemplateSubstitution substitution =
         ImplicitOutputsFunction.substitutePlaceholderIntoTemplate(template, null, attrValues);
-    assertThat(substitutions)
+    assertThat(substitution.isPlural()).isTrue();
+    assertThat(substitution.plural())
         .containsExactlyElementsIn(Arrays.asList(expectedSubstitutions));
   }
 
