@@ -150,7 +150,7 @@ class Desugar {
 
     @Option(
       name = "desugar_interface_method_bodies_if_needed",
-      defaultValue = "false",
+      defaultValue = "true",
       category = "misc",
       help = "Rewrites default and static methods in interfaces if --min_sdk_version < 24. This "
           + "only works correctly if subclasses of rewritten interfaces as well as uses of static "
