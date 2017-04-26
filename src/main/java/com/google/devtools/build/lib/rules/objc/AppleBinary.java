@@ -44,6 +44,8 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.objc.AppleDebugOutputsProvider.OutputType;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.MultiArchBinarySupport.DependencySpecificConfiguration;
+import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
+import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -210,6 +212,10 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     }
 
     targetBuilder.addNativeDeclaredProvider(builder.build()).addOutputGroups(outputGroupCollector);
+
+    InstrumentedFilesProvider instrumentedFilesProvider =
+        InstrumentedFilesCollector.forward(ruleContext, "deps", "bundle_loader");
+    targetBuilder.addProvider(InstrumentedFilesProvider.class, instrumentedFilesProvider);
 
     return targetBuilder.build();
   }
