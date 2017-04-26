@@ -63,7 +63,7 @@ EOF
   chmod +x tests/fail.sh
 
   bazel test --nocache_test_results //tests:fail &>$TEST_log \
-      && fail "expected failure" || /bin/true
+      && fail "expected failure" || true
   expect_log "^//tests:fail[[:space:]]\+FAILED in [[:digit:]]\+\.[[:digit:]]\+s"
   expect_log "^Executed 1 out of 1 test: 1 fails"
 }
