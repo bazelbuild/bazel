@@ -86,6 +86,13 @@ message PyIdeInfo {
   repeated ArtifactLocation sources = 1;
 }
 
+message ScalaIdeInfo {
+  repeated LibraryArtifact jars = 1;
+  ArtifactLocation package_manifest = 2;
+  repeated ArtifactLocation sources = 3;
+  string main_class = 4;
+}
+
 message CToolchainIdeInfo {
   string target_name = 1;
   repeated string base_compiler_option = 2;
@@ -170,5 +177,7 @@ message TargetIdeInfo {
 
   AndroidSdkIdeInfo android_sdk_ide_info = 22;
 
-  // Next available: 23
+  ScalaIdeInfo scala_ide_info = 23;
+
+  // Next available: 24
 }

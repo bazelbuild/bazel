@@ -23,6 +23,12 @@ DEPS = [
     "_robolectric",  # From android_robolectric_test
     "_android_sdk",  # from android rules
     "aidl_lib",  # from android_sdk
+    "_scalalib",  # From scala rules
+    "_scalacompiler",  # From scala rules
+    "_scalareflect",  # From scala rules
+    "_scalatest",  # From scala_test rules
+    "_scalatest_reporter",  # From scala_test rules
+    "_scalaxml",  # From scala_test rules
 ]
 
 # Run-time dependency attributes, grouped by type.
@@ -498,6 +504,42 @@ def build_android_sdk_ide_info(ctx):
       android_jar = artifact_location(android_jar_file),
   )
 
+def build_scala_ide_info(target, ctx):
+  """Build ScalaIdeInfo."""
+  if not hasattr(target, "scala"):
+    return (None, set(), set())
+
+  ide_info_files = set()
+  scala_sources = []
+  if hasattr(ctx.rule.attr, "srcs"):
+    scala_sources = [f for src in ctx.rule.attr.srcs for f in src.files if f.is_source]
+
+  package_manifest = None
+  if scala_sources:
+    package_manifest = build_java_package_manifest(ctx, target, scala_sources, ".scala-manifest")
+    ide_info_files = ide_info_files | set([package_manifest])
+
+  scala = target.scala
+  class_jar = None
+  ijar = None
+  intellij_resolve_files = set()
+  if scala.outputs:
+    class_jar = scala.outputs.class_jar
+    ijar = scala.outputs.ijar
+    intellij_resolve_files = set([class_jar, ijar])
+
+  scala_ide_info = struct_omit_none(
+      sources = sources_from_target(ctx),
+      jars = [struct_omit_none(
+          jar = artifact_location(class_jar),
+          interface_jar = artifact_location(ijar),
+      )],
+      package_manifest = artifact_location(package_manifest),
+      main_class = ctx.rule.attr.main_class if hasattr(ctx.rule.attr, "main_class") else None,
+  )
+  return (scala_ide_info, ide_info_files, intellij_resolve_files)
+
+
 def build_test_info(ctx):
   """Build TestInfo."""
   if not is_test_rule(ctx):
@@ -596,6 +638,12 @@ def intellij_info_aspect_impl(target, ctx, semantics):
   intellij_resolve_files = intellij_resolve_files | android_resolve_files
   android_sdk_ide_info = build_android_sdk_ide_info(ctx)
 
+  # Collect Scala-specific information
+  (scala_ide_info, scala_ide_info_files, scala_resolve_files) = build_scala_ide_info(
+      target, ctx)
+  intellij_info_text = intellij_info_text | scala_ide_info_files
+  intellij_resolve_files = intellij_resolve_files | scala_resolve_files
+
   # java_toolchain
   java_toolchain_ide_info = build_java_toolchain_ide_info(target)
 
@@ -626,6 +674,7 @@ def intellij_info_aspect_impl(target, ctx, semantics):
       java_ide_info = java_ide_info,
       android_ide_info = android_ide_info,
       android_sdk_ide_info = android_sdk_ide_info,
+      scala_ide_info = scala_ide_info,
       tags = tags,
       test_info = test_info,
       java_toolchain_ide_info = java_toolchain_ide_info,
