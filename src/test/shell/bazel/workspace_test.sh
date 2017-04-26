@@ -190,6 +190,9 @@ EOF
   touch foo/baz
   cat > bar/WORKSPACE <<EOF
 workspace(name = "bar")
+
+# Needs to be defined, since @foo is referenced from the genrule.
+local_repository(name = "foo", path = "/whatever")
 EOF
   cat > bar/BUILD <<EOF
 genrule(
@@ -241,6 +244,79 @@ EOF
   bazel build --override_repository="o=$PWD/override" @o//:gen &> $TEST_log \
     || fail "Expected build to succeed"
   assert_contains "override" bazel-genfiles/external/o/gen.out
+}
+
+function test_direct_deps() {
+  REPO1="$PWD/repo1"
+  REPO2="$PWD/repo2"
+  mkdir -p "$REPO1" "$REPO2"
+
+  # repo1 has dependencies on the main repo and repo2.
+  cat > "$REPO1/WORKSPACE" <<EOF
+workspace(name = "repo1")
+
+local_repository(name = "repo2", path = "/whatever")
+# Definition of main_repo purposely omitted to make build fail.
+EOF
+  cat > "$REPO1/BUILD" << EOF
+genrule(
+    name = "bar",
+    srcs = ["@repo2//:baz", "@main_repo//:qux"],
+    outs = ["bar.out"],
+    cmd = "echo \$(SRCS) > \$@",
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  # repo2 has no dependencies.
+  touch "$REPO2/WORKSPACE"
+  cat > "$REPO2/BUILD" << EOF
+genrule(
+    name = "baz",
+    outs = ["baz.out"],
+    cmd = "echo 'baz' > \$@",
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  # The main repo has dependencies on repo1.
+  cat > WORKSPACE << EOF
+workspace(name = "main_repo")
+
+local_repository(name = "repo1", path = "$REPO1")
+# TODO: move this to repo1/WORKSPACE once hierarchical workspaces work.
+local_repository(name = "repo2", path = "$REPO2")
+EOF
+  cat > BUILD <<EOF
+exports_files(["qux"])
+genrule(
+    name = "foo",
+    srcs = ["@repo1//:bar"],
+    outs = ["foo.out"],
+    cmd = "echo 'hi' > \$@",
+)
+EOF
+  touch qux
+
+  bazel build //:foo &> $TEST_log && fail "Expected missing main_repo"
+  expect_log "@repo1//:bar has a dependency on @main_repo but does not define @main_repo in its WORKSPACE"
+
+  cat > "$REPO1/WORKSPACE" <<EOF
+workspace(name = "repo1")
+
+local_repository(name = "main_repo", path = "/whatever")
+# Definition of repo2 purposely omitted to make build fail.
+EOF
+  bazel build //:foo &> $TEST_log && fail "Expected missing repo2"
+  expect_log "@repo1//:bar has a dependency on @repo2 but does not define @repo2 in its WORKSPACE"
+
+  cat > "$REPO1/WORKSPACE" <<EOF
+workspace(name = "repo1")
+
+local_repository(name = "main_repo", path = "/whatever")
+local_repository(name = "repo2", path = "/whatever")
+EOF
+  bazel build //:foo &> $TEST_log || fail "Expected success"
 }
 
 run_suite "workspace tests"

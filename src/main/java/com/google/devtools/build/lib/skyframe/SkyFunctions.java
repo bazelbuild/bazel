@@ -109,6 +109,8 @@ public final class SkyFunctions {
       SkyFunctionName.create("ACTION_TEMPLATE_EXPANSION");
   public static final SkyFunctionName LOCAL_REPOSITORY_LOOKUP =
       SkyFunctionName.create("LOCAL_REPOSITORY_LOOKUP");
+  public static final SkyFunctionName REPOSITORY_DEPENDENCY =
+      SkyFunctionName.create("REPOSITORY_DEPENDENCY");
 
   public static Predicate<SkyKey> isSkyFunction(final SkyFunctionName functionName) {
     return new Predicate<SkyKey>() {

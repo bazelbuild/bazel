@@ -551,7 +551,9 @@ public class CcCommonTest extends BuildViewTestCase {
             new ModifiedFileSet.Builder().modify(PathFragment.create("WORKSPACE")).build(),
             rootDirectory);
     FileSystemUtils.createDirectoryAndParents(scratch.resolve("/foo/bar"));
-    scratch.file("/foo/WORKSPACE", "workspace(name = 'pkg')");
+    scratch.file("/foo/WORKSPACE",
+        "workspace(name = 'pkg')",
+        "local_repository(name = 'bazel_tools', path = '/whatever')");
     scratch.file(
         "/foo/bar/BUILD",
         "cc_library(name = 'lib',",

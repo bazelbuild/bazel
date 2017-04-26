@@ -149,7 +149,9 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
     scratch.file(
         "x/BUILD", "cc_proto_library(name = 'foo_cc_proto', deps = ['@bla//foo:bar_proto'])");
 
-    scratch.file("/bla/WORKSPACE");
+    scratch.file("/bla/WORKSPACE",
+        "local_repository(name = 'com_google_protobuf', path = '/whatever')",
+        "local_repository(name = 'com_google_protobuf_cc', path = '/whatever')");
     // Create the rule '@bla//foo:bar_proto'.
     scratch.file(
         "/bla/foo/BUILD",

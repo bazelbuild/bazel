@@ -176,12 +176,15 @@ function test_refs_btwn_repos() {
   REMOTE1=$TEST_TMPDIR/remote1
   REMOTE2=$TEST_TMPDIR/remote2
   mkdir -p $REMOTE1 $REMOTE2
-  touch $REMOTE1/WORKSPACE $REMOTE2/WORKSPACE
+  touch $REMOTE1/WORKSPACE
   cat > $REMOTE1/input <<EOF
 1.0
 EOF
   cat > $REMOTE1/BUILD <<EOF
 exports_files(['input'])
+EOF
+  cat > $REMOTE2/WORKSPACE <<EOF
+local_repository(name = "remote1", path = "/whatever")
 EOF
   cat > $REMOTE2/BUILD <<EOF
 genrule(
