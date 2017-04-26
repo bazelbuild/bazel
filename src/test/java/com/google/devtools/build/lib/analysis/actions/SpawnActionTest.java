@@ -24,6 +24,7 @@ import static org.junit.Assert.fail;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.AbstractAction;
@@ -364,50 +365,66 @@ public class SpawnActionTest extends BuildViewTestCase {
     assertThat(inputFiles).isEmpty();
   }
 
+  private enum KeyAttributes {
+    EXECUTABLE_PATH,
+    EXECUTABLE,
+    MNEMONIC,
+    RUNFILES_SUPPLIER,
+    RUNFILES_SUPPLIER_PATH,
+    ENVIRONMENT
+  }
+
   @Test
   public void testComputeKey() throws Exception {
     final Artifact artifactA = getSourceArtifact("a");
     final Artifact artifactB = getSourceArtifact("b");
 
-    ActionTester.runTest(64, new ActionCombinationFactory() {
-      @Override
-      public Action generate(int i) {
-        SpawnAction.Builder builder = builder();
-        builder.addOutput(destinationArtifact);
+    ActionTester.runTest(
+        KeyAttributes.class,
+        new ActionCombinationFactory<KeyAttributes>() {
+          @Override
+          public Action generate(ImmutableSet<KeyAttributes> attributesToFlip) {
+            SpawnAction.Builder builder = builder();
+            builder.addOutput(destinationArtifact);
 
-        PathFragment executable = (i & 1) == 0 ? artifactA.getExecPath() : artifactB.getExecPath();
-        if ((i & 2) == 0) {
-          builder.setExecutable(executable);
-        } else {
-          builder.setJavaExecutable(executable, jarArtifact, "Main", ImmutableList.<String>of());
-        }
+            PathFragment executable =
+                attributesToFlip.contains(KeyAttributes.EXECUTABLE_PATH)
+                    ? artifactA.getExecPath()
+                    : artifactB.getExecPath();
+            if (attributesToFlip.contains(KeyAttributes.EXECUTABLE)) {
+              builder.setExecutable(executable);
+            } else {
+              builder.setJavaExecutable(
+                  executable, jarArtifact, "Main", ImmutableList.<String>of());
+            }
 
-        builder.setMnemonic((i & 4) == 0 ? "a" : "b");
+            builder.setMnemonic(attributesToFlip.contains(KeyAttributes.MNEMONIC) ? "a" : "b");
 
-        if ((i & 8) == 0) {
-          builder.addRunfilesSupplier(runfilesSupplier(artifactA, PathFragment.create("a")));
-        } else {
-          builder.addRunfilesSupplier(runfilesSupplier(artifactB, PathFragment.create("a")));
-        }
+            if (attributesToFlip.contains(KeyAttributes.RUNFILES_SUPPLIER)) {
+              builder.addRunfilesSupplier(runfilesSupplier(artifactA, PathFragment.create("a")));
+            } else {
+              builder.addRunfilesSupplier(runfilesSupplier(artifactB, PathFragment.create("a")));
+            }
 
-        if ((i & 16) == 0) {
-          builder.addRunfilesSupplier(runfilesSupplier(artifactA, PathFragment.create("aa")));
-        } else {
-          builder.addRunfilesSupplier(runfilesSupplier(artifactA, PathFragment.create("ab")));
-        }
+            if (attributesToFlip.contains(KeyAttributes.RUNFILES_SUPPLIER_PATH)) {
+              builder.addRunfilesSupplier(runfilesSupplier(artifactA, PathFragment.create("aa")));
+            } else {
+              builder.addRunfilesSupplier(runfilesSupplier(artifactA, PathFragment.create("ab")));
+            }
 
-        Map<String, String> env = new HashMap<>();
-        if ((i & 32) == 0) {
-          env.put("foo", "bar");
-        }
-        builder.setEnvironment(env);
+            Map<String, String> env = new HashMap<>();
+            if (attributesToFlip.contains(KeyAttributes.ENVIRONMENT)) {
+              env.put("foo", "bar");
+            }
+            builder.setEnvironment(env);
 
-        Action[] actions = builder.build(ActionsTestUtil.NULL_ACTION_OWNER,
-            collectingAnalysisEnvironment, targetConfig);
-        collectingAnalysisEnvironment.registerAction(actions);
-        return actions[0];
-      }
-    });
+            Action[] actions =
+                builder.build(
+                    ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
+            collectingAnalysisEnvironment.registerAction(actions);
+            return actions[0];
+          }
+        });
   }
 
   @Test

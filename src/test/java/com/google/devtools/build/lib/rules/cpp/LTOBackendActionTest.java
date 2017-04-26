@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -134,6 +135,15 @@ public class LTOBackendActionTest extends BuildViewTestCase {
         .containsExactly(bitcode1Artifact, bitcode2Artifact, index2Artifact);
   }
 
+  private enum KeyAttributes {
+    EXECUTABLE,
+    IMPORTS_INFO,
+    MNEMONIC,
+    RUNFILES_SUPPLIER,
+    INPUT,
+    ENVIRONMENT
+  }
+
   @Test
   public void testComputeKey() throws Exception {
     final Artifact artifactA = getSourceArtifact("a");
@@ -142,26 +152,28 @@ public class LTOBackendActionTest extends BuildViewTestCase {
     final Artifact artifactBimports = getSourceArtifact("b.imports");
 
     ActionTester.runTest(
-        64,
-        new ActionCombinationFactory() {
+        KeyAttributes.class,
+        new ActionCombinationFactory<KeyAttributes>() {
           @Override
-          public Action generate(int i) {
+          public Action generate(ImmutableSet<KeyAttributes> attributesToFlip) {
             LTOBackendAction.Builder builder = new LTOBackendAction.Builder();
             builder.addOutput(destinationArtifact);
 
             PathFragment executable =
-                (i & 1) == 0 ? artifactA.getExecPath() : artifactB.getExecPath();
+                attributesToFlip.contains(KeyAttributes.EXECUTABLE)
+                    ? artifactA.getExecPath()
+                    : artifactB.getExecPath();
             builder.setExecutable(executable);
 
-            if ((i & 2) == 0) {
+            if (attributesToFlip.contains(KeyAttributes.IMPORTS_INFO)) {
               builder.addImportsInfo(new HashMap<PathFragment, Artifact>(), artifactAimports);
             } else {
               builder.addImportsInfo(new HashMap<PathFragment, Artifact>(), artifactBimports);
             }
 
-            builder.setMnemonic((i & 4) == 0 ? "a" : "b");
+            builder.setMnemonic(attributesToFlip.contains(KeyAttributes.MNEMONIC) ? "a" : "b");
 
-            if ((i & 8) == 0) {
+            if (attributesToFlip.contains(KeyAttributes.RUNFILES_SUPPLIER)) {
               builder.addRunfilesSupplier(
                   new RunfilesSupplierImpl(PathFragment.create("a"), Runfiles.EMPTY, artifactA));
             } else {
@@ -169,14 +181,14 @@ public class LTOBackendActionTest extends BuildViewTestCase {
                   new RunfilesSupplierImpl(PathFragment.create("a"), Runfiles.EMPTY, artifactB));
             }
 
-            if ((i & 16) == 0) {
+            if (attributesToFlip.contains(KeyAttributes.INPUT)) {
               builder.addInput(artifactA);
             } else {
               builder.addInput(artifactB);
             }
 
             Map<String, String> env = new HashMap<>();
-            if ((i & 32) == 0) {
+            if (attributesToFlip.contains(KeyAttributes.ENVIRONMENT)) {
               env.put("foo", "bar");
             }
             builder.setEnvironment(env);

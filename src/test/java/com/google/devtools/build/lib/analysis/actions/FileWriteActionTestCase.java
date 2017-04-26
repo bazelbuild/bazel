@@ -21,6 +21,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -90,14 +91,23 @@ public abstract class FileWriteActionTestCase extends BuildViewTestCase {
     assertTrue(output.isExecutable());
   }
 
+  private enum KeyAttributes {
+    DATA,
+    MAKE_EXECUTABLE
+  }
+
   protected void checkComputesConsistentKeys() throws Exception {
-    ActionTester.runTest(4, new ActionTester.ActionCombinationFactory() {
-      @Override
-      public Action generate(int i) {
-        return createAction(NULL_ACTION_OWNER, outputArtifact,
-            (i & 1) == 0 ? "0" : "1",
-            (i & 2) == 0);
-      }
-    });
+    ActionTester.runTest(
+        KeyAttributes.class,
+        new ActionTester.ActionCombinationFactory<KeyAttributes>() {
+          @Override
+          public Action generate(ImmutableSet<KeyAttributes> attributesToFlip) {
+            return createAction(
+                NULL_ACTION_OWNER,
+                outputArtifact,
+                attributesToFlip.contains(KeyAttributes.DATA) ? "0" : "1",
+                attributesToFlip.contains(KeyAttributes.MAKE_EXECUTABLE));
+          }
+        });
   }
 }
