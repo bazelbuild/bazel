@@ -26,6 +26,7 @@ import java.lang.reflect.Field;
 import java.nio.file.FileSystem;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -785,6 +786,21 @@ public class OptionsParser implements OptionsProvider {
     return impl.asCanonicalizedList();
   }
 
+  /** Returns all options fields of the given options class, in alphabetic order. */
+  public static Collection<Field> getFields(Class<? extends OptionsBase> optionsClass) {
+    OptionsData data = OptionsParser.getOptionsDataInternal(optionsClass);
+    return data.getFieldsForClass(optionsClass);
+  }
+
+  /**
+   * Returns whether the given options class uses only the core types listed in {@link
+   * OptionsBase#coreTypes}. These are guaranteed to be deeply immutable and serializable.
+   */
+  public static boolean getUsesOnlyCoreTypes(Class<? extends OptionsBase> optionsClass) {
+    OptionsData data = OptionsParser.getOptionsDataInternal(optionsClass);
+    return data.getUsesOnlyCoreTypes(optionsClass);
+  }
+
   /**
    * Returns a mapping from each option {@link Field} in {@code optionsClass} (including inherited
    * ones) to its value in {@code options}.
@@ -797,7 +813,7 @@ public class OptionsParser implements OptionsProvider {
    *
    * @throws IllegalArgumentException if {@code options} is not an instance of {@code optionsClass}
    */
-  static <O extends OptionsBase> Map<Field, Object> toMap(Class<O> optionsClass, O options) {
+  public static <O extends OptionsBase> Map<Field, Object> toMap(Class<O> optionsClass, O options) {
     OptionsData data = getOptionsDataInternal(optionsClass);
     // Alphabetized due to getFieldsForClass()'s order.
     Map<Field, Object> map = new LinkedHashMap<>();
@@ -822,7 +838,7 @@ public class OptionsParser implements OptionsProvider {
    * @throws IllegalArgumentException if {@code map} does not contain exactly the fields of {@code
    *     optionsClass}, with values of the appropriate type
    */
-  static <O extends OptionsBase> O fromMap(Class<O> optionsClass, Map<Field, Object> map) {
+  public static <O extends OptionsBase> O fromMap(Class<O> optionsClass, Map<Field, Object> map) {
     // Instantiate the options class.
     OptionsData data = getOptionsDataInternal(optionsClass);
     O optionsInstance;

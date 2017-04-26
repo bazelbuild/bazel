@@ -94,6 +94,12 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
    */
   private final ImmutableMap<Field, Boolean> allowMultiple;
 
+  /**
+   * Mapping from each options class to whether or not it has the {@link UsesOnlyCoreTypes}
+   * annotation (unordered).
+   */
+  private final ImmutableMap<Class<? extends OptionsBase>, Boolean> usesOnlyCoreTypes;
+
   /** These categories used to indicate OptionUsageRestrictions, but no longer. */
   private static final ImmutableList<String> DEPRECATED_CATEGORIES = ImmutableList.of(
       "undocumented", "hidden", "internal");
@@ -106,7 +112,8 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
       Map<Class<? extends OptionsBase>, ImmutableList<Field>> allOptionsFields,
       Map<Field, Object> optionDefaults,
       Map<Field, Converter<?>> converters,
-      Map<Field, Boolean> allowMultiple) {
+      Map<Field, Boolean> allowMultiple,
+      Map<Class<? extends OptionsBase>, Boolean> usesOnlyCoreTypes) {
     this.optionsClasses = ImmutableMap.copyOf(optionsClasses);
     this.nameToField = ImmutableMap.copyOf(nameToField);
     this.abbrevToField = ImmutableMap.copyOf(abbrevToField);
@@ -115,6 +122,7 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
     this.optionDefaults = Collections.unmodifiableMap(optionDefaults);
     this.converters = ImmutableMap.copyOf(converters);
     this.allowMultiple = ImmutableMap.copyOf(allowMultiple);
+    this.usesOnlyCoreTypes = ImmutableMap.copyOf(usesOnlyCoreTypes);
   }
 
   protected IsolatedOptionsData(IsolatedOptionsData other) {
@@ -125,7 +133,8 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
         other.allOptionsFields,
         other.optionDefaults,
         other.converters,
-        other.allowMultiple);
+        other.allowMultiple,
+        other.usesOnlyCoreTypes);
   }
 
   /**
@@ -176,6 +185,10 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
 
   public boolean getAllowMultiple(Field field) {
     return allowMultiple.get(field);
+  }
+
+  public boolean getUsesOnlyCoreTypes(Class<? extends OptionsBase> optionsClass) {
+    return usesOnlyCoreTypes.get(optionsClass);
   }
 
   /**
@@ -368,6 +381,8 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
     // Maps the negated boolean flag aliases to the original option name.
     Map<String, String> booleanAliasMap = new HashMap<>();
 
+    Map<Class<? extends OptionsBase>, Boolean> usesOnlyCoreTypesBuilder = new HashMap<>();
+
     // Read all Option annotations:
     for (Class<? extends OptionsBase> parsedOptionsClass : classes) {
       try {
@@ -485,7 +500,24 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
         convertersBuilder.put(field, findConverter(field));
 
         allowMultipleBuilder.put(field, annotation.allowMultiple());
+
+        }
+
+      boolean usesOnlyCoreTypes = parsedOptionsClass.isAnnotationPresent(UsesOnlyCoreTypes.class);
+      if (usesOnlyCoreTypes) {
+        // Validate that @UsesOnlyCoreTypes was used correctly.
+        for (Field field : fields) {
+          // The classes in coreTypes are all final. But even if they weren't, we only want to check
+          // for exact matches; subclasses would not be considered core types.
+          if (!UsesOnlyCoreTypes.CORE_TYPES.contains(field.getType())) {
+            throw new ConstructionException(
+                "Options class '" + parsedOptionsClass.getName() + "' is marked as "
+                + "@UsesOnlyCoreTypes, but field '" + field.getName()
+                + "' has type '" + field.getType().getName() + "'");
+          }
+        }
       }
+      usesOnlyCoreTypesBuilder.put(parsedOptionsClass, usesOnlyCoreTypes);
     }
 
     return new IsolatedOptionsData(
@@ -495,7 +527,8 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
         allOptionsFieldsBuilder,
         optionDefaultsBuilder,
         convertersBuilder,
-        allowMultipleBuilder);
+        allowMultipleBuilder,
+        usesOnlyCoreTypesBuilder);
   }
 
 }

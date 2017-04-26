@@ -31,7 +31,12 @@ import com.google.devtools.common.options.OptionsParser.ConstructionException;
 import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.OptionsParser.OptionValueDescription;
 import com.google.devtools.common.options.OptionsParser.UnparsedOptionValueDescription;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -1638,6 +1643,142 @@ public class OptionsParserTest {
     List<String> canonicalized = canonicalize(WrapperOptionExample.class,
         "--wrapper=--flag1=true", "--wrapper=--flag2=87", "--wrapper=--flag3=bar");
     assertEquals(Arrays.asList("--flag1=true", "--flag2=87", "--flag3=bar"), canonicalized);
+  }
+
+  /** Dummy options that declares it uses only core types. */
+  @UsesOnlyCoreTypes
+  public static class CoreTypesOptions extends OptionsBase implements Serializable {
+    @Option(name = "foo", defaultValue = "false")
+    public boolean foo;
+
+    @Option(name = "bar", defaultValue = "abc")
+    public String bar;
+  }
+
+  /** Dummy options that does not declare using only core types. */
+  public static class NonCoreTypesOptions extends OptionsBase {
+    @Option(name = "foo", defaultValue = "false")
+    public boolean foo;
+  }
+
+  /** Dummy options that incorrectly claims to use only core types. */
+  @UsesOnlyCoreTypes
+  public static class BadCoreTypesOptions extends OptionsBase {
+    /** Dummy unsafe type. */
+    public static class Foo {
+      public int i = 0;
+    }
+
+    /** Converter for Foo. */
+    public static class FooConverter implements Converter<Foo> {
+      @Override
+      public Foo convert(String input) throws OptionsParsingException {
+        Foo foo = new Foo();
+        foo.i = Integer.parseInt(input);
+        return foo;
+      }
+
+      @Override
+      public String getTypeDescription() {
+        return "a foo";
+      }
+    }
+
+    @Option(name = "foo", defaultValue = "null", converter = FooConverter.class)
+    public Foo foo;
+  }
+
+  /** Dummy options that is unsafe for @UsesOnlyCoreTypes but doesn't use the annotation. */
+  public static class SuperBadCoreTypesOptions extends OptionsBase {
+    @Option(name = "foo", defaultValue = "null", converter = BadCoreTypesOptions.FooConverter.class)
+    public BadCoreTypesOptions.Foo foo;
+  }
+
+  /**
+   * Dummy options that illegally advertises @UsesOnlyCoreTypes, when its direct fields are fine but
+   * its inherited fields are not.
+   */
+  @UsesOnlyCoreTypes
+  public static class InheritedBadCoreTypesOptions extends SuperBadCoreTypesOptions {
+    @Option(name = "bar", defaultValue = "false")
+    public boolean bar;
+  }
+
+  @Test
+  public void testUsesOnlyCoreTypes() {
+    assertThat(OptionsParser.getUsesOnlyCoreTypes(CoreTypesOptions.class)).isTrue();
+    assertThat(OptionsParser.getUsesOnlyCoreTypes(NonCoreTypesOptions.class)).isFalse();
+  }
+
+  @Test
+  public void testValidationOfUsesOnlyCoreTypes() {
+    try {
+      OptionsParser.getUsesOnlyCoreTypes(BadCoreTypesOptions.class);
+      fail("Should have detected illegal use of @UsesOnlyCoreTypes");
+    } catch (OptionsParser.ConstructionException expected) {
+      assertThat(expected.getMessage()).matches(
+          "Options class '.*BadCoreTypesOptions' is marked as @UsesOnlyCoreTypes, but field "
+          + "'foo' has type '.*Foo'");
+    }
+  }
+
+  @Test
+  public void testValidationOfUsesOnlyCoreTypes_Inherited() {
+    try {
+      OptionsParser.getUsesOnlyCoreTypes(InheritedBadCoreTypesOptions.class);
+      fail("Should have detected illegal use of @UsesOnlyCoreTypes "
+          + "(due to inheritance from bad superclass)");
+    } catch (OptionsParser.ConstructionException expected) {
+      assertThat(expected.getMessage()).matches(
+          "Options class '.*InheritedBadCoreTypesOptions' is marked as @UsesOnlyCoreTypes, but "
+          + "field 'foo' has type '.*Foo'");
+    }
+  }
+
+  @Test
+  public void serializable() throws Exception {
+    OptionsParser parser = OptionsParser.newOptionsParser(CoreTypesOptions.class);
+    parser.parse("--foo=true", "--bar=xyz");
+    CoreTypesOptions options = parser.getOptions(CoreTypesOptions.class);
+
+    ByteArrayOutputStream bos = new ByteArrayOutputStream();
+    ObjectOutputStream objOut = new ObjectOutputStream(bos);
+    objOut.writeObject(options);
+    objOut.flush();
+    ByteArrayInputStream bis = new ByteArrayInputStream(bos.toByteArray());
+    ObjectInputStream objIn = new ObjectInputStream(bis);
+    Object obj = objIn.readObject();
+
+    assertThat(obj).isEqualTo(options);
+  }
+
+  @Test
+  public void stableSerialization() throws Exception {
+    // Construct options two different ways to get the same result, and confirm that the serialized
+    // representation is identical.
+    OptionsParser parser1 = OptionsParser.newOptionsParser(CoreTypesOptions.class);
+    parser1.parse("--foo=true", "--bar=xyz");
+    CoreTypesOptions options1 = parser1.getOptions(CoreTypesOptions.class);
+    OptionsParser parser2 = OptionsParser.newOptionsParser(CoreTypesOptions.class);
+    parser2.parse("--bar=abc", "--foo=1");
+    CoreTypesOptions options2 = parser2.getOptions(CoreTypesOptions.class);
+    options2.bar = "xyz";
+
+    // We use two different pairs of streams because ObjectOutputStream#reset does not actually
+    // wipe all the internal state. (The first time it's used, there's an additional header that
+    // does not reappear afterwards.)
+    ByteArrayOutputStream bos1 = new ByteArrayOutputStream();
+    ObjectOutputStream objOut1 = new ObjectOutputStream(bos1);
+    objOut1.writeObject(options1);
+    objOut1.flush();
+    byte[] data1 = bos1.toByteArray();
+    ByteArrayOutputStream bos2 = new ByteArrayOutputStream();
+    ObjectOutputStream objOut2 = new ObjectOutputStream(bos2);
+    objOut2.writeObject(options2);
+    objOut2.flush();
+    byte[] data2 = bos2.toByteArray();
+
+    assertThat(data1).isEqualTo(data2);
   }
 }
 

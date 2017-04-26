@@ -66,7 +66,8 @@ public abstract class OptionsBase {
    */
   public final <O extends OptionsBase> Map<String, Object> asMap() {
     // Generic O is needed to tell the type system that the toMap() call is safe.
-    // The casts are safe because this <= O <= OptionsBase.
+    // The casts are safe because "this" is an instance of "getClass()"
+    // which subclasses OptionsBase.
     @SuppressWarnings("unchecked")
     O castThis = (O) this;
     @SuppressWarnings("unchecked")
