@@ -19,6 +19,7 @@ import static org.junit.Assert.assertEquals;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.AttributeValueGetter;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.TemplateSubstitution;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -140,13 +141,15 @@ public final class ImplicitOutputsFunctionTest {
       String[] expectedFoundPlaceholders)
       throws Exception {
     List<String> foundAttributes = new ArrayList<>();
-    List<String> substitutions =
+    TemplateSubstitution substitutions =
         ImplicitOutputsFunction.substitutePlaceholderIntoTemplate(
             template, null, attrValues, foundAttributes);
     assertThat(foundAttributes)
         .containsExactlyElementsIn(Arrays.asList(expectedFoundPlaceholders))
         .inOrder();
-    assertThat(substitutions).containsExactlyElementsIn(Arrays.asList(expectedSubstitutions));
+    assertThat(substitutions.isPlural()).isTrue();
+    List<String> substitutionsList = substitutions.plural();
+    assertThat(substitutionsList).containsExactlyElementsIn(Arrays.asList(expectedSubstitutions));
   }
 
   @Test

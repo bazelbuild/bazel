@@ -841,7 +841,8 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/skylark/extension.bzl",
         "def custom_rule_impl(ctx):",
-        "  files = [ctx.outputs.lbl, ctx.outputs.list, ctx.outputs.str]",
+        "  files = [ctx.outputs.lbl, ctx.outputs.str]",
+        "  files += ctx.outputs.list",
         "  print('==!=!=!=')",
         "  print(files)",
         "  ctx.action(",

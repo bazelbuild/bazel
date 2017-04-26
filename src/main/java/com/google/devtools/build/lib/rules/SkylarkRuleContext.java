@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
@@ -45,6 +46,7 @@ import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.TemplateSubstitution;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.OutputFile;
@@ -211,12 +213,12 @@ public final class SkylarkRuleContext implements SkylarkValue {
       if (implicitOutputsFunction instanceof SkylarkImplicitOutputsFunction) {
         SkylarkImplicitOutputsFunction func =
             (SkylarkImplicitOutputsFunction) implicitOutputsFunction;
-        for (Map.Entry<String, String> entry :
+        for (Map.Entry<String, TemplateSubstitution> entry :
             func.calculateOutputs(RawAttributeMapper.of(ruleContext.getRule())).entrySet()) {
           addOutput(
               outputsBuilder,
               entry.getKey(),
-              ruleContext.getImplicitOutputArtifact(entry.getValue()));
+              ruleContext.getImplicitOutputArtifacts(entry.getValue()));
         }
       }
 
