@@ -507,6 +507,7 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
     for (Artifact nonArcSourceFile : compilationArtifacts.getNonArcSrcs()) {
       result.add(intermediateArtifacts.objFile(nonArcSourceFile));
     }
+    result.addAll(compilationArtifacts.getPrecompiledSrcs());
     return result.build();
   }
 
