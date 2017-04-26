@@ -104,8 +104,8 @@ Aspect implementation functions are similiar to the rule implementation
 functions. They return [providers](rules.md#providers), can generate
 [actions](rules.md#actions) and take two arguments:
 
-*    `target`: the target the aspect is being applied to.
-*    [`ctx`](lib/ctx.html): `ctx` object that can be used to access attributes and
+*    `target`: the [target](lib/Target.html) the aspect is being applied to.
+*    `ctx`: [`ctx`](lib/ctx.html) object that can be used to access attributes and
      generate outputs and actions.
 
 Example:
