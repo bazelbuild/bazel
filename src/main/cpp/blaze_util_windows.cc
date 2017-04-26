@@ -501,7 +501,7 @@ string GetJvmVersion(const string& java_exe) {
   HANDLE pipe_read, pipe_write;
 
   SECURITY_ATTRIBUTES sa = {sizeof(SECURITY_ATTRIBUTES), NULL, TRUE};
-  if (!CreatePipe(&pipe_read, &pipe_write, &sa, 0)) {
+  if (!::CreatePipe(&pipe_read, &pipe_write, &sa, 0)) {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "CreatePipe");
   }
 
@@ -672,6 +672,24 @@ static HANDLE CreateJvmOutputFile(const wstring& path,
   return INVALID_HANDLE_VALUE;
 }
 
+#ifdef COMPILER_MSVC
+
+class ProcessHandleBlazeServerStartup : public BlazeServerStartup {
+ public:
+  ProcessHandleBlazeServerStartup(HANDLE _proc) : proc(_proc) {}
+
+  bool IsStillAlive() override {
+    FILETIME dummy1, exit_time, dummy2, dummy3;
+    return GetProcessTimes(proc, &dummy1, &exit_time, &dummy2, &dummy3) &&
+           exit_time.dwHighDateTime == 0 && exit_time.dwLowDateTime == 0;
+  }
+
+ private:
+  windows_util::AutoHandle proc;
+};
+
+#else  // COMPILER_MSVC
+
 // Keeping an eye on the server process on Windows is not implemented yet.
 // TODO(lberki): Implement this, because otherwise if we can't start up a server
 // process, the client will hang until it times out.
@@ -682,18 +700,18 @@ class DummyBlazeServerStartup : public BlazeServerStartup {
   virtual bool IsStillAlive() { return true; }
 };
 
+#endif  // COMPILER_MSVC
+
 void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
                    const string& daemon_output, const string& server_dir,
                    BlazeServerStartup** server_startup) {
-#ifdef COMPILER_MSVC
-  *server_startup = new DummyBlazeServerStartup();
-#else   // not COMPILER_MSVC
+#ifndef COMPILER_MSVC
   if (DaemonizeOnWindows()) {
     // We are the client process
     *server_startup = new DummyBlazeServerStartup();
     return;
   }
-#endif  // COMPILER_MSVC
+#endif  // not COMPILER_MSVC
 
   wstring wdaemon_output;
   if (!blaze_util::AsWindowsPathWithUncPrefix(daemon_output, &wdaemon_output)) {
@@ -703,39 +721,38 @@ void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
 
   SECURITY_ATTRIBUTES sa;
   sa.nLength = sizeof(SECURITY_ATTRIBUTES);
-  // We redirect stdout and stderr by telling CreateProcess to use a file handle
-  // we open below and these handles must be inheriatable
+  // We redirect stdin to the NUL device, and redirect stdout and stderr to
+  // `output_file` (opened below) by telling CreateProcess to use these file
+  // handles, so they must be inheritable.
   sa.bInheritHandle = TRUE;
   sa.lpSecurityDescriptor = NULL;
 
-  HANDLE output_file = CreateJvmOutputFile(wdaemon_output.c_str(), &sa);
-
-  if (output_file == INVALID_HANDLE_VALUE) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "CreateJvmOutputFile %ls",
-         wdaemon_output.c_str());
+  windows_util::AutoHandle devnull(
+      ::CreateFileA("NUL", GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
+                    FILE_ATTRIBUTE_NORMAL, NULL));
+  if (!devnull.IsValid()) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "ExecuteDaemon: Could not open NUL device");
   }
 
-  HANDLE pipe_read, pipe_write;
-  if (!CreatePipe(&pipe_read, &pipe_write, &sa, 0)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "CreatePipe");
-  }
-
-  if (!SetHandleInformation(pipe_write, HANDLE_FLAG_INHERIT, 0)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "SetHandleInformation");
+  windows_util::AutoHandle output_file(
+      CreateJvmOutputFile(wdaemon_output.c_str(), &sa));
+  if (!output_file.IsValid()) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "ExecuteDaemon: CreateJvmOutputFile %ls", wdaemon_output.c_str());
   }
 
   PROCESS_INFORMATION processInfo = {0};
   STARTUPINFOA startupInfo = {0};
 
-  startupInfo.hStdInput = pipe_read;
+  startupInfo.hStdInput = devnull;
   startupInfo.hStdError = output_file;
   startupInfo.hStdOutput = output_file;
   startupInfo.dwFlags |= STARTF_USESTDHANDLES;
   CmdLine cmdline;
   CreateCommandLine(&cmdline, exe, args_vector);
-
   // Propagate BAZEL_SH environment variable to a sub-process.
-  // todo(dslomov): More principled approach to propagating
+  // TODO(dslomov): More principled approach to propagating
   // environment variables.
   SetEnvironmentVariableA("BAZEL_SH", getenv("BAZEL_SH"));
 
@@ -759,9 +776,10 @@ void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
 
   WriteProcessStartupTime(server_dir, processInfo.hProcess);
 
-  CloseHandle(output_file);
-  CloseHandle(pipe_write);
-  CloseHandle(pipe_read);
+#ifdef COMPILER_MSVC
+  // Pass ownership of processInfo.hProcess
+  *server_startup = new ProcessHandleBlazeServerStartup(processInfo.hProcess);
+#endif
 
   string pid_string = ToString(processInfo.dwProcessId);
   string pid_file = blaze_util::JoinPath(server_dir, kServerPidFile);
@@ -770,7 +788,8 @@ void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
     fprintf(stderr, "Cannot write PID file %s\n", pid_file.c_str());
   }
 
-  CloseHandle(processInfo.hProcess);
+  // Don't close processInfo.hProcess here, it's now owned by the
+  // ProcessHandleBlazeServerStartup instance.
   CloseHandle(processInfo.hThread);
 
 #ifndef COMPILER_MSVC
