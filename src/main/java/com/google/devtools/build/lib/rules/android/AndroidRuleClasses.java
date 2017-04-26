@@ -379,16 +379,6 @@ public final class AndroidRuleClasses {
           .add(attr("apksigner", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE).exec())
           .add(attr("zipalign", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE).exec())
           .add(
-              attr("jack", LABEL)
-                  .cfg(HOST)
-                  .allowedFileTypes(ANY_FILE)
-                  .exec())
-          .add(
-              attr("jill", LABEL)
-                  .cfg(HOST)
-                  .allowedFileTypes(ANY_FILE)
-                  .exec())
-          .add(
               attr("resource_extractor", LABEL)
                   .cfg(HOST)
                   .allowedFileTypes(ANY_FILE)
