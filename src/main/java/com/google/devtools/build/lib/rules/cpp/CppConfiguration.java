@@ -718,6 +718,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     for (CrosstoolConfig.MakeVariable variable : toolchain.getMakeVariableList()) {
       makeVariablesBuilder.put(variable.getName(), variable.getValue());
     }
+    // TODO(kmensah): Remove once targets can depend on the cc_toolchain in skylark.
     if (sysrootFlag != null) {
       String ccFlags = makeVariablesBuilder.get("CC_FLAGS");
       ccFlags = ccFlags.isEmpty() ? sysrootFlag : ccFlags + " " + sysrootFlag;
@@ -1655,7 +1656,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * <p>The returned map must contain an entry for {@code STACK_FRAME_UNLIMITED},
    * though the entry may be an empty string.
    */
-  @VisibleForTesting
   public ImmutableMap<String, String> getAdditionalMakeVariables() {
     return additionalMakeVariables;
   }
