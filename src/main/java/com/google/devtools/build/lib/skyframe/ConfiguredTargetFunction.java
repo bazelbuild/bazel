@@ -22,7 +22,6 @@ import com.google.common.base.Verify;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.LinkedListMultimap;
@@ -51,7 +50,6 @@ import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -71,8 +69,6 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.rules.repository.RepositoryVisibilityFunction;
-import com.google.devtools.build.lib.rules.repository.RepositoryVisibilityFunction.RepositoryVisibilityValue;
 import com.google.devtools.build.lib.skyframe.AspectFunction.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
@@ -95,7 +91,6 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
@@ -339,35 +334,6 @@ final class ConfiguredTargetFunction implements SkyFunction {
     } catch (InconsistentAspectOrderException e) {
       env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
       throw new DependencyEvaluationException(e);
-    }
-
-    RepositoryName ctgRepository = ctgValue.getLabel().getPackageIdentifier().getRepository();
-    ImmutableSet.Builder<SkyKey> pairsToCheck = ImmutableSet.builder();
-    for (Dependency dep : depValueNames.values()) {
-      RepositoryName depRepository = dep.getLabel().getPackageIdentifier().getRepository();
-      if (ctgRepository.equals(depRepository) || depRepository.isMain()) {
-        continue;
-      }
-      pairsToCheck.add(RepositoryVisibilityFunction.key(ctgRepository, depRepository));
-    }
-    Map<SkyKey, SkyValue> pairs = env.getValues(pairsToCheck.build());
-    if (env.valuesMissing()) {
-      return null;
-    }
-    boolean hadError = false;
-    for (Entry<SkyKey, SkyValue> entry : pairs.entrySet()) {
-      if (!((RepositoryVisibilityValue) entry.getValue()).ok()) {
-        RepositoryVisibilityFunction.Key key =
-            (RepositoryVisibilityFunction.Key) entry.getKey().argument();
-        String message = ctgValue.getLabel() + " has a dependency on "
-            + key.child() + " but does not define " + key.child() + " in its WORKSPACE";
-        env.getListener().handle(Event.error(message));
-        hadError = true;
-      }
-    }
-    if (hadError) {
-      throw new DependencyEvaluationException(
-          new ConfiguredValueCreationException("Missing external repository definitions"));
     }
 
     // Trim each dep's configuration so it only includes the fragments needed by its transitive
