@@ -342,4 +342,37 @@ public final class CcToolchainProvider
   public Artifact getInterfaceSoBuilder() {
     return interfaceSoBuilder;
   }
+
+  @SkylarkCallable(
+    name = "sysroot",
+    structField = true,
+    doc =
+        "Returns the sysroot to be used. If the toolchain compiler does not support "
+            + "different sysroots, or the sysroot is the same as the default sysroot, then "
+            + "this method returns <code>None</code>."
+  )
+  public PathFragment getSysroot() {
+    return cppConfiguration.getSysroot();
+  }
+
+  @SkylarkCallable(
+    name = "unfiltered_compiler_options_do_not_use",
+    doc =
+        "Returns the default list of options which cannot be filtered by BUILD "
+            + "rules. These should be appended to the command line after filtering."
+  )
+  public ImmutableList<String> getUnfilteredCompilerOptions(Iterable<String> features) {
+    return cppConfiguration.getUnfilteredCompilerOptions(features);
+  }
+
+  @SkylarkCallable(
+    name = "link_options_do_not_use",
+    structField = true,
+    doc =
+        "Returns the set of command-line linker options, including any flags "
+            + "inferred from the command-line options."
+  )
+  public ImmutableList<String> getLinkOptions() {
+    return cppConfiguration.getLinkOptions();
+  }
 }
