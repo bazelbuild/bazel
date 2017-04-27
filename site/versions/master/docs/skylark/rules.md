@@ -290,7 +290,7 @@ machine, assuming those dependencies do not themselves have transitions.
 For each [label attribute](lib/attr.html#label), you can decide whether the
 dependency should be built in the same configuration, or transition to the host
 configuration (using `cfg`). If a label attribute has the flag
-`executable=True`, the configuration must be set explictly.
+`executable=True`, the configuration must be set explicitly.
 [See example](cookbook.html#execute-a-binary)
 
 In general, sources, dependent libraries, and executables that will be needed at
@@ -299,6 +299,10 @@ runtime can use the same configuration.
 Tools that are executed as part of the build (e.g., compilers, code generators)
 should be built for the host configuration. In this case, specify `cfg="host"`
 in the attribute.
+
+Otherwise, executables that are used at runtime (e.g. as part of a test) should
+be built for the target configuration. In this case, specify `cfg="target"` in
+the attribute.
 
 The configuration `"data"` is present for legacy reasons and should be used for
 the `data` attributes.
