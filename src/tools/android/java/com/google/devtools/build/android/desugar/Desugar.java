@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSet.Builder;
+import com.google.common.io.ByteStreams;
 import com.google.common.io.Closer;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
@@ -32,6 +33,7 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.errorprone.annotations.MustBeClosed;
+import java.io.IOError;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.FileVisitResult;
@@ -43,6 +45,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -152,11 +155,20 @@ class Desugar {
       name = "desugar_interface_method_bodies_if_needed",
       defaultValue = "true",
       category = "misc",
-      help = "Rewrites default and static methods in interfaces if --min_sdk_version < 24. This "
-          + "only works correctly if subclasses of rewritten interfaces as well as uses of static "
-          + "interface methods are run through this tool as well."
+      help =
+          "Rewrites default and static methods in interfaces if --min_sdk_version < 24. This "
+              + "only works correctly if subclasses of rewritten interfaces as well as uses of "
+              + "static interface methods are run through this tool as well."
     )
     public boolean desugarInterfaceMethodBodiesIfNeeded;
+
+    @Option(
+      name = "desugar_try_with_resources_if_needed",
+      defaultValue = "false",
+      category = "misc",
+      help = "Rewrites try-with-resources statements if --min_sdk_version < 19."
+    )
+    public boolean desugarTryWithResourcesIfNeeded;
 
     @Option(
       name = "copy_bridges_from_classpath",
@@ -181,10 +193,12 @@ class Desugar {
   private final CoreLibraryRewriter rewriter;
   private final LambdaClassMaker lambdas;
   private final GeneratedClassStore store;
+  /** The counter to record the times of try-with-resources desugaring is invoked. */
+  private final AtomicInteger numOfTryWithResourcesInvoked = new AtomicInteger();
+
   private final boolean outputJava7;
   private final boolean allowDefaultMethods;
   private final boolean allowCallsToObjectsNonNull;
-
   /** An instance of Desugar is expected to be used ONLY ONCE */
   private boolean used;
 
@@ -213,23 +227,27 @@ class Desugar {
       ClassLoader bootclassloader =
           options.bootclasspath.isEmpty()
               ? new ThrowingClassLoader()
-              : new HeaderClassLoader(
-                  indexedBootclasspath,
-                  rewriter,
-                  new ThrowingClassLoader());
+              : new HeaderClassLoader(indexedBootclasspath, rewriter, new ThrowingClassLoader());
       IndexedInputs indexedClasspath =
           new IndexedInputs(toRegisteredInputFileProvider(closer, options.classpath));
 
       // Process each input separately
       for (InputOutputPair inputOutputPair : toInputOutputPairs(options)) {
-        desugarOneInput(inputOutputPair, indexedClasspath, bootclassloader,
+        desugarOneInput(
+            inputOutputPair,
+            indexedClasspath,
+            bootclassloader,
             new ClassReaderFactory(indexedBootclasspath, rewriter));
       }
     }
   }
 
-  private void desugarOneInput(InputOutputPair inputOutputPair, IndexedInputs indexedClasspath,
-      ClassLoader bootclassloader, ClassReaderFactory bootclasspathReader) throws Exception {
+  private void desugarOneInput(
+      InputOutputPair inputOutputPair,
+      IndexedInputs indexedClasspath,
+      ClassLoader bootclassloader,
+      ClassReaderFactory bootclasspathReader)
+      throws Exception {
     Path inputPath = inputOutputPair.getInput();
     Path outputPath = inputOutputPair.getOutput();
     checkArgument(
@@ -261,19 +279,49 @@ class Desugar {
 
       ImmutableSet.Builder<String> interfaceLambdaMethodCollector = ImmutableSet.builder();
 
-      desugarClassesInInput(inputFiles, outputFileProvider, loader, classpathReader,
-          bootclasspathReader, interfaceLambdaMethodCollector);
+      desugarClassesInInput(
+          inputFiles,
+          outputFileProvider,
+          loader,
+          classpathReader,
+          bootclasspathReader,
+          interfaceLambdaMethodCollector);
 
-      desugarAndWriteDumpedLambdaClassesToOutput(outputFileProvider, loader, classpathReader,
-          bootclasspathReader, interfaceLambdaMethodCollector.build(), bridgeMethodReader);
+      desugarAndWriteDumpedLambdaClassesToOutput(
+          outputFileProvider,
+          loader,
+          classpathReader,
+          bootclasspathReader,
+          interfaceLambdaMethodCollector.build(),
+          bridgeMethodReader);
 
       desugarAndWriteGeneratedClasses(outputFileProvider);
+      copyThrowableExtensionClass(outputFileProvider);
     }
 
     ImmutableMap<Path, LambdaInfo> lambdasLeftBehind = lambdas.drain();
     checkState(lambdasLeftBehind.isEmpty(), "Didn't process %s", lambdasLeftBehind);
     ImmutableMap<String, ClassNode> generatedLeftBehind = store.drain();
     checkState(generatedLeftBehind.isEmpty(), "Didn't process %s", generatedLeftBehind.keySet());
+  }
+
+  private void copyThrowableExtensionClass(OutputFileProvider outputFileProvider) {
+    if (!outputJava7 || !options.desugarTryWithResourcesIfNeeded) {
+      // try-with-resources statements are okay in the output jar.
+      return;
+    }
+    if (this.numOfTryWithResourcesInvoked.get() <= 0) {
+      // the try-with-resources desugaring pass does nothing, so no need to copy these class files.
+      return;
+    }
+    for (String className :
+        TryWithResourcesRewriter.THROWABLE_EXT_CLASS_INTERNAL_NAMES_WITH_CLASS_EXT) {
+      try (InputStream stream = Desugar.class.getClassLoader().getResourceAsStream(className)) {
+        outputFileProvider.write(className, ByteStreams.toByteArray(stream));
+      } catch (IOException e) {
+        throw new IOError(e);
+      }
+    }
   }
 
   /** Desugar the classes that are in the inputs specified in the command line arguments. */
@@ -360,8 +408,10 @@ class Desugar {
       throws IOException {
     // Write out any classes we generated along the way
     ImmutableMap<String, ClassNode> generatedClasses = store.drain();
-    checkState(generatedClasses.isEmpty() || (allowDefaultMethods && outputJava7),
-        "Didn't expect generated classes but got %s", generatedClasses.keySet());
+    checkState(
+        generatedClasses.isEmpty() || (allowDefaultMethods && outputJava7),
+        "Didn't expect generated classes but got %s",
+        generatedClasses.keySet());
     for (Map.Entry<String, ClassNode> generated : generatedClasses.entrySet()) {
       UnprefixingClassWriter writer = rewriter.writer(ClassWriter.COMPUTE_MAXS);
       // checkState above implies that we want Java 7 .class files, so send through that visitor.
@@ -390,6 +440,9 @@ class Desugar {
     if (outputJava7) {
       // null ClassReaderFactory b/c we don't expect to need it for lambda classes
       visitor = new Java7Compatibility(visitor, (ClassReaderFactory) null);
+      if (options.desugarTryWithResourcesIfNeeded) {
+        visitor = new TryWithResourcesRewriter(visitor, loader, numOfTryWithResourcesInvoked);
+      }
       if (options.desugarInterfaceMethodBodiesIfNeeded) {
         visitor = new DefaultMethodClassFixer(visitor, classpathReader, bootclasspathReader);
         visitor = new InterfaceDesugaring(visitor, bootclasspathReader, store);
@@ -433,6 +486,9 @@ class Desugar {
     if (!options.onlyDesugarJavac9ForLint) {
       if (outputJava7) {
         visitor = new Java7Compatibility(visitor, classpathReader);
+        if (options.desugarTryWithResourcesIfNeeded) {
+          visitor = new TryWithResourcesRewriter(visitor, loader, numOfTryWithResourcesInvoked);
+        }
         if (options.desugarInterfaceMethodBodiesIfNeeded) {
           visitor = new DefaultMethodClassFixer(visitor, classpathReader, bootclasspathReader);
           visitor = new InterfaceDesugaring(visitor, bootclasspathReader, store);
@@ -451,7 +507,6 @@ class Desugar {
     }
     return visitor;
   }
-
 
   public static void main(String[] args) throws Exception {
     // It is important that this method is called first. See its javadoc.
@@ -510,7 +565,8 @@ class Desugar {
     final ImmutableList.Builder<InputOutputPair> ioPairListbuilder = ImmutableList.builder();
     for (Iterator<Path> inputIt = options.inputJars.iterator(),
                 outputIt = options.outputJars.iterator();
-                inputIt.hasNext();) {
+        inputIt.hasNext();
+        ) {
       ioPairListbuilder.add(InputOutputPair.create(inputIt.next(), outputIt.next()));
     }
     return ioPairListbuilder.build();
@@ -568,8 +624,7 @@ class Desugar {
 
   /** Transform a Path to an {@link OutputFileProvider} */
   @MustBeClosed
-  private static OutputFileProvider toOutputFileProvider(Path path)
-      throws IOException {
+  private static OutputFileProvider toOutputFileProvider(Path path) throws IOException {
     if (Files.isDirectory(path)) {
       return new DirectoryOutputFileProvider(path);
     } else {
@@ -579,8 +634,7 @@ class Desugar {
 
   /** Transform a Path to an InputFileProvider that needs to be closed by the caller. */
   @MustBeClosed
-  private static InputFileProvider toInputFileProvider(Path path)
-      throws IOException {
+  private static InputFileProvider toInputFileProvider(Path path) throws IOException {
     if (Files.isDirectory(path)) {
       return new DirectoryInputFileProvider(path);
     } else {
@@ -602,9 +656,7 @@ class Desugar {
     return builder.build();
   }
 
-  /**
-   * Pair input and output.
-   */
+  /** Pair input and output. */
   @AutoValue
   abstract static class InputOutputPair {
 

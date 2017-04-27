@@ -13,6 +13,7 @@ filegroup(
 java_library(
     name = "desugar",
     srcs = glob(["*.java"]),
+    runtime_deps = ["//src/tools/android/java/com/google/devtools/build/android/desugar/runtime:throwable_extension"],
     deps = [
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:worker_protocol_java_proto",
@@ -34,6 +35,8 @@ java_binary(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + [
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/runtime:srcs",
+    ],
     visibility = ["//src/tools/android/java/com/google/devtools/build/android:__pkg__"],
 )
