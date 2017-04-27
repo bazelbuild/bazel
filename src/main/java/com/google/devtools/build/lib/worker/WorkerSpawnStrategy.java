@@ -146,41 +146,17 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
       executor.reportSubcommand(spawn);
     }
 
-    // We assume that the spawn to be executed always gets at least one @flagfile.txt or
-    // --flagfile=flagfile.txt argument, which contains the flags related to the work itself (as
-    // opposed to start-up options for the executed tool). Thus, we can extract those elements from
-    // its args and put them into the WorkRequest instead.
-    List<String> flagfiles = new ArrayList<>();
-    List<String> startupArgs = new ArrayList<>();
-
-    for (String arg : spawn.getArguments()) {
-      if (FLAG_FILE_PATTERN.matcher(arg).matches()) {
-        flagfiles.add(arg);
-      } else {
-        startupArgs.add(arg);
-      }
-    }
-
-    if (flagfiles.isEmpty()) {
-      throw new UserExecException(
-          String.format(ERROR_MESSAGE_PREFIX + REASON_NO_FLAGFILE, spawn.getMnemonic()));
-    }
-
     if (Iterables.isEmpty(spawn.getToolFiles())) {
       throw new UserExecException(
           String.format(ERROR_MESSAGE_PREFIX + REASON_NO_TOOLS, spawn.getMnemonic()));
     }
 
-    FileOutErr outErr = actionExecutionContext.getFileOutErr();
-
-    ImmutableList<String> args =
-        ImmutableList.<String>builder()
-            .addAll(startupArgs)
-            .add("--persistent_worker")
-            .addAll(
-                MoreObjects.firstNonNull(
-                    extraFlags.get(spawn.getMnemonic()), ImmutableList.<String>of()))
-            .build();
+    // We assume that the spawn to be executed always gets at least one @flagfile.txt or
+    // --flagfile=flagfile.txt argument, which contains the flags related to the work itself (as
+    // opposed to start-up options for the executed tool). Thus, we can extract those elements from
+    // its args and put them into the WorkRequest instead.
+    List<String> flagFiles = new ArrayList<>();
+    ImmutableList<String> workerArgs = splitSpawnArgsIntoWorkerArgsAndFlagFiles(spawn, flagFiles);
     ImmutableMap<String, String> env = spawn.getEnvironment();
 
     try {
@@ -191,9 +167,10 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
       Map<PathFragment, Path> inputFiles =
           new SpawnHelpers(execRoot).getMounts(spawn, actionExecutionContext);
       Set<PathFragment> outputFiles = SandboxHelpers.getOutputFiles(spawn);
+
       WorkerKey key =
           new WorkerKey(
-              args,
+              workerArgs,
               env,
               execRoot,
               spawn.getMnemonic(),
@@ -202,35 +179,13 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
               outputFiles,
               writeOutputFiles != null);
 
-      WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
-      for (String flagfile : flagfiles) {
-        expandArgument(requestBuilder, flagfile);
-      }
+      WorkRequest workRequest =
+          createWorkRequest(spawn, actionExecutionContext, flagFiles, inputFileCache);
 
-      List<ActionInput> inputs =
-          ActionInputHelper.expandArtifacts(
-              spawn.getInputFiles(), actionExecutionContext.getArtifactExpander());
+      WorkResponse response = execInWorker(eventHandler, key, workRequest, writeOutputFiles);
 
-      for (ActionInput input : inputs) {
-        byte[] digestBytes = inputFileCache.getDigest(input);
-        ByteString digest;
-        if (digestBytes == null) {
-          digest = ByteString.EMPTY;
-        } else {
-          digest = ByteString.copyFromUtf8(HashCode.fromBytes(digestBytes).toString());
-        }
-
-        requestBuilder
-            .addInputsBuilder()
-            .setPath(input.getExecPathString())
-            .setDigest(digest)
-            .build();
-      }
-
-      WorkResponse response =
-          execInWorker(eventHandler, key, requestBuilder.build(), writeOutputFiles);
-
-      outErr.getErrorStream().write(response.getOutputBytes().toByteArray());
+      FileOutErr outErr = actionExecutionContext.getFileOutErr();
+      response.getOutputBytes().writeTo(outErr.getErrorStream());
 
       if (response.getExitCode() != 0) {
         throw new UserExecException(
@@ -243,6 +198,68 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
               verboseFailures, spawn.getArguments(), env, execRoot.getPathString());
       throw new UserExecException(message, e);
     }
+  }
+
+  /**
+   * Splits the command-line arguments of the {@code Spawn} into the part that is used to start the
+   * persistent worker ({@code workerArgs}) and the part that goes into the {@code WorkRequest}
+   * protobuf ({@code flagFiles}).
+   */
+  private ImmutableList<String> splitSpawnArgsIntoWorkerArgsAndFlagFiles(
+      Spawn spawn, List<String> flagFiles) throws UserExecException {
+    ImmutableList.Builder<String> workerArgs = ImmutableList.builder();
+    for (String arg : spawn.getArguments()) {
+      if (FLAG_FILE_PATTERN.matcher(arg).matches()) {
+        flagFiles.add(arg);
+      } else {
+        workerArgs.add(arg);
+      }
+    }
+
+    if (flagFiles.isEmpty()) {
+      throw new UserExecException(
+          String.format(ERROR_MESSAGE_PREFIX + REASON_NO_FLAGFILE, spawn.getMnemonic()));
+    }
+
+    return workerArgs
+        .add("--persistent_worker")
+        .addAll(
+            MoreObjects.firstNonNull(
+                extraFlags.get(spawn.getMnemonic()), ImmutableList.<String>of()))
+        .build();
+  }
+
+  private WorkRequest createWorkRequest(
+      Spawn spawn,
+      ActionExecutionContext actionExecutionContext,
+      List<String> flagfiles,
+      ActionInputFileCache inputFileCache)
+      throws IOException {
+    WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
+    for (String flagfile : flagfiles) {
+      expandArgument(requestBuilder, flagfile);
+    }
+
+    List<ActionInput> inputs =
+        ActionInputHelper.expandArtifacts(
+            spawn.getInputFiles(), actionExecutionContext.getArtifactExpander());
+
+    for (ActionInput input : inputs) {
+      byte[] digestBytes = inputFileCache.getDigest(input);
+      ByteString digest;
+      if (digestBytes == null) {
+        digest = ByteString.EMPTY;
+      } else {
+        digest = ByteString.copyFromUtf8(HashCode.fromBytes(digestBytes).toString());
+      }
+
+      requestBuilder
+          .addInputsBuilder()
+          .setPath(input.getExecPathString())
+          .setDigest(digest)
+          .build();
+    }
+    return requestBuilder.build();
   }
 
   /**
