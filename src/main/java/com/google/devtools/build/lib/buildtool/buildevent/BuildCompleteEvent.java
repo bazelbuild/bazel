@@ -60,9 +60,15 @@ public final class BuildCompleteEvent implements BuildEvent {
 
   @Override
   public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
+    BuildEventStreamProtos.BuildFinished.ExitCode exitCode =
+        BuildFinished.ExitCode.newBuilder()
+            .setName(result.getExitCondition().name())
+            .setCode(result.getExitCondition().getNumericExitCode())
+            .build();
+
     BuildFinished finished =
         BuildFinished.newBuilder()
-            .setOverallSuccess(result.getSuccess())
+            .setExitCode(exitCode)
             .setFinishTimeMillis(result.getStopTime())
             .build();
     return GenericBuildEvent.protoChaining(this).setFinished(finished).build();

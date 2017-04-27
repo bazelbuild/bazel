@@ -125,7 +125,7 @@ function test_basic() {
   expect_log 'args: "pkg:true"'
   # Build Finished
   expect_log 'build_finished'
-  expect_log 'overall_success: true'
+  expect_log 'SUCCESS'
   expect_log 'finish_time'
   expect_not_log 'aborted'
 }
@@ -198,7 +198,7 @@ function test_test_runtime() {
   expect_log '^test_result'
   expect_log 'test_attempt_duration_millis.*[1-9]'
   expect_log 'build_finished'
-  expect_log 'overall_success: true'
+  expect_log 'SUCCESS'
   expect_log 'finish_time'
   expect_not_log 'aborted'
 }
@@ -303,8 +303,8 @@ function test_build_only() {
   expect_not_log 'test_summary '
   # Build Finished
   expect_log 'build_finished'
-  expect_log 'overall_success: true'
   expect_log 'finish_time'
+  expect_log 'SUCCESS'
 }
 
 function test_multiple_transports() {

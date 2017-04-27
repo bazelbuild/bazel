@@ -361,8 +361,26 @@ message TestSummary {
 
 // Event indicating the end of a build.
 message BuildFinished {
-  // If the build succeeded or failed.
-  bool overall_success = 1;
+  // Exit code of a build. The possible values correspond to the predefined
+  // codes in bazel's lib.ExitCode class, as well as any custom exit code a
+  // module might define. The predefined exit codes are subject to change (but
+  // rarely do) and are not part of the public API.
+  //
+  // A build was successfull iff ExitCode.code equals 0.
+  message ExitCode {
+    // The name of the exit code.
+    string name = 1;
+
+    // The exit code.
+    int32 code = 2;
+  }
+
+  reserved 1;
+
+  // The overall status of the build. A build was successfull iff
+  // ExitCode.code equals 0.
+  ExitCode exit_code = 3;
+
   // Time in milliseconds since the epoch.
   // TODO(buchgr): Use google.protobuf.Timestamp once bazel's protoc supports
   // it.
