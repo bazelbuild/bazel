@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.worker;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.base.Charsets;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -298,7 +297,7 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
         ErrorMessage errorMessage =
             ErrorMessage.builder()
                 .message("Worker process returned an unparseable WorkResponse:")
-                .logText(recordingStream.getRecordedDataAsString(Charsets.UTF_8))
+                .logText(recordingStream.getRecordedDataAsString())
                 .build();
         eventHandler.handle(Event.warn(errorMessage.toString()));
         throw e;

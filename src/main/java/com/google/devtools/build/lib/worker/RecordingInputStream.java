@@ -14,12 +14,12 @@
 
 package com.google.devtools.build.lib.worker;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import java.io.ByteArrayOutputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
-import java.nio.charset.Charset;
 import java.util.regex.Pattern;
 
 /**
@@ -27,7 +27,7 @@ import java.util.regex.Pattern;
  *
  * <p>The number bytes to record can be set via {@link #startRecording(int)}}, which also discards
  * any already recorded data. The recorded data can be retrieved via {@link
- * #getRecordedDataAsString(Charset)}.
+ * #getRecordedDataAsString()}.
  */
 final class RecordingInputStream extends FilterInputStream {
   private static final Pattern NON_PRINTABLE_CHARS =
@@ -103,8 +103,8 @@ final class RecordingInputStream extends FilterInputStream {
    * Returns the recorded data as a string, where non-printable characters are replaced with a '?'
    * symbol.
    */
-  public String getRecordedDataAsString(Charset charsetName) throws UnsupportedEncodingException {
-    String recordedString = recordedData.toString(charsetName.name());
+  public String getRecordedDataAsString() {
+    String recordedString = new String(recordedData.toByteArray(), UTF_8);
     return NON_PRINTABLE_CHARS.matcher(recordedString).replaceAll("?").trim();
   }
 }

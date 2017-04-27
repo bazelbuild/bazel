@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.worker;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -162,7 +160,7 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
         // to stdout - it's probably a stack trace or some kind of error message that will help the
         // user figure out why the compiler is failing.
         recordingStream.readRemaining();
-        String data = recordingStream.getRecordedDataAsString(UTF_8);
+        String data = recordingStream.getRecordedDataAsString();
         ErrorMessage errorMessage =
             ErrorMessage.builder()
                 .message("Worker process returned an unparseable WorkResponse:")
