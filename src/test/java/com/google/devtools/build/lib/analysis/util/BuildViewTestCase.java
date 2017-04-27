@@ -132,6 +132,7 @@ import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.BlazeClock;
@@ -185,6 +186,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected OptionsParser optionsParser;
   private PackageCacheOptions packageCacheOptions;
+  private SkylarkSemanticsOptions skylarkSemanticsOptions;
   protected PackageFactory pkgFactory;
 
   protected MockToolsConfig mockToolsConfig;
@@ -204,6 +206,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
 
     packageCacheOptions = parsePackageCacheOptions();
+    skylarkSemanticsOptions = parseSkylarkSemanticsOptions();
     workspaceStatusActionFactory =
         new AnalysisTestUtil.DummyWorkspaceStatusActionFactory(directories);
     mutableActionGraph = new MapBasedActionGraph();
@@ -244,6 +247,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     skyframeExecutor.preparePackageLoading(
         new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
         packageCacheOptions,
+        skylarkSemanticsOptions,
         "",
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
@@ -349,6 +353,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageCacheOptions,
+        skylarkSemanticsOptions,
         ruleClassProvider.getDefaultsPackageContent(optionsParser),
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
@@ -362,11 +367,23 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     setUpSkyframe();
   }
 
-  private PackageCacheOptions parsePackageCacheOptions(String... options) throws Exception {
+  protected void setSkylarkSemanticsOptions(String... options) throws Exception {
+    skylarkSemanticsOptions = parseSkylarkSemanticsOptions(options);
+    setUpSkyframe();
+  }
+
+  private static PackageCacheOptions parsePackageCacheOptions(String... options) throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(PackageCacheOptions.class);
     parser.parse("--default_visibility=public");
     parser.parse(options);
     return parser.getOptions(PackageCacheOptions.class);
+  }
+
+  private static SkylarkSemanticsOptions parseSkylarkSemanticsOptions(String... options)
+      throws Exception {
+    OptionsParser parser = OptionsParser.newOptionsParser(SkylarkSemanticsOptions.class);
+    parser.parse(options);
+    return parser.getOptions(SkylarkSemanticsOptions.class);
   }
 
   /** Used by skyframe-only tests. */

@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.BlazeClock;
@@ -189,6 +190,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageCacheOptions,
+        Options.getDefaults(SkylarkSemanticsOptions.class),
         ruleClassProvider.getDefaultsPackageContent(
             analysisMock.getInvocationPolicyEnforcer().getInvocationPolicy()),
         UUID.randomUUID(),
@@ -225,6 +227,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     optionsParser = OptionsParser.newOptionsParser(Iterables.concat(Arrays.asList(
         ExecutionOptions.class,
         PackageCacheOptions.class,
+        SkylarkSemanticsOptions.class,
         BuildRequestOptions.class,
         BuildView.Options.class),
         ruleClassProvider.getConfigurationOptions()));
@@ -314,15 +317,20 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     viewOptions.loadingPhaseThreads = LOADING_PHASE_THREADS;
 
     BuildOptions buildOptions = ruleClassProvider.createBuildOptions(optionsParser);
-    PackageCacheOptions packageCacheOptions = optionsParser.getOptions(PackageCacheOptions.class);
 
+    PackageCacheOptions packageCacheOptions = optionsParser.getOptions(PackageCacheOptions.class);
     PathPackageLocator pathPackageLocator = PathPackageLocator.create(
         outputBase, packageCacheOptions.packagePath, reporter, rootDirectory, rootDirectory);
     packageCacheOptions.showLoadingProgress = true;
     packageCacheOptions.globbingThreads = 7;
+
+    SkylarkSemanticsOptions skylarkSemanticsOptions =
+        optionsParser.getOptions(SkylarkSemanticsOptions.class);
+
     skyframeExecutor.preparePackageLoading(
         pathPackageLocator,
         packageCacheOptions,
+        skylarkSemanticsOptions,
         ruleClassProvider.getDefaultsPackageContent(
             analysisMock.getInvocationPolicyEnforcer().getInvocationPolicy()),
         UUID.randomUUID(),

@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -81,6 +82,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         .preparePackageLoading(
             new PathPackageLocator(outputBase, ImmutableList.copyOf(roots)),
             packageCacheOptions,
+            Options.getDefaults(SkylarkSemanticsOptions.class),
             "",
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
@@ -310,6 +312,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         .preparePackageLoading(
             new PathPackageLocator(outputBase, ImmutableList.<Path>of(rootDirectory)),
             packageCacheOptions,
+            Options.getDefaults(SkylarkSemanticsOptions.class),
             "",
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),

@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -485,7 +486,8 @@ public final class CommandEnvironment {
 
   /**
    * Initializes the package cache using the given options, and syncs the package cache. Also
-   * injects a defaults package using the options for the {@link BuildConfiguration}.
+   * injects a defaults package and the skylark semantics using the options for the {@link
+   * BuildConfiguration}.
    *
    * @see DefaultsPackage
    */
@@ -502,6 +504,7 @@ public final class CommandEnvironment {
     skyframeExecutor.sync(
         reporter,
         options.getOptions(PackageCacheOptions.class),
+        options.getOptions(SkylarkSemanticsOptions.class),
         getOutputBase(),
         getWorkingDirectory(),
         defaultsPackageContents,

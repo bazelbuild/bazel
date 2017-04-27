@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommandEventHandler;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -416,6 +417,7 @@ public class BuildRequest implements OptionsClassProvider {
       ImmutableList.of(
           BuildRequestOptions.class,
           PackageCacheOptions.class,
+          SkylarkSemanticsOptions.class,
           LoadingOptions.class,
           BuildView.Options.class,
           ExecutionOptions.class);

@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.syntax.GlobList;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -492,6 +493,7 @@ public class IncrementalLoadingTest {
       skyframeExecutor.preparePackageLoading(
           new PathPackageLocator(outputBase, ImmutableList.of(workspace)),
           packageCacheOptions,
+          Options.getDefaults(SkylarkSemanticsOptions.class),
           "",
           UUID.randomUUID(),
           ImmutableMap.<String, String>of(),
@@ -579,6 +581,7 @@ public class IncrementalLoadingTest {
       skyframeExecutor.preparePackageLoading(
           new PathPackageLocator(outputBase, ImmutableList.of(workspace)),
           packageCacheOptions,
+          Options.getDefaults(SkylarkSemanticsOptions.class),
           "",
           UUID.randomUUID(),
           ImmutableMap.<String, String>of(),

@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -165,6 +166,7 @@ public class SkylarkFileContentHashTests extends BuildViewTestCase {
         .preparePackageLoading(
             new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
             packageCacheOptions,
+            Options.getDefaults(SkylarkSemanticsOptions.class),
             "",
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),

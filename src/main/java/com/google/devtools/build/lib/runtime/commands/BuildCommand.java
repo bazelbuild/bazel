@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
@@ -38,6 +39,7 @@ import java.util.List;
          options = { BuildRequestOptions.class,
                      ExecutionOptions.class,
                      PackageCacheOptions.class,
+                     SkylarkSemanticsOptions.class,
                      BuildView.Options.class,
                      LoadingOptions.class,
                    },

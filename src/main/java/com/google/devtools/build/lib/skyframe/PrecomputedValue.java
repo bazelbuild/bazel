@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildIn
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ConflictException;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.Injectable;
@@ -84,6 +85,9 @@ public final class PrecomputedValue implements SkyValue {
 
   public static final Precomputed<RuleVisibility> DEFAULT_VISIBILITY =
       new Precomputed<>(SkyKey.create(SkyFunctions.PRECOMPUTED, "default_visibility"));
+
+  public static final Precomputed<SkylarkSemanticsOptions> SKYLARK_SEMANTICS =
+      new Precomputed<>(SkyKey.create(SkyFunctions.PRECOMPUTED, "skylark_semantics"));
 
   static final Precomputed<UUID> BUILD_ID =
       new Precomputed<>(SkyKey.create(SkyFunctions.PRECOMPUTED, "build_id"));

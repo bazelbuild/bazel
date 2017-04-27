@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.BlazeClock;
@@ -97,10 +98,12 @@ public class PackageCacheTest extends FoundationTestCase {
             analysisMock.getProductName(),
             CrossRepositoryLabelViolationStrategy.ERROR,
             ImmutableList.of(BuildFileName.BUILD_DOT_BAZEL, BuildFileName.BUILD));
-    setUpSkyframe(parsePackageCacheOptions());
+    setUpSkyframe(parsePackageCacheOptions(), parseSkylarkSemanticsOptions());
   }
 
-  private void setUpSkyframe(PackageCacheOptions packageCacheOptions) {
+  private void setUpSkyframe(
+      PackageCacheOptions packageCacheOptions,
+      SkylarkSemanticsOptions skylarkSemanticsOptions) {
     PathPackageLocator pkgLocator = PathPackageLocator.create(
         null, packageCacheOptions.packagePath, reporter, rootDirectory, rootDirectory);
     packageCacheOptions.showLoadingProgress = true;
@@ -108,6 +111,7 @@ public class PackageCacheTest extends FoundationTestCase {
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageCacheOptions,
+        skylarkSemanticsOptions,
         analysisMock.getDefaultsPackageContent(),
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
@@ -117,9 +121,10 @@ public class PackageCacheTest extends FoundationTestCase {
         ImmutableSet.copyOf(packageCacheOptions.getDeletedPackages()));
   }
 
-  private PackageCacheOptions parsePackageCacheOptions(String... options) throws Exception {
-    OptionsParser parser = OptionsParser.newOptionsParser(PackageCacheOptions.class);
-    parser.parse(new String[] { "--default_visibility=public" });
+  private OptionsParser parse(String... options) throws Exception {
+    OptionsParser parser = OptionsParser.newOptionsParser(
+        PackageCacheOptions.class, SkylarkSemanticsOptions.class);
+    parser.parse("--default_visibility=public");
     parser.parse(options);
 
     InvocationPolicyEnforcer optionsPolicyEnforcer = analysisMock.getInvocationPolicyEnforcer();
@@ -129,11 +134,21 @@ public class PackageCacheTest extends FoundationTestCase {
       throw new IllegalStateException(e);
     }
 
-    return parser.getOptions(PackageCacheOptions.class);
+    return parser;
+  }
+
+  private PackageCacheOptions parsePackageCacheOptions(String... options) throws Exception {
+    return parse(options).getOptions(PackageCacheOptions.class);
+  }
+
+  private SkylarkSemanticsOptions parseSkylarkSemanticsOptions(String... options) throws Exception {
+    return parse(options).getOptions(SkylarkSemanticsOptions.class);
   }
 
   protected void setOptions(String... options) throws Exception {
-    setUpSkyframe(parsePackageCacheOptions(options));
+    setUpSkyframe(
+        parsePackageCacheOptions(options),
+        parseSkylarkSemanticsOptions(options));
   }
 
   private PackageManager getPackageManager() {

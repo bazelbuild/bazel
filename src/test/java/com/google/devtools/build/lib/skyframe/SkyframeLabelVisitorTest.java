@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -407,6 +408,7 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
         .preparePackageLoading(
             new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
             packageCacheOptions,
+            Options.getDefaults(SkylarkSemanticsOptions.class),
             loadingMock.getDefaultsPackageContent(),
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
