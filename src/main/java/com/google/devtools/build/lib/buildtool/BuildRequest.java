@@ -331,6 +331,10 @@ public class BuildRequest implements OptionsClassProvider {
 
   /** Converter for jobs: [0, MAX_JOBS] or "auto". */
   public static class JobsConverter extends RangeConverter {
+    /** If not null, indicates the value to return when "auto" is selected. Useful for cases
+     * where the number of jobs is bound by another factor different than what we compute here. */
+    private static Integer fixedAutoJobs;
+
     public JobsConverter() {
       super(0, MAX_JOBS);
     }
@@ -338,15 +342,20 @@ public class BuildRequest implements OptionsClassProvider {
     @Override
     public Integer convert(String input) throws OptionsParsingException {
       if (input.equals("auto")) {
-        int jobs = (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage());
-        if (jobs > MAX_JOBS) {
-          log.warning(
-              "Detected "
-                  + jobs
-                  + " processors, which exceed the maximum allowed number of jobs of "
-                  + MAX_JOBS
-                  + "; something seems wrong");
-          jobs = MAX_JOBS;
+        int jobs;
+        if (fixedAutoJobs == null) {
+          jobs = (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage());
+          if (jobs > MAX_JOBS) {
+            log.warning(
+                "Detected "
+                    + jobs
+                    + " processors, which exceed the maximum allowed number of jobs of "
+                    + MAX_JOBS
+                    + "; something seems wrong");
+            jobs = MAX_JOBS;
+          }
+        } else {
+          jobs = fixedAutoJobs;
         }
         log.info("Flag \"jobs\" was set to \"auto\"; using " + jobs + " jobs");
         return jobs;
@@ -358,6 +367,16 @@ public class BuildRequest implements OptionsClassProvider {
     @Override
     public String getTypeDescription() {
       return "\"auto\" or " + super.getTypeDescription();
+    }
+
+    /**
+     * Sets the value to return by this converter when "auto" is selected.
+     *
+     * @param jobs the number of jobs to return, or null to reenable automated detection
+     */
+    public static void setFixedAutoJobs(Integer jobs) {
+      Preconditions.checkArgument(jobs == null || jobs <= MAX_JOBS);
+      fixedAutoJobs = jobs;
     }
   }
 
