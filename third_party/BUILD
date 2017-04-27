@@ -333,32 +333,19 @@ java_import(
     ],
 )
 
-java_import(
+# TODO(cushon): delete
+alias(
     name = "error_prone-2.0.20-SNAPSHOT",
-    jars = [
-        "error_prone/error_prone_check_api-2.0.20-SNAPSHOT.jar",
-        "error_prone/error_prone_core-2.0.20-SNAPSHOT.jar",
-        "error_prone/error_prone_annotations-2.0.20-SNAPSHOT.jar",
-        "error_prone/error_prone_annotation-2.0.20-SNAPSHOT.jar",
-    ],
-    exports = [
-        ":auto_common",
-        ":guava",
-        ":jcip_annotations",
-        ":jsr305",
-        ":pcollections",
-        "//third_party/checker_framework_dataflow",
-        "//third_party/jformatstring",
-    ],
+    actual = ":error_prone",
 )
 
 java_import(
     name = "error_prone",
     jars = [
-        "error_prone/error_prone_check_api-2.0.19.jar",
-        "error_prone/error_prone_core-2.0.19.jar",
-        "error_prone/error_prone_annotations-2.0.19.jar",
-        "error_prone/error_prone_annotation-2.0.19.jar",
+        "error_prone/error_prone_check_api-2.0.20-SNAPSHOT.jar",
+        "error_prone/error_prone_core-2.0.20-SNAPSHOT.jar",
+        "error_prone/error_prone_annotations-2.0.20-SNAPSHOT.jar",
+        "error_prone/error_prone_annotation-2.0.20-SNAPSHOT.jar",
     ],
     exports = [
         ":auto_common",
@@ -394,7 +381,7 @@ java_import(
 
 # For bootstrapping JavaBuilder
 filegroup(
-    name = "bootstrap_guava_and_error_prone-jars-2.0.20-SNAPSHOT",
+    name = "bootstrap_guava_and_error_prone-jars",
     srcs = [
         "auto/auto-common-0.3.jar",
         "error_prone/error_prone_annotation-2.0.20-SNAPSHOT.jar",
@@ -410,21 +397,10 @@ filegroup(
     ],
 )
 
-filegroup(
-    name = "bootstrap_guava_and_error_prone-jars",
-    srcs = [
-        "auto/auto-common-0.3.jar",
-        "error_prone/error_prone_annotation-2.0.19.jar",
-        "error_prone/error_prone_annotations-2.0.19.jar",
-        "error_prone/error_prone_check_api-2.0.19.jar",
-        "error_prone/error_prone_core-2.0.19.jar",
-        "guava/guava-21.0.jar",
-        "jcip_annotations/jcip-annotations-1.0-1.jar",
-        "jsr305/jsr-305.jar",
-        "pcollections/pcollections-2.1.2.jar",
-        "//third_party/checker_framework_dataflow:bootstrap",
-        "//third_party/jformatstring:bootstrap",
-    ],
+# TODO(cushon): delete
+alias(
+    name = "bootstrap_guava_and_error_prone-jars-2.0.20-SNAPSHOT",
+    actual = "bootstrap_guava_and_error_prone-jars",
 )
 
 # As of Guava 20.0, Guava code uses Error Prone annotations. This isn't a

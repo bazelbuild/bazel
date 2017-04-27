@@ -19,37 +19,6 @@ filegroup(
         "//conditions:default": [
             "BUILD",
             "LICENSE",
-            "javac-9-dev-r3297-4.jar",
-            "javac-9-dev-r3297-4.srcjar",
-        ],
-    }),
-)
-
-java_import(
-    name = "javac",
-    jars = ["javac-9-dev-r3297-4.jar"],
-)
-
-filegroup(
-    name = "javac_jar",
-    srcs = select({
-        "//tools/jdk:jdk7": ["javac7.jar"],
-        "//conditions:default": ["javac-9-dev-r3297-4.jar"],
-    }),
-)
-
-filegroup(
-    name = "test-srcs-9-dev-r4023-1",
-    srcs = select({
-        "//tools/jdk:jdk7": [
-            "BUILD",
-            "LICENSE",
-            "javac7.jar",
-            "javac7.srcjar",
-        ],
-        "//conditions:default": [
-            "BUILD",
-            "LICENSE",
             "javac-9-dev-r4023-1.jar",
             "javac-9-dev-r4023-1.srcjar",
         ],
@@ -57,16 +26,34 @@ filegroup(
 )
 
 java_import(
-    name = "javac-9-dev-r4023-1",
+    name = "javac",
     jars = ["javac-9-dev-r4023-1.jar"],
 )
 
 filegroup(
-    name = "javac_jar-9-dev-r4023-1",
+    name = "javac_jar",
     srcs = select({
         "//tools/jdk:jdk7": ["javac7.jar"],
         "//conditions:default": ["javac-9-dev-r4023-1.jar"],
     }),
+)
+
+# TODO(cushon): delete
+alias(
+    name = "test-srcs-9-dev-r4023-1",
+    actual = ":test-srcs",
+)
+
+# TODO(cushon): delete
+alias(
+    name = "javac-9-dev-r4023-1",
+    actual = ":javac",
+)
+
+# TODO(cushon): delete
+alias(
+    name = "javac_jar-9-dev-r4023-1",
+    actual = ":javac_jar",
 )
 
 java_import(
