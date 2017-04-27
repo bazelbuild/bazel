@@ -38,24 +38,6 @@ filegroup(
     }),
 )
 
-# TODO(cushon): delete
-alias(
-    name = "test-srcs-9-dev-r4023-2",
-    actual = ":test-srcs",
-)
-
-# TODO(cushon): delete
-alias(
-    name = "javac-9-dev-r4023-2",
-    actual = ":javac",
-)
-
-# TODO(cushon): delete
-alias(
-    name = "javac_jar-9-dev-r4023-2",
-    actual = ":javac_jar",
-)
-
 java_import(
     name = "javac7",
     jars = ["javac7.jar"],

@@ -333,12 +333,6 @@ java_import(
     ],
 )
 
-# TODO(cushon): delete
-alias(
-    name = "error_prone-2.0.20-SNAPSHOT",
-    actual = ":error_prone",
-)
-
 java_import(
     name = "error_prone",
     jars = [
@@ -395,12 +389,6 @@ filegroup(
         "//third_party/checker_framework_dataflow:bootstrap",
         "//third_party/jformatstring:bootstrap",
     ],
-)
-
-# TODO(cushon): delete
-alias(
-    name = "bootstrap_guava_and_error_prone-jars-2.0.20-SNAPSHOT",
-    actual = "bootstrap_guava_and_error_prone-jars",
 )
 
 # As of Guava 20.0, Guava code uses Error Prone annotations. This isn't a
