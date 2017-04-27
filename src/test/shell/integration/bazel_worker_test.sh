@@ -518,7 +518,7 @@ EOF
     || fail "build failed"
 
   bazel build :hello_world_2 &> $TEST_log \
-    && fail "expected build to fail" || /bin/true
+    && fail "expected build to fail" || true
 
   expect_log "^---8<---8<--- Start of log, file at /"
   expect_log "Worker process did not return a WorkResponse:"
