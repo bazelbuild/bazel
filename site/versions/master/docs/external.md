@@ -5,15 +5,9 @@ title: External Dependencies
 
 # Working with external dependencies
 
-Bazel is designed to have absolutely everything needed for a build, from source
-code to libraries to compilers, under one directory (the workspace directory).
-This is impractical for some version control systems and goes against how many
-existing projects are structured. Thus, Bazel has a system for pulling in
-dependencies from outside of the workspace.
-
-External dependencies can be specified in a `WORKSPACE` file in the
-[workspace directory](/docs/build-ref.html#workspaces). This `WORKSPACE` file
-uses the same Python-like syntax of BUILD files, but allows a different set of
+External dependencies can be specified in the `WORKSPACE` file of the
+[workspace directory](/docs/build-ref.html#workspace). This `WORKSPACE` file
+uses the same syntax as BUILD files, but allows a different set of
 rules. See the full list of rules that are allowed in the
 [Workspace](/docs/be/workspace.html) list of rules in the Build
 Encyclopedia.
@@ -27,6 +21,89 @@ ls $(bazel info output_base)/external
 
 Note that running `bazel clean` will not actually delete the external
 directory: to remove all external artifacts, use `bazel clean --expunge`.
+
+## Supported types of external dependencies
+
+There are a few basic types of external dependencies that can be used:
+
+- [Dependencies on other Bazel projects](#bazel-projects)
+- [Dependencies on non-Bazel projects](#non-bazel-projects)
+- [Dependencies on external packages](#external-packages)
+
+<a name="bazel-projects"></a>
+### Depending on other Bazel projects
+
+If you have a second Bazel project that you'd like to use targets from, you can
+use
+[`local_repository`](http://bazel.build/docs/be/workspace.html#local_repository),
+[`git_repository`](https://bazel.build/docs/be/workspace.html#git_repository)
+or [`http_archive`](http://bazel.build/docs/be/workspace.html#http_archive)
+to symlink it from the local filesystem, reference a git repository or download
+it (respectively).
+
+For example, suppose you are working on a project, `my-project/`, and you want
+to depend on targets from your coworker's project, `coworkers-project/`. Both
+projects use Bazel, so you can add your coworker's project as an external
+dependency and then use any targets your coworker has defined from your own
+BUILD files. You would add the following to `my_project/WORKSPACE`:
+
+```python
+local_repository(
+    name = "coworkers-project",
+    path = "/path/to/coworkers-project",
+)
+```
+
+If your coworker has a target `//foo:bar`, your project can refer to it as
+`@coworkers-project//foo:bar`.
+
+<a name="non-bazel-projects"></a>
+### Depending on non-Bazel projects
+
+Rules prefixed with `new_` (e.g.,
+[`new_local_repository`](http://bazel.build/docs/be/workspace.html#new_local_repository),
+[`new_git_repository`](https://bazel.build/docs/be/workspace.html#new_git_repository)
+and [`new_http_archive`](http://bazel.build/docs/be/workspace.html#new_http_archive)
+) allow you to create targets from projects that do not use Bazel.
+
+For example, suppose you are working on a project, `my-project/`, and you want
+to depend on your coworker's project, `coworkers-project/`. Your coworker's
+project uses `make` to build, but you'd like to depend on one of the .so files
+it generates. To do so, add the following to `my_project/WORKSPACE`:
+
+```python
+new_local_repository(
+    name = "coworkers-project",
+    path = "/path/to/coworkers-project",
+    build_file = "coworker.BUILD",
+)
+```
+
+`build_file` specifies a BUILD file to overlay on the existing project, for
+example:
+
+```python
+java_library(
+    name = "some-lib",
+    srcs = glob(["**"]),
+    visibility = ["//visibility:public"],
+)
+```
+
+You can then depend on `@coworkers-project//:some-lib` from your project's BUILD
+files.
+
+<a name="external-packages"></a>
+### Depending on external packages
+
+#### Maven repositories
+
+Use [`maven_jar`](https://bazel.build/versions/master/docs/be/workspace.html#maven_jar)
+(and optionally [`maven_server`](https://bazel.build/versions/master/docs/be/workspace.html#maven_server))
+to download a jar from a Maven repository and make it available as a Java
+dependency.
+
+
 
 ## Fetching dependencies
 
@@ -119,69 +196,7 @@ You may also want to break `transitive-deps` into smaller targets, as it is
 unlikely that all of your targets depend on the transitive closure of your
 maven jars.
 
-# Types of external dependencies
-
-There are a few basic types of external dependencies that can be created.
-
-## Combining Bazel projects
-
-If you have a second Bazel project that you'd like to use targets from, you can
-use
-[`local_repository`](http://bazel.build/docs/be/workspace.html#local_repository)
-or [`http_archive`](http://bazel.build/docs/be/workspace.html#http_archive)
-to symlink it from the local filesystem or download it (respectively).
-
-For example, suppose you are working on a project, `my-project/`, and you want
-to depend on targets from your coworker's project, `coworkers-project/`. Both
-projects use Bazel, so you can add your coworker's project as an external
-dependency and then use any targets your coworker has defined from your own
-BUILD files. You would add the following to `my_project/WORKSPACE`:
-
-```python
-local_repository(
-    name = "coworkers-project",
-    path = "/path/to/coworkers-project",
-)
-```
-
-If your coworker has a target `//foo:bar`, your project can refer to it as
-`@coworkers-project//foo:bar`.
-
-## Depending on non-Bazel projects
-
-Rules prefixed with `new_` (e.g.,
-[`new_local_repository`](http://bazel.build/docs/be/workspace.html#new_local_repository)
-and [`new_http_archive`](http://bazel.build/docs/be/workspace.html#new_http_archive)
-) allow you to create targets from projects that do not use Bazel.
-
-For example, suppose you are working on a project, `my-project/`, and you want
-to depend on your coworker's project, `coworkers-project/`. Your coworker's
-project uses `make` to build, but you'd like to depend on one of the .so files
-it generates. To do so, add the following to `my_project/WORKSPACE`:
-
-```python
-new_local_repository(
-    name = "coworkers-project",
-    path = "/path/to/coworkers-project",
-    build_file = "coworker.BUILD",
-)
-```
-
-`build_file` specifies a BUILD file to overlay on the existing project, for
-example:
-
-```python
-java_library(
-    name = "some-lib",
-    srcs = glob(["**"]),
-    visibility = ["//visibility:public"],
-)
-```
-
-You can then depend on `@coworkers-project//:some-lib` from your project's BUILD
-files.
-
-# Caching of external dependencies
+## Caching of external dependencies
 
 Bazel caches external dependencies and only re-downloads or updates them when
 the `WORKSPACE` file changes. If the `WORKSPACE` file does not change, Bazel
