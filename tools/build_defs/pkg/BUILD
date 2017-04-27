@@ -16,9 +16,7 @@ py_library(
     name = "archive",
     srcs = ["archive.py"],
     srcs_version = "PY2AND3",
-    visibility = [
-        "//tools/build_defs/docker:__subpackages__",
-    ],
+    visibility = ["//visibility:public"],
 )
 
 filegroup(
