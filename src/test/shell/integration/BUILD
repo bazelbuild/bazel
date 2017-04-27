@@ -57,7 +57,7 @@ sh_test(
     size = "large",
     srcs = ["experimental_ui_test.sh"],
     data = [":test-deps"],
-    shard_count = 6,
+    shard_count = 11,
 )
 
 sh_test(

@@ -34,7 +34,7 @@ EOF
   chmod 755 pkg/true.sh
   cat > pkg/slow.sh <<EOF
 #!/bin/sh
-sleep 10
+sleep 3
 exit 0
 EOF
   chmod 755 pkg/slow.sh
