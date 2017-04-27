@@ -379,7 +379,8 @@ message BuildFinished {
     int32 code = 2;
   }
 
-  reserved 1;
+  // If the build succeeded or failed.
+  bool overall_success = 1 [deprecated = true];
 
   // The overall status of the build. A build was successfull iff
   // ExitCode.code equals 0.

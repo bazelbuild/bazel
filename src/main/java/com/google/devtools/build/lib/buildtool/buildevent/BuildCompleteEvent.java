@@ -68,6 +68,7 @@ public final class BuildCompleteEvent implements BuildEvent {
 
     BuildFinished finished =
         BuildFinished.newBuilder()
+            .setOverallSuccess(result.getSuccess())
             .setExitCode(exitCode)
             .setFinishTimeMillis(result.getStopTime())
             .build();
