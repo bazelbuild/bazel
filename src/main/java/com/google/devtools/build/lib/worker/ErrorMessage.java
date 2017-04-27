@@ -42,6 +42,7 @@ abstract class ErrorMessage {
     private Path logFile;
     private String logText = "";
     private int logSizeLimit = Integer.MAX_VALUE;
+    private Exception exception;
 
     private Builder() {}
 
@@ -90,9 +91,22 @@ abstract class ErrorMessage {
       return this;
     }
 
+    /** Lets the error message contain the details of an exception. */
+    public Builder exception(Exception e) {
+      this.exception = e;
+      return this;
+    }
+
     /** Builds and returns the formatted error message. */
     public ErrorMessage build() {
       StringBuilder sb = new StringBuilder(message);
+
+      if (exception != null) {
+        sb.append("\n\n---8<---8<--- Exception details ---8<---8<---\n");
+        sb.append(Throwables.getStackTraceAsString(exception).trim());
+        sb.append("\n---8<---8<--- End of exception details ---8<---8<---");
+      }
+
       if (!logText.isEmpty()) {
         sb.append("\n\n---8<---8<--- Start of log");
         if (logText.length() > logSizeLimit) {

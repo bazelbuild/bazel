@@ -112,4 +112,18 @@ public class ErrorMessageTest {
                 + "java.io.FileNotFoundException: /nope.txt (No such file or directory)\n");
     assertThat(errorMessage.toString()).endsWith("---8<---8<--- End of log ---8<---8<---");
   }
+
+  @Test
+  public void testErrorMessageWithException() {
+    ErrorMessage errorMessage =
+        ErrorMessage.builder()
+            .message("An exception occurred.")
+            .exception(new IllegalStateException("Hello World"))
+            .build();
+    assertThat(errorMessage.toString())
+        .startsWith(
+            "An exception occurred.\n\n"
+                + "---8<---8<--- Exception details ---8<---8<---\n"
+                + "java.lang.IllegalStateException: Hello World");
+  }
 }

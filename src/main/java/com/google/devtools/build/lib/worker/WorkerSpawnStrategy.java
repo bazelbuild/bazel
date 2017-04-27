@@ -193,7 +193,8 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
       String message =
           CommandFailureUtils.describeCommandFailure(
               verboseFailures, spawn.getArguments(), env, execRoot.getPathString());
-      throw new UserExecException(ErrorMessage.builder().message(message).build().toString());
+      throw new UserExecException(
+          ErrorMessage.builder().message(message).exception(e).build().toString());
     }
   }
 
@@ -296,6 +297,7 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
         throw new UserExecException(
             ErrorMessage.builder()
                 .message("IOException while borrowing a worker from the pool:")
+                .exception(e)
                 .build()
                 .toString());
       }
@@ -307,6 +309,7 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
             ErrorMessage.builder()
                 .message("IOException while preparing the execution environment of a worker:")
                 .logFile(worker.getLogFile())
+                .exception(e)
                 .build()
                 .toString());
       }
@@ -321,6 +324,7 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
                     "Worker process quit or closed its stdin stream when we tried to send a"
                         + " WorkRequest:")
                 .logFile(worker.getLogFile())
+                .exception(e)
                 .build()
                 .toString());
       }
@@ -340,6 +344,7 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
             ErrorMessage.builder()
                 .message("Worker process returned an unparseable WorkResponse:")
                 .logText(recordingStream.getRecordedDataAsString())
+                .exception(e)
                 .build()
                 .toString());
       }
@@ -365,6 +370,7 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
         throw new UserExecException(
             ErrorMessage.builder()
                 .message("IOException while finishing worker execution:")
+                .exception(e)
                 .build()
                 .toString());
       }
