@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.worker;
 
-import com.google.common.base.Charsets;
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -158,17 +159,36 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
       recordingStream.startRecording(4096);
       WorkResponse response;
       try {
+        // response can be null when the worker has already closed stdout at this point and thus the
+        // InputStream is at EOF.
         response = WorkResponse.parseDelimitedFrom(recordingStream);
       } catch (InvalidProtocolBufferException e) {
         // If protobuf couldn't parse the response, try to print whatever the failing worker wrote
         // to stdout - it's probably a stack trace or some kind of error message that will help the
         // user figure out why the compiler is failing.
         recordingStream.readRemaining();
-        String data = recordingStream.getRecordedDataAsString(Charsets.UTF_8);
-        executor
-            .getEventHandler()
-            .handle(Event.warn("Worker process returned an unparseable WorkResponse:\n" + data));
+        String data = recordingStream.getRecordedDataAsString(UTF_8);
+        ErrorMessage errorMessage =
+            ErrorMessage.builder()
+                .message("Worker process returned an unparseable WorkResponse:")
+                .logText(data)
+                .build();
+        executor.getEventHandler().handle(Event.warn(errorMessage.toString()));
         throw e;
+      }
+
+      worker.finishExecution(key);
+
+      if (response == null) {
+        ErrorMessage errorMessage =
+            ErrorMessage.builder()
+                .message(
+                    "Worker process did not return a WorkResponse. This is usually caused by a bug"
+                        + " in the worker, thus dumping its log file for debugging purposes:")
+                .logFile(worker.getLogFile())
+                .logSizeLimit(4096)
+                .build();
+        throw new UserExecException(errorMessage.toString());
       }
 
       actionExecutionContext.getFileOutErr().getErrorStream().write(

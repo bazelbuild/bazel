@@ -295,6 +295,8 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
       RecordingInputStream recordingStream = new RecordingInputStream(worker.getInputStream());
       recordingStream.startRecording(4096);
       try {
+        // response can be null when the worker has already closed stdout at this point and thus the
+        // InputStream is at EOF.
         response = WorkResponse.parseDelimitedFrom(recordingStream);
       } catch (InvalidProtocolBufferException e) {
         // If protobuf couldn't parse the response, try to print whatever the failing worker wrote
