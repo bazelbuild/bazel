@@ -440,7 +440,7 @@ sh_test(
 
 sh_test(
     name = "toolchain_test",
-    size = "small",
+    size = "medium",
     srcs = ["toolchain_test.sh"],
     data = [":test-deps"],
 )
