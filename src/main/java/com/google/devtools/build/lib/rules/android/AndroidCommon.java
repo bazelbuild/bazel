@@ -921,8 +921,7 @@ public class AndroidCommon {
       // input for the annotation processor.
       Artifact annotationFile = DataBinding.createAnnotationFile(ruleContext, isLibrary);
       if (annotationFile != null) {
-        srcs = ImmutableList.<Artifact>builder().addAll(srcs)
-            .add(DataBinding.createAnnotationFile(ruleContext, isLibrary)).build();
+        srcs = ImmutableList.<Artifact>builder().addAll(srcs).add(annotationFile).build();
       }
     }
 
