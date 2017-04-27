@@ -142,6 +142,7 @@ public final class TargetCompleteEvent
         BuildEventStreamProtos.TargetComplete.newBuilder();
 
     builder.setSuccess(!failed());
+    builder.setTargetKind(target.getTarget().getTargetKind());
     builder.addAllTag(getTags());
     builder.addAllOutputGroup(getOutputFilesByGroup(converters.artifactGroupNamer()));
 

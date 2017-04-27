@@ -128,6 +128,8 @@ function test_basic() {
   expect_log 'SUCCESS'
   expect_log 'finish_time'
   expect_not_log 'aborted'
+  # target kind for the sh_test
+  expect_log 'target_kind:.*sh'
 }
 
 function test_suite() {

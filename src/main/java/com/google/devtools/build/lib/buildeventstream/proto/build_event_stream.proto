@@ -291,6 +291,10 @@ message OutputGroup {
 message TargetComplete {
   bool success = 1;
 
+  // The kind of target (e.g.,  e.g. "cc_library rule", "source file",
+  // "generated file") where the completion is reported.
+  string target_kind = 5;
+
   // The output files are arranged by their output group. If an output file
   // is part of multiple output groups, it appears once in each output
   // group.
