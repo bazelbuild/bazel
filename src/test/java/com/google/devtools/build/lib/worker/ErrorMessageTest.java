@@ -47,10 +47,10 @@ public class ErrorMessageTest {
         ErrorMessage.builder().message("Error with log text").logText(logText).build();
     assertThat(errorMessage.toString())
         .isEqualTo(
-            "Error with log text\n"
-                + "---8<---8<--- (start of log) ---8<---8<---\n"
+            "Error with log text\n\n"
+                + "---8<---8<--- Start of log ---8<---8<---\n"
                 + "abcdefghijklmnopqrstuvwxyz\n"
-                + "---8<---8<--- (end of log) ---8<---8<---");
+                + "---8<---8<--- End of log ---8<---8<---");
   }
 
   @Test
@@ -59,10 +59,10 @@ public class ErrorMessageTest {
         ErrorMessage.builder().message("Error with log text").logText("").build();
     assertThat(errorMessage.toString())
         .isEqualTo(
-            "Error with log text\n"
-                + "---8<---8<--- (start of log) ---8<---8<---\n"
+            "Error with log text\n\n"
+                + "---8<---8<--- Start of log ---8<---8<---\n"
                 + "(empty)\n"
-                + "---8<---8<--- (end of log) ---8<---8<---");
+                + "---8<---8<--- End of log ---8<---8<---");
   }
 
   @Test
@@ -75,11 +75,11 @@ public class ErrorMessageTest {
             .build();
     assertThat(errorMessage.toString())
         .isEqualTo(
-            "Error with log text\n"
-                + "---8<---8<--- (start of log) ---8<---8<---\n"
+            "Error with log text\n\n"
+                + "---8<---8<--- Start of log snippet ---8<---8<---\n"
                 + "[... truncated ...]\n"
                 + "nopqrstuvwxyz\n"
-                + "---8<---8<--- (end of log snippet, 13 chars omitted) ---8<---8<---");
+                + "---8<---8<--- End of log snippet, 13 chars omitted ---8<---8<---");
   }
 
   @Test
@@ -91,10 +91,10 @@ public class ErrorMessageTest {
         ErrorMessage.builder().message("Error with log file").logFile(logFile).build();
     assertThat(errorMessage.toString())
         .isEqualTo(
-            "Error with log file\n"
-                + "---8<---8<--- (start of log, file at /log.txt) ---8<---8<---\n"
+            "Error with log file\n\n"
+                + "---8<---8<--- Start of log, file at /log.txt ---8<---8<---\n"
                 + "abcdefghijklmnopqrstuvwxyz\n"
-                + "---8<---8<--- (end of log) ---8<---8<---");
+                + "---8<---8<--- End of log ---8<---8<---");
   }
 
   @Test
@@ -106,10 +106,10 @@ public class ErrorMessageTest {
         ErrorMessage.builder().message("Error with log file").logFile(logFile).build();
     assertThat(errorMessage.toString())
         .startsWith(
-            "Error with log file\n"
-                + "---8<---8<--- (start of log, file at /nope.txt) ---8<---8<---\n"
+            "Error with log file\n\n"
+                + "---8<---8<--- Start of log, file at /nope.txt ---8<---8<---\n"
                 + "ERROR: IOException while trying to read log file:\n"
                 + "java.io.FileNotFoundException: /nope.txt (No such file or directory)\n");
-    assertThat(errorMessage.toString()).endsWith("---8<---8<--- (end of log) ---8<---8<---");
+    assertThat(errorMessage.toString()).endsWith("---8<---8<--- End of log ---8<---8<---");
   }
 }

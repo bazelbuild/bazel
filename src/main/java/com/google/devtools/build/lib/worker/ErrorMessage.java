@@ -48,7 +48,7 @@ abstract class ErrorMessage {
     /** Sets the main text of this error message. */
     public Builder message(String message) {
       Preconditions.checkNotNull(message);
-      this.message = message.isEmpty() ? "Unknown error" : message;
+      this.message = message.isEmpty() ? "Unknown error" : message.trim();
       return this;
     }
 
@@ -94,24 +94,29 @@ abstract class ErrorMessage {
     public ErrorMessage build() {
       StringBuilder sb = new StringBuilder(message);
       if (!logText.isEmpty()) {
-        sb.append("\n---8<---8<--- (start of log");
+        sb.append("\n\n---8<---8<--- Start of log");
+        if (logText.length() > logSizeLimit) {
+          sb.append(" snippet");
+        }
         if (logFile != null) {
           sb.append(", file at ");
           sb.append(logFile.getPathString());
         }
-        sb.append(") ---8<---8<---\n");
+        sb.append(" ---8<---8<---\n");
+
         // If the length of the log is longer than the limit, print only the last part.
         if (logText.length() > logSizeLimit) {
           sb.append("[... truncated ...]\n");
           sb.append(logText, logText.length() - logSizeLimit, logText.length());
-          sb.append("\n---8<---8<--- (end of log snippet, ");
+          sb.append("\n---8<---8<--- End of log snippet, ");
           sb.append(logText.length() - logSizeLimit);
-          sb.append(" chars omitted) ---8<---8<---");
+          sb.append(" chars omitted ---8<---8<---");
         } else {
           sb.append(logText);
-          sb.append("\n---8<---8<--- (end of log) ---8<---8<---");
+          sb.append("\n---8<---8<--- End of log ---8<---8<---");
         }
       }
+
       return new AutoValue_ErrorMessage(sb.toString());
     }
   }

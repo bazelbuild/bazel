@@ -539,9 +539,9 @@ EOF
     && fail "expected build to fail" || /bin/true
   worker_uuid_2=$(cat $BINS/hello_world_2.out | grep UUID | cut -d' ' -f2)
 
-  expect_log "^---8<---8<--- (start of log, file at /"
+  expect_log "^---8<---8<--- Start of log, file at /"
   expect_log "thus dumping its log file for debugging purposes:"
   expect_log "I'm a very poisoned worker and will just crash."
-  expect_log "^---8<---8<--- (end of log) ---8<---8<---"
+  expect_log "^---8<---8<--- End of log ---8<---8<---"
 }
 run_suite "Worker integration tests"
