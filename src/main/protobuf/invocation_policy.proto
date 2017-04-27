@@ -20,10 +20,18 @@ option java_package = "com.google.devtools.build.lib.runtime.proto";
 // The --invocation_policy flag takes a base64-encoded binary-serialized or text
 // formatted InvocationPolicy message.
 message InvocationPolicy {
-  // Order matters.
-  // After expanding policies on expansion flags or flags with implicit
-  // requirements, only the final policy on a specific flag will be enforced
-  // onto the user's command line.
+  // Policies will be applied in order. Later policies will override
+  // previous policies if they conflict, which is important for flags
+  // that interact with each other. For example, if there is a flag "--foo"
+  // which is an expansion flag that expands into "--bar=x --baz=y", and the
+  // policy list first has a SetValue policy for "set --bar to z", and then has
+  // a SetDefault policy to set "--foo" to its default value, both --bar and
+  // --baz will get reset to their default values, overriding the SetValue
+  // operation. The UseDefault should come before the SetValue.
+  //
+  // Note that currently, if user value is lost, either cleared by UseDefault
+  // or by being written over by a SetValue, a later white-listing of the user's
+  // inputted value will not restore it.
   repeated FlagPolicy flag_policies = 1;
 }
 
@@ -119,10 +127,8 @@ message UseDefault {
   // so that when the value is requested and no flag is found, the flag parser
   // returns the default. This is mostly relevant for expansion flags: it will
   // erase user values in *all* flags that the expansion flag expands to. Only
-  // use this on expansion flags if this is acceptable behavior. Since the last
-  // policy wins, later policies on this same flag will still remove the
-  // expanded UseDefault, so there is a way around, but it's really best not to
-  // use this on expansion flags at all.
+  // use this on expansion flags if this is acceptable behavior. Otherwise, make
+  // an appropriate policy for the expanded flags that you care about.
 }
 
 message DisallowValues {

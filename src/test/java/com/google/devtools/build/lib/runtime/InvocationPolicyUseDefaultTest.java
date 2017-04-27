@@ -102,40 +102,6 @@ public class InvocationPolicyUseDefaultTest extends InvocationPolicyEnforcerTest
   }
 
   @Test
-  public void testUseDefaultWithExpansionFlagAndLaterOverride() throws Exception {
-    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
-    invocationPolicyBuilder
-        .addFlagPoliciesBuilder()
-        .setFlagName("test_expansion")
-        .getUseDefaultBuilder();
-    invocationPolicyBuilder
-        .addFlagPoliciesBuilder()
-        .setFlagName("expanded_b")
-        .getAllowValuesBuilder()
-        .addAllowedValues("false");
-
-    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
-    parser.parse("--test_expansion");
-
-    TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.expandedA).isEqualTo(TestOptions.EXPANDED_A_TEST_EXPANSION);
-    assertThat(testOptions.expandedB).isEqualTo(TestOptions.EXPANDED_B_TEST_EXPANSION);
-    assertThat(testOptions.expandedC).isEqualTo(TestOptions.EXPANDED_C_TEST_EXPANSION);
-    assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_TEST_EXPANSION);
-
-    // If the UseDefault is run, then the value of --expanded_b is back to it's default true, which
-    // isn't allowed. However, the allowValues in the later policy should wipe the expansion's
-    // policy on --expanded_b, so that the enforcement does not fail.
-    enforcer.enforce(parser, BUILD_COMMAND);
-
-    testOptions = getTestOptions();
-    assertThat(testOptions.expandedA).isEqualTo(TestOptions.EXPANDED_A_DEFAULT);
-    assertThat(testOptions.expandedB).isEqualTo(TestOptions.EXPANDED_B_TEST_EXPANSION);
-    assertThat(testOptions.expandedC).isEqualTo(TestOptions.EXPANDED_C_DEFAULT);
-    assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_DEFAULT);
-  }
-
-  @Test
   public void testUseDefaultWithRecursiveExpansionFlags() throws Exception {
     InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
     invocationPolicyBuilder.addFlagPoliciesBuilder()

@@ -36,9 +36,7 @@ import com.google.devtools.common.options.OptionsParser.OptionValueDescription;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -211,14 +209,7 @@ public final class InvocationPolicyEnforcer {
       expandedPolicies.addAll(policies);
     }
 
-    // Only keep that last policy for each flag.
-    Map<String, FlagPolicy> effectivePolicy = new HashMap<>();
-    for (FlagPolicy expandedPolicy : expandedPolicies) {
-      String flagName = expandedPolicy.getFlagName();
-      effectivePolicy.put(flagName, expandedPolicy);
-    }
-
-    return new ArrayList<>(effectivePolicy.values());
+    return expandedPolicies;
   }
 
   /**
