@@ -17,7 +17,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Charsets;
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -88,23 +87,17 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
   private final WorkerPool workers;
   private final Path execRoot;
   private final boolean verboseFailures;
-  private final int maxRetries;
   private final Multimap<String, String> extraFlags;
-  private final boolean workerVerbose;
 
   public WorkerSpawnStrategy(
       BlazeDirectories blazeDirs,
       WorkerPool workers,
       boolean verboseFailures,
-      int maxRetries,
-      boolean workerVerbose,
       Multimap<String, String> extraFlags) {
     Preconditions.checkNotNull(workers);
     this.workers = Preconditions.checkNotNull(workers);
     this.execRoot = blazeDirs.getExecRoot();
     this.verboseFailures = verboseFailures;
-    this.maxRetries = maxRetries;
-    this.workerVerbose = workerVerbose;
     this.extraFlags = extraFlags;
   }
 
@@ -236,7 +229,7 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
       }
 
       WorkResponse response =
-          execInWorker(eventHandler, key, requestBuilder.build(), maxRetries, writeOutputFiles);
+          execInWorker(eventHandler, key, requestBuilder.build(), writeOutputFiles);
 
       outErr.getErrorStream().write(response.getOutputBytes().toByteArray());
 
@@ -279,7 +272,6 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
       EventHandler eventHandler,
       WorkerKey key,
       WorkRequest request,
-      int retriesLeft,
       AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles)
       throws IOException, InterruptedException, UserExecException {
     Worker worker = null;
@@ -336,26 +328,7 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
         worker = null;
       }
 
-      if (retriesLeft > 0) {
-        // The worker process failed, but we still have some retries left. Let's retry with a fresh
-        // worker.
-        if (workerVerbose) {
-          eventHandler.handle(
-              Event.warn(
-                  key.getMnemonic()
-                      + " worker failed ("
-                      + Throwables.getStackTraceAsString(e)
-                      + "), invalidating and retrying with new worker..."));
-        } else {
-          eventHandler.handle(
-              Event.warn(
-                  key.getMnemonic()
-                      + " worker failed, invalidating and retrying with new worker..."));
-        }
-        return execInWorker(eventHandler, key, request, retriesLeft - 1, writeOutputFiles);
-      } else {
-        throw e;
-      }
+      throw e;
     } finally {
       if (worker != null) {
         workers.returnObject(key, worker);

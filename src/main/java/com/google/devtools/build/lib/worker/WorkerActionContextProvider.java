@@ -30,7 +30,6 @@ final class WorkerActionContextProvider extends ActionContextProvider {
 
   public WorkerActionContextProvider(
       CommandEnvironment env, BuildRequest buildRequest, WorkerPool workers) {
-    int maxRetries = buildRequest.getOptions(WorkerOptions.class).workerMaxRetries;
     ImmutableMultimap.Builder<String, String> extraFlags = ImmutableMultimap.builder();
     extraFlags.putAll(buildRequest.getOptions(WorkerOptions.class).workerExtraFlags);
 
@@ -39,11 +38,9 @@ final class WorkerActionContextProvider extends ActionContextProvider {
             env.getDirectories(),
             workers,
             buildRequest.getOptions(ExecutionOptions.class).verboseFailures,
-            maxRetries,
-            buildRequest.getOptions(WorkerOptions.class).workerVerbose,
             extraFlags.build());
     TestActionContext workerTestStrategy =
-        new WorkerTestStrategy(env, buildRequest, workers, maxRetries, extraFlags.build());
+        new WorkerTestStrategy(env, buildRequest, workers, extraFlags.build());
     this.strategies = ImmutableList.of(workerSpawnStrategy, workerTestStrategy);
   }
 

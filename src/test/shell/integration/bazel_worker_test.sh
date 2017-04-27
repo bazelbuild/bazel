@@ -350,9 +350,8 @@ EOF
 }
 
 # When a worker does not conform to the protocol and returns a response that is not a parseable
-# protobuf, it must be killed, the output thrown away, a new worker restarted and Bazel has to retry
-# the action without struggling.
-function test_bazel_recovers_from_worker_returning_junk() {
+# protobuf, it must be killed and a helpful error message should be printed.
+function test_build_fails_when_worker_returns_junk() {
   prepare_example_worker
   cat >>BUILD <<'EOF'
 [work(
@@ -365,16 +364,14 @@ EOF
 
   bazel build :hello_world_1 &> $TEST_log \
     || fail "build failed"
-  worker_uuid_1=$(cat $BINS/hello_world_1.out | grep UUID | cut -d' ' -f2)
 
+  # A failing worker should cause the build to fail.
   bazel build :hello_world_2 &> $TEST_log \
-    || fail "build failed"
-  worker_uuid_2=$(cat $BINS/hello_world_2.out | grep UUID | cut -d' ' -f2)
-  expect_log "I'm a poisoned worker and this is not a protobuf."
+    && fail "expected build to fail" || true
 
-  # Check that the worker failed & was restarted.
-  expect_log "invalidating and retrying with new worker"
-  assert_not_equals "$worker_uuid_1" "$worker_uuid_2"
+  # Check that a helpful error message was printed.
+  expect_log "Worker process returned an unparseable WorkResponse:"
+  expect_log "I'm a poisoned worker and this is not a protobuf."
 }
 
 function test_input_digests() {

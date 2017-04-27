@@ -52,14 +52,6 @@ public class WorkerOptions extends OptionsBase {
   public int workerMaxInstances;
 
   @Option(
-    name = "worker_max_retries",
-    defaultValue = "3",
-    category = "strategy",
-    help = "If a worker fails during work, retry <worker_max_retries> times before giving up."
-  )
-  public int workerMaxRetries;
-
-  @Option(
     name = "worker_quit_after_build",
     defaultValue = "false",
     category = "strategy",
