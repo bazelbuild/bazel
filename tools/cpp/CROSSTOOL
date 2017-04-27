@@ -523,40 +523,40 @@ toolchain {
 }
 
 toolchain {
-   abi_version: "local"
-   abi_libc_version: "local"
-   builtin_sysroot: ""
-   compiler: "windows_msys64"
-   host_system_name: "local"
-   needsPic: false
-   target_libc: "local"
-   target_cpu: "x64_windows"
-   target_system_name: "local"
-   toolchain_identifier: "local_windows_msys64"
+  abi_version: "local"
+  abi_libc_version: "local"
+  builtin_sysroot: ""
+  compiler: "windows_msys64"
+  host_system_name: "local"
+  needsPic: false
+  target_libc: "local"
+  target_cpu: "x64_windows"
+  target_system_name: "local"
+  toolchain_identifier: "local_windows_msys64"
 
-   tool_path { name: "ar" path: "C:/tools/msys64/usr/bin/ar" }
-   tool_path { name: "compat-ld" path: "C:/tools/msys64/usr/bin/ld" }
-   tool_path { name: "cpp" path: "C:/tools/msys64/usr/bin/cpp" }
-   tool_path { name: "dwp" path: "C:/tools/msys64/usr/bin/dwp" }
-   # Use gcc instead of g++ so that C will compile correctly.
-   tool_path { name: "gcc" path: "C:/tools/msys64/usr/bin/gcc" }
-   cxx_flag: "-std=gnu++0x"
-   linker_flag: "-lstdc++"
-   # TODO(bazel-team): In theory, the path here ought to exactly match the path
-   # used by gcc. That works because bazel currently doesn't track files at
-   # absolute locations and has no remote execution, yet. However, this will need
-   # to be fixed, maybe with auto-detection?
-   cxx_builtin_include_directory: "C:/tools/msys64/"
-   cxx_builtin_include_directory: "/usr/"
-   tool_path { name: "gcov" path: "C:/tools/msys64/usr/bin/gcov" }
-   tool_path { name: "ld" path: "C:/tools/msys64/usr/bin/ld" }
-   tool_path { name: "nm" path: "C:/tools/msys64/usr/bin/nm" }
-   tool_path { name: "objcopy" path: "C:/tools/msys64/usr/bin/objcopy" }
-   objcopy_embed_flag: "-I"
-   objcopy_embed_flag: "binary"
-   tool_path { name: "objdump" path: "C:/tools/msys64/usr/bin/objdump" }
-   tool_path { name: "strip" path: "C:/tools/msys64/usr/bin/strip" }
-   linking_mode_flags { mode: DYNAMIC }
+  tool_path { name: "ar" path: "C:/tools/msys64/usr/bin/ar" }
+  tool_path { name: "compat-ld" path: "C:/tools/msys64/usr/bin/ld" }
+  tool_path { name: "cpp" path: "C:/tools/msys64/usr/bin/cpp" }
+  tool_path { name: "dwp" path: "C:/tools/msys64/usr/bin/dwp" }
+  # Use gcc instead of g++ so that C will compile correctly.
+  tool_path { name: "gcc" path: "C:/tools/msys64/usr/bin/gcc" }
+  cxx_flag: "-std=gnu++0x"
+  linker_flag: "-lstdc++"
+  # TODO(bazel-team): In theory, the path here ought to exactly match the path
+  # used by gcc. That works because bazel currently doesn't track files at
+  # absolute locations and has no remote execution, yet. However, this will need
+  # to be fixed, maybe with auto-detection?
+  cxx_builtin_include_directory: "C:/tools/msys64/"
+  cxx_builtin_include_directory: "/usr/"
+  tool_path { name: "gcov" path: "C:/tools/msys64/usr/bin/gcov" }
+  tool_path { name: "ld" path: "C:/tools/msys64/usr/bin/ld" }
+  tool_path { name: "nm" path: "C:/tools/msys64/usr/bin/nm" }
+  tool_path { name: "objcopy" path: "C:/tools/msys64/usr/bin/objcopy" }
+  objcopy_embed_flag: "-I"
+  objcopy_embed_flag: "binary"
+  tool_path { name: "objdump" path: "C:/tools/msys64/usr/bin/objdump" }
+  tool_path { name: "strip" path: "C:/tools/msys64/usr/bin/strip" }
+  linking_mode_flags { mode: DYNAMIC }
 }
 
 toolchain {

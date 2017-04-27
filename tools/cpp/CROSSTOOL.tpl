@@ -406,87 +406,87 @@ toolchain {
   }
 
   action_config {
-     config_name: 'c++-link-executable'
-     action_name: 'c++-link-executable'
-     tool {
-         tool_path: 'wrapper/bin/msvc_link.bat'
-     }
-     implies: 'nologo'
-     implies: 'strip_debug_symbols'
-     implies: 'linkstamps'
-     implies: 'output_execpath_flags'
-     implies: 'input_param_flags'
-     implies: 'legacy_link_flags'
-     implies: 'linker_param_file'
-     implies: 'msvc_env'
+    config_name: 'c++-link-executable'
+    action_name: 'c++-link-executable'
+    tool {
+      tool_path: 'wrapper/bin/msvc_link.bat'
+    }
+    implies: 'nologo'
+    implies: 'strip_debug_symbols'
+    implies: 'linkstamps'
+    implies: 'output_execpath_flags'
+    implies: 'input_param_flags'
+    implies: 'legacy_link_flags'
+    implies: 'linker_param_file'
+    implies: 'msvc_env'
   }
 
   action_config {
-     config_name: 'c++-link-dynamic-library'
-     action_name: 'c++-link-dynamic-library'
-     tool {
-         tool_path: 'wrapper/bin/msvc_link.bat'
-     }
-     implies: 'nologo'
-     implies: 'strip_debug_symbols'
-     implies: 'shared_flag'
-     implies: 'linkstamps'
-     implies: 'output_execpath_flags'
-     implies: 'input_param_flags'
-     implies: 'has_configured_linker_path'
-     implies: 'legacy_link_flags'
-     implies: 'linker_param_file'
-     implies: 'msvc_env'
+    config_name: 'c++-link-dynamic-library'
+    action_name: 'c++-link-dynamic-library'
+    tool {
+      tool_path: 'wrapper/bin/msvc_link.bat'
+    }
+    implies: 'nologo'
+    implies: 'strip_debug_symbols'
+    implies: 'shared_flag'
+    implies: 'linkstamps'
+    implies: 'output_execpath_flags'
+    implies: 'input_param_flags'
+    implies: 'has_configured_linker_path'
+    implies: 'legacy_link_flags'
+    implies: 'linker_param_file'
+    implies: 'msvc_env'
   }
 
   action_config {
-     config_name: 'c++-link-static-library'
-     action_name: 'c++-link-static-library'
-     tool {
-         tool_path: 'wrapper/bin/msvc_link.bat'
-     }
-     implies: 'nologo'
-     implies: 'input_param_flags'
-     implies: 'linker_param_file'
-     implies: 'msvc_env'
+    config_name: 'c++-link-static-library'
+    action_name: 'c++-link-static-library'
+    tool {
+      tool_path: 'wrapper/bin/msvc_link.bat'
+    }
+    implies: 'nologo'
+    implies: 'input_param_flags'
+    implies: 'linker_param_file'
+    implies: 'msvc_env'
   }
 
   action_config {
-     config_name: 'c++-link-alwayslink-static-library'
-     action_name: 'c++-link-alwayslink-static-library'
-     tool {
-         tool_path: 'wrapper/bin/msvc_link.bat'
-     }
-     implies: 'nologo'
-     implies: 'input_param_flags'
-     implies: 'linker_param_file'
-     implies: 'msvc_env'
+    config_name: 'c++-link-alwayslink-static-library'
+    action_name: 'c++-link-alwayslink-static-library'
+    tool {
+      tool_path: 'wrapper/bin/msvc_link.bat'
+    }
+    implies: 'nologo'
+    implies: 'input_param_flags'
+    implies: 'linker_param_file'
+    implies: 'msvc_env'
   }
 
   # TODO(pcloudy): The following action_config is listed in MANDATORY_LINK_TARGET_TYPES.
   # But do we really need them on Windows?
   action_config {
-     config_name: 'c++-link-pic-static-library'
-     action_name: 'c++-link-pic-static-library'
-     tool {
-         tool_path: 'wrapper/bin/msvc_link.bat'
-     }
-     implies: 'nologo'
-     implies: 'input_param_flags'
-     implies: 'linker_param_file'
-     implies: 'msvc_env'
+    config_name: 'c++-link-pic-static-library'
+    action_name: 'c++-link-pic-static-library'
+    tool {
+      tool_path: 'wrapper/bin/msvc_link.bat'
+    }
+    implies: 'nologo'
+    implies: 'input_param_flags'
+    implies: 'linker_param_file'
+    implies: 'msvc_env'
   }
 
   action_config {
-     config_name: 'c++-link-alwayslink-pic-static-library'
-     action_name: 'c++-link-alwayslink-pic-static-library'
-     tool {
-         tool_path: 'wrapper/bin/msvc_link.bat'
-     }
-     implies: 'nologo'
-     implies: 'input_param_flags'
-     implies: 'linker_param_file'
-     implies: 'msvc_env'
+    config_name: 'c++-link-alwayslink-pic-static-library'
+    action_name: 'c++-link-alwayslink-pic-static-library'
+    tool {
+      tool_path: 'wrapper/bin/msvc_link.bat'
+    }
+    implies: 'nologo'
+    implies: 'input_param_flags'
+    implies: 'linker_param_file'
+    implies: 'msvc_env'
   }
 
   action_config {
@@ -529,37 +529,37 @@ toolchain {
   }
 
   feature {
-     name: 'shared_flag'
-     flag_set {
-         action: 'c++-link-dynamic-library'
-         flag_group {
-             flag: '/DLL'
-         }
-     }
+    name: 'shared_flag'
+    flag_set {
+      action: 'c++-link-dynamic-library'
+      flag_group {
+        flag: '/DLL'
+      }
+    }
   }
 
   feature {
-     name: 'linkstamps'
-     flag_set {
-         action: 'c++-link-executable'
-         action: 'c++-link-dynamic-library'
-         expand_if_all_available: 'linkstamp_paths'
-         flag_group {
-             flag: '%{linkstamp_paths}'
-         }
-     }
+    name: 'linkstamps'
+    flag_set {
+      action: 'c++-link-executable'
+      action: 'c++-link-dynamic-library'
+      expand_if_all_available: 'linkstamp_paths'
+      flag_group {
+        flag: '%{linkstamp_paths}'
+      }
+    }
   }
 
   feature {
-     name: 'output_execpath_flags'
-     flag_set {
-         expand_if_all_available: 'output_execpath'
-         action: 'c++-link-executable'
-         action: 'c++-link-dynamic-library'
-         flag_group {
-             flag: '/OUT:%{output_execpath}'
-         }
-     }
+    name: 'output_execpath_flags'
+    flag_set {
+      expand_if_all_available: 'output_execpath'
+      action: 'c++-link-executable'
+      action: 'c++-link-dynamic-library'
+      flag_group {
+        flag: '/OUT:%{output_execpath}'
+      }
+    }
   }
 
   feature {
@@ -586,7 +586,7 @@ toolchain {
       action: 'c++-link-pic-static-library'
       action: 'c++-link-alwayslink-pic-static-library'
       flag_group {
-          flag: '%{libopts}'
+        flag: '%{libopts}'
       }
     }
     flag_set {
