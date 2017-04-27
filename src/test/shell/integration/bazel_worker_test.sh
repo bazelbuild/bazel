@@ -228,41 +228,24 @@ EOF
   assert_equals "1" $work_count
 }
 
-function test_worker_restarts_after_exit() {
+function test_build_fails_when_worker_exits() {
   prepare_example_worker
   cat >>BUILD <<'EOF'
 [work(
   name = "hello_world_%s" % idx,
   worker = ":worker",
-  worker_args = ["--exit_after=2"],
+  worker_args = ["--exit_after=1"],
   args = ["--write_uuid", "--write_counter"],
 ) for idx in range(10)]
 EOF
 
   bazel build :hello_world_1 &> $TEST_log \
     || fail "build failed"
-  worker_uuid_1=$(cat $BINS/hello_world_1.out | grep UUID | cut -d' ' -f2)
-  work_count=$(cat $BINS/hello_world_1.out | grep COUNTER | cut -d' ' -f2)
-  assert_equals "1" $work_count
 
   bazel build :hello_world_2 &> $TEST_log \
-    || fail "build failed"
-  worker_uuid_2=$(cat $BINS/hello_world_2.out | grep UUID | cut -d' ' -f2)
-  work_count=$(cat $BINS/hello_world_2.out | grep COUNTER | cut -d' ' -f2)
-  assert_equals "2" $work_count
+    && fail "expected build to failed" || true
 
-  # Check that the same worker was used twice.
-  assert_equals "$worker_uuid_1" "$worker_uuid_2"
-
-  bazel build :hello_world_3 &> $TEST_log \
-    || fail "build failed"
-  worker_uuid_3=$(cat $BINS/hello_world_3.out | grep UUID | cut -d' ' -f2)
-  work_count=$(cat $BINS/hello_world_3.out | grep COUNTER | cut -d' ' -f2)
-  assert_equals "1" $work_count
-  expect_log "worker .* can no longer be used, because its process terminated itself or got killed"
-
-  # Check that we used a new worker.
-  assert_not_equals "$worker_uuid_2" "$worker_uuid_3"
+  expect_log "Worker process quit or closed its stdin stream when we tried to send a WorkRequest"
 }
 
 function test_worker_restarts_when_worker_binary_changes() {
@@ -533,14 +516,12 @@ EOF
 
   bazel build :hello_world_1 &> $TEST_log \
     || fail "build failed"
-  worker_uuid_1=$(cat $BINS/hello_world_1.out | grep UUID | cut -d' ' -f2)
 
   bazel build :hello_world_2 &> $TEST_log \
     && fail "expected build to fail" || /bin/true
-  worker_uuid_2=$(cat $BINS/hello_world_2.out | grep UUID | cut -d' ' -f2)
 
   expect_log "^---8<---8<--- Start of log, file at /"
-  expect_log "thus dumping its log file for debugging purposes:"
+  expect_log "Worker process did not return a WorkResponse:"
   expect_log "I'm a very poisoned worker and will just crash."
   expect_log "^---8<---8<--- End of log ---8<---8<---"
 }
