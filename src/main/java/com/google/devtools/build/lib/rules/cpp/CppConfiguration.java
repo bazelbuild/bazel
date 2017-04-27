@@ -39,9 +39,8 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.rules.cpp.CppActionConfigs.CppPlatform;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader.CppConfigurationParameters;
-import com.google.devtools.build.lib.rules.cpp.CppLinkActionConfigs.CppLinkPlatform;
-import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -741,22 +740,16 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
 
     return result.build();
   }
-  
-  private boolean linkActionsAreConfigured(CToolchain toolchain) {
-    
-    for (LinkTargetType type : Link.MANDATORY_LINK_TARGET_TYPES) {
-      boolean typeIsConfigured = false;
-      for (ActionConfig actionConfig : toolchain.getActionConfigList()) {
-        if (actionConfig.getActionName().equals(type.getActionName())) {
-          typeIsConfigured = true;
-          break;
-        }
-      }
-      if (!typeIsConfigured) {
-        return false;
-      }
-    }
-    return true;
+
+  private static boolean actionsAreConfigured(CToolchain toolchain) {
+    return Iterables.any(
+        toolchain.getActionConfigList(),
+        new Predicate<ActionConfig>() {
+          @Override
+          public boolean apply(@Nullable ActionConfig actionConfig) {
+            return actionConfig.getActionName().contains("c++");
+          }
+        });
   }
 
   // TODO(bazel-team): Remove this once bazel supports all crosstool flags through
@@ -790,10 +783,12 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     Set<String> features = featuresBuilder.build();
     if (!features.contains(CppRuleClasses.NO_LEGACY_FEATURES)) {
       try {
-        if (!linkActionsAreConfigured(toolchain)) {
+        if (!actionsAreConfigured(toolchain)) {
+          String gccToolPath = "DUMMY_GCC_TOOL";
           String linkerToolPath = "DUMMY_LINKER_TOOL";
           for (ToolPath tool : toolchain.getToolPathList()) {
             if (tool.getName().equals(Tool.GCC.getNamePart())) {
+              gccToolPath = tool.getPath();
               linkerToolPath =
                   crosstoolTopPathFragment
                       .getRelative(PathFragment.create(tool.getPath()))
@@ -802,13 +797,21 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
           }
           if (getTargetLibc().equals("macosx")) {
             TextFormat.merge(
-                CppLinkActionConfigs.getCppLinkActionConfigs(
-                    CppLinkPlatform.MAC, features, linkerToolPath, supportsEmbeddedRuntimes),
+                CppActionConfigs.getCppActionConfigs(
+                    CppPlatform.MAC,
+                    features,
+                    gccToolPath,
+                    linkerToolPath,
+                    supportsEmbeddedRuntimes),
                 toolchainBuilder);
           } else {
             TextFormat.merge(
-                CppLinkActionConfigs.getCppLinkActionConfigs(
-                    CppLinkPlatform.LINUX, features, linkerToolPath, supportsEmbeddedRuntimes),
+                CppActionConfigs.getCppActionConfigs(
+                    CppPlatform.LINUX,
+                    features,
+                    gccToolPath,
+                    linkerToolPath,
+                    supportsEmbeddedRuntimes),
                 toolchainBuilder);
           }
         }
