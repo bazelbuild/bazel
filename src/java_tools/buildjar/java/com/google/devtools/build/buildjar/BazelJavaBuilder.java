@@ -144,7 +144,7 @@ public abstract class BazelJavaBuilder {
     // plug-in when it is specified.
     boolean errorProneEnabled = processAndRemoveExtraChecksOptions(optionsParser.getJavacOpts());
     if (errorProneEnabled) {
-      plugins.add(new ErrorPronePlugin());
+      plugins.add(new ErrorPronePlugin(optionsParser.testOnly()));
     }
 
     JavaLibraryBuildRequest build =

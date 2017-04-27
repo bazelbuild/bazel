@@ -82,6 +82,8 @@ public final class OptionsParser {
 
   private String ruleKind;
   private String targetLabel;
+  
+  private boolean testOnly;
 
   /**
    * Constructs an {@code OptionsParser} from a list of command args. Sets the same JavacRunner for
@@ -208,6 +210,9 @@ public final class OptionsParser {
           break;
         case "--target_label":
           targetLabel = getArgument(argQueue, arg);
+          break;
+        case "--testonly":
+          testOnly = true;
           break;
         default:
           throw new InvalidCommandLineException("unknown option : '" + arg + "'");
@@ -442,5 +447,9 @@ public final class OptionsParser {
 
   public String getTargetLabel() {
     return targetLabel;
+  }
+  
+  public boolean testOnly() {
+    return testOnly;
   }
 }
