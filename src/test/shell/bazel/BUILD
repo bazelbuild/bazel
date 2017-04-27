@@ -154,7 +154,6 @@ sh_test(
         "//conditions:default": ["//src/test/shell/bazel/testdata:bazel_toolchain_test_project_pkg"],
     }),
     tags = [
-        "noci",  # TODO(ulfjack): Re-enable for CI once https://github.com/bazelbuild/bazel/issues/2891 is fixed.
         "requires-network",
     ],
 )
