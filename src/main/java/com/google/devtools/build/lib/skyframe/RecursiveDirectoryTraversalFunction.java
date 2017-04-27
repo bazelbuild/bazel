@@ -40,7 +40,7 @@ import java.util.Map;
  * customized by classes that derive from it.
  */
 abstract class RecursiveDirectoryTraversalFunction<
-    TVisitor extends RecursiveDirectoryTraversalFunction.Visitor, TReturn> {
+    TConsumer extends RecursiveDirectoryTraversalFunction.PackageDirectoryConsumer, TReturn> {
 
   private final ProcessPackageDirectory processPackageDirectory;
 
@@ -61,12 +61,12 @@ abstract class RecursiveDirectoryTraversalFunction<
   }
 
   /**
-   * Called by {@link #visitDirectory}, which will next call {@link Visitor#visitPackageValue} if
-   * the {@code recursivePkgKey} specifies a directory with a package, and which will lastly be
-   * provided to {@link #aggregateWithSubdirectorySkyValues} to compute the {@code TReturn} value
-   * returned by {@link #visitDirectory}.
+   * Called by {@link #visitDirectory}, which will next call {@link
+   * PackageDirectoryConsumer#notePackage} if the {@code recursivePkgKey} specifies a directory with
+   * a package, and which will lastly be provided to {@link #aggregateWithSubdirectorySkyValues} to
+   * compute the {@code TReturn} value returned by {@link #visitDirectory}.
    */
-  protected abstract TVisitor getInitialVisitor();
+  protected abstract TConsumer getInitialConsumer();
 
   /**
    * Called by {@link #visitDirectory} to get the {@link SkyKey}s associated with recursive
@@ -80,29 +80,22 @@ abstract class RecursiveDirectoryTraversalFunction<
 
   /**
    * Called by {@link #visitDirectory} to compute the {@code TReturn} value it returns, as a
-   * function of {@code visitor} and the {@link SkyValue}s computed for subdirectories
-   * of the directory specified by {@code recursivePkgKey}, contained in
-   * {@code subdirectorySkyValues}.
+   * function of {@code consumer} and the {@link SkyValue}s computed for subdirectories of the
+   * directory specified by {@code recursivePkgKey}, contained in {@code subdirectorySkyValues}.
    */
   protected abstract TReturn aggregateWithSubdirectorySkyValues(
-      TVisitor visitor, Map<SkyKey, SkyValue> subdirectorySkyValues);
+      TConsumer consumer, Map<SkyKey, SkyValue> subdirectorySkyValues);
 
   /**
-   * A type of value used by {@link #visitDirectory} as it checks for a package in the directory
-   * specified by {@code recursivePkgKey}; if such a package exists, {@link #visitPackageValue}
-   * is called.
+   * A type of consumer used by {@link #visitDirectory} as it checks for a package in the directory
+   * specified by {@code recursivePkgKey}; if such a package exists, {@link #notePackage} is called.
    *
-   * <p>The value is then provided to {@link #aggregateWithSubdirectorySkyValues} to compute the
+   * <p>The consumer is then provided to {@link #aggregateWithSubdirectorySkyValues} to compute the
    * value returned by {@link #visitDirectory}.
    */
-  interface Visitor {
-
-    /**
-     * Called iff the directory contains a package. Provides an {@link Environment} {@code env} so
-     * that the visitor may do additional lookups. {@link Environment#valuesMissing} will be checked
-     * afterwards.
-     */
-    void visitPackageValue(Package pkg, Environment env) throws InterruptedException;
+  interface PackageDirectoryConsumer {
+    /** Called iff the directory contains a package. */
+    void notePackage(PathFragment pkgPath) throws InterruptedException;
 
     /**
      * Called iff the directory contains a BUILD file but *not* a package, which can happen under
@@ -114,19 +107,19 @@ abstract class RecursiveDirectoryTraversalFunction<
      *       cycle
      * </ol>
      */
-    void visitPackageError(NoSuchPackageException e, Environment env) throws InterruptedException;
+    void notePackageError(NoSuchPackageException e);
   }
 
   /**
    * Looks in the directory specified by {@code recursivePkgKey} for a package, does some work as
-   * specified by {@link Visitor} if such a package exists, then recursively does work in each
-   * non-excluded subdirectory as specified by {@link #getSkyKeyForSubdirectory}, and finally
-   * aggregates the {@link Visitor} value along with values from each subdirectory as specified by
-   * {@link #aggregateWithSubdirectorySkyValues}, and returns that aggregation.
+   * specified by {@link PackageDirectoryConsumer} if such a package exists, then recursively does
+   * work in each non-excluded subdirectory as specified by {@link #getSkyKeyForSubdirectory}, and
+   * finally aggregates the {@link PackageDirectoryConsumer} value along with values from each
+   * subdirectory as specified by {@link #aggregateWithSubdirectorySkyValues}, and returns that
+   * aggregation.
    *
    * <p>Returns null if {@code env.valuesMissing()} is true, checked after each call to one of
    * {@link RecursiveDirectoryTraversalFunction}'s abstract methods that were given {@code env}.
-   * (And after each of {@code visitDirectory}'s own uses of {@code env}, of course.)
    */
   TReturn visitDirectory(RecursivePkgKey recursivePkgKey, Environment env)
       throws InterruptedException {
@@ -140,7 +133,7 @@ abstract class RecursiveDirectoryTraversalFunction<
 
     Iterable<SkyKey> childDeps = packageExistenceAndSubdirDeps.getChildDeps();
 
-    TVisitor visitor = getInitialVisitor();
+    TConsumer consumer = getInitialConsumer();
 
     Map<SkyKey, SkyValue> subdirectorySkyValues;
     if (packageExistenceAndSubdirDeps.packageExists()) {
@@ -155,28 +148,22 @@ abstract class RecursiveDirectoryTraversalFunction<
       if (env.valuesMissing()) {
         return null;
       }
-      Package pkg = null;
       try {
         PackageValue pkgValue = (PackageValue) dependentSkyValues.get(packageKey).get();
         if (pkgValue == null) {
           return null;
         }
-        pkg = pkgValue.getPackage();
+        Package pkg = pkgValue.getPackage();
         if (pkg.containsErrors()) {
           env.getListener()
               .handle(Event.error("package contains errors: " + rootRelativePath.getPathString()));
         }
+        consumer.notePackage(rootRelativePath);
       } catch (NoSuchPackageException e) {
         // The package had errors, but don't fail-fast as there might be subpackages below the
         // current directory.
         env.getListener().handle(Event.error(e.getMessage()));
-        visitor.visitPackageError(e, env);
-        if (env.valuesMissing()) {
-          return null;
-        }
-      }
-      if (pkg != null) {
-        visitor.visitPackageValue(pkg, env);
+        consumer.notePackageError(e);
         if (env.valuesMissing()) {
           return null;
         }
@@ -198,6 +185,6 @@ abstract class RecursiveDirectoryTraversalFunction<
     if (env.valuesMissing()) {
       return null;
     }
-    return aggregateWithSubdirectorySkyValues(visitor, subdirectorySkyValues);
+    return aggregateWithSubdirectorySkyValues(consumer, subdirectorySkyValues);
   }
 }
