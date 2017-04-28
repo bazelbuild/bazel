@@ -13,9 +13,9 @@ pkg_rpm(
     changelog = "//:changelog-file",
     data = [
         "//scripts:bash_completion",
-        "//scripts/packages:bazel",
         "//scripts/packages:bazel.bazelrc",
-        "//scripts/packages:bazel-real",
+        "//scripts/packages:without-jdk/bazel",
+        "//scripts/packages:without-jdk/bazel-real",
     ],
     spec_file = "bazel.spec",
     version_file = "//scripts/packages:version.txt",
