@@ -3,6 +3,7 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/test/java/com/google/devtools/build/android/idlclass:srcs",
         "//src/test/java/com/google/devtools/build/android/resources:srcs",
+        "//src/test/java/com/google/devtools/build/android/testing/manifestmerge:srcs",
         "//src/test/java/com/google/devtools/build/android/ziputils:srcs",
     ],
     visibility = ["//src:__pkg__"],
@@ -97,6 +98,25 @@ java_test(
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//third_party:guava",
         "//third_party:jimfs",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "ManifestMergerActionTest",
+    srcs = ["ManifestMergerActionTest.java"],
+    data = [
+        "//src/test/java/com/google/devtools/build/android/testing/manifestmerge:test_data",
+    ],
+    jvm_flags = [
+        "-Dtestdatadir=src/test/java/com/google/devtools/build/android/testing/manifestmerge",
+    ],
+    tags = ["no_windows"],
+    deps = [
+        ":test_utils",
+        "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
+        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
     ],
