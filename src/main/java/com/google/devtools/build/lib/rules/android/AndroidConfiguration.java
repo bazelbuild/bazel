@@ -497,7 +497,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
     @Option(
       name = "experimental_android_compress_java_resources",
-      defaultValue = "true",
+      defaultValue = "false",
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       implicitRequirements = "--use_singlejar_apkbuilder",
       help = "Compress Java resources in APKs"
