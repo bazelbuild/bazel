@@ -174,11 +174,7 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
         case IOS:
           cpus = buildOptions.get(AppleCommandLineOptions.class).iosMultiCpus;
           if (cpus.isEmpty()) {
-            // TODO(b/37463474): Temporary workaround to prevent a split transition with default
-            // flag values: Don't transition unless minimum_os or is_extension is specified!
-            if (minimumOsVersion.isPresent() || isExtension) {
-              cpus = ImmutableList.of(buildOptions.get(AppleCommandLineOptions.class).iosCpu);
-            }
+            cpus = ImmutableList.of(buildOptions.get(AppleCommandLineOptions.class).iosCpu);
           }
           configurationDistinguisher = isExtension
               ? ConfigurationDistinguisher.APPLEBIN_IOS_EXT
