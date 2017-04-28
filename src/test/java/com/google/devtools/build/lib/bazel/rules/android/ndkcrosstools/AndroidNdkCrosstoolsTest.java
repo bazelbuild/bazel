@@ -157,6 +157,11 @@ public class AndroidNdkCrosstoolsTest {
 
         // Test that all tool paths exist.
         for (ToolPath toolpath : toolchain.getToolPathList()) {
+          // TODO(tmsriram): Not all crosstools contain llvm-profdata tool yet, remove
+          // the check once llvm-profdata becomes always available.
+          if (toolpath.getPath().contains("llvm-profdata")) {
+            continue;
+          }
           assertThat(ndkFiles).contains(toolpath.getPath());
         }
 

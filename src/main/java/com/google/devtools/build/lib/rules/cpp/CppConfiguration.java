@@ -100,7 +100,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     OBJCOPY("objcopy"),
     OBJDUMP("objdump"),
     STRIP("strip"),
-    DWP("dwp");
+    DWP("dwp"),
+    LLVM_PROFDATA("llvm-profdata");
 
     private final String namePart;
 
@@ -516,21 +517,27 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
             crosstoolTopPathFragment.getRelative(tool.getNamePart()));
       }
     } else {
-      Iterable<Tool> neededTools = Iterables.filter(EnumSet.allOf(Tool.class),
-          new Predicate<Tool>() {
-            @Override
-            public boolean apply(Tool tool) {
-              if (tool == Tool.DWP) {
-                // When fission is unsupported, don't check for the dwp tool.
-                return supportsFission();
-              } else if (tool == Tool.GCOVTOOL || tool == Tool.OBJCOPY) {
-                // gcov-tool and objcopy are optional, don't check whether they're present
-                return false;
-              } else {
-                return true;
-              }
-            }
-          });
+      Iterable<Tool> neededTools =
+          Iterables.filter(
+              EnumSet.allOf(Tool.class),
+              new Predicate<Tool>() {
+                @Override
+                public boolean apply(Tool tool) {
+                  if (tool == Tool.DWP) {
+                    // When fission is unsupported, don't check for the dwp tool.
+                    return supportsFission();
+                  } else if (tool == Tool.LLVM_PROFDATA) {
+                    // TODO(tmsriram): Fix this to check if this is a llvm crosstool
+                    // and return true.  This needs changes to crosstool_config.proto.
+                    return false;
+                  } else if (tool == Tool.GCOVTOOL || tool == Tool.OBJCOPY) {
+                    // gcov-tool and objcopy are optional, don't check whether they're present
+                    return false;
+                  } else {
+                    return true;
+                  }
+                }
+              });
       for (Tool tool : neededTools) {
         if (!toolPaths.containsKey(tool.getNamePart())) {
           throw new IllegalArgumentException("Tool path for '" + tool.getNamePart()
@@ -1709,6 +1716,14 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     return cppOptions.isFdo();
   }
 
+  /** Returns true if LLVM FDO Optimization should be applied for this configuration. */
+  public boolean isLLVMOptimizedFdo() {
+    return cppOptions.isFdo()
+        && cppOptions.getFdoOptimize() != null
+        && (CppFileTypes.LLVM_PROFILE.matches(cppOptions.getFdoOptimize())
+            || CppFileTypes.LLVM_PROFILE_RAW.matches(cppOptions.getFdoOptimize()));
+  }
+
   /**
    * Returns true if LIPO optimization should be applied for this configuration.
    */
@@ -2030,6 +2045,10 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    */
   public PathFragment getDwpExecutable() {
     return getToolPathFragment(CppConfiguration.Tool.DWP);
+  }
+
+  public PathFragment getLLVMProfDataExecutable() {
+    return getToolPathFragment(CppConfiguration.Tool.LLVM_PROFDATA);
   }
 
   /**

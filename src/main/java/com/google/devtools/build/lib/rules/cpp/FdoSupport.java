@@ -158,7 +158,8 @@ public class FdoSupport {
    * Returns true if the given fdoFile represents an LLVM profile.
    */
   public static final boolean isLLVMFdo(String fdoFile) {
-    return CppFileTypes.LLVM_PROFILE.matches(fdoFile);
+    return (CppFileTypes.LLVM_PROFILE.matches(fdoFile)
+        || CppFileTypes.LLVM_PROFILE_RAW.matches(fdoFile));
   }
 
   /**
@@ -242,8 +243,13 @@ public class FdoSupport {
             fdoProfile.getBaseName()));
     this.lipoMode = lipoMode;
     this.fdoMode = fdoMode;
-    this.gcdaFiles = fdoZipContents.gcdaFiles;
-    this.imports = fdoZipContents.imports;
+    if (fdoZipContents != null) {
+      this.gcdaFiles = fdoZipContents.gcdaFiles;
+      this.imports = fdoZipContents.imports;
+    } else {
+      this.gcdaFiles = null;
+      this.imports = null;
+    }
   }
 
   public Root getFdoRoot() {
@@ -301,6 +307,11 @@ public class FdoSupport {
       return null;
     }
 
+    if (fdoMode == FdoMode.LLVM_FDO) {
+      return new FdoSupport(
+          fdoMode, LipoMode.OFF, fdoRoot, fdoRootExecPath, fdoInstrument, fdoProfile, null);
+    }
+    
     FdoZipContents fdoZipContents = extractFdoZip(
         fdoMode, lipoMode, execRoot, fdoProfile, fdoRootExecPath,
         PrecomputedValue.PRODUCT_NAME.get(env));
@@ -349,9 +360,6 @@ public class FdoSupport {
         }
         FileSystemUtils.ensureSymbolicLink(
             execRoot.getRelative(getAutoProfilePath(fdoProfile, fdoRootExecPath)), fdoProfile);
-      } else if (fdoMode == FdoMode.LLVM_FDO) {
-        FileSystemUtils.ensureSymbolicLink(
-            execRoot.getRelative(getLLVMProfilePath(fdoProfile, fdoRootExecPath)), fdoProfile);
       } else {
         Path zipFilePath = new ZipFileSystem(fdoProfile).getRootDirectory();
         String outputSymlinkName = productName + "-out";
@@ -556,8 +564,7 @@ public class FdoSupport {
         if (featureConfiguration.isEnabled(CppRuleClasses.FDO_OPTIMIZE)) {
           if (fdoMode == FdoMode.LLVM_FDO) {
             buildVariables.addStringVariable(
-                "fdo_profile_path",
-                getLLVMProfilePath(fdoProfile, fdoRootExecPath).getPathString());
+                "fdo_profile_path", fdoSupportProvider.getProfileArtifact().getExecPathString());
           } else {
             buildVariables.addStringVariable("fdo_profile_path", fdoRootExecPath.getPathString());
           }
@@ -684,15 +691,6 @@ public class FdoSupport {
     return PathFragment.create(fdoProfile.getBaseName());
   }
 
-
-  private static PathFragment getLLVMProfilePath(Path fdoProfile, PathFragment fdoRootExecPath) {
-    return fdoRootExecPath.getRelative(getLLVMProfileRootRelativePath(fdoProfile));
-  }
-
-  private static PathFragment getLLVMProfileRootRelativePath(Path fdoProfile) {
-    return PathFragment.create(fdoProfile.getBaseName());
-  }
-
   /**
    * Returns whether AutoFDO is enabled.
    */
@@ -741,17 +739,23 @@ public class FdoSupport {
   }
 
   public FdoSupportProvider createFdoSupportProvider(
-      RuleContext ruleContext) {
+      RuleContext ruleContext, Artifact profileArtifact) {
     if (fdoRoot == null) {
       return new FdoSupportProvider(this, null, null);
     }
 
+    if (fdoMode == FdoMode.LLVM_FDO) {
+      Preconditions.checkState(profileArtifact != null);
+      return new FdoSupportProvider(this, profileArtifact, null);
+    }
+
     Preconditions.checkState(fdoPath != null);
-    PathFragment profileRootRelativePath = fdoMode == FdoMode.LLVM_FDO
-        ? getLLVMProfileRootRelativePath(fdoProfile)
-        : getAutoProfileRootRelativePath(fdoProfile);
-    Artifact profileArtifact = ruleContext.getAnalysisEnvironment().getDerivedArtifact(
-        fdoPath.getRelative(profileRootRelativePath), fdoRoot);
+    PathFragment profileRootRelativePath = getAutoProfileRootRelativePath(fdoProfile);
+
+    profileArtifact =
+        ruleContext
+            .getAnalysisEnvironment()
+            .getDerivedArtifact(fdoPath.getRelative(profileRootRelativePath), fdoRoot);
     ruleContext.registerAction(new FdoStubAction(ruleContext.getActionOwner(), profileArtifact));
     Preconditions.checkState(fdoPath != null);
     ImmutableMap.Builder<PathFragment, Artifact> gcdaArtifacts = ImmutableMap.builder();
