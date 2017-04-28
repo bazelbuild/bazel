@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.rules.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.Clock;
+import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
@@ -143,6 +144,16 @@ public abstract class BlazeModule {
    */
   @SuppressWarnings("unused")
   public void beforeCommand(Command command, CommandEnvironment env) throws AbruptExitException {
+  }
+
+  /**
+   * Returns additional listeners to the console output stream. Called at the beginning of each
+   * command (after #beforeCommand).
+   */
+  @SuppressWarnings("unused")
+  @Nullable
+  public OutErr getOutputListener() {
+    return null;
   }
 
   /**

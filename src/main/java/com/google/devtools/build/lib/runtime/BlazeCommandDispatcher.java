@@ -363,6 +363,13 @@ public class BlazeCommandDispatcher {
       return exitCausingException.getExitCode().getNumericExitCode();
     }
 
+    for (BlazeModule module : runtime.getBlazeModules()) {
+      OutErr listener = module.getOutputListener();
+      if (listener != null) {
+        outErr = tee(outErr, listener);
+      }
+    }
+
     try {
       Path commandLog = getCommandLogPath(env.getOutputBase());
 
