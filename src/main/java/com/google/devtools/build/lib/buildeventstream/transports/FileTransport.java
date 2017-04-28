@@ -28,6 +28,7 @@ import java.nio.channels.AsynchronousFileChannel;
 import java.nio.channels.CompletionHandler;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.util.concurrent.Future;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -72,7 +73,8 @@ abstract class FileTransport implements BuildEventTransport {
   synchronized void writeData(byte[] data) {
     checkNotNull(data);
     if (!ch.isOpen()) {
-      close();
+      @SuppressWarnings({"unused", "nullness"})
+      Future<?> possiblyIgnoredError = close();
       return;
     }
     if (closing()) {
@@ -134,7 +136,8 @@ abstract class FileTransport implements BuildEventTransport {
       log.log(Level.SEVERE, exc.getMessage(), exc);
       countWriteAndTryClose();
       // There is no point in trying to continue. Close the transport.
-      close();
+      @SuppressWarnings({"unused", "nullness"})
+      Future<?> possiblyIgnoredError = close();
     }
 
     private void countWriteAndTryClose() {

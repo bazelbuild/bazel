@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import java.io.File;
 import java.io.IOException;
+import java.util.concurrent.Future;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -136,7 +137,8 @@ public class BuildEventTransportFactoryTest {
       throws IOException{
     for (BuildEventTransport transport : transports) {
       transport.sendBuildEvent(event, artifactGroupNamer);
-      transport.close();
+      @SuppressWarnings({"unused", "nullness"})
+      Future<?> possiblyIgnoredError = transport.close();
     }
   }
 }

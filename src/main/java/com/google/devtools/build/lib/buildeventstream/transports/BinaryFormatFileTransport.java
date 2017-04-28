@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.concurrent.Future;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -72,7 +73,8 @@ public final class BinaryFormatFileTransport extends FileTransport {
       writeData(out.toByteArray());
     } catch (IOException e) {
       log.log(Level.SEVERE, e.getMessage(), e);
-      close();
+      @SuppressWarnings({"unused", "nullness"})
+      Future<?> possiblyIgnoredError = close();
     }
   }
 }
