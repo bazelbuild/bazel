@@ -259,7 +259,7 @@ a minimal set of extra dependencies.
 
 ## [turbine](https://github.com/google/turbine)
 
-* Version: 0.1-20170218
+* Version: 0.1-20170427
 * License: Apache License 2.0
 
 
