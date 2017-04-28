@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
@@ -58,7 +59,11 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
 
     ProtobufSupport protoSupport =
         new ProtobufSupport(
-                ruleContext, ruleContext.getConfiguration(), protoProviders, objcProtoProviders)
+                ruleContext,
+                ruleContext.getConfiguration(),
+                protoProviders,
+                objcProtoProviders,
+                getPortableProtoFilters(ruleContext, objcProtoProviders))
             .registerGenerationActions()
             .addFilesToBuild(filesToBuild);
 
@@ -72,6 +77,18 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
         .addProvider(ObjcProvider.class, protoSupport.getObjcProvider().get())
         .addProvider(XcodeProvider.class, xcodeProvider.get())
         .build();
+  }
+
+  private static NestedSet<Artifact> getPortableProtoFilters(
+      RuleContext ruleContext, Iterable<ObjcProtoProvider> objcProtoProviders) {
+    ProtoAttributes attributes = new ProtoAttributes(ruleContext);
+    NestedSetBuilder<Artifact> portableProtoFilters = NestedSetBuilder.stableOrder();
+
+    portableProtoFilters.addTransitive(
+        ProtobufSupport.getTransitivePortableProtoFilters(objcProtoProviders));
+    portableProtoFilters.addAll(attributes.getPortableProtoFilters());
+
+    return portableProtoFilters.build();
   }
 
   private ConfiguredTarget createProtocolBuffers2Target(RuleContext ruleContext)

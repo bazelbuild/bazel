@@ -94,7 +94,8 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
                 ruleContext,
                 ruleContext.getConfiguration(),
                 ImmutableList.<ProtoSourcesProvider>of(),
-                objcProtoProviders)
+                objcProtoProviders,
+                ProtobufSupport.getTransitivePortableProtoFilters(objcProtoProviders))
             .registerGenerationActions()
             .registerCompilationActions();
 

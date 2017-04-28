@@ -93,7 +93,8 @@ public final class IosTest implements RuleConfiguredTargetFactory {
                 ruleContext,
                 ruleContext.getConfiguration(),
                 ImmutableList.<ProtoSourcesProvider>of(),
-                objcProtoProviders)
+                objcProtoProviders,
+                ProtobufSupport.getTransitivePortableProtoFilters(objcProtoProviders))
             .registerGenerationActions()
             .registerCompilationActions();
     Optional<ObjcProvider> protosObjcProvider = protoSupport.getObjcProvider();

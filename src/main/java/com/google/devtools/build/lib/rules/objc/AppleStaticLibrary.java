@@ -109,13 +109,15 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
 
     Map<String, NestedSet<Artifact>> outputGroupCollector = new TreeMap<>();
     for (BuildConfiguration childConfig : childConfigurations) {
+      Iterable<ObjcProtoProvider> objcProtoProviders = objcProtoProvidersMap.get(childConfig);
       ProtobufSupport protoSupport =
           new ProtobufSupport(
                   ruleContext,
                   childConfig,
                   protosToAvoid,
                   ImmutableList.<ProtoSourcesProvider>of(),
-                  objcProtoProvidersMap.get(childConfig))
+                  objcProtoProviders,
+                  ProtobufSupport.getTransitivePortableProtoFilters(objcProtoProviders))
               .registerGenerationActions()
               .registerCompilationActions();
 

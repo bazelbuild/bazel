@@ -195,6 +195,7 @@ public class MultiArchBinarySupport {
 
     for (BuildConfiguration childConfig : childConfigurationsAndToolchains.keySet()) {
       Optional<ObjcProvider> protosObjcProvider;
+      Iterable<ObjcProtoProvider> objcProtoProviders = objcProtoProvidersMap.get(childConfig);
       if (ObjcRuleClasses.objcConfiguration(ruleContext).enableAppleBinaryNativeProtos()) {
         ProtobufSupport protoSupport =
             new ProtobufSupport(
@@ -202,7 +203,8 @@ public class MultiArchBinarySupport {
                     childConfig,
                     protosToAvoid,
                     ImmutableList.<ProtoSourcesProvider>of(),
-                    objcProtoProvidersMap.get(childConfig))
+                    objcProtoProviders,
+                    ProtobufSupport.getTransitivePortableProtoFilters(objcProtoProviders))
                 .registerGenerationActions()
                 .registerCompilationActions();
         protosObjcProvider = protoSupport.getObjcProvider();

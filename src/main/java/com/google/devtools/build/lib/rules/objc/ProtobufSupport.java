@@ -73,6 +73,7 @@ final class ProtobufSupport {
   private final IntermediateArtifacts intermediateArtifacts;
   private final Set<Artifact> dylibHandledProtos;
   private final Iterable<ObjcProtoProvider> objcProtoProviders;
+  private final NestedSet<Artifact> portableProtoFilters;
 
   // Each entry of this map represents a generation action and a compilation action. The input set
   // are dependencies of the output set. The output set is always a subset of, or the same set as,
@@ -106,13 +107,15 @@ final class ProtobufSupport {
       RuleContext ruleContext,
       BuildConfiguration buildConfiguration,
       Iterable<ProtoSourcesProvider> protoProviders,
-      Iterable<ObjcProtoProvider> objcProtoProviders) {
+      Iterable<ObjcProtoProvider> objcProtoProviders,
+      NestedSet<Artifact> portableProtoFilters) {
     this(
         ruleContext,
         buildConfiguration,
         NestedSetBuilder.<Artifact>stableOrder().build(),
         protoProviders,
-        objcProtoProviders);
+        objcProtoProviders,
+        portableProtoFilters);
   }
 
   /**
@@ -135,12 +138,14 @@ final class ProtobufSupport {
       BuildConfiguration buildConfiguration,
       NestedSet<Artifact> dylibHandledProtos,
       Iterable<ProtoSourcesProvider> protoProviders,
-      Iterable<ObjcProtoProvider> objcProtoProviders) {
+      Iterable<ObjcProtoProvider> objcProtoProviders,
+      NestedSet<Artifact> portableProtoFilters) {
     this.ruleContext = ruleContext;
     this.buildConfiguration = buildConfiguration;
     this.attributes = new ProtoAttributes(ruleContext);
     this.dylibHandledProtos = dylibHandledProtos.toSet();
     this.objcProtoProviders = objcProtoProviders;
+    this.portableProtoFilters = portableProtoFilters;
     this.intermediateArtifacts =
         ObjcRuleClasses.intermediateArtifacts(ruleContext, buildConfiguration);
     this.inputsToOutputsMap = getInputsToOutputsMap(attributes, protoProviders, objcProtoProviders);
@@ -317,15 +322,6 @@ final class ProtobufSupport {
     }
 
     return Optional.of(xcodeProviderBuilder.build());
-  }
-
-  private NestedSet<Artifact> getPortableProtoFilters() {
-    NestedSetBuilder<Artifact> portableProtoFilters = NestedSetBuilder.stableOrder();
-    for (ObjcProtoProvider objcProtoProvider : objcProtoProviders) {
-      portableProtoFilters.addTransitive(objcProtoProvider.getPortableProtoFilters());
-    }
-    portableProtoFilters.addAll(attributes.getPortableProtoFilters());
-    return portableProtoFilters.build();
   }
 
   private NestedSet<Artifact> getProtobufHeaders() {
@@ -511,7 +507,7 @@ final class ProtobufSupport {
             .setMnemonic("GenObjcBundledProtos")
             .addInput(attributes.getProtoCompiler())
             .addInputs(attributes.getProtoCompilerSupport())
-            .addTransitiveInputs(getPortableProtoFilters())
+            .addTransitiveInputs(portableProtoFilters)
             .addInput(protoInputsFile)
             .addInputs(inputProtos)
             .addOutputs(getGeneratedProtoOutputs(outputProtos, HEADER_SUFFIX))
@@ -546,7 +542,7 @@ final class ProtobufSupport {
         .add(getGenfilesPathString())
         .add("--proto-root-dir")
         .add(".")
-        .addBeforeEachExecPath("--config", getPortableProtoFilters())
+        .addBeforeEachExecPath("--config", portableProtoFilters)
         .build();
   }
 
@@ -591,5 +587,15 @@ final class ProtobufSupport {
     return !ruleContext
         .attributes()
         .isAttributeValueExplicitlySpecified(ObjcProtoLibraryRule.PORTABLE_PROTO_FILTERS_ATTR);
+  }
+
+  // Returns the transitive portable proto filter files from a list of ObjcProtoProviders.
+  public static NestedSet<Artifact> getTransitivePortableProtoFilters(
+      Iterable<ObjcProtoProvider> objcProtoProviders) {
+    NestedSetBuilder<Artifact> portableProtoFilters = NestedSetBuilder.stableOrder();
+    for (ObjcProtoProvider objcProtoProvider : objcProtoProviders) {
+      portableProtoFilters.addTransitive(objcProtoProvider.getPortableProtoFilters());
+    }
+    return portableProtoFilters.build();
   }
 }
