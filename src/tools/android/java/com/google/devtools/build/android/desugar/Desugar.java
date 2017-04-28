@@ -528,15 +528,13 @@ class Desugar {
    */
   private static Path createAndRegisterLambdaDumpDirectory() throws IOException {
     String propertyValue = System.getProperty(LambdaClassMaker.LAMBDA_METAFACTORY_DUMPER_PROPERTY);
-    Path dumpDirectory;
     if (propertyValue != null) {
-      dumpDirectory = Paths.get(propertyValue);
-    } else {
-      dumpDirectory = Files.createTempDirectory("lambdas");
-      System.setProperty(
-          LambdaClassMaker.LAMBDA_METAFACTORY_DUMPER_PROPERTY, dumpDirectory.toString());
+      return Paths.get(propertyValue);
     }
 
+    Path dumpDirectory = Files.createTempDirectory("lambdas");
+    System.setProperty(
+        LambdaClassMaker.LAMBDA_METAFACTORY_DUMPER_PROPERTY, dumpDirectory.toString());
     deleteTreeOnExit(dumpDirectory);
     return dumpDirectory;
   }
