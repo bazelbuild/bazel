@@ -1130,7 +1130,9 @@ genrule(
         "//third_party:srcs",
     ],
     outs = ["runtime/commands/LICENSE"],
-    cmd = "$(location merge_licenses.sh) $(SRCS) > \"$@\"",
+    # Use xargs to avoid the shell script complaining that is has been passed too many arguments.
+    # xargs calls the script multiple times with at most 1000 arguments per call.
+    cmd = "echo \"$(SRCS)\" | xargs -n1000 $(location merge_licenses.sh) > \"$@\"",
     tools = ["merge_licenses.sh"],
 )
 
