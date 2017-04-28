@@ -85,6 +85,11 @@ public class TryWithResourcesRewriter extends ClassVisitor {
   private final ClassLoader classLoader;
 
   private final AtomicInteger numOfTryWithResourcesInvoked;
+  /**
+   * Indicate whether the current class being desugared should be ignored. If the current class is
+   * one of the runtime extension classes, then it should be ignored.
+   */
+  private boolean shouldCurrentClassBeIgnored;
 
   public TryWithResourcesRewriter(
       ClassVisitor classVisitor,
@@ -96,10 +101,23 @@ public class TryWithResourcesRewriter extends ClassVisitor {
   }
 
   @Override
+  public void visit(
+      int version,
+      int access,
+      String name,
+      String signature,
+      String superName,
+      String[] interfaces) {
+    super.visit(version, access, name, signature, superName, interfaces);
+    shouldCurrentClassBeIgnored = THROWABLE_EXT_CLASS_INTERNAL_NAMES.contains(name);
+  }
+
+
+  @Override
   public MethodVisitor visitMethod(
       int access, String name, String desc, String signature, String[] exceptions) {
     MethodVisitor visitor = super.cv.visitMethod(access, name, desc, signature, exceptions);
-    return visitor == null || THROWABLE_EXT_CLASS_INTERNAL_NAMES.contains(name)
+    return visitor == null || shouldCurrentClassBeIgnored
         ? visitor
         : new TryWithResourceVisitor(visitor, classLoader);
   }
