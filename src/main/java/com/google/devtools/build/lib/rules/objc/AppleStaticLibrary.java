@@ -40,7 +40,9 @@ import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 
 /**
  * Implementation for the "apple_static_library" rule.
@@ -105,6 +107,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
     ImmutableListMultimap<BuildConfiguration, ObjcProtoProvider> objcProtoProvidersMap =
         ruleContext.getPrerequisitesByConfiguration("deps", Mode.SPLIT, ObjcProtoProvider.class);
 
+    Map<String, NestedSet<Artifact>> outputGroupCollector = new TreeMap<>();
     for (BuildConfiguration childConfig : childConfigurations) {
       ProtobufSupport protoSupport =
           new ProtobufSupport(
@@ -138,6 +141,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
           new CompilationSupport.Builder()
               .setRuleContext(ruleContext)
               .setConfig(childConfig)
+              .setOutputGroupCollector(outputGroupCollector)
               .build();
 
       compilationSupport
@@ -164,7 +168,9 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
     objcProviderBuilder.add(
         MULTI_ARCH_LINKED_ARCHIVES, ruleIntermediateArtifacts.combinedArchitectureArchive());
 
-    targetBuilder.addProvider(ObjcProvider.class, objcProviderBuilder.build());
+    targetBuilder
+        .addProvider(ObjcProvider.class, objcProviderBuilder.build())
+        .addOutputGroups(outputGroupCollector);
     return targetBuilder.build();
   }
 
