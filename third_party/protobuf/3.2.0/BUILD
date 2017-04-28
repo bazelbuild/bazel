@@ -46,6 +46,89 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
+# Well Known Types
+
+proto_library(
+    name = "well_known_types_any_proto",
+    srcs = ["google/protobuf/any.proto"],
+    visibility = ["//visibility:public"],
+)
+
+proto_library(
+    name = "well_known_types_timestamp_proto",
+    srcs = ["google/protobuf/timestamp.proto"],
+    visibility = ["//visibility:public"],
+)
+
+proto_library(
+    name = "well_known_types_api_proto",
+    srcs = ["google/protobuf/api.proto"],
+    deps = [":well_known_types_source_context_proto", ":well_known_types_type_proto"],
+    visibility = ["//visibility:public"],
+)
+
+proto_library(
+    name = "well_known_types_type_proto",
+    srcs = ["google/protobuf/type.proto"],
+    deps = [":well_known_types_any_proto", ":well_known_types_source_context_proto"],
+    visibility = ["//visibility:public"],
+)
+
+proto_library(
+    name = "well_known_types_source_context_proto",
+    srcs = ["google/protobuf/source_context.proto"],
+    visibility = ["//visibility:public"],
+)
+
+proto_library(
+    name = "well_known_types_compiler_plugin_proto",
+    srcs = ["google/protobuf/compiler/plugin.proto"],
+    deps = [":well_known_types_descriptor_proto"],
+    visibility = ["//visibility:public"],
+)
+
+proto_library(
+    name = "well_known_types_descriptor_proto",
+    srcs = ["google/protobuf/descriptor.proto"],
+    visibility = ["//visibility:public"],
+)
+
+proto_library(
+    name = "well_known_types_duration_proto",
+    srcs = ["google/protobuf/duration.proto"],
+    visibility = ["//visibility:public"],
+)
+
+proto_library(
+    name = "well_known_types_empty_proto",
+    srcs = ["google/protobuf/empty.proto"],
+    visibility = ["//visibility:public"],
+)
+
+proto_library(
+    name = "well_known_types_field_mask_proto",
+    srcs = ["google/protobuf/field_mask.proto"],
+    visibility = ["//visibility:public"],
+)
+
+proto_library(
+    name = "well_known_types_struct_proto",
+    srcs = ["google/protobuf/struct.proto"],
+    visibility = ["//visibility:public"],
+)
+
+proto_library(
+    name = "well_known_types_wrappers_proto",
+    srcs = ["google/protobuf/wrappers.proto"],
+    visibility = ["//visibility:public"],
+)
+
+proto_library(
+    name = "well_known_types_compiler_profile_proto",
+    srcs = ["google/protobuf/compiler/profile.proto"],
+    visibility = ["//visibility:public"],
+)
+
 ################################################################################
 # The below build rules are a copy of the upstream protobuf BUILD file with
 # # Java support removed.
