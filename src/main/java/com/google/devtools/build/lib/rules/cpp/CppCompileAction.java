@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.actions.ExecutionRequirements;
-import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -55,7 +54,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext.Reply;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.util.DependencySet;
-import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -171,7 +169,6 @@ public class CppCompileAction extends AbstractAction
   private final ImmutableMap<String, String> localShellEnvironment;
   protected final Artifact outputFile;
   private final Artifact sourceFile;
-  private final Label sourceLabel;
   private final Artifact optionalSourceFile;
   private final NestedSet<Artifact> mandatoryInputs;
 
@@ -197,7 +194,7 @@ public class CppCompileAction extends AbstractAction
   // included via a command-line "-include file.h". Actions that use non C++ files as source
   // files--such as Clif--may use this mechanism.
   private final ImmutableList<Artifact> additionalIncludeScannables;
-  @VisibleForTesting public final CppCompileCommandLine cppCompileCommandLine;
+  @VisibleForTesting public final CompileCommandLine compileCommandLine;
   private final ImmutableMap<String, String> executionInfo;
   private final ImmutableMap<String, String> environment;
 
@@ -320,7 +317,6 @@ public class CppCompileAction extends AbstractAction
             dwoFile,
             ltoIndexingFile));
     this.localShellEnvironment = localShellEnvironment;
-    this.sourceLabel = sourceLabel;
     this.sourceFile = sourceFile;
     this.outputFile = Preconditions.checkNotNull(outputFile);
     this.optionalSourceFile = optionalSourceFile;
@@ -339,9 +335,19 @@ public class CppCompileAction extends AbstractAction
     this.usePic = usePic;
     this.useHeaderModules = useHeaderModules;
     this.discoversInputs = shouldScanIncludes || cppSemantics.needsDotdInputPruning();
-    this.cppCompileCommandLine =
-        new CppCompileCommandLine(
-            sourceFile, dotdFile, copts, coptsFilter, features, variables, actionName);
+    this.compileCommandLine =
+        new CompileCommandLine(
+            sourceFile,
+            outputFile,
+            sourceLabel,
+            copts,
+            coptsFilter,
+            features,
+            featureConfiguration,
+            cppConfiguration,
+            variables,
+            actionName,
+            dotdFile);
     this.actionContext = actionContext;
     this.lipoScannables = lipoScannables;
     this.actionClassId = actionClassId;
@@ -564,7 +570,7 @@ public class CppCompileAction extends AbstractAction
    * Returns the path of the c/cc source for gcc.
    */
   public final Artifact getSourceFile() {
-    return cppCompileCommandLine.sourceFile;
+    return compileCommandLine.getSourceFile();
   }
 
   /**
@@ -600,7 +606,7 @@ public class CppCompileAction extends AbstractAction
    * information.
    */
   public DotdFile getDotdFile() {
-    return cppCompileCommandLine.dotdFile;
+    return compileCommandLine.getDotdFile();
   }
 
   @VisibleForTesting
@@ -617,7 +623,7 @@ public class CppCompileAction extends AbstractAction
   public List<PathFragment> getIncludeDirs() {
     ImmutableList.Builder<PathFragment> result = ImmutableList.builder();
     result.addAll(context.getIncludeDirs());
-    for (String opt : cppCompileCommandLine.copts) {
+    for (String opt : compileCommandLine.getCopts()) {
       if (opt.startsWith("-I") && opt.length() > 2) {
         // We insist on the combined form "-Idir".
         result.add(PathFragment.create(opt.substring(2)));
@@ -712,7 +718,7 @@ public class CppCompileAction extends AbstractAction
     }
 
     environment.putAll(this.environment);
-    environment.putAll(cppCompileCommandLine.getEnvironment());
+    environment.putAll(compileCommandLine.getEnvironment());
 
     return ImmutableMap.copyOf(environment);
   }
@@ -731,7 +737,7 @@ public class CppCompileAction extends AbstractAction
   }
 
   protected final List<String> getArgv(PathFragment outputFile) {
-    return cppCompileCommandLine.getArgv(outputFile, overwrittenVariables);
+    return compileCommandLine.getArgv(outputFile, overwrittenVariables);
   }
 
   @Override
@@ -780,7 +786,7 @@ public class CppCompileAction extends AbstractAction
    */
   @VisibleForTesting
   public List<String> getCompilerOptions() {
-    return cppCompileCommandLine.getCompilerOptions(/*updatedVariables=*/null);
+    return compileCommandLine.getCompilerOptions(/*updatedVariables=*/ null);
   }
 
   @Override
@@ -1105,7 +1111,7 @@ public class CppCompileAction extends AbstractAction
     // itself is fully determined by the input source files and module maps.
     // A better long-term solution would be to make the compiler to find them automatically and
     // never hand in the .pcm files explicitly on the command line in the first place.
-    f.addStrings(cppCompileCommandLine.getArgv(getInternalOutputFile(), null));
+    f.addStrings(compileCommandLine.getArgv(getInternalOutputFile(), null));
 
     /*
      * getArgv() above captures all changes which affect the compilation
@@ -1344,156 +1350,6 @@ public class CppCompileAction extends AbstractAction
     }
 
     return message.toString();
-  }
-
-  /**
-   * The compile command line for the enclosing C++ compile action.
-   */
-  public final class CppCompileCommandLine {
-    private final Artifact sourceFile;
-    private final DotdFile dotdFile;
-    private final List<String> copts;
-    private final Predicate<String> coptsFilter;
-    private final Collection<String> features;
-    @VisibleForTesting public final CcToolchainFeatures.Variables variables;
-    private final String actionName;
-
-    public CppCompileCommandLine(
-        Artifact sourceFile,
-        DotdFile dotdFile,
-        ImmutableList<String> copts,
-        Predicate<String> coptsFilter,
-        Collection<String> features,
-        CcToolchainFeatures.Variables variables,
-        String actionName) {
-      this.sourceFile = Preconditions.checkNotNull(sourceFile);
-      this.dotdFile = isGenerateDotdFile(sourceFile) ? Preconditions.checkNotNull(dotdFile) : null;
-      this.copts = Preconditions.checkNotNull(copts);
-      this.coptsFilter = coptsFilter;
-      this.features = Preconditions.checkNotNull(features);
-      this.variables = variables;
-      this.actionName = actionName;
-    }
-
-    /** Returns true if Dotd file should be generated. */
-    private boolean isGenerateDotdFile(Artifact sourceArtifact) {
-      return CppFileTypes.headerDiscoveryRequired(sourceArtifact)
-          && !featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES);
-    }
-
-    /**
-     * Returns the environment variables that should be set for C++ compile actions.
-     */
-    protected Map<String, String> getEnvironment() {
-      return featureConfiguration.getEnvironmentVariables(actionName, variables);
-    }
-
-    protected List<String> getArgv(
-        PathFragment outputFile, CcToolchainFeatures.Variables overwrittenVariables) {
-      List<String> commandLine = new ArrayList<>();
-
-      // first: The command name.
-      Preconditions.checkArgument(
-          featureConfiguration.actionIsConfigured(actionName),
-          String.format("Expected action_config for '%s' to be configured", actionName));
-      commandLine.add(
-          featureConfiguration
-              .getToolForAction(actionName)
-              .getToolPath(cppConfiguration.getCrosstoolTopPathFragment())
-              .getPathString());
-
-      // second: The compiler options.
-      commandLine.addAll(getCompilerOptions(overwrittenVariables));
-
-      if (!featureConfiguration.isEnabled("compile_action_flags_in_flag_set")) {
-        // third: The file to compile!
-        commandLine.add("-c");
-        commandLine.add(sourceFile.getExecPathString());
-
-        // finally: The output file. (Prefixed with -o).
-        commandLine.add("-o");
-        commandLine.add(outputFile.getPathString());
-      }
-
-      return commandLine;
-    }
-
-    private boolean isObjcCompile(String actionName) {
-      return (actionName.equals(OBJC_COMPILE) || actionName.equals(OBJCPP_COMPILE));
-    }
-
-    public List<String> getCompilerOptions(
-        @Nullable CcToolchainFeatures.Variables overwrittenVariables) {
-      List<String> options = new ArrayList<>();
-      CppConfiguration toolchain = cppConfiguration;
-
-      addFilteredOptions(options, toolchain.getCompilerOptions(features));
-
-      String sourceFilename = sourceFile.getExecPathString();
-      if (CppFileTypes.C_SOURCE.matches(sourceFilename)) {
-        addFilteredOptions(options, toolchain.getCOptions());
-      }
-      if (CppFileTypes.CPP_SOURCE.matches(sourceFilename)
-          || CppFileTypes.CPP_HEADER.matches(sourceFilename)
-          || CppFileTypes.CPP_MODULE_MAP.matches(sourceFilename)
-          || CppFileTypes.CLIF_INPUT_PROTO.matches(sourceFilename)) {
-        addFilteredOptions(options, toolchain.getCxxOptions(features));
-      }
-
-      // TODO(bazel-team): This needs to be before adding getUnfilteredCompilerOptions() and after
-      // adding the warning flags until all toolchains are migrated; currently toolchains use the
-      // unfiltered compiler options to inject include paths, which is superseded by the feature
-      // configuration; on the other hand toolchains switch off warnings for the layering check
-      // that will be re-added by the feature flags.
-      CcToolchainFeatures.Variables updatedVariables = variables;
-      if (variables != null && overwrittenVariables != null) {
-        CcToolchainFeatures.Variables.Builder variablesBuilder =
-            new CcToolchainFeatures.Variables.Builder();
-        variablesBuilder.addAll(variables);
-        variablesBuilder.addAndOverwriteAll(overwrittenVariables);
-        updatedVariables = variablesBuilder.build();
-      }
-      addFilteredOptions(
-          options, featureConfiguration.getCommandLine(actionName, updatedVariables));
-
-      // Users don't expect the explicit copts to be filtered by coptsFilter, add them verbatim.
-      // Make sure these are added after the options from the feature configuration, so that
-      // those options can be overriden.
-      options.addAll(copts);
-
-      // Unfiltered compiler options contain system include paths. These must be added after
-      // the user provided options, otherwise users adding include paths will not pick up their
-      // own include paths first.
-      if (!isObjcCompile(actionName)) {
-        options.addAll(toolchain.getUnfilteredCompilerOptions(features));
-      }
-
-      // Add the options of --per_file_copt, if the label or the base name of the source file
-      // matches the specified regular expression filter.
-      for (PerLabelOptions perLabelOptions : cppConfiguration.getPerFileCopts()) {
-        if ((sourceLabel != null && perLabelOptions.isIncluded(sourceLabel))
-            || perLabelOptions.isIncluded(sourceFile)) {
-          options.addAll(perLabelOptions.getOptions());
-        }
-      }
-
-      if (!featureConfiguration.isEnabled("compile_action_flags_in_flag_set")) {
-        if (FileType.contains(outputFile, CppFileTypes.ASSEMBLER, CppFileTypes.PIC_ASSEMBLER)) {
-          options.add("-S");
-        } else if (FileType.contains(outputFile, CppFileTypes.PREPROCESSED_C,
-            CppFileTypes.PREPROCESSED_CPP, CppFileTypes.PIC_PREPROCESSED_C,
-            CppFileTypes.PIC_PREPROCESSED_CPP)) {
-          options.add("-E");
-        }
-      }
-
-      return options;
-    }
-
-    // For each option in 'in', add it to 'out' unless it is matched by the 'coptsFilter' regexp.
-    private void addFilteredOptions(List<String> out, List<String> in) {
-      Iterables.addAll(out, Iterables.filter(in, coptsFilter));
-    }
   }
 
   /**
