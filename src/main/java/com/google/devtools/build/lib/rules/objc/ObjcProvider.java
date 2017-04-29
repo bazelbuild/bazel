@@ -222,6 +222,13 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
   public static final Key<Flag> FLAG = new Key<>(STABLE_ORDER, "flag", Flag.class);
 
   /**
+   * Clang umbrella header. Public headers are #included in umbrella headers to be compatible with
+   * J2ObjC segmented headers.
+   */
+  public static final Key<Artifact> UMBRELLA_HEADER =
+      new Key<>(STABLE_ORDER, "umbrella_header", Artifact.class);
+
+  /**
    * Clang module maps, used to enforce proper use of private header files.
    */
   public static final Key<Artifact> MODULE_MAP =
@@ -440,6 +447,7 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
           STATIC_FRAMEWORK_FILE,
           STORYBOARD,
           STRINGS,
+          UMBRELLA_HEADER,
           WEAK_SDK_FRAMEWORK,
           XCASSETS_DIR,
           XCDATAMODEL,
