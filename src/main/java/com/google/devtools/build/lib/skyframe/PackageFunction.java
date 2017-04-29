@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.SkylarkImport;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -482,6 +483,11 @@ public class PackageFunction implements SkyFunction {
       return null;
     }
 
+    SkylarkSemanticsOptions skylarkSemantics = PrecomputedValue.SKYLARK_SEMANTICS.get(env);
+    if (skylarkSemantics == null) {
+      return null;
+    }
+
     SkyKey astLookupKey = ASTFileLookupValue.key(preludeLabel);
     ASTFileLookupValue astLookupValue = null;
     try {
@@ -508,6 +514,7 @@ public class PackageFunction implements SkyFunction {
             buildFilePath,
             buildFileValue,
             defaultVisibility,
+            skylarkSemantics,
             preludeStatements,
             packageLookupValue.getRoot(),
             env);
@@ -1113,6 +1120,7 @@ public class PackageFunction implements SkyFunction {
       Path buildFilePath,
       @Nullable FileValue buildFileValue,
       RuleVisibility defaultVisibility,
+      SkylarkSemanticsOptions skylarkSemantics,
       List<Statement> preludeStatements,
       Path packageRoot,
       Environment env)
@@ -1206,8 +1214,15 @@ public class PackageFunction implements SkyFunction {
         SkyframeHybridGlobber skyframeGlobber = new SkyframeHybridGlobber(packageId, packageRoot,
             env, legacyGlobber);
         Package.Builder pkgBuilder = packageFactory.createPackageFromPreprocessingAst(
-            workspaceName, packageId, buildFilePath, astAfterPreprocessing, importResult.importMap,
-            importResult.fileDependencies, defaultVisibility, skyframeGlobber);
+            workspaceName,
+            packageId,
+            buildFilePath,
+            astAfterPreprocessing,
+            importResult.importMap,
+            importResult.fileDependencies,
+            defaultVisibility,
+            skylarkSemantics,
+            skyframeGlobber);
         Set<SkyKey> globDepsRequested = ImmutableSet.<SkyKey>builder()
             .addAll(globDepsRequestedDuringPreprocessing)
             .addAll(skyframeGlobber.getGlobDepsRequested())

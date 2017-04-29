@@ -181,6 +181,13 @@ sh_test(
 )
 
 sh_test(
+    name = "skylark_flag_test",
+    size = "small",
+    srcs = ["skylark_flag_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "ui_test",
     size = "medium",
     srcs = ["ui_test.sh"],

@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.UsesOnlyCoreTypes;
 import java.io.Serializable;
 
@@ -33,5 +35,11 @@ import java.io.Serializable;
  */
 @UsesOnlyCoreTypes
 public class SkylarkSemanticsOptions extends OptionsBase implements Serializable {
-
+  // Used in an integration test to confirm that flags are visible to the interpreter.
+  @Option(
+      name = "internal_skylark_flag_test_canary",
+      defaultValue = "false",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED
+  )
+  public boolean skylarkFlagTestCanary;
 }

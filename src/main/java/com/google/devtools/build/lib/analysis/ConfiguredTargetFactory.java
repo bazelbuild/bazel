@@ -269,6 +269,7 @@ public final class ConfiguredTargetFactory {
       return SkylarkRuleConfiguredTargetBuilder.buildRule(
           ruleContext,
           rule.getRuleClassObject().getConfiguredTargetFunction(),
+          env.getSkylarkSemantics(),
           ruleClassProvider.getRegisteredSkylarkProviders());
     } else {
       RuleClass.ConfiguredTargetFactory<ConfiguredTarget, RuleContext> factory =

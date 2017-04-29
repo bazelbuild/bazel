@@ -2080,6 +2080,12 @@ public class MethodLibrary {
                 public String apply(Object input) {
                   return Printer.str(input);
                 }}));
+      // As part of the integration test "skylark_flag_test.sh", if the
+      // "--internal_skylark_flag_test_canary" flag is enabled, append an extra marker string to the
+      // output.
+      if (env.getSemantics().skylarkFlagTestCanary) {
+        msg += "<== skylark flag test ==>";
+      }
       env.handleEvent(Event.warn(loc, msg));
       return Runtime.NONE;
     }

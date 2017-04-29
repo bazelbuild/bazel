@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -97,6 +98,10 @@ public class ASTFileLookupFunction implements SkyFunction {
     if (!fileValue.isFile()) {
       return ASTFileLookupValue.forBadFile(fileLabel);
     }
+    SkylarkSemanticsOptions skylarkSemantics = PrecomputedValue.SKYLARK_SEMANTICS.get(env);
+    if (skylarkSemantics == null) {
+      return null;
+    }
 
     //
     // Both the package and the file exist; load the file and parse it as an AST.
@@ -112,6 +117,7 @@ public class ASTFileLookupFunction implements SkyFunction {
                       .createSkylarkRuleClassEnvironment(
                           fileLabel,
                           mutability,
+                          skylarkSemantics,
                           env.getListener(),
                           // the two below don't matter for extracting the ValidationEnvironment:
                           /*astFileContentHashCode=*/ null,

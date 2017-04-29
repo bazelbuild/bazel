@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.SkylarkImport;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -118,6 +119,11 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       @Nullable LinkedHashMap<Label, SkylarkImportLookupValue> alreadyVisited)
       throws InconsistentFilesystemException, SkylarkImportFailedException, InterruptedException {
     PathFragment filePath = fileLabel.toPathFragment();
+
+    SkylarkSemanticsOptions skylarkSemantics = PrecomputedValue.SKYLARK_SEMANTICS.get(env);
+    if (skylarkSemantics == null) {
+      return null;
+    }
 
     // Load the AST corresponding to this file.
     ASTFileLookupValue astLookupValue;
@@ -210,7 +216,13 @@ public class SkylarkImportLookupFunction implements SkyFunction {
 
     // Skylark UserDefinedFunction-s in that file will share this function definition Environment,
     // which will be frozen by the time it is returned by createExtension.
-    Extension extension = createExtension(ast, fileLabel, extensionsForImports, env, inWorkspace);
+    Extension extension = createExtension(
+        ast,
+        fileLabel,
+        extensionsForImports,
+        skylarkSemantics,
+        env,
+        inWorkspace);
     SkylarkImportLookupValue result =
         new SkylarkImportLookupValue(
             extension, new SkylarkFileDependency(fileLabel, fileDependencies.build()));
@@ -355,6 +367,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       BuildFileAST ast,
       Label extensionLabel,
       Map<String, Extension> importMap,
+      SkylarkSemanticsOptions skylarkSemantics,
       Environment env,
       boolean inWorkspace)
       throws SkylarkImportFailedException, InterruptedException {
@@ -368,7 +381,8 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       com.google.devtools.build.lib.syntax.Environment extensionEnv =
           ruleClassProvider
               .createSkylarkRuleClassEnvironment(
-                  extensionLabel, mutability, eventHandler, ast.getContentHashCode(), importMap)
+                  extensionLabel, mutability, skylarkSemantics,
+                  eventHandler, ast.getContentHashCode(), importMap)
               .setupOverride("native", packageFactory.getNativeModule(inWorkspace));
       execAndExport(ast, extensionLabel, eventHandler, extensionEnv);
 

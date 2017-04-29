@@ -54,8 +54,10 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.Environment.Phase;
 import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsClassProvider;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -717,7 +719,12 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       ImmutableList<Class<?>> modules) {
     try (Mutability mutability = Mutability.create("ConfiguredRuleClassProvider globals")) {
       Environment env = createSkylarkRuleClassEnvironment(
-          mutability, SkylarkModules.getGlobals(modules), null, null, null);
+          mutability,
+          SkylarkModules.getGlobals(modules),
+          Options.getDefaults(SkylarkSemanticsOptions.class),
+          /*eventHandler=*/ null,
+          /*astFileContentHashCode=*/ null,
+          /*importMap=*/ null);
       for (Map.Entry<String, Object> entry : skylarkAccessibleToplLevels.entrySet()) {
         env.setup(entry.getKey(), entry.getValue());
       }
@@ -728,12 +735,14 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   private Environment createSkylarkRuleClassEnvironment(
       Mutability mutability,
       Environment.Frame globals,
+      SkylarkSemanticsOptions skylarkSemantics,
       EventHandler eventHandler,
       String astFileContentHashCode,
       Map<String, Extension> importMap) {
     Environment env =
         Environment.builder(mutability)
             .setGlobals(globals)
+            .setSemantics(skylarkSemantics)
             .setEventHandler(eventHandler)
             .setFileContentHashCode(astFileContentHashCode)
             .setImportedExtensions(importMap)
@@ -745,13 +754,19 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   @Override
   public Environment createSkylarkRuleClassEnvironment(
-      Label extensionLabel, Mutability mutability,
+      Label extensionLabel,
+      Mutability mutability,
+      SkylarkSemanticsOptions skylarkSemantics,
       EventHandler eventHandler,
       String astFileContentHashCode,
       Map<String, Extension> importMap) {
     return createSkylarkRuleClassEnvironment(
-        mutability, globals.setLabel(extensionLabel),
-        eventHandler, astFileContentHashCode, importMap);
+        mutability,
+        globals.setLabel(extensionLabel),
+        skylarkSemantics,
+        eventHandler,
+        astFileContentHashCode,
+        importMap);
   }
 
   @Override

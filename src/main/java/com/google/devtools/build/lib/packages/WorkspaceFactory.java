@@ -183,6 +183,7 @@ public class WorkspaceFactory {
   private void execute(BuildFileAST ast, @Nullable Map<String, Extension> importedExtensions,
       StoredEventHandler localReporter)
       throws InterruptedException {
+    // Note that this Skylark environment ignores command line flags.
     Environment.Builder environmentBuilder =
         Environment.builder(mutability)
             .setGlobals(BazelLibrary.GLOBALS)

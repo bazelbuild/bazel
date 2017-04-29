@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Statement;
@@ -69,6 +70,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.devtools.common.options.Options;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -294,7 +296,7 @@ public final class PackageFactory {
     public Token runAsync(List<String> includes, List<String> excludes, boolean excludeDirs)
         throws BadGlobException {
       for (String pattern : Iterables.concat(includes, excludes)) {
-        @SuppressWarnings("unused") 
+        @SuppressWarnings("unused")
         Future<?> possiblyIgnoredError = globCache.getGlobUnsortedAsync(pattern, excludeDirs);
       }
       return new Token(includes, excludes, excludeDirs);
@@ -350,14 +352,14 @@ public final class PackageFactory {
     public final PackageFactory create(RuleClassProvider ruleClassProvider, FileSystem fs) {
       return create(ruleClassProvider, null, ImmutableList.<EnvironmentExtension>of(), fs);
     }
-    
+
     public final PackageFactory create(
         RuleClassProvider ruleClassProvider,
         EnvironmentExtension environmentExtension,
         FileSystem fs) {
       return create(ruleClassProvider, null, ImmutableList.of(environmentExtension), fs);
     }
-  
+
     public final PackageFactory create(
         RuleClassProvider ruleClassProvider,
         Map<String, String> platformSetRegexps,
@@ -371,7 +373,7 @@ public final class PackageFactory {
           "test",
           fs);
     }
-      
+
     protected abstract PackageFactory create(
         RuleClassProvider ruleClassProvider,
         Map<String, String> platformSetRegexps,
@@ -1288,6 +1290,7 @@ public final class PackageFactory {
       Map<String, Extension> imports,
       ImmutableList<Label> skylarkFileDependencies,
       RuleVisibility defaultVisibility,
+      SkylarkSemanticsOptions skylarkSemantics,
       Globber globber)
       throws InterruptedException {
     StoredEventHandler localReporterForParsing = new StoredEventHandler();
@@ -1305,6 +1308,7 @@ public final class PackageFactory {
         imports,
         skylarkFileDependencies,
         defaultVisibility,
+        skylarkSemantics,
         globber);
   }
 
@@ -1325,6 +1329,7 @@ public final class PackageFactory {
       Map<String, Extension> imports,
       ImmutableList<Label> skylarkFileDependencies,
       RuleVisibility defaultVisibility,
+      SkylarkSemanticsOptions skylarkSemantics,
       Globber globber) throws InterruptedException {
     MakeEnvironment.Builder makeEnv = new MakeEnvironment.Builder();
     if (platformSetRegexps != null) {
@@ -1339,6 +1344,7 @@ public final class PackageFactory {
           buildFile,
           globber,
           defaultVisibility,
+          skylarkSemantics,
           makeEnv,
           imports);
       return evaluateBuildFile(
@@ -1349,6 +1355,7 @@ public final class PackageFactory {
           globber,
           astAfterPreprocessing.allEvents,
           defaultVisibility,
+          skylarkSemantics,
           false /* containsError */,
           makeEnv,
           imports,
@@ -1421,6 +1428,7 @@ public final class PackageFactory {
                 /*imports=*/ ImmutableMap.<String, Extension>of(),
                 /*skylarkFileDependencies=*/ ImmutableList.<Label>of(),
                 /*defaultVisibility=*/ ConstantRuleVisibility.PUBLIC,
+                Options.getDefaults(SkylarkSemanticsOptions.class),
                 globber)
             .build();
     Event.replayEventsOn(eventHandler, result.getEvents());
@@ -1647,6 +1655,7 @@ public final class PackageFactory {
       Globber globber,
       Iterable<Event> pastEvents,
       RuleVisibility defaultVisibility,
+      SkylarkSemanticsOptions skylarkSemantics,
       boolean containsError,
       MakeEnvironment.Builder pkgMakeEnv,
       Map<String, Extension> imports,
@@ -1660,6 +1669,7 @@ public final class PackageFactory {
       Environment pkgEnv =
           Environment.builder(mutability)
               .setGlobals(BazelLibrary.GLOBALS)
+              .setSemantics(skylarkSemantics)
               .setEventHandler(eventHandler)
               .setImportedExtensions(imports)
               .setPhase(Phase.LOADING)
@@ -1719,6 +1729,7 @@ public final class PackageFactory {
       Path buildFilePath,
       Globber globber,
       RuleVisibility defaultVisibility,
+      SkylarkSemanticsOptions skylarkSemantics,
       MakeEnvironment.Builder pkgMakeEnv,
       Map<String, Extension> imports)
       throws InterruptedException {
@@ -1731,6 +1742,7 @@ public final class PackageFactory {
       Environment pkgEnv =
           Environment.builder(mutability)
               .setGlobals(BazelLibrary.GLOBALS)
+              .setSemantics(skylarkSemantics)
               .setEventHandler(NullEventHandler.INSTANCE)
               .setImportedExtensions(imports)
               .setPhase(Phase.LOADING)

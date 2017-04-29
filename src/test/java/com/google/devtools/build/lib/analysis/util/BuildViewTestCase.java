@@ -1704,6 +1704,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
 
     @Override
+    public SkylarkSemanticsOptions getSkylarkSemantics() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Artifact getFilesetArtifact(PathFragment rootRelativePath, Root root) {
       throw new UnsupportedOperationException();
     }

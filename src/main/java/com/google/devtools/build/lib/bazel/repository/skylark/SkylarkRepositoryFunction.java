@@ -76,6 +76,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
       return null;
     }
     try (Mutability mutability = Mutability.create("skylark repository")) {
+      // This Skylark environment ignores command line flags.
       com.google.devtools.build.lib.syntax.Environment buildEnv =
           com.google.devtools.build.lib.syntax.Environment.builder(mutability)
               .setGlobals(rule.getRuleClassObject().getRuleDefinitionEnvironment().getGlobals())
