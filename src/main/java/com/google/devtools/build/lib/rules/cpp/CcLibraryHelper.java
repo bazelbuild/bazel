@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -1385,11 +1384,6 @@ public final class CcLibraryHelper {
           featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES)
               || featureConfiguration.isEnabled(CppRuleClasses.COMPILE_ALL_MODULES);
       Iterable<CppModuleMap> dependentModuleMaps = collectModuleMaps();
-      Optional<Artifact> umbrellaHeader = cppModuleMap.getUmbrellaHeader();
-      if (umbrellaHeader.isPresent()) {
-        ruleContext.registerAction(
-            createUmbrellaHeaderAction(umbrellaHeader.get(), publicHeaders));
-      }
       ruleContext.registerAction(
           createModuleMapAction(cppModuleMap, publicHeaders, dependentModuleMaps, compiled));
       if (model.getGeneratesPicHeaderModule()) {
@@ -1416,17 +1410,6 @@ public final class CcLibraryHelper {
 
     semantics.setupCompilationContext(ruleContext, contextBuilder);
     return contextBuilder.build();
-  }
-
-  private UmbrellaHeaderAction createUmbrellaHeaderAction(Artifact umbrellaHeader,
-      PublicHeaders publicHeaders) {
-    return new UmbrellaHeaderAction(
-        ruleContext.getActionOwner(),
-        umbrellaHeader,
-        featureConfiguration.isEnabled(CppRuleClasses.ONLY_DOTH_HEADERS_IN_MODULE_MAPS)
-            ? Iterables.filter(publicHeaders.getModuleMapHeaders(), CppFileTypes.MODULE_MAP_HEADER)
-            : publicHeaders.getModuleMapHeaders(),
-        additionalExportedHeaders);
   }
 
   private CppModuleMapAction createModuleMapAction(

@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain.RequiresXcodeCon
 import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppModuleMap.UmbrellaHeaderStrategy;
 import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
@@ -118,14 +117,9 @@ public class ObjcRuleClasses {
     // We need to append "_j2objc" to the name of the generated archive file to distinguish it from
     // the C/C++ archive file created by proto_library targets with attribute cc_api_version
     // specified.
-    // Generate an umbrella header for the module map. The headers declared in module maps are
-    // compiled using the #import directives which are incompatible with J2ObjC segmented headers.
-    // We need to #iclude all the headers in an umbrella header and then declare the umbrella header
-    // in the module map.
     return new IntermediateArtifacts(
         ruleContext,
-        /*archiveFileNameSuffix=*/"_j2objc",
-        UmbrellaHeaderStrategy.GENERATE);
+        /*archiveFileNameSuffix=*/"_j2objc");
   }
 
   public static Artifact artifactByAppendingToBaseName(RuleContext context, String suffix) {

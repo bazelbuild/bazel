@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Optional;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -101,7 +100,6 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
         StringBuilder content = new StringBuilder();
         PathFragment fragment = cppModuleMap.getArtifact().getExecPath();
         int segmentsToExecPath = fragment.segmentCount() - 1;
-        Optional<Artifact> umbrellaHeader = cppModuleMap.getUmbrellaHeader();
 
         // For details about the different header types, see:
         // http://clang.llvm.org/docs/Modules.html#header-declaration
@@ -110,46 +108,22 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
         content.append("  export *\n");
 
         HashSet<PathFragment> deduper = new HashSet<>();
-        if (umbrellaHeader.isPresent()) {
+        for (Artifact artifact : expandedHeaders(artifactExpander, publicHeaders)) {
+          appendHeader(
+              content, "", artifact.getExecPath(), leadingPeriods, /*canCompile=*/ true, deduper);
+        }
+        for (Artifact artifact : expandedHeaders(artifactExpander, privateHeaders)) {
           appendHeader(
               content,
-              "",
-              umbrellaHeader.get().getExecPath(),
+              "private",
+              artifact.getExecPath(),
               leadingPeriods,
-              /*canCompile=*/ false,
-              deduper,
-              /*isUmbrellaHeader*/ true);
-        } else {
-          for (Artifact artifact : expandedHeaders(artifactExpander, publicHeaders)) {
-            appendHeader(
-                content,
-                "",
-                artifact.getExecPath(),
-                leadingPeriods,
-                /*canCompile=*/ true,
-                deduper,
-                /*isUmbrellaHeader*/ false);
-          }
-          for (Artifact artifact : expandedHeaders(artifactExpander, privateHeaders)) {
-            appendHeader(
-                content,
-                "private",
-                artifact.getExecPath(),
-                leadingPeriods,
-                /*canCompile=*/ true,
-                deduper,
-                /*isUmbrellaHeader*/ false);
-          }
-          for (PathFragment additionalExportedHeader : additionalExportedHeaders) {
-            appendHeader(
-                content,
-                "",
-                additionalExportedHeader,
-                leadingPeriods,
-                /*canCompile*/ false,
-                deduper,
-                /*isUmbrellaHeader*/ false);
-          }
+              /*canCompile=*/ true,
+              deduper);
+        }
+        for (PathFragment additionalExportedHeader : additionalExportedHeaders) {
+          appendHeader(
+              content, "", additionalExportedHeader, leadingPeriods, /*canCompile*/ false, deduper);
         }
         for (CppModuleMap dep : dependencies) {
           content.append("  use \"").append(dep.getName()).append("\"\n");
@@ -186,16 +160,11 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
   }
 
   private void appendHeader(StringBuilder content, String visibilitySpecifier, PathFragment path,
-      String leadingPeriods, boolean canCompile, HashSet<PathFragment> deduper,
-      boolean isUmbrellaHeader) {
+      String leadingPeriods, boolean canCompile, HashSet<PathFragment> deduper) {
     if (deduper.contains(path)) {
       return;
     }
     deduper.add(path);
-    if (isUmbrellaHeader) {
-      content.append("  umbrella header \"umbrella.h\"\n");
-      return;
-    }
     if (generateSubmodules) {
       content.append("  module \"").append(path).append("\" {\n");
       content.append("    export *\n  ");
@@ -244,10 +213,6 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
       f.addPath(path);
     }
     f.addPath(cppModuleMap.getArtifact().getExecPath());
-    Optional<Artifact> umbrellaHeader = cppModuleMap.getUmbrellaHeader();
-    if (umbrellaHeader.isPresent()) {
-      f.addPath(umbrellaHeader.get().getExecPath());
-    }
     f.addString(cppModuleMap.getName());
     f.addBoolean(moduleMapHomeIsCwd);
     f.addBoolean(compiledModule);

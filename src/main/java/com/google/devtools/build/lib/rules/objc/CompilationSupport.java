@@ -76,7 +76,6 @@ import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.FdoSupportProvider;
-import com.google.devtools.build.lib.rules.cpp.UmbrellaHeaderAction;
 import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
@@ -642,11 +641,6 @@ public abstract class CompilationSupport {
       publicHeaders = Iterables.concat(publicHeaders, compilationArtifacts.getAdditionalHdrs());
     CppModuleMap moduleMap = intermediateArtifacts.moduleMap();
     registerGenerateModuleMapAction(moduleMap, publicHeaders);
-
-    Optional<Artifact> umbrellaHeader = moduleMap.getUmbrellaHeader();
-    if (umbrellaHeader.isPresent()) {
-      registerGenerateUmbrellaHeaderAction(umbrellaHeader.get(), publicHeaders);
-    }
 
     return this;
   }
@@ -1225,18 +1219,6 @@ public abstract class CompilationSupport {
     } else {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
-  }
-
-  CompilationSupport registerGenerateUmbrellaHeaderAction(
-      Artifact umbrellaHeader, Iterable<Artifact> publicHeaders) {
-     ruleContext.registerAction(
-        new UmbrellaHeaderAction(
-            ruleContext.getActionOwner(),
-            umbrellaHeader,
-            publicHeaders,
-            ImmutableList.<PathFragment>of()));
- 
-    return this;
   }
 
   /**

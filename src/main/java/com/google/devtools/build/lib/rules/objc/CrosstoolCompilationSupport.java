@@ -381,8 +381,7 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
         ImmutableSortedSet.copyOf(compilationArtifacts.getNonArcSrcs());
     Collection<Artifact> privateHdrs =
         ImmutableSortedSet.copyOf(compilationArtifacts.getPrivateHdrs());
-    Collection<Artifact> publicHdrs = ImmutableSortedSet.copyOf(
-        Iterables.concat(attributes.hdrs(), compilationArtifacts.getAdditionalHdrs()));
+    Collection<Artifact> publicHdrs = ImmutableSortedSet.copyOf(attributes.hdrs());
     Artifact pchHdr = null;
     if (ruleContext.attributes().has("pch", BuildType.LABEL)) {
       pchHdr = ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET);

@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
-import com.google.devtools.build.lib.rules.cpp.CppModuleMap.UmbrellaHeaderStrategy;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -47,38 +46,22 @@ public final class IntermediateArtifacts {
   private final BuildConfiguration buildConfiguration;
   private final String archiveFileNameSuffix;
   private final String outputPrefix;
-  private final UmbrellaHeaderStrategy umbrellaHeaderStrategy;
 
   IntermediateArtifacts(RuleContext ruleContext, String archiveFileNameSuffix,
       String outputPrefix) {
-    this(ruleContext, archiveFileNameSuffix, outputPrefix, ruleContext.getConfiguration(),
-        UmbrellaHeaderStrategy.DO_NOT_GENERATE);
+    this(ruleContext, archiveFileNameSuffix, outputPrefix, ruleContext.getConfiguration());
   }
 
   IntermediateArtifacts(RuleContext ruleContext, String archiveFileNameSuffix) {
-    this(ruleContext, archiveFileNameSuffix, "", ruleContext.getConfiguration(),
-        UmbrellaHeaderStrategy.DO_NOT_GENERATE);
+    this(ruleContext, archiveFileNameSuffix, "", ruleContext.getConfiguration());
   }
-
+ 
   IntermediateArtifacts(RuleContext ruleContext, String archiveFileNameSuffix,
-      UmbrellaHeaderStrategy umbrellaHeaderStrategy) {
-    this(ruleContext, archiveFileNameSuffix, "", ruleContext.getConfiguration(),
-        umbrellaHeaderStrategy);
-  }
-
-  IntermediateArtifacts(RuleContext ruleContext, String archiveFileNameSuffix, String outputPrefix,
-      BuildConfiguration buildConfiguration) {
-    this(ruleContext, archiveFileNameSuffix, outputPrefix, buildConfiguration,
-        UmbrellaHeaderStrategy.DO_NOT_GENERATE);
-  }
-
-  IntermediateArtifacts(RuleContext ruleContext, String archiveFileNameSuffix, String outputPrefix,
-      BuildConfiguration buildConfiguration, UmbrellaHeaderStrategy umbrellaHeaderStrategy) {
+      String outputPrefix, BuildConfiguration buildConfiguration) {
     this.ruleContext = ruleContext;
     this.buildConfiguration = buildConfiguration;
     this.archiveFileNameSuffix = Preconditions.checkNotNull(archiveFileNameSuffix);
     this.outputPrefix = Preconditions.checkNotNull(outputPrefix);
-    this.umbrellaHeaderStrategy = umbrellaHeaderStrategy;
   }
 
   /**
@@ -451,15 +434,7 @@ public final class IntermediateArtifacts {
             .replace(":", "_");
     // To get Swift to pick up module maps, we need to name them "module.modulemap" and have their
     // parent directory in the module map search paths.
-    if (umbrellaHeaderStrategy == UmbrellaHeaderStrategy.GENERATE) {
-      return new CppModuleMap(
-          appendExtensionInGenfiles(".modulemaps/module.modulemap"),
-          appendExtensionInGenfiles(".modulemaps/umbrella.h"),
-          moduleName);
-    } else {
-      return new CppModuleMap(
-          appendExtensionInGenfiles(".modulemaps/module.modulemap"), moduleName);
-    }
+    return new CppModuleMap(appendExtensionInGenfiles(".modulemaps/module.modulemap"), moduleName);
   }
 
   /**
