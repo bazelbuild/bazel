@@ -137,6 +137,11 @@ def build_file_artifact_location(ctx):
       is_external_artifact(ctx.label)
   )
 
+def get_source_jar(output):
+  if hasattr(output, "source_jar"):
+    return output.source_jar
+  return None
+
 def library_artifact(java_output):
   """Creates a LibraryArtifact representing a given java_output."""
   if java_output == None or java_output.class_jar == None:
@@ -144,7 +149,7 @@ def library_artifact(java_output):
   return struct_omit_none(
       jar = artifact_location(java_output.class_jar),
       interface_jar = artifact_location(java_output.ijar),
-      source_jar = artifact_location(java_output.source_jar),
+      source_jar = artifact_location(get_source_jar(java_output)),
   )
 
 def annotation_processing_jars(annotation_processing):
@@ -159,7 +164,7 @@ def jars_from_output(output):
   if output == None:
     return []
   return [jar
-          for jar in [output.class_jar, output.ijar, output.source_jar]
+          for jar in [output.class_jar, output.ijar, get_source_jar(output)]
           if jar != None and not jar.is_source]
 
 # TODO(salguarnieri) Remove once skylark provides the path safe string from a PathFragment.
@@ -317,7 +322,16 @@ def get_java_provider(target):
     return target.proto_java
   if hasattr(target, "java"):
     return target.java
+  if hasattr(target, "scala"):
+    return target.scala
   return None
+
+def get_java_jars(outputs):
+  """Handle both Java (java.outputs.jars list) and Scala (single scala.outputs) targets."""
+  if hasattr(outputs, "jars"):
+    return outputs.jars
+  if hasattr(outputs, "class_jar"):
+    return [outputs]
 
 def build_java_ide_info(target, ctx, semantics):
   """Build JavaIdeInfo."""
@@ -331,20 +345,24 @@ def build_java_ide_info(target, ctx, semantics):
 
   ide_info_files = set()
   sources = sources_from_target(ctx)
-
-  jars = [library_artifact(output) for output in java.outputs.jars]
-  output_jars = [jar for output in java.outputs.jars for jar in jars_from_output(output)]
+  java_jars = get_java_jars(java.outputs)
+  jars = [library_artifact(output) for output in java_jars]
+  output_jars = [jar for output in java_jars for jar in jars_from_output(output)]
   intellij_resolve_files = set(output_jars)
 
   gen_jars = []
-  if java.annotation_processing and java.annotation_processing.enabled:
+  if (hasattr(java, "annotation_processing") and
+      java.annotation_processing and
+      java.annotation_processing.enabled):
     gen_jars = [annotation_processing_jars(java.annotation_processing)]
     intellij_resolve_files = intellij_resolve_files | set([
         jar for jar in [java.annotation_processing.class_jar,
                         java.annotation_processing.source_jar]
         if jar != None and not jar.is_source])
 
-  jdeps = artifact_location(java.outputs.jdeps)
+  jdeps = None
+  if hasattr(java.outputs, "jdeps"):
+    jdeps = artifact_location(java.outputs.jdeps)
 
   java_sources, gen_java_sources, srcjars = divide_java_sources(ctx)
 
@@ -504,42 +522,6 @@ def build_android_sdk_ide_info(ctx):
       android_jar = artifact_location(android_jar_file),
   )
 
-def build_scala_ide_info(target, ctx):
-  """Build ScalaIdeInfo."""
-  if not hasattr(target, "scala"):
-    return (None, set(), set())
-
-  ide_info_files = set()
-  scala_sources = []
-  if hasattr(ctx.rule.attr, "srcs"):
-    scala_sources = [f for src in ctx.rule.attr.srcs for f in src.files if f.is_source]
-
-  package_manifest = None
-  if scala_sources:
-    package_manifest = build_java_package_manifest(ctx, target, scala_sources, ".scala-manifest")
-    ide_info_files = ide_info_files | set([package_manifest])
-
-  scala = target.scala
-  class_jar = None
-  ijar = None
-  intellij_resolve_files = set()
-  if scala.outputs:
-    class_jar = scala.outputs.class_jar
-    ijar = scala.outputs.ijar
-    intellij_resolve_files = set([class_jar, ijar])
-
-  scala_ide_info = struct_omit_none(
-      sources = sources_from_target(ctx),
-      jars = [struct_omit_none(
-          jar = artifact_location(class_jar),
-          interface_jar = artifact_location(ijar),
-      )],
-      package_manifest = artifact_location(package_manifest),
-      main_class = ctx.rule.attr.main_class if hasattr(ctx.rule.attr, "main_class") else None,
-  )
-  return (scala_ide_info, ide_info_files, intellij_resolve_files)
-
-
 def build_test_info(ctx):
   """Build TestInfo."""
   if not is_test_rule(ctx):
@@ -638,12 +620,6 @@ def intellij_info_aspect_impl(target, ctx, semantics):
   intellij_resolve_files = intellij_resolve_files | android_resolve_files
   android_sdk_ide_info = build_android_sdk_ide_info(ctx)
 
-  # Collect Scala-specific information
-  (scala_ide_info, scala_ide_info_files, scala_resolve_files) = build_scala_ide_info(
-      target, ctx)
-  intellij_info_text = intellij_info_text | scala_ide_info_files
-  intellij_resolve_files = intellij_resolve_files | scala_resolve_files
-
   # java_toolchain
   java_toolchain_ide_info = build_java_toolchain_ide_info(target)
 
@@ -674,7 +650,6 @@ def intellij_info_aspect_impl(target, ctx, semantics):
       java_ide_info = java_ide_info,
       android_ide_info = android_ide_info,
       android_sdk_ide_info = android_sdk_ide_info,
-      scala_ide_info = scala_ide_info,
       tags = tags,
       test_info = test_info,
       java_toolchain_ide_info = java_toolchain_ide_info,
