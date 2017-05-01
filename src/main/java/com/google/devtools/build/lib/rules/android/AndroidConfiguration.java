@@ -519,7 +519,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     @Option(name = "experimental_android_use_nocompress_extensions_on_apk",
         defaultValue = "false",
         optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-        implicitRequirements = "--use_singlejar_apkbuilder",
         help = "Use the value of nocompress_extensions attribute with the SingleJar "
             + "--nocompress_suffixes flag when building the APK.")
     public boolean useNocompressExtensionsOnApk;
