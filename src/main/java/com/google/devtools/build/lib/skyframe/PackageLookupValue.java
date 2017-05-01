@@ -43,32 +43,32 @@ public abstract class PackageLookupValue implements SkyValue {
     WORKSPACE("WORKSPACE") {
       @Override
       public PathFragment getBuildFileFragment(PackageIdentifier packageIdentifier) {
-        return PathFragment.create(BuildFileName.WORKSPACE.getFilename());
+        return getFilenameFragment();
       }
     },
     BUILD("BUILD") {
       @Override
       public PathFragment getBuildFileFragment(PackageIdentifier packageIdentifier) {
-        return packageIdentifier.getPackageFragment().getChild(getFilename());
+        return packageIdentifier.getPackageFragment().getRelative(getFilenameFragment());
       }
     },
     BUILD_DOT_BAZEL("BUILD.bazel") {
       @Override
       public PathFragment getBuildFileFragment(PackageIdentifier packageIdentifier) {
-        return packageIdentifier.getPackageFragment().getChild(getFilename());
+        return packageIdentifier.getPackageFragment().getRelative(getFilenameFragment());
       }
     };
 
     private static final BuildFileName[] VALUES = BuildFileName.values();
 
-    private final String filename;
+    private final PathFragment filenameFragment;
 
     private BuildFileName(String filename) {
-      this.filename = filename;
+      this.filenameFragment = PathFragment.create(filename);
     }
 
-    public String getFilename() {
-      return filename;
+    public PathFragment getFilenameFragment() {
+      return filenameFragment;
     }
 
     /**

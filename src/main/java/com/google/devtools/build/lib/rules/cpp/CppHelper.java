@@ -60,6 +60,8 @@ import javax.annotation.Nullable;
  * <p>This class can be used only after the loading phase.
  */
 public class CppHelper {
+  static final PathFragment OBJS = PathFragment.create("_objs");
+
   private static final String GREPPED_INCLUDES_SUFFIX = ".includes";
 
   // TODO(bazel-team): should this use Link.SHARED_LIBRARY_FILETYPES?
@@ -283,7 +285,7 @@ public class CppHelper {
    * Returns the directory where object files are created.
    */
   public static PathFragment getObjDirectory(Label ruleLabel) {
-    return AnalysisUtils.getUniqueDirectory(ruleLabel, PathFragment.create("_objs"));
+    return AnalysisUtils.getUniqueDirectory(ruleLabel, OBJS);
   }
 
   /**

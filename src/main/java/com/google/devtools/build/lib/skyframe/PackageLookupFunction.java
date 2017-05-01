@@ -315,7 +315,7 @@ public class PackageLookupFunction implements SkyFunction {
     // This checks for the build file names in the correct precedence order.
     for (BuildFileName buildFileName : buildFilesByPriority) {
       PathFragment buildFileFragment =
-          id.getPackageFragment().getChild(buildFileName.getFilename());
+          id.getPackageFragment().getRelative(buildFileName.getFilenameFragment());
       RootedPath buildFileRootedPath =
           RootedPath.toRootedPath(repositoryValue.getPath(), buildFileFragment);
       FileValue fileValue = getFileValue(buildFileRootedPath, env, packageIdentifier);
