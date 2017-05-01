@@ -30,18 +30,17 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
+import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
 
 /**
@@ -91,7 +90,8 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
             ObjcProtoProvider.class);
     NestedSet<Artifact> protosToAvoid = protoArtifactsToAvoid(avoidProtoProviders);
 
-    Set<BuildConfiguration> childConfigurations = getChildConfigurations(ruleContext);
+    Map<BuildConfiguration, CcToolchainProvider> childConfigurationsAndToolchains =
+        MultiArchBinarySupport.getChildConfigurationsAndToolchains(ruleContext);
 
     IntermediateArtifacts ruleIntermediateArtifacts =
         ObjcRuleClasses.intermediateArtifacts(ruleContext);
@@ -108,7 +108,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
         ruleContext.getPrerequisitesByConfiguration("deps", Mode.SPLIT, ObjcProtoProvider.class);
 
     Map<String, NestedSet<Artifact>> outputGroupCollector = new TreeMap<>();
-    for (BuildConfiguration childConfig : childConfigurations) {
+    for (BuildConfiguration childConfig : childConfigurationsAndToolchains.keySet()) {
       Iterable<ObjcProtoProvider> objcProtoProviders = objcProtoProvidersMap.get(childConfig);
       ProtobufSupport protoSupport =
           new ProtobufSupport(
@@ -147,9 +147,15 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
               .build();
 
       compilationSupport
-          .registerCompileAndArchiveActions(common)
+          .registerCompileAndArchiveActions(
+              common.getCompilationArtifacts().get(),
+              objcProvider,
+              childConfigurationsAndToolchains.get(childConfig))
           .registerFullyLinkAction(
-              objcProvider, intermediateArtifacts.strippedSingleArchitectureLibrary())
+              objcProvider,
+              intermediateArtifacts.strippedSingleArchitectureLibrary(),
+              childConfigurationsAndToolchains.get(childConfig),
+              CppHelper.getFdoSupport(ruleContext, ":cc_toolchain"))
           .validateAttributes();
       ruleContext.assertNoErrors();
 
@@ -210,17 +216,6 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
 
   private <T> List<T> nullToEmptyList(List<T> inputList) {
     return inputList != null ? inputList : ImmutableList.<T>of();
-  }
-
-  private Set<BuildConfiguration> getChildConfigurations(RuleContext ruleContext) {
-    // This is currently a hack to obtain all child configurations regardless of the attribute
-    // values of this rule -- this rule does not currently use the actual info provided by
-    // this attribute. b/28403953 tracks cc toolchain usage.
-    ImmutableListMultimap<BuildConfiguration, CcToolchainProvider> configToProvider =
-        ruleContext.getPrerequisitesByConfiguration(ObjcRuleClasses.CHILD_CONFIG_ATTR, Mode.SPLIT,
-            CcToolchainProvider.class);
-
-    return configToProvider.keySet();
   }
 
   private static NestedSet<Artifact> protoArtifactsToAvoid(

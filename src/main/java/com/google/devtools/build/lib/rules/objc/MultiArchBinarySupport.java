@@ -18,6 +18,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -43,6 +44,28 @@ import java.util.Set;
  */
 public class MultiArchBinarySupport {
   private final RuleContext ruleContext;
+
+  /**
+   * Returns all child configurations for this multi-arch target, mapped to the toolchains that they
+   * should use.
+   */
+  static ImmutableMap<BuildConfiguration, CcToolchainProvider> getChildConfigurationsAndToolchains(
+      RuleContext ruleContext) {
+    // This is currently a hack to obtain all child configurations regardless of the attribute
+    // values of this rule -- this rule does not currently use the actual info provided by
+    // this attribute. b/28403953 tracks cc toolchain usage.
+    ImmutableListMultimap<BuildConfiguration, CcToolchainProvider> configToProvider =
+        ruleContext.getPrerequisitesByConfiguration(
+            ObjcRuleClasses.CHILD_CONFIG_ATTR, Mode.SPLIT, CcToolchainProvider.class);
+
+    ImmutableMap.Builder<BuildConfiguration, CcToolchainProvider> result = ImmutableMap.builder();
+    for (BuildConfiguration config : configToProvider.keySet()) {
+      CcToolchainProvider toolchain = Iterables.getOnlyElement(configToProvider.get(config));
+      result.put(config, toolchain);
+    }
+
+    return result.build();
+  }
 
   /**
    * Configuration, toolchain, and provider for for single-arch dependency configurations of a

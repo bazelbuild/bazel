@@ -126,7 +126,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
         ruleContext.getPrerequisitesByConfiguration("deps", Mode.SPLIT);
 
     ImmutableMap<BuildConfiguration, CcToolchainProvider> childConfigurations =
-        getChildConfigurationsAndToolchains(ruleContext);
+        MultiArchBinarySupport.getChildConfigurationsAndToolchains(ruleContext);
     Artifact outputArtifact =
         ObjcRuleClasses.intermediateArtifacts(ruleContext).combinedArchitectureBinary();
 
@@ -291,24 +291,6 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
       return ImmutableSet.<Artifact>of(executableProvider.getAppleExecutableBinary());
     }
     return ImmutableSet.<Artifact>of();
-  }
-
-  private ImmutableMap<BuildConfiguration, CcToolchainProvider> getChildConfigurationsAndToolchains(
-      RuleContext ruleContext) {
-    // This is currently a hack to obtain all child configurations regardless of the attribute
-    // values of this rule -- this rule does not currently use the actual info provided by
-    // this attribute. b/28403953 tracks cc toolchain usage.
-    ImmutableListMultimap<BuildConfiguration, CcToolchainProvider> configToProvider =
-        ruleContext.getPrerequisitesByConfiguration(
-            ObjcRuleClasses.CHILD_CONFIG_ATTR, Mode.SPLIT, CcToolchainProvider.class);
-
-    ImmutableMap.Builder<BuildConfiguration, CcToolchainProvider> result = ImmutableMap.builder();
-    for (BuildConfiguration config : configToProvider.keySet()) {
-      CcToolchainProvider toolchain = Iterables.getOnlyElement(configToProvider.get(config));
-      result.put(config, toolchain);
-    }
-
-    return result.build();
   }
 
   private static BinaryType getBinaryType(RuleContext ruleContext) {
