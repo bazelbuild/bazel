@@ -87,14 +87,16 @@ public final class CompileCommandLine {
     List<String> commandLine = new ArrayList<>();
 
     // first: The command name.
-    Preconditions.checkArgument(
-        featureConfiguration.actionIsConfigured(actionName),
-        String.format("Expected action_config for '%s' to be configured", actionName));
-    commandLine.add(
-        featureConfiguration
-            .getToolForAction(actionName)
-            .getToolPath(cppConfiguration.getCrosstoolTopPathFragment())
-            .getPathString());
+    if (!featureConfiguration.actionIsConfigured(actionName)) {
+      commandLine.add(
+          cppConfiguration.getToolPathFragment(CppConfiguration.Tool.GCC).getPathString());
+    } else {
+      commandLine.add(
+          featureConfiguration
+              .getToolForAction(actionName)
+              .getToolPath(cppConfiguration.getCrosstoolTopPathFragment())
+              .getPathString());
+    }
 
     // second: The compiler options.
     commandLine.addAll(getCompilerOptions(overwrittenVariables));
