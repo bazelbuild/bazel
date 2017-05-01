@@ -1,4 +1,95 @@
-{
+// Copyright 2015 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package com.google.devtools.build.lib.packages;
+
+import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
+
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.AttributeValueGetter;
+import com.google.devtools.build.lib.testutil.Suite;
+import com.google.devtools.build.lib.testutil.TestSpec;
+import com.google.devtools.build.lib.util.Preconditions;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * Tests for {@link ImplicitOutputsFunction}.
+ */
+@TestSpec(size = Suite.SMALL_TESTS)
+@RunWith(JUnit4.class)
+public final class ImplicitOutputsFunctionTest {
+  private void assertPlaceholderCollection(
+      String template, String expectedTemplate, String... expectedPlaceholders) throws Exception {
+    List<String> actualPlaceholders = new ArrayList<>();
+    assertEquals(
+        expectedTemplate,
+        ImplicitOutputsFunction.createPlaceholderSubstitutionFormatString(
+            template, actualPlaceholders));
+    assertThat(actualPlaceholders)
+        .containsExactlyElementsIn(Arrays.asList(expectedPlaceholders))
+        .inOrder();
+  }
+
+  @Test
+  public void testNoPlaceholder() throws Exception {
+    assertPlaceholderCollection("foo", "foo");
+  }
+
+  @Test
+  public void testJustPlaceholder() throws Exception {
+    assertPlaceholderCollection("%{foo}", "%s", "foo");
+  }
+
+  @Test
+  public void testPrefixedPlaceholder() throws Exception {
+    assertPlaceholderCollection("foo%{bar}", "foo%s", "bar");
+  }
+
+  @Test
+  public void testSuffixedPlaceholder() throws Exception {
+    assertPlaceholderCollection("%{foo}bar", "%sbar", "foo");
+  }
+
+  @Test
+  public void testMultiplePlaceholdersPrefixed() throws Exception {
+    assertPlaceholderCollection("foo%{bar}baz%{qux}", "foo%sbaz%s", "bar", "qux");
+  }
+
+  @Test
+  public void testMultiplePlaceholdersSuffixed() throws Exception {
+    assertPlaceholderCollection("%{foo}bar%{baz}qux", "%sbar%squx", "foo", "baz");
+  }
+
+  @Test
+  public void testTightlyPackedPlaceholders() throws Exception {
+    assertPlaceholderCollection("%{foo}%{bar}%{baz}", "%s%s%s", "foo", "bar", "baz");
+  }
+
+  @Test
+  public void testIncompletePlaceholder() throws Exception {
     assertPlaceholderCollection("%{foo", "%%{foo");
   }
 
