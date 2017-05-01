@@ -1,5 +1,5 @@
 # Description:
-#   Rules to define Platforms and related Constraints.
+#   Providers defined for platforms, constraints, and toolchains.
 
 package(
     default_visibility = ["//src:__subpackages__"],
@@ -11,10 +11,8 @@ java_library(
         "*.java",
     ]),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:packages",
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
-        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//third_party:guava",
     ],
 )

@@ -17,11 +17,12 @@ package com.google.devtools.build.lib.rules.platform;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.rules.platform.PlatformInfo.DuplicateConstraintException;
 import com.google.devtools.build.lib.util.CPU;
 import com.google.devtools.build.lib.util.OS;
 import org.junit.Before;
@@ -56,7 +57,7 @@ public class PlatformTest extends BuildViewTestCase {
     ConfiguredTarget platform = getConfiguredTarget("//constraint:plat1");
     assertThat(platform).isNotNull();
 
-    PlatformInfo provider = PlatformInfo.fromTarget(platform);
+    PlatformInfo provider = Platform.platform(platform);
     assertThat(provider).isNotNull();
     assertThat(provider.constraints()).hasSize(1);
     ConstraintSettingInfo constraintSetting =
@@ -88,7 +89,7 @@ public class PlatformTest extends BuildViewTestCase {
     ConfiguredTarget platform = getConfiguredTarget("//host:host_platform");
     assertThat(platform).isNotNull();
 
-    PlatformInfo provider = PlatformInfo.fromTarget(platform);
+    PlatformInfo provider = Platform.platform(platform);
     assertThat(provider).isNotNull();
 
     // Check the CPU and OS.
@@ -134,7 +135,7 @@ public class PlatformTest extends BuildViewTestCase {
     ConfiguredTarget platform = getConfiguredTarget("//constraint/remote:plat_remote");
     assertThat(platform).isNotNull();
 
-    PlatformInfo provider = PlatformInfo.fromTarget(platform);
+    PlatformInfo provider = Platform.platform(platform);
     assertThat(provider).isNotNull();
     assertThat(provider.remoteExecutionProperties())
         .containsExactlyEntriesIn(ImmutableMap.of("foo", "val1", "bar", "val2"));
@@ -174,53 +175,5 @@ public class PlatformTest extends BuildViewTestCase {
     Label valueLabel = (Label) configuredTarget.get("first_value");
     assertThat(valueLabel).isNotNull();
     assertThat(valueLabel).isEqualTo(makeLabel("//constraint:foo"));
-  }
-
-  @Test
-  public void platformInfo_overlappingConstraintsError() throws DuplicateConstraintException {
-    ConstraintSettingInfo setting = ConstraintSettingInfo.create(makeLabel("//constraint:basic"));
-
-    ConstraintValueInfo value1 = ConstraintValueInfo.create(setting, makeLabel("//constraint:foo"));
-    ConstraintValueInfo value2 = ConstraintValueInfo.create(setting, makeLabel("//constraint:bar"));
-
-    PlatformInfo.Builder builder =
-        PlatformInfo.builder().addConstraint(value1).addConstraint(value2);
-
-    expectedException.expect(DuplicateConstraintException.class);
-    expectedException.expectMessage(
-        "Duplicate constraint_values for constraint_setting //constraint:basic: "
-            + "//constraint:foo, //constraint:bar");
-    builder.build();
-  }
-
-  @Test
-  public void platformInfo_equalsTester() throws DuplicateConstraintException {
-    ConstraintSettingInfo setting1 = ConstraintSettingInfo.create(makeLabel("//constraint:basic"));
-    ConstraintSettingInfo setting2 = ConstraintSettingInfo.create(makeLabel("//constraint:other"));
-
-    ConstraintValueInfo value1 =
-        ConstraintValueInfo.create(setting1, makeLabel("//constraint:value1"));
-    ConstraintValueInfo value2 =
-        ConstraintValueInfo.create(setting2, makeLabel("//constraint:value2"));
-    ConstraintValueInfo value3 =
-        ConstraintValueInfo.create(setting2, makeLabel("//constraint:value3"));
-
-    new EqualsTester()
-        .addEqualityGroup(
-            // Base case.
-            PlatformInfo.builder().addConstraint(value1).addConstraint(value2).build(),
-            PlatformInfo.builder().addConstraint(value1).addConstraint(value2).build(),
-            PlatformInfo.builder()
-                .addConstraint(value1)
-                .addConstraint(value2)
-                .addRemoteExecutionProperty("key", "val") // execution properties are ignored.
-                .build())
-        .addEqualityGroup(
-            // Extra constraint.
-            PlatformInfo.builder().addConstraint(value1).addConstraint(value3).build())
-        .addEqualityGroup(
-            // Missing constraint.
-            PlatformInfo.builder().addConstraint(value1).build())
-        .testEquals();
   }
 }

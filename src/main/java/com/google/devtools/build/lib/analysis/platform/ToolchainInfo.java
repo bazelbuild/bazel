@@ -12,14 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.rules.platform;
+package com.google.devtools.build.lib.analysis.platform;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.ClassObjectConstructor;
@@ -29,7 +25,6 @@ import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Map;
 
 /**
@@ -42,17 +37,17 @@ import java.util.Map;
   category = SkylarkModuleCategory.PROVIDER
 )
 @Immutable
-public class ToolchainInfo extends SkylarkClassObject implements TransitiveInfoProvider {
+public class ToolchainInfo extends SkylarkClassObject {
 
   /** Name used in Skylark for accessing this provider. */
-  static final String SKYLARK_NAME = "ToolchainInfo";
+  public static final String SKYLARK_NAME = "ToolchainInfo";
 
   /** Skylark constructor and identifier for this provider. */
-  static final ClassObjectConstructor SKYLARK_CONSTRUCTOR =
+  public static final ClassObjectConstructor SKYLARK_CONSTRUCTOR =
       new NativeClassObjectConstructor(SKYLARK_NAME) {};
 
   /** Identifier used to retrieve this provider from rules which export it. */
-  private static final SkylarkProviderIdentifier SKYLARK_IDENTIFIER =
+  public static final SkylarkProviderIdentifier SKYLARK_IDENTIFIER =
       SkylarkProviderIdentifier.forKey(SKYLARK_CONSTRUCTOR.getKey());
 
   private final ImmutableList<ConstraintValueInfo> execConstraints;
@@ -104,28 +99,5 @@ public class ToolchainInfo extends SkylarkClassObject implements TransitiveInfoP
   )
   public ImmutableList<ConstraintValueInfo> targetConstraints() {
     return targetConstraints;
-  }
-
-  /** Retrieves and casts the provider from the given target. */
-  public static ToolchainInfo fromTarget(TransitiveInfoCollection target) {
-    Object provider = target.get(SKYLARK_IDENTIFIER);
-    if (provider == null) {
-      return null;
-    }
-    Preconditions.checkState(provider instanceof ToolchainInfo);
-    return (ToolchainInfo) provider;
-  }
-
-  /** Retrieves and casts the providers from the given targets. */
-  public static Iterable<ToolchainInfo> fromTargets(
-      Iterable<? extends TransitiveInfoCollection> targets) {
-    return Iterables.transform(
-        targets,
-        new Function<TransitiveInfoCollection, ToolchainInfo>() {
-          @Override
-          public ToolchainInfo apply(TransitiveInfoCollection target) {
-            return fromTarget(target);
-          }
-        });
   }
 }

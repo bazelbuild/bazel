@@ -16,6 +16,10 @@ package com.google.devtools.build.lib.rules.platform;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -62,11 +66,11 @@ public class PlatformCommon {
   public ClassObjectConstructor getConstraintValueInfoConstructor() {
     return ConstraintValueInfo.SKYLARK_CONSTRUCTOR;
   }
-  
+
   @SkylarkCallable(
-      name = ToolchainInfo.SKYLARK_NAME,
-      doc = "The key used to retrieve the provider containing toolchain data.",
-      structField = true
+    name = ToolchainInfo.SKYLARK_NAME,
+    doc = "The key used to retrieve the provider containing toolchain data.",
+    structField = true
   )
   public ClassObjectConstructor getToolchainInfoConstructor() {
     return ToolchainInfo.SKYLARK_CONSTRUCTOR;
@@ -85,6 +89,7 @@ public class PlatformCommon {
       @Param(
         name = "exec_compatible_with",
         type = SkylarkList.class,
+        generic1 = TransitiveInfoCollection.class,
         defaultValue = "[]",
         named = true,
         positional = false,
@@ -93,6 +98,7 @@ public class PlatformCommon {
       @Param(
         name = "target_compatible_with",
         type = SkylarkList.class,
+        generic1 = TransitiveInfoCollection.class,
         defaultValue = "[]",
         named = true,
         positional = false,
@@ -118,9 +124,9 @@ public class PlatformCommon {
             throws ConversionException, EvalException {
 
           Iterable<ConstraintValueInfo> execConstraints =
-              ConstraintValueInfo.fromTargets(execCompatibleWith);
+              ConstraintValue.constraintValues(execCompatibleWith);
           Iterable<ConstraintValueInfo> targetConstraints =
-              ConstraintValueInfo.fromTargets(targetCompatibleWith);
+              ConstraintValue.constraintValues(targetCompatibleWith);
           ImmutableMap<String, Object> toolchainData =
               ImmutableMap.copyOf(
                   SkylarkDict.castSkylarkDictOrNoneToDict(

@@ -35,6 +35,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/rules/genquery:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/genrule:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/objc:srcs",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/platform:srcs",
         "//src/main/java/com/google/devtools/build/lib/sandbox:srcs",
         "//src/main/java/com/google/devtools/build/lib/ssd:srcs",
@@ -1221,6 +1222,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/rules/genquery:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/genrule:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/objc:srcs",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/platform:srcs",
     ],
 )

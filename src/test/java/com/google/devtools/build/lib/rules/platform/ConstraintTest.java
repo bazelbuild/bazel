@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.platform;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -46,22 +45,22 @@ public class ConstraintTest extends BuildViewTestCase {
   public void testConstraint() throws Exception {
     ConfiguredTarget setting = getConfiguredTarget("//constraint:basic");
     assertThat(setting).isNotNull();
-    assertThat(ConstraintSettingInfo.fromTarget(setting)).isNotNull();
-    assertThat(ConstraintSettingInfo.fromTarget(setting)).isNotNull();
-    assertThat(ConstraintSettingInfo.fromTarget(setting).label())
+    assertThat(ConstraintSetting.constraintSetting(setting)).isNotNull();
+    assertThat(ConstraintSetting.constraintSetting(setting)).isNotNull();
+    assertThat(ConstraintSetting.constraintSetting(setting).label())
         .isEqualTo(Label.parseAbsolute("//constraint:basic"));
     ConfiguredTarget fooValue = getConfiguredTarget("//constraint:foo");
     assertThat(fooValue).isNotNull();
-    assertThat(ConstraintValueInfo.fromTarget(fooValue)).isNotNull();
-    assertThat(ConstraintValueInfo.fromTarget(fooValue).constraint().label())
+    assertThat(ConstraintValue.constraintValue(fooValue)).isNotNull();
+    assertThat(ConstraintValue.constraintValue(fooValue).constraint().label())
         .isEqualTo(Label.parseAbsolute("//constraint:basic"));
-    assertThat(ConstraintValueInfo.fromTarget(fooValue).label())
+    assertThat(ConstraintValue.constraintValue(fooValue).label())
         .isEqualTo(Label.parseAbsolute("//constraint:foo"));
     ConfiguredTarget barValue = getConfiguredTarget("//constraint:bar");
     assertThat(barValue).isNotNull();
-    assertThat(ConstraintValueInfo.fromTarget(barValue).constraint().label())
+    assertThat(ConstraintValue.constraintValue(barValue).constraint().label())
         .isEqualTo(Label.parseAbsolute("//constraint:basic"));
-    assertThat(ConstraintValueInfo.fromTarget(barValue).label())
+    assertThat(ConstraintValue.constraintValue(barValue).label())
         .isEqualTo(Label.parseAbsolute("//constraint:bar"));
   }
 
@@ -95,33 +94,5 @@ public class ConstraintTest extends BuildViewTestCase {
     Label valueLabel = (Label) configuredTarget.get("value");
     assertThat(valueLabel).isNotNull();
     assertThat(valueLabel).isEqualTo(makeLabel("//constraint:foo"));
-  }
-
-  @Test
-  public void constraintSetting_equalsTester() {
-    new EqualsTester()
-        .addEqualityGroup(
-            ConstraintSettingInfo.create(makeLabel("//constraint:basic")),
-            ConstraintSettingInfo.create(makeLabel("//constraint:basic")))
-        .addEqualityGroup(ConstraintSettingInfo.create(makeLabel("//constraint:other")))
-        .testEquals();
-  }
-
-  @Test
-  public void constraintValue_equalsTester() {
-    ConstraintSettingInfo setting1 = ConstraintSettingInfo.create(makeLabel("//constraint:basic"));
-    ConstraintSettingInfo setting2 = ConstraintSettingInfo.create(makeLabel("//constraint:other"));
-    new EqualsTester()
-        .addEqualityGroup(
-            // Base case.
-            ConstraintValueInfo.create(setting1, makeLabel("//constraint:value")),
-            ConstraintValueInfo.create(setting1, makeLabel("//constraint:value")))
-        .addEqualityGroup(
-            // Different label.
-            ConstraintValueInfo.create(setting1, makeLabel("//constraint:otherValue")))
-        .addEqualityGroup(
-            // Different setting.
-            ConstraintValueInfo.create(setting2, makeLabel("//constraint:ovalue")))
-        .testEquals();
   }
 }

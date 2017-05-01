@@ -12,12 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.rules.platform;
+package com.google.devtools.build.lib.analysis.platform;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.ClassObjectConstructor;
@@ -26,7 +23,6 @@ import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.util.Preconditions;
 
 /** Provider for a platform constraint setting that is available to be fulfilled. */
 @SkylarkModule(
@@ -38,10 +34,10 @@ import com.google.devtools.build.lib.util.Preconditions;
 public class ConstraintSettingInfo extends SkylarkClassObject {
 
   /** Name used in Skylark for accessing this provider. */
-  static final String SKYLARK_NAME = "ConstraintSettingInfo";
+  public static final String SKYLARK_NAME = "ConstraintSettingInfo";
 
   /** Skylark constructor and identifier for this provider. */
-  static final ClassObjectConstructor SKYLARK_CONSTRUCTOR =
+  public static final ClassObjectConstructor SKYLARK_CONSTRUCTOR =
       new NativeClassObjectConstructor(SKYLARK_NAME) {};
 
   /** Identifier used to retrieve this provider from rules which export it. */
@@ -58,29 +54,6 @@ public class ConstraintSettingInfo extends SkylarkClassObject {
 
   public Label label() {
     return label;
-  }
-
-  /** Retrieves and casts the provider from the given target. */
-  public static ConstraintSettingInfo fromTarget(TransitiveInfoCollection target) {
-    Object provider = target.get(SKYLARK_IDENTIFIER);
-    if (provider == null) {
-      return null;
-    }
-    Preconditions.checkState(provider instanceof ConstraintSettingInfo);
-    return (ConstraintSettingInfo) provider;
-  }
-
-  /** Retrieves and casts the providers from the given targets. */
-  public static Iterable<ConstraintSettingInfo> fromTargets(
-      Iterable<? extends TransitiveInfoCollection> targets) {
-    return Iterables.transform(
-        targets,
-        new Function<TransitiveInfoCollection, ConstraintSettingInfo>() {
-          @Override
-          public ConstraintSettingInfo apply(TransitiveInfoCollection target) {
-            return fromTarget(target);
-          }
-        });
   }
 
   /** Returns a new {@link ConstraintSettingInfo} with the given data. */
