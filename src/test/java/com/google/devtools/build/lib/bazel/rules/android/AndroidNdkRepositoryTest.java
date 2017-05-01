@@ -18,8 +18,10 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -149,5 +151,30 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
         "The major revision of the Android NDK referenced by android_ndk_repository rule "
             + "'androidndk' is 15. The major revisions supported by Bazel are [10, 11, 12, 13, 14]."
             + " Defaulting to revision 14.");
+  }
+
+  @Test
+  public void testMiscLibraries() throws Exception {
+    scratchPlatformsDirectories("arch-x86", 19, 20, 22, 24);
+    scratch.file(String.format("/ndk/sources/android/cpufeatures/cpu-features.c"));
+    scratch.file(String.format("/ndk/sources/android/cpufeatures/cpu-features.h"));
+    FileSystemUtils.appendIsoLatin1(
+        scratch.resolve("WORKSPACE"),
+        "android_ndk_repository(",
+        "    name = 'androidndk',",
+        "    path = '/ndk',",
+        ")");
+    invalidatePackages();
+
+    ConfiguredTarget cpufeatures = getConfiguredTarget("@androidndk//:cpufeatures");
+    assertThat(cpufeatures).isNotNull();
+    AttributeContainer attributes =
+        cpufeatures.getTarget().getAssociatedRule().getAttributeContainer();
+    assertThat(attributes.isAttributeValueExplicitlySpecified("srcs")).isTrue();
+    assertThat(attributes.getAttr("srcs").toString())
+        .isEqualTo("[@androidndk//:ndk/sources/android/cpufeatures/cpu-features.c]");
+    assertThat(attributes.isAttributeValueExplicitlySpecified("hdrs")).isTrue();
+    assertThat(attributes.getAttr("hdrs").toString())
+        .isEqualTo("[@androidndk//:ndk/sources/android/cpufeatures/cpu-features.h]");
   }
 }
