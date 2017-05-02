@@ -29,7 +29,10 @@ import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -123,5 +126,30 @@ public class TreeNodeRepositoryTest {
     repo.computeMerkleDigests(root);
     // Reusing same node for the "foo" subtree: only need the root, root child, foo, and contents:
     assertThat(repo.getAllDigests(root)).hasSize(4);
+  }
+
+  @Test
+  public void testNullArtifacts() throws Exception {
+    Artifact foo = new Artifact(scratch.file("/exec/root/a/foo", "1"), rootDir);
+    SortedMap<PathFragment, ActionInput> inputs = new TreeMap<>();
+    inputs.put(foo.getExecPath(), foo);
+    inputs.put(PathFragment.create("a/bar"), null);
+    TreeNodeRepository repo = createTestTreeNodeRepository();
+    TreeNode root = repo.buildFromActionInputs(inputs);
+    repo.computeMerkleDigests(root);
+
+    TreeNode aNode = root.getChildEntries().get(0).getChild();
+    TreeNode fooNode = aNode.getChildEntries().get(1).getChild(); // foo > bar in sort order!
+    TreeNode barNode = aNode.getChildEntries().get(0).getChild();
+    ImmutableCollection<ContentDigest> digests = repo.getAllDigests(root);
+    ContentDigest rootDigest = repo.getMerkleDigest(root);
+    ContentDigest aDigest = repo.getMerkleDigest(aNode);
+    ContentDigest fooDigest = repo.getMerkleDigest(fooNode);
+    ContentDigest fooContentsDigest = ContentDigests.computeDigest(foo.getPath());
+    ContentDigest barDigest = repo.getMerkleDigest(barNode);
+    ContentDigest barContentsDigest = ContentDigests.computeDigest(new byte[0]);
+    assertThat(digests)
+        .containsExactly(
+            rootDigest, aDigest, barDigest, barContentsDigest, fooDigest, fooContentsDigest);
   }
 }

@@ -18,12 +18,14 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
+import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.remote.RemoteProtocol.BlobChunk;
 import com.google.devtools.build.lib.remote.RemoteProtocol.ContentDigest;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -103,7 +105,7 @@ public final class Chunker {
       chunk.setOffset(offset);
     }
     if (bytesLeft > 0) {
-      byte[] blob = new byte[(int) Math.min(bytesLeft, (long) chunkSize)];
+      byte[] blob = new byte[(int) Math.min(bytesLeft, chunkSize)];
       currentStream.read(blob);
       chunk.setData(ByteString.copyFrom(blob));
       bytesLeft -= blob.length;
@@ -145,6 +147,9 @@ public final class Chunker {
 
   static Item toItem(
       final ActionInput input, final ActionInputFileCache inputCache, final Path execRoot) {
+    if (input instanceof VirtualActionInput) {
+      return toItem((VirtualActionInput) input);
+    }
     return new Item() {
       @Override
       public ContentDigest getDigest() throws IOException {
@@ -154,6 +159,22 @@ public final class Chunker {
       @Override
       public InputStream getInputStream() throws IOException {
         return execRoot.getRelative(input.getExecPathString()).getInputStream();
+      }
+    };
+  }
+
+  static Item toItem(final VirtualActionInput input) {
+    return new Item() {
+      @Override
+      public ContentDigest getDigest() throws IOException {
+        return ContentDigests.computeDigest(input);
+      }
+
+      @Override
+      public InputStream getInputStream() throws IOException {
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        input.writeTo(buffer);
+        return new ByteArrayInputStream(buffer.toByteArray());
       }
     };
   }

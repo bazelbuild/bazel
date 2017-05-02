@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.remote;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
+import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.ContentDigests.ActionKey;
 import com.google.devtools.build.lib.remote.RemoteProtocol.ActionResult;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
@@ -60,6 +62,7 @@ public final class SimpleBlobStoreActionCache implements RemoteActionCache {
     for (FileNode fileNode : repository.treeToFileNodes(root)) {
       uploadBlob(fileNode.toByteArray());
     }
+    // TODO(ulfjack): Only upload files that aren't in the CAS yet?
     for (TreeNode leaf : repository.leaves(root)) {
       uploadFileContents(leaf.getActionInput(), execRoot, repository.getInputFileCache());
     }
@@ -89,6 +92,12 @@ public final class SimpleBlobStoreActionCache implements RemoteActionCache {
       ActionInput input, Path execRoot, ActionInputFileCache inputCache)
       throws IOException, InterruptedException {
     // This unconditionally reads the whole file into memory first!
+    if (input instanceof VirtualActionInput) {
+      ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+      ((VirtualActionInput) input).writeTo(buffer);
+      byte[] blob = buffer.toByteArray();
+      return uploadBlob(blob, ContentDigests.computeDigest(blob));
+    }
     return uploadBlob(
         ByteString.readFrom(execRoot.getRelative(input.getExecPathString()).getInputStream())
             .toByteArray(),

@@ -189,6 +189,29 @@ EOF
     || fail "Remote cache generated different result"
 }
 
+function test_py_test() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+py_test(
+name = 'test',
+srcs = [ 'test.py' ],
+)
+EOF
+  cat > a/test.py <<EOF
+import sys
+if __name__ == "__main__":
+    sys.exit(0)
+EOF
+  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
+      --spawn_strategy=remote \
+      --remote_worker=localhost:${worker_port} \
+      --remote_cache=localhost:${worker_port} \
+      --test_output=errors \
+      //a:test >& $TEST_log \
+      || fail "Failed to run //a:test with remote execution"
+}
+
 # TODO(alpha): Add a test that fails remote execution when remote worker
 # supports sandbox.
 
