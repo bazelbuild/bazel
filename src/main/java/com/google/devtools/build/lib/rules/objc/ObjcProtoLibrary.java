@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.objc;
 
 
 import com.google.common.base.Optional;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -37,7 +38,7 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
     ProtoAttributes attributes = new ProtoAttributes(ruleContext);
     attributes.validate();
 
-    if (attributes.hasPortableProtoFilters()) {
+    if (attributes.requiresProtobuf()) {
       return createProtobufTarget(ruleContext);
     } else {
       ruleContext.ruleWarning("The usage of objc_proto_library without the portable_proto_filters "
@@ -63,7 +64,7 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
                 ruleContext.getConfiguration(),
                 protoProviders,
                 objcProtoProviders,
-                getPortableProtoFilters(ruleContext, objcProtoProviders))
+                getPortableProtoFilters(ruleContext, objcProtoProviders, protoProviders))
             .registerGenerationActions()
             .addFilesToBuild(filesToBuild);
 
@@ -80,13 +81,27 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
   }
 
   private static NestedSet<Artifact> getPortableProtoFilters(
-      RuleContext ruleContext, Iterable<ObjcProtoProvider> objcProtoProviders) {
+      RuleContext ruleContext,
+      Iterable<ObjcProtoProvider> objcProtoProviders,
+      Iterable<ProtoSourcesProvider> protoProviders) {
     ProtoAttributes attributes = new ProtoAttributes(ruleContext);
     NestedSetBuilder<Artifact> portableProtoFilters = NestedSetBuilder.stableOrder();
 
     portableProtoFilters.addTransitive(
         ProtobufSupport.getTransitivePortableProtoFilters(objcProtoProviders));
-    portableProtoFilters.addAll(attributes.getPortableProtoFilters());
+
+    // If this target specifies filters, use those. If not, generate a filter only if there are
+    // direct proto_library targets, and generate a filter only for those files.
+    if (attributes.hasPortableProtoFilters()) {
+      portableProtoFilters.addAll(attributes.getPortableProtoFilters());
+    } else if (!Iterables.isEmpty(protoProviders)) {
+      Artifact generatedFilter = ProtobufSupport.getGeneratedPortableFilter(ruleContext);
+      ProtobufSupport.registerPortableFilterGenerationAction(
+          ruleContext,
+          generatedFilter,
+          protoProviders);
+      portableProtoFilters.add(generatedFilter);
+    }
 
     return portableProtoFilters.build();
   }
@@ -110,5 +125,4 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
         .addProvider(XcodeProvider.class, xcodeProvider)
         .build();
   }
-
 }

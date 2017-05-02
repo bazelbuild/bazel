@@ -14,12 +14,17 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -55,16 +60,13 @@ public class ObjcProtoAspect extends NativeAspectClass implements ConfiguredAspe
       aspectObjcProtoProvider.addTransitive(depObjcProtoProviders);
     }
 
-    // If the rule has the portable_proto_filters, it must be an objc_proto_library configured
-    // to use the third party protobuf library, in contrast with the PB2 internal library. Only
-    // the third party library is enabled to propagate the protos with this aspect.
+    ProtoAttributes attributes = new ProtoAttributes(ruleContext);
+
+    // If the rule has the portable_proto_filters or uses_protobuf, it must be an objc_proto_library
+    // configured to use the third party protobuf library, in contrast with the PB2 internal
+    // library. Only the third party library is enabled to propagate the protos with this aspect.
     // Validation for the correct target attributes is done in ProtoSupport.java.
-    if (ruleContext
-        .attributes()
-        .isAttributeValueExplicitlySpecified(ObjcProtoLibraryRule.PORTABLE_PROTO_FILTERS_ATTR)) {
-      aspectObjcProtoProvider.addPortableProtoFilters(
-          PrerequisiteArtifacts.nestedSet(
-              ruleContext, ObjcProtoLibraryRule.PORTABLE_PROTO_FILTERS_ATTR, Mode.HOST));
+    if (attributes.requiresProtobuf()) {
 
       // Gather up all the dependency protos depended by this target.
       Iterable<ProtoSourcesProvider> protoProviders =
@@ -73,6 +75,23 @@ public class ObjcProtoAspect extends NativeAspectClass implements ConfiguredAspe
       for (ProtoSourcesProvider protoProvider : protoProviders) {
         aspectObjcProtoProvider.addProtoGroup(protoProvider.getTransitiveProtoSources());
       }
+
+      NestedSet<Artifact> portableProtoFilters =
+          PrerequisiteArtifacts.nestedSet(
+              ruleContext, ObjcProtoLibraryRule.PORTABLE_PROTO_FILTERS_ATTR, Mode.HOST);
+
+      // If this target does not provide filters but specifies direct proto_library dependencies,
+      // generate a filter file only for those proto files.
+      if (Iterables.isEmpty(portableProtoFilters) && !Iterables.isEmpty(protoProviders)) {
+        Artifact generatedFilter = ProtobufSupport.getGeneratedPortableFilter(ruleContext);
+        ProtobufSupport.registerPortableFilterGenerationAction(
+            ruleContext,
+            generatedFilter,
+            protoProviders);
+        portableProtoFilters = NestedSetBuilder.create(Order.STABLE_ORDER, generatedFilter);
+      }
+
+      aspectObjcProtoProvider.addPortableProtoFilters(portableProtoFilters);
 
       // Propagate protobuf's headers and search paths so the BinaryLinkingTargetFactory subclasses
       // (i.e. objc_binary) don't have to depend on it.

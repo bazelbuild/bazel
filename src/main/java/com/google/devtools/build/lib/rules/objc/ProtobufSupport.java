@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_STATIC;
 
+import com.google.common.base.Function;
+import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -584,12 +586,15 @@ final class ProtobufSupport {
   }
 
   private boolean isLinkingTarget() {
-    return !ruleContext
-        .attributes()
-        .isAttributeValueExplicitlySpecified(ObjcProtoLibraryRule.PORTABLE_PROTO_FILTERS_ATTR);
+    // Since this is the ProtobufSupport helper class, check whether the current target has
+    // configured the protobuf attributes. If not, it's not an objc_proto_library rule, so it must
+    // be a linking rule (e.g. apple_binary).
+    return !attributes.requiresProtobuf();
   }
 
-  // Returns the transitive portable proto filter files from a list of ObjcProtoProviders.
+  /**
+   * Returns the transitive portable proto filter files from a list of ObjcProtoProviders.
+   */
   public static NestedSet<Artifact> getTransitivePortableProtoFilters(
       Iterable<ObjcProtoProvider> objcProtoProviders) {
     NestedSetBuilder<Artifact> portableProtoFilters = NestedSetBuilder.stableOrder();
@@ -598,4 +603,58 @@ final class ProtobufSupport {
     }
     return portableProtoFilters.build();
   }
+
+  /**
+   * Returns a target specific generated artifact that represents a portable filter file.
+   */
+  public static Artifact getGeneratedPortableFilter(RuleContext ruleContext) {
+    return ruleContext.getUniqueDirectoryArtifact(
+        "_proto_filters",
+        "generated_filter_file.pbascii",
+        ruleContext.getConfiguration().getGenfilesDirectory());
+  }
+
+  /**
+   * Registers a FileWriteAction what writes a filter file into the given artifact. The contents
+   * of this file is a portable filter that allows all the transitive proto files contained in the
+   * given {@link ProtoSourcesProvider} providers.
+   */
+  public static void registerPortableFilterGenerationAction(
+      RuleContext ruleContext,
+      Artifact generatedPortableFilter,
+      Iterable<ProtoSourcesProvider> protoProviders) {
+    ruleContext.registerAction(
+        FileWriteAction.create(
+            ruleContext,
+            generatedPortableFilter,
+            getGeneratedPortableFilterContents(ruleContext, protoProviders),
+            false));
+  }
+
+  private static String getGeneratedPortableFilterContents(
+      RuleContext ruleContext, Iterable<ProtoSourcesProvider> protoProviders) {
+    NestedSetBuilder<Artifact> protoFilesBuilder = NestedSetBuilder.stableOrder();
+    for (ProtoSourcesProvider protoProvider : protoProviders) {
+      protoFilesBuilder.addTransitive(protoProvider.getTransitiveProtoSources());
+    }
+
+    Iterable<String> protoFilePaths =
+        Artifact.toRootRelativePaths(
+            Ordering.natural().immutableSortedCopy(protoFilesBuilder.build()));
+
+    Iterable<String> filterLines =
+        Iterables.transform(
+            protoFilePaths,
+            new Function<String, String>() {
+              @Override
+              public String apply(String protoFilePath) {
+                return String.format("allowed_file: \"%s\"", protoFilePath);
+              }
+            });
+
+    return String.format(
+            "# Generated portable filter for %s\n\n", ruleContext.getLabel().getCanonicalForm())
+        + Joiner.on("\n").join(filterLines);
+  }
+
 }
