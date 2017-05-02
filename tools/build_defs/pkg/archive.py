@@ -14,7 +14,10 @@
 """Archive manipulation library for the Docker rules."""
 
 import os
-from StringIO import StringIO
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 import subprocess
 import tarfile
 
