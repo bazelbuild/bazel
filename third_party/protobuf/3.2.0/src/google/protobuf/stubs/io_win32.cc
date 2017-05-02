@@ -251,14 +251,6 @@ int win32_mkdir(const char* path, int _mode) {
 }
 
 int win32_access(const char* path, int mode) {
-  // _access/_waccess in <io.h> don't support checking for executability (nor is
-  // X_OK defined).
-  // They support checking for readability (but R_OK is not defined) but we
-  // never use them for that in the protobuf source code.
-  // Existence and writability check are also supported, but again F_OK and W_OK
-  // aren't defined as constants in <io.h>; they are defined in io_win32.h
-  // Therefore we only support F_OK and W_OK.
-  assert(mode & ~(F_OK | W_OK) == 0);
   wstring wpath;
   if (!as_windows_path(path, MAX_PATH, &wpath)) {
     errno = ENOENT;
