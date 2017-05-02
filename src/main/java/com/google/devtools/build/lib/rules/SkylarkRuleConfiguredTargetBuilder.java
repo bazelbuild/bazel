@@ -197,7 +197,7 @@ public final class SkylarkRuleConfiguredTargetBuilder {
   }
 
   public static NestedSet<Artifact> convertToOutputGroupValue(Location loc, String outputGroup,
-      SkylarkValue objects) throws EvalException {
+      Object objects) throws EvalException {
     NestedSet<Artifact> artifacts;
 
     String typeErrorMessage =

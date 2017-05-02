@@ -209,6 +209,14 @@ public class SkylarkRuleClassFunctions {
   )
   private static final ClassObjectConstructor defaultInfo = DefaultProvider.SKYLARK_CONSTRUCTOR;
 
+  @SkylarkSignature(
+    name = "OutputGroupInfo",
+    returnType = ClassObjectConstructor.class,
+    doc = "todo"
+  )
+  private static final ClassObjectConstructor outputGroupInfo =
+      OutputGroupProvider.SKYLARK_CONSTRUCTOR;
+
   // TODO(bazel-team): Move to a "testing" namespace module. Normally we'd pass an objectType
   // to @SkylarkSignature to do this, but that doesn't work here because we're exposing an already-
   // configured BaseFunction, rather than defining a new BuiltinFunction. This should wait for
@@ -1047,7 +1055,7 @@ public class SkylarkRuleClassFunctions {
   )
   private static final BuiltinFunction output_group = new BuiltinFunction("output_group") {
     public SkylarkNestedSet invoke(TransitiveInfoCollection self, String group) {
-      OutputGroupProvider provider = self.getProvider(OutputGroupProvider.class);
+      OutputGroupProvider provider = OutputGroupProvider.get(self);
       NestedSet<Artifact> result = provider != null
           ? provider.getOutputGroup(group)
           : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);

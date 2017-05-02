@@ -30,11 +30,13 @@ import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.ClassObjectConstructor;
+import com.google.devtools.build.lib.packages.ClassObjectConstructor.Key;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
@@ -116,8 +118,8 @@ public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> 
     private final Map<String, NestedSetBuilder<Artifact>> outputGroupBuilders = new TreeMap<>();
     private final ImmutableMap.Builder<String, Object> skylarkProviderBuilder =
         ImmutableMap.builder();
-    private final ImmutableMap.Builder<SkylarkClassObjectConstructor.Key, SkylarkClassObject>
-        skylarkDeclaredProvidersBuilder = ImmutableMap.builder();
+    private final LinkedHashMap<Key, SkylarkClassObject>
+        skylarkDeclaredProvidersBuilder = new LinkedHashMap<>();
     private final RuleContext ruleContext;
     private final AspectDescriptor descriptor;
 
@@ -212,6 +214,14 @@ public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> 
       return this;
     }
 
+    public Builder addNativeDeclaredProvider(SkylarkClassObject declaredProvider) {
+      ClassObjectConstructor constructor = declaredProvider.getConstructor();
+      Preconditions.checkState(constructor.isExported());
+      skylarkDeclaredProvidersBuilder.put(constructor.getKey(), declaredProvider);
+      return this;
+    }
+
+
     public ConfiguredAspect build() {
       if (!outputGroupBuilders.isEmpty()) {
         ImmutableMap.Builder<String, NestedSet<Artifact>> outputGroups = ImmutableMap.builder();
@@ -219,16 +229,19 @@ public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> 
           outputGroups.put(entry.getKey(), entry.getValue().build());
         }
 
-        if (providers.contains(OutputGroupProvider.class)) {
+        if (skylarkDeclaredProvidersBuilder.containsKey(
+            OutputGroupProvider.SKYLARK_CONSTRUCTOR.getKey())) {
           throw new IllegalStateException(
               "OutputGroupProvider was provided explicitly; do not use addOutputGroup");
         }
-        addProvider(new OutputGroupProvider(outputGroups.build()));
+        skylarkDeclaredProvidersBuilder.put(
+            OutputGroupProvider.SKYLARK_CONSTRUCTOR.getKey(),
+            new OutputGroupProvider(outputGroups.build()));
       }
 
       ImmutableMap<String, Object> skylarkProvidersMap = skylarkProviderBuilder.build();
       ImmutableMap<SkylarkClassObjectConstructor.Key, SkylarkClassObject>
-          skylarkDeclaredProvidersMap = skylarkDeclaredProvidersBuilder.build();
+          skylarkDeclaredProvidersMap = ImmutableMap.copyOf(skylarkDeclaredProvidersBuilder);
       if (!skylarkProvidersMap.isEmpty() || !skylarkDeclaredProvidersMap.isEmpty()) {
         providers.add(new SkylarkProviders(skylarkProvidersMap, skylarkDeclaredProvidersMap));
       }

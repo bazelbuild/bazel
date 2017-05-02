@@ -128,7 +128,7 @@ public class Filegroup implements RuleConfiguredTargetFactory {
     NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
 
     for (TransitiveInfoCollection dep : deps) {
-      OutputGroupProvider outputGroupProvider = dep.getProvider(OutputGroupProvider.class);
+      OutputGroupProvider outputGroupProvider = OutputGroupProvider.get(dep);
       if (outputGroupProvider != null) {
         result.addTransitive(outputGroupProvider.getOutputGroup(outputGroupName));
       }

@@ -317,11 +317,12 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
     }
 
     public void addProviders(ConfiguredAspect.Builder builder) {
+      OutputGroupProvider outputGroupProvider = new OutputGroupProvider(outputGroups);
       builder.addProvider(
           new CcProtoLibraryProviders(
-              filesBuilder.build(),
-              ccLibraryProviders.toBuilder().add(new OutputGroupProvider(outputGroups)).build()));
+              filesBuilder.build(), ccLibraryProviders, outputGroupProvider));
       builder.addProviders(ccLibraryProviders);
+      builder.addNativeDeclaredProvider(outputGroupProvider);
       if (headerProvider != null) {
         builder.addProvider(headerProvider);
       }

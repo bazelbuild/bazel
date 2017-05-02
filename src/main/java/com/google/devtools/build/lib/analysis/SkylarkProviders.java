@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.MergedConfiguredTarget.DuplicateEx
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.SkylarkApiProvider;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -124,7 +125,8 @@ public final class SkylarkProviders implements TransitiveInfoProvider {
    * @param providers providers to merge {@code this} with.
    */
   public static SkylarkProviders merge(
-      Map<String, Object> premergedProviders,
+      ImmutableMap<String, Object> premergedLegacyProviders,
+      ImmutableMap<SkylarkClassObjectConstructor.Key, SkylarkClassObject> premergedProviders,
       List<SkylarkProviders> providers)
       throws DuplicateException {
     if (premergedProviders.size() == 0 && providers.size() == 0) {
@@ -136,11 +138,11 @@ public final class SkylarkProviders implements TransitiveInfoProvider {
 
     ImmutableMap<String, Object> skylarkProviders = mergeMaps(providers,
         SKYLARK_PROVIDERS_MAP_FUNCTION,
-        premergedProviders);
+        premergedLegacyProviders);
 
     ImmutableMap<ClassObjectConstructor.Key, SkylarkClassObject> declaredProviders =
         mergeMaps(providers, DECLARED_PROVIDERS_MAP_FUNCTION,
-            ImmutableMap.<ClassObjectConstructor.Key, SkylarkClassObject>of());
+            premergedProviders);
 
     return new SkylarkProviders(skylarkProviders, declaredProviders);
   }

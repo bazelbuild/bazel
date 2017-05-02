@@ -857,9 +857,11 @@ public final class RuleContext extends TargetContext
    * Returns all the declared providers (native and Skylark) for the specified constructor under the
    * specified attribute of this target in the BUILD file.
    */
-  public Iterable<SkylarkClassObject> getPrerequisites(
-      String attributeName, Mode mode, final ClassObjectConstructor.Key skylarkKey) {
-    return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), skylarkKey);
+  public <T extends SkylarkClassObject> Iterable<T> getPrerequisites(
+      String attributeName, Mode mode,
+      final ClassObjectConstructor.Key skylarkKey,
+      Class<T> result) {
+    return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), skylarkKey, result);
   }
 
   /**

@@ -82,14 +82,15 @@ public final class AnalysisUtils {
    * Returns the list of declared providers (native and Skylark) of the specified Skylark key from a
    * set of transitive info collections.
    */
-  public static Iterable<SkylarkClassObject> getProviders(
+  public static <T extends SkylarkClassObject>  Iterable<T> getProviders(
       Iterable<? extends TransitiveInfoCollection> prerequisites,
-      final ClassObjectConstructor.Key skylarkKey) {
-    ImmutableList.Builder<SkylarkClassObject> result = ImmutableList.builder();
+      final ClassObjectConstructor.Key skylarkKey,
+      Class<T> resultClass) {
+    ImmutableList.Builder<T> result = ImmutableList.builder();
     for (TransitiveInfoCollection prerequisite : prerequisites) {
       SkylarkClassObject prerequisiteProvider = prerequisite.get(skylarkKey);
       if (prerequisiteProvider != null) {
-        result.add(prerequisiteProvider);
+        result.add(resultClass.cast(prerequisiteProvider));
       }
     }
     return result.build();

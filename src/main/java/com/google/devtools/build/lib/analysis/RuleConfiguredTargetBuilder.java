@@ -131,7 +131,7 @@ public final class RuleConfiguredTargetBuilder {
       }
 
       OutputGroupProvider outputGroupProvider = new OutputGroupProvider(outputGroups.build());
-      addProvider(OutputGroupProvider.class, outputGroupProvider);
+      addNativeDeclaredProvider(outputGroupProvider);
       addSkylarkTransitiveInfo(OutputGroupProvider.SKYLARK_NAME, outputGroupProvider);
     }
 
@@ -294,6 +294,9 @@ public final class RuleConfiguredTargetBuilder {
    * Adds a "declared provider" defined in Skylark to the rule.
    * Use this method for declared providers defined in Skyark.
    *
+   * Has special handling for {@link OutputGroupProvider}: that provider is not added
+   * from Skylark directly, instead its outpuyt groups are added.
+   *
    * Use {@link #addNativeDeclaredProvider(SkylarkClassObject)} in definitions of
    * native rules.
    */
@@ -304,7 +307,14 @@ public final class RuleConfiguredTargetBuilder {
       throw new EvalException(constructor.getLocation(),
           "All providers must be top level values");
     }
-    skylarkDeclaredProviders.put(constructor.getKey(), provider);
+    if (OutputGroupProvider.SKYLARK_CONSTRUCTOR.getKey().equals(constructor.getKey())) {
+      OutputGroupProvider outputGroupProvider = (OutputGroupProvider) provider;
+      for (String outputGroup : outputGroupProvider) {
+        addOutputGroup(outputGroup, outputGroupProvider.getOutputGroup(outputGroup));
+      }
+    } else {
+      skylarkDeclaredProviders.put(constructor.getKey(), provider);
+    }
     return this;
   }
 

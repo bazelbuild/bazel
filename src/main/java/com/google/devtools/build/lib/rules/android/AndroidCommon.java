@@ -39,6 +39,8 @@ import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.rules.android.ResourceContainer.ResourceType;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
@@ -94,6 +96,20 @@ public class AndroidCommon {
     }
     return builder.build();
   }
+
+  public static final <T extends SkylarkClassObject> Iterable<T> getTransitivePrerequisites(
+      RuleContext ruleContext, Mode mode, SkylarkClassObjectConstructor.Key key,
+      final Class<T> classType) {
+    IterablesChain.Builder<T> builder = IterablesChain.builder();
+    AttributeMap attributes = ruleContext.attributes();
+    for (String attr : TRANSITIVE_ATTRIBUTES) {
+      if (attributes.has(attr, BuildType.LABEL_LIST)) {
+        builder.add(ruleContext.getPrerequisites(attr, mode, key, classType));
+      }
+    }
+    return builder.build();
+  }
+
 
   public static final Iterable<TransitiveInfoCollection> collectTransitiveInfo(
       RuleContext ruleContext, Mode mode) {
@@ -894,7 +910,9 @@ public class AndroidCommon {
   private NestedSet<Artifact> collectHiddenTopLevelArtifacts(RuleContext ruleContext) {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     for (OutputGroupProvider provider :
-        getTransitivePrerequisites(ruleContext, Mode.TARGET, OutputGroupProvider.class)) {
+        getTransitivePrerequisites(ruleContext, Mode.TARGET,
+            OutputGroupProvider.SKYLARK_CONSTRUCTOR.getKey(),
+            OutputGroupProvider.class)) {
       builder.addTransitive(provider.getOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL));
     }
     return builder.build();
