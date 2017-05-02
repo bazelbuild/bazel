@@ -730,4 +730,9 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
   public RepositoryName getRepository() {
     return getLabel().getPackageIdentifier().getRepository();
   }
+
+  /** Returns the suffix of target kind for all rules. */
+  public static String targetKindSuffix() {
+    return " rule";
+  }
 }

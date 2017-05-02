@@ -56,7 +56,7 @@ public class FakeSubincludeTarget implements Target {
 
   @Override
   public String getTargetKind() {
-    return "source file";
+    return targetKind();
   }
 
   @Override
@@ -106,5 +106,10 @@ public class FakeSubincludeTarget implements Target {
     }
     FakeSubincludeTarget other = (FakeSubincludeTarget) obj;
     return label.equals(other.label) && pkg.equals(other.pkg);
+  }
+
+  /** Returns the target kind for all fake sub-include targets. */
+  public static String targetKind() {
+    return "source file";
   }
 }
