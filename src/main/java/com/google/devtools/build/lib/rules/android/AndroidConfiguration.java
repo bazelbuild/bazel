@@ -487,11 +487,12 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     // other settings default to empty and are set or modified via dynamic configuration.
     public ResourceFilter resourceFilter;
 
+    // TODO(b/33043897) - remove this once removed from global blazerc.
     @Option(
       name = "use_singlejar_for_proguard_libraryjars",
       defaultValue = "false",
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-      help = "Use SingleJar to combine all ProGuard library jars."
+      help = "Unused flag."
     )
     public boolean useSingleJarForProguardLibraryJars;
 
@@ -604,7 +605,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final ApkSigningMethod apkSigningMethod;
   private final boolean useSingleJarApkBuilder;
   private final ResourceFilter resourceFilter;
-  private final boolean useSingleJarForProguardLibraryJars;
   private final boolean compressJavaResources;
   private final boolean includeLibraryResourceJars;
   private final boolean useNocompressExtensionsOnApk;
@@ -634,7 +634,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.manifestMerger = options.manifestMerger;
     this.apkSigningMethod = options.apkSigningMethod;
     this.useSingleJarApkBuilder = options.useSingleJarApkBuilder;
-    this.useSingleJarForProguardLibraryJars = options.useSingleJarForProguardLibraryJars;
     this.useRexToCompressDexFiles = options.useRexToCompressDexFiles;
     this.resourceFilter = options.resourceFilter;
     this.compressJavaResources = options.compressJavaResources;
@@ -738,10 +737,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   public ResourceFilter getResourceFilter() {
     return resourceFilter;
-  }
-
-  public boolean useSingleJarForProguardLibraryJars() {
-    return useSingleJarForProguardLibraryJars;
   }
 
   boolean compressJavaResources() {
