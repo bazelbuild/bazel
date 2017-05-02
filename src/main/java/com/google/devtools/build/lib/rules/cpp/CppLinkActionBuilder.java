@@ -952,7 +952,7 @@ public class CppLinkActionBuilder {
     PathFragment stampOutputDirectory =
         outputBinaryPath
             .getParentDirectory()
-            .getRelative("_objs")
+            .getRelative(CppHelper.OBJS)
             .getRelative(outputBinaryPath.getBaseName());
 
     for (Artifact linkstamp : linkstamps) {

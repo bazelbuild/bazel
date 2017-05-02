@@ -1262,7 +1262,18 @@ public final class RuleContext extends TargetContext
    * <p>For example "pkg/dir/name" -> "pkg/&lt;fragment>/rule/dir/name.
    */
   public final PathFragment getUniqueDirectory(String fragment) {
-    return AnalysisUtils.getUniqueDirectory(getLabel(), PathFragment.create(fragment));
+    return getUniqueDirectory(PathFragment.create(fragment));
+  }
+
+  /**
+   * Returns a path fragment qualified by the rule name and unique fragment to
+   * disambiguate artifacts produced from the source file appearing in
+   * multiple rules.
+   *
+   * <p>For example "pkg/dir/name" -> "pkg/&lt;fragment>/rule/dir/name.
+   */
+  public final PathFragment getUniqueDirectory(PathFragment fragment) {
+    return AnalysisUtils.getUniqueDirectory(getLabel(), fragment);
   }
 
   /**

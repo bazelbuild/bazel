@@ -71,6 +71,7 @@ public final class JavaCompilationHelper {
   private final ImmutableList<Artifact> additionalJavaBaseInputs;
 
   private static final String DEFAULT_ATTRIBUTES_SUFFIX = "";
+  private static final PathFragment JAVAC = PathFragment.create("_javac");
 
   public JavaCompilationHelper(RuleContext ruleContext, JavaSemantics semantics,
       ImmutableList<String> javacOpts, JavaTargetAttributes.Builder attributes,
@@ -564,7 +565,7 @@ public final class JavaCompilationHelper {
   private PathFragment workDir(Artifact outputJar, String suffix) {
     String basename = FileSystemUtils.removeExtension(outputJar.getExecPath().getBaseName());
     return getConfiguration().getBinDirectory(ruleContext.getRule().getRepository()).getExecPath()
-        .getRelative(ruleContext.getUniqueDirectory("_javac"))
+        .getRelative(ruleContext.getUniqueDirectory(JAVAC))
         .getRelative(basename + suffix);
   }
 
