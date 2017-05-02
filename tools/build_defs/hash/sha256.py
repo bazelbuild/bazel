@@ -20,7 +20,8 @@ import sys
 
 if __name__ == "__main__":
   if len(sys.argv) != 3:
-    print "Usage: %s input output" % sys.argv[0]
+    # pylint: disable=superfluous-parens
+    print("Usage: %s input output" % sys.argv[0])
     sys.exit(-1)
   with open(sys.argv[2], "w") as outputfile:
     with open(sys.argv[1], "rb") as inputfile:
