@@ -306,9 +306,9 @@ public final class SkylarkRuleConfiguredTargetBuilder {
         dataRunfiles = cast("data_runfiles", provider, Runfiles.class, loc);
       } else if (key.equals("default_runfiles")) {
         defaultRunfiles = cast("default_runfiles", provider, Runfiles.class, loc);
-      } else if (key.equals("output_groups")) {
+      } else if (key.equals("output_groups") && !isDefaultProvider) {
         addOutputGroups(provider.getValue(key), loc, builder);
-      } else if (key.equals("instrumented_files")) {
+      } else if (key.equals("instrumented_files") && !isDefaultProvider) {
         SkylarkClassObject insStruct =
             cast("instrumented_files", provider, SkylarkClassObject.class, loc);
         Location insLoc = insStruct.getCreationLoc();
@@ -348,7 +348,7 @@ public final class SkylarkRuleConfiguredTargetBuilder {
                 InstrumentedFilesCollector.NO_METADATA_COLLECTOR,
                 Collections.<Artifact>emptySet());
         builder.addProvider(InstrumentedFilesProvider.class, instrumentedFilesProvider);
-      } else if (registeredProviderTypes.containsKey(key)) {
+      } else if (registeredProviderTypes.containsKey(key) && !isDefaultProvider) {
         Class<? extends TransitiveInfoProvider> providerType = registeredProviderTypes.get(key);
         TransitiveInfoProvider providerField = cast(key, provider, providerType, loc);
         builder.addProvider(providerType, providerField);

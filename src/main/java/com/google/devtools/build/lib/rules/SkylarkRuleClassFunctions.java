@@ -196,16 +196,19 @@ public class SkylarkRuleClassFunctions {
     returnType = ClassObjectConstructor.class,
     doc =
         "A provider that is provided by every rule, even if it iss not returned explicitly. "
-            + "A <code>DefaultInfo</code> accepts all special parameters that can be returned "
-            + "from rule implementation function in a struct, which are <code>runfiles</code>, "
-            + "<code>data_runfiles</code>, <code>default_runfiles</code>, <code>files</code>, "
-            + "<code>output_groups</code>, <code>instrumented_files</code>, and all "
-            + "<a href=\"skylark-provider.html\">providers</a> that are available on built-in " 
-            + "rules. Each instance of the default provider contains the following standard "
-            + "fields: <code>data_runfiles</code>, <code>default_runfiles</code>, "
-            + "<code>files</code>, and <code>files_to_run</code>. The values of these fields "
-            + "are equivalent to the values of the corresponding fields of the target "
-            + "the default provider belongs to."
+            + "A <code>DefaultInfo</code> accepts the following parameters:"
+            + "<li><code>files</code></li>"
+            + "<ul><li><code>runfiles</code></li>"
+            + "<li><code>data_runfiles</code></li>"
+            + "<li><code>default_runfiles</code></li>"
+            + "</ul>"
+            + "Each instance of the default provider contains the following standard "
+            + "fields: "
+            + "<li><code>files</code></li>"
+            + "<li><code>files_to_run</code></li>"
+            + "<ul><li><code>data_runfiles</code></li>"
+            + "<li><code>default_runfiles</code></li>"
+            + "</ul>"
   )
   private static final ClassObjectConstructor defaultInfo = DefaultProvider.SKYLARK_CONSTRUCTOR;
 
