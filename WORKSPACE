@@ -27,6 +27,12 @@ bind(
     actual = "//third_party:guava",
 )
 
+# Used by //third_party/protobuf:protobuf_python
+bind(
+    name = "six",
+    actual = "//third_party/py/six",
+)
+
 # For tools/cpp/test/...
 load("//tools/cpp/test:docker_repository.bzl", "docker_repository")
 docker_repository()
@@ -52,14 +58,14 @@ bind(name = "xcrunwrapper", actual = "@bazel_tools//tools/objc:xcrunwrapper")
 
 new_local_repository(
     name = "com_google_protobuf",
-    path = "./third_party/protobuf/3.0.0/",
-    build_file = "./third_party/protobuf/3.0.0/BUILD",
+    path = "./third_party/protobuf/3.2.0/",
+    build_file = "./third_party/protobuf/3.2.0/BUILD"
 )
 
 new_local_repository(
     name = "com_google_protobuf_java",
-    path = "./third_party/protobuf/3.0.0/",
-    build_file = "./third_party/protobuf/3.0.0/com_google_protobuf_java.BUILD",
+    path = "./third_party/protobuf/3.2.0/",
+    build_file = "./third_party/protobuf/3.2.0/com_google_protobuf_java.BUILD",
 )
 
 # OpenJDK distributions used to create a version of Bazel bundled with the OpenJDK.
