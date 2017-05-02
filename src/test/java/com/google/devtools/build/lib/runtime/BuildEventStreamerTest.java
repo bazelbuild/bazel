@@ -17,6 +17,9 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.Subscribe;
@@ -58,6 +61,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
 /** Tests {@link BuildEventStreamer}. */
@@ -498,5 +502,48 @@ public class BuildEventStreamerTest extends FoundationTestCase {
         eventProtos.get(6).getNamedSetOfFiles().getFileSetsList();
     assertEquals(1, reportedArtifactSets.size());
     assertEquals(eventProtos.get(4).getId().getNamedSet(), reportedArtifactSets.get(0));
+  }
+
+  @Test
+  public void testStdoutReported() {
+    // Verify that stdout and stderr are reported in the build-event stream on progress
+    // events.
+    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
+    BuildEventStreamer streamer =
+        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
+    BuildEventStreamer.OutErrProvider outErr =
+        Mockito.mock(BuildEventStreamer.OutErrProvider.class);
+    String stdoutMsg = "Some text that was written to stdout.";
+    String stderrMsg = "The UI text that bazel wrote to stderr.";
+    when(outErr.getOut()).thenReturn(stdoutMsg);
+    when(outErr.getErr()).thenReturn(stderrMsg);
+    BuildEvent startEvent =
+        new GenericBuildEvent(
+            testId("Initial"),
+            ImmutableSet.<BuildEventId>of(ProgressEvent.INITIAL_PROGRESS_UPDATE));
+    BuildEvent unexpectedEvent =
+        new GenericBuildEvent(testId("unexpected"), ImmutableSet.<BuildEventId>of());
+
+    streamer.registerOutErrProvider(outErr);
+    streamer.buildEvent(startEvent);
+    streamer.buildEvent(unexpectedEvent);
+
+    List<BuildEvent> eventsSeen = transport.getEvents();
+    assertThat(eventsSeen).hasSize(3);
+    assertEquals(startEvent.getEventId(), eventsSeen.get(0).getEventId());
+    assertEquals(unexpectedEvent.getEventId(), eventsSeen.get(2).getEventId());
+    BuildEvent linkEvent = eventsSeen.get(1);
+    BuildEventStreamProtos.BuildEvent linkEventProto = transport.getEventProtos().get(1);
+    assertEquals(ProgressEvent.INITIAL_PROGRESS_UPDATE, linkEvent.getEventId());
+    assertTrue(
+        "Unexpected events should be linked",
+        linkEvent.getChildrenEvents().contains(unexpectedEvent.getEventId()));
+    assertEquals(stdoutMsg, linkEventProto.getProgress().getStdout());
+    assertEquals(stderrMsg, linkEventProto.getProgress().getStderr());
+
+    // As there is only one progress event, the OutErrProvider should be queried
+    // only once for stdout and stderr.
+    verify(outErr, times(1)).getOut();
+    verify(outErr, times(1)).getErr();
   }
 }

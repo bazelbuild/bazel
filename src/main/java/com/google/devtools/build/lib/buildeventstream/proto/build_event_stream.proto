@@ -136,6 +136,13 @@ message BuildEventId {
 // events are also used to be parents of events where the more logical parent
 // event cannot be posted yet as the needed information is not yet complete.
 message Progress {
+  // The next chunk of stdout that bazel produced since the last progress event
+  // or the beginning of the build.
+  string stdout = 1;
+
+  // The next chunk of stderr that bazel produced since the last progress event
+  // or the beginning of the build.
+  string stderr = 2;
 }
 
 // Payload of an event indicating that an expected event will not come, as

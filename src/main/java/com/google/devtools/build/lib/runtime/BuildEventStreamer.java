@@ -81,8 +81,25 @@ public class BuildEventStreamer implements EventHandler {
   private final Multimap<BuildEventId, BuildEvent> pendingEvents = HashMultimap.create();
   private int progressCount;
   private final CountingArtifactGroupNamer artifactGroupNamer = new CountingArtifactGroupNamer();
+  private OutErrProvider outErrProvider;
   private AbortReason abortReason = AbortReason.UNKNOWN;
   private static final Logger log = Logger.getLogger(BuildEventStreamer.class.getName());
+
+  interface OutErrProvider {
+    /**
+     * Return the chunk of stdout that was produced since the last call to this function (or the
+     * beginning of the build, for the first call). It is the responsibility of the class
+     * implementing this interface to properly synchronize with simultaneously written output.
+     */
+    String getOut();
+
+    /**
+     * Return the chunk of stderr that was produced since the last call to this function (or the
+     * beginning of the build, for the first call). It is the responsibility of the class
+     * implementing this interface to properly synchronize with simultaneously written output.
+     */
+    String getErr();
+  }
 
   private static class CountingArtifactGroupNamer implements ArtifactGroupNamer {
     private final Map<Object, Long> reportedArtifactNames = new HashMap<>();
@@ -123,6 +140,10 @@ public class BuildEventStreamer implements EventHandler {
     this.progressCount = 0;
   }
 
+  public void registerOutErrProvider(OutErrProvider outErrProvider) {
+    this.outErrProvider = outErrProvider;
+  }
+
   /**
    * Post a new event to all transports; simultaneously keep track of the events we announce to
    * still come.
@@ -149,7 +170,13 @@ public class BuildEventStreamer implements EventHandler {
         }
       } else {
         if (!announcedEvents.contains(id)) {
-          linkEvent = ProgressEvent.progressChainIn(progressCount, id);
+          String out = null;
+          String err = null;
+          if (outErrProvider != null) {
+            out = outErrProvider.getOut();
+            err = outErrProvider.getErr();
+          }
+          linkEvent = ProgressEvent.progressChainIn(progressCount, id, out, err);
           progressCount++;
           announcedEvents.addAll(linkEvent.getChildrenEvents());
           postedEvents.add(linkEvent.getEventId());
@@ -308,7 +335,13 @@ public class BuildEventStreamer implements EventHandler {
 
   private void buildComplete() {
     clearPendingEvents();
-    post(ProgressEvent.finalProgressUpdate(progressCount));
+    String out = null;
+    String err = null;
+    if (outErrProvider != null) {
+      out = outErrProvider.getOut();
+      err = outErrProvider.getErr();
+    }
+    post(ProgressEvent.finalProgressUpdate(progressCount, out, err));
     clearAnnouncedEvents();
     close();
   }
