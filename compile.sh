@@ -183,8 +183,6 @@ if [ $DO_SRCS_TEST ]; then
     | grep -v '^derived' \
     | grep -Ev "${SRCS_EXCLUDES}" \
     | grep -v '^tools/defaults/BUILD' \
-    #TODO(buchgr): Remove once protobuf update complete.
-    | grep -v 'third_party/protobuf/3.0.0/' \
     | sort -u >"${OUTPUT_DIR}/srcs-find"
 
   log "Diffing"
