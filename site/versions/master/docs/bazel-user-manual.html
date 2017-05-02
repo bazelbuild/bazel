@@ -1372,11 +1372,12 @@ $ bazel fetch //...
 
 <h4 id='flag--output_symbol_counts'><code class='flag'>--[no]output_symbol_counts</code></h4>
 <p>
-  If enabled, each gold-invoked link of a C++ executable binary will also output
+  If enabled, each gold-invoked link of a C++ executable binary will output
   a <i>symbol counts</i> file (via the <code>--print-symbol-counts</code> gold
-  option) that logs the number of symbols from each .o input that were used in
-  the binary. This can be used to track unnecessary link dependencies. The
-  symbol counts file is written to the binary's output path with the name
+  option). For each linker input, the file logs the number of symbols that were
+  defined and the number of symbols that were used in the binary.
+  This information can be used to track unnecessary link dependencies.
+  The symbol counts file is written to the binary's output path with the name
   <code>[targetname].sc</code>.
 </p>
 <p>

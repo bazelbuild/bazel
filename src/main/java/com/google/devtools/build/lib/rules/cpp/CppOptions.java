@@ -651,8 +651,8 @@ public class CppOptions extends FragmentOptions {
     defaultValue = "false",
     category = "flags",
     help =
-        "If enabled, every C++ binary linked with gold will store the number of used "
-            + "symbols per object file in a .sc file."
+        "If enabled, for every C++ binary linked with gold, the number of defined symbols "
+            + "and the number of used symbols per input file is stored in a .sc file."
   )
   public boolean symbolCounts;
 
