@@ -54,6 +54,10 @@ message BuildEventId {
   message CommandLineId {
   }
 
+  // Identifier of an event indicating the workspace status.
+  message WorkspaceStatusId {
+  }
+
   // Identifier on an event reporting on the options included in the command
   // line, both explicitly and implicitly.
   message OptionsParsedId {
@@ -120,6 +124,7 @@ message BuildEventId {
     ProgressId progress = 2;
     BuildStartedId started = 3;
     CommandLineId command_line = 11;
+    WorkspaceStatusId workspace_status = 14;
     OptionsParsedId options_parsed = 12;
     PatternExpandedId pattern = 4;
     PatternExpandedId pattern_skipped = 10;
@@ -223,6 +228,18 @@ message OptionsParsed {
   repeated string explicit_startup_options = 2;
   repeated string cmd_line = 3;
   repeated string explicit_cmd_line = 4;
+}
+
+// Payload of an event reporting the workspace status. Key-value pairs can be
+// provided by specifying the workspace_status_command to an executable that
+// returns one key-value pair per line of output (key and value separated by a
+// space).
+message WorkspaceStatus {
+  message Item {
+    string key = 1;
+    string value = 2;
+  }
+  repeated Item item = 1;
 }
 
 // Payload of the event indicating the expansion of a target pattern.
@@ -414,6 +431,7 @@ message BuildEvent {
     BuildStarted started = 5;
     CommandLine command_line = 12;
     OptionsParsed options_parsed = 13;
+    WorkspaceStatus workspace_status = 16;
     PatternExpanded expanded = 6;
     ActionExecuted action = 7;
     NamedSetOfFiles named_set_of_files = 15;

@@ -105,6 +105,11 @@ def _simple_aspect_impl(target, ctx):
 simple_aspect = aspect(implementation=_simple_aspect_impl)
 EOF
 touch BUILD
+cat > sample_workspace_status <<EOF
+#!/bin/sh
+echo SAMPLE_WORKSPACE_STATUS workspace_status_value
+EOF
+chmod  755 sample_workspace_status
 }
 
 #### TESTS #############################################################
@@ -130,6 +135,15 @@ function test_basic() {
   expect_not_log 'aborted'
   # target kind for the sh_test
   expect_log 'target_kind:.*sh'
+}
+
+function test_workspace_status() {
+  bazel test --experimental_build_event_text_file=$TEST_log \
+     --workspace_status_command=sample_workspace_status pkg:true \
+    || fail "bazel test failed"
+  expect_log_once '^workspace_status'
+  expect_log 'key.*SAMPLE_WORKSPACE_STATUS'
+  expect_log 'value.*workspace_status_value'
 }
 
 function test_suite() {

@@ -29,6 +29,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
+import com.google.devtools.build.lib.analysis.BuildInfoEvent;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.AbortedEvent;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
@@ -182,6 +183,15 @@ public class BuildEventStreamer implements EventHandler {
           postedEvents.add(linkEvent.getEventId());
         }
       }
+
+      if (event instanceof BuildInfoEvent) {
+        // The specification for BuildInfoEvent says that there may be many such events,
+        // but all except the first one should be ignored.
+        if (postedEvents.contains(id)) {
+          return;
+        }
+      }
+
       postedEvents.add(id);
       announcedEvents.addAll(event.getChildrenEvents());
     }
