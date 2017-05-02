@@ -207,7 +207,7 @@ public class BazelPythonSemantics implements PythonSemantics {
   }
 
   private static boolean isUnderWorkspace(PathFragment path) {
-    return !path.startsWith(Label.EXTERNAL_PATH_PREFIX);
+    return !path.startsWith(PathFragment.create(Label.EXTERNAL_PATH_PREFIX));
   }
 
   private static String getZipRunfilesPath(PathFragment path, PathFragment workspaceName) {

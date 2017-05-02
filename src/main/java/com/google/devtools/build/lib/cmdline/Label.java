@@ -72,7 +72,7 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
   public static final PackageIdentifier EXTERNAL_PACKAGE_IDENTIFIER =
       PackageIdentifier.createInMainRepo(EXTERNAL_PACKAGE_NAME);
 
-  public static final PathFragment EXTERNAL_PATH_PREFIX = PathFragment.create("external");
+  public static final String EXTERNAL_PATH_PREFIX = "external";
 
   private static final Interner<Label> LABEL_INTERNER = BlazeInterners.newWeakInterner();
 

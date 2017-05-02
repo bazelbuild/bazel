@@ -543,7 +543,8 @@ public class Artifact
    */
   public final PathFragment getRunfilesPath() {
     PathFragment relativePath = rootRelativePath;
-    if (relativePath.startsWith(Label.EXTERNAL_PATH_PREFIX)) {
+    if (relativePath.segmentCount() > 1
+        && relativePath.getSegment(0).equals(Label.EXTERNAL_PATH_PREFIX)) {
       // Turn external/repo/foo into ../repo/foo.
       relativePath = relativePath.relativeTo(Label.EXTERNAL_PATH_PREFIX);
       relativePath = PathFragment.create("..").getRelative(relativePath);

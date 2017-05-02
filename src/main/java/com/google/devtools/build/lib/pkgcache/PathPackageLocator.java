@@ -45,7 +45,6 @@ import java.util.concurrent.atomic.AtomicReference;
  * filesystem) idempotent.
  */
 public class PathPackageLocator implements Serializable {
-  private static final PathFragment BUILD_PATH_FRAGMENT = PathFragment.create("BUILD");
 
   public static final ImmutableSet<String> DEFAULT_TOP_LEVEL_EXCLUDES =
       ImmutableSet.of("experimental");
@@ -102,8 +101,7 @@ public class PathPackageLocator implements Serializable {
       AtomicReference<? extends UnixGlob.FilesystemCalls> cache)  {
     Preconditions.checkArgument(!packageIdentifier.getRepository().isDefault());
     if (packageIdentifier.getRepository().isMain()) {
-      return getFilePath(
-          packageIdentifier.getPackageFragment().getRelative(BUILD_PATH_FRAGMENT), cache);
+      return getFilePath(packageIdentifier.getPackageFragment().getRelative("BUILD"), cache);
     } else {
       Verify.verify(outputBase != null, String.format(
           "External package '%s' needs to be loaded but this PathPackageLocator instance does not "
@@ -113,7 +111,7 @@ public class PathPackageLocator implements Serializable {
       // is true for the invocation in GlobCache, but not for the locator.getBuildFileForPackage()
       // invocation in Parser#include().
       Path buildFile = outputBase.getRelative(
-          packageIdentifier.getSourceRoot()).getRelative(BUILD_PATH_FRAGMENT);
+          packageIdentifier.getSourceRoot()).getRelative("BUILD");
       try {
         FileStatus stat = cache.get().statIfFound(buildFile, Symlinks.FOLLOW);
         if (stat != null && stat.isFile()) {

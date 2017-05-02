@@ -110,8 +110,6 @@ public class CppCompileAction extends AbstractAction
         }
       };
 
-  private static final PathFragment BUILD_PATH_FRAGMENT = PathFragment.create("BUILD");
-
   private static final int VALIDATION_DEBUG = 0;  // 0==none, 1==warns/errors, 2==all
   private static final boolean VALIDATION_DEBUG_WARN = VALIDATION_DEBUG >= 1;
 
@@ -950,7 +948,7 @@ public class CppCompileAction extends AbstractAction
     // Still not found: see if it is in a subdir of a declared package.
     Path root = input.getRoot().getPath();
     for (Path dir = input.getPath().getParentDirectory();;) {
-      if (dir.getRelative(BUILD_PATH_FRAGMENT).exists()) {
+      if (dir.getRelative("BUILD").exists()) {
         return false;  // Bad: this is a sub-package, not a subdir of a declared package.
       }
       dir = dir.getParentDirectory();

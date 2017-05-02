@@ -34,8 +34,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 // TODO(bazel-team): This should really be named DerivedArtifacts as it contains methods for
 // final as well as intermediate artifacts.
 public final class IntermediateArtifacts {
-  private static final PathFragment OBJS = PathFragment.create("_objs");
-
   static final String LINKMAP_SUFFIX = ".linkmap";
 
   /**
@@ -277,7 +275,8 @@ public final class IntermediateArtifacts {
   }
 
   private Artifact inUniqueObjsDir(Artifact source, String extension) {
-    PathFragment uniqueDir = OBJS.getRelative(ruleContext.getLabel().getName());
+    PathFragment uniqueDir =
+        PathFragment.create("_objs").getRelative(ruleContext.getLabel().getName());
     PathFragment sourceFile = uniqueDir.getRelative(source.getRootRelativePath());
     PathFragment scopeRelativePath = FileSystemUtils.replaceExtension(sourceFile, extension);
     return scopedArtifact(scopeRelativePath);

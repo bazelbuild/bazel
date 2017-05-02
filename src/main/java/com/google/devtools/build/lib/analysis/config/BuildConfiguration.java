@@ -1168,7 +1168,7 @@ public final class BuildConfiguration {
     INCLUDE(BlazeDirectories.RELATIVE_INCLUDE_DIR),
     OUTPUT(false);
 
-    private final PathFragment nameFragment;
+    private final String name;
     private final boolean middleman;
 
     /**
@@ -1177,12 +1177,12 @@ public final class BuildConfiguration {
      * @param isMiddleman whether the root should be a middleman root or a "normal" derived root.
      */
     OutputDirectory(boolean isMiddleman) {
-      this.nameFragment = PathFragment.EMPTY_FRAGMENT;
+      this.name = "";
       this.middleman = isMiddleman;
     }
 
     OutputDirectory(String name) {
-      this.nameFragment = PathFragment.create(name);
+      this.name = name;
       this.middleman = false;
     }
 
@@ -1198,28 +1198,15 @@ public final class BuildConfiguration {
       }
       // e.g., [[execroot/repo1]/bazel-out/config/bin]
       return INTERNER.intern(
-          Root.asDerivedRoot(
-              execRoot,
-              outputDir.getRelative(nameFragment),
-              repositoryName.isMain()));
+          Root.asDerivedRoot(execRoot, outputDir.getRelative(name), repositoryName.isMain()));
     }
   }
 
-  private final BlazeDirectories directories;
-  private final String outputDirName;
-
-  // We intern the roots for non-main repositories, so we don't keep around thousands of copies of
-  // the same root.
+  // "Cache" of roots, so we don't keep around thousands of copies of the same root.
   private static Interner<Root> INTERNER = Interners.newWeakInterner();
 
-  // We precompute the roots for the main repository, since that's the common case.
-  private final Root outputDirectoryForMainRepository;
-  private final Root binDirectoryForMainRepository;
-  private final Root includeDirectoryForMainRepository;
-  private final Root genfilesDirectoryForMainRepository;
-  private final Root coverageDirectoryForMainRepository;
-  private final Root testlogsDirectoryForMainRepository;
-  private final Root middlemanDirectoryForMainRepository;
+  private final BlazeDirectories directories;
+  private final String outputDirName;
 
   /** If false, AnalysisEnviroment doesn't register any actions created by the ConfiguredTarget. */
   private final boolean actionsEnabled;
@@ -1457,22 +1444,6 @@ public final class BuildConfiguration {
     this.mnemonic = buildMnemonic();
     this.outputDirName = (options.outputDirectoryName != null)
         ? options.outputDirectoryName : mnemonic;
-
-    this.outputDirectoryForMainRepository =
-        OutputDirectory.OUTPUT.getRoot(RepositoryName.MAIN, outputDirName, directories);
-    this.binDirectoryForMainRepository =
-        OutputDirectory.BIN.getRoot(RepositoryName.MAIN, outputDirName, directories);
-    this.includeDirectoryForMainRepository =
-        OutputDirectory.INCLUDE.getRoot(RepositoryName.MAIN, outputDirName, directories);
-    this.genfilesDirectoryForMainRepository =
-        OutputDirectory.GENFILES.getRoot(RepositoryName.MAIN, outputDirName, directories);
-    this.coverageDirectoryForMainRepository =
-        OutputDirectory.COVERAGE.getRoot(RepositoryName.MAIN, outputDirName, directories);
-    this.testlogsDirectoryForMainRepository =
-        OutputDirectory.TESTLOGS.getRoot(RepositoryName.MAIN, outputDirName, directories);
-    this.middlemanDirectoryForMainRepository =
-        OutputDirectory.MIDDLEMAN.getRoot(RepositoryName.MAIN, outputDirName, directories);
-
     this.platformName = buildPlatformName();
 
     this.shellExecutable = computeShellExecutable();
@@ -2097,9 +2068,7 @@ public final class BuildConfiguration {
    * Returns the output directory for this build configuration.
    */
   public Root getOutputDirectory(RepositoryName repositoryName) {
-    return repositoryName.equals(RepositoryName.MAIN)
-        ? outputDirectoryForMainRepository
-        : OutputDirectory.OUTPUT.getRoot(repositoryName, outputDirName, directories);
+    return OutputDirectory.OUTPUT.getRoot(repositoryName, outputDirName, directories);
   }
 
   /**
@@ -2118,9 +2087,7 @@ public final class BuildConfiguration {
    * repositories (external) but will need to be fixed.
    */
   public Root getBinDirectory(RepositoryName repositoryName) {
-    return repositoryName.equals(RepositoryName.MAIN)
-        ? binDirectoryForMainRepository
-        : OutputDirectory.BIN.getRoot(repositoryName, outputDirName, directories);
+    return OutputDirectory.BIN.getRoot(repositoryName, outputDirName, directories);
   }
 
   /**
@@ -2134,9 +2101,7 @@ public final class BuildConfiguration {
    * Returns the include directory for this build configuration.
    */
   public Root getIncludeDirectory(RepositoryName repositoryName) {
-    return repositoryName.equals(RepositoryName.MAIN)
-        ? includeDirectoryForMainRepository
-        : OutputDirectory.INCLUDE.getRoot(repositoryName, outputDirName, directories);
+    return OutputDirectory.INCLUDE.getRoot(repositoryName, outputDirName, directories);
   }
 
   /**
@@ -2149,9 +2114,7 @@ public final class BuildConfiguration {
   }
 
   public Root getGenfilesDirectory(RepositoryName repositoryName) {
-    return repositoryName.equals(RepositoryName.MAIN)
-        ? genfilesDirectoryForMainRepository
-        : OutputDirectory.GENFILES.getRoot(repositoryName, outputDirName, directories);
+    return OutputDirectory.GENFILES.getRoot(repositoryName, outputDirName, directories);
   }
 
   /**
@@ -2160,18 +2123,14 @@ public final class BuildConfiguration {
    * needed for Jacoco's coverage reporting tools.
    */
   public Root getCoverageMetadataDirectory(RepositoryName repositoryName) {
-    return repositoryName.equals(RepositoryName.MAIN)
-        ? coverageDirectoryForMainRepository
-        : OutputDirectory.COVERAGE.getRoot(repositoryName, outputDirName, directories);
+    return OutputDirectory.COVERAGE.getRoot(repositoryName, outputDirName, directories);
   }
 
   /**
    * Returns the testlogs directory for this build configuration.
    */
   public Root getTestLogsDirectory(RepositoryName repositoryName) {
-    return repositoryName.equals(RepositoryName.MAIN)
-        ? testlogsDirectoryForMainRepository
-        : OutputDirectory.TESTLOGS.getRoot(repositoryName, outputDirName, directories);
+    return OutputDirectory.TESTLOGS.getRoot(repositoryName, outputDirName, directories);
   }
 
   /**
@@ -2198,9 +2157,7 @@ public final class BuildConfiguration {
    * Returns the internal directory (used for middlemen) for this build configuration.
    */
   public Root getMiddlemanDirectory(RepositoryName repositoryName) {
-    return repositoryName.equals(RepositoryName.MAIN)
-        ? middlemanDirectoryForMainRepository
-        : OutputDirectory.MIDDLEMAN.getRoot(repositoryName, outputDirName, directories);
+    return OutputDirectory.MIDDLEMAN.getRoot(repositoryName, outputDirName, directories);
   }
 
   public boolean getAllowRuntimeDepsOnNeverLink() {

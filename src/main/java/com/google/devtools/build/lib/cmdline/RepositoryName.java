@@ -139,7 +139,7 @@ public final class RepositoryName implements Serializable {
    * was invalid.
    */
   public static Pair<RepositoryName, PathFragment> fromPathFragment(PathFragment path) {
-    if (path.segmentCount() < 2 || !path.startsWith(Label.EXTERNAL_PATH_PREFIX)) {
+    if (path.segmentCount() < 2 || !path.getSegment(0).equals(Label.EXTERNAL_PATH_PREFIX)) {
       return null;
     }
     try {
@@ -202,7 +202,7 @@ public final class RepositoryName implements Serializable {
   }
 
   /**
-   * Returns if this is the main repository, that is, {@link #name} is "@".
+   * Returns if this is the default repository, that is, {@link #name} is "@".
    */
   public boolean isMain() {
     return name.equals("@");
@@ -232,7 +232,7 @@ public final class RepositoryName implements Serializable {
   public PathFragment getPathUnderExecRoot() {
     return isDefault() || isMain()
         ? PathFragment.EMPTY_FRAGMENT
-        : Label.EXTERNAL_PATH_PREFIX.getRelative(strippedName());
+        : PathFragment.create(Label.EXTERNAL_PATH_PREFIX).getRelative(strippedName());
   }
 
   /**

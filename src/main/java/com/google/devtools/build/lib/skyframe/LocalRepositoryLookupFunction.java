@@ -94,7 +94,7 @@ public class LocalRepositoryLookupFunction implements SkyFunction {
               directory.getRoot(),
               directory
                   .getRelativePath()
-                  .getRelative(PackageLookupValue.BuildFileName.WORKSPACE.getFilenameFragment()));
+                  .getChild(PackageLookupValue.BuildFileName.WORKSPACE.getFilename()));
       FileValue workspaceFileValue =
           (FileValue)
               env.getValueOrThrow(

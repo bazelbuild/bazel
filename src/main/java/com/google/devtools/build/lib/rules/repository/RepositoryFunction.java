@@ -473,7 +473,8 @@ public abstract class RepositoryFunction {
 
       if (repositoryPath.segmentCount() > 1) {
         if (rule.getRuleClass().equals(LocalRepositoryRule.NAME)
-            && repositoryPath.endsWith(BuildFileName.WORKSPACE.getFilenameFragment())) {
+            && repositoryPath.endsWith(
+                PathFragment.create(BuildFileName.WORKSPACE.getFilename()))) {
           // Ignore this, there is a dependency from LocalRepositoryFunction->WORKSPACE file already
           return;
         }
