@@ -516,6 +516,10 @@ java_library(
     visibility = [
         "//src/main/java/com/google/devtools/build/lib/rules:__subpackages__",
     ],
+    deps = [
+        ":util",
+        "//third_party:auto_value",
+    ],
 )
 
 java_library(

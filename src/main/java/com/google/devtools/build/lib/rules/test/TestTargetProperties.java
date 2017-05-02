@@ -18,14 +18,17 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.analysis.actions.ExecutionRequirements.ParseableRequirement.ValidationException;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.List;
 import java.util.Map;
 
@@ -130,10 +133,45 @@ public class TestTargetProperties {
     return isExternal;
   }
 
-  public ResourceSet getLocalResourceUsage(boolean usingLocalTestJobs) {
-    return usingLocalTestJobs
-        ? LOCAL_TEST_JOBS_BASED_RESOURCES
-        : TestTargetProperties.getResourceSetFromSize(size);
+  public ResourceSet getLocalResourceUsage(Label label, boolean usingLocalTestJobs)
+      throws UserExecException {
+    if (usingLocalTestJobs) {
+      return LOCAL_TEST_JOBS_BASED_RESOURCES;
+    }
+
+    ResourceSet testResourcesFromSize = TestTargetProperties.getResourceSetFromSize(size);
+
+    // Tests can override their CPU reservation with a "cpus:<n>" tag.
+    ResourceSet testResourcesFromTag = null;
+    for (String tag : executionInfo.keySet()) {
+      try {
+        String cpus = ExecutionRequirements.CPU.parseIfMatches(tag);
+        if (cpus != null) {
+          if (testResourcesFromTag != null) {
+            throw new UserExecException(
+                String.format(
+                    "%s has more than one '%s' tag, but duplicate tags aren't allowed",
+                    label, ExecutionRequirements.CPU.userFriendlyName()));
+          }
+          testResourcesFromTag =
+              ResourceSet.create(
+                  testResourcesFromSize.getMemoryMb(),
+                  Float.parseFloat(cpus),
+                  testResourcesFromSize.getIoUsage(),
+                  testResourcesFromSize.getLocalTestCount());
+        }
+      } catch (ValidationException e) {
+        throw new UserExecException(
+            String.format(
+                "%s has a '%s' tag, but its value '%s' didn't pass validation: %s",
+                label,
+                ExecutionRequirements.CPU.userFriendlyName(),
+                e.getTagValue(),
+                e.getMessage()));
+      }
+    }
+
+    return testResourcesFromTag != null ? testResourcesFromTag : testResourcesFromSize;
   }
 
   /**

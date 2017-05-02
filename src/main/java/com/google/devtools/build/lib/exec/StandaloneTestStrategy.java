@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
@@ -114,6 +115,12 @@ public class StandaloneTestStrategy extends TestStrategy {
     info.put("timeout", "" + getTimeout(action));
     info.putAll(action.getTestProperties().getExecutionInfo());
 
+    ResourceSet localResourceUsage =
+        action
+            .getTestProperties()
+            .getLocalResourceUsage(
+                action.getOwner().getLabel(), executionOptions.usingLocalTestJobs());
+
     Spawn spawn =
         new SimpleSpawn(
             action,
@@ -122,13 +129,11 @@ public class StandaloneTestStrategy extends TestStrategy {
             ImmutableMap.copyOf(info),
             new RunfilesSupplierImpl(
                 runfilesDir.relativeTo(execRoot), action.getExecutionSettings().getRunfiles()),
-            /*inputs=*/ImmutableList.copyOf(action.getInputs()),
-            /*tools=*/ImmutableList.<Artifact>of(),
-            /*filesetManifests=*/ImmutableList.<Artifact>of(),
+            /*inputs=*/ ImmutableList.copyOf(action.getInputs()),
+            /*tools=*/ ImmutableList.<Artifact>of(),
+            /*filesetManifests=*/ ImmutableList.<Artifact>of(),
             ImmutableList.copyOf(action.getSpawnOutputs()),
-            action
-                .getTestProperties()
-                .getLocalResourceUsage(executionOptions.usingLocalTestJobs()));
+            localResourceUsage);
 
     Executor executor = actionExecutionContext.getExecutor();
 
