@@ -21,7 +21,6 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -40,23 +39,24 @@ public class IosFrameworkRule implements RuleDefinition {
     return builder
         .requiresConfigurationFragments(ObjcConfiguration.class, AppleConfiguration.class)
         // TODO(blaze-team): IPA is not right here, should probably be just zipped framework bundle.
-        .setImplicitOutputsFunction(
-            ImplicitOutputsFunction.fromFunctions(ReleaseBundlingSupport.IPA, XcodeSupport.PBXPROJ))
+        .setImplicitOutputsFunction(ReleaseBundlingSupport.IPA)
         /* <!-- #BLAZE_RULE(ios_framework).ATTRIBUTE(binary) -->
         The binary target included in the framework bundle.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("binary", LABEL)
-            .allowedRuleClasses("ios_framework_binary")
-            .allowedFileTypes()
-            .mandatory()
-            .direct_compile_time_input()
-            .cfg(IosExtension.MINIMUM_OS_AND_SPLIT_ARCH_TRANSITION))
+        .add(
+            attr("binary", LABEL)
+                .allowedRuleClasses("ios_framework_binary")
+                .allowedFileTypes()
+                .mandatory()
+                .direct_compile_time_input()
+                .cfg(IosExtension.MINIMUM_OS_AND_SPLIT_ARCH_TRANSITION))
         /* <!-- #BLAZE_RULE(ios_framework).ATTRIBUTE(hdrs) -->
         Public headers to include in the framework bundle.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("hdrs", LABEL_LIST)
-            .direct_compile_time_input()
-            .allowedFileTypes(ObjcRuleClasses.HDRS_TYPE))
+        .add(
+            attr("hdrs", LABEL_LIST)
+                .direct_compile_time_input()
+                .allowedFileTypes(ObjcRuleClasses.HDRS_TYPE))
         .build();
   }
 

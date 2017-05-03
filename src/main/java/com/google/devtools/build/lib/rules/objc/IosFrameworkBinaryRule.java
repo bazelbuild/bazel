@@ -36,13 +36,6 @@ public class IosFrameworkBinaryRule implements RuleDefinition {
     return builder
         .requiresConfigurationFragments(ObjcConfiguration.class, J2ObjcConfiguration.class,
             AppleConfiguration.class, CppConfiguration.class)
-        /*<!-- #BLAZE_RULE(ios_framework_binary).IMPLICIT_OUTPUTS -->
-        <ul>
-         <li><code><var>name</var>.xcodeproj/project.pbxproj</code>: An Xcode project file which
-             can be used to develop or build on a Mac.</li>
-        </ul>
-        <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
-        .setImplicitOutputsFunction(XcodeSupport.PBXPROJ)
         // TODO(bazel-team): Add version fields that are passed to the linker as
         // -compatibility_version X -current_version Y and then embedded into dynamic library.
         .cfg(AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION)

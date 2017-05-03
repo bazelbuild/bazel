@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -31,8 +30,8 @@ public class ObjcLibraryRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     return builder
-        .requiresConfigurationFragments(ObjcConfiguration.class, AppleConfiguration.class,
-            CppConfiguration.class)
+        .requiresConfigurationFragments(
+            ObjcConfiguration.class, AppleConfiguration.class, CppConfiguration.class)
         /*<!-- #BLAZE_RULE(objc_library).IMPLICIT_OUTPUTS -->
         <ul>
          <li><code><var>name</var>.xcodeproj/project.pbxproj</code>: An Xcode project file which
@@ -41,8 +40,7 @@ public class ObjcLibraryRule implements RuleDefinition {
              contains the full transitive closure of library dependencies.</li>
         </ul>
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
-        .setImplicitOutputsFunction(ImplicitOutputsFunction.fromFunctions(
-            CompilationSupport.FULLY_LINKED_LIB, XcodeSupport.PBXPROJ))
+        .setImplicitOutputsFunction(CompilationSupport.FULLY_LINKED_LIB)
         .cfg(AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION)
         .build();
   }

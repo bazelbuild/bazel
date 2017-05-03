@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -32,9 +31,7 @@ public class ExperimentalObjcLibraryRule implements RuleDefinition {
     return builder
         .requiresConfigurationFragments(
             ObjcConfiguration.class, AppleConfiguration.class, CppConfiguration.class)
-        .setImplicitOutputsFunction(
-            ImplicitOutputsFunction.fromFunctions(
-                CompilationSupport.FULLY_LINKED_LIB, XcodeSupport.PBXPROJ))
+        .setImplicitOutputsFunction(CompilationSupport.FULLY_LINKED_LIB)
         .cfg(AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION)
         .build();
   }

@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -51,46 +50,44 @@ public class AppleWatch1ExtensionRule implements RuleDefinition {
         <ul>
          <li><code><var>name</var>.ipa</code>: the extension bundle as an <code>.ipa</code>
              file</li>
-         <li><code><var>name</var>.xcodeproj/project.pbxproj</code>: An Xcode project file which
-             can be used to develop or build on a Mac.</li>
-        </ul>
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
-        .setImplicitOutputsFunction(
-            ImplicitOutputsFunction.fromFunctions(ReleaseBundlingSupport.IPA, XcodeSupport.PBXPROJ))
+        .setImplicitOutputsFunction(ReleaseBundlingSupport.IPA)
         /* <!-- #BLAZE_RULE(apple_watch1_extension).ATTRIBUTE(binary) -->
         The binary target containing the logic for the watch extension. This must be an
         <code>apple_watch1_extension_binary</code> target.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("binary", LABEL)
-            .allowedRuleClasses("apple_watch_extension_binary")
-            .allowedFileTypes()
-            .mandatory()
-            .direct_compile_time_input()
-            .cfg(AppleWatch1Extension.MINIMUM_OS_AND_SPLIT_ARCH_TRANSITION))
+        .add(
+            attr("binary", LABEL)
+                .allowedRuleClasses("apple_watch_extension_binary")
+                .allowedFileTypes()
+                .mandatory()
+                .direct_compile_time_input()
+                .cfg(AppleWatch1Extension.MINIMUM_OS_AND_SPLIT_ARCH_TRANSITION))
         /* <!-- #BLAZE_RULE(apple_watch1_extension).ATTRIBUTE(app_deps) -->
         The list of targets whose resources files are bundled together to form final watch
         application bundle.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-       .add(attr(WATCH_APP_DEPS_ATTR, LABEL_LIST)
-           .direct_compile_time_input()
-           .allowedRuleClasses(ALLOWED_DEPS_RULE_CLASSES)
-           .allowedFileTypes()
-           .cfg(AppleWatch1Extension.MINIMUM_OS_AND_SPLIT_ARCH_TRANSITION))
-       /* <!-- #BLAZE_RULE(apple_watch1_extension).ATTRIBUTE(ext_families) -->
-       The device families to which the watch extension is targeted.
+        .add(
+            attr(WATCH_APP_DEPS_ATTR, LABEL_LIST)
+                .direct_compile_time_input()
+                .allowedRuleClasses(ALLOWED_DEPS_RULE_CLASSES)
+                .allowedFileTypes()
+                .cfg(AppleWatch1Extension.MINIMUM_OS_AND_SPLIT_ARCH_TRANSITION))
+        /* <!-- #BLAZE_RULE(apple_watch1_extension).ATTRIBUTE(ext_families) -->
+        The device families to which the watch extension is targeted.
 
-       This is known as the <code>TARGETED_DEVICE_FAMILY</code> build setting
-       in Xcode project files. It is a list of one or more of the strings
-       <code>"iphone"</code> and <code>"ipad"</code>.
+        This is known as the <code>TARGETED_DEVICE_FAMILY</code> build setting
+        in Xcode project files. It is a list of one or more of the strings
+        <code>"iphone"</code> and <code>"ipad"</code>.
 
-       <p>By default this is set to <code>"iphone"</code>. If it is explicitly specified it may not
-       be empty.</p>
-       <p>The watch application is always built for <code>"watch"</code> for device builds and
-       <code>"iphone, watch"</code> for simulator builds.
-       <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-       .add(
-           attr(WATCH_EXT_FAMILIES_ATTR, STRING_LIST)
-               .value(ImmutableList.of(TargetDeviceFamily.IPHONE.getNameInRule())))
+        <p>By default this is set to <code>"iphone"</code>. If it is explicitly specified it may not
+        be empty.</p>
+        <p>The watch application is always built for <code>"watch"</code> for device builds and
+        <code>"iphone, watch"</code> for simulator builds.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(
+            attr(WATCH_EXT_FAMILIES_ATTR, STRING_LIST)
+                .value(ImmutableList.of(TargetDeviceFamily.IPHONE.getNameInRule())))
         .build();
   }
 

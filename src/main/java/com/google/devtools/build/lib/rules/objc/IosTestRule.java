@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
 import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -51,18 +50,17 @@ public class IosTestRule implements RuleDefinition {
     final Label mcov = env.getToolsLabel("//tools/objc:mcov");
     return builder
         .requiresConfigurationFragments(
-            ObjcConfiguration.class, J2ObjcConfiguration.class, AppleConfiguration.class,
+            ObjcConfiguration.class,
+            J2ObjcConfiguration.class,
+            AppleConfiguration.class,
             CppConfiguration.class)
         /*<!-- #BLAZE_RULE(ios_test).IMPLICIT_OUTPUTS -->
         <ul>
         <li><code><var>name</var>.ipa</code>: the test bundle as an
         <code>.ipa</code> file
-        <li><code><var>name</var>.xcodeproj/project.pbxproj: An Xcode project file which can be
-        used to develop or build on a Mac.</li>
         </ul>
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
-        .setImplicitOutputsFunction(
-            ImplicitOutputsFunction.fromFunctions(ReleaseBundlingSupport.IPA, XcodeSupport.PBXPROJ))
+        .setImplicitOutputsFunction(ReleaseBundlingSupport.IPA)
         /* <!-- #BLAZE_RULE(ios_test).ATTRIBUTE(target_device) -->
         The device against which to run the test.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
