@@ -61,6 +61,10 @@ public final class SkylarkProviders implements TransitiveInfoProvider {
     return skylarkProviders.keySet();
   }
 
+  public boolean isEmpty() {
+    return skylarkProviders.isEmpty() && declaredProviders.isEmpty();
+  }
+
   /** Returns the keys for the declared providers. */
   public ImmutableCollection<ClassObjectConstructor.Key> getDeclaredProviderKeys() {
     return declaredProviders.keySet();

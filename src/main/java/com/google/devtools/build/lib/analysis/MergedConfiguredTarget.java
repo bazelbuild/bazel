@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.util.ArrayList;
@@ -58,15 +57,6 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
 
     return provider;
   }
-
-  @Override
-  public ImmutableCollection<String> getKeys() {
-    return ImmutableList.<String>builder()
-        .addAll(super.getKeys())
-        .addAll(getProvider(SkylarkProviders.class).getKeys())
-        .build();
-  }
-
 
   /** Creates an instance based on a configured target and a set of aspects. */
   public static ConfiguredTarget of(ConfiguredTarget base, Iterable<ConfiguredAspect> aspects)

@@ -150,22 +150,20 @@ public abstract class AbstractConfiguredTarget
 
   @Override
   public ImmutableCollection<String> getKeys() {
+    ImmutableList.Builder<String> result = ImmutableList.builder();
+    result.addAll(ImmutableList.of(
+        DATA_RUNFILES_FIELD,
+        DEFAULT_RUNFILES_FIELD,
+        LABEL_FIELD,
+        FILES_FIELD,
+        FilesToRunProvider.SKYLARK_NAME));
     if (getProvider(OutputGroupProvider.class) != null) {
-      return ImmutableList.of(
-          DATA_RUNFILES_FIELD,
-          DEFAULT_RUNFILES_FIELD,
-          LABEL_FIELD,
-          FILES_FIELD,
-          FilesToRunProvider.SKYLARK_NAME,
-          OutputGroupProvider.SKYLARK_NAME);
-    } else {
-      return ImmutableList.of(
-          DATA_RUNFILES_FIELD,
-          DEFAULT_RUNFILES_FIELD,
-          LABEL_FIELD,
-          FILES_FIELD,
-          FilesToRunProvider.SKYLARK_NAME);
+      result.add(OutputGroupProvider.SKYLARK_NAME);
     }
+    if (getProvider(SkylarkProviders.class) != null) {
+      result.addAll(getProvider(SkylarkProviders.class).getKeys());
+    }
+    return result.build();
   }
 
   private DefaultProvider getDefaultProvider() {
