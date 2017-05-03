@@ -217,7 +217,8 @@ public class ResourceSymbols {
 
     Path file = packageOut.resolve(SdkConstants.FN_RESOURCE_CLASS);
 
-    try (BufferedWriter writer = Files.newBufferedWriter(file, StandardOpenOption.CREATE_NEW)) {
+    try (BufferedWriter writer =
+        Files.newBufferedWriter(file, StandardCharsets.UTF_8, StandardOpenOption.CREATE_NEW)) {
 
       writer.write("/* AUTO-GENERATED FILE.  DO NOT MODIFY.\n");
       writer.write(" *\n");
