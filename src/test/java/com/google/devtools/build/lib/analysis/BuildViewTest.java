@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestBase;
@@ -49,7 +48,6 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
-import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -1180,6 +1178,7 @@ public class BuildViewTest extends BuildViewTestBase {
       update("//okay");
       fail();
     } catch (ViewCreationFailedException e) {
+      // Expected.
     }
     assertContainsEventWithFrequency("name 'undefined_symbol' is not defined", 1);
     assertContainsEventWithFrequency(
@@ -1237,31 +1236,6 @@ public class BuildViewTest extends BuildViewTestBase {
     }
     assertContainsEvent("//foo:ccbin: dependency //foo:javalib from attribute \"data\" is missing "
         + "required config fragments: Jvm");
-  }
-
-  @Test
-  public void lateBoundSplitAttributeConfigs() throws Exception {
-    useRuleClassProvider(LateBoundSplitUtil.getRuleClassProvider());
-    // Register the latebound split fragment with the config creation environment.
-    useConfigurationFactory(new ConfigurationFactory(
-        ruleClassProvider.getConfigurationCollectionFactory(),
-        ruleClassProvider.getConfigurationFragments()));
-
-    scratch.file("foo/BUILD",
-        "rule_with_latebound_split(",
-        "    name = 'foo')",
-        "rule_with_test_fragment(",
-        "    name = 'latebound_dep')");
-    update("//foo:foo");
-    assertNotNull(getConfiguredTarget("//foo:foo"));
-    Iterable<ConfiguredTarget> deps = SkyframeExecutorTestUtils.getExistingConfiguredTargets(
-        skyframeExecutor, Label.parseAbsolute("//foo:latebound_dep"));
-    assertThat(deps).hasSize(2);
-    assertThat(
-        ImmutableList.of(
-            LateBoundSplitUtil.getOptions(Iterables.get(deps, 0).getConfiguration()).fooFlag,
-            LateBoundSplitUtil.getOptions(Iterables.get(deps, 1).getConfiguration()).fooFlag))
-        .containsExactly("one", "two");
   }
 
   /**
