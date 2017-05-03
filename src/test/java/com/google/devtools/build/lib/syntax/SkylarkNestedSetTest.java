@@ -44,6 +44,17 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testLegacyConstructorDeprecation() throws Exception {
+    env = newEnvironmentWithSkylarkOptions("--incompatible_depset_constructor=true");
+    try {
+      eval("s = set([1, 2, 3], order='postorder')");
+      Assert.fail("`set` should have failed");
+    } catch (EvalException e) {
+      assertThat(e.getMessage()).contains("The `set` constructor for depsets is deprecated");
+    }
+  }
+
+  @Test
   public void testConstructor() throws Exception {
     eval("s = depset(order='default')");
     assertThat(lookup("s")).isInstanceOf(SkylarkNestedSet.class);

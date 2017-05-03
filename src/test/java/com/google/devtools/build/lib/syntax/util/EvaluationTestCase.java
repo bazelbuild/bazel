@@ -92,19 +92,25 @@ public class EvaluationTestCase {
   }
 
   /**
-   * Creates a new Environment suitable for the test case. Subclasses may override it
-   * to fit their purpose and e.g. call newBuildEnvironment or newSkylarkEnvironment;
-   * or they may play with the testMode to run tests in either or both kinds of Environment.
-   * Note that all Environment-s may share the same Mutability, so don't close it.
+   * Creates a new Environment suitable for the test case. Subclasses may override it to fit their
+   * purpose and e.g. call newBuildEnvironment or newSkylarkEnvironment; or they may play with the
+   * testMode to run tests in either or both kinds of Environment. Note that all Environment-s may
+   * share the same Mutability, so don't close it.
+   *
    * @return a fresh Environment.
    */
   public Environment newEnvironment() throws Exception {
+    return newEnvironmentWithSkylarkOptions();
+  }
+
+  protected Environment newEnvironmentWithSkylarkOptions(String... skylarkOptions)
+      throws Exception {
     if (testMode == null) {
       throw new IllegalArgumentException(
           "TestMode is null. Please set a Testmode via setMode() or set the "
               + "Environment manually by overriding newEnvironment()");
     }
-    return testMode.createEnvironment(getEventHandler(), null);
+    return testMode.createEnvironment(getEventHandler(), skylarkOptions);
   }
 
   /**

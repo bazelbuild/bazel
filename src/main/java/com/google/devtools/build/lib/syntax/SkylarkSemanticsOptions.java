@@ -42,4 +42,12 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED
   )
   public boolean skylarkFlagTestCanary;
+
+  @Option(
+    name = "incompatible_depset_constructor",
+    defaultValue = "false",
+    category = "incompatible changes",
+    help = "If set to true, disables the deprecated `set` constructor for depsets."
+  )
+  public boolean incompatibleDepsetConstructor;
 }
