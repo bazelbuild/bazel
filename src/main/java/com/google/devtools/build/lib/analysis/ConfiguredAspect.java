@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.ClassObjectConstructor.Key;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Arrays;
@@ -91,6 +92,33 @@ public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> 
   public <P extends TransitiveInfoProvider> P getProvider(Class<P> providerClass) {
     return providers.getProvider(providerClass);
   }
+
+  public Object getProvider(SkylarkProviderIdentifier id) {
+    if (id.isLegacy()) {
+      return get(id.getLegacyId());
+    } else {
+      return get(id.getKey());
+    }
+  }
+
+  public SkylarkClassObject get(ClassObjectConstructor.Key key) {
+    if (OutputGroupProvider.SKYLARK_CONSTRUCTOR.getKey().equals(key)) {
+      return getProvider(OutputGroupProvider.class);
+    }
+    SkylarkProviders skylarkProviders = getProvider(SkylarkProviders.class);
+    return skylarkProviders != null ? skylarkProviders.getDeclaredProvider(key) : null;
+  }
+
+  public Object get(String legacyKey) {
+    if (OutputGroupProvider.SKYLARK_NAME.equals(legacyKey)) {
+      return getProvider(OutputGroupProvider.class);
+    }
+    SkylarkProviders skylarkProviders = getProvider(SkylarkProviders.class);
+    return skylarkProviders != null
+        ? skylarkProviders.get(SkylarkProviderIdentifier.forLegacy(legacyKey))
+        : null;
+  }
+
 
   @Override
   public UnmodifiableIterator<TransitiveInfoProvider> iterator() {
@@ -210,14 +238,23 @@ public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> 
         throw new EvalException(
             constructor.getLocation(), "All providers must be top level values");
       }
-      skylarkDeclaredProvidersBuilder.put(constructor.getKey(), declaredProvider);
+      ClassObjectConstructor.Key key = constructor.getKey();
+      addDeclaredProvider(key, declaredProvider);
       return this;
+    }
+
+    private void addDeclaredProvider(Key key, SkylarkClassObject declaredProvider) {
+      if (OutputGroupProvider.SKYLARK_CONSTRUCTOR.getKey().equals(key)) {
+        addProvider(OutputGroupProvider.class, (OutputGroupProvider) declaredProvider);
+      } else {
+        skylarkDeclaredProvidersBuilder.put(key, declaredProvider);
+      }
     }
 
     public Builder addNativeDeclaredProvider(SkylarkClassObject declaredProvider) {
       ClassObjectConstructor constructor = declaredProvider.getConstructor();
       Preconditions.checkState(constructor.isExported());
-      skylarkDeclaredProvidersBuilder.put(constructor.getKey(), declaredProvider);
+      addDeclaredProvider(constructor.getKey(), declaredProvider);
       return this;
     }
 
@@ -234,8 +271,7 @@ public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> 
           throw new IllegalStateException(
               "OutputGroupProvider was provided explicitly; do not use addOutputGroup");
         }
-        skylarkDeclaredProvidersBuilder.put(
-            OutputGroupProvider.SKYLARK_CONSTRUCTOR.getKey(),
+        addDeclaredProvider(OutputGroupProvider.SKYLARK_CONSTRUCTOR.getKey(),
             new OutputGroupProvider(outputGroups.build()));
       }
 

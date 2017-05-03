@@ -79,15 +79,6 @@ public abstract class AbstractConfiguredTarget
     return configuration;
   }
 
-  @Nullable
-  @Override
-  public Object get(SkylarkProviderIdentifier id) {
-    if (id.isLegacy()) {
-      return get(id.getLegacyId());
-    }
-    return get(id.getKey());
-  }
-
   @Override
   public Label getLabel() {
     return getTarget().getLabel();
@@ -159,12 +150,22 @@ public abstract class AbstractConfiguredTarget
 
   @Override
   public ImmutableCollection<String> getKeys() {
-    return ImmutableList.of(
-        DATA_RUNFILES_FIELD,
-        DEFAULT_RUNFILES_FIELD,
-        LABEL_FIELD,
-        FILES_FIELD,
-        FilesToRunProvider.SKYLARK_NAME);
+    if (getProvider(OutputGroupProvider.class) != null) {
+      return ImmutableList.of(
+          DATA_RUNFILES_FIELD,
+          DEFAULT_RUNFILES_FIELD,
+          LABEL_FIELD,
+          FILES_FIELD,
+          FilesToRunProvider.SKYLARK_NAME,
+          OutputGroupProvider.SKYLARK_NAME);
+    } else {
+      return ImmutableList.of(
+          DATA_RUNFILES_FIELD,
+          DEFAULT_RUNFILES_FIELD,
+          LABEL_FIELD,
+          FILES_FIELD,
+          FilesToRunProvider.SKYLARK_NAME);
+    }
   }
 
   private DefaultProvider getDefaultProvider() {
@@ -178,6 +179,16 @@ public abstract class AbstractConfiguredTarget
     }
     return defaultProvider.get();
   }
+
+  @Nullable
+  @Override
+  public Object get(SkylarkProviderIdentifier id) {
+    if (id.isLegacy()) {
+      return get(id.getLegacyId());
+    }
+    return get(id.getKey());
+  }
+
 
   /** Returns a declared provider provided by this target. Only meant to use from Skylark. */
   @Nullable
@@ -195,4 +206,17 @@ public abstract class AbstractConfiguredTarget
     }
     return null;
   }
+
+  /**
+   * Returns a value provided by this target. Only meant to use from Skylark.
+   */
+  @Override
+  public final Object get(String providerKey) {
+    if (OutputGroupProvider.SKYLARK_NAME.equals(providerKey)) {
+      return getProvider(OutputGroupProvider.class);
+    }
+    SkylarkProviders skylarkProviders = getProvider(SkylarkProviders.class);
+    return skylarkProviders != null ? skylarkProviders.getValue(providerKey) : null;
+  }
+
 }

@@ -35,12 +35,6 @@ public final class EnvironmentGroupConfiguredTarget extends AbstractConfiguredTa
     return (EnvironmentGroup) super.getTarget();
   }
 
-  @Override
-  public Object get(String providerKey) {
-    // No providers.
-    return null;
-  }
-
   @Nullable
   @Override
   public SkylarkClassObject get(ClassObjectConstructor.Key providerKey) {

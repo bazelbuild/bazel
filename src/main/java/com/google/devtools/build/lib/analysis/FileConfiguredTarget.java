@@ -77,9 +77,4 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
     AnalysisUtils.checkProvider(provider);
     return providers.getProvider(provider);
   }
-
-  @Override
-  public Object get(String providerKey) {
-    return null;
-  }
 }

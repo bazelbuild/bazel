@@ -388,8 +388,7 @@ public final class ConfiguredTargetFactory {
     }
 
     for (SkylarkProviderIdentifier providerId : advertisedProviders.getSkylarkProviders()) {
-      SkylarkProviders skylarkProviders = configuredAspect.getProvider(SkylarkProviders.class);
-      if (skylarkProviders == null || skylarkProviders.get(providerId) == null) {
+      if (configuredAspect.getProvider(providerId) == null) {
         eventHandler.handle(Event.error(
             target.getLocation(),
             String.format(

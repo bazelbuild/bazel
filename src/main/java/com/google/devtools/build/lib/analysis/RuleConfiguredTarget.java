@@ -100,14 +100,6 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     return providers.getProvider(providerClass);
   }
 
-  /**
-   * Returns a value provided by this target. Only meant to use from Skylark.
-   */
-  @Override
-  public Object get(String providerKey) {
-    return getProvider(SkylarkProviders.class).getValue(providerKey);
-  }
-
   @Override
   public final Rule getTarget() {
     return (Rule) super.getTarget();

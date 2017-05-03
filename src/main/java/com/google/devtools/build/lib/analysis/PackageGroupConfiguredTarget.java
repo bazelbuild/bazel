@@ -67,11 +67,6 @@ public final class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
     return packageSpecifications;
   }
 
-  @Override
-  public Object get(String providerKey) {
-    // No providers.
-    return null;
-  }
 
   @Nullable
   @Override

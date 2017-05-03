@@ -15,10 +15,7 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -48,12 +45,6 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
     super(base.getTarget(), base.getConfiguration());
     this.base = base;
     this.providers = providers;
-  }
-
-  /** Returns a value provided by this target. Only meant to use from Skylark. */
-  @Override
-  public Object get(String providerKey) {
-    return getProvider(SkylarkProviders.class).getValue(providerKey);
   }
 
   @Override
@@ -90,22 +81,8 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
         OutputGroupProvider.merge(getAllOutputGroupProviders(base, aspects));
 
     // Merge Skylark providers.
-    ImmutableMap<String, Object> premergedLegacyProviders =
-        mergedOutputGroupProvider == null
-            ? ImmutableMap.<String, Object>of()
-            : ImmutableMap.<String, Object>of(
-                OutputGroupProvider.SKYLARK_NAME, mergedOutputGroupProvider);
-
-    ImmutableMap<SkylarkClassObjectConstructor.Key, SkylarkClassObject> premergedProviders =
-        mergedOutputGroupProvider == null
-        ? ImmutableMap.<SkylarkClassObjectConstructor.Key, SkylarkClassObject>of()
-        : ImmutableMap.<SkylarkClassObjectConstructor.Key, SkylarkClassObject>of(
-            OutputGroupProvider.SKYLARK_CONSTRUCTOR.getKey(), mergedOutputGroupProvider);
     SkylarkProviders mergedSkylarkProviders =
-        SkylarkProviders.merge(
-            premergedLegacyProviders,
-            premergedProviders,
-            getAllProviders(base, aspects, SkylarkProviders.class));
+        SkylarkProviders.merge(getAllProviders(base, aspects, SkylarkProviders.class));
 
     // Merge extra-actions provider.
     ExtraActionArtifactsProvider mergedExtraActionProviders = ExtraActionArtifactsProvider.merge(
