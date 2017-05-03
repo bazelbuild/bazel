@@ -986,11 +986,9 @@ public final class SkylarkRuleContext implements SkylarkValue {
   public String expandMakeVariables(String attributeName, String command,
       final Map<String, String> additionalSubstitutions) throws EvalException {
     checkMutable("expand_make_variables");
-    return ruleContext.expandMakeVariables(
-        attributeName,
-        command,
-        new ConfigurationMakeVariableContext(
-            ruleContext, ruleContext.getRule().getPackage(), ruleContext.getConfiguration()) {
+    return ruleContext.expandMakeVariables(attributeName,
+        command, new ConfigurationMakeVariableContext(ruleContext.getRule().getPackage(),
+            ruleContext.getConfiguration()) {
           @Override
           public String lookupMakeVariable(String name) throws ExpansionException {
             if (additionalSubstitutions.containsKey(name)) {

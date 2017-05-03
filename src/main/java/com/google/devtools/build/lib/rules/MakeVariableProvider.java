@@ -15,37 +15,34 @@
 package com.google.devtools.build.lib.rules;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
-import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import java.util.TreeMap;
 
 /** Provides access to make variables from the current fragments. */
-@SkylarkModule(name = "MakeVariables", doc = "Make variables exposed by the current target.")
 @Immutable
-public final class MakeVariableProvider extends SkylarkClassObject
-    implements TransitiveInfoProvider {
-  public static final String SKYLARK_NAME = "MakeVariableInfo";
-
-  public static final ClassObjectConstructor SKYLARK_CONSTRUCTOR =
-      new NativeClassObjectConstructor(SKYLARK_NAME) {};
-
+public final class MakeVariableProvider implements TransitiveInfoProvider {
   private final ImmutableMap<String, String> makeVariables;
 
   public MakeVariableProvider(ImmutableMap<String, String> makeVariables) {
-    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of());
     this.makeVariables = makeVariables;
   }
 
-  @SkylarkCallable(
-    name = "make_variables",
-    doc = "Returns the make variables defined by this target.",
-    structField = true
-  )
   public ImmutableMap<String, String> getMakeVariables() {
     return makeVariables;
+  }
+
+  public static ImmutableMap<String, String> getToolchainMakeVariables(
+      RuleContext ruleContext, String attributeName) {
+    // Cannot be an ImmutableMap.Builder because we want to support duplicate keys
+    TreeMap<String, String> result = new TreeMap<>();
+    for (MakeVariableProvider provider :
+        ruleContext.getPrerequisites(attributeName, Mode.TARGET, MakeVariableProvider.class)) {
+      result.putAll(provider.getMakeVariables());
+    }
+
+    return ImmutableMap.copyOf(result);
   }
 }

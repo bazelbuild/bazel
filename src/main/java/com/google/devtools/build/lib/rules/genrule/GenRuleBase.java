@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.AliasProvider;
+import com.google.devtools.build.lib.rules.MakeVariableProvider;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.java.JavaHelper;
@@ -289,17 +290,12 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     private final NestedSet<Artifact> resolvedSrcs;
     private final NestedSet<Artifact> filesToBuild;
 
-    private static final ImmutableList<String> makeVariableAttributes =
-        ImmutableList.of(":cc_toolchain", "toolchains");
-
-    public CommandResolverContext(
-        RuleContext ruleContext,
-        NestedSet<Artifact> resolvedSrcs,
+    public CommandResolverContext(RuleContext ruleContext, NestedSet<Artifact> resolvedSrcs,
         NestedSet<Artifact> filesToBuild) {
       super(
-          ruleContext.getMakeVariables(makeVariableAttributes),
           ruleContext.getRule().getPackage(),
-          ruleContext.getConfiguration());
+          ruleContext.getConfiguration(),
+          MakeVariableProvider.getToolchainMakeVariables(ruleContext, "toolchains"));
       this.ruleContext = ruleContext;
       this.resolvedSrcs = resolvedSrcs;
       this.filesToBuild = filesToBuild;
@@ -348,9 +344,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
         }
       } else if (JDK_MAKE_VARIABLE.matcher("$(" + name + ")").find()) {
         return new ConfigurationMakeVariableContext(
-                ruleContext.getMakeVariables(makeVariableAttributes),
-                ruleContext.getTarget().getPackage(),
-                ruleContext.getHostConfiguration())
+            ruleContext.getTarget().getPackage(), ruleContext.getHostConfiguration())
             .lookupMakeVariable(name);
       } else {
         return super.lookupMakeVariable(name);

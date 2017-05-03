@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.MakeVariableExpander.ExpansionException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -30,35 +29,27 @@ import java.util.Map;
  */
 public class ConfigurationMakeVariableContext implements MakeVariableExpander.Context {
   private final Package pkg;
-  private final ImmutableMap<String, String> ruleEnv;
-  private final ImmutableMap<String, String> commandLineEnv;
-  private final ImmutableMap<String, String> globalEnv;
+  private final Map<String, String> toolchainEnv;
+  private final Map<String, String> commandLineEnv;
+  private final Map<String, String> globalEnv;
   private final String platform;
 
-  // TODO(b/37567440): Remove when Skylark callers can be updated to get this from
-  // CcToolchainProvider.
-  private static final ImmutableList<String> defaultMakeVariableAttributes =
-      ImmutableList.of(":cc_toolchain");
-
-  public ConfigurationMakeVariableContext(
-      RuleContext ruleContext, Package pkg, BuildConfiguration configuration) {
-    this(ruleContext.getMakeVariables(defaultMakeVariableAttributes), pkg, configuration);
+  public ConfigurationMakeVariableContext(Package pkg, BuildConfiguration configuration) {
+    this(pkg, configuration, ImmutableMap.<String, String>of());
   }
 
-  public ConfigurationMakeVariableContext(
-      ImmutableMap<String, String> ruleMakeVariables,
-      Package pkg,
-      BuildConfiguration configuration) {
+  public ConfigurationMakeVariableContext(Package pkg, BuildConfiguration configuration,
+      ImmutableMap<String, String> toolchainEnv) {
     this.pkg = pkg;
-    this.ruleEnv = ruleMakeVariables;
-    this.commandLineEnv = ImmutableMap.copyOf(configuration.getCommandLineBuildVariables());
-    this.globalEnv = ImmutableMap.copyOf(configuration.getGlobalMakeEnvironment());
-    this.platform = configuration.getPlatformName();
+    this.toolchainEnv = toolchainEnv;
+    commandLineEnv = configuration.getCommandLineBuildVariables();
+    globalEnv = configuration.getGlobalMakeEnvironment();
+    platform = configuration.getPlatformName();
   }
 
   @Override
   public String lookupMakeVariable(String var) throws ExpansionException {
-    String value = ruleEnv.get(var);
+    String value = toolchainEnv.get(var);
     if (value == null) {
       value = commandLineEnv.get(var);
     }
@@ -82,7 +73,6 @@ public class ConfigurationMakeVariableContext implements MakeVariableExpander.Co
     map.putAll(pkg.getAllMakeVariables(platform));
     map.putAll(globalEnv);
     map.putAll(commandLineEnv);
-    map.putAll(ruleEnv);
     return SkylarkDict.<String, String>copyOf(null, map);
   }
 }

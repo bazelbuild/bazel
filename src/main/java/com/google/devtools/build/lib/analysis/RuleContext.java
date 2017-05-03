@@ -77,7 +77,6 @@ import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.AliasProvider;
-import com.google.devtools.build.lib.rules.MakeVariableProvider;
 import com.google.devtools.build.lib.rules.fileset.FilesetProvider;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.syntax.ClassObject;
@@ -1018,30 +1017,6 @@ public final class RuleContext extends TargetContext
     }
   }
 
-  public ImmutableMap<String, String> getMakeVariables(Iterable<String> attributeNames) {
-    // Using an ImmutableBuilder to complain about duplicate keys. This traversal order of
-    // getPrerequisites isn't well-defined, so this makes sure providers don't seceretly stomp on
-    // each other.
-    ImmutableMap.Builder<String, String> makeVariableBuilder = ImmutableMap.builder();
-    ImmutableSet.Builder<MakeVariableProvider> makeVariableProvidersBuilder =
-        ImmutableSet.builder();
-
-    for (String attributeName : attributeNames) {
-      // TODO(b/37567440): Remove this continue statement.
-      if (!attributes().has(attributeName)) {
-        continue;
-      }
-      makeVariableProvidersBuilder.addAll(
-          getPrerequisites(attributeName, Mode.TARGET, MakeVariableProvider.class));
-    }
-
-    for (MakeVariableProvider makeVariableProvider : makeVariableProvidersBuilder.build()) {
-      makeVariableBuilder.putAll(makeVariableProvider.getMakeVariables());
-    }
-
-    return makeVariableBuilder.build();
-  }
-
   /**
    * Return a context that maps Make variable names (string) to values (string).
    *
@@ -1049,8 +1024,8 @@ public final class RuleContext extends TargetContext
    **/
   public ConfigurationMakeVariableContext getConfigurationMakeVariableContext() {
     if (configurationMakeVariableContext == null) {
-      configurationMakeVariableContext =
-          new ConfigurationMakeVariableContext(this, getRule().getPackage(), getConfiguration());
+      configurationMakeVariableContext = new ConfigurationMakeVariableContext(
+          getRule().getPackage(), getConfiguration());
     }
     return configurationMakeVariableContext;
   }
@@ -1113,8 +1088,8 @@ public final class RuleContext extends TargetContext
    */
   public String expandSingleMakeVariable(String attrName, String expression) {
     try {
-      return MakeVariableExpander.expandSingleVariable(
-          expression, getConfigurationMakeVariableContext());
+      return MakeVariableExpander.expandSingleVariable(expression,
+          new ConfigurationMakeVariableContext(getRule().getPackage(), getConfiguration()));
     } catch (MakeVariableExpander.ExpansionException e) {
       attributeError(attrName, e.getMessage());
       return expression;
