@@ -346,41 +346,42 @@ public final class PackageFactory {
 
   private final Package.Builder.Helper packageBuilderHelper;
 
-  /** Factory for {@link PackageFactory} instances. Intended to only be used by unit tests. */
+  /** Builder for {@link PackageFactory} instances. Intended to only be used by unit tests. */
   @VisibleForTesting
-  public abstract static class FactoryForTesting {
-    public final PackageFactory create(RuleClassProvider ruleClassProvider, FileSystem fs) {
-      return create(ruleClassProvider, null, ImmutableList.<EnvironmentExtension>of(), fs);
+  public abstract static class BuilderForTesting {
+    protected final String version = "test";
+    protected Iterable<EnvironmentExtension> environmentExtensions = ImmutableList.of();
+    protected Map<String, String> platformSetRegexps = null;
+    protected Function<RuleClass, AttributeContainer> attributeContainerFactory =
+        AttributeContainer.ATTRIBUTE_CONTAINER_FACTORY;
+    protected boolean doChecksForTesting = true;
+
+    public BuilderForTesting setEnvironmentExtensions(
+        Iterable<EnvironmentExtension> environmentExtensions) {
+      this.environmentExtensions = environmentExtensions;
+      return this;
     }
 
-    public final PackageFactory create(
-        RuleClassProvider ruleClassProvider,
-        EnvironmentExtension environmentExtension,
-        FileSystem fs) {
-      return create(ruleClassProvider, null, ImmutableList.of(environmentExtension), fs);
+    public BuilderForTesting setPlatformSetRegexps(Map<String, String> platformSetRegexps) {
+      this.platformSetRegexps = platformSetRegexps;
+      return this;
     }
 
-    public final PackageFactory create(
-        RuleClassProvider ruleClassProvider,
-        Map<String, String> platformSetRegexps,
-        Iterable<EnvironmentExtension> environmentExtensions,
-        FileSystem fs) {
-      return create(
-          ruleClassProvider,
-          platformSetRegexps,
-          AttributeContainer.ATTRIBUTE_CONTAINER_FACTORY,
-          environmentExtensions,
-          "test",
-          fs);
+    public BuilderForTesting disableChecks() {
+      this.doChecksForTesting = false;
+      return this;
     }
 
-    protected abstract PackageFactory create(
-        RuleClassProvider ruleClassProvider,
-        Map<String, String> platformSetRegexps,
-        Function<RuleClass, AttributeContainer> attributeContainerFactory,
-        Iterable<EnvironmentExtension> environmentExtensions,
-        String version,
-        FileSystem fs);
+    public abstract PackageFactory build(RuleClassProvider ruleClassProvider, FileSystem fs);
+  }
+
+  /**
+   * Factory for {@link PackageFactory.BuilderForTesting} instances. Intended to only be used by
+   * unit tests.
+   */
+  @VisibleForTesting
+  public abstract static class BuilderFactoryForTesting {
+    public abstract BuilderForTesting builder();
   }
 
   /**

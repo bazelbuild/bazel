@@ -64,6 +64,7 @@ java_library(
     srcs = glob(["testutil/*.java"]),
     visibility = ["//visibility:public"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:BazelPackageLoader",
         "//src/main/java/com/google/devtools/build/lib:bazel-main",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",
@@ -339,6 +340,7 @@ java_library(
         ":foundations_testutil",
         ":packages_testutil",
         ":testutil",
+        "//src/main/java/com/google/devtools/build/lib:BazelPackageLoader",
         "//src/main/java/com/google/devtools/build/lib:android-rules",
         "//src/main/java/com/google/devtools/build/lib:bazel-main",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
@@ -581,6 +583,7 @@ java_library(
         ":foundations_testutil",
         ":testutil",
         "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
+        "//src/main/java/com/google/devtools/build/lib:BazelPackageLoader",
         "//src/main/java/com/google/devtools/build/lib:bazel-main",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",

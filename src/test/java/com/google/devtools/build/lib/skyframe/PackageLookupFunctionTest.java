@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
@@ -117,10 +118,12 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
         new WorkspaceFileFunction(
             ruleClassProvider,
             analysisMock
-                .getPackageFactoryForTesting()
-                .create(
+                .getPackageFactoryBuilderForTesting()
+                .setEnvironmentExtensions(
+                    ImmutableList.<EnvironmentExtension>of(
+                        new PackageFactory.EmptyEnvironmentExtension()))
+                .build(
                     ruleClassProvider,
-                    new PackageFactory.EmptyEnvironmentExtension(),
                     scratch.getFileSystem()),
             directories));
     skyFunctions.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction());

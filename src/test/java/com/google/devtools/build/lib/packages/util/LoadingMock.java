@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.packages.util;
 
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
-import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.skyframe.packages.PackageFactoryBuilderWithSkyframeForTesting;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 
@@ -29,8 +29,9 @@ public class LoadingMock {
     return TestConstants.PRODUCT_NAME;
   }
 
-  public PackageFactory.FactoryForTesting getPackageFactoryForTesting() {
-    return TestConstants.PACKAGE_FACTORY_FACTORY_FOR_TESTING;
+  public PackageFactoryBuilderWithSkyframeForTesting getPackageFactoryBuilderForTesting() {
+    return (PackageFactoryBuilderWithSkyframeForTesting)
+        TestConstants.PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING.builder();
   }
 
   public ConfiguredRuleClassProvider createRuleClassProvider() {
