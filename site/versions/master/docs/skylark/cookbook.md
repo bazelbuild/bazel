@@ -69,6 +69,19 @@ There's currently no easy way to create a rule that directly uses the
 action of a native rule. You can work around this using macros:
 
 ```python
+def _impl(ctx):
+  return struct([...],
+                # When instrumenting this rule, again hide implementation from
+                # users.
+                instrumented_files(
+                  source_attributes = ["srcs", "csrcs"],
+                  dependency_attributes = ["deps", "cdeps"]))
+
+# This rule is private and can only be accessed from the current file.
+_cc_and_something_else_binary = rule(implementation=_impl)
+
+
+# This macro is public, it's the public interface to instantiate the rule.
 def cc_and_something_else_binary(name, srcs, deps, csrcs, cdeps):
    cc_binary_name = "%s.cc_binary" % name
 
@@ -90,16 +103,6 @@ def cc_and_something_else_binary(name, srcs, deps, csrcs, cdeps):
     # were an actual rule instead of a macro.
     csrcs = csrcs,
     cdeps = cdeps)
-
-def _impl(ctx):
-  return struct([...],
-                # When instrumenting this rule, again hide implementation from
-                # users.
-                instrumented_files(
-                  source_attributes = ["srcs", "csrcs"],
-                  dependency_attributes = ["deps", "cdeps"]))
-
-_cc_and_something_else_binary = rule(implementation=_impl)
 ```
 
 
