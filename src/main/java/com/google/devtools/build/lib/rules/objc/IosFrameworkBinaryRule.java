@@ -45,6 +45,7 @@ public class IosFrameworkBinaryRule implements RuleDefinition {
         .setImplicitOutputsFunction(XcodeSupport.PBXPROJ)
         // TODO(bazel-team): Add version fields that are passed to the linker as
         // -compatibility_version X -current_version Y and then embedded into dynamic library.
+        .cfg(AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION)
         .build();
   }
 
