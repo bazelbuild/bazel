@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -53,7 +54,7 @@ import javax.annotation.Nullable;
  */
 public final class RepositoryDelegatorFunction implements SkyFunction {
   public static final Precomputed<Map<RepositoryName, PathFragment>> REPOSITORY_OVERRIDES =
-      new Precomputed<>(SkyKey.create(SkyFunctions.PRECOMPUTED, "repository_overrides"));
+      new Precomputed<>(LegacySkyKey.create(SkyFunctions.PRECOMPUTED, "repository_overrides"));
 
   // The marker file version is inject in the rule key digest so the rule key is always different
   // when we decide to update the format.

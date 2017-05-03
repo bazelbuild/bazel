@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.skyframe.CycleInfo;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 
 /**
@@ -94,7 +95,7 @@ class ConfiguredTargetCycleReporter extends AbstractLabelCycleReporter {
   private SkyKey asTransitiveTargetKey(SkyKey key) {
     return IS_TRANSITIVE_TARGET_SKY_KEY.apply(key)
         ? key
-        : SkyKey.create(TRANSITIVE_TARGET, ((ConfiguredTargetKey) key.argument()).getLabel());
+        : LegacySkyKey.create(TRANSITIVE_TARGET, ((ConfiguredTargetKey) key.argument()).getLabel());
   }
 
   @Override

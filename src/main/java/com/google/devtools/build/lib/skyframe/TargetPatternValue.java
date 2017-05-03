@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.InterruptibleSupplier;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
@@ -146,7 +147,7 @@ public final class TargetPatternValue implements SkyValue {
               !positive,
               offset,
               ImmutableSet.<PathFragment>of());
-      SkyKey skyKey = SkyKey.create(SkyFunctions.TARGET_PATTERN, targetPatternKey);
+      SkyKey skyKey = LegacySkyKey.create(SkyFunctions.TARGET_PATTERN, targetPatternKey);
       builder.add(new TargetPatternSkyKeyValue(skyKey));
     }
     return builder.build();

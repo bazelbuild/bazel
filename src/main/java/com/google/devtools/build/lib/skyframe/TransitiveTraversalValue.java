@@ -143,7 +143,7 @@ public abstract class TransitiveTraversalValue implements SkyValue {
   @ThreadSafe
   public static SkyKey key(Label label) {
     Preconditions.checkArgument(!label.getPackageIdentifier().getRepository().isDefault());
-    return SkyKey.create(SkyFunctions.TRANSITIVE_TRAVERSAL, label);
+    return label;
   }
 
   /** A transitive target reference without error. */

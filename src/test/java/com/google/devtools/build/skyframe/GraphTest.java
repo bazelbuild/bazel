@@ -71,7 +71,7 @@ public abstract class GraphTest {
   }
 
   protected SkyKey key(String name) {
-    return SkyKey.create(SKY_FUNCTION_NAME, name);
+    return LegacySkyKey.create(SKY_FUNCTION_NAME, name);
   }
 
   @Test

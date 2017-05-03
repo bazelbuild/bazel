@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Arrays;
@@ -124,7 +125,7 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
 
   /** Creates a key from the given repository name. */
   public static SkyKey key(RepositoryName repository) {
-    return SkyKey.create(SkyFunctions.REPOSITORY_DIRECTORY, repository);
+    return LegacySkyKey.create(SkyFunctions.REPOSITORY_DIRECTORY, repository);
   }
 
   public static Builder builder() {

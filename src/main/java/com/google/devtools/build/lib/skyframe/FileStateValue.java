@@ -24,13 +24,12 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Objects;
-
 import javax.annotation.Nullable;
 
 /**
@@ -103,7 +102,7 @@ public abstract class FileStateValue implements SkyValue {
   @VisibleForTesting
   @ThreadSafe
   public static SkyKey key(RootedPath rootedPath) {
-    return SkyKey.create(SkyFunctions.FILE_STATE, rootedPath);
+    return LegacySkyKey.create(SkyFunctions.FILE_STATE, rootedPath);
   }
 
   public abstract Type getType();

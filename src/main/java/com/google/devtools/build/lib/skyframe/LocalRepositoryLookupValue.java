@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -27,7 +28,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 public abstract class LocalRepositoryLookupValue implements SkyValue {
 
   static SkyKey key(RootedPath directory) {
-    return SkyKey.create(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, directory);
+    return LegacySkyKey.create(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, directory);
   }
 
   private static final LocalRepositoryLookupValue MAIN_REPO_VALUE = new MainRepositoryLookupValue();

@@ -23,14 +23,13 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -172,6 +171,6 @@ public class TransitiveTargetValue implements SkyValue {
   @ThreadSafe
   public static SkyKey key(Label label) {
     Preconditions.checkArgument(!label.getPackageIdentifier().getRepository().isDefault());
-    return SkyKey.create(SkyFunctions.TRANSITIVE_TARGET, label);
+    return LegacySkyKey.create(SkyFunctions.TRANSITIVE_TARGET, label);
   }
 }

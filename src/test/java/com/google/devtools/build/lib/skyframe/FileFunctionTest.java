@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -761,7 +760,12 @@ public class FileFunctionTest {
                     Iterables.filter(
                         graph.getValues().keySet(),
                         SkyFunctionName.functionIs(SkyFunctions.FILE_STATE)),
-                    SkyKey.NODE_NAME));
+                    new Function<SkyKey, Object>() {
+                      @Override
+                      public Object apply(SkyKey skyKey) {
+                        return skyKey.argument();
+                      }
+                    }));
   }
 
   @Test

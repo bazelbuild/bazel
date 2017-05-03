@@ -19,9 +19,9 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.util.Collection;
 
 /**
@@ -41,7 +41,7 @@ public class TargetCompletionValue implements SkyValue {
   public static SkyKey key(
       LabelAndConfiguration labelAndConfiguration,
       TopLevelArtifactContext topLevelArtifactContext) {
-    return SkyKey.create(
+    return LegacySkyKey.create(
         SkyFunctions.TARGET_COMPLETION,
         TargetCompletionKey.create(labelAndConfiguration, topLevelArtifactContext));
   }
@@ -53,7 +53,7 @@ public class TargetCompletionValue implements SkyValue {
         new Function<ConfiguredTarget, SkyKey>() {
           @Override
           public SkyKey apply(ConfiguredTarget ct) {
-            return SkyKey.create(
+            return LegacySkyKey.create(
                 SkyFunctions.TARGET_COMPLETION,
                 TargetCompletionKey.create(LabelAndConfiguration.of(ct), ctx));
           }

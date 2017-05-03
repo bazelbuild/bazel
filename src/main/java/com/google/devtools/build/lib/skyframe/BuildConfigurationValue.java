@@ -17,9 +17,9 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.Serializable;
 import java.util.Objects;
 import java.util.Set;
@@ -51,7 +51,8 @@ public class BuildConfigurationValue implements SkyValue {
   @ThreadSafe
   public static SkyKey key(Set<Class<? extends BuildConfiguration.Fragment>> fragments,
       BuildOptions buildOptions) {
-    return SkyKey.create(SkyFunctions.BUILD_CONFIGURATION, new Key(fragments, buildOptions, true));
+    return LegacySkyKey.create(
+        SkyFunctions.BUILD_CONFIGURATION, new Key(fragments, buildOptions, true));
   }
 
   /**
@@ -65,7 +66,8 @@ public class BuildConfigurationValue implements SkyValue {
   public static SkyKey disabledActionsKey(
       Set<Class<? extends BuildConfiguration.Fragment>> fragments,
       BuildOptions buildOptions) {
-    return SkyKey.create(SkyFunctions.BUILD_CONFIGURATION, new Key(fragments, buildOptions, false));
+    return LegacySkyKey.create(
+        SkyFunctions.BUILD_CONFIGURATION, new Key(fragments, buildOptions, false));
   }
 
   static final class Key implements Serializable {

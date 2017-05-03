@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -121,6 +122,6 @@ public abstract class RepositoryValue implements SkyValue {
   }
 
   public static SkyKey key(RepositoryName repositoryName) {
-    return SkyKey.create(SkyFunctions.REPOSITORY, repositoryName);
+    return LegacySkyKey.create(SkyFunctions.REPOSITORY, repositoryName);
   }
 }

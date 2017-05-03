@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 
@@ -33,7 +34,7 @@ class ChainUniquenessUtils {
    */
   static SkyKey key(SkyFunctionName functionName, ImmutableList<? extends Object> chain) {
     Preconditions.checkState(!chain.isEmpty());
-    return SkyKey.create(functionName, canonicalize(chain));
+    return LegacySkyKey.create(functionName, canonicalize(chain));
   }
 
   private static ImmutableList<Object> canonicalize(ImmutableList<? extends Object> cycle) {

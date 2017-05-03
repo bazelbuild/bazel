@@ -51,7 +51,7 @@ public class InMemoryNodeEntryTest {
       NestedSetBuilder.<TaggedEvents>emptySet(Order.STABLE_ORDER);
 
   private static SkyKey key(String name) {
-    return SkyKey.create(NODE_TYPE, name);
+    return LegacySkyKey.create(NODE_TYPE, name);
   }
 
   @Test

@@ -20,9 +20,9 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
@@ -68,7 +68,8 @@ final class TestsInSuiteValue implements SkyValue {
   @ThreadSafe
   public static SkyKey key(Target testSuite, boolean strict) {
     Preconditions.checkState(TargetUtils.isTestSuiteRule(testSuite));
-    return SkyKey.create(SkyFunctions.TESTS_IN_SUITE, new TestsInSuite((Rule) testSuite, strict));
+    return LegacySkyKey.create(
+        SkyFunctions.TESTS_IN_SUITE, new TestsInSuite((Rule) testSuite, strict));
   }
 
   /**

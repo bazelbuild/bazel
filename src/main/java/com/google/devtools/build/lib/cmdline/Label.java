@@ -29,6 +29,8 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
 import java.io.InvalidObjectException;
 import java.io.ObjectInputStream;
@@ -50,7 +52,7 @@ import javax.annotation.Nullable;
 )
 @Immutable
 @ThreadSafe
-public final class Label implements Comparable<Label>, Serializable, SkylarkPrintableValue {
+public final class Label implements Comparable<Label>, Serializable, SkylarkPrintableValue, SkyKey {
   public static final PathFragment EXTERNAL_PACKAGE_NAME = PathFragment.create("external");
   public static final PathFragment EXTERNAL_PACKAGE_FILE_NAME = PathFragment.create("WORKSPACE");
   public static final String DEFAULT_REPOSITORY_DIRECTORY = "__main__";
@@ -73,6 +75,8 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
       PackageIdentifier.createInMainRepo(EXTERNAL_PACKAGE_NAME);
 
   public static final PathFragment EXTERNAL_PATH_PREFIX = PathFragment.create("external");
+  public static final SkyFunctionName TRANSITIVE_TRAVERSAL =
+      SkyFunctionName.create("TRANSITIVE_TRAVERSAL");
 
   private static final Interner<Label> LABEL_INTERNER = BlazeInterners.newWeakInterner();
 
@@ -508,6 +512,16 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
         throw new IllegalStateException(e);
       }
     }
+  }
+
+  @Override
+  public SkyFunctionName functionName() {
+    return TRANSITIVE_TRAVERSAL;
+  }
+
+  @Override
+  public Label argument() {
+    return this;
   }
 
   @Override

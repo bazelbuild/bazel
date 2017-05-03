@@ -17,10 +17,10 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.util.Objects;
 
 /**
@@ -96,6 +96,6 @@ public class FdoSupportValue implements SkyValue {
   }
 
   public static SkyKey key(LipoMode lipoMode, Path fdoZip, PathFragment fdoInstrument) {
-    return SkyKey.create(SKYFUNCTION, new Key(lipoMode, fdoZip, fdoInstrument));
+    return LegacySkyKey.create(SKYFUNCTION, new Key(lipoMode, fdoZip, fdoInstrument));
   }
 }

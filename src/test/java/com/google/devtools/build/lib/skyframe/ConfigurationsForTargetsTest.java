@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -98,7 +99,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
      * Returns a {@link SkyKey} for a given <Target, BuildConfiguration> pair.
      */
     static SkyKey key(Target target, BuildConfiguration config) {
-      return SkyKey.create(SKYFUNCTION_NAME, new TargetAndConfiguration(target, config));
+      return LegacySkyKey.create(SKYFUNCTION_NAME, new TargetAndConfiguration(target, config));
     }
 
     /**

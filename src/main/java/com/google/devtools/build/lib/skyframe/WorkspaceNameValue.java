@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Objects;
@@ -29,7 +30,7 @@ import javax.annotation.Nullable;
  */
 public class WorkspaceNameValue implements SkyValue {
   private static final SkyKey KEY =
-      SkyKey.create(SkyFunctions.WORKSPACE_NAME, DummyArgument.INSTANCE);
+      LegacySkyKey.create(SkyFunctions.WORKSPACE_NAME, DummyArgument.INSTANCE);
   private static final WorkspaceNameValue ERROR = new WorkspaceNameValue(null);
 
   @Nullable

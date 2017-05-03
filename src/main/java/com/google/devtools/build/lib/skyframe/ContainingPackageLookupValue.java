@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -40,7 +41,7 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
   public static SkyKey key(PackageIdentifier id) {
     Preconditions.checkArgument(!id.getPackageFragment().isAbsolute(), id);
     Preconditions.checkArgument(!id.getRepository().isDefault(), id);
-    return SkyKey.create(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, id);
+    return LegacySkyKey.create(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, id);
   }
 
   public static ContainingPackage withContainingPackage(PackageIdentifier pkgId, Path root) {

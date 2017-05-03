@@ -68,8 +68,6 @@ import com.google.devtools.build.lib.query2.engine.FunctionExpression;
 import com.google.devtools.build.lib.query2.engine.KeyExtractor;
 import com.google.devtools.build.lib.query2.engine.MinDepthUniquifier;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskCallable;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
@@ -906,7 +904,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         @Override
         public Label apply(SkyKey skyKey) {
           SkyFunctionName functionName = skyKey.functionName();
-          if (!functionName.equals(SkyFunctions.TRANSITIVE_TRAVERSAL)) {
+          if (!functionName.equals(Label.TRANSITIVE_TRAVERSAL)) {
             // Skip non-targets.
             return null;
           }

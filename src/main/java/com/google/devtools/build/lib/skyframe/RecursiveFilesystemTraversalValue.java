@@ -26,11 +26,10 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.util.regex.Pattern;
-
 import javax.annotation.Nullable;
 
 /**
@@ -105,7 +104,7 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
   }
 
   public static SkyKey key(TraversalRequest traversal) {
-    return SkyKey.create(SkyFunctions.RECURSIVE_FILESYSTEM_TRAVERSAL, traversal);
+    return LegacySkyKey.create(SkyFunctions.RECURSIVE_FILESYSTEM_TRAVERSAL, traversal);
   }
 
   /** The parameters of a file or directory traversal. */

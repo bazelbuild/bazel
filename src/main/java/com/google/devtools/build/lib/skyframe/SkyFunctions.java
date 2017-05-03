@@ -67,8 +67,6 @@ public final class SkyFunctions {
   public static final SkyFunctionName RECURSIVE_PKG = SkyFunctionName.create("RECURSIVE_PKG");
   public static final SkyFunctionName TRANSITIVE_TARGET =
       SkyFunctionName.create("TRANSITIVE_TARGET");
-  public static final SkyFunctionName TRANSITIVE_TRAVERSAL =
-      SkyFunctionName.create("TRANSITIVE_TRAVERSAL");
   public static final SkyFunctionName CONFIGURED_TARGET =
       SkyFunctionName.create("CONFIGURED_TARGET");
   public static final SkyFunctionName POST_CONFIGURED_TARGET =

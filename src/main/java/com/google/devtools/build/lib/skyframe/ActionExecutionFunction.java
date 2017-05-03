@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -91,7 +92,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       new Function<String, SkyKey>() {
         @Override
         public SkyKey apply(String var) {
-          return SkyKey.create(SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE, var);
+          return LegacySkyKey.create(SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE, var);
         }
       };
 

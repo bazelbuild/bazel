@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadingResult;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.ObjectInputStream;
@@ -131,7 +132,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
       boolean compileOneDependency, boolean buildTestsOnly, boolean determineTests,
       ImmutableList<String> buildTargetFilter,
       boolean buildManualTests, @Nullable TestFilter testFilter) {
-    return SkyKey.create(
+    return LegacySkyKey.create(
         SkyFunctions.TARGET_PATTERN_PHASE,
         new TargetPatternList(
             targetPatterns,
@@ -140,7 +141,8 @@ public final class TargetPatternPhaseValue implements SkyValue {
             buildTestsOnly,
             determineTests,
             buildTargetFilter,
-            buildManualTests, testFilter));
+            buildManualTests,
+            testFilter));
   }
 
   /**

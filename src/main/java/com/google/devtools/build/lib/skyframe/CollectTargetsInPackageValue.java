@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -30,7 +31,7 @@ public class CollectTargetsInPackageValue implements SkyValue {
    * comment for what callers should have done beforehand.
    */
   static SkyKey key(PackageIdentifier packageId, FilteringPolicy filteringPolicy) {
-    return SkyKey.create(
+    return LegacySkyKey.create(
         SkyFunctions.COLLECT_TARGETS_IN_PACKAGE,
         CollectTargetsInPackageKey.create(packageId, filteringPolicy));
   }

@@ -23,13 +23,11 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
-
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -158,7 +156,7 @@ public class GraphTester {
   }
 
   public static SkyKey skyKey(String key) {
-    return SkyKey.create(NODE_TYPE, key);
+    return LegacySkyKey.create(NODE_TYPE, key);
   }
 
   /**
@@ -266,7 +264,7 @@ public class GraphTester {
   public static SkyKey[] toSkyKeys(String... names) {
     SkyKey[] result = new SkyKey[names.length];
     for (int i = 0; i < names.length; i++) {
-      result[i] = SkyKey.create(GraphTester.NODE_TYPE, names[i]);
+      result[i] = LegacySkyKey.create(GraphTester.NODE_TYPE, names[i]);
     }
     return result;
   }

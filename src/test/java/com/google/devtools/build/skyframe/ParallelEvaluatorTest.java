@@ -1485,7 +1485,7 @@ public class ParallelEvaluatorTest {
     class ParentFunction implements SkyFunction {
       @Override
       public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-        SkyValue dep = env.getValue(SkyKey.create(childType, "billy the kid"));
+        SkyValue dep = env.getValue(LegacySkyKey.create(childType, "billy the kid"));
         if (dep == null) {
           return null;
         }
@@ -1501,7 +1501,7 @@ public class ParallelEvaluatorTest {
     ParallelEvaluator evaluator = makeEvaluator(new InMemoryGraphImpl(), skyFunctions, false);
 
     try {
-      evaluator.eval(ImmutableList.of(SkyKey.create(parentType, "octodad")));
+      evaluator.eval(ImmutableList.of(LegacySkyKey.create(parentType, "octodad")));
       fail();
     } catch (RuntimeException e) {
       assertEquals("I WANT A PONY!!!", e.getCause().getMessage());
