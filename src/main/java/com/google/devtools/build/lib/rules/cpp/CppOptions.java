@@ -875,4 +875,8 @@ public class CppOptions extends FragmentOptions {
     return isFdo() || lipoModeForBuild == LipoMode.BINARY;
   }
 
+  @Override
+  public boolean enableActions() {
+    return !isLipoContextCollector();
+  }
 }

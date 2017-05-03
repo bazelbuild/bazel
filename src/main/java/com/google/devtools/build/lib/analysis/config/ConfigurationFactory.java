@@ -85,7 +85,6 @@ public final class ConfigurationFactory {
   public BuildConfiguration getConfiguration(
       PackageProviderForConfigurations loadedPackageProvider,
       BuildOptions buildOptions,
-      boolean actionsDisabled,
       Cache<String, BuildConfiguration> cache)
       throws InvalidConfigurationException, InterruptedException {
 
@@ -109,7 +108,7 @@ public final class ConfigurationFactory {
       return null;
     }
 
-    result = new BuildConfiguration(directories, fragments, buildOptions, actionsDisabled);
+    result = new BuildConfiguration(directories, fragments, buildOptions);
     cache.put(cacheKey, result);
     return result;
   }

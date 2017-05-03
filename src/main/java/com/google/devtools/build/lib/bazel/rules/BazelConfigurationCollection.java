@@ -55,7 +55,7 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
       throws InvalidConfigurationException, InterruptedException {
     // Target configuration
     BuildConfiguration targetConfiguration = configurationFactory.getConfiguration(
-        packageProvider, buildOptions, false, cache);
+        packageProvider, buildOptions, cache);
     if (targetConfiguration == null) {
       return null;
     }
@@ -76,7 +76,7 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
     for (SplitTransition<BuildOptions> transition : buildOptions.getPotentialSplitTransitions()) {
       for (BuildOptions splitOptions : transition.split(buildOptions)) {
         BuildConfiguration splitConfig = configurationFactory.getConfiguration(
-            packageProvider, splitOptions, false, cache);
+            packageProvider, splitOptions, cache);
         splitTransitionsTable.put(transition, splitConfig);
       }
     }
@@ -140,7 +140,7 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
       return requestConfig;
     } else {
       BuildConfiguration hostConfig = configurationFactory.getConfiguration(
-          loadedPackageProvider, buildOptions.createHostOptions(false), false, cache);
+          loadedPackageProvider, buildOptions.createHostOptions(false), cache);
       if (hostConfig == null) {
         return null;
       }

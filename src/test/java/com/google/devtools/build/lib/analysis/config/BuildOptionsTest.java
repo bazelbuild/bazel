@@ -66,13 +66,5 @@ public class BuildOptionsTest {
             ImmutableList.<Class<? extends FragmentOptions>>of(
                 BuildConfiguration.Options.class, CppOptions.class),
             options1)));
-    // Same values and fragments, same original options are equal:
-    BuildOptions original1 = BuildOptions.of(TEST_OPTIONS, options1);
-    BuildOptions original2 = BuildOptions.of(TEST_OPTIONS, options2);
-    assertEquals(BuildOptions.of(TEST_OPTIONS, original1, options2),
-        BuildOptions.of(TEST_OPTIONS, original1, options2));
-    // Same values and fragments, different original options are not equal:
-    assertFalse(BuildOptions.of(TEST_OPTIONS, original1, options2).equals(
-        BuildOptions.of(TEST_OPTIONS, original2, options2)));
   }
 }
