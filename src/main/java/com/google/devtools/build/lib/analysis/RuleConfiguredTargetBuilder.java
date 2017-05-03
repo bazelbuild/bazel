@@ -131,7 +131,7 @@ public final class RuleConfiguredTargetBuilder {
       }
 
       OutputGroupProvider outputGroupProvider = new OutputGroupProvider(outputGroups.build());
-      addNativeDeclaredProvider(outputGroupProvider);
+      addProvider(OutputGroupProvider.class, outputGroupProvider);
       addSkylarkTransitiveInfo(OutputGroupProvider.SKYLARK_NAME, outputGroupProvider);
     }
 

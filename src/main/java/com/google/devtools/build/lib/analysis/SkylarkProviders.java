@@ -164,7 +164,10 @@ public final class SkylarkProviders implements TransitiveInfoProvider {
           throw new DuplicateException("Provider " + key + " provided twice");
         }
 
-        resultBuilder.put(key, map.get(key));
+        V v = map.get(key);
+        if (v != null) {
+          resultBuilder.put(key, v);
+        }
       }
     }
     return resultBuilder.build();

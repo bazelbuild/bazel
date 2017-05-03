@@ -58,7 +58,7 @@ import javax.annotation.Nullable;
  */
 @Immutable
 public final class OutputGroupProvider extends SkylarkClassObject
-    implements SkylarkIndexable, Iterable<String> {
+    implements TransitiveInfoProvider, SkylarkIndexable, Iterable<String> {
   public static final String SKYLARK_NAME = "output_groups";
 
   public static NativeClassObjectConstructor SKYLARK_CONSTRUCTOR = new Constructor();
@@ -127,7 +127,7 @@ public final class OutputGroupProvider extends SkylarkClassObject
 
   @Nullable
   public static OutputGroupProvider get(TransitiveInfoCollection collection) {
-    return (OutputGroupProvider) collection.get(SKYLARK_CONSTRUCTOR.getKey());
+    return (OutputGroupProvider) collection.getProvider(OutputGroupProvider.class);
   }
 
   @Nullable

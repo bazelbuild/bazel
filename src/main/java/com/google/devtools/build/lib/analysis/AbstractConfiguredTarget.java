@@ -186,6 +186,9 @@ public abstract class AbstractConfiguredTarget
     if (providerKey.equals(DefaultProvider.SKYLARK_CONSTRUCTOR.getKey())) {
       return getDefaultProvider();
     }
+    if (providerKey.equals(OutputGroupProvider.SKYLARK_CONSTRUCTOR.getKey())) {
+      return OutputGroupProvider.get(this);
+    }
     SkylarkProviders skylarkProviders = getProvider(SkylarkProviders.class);
     if (skylarkProviders != null) {
       return skylarkProviders.getDeclaredProvider(providerKey);

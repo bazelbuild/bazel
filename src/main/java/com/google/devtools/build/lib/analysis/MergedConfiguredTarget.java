@@ -112,6 +112,9 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
         getAllProviders(base, aspects, ExtraActionArtifactsProvider.class));
 
     TransitiveInfoProviderMap.Builder aspectProviders = TransitiveInfoProviderMap.builder();
+    if (mergedOutputGroupProvider != null) {
+      aspectProviders.add(mergedOutputGroupProvider);
+    }
     if (mergedSkylarkProviders != null) {
       aspectProviders.add(mergedSkylarkProviders);
     }
@@ -123,7 +126,8 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
       for (Map.Entry<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> entry :
           aspect.getProviders().entrySet()) {
         Class<? extends TransitiveInfoProvider> providerClass = entry.getKey();
-        if (SkylarkProviders.class.equals(providerClass)
+        if (OutputGroupProvider.class.equals(providerClass)
+            || SkylarkProviders.class.equals(providerClass)
             || ExtraActionArtifactsProvider.class.equals(providerClass)) {
           continue;
         }
