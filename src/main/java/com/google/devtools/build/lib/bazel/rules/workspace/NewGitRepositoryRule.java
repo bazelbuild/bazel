@@ -132,7 +132,7 @@ For GitHub, this takes the form:
 <pre>
 new_http_archive(
     name = "<name>",
-    urls = ["https://github.com/<user>/<repo>/archive/<commit or tag>.tar.gz"],
+    urls = ["https://github.com/&lt;user&gt;/&lt;repo&gt;/archive/&lt;commit or tag&gt;.tar.gz"],
     build_file = "<build file>",
 )
 </pre>
