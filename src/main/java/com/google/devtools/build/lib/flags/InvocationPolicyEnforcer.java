@@ -36,7 +36,10 @@ import com.google.devtools.common.options.OptionsParser.OptionValueDescription;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -96,29 +99,13 @@ public final class InvocationPolicyEnforcer {
     if (invocationPolicy == null || invocationPolicy.getFlagPoliciesCount() == 0) {
       return;
     }
-    List<FlagPolicy> effectivePolicy = getEffectivePolicy(invocationPolicy, parser);
 
-    ImmutableSet<String> commandAndParentCommands =
-        command == null
-            ? ImmutableSet.<String>of()
-            : CommandNameCache.CommandNameCacheInstance.INSTANCE.get(command);
+    // The effective policy returned is expanded, filtered for applicable commands, and cleaned of
+    // redundancies and conflicts.
+    List<FlagPolicy> effectivePolicy = getEffectivePolicy(invocationPolicy, parser, command);
+
     for (FlagPolicy flagPolicy : effectivePolicy) {
       String flagName = flagPolicy.getFlagName();
-
-      // Skip the flag policy if it doesn't apply to this command. If the commands list is empty,
-      // then the policy applies to all commands.
-      if (!flagPolicy.getCommandsList().isEmpty() && !commandAndParentCommands.isEmpty()) {
-        boolean flagApplies = false;
-        for (String policyCommand : flagPolicy.getCommandsList()) {
-          if (commandAndParentCommands.contains(policyCommand)) {
-            flagApplies = true;
-            break;
-          }
-        }
-        if (!flagApplies) {
-          continue;
-        }
-      }
 
       OptionValueDescription valueDescription;
       try {
@@ -191,25 +178,52 @@ public final class InvocationPolicyEnforcer {
     }
   }
 
+  private static boolean policyApplies(FlagPolicy policy, ImmutableSet<String> applicableCommands) {
+    // Skip the flag policy if it doesn't apply to this command. If the commands list is empty,
+    // then the policy applies to all commands.
+    if (policy.getCommandsList().isEmpty() || applicableCommands.isEmpty()) {
+      return true;
+    }
+
+    return !Collections.disjoint(policy.getCommandsList(), applicableCommands);
+  }
+
   /**
    * Takes the provided policy and processes it to the form that can be used on the user options.
    *
    * <p>Expands any policies on expansion flags.
    */
   public static List<FlagPolicy> getEffectivePolicy(
-      InvocationPolicy invocationPolicy, OptionsParser parser) throws OptionsParsingException {
+      InvocationPolicy invocationPolicy, OptionsParser parser, String command)
+      throws OptionsParsingException {
     if (invocationPolicy == null) {
       return ImmutableList.of();
     }
 
+    ImmutableSet<String> commandAndParentCommands =
+        command == null
+            ? ImmutableSet.<String>of()
+            : CommandNameCache.CommandNameCacheInstance.INSTANCE.get(command);
+
     // Expand all policies to transfer policies on expansion flags to policies on the child flags.
     List<FlagPolicy> expandedPolicies = new ArrayList<>();
     for (FlagPolicy policy : invocationPolicy.getFlagPoliciesList()) {
+      if (!policyApplies(policy, commandAndParentCommands)) {
+        // Only keep and expand policies that are applicable to the current command.
+        continue;
+      }
       List<FlagPolicy> policies = expandPolicy(policy, parser);
       expandedPolicies.addAll(policies);
     }
 
-    return expandedPolicies;
+    // Only keep that last policy for each flag.
+    Map<String, FlagPolicy> effectivePolicy = new HashMap<>();
+    for (FlagPolicy expandedPolicy : expandedPolicies) {
+      String flagName = expandedPolicy.getFlagName();
+      effectivePolicy.put(flagName, expandedPolicy);
+    }
+
+    return new ArrayList<>(effectivePolicy.values());
   }
 
   /**
