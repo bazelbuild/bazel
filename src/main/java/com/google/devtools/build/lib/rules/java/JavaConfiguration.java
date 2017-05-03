@@ -54,6 +54,22 @@ public final class JavaConfiguration extends Fragment {
     BLAZE
   }
 
+  /** Values for the --experimental_one_version_enforcement option */
+  public enum OneVersionEnforcementLevel {
+    /** Don't attempt to check for one version violations (the default) */
+    OFF,
+    /**
+     * Check for one version violations, emit warnings to stderr if any are found, but don't break
+     * the binary.
+     */
+    WARNING,
+    /**
+     * Check for one version violations, emit warnings to stderr if any are found, and break the
+     * rule if it's found.
+     */
+    ERROR
+  }
+
   /**
    * Values for the --java_optimization_mode option, which controls how Proguard is run over binary
    * and test targets.  Note that for the moment this has no effect when building library targets.
@@ -133,7 +149,7 @@ public final class JavaConfiguration extends Fragment {
   private final boolean headerCompilationDirectClasspath;
   private final boolean generateJavaDeps;
   private final boolean strictDepsJavaProtos;
-  private final boolean enforceOneVersion;
+  private final OneVersionEnforcementLevel enforceOneVersion;
   private final JavaClasspathMode javaClasspath;
   private final ImmutableList<String> defaultJvmFlags;
   private final ImmutableList<String> checkedConstraints;
@@ -373,12 +389,13 @@ public final class JavaConfiguration extends Fragment {
   }
 
   /**
-   * Returns true if Bazel should attempt to enforce one-version correctness on java_binary rules
-   * using the 'oneversion' tool in the java_toolchain. One-version correctness will inspect for
-   * multiple non-identical versions of java classes in the transitive dependencies for a
-   * java_binary.
+   * Returns an enum representing whether or not Bazel should attempt to enforce one-version
+   * correctness on java_binary rules using the 'oneversion' tool in the java_toolchain.
+   *
+   * One-version correctness will inspect for multiple non-identical versions of java classes in the
+   * transitive dependencies for a java_binary.
    */
-  public boolean isEnforceOneVersion() {
+  public OneVersionEnforcementLevel oneVersionEnforcementLevel() {
     return enforceOneVersion;
   }
 
