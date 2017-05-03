@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.buildeventstream.transports.BuildEventTransportFactory.createFromOptions;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
@@ -29,10 +30,12 @@ import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.buildeventstream.transports.BuildEventStreamOptions;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -57,6 +60,58 @@ public class BuildEventStreamerModule extends BlazeModule {
 
   private BuildEventRecorder buildEventRecorder;
 
+  /**
+   * {@link OutputStream} suitably synchonized for producer-consumer use cases.
+   * The method {@link #readAndReset()} allows to read the bytes accumulated so far
+   * and simultaneously truncate precisely the bytes read. Moreover, upon such a reset
+   * the amount of memory retained is reset to a small constant. This is a difference
+   * with resecpt to the behaviour of the standard classes {@link ByteArrayOutputStream}
+   * which only resets the index but keeps the array. This difference matters, as we need
+   * to support output peeks without retaining this ammount of memory for the rest of the
+   * build.
+   */
+  private static class SynchronizedOutputStream extends OutputStream {
+
+    private byte[] buf;
+    private int count;
+
+    SynchronizedOutputStream() {
+      buf = new byte[64];
+      count = 0;
+    }
+
+    @Override
+    public synchronized void write(int oneByte) throws IOException {
+      if (count == buf.length) {
+        byte[] newbuf = new byte[count * 2 + 1];
+        System.arraycopy(buf, 0, newbuf, 0, count);
+        buf = newbuf;
+      }
+      buf[count++] = (byte) oneByte;
+    }
+
+    /**
+     * Read the contents of the stream and simultaneously clear them. Also, reset the amount of
+     * memory retained to a constant amount.
+     */
+    synchronized String readAndReset() {
+      String content = new String(buf, 0, count, UTF_8);
+      buf = new byte[64];
+      count = 0;
+      return content;
+    }
+
+    // While technically not needed, it is still a better user experience to have a write
+    // enter the stream in one go.
+    @Override
+    public synchronized void write(byte[] buffer, int offset, int count) throws IOException {
+      super.write(buffer, offset, count);
+    }
+  }
+
+  private SynchronizedOutputStream out;
+  private SynchronizedOutputStream err;
+
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
     return ImmutableList.<Class<? extends OptionsBase>>of(BuildEventStreamOptions.class);
@@ -67,6 +122,13 @@ public class BuildEventStreamerModule extends BlazeModule {
     this.commandEnvironment = commandEnvironment;
     this.buildEventRecorder = new BuildEventRecorder();
     commandEnvironment.getEventBus().register(buildEventRecorder);
+  }
+
+  @Override
+  public OutErr getOutputListener() {
+    this.out = new SynchronizedOutputStream();
+    this.err = new SynchronizedOutputStream();
+    return OutErr.create(this.out, this.err);
   }
 
   @Override
@@ -81,9 +143,34 @@ public class BuildEventStreamerModule extends BlazeModule {
       for (BuildEvent event : buildEventRecorder.getEvents()) {
         streamer.buildEvent(event);
       }
+      final SynchronizedOutputStream theOut = this.out;
+      final SynchronizedOutputStream theErr = this.err;
+      // out and err should be non-null at this point, as getOutputListener is supposed to
+      // be always called before handleOptions. But let's still prefer a stream with no
+      // stdout/stderr over an aborted build.
+      streamer.registerOutErrProvider(
+          new BuildEventStreamer.OutErrProvider() {
+            @Override
+            public String getOut() {
+              if (theOut == null) {
+                return null;
+              }
+              return theOut.readAndReset();
+            }
+
+            @Override
+            public String getErr() {
+              if (theErr == null) {
+                return null;
+              }
+              return theErr.readAndReset();
+            }
+          });
     }
     commandEnvironment.getEventBus().unregister(buildEventRecorder);
     this.buildEventRecorder = null;
+    this.out = null;
+    this.err = null;
   }
 
   @VisibleForTesting
