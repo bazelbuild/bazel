@@ -60,8 +60,6 @@ class ProguardConfigValidator(object):
     config = re.sub(PROGUARD_COMMENTS_PATTERN, '', config)
     args = re.compile('(?:^-|\n-)').split(config)
 
-    print args
-
     invalid_configs = []
     for arg in args:
       arg = arg.strip()
