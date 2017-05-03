@@ -171,6 +171,16 @@ class Desugar {
     public boolean desugarTryWithResourcesIfNeeded;
 
     @Option(
+      name = "desugar_try_with_resources_omit_runtime_classes",
+      defaultValue = "false",
+      category = "misc",
+      help =
+          "Omits the runtime classes necessary to support try-with-resources from the output. "
+              + "This property has effect only if --desugar_try_with_resources_if_needed is used."
+    )
+    public boolean desugarTryWithResourcesOmitRuntimeClasses;
+
+    @Option(
       name = "copy_bridges_from_classpath",
       defaultValue = "false",
       category = "misc",
@@ -306,7 +316,9 @@ class Desugar {
   }
 
   private void copyThrowableExtensionClass(OutputFileProvider outputFileProvider) {
-    if (!outputJava7 || !options.desugarTryWithResourcesIfNeeded) {
+    if (!outputJava7
+        || !options.desugarTryWithResourcesIfNeeded
+        || options.desugarTryWithResourcesOmitRuntimeClasses) {
       // try-with-resources statements are okay in the output jar.
       return;
     }
