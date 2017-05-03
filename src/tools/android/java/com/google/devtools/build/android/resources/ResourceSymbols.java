@@ -13,11 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.android.resources;
 
+import com.android.SdkConstants;
 import com.android.builder.core.VariantConfiguration;
 import com.android.builder.dependency.SymbolFileProvider;
-import com.android.builder.internal.SymbolLoader;
-import com.android.builder.internal.SymbolLoader.SymbolEntry;
-import com.android.builder.internal.SymbolWriter;
 import com.android.resources.ResourceType;
 import com.android.utils.ILogger;
 import com.google.common.collect.HashBasedTable;
@@ -26,41 +24,100 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Table;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
+import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
-/** 
- * Wraps the {@link SymbolLoader} and {@link SymbolWriter} classes.
- * This provides a unified interface for working with R.txts.
- */
+/** This provides a unified interface for working with R.txt symbols files. */
 public class ResourceSymbols {
+  private static final Logger logger = Logger.getLogger(ResourceSymbols.class.getCanonicalName());
+
+  /** Represents a resource symbol with a value. */
+  // Forked from com.android.builder.internal.SymbolLoader.SymbolEntry.
+  static class RTxtSymbolEntry {
+    private final String name;
+    private final String type;
+    private final String value;
+
+    public RTxtSymbolEntry(String name, String type, String value) {
+      this.name = name;
+      this.type = type;
+      this.value = value;
+    }
+
+    public String getValue() {
+      return value;
+    }
+
+    public String getName() {
+      return name;
+    }
+
+    public String getType() {
+      return type;
+    }
+  }
+
   /** Task to load and parse R.txt symbols */
   private static final class SymbolLoadingTask implements Callable<ResourceSymbols> {
 
-    private final SymbolLoader symbolLoader;
+    private final Path rTxtSymbols;
 
-    SymbolLoadingTask(SymbolLoader symbolLoader) {
-      this.symbolLoader = symbolLoader;
+    SymbolLoadingTask(Path symbolFile) {
+      this.rTxtSymbols = symbolFile;
     }
 
     @Override
     public ResourceSymbols call() throws Exception {
-      symbolLoader.load();
-      return ResourceSymbols.wrap(symbolLoader);
+      List<String> lines = Files.readAllLines(rTxtSymbols, StandardCharsets.UTF_8);
+
+      Table<String, String, RTxtSymbolEntry> mSymbols = HashBasedTable.create();
+
+      for (int lineIndex = 1; lineIndex <= lines.size(); lineIndex++) {
+        String line = null;
+        try {
+          line = lines.get(lineIndex - 1);
+
+          // format is "<type> <class> <name> <value>"
+          // don't want to split on space as value could contain spaces.
+          int pos = line.indexOf(' ');
+          String type = line.substring(0, pos);
+          int pos2 = line.indexOf(' ', pos + 1);
+          String className = line.substring(pos + 1, pos2);
+          int pos3 = line.indexOf(' ', pos2 + 1);
+          String name = line.substring(pos2 + 1, pos3);
+          String value = line.substring(pos3 + 1);
+
+          mSymbols.put(className, name, new RTxtSymbolEntry(name, type, value));
+        } catch (IndexOutOfBoundsException e) {
+          String s =
+              String.format(
+                  "File format error reading %s\tline %d: '%s'",
+                  rTxtSymbols.toString(), lineIndex, line);
+          logger.severe(s);
+          throw new IOException(s, e);
+        }
+      }
+      return ResourceSymbols.from(mSymbols);
     }
   }
 
@@ -104,72 +161,38 @@ public class ResourceSymbols {
     for (Entry<SymbolFileProvider, ListenableFuture<String>> entry : providerToPackage.entrySet()) {
       File symbolFile = entry.getKey().getSymbolFile();
       if (!Objects.equals(entry.getValue().get(), packageToExclude)) {
-        packageToTable.put(entry.getValue().get(), load(executor, iLogger, symbolFile));
+        packageToTable.put(entry.getValue().get(), load(symbolFile.toPath(), executor));
       }
     }
     return packageToTable;
   }
 
-  public static ResourceSymbols merge(Collection<ResourceSymbols> symbolTables) throws IOException {
-    final Table<String, String, SymbolEntry> mergedTable = HashBasedTable.create();
+  public static ResourceSymbols from(Table<String, String, RTxtSymbolEntry> table) {
+    return new ResourceSymbols(table);
+  }
+
+  public static ResourceSymbols merge(Collection<ResourceSymbols> symbolTables) {
+    final Table<String, String, RTxtSymbolEntry> mergedTable = HashBasedTable.create();
     for (ResourceSymbols symbolTableProvider : symbolTables) {
       mergedTable.putAll(symbolTableProvider.asTable());
     }
-    try {
-      SymbolLoader nullLoader = new SymbolLoader(null, null);
-      Field declaredField = SymbolLoader.class.getDeclaredField("mSymbols");
-      declaredField.setAccessible(true);
-      declaredField.set(nullLoader, mergedTable);
-      return wrap(nullLoader);
-    } catch (NoSuchFieldException
-        | SecurityException
-        | IllegalArgumentException
-        | IllegalAccessException e) {
-      throw new IOException(e);
-    }
+    return from(mergedTable);
   }
 
   /** Read the symbols from the provided symbol file. */
   public static ListenableFuture<ResourceSymbols> load(
-      Path primaryRTxt, ListeningExecutorService executorService, ILogger iLogger) {
-    return load(executorService, iLogger, primaryRTxt.toFile());
+      Path primaryRTxt, ListeningExecutorService executorService) {
+    return executorService.submit(new SymbolLoadingTask(primaryRTxt));
   }
 
-  public static ListenableFuture<ResourceSymbols> load(
-      ListeningExecutorService executor, ILogger iLogger, File symbolFile) {
-    return executor.submit(new SymbolLoadingTask(new SymbolLoader(symbolFile, iLogger)));
+  private final Table<String, String, RTxtSymbolEntry> values;
+
+  private ResourceSymbols(Table<String, String, RTxtSymbolEntry> values) {
+    this.values = values;
   }
 
-  static ResourceSymbols of(Path rTxt, ILogger logger) {
-    return of(rTxt.toFile(), logger);
-  }
-
-  public static ResourceSymbols of(File rTxt, ILogger logger) {
-    return wrap(new SymbolLoader(rTxt, logger));
-  }
-
-  private static ResourceSymbols wrap(SymbolLoader input) {
-    return new ResourceSymbols(input);
-  }
-
-  private final SymbolLoader symbolLoader;
-
-  private ResourceSymbols(SymbolLoader symbolLoader) {
-    this.symbolLoader = symbolLoader;
-  }
-
-  public Table<String, String, SymbolEntry> asTable() throws IOException {
-    // TODO(bazel-team): remove when we update android_ide_common to a version w/ public visibility
-    try {
-      Method getSymbols = SymbolLoader.class.getDeclaredMethod("getSymbols");
-      getSymbols.setAccessible(true);
-      @SuppressWarnings("unchecked")
-      Table<String, String, SymbolEntry> result =
-          (Table<String, String, SymbolEntry>) getSymbols.invoke(symbolLoader);
-      return result;
-    } catch (ReflectiveOperationException e) {
-      throw new IOException(e);
-    }
+  public Table<String, String, RTxtSymbolEntry> asTable() {
+    return values;
   }
 
   /**
@@ -183,19 +206,71 @@ public class ResourceSymbols {
   public void writeTo(
       Path sourceOut, String packageName, Collection<ResourceSymbols> packageSymbols)
       throws IOException {
-    SymbolWriter writer = new SymbolWriter(sourceOut.toString(), packageName, symbolLoader);
+  
+    Table<String, String, RTxtSymbolEntry> symbols = HashBasedTable.create();
     for (ResourceSymbols packageSymbol : packageSymbols) {
-      writer.addSymbolsToWrite(packageSymbol.symbolLoader);
+      symbols.putAll(packageSymbol.asTable());
     }
-    writer.write();
+    
+    Path packageOut = sourceOut.resolve(packageName.replace('.', File.separatorChar));
+    Files.createDirectories(packageOut);
+
+    Path file = packageOut.resolve(SdkConstants.FN_RESOURCE_CLASS);
+
+    try (BufferedWriter writer = Files.newBufferedWriter(file, StandardOpenOption.CREATE_NEW)) {
+
+      writer.write("/* AUTO-GENERATED FILE.  DO NOT MODIFY.\n");
+      writer.write(" *\n");
+      writer.write(" * This class was automatically generated by the\n");
+      writer.write(" * aapt tool from the resource data it found.  It\n");
+      writer.write(" * should not be modified by hand.\n");
+      writer.write(" */\n");
+
+      writer.write("package ");
+      writer.write(packageName);
+      writer.write(";\n\npublic final class R {\n");
+
+      Set<String> rowSet = symbols.rowKeySet();
+      List<String> rowList = new ArrayList<>(rowSet);
+      Collections.sort(rowList);
+
+      for (String row : rowList) {
+        writer.write("\tpublic static final class ");
+        writer.write(row);
+        writer.write(" {\n");
+
+        Map<String, RTxtSymbolEntry> rowMap = symbols.row(row);
+        Set<String> symbolSet = rowMap.keySet();
+        List<String> symbolList = new ArrayList<>(symbolSet);
+        Collections.sort(symbolList);
+
+        for (String symbolName : symbolList) {
+          // get the matching SymbolEntry from the values Table.
+          RTxtSymbolEntry value = values.get(row, symbolName);
+          if (value != null) {
+            writer.write("\t\tpublic static final ");
+            writer.write(value.getType());
+            writer.write(" ");
+            writer.write(value.getName());
+            writer.write(" = ");
+            writer.write(value.getValue());
+            writer.write(";\n");
+          }
+        }
+
+        writer.write("\t}\n");
+      }
+
+      writer.write("}\n");
+    }
   }
 
-  public Map<ResourceType, Set<String>> asFilterMap() throws IOException {
+  public Map<ResourceType, Set<String>> asFilterMap() {
     Map<ResourceType, Set<String>> filter = new EnumMap<>(ResourceType.class);
-    Table<String, String, SymbolEntry> symbolTable = asTable();
+    Table<String, String, RTxtSymbolEntry> symbolTable = asTable();
     for (String typeName : symbolTable.rowKeySet()) {
       Set<String> fields = new HashSet<>();
-      for (SymbolEntry symbolEntry : symbolTable.row(typeName).values()) {
+      for (RTxtSymbolEntry symbolEntry : symbolTable.row(typeName).values()) {
         fields.add(symbolEntry.getName());
       }
       if (!fields.isEmpty()) {

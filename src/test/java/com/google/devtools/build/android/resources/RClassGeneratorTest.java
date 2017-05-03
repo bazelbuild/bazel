@@ -15,8 +15,6 @@ package com.google.devtools.build.android.resources;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.android.utils.ILogger;
-import com.android.utils.StdLogger;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -48,14 +46,12 @@ import org.junit.runners.JUnit4;
 public class RClassGeneratorTest {
 
   private Path temp;
-  private ILogger stdLogger;
   @Rule
   public final ExpectedException thrown = ExpectedException.none();
 
   @Before
   public void setUp() throws Exception {
     temp = Files.createTempDirectory(toString());
-    stdLogger = new StdLogger(StdLogger.Level.VERBOSE);
   }
 
   @Test
@@ -154,12 +150,10 @@ public class RClassGeneratorTest {
     // is a bug in aapt, or R.txt is manually written the wrong way.
     ResourceSymbols symbolValues =
         createSymbolFile("R.txt", "int[] styleable ActionMenuView { 1, }");
-    ResourceSymbols symbolsInLibrary = symbolValues;
     Path out = temp.resolve("classes");
     Files.createDirectories(out);
     thrown.expect(NumberFormatException.class);
-    RClassGenerator writer = RClassGenerator.fromSymbols(out, symbolValues, finalFields);
-    writer.write("com.foo", symbolsInLibrary.asFilterMap());
+    RClassGenerator.fromSymbols(out, symbolValues, finalFields);
   }
 
   @Test
@@ -167,12 +161,10 @@ public class RClassGeneratorTest {
     boolean finalFields = true;
     ResourceSymbols symbolValues =
         createSymbolFile("R.txt", "int[] styleable ActionMenuView { 1, , 2 }");
-    ResourceSymbols symbolsInLibrary = symbolValues;
     Path out = temp.resolve("classes");
     Files.createDirectories(out);
     thrown.expect(NumberFormatException.class);
-    RClassGenerator writer = RClassGenerator.fromSymbols(out, symbolValues, finalFields);
-    writer.write("com.foo", symbolsInLibrary.asFilterMap());
+    RClassGenerator.fromSymbols(out, symbolValues, finalFields);
   }
 
   @Test
@@ -341,7 +333,7 @@ public class RClassGeneratorTest {
       throws IOException, InterruptedException, ExecutionException {
     Path path = createFile(name, contents);
     ListeningExecutorService executorService = MoreExecutors.newDirectExecutorService();
-    ResourceSymbols symbolFile = ResourceSymbols.load(path, executorService, stdLogger).get();
+    ResourceSymbols symbolFile = ResourceSymbols.load(path, executorService).get();
     return symbolFile;
   }
 

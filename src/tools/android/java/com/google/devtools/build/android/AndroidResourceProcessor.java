@@ -502,7 +502,7 @@ public class AndroidResourceProcessor {
         libMap.put(entry.getKey(), entry.getValue().get());
       }
       if (primaryRTxt != null && Files.exists(primaryRTxt)) {
-        return ResourceSymbols.load(primaryRTxt, executorService, iLogger).get();
+        return ResourceSymbols.load(primaryRTxt, executorService).get();
       }
       return ResourceSymbols.merge(libMap.values());
     } catch (InterruptedException | ExecutionException e) {

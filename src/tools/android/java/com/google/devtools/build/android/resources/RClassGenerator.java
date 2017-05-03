@@ -14,11 +14,11 @@
 package com.google.devtools.build.android.resources;
 
 import com.android.SdkConstants;
-import com.android.builder.internal.SymbolLoader.SymbolEntry;
 import com.android.resources.ResourceType;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Table;
+import com.google.devtools.build.android.resources.ResourceSymbols.RTxtSymbolEntry;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -57,11 +57,8 @@ public class RClassGenerator {
    * @param finalFields true if the fields should be marked final
    */
   public static RClassGenerator fromSymbols(
-      Path outFolder,
-      ResourceSymbols values,
-      boolean finalFields)
-      throws IOException {
-    Table<String, String, SymbolEntry> valuesTable = values.asTable();
+      Path outFolder, ResourceSymbols values, boolean finalFields) {
+    Table<String, String, RTxtSymbolEntry> valuesTable = values.asTable();
     Map<ResourceType, List<FieldInitializer>> initializers =
         getInitializers(valuesTable);
     return new RClassGenerator(outFolder, initializers, finalFields);
@@ -84,7 +81,7 @@ public class RClassGenerator {
   }
   /** Convert the {@link ResourceSymbols} data, to a map of {@link FieldInitializer}. */
   private static Map<ResourceType, List<FieldInitializer>> getInitializers(
-      Table<String, String, SymbolEntry> values) {
+      Table<String, String, RTxtSymbolEntry> values) {
     Map<ResourceType, List<FieldInitializer>> initializers = new EnumMap<>(ResourceType.class);
     for (String typeName : values.rowKeySet()) {
       ResourceType resourceType = ResourceType.getEnum(typeName);
@@ -95,14 +92,13 @@ public class RClassGenerator {
   }
 
   private static List<FieldInitializer> getInitializers(
-      String typeName,
-      Table<String, String, SymbolEntry> symbols) {
-    Map<String, SymbolEntry> rowMap = symbols.row(typeName);
+      String typeName, Table<String, String, RTxtSymbolEntry> symbols) {
+    Map<String, RTxtSymbolEntry> rowMap = symbols.row(typeName);
     List<String> symbolList = new ArrayList<>(rowMap.keySet());
     Collections.sort(symbolList);
     List<FieldInitializer> initializers = new ArrayList<>();
     for (String symbolName : symbolList) {
-      SymbolEntry value = symbols.get(typeName, symbolName);
+      RTxtSymbolEntry value = symbols.get(typeName, symbolName);
       if (value.getType().equals("int")) {
         initializers.add(IntFieldInitializer.of(value.getName(), value.getValue()));
       } else {
