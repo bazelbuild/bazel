@@ -227,7 +227,6 @@ public class BuildRequest implements OptionsClassProvider {
       converter = Converters.CommaSeparatedOptionListConverter.class,
       allowMultiple = true,
       defaultValue = "",
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       help =
           "Specifies which output groups of the top-level targets to build. If omitted, a default "
               + "set of output groups are built. When specified the default set is overridden."

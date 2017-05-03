@@ -203,7 +203,7 @@ If left unspecified, it will contain all the declared outputs.
 ```python
 def _impl(ctx):
   # ...
-  return struct(files=depset([file1, file2]))
+  return DefaultInfo(files=depset([file1, file2]))
 ```
 
 This can be useful for exposing files generated with
@@ -487,6 +487,37 @@ with an error describing the conflict. To fix, you will need to modify your
 `ctx.runfiles` arguments to remove the collision. This checking will be done for
 any targets using your rule, as well as targets of any kind that depend on those
 targets.
+
+## Output groups
+
+By default Bazel builds a target's
+[default outputs](#default-outputs). However, a rule can also create
+ other outputs that are not part of a typical build but might still be useful,
+ such as debug information files. The facility for this is _output groups_.
+
+A rule can declare that a certain file belongs to a certain output group by returning
+the [OutputGroupInfo](lib/globals.html#OutputGroupInfo) provider. Fields of
+that provider are output group names:
+
+```python
+def _impl(ctx):
+  name = ...
+  binary = ctx.new_file(name)
+  debug_file = ctx.new_file(name + ".pdb")
+  # ... add actions to generate these files
+  return [DefaultInfo(files = depset([binary])),
+          OutputGroupInfo(debug_files = depset([debug_file]),
+                          all_files = depset([binary, debug_file]))]
+```
+
+By default, only the `binary` file will be built.
+The user can specify an [`--output_groups=debug_files`](../command-line-reference.html#build)
+flag on the command line.  In that case, only `debug_file` will be built. If the user
+specifies `--output_groups=all_files`, both `binary` and `debug_file` will be build.
+
+> Note: [OutputGroupInfo](skylark/lib/globals.html#OutputGroupInfo) is a regular
+> [provider](#providers), and dependencies of a target can examine it using
+> the `target[OutputGroupInfo]` syntax.
 
 ## Code coverage instrumentation
 

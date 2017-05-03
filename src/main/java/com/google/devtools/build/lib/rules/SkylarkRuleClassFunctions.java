@@ -195,18 +195,20 @@ public class SkylarkRuleClassFunctions {
     name = "DefaultInfo",
     returnType = ClassObjectConstructor.class,
     doc =
-        "A provider that is provided by every rule, even if it iss not returned explicitly. "
+        "A provider that is provided by every rule, even if it is not returned explicitly. "
             + "A <code>DefaultInfo</code> accepts the following parameters:"
+            + "<ul>"
             + "<li><code>files</code></li>"
-            + "<ul><li><code>runfiles</code></li>"
+            + "<li><code>runfiles</code></li>"
             + "<li><code>data_runfiles</code></li>"
             + "<li><code>default_runfiles</code></li>"
             + "</ul>"
             + "Each instance of the default provider contains the following standard "
             + "fields: "
+            + "<ul>"
             + "<li><code>files</code></li>"
             + "<li><code>files_to_run</code></li>"
-            + "<ul><li><code>data_runfiles</code></li>"
+            + "<li><code>data_runfiles</code></li>"
             + "<li><code>default_runfiles</code></li>"
             + "</ul>"
   )
@@ -215,7 +217,12 @@ public class SkylarkRuleClassFunctions {
   @SkylarkSignature(
     name = "OutputGroupInfo",
     returnType = ClassObjectConstructor.class,
-    doc = "todo"
+    doc =
+        "Provides information about output groups the rule provides.<br>"
+            + "Instantiate this provider with <br>"
+            + "<pre class=language-python>"
+            + "OutputGroupInfo(group1 = &lt;files&gt;, group2 = &lt;files&gt;...)</pre>"
+            + "See <a href=\"../rules.html#output-groups\">Output Groups</a> for more information"
   )
   private static final ClassObjectConstructor outputGroupInfo =
       OutputGroupProvider.SKYLARK_CONSTRUCTOR;
@@ -239,13 +246,16 @@ public class SkylarkRuleClassFunctions {
   )
   private static final ClassObjectConstructor actions = ActionsProvider.SKYLARK_CONSTRUCTOR;
 
-  @SkylarkSignature(name = "provider", returnType = ClassObjectConstructor.class, doc =
-      "Creates a declared provider 'constructor'. The return value of this"
-          + "function can be used to create \"struct-like\" values. Example:<br>"
-          + "<pre class=\"language-python\">data = provider()\n"
-          + "d = data(x = 2, y = 3)\n"
-          + "return d.x + d.y # returns 5</pre>",
-      useLocation = true
+  @SkylarkSignature(
+    name = "provider",
+    returnType = ClassObjectConstructor.class,
+    doc =
+        "Creates a declared provider 'constructor'. The return value of this"
+            + "function can be used to create \"struct-like\" values. Example:<br>"
+            + "<pre class=\"language-python\">data = provider()\n"
+            + "d = data(x = 2, y = 3)\n"
+            + "print(d.x + d.y) # prints 5</pre>",
+    useLocation = true
   )
   private static final BuiltinFunction provider =
       new BuiltinFunction("provider") {
