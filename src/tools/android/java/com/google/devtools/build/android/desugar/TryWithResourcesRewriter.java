@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android.desugar;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static org.objectweb.asm.Opcodes.ASM5;
 import static org.objectweb.asm.Opcodes.INVOKESTATIC;
 import static org.objectweb.asm.Opcodes.INVOKEVIRTUAL;
@@ -22,8 +23,11 @@ import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import java.util.Collections;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 
 /**
@@ -83,7 +87,7 @@ public class TryWithResourcesRewriter extends ClassVisitor {
           .build();
 
   private final ClassLoader classLoader;
-
+  private final Set<String> visitedExceptionTypes;
   private final AtomicInteger numOfTryWithResourcesInvoked;
   /**
    * Indicate whether the current class being desugared should be ignored. If the current class is
@@ -94,9 +98,11 @@ public class TryWithResourcesRewriter extends ClassVisitor {
   public TryWithResourcesRewriter(
       ClassVisitor classVisitor,
       ClassLoader classLoader,
+      Set<String> visitedExceptionTypes,
       AtomicInteger numOfTryWithResourcesInvoked) {
     super(ASM5, classVisitor);
     this.classLoader = classLoader;
+    this.visitedExceptionTypes = visitedExceptionTypes;
     this.numOfTryWithResourcesInvoked = numOfTryWithResourcesInvoked;
   }
 
@@ -112,23 +118,38 @@ public class TryWithResourcesRewriter extends ClassVisitor {
     shouldCurrentClassBeIgnored = THROWABLE_EXT_CLASS_INTERNAL_NAMES.contains(name);
   }
 
-
   @Override
   public MethodVisitor visitMethod(
       int access, String name, String desc, String signature, String[] exceptions) {
+    if (exceptions != null && exceptions.length > 0) {
+      // collect exception types.
+      Collections.addAll(visitedExceptionTypes, exceptions);
+    }
     MethodVisitor visitor = super.cv.visitMethod(access, name, desc, signature, exceptions);
     return visitor == null || shouldCurrentClassBeIgnored
         ? visitor
-        : new TryWithResourceVisitor(visitor, classLoader);
+        : new TryWithResourceVisitor(name + desc, visitor, classLoader);
   }
 
   private class TryWithResourceVisitor extends MethodVisitor {
 
     private final ClassLoader classLoader;
+    /** For debugging purpose. Enrich exception information. */
+    private final String methodSignature;
 
-    public TryWithResourceVisitor(MethodVisitor methodVisitor, ClassLoader classLoader) {
+    public TryWithResourceVisitor(
+        String methodSignature, MethodVisitor methodVisitor, ClassLoader classLoader) {
       super(ASM5, methodVisitor);
       this.classLoader = classLoader;
+      this.methodSignature = methodSignature;
+    }
+
+    @Override
+    public void visitTryCatchBlock(Label start, Label end, Label handler, String type) {
+      if (type != null) {
+        visitedExceptionTypes.add(type); // type in a try-catch block must extend Throwable.
+      }
+      super.visitTryCatchBlock(start, end, handler, type);
     }
 
     @Override
@@ -138,6 +159,7 @@ public class TryWithResourcesRewriter extends ClassVisitor {
         return;
       }
       numOfTryWithResourcesInvoked.incrementAndGet();
+      visitedExceptionTypes.add(checkNotNull(owner)); // owner extends Throwable.
       super.visitMethodInsn(
           INVOKESTATIC, THROWABLE_EXTENSION_INTERNAL_NAME, name, METHOD_DESC_MAP.get(desc), false);
     }
@@ -149,15 +171,16 @@ public class TryWithResourcesRewriter extends ClassVisitor {
       if (!TARGET_METHODS.containsEntry(name, desc)) {
         return false;
       }
-      if (owner.equals("java/lang/Throwable")) {
-        return true; // early return, for performance.
+      if (visitedExceptionTypes.contains(owner)) {
+        return true; // The owner is an exception that has been visited before.
       }
       try {
         Class<?> throwableClass = classLoader.loadClass("java.lang.Throwable");
         Class<?> klass = classLoader.loadClass(owner.replace('/', '.'));
         return throwableClass.isAssignableFrom(klass);
       } catch (ClassNotFoundException e) {
-        throw new AssertionError(e);
+        throw new AssertionError(
+            "Failed to load class when desugaring method " + methodSignature, e);
       }
     }
   }
