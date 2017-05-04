@@ -594,6 +594,7 @@ EOF
 }
 
 function test_fetch() {
+  bazel clean --expunge || fail "Clean failed"
   serve_jar
 
   cat > WORKSPACE <<EOF
