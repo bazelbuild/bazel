@@ -352,6 +352,7 @@ public abstract class CompilationSupport {
     private CompilationAttributes compilationAttributes;
     private boolean useDeps = true;
     private Map<String, NestedSet<Artifact>> outputGroupCollector;
+    private boolean isObjcLibrary = false;
 
     /** Sets the {@link RuleContext} for the calling target. */
     public Builder setRuleContext(RuleContext ruleContext) {
@@ -383,6 +384,15 @@ public abstract class CompilationSupport {
      */
     public Builder doNotUseDeps() {
       this.useDeps = false;
+      return this;
+    }
+
+    /**
+     * Indicates that this CompilationSupport is for use in an objc_library target. This will cause
+     * CrosstoolCompilationSupport to be used if --experimental_objc_crosstool=library
+     */
+    public Builder isObjcLibrary() {
+      this.isObjcLibrary = true;
       return this;
     }
 
@@ -424,22 +434,26 @@ public abstract class CompilationSupport {
         outputGroupCollector = new TreeMap<>();
       }
 
-      return buildConfiguration.getFragment(ObjcConfiguration.class).getObjcCrosstoolMode()
-              == ObjcCrosstoolMode.ALL
-          ? new CrosstoolCompilationSupport(
-              ruleContext,
-              buildConfiguration,
-              intermediateArtifacts,
-              compilationAttributes,
-              useDeps,
-              outputGroupCollector)
-          : new LegacyCompilationSupport(
-              ruleContext,
-              buildConfiguration,
-              intermediateArtifacts,
-              compilationAttributes,
-              useDeps,
-              outputGroupCollector);
+      ObjcCrosstoolMode objcCrosstoolMode =
+          buildConfiguration.getFragment(ObjcConfiguration.class).getObjcCrosstoolMode();
+      if (objcCrosstoolMode == ObjcCrosstoolMode.ALL
+          || (isObjcLibrary && objcCrosstoolMode == ObjcCrosstoolMode.LIBRARY)) {
+        return new CrosstoolCompilationSupport(
+            ruleContext,
+            buildConfiguration,
+            intermediateArtifacts,
+            compilationAttributes,
+            useDeps,
+            outputGroupCollector);
+      } else {
+        return new LegacyCompilationSupport(
+            ruleContext,
+            buildConfiguration,
+            intermediateArtifacts,
+            compilationAttributes,
+            useDeps,
+            outputGroupCollector);
+      }
     }
   }
 

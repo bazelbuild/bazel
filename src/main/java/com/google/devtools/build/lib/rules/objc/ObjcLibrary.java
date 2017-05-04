@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
-import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.syntax.Type;
@@ -61,14 +60,8 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
-    // Support treating objc_library as experimental_objc_library
-    // TODO(b/34260565): Deprecate ExperimentalObjcLibrary in favor of ObjcLibrary with
-    // CrosstoolCompilationSupport.
-    if (ruleContext.getFragment(ObjcConfiguration.class).getObjcCrosstoolMode()
-        != ObjcCrosstoolMode.OFF) {
-      return ExperimentalObjcLibrary.configureExperimentalObjcLibrary(ruleContext);
-    }
-    
+    validateAttributes(ruleContext);
+
     ObjcCommon common = common(ruleContext);
 
     XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
@@ -80,6 +73,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         new CompilationSupport.Builder()
             .setRuleContext(ruleContext)
             .setOutputGroupCollector(outputGroupCollector)
+            .isObjcLibrary()
             .build();
 
     compilationSupport
@@ -89,11 +83,11 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
             ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB))
         .addXcodeSettings(xcodeProviderBuilder, common)
         .validateAttributes();
-
+    
     new ResourceSupport(ruleContext)
         .validateAttributes()
         .addXcodeSettings(xcodeProviderBuilder);
-
+    
     new XcodeSupport(ruleContext)
         .addFilesToBuild(filesToBuild)
         .addXcodeSettings(xcodeProviderBuilder, common.getObjcProvider(), LIBRARY_STATIC)
@@ -104,10 +98,10 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         .registerActions(xcodeProviderBuilder.build());
 
     J2ObjcMappingFileProvider j2ObjcMappingFileProvider = J2ObjcMappingFileProvider.union(
-        ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcMappingFileProvider.class));
+            ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcMappingFileProvider.class));
     J2ObjcEntryClassProvider j2ObjcEntryClassProvider = new J2ObjcEntryClassProvider.Builder()
-        .addTransitive(ruleContext.getPrerequisites("deps", Mode.TARGET,
-            J2ObjcEntryClassProvider.class)).build();
+      .addTransitive(ruleContext.getPrerequisites("deps", Mode.TARGET,
+          J2ObjcEntryClassProvider.class)).build();
 
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
         .addProvider(XcodeProvider.class, xcodeProviderBuilder.build())
@@ -122,5 +116,14 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
             new CcLinkParamsProvider(new ObjcLibraryCcLinkParamsStore(common)))
         .addOutputGroups(outputGroupCollector)
         .build();
+  }
+
+  /** Throws errors or warnings for bad attribute state. */
+  private static void validateAttributes(RuleContext ruleContext) {
+    for (String copt : ObjcCommon.getNonCrosstoolCopts(ruleContext)) {
+      if (copt.contains("-fmodules-cache-path")) {
+        ruleContext.ruleWarning(CompilationSupport.MODULES_CACHE_PATH_WARNING);
+      }
+    }
   }
 }

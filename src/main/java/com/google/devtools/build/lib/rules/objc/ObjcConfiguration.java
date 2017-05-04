@@ -77,7 +77,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   @Nullable private final Label extraEntitlements;
   private final boolean deviceDebugEntitlements;
   private final ObjcCrosstoolMode objcCrosstoolMode;
-  private final boolean experimentalObjcLibrary;
   private final boolean enableAppleBinaryNativeProtos;
   private final HeaderDiscovery.DotdPruningMode dotdPruningPlan;
   private final boolean experimentalHeaderThinning;
@@ -117,7 +116,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.extraEntitlements = objcOptions.extraEntitlements;
     this.deviceDebugEntitlements = objcOptions.deviceDebugEntitlements;
     this.objcCrosstoolMode = objcOptions.objcCrosstoolMode;
-    this.experimentalObjcLibrary = objcOptions.experimentalObjcLibrary;
     this.enableAppleBinaryNativeProtos = objcOptions.enableAppleBinaryNativeProtos;
     this.dotdPruningPlan =
         objcOptions.useDotdPruning
@@ -344,7 +342,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
    * CROSSTOOL is used for objc in this configuration.
    */
   public ObjcCrosstoolMode getObjcCrosstoolMode() {
-    return experimentalObjcLibrary ? ObjcCrosstoolMode.LIBRARY : objcCrosstoolMode;
+    return objcCrosstoolMode;
   }
 
   /** Returns true if apple_binary targets should generate and link Objc protos. */

@@ -131,7 +131,6 @@ import com.google.devtools.build.lib.rules.objc.AppleStaticLibraryRule;
 import com.google.devtools.build.lib.rules.objc.AppleWatch1ExtensionRule;
 import com.google.devtools.build.lib.rules.objc.AppleWatch2ExtensionRule;
 import com.google.devtools.build.lib.rules.objc.AppleWatchExtensionBinaryRule;
-import com.google.devtools.build.lib.rules.objc.ExperimentalObjcLibraryRule;
 import com.google.devtools.build.lib.rules.objc.IosApplicationRule;
 import com.google.devtools.build.lib.rules.objc.IosDeviceRule;
 import com.google.devtools.build.lib.rules.objc.IosExtensionBinaryRule;
@@ -673,7 +672,6 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new AppleWatch1ExtensionRule());
           builder.addRuleDefinition(new AppleWatch2ExtensionRule());
           builder.addRuleDefinition(new AppleWatchExtensionBinaryRule());
-          builder.addRuleDefinition(new ExperimentalObjcLibraryRule());
           builder.addRuleDefinition(new IosApplicationRule());
           builder.addRuleDefinition(new IosDeviceRule());
           builder.addRuleDefinition(new IosExtensionBinaryRule());

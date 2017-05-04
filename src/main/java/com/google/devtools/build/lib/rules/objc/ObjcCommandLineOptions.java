@@ -271,14 +271,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   )
   public ObjcCrosstoolMode objcCrosstoolMode;
 
-  // TODO(b/34260565): Remove in favor of --experimental_objc_crosstool
-  @Option(
-    name = "experimental_objc_library",
-    defaultValue = "false",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED
-  )
-  public boolean experimentalObjcLibrary;
-
   @Option(
     name = "objc_use_dotd_pruning",
     defaultValue = "true",
