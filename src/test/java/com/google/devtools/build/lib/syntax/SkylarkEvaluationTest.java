@@ -216,8 +216,8 @@ public class SkylarkEvaluationTest extends EvaluationTest {
       switch (name) {
         case "field": return "a";
         case "nset": return NestedSetBuilder.stableOrder().build();
+        default: return null;
       }
-      return null;
     }
 
     @Override
