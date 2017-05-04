@@ -1064,6 +1064,20 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
+  public void testPlusOnDictDeprecated() throws Exception {
+    new SkylarkTest("--incompatible_dict_plus=true")
+        .testIfErrorContains(
+            "The `+` operator for dicts is deprecated and no longer supported.", "{1: 2} + {3: 4}");
+    new SkylarkTest("--incompatible_dict_plus=true")
+        .testIfErrorContains(
+            "The `+` operator for dicts is deprecated and no longer supported.",
+            "def func():",
+            "  d = {1: 2}",
+            "  d += {3: 4}",
+            "func()");
+  }
+
+  @Test
   public void testDictAssignmentAsLValue() throws Exception {
     new SkylarkTest().setUp("def func():",
         "  d = {'a' : 1}",

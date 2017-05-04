@@ -68,4 +68,12 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
             + "list. Otherwise it copies the original list without mutating it."
   )
   public boolean incompatibleListPlusEquals;
+
+  @Option(
+    name = "incompatible_dict_plus",
+    defaultValue = "false",
+    category = "incompatible changes",
+    help = "If set to true, the `+` becomes disabled for dicts."
+  )
+  public boolean incompatibleDictPlus;
 }
