@@ -49,12 +49,21 @@ public class FunctionDefStatement extends Statement {
         defaultValues.add(expr.eval(env));
       }
     }
+
+    FunctionSignature sig = signature.getSignature();
+    if (env.getSemantics().incompatibleKeywordOnlySyntax
+        && sig.getShape().getMandatoryNamedOnly() > 0) {
+      throw new EvalException(
+          getLocation(),
+          "Keyword-only argument is forbidden. You can temporarily disable this "
+              + "error using the flag --incompatible_keyword_only_syntax=false");
+    }
+
     env.update(
         ident.getName(),
         new UserDefinedFunction(
             ident,
-            FunctionSignature.WithValues.<Object, SkylarkType>create(
-                signature.getSignature(), defaultValues, types),
+            FunctionSignature.WithValues.<Object, SkylarkType>create(sig, defaultValues, types),
             statements,
             env.getGlobals()));
   }

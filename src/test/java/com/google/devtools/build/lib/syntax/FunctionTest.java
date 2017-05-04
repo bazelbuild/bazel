@@ -336,6 +336,18 @@ public class FunctionTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testKeywordOnlyIsForbidden() throws Exception {
+    env = newEnvironmentWithSkylarkOptions("--incompatible_keyword_only_syntax=true");
+    checkEvalErrorContains("forbidden", "def foo(a, b, *, c): return a + b + c");
+  }
+
+  @Test
+  public void testParamAfterStarArgs() throws Exception {
+    env = newEnvironmentWithSkylarkOptions("--incompatible_keyword_only_syntax=true");
+    checkEvalErrorContains("forbidden", "def foo(a, *b, c): return a");
+  }
+
+  @Test
   public void testKwargsBadKey() throws Exception {
     checkEvalError(
         "keywords must be strings, not 'int'",
@@ -412,5 +424,20 @@ public class FunctionTest extends EvaluationTestCase {
     assertEquals("abyz|cd", lookup("v3"));
     assertEquals("abc2|", lookup("v4"));
     assertEquals("abfg|cde", lookup("v5"));
+  }
+
+  @Test
+  public void testIncompatibleStarParam() throws Exception {
+    env = newEnvironmentWithSkylarkOptions("--incompatible_keyword_only_syntax=true");
+    eval("def f(name, value = '1', optional = '2', *rest):",
+        "  r = name + value + optional + '|'",
+        "  for x in rest: r += x",
+        "  return r",
+        "v1 = f('a', 'b', 'c', 'd', 'e')",
+        "v2 = f('a', optional='b', value='c')",
+        "v3 = f('a')");
+    assertEquals("abc|de", lookup("v1"));
+    assertEquals("acb|", lookup("v2"));
+    assertEquals("a12|", lookup("v3"));
   }
 }

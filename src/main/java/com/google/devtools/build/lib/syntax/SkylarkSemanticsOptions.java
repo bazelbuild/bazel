@@ -50,4 +50,12 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
     help = "If set to true, disables the deprecated `set` constructor for depsets."
   )
   public boolean incompatibleDepsetConstructor;
+
+  @Option(
+    name = "incompatible_keyword_only_syntax",
+    defaultValue = "false",
+    category = "incompatible changes",
+    help = "If set to true, disables the keyword-only argument syntax in function definition."
+  )
+  public boolean incompatibleKeywordOnlySyntax;
 }
