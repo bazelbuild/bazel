@@ -359,10 +359,9 @@ public class ExecutionTool {
     if (targetConfigurations.size() == 1) {
       String productName = runtime.getProductName();
       String dirName = env.getWorkspaceName();
-      String workspaceName = analysisResult.getWorkspaceName();
       OutputDirectoryLinksUtils.createOutputDirectoryLinks(
-          dirName, env.getWorkspace(), env.getDirectories().getExecRoot(workspaceName),
-          env.getDirectories().getOutputPath(workspaceName), getReporter(), targetConfiguration,
+          dirName, env.getWorkspace(), env.getDirectories().getExecRoot(),
+          env.getDirectories().getOutputPath(), getReporter(), targetConfiguration,
           request.getBuildOptions().getSymlinkPrefix(productName), productName);
     }
 
