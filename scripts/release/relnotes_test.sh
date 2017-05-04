@@ -224,4 +224,18 @@ Cherry picks:
   assert_equals "$expected" "$actual"
 }
 
+function test_extract_release_note_for_pre_copybara_commits() {
+  local expected='added --with_aspect_deps to blaze query, that prints additional information about aspects of target when --output is set to {xml, proto, record}.'
+  extract_release_note 14d905b5cce9a1bbc2911331809b03679b23dad1
+  local actual=$(printf "%s\n"  "${RELNOTES_NEW[@]}")
+  assert_equals "${expected}" "${actual}"
+}
+
+function test_extract_release_note_for_post_copybara_commits() {
+  local expected="'output_groups' and 'instrumented_files' cannot be specified in DefaultInfo."
+  extract_release_note e788964a6ebc2c4966456ac74044f4f44a126fe5
+  local actual=$(printf "%s\n"  "${RELNOTES_[@]}")
+  assert_equals "${expected}" "${actual}"
+}
+
 run_suite "Release notes generation tests"
