@@ -47,9 +47,7 @@
 //   implementations.
 
 
-#ifdef _MSC_VER
-#include <io.h>
-#else
+#ifndef _MSC_VER
 #include <unistd.h>
 #endif
 #include <stdlib.h>
@@ -85,6 +83,12 @@ namespace {
 
 #ifdef _WIN32
 #define pipe(fds) _pipe(fds, 4096, O_BINARY)
+// DO NOT include <io.h>, instead create functions in io_win32.{h,cc} and import
+// them like we do below.
+using google::protobuf::stubs::access;
+using google::protobuf::stubs::mkdir;
+using google::protobuf::stubs::open;
+using google::protobuf::stubs::close;
 #endif
 
 #ifndef O_BINARY

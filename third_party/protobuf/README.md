@@ -1,28 +1,37 @@
-### Updating the jar binary
+# Updating protobuf
 
-1. Go to http://search.maven.org/
-2. Search for g:"com.google.protobuf"
-3. Download the "jar" link from protobuf-java and put them in `<Bazel tree>/third_party/protobuf/<version>`
 
-* * *
-### Updating `protobuf.bzl` and the `src/` directory:
+1) Fetch the desired protobuf version and copy it in a folder `new_proto` under
+`third_party/protobuf`.
+2) Bazel uses upstream protobuf from source, except for java, as we currently don't
+build protobuf java when bootstrapping bazel. So instead we use already build jars.
+So build the java proto library from source and in case you cloned an upstream version
+of protobuf, remove the .git folders:
+```
+cd new_proto
+bazel build :protobuf_java :protobuf_java_util
+cp bazel-bin/libprotobuf_java.jar .
+cp bazel-bin/libprotobuf_java_util.jar .
+bazel clean --expunge
+rm -rf .git .gitignore .gitmodules
+```
+3) Modify protobuf's `BUILD` file to not build java from source, but to use
+   the jars instead. To do that, in the BUILD file delete the rules listed
+   under `Java support`. Then, from the `third_party/protobuf/<old_proto>/BUILD file`
+   copy the rules under "Modifications made by bazel" to the new BUILD file.
+   The java rules in there should have the same names as the ones you just deleted under "Java support". 
+   You might need to update the names of the jars in the rules sources to the ones you just build.
+4) Copy `third_party/protobuf/com_google_protobuf_java.BUILD` to the new
+   directory.
+5) Name the `new_proto` directory according to the protobuf version number.
+5) In `third_party/protobuf/BUILD` update PROTOBUF_VERSION to the name of the
+directory you just created.
+6) Update this file if you found the :instructions to be wrong or incomplete.
 
-1. `git clone http://github.com/google/protobuf.git`
-2. `git checkout <tag or commithash>` (e.g. `v3.0.0` or `e8ae137`)
-3. `mkdir -p third_party/protobuf/<version>/src/google` in the root of the Bazel tree.
-4. `cp -R <root of protobuf tree>/src/google/protobuf third_party/protobuf/src/google`
-5. Update the rules in `third_party/protobuf/BUILD` with the rules in the protobuf repository.
+# Current protobuf version
 
-Finally, update the rules:
-
-1. Add a BUILD file to `third_party/protobuf/<version>/`. Use the BUILD file
-   for the previous version as a template. Update the `cc_library` rules to
-   match the rules in the BUILD file in the protobuf repository. Also copy
-   `protobuf.bzl` from the protobuf repository into
-   `third_party/protobuf/<version>/`.
-2. Modify `third_party/protobuf/BUILD` to point to the new rules.
-3. Delete the old version of protobuf.
-
-* * *
-### Updating anything else in the directory
-Follow usual procedure as described on https://www.bazel.build/contributing.html
+The current version of protobuf was obtained from @laszlocsomor's protobuf fork
+`https://github.com/laszlocsomor/protobuf` at commit `a80186eb10e027`. Once
+`https://github.com/google/protobuf/pull/2969` is merged into upstream
+protobuf, we no longer need to use @laszlocsomor's fork but can directly clone
+upstream.

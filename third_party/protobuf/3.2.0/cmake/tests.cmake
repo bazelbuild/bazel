@@ -43,6 +43,9 @@ set(tests_protos
   google/protobuf/unittest_empty.proto
   google/protobuf/unittest_import.proto
   google/protobuf/unittest_import_public.proto
+  google/protobuf/unittest_lazy_dependencies.proto
+  google/protobuf/unittest_lazy_dependencies_custom_option.proto
+  google/protobuf/unittest_lazy_dependencies_enum.proto
   google/protobuf/unittest_lite_imports_nonlite.proto
   google/protobuf/unittest_mset.proto
   google/protobuf/unittest_mset_wire_format.proto
@@ -157,6 +160,8 @@ set(tests_files
   ${protobuf_source_dir}/src/google/protobuf/stubs/bytestream_unittest.cc
   ${protobuf_source_dir}/src/google/protobuf/stubs/common_unittest.cc
   ${protobuf_source_dir}/src/google/protobuf/stubs/int128_unittest.cc
+  ${protobuf_source_dir}/src/google/protobuf/stubs/io_win32.cc
+  ${protobuf_source_dir}/src/google/protobuf/stubs/io_win32_unittest.cc
   ${protobuf_source_dir}/src/google/protobuf/stubs/once_unittest.cc
   ${protobuf_source_dir}/src/google/protobuf/stubs/status_test.cc
   ${protobuf_source_dir}/src/google/protobuf/stubs/statusor_test.cc
@@ -195,6 +200,7 @@ target_link_libraries(tests libprotoc libprotobuf gmock_main)
 
 set(test_plugin_files
   ${protobuf_source_dir}/src/google/protobuf/compiler/mock_code_generator.cc
+  ${protobuf_source_dir}/src/google/protobuf/stubs/io_win32.cc
   ${protobuf_source_dir}/src/google/protobuf/testing/file.cc
   ${protobuf_source_dir}/src/google/protobuf/testing/file.h
   ${protobuf_source_dir}/src/google/protobuf/compiler/test_plugin.cc
@@ -207,7 +213,7 @@ set(lite_test_files
   ${protobuf_source_dir}/src/google/protobuf/lite_unittest.cc
 )
 add_executable(lite-test ${lite_test_files} ${common_lite_test_files} ${lite_test_proto_files})
-target_link_libraries(lite-test libprotobuf-lite)
+target_link_libraries(lite-test libprotobuf-lite gmock_main)
 
 set(lite_arena_test_files
   ${protobuf_source_dir}/src/google/protobuf/lite_arena_unittest.cc
