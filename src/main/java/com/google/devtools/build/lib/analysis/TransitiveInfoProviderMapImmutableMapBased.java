@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -22,16 +23,35 @@ import javax.annotation.concurrent.Immutable;
 
 /** Provides a mapping between a TransitiveInfoProvider class and an instance. */
 @Immutable
-public interface TransitiveInfoProviderMap {
+final class TransitiveInfoProviderMapImmutableMapBased implements TransitiveInfoProviderMap {
+
+  private final ImmutableMap<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> map;
+
+  TransitiveInfoProviderMapImmutableMapBased(
+      ImmutableMap<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> map) {
+    this.map = map;
+  }
 
   /** Returns the instance for the provided providerClass, or <tt>null</tt> if not present. */
+  @Override
   @Nullable
-  <P extends TransitiveInfoProvider> P getProvider(Class<P> providerClass);
+  public <P extends TransitiveInfoProvider> P getProvider(Class<P> providerClass) {
+    return (P) map.get(TransitiveInfoProviderEffectiveClassHelper.get(providerClass));
+  }
 
-  ImmutableSet<Map.Entry<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>>
-      entrySet();
+  @Override
+  public ImmutableSet<Map.Entry<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>>
+      entrySet() {
+    return map.entrySet();
+  }
 
-  ImmutableCollection<TransitiveInfoProvider> values();
+  @Override
+  public ImmutableCollection<TransitiveInfoProvider> values() {
+    return map.values();
+  }
 
-  TransitiveInfoProviderMapBuilder toBuilder();
+  @Override
+  public TransitiveInfoProviderMapBuilder toBuilder() {
+    return new TransitiveInfoProviderMapBuilder().addAll(map.values());
+  }
 }

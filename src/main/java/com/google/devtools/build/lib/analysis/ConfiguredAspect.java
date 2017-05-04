@@ -130,7 +130,7 @@ public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> 
   }
 
   public static ConfiguredAspect forNonapplicableTarget(AspectDescriptor descriptor) {
-    return new ConfiguredAspect(descriptor, TransitiveInfoProviderMap.of());
+    return new ConfiguredAspect(descriptor, new TransitiveInfoProviderMapBuilder().add().build());
   }
 
   public static Builder builder(
@@ -142,7 +142,8 @@ public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> 
    * Builder for {@link ConfiguredAspect}.
    */
   public static class Builder {
-    private final TransitiveInfoProviderMap.Builder providers = TransitiveInfoProviderMap.builder();
+    private final TransitiveInfoProviderMapBuilder providers =
+        new TransitiveInfoProviderMapBuilder();
     private final Map<String, NestedSetBuilder<Artifact>> outputGroupBuilders = new TreeMap<>();
     private final ImmutableMap.Builder<String, Object> skylarkProviderBuilder =
         ImmutableMap.builder();
@@ -174,7 +175,7 @@ public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> 
     /** Adds a provider to the aspect. */
     public Builder addProvider(TransitiveInfoProvider provider) {
       Preconditions.checkNotNull(provider);
-      addProvider(TransitiveInfoProviderMap.getEffectiveProviderClass(provider), provider);
+      addProvider(TransitiveInfoProviderEffectiveClassHelper.get(provider), provider);
       return this;
     }
 

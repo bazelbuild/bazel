@@ -40,8 +40,8 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
     FileProvider fileProvider = new FileProvider(filesToBuild);
     FilesToRunProvider filesToRunProvider =
         FilesToRunProvider.fromSingleExecutableArtifact(artifact);
-    TransitiveInfoProviderMap.Builder builder =
-        TransitiveInfoProviderMap.builder()
+    TransitiveInfoProviderMapBuilder builder =
+        new TransitiveInfoProviderMapBuilder()
             .put(VisibilityProvider.class, this)
             .put(LicensesProvider.class, this)
             .add(fileProvider)

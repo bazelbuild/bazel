@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -182,7 +183,7 @@ public final class CcLibraryHelper {
    * context.
    */
   public static final class Info {
-    private final TransitiveInfoProviderMap.Builder providers;
+    private final TransitiveInfoProviderMapBuilder providers;
     private final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
     private final CcCompilationOutputs compilationOutputs;
     private final CcLinkingOutputs linkingOutputs;
@@ -1038,8 +1039,8 @@ public final class CcLibraryHelper {
 
     // By very careful when adding new providers here - it can potentially affect a lot of rules.
     // We should consider merging most of these providers into a single provider.
-    TransitiveInfoProviderMap.Builder providers =
-        TransitiveInfoProviderMap.builder()
+    TransitiveInfoProviderMapBuilder providers =
+        new TransitiveInfoProviderMapBuilder()
             .add(
                 new CppRunfilesProvider(cppStaticRunfiles, cppSharedRunfiles),
                 cppCompilationContext,

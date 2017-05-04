@@ -58,8 +58,8 @@ import java.util.TreeMap;
  */
 public final class RuleConfiguredTargetBuilder {
   private final RuleContext ruleContext;
-  private final TransitiveInfoProviderMap.Builder providersBuilder =
-      TransitiveInfoProviderMap.builder();
+  private final TransitiveInfoProviderMapBuilder providersBuilder =
+      new TransitiveInfoProviderMapBuilder();
   private final ImmutableMap.Builder<String, Object> skylarkProviders = ImmutableMap.builder();
   private final ImmutableMap.Builder<ClassObjectConstructor.Key, SkylarkClassObject>
       skylarkDeclaredProviders = ImmutableMap.builder();
