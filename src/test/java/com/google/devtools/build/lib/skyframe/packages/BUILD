@@ -6,7 +6,10 @@ filegroup(
 
 java_test(
     name = "BazelPackageLoaderTest",
-    srcs = ["BazelPackageLoaderTest.java"],
+    srcs = [
+        "AbstractBazelPackageLoaderTest.java",
+        "BazelPackageLoaderTest.java",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:BazelPackageLoader",
         "//src/main/java/com/google/devtools/build/lib:events",
