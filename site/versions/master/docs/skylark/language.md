@@ -7,7 +7,7 @@ title: Extensions - Overview
 
 ## Syntax
 
-The extension language (Skylark) is a superset of the
+The extension language, Skylark, is a superset of the
 [Core Build Language](/docs/build-ref.html#core_build_language)
 and its syntax is a subset of Python.
 It is designed to be simple, thread-safe and integrated with the
@@ -37,6 +37,12 @@ The following basic types are supported: [None](lib/globals.html#None),
 [list](lib/list.html), [string](lib/string.html). On top of that, two new
 types are specific to Bazel: [depset](lib/depset.html) and
 [struct](lib/struct.html).
+
+Skylark is syntactically a subset of both Python 2 and Python 3, and will remain
+so through at least the 1.x release lifecycle. This ensures that Python-based
+tooling can at least parse Skylark code. Although Skylark is not *semantically*
+a subset of Python, behavioral differences are rare (excluding cases where
+Skylark raises an error).
 
 
 ## Mutability
