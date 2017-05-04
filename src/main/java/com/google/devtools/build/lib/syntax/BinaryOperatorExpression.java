@@ -92,19 +92,14 @@ public final class BinaryOperatorExpression extends Expression {
     }
   }
 
-  /**
-   * Helper method. Reused from AugmentedAssignmentStatement class which falls back to this method
-   * in most of the cases.
-   */
+  /** Helper method. Reused from the LValue class. */
   public static Object evaluate(
-      Operator operator, Expression lhs, Expression rhs, Environment env, Location location)
-      throws EvalException, InterruptedException {
-    Object lval = lhs.eval(env);
-    return evaluate(operator, lval, rhs, env, location);
-  }
-
-  public static Object evaluate(
-      Operator operator, Object lval, Expression rhs, Environment env, Location location)
+      Operator operator,
+      Object lval,
+      Expression rhs,
+      Environment env,
+      Location location,
+      boolean isAugmented)
       throws EvalException, InterruptedException {
     // Short-circuit operators
     if (operator == Operator.AND) {
@@ -127,7 +122,7 @@ public final class BinaryOperatorExpression extends Expression {
 
     switch (operator) {
       case PLUS:
-        return plus(lval, rval, env, location);
+        return plus(lval, rval, env, location, isAugmented);
 
       case PIPE:
         return pipe(lval, rval, location);
@@ -175,7 +170,7 @@ public final class BinaryOperatorExpression extends Expression {
 
   @Override
   Object doEval(Environment env) throws EvalException, InterruptedException {
-    return evaluate(operator, lhs, rhs, env, getLocation());
+    return evaluate(operator, lhs.eval(env), rhs, env, getLocation(), false);
   }
 
   @Override
@@ -190,7 +185,8 @@ public final class BinaryOperatorExpression extends Expression {
   }
 
   /** Implements Operator.PLUS. */
-  private static Object plus(Object lval, Object rval, Environment env, Location location)
+  private static Object plus(
+      Object lval, Object rval, Environment env, Location location, boolean isAugmented)
       throws EvalException {
     // int + int
     if (lval instanceof Integer && rval instanceof Integer) {
@@ -213,6 +209,12 @@ public final class BinaryOperatorExpression extends Expression {
     }
 
     if ((lval instanceof MutableList) && (rval instanceof MutableList)) {
+      if (isAugmented && env.getSemantics().incompatibleListPlusEquals) {
+        @SuppressWarnings("unchecked")
+        MutableList<Object> list = (MutableList) lval;
+        list.addAll((MutableList<?>) rval, location, env);
+        return list;
+      }
       return MutableList.concat((MutableList) lval, (MutableList) rval, env);
     }
 

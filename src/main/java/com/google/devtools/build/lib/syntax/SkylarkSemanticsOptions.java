@@ -58,4 +58,14 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
     help = "If set to true, disables the keyword-only argument syntax in function definition."
   )
   public boolean incompatibleKeywordOnlySyntax;
+
+  @Option(
+    name = "incompatible_list_plus_equals",
+    defaultValue = "false",
+    category = "incompatible changes",
+    help =
+        "If set to true, `+=` on lists works like the `extend` method mutating the original "
+            + "list. Otherwise it copies the original list without mutating it."
+  )
+  public boolean incompatibleListPlusEquals;
 }

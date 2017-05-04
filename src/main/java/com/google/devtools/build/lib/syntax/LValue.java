@@ -53,7 +53,8 @@ public class LValue implements Serializable {
   public void assign(Environment env, Location loc, Expression rhs, Operator operator)
       throws EvalException, InterruptedException {
     if (expr instanceof Identifier) {
-      Object result = BinaryOperatorExpression.evaluate(operator, expr, rhs, env, loc);
+      Object result =
+          BinaryOperatorExpression.evaluate(operator, expr.eval(env), rhs, env, loc, true);
       assign(env, loc, (Identifier) expr, result);
       return;
     }
@@ -64,7 +65,8 @@ public class LValue implements Serializable {
       Object evaluatedLhsObject = indexExpression.getObject().eval(env);
       Object evaluatedLhs = indexExpression.eval(env, evaluatedLhsObject);
       Object key = indexExpression.getKey().eval(env);
-      Object result = BinaryOperatorExpression.evaluate(operator, evaluatedLhs, rhs, env, loc);
+      Object result =
+          BinaryOperatorExpression.evaluate(operator, evaluatedLhs, rhs, env, loc, true);
       assignItem(env, loc, evaluatedLhsObject, key, result);
       return;
     }
