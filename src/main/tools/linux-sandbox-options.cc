@@ -95,7 +95,7 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
   extern char *optarg;
   extern int optind, optopt;
   int c;
-  bool source_specified;
+  bool source_specified = false;
 
   while ((c = getopt(args->size(), args->data(), ":W:T:t:l:L:w:e:M:m:HNRUD")) !=
          -1) {
