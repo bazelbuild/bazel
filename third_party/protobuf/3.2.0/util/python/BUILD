@@ -12,7 +12,6 @@
 #   name = "python",
 #   path = __workspace_dir__ + "/util/python",
 # )
-
 licenses(["notice"])
 
 filegroup(

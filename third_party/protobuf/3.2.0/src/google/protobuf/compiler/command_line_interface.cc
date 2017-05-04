@@ -45,10 +45,7 @@
 #endif
 #include <sys/stat.h>
 #include <fcntl.h>
-#ifdef _MSC_VER
-#include <io.h>
-#include <direct.h>
-#else
+#ifndef _MSC_VER
 #include <unistd.h>
 #endif
 #include <errno.h>
@@ -103,6 +100,14 @@ namespace compiler {
 namespace {
 #if defined(_WIN32) && !defined(__CYGWIN__)
 static const char* kPathSeparator = ";";
+// DO NOT include <io.h>, instead create functions in io_win32.{h,cc} and import
+// them like we do below.
+using google::protobuf::stubs::access;
+using google::protobuf::stubs::close;
+using google::protobuf::stubs::mkdir;
+using google::protobuf::stubs::open;
+using google::protobuf::stubs::setmode;
+using google::protobuf::stubs::write;
 #else
 static const char* kPathSeparator = ":";
 #endif
@@ -126,9 +131,9 @@ static bool IsWindowsAbsolutePath(const string& text) {
 
 void SetFdToTextMode(int fd) {
 #ifdef _WIN32
-  if (_setmode(fd, _O_TEXT) == -1) {
+  if (setmode(fd, _O_TEXT) == -1) {
     // This should never happen, I think.
-    GOOGLE_LOG(WARNING) << "_setmode(" << fd << ", _O_TEXT): " << strerror(errno);
+    GOOGLE_LOG(WARNING) << "setmode(" << fd << ", _O_TEXT): " << strerror(errno);
   }
 #endif
   // (Text and binary are the same on non-Windows platforms.)
@@ -136,9 +141,9 @@ void SetFdToTextMode(int fd) {
 
 void SetFdToBinaryMode(int fd) {
 #ifdef _WIN32
-  if (_setmode(fd, _O_BINARY) == -1) {
+  if (setmode(fd, _O_BINARY) == -1) {
     // This should never happen, I think.
-    GOOGLE_LOG(WARNING) << "_setmode(" << fd << ", _O_BINARY): " << strerror(errno);
+    GOOGLE_LOG(WARNING) << "setmode(" << fd << ", _O_BINARY): " << strerror(errno);
   }
 #endif
   // (Text and binary are the same on non-Windows platforms.)
@@ -789,8 +794,8 @@ int CommandLineInterface::Run(int argc, const char* const argv[]) {
 
     // Enforce --disallow_services.
     if (disallow_services_ && parsed_file->service_count() > 0) {
-      cerr << parsed_file->name() << ": This file contains services, but "
-              "--disallow_services was used." << endl;
+      std::cerr << parsed_file->name() << ": This file contains services, but "
+              "--disallow_services was used." << std::endl;
       return 1;
     }
 
@@ -801,11 +806,11 @@ int CommandLineInterface::Run(int argc, const char* const argv[]) {
         if (direct_dependencies_.find(parsed_file->dependency(i)->name()) ==
             direct_dependencies_.end()) {
           indirect_imports = true;
-          cerr << parsed_file->name() << ": "
-               << StringReplace(direct_dependencies_violation_msg_, "%s",
-                                parsed_file->dependency(i)->name(),
-                                true /* replace_all */)
-               << std::endl;
+          std::cerr << parsed_file->name() << ": "
+                    << StringReplace(direct_dependencies_violation_msg_, "%s",
+                                     parsed_file->dependency(i)->name(),
+                                     true /* replace_all */)
+                    << std::endl;
         }
       }
       if (indirect_imports) {
@@ -1023,7 +1028,7 @@ CommandLineInterface::ParseArguments(int argc, const char* const argv[]) {
 
   // Make sure each plugin option has a matching plugin output.
   bool foundUnknownPluginOption = false;
-  for (map<string, string>::const_iterator i = plugin_parameters_.begin();
+  for (std::map<string, string>::const_iterator i = plugin_parameters_.begin();
        i != plugin_parameters_.end(); ++i) {
     if (plugins_.find(i->first) != plugins_.end()) {
       continue;
@@ -1206,7 +1211,8 @@ CommandLineInterface::InterpretArgument(const string& name,
       if (access(disk_path.c_str(), F_OK) < 0) {
         // Try the original path; it may have just happed to have a '=' in it.
         if (access(parts[i].c_str(), F_OK) < 0) {
-          cerr << disk_path << ": warning: directory does not exist." << endl;
+          std::cerr << disk_path << ": warning: directory does not exist."
+                    << std::endl;
         } else {
           virtual_path = "";
           disk_path = parts[i];
@@ -1287,9 +1293,9 @@ CommandLineInterface::InterpretArgument(const string& name,
     if (!version_info_.empty()) {
       std::cout << version_info_ << std::endl;
     }
-    cout << "libprotoc "
+    std::cout << "libprotoc "
          << protobuf::internal::VersionString(GOOGLE_PROTOBUF_VERSION)
-         << endl;
+         << std::endl;
     return PARSE_ARGUMENT_DONE_AND_EXIT;  // Exit without running compiler.
 
   } else if (name == "--disallow_services") {
@@ -1376,6 +1382,7 @@ CommandLineInterface::InterpretArgument(const string& name,
     }
     mode_ = MODE_PRINT;
     print_mode_ = PRINT_FREE_FIELDS;
+  } else if (name == "--profile_path") {
   } else {
     // Some other flag.  Look it up in the generators list.
     const GeneratorInfo* generator_info =
@@ -1775,30 +1782,33 @@ bool CommandLineInterface::EncodeOrDecode(const DescriptorPool* pool) {
 }
 
 bool CommandLineInterface::WriteDescriptorSet(
-    const std::vector<const FileDescriptor*> parsed_files) {
+    const std::vector<const FileDescriptor*>& parsed_files) {
   FileDescriptorSet file_set;
 
-  if (imports_in_descriptor_set_) {
-    std::set<const FileDescriptor*> already_seen;
+  std::set<const FileDescriptor*> already_seen;
+  if (!imports_in_descriptor_set_) {
+    // Since we don't want to output transitive dependencies, but we do want
+    // things to be in dependency order, add all dependencies that aren't in
+    // parsed_files to already_seen.  This will short circuit the recursion
+    // in GetTransitiveDependencies.
+    std::set<const FileDescriptor*> to_output;
+    to_output.insert(parsed_files.begin(), parsed_files.end());
     for (int i = 0; i < parsed_files.size(); i++) {
-      GetTransitiveDependencies(parsed_files[i],
-                                true,  // Include json_name
-                                source_info_in_descriptor_set_,
-                                &already_seen, file_set.mutable_file());
-    }
-  } else {
-    std::set<const FileDescriptor*> already_seen;
-    for (int i = 0; i < parsed_files.size(); i++) {
-      if (!already_seen.insert(parsed_files[i]).second) {
-        continue;
-      }
-      FileDescriptorProto* file_proto = file_set.add_file();
-      parsed_files[i]->CopyTo(file_proto);
-      parsed_files[i]->CopyJsonNameTo(file_proto);
-      if (source_info_in_descriptor_set_) {
-        parsed_files[i]->CopySourceCodeInfoTo(file_proto);
+      const FileDescriptor* file = parsed_files[i];
+      for (int i = 0; i < file->dependency_count(); i++) {
+        const FileDescriptor* dependency = file->dependency(i);
+        // if the dependency isn't in parsed files, mark it as already seen
+        if (to_output.find(dependency) == to_output.end()) {
+          already_seen.insert(dependency);
+        }
       }
     }
+  }
+  for (int i = 0; i < parsed_files.size(); i++) {
+    GetTransitiveDependencies(parsed_files[i],
+                              true,  // Include json_name
+                              source_info_in_descriptor_set_,
+                              &already_seen, file_set.mutable_file());
   }
 
   int fd;
