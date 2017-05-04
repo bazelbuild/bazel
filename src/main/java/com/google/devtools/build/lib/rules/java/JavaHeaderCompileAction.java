@@ -487,7 +487,7 @@ public class JavaHeaderCompileAction extends SpawnAction {
 
     /** Returns true if the header compilation classpath should only include direct deps. */
     boolean useDirectClasspath() {
-      if (directJars.isEmpty()) {
+      if (directJars.isEmpty() && !classpathEntries.isEmpty()) {
         // the compilation doesn't distinguish direct deps, e.g. because it doesn't support strict
         // java deps
         return false;
