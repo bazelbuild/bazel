@@ -305,7 +305,7 @@ function release_to_gcs() {
     return 1
   fi
   if [ -n "${release_name}" ]; then
-    local release_path="${release_name}"
+    local release_path="${release_name}/release"
     if [ -n "${rc}" ]; then
       release_path="${release_name}/rc${rc}"
     fi
