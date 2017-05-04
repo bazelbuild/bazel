@@ -21,7 +21,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -73,12 +72,6 @@ public class JavaHeaderCompileAction extends SpawnAction {
   private final Iterable<Artifact> directInputs;
   @Nullable private final CommandLine directCommandLine;
 
-  /** Returns true if the header compilation will use direct dependencies only. */
-  @VisibleForTesting
-  public boolean useDirectClasspath() {
-    return directCommandLine != null;
-  }
-
   /** The command line for a direct classpath compilation, or {@code null} if disabled. */
   @VisibleForTesting
   @Nullable
@@ -94,8 +87,7 @@ public class JavaHeaderCompileAction extends SpawnAction {
    * @param directInputs the set of direct input artifacts of the compile action
    * @param transitiveInputs the set of transitive input artifacts of the compile action
    * @param outputs the outputs of the action
-   * @param directCommandLine the direct command line arguments for the java header compiler, or
-   *     {@code null} if direct classpaths are disabled
+   * @param directCommandLine the direct command line arguments for the java header compiler
    * @param transitiveCommandLine the transitive command line arguments for the java header compiler
    * @param progressMessage the message printed during the progression of the build
    */
@@ -120,29 +112,21 @@ public class JavaHeaderCompileAction extends SpawnAction {
         progressMessage,
         "Turbine");
     this.directInputs = checkNotNull(directInputs);
-    this.directCommandLine = directCommandLine;
+    this.directCommandLine = checkNotNull(directCommandLine);
   }
 
   @Override
   protected String computeKey() {
-    Fingerprint fingerprint =
-        new Fingerprint()
-            .addString(GUID)
-            .addString(super.computeKey())
-            .addBoolean(useDirectClasspath());
-    if (directCommandLine != null) {
-      fingerprint.addStrings(directCommandLine.arguments());
-    }
-    return fingerprint.hexDigestAndReset();
+    return new Fingerprint()
+        .addString(GUID)
+        .addString(super.computeKey())
+        .addStrings(directCommandLine.arguments())
+        .hexDigestAndReset();
   }
 
   @Override
   protected void internalExecute(ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
-    if (!useDirectClasspath()) {
-      super.internalExecute(actionExecutionContext);
-      return;
-    }
     Executor executor = actionExecutionContext.getExecutor();
     SpawnActionContext context = getContext(executor);
     try {
@@ -365,16 +349,17 @@ public class JavaHeaderCompileAction extends SpawnAction {
           ruleContext
               .getAnalysisEnvironment()
               .getDerivedArtifact(paramFilePath, outputJar.getRoot());
-      Action parameterFileWriteAction =
+      ruleContext.registerAction(
           new ParameterFileWriteAction(
               ruleContext.getActionOwner(),
               paramsFile,
               transitiveParams,
               ParameterFile.ParameterFileType.UNQUOTED,
-              ISO_8859_1);
+              ISO_8859_1));
       CommandLine transitiveCommandLine =
           getBaseArgs(javaToolchain).addPaths("@%s", paramsFile.getExecPath()).build();
       Iterable<Artifact> tools = ImmutableList.of(javacJar, javaToolchain.getHeaderCompiler());
+      ImmutableList<Artifact> outputs = ImmutableList.of(outputJar, outputDepsProto);
       NestedSet<Artifact> directInputs =
           NestedSetBuilder.<Artifact>stableOrder()
               .addTransitive(javabaseInputs)
@@ -392,17 +377,33 @@ public class JavaHeaderCompileAction extends SpawnAction {
               .addTransitive(compileTimeDependencyArtifacts)
               .add(paramsFile)
               .build();
-      JavaHeaderCompileAction javaHeaderCompileAction =
+      if (!useDirectClasspath) {
+        // If direct classpaths are disabled (e.g. because the compilation uses API-generating
+        // annotation processors) skip the custom action implementation and just use SpawnAction.
+        ruleContext.registerAction(
+            new SpawnAction(
+                ruleContext.getActionOwner(),
+                tools,
+                transitiveInputs,
+                outputs,
+                LOCAL_RESOURCES,
+                transitiveCommandLine,
+                JavaCompileAction.UTF8_ENVIRONMENT,
+                /*executionInfo=*/ ImmutableSet.<String>of(),
+                getProgressMessage(),
+                "JavacTurbine"));
+        return;
+      }
+      ruleContext.registerAction(
           new JavaHeaderCompileAction(
               ruleContext.getActionOwner(),
               tools,
               directInputs,
               transitiveInputs,
-              ImmutableList.of(outputJar, outputDepsProto),
+              outputs,
               directCommandLine,
               transitiveCommandLine,
-              getProgressMessage());
-      ruleContext.registerAction(parameterFileWriteAction, javaHeaderCompileAction);
+              getProgressMessage()));
     }
 
     private String getProgressMessage() {
