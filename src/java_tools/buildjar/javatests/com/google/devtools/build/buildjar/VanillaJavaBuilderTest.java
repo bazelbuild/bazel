@@ -183,4 +183,55 @@ public class VanillaJavaBuilderTest {
     assertThat(result.ok()).isFalse();
     assertThat(Files.exists(output)).isFalse();
   }
+
+  @Test
+  public void cleanOutputDirectories() throws Exception {
+    Path source = temporaryFolder.newFile("Test.java").toPath();
+    Path output = temporaryFolder.newFile("out.jar").toPath();
+    Files.write(
+        source,
+        ImmutableList.of(
+            "class A {", //
+            "}"),
+        UTF_8);
+    Path sourceJar = temporaryFolder.newFile("src.srcjar").toPath();
+    try (OutputStream os = Files.newOutputStream(sourceJar);
+        JarOutputStream jos = new JarOutputStream(os)) {
+      jos.putNextEntry(new JarEntry("B.java"));
+      jos.write("class B {}".getBytes(UTF_8));
+    }
+    Path resource = temporaryFolder.newFile("resource.properties").toPath();
+    Files.write(resource, "hello".getBytes(UTF_8));
+
+    Path classDir = temporaryFolder.newFolder().toPath();
+    Files.write(
+        classDir.resolve("extra.class"),
+        new byte[] {(byte) 0xca, (byte) 0xfe, (byte) 0xba, (byte) 0xbe});
+
+    VanillaJavaBuilderResult result =
+        run(
+            ImmutableList.of(
+                "--javacopts",
+                "-Xep:FallThrough:ERROR",
+                "--sources",
+                source.toString(),
+                "--source_jars",
+                sourceJar.toString(),
+                "--output",
+                output.toString(),
+                "--classpath_resources",
+                resource.toString(),
+                "--bootclasspath",
+                Paths.get(System.getProperty("java.home")).resolve("lib/rt.jar").toString(),
+                "--classdir",
+                classDir.toString()));
+
+    assertThat(result.output()).isEmpty();
+    assertThat(result.ok()).isTrue();
+
+    ImmutableMap<String, byte[]> outputEntries = readJar(output.toFile());
+    assertThat(outputEntries.keySet())
+        .containsExactly(
+            "META-INF/", "META-INF/MANIFEST.MF", "A.class", "B.class", "resource.properties");
+  }
 }

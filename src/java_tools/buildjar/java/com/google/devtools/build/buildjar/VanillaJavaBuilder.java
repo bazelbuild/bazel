@@ -249,12 +249,12 @@ public class VanillaJavaBuilder implements Closeable {
         StandardLocation.ANNOTATION_PROCESSOR_PATH, toFiles(optionsParser.getProcessorPath()));
     if (optionsParser.getSourceGenDir() != null) {
       Path sourceGenDir = Paths.get(optionsParser.getSourceGenDir());
-      Files.createDirectories(sourceGenDir);
+      createOutputDirectory(sourceGenDir);
       fileManager.setLocation(
           StandardLocation.SOURCE_OUTPUT, ImmutableList.of(sourceGenDir.toFile()));
     }
     Path classDir = Paths.get(optionsParser.getClassDir());
-    Files.createDirectories(classDir);
+    createOutputDirectory(classDir);
     fileManager.setLocation(StandardLocation.CLASS_OUTPUT, ImmutableList.of(classDir.toFile()));
   }
 
@@ -341,5 +341,33 @@ public class VanillaJavaBuilder implements Closeable {
     public CharSequence getCharContent(boolean ignoreEncodingErrors) throws IOException {
       return new String(Files.readAllBytes(path), UTF_8);
     }
+  }
+
+  private static void createOutputDirectory(Path dir) throws IOException {
+    if (Files.exists(dir)) {
+      try {
+        // TODO(b/27069912): handle symlinks
+        Files.walkFileTree(
+            dir,
+            new SimpleFileVisitor<Path>() {
+              @Override
+              public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
+                  throws IOException {
+                Files.delete(file);
+                return FileVisitResult.CONTINUE;
+              }
+
+              @Override
+              public FileVisitResult postVisitDirectory(Path dir, IOException exc)
+                  throws IOException {
+                Files.delete(dir);
+                return FileVisitResult.CONTINUE;
+              }
+            });
+      } catch (IOException e) {
+        throw new IOException("Cannot clean output directory '" + dir + "'", e);
+      }
+    }
+    Files.createDirectories(dir);
   }
 }
