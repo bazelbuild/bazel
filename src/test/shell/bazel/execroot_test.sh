@@ -38,7 +38,10 @@ genrule(
 EOF
 
   bazel build -s //dir:use-srcs &> $TEST_log || fail "expected success"
-  test -e "$(bazel info execution_root)/../${ws_name}"
+  execroot="$(bazel info execution_root)"
+  test -e "$execroot/../${ws_name}"
+  ls -l bazel-out | tee out
+  assert_contains "$execroot/bazel-out" out
 }
 
 run_suite "execution root tests"
