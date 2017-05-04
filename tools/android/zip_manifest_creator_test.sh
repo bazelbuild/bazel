@@ -14,8 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set -eux
+
 export RUNFILES=${RUNFILES:-$($(cd $(dirname ${BASH_SOURCE[0]})); pwd)}
 CUT="$(cd $(dirname ${BASH_SOURCE[0]}) && pwd)/zip_manifest_creator"
+ZIPPER=$(pwd)/$1
 cd $TEST_TMPDIR
 
 touch classes.jar
@@ -24,10 +27,7 @@ mkdir -p res/values
 touch res/values/bar.xml
 touch res/values/baz.xml
 
-zip -q foo.zip classes.jar
-zip -q foo.zip AndroidManifest.xml
-zip -q foo.zip res/values/bar.xml
-zip -q foo.zip res/values/baz.xml
+$ZIPPER c foo.zip classes.jar AndroidManifest.xml res/values/*
 
 $CUT 'res/.*' foo.zip actual.manifest
 
