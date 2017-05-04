@@ -758,7 +758,7 @@ public class RuleClass {
     public Builder cfg(Transition transition) {
       Preconditions.checkState(type != RuleClassType.ABSTRACT,
           "Setting not inherited property (cfg) of abstract rule class '%s'", name);
-      Preconditions.checkState(this.transitionFactory == null && this.configurator == NO_CHANGE,
+      Preconditions.checkState(this.transitionFactory == null,
           "Property cfg has already been set");
       Preconditions.checkNotNull(transition);
       this.transitionFactory = new FixedTransitionFactory(transition);
@@ -768,7 +768,7 @@ public class RuleClass {
     public Builder cfg(RuleTransitionFactory transitionFactory) {
       Preconditions.checkState(type != RuleClassType.ABSTRACT,
           "Setting not inherited property (cfg) of abstract rule class '%s'", name);
-      Preconditions.checkState(this.transitionFactory == null && this.configurator == NO_CHANGE,
+      Preconditions.checkState(this.transitionFactory == null,
           "Property cfg has already been set");
       Preconditions.checkNotNull(transitionFactory);
       this.transitionFactory = transitionFactory;
