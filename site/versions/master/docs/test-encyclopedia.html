@@ -334,7 +334,10 @@ resolve.</p>
 <p>Tests are granted at least one CPU core. Others may be available but this
 is not guaranteed. Other performance aspects of this core are not specified.
 You can increase the reservation to a higher number of CPU cores by adding the
-tag "cpu:n" (where n is a positive number) to a test rule.</p>
+tag "cpu:n" (where n is a positive number) to a test rule. If a machine has
+less total CPU cores than requested, Bazel will still run the test. If a test
+uses sharding, each individual shard will reserve the number of CPU cores
+specified here.</p>
 
 <p>Tests may create subprocesses, but not process groups or sessions.</p>
 
