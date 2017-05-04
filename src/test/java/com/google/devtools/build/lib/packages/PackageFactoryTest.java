@@ -252,11 +252,36 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   }
 
   @Test
+  public void testPackageNameFunction() throws Exception {
+    Path buildFile = scratch.file("/pina/BUILD", "cc_library(name=package_name() + '-colada')");
+
+    Package pkg = packages.createPackage("pina", buildFile);
+    events.assertNoWarningsOrErrors();
+    assertFalse(pkg.containsErrors());
+    assertNotNull(pkg.getRule("pina-colada"));
+    assertFalse(pkg.getRule("pina-colada").containsErrors());
+    assertSame(1, Sets.newHashSet(pkg.getTargets(Rule.class)).size());
+  }
+
+  @Test
   public void testPackageConstantInExternalRepository() throws Exception {
     Path buildFile =
         scratch.file(
             "/external/a/b/BUILD",
             "genrule(name='c', srcs=[], outs=['ao'], cmd=REPOSITORY_NAME + ' ' + PACKAGE_NAME)");
+    Package pkg =
+        packages.createPackage(
+            PackageIdentifier.create("@a", PathFragment.create("b")), buildFile, events.reporter());
+    Rule c = pkg.getRule("c");
+    assertThat(AggregatingAttributeMapper.of(c).get("cmd", Type.STRING)).isEqualTo("@a b");
+  }
+
+  @Test
+  public void testPackageFunctionInExternalRepository() throws Exception {
+    Path buildFile =
+        scratch.file(
+            "/external/a/b/BUILD",
+            "genrule(name='c', srcs=[], outs=['o'], cmd=repository_name() + ' ' + package_name())");
     Package pkg =
         packages.createPackage(
             PackageIdentifier.create("@a", PathFragment.create("b")), buildFile, events.reporter());

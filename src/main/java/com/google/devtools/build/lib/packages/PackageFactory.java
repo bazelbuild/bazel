@@ -815,6 +815,47 @@ public final class PackageFactory {
     return Runtime.NONE;
   }
 
+  @SkylarkSignature(
+    name = "package_name",
+    objectType = SkylarkNativeModule.class,
+    returnType = String.class,
+    doc =
+        "The name of the package being evaluated. "
+            + "For example, in the BUILD file <code>some/package/BUILD</code>, its value "
+            + "will be <code>some/package</code>. "
+            + "If the BUILD file calls a function defined in a .bzl file, "
+            + "<code>package_name()</code> will match the caller BUILD file package. "
+            + "This function is equivalent to the deprecated variable <code>PACKAGE_NAME</code>.",
+    parameters = {},
+    useEnvironment = true
+  )
+  private static final BuiltinFunction packageNameFunction =
+      new BuiltinFunction("package_name") {
+        public String invoke(Environment env) throws EvalException {
+          return (String) env.lookup("PACKAGE_NAME");
+        }
+      };
+
+  @SkylarkSignature(
+    name = "repository_name",
+    objectType = SkylarkNativeModule.class,
+    returnType = String.class,
+    doc =
+        "The name of the repository the rule or build extension is called from. "
+            + "For example, in packages that are called into existence by the WORKSPACE stanza "
+            + "<code>local_repository(name='local', path=...)</code> it will be set to "
+            + "<code>@local</code>. In packages in the main repository, it will be empty. This "
+            + "function is equivalent to the deprecated variable <code>REPOSITORY_NAME</code>.",
+    parameters = {},
+    useEnvironment = true
+  )
+  private static final BuiltinFunction repositoryNameFunction =
+      new BuiltinFunction("repository_name") {
+        public String invoke(Environment env) throws EvalException, ConversionException {
+          return (String) env.lookup("REPOSITORY_NAME");
+        }
+      };
+
   /**
    * Returns a function-value implementing "licenses" in the specified package
    * context.
@@ -1601,6 +1642,8 @@ public final class PackageFactory {
         .setup("exports_files", newExportsFilesFunction.apply())
         .setup("package_group", newPackageGroupFunction.apply())
         .setup("package", newPackageFunction(packageArguments))
+        .setup("package_name", packageNameFunction)
+        .setup("repository_name", repositoryNameFunction)
         .setup("environment_group", newEnvironmentGroupFunction.apply(context));
 
     for (String ruleClass : ruleFactory.getRuleClassNames()) {
