@@ -7,7 +7,7 @@ filegroup(
 java_test(
     name = "BazelPackageLoaderTest",
     srcs = [
-        "AbstractBazelPackageLoaderTest.java",
+        "AbstractPackageLoaderTest.java",
         "BazelPackageLoaderTest.java",
     ],
     deps = [
