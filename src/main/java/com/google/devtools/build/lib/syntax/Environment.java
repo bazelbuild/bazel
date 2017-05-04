@@ -99,6 +99,7 @@ public final class Environment implements Freezable {
   public static final class Frame implements Freezable {
 
     private final Mutability mutability;
+    @Nullable
     final Frame parent;
     final Map<String, Object> bindings = new LinkedHashMap<>();
     // The label for the target this frame is defined in (e.g., //foo:bar.bzl).
@@ -486,8 +487,8 @@ public final class Environment implements Freezable {
       @Nullable Label callerLabel) {
     this.globalFrame = Preconditions.checkNotNull(globalFrame);
     this.dynamicFrame = Preconditions.checkNotNull(dynamicFrame);
-    Preconditions.checkArgument(globalFrame.mutability().isMutable());
-    Preconditions.checkArgument(dynamicFrame.mutability().isMutable());
+    Preconditions.checkArgument(!globalFrame.mutability().isFrozen());
+    Preconditions.checkArgument(!dynamicFrame.mutability().isFrozen());
     this.semantics = semantics;
     this.eventHandler = eventHandler;
     this.importedExtensions = importedExtensions;
@@ -563,9 +564,9 @@ public final class Environment implements Freezable {
 
     /** Builds the Environment. */
     public Environment build() {
-      Preconditions.checkArgument(mutability.isMutable());
+      Preconditions.checkArgument(!mutability.isFrozen());
       if (parent != null) {
-        Preconditions.checkArgument(!parent.mutability().isMutable());
+        Preconditions.checkArgument(parent.mutability().isFrozen());
       }
       Frame globalFrame = new Frame(mutability, parent);
       Frame dynamicFrame = new Frame(mutability, null);

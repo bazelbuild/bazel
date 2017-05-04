@@ -51,7 +51,7 @@ public class UserDefinedFunction extends BaseFunction {
   @Override
   public Object call(Object[] arguments, FuncallExpression ast, Environment env)
       throws EvalException, InterruptedException {
-    if (!env.mutability().isMutable()) {
+    if (env.mutability().isFrozen()) {
       throw new EvalException(getLocation(), "Trying to call in frozen environment");
     }
     if (env.getStackTrace().contains(this)) {
