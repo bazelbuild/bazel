@@ -541,7 +541,7 @@ java_import(
 
 java_import(
     name = "turbine",
-    jars = ["turbine/turbine-0.1-20170427.jar"],
+    jars = ["turbine/turbine-0.1-20170503.jar"],
 )
 
 java_import(
