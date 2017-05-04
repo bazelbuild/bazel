@@ -34,11 +34,11 @@
 // commonly used POSIX functions such as open(2) and access(2), as well
 // as macro definitions for flags of these functions.
 //
-// By including this file you'll redefine open/access/mkdir to
-// ::google::protobuf::stubs::win32_{open/access/mkdir}.
+// By including this file you'll redefine open/access/etc. to
+// ::google::protobuf::stubs::win32_{open/access/etc.}.
 // Make sure you don't include a header that attempts to redeclare or
 // redefine these functions, that'll lead to confusing compilation
-// errors.
+// errors. It's best to #include this file as the last one to ensure that.
 //
 // This file is only used on Windows, it's empty on other platforms.
 
@@ -47,42 +47,29 @@
 
 #if defined(_WIN32)
 
-#include <direct.h>
-#include <fcntl.h>
-#include <io.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <windows.h>
-
 #include <string>
 
 namespace google {
 namespace protobuf {
 namespace stubs {
 
-int win32_open(const char* path, int flags, int mode = 0);
-int win32_mkdir(const char* name, int _mode);
-int win32_access(const char* pathname, int mode);
-std::wstring testonly_path_to_winpath(const std::string& path, size_t max_path);
+FILE* fopen(const char* path, const char* mode);
+int access(const char* path, int mode);
+int chdir(const char* path);
+int close(int fd);
+int dup(int fd);
+int dup2(int fd1, int fd2);
+int mkdir(const char* path, int _mode);
+int open(const char* path, int flags, int mode = 0);
+int read(int fd, void* buffer, size_t size);
+int setmode(int fd, int mode);
+int stat(const char* path, struct _stat* buffer);
+int write(int fd, const void* buffer, size_t size);
+std::wstring testonly_path_to_winpath(const std::string& path);
 
 }  // namespace stubs
 }  // namespace protobuf
 }  // namespace google
-
-#ifdef open
-#undef open
-#endif
-#define open ::google::protobuf::stubs::win32_open
-
-#ifdef mkdir
-#undef mkdir
-#endif
-#define mkdir ::google::protobuf::stubs::win32_mkdir
-
-#ifdef access
-#undef access
-#endif
-#define access ::google::protobuf::stubs::win32_access
 
 #ifndef W_OK
 #define W_OK 02  // not defined by MSVC for whatever reason
@@ -103,4 +90,5 @@ std::wstring testonly_path_to_winpath(const std::string& path, size_t max_path);
 #endif  // defined(_WIN32)
 
 #endif  // GOOGLE_PROTOBUF_STUBS_IO_WIN32_H__
+
 

@@ -30,21 +30,31 @@
 
 // Author: laszlocsomor@google.com (Laszlo Csomor)
 //
-// Implementation for long-path-aware open/mkdir/access on Windows.
+// Implementation for long-path-aware open/mkdir/etc. on Windows.
 //
 // These functions convert the input path to an absolute Windows path
-// with UNC prefix if necessary, then pass that to
-// _wopen/_wmkdir/_waccess (declared in <io.h>) respectively. This
-// allows working with files/directories whose paths are longer than
-// MAX_PATH (260 chars).
+// with "\\?\" prefix if necessary, then pass that to _wopen/_wmkdir/etc.
+// (declared in <io.h>) respectively. This allows working with files/directories
+// whose paths are longer than MAX_PATH (260 chars).
 //
 // This file is only used on Windows, it's empty on other platforms.
 
 #if defined(_WIN32)
 
+// Comment this out to fall back to using the ANSI versions (open, mkdir, ...)
+// instead of the Unicode ones (_wopen, _wmkdir, ...). Doing so can be useful to
+// debug failing tests if that's caused by the long path support.
+#define SUPPORT_LONGPATHS
+
 #include <ctype.h>
+#include <direct.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <io.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <wctype.h>
+#include <windows.h>
 
 #include <google/protobuf/stubs/io_win32.h>
 
@@ -84,14 +94,14 @@ bool has_drive_letter(const char_type* ch) {
 }
 
 template <typename char_type>
-bool has_unc_prefix(const std::basic_string<char_type>& path) {
+bool has_longpath_prefix(const std::basic_string<char_type>& path) {
   return path.size() > 4 && path[0] == '\\' && path[1] == '\\' &&
          path[2] == '?' && path[3] == '\\';
 }
 
 template <typename char_type>
 bool is_path_absolute(const std::basic_string<char_type>& path) {
-  return (path.size() > 2 && path[1] == ':') || has_unc_prefix(path);
+  return (path.size() > 2 && path[1] == ':') || has_longpath_prefix(path);
 }
 
 template <typename char_type>
@@ -104,24 +114,16 @@ bool is_drive_relative(const string& s) {
          (s.size() == 2 || !is_separator(s[2]));
 }
 
-void replace_directory_separators(WCHAR* p) {
-  for (; *p != L'\0'; ++p) {
-    if (*p == L'/') {
-      *p = L'\\';
+template <typename char_type>
+void replace_directory_separators(char_type* p) {
+  for (; *p; ++p) {
+    if (*p == '/') {
+      *p = '\\';
     }
   }
 }
 
-wstring get_cwd() {
-  DWORD result = ::GetCurrentDirectoryW(0, NULL);
-  std::unique_ptr<WCHAR[]> cwd(new WCHAR[result]);
-  ::GetCurrentDirectoryW(result, cwd.get());
-  cwd.get()[result - 1] = 0;
-  replace_directory_separators(cwd.get());
-  return std::move(wstring(cwd.get()));
-}
-
-wstring join_paths(const wstring& path1, const wstring& path2) {
+string join_paths(const string& path1, const string& path2) {
   if (path1.empty() || is_path_absolute(path2)) {
     return path2;
   }
@@ -134,12 +136,12 @@ wstring join_paths(const wstring& path1, const wstring& path2) {
                                        : (path1 + path2);
   } else {
     return is_separator(path2.front()) ? (path1 + path2)
-                                       : (path1 + L'\\' + path2);
+                                       : (path1 + '\\' + path2);
   }
 }
 
 string normalize(string path) {
-  if (has_unc_prefix(path)) {
+  if (has_longpath_prefix(path)) {
     path = path.substr(4);
   }
 
@@ -162,10 +164,11 @@ string normalize(string path) {
       string segment(path, segment_start, i - segment_start);
       segment_start = -1;
       if (segment == dotdot) {
-        if (!segments.empty() && !has_drive_letter(segments[0].c_str())) {
+        if (!segments.empty() &&
+            (!has_drive_letter(segments[0].c_str()) || segments.size() > 1)) {
           segments.pop_back();
         }
-      } else if (segment != dot) {
+      } else if (segment != dot && !segment.empty()) {
         segments.push_back(segment);
       }
     }
@@ -191,22 +194,28 @@ string normalize(string path) {
     first = false;
     result << s;
   }
+  // Preserve trailing separator if the input contained it.
+  if (is_separator(path.back())) {
+    result << '\\';
+  }
   return result.str();
 }
 
-wstring as_wchar_path(const string& path) {
-  int len =
-      ::MultiByteToWideChar(CP_UTF8, 0, path.c_str(), path.size(), NULL, 0);
-  std::unique_ptr<WCHAR[]> wbuf(new WCHAR[len + 1]);
-  ::MultiByteToWideChar(CP_UTF8, 0, path.c_str(), path.size(), wbuf.get(),
-                        len + 1);
-  wbuf.get()[len] = 0;
-  replace_directory_separators(wbuf.get());
-  return std::move(wstring(wbuf.get()));
+std::unique_ptr<WCHAR[]> as_wstring(const string& s) {
+  int len = ::MultiByteToWideChar(CP_UTF8, 0, s.c_str(), s.size(), NULL, 0);
+  std::unique_ptr<WCHAR[]> result(new WCHAR[len + 1]);
+  ::MultiByteToWideChar(CP_UTF8, 0, s.c_str(), s.size(), result.get(), len + 1);
+  result.get()[len] = 0;
+  return std::move(result);
 }
 
-bool as_windows_path(const string& path, size_t max_path,
-                            wstring* result) {
+wstring as_wchar_path(const string& path) {
+  std::unique_ptr<WCHAR[]> wbuf(as_wstring(path));
+  replace_directory_separators(wbuf.get());
+  return wstring(wbuf.get());
+}
+
+bool as_windows_path(const string& path, wstring* result) {
   if (path.empty()) {
     result->clear();
     return true;
@@ -215,11 +224,18 @@ bool as_windows_path(const string& path, size_t max_path,
     return false;
   }
 
-  *result = as_wchar_path(normalize(path));
-  if (!is_path_absolute(path)) {
-    *result = join_paths(get_cwd(), *result);
+  string mutable_path = path;
+  if (!is_path_absolute(mutable_path)) {
+    char cwd[MAX_PATH];
+    ::GetCurrentDirectoryA(MAX_PATH, cwd);
+    mutable_path = join_paths(cwd, mutable_path);
   }
-  if (result->size() >= max_path && !has_unc_prefix(*result)) {
+  *result = as_wchar_path(normalize(mutable_path));
+  if (!has_longpath_prefix(*result)) {
+    // Add the "\\?\" prefix unconditionally. This way we prevent the Win32 API
+    // from processing the path and "helpfully" removing trailing dots from the
+    // path for example.
+    // See https://github.com/bazelbuild/bazel/issues/2935
     *result = wstring(L"\\\\?\\") + *result;
   }
   return true;
@@ -227,41 +243,104 @@ bool as_windows_path(const string& path, size_t max_path,
 
 }  // namespace
 
-int win32_open(const char* path, int flags, int mode) {
+int open(const char* path, int flags, int mode) {
+#ifdef SUPPORT_LONGPATHS
   wstring wpath;
-  if (!as_windows_path(path, MAX_PATH, &wpath)) {
+  if (!as_windows_path(path, &wpath)) {
     errno = ENOENT;
     return -1;
   }
   return ::_wopen(wpath.c_str(), flags, mode);
+#else
+  return ::_open(path, flags, mode);
+#endif
 }
 
-int win32_mkdir(const char* path, int _mode) {
-  // CreateDirectoryA's limit is 248 chars, see MSDN.
-  // https://msdn.microsoft.com/en-us/library/windows/desktop/aa363855(v=vs.85).aspx
-  // This limit presumably includes the null-terminator, because other
-  // functions that have the MAX_PATH limit, such as CreateFileA,
-  // actually include it.
+int mkdir(const char* path, int _mode) {
+#ifdef SUPPORT_LONGPATHS
   wstring wpath;
-  if (!as_windows_path(path, 248, &wpath)) {
+  if (!as_windows_path(path, &wpath)) {
     errno = ENOENT;
     return -1;
   }
   return ::_wmkdir(wpath.c_str());
+#else   // not SUPPORT_LONGPATHS
+  return ::_mkdir(path);
+#endif  // not SUPPORT_LONGPATHS
 }
 
-int win32_access(const char* path, int mode) {
+int access(const char* path, int mode) {
+#ifdef SUPPORT_LONGPATHS
   wstring wpath;
-  if (!as_windows_path(path, MAX_PATH, &wpath)) {
+  if (!as_windows_path(path, &wpath)) {
     errno = ENOENT;
     return -1;
   }
   return ::_waccess(wpath.c_str(), mode);
+#else
+  return ::_access(path, mode);
+#endif
 }
 
-wstring testonly_path_to_winpath(const string& path, size_t max_path) {
+int chdir(const char* path) {
+#ifdef SUPPORT_LONGPATHS
   wstring wpath;
-  as_windows_path(path, max_path, &wpath);
+  if (!as_windows_path(path, &wpath)) {
+    errno = ENOENT;
+    return -1;
+  }
+  return ::_wchdir(wpath.c_str());
+#else
+  return ::_chdir(path);
+#endif
+}
+
+int stat(const char* path, struct _stat* buffer) {
+#ifdef SUPPORT_LONGPATHS
+  wstring wpath;
+  if (!as_windows_path(path, &wpath)) {
+    errno = ENOENT;
+    return -1;
+  }
+  return ::_wstat(wpath.c_str(), buffer);
+#else   // not SUPPORT_LONGPATHS
+  return ::_stat(path, buffer);
+#endif  // not SUPPORT_LONGPATHS
+}
+
+FILE* fopen(const char* path, const char* mode) {
+#ifdef SUPPORT_LONGPATHS
+  wstring wpath;
+  if (!as_windows_path(path, &wpath)) {
+    errno = ENOENT;
+    return NULL;
+  }
+  std::unique_ptr<WCHAR[]> wmode(as_wstring(mode));
+  return ::_wfopen(wpath.c_str(), wmode.get());
+#else
+  return ::fopen(path, mode);
+#endif
+}
+
+int close(int fd) { return ::close(fd); }
+
+int dup(int fd) { return ::_dup(fd); }
+
+int dup2(int fd1, int fd2) { return ::_dup2(fd1, fd2); }
+
+int read(int fd, void* buffer, size_t size) {
+  return ::_read(fd, buffer, size);
+}
+
+int setmode(int fd, int mode) { return ::_setmode(fd, mode); }
+
+int write(int fd, const void* buffer, size_t size) {
+  return ::_write(fd, buffer, size);
+}
+
+wstring testonly_path_to_winpath(const string& path) {
+  wstring wpath;
+  as_windows_path(path, &wpath);
   return wpath;
 }
 
