@@ -38,13 +38,20 @@
 
 #define WIN32_LEAN_AND_MEAN
 #include <errno.h>
+#include <fcntl.h>
 #include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <wchar.h>
 #include <windows.h>
 
 #include <google/protobuf/stubs/io_win32.h>
+#include <google/protobuf/testing/googletest.h>
 #include <gtest/gtest.h>
 
 #include <memory>
+#include <sstream>
 #include <string>
 
 namespace google {
@@ -62,7 +69,8 @@ class IoWin32Test : public ::testing::Test {
   void TearDown() override;
 
  protected:
-  static bool DeleteAllUnder(wstring path);
+  bool CreateAllUnder(wstring path);
+  bool DeleteAllUnder(wstring path);
 
   string test_tmpdir;
   wstring wtest_tmpdir;
@@ -75,31 +83,94 @@ class IoWin32Test : public ::testing::Test {
   }
 
 void IoWin32Test::SetUp() {
-  test_tmpdir.clear();
+  test_tmpdir = string(TestTempDir());
   wtest_tmpdir.clear();
+  if (test_tmpdir.empty()) {
+    const char* test_tmpdir_env = getenv("TEST_TMPDIR");
+    if (test_tmpdir_env != nullptr && *test_tmpdir_env) {
+      test_tmpdir = string(test_tmpdir_env);
+    }
 
-  const char* test_tmpdir_env = getenv("TEST_TMPDIR");
-  if (test_tmpdir_env == nullptr || *test_tmpdir_env == 0) {
-    // Using assertions in SetUp/TearDown seems to confuse the test framework,
-    // so just leave the member variables empty in case of failure.
-    return;
+    // Only Bazel defines TEST_TMPDIR, CMake does not, so look for other
+    // suitable environment variables.
+    if (test_tmpdir.empty()) {
+      for (const char* name : {"TEMP", "TMP"}) {
+        test_tmpdir_env = getenv(name);
+        if (test_tmpdir_env != nullptr && *test_tmpdir_env) {
+          test_tmpdir = string(test_tmpdir_env);
+          break;
+        }
+      }
+    }
+
+    // No other temp directory was found. Use the current director
+    if (test_tmpdir.empty()) {
+      char buffer[MAX_PATH];
+      // Use GetCurrentDirectoryA instead of GetCurrentDirectoryW, because the
+      // current working directory must always be shorter than MAX_PATH, even
+      // with
+      // "\\?\" prefix (except on Windows 10 version 1607 and beyond, after
+      // opting in to long paths by default [1]).
+      //
+      // [1] https://msdn.microsoft.com/en-us/library/windows/ \
+      //   desktop/aa365247(v=vs.85).aspx#maxpath
+      DWORD result = ::GetCurrentDirectoryA(MAX_PATH, buffer);
+      if (result > 0) {
+        test_tmpdir = string(buffer);
+      } else {
+        // Using assertions in SetUp/TearDown seems to confuse the test
+        // framework, so just leave the member variables empty in case of
+        // failure.
+        GOOGLE_CHECK_OK(false);
+        return;
+      }
+    }
   }
 
-  test_tmpdir = string(test_tmpdir_env);
   while (test_tmpdir.back() == '/' || test_tmpdir.back() == '\\') {
     test_tmpdir.pop_back();
   }
+  test_tmpdir += "\\io_win32_unittest.tmp";
 
   // CreateDirectoryA's limit is 248 chars, see MSDN.
   // https://msdn.microsoft.com/en-us/library/windows/ \
   //   desktop/aa363855(v=vs.85).aspx
-  wtest_tmpdir = testonly_path_to_winpath(test_tmpdir, 248);
+  wtest_tmpdir = testonly_path_to_winpath(test_tmpdir);
+  if (!DeleteAllUnder(wtest_tmpdir) || !CreateAllUnder(wtest_tmpdir)) {
+    GOOGLE_CHECK_OK(false);
+    test_tmpdir.clear();
+    wtest_tmpdir.clear();
+  }
 }
 
 void IoWin32Test::TearDown() {
   if (!wtest_tmpdir.empty()) {
     DeleteAllUnder(wtest_tmpdir);
   }
+}
+
+bool IoWin32Test::CreateAllUnder(wstring path) {
+  // Prepend UNC prefix if the path doesn't have it already. Don't bother
+  // checking if the path is shorter than MAX_PATH, let's just do it
+  // unconditionally.
+  if (path.find(L"\\\\?\\") != 0) {
+    path = wstring(L"\\\\?\\") + path;
+  }
+  if (::CreateDirectoryW(path.c_str(), NULL) ||
+      GetLastError() == ERROR_ALREADY_EXISTS ||
+      GetLastError() == ERROR_ACCESS_DENIED) {
+    return true;
+  }
+  if (GetLastError() == ERROR_PATH_NOT_FOUND) {
+    size_t pos = path.find_last_of(L'\\');
+    if (pos != wstring::npos) {
+      wstring parent(path, 0, pos);
+      if (CreateAllUnder(parent) && CreateDirectoryW(path.c_str(), NULL)) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 bool IoWin32Test::DeleteAllUnder(wstring path) {
@@ -159,8 +230,11 @@ TEST_F(IoWin32Test, AccessTest) {
   }
   string file = path + "\\file.txt";
   int fd = open(file.c_str(), O_CREAT | O_WRONLY, 0644);
-  EXPECT_GT(fd, 0);
-  EXPECT_EQ(close(fd), 0);
+  if (fd > 0) {
+    EXPECT_EQ(close(fd), 0);
+  } else {
+    EXPECT_TRUE(false);
+  }
 
   EXPECT_EQ(access(test_tmpdir.c_str(), F_OK), 0);
   EXPECT_EQ(access(path.c_str(), F_OK), 0);
@@ -169,20 +243,14 @@ TEST_F(IoWin32Test, AccessTest) {
   EXPECT_NE(access((file + ".blah").c_str(), F_OK), 0);
   EXPECT_NE(access((file + ".blah").c_str(), W_OK), 0);
 
-  // chdir into the test_tmpdir, because the current working directory must
-  // always be shorter than MAX_PATH, even with "\\?\" prefix (except on
-  // Windows 10 version 1607 and beyond, after opting in to long paths by
-  // default [1]).
-  //
-  // [1] https://msdn.microsoft.com/en-us/library/windows/ \
-  //   desktop/aa365247(v=vs.85).aspx#maxpath
-  EXPECT_EQ(_chdir(test_tmpdir.c_str()), 0);
   EXPECT_EQ(access(".", F_OK), 0);
   EXPECT_EQ(access(".", W_OK), 0);
-  EXPECT_EQ(access("accesstest", F_OK | W_OK), 0);
-  ASSERT_EQ(access("./normalize_me/../.././accesstest", F_OK | W_OK), 0);
-  EXPECT_NE(access("blah", F_OK), 0);
-  EXPECT_NE(access("blah", W_OK), 0);
+  EXPECT_EQ(access((test_tmpdir + "/accesstest").c_str(), F_OK | W_OK), 0);
+  ASSERT_EQ(access((test_tmpdir + "/./normalize_me/.././accesstest").c_str(),
+                   F_OK | W_OK),
+            0);
+  EXPECT_NE(access("io_win32_unittest.AccessTest.nonexistent", F_OK), 0);
+  EXPECT_NE(access("io_win32_unittest.AccessTest.nonexistent", W_OK), 0);
 
   ASSERT_EQ(access("c:bad", F_OK), -1);
   ASSERT_EQ(errno, ENOENT);
@@ -202,26 +270,12 @@ TEST_F(IoWin32Test, OpenTest) {
   }
   string file = path + "\\file.txt";
   int fd = open(file.c_str(), O_CREAT | O_WRONLY, 0644);
-  ASSERT_GT(fd, 0);
-  EXPECT_EQ(write(fd, "hello", 5), 5);
-  EXPECT_EQ(close(fd), 0);
-
-  // chdir into the test_tmpdir, because the current working directory must
-  // always be shorter than MAX_PATH, even with "\\?\" prefix (except on
-  // Windows 10 version 1607 and beyond, after opting in to long paths by
-  // default [1]).
-  //
-  // [1] https://msdn.microsoft.com/en-us/library/windows/ \
-  //   desktop/aa365247(v=vs.85).aspx#maxpath
-  EXPECT_EQ(_chdir(test_tmpdir.c_str()), 0);
-  fd = open("file-relative.txt", O_CREAT | O_WRONLY, 0644);
-  ASSERT_GT(fd, 0);
-  EXPECT_EQ(write(fd, "hello", 5), 5);
-  EXPECT_EQ(close(fd), 0);
-
-  fd = open("./normalize_me/../.././file-relative.txt", O_RDONLY);
-  ASSERT_GT(fd, 0);
-  EXPECT_EQ(close(fd), 0);
+  if (fd > 0) {
+    EXPECT_EQ(write(fd, "hello", 5), 5);
+    EXPECT_EQ(close(fd), 0);
+  } else {
+    EXPECT_TRUE(false);
+  }
 
   ASSERT_EQ(open("c:bad.txt", O_CREAT | O_WRONLY, 0644), -1);
   ASSERT_EQ(errno, ENOENT);
@@ -240,23 +294,63 @@ TEST_F(IoWin32Test, MkdirTest) {
     ASSERT_EQ(mkdir(path.c_str(), 0644), 0);
   } while (path.size() <= MAX_PATH);
 
-  // chdir into the test_tmpdir, because the current working directory must
-  // always be shorter than MAX_PATH, even with "\\?\" prefix (except on
-  // Windows 10 version 1607 and beyond, after opting in to long paths by
-  // default [1]).
-  //
-  // [1] https://msdn.microsoft.com/en-us/library/windows/ \
-  //   desktop/aa365247(v=vs.85).aspx#maxpath
-  EXPECT_EQ(_chdir(test_tmpdir.c_str()), 0);
-  ASSERT_EQ(mkdir("relative_mkdirtest", 0644), 0);
-  ASSERT_EQ(mkdir("./normalize_me/../.././blah", 0644), 0);
-
   ASSERT_EQ(mkdir("c:bad", 0644), -1);
   ASSERT_EQ(errno, ENOENT);
   ASSERT_EQ(mkdir("/tmp/bad", 0644), -1);
   ASSERT_EQ(errno, ENOENT);
   ASSERT_EQ(mkdir("\\bad", 0644), -1);
   ASSERT_EQ(errno, ENOENT);
+}
+
+TEST_F(IoWin32Test, ChdirTest) {
+  char owd[MAX_PATH];
+  EXPECT_GT(::GetCurrentDirectoryA(MAX_PATH, owd), 0);
+  string path("C:\\");
+  EXPECT_EQ(access(path.c_str(), F_OK), 0);
+  ASSERT_EQ(chdir(path.c_str()), 0);
+  EXPECT_TRUE(::SetCurrentDirectoryA(owd));
+
+  // Do not try to chdir into the test_tmpdir, it may already contain directory
+  // names with trailing dots.
+  // Instead test here with an obviously dot-trailed path. If the win32_chdir
+  // function would not convert the path to absolute and prefix with "\\?\" then
+  // the Win32 API would ignore the trailing dot, but because of the prefixing
+  // there'll be no path processing done, so we'll actually attempt to chdir
+  // into "C:\some\path\foo."
+  path = test_tmpdir + "/foo.";
+  EXPECT_EQ(mkdir(path.c_str(), 644), 0);
+  EXPECT_EQ(access(path.c_str(), F_OK), 0);
+  ASSERT_NE(chdir(path.c_str()), 0);
+}
+
+TEST_F(IoWin32Test, AsWindowsPathTest) {
+  DWORD size = GetCurrentDirectoryW(0, NULL);
+  unique_ptr<wchar_t[]> cwd_str(new wchar_t[size]);
+  EXPECT_GT(GetCurrentDirectoryW(size, cwd_str.get()), 0);
+  wstring cwd = wstring(L"\\\\?\\") + cwd_str.get();
+
+  ASSERT_EQ(testonly_path_to_winpath("relative_mkdirtest"),
+            cwd + L"\\relative_mkdirtest");
+  ASSERT_EQ(testonly_path_to_winpath("preserve//\\trailing///"),
+            cwd + L"\\preserve\\trailing\\");
+  ASSERT_EQ(testonly_path_to_winpath("./normalize_me\\/../blah"),
+            cwd + L"\\blah");
+  std::ostringstream relpath;
+  for (wchar_t* p = cwd_str.get(); *p; ++p) {
+    if (*p == '/' || *p == '\\') {
+      relpath << "../";
+    }
+  }
+  relpath << ".\\/../\\./beyond-toplevel";
+  ASSERT_EQ(testonly_path_to_winpath(relpath.str()),
+            wstring(L"\\\\?\\") + cwd_str.get()[0] + L":\\beyond-toplevel");
+
+  // Absolute unix paths lack drive letters, driveless absolute windows paths
+  // do too. Neither can be converted to a drive-specifying absolute Windows
+  // path.
+  ASSERT_EQ(testonly_path_to_winpath("/absolute/unix/path"), L"");
+  // Though valid on Windows, we also don't support UNC paths (\\UNC\\blah).
+  ASSERT_EQ(testonly_path_to_winpath("\\driveless\\absolute"), L"");
 }
 
 }  // namespace

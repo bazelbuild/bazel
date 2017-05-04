@@ -32,9 +32,7 @@
 //  Based on original Protocol Buffers design by
 //  Sanjay Ghemawat, Jeff Dean, and others.
 
-#ifdef _MSC_VER
-#include <io.h>
-#else
+#ifndef _MSC_VER
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -43,7 +41,6 @@
 #include <errno.h>
 #include <iostream>
 #include <algorithm>
-
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <google/protobuf/stubs/common.h>
 #include <google/protobuf/stubs/io_win32.h>
@@ -59,6 +56,13 @@ namespace io {
 // Win32 lseek is broken:  If invoked on a non-seekable file descriptor, its
 // return value is undefined.  We re-define it to always produce an error.
 #define lseek(fd, offset, origin) ((off_t)-1)
+// DO NOT include <io.h>, instead create functions in io_win32.{h,cc} and import
+// them like we do below.
+using google::protobuf::stubs::access;
+using google::protobuf::stubs::close;
+using google::protobuf::stubs::open;
+using google::protobuf::stubs::read;
+using google::protobuf::stubs::write;
 #endif
 
 namespace {

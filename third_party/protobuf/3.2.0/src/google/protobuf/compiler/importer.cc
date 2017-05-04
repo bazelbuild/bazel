@@ -32,7 +32,9 @@
 //  Based on original Protocol Buffers design by
 //  Sanjay Ghemawat, Jeff Dean, and others.
 
-#ifndef _MSC_VER
+#ifdef _MSC_VER
+#include <direct.h>
+#else
 #include <unistd.h>
 #endif
 #include <sys/types.h>
@@ -54,13 +56,17 @@
 #include <google/protobuf/stubs/io_win32.h>
 #include <google/protobuf/stubs/strutil.h>
 
+#ifdef _WIN32
+#include <ctype.h>
+// DO NOT include <io.h>, instead create functions in io_win32.{h,cc} and import
+// them like we do below.
+using google::protobuf::stubs::access;
+using google::protobuf::stubs::open;
+#endif
+
 namespace google {
 namespace protobuf {
 namespace compiler {
-
-#ifdef _WIN32
-#include <ctype.h>
-#endif
 
 // Returns true if the text looks like a Windows-style absolute path, starting
 // with a drive letter.  Example:  "C:\foo".  TODO(kenton):  Share this with
@@ -217,6 +223,7 @@ void Importer::AddUnusedImportTrackFile(const string& file_name) {
 void Importer::ClearUnusedImportTrackFiles() {
   pool_.ClearUnusedImportTrackFiles();
 }
+
 
 // ===================================================================
 

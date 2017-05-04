@@ -1,6 +1,6 @@
 java_import(
     name = "protobuf",
-    jars = ["protobuf-java-3.2.0.jar"],
+    jars = ["libprotobuf_java.jar"],
 )
 
 proto_lang_toolchain(
