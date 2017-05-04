@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import com.android.ide.common.res2.MergingException;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -43,11 +43,11 @@ class FailedFutureAggregator<T extends Throwable> {
 
   public static FailedFutureAggregator<MergingException> createForMergingExceptionWithMessage(
       final String message) {
-    return new FailedFutureAggregator<MergingException>(
+    return new FailedFutureAggregator<>(
         new ExceptionFactory<MergingException>() {
           @Override
           public MergingException create() {
-            return MergingException.withMessage(message).build();
+            return MergingException.withMessage(message);
           }
         });
   }

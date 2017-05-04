@@ -15,7 +15,6 @@ package com.google.devtools.build.android;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.android.ide.common.res2.MergingException;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -24,6 +23,7 @@ import com.google.common.jimfs.Jimfs;
 import com.google.common.truth.FailureStrategy;
 import com.google.common.truth.SubjectFactory;
 import com.google.common.truth.Truth;
+import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.FullyQualifiedName.Factory;
 import com.google.devtools.build.android.xml.AttrXmlResourceValue;
 import com.google.devtools.build.android.xml.IdXmlResourceValue;
@@ -604,7 +604,7 @@ public class ParsedAndroidDataTest {
       builder.buildParsed();
       Assert.fail("expected MergingException");
     } catch (MergingException e) {
-      assertThat(e).hasMessageThat().isEqualTo("Error: 3 Parse Error(s)");
+      assertThat(e).hasMessageThat().isEqualTo("3 Parse Error(s)");
       String combinedSuberrors = Joiner.on('\n').join(e.getSuppressed());
       assertThat(combinedSuberrors)
           .contains("values/unique_strings.xml: ParseError at [row,col]:[3,35]");
@@ -648,7 +648,7 @@ public class ParsedAndroidDataTest {
       builder.buildParsed();
       Assert.fail("expected exception");
     } catch (MergingException e) {
-      assertThat(e).hasMessageThat().isEqualTo("Error: 5 Parse Error(s)");
+      assertThat(e).hasMessageThat().isEqualTo("5 Parse Error(s)");
       String combinedSuberrors = Joiner.on('\n').join(e.getSuppressed());
       assertThat(combinedSuberrors).contains("values/missing_name.xml");
       assertThat(combinedSuberrors).contains("resource name is required for public");

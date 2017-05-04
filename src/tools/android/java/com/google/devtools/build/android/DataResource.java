@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import com.android.ide.common.res2.MergingException;
+import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 
 /**
  * Represents an Android Resource parsed from an xml or binary file.

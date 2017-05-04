@@ -16,7 +16,6 @@ package com.google.devtools.build.android;
 import static com.google.common.truth.Truth.assertAbout;
 import static com.google.common.truth.Truth.assertThat;
 
-import com.android.ide.common.res2.MergingException;
 import com.android.resources.ResourceType;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
@@ -29,6 +28,7 @@ import com.google.common.io.RecursiveDeleteOption;
 import com.google.common.jimfs.Jimfs;
 import com.google.common.truth.FailureStrategy;
 import com.google.common.truth.SubjectFactory;
+import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.xml.ArrayXmlResourceValue;
 import com.google.devtools.build.android.xml.ArrayXmlResourceValue.ArrayType;
 import com.google.devtools.build.android.xml.AttrXmlResourceValue;

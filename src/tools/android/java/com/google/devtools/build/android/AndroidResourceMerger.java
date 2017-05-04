@@ -16,7 +16,6 @@ package com.google.devtools.build.android;
 import com.android.annotations.Nullable;
 import com.android.builder.core.VariantType;
 import com.android.ide.common.internal.PngCruncher;
-import com.android.ide.common.res2.MergingException;
 import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -31,6 +30,26 @@ import java.util.logging.Logger;
 /** Collects all the functionality for an action to merge resources. */
 // TODO(bazel-team): Turn into an instance object, in order to use an external ExecutorService.
 public class AndroidResourceMerger {
+  /** Thrown when there is a unexpected condition during merging. */
+  public static class MergingException extends RuntimeException {
+
+    private MergingException(Throwable e) {
+      super(e);
+    }
+
+    private MergingException(String message) {
+      super(message);
+    }
+
+    static MergingException wrapException(Throwable e) {
+      return new MergingException(e);
+    }
+
+    static MergingException withMessage(String message) {
+      return new MergingException(message);
+    }
+  }
+
   static final Logger logger = Logger.getLogger(AndroidResourceProcessor.class.getName());
 
   /** Merges all secondary resources with the primary resources. */
@@ -83,7 +102,7 @@ public class AndroidResourceMerger {
               resourcesOut.getParent(), resourcesOut, assetsOut, cruncher, executorService);
       return merged.write(writer);
     } catch (IOException e) {
-      throw MergingException.wrapException(e).build();
+      throw MergingException.wrapException(e);
     } finally {
       logger.fine(
           String.format("write merge finished in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
@@ -140,7 +159,7 @@ public class AndroidResourceMerger {
           null /* rclassWriter */,
           AndroidDataDeserializer.withFilteredResources(filteredResources));
     } catch (IOException e) {
-      throw MergingException.wrapException(e).build();
+      throw MergingException.wrapException(e);
     }
   }
 

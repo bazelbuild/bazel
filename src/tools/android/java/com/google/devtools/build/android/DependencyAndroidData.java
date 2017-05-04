@@ -139,5 +139,4 @@ class DependencyAndroidData extends SerializedAndroidData {
         && Objects.equals(other.symbols, symbols)
         && Objects.equals(other.manifest, manifest);
   }
-
 }
