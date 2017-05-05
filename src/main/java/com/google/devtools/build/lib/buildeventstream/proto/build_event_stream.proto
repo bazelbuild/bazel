@@ -73,11 +73,25 @@ message BuildEventId {
     repeated string pattern = 1;
   }
 
+  // Identifier of an event indicating that a target has been expanded by
+  // identifying for which configurations it should be build.
+  message TargetConfiguredId {
+    string label = 1;
+  }
+
   // Identifier of an event introducing a named set of files (usually artifacts)
   // to be referred to in later messages.
   message NamedSetOfFilesId {
     // Identifier of the file set; this is an opaque string valid only for the
     // particular instance of the event stream.
+    string id = 1;
+  }
+
+  // Identifier of an event introducing a configuration.
+  message ConfigurationId {
+    // Identifier of the configuraiton; users of the protocol should not make
+    // any assumptions about it having any structure, or equality of the
+    // identifier between different streams.
     string id = 1;
   }
 
@@ -126,6 +140,8 @@ message BuildEventId {
     CommandLineId command_line = 11;
     WorkspaceStatusId workspace_status = 14;
     OptionsParsedId options_parsed = 12;
+    ConfigurationId configuration = 15;
+    TargetConfiguredId target_configured = 16;
     PatternExpandedId pattern = 4;
     PatternExpandedId pattern_skipped = 10;
     NamedSetOfFilesId named_set = 13;
@@ -242,11 +258,25 @@ message WorkspaceStatus {
   repeated Item item = 1;
 }
 
+// Payload of an event reporting details of a given configuration.
+message Configuration {
+  string mnemonic = 1;
+  string platform_name = 2;
+  string cpu = 3;
+}
+
 // Payload of the event indicating the expansion of a target pattern.
 // The main information is in the chaining part: the id will contain the
 // target pattern that was expanded and the children id will contain the
 // target or target pattern it was expanded to.
 message PatternExpanded {
+}
+
+// Payload of the event indicating that the configurations for a target have
+// been identified. As with pattern expansion the main information is in the
+// chaining part: the id will contain the target that was configured and the
+// children id will ctontain the configured targets it was configured to.
+message TargetConfigured {
 }
 
 message File {
@@ -432,7 +462,9 @@ message BuildEvent {
     CommandLine command_line = 12;
     OptionsParsed options_parsed = 13;
     WorkspaceStatus workspace_status = 16;
+    Configuration configuration = 17;
     PatternExpanded expanded = 6;
+    TargetConfigured configured = 18;
     ActionExecuted action = 7;
     NamedSetOfFiles named_set_of_files = 15;
     TargetComplete completed = 8;
