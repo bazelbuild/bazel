@@ -417,10 +417,11 @@ public class JavaOptions extends FragmentOptions {
   public boolean strictDepsJavaProtos;
 
   @Option(
-    name = "experimental_java_header_compilation_direct_classpath",
-    defaultValue = "false",
+    name = "java_header_compilation_direct_classpath",
+    defaultValue = "true",
     optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    help = "Experimental option to limit the header compilation classpath to direct deps."
+    help = "Experimental option to limit the header compilation classpath to direct deps.",
+    oldName = "experimental_java_header_compilation_direct_classpath"
   )
   public boolean headerCompilationDirectClasspath;
 
