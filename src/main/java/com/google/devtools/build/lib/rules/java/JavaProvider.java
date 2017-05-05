@@ -186,7 +186,8 @@ public final class JavaProvider extends SkylarkClassObject implements Transitive
     }
 
     public static Builder copyOf(JavaProvider javaProvider) {
-      return new Builder(javaProvider.getProviders().toBuilder());
+      return new Builder(
+          new TransitiveInfoProviderMapBuilder().addAll(javaProvider.getProviders()));
     }
 
     public <P extends TransitiveInfoProvider> Builder addProvider(

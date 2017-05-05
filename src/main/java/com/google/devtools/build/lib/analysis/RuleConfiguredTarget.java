@@ -52,7 +52,8 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     super(ruleContext);
     // We don't use ImmutableMap.Builder here to allow augmenting the initial list of 'default'
     // providers by passing them in.
-    TransitiveInfoProviderMapBuilder providerBuilder = providers.toBuilder();
+    TransitiveInfoProviderMapBuilder providerBuilder =
+        new TransitiveInfoProviderMapBuilder().addAll(providers);
     Preconditions.checkState(providerBuilder.contains(RunfilesProvider.class));
     Preconditions.checkState(providerBuilder.contains(FileProvider.class));
     Preconditions.checkState(providerBuilder.contains(FilesToRunProvider.class));

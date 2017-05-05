@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.analysis.ExtraActionUtils.createExtr
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -37,6 +36,7 @@ import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TreeMap;
@@ -121,7 +121,7 @@ public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> 
 
 
   @Override
-  public UnmodifiableIterator<TransitiveInfoProvider> iterator() {
+  public Iterator<TransitiveInfoProvider> iterator() {
     return providers.values().iterator();
   }
 
@@ -189,7 +189,7 @@ public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> 
     /** Adds providers to the aspect. */
     public Builder addProviders(TransitiveInfoProviderMap providers) {
       for (Map.Entry<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> entry :
-          providers.entrySet()) {
+          providers.entries()) {
         addProvider(entry.getKey(), entry.getKey().cast(entry.getValue()));
       }
       return this;

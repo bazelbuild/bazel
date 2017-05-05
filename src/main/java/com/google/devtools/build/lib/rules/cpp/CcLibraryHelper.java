@@ -197,7 +197,7 @@ public final class CcLibraryHelper {
         CcLinkingOutputs linkingOutputs,
         CcLinkingOutputs linkingOutputsExcludingPrecompiledLibraries,
         CppCompilationContext context) {
-      this.providers = providers.toBuilder();
+      this.providers = new TransitiveInfoProviderMapBuilder().addAll(providers);
       this.outputGroups = ImmutableMap.copyOf(outputGroups);
       this.compilationOutputs = compilationOutputs;
       this.linkingOutputs = linkingOutputs;

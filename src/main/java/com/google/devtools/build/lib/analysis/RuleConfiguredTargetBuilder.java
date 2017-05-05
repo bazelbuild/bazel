@@ -147,7 +147,7 @@ public final class RuleConfiguredTargetBuilder {
   private void addRegisteredProvidersToSkylarkProviders(TransitiveInfoProviderMap providers) {
     Map<String, Object> nativeSkylarkProviders = new HashMap<>();
     for (Map.Entry<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> entry :
-        providers.entrySet()) {
+        providers.entries()) {
       if (ruleContext.getSkylarkProviderRegistry().containsValue(entry.getKey())) {
         String skylarkName = ruleContext.getSkylarkProviderRegistry().inverse().get(entry.getKey());
         nativeSkylarkProviders.put(skylarkName, entry.getValue());
