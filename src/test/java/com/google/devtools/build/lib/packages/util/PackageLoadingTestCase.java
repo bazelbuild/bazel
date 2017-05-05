@@ -90,9 +90,8 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     }
     packageFactory =
         loadingMock
-            .getPackageFactoryBuilderForTesting()
-            .setEnvironmentExtensions(getEnvironmentExtensions())
-            .build(ruleClassProvider, scratch.getFileSystem());
+            .getPackageFactoryForTesting()
+            .create(ruleClassProvider, null, getEnvironmentExtensions(), scratch.getFileSystem());
     skyframeExecutor = createSkyframeExecutor();
     setUpSkyframe();
   }

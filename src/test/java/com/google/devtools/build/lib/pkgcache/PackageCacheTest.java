@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
@@ -78,22 +77,15 @@ public class PackageCacheTest extends FoundationTestCase {
 
   @Before
   public final void initializeSkyframeExecutor() throws Exception {
-    initializeSkyframeExecutor(/*doPackageLoadingChecks=*/ true);
-  }
-
-  private void initializeSkyframeExecutor(boolean doPackageLoadingChecks) throws Exception {
     analysisMock = AnalysisMock.get();
     ruleClassProvider = analysisMock.createRuleClassProvider();
     BlazeDirectories directories =
         new BlazeDirectories(outputBase, outputBase, rootDirectory, analysisMock.getProductName());
-    PackageFactory.BuilderForTesting packageFactoryBuilder =
-        analysisMock.getPackageFactoryBuilderForTesting();
-    if (!doPackageLoadingChecks) {
-      packageFactoryBuilder.disableChecks();
-    }
     skyframeExecutor =
         SequencedSkyframeExecutor.create(
-            packageFactoryBuilder.build(ruleClassProvider, scratch.getFileSystem()),
+            analysisMock
+                .getPackageFactoryForTesting()
+                .create(ruleClassProvider, scratch.getFileSystem()),
             directories,
             null, /* BinTools */
             null, /* workspaceStatusActionFactory */
@@ -549,8 +541,6 @@ public class PackageCacheTest extends FoundationTestCase {
 
   @Test
   public void testDeletedPackages() throws Exception {
-    // PackageLoader doesn't support --deleted_packages.
-    initializeSkyframeExecutor(/*doPackageLoadingChecks=*/ false);
     reporter.removeHandler(failFastHandler);
     setUpCacheWithTwoRootLocator();
     createBuildFile(rootDir1, "c", "d/x");

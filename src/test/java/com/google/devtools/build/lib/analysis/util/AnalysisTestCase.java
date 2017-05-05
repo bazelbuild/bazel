@@ -166,8 +166,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     this.ruleClassProvider = ruleClassProvider;
     PackageFactory pkgFactory =
         analysisMock
-            .getPackageFactoryBuilderForTesting()
-            .build(ruleClassProvider, scratch.getFileSystem());
+            .getPackageFactoryForTesting()
+            .create(ruleClassProvider, scratch.getFileSystem());
     BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
     skyframeExecutor =
         SequencedSkyframeExecutor.create(

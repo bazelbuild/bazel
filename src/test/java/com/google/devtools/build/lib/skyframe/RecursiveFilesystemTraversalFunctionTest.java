@@ -120,8 +120,8 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         new WorkspaceFileFunction(
             ruleClassProvider,
             analysisMock
-                .getPackageFactoryBuilderForTesting()
-                .build(ruleClassProvider, scratch.getFileSystem()),
+                .getPackageFactoryForTesting()
+                .create(ruleClassProvider, scratch.getFileSystem()),
             directories));
     skyFunctions.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction());
     skyFunctions.put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction());

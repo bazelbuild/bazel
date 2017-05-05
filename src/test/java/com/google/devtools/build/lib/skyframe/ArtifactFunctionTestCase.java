@@ -108,7 +108,7 @@ abstract class ArtifactFunctionTestCase {
                     SkyFunctions.WORKSPACE_FILE,
                     new WorkspaceFileFunction(
                         TestRuleClassProvider.getRuleClassProvider(),
-                        TestConstants.PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING.builder().build(
+                        TestConstants.PACKAGE_FACTORY_FACTORY_FOR_TESTING.create(
                             TestRuleClassProvider.getRuleClassProvider(), root.getFileSystem()),
                         directories))
                 .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())

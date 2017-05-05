@@ -59,7 +59,7 @@ public final class PrecomputedValue implements SkyValue {
       this.supplier = supplier;
     }
 
-    public void inject(Injectable injectable) {
+    void inject(Injectable injectable) {
       injectable.inject(precomputed.key, new PrecomputedValue(supplier.get()));
     }
 

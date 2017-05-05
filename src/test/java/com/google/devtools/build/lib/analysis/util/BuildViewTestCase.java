@@ -214,17 +214,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     configurationFactory =
         analysisMock.createConfigurationFactory(ruleClassProvider.getConfigurationFragments());
 
-    ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues = ImmutableList.of(
-        PrecomputedValue.injected(
-            RepositoryDelegatorFunction.REPOSITORY_OVERRIDES,
-            ImmutableMap.<RepositoryName, PathFragment>of()));
     pkgFactory =
         analysisMock
-            .getPackageFactoryBuilderForTesting()
-            .setExtraPrecomputeValues(extraPrecomputedValues)
-            .setEnvironmentExtensions(getEnvironmentExtensions())
-            .setPlatformSetRegexps(getPlatformSetRegexps())
-            .build(ruleClassProvider, scratch.getFileSystem());
+            .getPackageFactoryForTesting()
+            .create(
+                ruleClassProvider,
+                getPlatformSetRegexps(),
+                getEnvironmentExtensions(),
+                scratch.getFileSystem());
     tsgm = new TimestampGranularityMonitor(BlazeClock.instance());
     skyframeExecutor =
         SequencedSkyframeExecutor.create(
@@ -241,7 +238,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             analysisMock.getProductName(),
             CrossRepositoryLabelViolationStrategy.ERROR,
             ImmutableList.of(BuildFileName.BUILD_DOT_BAZEL, BuildFileName.BUILD));
-    skyframeExecutor.injectExtraPrecomputedValues(extraPrecomputedValues);
+    skyframeExecutor.injectExtraPrecomputedValues(ImmutableList.of(PrecomputedValue.injected(
+        RepositoryDelegatorFunction.REPOSITORY_OVERRIDES,
+        ImmutableMap.<RepositoryName, PathFragment>of())));
     packageCacheOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
     packageCacheOptions.showLoadingProgress = true;
     packageCacheOptions.globbingThreads = 7;
