@@ -16,3 +16,15 @@
 load(":build.bzl", "docker_build")
 load(":bundle.bzl", "docker_bundle")
 
+print("The docker_{build,bundle} rules bundled with Bazel are deprecated " +
+      "in favor of:\nhttps://github.com/bazelbuild/rules_docker. " +
+      "Please change BUILD loads to reference: " +
+      "@io_bazel_rules_docker//docker:docker.bzl and add the following to " +
+      "your WORKSPACE:\n" +
+      """git_repository(
+    name = "io_bazel_rules_docker",
+    remote = "https://github.com/bazelbuild/rules_docker.git",
+    commit = "...",
+)
+load("@io_bazel_rules_docker//docker:docker.bzl", "docker_repositories")
+docker_repositories()""")
