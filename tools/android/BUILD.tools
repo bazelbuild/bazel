@@ -210,3 +210,34 @@ alias(
     name = "databinding_annotation_processor",
     actual = "@android_databinding//:annotation_processor",
 )
+
+# This is the default binding of //external:android/sdk. If someone attempts to
+# build a rule that depends on //external:android/sdk without setting up
+# android_sdk_repository in their WORKSPACE, the genrule will fail with a
+# helpful error message.
+android_sdk(
+    name = "poison_pill_android_sdk",
+    proguard = ":error_message",
+    aapt = ":error_message",
+    dx = ":error_message",
+    main_dex_list_creator = ":error_message",
+    adb = ":error_message",
+    framework_aidl = ":error_message",
+    aidl = ":error_message",
+    android_jar = ":error_message.jar",
+    shrinked_android_jar = ":error_message.jar",
+    annotations_jar = ":error_message.jar",
+    main_dex_classes = ":error_message",
+    apksigner = ":error_message",
+    zipalign = ":error_message",
+    resource_extractor = "error_message",
+)
+
+genrule(
+    name = "no_android_sdk_repository_error",
+    outs = ["error_message", "error_message.jar"],
+    cmd = """echo \
+    This build requires an Android SDK. Please add the android_sdk_repository \
+    rule to your WORKSPACE. ; \
+    exit 1 """,
+)
