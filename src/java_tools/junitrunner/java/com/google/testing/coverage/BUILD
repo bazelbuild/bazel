@@ -69,6 +69,8 @@ java_library(
     ],
 )
 
+NOP_JARJAR_COMMAND = "cp \"$(location :JacocoCoverage_deploy.jar)\" \"$@\""
+
 genrule(
     name = "Jacoco_jarjar",
     srcs = [
@@ -76,7 +78,7 @@ genrule(
         ":JacocoCoverage.jarjar",
     ],
     outs = ["JacocoCoverage_jarjar_deploy.jar"],
-    cmd = "\n".join([
+    cmd = select({
         # Bazel 0.4.3 contains two bugs: a quoting bug in the Java cmd.exe
         # wrapper script that makes it unable to handle $ signs in paths (#2306)
         # and one that makes it occasionally put $ signs in the output base
@@ -102,14 +104,22 @@ genrule(
         # runfiles trees. The Java launcher script looks in the runfiles tree
         # for the jars (and rightfully so), thus, invoking the binary directly
         # won't work.
-        "if [[ $$(uname -a) =~ MSYS ]] || [[ $$(uname -a) =~ CYGWIN ]] || [[ $$(uname -a) =~ freebsd ]]; then",
-        "  cp \"$(location :JacocoCoverage_deploy.jar)\" \"$@\";",
-        "else",
-        "  \"$(JAVA)\" -jar \"$(location //third_party/java/jarjar:jarjar_bin_deploy.jar)\" --rules \"$(location :JacocoCoverage.jarjar)\" --output \"$@\" \"$(location :JacocoCoverage_deploy.jar)\"",
-        "fi",
-    ]),
-    tools = [
-        "//third_party/java/jarjar:jarjar_bin_deploy.jar",
-        "//tools/defaults:jdk",
-    ],
+        "//src:freebsd": NOP_JARJAR_COMMAND,
+        "//src:windows": NOP_JARJAR_COMMAND,
+        "//conditions:default": "\n".join([
+            "JARJAR=\"$$(mktemp)\"",
+            "\"$(JAVA)\" -jar \"$(location //third_party/java/jarjar:jarjar_bin_deploy.jar)\" --rules \"$(location :JacocoCoverage.jarjar)\" --output \"$${JARJAR}\" \"$(location :JacocoCoverage_deploy.jar)\"",
+            "$(location //src/tools/singlejar:singlejar) --normalize --sources \"$${JARJAR}\" --output \"$@\"",
+            "rm -fr \"$${JARJAR}\"",
+        ]),
+    }),
+    tools = select({
+        "//src:freebsd": [],
+        "//src:windows": [],
+        "//conditions:default": [
+            "//third_party/java/jarjar:jarjar_bin_deploy.jar",
+            "//tools/defaults:jdk",
+            "//src/tools/singlejar",
+        ],
+    }),
 )
