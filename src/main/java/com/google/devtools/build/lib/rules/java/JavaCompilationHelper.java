@@ -35,8 +35,10 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDe
 import com.google.devtools.build.lib.collect.ImmutableIterable;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -222,6 +224,10 @@ public final class JavaCompilationHelper {
     builder.setTargetLabel(
         attributes.getTargetLabel() == null
             ? ruleContext.getLabel() : attributes.getTargetLabel());
+    AttributeMap attributeMap = ruleContext.attributes();
+    if (attributeMap.has("testonly", Type.BOOLEAN)) {
+      builder.setTestOnly(attributeMap.get("testonly", Type.BOOLEAN));
+    }
     getAnalysisEnvironment().registerAction(builder.build());
   }
 

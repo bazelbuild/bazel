@@ -1467,4 +1467,37 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
     assertThat(provider).isNotNull();
     assertThat(provider.getTransitiveAars()).hasSize(1);
   }
+  
+  @Test
+  public void testAndroidLibraryWithTestOnlySetsTestOnly() throws Exception {
+    scratch.file(
+        "java/com/google/android/foo/BUILD",
+        "android_library(",
+        "  name = 'foo',",
+        "  srcs = ['Foo.java'],",
+        "  testonly = 1,",
+        ")");
+    JavaCompileAction javacAction =
+        (JavaCompileAction)
+            getGeneratingAction(
+                getBinArtifact("libfoo.jar", getConfiguredTarget("//java/com/google/android/foo")));
+
+    assertThat(javacAction.buildCommandLine()).contains("--testonly");
+  }
+
+  @Test
+  public void testAndroidLibraryWithoutTestOnlyDoesntSetTestOnly() throws Exception {
+    scratch.file(
+        "java/com/google/android/foo/BUILD",
+        "android_library(",
+        "  name = 'foo',",
+        "  srcs = ['Foo.java'],",
+        ")");
+    JavaCompileAction javacAction =
+        (JavaCompileAction)
+            getGeneratingAction(
+                getBinArtifact("libfoo.jar", getConfiguredTarget("//java/com/google/android/foo")));
+
+    assertThat(javacAction.buildCommandLine()).doesNotContain("--testonly");
+  }
 }

@@ -2777,4 +2777,43 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         .containsAllOf("--nocompress_suffixes", ".apk", ".so")
         .inOrder();
   }
+  
+  @Test
+  public void testAndroidBinaryWithTestOnlySetsTestOnly() throws Exception {
+    scratch.file(
+        "java/com/google/android/foo/BUILD",
+        "android_binary(",
+        "  name = 'foo',",
+        "  srcs = ['Foo.java'],",
+        "  testonly = 1,",
+        "  manifest = 'AndroidManifest.xml',",
+        "  resource_files = ['res/raw/foo.apk'],",
+        "  nocompress_extensions = ['.apk', '.so'],",
+        ")");
+    JavaCompileAction javacAction =
+        (JavaCompileAction)
+            getGeneratingAction(
+                getBinArtifact("libfoo.jar", getConfiguredTarget("//java/com/google/android/foo")));
+
+    assertThat(javacAction.buildCommandLine()).contains("--testonly");
+  }
+
+  @Test
+  public void testAndroidBinaryWithoutTestOnlyDoesntSetTestOnly() throws Exception {
+    scratch.file(
+        "java/com/google/android/foo/BUILD",
+        "android_binary(",
+        "  name = 'foo',",
+        "  srcs = ['Foo.java'],",
+        "  manifest = 'AndroidManifest.xml',",
+        "  resource_files = ['res/raw/foo.apk'],",
+        "  nocompress_extensions = ['.apk', '.so'],",
+        ")");
+    JavaCompileAction javacAction =
+        (JavaCompileAction)
+            getGeneratingAction(
+                getBinArtifact("libfoo.jar", getConfiguredTarget("//java/com/google/android/foo")));
+
+    assertThat(javacAction.buildCommandLine()).doesNotContain("--testonly");
+  }
 }
