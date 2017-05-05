@@ -162,7 +162,11 @@ public final class JavaProvider extends SkylarkClassObject implements Transitive
         "transitive_runtime_jars", SkylarkNestedSet.of(
             Artifact.class,
             providers.getProvider(JavaCompilationArgsProvider.class)
-                .getRecursiveJavaCompilationArgs().getRuntimeJars())
+                .getRecursiveJavaCompilationArgs().getRuntimeJars()),
+        "compile_jars", SkylarkNestedSet.of(
+            Artifact.class,
+            providers.getProvider(JavaCompilationArgsProvider.class)
+                .getJavaCompilationArgs().getCompileTimeJars())
     ));
     this.providers = providers;
   }

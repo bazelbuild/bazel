@@ -87,6 +87,72 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testJavaProviderFieldsAreSkylarkAccessible() throws Exception {
+    // The Skylark evaluation itself will test that compile_jars and
+    // transitive_runtime_jars are returning a list readable by Skylark with
+    // the expected number of entries.
+    scratch.file(
+        "java/test/extension.bzl",
+        "result = provider()",
+        "def impl(ctx):",
+        "   java_provider = ctx.attr.dep[java_common.provider]",
+        "   jp_cjar_cnt = len(java_provider.compile_jars)",
+        "   jp_rjar_cnt = len(java_provider.transitive_runtime_jars)",
+        "   if(jp_cjar_cnt != ctx.attr.cnt_cjar):",
+        "     fail('#compile_jars is %d, not %d' % (jp_cjar_cnt, ctx.attr.cnt_cjar))",
+        "   if(jp_rjar_cnt != ctx.attr.cnt_rjar):",
+        "     fail('#transitive_runtime_jars is %d, not %d' % (jp_rjar_cnt, ctx.attr.cnt_rjar))",
+        "   return [result(",
+        "             compile_jars = java_provider.compile_jars,",
+        "             transitive_runtime_jars = java_provider.transitive_runtime_jars,",
+        "          )]",
+        "my_rule = rule(impl, attrs = { ",
+        "  'dep' : attr.label(), ",
+        "  'cnt_cjar' : attr.int(), ",
+        "  'cnt_rjar' : attr.int(), ",
+        "})");
+    scratch.file(
+        "java/test/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "java_library(name = 'parent',",
+        "    srcs = [ 'Parent.java'])",
+        "java_library(name = 'jl',",
+        "    srcs = ['Jl.java'],",
+        "    deps = [ ':parent' ])",
+        "my_rule(name = 'my', dep = ':jl', cnt_cjar = 1, cnt_rjar = 2)");
+    // Now, get that information and ensure it is equal to what the jl java_library
+    // was presenting
+    ConfiguredTarget myConfiguredTarget = getConfiguredTarget("//java/test:my");
+    ConfiguredTarget javaLibraryTarget = getConfiguredTarget("//java/test:jl");
+
+    // Extract out the information from skylark rule
+    SkylarkProviders provider = myConfiguredTarget.getProvider(SkylarkProviders.class);
+    SkylarkClassObject skylarkClassObject =
+        provider.getDeclaredProvider(
+            new SkylarkKey(Label.parseAbsolute("//java/test:extension.bzl"), "result"));
+
+    SkylarkNestedSet rawMyCompileJars =
+        (SkylarkNestedSet) (skylarkClassObject.getValue("compile_jars"));
+    SkylarkNestedSet rawMyTransitiveRuntimeJars =
+        (SkylarkNestedSet) (skylarkClassObject.getValue("transitive_runtime_jars"));
+
+    NestedSet<Artifact> myCompileJars = rawMyCompileJars.getSet(Artifact.class);
+    NestedSet<Artifact> myTransitiveRuntimeJars = rawMyTransitiveRuntimeJars.getSet(Artifact.class);
+
+    // Extract out information from native rule
+    JavaCompilationArgsProvider jlJavaCompilationArgsProvider =
+        JavaProvider.getProvider(JavaCompilationArgsProvider.class, javaLibraryTarget);
+    NestedSet<Artifact> jlCompileJars =
+        jlJavaCompilationArgsProvider.getJavaCompilationArgs().getCompileTimeJars();
+    NestedSet<Artifact> jlTransitiveRuntimeJars =
+        jlJavaCompilationArgsProvider.getRecursiveJavaCompilationArgs().getRuntimeJars();
+
+    // Using reference equality since should be precisely identical
+    assertThat(myCompileJars == jlCompileJars).isTrue();
+    assertThat(myTransitiveRuntimeJars == jlTransitiveRuntimeJars).isTrue();
+  }
+
+  @Test
   public void constructJavaProvider() throws Exception {
     scratch.file(
         "foo/extension.bzl",
