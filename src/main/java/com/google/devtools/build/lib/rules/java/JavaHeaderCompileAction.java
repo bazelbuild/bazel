@@ -21,6 +21,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -316,6 +317,10 @@ public class JavaHeaderCompileAction extends SpawnAction {
     }
     /** Builds and registers the {@link JavaHeaderCompileAction} for a header compilation. */
     public void build(JavaToolchainProvider javaToolchain) {
+      ruleContext.registerAction(buildInternal(javaToolchain));
+    }
+
+    private ActionAnalysisMetadata[] buildInternal(JavaToolchainProvider javaToolchain) {
       checkNotNull(outputDepsProto, "outputDepsProto must not be null");
       checkNotNull(sourceFiles, "sourceFiles must not be null");
       checkNotNull(sourceJars, "sourceJars must not be null");
@@ -337,27 +342,17 @@ public class JavaHeaderCompileAction extends SpawnAction {
         compileTimeDependencyArtifacts = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
       }
       boolean useDirectClasspath = useDirectClasspath();
-      CommandLine directCommandLine =
-          useDirectClasspath
-              ? baseCommandLine(getBaseArgs(javaToolchain))
-                  .addExecPaths("--classpath", directJars)
-                  .build()
-              : null;
-      CommandLine transitiveParams = transitiveCommandLine();
-      PathFragment paramFilePath = ParameterFile.derivePath(outputJar.getRootRelativePath());
-      Artifact paramsFile =
-          ruleContext
-              .getAnalysisEnvironment()
-              .getDerivedArtifact(paramFilePath, outputJar.getRoot());
-      ruleContext.registerAction(
-          new ParameterFileWriteAction(
-              ruleContext.getActionOwner(),
-              paramsFile,
-              transitiveParams,
-              ParameterFile.ParameterFileType.UNQUOTED,
-              ISO_8859_1));
-      CommandLine transitiveCommandLine =
-          getBaseArgs(javaToolchain).addPaths("@%s", paramsFile.getExecPath()).build();
+      boolean disableJavacFallback =
+          ruleContext.getFragment(JavaConfiguration.class).headerCompilationDisableJavacFallback();
+      CommandLine directCommandLine = null;
+      if (useDirectClasspath) {
+        CustomCommandLine.Builder builder =
+            baseCommandLine(getBaseArgs(javaToolchain)).addExecPaths("--classpath", directJars);
+        if (disableJavacFallback) {
+          builder.add("--nojavac_fallback");
+        }
+        directCommandLine = builder.build();
+      }
       Iterable<Artifact> tools = ImmutableList.of(javacJar, javaToolchain.getHeaderCompiler());
       ImmutableList<Artifact> outputs = ImmutableList.of(outputJar, outputDepsProto);
       NestedSet<Artifact> directInputs =
@@ -369,6 +364,40 @@ public class JavaHeaderCompileAction extends SpawnAction {
               .addTransitive(directJars)
               .addAll(tools)
               .build();
+
+      if (useDirectClasspath && disableJavacFallback) {
+        // use a regular SpawnAction to invoke turbine with direct deps only,
+        // and no fallback to javac-turbine
+        return new ActionAnalysisMetadata[] {
+          new SpawnAction(
+              ruleContext.getActionOwner(),
+              tools,
+              directInputs,
+              outputs,
+              LOCAL_RESOURCES,
+              directCommandLine,
+              JavaCompileAction.UTF8_ENVIRONMENT,
+              /*executionInfo=*/ ImmutableSet.<String>of(),
+              getProgressMessage(),
+              "Turbine")
+        };
+      }
+
+      CommandLine transitiveParams = transitiveCommandLine();
+      PathFragment paramFilePath = ParameterFile.derivePath(outputJar.getRootRelativePath());
+      Artifact paramsFile =
+          ruleContext
+              .getAnalysisEnvironment()
+              .getDerivedArtifact(paramFilePath, outputJar.getRoot());
+      ParameterFileWriteAction parameterFileWriteAction =
+          new ParameterFileWriteAction(
+              ruleContext.getActionOwner(),
+              paramsFile,
+              transitiveParams,
+              ParameterFile.ParameterFileType.UNQUOTED,
+              ISO_8859_1);
+      CommandLine transitiveCommandLine =
+          getBaseArgs(javaToolchain).addPaths("@%s", paramsFile.getExecPath()).build();
       NestedSet<Artifact> transitiveInputs =
           NestedSetBuilder.<Artifact>stableOrder()
               .addTransitive(directInputs)
@@ -380,30 +409,33 @@ public class JavaHeaderCompileAction extends SpawnAction {
       if (!useDirectClasspath) {
         // If direct classpaths are disabled (e.g. because the compilation uses API-generating
         // annotation processors) skip the custom action implementation and just use SpawnAction.
-        ruleContext.registerAction(
-            new SpawnAction(
-                ruleContext.getActionOwner(),
-                tools,
-                transitiveInputs,
-                outputs,
-                LOCAL_RESOURCES,
-                transitiveCommandLine,
-                JavaCompileAction.UTF8_ENVIRONMENT,
-                /*executionInfo=*/ ImmutableSet.<String>of(),
-                getProgressMessage(),
-                "JavacTurbine"));
-        return;
-      }
-      ruleContext.registerAction(
-          new JavaHeaderCompileAction(
+        return new ActionAnalysisMetadata[] {
+          parameterFileWriteAction,
+          new SpawnAction(
               ruleContext.getActionOwner(),
               tools,
-              directInputs,
               transitiveInputs,
               outputs,
-              directCommandLine,
+              LOCAL_RESOURCES,
               transitiveCommandLine,
-              getProgressMessage()));
+              JavaCompileAction.UTF8_ENVIRONMENT,
+              /*executionInfo=*/ ImmutableSet.<String>of(),
+              getProgressMessage(),
+              "JavacTurbine")
+        };
+      }
+      return new ActionAnalysisMetadata[] {
+        parameterFileWriteAction,
+        new JavaHeaderCompileAction(
+            ruleContext.getActionOwner(),
+            tools,
+            directInputs,
+            transitiveInputs,
+            outputs,
+            directCommandLine,
+            transitiveCommandLine,
+            getProgressMessage())
+      };
     }
 
     private String getProgressMessage() {

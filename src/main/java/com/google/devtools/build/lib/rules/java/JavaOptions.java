@@ -426,6 +426,16 @@ public class JavaOptions extends FragmentOptions {
   public boolean headerCompilationDirectClasspath;
 
   @Option(
+    name = "experimental_java_header_compilation_disable_javac_fallback",
+    defaultValue = "false",
+    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+    help =
+        "If --java_header_compilation is set, report diagnostics from turbine instead of falling "
+            + " back to javac. Diagnostics will be produced more quickly, but may be less helpful."
+  )
+  public boolean headerCompilationDisableJavacFallback;
+
+  @Option(
     name = "experimental_one_version_enforcement",
     defaultValue = "OFF",
     converter = OneVersionEnforcementLevelConverter.class,
@@ -454,6 +464,7 @@ public class JavaOptions extends FragmentOptions {
     host.useIjars = useIjars;
     host.headerCompilation = headerCompilation;
     host.headerCompilationDirectClasspath = headerCompilationDirectClasspath;
+    host.headerCompilationDisableJavacFallback = headerCompilationDisableJavacFallback;
 
     host.javaDeps = javaDeps;
     host.javaClasspath = javaClasspath;
