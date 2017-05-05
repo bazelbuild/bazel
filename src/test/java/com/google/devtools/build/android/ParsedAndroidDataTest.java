@@ -101,7 +101,8 @@ public class ParsedAndroidDataTest {
                         key, DataValueFile.of(assetSource), DataValueFile.of(otherAssetSource))),
                 ImmutableMap.<DataKey, DataResource>of(),
                 ImmutableMap.<DataKey, DataResource>of(),
-                ImmutableMap.of(key, DataValueFile.of(otherAssetSource.overwrite(assetSource)))));
+                ImmutableMap.<DataKey, DataAsset>of(
+                    key, DataValueFile.of(otherAssetSource.overwrite(assetSource)))));
   }
 
   @Test
@@ -335,9 +336,9 @@ public class ParsedAndroidDataTest {
     DataSource rootValuesPath = DataSource.of(root.resolve("res/values/attr.xml"));
     DataSource otherRootValuesPath = DataSource.of(otherRoot.resolve("res/values/attr.xml"));
     FullyQualifiedName idSomeId = fqnFactory.parse("id/some_id");
-    
-    
-    
+
+
+
     Truth.assertAbout(parsedAndroidData)
         .that(dataSet)
         .isEqualTo(
@@ -364,7 +365,7 @@ public class ParsedAndroidDataTest {
                         DataResourceXml.createWithNoNamespace(
                             otherRootValuesPath,
                             ResourcesAttribute.of(attributeFoo, "foo", "fooVal")))),
-                ImmutableMap.of(
+                ImmutableMap.<DataKey, DataResource>of(
                     drawableMenu, // key
                     DataValueFile.of(
                         otherRootDrawableMenuPath.overwrite(rootDrawableMenuPath)), // value
@@ -378,7 +379,7 @@ public class ParsedAndroidDataTest {
                         SimpleXmlResourceValue.createWithValue(
                             SimpleXmlResourceValue.Type.STRING, "way out")) // value
                     ),
-                ImmutableMap.of(
+                ImmutableMap.<DataKey, DataResource>of(
                     idSomeId, // key
                     DataResourceXml.createWithNoNamespace(
                         rootValuesPath, IdXmlResourceValue.of()) // value
@@ -662,7 +663,7 @@ public class ParsedAndroidDataTest {
       assertThat(combinedSuberrors).contains("has invalid id number");
     }
   }
-  
+
   final SubjectFactory<ParsedAndroidDataSubject, ParsedAndroidData> parsedAndroidData =
       new SubjectFactory<ParsedAndroidDataSubject, ParsedAndroidData>() {
         @Override
@@ -670,5 +671,5 @@ public class ParsedAndroidDataTest {
           return new ParsedAndroidDataSubject(fs, that);
         }
       };
-  
+
 }

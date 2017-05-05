@@ -92,6 +92,17 @@ java_test(
 )
 
 java_test(
+    name = "DensitySpecificResourceFilterTest",
+    srcs = ["DensitySpecificResourceFilterTest.java"],
+    tags = ["no_windows"],  # Test asserts forward slashes
+    deps = [
+        "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
+        "//third_party:guava",
+        "//third_party:junit4",
+    ],
+)
+
+java_test(
     name = "DependencyAndroidDataTest",
     srcs = ["DependencyAndroidDataTest.java"],
     deps = [
@@ -125,7 +136,7 @@ java_test(
 java_test(
     name = "ParsedAndroidDataTest",
     srcs = ["ParsedAndroidDataTest.java"],
-    tags = ["manual"],  # Fails due to https://github.com/bazelbuild/bazel/issues/2709
+    tags = ["no_windows"],  # Test asserts forward slashes
     deps = [
         ":test_utils",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
