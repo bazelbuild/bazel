@@ -106,6 +106,8 @@ genrule(
         # won't work.
         "//src:freebsd": NOP_JARJAR_COMMAND,
         "//src:windows": NOP_JARJAR_COMMAND,
+        "//src:windows_msvc": NOP_JARJAR_COMMAND,
+        "//src:windows_msys": NOP_JARJAR_COMMAND,
         "//conditions:default": "\n".join([
             "JARJAR=\"$$(mktemp)\"",
             "\"$(JAVA)\" -jar \"$(location //third_party/java/jarjar:jarjar_bin_deploy.jar)\" --rules \"$(location :JacocoCoverage.jarjar)\" --output \"$${JARJAR}\" \"$(location :JacocoCoverage_deploy.jar)\"",
