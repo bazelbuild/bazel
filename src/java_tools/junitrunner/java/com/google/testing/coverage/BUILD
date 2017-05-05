@@ -118,6 +118,8 @@ genrule(
     tools = select({
         "//src:freebsd": [],
         "//src:windows": [],
+        "//src:windows_msys": [],
+        "//src:windows_msvc": [],
         "//conditions:default": [
             "//third_party/java/jarjar:jarjar_bin_deploy.jar",
             "//tools/defaults:jdk",
