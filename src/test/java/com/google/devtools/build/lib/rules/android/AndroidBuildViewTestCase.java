@@ -55,6 +55,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
     return builder
         // TODO(b/35097211): Remove this once the new testing rules are released.
         .addRuleDefinition(new AndroidDeviceScriptFixtureRule())
+        .addRuleDefinition(new AndroidInstrumentationRule())
         .build();
   }
 
