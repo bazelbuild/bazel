@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.rules.java.JavaUtil;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -961,5 +962,27 @@ public class AndroidCommon {
     }
 
     return new JavaCommon(ruleContext, semantics, srcs, compileDeps, runtimeDeps, bothDeps);
+  }
+
+  /**
+   * Gets the transitive support APKs required by this rule through the {@code support_apks}
+   * attribute.
+   */
+  static NestedSet<Artifact> getSupportApks(RuleContext ruleContext) {
+    NestedSetBuilder<Artifact> supportApks = NestedSetBuilder.stableOrder();
+    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("support_apks", Mode.TARGET)) {
+      ApkProvider apkProvider = dep.getProvider(ApkProvider.class);
+      FileProvider fileProvider = dep.getProvider(FileProvider.class);
+      // If ApkProvider is present, do not check FileProvider for .apk files. For example,
+      // android_binary creates a FileProvider containing both the signed and unsigned APKs.
+      if (apkProvider != null) {
+        supportApks.addTransitive(apkProvider.getTransitiveApks());
+      } else if (fileProvider != null) {
+        // The rule definition should enforce that only .apk files are allowed, however, it can't
+        // hurt to double check.
+        supportApks.addAll(FileType.filter(fileProvider.getFilesToBuild(), AndroidRuleClasses.APK));
+      }
+    }
+    return supportApks.build();
   }
 }

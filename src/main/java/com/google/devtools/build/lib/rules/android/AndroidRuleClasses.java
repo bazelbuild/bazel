@@ -171,6 +171,7 @@ public final class AndroidRuleClasses {
       fromTemplates("%{name}_images/userdata_images.dat");
   public static final SafeImplicitOutputsFunction ANDROID_DEVICE_EMULATOR_METADATA =
       fromTemplates("%{name}_images/emulator-meta-data.pb");
+  static final FileType APK = FileType.of(".apk");
 
   /**
    * The default label of android_sdk option
