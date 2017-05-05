@@ -64,9 +64,11 @@ public final class ExtraActionFactory implements RuleConfiguredTargetFactory {
     command = command.replace("$(OWNER_LABEL_DIGEST)", "$$(OWNER_LABEL_DIGEST)");
     command = command.replace("$(output ", "$$(output ");
     try {
-      command = MakeVariableExpander.expand(
-          command, new ConfigurationMakeVariableContext(
-              context.getTarget().getPackage(), context.getConfiguration()));
+      command =
+          MakeVariableExpander.expand(
+              command,
+              new ConfigurationMakeVariableContext(
+                  context, context.getTarget().getPackage(), context.getConfiguration()));
     } catch (MakeVariableExpander.ExpansionException e) {
       context.ruleError(String.format("Unable to expand make variables: %s",
           e.getMessage()));

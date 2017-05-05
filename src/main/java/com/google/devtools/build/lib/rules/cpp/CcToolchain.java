@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.License;
+import com.google.devtools.build.lib.rules.MakeVariableProvider;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoException;
 import com.google.devtools.build.lib.util.Pair;
@@ -52,6 +53,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -282,7 +284,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       coverage = crosstool;
     }
 
-    CcToolchainProvider provider =
+    CcToolchainProvider ccProvider =
         new CcToolchainProvider(
             cppConfiguration,
             crosstool,
@@ -309,10 +311,18 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             ruleContext.getPrerequisiteArtifact("$link_dynamic_library_tool", Mode.HOST),
             getEnvironment(ruleContext),
             cppConfiguration.getBuiltInIncludeDirectories());
+
+    PathFragment sysroot = cppConfiguration.getSysroot();
+
+    MakeVariableProvider makeVariableProvider =
+        createMakeVariableProvider(cppConfiguration, sysroot);
+
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext)
-            .addProvider(provider)
-            .addNativeDeclaredProvider(provider)
+            .addProvider(ccProvider)
+            .addNativeDeclaredProvider(ccProvider)
+            .addProvider(makeVariableProvider)
+            .addNativeDeclaredProvider(makeVariableProvider)
             .addProvider(
                 fdoSupport.getFdoSupport().createFdoSupportProvider(ruleContext, profileArtifact))
             .setFilesToBuild(new NestedSetBuilder<Artifact>(Order.STABLE_ORDER).build())
@@ -431,6 +441,22 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     return dep != null
         ? getFiles(context, attribute)
         : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
+  }
+
+  private MakeVariableProvider createMakeVariableProvider(
+      CppConfiguration cppConfiguration, PathFragment sysroot) {
+
+    HashMap<String, String> makeVariables =
+        new HashMap<>(cppConfiguration.getAdditionalMakeVariables());
+
+    // Overwrite the CC_FLAGS variable to include sysroot, if it's available.
+    if (sysroot != null) {
+      String sysrootFlag = "--sysroot=" + sysroot;
+      String ccFlags = makeVariables.get("CC_FLAGS");
+      ccFlags = ccFlags.isEmpty() ? sysrootFlag : ccFlags + " " + sysrootFlag;
+      makeVariables.put("CC_FLAGS", ccFlags);
+    }
+    return new MakeVariableProvider(ImmutableMap.copyOf(makeVariables));
   }
 
   /**
