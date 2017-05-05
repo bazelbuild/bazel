@@ -384,20 +384,4 @@ function test_loading_failure_keep_going() {
 #   expect_not_log 'aborted'
 # }
 
-function test_stdout_stderr_reported() {
-  # Verify that bazel's stdout/stderr is included in the build event stream.
-
-  # Make sure we generate enough output on stderr
-  bazel clean --expunge
-  bazel test --experimental_build_event_text_file=$TEST_log --curses=no \
-        pkg:slow 2>stderr.log || fail "slowtest failed"
-  # Take a line that is likely not the output of an action (possibly reported
-  # independently in the stream) and still characteristic enough to not occur
-  # in the stream by accident. Taking the first line mentioning the test name
-  # is likely some form of progress report.
-  sample_line=`cat stderr.log | grep 'slow' | head -1 | tr '[]' '..'`
-  echo "Sample regexp of stderr: ${sample_line}"
-  expect_log "stderr.*$sample_line"
-}
-
 run_suite "Integration tests for the build event stream"
