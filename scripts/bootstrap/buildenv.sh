@@ -30,6 +30,19 @@ if [ -n "${BAZEL_WRKDIR}" ] ; then
 fi
 
 
+# We define the fail function early so we can use it when detecting the JDK
+# See https://github.com/bazelbuild/bazel/issues/2949,
+function fail() {
+  local exitCode=$?
+  if [[ "$exitCode" = "0" ]]; then
+    exitCode=1
+  fi
+  echo >&2
+  echo "ERROR: $@" >&2
+  exit $exitCode
+}
+
+
 # Set standard variables
 DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 WORKSPACE_DIR="$(dirname "$(dirname "${DIR}")")"
@@ -190,16 +203,6 @@ function run() {
       exit $exitcode
     fi
   fi
-}
-
-function fail() {
-  local exitCode=$?
-  if [[ "$exitCode" = "0" ]]; then
-    exitCode=1
-  fi
-  echo >&2
-  echo "ERROR: $@" >&2
-  exit $exitCode
 }
 
 function display() {
