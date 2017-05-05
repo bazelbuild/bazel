@@ -40,10 +40,13 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.OutputFile;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader.CppConfigurationParameters;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionConfigs.CppLinkPlatform;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.transitions.ContextCollectorOwnerTransition;
+import com.google.devtools.build.lib.rules.cpp.transitions.DisableLipoTransition;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -2252,5 +2255,20 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   @Override
   public PatchTransition getArtifactOwnerTransition() {
     return isLipoContextCollector() ? ContextCollectorOwnerTransition.INSTANCE : null;
+  }
+
+  @Nullable
+  @Override
+  public PatchTransition topLevelConfigurationHook(Target toTarget) {
+    // Top-level output files that aren't outputs of the LIPO context should be built in
+    // the data config. This is so their output path prefix doesn't have "-lipo" in it, which
+    // is a confusing and unnecessary deviation from how they would normally look.
+    if (toTarget instanceof OutputFile
+        && isLipoOptimization()
+        && !toTarget.getAssociatedRule().getLabel().equals(getLipoContextLabel())) {
+      return DisableLipoTransition.INSTANCE;
+    } else {
+      return null;
+    }
   }
 }

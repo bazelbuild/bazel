@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
+import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.buildtool.BuildRequest.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -164,6 +165,10 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   protected void useRuleClassProvider(ConfiguredRuleClassProvider ruleClassProvider)
       throws Exception {
     this.ruleClassProvider = ruleClassProvider;
+    useConfigurationFactory(
+        new ConfigurationFactory(
+            ruleClassProvider.getConfigurationCollectionFactory(),
+            ruleClassProvider.getConfigurationFragments()));
     PackageFactory pkgFactory =
         analysisMock
             .getPackageFactoryForTesting()
@@ -504,4 +509,16 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     update();
   }
 
+  /**
+   * Makes custom configuration fragments available in tests.
+   */
+  protected final void setConfigFragmentsAvailableInTests(
+      ConfigurationFragmentFactory... factories) throws Exception {
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+    TestRuleClassProvider.addStandardRules(builder);
+    for (ConfigurationFragmentFactory factory : factories) {
+      builder.addConfigurationFragment(factory);
+    }
+    useRuleClassProvider(builder.build());
+  }
 }

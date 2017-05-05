@@ -330,6 +330,32 @@ public class BuildViewTest extends BuildViewTestBase {
   }
 
   @Test
+  public void topLevelConfigurationHook() throws Exception {
+    setConfigFragmentsAvailableInTests(TestConfigFragments.FragmentWithTopLevelConfigHook1Factory);
+    scratch.file(
+        "package/BUILD",
+        "sh_binary(name = 'binary', srcs = ['binary.sh'])");
+    ConfiguredTarget ct = Iterables.getOnlyElement(update("//package:binary").getTargetsToBuild());
+    BuildConfiguration.Options options =
+        ct.getConfiguration().getOptions().get(BuildConfiguration.Options.class);
+    assertThat(options.testArguments).containsExactly("CONFIG HOOK 1");
+  }
+
+  @Test
+  public void topLevelComposedConfigurationHooks() throws Exception {
+    setConfigFragmentsAvailableInTests(
+        TestConfigFragments.FragmentWithTopLevelConfigHook1Factory,
+        TestConfigFragments.FragmentWithTopLevelConfigHook2Factory);
+    scratch.file(
+        "package/BUILD",
+        "sh_binary(name = 'binary', srcs = ['binary.sh'])");
+    ConfiguredTarget ct = Iterables.getOnlyElement(update("//package:binary").getTargetsToBuild());
+    BuildConfiguration.Options options =
+        ct.getConfiguration().getOptions().get(BuildConfiguration.Options.class);
+    assertThat(options.testArguments).containsExactly("CONFIG HOOK 1", "CONFIG HOOK 2");
+  }
+
+  @Test
   public void testGetDirectPrerequisites() throws Exception {
     scratch.file(
         "package/BUILD",

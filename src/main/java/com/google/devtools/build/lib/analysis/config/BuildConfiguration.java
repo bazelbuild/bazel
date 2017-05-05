@@ -212,6 +212,20 @@ public final class BuildConfiguration {
     public PatchTransition getArtifactOwnerTransition() {
       return null;
     }
+
+    /**
+     * Returns an extra transition that should apply to top-level targets in this
+     * configuration. Returns null if no transition is needed.
+     *
+     * <p>Overriders should not change {@link FragmentOptions} not associated with their fragment.
+     *
+     * <p>If multiple fragments specify a transition, they're composed together in a
+     * deterministic but undocumented order (so don't write code expecting a specific order).
+     */
+    @Nullable
+    public PatchTransition topLevelConfigurationHook(Target toTarget) {
+      return null;
+    }
   }
 
   private static final Label convertLabel(String input) throws OptionsParsingException {
@@ -2678,5 +2692,25 @@ public final class BuildConfiguration {
 
   public ImmutableCollection<String> getSkylarkFragmentNames() {
     return skylarkVisibleFragments.keySet();
+  }
+
+  /**
+   * Returns an extra transition that should apply to top-level targets in this
+   * configuration. Returns null if no transition is needed.
+   */
+  @Nullable
+  public PatchTransition topLevelConfigurationHook(Target toTarget) {
+    PatchTransition currentTransition = null;
+    for (Fragment fragment : fragments.values()) {
+      PatchTransition fragmentTransition = fragment.topLevelConfigurationHook(toTarget);
+      if (fragmentTransition == null) {
+        continue;
+      } else if (currentTransition == null) {
+        currentTransition = fragmentTransition;
+      } else {
+        currentTransition = new ComposingPatchTransition(currentTransition, fragmentTransition);
+      }
+    }
+    return currentTransition;
   }
 }
