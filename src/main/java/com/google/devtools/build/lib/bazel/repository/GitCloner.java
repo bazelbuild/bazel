@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.base.Ascii;
 import com.google.common.base.Optional;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.UrlEscapers;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
@@ -30,7 +31,6 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
-import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.net.URL;
 import java.util.Map;
@@ -103,7 +103,7 @@ public class GitCloner {
     return false;
   }
 
-  public static SkyValue clone(
+  public static HttpDownloadValue clone(
       Rule rule,
       Path outputDirectory,
       ExtendedEventHandler eventHandler,
@@ -160,15 +160,24 @@ public class GitCloner {
         }
       }
 
+      String uncheckedSha256 = getUncheckedSha256(mapper);
       if (repositoryLooksTgzable(descriptor.remote)) {
         Optional<Exception> maybeException = downloadRepositoryAsHttpArchive(
-            descriptor, eventHandler, clientEnvironment, downloader);
+            descriptor, eventHandler, clientEnvironment, downloader, uncheckedSha256);
         if (maybeException.isPresent()) {
           suppressedException = maybeException.get();
         } else {
           return new HttpDownloadValue(descriptor.directory);
         }
-        // Fallthrough to cloning from git.
+      }
+      if (!Strings.isNullOrEmpty(uncheckedSha256)) {
+        // Specifying a sha256 forces this to use a tarball download.
+        IOException e = new IOException(
+            "Could not download tarball, but sha256 specified (" + uncheckedSha256 + ")");
+        if (suppressedException != null) {
+          e.addSuppressed(suppressedException);
+        }
+        throw new RepositoryFunctionException(e, Transience.TRANSIENT);
       }
 
       git =
@@ -246,6 +255,18 @@ public class GitCloner {
     return new HttpDownloadValue(descriptor.directory);
   }
 
+  private static String getUncheckedSha256(WorkspaceAttributeMapper mapper)
+      throws RepositoryFunctionException {
+    if (mapper.isAttributeValueExplicitlySpecified("sha256")) {
+      try {
+        return mapper.get("sha256", Type.STRING);
+      } catch (EvalException e) {
+        throw new RepositoryFunctionException(e, Transience.PERSISTENT);
+      }
+    }
+    return "";
+  }
+
   private static boolean repositoryLooksTgzable(String remote) {
     // Only handles GitHub right now.
     return GITHUB_URL.matcher(remote).matches();
@@ -253,7 +274,7 @@ public class GitCloner {
 
   private static Optional<Exception> downloadRepositoryAsHttpArchive(
       GitRepositoryDescriptor descriptor, ExtendedEventHandler eventHandler,
-      Map<String, String> clientEnvironment, HttpDownloader downloader)
+      Map<String, String> clientEnvironment, HttpDownloader downloader, String uncheckedSha256)
       throws RepositoryFunctionException {
     Matcher matcher = GITHUB_URL.matcher(descriptor.remote);
     Preconditions.checkState(
@@ -266,7 +287,7 @@ public class GitCloner {
                 user + "/" + repositoryName + "/archive/" + descriptor.ref + ".tar.gz");
     try {
       FileSystemUtils.createDirectoryAndParents(descriptor.directory);
-      Path tgz = downloader.download(ImmutableList.of(new URL(downloadUrl)), "",
+      Path tgz = downloader.download(ImmutableList.of(new URL(downloadUrl)), uncheckedSha256,
           Optional.of("tar.gz"), descriptor.directory, eventHandler, clientEnvironment);
       DecompressorValue.decompress(DecompressorDescriptor.builder()
           .setArchivePath(tgz)

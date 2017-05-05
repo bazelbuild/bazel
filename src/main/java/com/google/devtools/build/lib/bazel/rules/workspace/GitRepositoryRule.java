@@ -57,6 +57,17 @@ public class GitRepositoryRule implements RuleDefinition {
         <p>Currently, only cloning the top-level submodules is supported</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("init_submodules", BOOLEAN).value(false))
+        /* <!-- #BLAZE_RULE(git_repository).ATTRIBUTE(sha256) -->
+         The expected SHA-256 hash of the file downloaded. Specifying this forces the repository to
+         be downloaded as a tarball. Currently, this is only supported for public GitHub
+         repositories.
+
+         <p>This must match the SHA-256 hash of the file downloaded. <em>It is a security risk to
+         omit the SHA-256 as remote files can change.</em> At best omitting this field will make
+         your build non-hermetic. It is optional to make development easier but should be set
+         before shipping.</p>
+         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("sha256", STRING))
         .setWorkspaceOnly()
         .build();
   }

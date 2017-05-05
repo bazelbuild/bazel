@@ -7,12 +7,26 @@ filegroup(
     visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )
 
+genrule(
+    name = "empty-tarball",
+    outs = ["empty.tar.gz"],
+    cmd = """
+mkdir -p bar-1.2.3
+touch bar-1.2.3/whatever
+tar czf $@ bar-1.2.3
+""",
+)
+
 java_test(
     name = "RepositoryTests",
     srcs = glob([
         "**/*.java",
     ]),
-    tags = ["rules"],
+    data = [":empty-tarball"],
+    tags = [
+        "no_windows",  # Runfiles aren't supported.
+        "rules",
+    ],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         "//src/main/java/com/google/devtools/build/lib:bazel-main",
