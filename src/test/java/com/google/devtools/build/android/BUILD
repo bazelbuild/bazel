@@ -22,6 +22,19 @@ java_test(
 )
 
 java_test(
+    name = "AaptCommandBuilderTest",
+    srcs = ["AaptCommandBuilderTest.java"],
+    deps = [
+        "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
+        "//third_party:android_common_25_0_0",
+        "//third_party:guava",
+        "//third_party:guava-testlib",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "AndroidDataMergerTest",
     srcs = ["AndroidDataMergerTest.java"],
     tags = ["no_windows"],  # Test asserts forward slashes in android data xml files.
@@ -29,6 +42,20 @@ java_test(
         ":test_utils",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//third_party:android_common_25_0_0",
+        "//third_party:guava",
+        "//third_party:jimfs",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "AndroidDataSerializerAndDeserializerTest",
+    srcs = ["AndroidDataSerializerAndDeserializerTest.java"],
+    tags = ["no_windows"],
+    deps = [
+        ":test_utils",
+        "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//third_party:guava",
         "//third_party:jimfs",
         "//third_party:junit4",
