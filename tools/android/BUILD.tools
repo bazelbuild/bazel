@@ -49,21 +49,21 @@ alias(
 # if requested.
 filegroup(
     name = "desugar_java8_extra_bootclasspath",
-    srcs = ["java_lang_invoke.jar"],
+    srcs = ["java_lang_extras.jar"],
     visibility = ["//visibility:public"],
 )
 
-# javac needs this Jar to compile lambdas and method references. It contains
-# java.lang.invoke.* which is not part of the android.jar.
+# javac needs this Jar to compile lambdas, method references, and type annotations.
+# These classes are not part of the android.jar.
 genrule(
-    name = "gen_java_lang_invoke_jar",
+    name = "gen_java_lang_extras_jar",
     srcs = [
         "@local_jdk//:bootclasspath"
     ],
     tools = [
         "@bazel_tools//tools/jdk:SingleJar_binary",
     ],
-    outs = ["java_lang_invoke.jar"],
+    outs = ["java_lang_extras.jar"],
     cmd = """
           for jar in $(locations @local_jdk//:bootclasspath); do
             if [[ "$${jar}" == *"/rt.jar" ]]; then
@@ -72,6 +72,7 @@ genrule(
                   --dont_change_compression \
                   --sources $${jar} \
                   --include_prefixes "java/lang/invoke/" \
+                  --include_prefixes "java/lang/annotation/" \
                   --output $@
               break
             fi
@@ -79,8 +80,6 @@ genrule(
           """,
     visibility = ["//visibility:private"],
 )
-
-
 
 alias(
     name = "IdlClass",
