@@ -18,7 +18,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.ImmutableList;
+import java.util.Comparator;
 import java.util.HashSet;
+import java.util.Set;
+import java.util.TreeSet;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
@@ -33,18 +36,20 @@ public class DefaultMethodClassFixer extends ClassVisitor {
 
   private final ClassReaderFactory classpath;
   private final ClassReaderFactory bootclasspath;
+  private final ClassLoader targetLoader;
   private final HashSet<String> instanceMethods = new HashSet<>();
-  private final HashSet<String> seenInterfaces = new HashSet<>();
 
   private boolean isInterface;
-  private ImmutableList<String> interfaces;
+  private String internalName;
+  private ImmutableList<String> directInterfaces;
   private String superName;
 
   public DefaultMethodClassFixer(ClassVisitor dest, ClassReaderFactory classpath,
-      ClassReaderFactory bootclasspath) {
+      ClassReaderFactory bootclasspath, ClassLoader targetLoader) {
     super(Opcodes.ASM5, dest);
     this.classpath = classpath;
     this.bootclasspath = bootclasspath;
+    this.targetLoader = targetLoader;
   }
 
   @Override
@@ -55,22 +60,23 @@ public class DefaultMethodClassFixer extends ClassVisitor {
       String signature,
       String superName,
       String[] interfaces) {
-    checkState(this.interfaces == null);
+    checkState(this.directInterfaces == null);
     isInterface = BitFlags.isSet(access, Opcodes.ACC_INTERFACE);
+    internalName = name;
     checkArgument(superName != null || "java/lang/Object".equals(name), // ASM promises this
         "Type without superclass: %s", name);
-    this.interfaces = ImmutableList.copyOf(interfaces);
+    this.directInterfaces = ImmutableList.copyOf(interfaces);
     this.superName = superName;
     super.visit(version, access, name, signature, superName, interfaces);
   }
 
   @Override
   public void visitEnd() {
-    if (!isInterface && defaultMethodsDefined(interfaces)) {
+    if (!isInterface && defaultMethodsDefined(directInterfaces)) {
       // Inherited methods take precedence over default methods, so visit all superclasses and
       // figure out what methods they declare before stubbing in any missing default methods.
       recordInheritedMethods();
-      stubMissingDefaultMethods(interfaces);
+      stubMissingDefaultMethods();
     }
     super.visitEnd();
   }
@@ -83,6 +89,51 @@ public class DefaultMethodClassFixer extends ClassVisitor {
       recordIfInstanceMethod(access, name, desc);
     }
     return super.visitMethod(access, name, desc, signature, exceptions);
+  }
+
+  private void stubMissingDefaultMethods() {
+    TreeSet<Class<?>> allInterfaces = new TreeSet<>(InterfaceComparator.INSTANCE);
+    for (String direct : directInterfaces) {
+      // Loading ensures all transitively implemented interfaces can be loaded, which is necessary
+      // to produce correct default method stubs in all cases.  We could do without classloading but
+      // it's convenient to rely on Class.isAssignableFrom to compute subtype relationships, and
+      // we'd still have to insist that all transitively implemented interfaces can be loaded.
+      // We don't load the visited class, however, in case it's a generated lambda class.
+      Class<?> itf = loadFromInternal(direct);
+      collectInterfaces(itf, allInterfaces);
+    }
+
+    Class<?> superclass = loadFromInternal(superName);
+    for (Class<?> interfaceToVisit : allInterfaces) {
+      // if J extends I, J is allowed to redefine I's default methods.  The comparator we used
+      // above makes sure we visit J before I in that case so we can use J's definition.
+      if (superclass != null && interfaceToVisit.isAssignableFrom(superclass)) {
+        // superclass already implements this interface, so we must skip it.  The superclass will
+        // be similarly rewritten or comes from the bootclasspath; either way we don't need to and
+        // shouldn't stub default methods for this interface.
+        continue;
+      }
+      stubMissingDefaultMethods(interfaceToVisit.getName().replace('.', '/'));
+    }
+  }
+
+  private Class<?> loadFromInternal(String internalName) {
+    try {
+      return targetLoader.loadClass(internalName.replace('/', '.'));
+    } catch (ClassNotFoundException e) {
+      throw new IllegalStateException(
+          "Couldn't load " + internalName + ", is the classpath complete?", e);
+    }
+  }
+
+  private void collectInterfaces(Class<?> itf, Set<Class<?>> dest) {
+    checkArgument(itf.isInterface());
+    if (!dest.add(itf)) {
+      return;
+    }
+    for (Class<?> implemented : itf.getInterfaces()) {
+      collectInterfaces(implemented, dest);
+    }
   }
 
   private void recordInheritedMethods() {
@@ -145,29 +196,23 @@ public class DefaultMethodClassFixer extends ClassVisitor {
         && !instanceMethods.contains(name + ":" + desc);
   }
 
-  private void stubMissingDefaultMethods(ImmutableList<String> interfaces) {
-    for (String implemented : interfaces) {
-      if (!seenInterfaces.add(implemented)) {
-        // Skip: a superclass already implements this interface, or we've seen it here
-        continue;
-      }
-      ClassReader bytecode = classpath.readIfKnown(implemented);
-      if (bytecode != null && !bootclasspath.isKnown(implemented)) {
-        // Class in classpath and bootclasspath is a bad idea but in any event, assume the
-        // bootclasspath will take precedence like in a classloader.
-        // We can skip code attributes as we just need to find default methods to stub.
-        bytecode.accept(new DefaultMethodStubber(), ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG);
-      }
+  private void stubMissingDefaultMethods(String implemented) {
+    if (bootclasspath.isKnown(implemented)) {
+      // Default methods on the bootclasspath will be available at runtime, so just ignore them.
+      return;
     }
+    ClassReader bytecode = checkNotNull(classpath.readIfKnown(implemented),
+        "Couldn't find interface %s implemented by %s", implemented, internalName);
+    // We can skip code attributes as we just need to find default methods to stub.
+    bytecode.accept(new DefaultMethodStubber(), ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG);
   }
 
   /**
    * Visitor for interfaces that produces delegates in the class visited by the outer
    * {@link DefaultMethodClassFixer} for every default method encountered.
    */
-  public class DefaultMethodStubber extends ClassVisitor {
+  private class DefaultMethodStubber extends ClassVisitor {
 
-    @SuppressWarnings("hiding") private ImmutableList<String> interfaces;
     private String interfaceName;
 
     public DefaultMethodStubber() {
@@ -183,20 +228,20 @@ public class DefaultMethodClassFixer extends ClassVisitor {
         String superName,
         String[] interfaces) {
       checkArgument(BitFlags.isSet(access, Opcodes.ACC_INTERFACE));
-      checkState(this.interfaces == null);
-      this.interfaces = ImmutableList.copyOf(interfaces);
+      checkState(interfaceName == null);
       interfaceName = name;
-    }
-
-    @Override
-    public void visitEnd() {
-      stubMissingDefaultMethods(this.interfaces);
     }
 
     @Override
     public MethodVisitor visitMethod(
         int access, String name, String desc, String signature, String[] exceptions) {
       if (shouldStub(access, name, desc)) {
+        // Remember we stubbed this method in case it's also defined by subsequently visited
+        // interfaces.  javac would force the method to be defined explicitly if there any two
+        // definitions conflict, but see stubMissingDefaultMethods() for how we deal with default
+        // methods redefined in interfaces extending another.
+        recordIfInstanceMethod(access, name, desc);
+
         // Add this method to the class we're desugaring and stub in a body to call the default
         // implementation in the interface's companion class. ijar omits these methods when setting
         // ACC_SYNTHETIC modifier, so don't.
@@ -230,7 +275,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
   /**
    * Visitor for interfaces that recursively searches interfaces for default method declarations.
    */
-  public class DefaultMethodFinder extends ClassVisitor {
+  private class DefaultMethodFinder extends ClassVisitor {
 
     @SuppressWarnings("hiding") private ImmutableList<String> interfaces;
     private boolean found;
@@ -290,13 +335,6 @@ public class DefaultMethodClassFixer extends ClassVisitor {
         String superName,
         String[] interfaces) {
       checkArgument(BitFlags.noneSet(access, Opcodes.ACC_INTERFACE));
-      for (String inheritedInterface : interfaces) {
-        // No point copying default methods that we'll also copy for a superclass.  Note we may
-        // be processing a class in the bootclasspath, in which case the interfaces must also
-        // be in the bootclasspath and we can skip those as well.  Also note this is best-effort,
-        // since these interfaces may extend other interfaces that we're not recording here.
-        seenInterfaces.add(inheritedInterface);
-      }
       super.visit(version, access, name, signature, superName, interfaces);
     }
 
@@ -305,6 +343,28 @@ public class DefaultMethodClassFixer extends ClassVisitor {
         int access, String name, String desc, String signature, String[] exceptions) {
       recordIfInstanceMethod(access, name, desc);
       return null;
+    }
+  }
+
+  /** Comparator for interfaces that compares by whether interfaces extend one another. */
+  enum InterfaceComparator implements Comparator<Class<?>> {
+    INSTANCE;
+
+    @Override
+    public int compare(Class<?> o1, Class<?> o2) {
+      checkArgument(o1.isInterface());
+      checkArgument(o2.isInterface());
+      if (o1 == o2) {
+        return 0;
+      }
+      if (o1.isAssignableFrom(o2)) { // o1 is supertype of o2
+        return 1; // we want o1 to come after o2
+      }
+      if (o2.isAssignableFrom(o1)) { // o2 is supertype of o1
+        return -1; // we want o2 to come after o1
+      }
+      // o1 and o2 aren't comparable so arbitrarily impose lexicographical ordering
+      return o1.getName().compareTo(o2.getName());
     }
   }
 }
