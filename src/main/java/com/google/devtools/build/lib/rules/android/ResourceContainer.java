@@ -124,7 +124,7 @@ public abstract class ResourceContainer {
 
   /** Converts this container back into a builder to create a modified copy. */
   public abstract Builder toBuilder();
-  
+
   /**
    * Returns a copy of this container with filtered resources. The original container is unchanged.
    */
@@ -181,7 +181,7 @@ public abstract class ResourceContainer {
           .setJavaSourceJar(
               ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_JAVA_SOURCE_JAR))
           .setJavaPackageFrom(JavaPackageSource.SOURCE_JAR_PATH)
-          .setManifestExported(getExportsManifest(ruleContext));
+          .setManifestExported(AndroidCommon.getExportsManifest(ruleContext));
     }
 
     /**
@@ -309,13 +309,6 @@ public abstract class ResourceContainer {
 
     private static boolean hasCustomPackage(RuleContext ruleContext) {
       return ruleContext.attributes().isAttributeValueExplicitlySpecified("custom_package");
-    }
-
-    private static boolean getExportsManifest(RuleContext ruleContext) {
-      // AndroidLibraryBaseRule has exports_manifest but AndroidBinaryBaseRule does not.
-      // ResourceContainers are built for both, so we must check if exports_manifest is present.
-      return ruleContext.attributes().has("exports_manifest", Type.BOOLEAN)
-          && ruleContext.attributes().get("exports_manifest", Type.BOOLEAN);
     }
 
     @Nullable

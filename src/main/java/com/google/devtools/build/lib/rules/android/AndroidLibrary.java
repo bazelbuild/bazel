@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.ProguardLibrary;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
-import com.google.devtools.build.lib.syntax.Type;
 
 /**
  * An implementation for the "android_library" rule.
@@ -163,15 +162,16 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
 
       String javaPackage = AndroidCommon.getJavaPackage(ruleContext);
 
-      ResourceContainer resourceContainer = ResourceContainer.builder()
-          .setLabel(ruleContext.getLabel())
-          .setJavaPackageFromString(javaPackage)
-          .setManifest(applicationManifest.getManifest())
-          .setJavaSourceJar(
-              ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_JAVA_SOURCE_JAR))
-          .setManifestExported(ruleContext.attributes().get("exports_manifest", Type.BOOLEAN))
-          .setRTxt(ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT))
-          .build();
+      ResourceContainer resourceContainer =
+          ResourceContainer.builder()
+              .setLabel(ruleContext.getLabel())
+              .setJavaPackageFromString(javaPackage)
+              .setManifest(applicationManifest.getManifest())
+              .setJavaSourceJar(
+                  ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_JAVA_SOURCE_JAR))
+              .setManifestExported(AndroidCommon.getExportsManifest(ruleContext))
+              .setRTxt(ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT))
+              .build();
 
       primaryResources = new AndroidResourcesProcessorBuilder(ruleContext)
           .setLibrary(true)

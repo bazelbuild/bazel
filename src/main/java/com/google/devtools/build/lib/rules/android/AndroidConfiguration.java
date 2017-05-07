@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
@@ -516,12 +517,23 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     )
     public boolean includeLibraryResourceJars;
 
-    @Option(name = "experimental_android_use_nocompress_extensions_on_apk",
-        defaultValue = "false",
-        optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-        help = "Use the value of nocompress_extensions attribute with the SingleJar "
-            + "--nocompress_suffixes flag when building the APK.")
+    @Option(
+      name = "experimental_android_use_nocompress_extensions_on_apk",
+      defaultValue = "false",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      help =
+          "Use the value of nocompress_extensions attribute with the SingleJar "
+              + "--nocompress_suffixes flag when building the APK."
+    )
     public boolean useNocompressExtensionsOnApk;
+
+    @Option(
+      name = "experimental_android_library_exports_manifest_default",
+      defaultValue = "false",
+      optionUsageRestrictions = OptionUsageRestrictions.DOCUMENTED,
+      help = "The default value of the exports_manifest attribute on android_library."
+    )
+    public boolean exportsManifestDefault;
 
     @Override
     public void addAllLabels(Multimap<String, Label> labelMap) {
@@ -607,6 +619,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean compressJavaResources;
   private final boolean includeLibraryResourceJars;
   private final boolean useNocompressExtensionsOnApk;
+  private final boolean exportsManifestDefault;
 
   AndroidConfiguration(Options options, Label androidSdk) throws InvalidConfigurationException {
     this.sdk = androidSdk;
@@ -638,6 +651,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.compressJavaResources = options.compressJavaResources;
     this.includeLibraryResourceJars = options.includeLibraryResourceJars;
     this.useNocompressExtensionsOnApk = options.useNocompressExtensionsOnApk;
+    this.exportsManifestDefault = options.exportsManifestDefault;
 
     if (!dexoptsSupportedInIncrementalDexing.contains("--no-locals")) {
       // TODO(bazel-team): Still needed? See DexArchiveAspect
@@ -748,6 +762,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   boolean useNocompressExtensionsOnApk() {
     return useNocompressExtensionsOnApk;
+  }
+
+  boolean getExportsManifestDefault(RuleContext ruleContext) {
+    return exportsManifestDefault;
   }
 
   @Override

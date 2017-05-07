@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
+import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.android.ResourceContainer.ResourceType;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
@@ -388,6 +389,24 @@ public class AndroidCommon {
       transitiveAarNativeLibs.addTransitive(nativeLibsZipsProvider.getAarNativeLibs());
     }
     return transitiveAarNativeLibs;
+  }
+
+  static boolean getExportsManifest(RuleContext ruleContext) {
+    // AndroidLibraryBaseRule has exports_manifest but AndroidBinaryBaseRule does not.
+    // ResourceContainers are built for both, so we must check if exports_manifest is present.
+    if (!ruleContext.attributes().has("exports_manifest", BuildType.TRISTATE)) {
+      return false;
+    }
+    TriState attributeValue = ruleContext.attributes().get("exports_manifest", BuildType.TRISTATE);
+
+    // If the rule does not have the Android configuration fragment, we default to false.
+    boolean exportsManifestDefault =
+        ruleContext.isLegalFragment(AndroidConfiguration.class)
+            && ruleContext
+                .getFragment(AndroidConfiguration.class)
+                .getExportsManifestDefault(ruleContext);
+    return attributeValue == TriState.YES
+        || (attributeValue == TriState.AUTO && exportsManifestDefault);
   }
 
   private void compileResources(

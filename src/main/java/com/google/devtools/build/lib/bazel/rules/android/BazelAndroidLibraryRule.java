@@ -15,13 +15,14 @@
 package com.google.devtools.build.lib.bazel.rules.android;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
+import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.android.AndroidLibraryBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses;
@@ -35,8 +36,7 @@ public class BazelAndroidLibraryRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     return builder
-        .requiresConfigurationFragments(
-            JavaConfiguration.class, AndroidConfiguration.class)
+        .requiresConfigurationFragments(JavaConfiguration.class, AndroidConfiguration.class)
         /* <!-- #BLAZE_RULE(android_library).IMPLICIT_OUTPUTS -->
         <ul>
           <li><code>lib<var>name</var>.jar</code>: A Java archive.</li>
@@ -47,7 +47,7 @@ public class BazelAndroidLibraryRule implements RuleDefinition {
         </ul>
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS --> */
         .setImplicitOutputsFunction(AndroidRuleClasses.ANDROID_LIBRARY_IMPLICIT_OUTPUTS)
-        .override(attr("exports_manifest", BOOLEAN).value(true))
+        .override(attr("exports_manifest", BuildType.TRISTATE).value(TriState.YES))
         .build();
 
   }
