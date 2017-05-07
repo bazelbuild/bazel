@@ -297,7 +297,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
    * it via an explicit Skyframe dependency. They need to be invalidated if the package locator
    * changes.
    */
-  private static final Set<SkyFunctionName> PACKAGE_LOCATOR_DEPENDENT_VALUES =
+  private static final ImmutableSet<SkyFunctionName> PACKAGE_LOCATOR_DEPENDENT_VALUES =
       ImmutableSet.of(
           SkyFunctions.AST_FILE_LOOKUP,
           SkyFunctions.FILE_STATE,

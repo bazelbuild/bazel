@@ -759,17 +759,15 @@ public class SkylarkRuleClassFunctions {
   }
 
   /**
-   * All classes of values that need special processing after they are exported
-   * from an extension file.
+   * All classes of values that need special processing after they are exported from an extension
+   * file.
    *
-   * Order in list is significant: all {@link SkylarkAspect}s need to be exported
-   * before {@link RuleFunction}s etc.
+   * <p>Order in list is significant: all {@link SkylarkAspect}s need to be exported before {@link
+   * RuleFunction}s etc.
    */
-  private static final List<Class<? extends SkylarkExportable>> EXPORTABLES =
+  private static final ImmutableList<Class<? extends SkylarkExportable>> EXPORTABLES =
       ImmutableList.of(
-          SkylarkClassObjectConstructor.class,
-          SkylarkAspect.class,
-          RuleFunction.class);
+          SkylarkClassObjectConstructor.class, SkylarkAspect.class, RuleFunction.class);
 
   @SkylarkSignature(
     name = "Label",
