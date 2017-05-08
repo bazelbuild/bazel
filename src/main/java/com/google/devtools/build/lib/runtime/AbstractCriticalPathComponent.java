@@ -122,6 +122,15 @@ public class AbstractCriticalPathComponent<C extends AbstractCriticalPathCompone
 
   long getElapsedTimeNanos() {
     Preconditions.checkState(!isRunning, "Still running %s", this);
+    return getElapsedTimeNanosNoCheck();
+  }
+
+  /** To be used only in debugging: skips state invariance checks to avoid crash-looping. */
+  protected long getElapsedTimeMillisNoCheck() {
+    return TimeUnit.NANOSECONDS.toMillis(getElapsedTimeNanosNoCheck());
+  }
+
+  private long getElapsedTimeNanosNoCheck() {
     return finishNanos - startNanos;
   }
 
@@ -149,6 +158,12 @@ public class AbstractCriticalPathComponent<C extends AbstractCriticalPathCompone
     return child;
   }
 
+  /** Returns a string representation of the action. Only for use in crash messages and the like. */
+  protected String getActionString() {
+    Action action = maybeGetAction();
+    return (action == null ? "(null action)" : action.prettyPrint());
+  }
+
   /**
    * Returns a human readable representation of the critical path stats with all the details.
    */
@@ -156,9 +171,9 @@ public class AbstractCriticalPathComponent<C extends AbstractCriticalPathCompone
   public String toString() {
     String currentTime = "still running ";
     if (!isRunning) {
-      currentTime = String.format("%.2f", getElapsedTimeMillis() / 1000.0) + "s ";
+      currentTime = String.format("%.2f", getElapsedTimeMillisNoCheck() / 1000.0) + "s ";
     }
-    return currentTime + prettyPrintAction();
+    return currentTime + getActionString();
   }
 
   /**
