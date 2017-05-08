@@ -69,8 +69,6 @@ java_library(
     ],
 )
 
-NOP_JARJAR_COMMAND = "cp \"$(location :JacocoCoverage_deploy.jar)\" \"$@\""
-
 genrule(
     name = "Jacoco_jarjar",
     srcs = [
@@ -78,52 +76,15 @@ genrule(
         ":JacocoCoverage.jarjar",
     ],
     outs = ["JacocoCoverage_jarjar_deploy.jar"],
-    cmd = select({
-        # Bazel 0.4.3 contains two bugs: a quoting bug in the Java cmd.exe
-        # wrapper script that makes it unable to handle $ signs in paths (#2306)
-        # and one that makes it occasionally put $ signs in the output base
-        # (#2342).
-        #
-        # These two collude to make it impossible to run built Java binaries on
-        # Windows if the output base happens to contain a $ sign.
-        #
-        # Thus, don't call jarjar when on Windows. This makes Java coverage not
-        # work if the code under test uses libraries the test runner also does
-        # (e.g. ASM).
-        #
-        # TODO(lberki): Remove this once a Bazel version with a fix to either of
-        # these bugs is out.
-        #
-        # Additionally, there is a hard-coded path to /bin/bash which is wrong on
-        # freebsd; so disable there as well until a fixed version is in there as
-        # well.
-        # TODO(aehlig): fix and remove once a version with the fix is out.
-        #
-        # We don't invoke jarjar_bin directly because this command is invoked
-        # during bootstrapping when we don't have build-runfiles, thus no
-        # runfiles trees. The Java launcher script looks in the runfiles tree
-        # for the jars (and rightfully so), thus, invoking the binary directly
-        # won't work.
-        "//src:freebsd": NOP_JARJAR_COMMAND,
-        "//src:windows": NOP_JARJAR_COMMAND,
-        "//src:windows_msvc": NOP_JARJAR_COMMAND,
-        "//src:windows_msys": NOP_JARJAR_COMMAND,
-        "//conditions:default": "\n".join([
-            "JARJAR=\"$$(mktemp)\"",
-            "\"$(JAVA)\" -jar \"$(location //third_party/java/jarjar:jarjar_bin_deploy.jar)\" --rules \"$(location :JacocoCoverage.jarjar)\" --output \"$${JARJAR}\" \"$(location :JacocoCoverage_deploy.jar)\"",
-            "\"$(JAVA)\" -jar \"$(location //src/java_tools/singlejar:SingleJar_deploy.jar)\" --normalize --sources \"$${JARJAR}\" --output \"$@\"",
-            "rm -fr \"$${JARJAR}\"",
-        ]),
-    }),
-    tools = select({
-        "//src:freebsd": [],
-        "//src:windows": [],
-        "//src:windows_msys": [],
-        "//src:windows_msvc": [],
-        "//conditions:default": [
-            "//third_party/java/jarjar:jarjar_bin_deploy.jar",
-            "//src/java_tools/singlejar:SingleJar_deploy.jar",
-            "//tools/defaults:jdk",
-        ],
-    }),
+    cmd = "\n".join([
+        "JARJAR=\"$$(mktemp)\"",
+        "\"$(JAVA)\" -jar \"$(location //third_party/java/jarjar:jarjar_bin_deploy.jar)\" --rules \"$(location :JacocoCoverage.jarjar)\" --output \"$${JARJAR}\" \"$(location :JacocoCoverage_deploy.jar)\"",
+        "\"$(JAVA)\" -jar \"$(location //src/java_tools/singlejar:SingleJar_deploy.jar)\" --normalize --sources \"$${JARJAR}\" --output \"$@\"",
+        "rm -fr \"$${JARJAR}\"",
+    ]),
+    tools = [
+        "//src/java_tools/singlejar:SingleJar_deploy.jar",
+        "//third_party/java/jarjar:jarjar_bin_deploy.jar",
+        "//tools/defaults:jdk",
+    ],
 )
