@@ -325,35 +325,9 @@ function run_bazel_jar() {
   local command=$1
   shift
   local client_env=()
-  # Propagate important environment variables to bootstrapped Bazel.
-  local env_vars="ABI_LIBC_VERSION"
-  env_vars="$env_vars ABI_VERSION"
-  env_vars="$env_vars BAZEL_COMPILER "
-  env_vars="$env_vars BAZEL_HOST_SYSTEM"
-  env_vars="$env_vars BAZEL_PYTHON"
-  env_vars="$env_vars BAZEL_SH"
-  env_vars="$env_vars BAZEL_TARGET_CPU"
-  env_vars="$env_vars BAZEL_TARGET_LIBC"
-  env_vars="$env_vars BAZEL_TARGET_SYSTEM"
-  env_vars="$env_vars BAZEL_VC"
-  env_vars="$env_vars BAZEL_VS"
-  env_vars="$env_vars CC"
-  env_vars="$env_vars CC_TOOLCHAIN_NAME"
-  env_vars="$env_vars CPLUS_INCLUDE_PATH"
-  env_vars="$env_vars CUDA_COMPUTE_CAPABILITIES"
-  env_vars="$env_vars CUDA_PATH"
-  env_vars="$env_vars HOMEBREW_RUBY_PATH"
-  env_vars="$env_vars INCLUDE"
-  env_vars="$env_vars LIB"
-  env_vars="$env_vars NO_WHOLE_ARCHIVE_OPTION"
-  env_vars="$env_vars PATH"
-  env_vars="$env_vars SYSTEMROOT"
-  env_vars="$env_vars TMP"
-  env_vars="$env_vars VS90COMNTOOLS"
-  env_vars="$env_vars VS100COMNTOOLS"
-  env_vars="$env_vars VS110COMNTOOLS"
-  env_vars="$env_vars VS120COMNTOOLS"
-  env_vars="$env_vars VS140COMNTOOLS"
+  # Propagate all environment variables to bootstrapped Bazel.
+  # See https://stackoverflow.com/41898503/loop-over-environment-variables-in-posix.sh
+  local env_vars="$(awk 'END { for (name in ENVIRON) { if(name != "_") print name; } }' </dev/null)"
   for varname in $env_vars; do
     eval value=\$$varname
     if [ "${value}" ]; then
