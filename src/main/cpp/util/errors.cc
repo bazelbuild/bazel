@@ -51,4 +51,14 @@ void PrintError(const char *format, ...) {
   fprintf(stderr, ": %s\n", errormsg);
 }
 
+void PrintWarning(const char *format, ...) {
+  va_list args;
+
+  va_start(args, format);
+  fputs("WARNING: ", stderr);
+  vfprintf(stderr, format, args);
+  fputc('\n', stderr);
+  va_end(args);
+}
+
 }  // namespace blaze_util

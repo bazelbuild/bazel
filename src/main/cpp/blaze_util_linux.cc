@@ -38,6 +38,7 @@ namespace blaze {
 
 using blaze_util::die;
 using blaze_util::pdie;
+using blaze_util::PrintWarning;
 using std::string;
 using std::vector;
 
@@ -67,16 +68,16 @@ string GetOutputRoot() {
 void WarnFilesystemType(const string& output_base) {
   struct statfs buf = {};
   if (statfs(output_base.c_str(), &buf) < 0) {
-    fprintf(stderr,
-            "WARNING: couldn't get file system type information for '%s': %s\n",
-            output_base.c_str(), strerror(errno));
+    PrintWarning("couldn't get file system type information for '%s': %s",
+                 output_base.c_str(), strerror(errno));
     return;
   }
 
   if (buf.f_type == NFS_SUPER_MAGIC) {
-    fprintf(stderr, "WARNING: Output base '%s' is on NFS. This may lead "
-            "to surprising failures and undetermined behavior.\n",
-            output_base.c_str());
+    PrintWarning(
+        "Output base '%s' is on NFS. This may lead "
+        "to surprising failures and undetermined behavior.",
+        output_base.c_str());
   }
 }
 

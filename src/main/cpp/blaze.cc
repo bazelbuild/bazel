@@ -70,6 +70,7 @@
 
 using blaze_util::die;
 using blaze_util::pdie;
+using blaze_util::PrintWarning;
 
 namespace blaze {
 
@@ -641,13 +642,13 @@ static void StartStandalone(const WorkspaceLayout *workspace_layout,
   if (!command_arguments.empty() && command == "shutdown") {
     string product = globals->options->product_name;
     blaze_util::ToLower(&product);
-    fprintf(stderr,
-            "WARNING: Running command \"shutdown\" in batch mode.  Batch mode "
-            "is triggered\nwhen not running %s within a workspace. If you "
-            "intend to shutdown an\nexisting %s server, run \"%s "
-            "shutdown\" from the directory where\nit was started.\n",
-            globals->options->product_name.c_str(),
-            globals->options->product_name.c_str(), product.c_str());
+    PrintWarning(
+        "Running command \"shutdown\" in batch mode.  Batch mode "
+        "is triggered\nwhen not running %s within a workspace. If you "
+        "intend to shutdown an\nexisting %s server, run \"%s "
+        "shutdown\" from the directory where\nit was started.",
+        globals->options->product_name.c_str(),
+        globals->options->product_name.c_str(), product.c_str());
   }
   vector<string> jvm_args_vector = GetArgumentArray();
   if (command != "") {
@@ -1042,10 +1043,10 @@ static void KillRunningServerIfDifferentStartupOptions(BlazeServer *server) {
   // mortal coil.
   if (ServerNeedsToBeKilled(arguments, GetArgumentArray())) {
     globals->restart_reason = NEW_OPTIONS;
-    fprintf(stderr,
-            "WARNING: Running %s server needs to be killed, because the "
-            "startup options are different.\n",
-            globals->options->product_name.c_str());
+    PrintWarning(
+        "Running %s server needs to be killed, because the "
+        "startup options are different.",
+        globals->options->product_name.c_str());
     server->KillRunningServer();
   }
 }
@@ -1233,7 +1234,7 @@ static void ComputeBaseDirectories(const WorkspaceLayout *workspace_layout,
 
 static void CheckEnvironment() {
   if (!blaze::GetEnv("http_proxy").empty()) {
-    fprintf(stderr, "Warning: ignoring http_proxy in environment.\n");
+    PrintWarning("ignoring http_proxy in environment.");
     blaze::UnsetEnv("http_proxy");
   }
 
@@ -1242,18 +1243,18 @@ static void CheckEnvironment() {
     // specified, the JVM fails to create threads.  See thread_stack_regtest.
     // This is also provoked by LD_LIBRARY_PATH=/usr/lib/debug,
     // or anything else that causes the JVM to use LinuxThreads.
-    fprintf(stderr, "Warning: ignoring LD_ASSUME_KERNEL in environment.\n");
+    PrintWarning("ignoring LD_ASSUME_KERNEL in environment.");
     blaze::UnsetEnv("LD_ASSUME_KERNEL");
   }
 
   if (!blaze::GetEnv("LD_PRELOAD").empty()) {
-    fprintf(stderr, "Warning: ignoring LD_PRELOAD in environment.\n");
+    PrintWarning("ignoring LD_PRELOAD in environment.");
     blaze::UnsetEnv("LD_PRELOAD");
   }
 
   if (!blaze::GetEnv("_JAVA_OPTIONS").empty()) {
     // This would override --host_jvm_args
-    fprintf(stderr, "Warning: ignoring _JAVA_OPTIONS in environment.\n");
+    PrintWarning("ignoring _JAVA_OPTIONS in environment.");
     blaze::UnsetEnv("_JAVA_OPTIONS");
   }
 

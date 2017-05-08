@@ -30,6 +30,7 @@ void die(const int exit_status, const char *format, ...) ATTRIBUTE_NORETURN
 void pdie(const int exit_status, const char *format, ...) ATTRIBUTE_NORETURN
     PRINTF_ATTRIBUTE(2, 3);
 void PrintError(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
+void PrintWarning(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
 
 // Returns the last error as a platform-specific error message.
 // The string will also contain the platform-specific error code itself
