@@ -755,7 +755,8 @@ public final class ObjcCommon {
   static Iterable<PathFragment> xcodeStructuredResourceDirs(Iterable<Artifact> artifacts) {
     ImmutableSet.Builder<PathFragment> containers = new ImmutableSet.Builder<>();
     for (Artifact artifact : artifacts) {
-      PathFragment ownerRuleDirectory = artifact.getArtifactOwner().getLabel().getPackageFragment();
+      PathFragment ownerRuleDirectory =
+          artifact.getArtifactOwner().getLabel().getPackageIdentifier().getSourceRoot();
       String containerName =
           artifact.getRootRelativePath().relativeTo(ownerRuleDirectory).getSegment(0);
       PathFragment rootExecPath = artifact.getRoot().getExecPath();

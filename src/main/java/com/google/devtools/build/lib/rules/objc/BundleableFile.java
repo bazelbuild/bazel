@@ -116,7 +116,8 @@ public final class BundleableFile extends Value<BundleableFile> {
   }
 
   private static String ownerBundlePath(Artifact file) {
-    PathFragment packageFragment = file.getArtifactOwner().getLabel().getPackageFragment();
+    PathFragment packageFragment =
+        file.getArtifactOwner().getLabel().getPackageIdentifier().getSourceRoot();
     return file.getRootRelativePath().relativeTo(packageFragment).toString();
   }
 
