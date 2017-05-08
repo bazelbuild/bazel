@@ -947,6 +947,9 @@ final class ConfiguredTargetFunction implements SkyFunction {
   }
 
   static boolean aspectMatchesConfiguredTarget(final ConfiguredTarget dep, Aspect aspect) {
+    if (!aspect.getDefinition().applyToFiles() && !(dep.getTarget() instanceof Rule)) {
+      return false;
+    }
     return aspect.getDefinition().getRequiredProviders().isSatisfiedBy(
         new Predicate<Class<?>>() {
           @Override

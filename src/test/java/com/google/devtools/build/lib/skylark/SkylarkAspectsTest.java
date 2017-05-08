@@ -151,7 +151,6 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
               public List<Key> apply(AspectValue aspectValue) {
                 return aspectValue
                     .getConfiguredAspect()
-                    .getProviders()
                     .getProvider(SkylarkProviders.class)
                     .getDeclaredProviderKeys()
                     .asList();
@@ -784,18 +783,39 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         "     deps = ['//external:yyy'],",
         ")");
 
-    reporter.removeHandler(failFastHandler);
-    try {
-      AnalysisResult result = update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
-      assertThat(keepGoing()).isTrue();
-      assertThat(result.hasError()).isTrue();
-    } catch (ViewCreationFailedException expected) {
-      assertThat(expected.getMessage())
-          .contains("Analysis of aspect '/test/aspect%MyAspect of //test:xxx' failed");
-    }
-    assertContainsEvent("//test:aspect.bzl%MyAspect is attached to source file zzz.jar but "
-        + "aspects must be attached to rules");
+    AnalysisResult result = update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
+    assertThat(result.hasError()).isFalse();
   }
+
+  @Test
+  public void aspectsDoNotAttachToTopLevelFiles() throws Exception {
+    FileSystemUtils.appendIsoLatin1(scratch.resolve("WORKSPACE"),
+        "bind(name = 'yyy', actual = '//test:zzz.jar')");
+    scratch.file(
+        "test/aspect.bzl",
+        "p = provider()",
+        "def _impl(target, ctx):",
+        "   return [p()]",
+        "",
+        "MyAspect = aspect(",
+        "   implementation=_impl,",
+        "   attr_aspects=['deps'],",
+        ")");
+    scratch.file("test/zzz.jar");
+    scratch.file(
+        "test/BUILD",
+        "exports_files(['zzz.jar'])",
+        "java_library(",
+        "     name = 'xxx',",
+        "     srcs = ['A.java'],",
+        "     deps = ['//external:yyy'],",
+        ")");
+
+    AnalysisResult result = update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:zzz.jar");
+    assertThat(result.hasError()).isFalse();
+    assertThat(Iterables.getOnlyElement(result.getAspects()).getConfiguredAspect()).isEmpty();
+  }
+
 
   @Test
   public void aspectFailingExecution() throws Exception {
@@ -1694,7 +1714,8 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:file.txt");
     assertThat(analysisResult.hasError()).isFalse();
-    assertThat(analysisResult.getAspects()).isEmpty();
+    assertThat(Iterables.getOnlyElement(analysisResult.getAspects()).getConfiguredAspect())
+        .isEmpty();
   }
 
   @Test

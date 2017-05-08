@@ -511,9 +511,6 @@ public class BuildView {
 
         String skylarkFunctionName = aspect.substring(delimiterPosition + 1);
         for (TargetAndConfiguration targetSpec : topLevelTargetsWithConfigs) {
-          if (!(targetSpec.getTarget() instanceof Rule)) {
-            continue;
-          }
           aspectKeys.add(
               AspectValue.createSkylarkAspectKey(
                   targetSpec.getLabel(),
@@ -529,12 +526,7 @@ public class BuildView {
             ruleClassProvider.getNativeAspectClassMap().get(aspect);
 
         if (aspectFactoryClass != null) {
-          AspectParameters aspectParameters = AspectParameters.EMPTY;
-          boolean applyToFiles = aspectFactoryClass.getDefinition(aspectParameters).applyToFiles();
           for (TargetAndConfiguration targetSpec : topLevelTargetsWithConfigs) {
-            if (!applyToFiles && !(targetSpec.getTarget() instanceof Rule)) {
-              continue;
-            }
             // For invoking top-level aspects, use the top-level configuration for both the
             // aspect and the base target while the top-level configuration is untrimmed.
             BuildConfiguration configuration = targetSpec.getConfiguration();
@@ -542,7 +534,7 @@ public class BuildView {
                 AspectValue.createAspectKey(
                     targetSpec.getLabel(),
                     configuration,
-                    new AspectDescriptor(aspectFactoryClass, aspectParameters),
+                    new AspectDescriptor(aspectFactoryClass, AspectParameters.EMPTY),
                     configuration
                 ));
           }
