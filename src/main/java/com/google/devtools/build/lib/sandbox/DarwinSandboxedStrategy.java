@@ -130,7 +130,7 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
    */
   private static String getConfStr(String confVar) throws IOException {
     String[] commandArr = new String[2];
-    commandArr[0] = "getconf";
+    commandArr[0] = "/usr/bin/getconf";
     commandArr[1] = confVar;
     Command cmd = new Command(commandArr);
     CommandResult res;
