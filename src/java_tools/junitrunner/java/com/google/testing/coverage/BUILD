@@ -111,7 +111,7 @@ genrule(
         "//conditions:default": "\n".join([
             "JARJAR=\"$$(mktemp)\"",
             "\"$(JAVA)\" -jar \"$(location //third_party/java/jarjar:jarjar_bin_deploy.jar)\" --rules \"$(location :JacocoCoverage.jarjar)\" --output \"$${JARJAR}\" \"$(location :JacocoCoverage_deploy.jar)\"",
-            "$(location //src/tools/singlejar:singlejar) --normalize --sources \"$${JARJAR}\" --output \"$@\"",
+            "\"$(JAVA)\" -jar \"$(location //src/java_tools/singlejar:SingleJar_deploy.jar)\" --normalize --sources \"$${JARJAR}\" --output \"$@\"",
             "rm -fr \"$${JARJAR}\"",
         ]),
     }),
@@ -122,8 +122,8 @@ genrule(
         "//src:windows_msvc": [],
         "//conditions:default": [
             "//third_party/java/jarjar:jarjar_bin_deploy.jar",
+            "//src/java_tools/singlejar:SingleJar_deploy.jar",
             "//tools/defaults:jdk",
-            "//src/tools/singlejar",
         ],
     }),
 )
