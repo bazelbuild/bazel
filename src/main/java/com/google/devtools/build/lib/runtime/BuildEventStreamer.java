@@ -31,6 +31,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.analysis.BuildInfoEvent;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildEventWithConfiguration;
 import com.google.devtools.build.lib.buildeventstream.AbortedEvent;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
@@ -79,6 +81,7 @@ public class BuildEventStreamer implements EventHandler {
   private final Reporter reporter;
   private Set<BuildEventId> announcedEvents;
   private final Set<BuildEventId> postedEvents = new HashSet<>();
+  private final Set<BuildEventId> configurationsPosted = new HashSet<>();
   private final Multimap<BuildEventId, BuildEvent> pendingEvents = HashMultimap.create();
   private int progressCount;
   private final CountingArtifactGroupNamer artifactGroupNamer = new CountingArtifactGroupNamer();
@@ -299,6 +302,17 @@ public class BuildEventStreamer implements EventHandler {
     maybeReportArtifactSet(new NestedSetView<Artifact>(set));
   }
 
+  private void maybeReportConfiguration(BuildConfiguration configuration) {
+    BuildEventId id = configuration.getEventId();
+    synchronized (this) {
+      if (configurationsPosted.contains(id)) {
+        return;
+      }
+      configurationsPosted.add(id);
+    }
+    post(configuration);
+  }
+
   @Override
   public void handle(Event event) {}
 
@@ -316,6 +330,13 @@ public class BuildEventStreamer implements EventHandler {
   public void buildEvent(BuildEvent event) {
     if (isActionWithoutError(event) || bufferUntilPrerequisitesReceived(event)) {
       return;
+    }
+
+    if (event instanceof BuildEventWithConfiguration) {
+      for (BuildConfiguration configuration :
+          ((BuildEventWithConfiguration) event).getConfigurations()) {
+        maybeReportConfiguration(configuration);
+      }
     }
 
     if (event instanceof EventReportingArtifacts) {

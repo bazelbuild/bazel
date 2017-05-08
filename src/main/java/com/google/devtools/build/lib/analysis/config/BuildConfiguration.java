@@ -42,6 +42,11 @@ import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection.Transitions;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
+import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -119,7 +124,7 @@ import javax.annotation.Nullable;
     category = SkylarkModuleCategory.BUILTIN,
     doc = "Data required for the analysis of a target that comes from targets that "
         + "depend on it and not targets that it depends on.")
-public final class BuildConfiguration {
+public final class BuildConfiguration implements BuildEvent {
   /**
    * An interface for language-specific configurations.
    *
@@ -2712,5 +2717,27 @@ public final class BuildConfiguration {
       }
     }
     return currentTransition;
+  }
+
+  @Override
+  public BuildEventId getEventId() {
+    return BuildEventId.configurationId(checksum());
+  }
+
+  @Override
+  public Collection<BuildEventId> getChildrenEvents() {
+    return ImmutableList.of();
+  }
+
+  @Override
+  public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
+    return GenericBuildEvent.protoChaining(this)
+        .setConfiguration(
+            BuildEventStreamProtos.Configuration.newBuilder()
+                .setMnemonic(getMnemonic())
+                .setPlatformName(getPlatformName())
+                .setCpu(getCpu())
+                .build())
+        .build();
   }
 }

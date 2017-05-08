@@ -21,6 +21,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.Futures;
@@ -28,6 +30,11 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildEventWithConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
@@ -195,6 +202,45 @@ public class BuildEventStreamerTest extends FoundationTestCase {
                 .apply((new NestedSetView<Artifact>(artifactset)).identifier()));
       }
       return GenericBuildEvent.protoChaining(this).setNamedSetOfFiles(builder.build()).build();
+    }
+  }
+
+  private static class GenericConfigurationEvent implements BuildEventWithConfiguration {
+    private final BuildEventId id;
+    private final Collection<BuildEventId> children;
+    private final Collection<BuildConfiguration> configurations;
+
+    GenericConfigurationEvent(
+        BuildEventId id,
+        Collection<BuildEventId> children,
+        Collection<BuildConfiguration> configurations) {
+      this.id = id;
+      this.children = children;
+      this.configurations = configurations;
+    }
+
+    GenericConfigurationEvent(BuildEventId id, BuildConfiguration configuration) {
+      this(id, ImmutableSet.<BuildEventId>of(), ImmutableSet.of(configuration));
+    }
+
+    @Override
+    public BuildEventId getEventId() {
+      return id;
+    }
+
+    @Override
+    public Collection<BuildEventId> getChildrenEvents() {
+      return children;
+    }
+
+    @Override
+    public Collection<BuildConfiguration> getConfigurations() {
+      return configurations;
+    }
+
+    @Override
+    public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
+      return GenericBuildEvent.protoChaining(this).build();
     }
   }
 
@@ -545,5 +591,43 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     // only once for stdout and stderr.
     verify(outErr, times(1)).getOut();
     verify(outErr, times(1)).getErr();
+  }
+
+  @Test
+  public void testReportedConfigurations() throws Exception {
+    // Verify that configuration events are posted, but only once.
+    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
+    BuildEventStreamer streamer =
+        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
+
+    BuildEvent startEvent =
+        new GenericBuildEvent(
+            testId("Initial"),
+            ImmutableSet.<BuildEventId>of(ProgressEvent.INITIAL_PROGRESS_UPDATE));
+    BuildConfiguration configuration =
+        new BuildConfiguration(
+            new BlazeDirectories(outputBase, outputBase, rootDirectory, "productName"),
+            ImmutableMap.<Class<? extends BuildConfiguration.Fragment>,
+                          BuildConfiguration.Fragment>of(),
+            BuildOptions.of(ImmutableList.<Class<? extends FragmentOptions>>of(
+              BuildConfiguration.Options.class)));
+    BuildEvent firstWithConfiguration =
+        new GenericConfigurationEvent(testId("first"), configuration);
+    BuildEvent secondWithConfiguration =
+        new GenericConfigurationEvent(testId("second"), configuration);
+
+    streamer.buildEvent(startEvent);
+    streamer.buildEvent(firstWithConfiguration);
+    streamer.buildEvent(secondWithConfiguration);
+
+    List<BuildEvent> allEventsSeen = transport.getEvents();
+    assertEquals(7, allEventsSeen.size());
+    assertEquals(startEvent.getEventId(), allEventsSeen.get(0).getEventId());
+    assertEquals(ProgressEvent.INITIAL_PROGRESS_UPDATE, allEventsSeen.get(1).getEventId());
+    assertEquals(configuration, allEventsSeen.get(2));
+    assertEquals(BuildEventId.progressId(1), allEventsSeen.get(3).getEventId());
+    assertEquals(firstWithConfiguration, allEventsSeen.get(4));
+    assertEquals(BuildEventId.progressId(2), allEventsSeen.get(5).getEventId());
+    assertEquals(secondWithConfiguration, allEventsSeen.get(6));
   }
 }
