@@ -564,7 +564,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
    * Get number of jobs remaining. Note that this can increase in value if running tasks submit
    * further jobs.
    */
-  protected final long getTaskCount() {
+  public final long getTaskCount() {
     return remainingTasks.get();
   }
 
