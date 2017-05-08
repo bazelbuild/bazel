@@ -45,7 +45,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testLegacyConstructorDeprecation() throws Exception {
-    env = newEnvironmentWithSkylarkOptions("--incompatible_depset_constructor=true");
+    env = newEnvironmentWithSkylarkOptions("--incompatible_disallow_set_constructor=true");
     try {
       eval("s = set([1, 2, 3], order='postorder')");
       Assert.fail("`set` should have failed");

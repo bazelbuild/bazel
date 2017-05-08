@@ -988,7 +988,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testPlusEqualsOnListCopying() throws Exception {
-    new SkylarkTest("--incompatible_list_plus_equals=false")
+    new SkylarkTest("--incompatible_list_plus_equals_inplace=false")
         .setUp(
             "def func():",
             "  l1 = [1, 2]",
@@ -1001,7 +1001,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testPlusEqualsOnListMutating() throws Exception {
-    new SkylarkTest("--incompatible_list_plus_equals=true")
+    new SkylarkTest("--incompatible_list_plus_equals_inplace=true")
         .setUp(
             "def func():",
             "  l1 = [1, 2]",
@@ -1012,7 +1012,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         .testLookup("lists", "([1, 2, 3, 4], [1, 2, 3, 4])");
 
     // The same but with += after an IndexExpression
-    new SkylarkTest("--incompatible_list_plus_equals=true")
+    new SkylarkTest("--incompatible_list_plus_equals_inplace=true")
         .setUp(
             "def func():",
             "  l = [1, 2]",
@@ -1025,7 +1025,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testPlusEqualsOnTuple() throws Exception {
-    new SkylarkTest("--incompatible_list_plus_equals=false")
+    new SkylarkTest("--incompatible_list_plus_equals_inplace=false")
         .setUp(
             "def func():",
             "  t1 = (1, 2)",
@@ -1038,8 +1038,9 @@ public class SkylarkEvaluationTest extends EvaluationTest {
             SkylarkList.Tuple.of(1, 2, 3, 4)
         ));
 
-    // This behavior should remain the same regardless of the incompatible_list_plus_equals flag
-    new SkylarkTest("--incompatible_list_plus_equals=true")
+    // This behavior should remain the same regardless of the
+    // --incompatible_list_plus_equals_inplace flag
+    new SkylarkTest("--incompatible_list_plus_equals_inplace=true")
         .setUp(
             "def func():",
             "  t1 = (1, 2)",
@@ -1065,10 +1066,10 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testPlusOnDictDeprecated() throws Exception {
-    new SkylarkTest("--incompatible_dict_plus=true")
+    new SkylarkTest("--incompatible_disallow_dict_plus=true")
         .testIfErrorContains(
             "The `+` operator for dicts is deprecated and no longer supported.", "{1: 2} + {3: 4}");
-    new SkylarkTest("--incompatible_dict_plus=true")
+    new SkylarkTest("--incompatible_disallow_dict_plus=true")
         .testIfErrorContains(
             "The `+` operator for dicts is deprecated and no longer supported.",
             "def func():",

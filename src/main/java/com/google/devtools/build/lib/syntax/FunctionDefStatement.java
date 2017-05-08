@@ -51,12 +51,12 @@ public class FunctionDefStatement extends Statement {
     }
 
     FunctionSignature sig = signature.getSignature();
-    if (env.getSemantics().incompatibleKeywordOnlySyntax
+    if (env.getSemantics().incompatibleDisallowKeywordOnlyArgs
         && sig.getShape().getMandatoryNamedOnly() > 0) {
       throw new EvalException(
           getLocation(),
           "Keyword-only argument is forbidden. You can temporarily disable this "
-              + "error using the flag --incompatible_keyword_only_syntax=false");
+              + "error using the flag --incompatible_disallow_keyword_only_args=false");
     }
 
     env.update(

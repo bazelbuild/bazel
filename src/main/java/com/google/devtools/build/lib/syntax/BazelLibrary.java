@@ -126,13 +126,13 @@ public class BazelLibrary {
       new BuiltinFunction("set") {
         public SkylarkNestedSet invoke(Object items, String order, Location loc, Environment env)
             throws EvalException {
-          if (env.getSemantics().incompatibleDepsetConstructor) {
+          if (env.getSemantics().incompatibleDisallowSetConstructor) {
             throw new EvalException(
                 loc,
                 "The `set` constructor for depsets is deprecated and will be removed. Please use "
                     + "the `depset` constructor instead. You can temporarily enable the "
                     + "deprecated `set` constructor by passing the flag "
-                    + "--incompatible_depset_constructor=false");
+                    + "--incompatible_disallow_set_constructor=false");
           }
           try {
             return new SkylarkNestedSet(Order.parse(order), items, loc);
