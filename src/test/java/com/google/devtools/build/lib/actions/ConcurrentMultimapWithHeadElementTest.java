@@ -20,17 +20,16 @@ import static org.junit.Assert.assertTrue;
 
 import com.google.common.testing.GcFinalization;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
+import com.google.devtools.build.lib.concurrent.ErrorClassifier;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.lang.ref.WeakReference;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests for ConcurrentMultimapWithHeadElement.
@@ -128,19 +127,20 @@ public class ConcurrentMultimapWithHeadElementTest {
     }
   }
 
-  private class StressTester extends AbstractQueueVisitor {
+  private static class StressTester extends AbstractQueueVisitor {
     private final ConcurrentMultimapWithHeadElement<Boolean, Integer> multimap =
         new ConcurrentMultimapWithHeadElement<>();
     private final AtomicInteger actionCount = new AtomicInteger(0);
 
     private StressTester() {
       super(
-          /*concurrent=*/ true,
           200,
           1,
           TimeUnit.SECONDS,
           /*failFastOnException=*/ true,
-          "action-graph-test");
+          "action-graph-test",
+          AbstractQueueVisitor.EXECUTOR_FACTORY,
+          ErrorClassifier.DEFAULT);
     }
 
     private void addAndRemove(final Boolean key, final Integer add, final Integer remove) {

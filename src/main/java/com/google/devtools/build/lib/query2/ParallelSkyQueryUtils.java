@@ -549,7 +549,6 @@ class ParallelSkyQueryUtils {
     private class BFSVisitingTaskExecutor extends AbstractQueueVisitor {
       private BFSVisitingTaskExecutor(ExecutorService executor, ErrorClassifier errorClassifier) {
         super(
-            /*concurrent=*/ true,
             /*executorService=*/ executor,
             // Leave the thread pool active for other current and future callers.
             /*shutdownOnCompletion=*/ false,

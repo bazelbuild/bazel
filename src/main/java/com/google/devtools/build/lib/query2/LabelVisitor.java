@@ -23,6 +23,7 @@ import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
+import com.google.devtools.build.lib.concurrent.ErrorClassifier;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
@@ -240,8 +241,6 @@ final class LabelVisitor {
     private final Iterable<TargetEdgeObserver> observers;
     private final TargetEdgeErrorObserver errorObserver;
     private final AtomicBoolean stopNewActions = new AtomicBoolean(false);
-    private static final boolean CONCURRENT = true;
-
 
     public Visitor(
         ExtendedEventHandler eventHandler,
@@ -252,7 +251,14 @@ final class LabelVisitor {
       // Observing the loading phase of a typical large package (with all subpackages) shows
       // maximum thread-level concurrency of ~20. Limiting the total number of threads to 200 is
       // therefore conservative and should help us avoid hitting native limits.
-      super(CONCURRENT, parallelThreads, 1L, TimeUnit.SECONDS, !keepGoing, THREAD_NAME);
+      super(
+          parallelThreads,
+          1L,
+          TimeUnit.SECONDS,
+          !keepGoing,
+          THREAD_NAME,
+          AbstractQueueVisitor.EXECUTOR_FACTORY,
+          ErrorClassifier.DEFAULT);
       this.eventHandler = eventHandler;
       this.maxDepth = maxDepth;
       this.errorObserver = new TargetEdgeErrorObserver();

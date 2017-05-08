@@ -78,12 +78,12 @@ class NodeEntryVisitor {
       Function<SkyKey, Runnable> runnableMaker) {
     quiescingExecutor =
         new AbstractQueueVisitor(
-            /*concurrent*/ true,
             threadCount,
             /*keepAliveTime=*/ 1,
             TimeUnit.SECONDS,
             /*failFastOnException*/ true,
             "skyframe-evaluator",
+            AbstractQueueVisitor.EXECUTOR_FACTORY,
             NODE_ENTRY_VISITOR_ERROR_CLASSIFIER);
     this.progressReceiver = progressReceiver;
     this.runnableMaker = runnableMaker;

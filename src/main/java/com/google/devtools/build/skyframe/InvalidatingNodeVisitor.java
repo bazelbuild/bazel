@@ -100,7 +100,6 @@ public abstract class InvalidatingNodeVisitor<TGraph extends QueryableGraph> {
       Function<ExecutorParams, ? extends ExecutorService> executorFactory) {
     this.executor =
         new AbstractQueueVisitor(
-            /*concurrent=*/ true,
             /*parallelism=*/ DEFAULT_THREAD_COUNT,
             /*keepAliveTime=*/ 1,
             /*units=*/ TimeUnit.SECONDS,

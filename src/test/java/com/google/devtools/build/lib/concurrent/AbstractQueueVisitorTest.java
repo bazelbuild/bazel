@@ -462,7 +462,6 @@ public class AbstractQueueVisitorTest {
     };
     AbstractQueueVisitor visitor =
         new AbstractQueueVisitor(
-            /*concurrent=*/ true,
             executor,
             /*shutdownOnCompletion=*/ true,
             /*failFastOnException=*/ false,
@@ -557,11 +556,18 @@ public class AbstractQueueVisitorTest {
     private final Object lock = new Object();
 
     public CountingQueueVisitor() {
-      super(/*parallelism=*/ 5, /*keepAlive=*/ 3L, TimeUnit.SECONDS, THREAD_NAME);
+      super(
+          /*parallelism=*/ 5,
+          /*keepAlive=*/ 3L,
+          TimeUnit.SECONDS,
+          /*failFast=*/ false,
+          THREAD_NAME,
+          AbstractQueueVisitor.EXECUTOR_FACTORY,
+          ErrorClassifier.DEFAULT);
     }
 
-    public CountingQueueVisitor(ThreadPoolExecutor executor) {
-      super(executor, false, true);
+    CountingQueueVisitor(ThreadPoolExecutor executor) {
+      super(executor, false, true, ErrorClassifier.DEFAULT);
     }
 
     public void enqueue() {
@@ -588,23 +594,36 @@ public class AbstractQueueVisitorTest {
 
     private final static String THREAD_NAME = "BlazeTest ConcreteQueueVisitor";
 
-    public ConcreteQueueVisitor() {
-      super(5, 3L, TimeUnit.SECONDS, THREAD_NAME);
+    ConcreteQueueVisitor() {
+      super(
+          5,
+          3L,
+          TimeUnit.SECONDS,
+          /*failFast=*/ false,
+          THREAD_NAME,
+          AbstractQueueVisitor.EXECUTOR_FACTORY,
+          ErrorClassifier.DEFAULT);
     }
 
-    public ConcreteQueueVisitor(boolean failFast) {
-      super(true, 5, 3L, TimeUnit.SECONDS, failFast, THREAD_NAME);
+    ConcreteQueueVisitor(boolean failFast) {
+      super(
+          5,
+          3L,
+          TimeUnit.SECONDS,
+          failFast,
+          THREAD_NAME,
+          AbstractQueueVisitor.EXECUTOR_FACTORY,
+          ErrorClassifier.DEFAULT);
     }
 
-    public ConcreteQueueVisitor(ThreadPoolExecutor executor, boolean failFast) {
-      super(executor, /*shutdownOnCompletion=*/ false, failFast);
+    ConcreteQueueVisitor(ThreadPoolExecutor executor, boolean failFast) {
+      super(executor, /*shutdownOnCompletion=*/ false, failFast, ErrorClassifier.DEFAULT);
     }
   }
 
   private static AbstractQueueVisitor createQueueVisitorWithConstantErrorClassification(
       ThreadPoolExecutor executor, final ErrorClassification classification) {
     return new AbstractQueueVisitor(
-        /*concurrent=*/ true,
         executor,
         /*shutdownOnCompletion=*/ true,
         /*failFastOnException=*/ false,
