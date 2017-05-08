@@ -218,7 +218,7 @@ public class WorkspaceFactory {
     // each workspace file.
     ImmutableMap.Builder<String, Object> bindingsBuilder = ImmutableMap.builder();
     Frame globals = workspaceEnv.getGlobals();
-    for (String s : globals.getDirectVariableNames()) {
+    for (String s : globals.getBindings().keySet()) {
       Object o = globals.get(s);
       if (!isAWorkspaceFunction(s, o)) {
         bindingsBuilder.put(s, o);

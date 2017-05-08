@@ -804,7 +804,7 @@ public class SkylarkRuleClassFunctions {
           if (relativeToCallerRepository) {
             parentLabel = env.getCallerLabel();
           } else {
-            parentLabel = env.getGlobals().label();
+            parentLabel = env.getGlobals().getTransitiveLabel();
           }
           try {
             if (parentLabel != null) {

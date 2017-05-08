@@ -88,7 +88,7 @@ public final class Mutability implements AutoCloseable, Serializable {
     return new Mutability(Printer.format(pattern, arguments));
   }
 
-  String getAnnotation() {
+  public String getAnnotation() {
     return annotation;
   }
 
@@ -97,7 +97,7 @@ public final class Mutability implements AutoCloseable, Serializable {
     return String.format(isFrozen ? "(%s)" : "[%s]", annotation);
   }
 
-  boolean isFrozen() {
+  public boolean isFrozen() {
     return isFrozen;
   }
 

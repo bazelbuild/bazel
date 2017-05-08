@@ -762,7 +762,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       Map<String, Extension> importMap) {
     return createSkylarkRuleClassEnvironment(
         mutability,
-        globals.setLabel(extensionLabel),
+        globals.withLabel(extensionLabel),
         skylarkSemantics,
         eventHandler,
         astFileContentHashCode,
