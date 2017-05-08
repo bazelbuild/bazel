@@ -31,12 +31,12 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.rules.fileset.FilesetActionContext;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -51,6 +51,7 @@ import java.util.concurrent.atomic.AtomicReference;
 /** Abstract common ancestor for sandbox strategies implementing the common parts. */
 abstract class SandboxStrategy implements SandboxedSpawnActionContext {
 
+  private final CommandEnvironment cmdEnv;
   private final BuildRequest buildRequest;
   private final Path execRoot;
   private final boolean verboseFailures;
@@ -59,13 +60,14 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
   private final Path sandboxBase;
 
   public SandboxStrategy(
+      CommandEnvironment cmdEnv,
       BuildRequest buildRequest,
-      BlazeDirectories blazeDirs,
       Path sandboxBase,
       boolean verboseFailures,
       SandboxOptions sandboxOptions) {
+    this.cmdEnv = cmdEnv;
     this.buildRequest = buildRequest;
-    this.execRoot = blazeDirs.getExecRoot();
+    this.execRoot = cmdEnv.getExecRoot();
     this.sandboxBase = sandboxBase;
     this.verboseFailures = verboseFailures;
     this.sandboxOptions = sandboxOptions;
@@ -123,6 +125,7 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
     OutErr outErr = actionExecutionContext.getFileOutErr();
     try {
       runner.run(
+          cmdEnv,
           spawn.getArguments(),
           spawnEnvironment,
           outErr,

@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -29,23 +30,28 @@ import java.util.Map;
 final class ProcessWrapperRunner extends SandboxRunner {
   private static final String PROCESS_WRAPPER = "process-wrapper" + OsUtils.executableExtension();
 
-  private final Path execRoot;
   private final Path sandboxExecRoot;
 
-  ProcessWrapperRunner(Path execRoot, Path sandboxExecRoot, boolean verboseFailures) {
+  ProcessWrapperRunner(Path sandboxExecRoot, boolean verboseFailures) {
     super(verboseFailures);
-    this.execRoot = execRoot;
     this.sandboxExecRoot = sandboxExecRoot;
   }
 
-  static boolean isSupported(CommandEnvironment commandEnv) {
+  static boolean isSupported(CommandEnvironment cmdEnv) {
     // We can only use this runner, if the process-wrapper exists in the embedded tools.
     // This might not always be the case, e.g. while bootstrapping.
-    return commandEnv.getBlazeWorkspace().getBinTools().getExecPath(PROCESS_WRAPPER) != null;
+    return getProcessWrapper(cmdEnv) != null;
+  }
+
+  /** Returns the PathFragment of the process wrapper binary, or null if it doesn't exist. */
+  static Path getProcessWrapper(CommandEnvironment cmdEnv) {
+    PathFragment execPath = cmdEnv.getBlazeWorkspace().getBinTools().getExecPath(PROCESS_WRAPPER);
+    return execPath != null ? cmdEnv.getExecRoot().getRelative(execPath) : null;
   }
 
   @Override
   protected Command getCommand(
+      CommandEnvironment cmdEnv,
       List<String> spawnArguments,
       Map<String, String> env,
       int timeout,
@@ -53,7 +59,7 @@ final class ProcessWrapperRunner extends SandboxRunner {
       boolean useFakeHostname,
       boolean useFakeUsername) {
     List<String> commandLineArgs = new ArrayList<>(5 + spawnArguments.size());
-    commandLineArgs.add(execRoot.getRelative("_bin/process-wrapper").getPathString());
+    commandLineArgs.add(getProcessWrapper(cmdEnv).getPathString());
     commandLineArgs.add(Integer.toString(timeout));
     commandLineArgs.add("5"); /* kill delay: give some time to print stacktraces and whatnot. */
     commandLineArgs.add("-"); /* stdout. */

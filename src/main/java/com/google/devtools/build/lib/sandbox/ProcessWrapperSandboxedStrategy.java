@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.standalone.StandaloneSpawnStrategy;
@@ -41,8 +40,8 @@ import java.util.concurrent.atomic.AtomicReference;
 )
 public class ProcessWrapperSandboxedStrategy extends SandboxStrategy {
 
-  public static boolean isSupported(CommandEnvironment env) {
-    return ProcessWrapperRunner.isSupported(env);
+  public static boolean isSupported(CommandEnvironment cmdEnv) {
+    return ProcessWrapperRunner.isSupported(cmdEnv);
   }
 
   private final SandboxOptions sandboxOptions;
@@ -51,19 +50,19 @@ public class ProcessWrapperSandboxedStrategy extends SandboxStrategy {
   private final String productName;
 
   ProcessWrapperSandboxedStrategy(
+      CommandEnvironment cmdEnv,
       BuildRequest buildRequest,
-      BlazeDirectories blazeDirs,
       Path sandboxBase,
       boolean verboseFailures,
       String productName) {
     super(
+        cmdEnv,
         buildRequest,
-        blazeDirs,
         sandboxBase,
         verboseFailures,
         buildRequest.getOptions(SandboxOptions.class));
     this.sandboxOptions = buildRequest.getOptions(SandboxOptions.class);
-    this.execRoot = blazeDirs.getExecRoot();
+    this.execRoot = cmdEnv.getExecRoot();
     this.verboseFailures = verboseFailures;
     this.productName = productName;
   }
@@ -95,7 +94,7 @@ public class ProcessWrapperSandboxedStrategy extends SandboxStrategy {
     symlinkedExecRoot.createFileSystem(
         getMounts(spawn, actionExecutionContext), outputs, writableDirs);
 
-    SandboxRunner runner = new ProcessWrapperRunner(execRoot, sandboxExecRoot, verboseFailures);
+    SandboxRunner runner = new ProcessWrapperRunner(sandboxExecRoot, verboseFailures);
     try {
       runSpawn(
           spawn,

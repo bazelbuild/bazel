@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.KillableObserver;
@@ -85,6 +86,7 @@ final class DarwinSandboxRunner extends SandboxRunner {
 
   @Override
   protected Command getCommand(
+      CommandEnvironment cmdEnv,
       List<String> arguments,
       Map<String, String> env,
       int timeout,
