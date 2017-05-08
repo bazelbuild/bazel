@@ -519,6 +519,7 @@ java_library(
     deps = [
         ":util",
         "//third_party:auto_value",
+        "//third_party:guava",
     ],
 )
 
