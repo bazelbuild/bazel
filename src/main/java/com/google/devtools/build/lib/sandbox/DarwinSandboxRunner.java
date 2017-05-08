@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.KillableObserver;
 import com.google.devtools.build.lib.shell.TimeoutKillableObserver;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -60,24 +59,6 @@ final class DarwinSandboxRunner extends SandboxRunner {
   }
 
   static boolean isSupported() {
-    // Check osx version, only >=10.11 is supported.
-    // And we should check if sandbox still work when it gets 11.x
-    String osxVersion = OS.getVersion();
-    String[] parts = osxVersion.split("\\.");
-    if (parts.length < 2 || parts.length > 3) {
-      // Can be 10.xx or 10.xx.yy format
-      return false;
-    }
-    try {
-      int v0 = Integer.parseInt(parts[0]);
-      int v1 = Integer.parseInt(parts[1]);
-      if (v0 != 10 || v1 < 11) {
-        return false;
-      }
-    } catch (NumberFormatException e) {
-      return false;
-    }
-
     List<String> args = new ArrayList<>();
     args.add(SANDBOX_EXEC);
     args.add("-p");
