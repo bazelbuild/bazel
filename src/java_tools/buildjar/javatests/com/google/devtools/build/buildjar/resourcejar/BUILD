@@ -12,6 +12,6 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-        "//third_party/java/jdk/langtools:javac-9-dev-r4023-1",
+        "//third_party/java/jdk/langtools:javac",
     ],
 )
