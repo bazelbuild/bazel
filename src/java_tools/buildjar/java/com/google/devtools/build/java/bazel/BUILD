@@ -33,7 +33,7 @@ java_library(
 # Exports the canonical javac jar location
 genrule(
     name = "java-langtools-location",
-    srcs = ["//third_party/java/jdk/langtools:javac_jar-9-dev-r4023-1"],
+    srcs = ["//third_party/java/jdk/langtools:javac_jar"],
     outs = ["JavaLangtoolsLocation.java"],
     cmd = "$(location java-langtools-location.sh) $@ $(GENDIR) io_bazel/ $(SRCS)",
     tools = ["java-langtools-location.sh"],
@@ -49,7 +49,7 @@ java_library(
 java_library(
     name = "JavaLangtools",
     srcs = ["JavaLangtools.java"],
-    data = ["//third_party/java/jdk/langtools:javac_jar-9-dev-r4023-1"],
+    data = ["//third_party/java/jdk/langtools:javac_jar"],
     visibility = ["//visibility:public"],
     deps = [":java-langtools-location-lib"],
 )
@@ -102,7 +102,7 @@ java_library(
 java_library(
     name = "BazelJavaCompiler",
     srcs = ["BazelJavaCompiler.java"],
-    data = ["//third_party/java/jdk/langtools:javac_jar-9-dev-r4023-1"],
+    data = ["//third_party/java/jdk/langtools:javac_jar"],
     visibility = [
         "//src:__subpackages__",
         "//third_party/ijar:__subpackages__",
