@@ -603,7 +603,8 @@ public final class SkyframeBuildView {
     this.enableAnalysis = enable;
   }
 
-  private class ConfiguredTargetValueProgressReceiver implements EvaluationProgressReceiver {
+  private class ConfiguredTargetValueProgressReceiver
+      extends EvaluationProgressReceiver.NullEvaluationProgressReceiver {
     @Override
     public void invalidated(SkyKey skyKey, InvalidationState state) {
       if (skyKey.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
@@ -618,12 +619,6 @@ public final class SkyframeBuildView {
         }
       }
     }
-
-    @Override
-    public void enqueueing(SkyKey skyKey) {}
-
-    @Override
-    public void computed(SkyKey skyKey, long elapsedTimeNanos) {}
 
     @Override
     public void evaluated(SkyKey skyKey, Supplier<SkyValue> skyValueSupplier,

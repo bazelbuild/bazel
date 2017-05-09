@@ -256,16 +256,8 @@ public class ParallelEvaluatorTest {
       eval(/*keepGoing=*/false, fastKey);
     }
     final Set<SkyKey> receivedValues = Sets.newConcurrentHashSet();
-    revalidationReceiver = new DirtyTrackingProgressReceiver(new EvaluationProgressReceiver() {
-      @Override
-      public void invalidated(SkyKey skyKey, InvalidationState state) {}
-
-      @Override
-      public void enqueueing(SkyKey key) {}
-
-      @Override
-      public void computed(SkyKey skyKey, long elapsedTimeNanos) {}
-
+    revalidationReceiver = new DirtyTrackingProgressReceiver(
+        new EvaluationProgressReceiver.NullEvaluationProgressReceiver() {
       @Override
       public void evaluated(SkyKey skyKey, Supplier<SkyValue> skyValueSupplier,
           EvaluationState state) {
@@ -1821,19 +1813,12 @@ public class ParallelEvaluatorTest {
   public void signalValueEnqueuedAndEvaluated() throws Exception {
     final Set<SkyKey> enqueuedValues = Sets.newConcurrentHashSet();
     final Set<SkyKey> evaluatedValues = Sets.newConcurrentHashSet();
-    EvaluationProgressReceiver progressReceiver = new EvaluationProgressReceiver() {
-      @Override
-      public void invalidated(SkyKey skyKey, InvalidationState state) {
-        throw new IllegalStateException();
-      }
-
+    EvaluationProgressReceiver progressReceiver =
+        new EvaluationProgressReceiver.NullEvaluationProgressReceiver() {
       @Override
       public void enqueueing(SkyKey skyKey) {
         enqueuedValues.add(skyKey);
       }
-
-      @Override
-      public void computed(SkyKey skyKey, long elapsedTimeNanos) {}
 
       @Override
       public void evaluated(SkyKey skyKey, Supplier<SkyValue> skyValueSupplier,
