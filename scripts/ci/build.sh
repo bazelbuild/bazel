@@ -145,8 +145,10 @@ function bazel_build() {
     # The version with a bundled JDK may not exist on all platforms.
     if [ "${JAVA_VERSION}" = "1.8" -a -e "bazel-bin/scripts/packages/with-jdk/install.sh" ]; then
       cp bazel-bin/scripts/packages/with-jdk/install.sh $1/bazel-${release_label}-installer.sh
+      cp bazel-bin/scripts/packages/without-jdk/install.sh $1/bazel-${release_label}-without-jdk-installer.sh
+    else
+      cp bazel-bin/scripts/packages/without-jdk/install.sh $1/bazel-${release_label}-installer.sh
     fi
-    cp bazel-bin/scripts/packages/without-jdk/install.sh $1/bazel-${release_label}-without-jdk-installer.sh
     if [ "$PLATFORM" = "linux" ]; then
       cp bazel-bin/scripts/packages/debian/bazel-debian.deb $1/bazel_${release_label}.deb
       cp -f bazel-genfiles/scripts/packages/debian/bazel.dsc $1/bazel.dsc
