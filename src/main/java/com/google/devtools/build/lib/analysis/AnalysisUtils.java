@@ -120,11 +120,11 @@ public final class AnalysisUtils {
   }
 
   /**
-   * Returns the middleman artifact on the specified attribute of the specified rule for the
-   * specified mode, or an empty set if it does not exist.
+   * Returns the middleman artifact on the specified attribute of the specified rule, or an empty
+   * set if it does not exist.
    */
-  public static NestedSet<Artifact> getMiddlemanFor(RuleContext rule, String attribute, Mode mode) {
-    TransitiveInfoCollection prereq = rule.getPrerequisite(attribute, mode);
+  public static NestedSet<Artifact> getMiddlemanFor(RuleContext rule, String attribute) {
+    TransitiveInfoCollection prereq = rule.getPrerequisite(attribute, Mode.HOST);
     if (prereq == null) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }

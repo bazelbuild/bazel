@@ -85,7 +85,9 @@ public final class CcToolchainRule implements RuleDefinition {
                 .cfg(HOST)
                 .singleArtifact()
                 .value(env.getToolsLabel("//tools/cpp:link_dynamic_library")))
-        .add(attr(":libc_top", LABEL).value(LIBC_TOP))
+        // TODO(bazel-team): Should be using the TARGET configuration.
+        .add(attr(":libc_top", LABEL).cfg(HOST).value(LIBC_TOP))
+        .add(attr(":sysroot", LABEL).value(LIBC_TOP))
         .add(
             attr(":lipo_context_collector", LABEL)
                 .cfg(LipoTransition.LIPO_COLLECTOR)
