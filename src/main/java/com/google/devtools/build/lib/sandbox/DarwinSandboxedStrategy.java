@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.sandbox;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -47,7 +46,7 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.util.HashMap;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
@@ -64,8 +63,14 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
   private final boolean sandboxDebug;
   private final boolean verboseFailures;
   private final String productName;
-  private final ImmutableList<Path> confPaths;
   private final SpawnHelpers spawnHelpers;
+
+  /**
+   * The set of directories that always should be writable, independent of the Spawn itself.
+   *
+   * <p>We cache this, because creating it involves executing {@code getconf}, which is expensive.
+   */
+  private final ImmutableSet<Path> alwaysWritableDirs;
 
   private DarwinSandboxedStrategy(
       CommandEnvironment cmdEnv,
@@ -73,8 +78,8 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
       Path sandboxBase,
       boolean verboseFailures,
       String productName,
-      ImmutableList<Path> confPaths,
-      SpawnHelpers spawnHelpers) {
+      SpawnHelpers spawnHelpers,
+      ImmutableSet<Path> alwaysWritableDirs) {
     super(
         cmdEnv,
         buildRequest,
@@ -86,8 +91,8 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
     this.sandboxDebug = buildRequest.getOptions(SandboxOptions.class).sandboxDebug;
     this.verboseFailures = verboseFailures;
     this.productName = productName;
-    this.confPaths = confPaths;
     this.spawnHelpers = spawnHelpers;
+    this.alwaysWritableDirs = alwaysWritableDirs;
   }
 
   public static DarwinSandboxedStrategy create(
@@ -97,25 +102,52 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
       boolean verboseFailures,
       String productName)
       throws IOException {
-    // On OS X, in addition to what is specified in $TMPDIR, two other temporary directories may be
-    // written to by processes. We have to get their location by calling "getconf".
-    List<String> confVars = ImmutableList.of("DARWIN_USER_TEMP_DIR", "DARWIN_USER_CACHE_DIR");
-    ImmutableList.Builder<Path> writablePaths = ImmutableList.builder();
-    for (String confVar : confVars) {
-      Path path = cmdEnv.getDirectories().getFileSystem().getPath(getConfStr(confVar));
-      if (path.exists()) {
-        writablePaths.add(path);
-      }
-    }
-
     return new DarwinSandboxedStrategy(
         cmdEnv,
         buildRequest,
         sandboxBase,
         verboseFailures,
         productName,
-        writablePaths.build(),
-        new SpawnHelpers(cmdEnv.getExecRoot()));
+        new SpawnHelpers(cmdEnv.getExecRoot()),
+        getAlwaysWritableDirs(cmdEnv.getDirectories().getFileSystem()));
+  }
+
+  private static void addPathToSetIfExists(FileSystem fs, Set<Path> paths, String path)
+      throws IOException {
+    if (path != null) {
+      addPathToSetIfExists(paths, fs.getPath(path));
+    }
+  }
+
+  private static void addPathToSetIfExists(Set<Path> paths, Path path) throws IOException {
+    if (path.exists()) {
+      paths.add(path.resolveSymbolicLinks());
+    }
+  }
+
+  private static ImmutableSet<Path> getAlwaysWritableDirs(FileSystem fs) throws IOException {
+    HashSet<Path> writableDirs = new HashSet<>();
+
+    addPathToSetIfExists(fs, writableDirs, "/dev");
+    addPathToSetIfExists(fs, writableDirs, System.getenv("TMPDIR"));
+    addPathToSetIfExists(fs, writableDirs, "/tmp");
+    addPathToSetIfExists(fs, writableDirs, "/private/tmp");
+    addPathToSetIfExists(fs, writableDirs, "/private/var/tmp");
+
+    // On macOS, in addition to what is specified in $TMPDIR, two other temporary directories may be
+    // written to by processes. We have to get their location by calling "getconf".
+    addPathToSetIfExists(fs, writableDirs, getConfStr("DARWIN_USER_TEMP_DIR"));
+    addPathToSetIfExists(fs, writableDirs, getConfStr("DARWIN_USER_CACHE_DIR"));
+
+    // ~/Library/Cache and ~/Library/Logs need to be writable (cf. issue #2231).
+    Path homeDir = fs.getPath(System.getProperty("user.home"));
+    addPathToSetIfExists(writableDirs, homeDir.getRelative("Library/Cache"));
+    addPathToSetIfExists(writableDirs, homeDir.getRelative("Library/Logs"));
+
+    // Certain Xcode tools expect to be able to write to this path.
+    addPathToSetIfExists(writableDirs, homeDir.getRelative("Library/Developer"));
+
+    return ImmutableSet.copyOf(writableDirs);
   }
 
   /**
@@ -168,7 +200,9 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
     ImmutableMap<String, String> spawnEnvironment =
         StandaloneSpawnStrategy.locallyDeterminedEnv(execRoot, productName, spawn.getEnvironment());
 
-    Set<Path> writableDirs = getWritableDirs(sandboxExecRoot, spawn.getEnvironment());
+    HashSet<Path> writableDirs = new HashSet<>(alwaysWritableDirs);
+    writableDirs.addAll(getWritableDirs(sandboxExecRoot, spawnEnvironment));
+
     HardlinkedExecRoot hardlinkedExecRoot =
         new HardlinkedExecRoot(execRoot, sandboxPath, sandboxExecRoot, errWriter);
     ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);
@@ -206,37 +240,6 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
         }
       }
     }
-  }
-
-  @Override
-  protected ImmutableSet<Path> getWritableDirs(Path sandboxExecRoot, Map<String, String> env)
-      throws IOException {
-    ImmutableSet.Builder<Path> writableDirs = ImmutableSet.builder();
-    writableDirs.addAll(super.getWritableDirs(sandboxExecRoot, env));
-
-    FileSystem fs = sandboxExecRoot.getFileSystem();
-    writableDirs.add(fs.getPath("/dev"));
-
-    String sysTmpDir = System.getenv("TMPDIR");
-    if (sysTmpDir != null) {
-      writableDirs.add(fs.getPath(sysTmpDir));
-    }
-
-    writableDirs.add(fs.getPath("/tmp"));
-
-    // ~/Library/Cache and ~/Library/Logs need to be writable (cf. issue #2231).
-    Path homeDir = fs.getPath(System.getProperty("user.home"));
-    writableDirs.add(homeDir.getRelative("Library/Cache"));
-    writableDirs.add(homeDir.getRelative("Library/Logs"));
-
-    // Other temporary directories from getconf.
-    for (Path path : confPaths) {
-      if (path.exists()) {
-        writableDirs.add(path);
-      }
-    }
-
-    return writableDirs.build();
   }
 
   @Override
