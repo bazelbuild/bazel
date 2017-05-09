@@ -58,7 +58,7 @@ final class SandboxActionContextProvider extends ActionContextProvider {
         }
         break;
       case DARWIN:
-        if (DarwinSandboxRunner.isSupported()) {
+        if (DarwinSandboxRunner.isSupported(cmdEnv)) {
           contexts.add(
               DarwinSandboxedStrategy.create(
                   cmdEnv, buildRequest, sandboxBase, verboseFailures, productName));

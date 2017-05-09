@@ -21,8 +21,6 @@ import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
-import com.google.devtools.build.lib.shell.KillableObserver;
-import com.google.devtools.build.lib.shell.TimeoutKillableObserver;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -56,7 +54,11 @@ final class DarwinSandboxRunner extends SandboxRunner {
     this.writableDirs = writableDirs;
   }
 
-  static boolean isSupported() {
+  static boolean isSupported(CommandEnvironment cmdEnv) {
+    if (!ProcessWrapperRunner.isSupported(cmdEnv)) {
+      return false;
+    }
+
     List<String> args = new ArrayList<>();
     args.add(SANDBOX_EXEC);
     args.add("-p");
@@ -97,7 +99,7 @@ final class DarwinSandboxRunner extends SandboxRunner {
     commandLineArgs.add(SANDBOX_EXEC);
     commandLineArgs.add("-f");
     commandLineArgs.add(sandboxConfigPath.getPathString());
-    commandLineArgs.addAll(arguments);
+    commandLineArgs.addAll(ProcessWrapperRunner.getCommandLine(cmdEnv, arguments, timeout));
     return new Command(commandLineArgs.toArray(new String[0]), env, sandboxExecRoot.getPathFile());
   }
 
@@ -134,15 +136,5 @@ final class DarwinSandboxRunner extends SandboxRunner {
     if (!resolvedPath.equals(path)) {
       out.println("(allow file-write* (subpath \"" + resolvedPath.getPathString() + "\"))");
     }
-  }
-
-  @Override
-  protected KillableObserver getCommandObserver(int timeout) {
-    return (timeout >= 0) ? new TimeoutKillableObserver(timeout * 1000) : Command.NO_OBSERVER;
-  }
-
-  @Override
-  protected int getSignalOnTimeout() {
-    return 15; /* SIGTERM */
   }
 }

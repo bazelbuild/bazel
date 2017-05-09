@@ -58,6 +58,12 @@ final class ProcessWrapperRunner extends SandboxRunner {
       boolean allowNetwork,
       boolean useFakeHostname,
       boolean useFakeUsername) {
+    List<String> commandLineArgs = getCommandLine(cmdEnv, spawnArguments, timeout);
+    return new Command(commandLineArgs.toArray(new String[0]), env, sandboxExecRoot.getPathFile());
+  }
+
+  static List<String> getCommandLine(
+      CommandEnvironment cmdEnv, List<String> spawnArguments, int timeout) {
     List<String> commandLineArgs = new ArrayList<>(5 + spawnArguments.size());
     commandLineArgs.add(getProcessWrapper(cmdEnv).getPathString());
     commandLineArgs.add(Integer.toString(timeout));
@@ -65,7 +71,6 @@ final class ProcessWrapperRunner extends SandboxRunner {
     commandLineArgs.add("-"); /* stdout. */
     commandLineArgs.add("-"); /* stderr. */
     commandLineArgs.addAll(spawnArguments);
-
-    return new Command(commandLineArgs.toArray(new String[0]), env, sandboxExecRoot.getPathFile());
+    return commandLineArgs;
   }
 }
