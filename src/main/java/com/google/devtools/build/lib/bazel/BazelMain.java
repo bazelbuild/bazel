@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
@@ -49,7 +50,8 @@ public final class BazelMain {
           com.google.devtools.build.lib.sandbox.SandboxModule.class,
           com.google.devtools.build.lib.runtime.BuildSummaryStatsModule.class,
           com.google.devtools.build.lib.runtime.BuildEventStreamerModule.class,
-          com.google.devtools.build.lib.bazel.rules.BazelRulesModule.class);
+          com.google.devtools.build.lib.bazel.rules.BazelRulesModule.class,
+          com.google.devtools.build.lib.bazel.rules.BazelStrategyModule.class);
 
   public static void main(String[] args) {
     BlazeVersionInfo.setBuildInfo(tryGetBuildInfo());
