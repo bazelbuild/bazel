@@ -14,17 +14,40 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.Executor.ActionContext;
+import com.google.devtools.build.lib.vfs.Path;
+
 /**
  * An action which must know when it is skipped due to an action cache hit.
  *
  * Use should be rare, as the action graph is a functional model.
  */
 public interface NotifyOnActionCacheHit extends Action {
+  /**
+   * A custom interface similar to {@link ActionExecutionContext}, but specific to cache hits.
+   */
+  public interface ActionCachedContext {
+    /** The EventBus for the current build. */
+    EventBus getEventBus();
+
+    /**
+     * Returns the execution root. This is the directory underneath which Blaze builds its entire
+     * output working tree, including the source symlink forest. All build actions are executed
+     * relative to this directory.
+     */
+    Path getExecRoot();
+
+    /**
+     * Looks up and returns an action context implementation of the given interface type.
+     */
+    <T extends ActionContext> T getContext(Class<? extends T> type);
+  }
 
   /**
    * Called when action has "cache hit", and therefore need not be executed.
    *
-   * @param executor the executor
+   * @param context the action context for a cache hit
    */
-  void actionCacheHit(Executor executor);
+  void actionCacheHit(ActionCachedContext context);
 }

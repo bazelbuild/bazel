@@ -47,10 +47,12 @@ import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.Executor.ActionContext;
 import com.google.devtools.build.lib.actions.MapBasedActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
+import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit.ActionCachedContext;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.TargetOutOfDateException;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
@@ -486,7 +488,23 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
 
       if (action instanceof NotifyOnActionCacheHit) {
         NotifyOnActionCacheHit notify = (NotifyOnActionCacheHit) action;
-        notify.actionCacheHit(executorEngine);
+        ActionCachedContext context = new ActionCachedContext() {
+          @Override
+          public EventBus getEventBus() {
+            return executorEngine.getEventBus();
+          }
+
+          @Override
+          public Path getExecRoot() {
+            return executorEngine.getExecRoot();
+          }
+
+          @Override
+          public <T extends ActionContext> T getContext(Class<? extends T> type) {
+            return executorEngine.getContext(type);
+          }
+        };
+        notify.actionCacheHit(context);
       }
 
       // We still need to check the outputs so that output file data is available to the value.
