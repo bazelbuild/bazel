@@ -359,10 +359,13 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
   if (find_blazerc_exit_code != blaze_exit_code::SUCCESS) {
     return find_blazerc_exit_code;
   }
-  candidate_blazerc_paths.push_back(user_blazerc_path);
 
   vector<string> deduped_blazerc_paths =
       internal::DedupeBlazercPaths(candidate_blazerc_paths);
+  // TODO(b/37731193): Decide whether the user blazerc should be included in
+  // the deduplication process. If so then we need to handle all cases
+  // (e.g. user rc coming from process substitution).
+  deduped_blazerc_paths.push_back(user_blazerc_path);
 
   for (const auto& blazerc_path : deduped_blazerc_paths) {
     if (!blazerc_path.empty()) {
