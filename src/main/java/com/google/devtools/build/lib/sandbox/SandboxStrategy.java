@@ -18,10 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceManager;
@@ -34,18 +31,13 @@ import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.exec.SpawnInputExpander;
-import com.google.devtools.build.lib.rules.fileset.FilesetActionContext;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** Abstract common ancestor for sandbox strategies implementing the common parts. */
@@ -56,7 +48,6 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
   private final Path execRoot;
   private final boolean verboseFailures;
   private final SandboxOptions sandboxOptions;
-  private final SpawnInputExpander spawnInputExpander;
   private final Path sandboxBase;
 
   public SandboxStrategy(
@@ -71,7 +62,6 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
     this.sandboxBase = sandboxBase;
     this.verboseFailures = verboseFailures;
     this.sandboxOptions = sandboxOptions;
-    this.spawnInputExpander = new SpawnInputExpander(/*strict=*/false);
   }
 
   /** Executes the given {@code spawn}. */
@@ -202,44 +192,4 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
   public boolean shouldPropagateExecException() {
     return verboseFailures && sandboxOptions.sandboxDebug;
   }
-
-  public Map<PathFragment, Path> getMounts(Spawn spawn, ActionExecutionContext executionContext)
-      throws ExecException {
-    try {
-      Map<PathFragment, ActionInput> inputMap = spawnInputExpander
-          .getInputMapping(
-              spawn,
-              executionContext.getArtifactExpander(),
-              executionContext.getActionInputFileCache(),
-              executionContext.getExecutor().getContext(FilesetActionContext.class));
-      // SpawnInputExpander#getInputMapping uses ArtifactExpander#expandArtifacts to expand
-      // middlemen and tree artifacts, which expands empty tree artifacts to no entry. However,
-      // actions that accept TreeArtifacts as inputs generally expect that the empty directory is
-      // created. So we add those explicitly here.
-      // TODO(ulfjack): Move this code to SpawnInputExpander.
-      for (ActionInput input : spawn.getInputFiles()) {
-        if (input instanceof Artifact && ((Artifact) input).isTreeArtifact()) {
-          List<Artifact> containedArtifacts = new ArrayList<>();
-          executionContext.getArtifactExpander().expand((Artifact) input, containedArtifacts);
-          // Attempting to mount a non-empty directory results in ERR_DIRECTORY_NOT_EMPTY, so we
-          // only mount empty TreeArtifacts as directories.
-          if (containedArtifacts.isEmpty()) {
-            inputMap.put(input.getExecPath(), input);
-          }
-        }
-      }
-
-      Map<PathFragment, Path> mounts = new TreeMap<>();
-      for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {
-        Path inputPath = e.getValue() == SpawnInputExpander.EMPTY_FILE
-            ? null
-            : execRoot.getRelative(e.getValue().getExecPath());
-        mounts.put(e.getKey(), inputPath);
-      }
-      return mounts;
-    } catch (IOException e) {
-      throw new EnvironmentalExecException("Could not prepare mounts for sandbox execution", e);
-    }
-  }
-
 }

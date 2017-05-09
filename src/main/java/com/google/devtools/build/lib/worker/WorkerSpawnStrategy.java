@@ -39,8 +39,8 @@ import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
-import com.google.devtools.build.lib.sandbox.SpawnHelpers;
 import com.google.devtools.build.lib.standalone.StandaloneSpawnStrategy;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -85,6 +85,7 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
   private final Path execRoot;
   private final boolean verboseFailures;
   private final Multimap<String, String> extraFlags;
+  private final SpawnInputExpander spawnInputExpander;
 
   public WorkerSpawnStrategy(
       BlazeDirectories blazeDirs,
@@ -96,6 +97,7 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
     this.execRoot = blazeDirs.getExecRoot();
     this.verboseFailures = verboseFailures;
     this.extraFlags = extraFlags;
+    this.spawnInputExpander = new SpawnInputExpander(false);
   }
 
   @Override
@@ -162,7 +164,7 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
       HashCode workerFilesHash = WorkerFilesHash.getWorkerFilesHash(
           spawn.getToolFiles(), actionExecutionContext);
       Map<PathFragment, Path> inputFiles =
-          new SpawnHelpers(execRoot).getMounts(spawn, actionExecutionContext);
+          SandboxHelpers.getInputFiles(spawnInputExpander, execRoot, spawn, actionExecutionContext);
       Set<PathFragment> outputFiles = SandboxHelpers.getOutputFiles(spawn);
 
       WorkerKey key =

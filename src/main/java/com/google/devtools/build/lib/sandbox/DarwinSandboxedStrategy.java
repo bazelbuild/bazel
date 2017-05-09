@@ -16,35 +16,28 @@ package com.google.devtools.build.lib.sandbox;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
-import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.standalone.StandaloneSpawnStrategy;
-import com.google.devtools.build.lib.util.Preconditions;
-import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -55,12 +48,11 @@ import java.util.concurrent.atomic.AtomicReference;
 )
 public class DarwinSandboxedStrategy extends SandboxStrategy {
 
-  private final BlazeDirectories blazeDirs;
   private final Path execRoot;
   private final boolean sandboxDebug;
   private final boolean verboseFailures;
   private final String productName;
-  private final SpawnHelpers spawnHelpers;
+  private final SpawnInputExpander spawnInputExpander;
 
   /**
    * The set of directories that always should be writable, independent of the Spawn itself.
@@ -75,7 +67,6 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
       Path sandboxBase,
       boolean verboseFailures,
       String productName,
-      SpawnHelpers spawnHelpers,
       ImmutableSet<Path> alwaysWritableDirs) {
     super(
         cmdEnv,
@@ -83,13 +74,12 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
         sandboxBase,
         verboseFailures,
         buildRequest.getOptions(SandboxOptions.class));
-    this.blazeDirs = cmdEnv.getDirectories();
-    this.execRoot = blazeDirs.getExecRoot();
+    this.execRoot = cmdEnv.getExecRoot();
     this.sandboxDebug = buildRequest.getOptions(SandboxOptions.class).sandboxDebug;
     this.verboseFailures = verboseFailures;
     this.productName = productName;
-    this.spawnHelpers = spawnHelpers;
     this.alwaysWritableDirs = alwaysWritableDirs;
+    spawnInputExpander = new SpawnInputExpander(false);
   }
 
   public static DarwinSandboxedStrategy create(
@@ -105,7 +95,6 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
         sandboxBase,
         verboseFailures,
         productName,
-        new SpawnHelpers(cmdEnv.getExecRoot()),
         getAlwaysWritableDirs(cmdEnv.getDirectories().getFileSystem()));
   }
 
@@ -189,7 +178,10 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
     SymlinkedExecRoot symlinkedExecRoot = new SymlinkedExecRoot(sandboxExecRoot);
     ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);
     symlinkedExecRoot.createFileSystem(
-        getMounts(spawn, actionExecutionContext), outputs, writableDirs);
+        SandboxHelpers.getInputFiles(
+            spawnInputExpander, this.execRoot, spawn, actionExecutionContext),
+        outputs,
+        writableDirs);
 
     DarwinSandboxRunner runner =
         new DarwinSandboxRunner(sandboxPath, sandboxExecRoot, writableDirs, verboseFailures);
@@ -217,59 +209,5 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
         }
       }
     }
-  }
-
-  @Override
-  public Map<PathFragment, Path> getMounts(Spawn spawn, ActionExecutionContext executionContext)
-      throws ExecException {
-    try {
-      Map<PathFragment, Path> mounts = new HashMap<>();
-      spawnHelpers.mountInputs(mounts, spawn, executionContext);
-
-      Map<PathFragment, Path> unfinalized = new HashMap<>();
-      spawnHelpers.mountRunfilesFromSuppliers(unfinalized, spawn);
-      spawnHelpers.mountFilesFromFilesetManifests(unfinalized, spawn, executionContext);
-      mounts.putAll(finalizeLinks(unfinalized));
-
-      return mounts;
-    } catch (IllegalArgumentException | IOException e) {
-      throw new EnvironmentalExecException("Could not prepare mounts for sandbox execution", e);
-    }
-  }
-
-  private Map<PathFragment, Path> finalizeLinks(Map<PathFragment, Path> unfinalized)
-      throws IOException {
-    HashMap<PathFragment, Path> finalizedLinks = new HashMap<>();
-    for (Map.Entry<PathFragment, Path> mount : unfinalized.entrySet()) {
-      PathFragment target = mount.getKey();
-      Path source = mount.getValue();
-
-      // If the source is null, the target is supposed to be an empty file. In this case we don't
-      // have to deal with finalizing the link.
-      if (source == null) {
-        finalizedLinks.put(target, source);
-        continue;
-      }
-
-      FileStatus stat = source.statNullable(Symlinks.NOFOLLOW);
-
-      if (stat != null && stat.isDirectory()) {
-        for (Path subSource : FileSystemUtils.traverseTree(source, Predicates.alwaysTrue())) {
-          PathFragment subTarget = target.getRelative(subSource.relativeTo(source));
-          finalizeLinksPath(
-              finalizedLinks, subTarget, subSource, subSource.statNullable(Symlinks.NOFOLLOW));
-        }
-      } else {
-        finalizeLinksPath(finalizedLinks, target, source, stat);
-      }
-    }
-    return finalizedLinks;
-  }
-
-  private void finalizeLinksPath(
-      Map<PathFragment, Path> finalizedMounts, PathFragment target, Path source, FileStatus stat) {
-    // The source must exist.
-    Preconditions.checkArgument(stat != null, "%s does not exist", source.toString());
-    finalizedMounts.put(target, source);
   }
 }
