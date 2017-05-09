@@ -79,6 +79,14 @@ public class BazelPythonConfiguration extends BuildConfiguration.Fragment {
       help = "Do not use."
     )
     public boolean experimentalPythonImportAllRepositories;
+
+     /**
+     * Make Python configuration options available for host configurations as well
+     */
+    @Override
+    public FragmentOptions getHost(boolean fallback) {
+      return clone(); // host options are the same as target options
+    }
   }
 
   /**
