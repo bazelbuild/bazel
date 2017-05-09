@@ -326,7 +326,7 @@ function run_bazel_jar() {
   shift
   local client_env=()
   # Propagate all environment variables to bootstrapped Bazel.
-  # See https://stackoverflow.com/41898503/loop-over-environment-variables-in-posix.sh
+  # See https://stackoverflow.com/questions/41898503/loop-over-environment-variables-in-posix-sh
   local env_vars="$(awk 'END { for (name in ENVIRON) { if(name != "_") print name; } }' </dev/null)"
   for varname in $env_vars; do
     eval value=\$$varname
