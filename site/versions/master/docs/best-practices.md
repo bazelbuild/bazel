@@ -82,7 +82,7 @@ Everything should be built from source whenever possible. Generally this means t
 depending on a library `some-library.so`, you'd create a BUILD file and build `some-library.so`
 from its sources, then depend on that target.
 
-Building from source prevents a build from using an library that was build with incompatible flags
+Building from source prevents a build from using a library that was built with incompatible flags
 or a different architecture.  There are also some features like coverage, static analysis, or
 dynamic analysis that will only work on the source.
 
