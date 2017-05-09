@@ -119,8 +119,10 @@ function test_basic() {
   # - a completed target explicity requested should be reported
   # - after success the stream should close naturally, without any
   #   reports about aborted events.
-  # - no events occur in an unsolicited way
   # - the command line is reported
+  # - the target_kind is reported
+  # - for single-configuration builds, there is precisely one configuration
+  #   event reported
   bazel test --experimental_build_event_text_file=$TEST_log pkg:true \
     || fail "bazel test failed"
   expect_log 'pkg:true'
@@ -133,6 +135,7 @@ function test_basic() {
   expect_log 'SUCCESS'
   expect_log 'finish_time'
   expect_not_log 'aborted'
+  expect_log_once '^configuration '
   # target kind for the sh_test
   expect_log 'target_kind:.*sh'
 }

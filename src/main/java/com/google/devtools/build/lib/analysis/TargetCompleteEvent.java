@@ -20,6 +20,8 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildEventWithConfiguration;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
@@ -43,8 +45,10 @@ import java.util.Collection;
 
 /** This event is fired as soon as a target is either built or fails. */
 public final class TargetCompleteEvent
-    implements SkyValue, BuildEventWithOrderConstraint, EventReportingArtifacts {
-
+    implements SkyValue,
+        BuildEventWithOrderConstraint,
+        EventReportingArtifacts,
+        BuildEventWithConfiguration {
   private final ConfiguredTarget target;
   private final NestedSet<Cause> rootCauses;
   private final Collection<BuildEventId> postedAfter;
@@ -111,7 +115,8 @@ public final class TargetCompleteEvent
 
   @Override
   public BuildEventId getEventId() {
-    return BuildEventId.targetCompleted(getTarget().getLabel());
+    return BuildEventId.targetCompleted(
+        getTarget().getLabel(), getTarget().getConfiguration().getEventId());
   }
 
   @Override
@@ -175,6 +180,16 @@ public final class TargetCompleteEvent
       builder.add(artifactsInGroup.getArtifacts());
     }
     return builder.build();
+  }
+
+  @Override
+  public Collection<BuildConfiguration> getConfigurations() {
+    BuildConfiguration configuration = target.getConfiguration();
+    if (configuration != null) {
+      return ImmutableList.of(target.getConfiguration());
+    } else {
+      return ImmutableList.<BuildConfiguration>of();
+    }
   }
 
   private Iterable<String> getTags() {

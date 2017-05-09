@@ -100,6 +100,9 @@ message BuildEventId {
   message TargetCompletedId {
     string label = 1;
 
+    // The configuration for wich the target was built.
+    ConfigurationId configuration = 3;
+
     // If not empty, the id refers to the completion of the target for a given
     // aspect.
     string aspect = 2;

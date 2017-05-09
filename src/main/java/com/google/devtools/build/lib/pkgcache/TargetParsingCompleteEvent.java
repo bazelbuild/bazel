@@ -111,12 +111,12 @@ public class TargetParsingCompleteEvent implements BuildEvent {
 
   @Override
   public Collection<BuildEventId> getChildrenEvents() {
-    ImmutableList.Builder childrenBuilder = ImmutableList.builder();
+    ImmutableList.Builder<BuildEventId> childrenBuilder = ImmutableList.builder();
     for (Target target : expandedTargets) {
-      // Test suits won't produce a target-complete event, so do not anounce their
-      // completion as children.
+      // Test suits won't produce target configuration and  target-complete events, so do not
+      // announce here completion as children.
       if (!TargetUtils.isTestSuiteRule(target)) {
-        childrenBuilder.add(BuildEventId.targetCompleted(target.getLabel()));
+        childrenBuilder.add(BuildEventId.targetConfigured(target.getLabel()));
       }
     }
     return childrenBuilder.build();

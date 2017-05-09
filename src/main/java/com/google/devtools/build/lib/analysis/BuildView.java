@@ -476,6 +476,16 @@ public class BuildView {
     List<TargetAndConfiguration> topLevelTargetsWithConfigs =
         nodesForTopLevelTargets(configurations, targets, eventHandler);
 
+    // Report the generated association of targets to configurations
+    Multimap<Label, BuildConfiguration> byLabel =
+        ArrayListMultimap.<Label, BuildConfiguration>create();
+    for (TargetAndConfiguration pair : topLevelTargetsWithConfigs) {
+      byLabel.put(pair.getLabel(), pair.getConfiguration());
+    }
+    for (Label label : byLabel.keySet()) {
+      eventBus.post(new TargetConfiguredEvent(label, byLabel.get(label)));
+    }
+
     List<ConfiguredTargetKey> topLevelCtKeys = Lists.transform(topLevelTargetsWithConfigs,
         new Function<TargetAndConfiguration, ConfiguredTargetKey>() {
           @Override
@@ -483,6 +493,7 @@ public class BuildView {
             return new ConfiguredTargetKey(node.getLabel(), node.getConfiguration());
           }
         });
+
 
     List<AspectValueKey> aspectKeys = new ArrayList<>();
     for (String aspect : aspects) {

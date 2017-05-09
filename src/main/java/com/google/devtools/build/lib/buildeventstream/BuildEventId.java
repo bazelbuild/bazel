@@ -137,11 +137,22 @@ public final class BuildEventId implements Serializable {
     return targetPatternExpanded(targetPattern, true);
   }
 
+  public static BuildEventId targetConfigured(Label label) {
+    BuildEventStreamProtos.BuildEventId.TargetConfiguredId configuredId =
+        BuildEventStreamProtos.BuildEventId.TargetConfiguredId.newBuilder()
+            .setLabel(label.toString())
+            .build();
+    return new BuildEventId(
+        BuildEventStreamProtos.BuildEventId.newBuilder().setTargetConfigured(configuredId).build());
+  }
 
-  public static BuildEventId targetCompleted(Label target) {
+  public static BuildEventId targetCompleted(Label target, BuildEventId configuration) {
+    BuildEventStreamProtos.BuildEventId.ConfigurationId configId =
+        configuration.protoid.getConfiguration();
     BuildEventStreamProtos.BuildEventId.TargetCompletedId targetId =
         BuildEventStreamProtos.BuildEventId.TargetCompletedId.newBuilder()
             .setLabel(target.toString())
+            .setConfiguration(configId)
             .build();
     return new BuildEventId(
         BuildEventStreamProtos.BuildEventId.newBuilder().setTargetCompleted(targetId).build());
