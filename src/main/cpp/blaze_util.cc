@@ -36,7 +36,6 @@ using std::string;
 using std::vector;
 
 const char kServerPidFile[] = "server.pid.txt";
-const char kServerPidSymlink[] = "server.pid";
 
 string MakeAbsolute(const string &path) {
   // Check if path is already absolute.

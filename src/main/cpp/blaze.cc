@@ -714,15 +714,6 @@ static void StartServerAndConnect(const WorkspaceLayout *workspace_layout,
          "server directory '%s' could not be created", server_dir.c_str());
   }
 
-  // TODO(laszlocsomor) 2016-11-21: remove `pid_symlink` and the `remove` call
-  // after 2017-05-01 (~half a year from writing this comment). By that time old
-  // Bazel clients that used to write PID symlinks will probably no longer be in
-  // use.
-  // Until then, defensively delete old PID symlinks that older clients may have
-  // left behind.
-  string pid_symlink = blaze_util::JoinPath(server_dir, kServerPidSymlink);
-  remove(pid_symlink.c_str());
-
   // If we couldn't connect to the server check if there is still a PID file
   // and if so, kill the server that wrote it. This can happen e.g. if the
   // server is in a GC pause and therefore cannot respond to ping requests and
