@@ -35,6 +35,7 @@ bind(
 
 # For tools/cpp/test/...
 load("//tools/cpp/test:docker_repository.bzl", "docker_repository")
+
 docker_repository()
 
 # To run the Android integration tests in //src/test/shell/bazel/android:all or
@@ -54,35 +55,50 @@ docker_repository()
 # maven_dependency_plugin()
 
 # This allows rules written in skylark to locate apple build tools.
-bind(name = "xcrunwrapper", actual = "@bazel_tools//tools/objc:xcrunwrapper")
+bind(
+    name = "xcrunwrapper",
+    actual = "@bazel_tools//tools/objc:xcrunwrapper",
+)
 
 new_local_repository(
     name = "com_google_protobuf",
+    build_file = "./third_party/protobuf/3.2.0/BUILD",
     path = "./third_party/protobuf/3.2.0/",
-    build_file = "./third_party/protobuf/3.2.0/BUILD"
 )
 
 new_local_repository(
     name = "com_google_protobuf_java",
-    path = "./third_party/protobuf/3.2.0/",
     build_file = "./third_party/protobuf/3.2.0/com_google_protobuf_java.BUILD",
+    path = "./third_party/protobuf/3.2.0/",
 )
 
 # OpenJDK distributions used to create a version of Bazel bundled with the OpenJDK.
 http_file(
     name = "openjdk_linux",
-    url = "https://bazel-mirror.storage.googleapis.com/openjdk/azul-zulu-8.20.0.5-jdk8.0.121/zulu8.20.0.5-jdk8.0.121-linux_x64.tar.gz",
     sha256 = "7fdfb17d890406470b2303d749d3138e7f353749e67a0a22f542e1ab3e482745",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu-8.20.0.5-jdk8.0.121/zulu8.20.0.5-jdk8.0.121-linux_x64.tar.gz",
+        "https://bazel-mirror.storage.googleapis.com/openjdk/azul-zulu-8.20.0.5-jdk8.0.121/zulu8.20.0.5-jdk8.0.121-linux_x64.tar.gz",
+        "https://cdn.azul.com/zulu/bin/zulu8.20.0.5-jdk8.0.121-linux_x64.tar.gz",
+    ],
 )
 
 http_file(
     name = "openjdk_macos",
-    url = "https://bazel-mirror.storage.googleapis.com/openjdk/azul-zulu-8.20.0.5-jdk8.0.121/zulu8.20.0.5-jdk8.0.121-macosx_x64.zip",
     sha256 = "2a58bd1d9b0cbf0b3d8d1bcdd117c407e3d5a0ec01e2f53565c9bec5cf9ea78b",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu-8.20.0.5-jdk8.0.121/zulu8.20.0.5-jdk8.0.121-macosx_x64.zip",
+        "https://bazel-mirror.storage.googleapis.com/openjdk/azul-zulu-8.20.0.5-jdk8.0.121/zulu8.20.0.5-jdk8.0.121-macosx_x64.zip",
+        "https://cdn.azul.com/zulu/bin/zulu8.20.0.5-jdk8.0.121-macosx_x64.zip",
+    ],
 )
 
 http_file(
     name = "openjdk_win",
-    url = "https://bazel-mirror.storage.googleapis.com/openjdk/azul-zulu-8.20.0.5-jdk8.0.121/zulu8.20.0.5-jdk8.0.121-win_x64.zip",
     sha256 = "35414df28f17704546b9559b5e62b4d00cdc8fdfd349116be4f987abaeaaff68",
+    urls = [
+        "https://mirror.bazel.build/openjdk/azul-zulu-8.20.0.5-jdk8.0.121/zulu8.20.0.5-jdk8.0.121-win_x64.zip",
+        "https://bazel-mirror.storage.googleapis.com/openjdk/azul-zulu-8.20.0.5-jdk8.0.121/zulu8.20.0.5-jdk8.0.121-win_x64.zip",
+        "https://cdn.azul.com/zulu/bin/zulu8.20.0.5-jdk8.0.121-win_x64.zip",
+    ],
 )
