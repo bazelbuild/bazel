@@ -157,6 +157,11 @@ genrule(
   cmd = "ls -l $$(dirname \"$$(pwd)\") &> $@",
 )
 
+genrule(
+  name = "check_proc_works",
+  outs = [ "check_proc_works.txt" ],
+  cmd = "sh -c 'cd /proc/self && echo $$$$ && exec cat stat | sed \"s/\\([^ ]*\\) .*/\\1/g\"' > $@",
+)
 EOF
   cat << 'EOF' >> examples/genrule/datafile
 this is a datafile
@@ -437,6 +442,20 @@ set -u
 mount --bind ${TEST_TMPDIR}/passwd /etc/passwd
 bazel build examples/genrule:works &> ${TEST_log}
 EOF
+}
+
+# Tests that /proc/self == /proc/$$. This should always be true unless the PID namespace is active without /proc being remounted correctly.
+function test_sandbox_proc_self() {
+  bazel build examples/genrule:check_proc_works >& $TEST_log || fail "build should have succeeded"
+
+  (
+    # Catch the head and tail commands failing.
+    set -e
+    if [[ "$(head -n1 "${BAZEL_GENFILES_DIR}/examples/genrule/check_proc_works.txt")" \
+          != "$(tail -n1 "${BAZEL_GENFILES_DIR}/examples/genrule/check_proc_works.txt")" ]] ; then
+      fail "Reading PID from /proc/self/stat should have worked, instead have these: $(cat "${BAZEL_GENFILES_DIR}/examples/genrule/check_proc_works.txt")"
+    fi
+  )
 }
 
 function test_succeeding_action_with_ioexception_while_copying_outputs_throws_correct_exception() {
