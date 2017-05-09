@@ -186,10 +186,9 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
     HashSet<Path> writableDirs = new HashSet<>(alwaysWritableDirs);
     writableDirs.addAll(getWritableDirs(sandboxExecRoot, spawnEnvironment));
 
-    HardlinkedExecRoot hardlinkedExecRoot =
-        new HardlinkedExecRoot(execRoot, sandboxPath, sandboxExecRoot);
+    SymlinkedExecRoot symlinkedExecRoot = new SymlinkedExecRoot(sandboxExecRoot);
     ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);
-    hardlinkedExecRoot.createFileSystem(
+    symlinkedExecRoot.createFileSystem(
         getMounts(spawn, actionExecutionContext), outputs, writableDirs);
 
     DarwinSandboxRunner runner =
@@ -199,7 +198,7 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
           spawn,
           actionExecutionContext,
           spawnEnvironment,
-          hardlinkedExecRoot,
+          symlinkedExecRoot,
           outputs,
           runner,
           writeOutputFiles);
