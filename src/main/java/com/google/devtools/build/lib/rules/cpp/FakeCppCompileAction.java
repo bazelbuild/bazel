@@ -82,6 +82,8 @@ public class FakeCppCompileAction extends CppCompileAction {
       Iterable<IncludeScannable> lipoScannables,
       Iterable<Artifact> builtinIncludeFiles,
       CppSemantics cppSemantics,
+      ImmutableList<String> unfilteredCompilerOptions,
+      ImmutableList<PathFragment> builtInIncludeDirectories,
       ImmutableMap<String, String> executionInfo) {
     super(
         owner,
@@ -124,7 +126,9 @@ public class FakeCppCompileAction extends CppCompileAction {
         ImmutableMap.<String, String>of(),
         CppCompileAction.CPP_COMPILE,
         builtinIncludeFiles,
-        cppSemantics);
+        cppSemantics,
+        unfilteredCompilerOptions,
+        builtInIncludeDirectories);
     this.tempOutputFile = Preconditions.checkNotNull(tempOutputFile);
   }
 

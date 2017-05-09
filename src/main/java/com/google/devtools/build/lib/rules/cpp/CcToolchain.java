@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -284,6 +285,15 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       coverage = crosstool;
     }
 
+    PathFragment sysroot = calculateSysroot(ruleContext);
+
+    ImmutableList<PathFragment> builtInIncludeDirectories = null;
+    try {
+      builtInIncludeDirectories = cppConfiguration.getBuiltInIncludeDirectories(sysroot);
+    } catch (InvalidConfigurationException e) {
+      ruleContext.ruleError(e.getMessage());
+    }
+
     CcToolchainProvider ccProvider =
         new CcToolchainProvider(
             cppConfiguration,
@@ -310,9 +320,8 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             coverageEnvironment.build(),
             ruleContext.getPrerequisiteArtifact("$link_dynamic_library_tool", Mode.HOST),
             getEnvironment(ruleContext),
-            cppConfiguration.getBuiltInIncludeDirectories());
-
-    PathFragment sysroot = cppConfiguration.getSysroot();
+            builtInIncludeDirectories,
+            sysroot);
 
     MakeVariableProvider makeVariableProvider =
         createMakeVariableProvider(cppConfiguration, sysroot);
@@ -480,5 +489,17 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
    */
   protected ImmutableMap<String, String> getEnvironment(RuleContext ruleContext) {
     return ImmutableMap.<String, String>of();
+  }
+
+  private PathFragment calculateSysroot(RuleContext ruleContext) {
+
+    TransitiveInfoCollection sysrootTarget = ruleContext.getPrerequisite(":sysroot", Mode.TARGET);
+    if (sysrootTarget == null) {
+      CppConfiguration cppConfiguration =
+          Preconditions.checkNotNull(ruleContext.getFragment(CppConfiguration.class));
+      return cppConfiguration.getDefaultSysroot();
+    }
+
+    return sysrootTarget.getLabel().getPackageFragment();
   }
 }
