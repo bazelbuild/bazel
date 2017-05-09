@@ -58,7 +58,7 @@ string GetOutputRoot() {
 void WarnFilesystemType(const string &output_base) {
   struct statfs buf = {};
   if (statfs(output_base.c_str(), &buf) < 0) {
-    PrintWaring("couldn't get file system type information for '%s': %s",
+    PrintWarning("couldn't get file system type information for '%s': %s",
                 output_base.c_str(), strerror(errno));
     return;
   }
