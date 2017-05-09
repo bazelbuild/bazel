@@ -558,13 +558,15 @@ public class FileFunctionTest {
   }
 
   @Test
-  public void testSymlinkTargetContentsChangeModTime() throws Exception {
+  public void testSymlinkTargetContentsChangeCTime() throws Exception {
     fastDigest = false;
     Path fooPath = file("foo");
     FileSystemUtils.writeContentAsLatin1(fooPath, "foo");
     Path p = symlink("symlink", "foo");
     FileValue a = valueForPath(p);
-    fooPath.setLastModifiedTime(88);
+    manualClock.advanceMillis(1);
+    fooPath.chmod(0555);
+    manualClock.advanceMillis(1);
     FileValue b = valueForPath(p);
     assertThat(b).isNotEqualTo(a);
   }

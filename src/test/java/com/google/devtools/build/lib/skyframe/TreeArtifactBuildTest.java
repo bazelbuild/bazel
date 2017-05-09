@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.Root;
-import com.google.devtools.build.lib.actions.cache.InjectedStat;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.TestAction;
@@ -687,13 +686,11 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
           MetadataHandler md = actionExecutionContext.getMetadataHandler();
           FileStatus stat = outOneFileOne.getPath().stat(Symlinks.NOFOLLOW);
           md.injectDigest(outOneFileOne,
-              new InjectedStat(stat.getLastModifiedTime(), stat.getSize(), stat.getNodeId()),
-              Hashing.md5().hashString("one", Charset.forName("UTF-8")).asBytes());
+              stat, Hashing.md5().hashString("one", Charset.forName("UTF-8")).asBytes());
 
           stat = outOneFileTwo.getPath().stat(Symlinks.NOFOLLOW);
           md.injectDigest(outOneFileTwo,
-              new InjectedStat(stat.getLastModifiedTime(), stat.getSize(), stat.getNodeId()),
-              Hashing.md5().hashString("two", Charset.forName("UTF-8")).asBytes());
+              stat, Hashing.md5().hashString("two", Charset.forName("UTF-8")).asBytes());
         } catch (Exception e) {
           throw new RuntimeException(e);
         }

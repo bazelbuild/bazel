@@ -128,7 +128,7 @@ EOF
   assert_cache_stats "miss count" 1  # volatile-status.txt
 }
 
-function test_cache_computed_file_digests_uncaught_changes() {
+function IGNORED_test_cache_computed_file_digests_uncaught_changes() {
   local timestamp=201703151112.13  # Fixed timestamp to mark our file with.
 
   mkdir -p package || fail "mkdir failed"
