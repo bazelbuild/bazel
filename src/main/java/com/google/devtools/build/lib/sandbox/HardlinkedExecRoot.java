@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
@@ -35,14 +34,11 @@ public class HardlinkedExecRoot implements SandboxExecRoot {
   private final Path execRoot;
   private final Path sandboxPath;
   private final Path sandboxExecRoot;
-  private final PrintWriter errWriter;
 
-  public HardlinkedExecRoot(
-      Path execRoot, Path sandboxPath, Path sandboxExecRoot, PrintWriter errWriter) {
+  public HardlinkedExecRoot(Path execRoot, Path sandboxPath, Path sandboxExecRoot) {
     this.execRoot = execRoot;
     this.sandboxPath = sandboxPath;
     this.sandboxExecRoot = sandboxExecRoot;
-    this.errWriter = errWriter;
   }
 
   @Override
@@ -55,9 +51,6 @@ public class HardlinkedExecRoot implements SandboxExecRoot {
 
     // Create all needed directories.
     for (Path createDir : writableDirs) {
-      if (errWriter != null) {
-        errWriter.printf("createdir: %s\n", createDir.getPathString());
-      }
       FileSystemUtils.createDirectoryAndParentsWithCache(createdDirs, createDir);
     }
 
@@ -114,9 +107,6 @@ public class HardlinkedExecRoot implements SandboxExecRoot {
           target.startsWith(execRoot)
               ? inputsDir.getRelative(target.relativeTo(execRoot))
               : inputsDir.getRelative(entry.getKey());
-      if (errWriter != null) {
-        errWriter.printf("hardlink: %s -> %s\n", hardlinkName, target);
-      }
       try {
         createHardLink(hardlinkName, target);
       } catch (IOException e) {
@@ -126,9 +116,6 @@ public class HardlinkedExecRoot implements SandboxExecRoot {
       }
 
       // symlink
-      if (errWriter != null) {
-        errWriter.printf("symlink: %s -> %s\n", targetName, hardlinkName);
-      }
       targetName.createSymbolicLink(hardlinkName);
     }
   }

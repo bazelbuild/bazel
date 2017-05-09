@@ -41,10 +41,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
-import java.io.BufferedWriter;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -179,23 +176,9 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
         .post(ActionStatusMessage.runningStrategy(spawn.getResourceOwner(), "darwin-sandbox"));
     SandboxHelpers.reportSubcommand(executor, spawn);
 
-    PrintWriter errWriter = null;
-    if (sandboxDebug) {
-      errWriter =
-          new PrintWriter(
-              new BufferedWriter(
-                  new OutputStreamWriter(
-                      actionExecutionContext.getFileOutErr().getErrorStream(), UTF_8)));
-    }
-
     // Each invocation of "exec" gets its own sandbox.
     Path sandboxPath = getSandboxRoot();
     Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
-
-    if (errWriter != null) {
-      errWriter.printf("sandbox root is %s\n", sandboxPath.toString());
-      errWriter.printf("working dir is %s\n", sandboxExecRoot.toString());
-    }
 
     ImmutableMap<String, String> spawnEnvironment =
         StandaloneSpawnStrategy.locallyDeterminedEnv(execRoot, productName, spawn.getEnvironment());
@@ -204,15 +187,10 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
     writableDirs.addAll(getWritableDirs(sandboxExecRoot, spawnEnvironment));
 
     HardlinkedExecRoot hardlinkedExecRoot =
-        new HardlinkedExecRoot(execRoot, sandboxPath, sandboxExecRoot, errWriter);
+        new HardlinkedExecRoot(execRoot, sandboxPath, sandboxExecRoot);
     ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);
     hardlinkedExecRoot.createFileSystem(
         getMounts(spawn, actionExecutionContext), outputs, writableDirs);
-
-    // Flush our logs before executing the spawn, otherwise they might get overwritten.
-    if (errWriter != null) {
-      errWriter.flush();
-    }
 
     DarwinSandboxRunner runner =
         new DarwinSandboxRunner(sandboxPath, sandboxExecRoot, writableDirs, verboseFailures);
