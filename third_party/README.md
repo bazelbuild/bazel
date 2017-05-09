@@ -166,7 +166,7 @@ a minimal set of extra dependencies.
 
 ## [javac](https://github.com/google/error-prone-javac)
 
-* Version: 9-dev-r4023-1 (javac-9-dev-r4023-1.jar)
+* Version: 9-dev-r4023-2 (javac-9-dev-r4023-2.jar)
 * License: GNU GPL v2 with Classpath exception (plus other licenses, see third_party/java/jdk/langtools/LICENSE file).
 
 ## [jarjar](https://code.google.com/p/jarjar/)
