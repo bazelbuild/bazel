@@ -947,7 +947,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
   @SkylarkCallable(documented = false)
   public NestedSet<Artifact> middleMan(String attribute) throws EvalException {
     checkMutable("middle_man");
-    return AnalysisUtils.getMiddlemanFor(ruleContext, attribute);
+    return AnalysisUtils.getMiddlemanFor(ruleContext, attribute, Mode.HOST);
   }
 
   @SkylarkCallable(documented = false)
