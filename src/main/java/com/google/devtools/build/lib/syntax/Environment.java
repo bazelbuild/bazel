@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
@@ -285,62 +286,56 @@ public final class Environment implements Freezable {
     }
   }
 
-  // TODO(bazel-team): Fix this scary failure of serializability.
-  // skyframe.SkylarkImportLookupFunction processes a .bzl and returns an Extension,
-  // for use by whoever imports the .bzl file. Skyframe may subsequently serialize the results.
-  // And it will fail to process these bindings, because they are inherited from a non-serializable
-  // class (in previous versions of the code the serializable SkylarkEnvironment was inheriting
-  // from the non-serializable Environment and being returned by said Function).
-  // If we try to merge this otherwise redundant superclass into Extension, though,
-  // skyframe experiences a massive failure to serialize things, and it's unclear how far
-  // reaching the need to make things Serializable goes, though clearly we'll need to make
-  // a whole lot of things Serializable, and for efficiency, we'll want to implement sharing
-  // of imported values rather than a code explosion.
+  // TODO(bazel-team): Eliminate this hack around Java serialization. The bindings are currently
+  // factored out into BaseExtension, which is non-Serializable, and which has a default constructor
+  // that does not initialize any bindings. This means that when Extension is Java-serialized, all
+  // the bindings are simply lost.
   private static class BaseExtension {
-    final ImmutableMap<String, Object> bindings;
-    BaseExtension(Environment env) {
-      this.bindings = ImmutableMap.copyOf(env.globalFrame.bindings);
+
+    protected final ImmutableMap<String, Object> bindings;
+
+    BaseExtension(Map<String, Object> bindings) {
+      this.bindings = ImmutableMap.copyOf(bindings);
     }
 
-    // Hack to allow serialization.
+    // Hack to "allow" java serialization.
     BaseExtension() {
       this.bindings = ImmutableMap.of();
     }
   }
 
-  /**
-   * An Extension to be imported with load() into a BUILD or .bzl file.
-   */
+  /** An Extension to be imported with load() into a BUILD or .bzl file. */
+  @Immutable
   public static final class Extension extends BaseExtension implements Serializable {
 
+    /**
+     * Cached hash code for the transitive content of this {@code Extension} and its dependencies.
+     */
     private final String transitiveContentHashCode;
 
     /**
-     * Constructs an Extension by extracting the new global definitions from an Environment.
-     * Also caches a hash code for the transitive content of the file and its dependencies.
-     * @param env the Environment from which to extract an Extension.
+     * Constructs with the given hash code and bindings.
+     */
+    public Extension(Map<String, Object> bindings, String transitiveContentHashCode) {
+      super(bindings);
+      this.transitiveContentHashCode = transitiveContentHashCode;
+    }
+
+    /**
+     * Constructs using the bindings from the global definitions of the given {@link Environment},
+     * and that {@code Environment}'s transitive hash code.
      */
     public Extension(Environment env) {
-      super(env);
+      super(env.globalFrame.bindings);
       this.transitiveContentHashCode = env.getTransitiveContentHashCode();
     }
 
-    String getTransitiveContentHashCode() {
+    public String getTransitiveContentHashCode() {
       return transitiveContentHashCode;
     }
 
-    /** get the value bound to a variable in this Extension */
-    public Object get(String varname) {
-      return bindings.get(varname);
-    }
-
-    /** does this Extension contain a binding for the named variable? */
-    public boolean containsKey(String varname) {
-      return bindings.containsKey(varname);
-    }
-
-    public Set<String> allKeys() {
-      return bindings.keySet();
+    public ImmutableMap<String, Object> getBindings() {
+      return bindings;
     }
   }
 
@@ -866,11 +861,12 @@ public final class Environment implements Freezable {
 
     Extension ext = importedExtensions.get(importString);
 
-    if (!ext.containsKey(nameInLoadedFile)) {
-      throw new LoadFailedException(importString, nameInLoadedFile, ext.allKeys());
+    Map<String, Object> bindings = ext.getBindings();
+    if (!bindings.containsKey(nameInLoadedFile)) {
+      throw new LoadFailedException(importString, nameInLoadedFile, bindings.keySet());
     }
 
-    Object value = ext.get(nameInLoadedFile);
+    Object value = bindings.get(nameInLoadedFile);
 
     try {
       update(symbol.getName(), value);
