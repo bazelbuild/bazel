@@ -189,10 +189,14 @@ public final class BuildEventId implements Serializable {
         BuildEventStreamProtos.BuildEventId.newBuilder().setNamedSet(namedSetId).build());
   }
 
-  public static BuildEventId testResult(Label target, Integer run, Integer shard, Integer attempt) {
+  public static BuildEventId testResult(
+      Label target, Integer run, Integer shard, Integer attempt, BuildEventId configuration) {
+    BuildEventStreamProtos.BuildEventId.ConfigurationId configId =
+        configuration.protoid.getConfiguration();
     BuildEventStreamProtos.BuildEventId.TestResultId resultId =
         BuildEventStreamProtos.BuildEventId.TestResultId.newBuilder()
             .setLabel(target.toString())
+            .setConfiguration(configId)
             .setRun(run + 1)
             .setShard(shard + 1)
             .setAttempt(attempt)
@@ -201,14 +205,18 @@ public final class BuildEventId implements Serializable {
         BuildEventStreamProtos.BuildEventId.newBuilder().setTestResult(resultId).build());
   }
 
-  public static BuildEventId testResult(Label target, Integer run, Integer shard) {
-    return testResult(target, run, shard, 1);
+  public static BuildEventId testResult(
+      Label target, Integer run, Integer shard, BuildEventId configuration) {
+    return testResult(target, run, shard, 1, configuration);
   }
 
-  public static BuildEventId testSummary(Label target) {
+  public static BuildEventId testSummary(Label target, BuildEventId configuration) {
+    BuildEventStreamProtos.BuildEventId.ConfigurationId configId =
+        configuration.protoid.getConfiguration();
     BuildEventStreamProtos.BuildEventId.TestSummaryId summaryId =
         BuildEventStreamProtos.BuildEventId.TestSummaryId.newBuilder()
             .setLabel(target.toString())
+            .setConfiguration(configId)
             .build();
     return new BuildEventId(
         BuildEventStreamProtos.BuildEventId.newBuilder().setTestSummary(summaryId).build());

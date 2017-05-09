@@ -455,7 +455,8 @@ public class TestSummary implements Comparable<TestSummary>, BuildEvent {
 
   @Override
   public BuildEventId getEventId() {
-    return BuildEventId.testSummary(target.getTarget().getLabel());
+    return BuildEventId.testSummary(
+        target.getTarget().getLabel(), target.getConfiguration().getEventId());
   }
 
   @Override

@@ -133,10 +133,11 @@ public final class TargetCompleteEvent
       TestProvider.TestParams params = target.getProvider(TestProvider.class).getTestParams();
       for (int run = 0; run < Math.max(params.getRuns(), 1); run++) {
         for (int shard = 0; shard < Math.max(params.getShards(), 1); shard++) {
-          childrenBuilder.add(BuildEventId.testResult(label, run, shard));
+          childrenBuilder.add(
+              BuildEventId.testResult(label, run, shard, target.getConfiguration().getEventId()));
         }
       }
-      childrenBuilder.add(BuildEventId.testSummary(label));
+      childrenBuilder.add(BuildEventId.testSummary(label, target.getConfiguration().getEventId()));
     }
     return childrenBuilder.build();
   }

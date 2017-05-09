@@ -113,7 +113,8 @@ public class TestAttempt implements BuildEvent {
         testAction.getOwner().getLabel(),
         testAction.getRunNumber(),
         testAction.getShardNum(),
-        attempt);
+        attempt,
+        testAction.getConfiguration().getEventId());
   }
 
   @Override
@@ -126,7 +127,8 @@ public class TestAttempt implements BuildEvent {
               testAction.getOwner().getLabel(),
               testAction.getRunNumber(),
               testAction.getShardNum(),
-              attempt + 1));
+              attempt + 1,
+              testAction.getConfiguration().getEventId()));
     }
   }
 
