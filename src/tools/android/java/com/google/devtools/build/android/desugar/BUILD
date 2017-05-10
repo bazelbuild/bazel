@@ -5,7 +5,7 @@ filegroup(
     name = "embedded_tools",
     srcs = [
         "BUILD.tools",
-        "desugar_bin_deploy.jar",
+        "Desugar_deploy.jar",
     ],
     visibility = ["//src/tools/android/java/com/google/devtools/build/android:__pkg__"],
 )
@@ -28,8 +28,8 @@ java_library(
 )
 
 java_binary(
-    name = "desugar_bin",
-    main_class = "does.not.exist",
+    name = "Desugar",
+    main_class = "com.google.devtools.build.android.desugar.Desugar",
     runtime_deps = [":desugar"],
 )
 
