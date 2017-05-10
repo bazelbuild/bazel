@@ -16,11 +16,13 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>  // PATH_MAX
+#include <poll.h>
 #include <pwd.h>
 #include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <sys/ioctl.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -235,68 +237,124 @@ static void Daemonize(const string& daemon_output) {
   (void) dup(STDOUT_FILENO);  // stderr (2>&1)
 }
 
-class PipeBlazeServerStartup : public BlazeServerStartup {
+// Notifies the client about the death of the server process by keeping a socket
+// open in the server. If the server dies for any reason, the socket will be
+// closed, which can be detected by the client.
+class SocketBlazeServerStartup : public BlazeServerStartup {
  public:
-  PipeBlazeServerStartup(int pipe_fd);
-  virtual ~PipeBlazeServerStartup();
+  SocketBlazeServerStartup(int pipe_fd);
+  virtual ~SocketBlazeServerStartup();
   virtual bool IsStillAlive();
 
  private:
-  int pipe_fd;
+  int fd;
 };
 
-PipeBlazeServerStartup::PipeBlazeServerStartup(int pipe_fd) {
-  this->pipe_fd = pipe_fd;
-  if (fcntl(pipe_fd, F_SETFL, O_NONBLOCK | fcntl(pipe_fd, F_GETFL))) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "Failed: fcntl to enable O_NONBLOCK on pipe");
+SocketBlazeServerStartup::SocketBlazeServerStartup(int fd)
+    : fd(fd) {
+}
+
+SocketBlazeServerStartup::~SocketBlazeServerStartup() {
+  close(fd);
+}
+
+bool SocketBlazeServerStartup::IsStillAlive() {
+  struct pollfd pfd;
+  pfd.fd = fd;
+  pfd.events = POLLIN;
+  int result;
+  do {
+    result = poll(&pfd, 1, 0);
+  } while (result < 0 && errno == EINTR);
+  if (result == 0) {
+    // Timeout, server is still alive
+    return true;
+  } else {
+    // Whether it's an error or pfd.revents & POLLHUP > 0, we assume child is
+    // dead.
+    return false;
   }
 }
 
-PipeBlazeServerStartup::~PipeBlazeServerStartup() {
-  close(pipe_fd);
+static void ReadFromFdWithRetryEintr(
+    int fd, void *buf, size_t count, const char* error_message) {
+  ssize_t result;
+  do {
+    result = read(fd, buf, count);
+  } while (result < 0 && errno == EINTR);
+  if (result != count) {
+    pdie(blaze_exit_code::INTERNAL_ERROR, "%s", error_message);
+  }
 }
 
-bool PipeBlazeServerStartup::IsStillAlive() {
-  char c;
-  return read(this->pipe_fd, &c, 1) == -1 && errno == EAGAIN;
+
+static void WriteToFdWithRetryEintr(
+    int fd, void *buf, size_t count, const char* error_message) {
+  ssize_t result;
+  do {
+    // Ideally, we'd use send(..., MSG_NOSIGNAL), but that's not available on
+    // Darwin.
+    result = write(fd, buf, count);
+  } while (result < 0 && errno == EINTR);
+  if (result != count) {
+    pdie(blaze_exit_code::INTERNAL_ERROR, "%s", error_message);
+  }
 }
 
-void WriteSystemSpecificProcessIdentifier(const string& server_dir);
+void WriteSystemSpecificProcessIdentifier(
+    const string& server_dir, pid_t server_pid);
 
 void ExecuteDaemon(const string& exe,
                    const std::vector<string>& args_vector,
                    const string& daemon_output, const string& server_dir,
                    BlazeServerStartup** server_startup) {
   int fds[2];
-  if (pipe(fds)) {
-    pdie(blaze_exit_code::INTERNAL_ERROR, "pipe creation failed");
+
+  if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds)) {
+    pdie(blaze_exit_code::INTERNAL_ERROR, "socket creation failed");
   }
+
   CheckSingleThreaded();
   int child = fork();
   if (child == -1) {
     pdie(blaze_exit_code::INTERNAL_ERROR, "fork() failed");
-  } else if (child > 0) {  // we're the parent
-    close(fds[1]);  // parent keeps only the reading side
+  } else if (child > 0) {
+    // Parent process (i.e. the client)
+    close(fds[1]);  // parent keeps one side...
     int unused_status;
     waitpid(child, &unused_status, 0);  // child double-forks
-    *server_startup = new PipeBlazeServerStartup(fds[0]);
+    pid_t server_pid;
+    ReadFromFdWithRetryEintr(fds[0], &server_pid, sizeof server_pid,
+                        "cannot read server PID from server");
+    string pid_file = blaze_util::JoinPath(server_dir, kServerPidFile);
+    if (!blaze_util::WriteFile(ToString(server_pid), pid_file)) {
+      pdie(blaze_exit_code::INTERNAL_ERROR, "cannot write PID file");
+    }
+
+    WriteSystemSpecificProcessIdentifier(server_dir, server_pid);
+    char dummy = 'a';
+    WriteToFdWithRetryEintr(fds[0], &dummy, 1,
+                       "cannot notify server about having written PID file");
+    *server_startup = new SocketBlazeServerStartup(fds[0]);
     return;
-  } else {
-    close(fds[0]);  // child keeps only the writing side
   }
+
+  // Child process (i.e. the server)
+  close(fds[0]);  // ...child keeps the other.
 
   Daemonize(daemon_output);
-  string pid_string = GetProcessIdAsString();
-  string pid_file = blaze_util::JoinPath(server_dir, kServerPidFile);
 
-  if (!blaze_util::WriteFile(pid_string, pid_file)) {
-    // The exit code does not matter because we are already in the daemonized
-    // server. The output of this operation will end up in jvm.out .
-    pdie(0, "Cannot write PID file");
-  }
-
-  WriteSystemSpecificProcessIdentifier(server_dir);
+  pid_t server_pid = getpid();
+  WriteToFdWithRetryEintr(fds[1], &server_pid, sizeof server_pid,
+                     "cannot communicate server PID to client");
+  // We wait until the client writes the PID file so that there is no race
+  // condition; the server expects the PID file to already be there so that
+  // it can read it and know its own PID (see the ctor GrpcServerImpl) and so
+  // that it can kill itself if the PID file is deleted (see
+  // GrpcServerImpl.PidFileWatcherThread)
+  char dummy;
+  ReadFromFdWithRetryEintr(fds[1], &dummy, 1,
+             "cannot get PID file write acknowledgement from client");
 
   ExecuteProgram(exe, args_vector);
   pdie(0, "Cannot execute %s", exe.c_str());

@@ -149,7 +149,8 @@ string GetDefaultHostJavabase() {
   return !javahome.empty() ? javahome : "/usr/local/openjdk8";
 }
 
-void WriteSystemSpecificProcessIdentifier(const string& server_dir) {
+void WriteSystemSpecificProcessIdentifier(
+    const string& server_dir, pid_t server_pid) {
 }
 
 bool VerifyServerProcess(
