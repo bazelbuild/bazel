@@ -44,6 +44,22 @@ public class ValidationTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testLoadAfterStatement() throws Exception {
+    env = newEnvironmentWithSkylarkOptions("--incompatible_bzl_disallow_load_after_statement=true");
+    checkError(
+        "load() statements must be called before any other statement",
+        "a = 5",
+        "load(':b.bzl', 'c')");
+  }
+
+  @Test
+  public void testAllowLoadAfterStatement() throws Exception {
+    env =
+        newEnvironmentWithSkylarkOptions("--incompatible_bzl_disallow_load_after_statement=false");
+    parse("a = 5", "load(':b.bzl', 'c')");
+  }
+
+  @Test
   public void testTwoFunctionsWithTheSameName() throws Exception {
     checkError(
         "Variable foo is read only", "def foo():", "  return 1", "def foo(x, y):", "  return 1");

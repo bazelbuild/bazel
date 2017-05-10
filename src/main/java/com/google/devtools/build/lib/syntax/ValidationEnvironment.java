@@ -41,6 +41,8 @@ public final class ValidationEnvironment {
 
   private final Set<String> readOnlyVariables = new HashSet<>();
 
+  private final SkylarkSemanticsOptions semantics;
+
   // A stack of variable-sets which are read only but can be assigned in different
   // branches of if-else statements.
   private final Stack<Set<String>> futureReadOnlyVariables = new Stack<>();
@@ -54,6 +56,7 @@ public final class ValidationEnvironment {
     Set<String> builtinVariables = env.getVariableNames();
     variables.addAll(builtinVariables);
     readOnlyVariables.addAll(builtinVariables);
+    semantics = env.getSemantics();
   }
 
   /**
@@ -62,6 +65,7 @@ public final class ValidationEnvironment {
   public ValidationEnvironment(ValidationEnvironment parent) {
     // Don't copy readOnlyVariables: Variables may shadow global values.
     this.parent = parent;
+    semantics = parent.semantics;
   }
 
   /**
@@ -146,10 +150,45 @@ public final class ValidationEnvironment {
     readOnlyVariables.removeAll(futureReadOnlyVariables.peek());
   }
 
+  /** Throws EvalException if a load() appears after another kind of statement. */
+  private void checkLoadAfterStatement(List<Statement> statements) throws EvalException {
+    Location firstStatement = null;
+
+    for (Statement statement : statements) {
+      // Ignore string literals (e.g. docstrings).
+      if (statement instanceof ExpressionStatement
+          && ((ExpressionStatement) statement).getExpression() instanceof StringLiteral) {
+        continue;
+      }
+
+      if (statement instanceof LoadStatement) {
+        if (firstStatement == null) {
+          continue;
+        }
+        throw new EvalException(
+            statement.getLocation(),
+            "load() statements must be called before any other statement. "
+                + "First non-load() statement appears at "
+                + firstStatement
+                + ". Use --incompatible_bzl_disallow_load_after_statement to temporarily disable "
+                + "this check.");
+      }
+
+      if (firstStatement == null) {
+        firstStatement = statement.getLocation();
+      }
+    }
+  }
+
   /**
    * Validates the AST and runs static checks.
    */
   public void validateAst(List<Statement> statements) throws EvalException {
+    // Check that load() statements are on top.
+    if (semantics.incompatibleBzlDisallowLoadAfterStatement) {
+      checkLoadAfterStatement(statements);
+    }
+
     // Add every function in the environment before validating. This is
     // necessary because functions may call other functions defined
     // later in the file.

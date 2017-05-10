@@ -76,4 +76,14 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
     help = "If set to true, the `+` becomes disabled for dicts."
   )
   public boolean incompatibleDisallowDictPlus;
+
+  @Option(
+    name = "incompatible_bzl_disallow_load_after_statement",
+    defaultValue = "false",
+    category = "incompatible changes",
+    help =
+        "If set to true, all `load` must be called at the top of .bzl files, before any other "
+            + "statement."
+  )
+  public boolean incompatibleBzlDisallowLoadAfterStatement;
 }
