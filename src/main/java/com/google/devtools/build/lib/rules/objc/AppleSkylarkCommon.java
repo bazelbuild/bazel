@@ -15,7 +15,11 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
@@ -28,9 +32,14 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
+import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
+import com.google.devtools.build.lib.vfs.PathFragment;
+
 import java.util.Map.Entry;
+
 import javax.annotation.Nullable;
 
 /**
@@ -118,6 +127,18 @@ public class AppleSkylarkCommon {
   )
   public ClassObjectConstructor getXcodeVersionPropertiesConstructor() {
     return XcodeVersionProperties.SKYLARK_CONSTRUCTOR;
+  }
+
+  @SkylarkCallable(
+    name = AppleDynamicFrameworkProvider.SKYLARK_NAME,
+    doc =
+        "Returns the provider constructor for AppleDynamicFramework. If a target propagates "
+            + "the AppleDynamicFramework provider, use this as the key with which to retrieve "
+            + "it.",
+    structField = true
+  )
+  public ClassObjectConstructor getAppleDynamicFrameworkConstructor() {
+    return AppleDynamicFrameworkProvider.SKYLARK_CONSTRUCTOR;
   }
 
   @SkylarkCallable(
@@ -270,8 +291,80 @@ public class AppleSkylarkCommon {
         }
       };
 
+  @SkylarkSignature(
+    name = "new_dynamic_framework_provider",
+    objectType = AppleSkylarkCommon.class,
+    returnType = AppleDynamicFrameworkProvider.class,
+    doc = "Creates a new AppleDynamicFramework provider instance.",
+    parameters = {
+      @Param(name = "self", type = AppleSkylarkCommon.class, doc = "The apple_common instance."),
+      @Param(
+        name = AppleDynamicFrameworkProvider.DYLIB_BINARY_FIELD_NAME,
+        type = Artifact.class,
+        named = true,
+        positional = false,
+        doc = "The dylib binary artifact of the dynamic framework."
+      ),
+      @Param(
+        name = AppleDynamicFrameworkProvider.OBJC_PROVIDER_FIELD_NAME,
+        type = ObjcProvider.class,
+        named = true,
+        positional = false,
+        doc = "An ObjcProvider which contains information about the transitive "
+            + "dependencies linked into the binary."
+      ),
+      @Param(
+        name = AppleDynamicFrameworkProvider.FRAMEWORK_DIRS_FIELD_NAME,
+        type = SkylarkNestedSet.class,
+        generic1 = String.class,
+        named = true,
+        noneable = true,
+        positional = false,
+        defaultValue = "None",
+        doc = "The framework path names used as link inputs in order to link against the dynamic "
+            + "framework."
+      ),
+      @Param(
+        name = AppleDynamicFrameworkProvider.FRAMEWORK_FILES_FIELD_NAME,
+        type = SkylarkNestedSet.class,
+        generic1 = Artifact.class,
+        named = true,
+        noneable = true,
+        positional = false,
+        defaultValue = "None",
+        doc = "The full set of artifacts that should be included as inputs to link against the "
+            + "dynamic framework"
+      )
+    }
+  )
+  public static final BuiltinFunction NEW_DYNAMIC_FRAMEWORK_PROVIDER =
+      new BuiltinFunction("new_dynamic_framework_provider") {
+        @SuppressWarnings("unused")
+        // This method is registered statically for skylark, and never called directly.
+        public AppleDynamicFrameworkProvider invoke(
+            AppleSkylarkCommon self,
+            Artifact dylibBinary,
+            ObjcProvider depsObjcProvider,
+            Object dynamicFrameworkDirs,
+            Object dynamicFrameworkFiles) {
+          NestedSet<PathFragment> frameworkDirs;
+          if (dynamicFrameworkDirs == Runtime.NONE) {
+            frameworkDirs = NestedSetBuilder.<PathFragment>emptySet(Order.STABLE_ORDER);
+          } else {
+            Iterable<String> pathStrings =
+                ((SkylarkNestedSet) dynamicFrameworkDirs).getSet(String.class);
+            frameworkDirs = NestedSetBuilder.<PathFragment>stableOrder().addAll(
+                Iterables.transform(pathStrings, PathFragment.TO_PATH_FRAGMENT)).build();
+          }
+          NestedSet<Artifact> frameworkFiles = dynamicFrameworkFiles != Runtime.NONE
+              ? ((SkylarkNestedSet) dynamicFrameworkFiles).getSet(Artifact.class)
+              : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
+          return new AppleDynamicFrameworkProvider(dylibBinary, depsObjcProvider,
+              frameworkDirs, frameworkFiles);
+        }
+      };
+
   static {
     SkylarkSignatureProcessor.configureSkylarkFunctions(AppleSkylarkCommon.class);
   }
 }
-
