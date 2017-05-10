@@ -15,6 +15,14 @@
 
 load("@bazel_tools//tools/osx:xcode_configure.bzl", "run_xcode_locator")
 
+def _escape_string(arg):
+  """Escape percent sign (%) in the string so it can appear in the Crosstool."""
+  if arg != None:
+    return str(arg).replace("%", "%%")
+  else:
+    return None
+
+
 def _get_value(it):
   """Convert `it` in serialized protobuf format."""
   if type(it) == "int":
@@ -38,11 +46,12 @@ def _build_crosstool(d, prefix="  "):
 
 
 def _build_tool_path(d):
-  """Build the list of tool_path for the CROSSTOOL file."""
+  """Build the list of %-escaped tool_path for the CROSSTOOL file."""
   lines = []
   for k in d:
-    lines.append("  tool_path {name: \"%s\" path: \"%s\" }" % (k, d[k]))
+    lines.append("  tool_path {name: \"%s\" path: \"%s\" }" % (k, _escape_string(d[k])))
   return "\n".join(lines)
+
 
 def auto_configure_fail(msg):
   """Output failure message when auto configuration fails."""
@@ -59,7 +68,7 @@ def auto_configure_warning(msg):
 
 
 def _get_env_var(repository_ctx, name, default = None, enable_warning = True):
-  """Find an environment variable in system path."""
+  """Find an environment variable in system path. Doesn't %-escape the value!"""
   if name in repository_ctx.os.environ:
     return repository_ctx.os.environ[name]
   if default != None:
@@ -70,13 +79,13 @@ def _get_env_var(repository_ctx, name, default = None, enable_warning = True):
 
 
 def _which(repository_ctx, cmd, default = None):
-  """A wrapper around repository_ctx.which() to provide a fallback value."""
+  """A wrapper around repository_ctx.which() to provide a fallback value. Doesn't %-escape the value!"""
   result = repository_ctx.which(cmd)
   return default if result == None else str(result)
 
 
 def _which_cmd(repository_ctx, cmd, default = None):
-  """Find cmd in PATH using repository_ctx.which() and fail if cannot find it."""
+  """Find cmd in PATH using repository_ctx.which() and fail if cannot find it. Doesn't %-escape the cmd!"""
   result = repository_ctx.which(cmd)
   if result != None:
     return str(result)
@@ -90,7 +99,7 @@ def _which_cmd(repository_ctx, cmd, default = None):
 
 def _execute(repository_ctx, command, environment = None,
              expect_failure = False):
-  """Execute a command, return stdout if succeed and throw an error if it fails."""
+  """Execute a command, return stdout if succeed and throw an error if it fails. Doesn't %-escape the result!"""
   if environment:
     result = repository_ctx.execute(command, environment = environment)
   else:
@@ -112,7 +121,7 @@ def _execute(repository_ctx, command, environment = None,
 
 
 def _get_tool_paths(repository_ctx, cc):
-  """Compute the path to the various tools."""
+  """Compute the path to the various tools. Doesn't %-escape the result!"""
   return {k: _which(repository_ctx, k, "/usr/bin/" + k)
           for k in [
               "ld",
@@ -129,12 +138,12 @@ def _get_tool_paths(repository_ctx, cc):
           }
 
 
-def _cplus_include_paths(repository_ctx):
-  """Use ${CPLUS_INCLUDE_PATH} to compute the list of flags for cxxflag."""
+def _escaped_cplus_include_paths(repository_ctx):
+  """Use ${CPLUS_INCLUDE_PATH} to compute the %-escaped list of flags for cxxflag."""
   if "CPLUS_INCLUDE_PATH" in repository_ctx.os.environ:
     result = []
     for p in repository_ctx.os.environ["CPLUS_INCLUDE_PATH"].split(":"):
-      p = str(repository_ctx.path(p))  # Normalize the path
+      p = _escape_string(str(repository_ctx.path(p)))  # Normalize the path
       result.append("-I" + p)
     return result
   else:
@@ -142,7 +151,7 @@ def _cplus_include_paths(repository_ctx):
 
 
 def _get_cpu_value(repository_ctx):
-  """Compute the cpu_value based on the OS name."""
+  """Compute the cpu_value based on the OS name. Doesn't %-escape the result!"""
   os_name = repository_ctx.os.name.lower()
   if os_name.startswith("mac os"):
     return "darwin"
@@ -164,15 +173,17 @@ _INC_DIR_MARKER_BEGIN = "#include <...>"
 # OSX add " (framework directory)" at the end of line, strip it.
 _OSX_FRAMEWORK_SUFFIX = " (framework directory)"
 _OSX_FRAMEWORK_SUFFIX_LEN =  len(_OSX_FRAMEWORK_SUFFIX)
+
 def _cxx_inc_convert(path):
-  """Convert path returned by cc -E xc++ in a complete path."""
+  """Convert path returned by cc -E xc++ in a complete path. Doesn't %-escape the path!"""
   path = path.strip()
   if path.endswith(_OSX_FRAMEWORK_SUFFIX):
     path = path[:-_OSX_FRAMEWORK_SUFFIX_LEN].strip()
   return path
 
-def _get_cxx_inc_directories(repository_ctx, cc):
-  """Compute the list of default C++ include directories."""
+
+def _get_escaped_cxx_inc_directories(repository_ctx, cc):
+  """Compute the list of default %-escaped C++ include directories."""
   result = repository_ctx.execute([cc, "-E", "-xc++", "-", "-v"])
   index1 = result.stderr.find(_INC_DIR_MARKER_BEGIN)
   if index1 == -1:
@@ -189,11 +200,12 @@ def _get_cxx_inc_directories(repository_ctx, cc):
   else:
     inc_dirs = result.stderr[index1 + 1:index2].strip()
 
-  return [repository_ctx.path(_cxx_inc_convert(p))
+  return [_escape_string(repository_ctx.path(_cxx_inc_convert(p)))
           for p in inc_dirs.split("\n")]
 
+
 def _add_option_if_supported(repository_ctx, cc, option):
-  """Checks that `option` is supported by the C compiler."""
+  """Checks that `option` is supported by the C compiler. Doesn't %-escape the option."""
   result = repository_ctx.execute([
       cc,
       option,
@@ -203,6 +215,7 @@ def _add_option_if_supported(repository_ctx, cc, option):
       str(repository_ctx.path("tools/cpp/empty.cc"))
   ])
   return [option] if result.stderr.find(option) == -1 else []
+
 
 def _is_gold_supported(repository_ctx, cc):
   """Checks that `gold` is supported by the C compiler."""
@@ -220,15 +233,16 @@ def _is_gold_supported(repository_ctx, cc):
   ])
   return result.return_code == 0
 
+
 def _crosstool_content(repository_ctx, cc, cpu_value):
   """Return the content for the CROSSTOOL file, in a dictionary."""
   supports_gold_linker = _is_gold_supported(repository_ctx, cc)
   return {
-      "abi_version": _get_env_var(repository_ctx, "ABI_VERSION", "local", False),
-      "abi_libc_version": _get_env_var(repository_ctx, "ABI_LIBC_VERSION", "local", False),
+      "abi_version": _escape_string(_get_env_var(repository_ctx, "ABI_VERSION", "local", False)),
+      "abi_libc_version": _escape_string(_get_env_var(repository_ctx, "ABI_LIBC_VERSION", "local", False)),
       "builtin_sysroot": "",
-      "compiler": _get_env_var(repository_ctx, "BAZEL_COMPILER", "compiler", False),
-      "host_system_name": _get_env_var(repository_ctx, "BAZEL_HOST_SYSTEM", "local", False),
+      "compiler": _escape_string(_get_env_var(repository_ctx, "BAZEL_COMPILER", "compiler", False)),
+      "host_system_name": _escape_string(_get_env_var(repository_ctx, "BAZEL_HOST_SYSTEM", "local", False)),
       "needsPic": True,
       "supports_gold_linker": supports_gold_linker,
       "supports_incremental_linker": False,
@@ -236,12 +250,12 @@ def _crosstool_content(repository_ctx, cc, cpu_value):
       "supports_interface_shared_objects": False,
       "supports_normalizing_ar": False,
       "supports_start_end_lib": supports_gold_linker,
-      "target_libc": _get_env_var(repository_ctx, "BAZEL_TARGET_LIBC", "local", False),
-      "target_cpu": _get_env_var(repository_ctx, "BAZEL_TARGET_CPU", cpu_value, False),
-      "target_system_name": _get_env_var(repository_ctx, "BAZEL_TARGET_SYSTEM", "local", False),
+      "target_libc": _escape_string(_get_env_var(repository_ctx, "BAZEL_TARGET_LIBC", "local", False)),
+      "target_cpu": _escape_string(_get_env_var(repository_ctx, "BAZEL_TARGET_CPU", cpu_value, False)),
+      "target_system_name": _escape_string(_get_env_var(repository_ctx, "BAZEL_TARGET_SYSTEM", "local", False)),
       "cxx_flag": [
           "-std=c++0x",
-      ] + _cplus_include_paths(repository_ctx),
+      ] + _escaped_cplus_include_paths(repository_ctx),
       "linker_flag": [
           "-lstdc++",
           "-lm",  # Some systems expect -lm in addition to -lstdc++
@@ -263,7 +277,7 @@ def _crosstool_content(repository_ctx, cc, cpu_value):
                repository_ctx, cc, "-pass-exit-codes")
           ),
       "ar_flag": [],
-      "cxx_builtin_include_directory": _get_cxx_inc_directories(repository_ctx, cc),
+      "cxx_builtin_include_directory": _get_escaped_cxx_inc_directories(repository_ctx, cc),
       "objcopy_embed_flag": ["-I", "binary"],
       "unfiltered_cxx_flag":
           # If the compiler sometimes rewrites paths in the .d files without symlinks
@@ -286,7 +300,7 @@ def _crosstool_content(repository_ctx, cc, cpu_value):
           "-Wall",
           # Enable a few more warnings that aren't part of -Wall.
       ] + ([
-          "-B" + str(repository_ctx.path(cc).dirname),
+          "-B" + _escape_string(str(repository_ctx.path(cc).dirname)),
           # Always have -B/usr/bin, see https://github.com/bazelbuild/bazel/issues/760.
           "-B/usr/bin",
       ]) + (
@@ -302,8 +316,9 @@ def _crosstool_content(repository_ctx, cc, cpu_value):
           ],
   }
 
+
 # TODO(pcloudy): Remove this after MSVC CROSSTOOL becomes default on Windows
-def _get_windows_msys_crosstool_content(repository_ctx):
+def _get_escaped_windows_msys_crosstool_content(repository_ctx):
   """Return the content of msys crosstool which is still the default CROSSTOOL on Windows."""
   bazel_sh = _get_env_var(repository_ctx, "BAZEL_SH").replace("\\", "/").lower()
   tokens = bazel_sh.rsplit("/", 1)
@@ -315,6 +330,7 @@ def _get_windows_msys_crosstool_content(repository_ctx):
   if not msys_root:
     auto_configure_fail(
         "Could not determine MSYS/Cygwin root from BAZEL_SH (%s)" % bazel_sh)
+  escaped_msys_root = _escape_string(msys_root)
   return (
       '   abi_version: "local"\n' +
       '   abi_libc_version: "local"\n' +
@@ -325,23 +341,24 @@ def _get_windows_msys_crosstool_content(repository_ctx):
       '   target_libc: "local"\n' +
       '   target_cpu: "x64_windows_msys"\n' +
       '   target_system_name: "local"\n' +
-      '   tool_path { name: "ar" path: "%susr/bin/ar" }\n' % msys_root +
-      '   tool_path { name: "compat-ld" path: "%susr/bin/ld" }\n' % msys_root +
-      '   tool_path { name: "cpp" path: "%susr/bin/cpp" }\n' % msys_root +
-      '   tool_path { name: "dwp" path: "%susr/bin/dwp" }\n' % msys_root +
-      '   tool_path { name: "gcc" path: "%susr/bin/gcc" }\n' % msys_root +
+      '   tool_path { name: "ar" path: "%susr/bin/ar" }\n' % escaped_msys_root +
+      '   tool_path { name: "compat-ld" path: "%susr/bin/ld" }\n' % escaped_msys_root +
+      '   tool_path { name: "cpp" path: "%susr/bin/cpp" }\n' % escaped_msys_root +
+      '   tool_path { name: "dwp" path: "%susr/bin/dwp" }\n' % escaped_msys_root +
+      '   tool_path { name: "gcc" path: "%susr/bin/gcc" }\n' % escaped_msys_root +
       '   cxx_flag: "-std=gnu++0x"\n' +
       '   linker_flag: "-lstdc++"\n' +
-      '   cxx_builtin_include_directory: "%s"\n' % msys_root +
+      '   cxx_builtin_include_directory: "%s"\n' % escaped_msys_root +
       '   cxx_builtin_include_directory: "/usr/"\n' +
-      '   tool_path { name: "gcov" path: "%susr/bin/gcov" }\n' % msys_root +
-      '   tool_path { name: "ld" path: "%susr/bin/ld" }\n' % msys_root +
-      '   tool_path { name: "nm" path: "%susr/bin/nm" }\n' % msys_root +
-      '   tool_path { name: "objcopy" path: "%susr/bin/objcopy" }\n' % msys_root +
+      '   tool_path { name: "gcov" path: "%susr/bin/gcov" }\n' % escaped_msys_root +
+      '   tool_path { name: "ld" path: "%susr/bin/ld" }\n' % escaped_msys_root +
+      '   tool_path { name: "nm" path: "%susr/bin/nm" }\n' % escaped_msys_root +
+      '   tool_path { name: "objcopy" path: "%susr/bin/objcopy" }\n' % escaped_msys_root +
       '   objcopy_embed_flag: "-I"\n' +
       '   objcopy_embed_flag: "binary"\n' +
-      '   tool_path { name: "objdump" path: "%susr/bin/objdump" }\n' % msys_root +
-      '   tool_path { name: "strip" path: "%susr/bin/strip" }'% msys_root )
+      '   tool_path { name: "objdump" path: "%susr/bin/objdump" }\n' % escaped_msys_root +
+      '   tool_path { name: "strip" path: "%susr/bin/strip" }'% escaped_msys_root )
+
 
 def _opt_content():
   """Return the content of the opt specific section of the CROSSTOOL file."""
@@ -380,14 +397,15 @@ def _dbg_content():
 
 
 def _get_system_root(repository_ctx):
-  r"""Get System root path on Windows, default is C:\\Windows."""
+  r"""Get System root path on Windows, default is C:\\Windows. Doesn't %-escape the result."""
   if "SYSTEMROOT" in repository_ctx.os.environ:
-    return repository_ctx.os.environ["SYSTEMROOT"]
+    return _escape_string(repository_ctx.os.environ["SYSTEMROOT"])
   auto_configure_warning("SYSTEMROOT is not set, using default SYSTEMROOT=C:\\Windows")
   return "C:\\Windows"
 
+
 def _find_cc(repository_ctx):
-  """Find the C++ compiler."""
+  """Find the C++ compiler. Doesn't %-escape the result."""
   cc_name = "gcc"
   cc_environ = repository_ctx.os.environ.get("CC")
   cc_paren = ""
@@ -408,7 +426,7 @@ def _find_cc(repository_ctx):
 
 
 def _find_cuda(repository_ctx):
-  """Find out if and where cuda is installed."""
+  """Find out if and where cuda is installed. Doesn't %-escape the result."""
   if "CUDA_PATH" in repository_ctx.os.environ:
     return repository_ctx.os.environ["CUDA_PATH"]
   nvcc = _which(repository_ctx, "nvcc.exe")
@@ -416,8 +434,9 @@ def _find_cuda(repository_ctx):
     return nvcc[:-len("/bin/nvcc.exe")]
   return None
 
+
 def _find_python(repository_ctx):
-  """Find where is python on Windows."""
+  """Find where is python on Windows. Doesn't %-escape the result."""
   if "BAZEL_PYTHON" in repository_ctx.os.environ:
     python_binary = repository_ctx.os.environ["BAZEL_PYTHON"]
     if not python_binary.endswith(".exe"):
@@ -428,6 +447,7 @@ def _find_python(repository_ctx):
   auto_configure_warning("Python found at %s" % python_binary)
   return python_binary
 
+
 def _add_system_root(repository_ctx, env):
   r"""Running VCVARSALL.BAT and VCVARSQUERYREGISTRY.BAT need %SYSTEMROOT%\\system32 in PATH."""
   if "PATH" not in env:
@@ -435,8 +455,9 @@ def _add_system_root(repository_ctx, env):
   env["PATH"] = env["PATH"] + ";" + _get_system_root(repository_ctx) + "\\system32"
   return env
 
+
 def _find_vc_path(repository_ctx):
-  """Find Visual C++ build tools install path."""
+  """Find Visual C++ build tools install path. Doesn't %-escape the result."""
   # 1. Check if BAZEL_VC or BAZEL_VS is already set by user.
   if "BAZEL_VC" in repository_ctx.os.environ:
     return repository_ctx.os.environ["BAZEL_VC"]
@@ -514,6 +535,7 @@ def _find_vc_path(repository_ctx):
   auto_configure_warning("Visual C++ build tools found at %s" % vc_dir)
   return vc_dir
 
+
 def _is_vs_2017(vc_path):
   """Check if the installed VS version is Visual Studio 2017."""
   # In VS 2017, the location of VC is like:
@@ -522,8 +544,9 @@ def _is_vs_2017(vc_path):
   # C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\
   return vc_path.find("2017") != -1
 
+
 def _find_vcvarsall_bat_script(repository_ctx, vc_path):
-  """Find vcvarsall.bat script."""
+  """Find vcvarsall.bat script. Doesn't %-escape the result."""
   if _is_vs_2017(vc_path):
     vcvarsall = vc_path + "\\Auxiliary\\Build\\VCVARSALL.BAT"
   else:
@@ -533,8 +556,9 @@ def _find_vcvarsall_bat_script(repository_ctx, vc_path):
     auto_configure_fail("vcvarsall.bat doesn't exists, please check your VC++ installation")
   return vcvarsall
 
+
 def _find_env_vars(repository_ctx, vc_path):
-  """Get environment variables set by VCVARSALL.BAT."""
+  """Get environment variables set by VCVARSALL.BAT. Doesn't %-escape the result!"""
   vcvarsall = _find_vcvarsall_bat_script(repository_ctx, vc_path)
   repository_ctx.file("wrapper/get_env.bat",
                       "@echo off\n" +
@@ -545,12 +569,12 @@ def _find_env_vars(repository_ctx, vc_path):
   env_map = {}
   for env in envs:
     key, value = env.split("=")
-    env_map[key] = value.replace("\\", "\\\\")
+    env_map[key] = _escape_string(value.replace("\\", "\\\\"))
   return env_map
 
 
 def _find_msvc_tool(repository_ctx, vc_path, tool):
-  """Find the exact path of a specific build tool in MSVC."""
+  """Find the exact path of a specific build tool in MSVC. Doesn't %-escape the result."""
   tool_path = ""
   if _is_vs_2017(vc_path):
     # For VS 2017, the tools are under a directory like:
@@ -573,6 +597,7 @@ def _find_msvc_tool(repository_ctx, vc_path, tool):
     auto_configure_fail(tool_path + " not found, please check your VC++ installation.")
   return tool_path
 
+
 def _is_support_whole_archive(repository_ctx, vc_path):
   """Run MSVC linker alone to see if it supports /WHOLEARCHIVE."""
   env = repository_ctx.os.environ
@@ -583,12 +608,12 @@ def _is_support_whole_archive(repository_ctx, vc_path):
   return result.find("/WHOLEARCHIVE") != -1
 
 
-def _cuda_compute_capabilities(repository_ctx):
-  """Returns a list of strings representing cuda compute capabilities."""
+def _escaped_cuda_compute_capabilities(repository_ctx):
+  """Returns a %-escaped list of strings representing cuda compute capabilities."""
 
   if "CUDA_COMPUTE_CAPABILITIES" not in repository_ctx.os.environ:
     return ["3.5", "5.2"]
-  capabilities_str = repository_ctx.os.environ["CUDA_COMPUTE_CAPABILITIES"]
+  capabilities_str = _escape_string(repository_ctx.os.environ["CUDA_COMPUTE_CAPABILITIES"])
   capabilities = capabilities_str.split(",")
   for capability in capabilities:
     # Workaround for Skylark's lack of support for regex. This check should
@@ -610,7 +635,7 @@ def _tpl(repository_ctx, tpl, substitutions={}, out=None):
 
 
 def _get_env(repository_ctx):
-  """Convert the environment in a list of export if in Homebrew."""
+  """Convert the environment in a list of export if in Homebrew. Doesn't %-escape the result!"""
   env = repository_ctx.os.environ
   if "HOMEBREW_RUBY_PATH" in env:
     return "\n".join([
@@ -620,6 +645,7 @@ def _get_env(repository_ctx):
     ])
   else:
     return ""
+
 
 def _coverage_feature():
   return """
@@ -649,7 +675,8 @@ def _coverage_feature():
     }
   """
 
-def _get_darwin_cxx_inc_directories(repository_ctx, cc):
+
+def _get_escaped_darwin_cxx_inc_directories(repository_ctx, cc):
   """Compute the list of default C++ include directories on darwin.
 
   Uses the xcode-locator tool to add all xcode developer directories to the
@@ -673,18 +700,20 @@ def _get_darwin_cxx_inc_directories(repository_ctx, cc):
 
   # TODO(cparsons): Falling back to the default C++ compiler builtin include
   # paths shouldn't be unnecessary once all actions are using xcrun.
-  include_dirs = _get_cxx_inc_directories(repository_ctx, cc)
+  include_dirs = _get_escaped_cxx_inc_directories(repository_ctx, cc)
   for toolchain in toolchains:
-    include_dirs.append(toolchain.developer_dir)
+    include_dirs.append(_escape_string(toolchain.developer_dir))
   return (include_dirs, xcodeloc_err)
+
 
 def _impl(repository_ctx):
   repository_ctx.file("tools/cpp/empty.cc", "int main() {}")
   cpu_value = _get_cpu_value(repository_ctx)
   if cpu_value == "freebsd":
-    # This is defaulting to the static crosstool, we should eventually do those platform too.
-    # Theorically, FreeBSD should be straightforward to add but we cannot run it in a docker
-    # container so escaping until we have proper tests for FreeBSD.
+    # This is defaulting to the static crosstool, we should eventually
+    # autoconfigure this platform too.  Theorically, FreeBSD should be
+    # straightforward to add but we cannot run it in a docker container so
+    # skipping until we have proper tests for FreeBSD.
     repository_ctx.symlink(Label("@bazel_tools//tools/cpp:CROSSTOOL"), "CROSSTOOL")
     repository_ctx.symlink(Label("@bazel_tools//tools/cpp:BUILD.static"), "BUILD")
   elif cpu_value == "x64_windows":
@@ -698,58 +727,59 @@ def _impl(repository_ctx):
       repository_ctx.symlink(msvc_wrapper.get_child(f), "wrapper/bin/pydir/" + f)
 
     python_binary = _find_python(repository_ctx)
-    _tpl(repository_ctx, "wrapper/bin/call_python.bat", {"%{python_binary}": python_binary})
+    _tpl(repository_ctx, "wrapper/bin/call_python.bat", {"%{python_binary}": _escape_string(python_binary)})
 
     vc_path = _find_vc_path(repository_ctx)
     env = _find_env_vars(repository_ctx, vc_path)
     python_dir = python_binary[0:-10].replace("\\", "\\\\")
-    include_paths = env["INCLUDE"] + (python_dir + "include")
-    lib_paths = env["LIB"] + (python_dir + "libs")
+    escaped_include_paths = env["INCLUDE"] + (python_dir + "include")
+    escaped_lib_paths = _escape_string(env["LIB"] + (python_dir + "libs"))
     lib_tool = _find_msvc_tool(repository_ctx, vc_path, "lib.exe").replace("\\", "\\\\")
     if _is_support_whole_archive(repository_ctx, vc_path):
       support_whole_archive = "True"
     else:
       support_whole_archive = "False"
-    tmp_dir = _get_env_var(repository_ctx, "TMP", "C:\\Windows\\Temp").replace("\\", "\\\\")
+    escaped_tmp_dir = _escape_string(
+        _get_env_var(repository_ctx, "TMP", "C:\\Windows\\Temp").replace("\\", "\\\\"))
     # Make sure nvcc.exe is in PATH
-    paths = env["PATH"]
+    escaped_paths = _escape_string(env["PATH"])
     cuda_path = _find_cuda(repository_ctx)
     if cuda_path:
-      paths = (cuda_path.replace("\\", "\\\\") + "/bin;") + paths
-    compute_capabilities = _cuda_compute_capabilities(repository_ctx)
+      escaped_paths = _escape_string(cuda_path.replace("\\", "\\\\") + "/bin;") + escaped_paths
+    escaped_compute_capabilities = _escaped_cuda_compute_capabilities(repository_ctx)
     _tpl(repository_ctx, "wrapper/bin/pydir/msvc_tools.py", {
-        "%{lib_tool}": lib_tool,
+        "%{lib_tool}": _escape_string(lib_tool),
         "%{support_whole_archive}": support_whole_archive,
         "%{cuda_compute_capabilities}": ", ".join(
-            ["\"%s\"" % c for c in compute_capabilities]),
+            ["\"%s\"" % c for c in escaped_compute_capabilities]),
     })
 
     # nvcc will generate some source files under tmp_dir
-    cxx_include_directories = [ "cxx_builtin_include_directory: \"%s\"" % tmp_dir ]
-    for path in include_paths.split(";"):
+    escaped_cxx_include_directories = [ "cxx_builtin_include_directory: \"%s\"" % escaped_tmp_dir ]
+    for path in escaped_include_paths.split(";"):
       if path:
-        cxx_include_directories.append(("cxx_builtin_include_directory: \"%s\"" % path))
+        escaped_cxx_include_directories.append("cxx_builtin_include_directory: \"%s\"" % path)
     _tpl(repository_ctx, "CROSSTOOL", {
-        "%{cpu}": cpu_value,
+        "%{cpu}": _escape_string(cpu_value),
         "%{default_toolchain_name}": "msvc_x64",
         "%{toolchain_name}": "msys_x64",
-        "%{msvc_env_tmp}": tmp_dir,
-        "%{msvc_env_path}": paths,
-        "%{msvc_env_include}": include_paths,
-        "%{msvc_env_lib}": lib_paths,
-        "%{content}": _get_windows_msys_crosstool_content(repository_ctx),
+        "%{msvc_env_tmp}": escaped_tmp_dir,
+        "%{msvc_env_path}": escaped_paths,
+        "%{msvc_env_include}": escaped_include_paths,
+        "%{msvc_env_lib}": escaped_lib_paths,
+        "%{content}": _get_escaped_windows_msys_crosstool_content(repository_ctx),
         "%{opt_content}": "",
         "%{dbg_content}": "",
-        "%{cxx_builtin_include_directory}": "\n".join(cxx_include_directories),
+        "%{cxx_builtin_include_directory}": "\n".join(escaped_cxx_include_directories),
         "%{coverage}": "",
     })
   else:
     darwin = cpu_value == "darwin"
     cc = _find_cc(repository_ctx)
-    _tpl(repository_ctx,
-         "osx_cc_wrapper.sh" if darwin else "linux_cc_wrapper.sh",
-         {"%{cc}": str(cc), "%{env}": _get_env(repository_ctx)},
-         "cc_wrapper.sh")
+    _tpl(repository_ctx, "osx_cc_wrapper.sh" if darwin else "linux_cc_wrapper.sh", {
+        "%{cc}": _escape_string(str(cc)),
+        "%{env}": _escape_string(_get_env(repository_ctx))
+    }, "cc_wrapper.sh")
     if darwin:
       repository_ctx.symlink(
           Label("@bazel_tools//tools/objc:xcrunwrapper.sh"), "xcrunwrapper.sh")
@@ -770,34 +800,37 @@ def _impl(repository_ctx):
       repository_ctx.symlink(
           Label("@bazel_tools//tools/osx/crosstool:osx_archs.bzl"),
           "osx_archs.bzl")
-      (include_paths, xcodeloc_err) = _get_darwin_cxx_inc_directories(repository_ctx, cc)
-      cxx_include_directories = []
-      for path in include_paths:
-        cxx_include_directories.append(("cxx_builtin_include_directory: \"%s\"" % path))
+      (escaped_include_paths, xcodeloc_err) = _get_escaped_darwin_cxx_inc_directories(repository_ctx, cc)
+      escaped_cxx_include_directories = []
+      for path in escaped_include_paths:
+        escaped_cxx_include_directories.append(("cxx_builtin_include_directory: \"%s\"" % path))
       if xcodeloc_err:
-        cxx_include_directories.append("# Error: " + xcodeloc_err + "\n")
+        escaped_cxx_include_directories.append("# Error: " + xcodeloc_err + "\n")
       repository_ctx.template(
           "CROSSTOOL",
           Label("@bazel_tools//tools/osx/crosstool:CROSSTOOL.tpl"),
-          {"%{cxx_builtin_include_directory}": "\n".join(cxx_include_directories)})
+          {"%{cxx_builtin_include_directory}": "\n".join(escaped_cxx_include_directories)})
     else:
       tool_paths = _get_tool_paths(repository_ctx, str(cc))
       crosstool_content = _crosstool_content(repository_ctx, cc, cpu_value)
       opt_content = _opt_content()
       dbg_content = _dbg_content()
       _tpl(repository_ctx, "BUILD", {
-          "%{name}": cpu_value,
+          "%{name}": _escape_string(cpu_value),
           "%{supports_param_files}": "1",
           "%{cc_compiler_deps}": ":empty",
-          "%{compiler}": _get_env_var(repository_ctx, "BAZEL_COMPILER", "compiler", False),
+          "%{compiler}": _escape_string(
+              _get_env_var(repository_ctx, "BAZEL_COMPILER", "compiler", False)),
       })
       _tpl(repository_ctx, "CROSSTOOL", {
-          "%{cpu}": cpu_value,
-          "%{default_toolchain_name}": _get_env_var(repository_ctx,
-                                                    "CC_TOOLCHAIN_NAME",
-                                                    "local",
-                                                    False),
-          "%{toolchain_name}": _get_env_var(repository_ctx, "CC_TOOLCHAIN_NAME", "local", False),
+          "%{cpu}": _escape_string(cpu_value),
+          "%{default_toolchain_name}": _escape_string(
+              _get_env_var(repository_ctx,
+                           "CC_TOOLCHAIN_NAME",
+                           "local",
+                           False)),
+          "%{toolchain_name}": _escape_string(
+              _get_env_var(repository_ctx, "CC_TOOLCHAIN_NAME", "local", False)),
           "%{content}": _build_crosstool(crosstool_content) + "\n" +
                         _build_tool_path(tool_paths),
           "%{opt_content}": _build_crosstool(opt_content, "    "),
