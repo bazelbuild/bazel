@@ -45,6 +45,7 @@ public final class CompileCommandLine {
   @VisibleForTesting public final CcToolchainFeatures.Variables variables;
   private final String actionName;
   private final CppConfiguration cppConfiguration;
+  private final CcToolchainProvider cppProvider;
 
   public CompileCommandLine(
       Artifact sourceFile,
@@ -57,7 +58,8 @@ public final class CompileCommandLine {
       CppConfiguration cppConfiguration,
       CcToolchainFeatures.Variables variables,
       String actionName,
-      DotdFile dotdFile) {
+      DotdFile dotdFile,
+      CcToolchainProvider cppProvider) {
     this.sourceFile = Preconditions.checkNotNull(sourceFile);
     this.outputFile = Preconditions.checkNotNull(outputFile);
     this.sourceLabel = Preconditions.checkNotNull(sourceLabel);
@@ -69,6 +71,7 @@ public final class CompileCommandLine {
     this.variables = variables;
     this.actionName = actionName;
     this.dotdFile = isGenerateDotdFile(sourceFile) ? Preconditions.checkNotNull(dotdFile) : null;
+    this.cppProvider = cppProvider;
   }
 
   /** Returns true if Dotd file should be generated. */
@@ -161,7 +164,7 @@ public final class CompileCommandLine {
     // the user provided options, otherwise users adding include paths will not pick up their
     // own include paths first.
     if (!isObjcCompile(actionName)) {
-      options.addAll(toolchain.getUnfilteredCompilerOptions(features));
+      options.addAll(cppProvider.getUnfilteredCompilerOptions(features));
     }
 
     // Add the options of --per_file_copt, if the label or the base name of the source file

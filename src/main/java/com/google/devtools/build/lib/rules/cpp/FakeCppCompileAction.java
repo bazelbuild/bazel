@@ -80,8 +80,8 @@ public class FakeCppCompileAction extends CppCompileAction {
       ImmutableList<String> copts,
       Predicate<String> nocopts,
       Iterable<IncludeScannable> lipoScannables,
-      Iterable<Artifact> builtinIncludeFiles,
       CppSemantics cppSemantics,
+      CcToolchainProvider cppProvider,
       ImmutableMap<String, String> executionInfo) {
     super(
         owner,
@@ -123,8 +123,8 @@ public class FakeCppCompileAction extends CppCompileAction {
         executionInfo,
         ImmutableMap.<String, String>of(),
         CppCompileAction.CPP_COMPILE,
-        builtinIncludeFiles,
-        cppSemantics);
+        cppSemantics,
+        cppProvider);
     this.tempOutputFile = Preconditions.checkNotNull(tempOutputFile);
   }
 

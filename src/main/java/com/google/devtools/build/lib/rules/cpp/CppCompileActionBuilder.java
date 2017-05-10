@@ -384,8 +384,8 @@ public class CppCompileActionBuilder {
           ImmutableList.copyOf(copts),
           getNocoptPredicate(nocopts),
           getLipoScannables(realMandatoryInputs),
-          ccToolchain.getBuiltinIncludeFiles(),
           cppSemantics,
+          ccToolchain,
           ImmutableMap.copyOf(executionInfo));
     } else {
       return new CppCompileAction(
@@ -421,8 +421,8 @@ public class CppCompileActionBuilder {
           ImmutableMap.copyOf(executionInfo),
           ImmutableMap.copyOf(environment),
           getActionName(),
-          ccToolchain.getBuiltinIncludeFiles(),
-          cppSemantics);
+          cppSemantics,
+          ccToolchain);
     }
   }
 
