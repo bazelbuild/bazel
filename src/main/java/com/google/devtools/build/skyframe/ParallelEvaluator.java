@@ -395,6 +395,7 @@ public final class ParallelEvaluator implements Evaluator {
         long startTime = BlazeClock.instance().nanoTime();
         try {
           try {
+            evaluatorContext.getProgressReceiver().computing(skyKey);
             value = factory.compute(skyKey, env);
           } finally {
             long elapsedTimeNanos = BlazeClock.instance().nanoTime() - startTime;

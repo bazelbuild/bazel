@@ -59,6 +59,14 @@ public interface EvaluationProgressReceiver {
   void enqueueing(SkyKey skyKey);
 
   /**
+   * Notifies that {@code skyFunction.compute(skyKey, ...)} is about to be called, for some
+   * appropriate {@link SkyFunction} {@code skyFunction}.
+   *
+   * <p>Notably, this includes {@link SkyFunction#compute} calls due to Skyframe restarts.
+   */
+  void computing(SkyKey skyKey);
+
+  /**
    * Notifies that {@code skyFunction.compute(skyKey, ...)} has just been called, for some
    * appropriate {@link SkyFunction} {@code skyFunction}.
    *
@@ -84,6 +92,10 @@ public interface EvaluationProgressReceiver {
 
     @Override
     public void enqueueing(SkyKey skyKey) {
+    }
+
+    @Override
+    public void computing(SkyKey skyKey) {
     }
 
     @Override
