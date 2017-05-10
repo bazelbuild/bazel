@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
@@ -95,8 +94,8 @@ public final class BaselineCoverageAction extends AbstractFileWriteAction
   }
 
   @Override
-  public void actionCacheHit(Executor executor) {
-    notifyAboutBaselineCoverage(executor.getEventBus());
+  public void actionCacheHit(ActionCachedContext context) {
+    notifyAboutBaselineCoverage(context.getEventBus());
   }
 
   /**
