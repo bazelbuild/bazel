@@ -157,6 +157,7 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
                 .cfg(HOST)
                 .exec()
                 .value(env.getToolsLabel("//tools/objc:xcodegen")))
+        .cfg(AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION)
         .build();
   }
 
