@@ -115,8 +115,15 @@ version_prefix: /versions/master
             if(editButton
               && window.location.pathname.split('docs/').length > 1
               && window.location.pathname.lastIndexOf('/be/') == -1) {
-              var mdFile = window.location.pathname.split('docs/')[1].replace('html', 'md');
-              editButton.href = ghDocsBazeURL + mdFile;
+              var docFile = window.location.pathname.split('docs/')[1];
+              // some pages are now using markdown :(
+              if( docFile !== 'bazel-user-manual.html'
+              && docFile !== 'build-ref.html'
+              && docFile !== 'query.html'
+              && docFile !== 'test-encyclopedia.html') {
+                docFile = docFile.replace('html', 'md');
+              }
+              editButton.href = ghDocsBazeURL + docFile;
               editButton.style.visibility = 'visible';
             }
           </script>
