@@ -105,6 +105,42 @@ function test_build_hello_world() {
   bazel build //java/main:main &> $TEST_log || fail "build failed"
 }
 
+function test_build_with_sourcepath() {
+  mkdir -p g
+  cat >g/A.java <<'EOF'
+package g;
+public class A {
+   public A() {
+      new B();
+   }
+}
+EOF
+
+  cat >g/B.java <<'EOF'
+package g;
+public class B {
+   public B() {
+   }
+}
+EOF
+
+  cat >g/BUILD <<'EOF'
+genrule(
+  name = "stub",
+  srcs = ["B.java"],
+  outs = ["B.jar"],
+  cmd = "zip $@ $(SRCS)",
+)
+java_library(
+  name = "test",
+  srcs = ["A.java"],
+  javacopts = ["-sourcepath $(GENDIR)/$(location :stub)", "-implicit:none"],
+  deps = [":stub"]
+)
+EOF
+  bazel build //g:test >$TEST_log || fail "Failed to build //g:test"
+}
+
  function test_java_common_compile_sourcepath() {
    # TODO(bazel-team): Enable this for Java 7 when VanillaJavaBuilder supports --sourcepath.
    JAVA_VERSION="1.$(bazel query  --output=build '@bazel_tools//tools/jdk:toolchain' | grep source_version | cut -d '"' -f 2)"

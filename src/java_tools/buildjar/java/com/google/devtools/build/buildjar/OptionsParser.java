@@ -27,6 +27,7 @@ import java.util.Collection;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -110,6 +111,7 @@ public final class OptionsParser {
           // otherwise we have to do something like adding a "--"
           // terminator to the passed arguments.
           collectFlagArguments(javacOpts, argQueue, "--");
+          sourcePathFromJavacOpts();
           break;
         case "--direct_dependency":
           {
@@ -216,6 +218,18 @@ public final class OptionsParser {
           break;
         default:
           throw new InvalidCommandLineException("unknown option : '" + arg + "'");
+      }
+    }
+  }
+
+  private void sourcePathFromJavacOpts() {
+    Iterator<String> it = javacOpts.iterator();
+    while (it.hasNext()) {
+      String curr = it.next();
+      if (curr.equals("-sourcepath") && it.hasNext()) {
+        it.remove();
+        sourcePath = it.next();
+        it.remove();
       }
     }
   }
