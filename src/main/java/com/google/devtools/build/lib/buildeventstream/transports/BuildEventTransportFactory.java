@@ -55,6 +55,21 @@ public enum BuildEventTransportFactory {
               ? pathConverter
               : new NullPathConverter());
     }
+  },
+
+  JSON_TRANSPORT {
+    @Override
+    protected boolean enabled(BuildEventStreamOptions options) {
+      return !isNullOrEmpty(options.getBuildEventJsonFile());
+    }
+
+    @Override
+    protected BuildEventTransport create(
+        BuildEventStreamOptions options, PathConverter pathConverter) throws IOException {
+      return new JsonFormatFileTransport(
+          options.getBuildEventJsonFile(),
+          options.getBuildEventJsonFilePathConversion() ? pathConverter : new NullPathConverter());
+    }
   };
 
   /**

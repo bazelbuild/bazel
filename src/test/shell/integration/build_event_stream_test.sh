@@ -332,9 +332,23 @@ function test_multiple_transports() {
     bazel test \
       --experimental_build_event_text_file=${outdir}/test_multiple_transports.txt \
       --experimental_build_event_binary_file=${outdir}/test_multiple_transports.bin \
+      --experimental_build_event_json_file=${outdir}/test_multiple_transports.json \
       pkg:suite || fail "bazel test failed"
   [ -f ${outdir}/test_multiple_transports.txt ] || fail "Missing expected file test_multiple_transports.txt"
   [ -f ${outdir}/test_multiple_transports.bin ] || fail "Missing expected file test_multiple_transports.bin"
+  [ -f ${outdir}/test_multiple_transports.json ] || fail "Missing expected file test_multiple_transports.bin"
+}
+
+function test_basic_json() {
+  # Verify that the json transport writes json files
+  bazel test --experimental_build_event_json_file=$TEST_log pkg:true \
+    || fail "bazel test failed"
+  # check for some typical fragments that would be encoded differently in the
+  # proto text format.
+  expect_log '"started"'
+  expect_log '"id"'
+  expect_log '"children" *: *\['
+  expect_log '"overallSuccess": true'
 }
 
 function test_root_cause_early() {

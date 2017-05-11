@@ -40,6 +40,14 @@ public class BuildEventStreamOptions extends OptionsBase {
   public String buildEventBinaryFile;
 
   @Option(
+    name = "experimental_build_event_json_file",
+    defaultValue = "",
+    optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    help = "If non-empty, write a JOSN serialisation of the build event protocol to that file."
+  )
+  public String buildEventJsonFile;
+
+  @Option(
     name = "experimental_build_event_text_file_path_conversion",
     defaultValue = "true",
     optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
@@ -61,6 +69,17 @@ public class BuildEventStreamOptions extends OptionsBase {
   )
   public boolean buildEventBinaryFilePathConversion;
 
+  @Option(
+    name = "experimental_build_event_json_file_path_conversion",
+    defaultValue = "true",
+    optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    help =
+        "Convert paths in the json file representation of the build event protocol to more "
+            + "globally valid URIs whenever possible; if disabled, the file:// uri scheme will "
+            + "always be used"
+  )
+  public boolean buildEventJsonFilePathConversion;
+
   public String getBuildEventTextFile() {
     return buildEventTextFile;
   }
@@ -69,11 +88,19 @@ public class BuildEventStreamOptions extends OptionsBase {
     return buildEventBinaryFile;
   }
 
+  public String getBuildEventJsonFile() {
+    return buildEventJsonFile;
+  }
+
   public boolean getBuildEventTextFilePathConversion() {
     return buildEventTextFilePathConversion;
   }
 
   public boolean getBuildEventBinaryFilePathConversion() {
     return buildEventBinaryFilePathConversion;
+  }
+
+  public boolean getBuildEventJsonFilePathConversion() {
+    return buildEventJsonFilePathConversion;
   }
 }
