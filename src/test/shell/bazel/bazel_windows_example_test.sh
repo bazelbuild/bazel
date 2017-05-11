@@ -35,6 +35,9 @@ function set_up() {
   copy_examples
   setup_bazelrc
   cat >>"$TEST_TMPDIR/bazelrc" <<EOF
+# Workaround for https://github.com/bazelbuild/bazel/issues/2983
+startup --host_jvm_args=-Dbazel.windows_unix_root=C:/fake/msys
+
 startup --batch
 build --cpu=x64_windows_msvc
 EOF
