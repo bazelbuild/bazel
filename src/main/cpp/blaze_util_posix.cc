@@ -21,6 +21,7 @@
 #include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -140,6 +141,22 @@ string FindSystemWideBlazerc() {
 
 string GetJavaBinaryUnderJavabase() { return "bin/java"; }
 
+// NB: execve() requires pointers to non-const char arrays but .c_str() returns
+// a pointer to const char arrays. We could do the const_cast in this function,
+// but it's better to violate const correctness as late as possible. No one
+// cares about what happens just before execve() because we'll soon become a new
+// binary anyway.
+const char** ConvertStringVectorToArgv(const vector<string>& args) {
+  const char** argv = new const char*[args.size() + 1];
+  for (int i = 0; i < args.size(); i++) {
+    argv[i] = args[i].c_str();
+  }
+
+  argv[args.size()] = NULL;
+
+  return argv;
+}
+
 void ExecuteProgram(const string &exe, const vector<string> &args_vector) {
   if (VerboseLogging()) {
     string dbg;
@@ -153,14 +170,7 @@ void ExecuteProgram(const string &exe, const vector<string> &args_vector) {
             cwd.c_str(), dbg.c_str());
   }
 
-  // Copy to a char* array for execv:
-  int n = args_vector.size();
-  const char **argv = new const char *[n + 1];
-  for (int i = 0; i < n; ++i) {
-    argv[i] = args_vector[i].c_str();
-  }
-  argv[n] = NULL;
-
+  const char** argv = ConvertStringVectorToArgv(args_vector);
   execv(exe.c_str(), const_cast<char **>(argv));
 }
 
@@ -176,45 +186,15 @@ bool SymlinkDirectories(const string &target, const string &link) {
   return symlink(target.c_str(), link.c_str()) == 0;
 }
 
-static void CheckSingleThreaded() {
-#ifdef __linux__
-  DIR *dir = opendir("/proc/self/task");
-  if (!dir) pdie(INTERNAL_ERROR, "can't list /proc/self/task");
-  vector<string> tids;
-  while (dirent *dent = readdir(dir)) {
-    if (dent->d_name[0] != '.') tids.push_back(dent->d_name);
-  }
-  closedir(dir);
-  if (tids.size() == 1) return;
-
-  // If there are multiple threads, show their names as a debugging aid.
-  fprintf(stderr, "Trying to fork, but found %zu threads:\n", tids.size());
-  for (const string &t : tids) {
-    string path = string("/proc/self/task/") + t + "/comm";
-    if (FILE *f = fopen(path.c_str(), "r")) {
-      char comm[4096];
-      int len = fread(comm, 1, sizeof comm, f);
-      fprintf(stderr, "  Thread %s: %.*s", t.c_str(), len, comm);
-      fclose(f);
-    } else {
-      fprintf(stderr, "can't open %s", path.c_str());
-    }
-  }
-  die(INTERNAL_ERROR, "can't fork() after creating threads");
-#endif
-  // This can probably be checked on darwin via <sys/proc_info.h>.
-}
-
 // Causes the current process to become a daemon (i.e. a child of
 // init, detached from the terminal, in its own session.)  We don't
 // change cwd, though.
-static void Daemonize(const string& daemon_output) {
+static void Daemonize(const char* daemon_output) {
   // Don't call die() or exit() in this function; we're already in a
   // child process so it won't work as expected.  Just don't do
   // anything that can possibly fail. :)
 
   signal(SIGHUP, SIG_IGN);
-  CheckSingleThreaded();
   if (fork() > 0) {
     // This second fork is required iff there's any chance cmd will
     // open an specific tty explicitly, e.g., open("/dev/tty23"). If
@@ -230,7 +210,7 @@ static void Daemonize(const string& daemon_output) {
 
   open("/dev/null", O_RDONLY);  // stdin
   // stdout:
-  if (open(daemon_output.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0666) == -1) {
+  if (open(daemon_output, O_WRONLY | O_CREAT | O_TRUNC, 0666) == -1) {
     // In a daemon, no-one can hear you scream.
     open("/dev/null", O_WRONLY);
   }
@@ -276,6 +256,27 @@ bool SocketBlazeServerStartup::IsStillAlive() {
   }
 }
 
+// NB: There should only be system calls in this function. See the comment
+// before ExecuteDaemon() to understand why.
+static int StrlenAfterFork(const char* c) {
+  const char* p = c;
+  while (*p != 0) p++;
+  return p - c;
+}
+
+// NB: There should only be system calls in this function. See the comment
+// before ExecuteDaemon() to understand why.
+static void DieAfterFork(const char* message) {
+  char* error_string = strerror(errno);  // strerror is hopefully okay
+  write(STDERR_FILENO, message, StrlenAfterFork(message));
+  write(STDERR_FILENO, ": ", 2);
+  write(STDERR_FILENO, error_string, StrlenAfterFork(error_string));
+  write(STDERR_FILENO, "\n", 1);
+  exit(blaze_exit_code::INTERNAL_ERROR);
+}
+
+// NB: There should only be system calls in this function. See the comment
+// before ExecuteDaemon() to understand why.
 static void ReadFromFdWithRetryEintr(
     int fd, void *buf, size_t count, const char* error_message) {
   ssize_t result;
@@ -283,11 +284,12 @@ static void ReadFromFdWithRetryEintr(
     result = read(fd, buf, count);
   } while (result < 0 && errno == EINTR);
   if (result != count) {
-    pdie(blaze_exit_code::INTERNAL_ERROR, "%s", error_message);
+    DieAfterFork(error_message);
   }
 }
 
-
+// NB: There should only be system calls in this function. See the comment
+// before ExecuteDaemon() to understand why.
 static void WriteToFdWithRetryEintr(
     int fd, void *buf, size_t count, const char* error_message) {
   ssize_t result;
@@ -297,13 +299,51 @@ static void WriteToFdWithRetryEintr(
     result = write(fd, buf, count);
   } while (result < 0 && errno == EINTR);
   if (result != count) {
-    pdie(blaze_exit_code::INTERNAL_ERROR, "%s", error_message);
+    DieAfterFork(error_message);
   }
 }
 
 void WriteSystemSpecificProcessIdentifier(
     const string& server_dir, pid_t server_pid);
 
+// We do a lot of seemingly-needless complications to avoid doing anything
+// complex after a fork(). The reason is that forking in multi-threaded
+// programs is fraught with peril.
+//
+// One root cause is that fork() only forks the thread it was called from. If
+// another thread holds a lock, it will never be relinquished in the child
+// process, and malloc() sometimes does lock. Thus, we need to avoid allocating
+// any dynamic memory in the child process, which is hard if any C++ feature is
+// used.
+//
+// We also don't know what libc does behind the scenes, so it's advisable to
+// avoid anything that's not a system call. read(), write(), fork() and execv()
+// aren't guaranteed to be pure system calls, either, but we can't get any
+// closer to this ideal without writing logic specific to each POSIX system we
+// run on.
+//
+// There can also be problems with the dynamic linker if it does lazy symbol
+// resolution and the fork() happens to take place while another thread is in
+// the middle of that. We can't do much about that, apart from maybe calling
+// these functions in the main process so that their symbols are resolved.
+// the execv() invocation should fail then so that our binary is unchanged,
+// though :)
+//
+// Another way to tackle this issue would be to pre-fork a child process before
+// spawning any threads which is then used to fork all the other necessary
+// child processes. However, then we'd need to invent a protocol that can handle
+// sending stdour/stderr back and forking multiple times, which isn't trivial,
+// either.
+//
+// Yet another fix would be not to use multiple threads before forking. However,
+// we need to use gRPC to figure out if a server process is already present and
+// gRPC currently cannot be convinced not to spawn any threads.
+//
+// Another way would be to use posix_spawn(). However, since we need to create a
+// daemon process, we'd need to posix_spawn() a little child process that
+// daemonizes then exec()s the actual JVM, which is also non-trivial. So I hope
+// this will be good enough because for all its flaws, this solution is at least
+// localized here.
 void ExecuteDaemon(const string& exe,
                    const std::vector<string>& args_vector,
                    const string& daemon_output, const string& server_dir,
@@ -314,7 +354,10 @@ void ExecuteDaemon(const string& exe,
     pdie(blaze_exit_code::INTERNAL_ERROR, "socket creation failed");
   }
 
-  CheckSingleThreaded();
+  const char* daemon_output_chars = daemon_output.c_str();
+  const char** argv = ConvertStringVectorToArgv(args_vector);
+  const char* exe_chars = exe.c_str();
+
   int child = fork();
   if (child == -1) {
     pdie(blaze_exit_code::INTERNAL_ERROR, "fork() failed");
@@ -337,27 +380,30 @@ void ExecuteDaemon(const string& exe,
                        "cannot notify server about having written PID file");
     *server_startup = new SocketBlazeServerStartup(fds[0]);
     return;
+  } else {
+    // Child process (i.e. the server)
+    // NB: There should only be system calls in this branch. See the comment
+    // before ExecuteDaemon() to understand why.
+    close(fds[0]);  // ...child keeps the other.
+
+    Daemonize(daemon_output_chars);
+
+    pid_t server_pid = getpid();
+    WriteToFdWithRetryEintr(fds[1], &server_pid, sizeof server_pid,
+                            "cannot communicate server PID to client");
+    // We wait until the client writes the PID file so that there is no race
+    // condition; the server expects the PID file to already be there so that
+    // it can read it and know its own PID (see the ctor GrpcServerImpl) and so
+    // that it can kill itself if the PID file is deleted (see
+    // GrpcServerImpl.PidFileWatcherThread)
+    char dummy;
+    ReadFromFdWithRetryEintr(
+        fds[1], &dummy, 1,
+        "cannot get PID file write acknowledgement from client");
+
+    execv(exe_chars, const_cast<char**>(argv));
+    DieAfterFork("Cannot execute daemon");
   }
-
-  // Child process (i.e. the server)
-  close(fds[0]);  // ...child keeps the other.
-
-  Daemonize(daemon_output);
-
-  pid_t server_pid = getpid();
-  WriteToFdWithRetryEintr(fds[1], &server_pid, sizeof server_pid,
-                     "cannot communicate server PID to client");
-  // We wait until the client writes the PID file so that there is no race
-  // condition; the server expects the PID file to already be there so that
-  // it can read it and know its own PID (see the ctor GrpcServerImpl) and so
-  // that it can kill itself if the PID file is deleted (see
-  // GrpcServerImpl.PidFileWatcherThread)
-  char dummy;
-  ReadFromFdWithRetryEintr(fds[1], &dummy, 1,
-             "cannot get PID file write acknowledgement from client");
-
-  ExecuteProgram(exe, args_vector);
-  pdie(0, "Cannot execute %s", exe.c_str());
 }
 
 static string RunProgram(const string& exe,
@@ -369,7 +415,9 @@ static string RunProgram(const string& exe,
   int recv_socket = fds[0];
   int send_socket = fds[1];
 
-  CheckSingleThreaded();
+  const char* exe_chars = exe.c_str();
+  const char** argv = ConvertStringVectorToArgv(args_vector);
+
   int child = fork();
   if (child == -1) {
     pdie(blaze_exit_code::INTERNAL_ERROR, "fork() failed");
@@ -383,13 +431,16 @@ static string RunProgram(const string& exe,
     }
     return result;
   } else {                 // We're the child
+    // NB: There should only be system calls in this branch. See the comment
+    // before ExecuteDaemon() to understand why.
+
     close(recv_socket);    // child keeps only the writing side
     // Redirect output to the writing side of the dup.
     dup2(send_socket, STDOUT_FILENO);
     dup2(send_socket, STDERR_FILENO);
     // Execute the binary
-    ExecuteProgram(exe, args_vector);
-    pdie(blaze_exit_code::INTERNAL_ERROR, "Failed to run %s", exe.c_str());
+    execv(exe_chars, const_cast<char**>(argv));
+    DieAfterFork("Failed to run program");
   }
   return string("");  //  We cannot reach here, just placate the compiler.
 }
