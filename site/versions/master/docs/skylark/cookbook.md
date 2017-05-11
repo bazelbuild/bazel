@@ -680,7 +680,7 @@ sum = rule(
   attrs={
       "number": attr.int(default=1),
       # All deps must provide all listed providers.
-      "deps": attr.label_list(providers=["number"]),
+      "deps": attr.label_list(providers=[NumberInfo]),
   },
   outputs = {"out": "%{name}.sum"}
 )
