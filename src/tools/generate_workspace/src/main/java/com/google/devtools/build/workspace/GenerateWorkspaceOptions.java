@@ -71,4 +71,19 @@ public class GenerateWorkspaceOptions extends OptionsBase {
   )
   public String outputDir;
 
+  @Option(
+      name = "build_file",
+      help = "Output file to store the BUILD file. Takes precedence over output_dir.",
+      category = "output",
+      defaultValue = ""
+  )
+  public String buildOutputFile;
+
+  @Option(
+      name = "workspace_file",
+      help = "Output file to store the WORKSPACE file. Takes precedence over output_dir.",
+      category = "output",
+      defaultValue = ""
+  )
+  public String workspaceOutputFile;
 }
