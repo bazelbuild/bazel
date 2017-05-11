@@ -359,6 +359,25 @@ public class BuildEventStreamer implements EventHandler {
     }
   }
 
+  void flush() {
+    BuildEvent updateEvent;
+    synchronized (this) {
+      String out = null;
+      String err = null;
+      if (outErrProvider != null) {
+        out = outErrProvider.getOut();
+        err = outErrProvider.getErr();
+      }
+      updateEvent = ProgressEvent.progressUpdate(progressCount, out, err);
+      progressCount++;
+      announcedEvents.addAll(updateEvent.getChildrenEvents());
+      postedEvents.add(updateEvent.getEventId());
+    }
+    for (BuildEventTransport transport : transports) {
+      transport.sendBuildEvent(updateEvent, artifactGroupNamer);
+    }
+  }
+
   @VisibleForTesting
   ImmutableSet<BuildEventTransport> getTransports() {
     return ImmutableSet.copyOf(transports);
