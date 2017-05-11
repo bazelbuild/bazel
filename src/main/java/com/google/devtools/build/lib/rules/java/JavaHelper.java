@@ -145,7 +145,8 @@ public abstract class JavaHelper {
   /** Returns the artifacts required to invoke {@code javahome} relative binary in the action. */
   public static NestedSet<Artifact> getHostJavabaseInputs(
       RuleContext ruleContext, String implicitAttributesSuffix) {
-    return AnalysisUtils.getMiddlemanFor(ruleContext, ":host_jdk" + implicitAttributesSuffix);
+    return AnalysisUtils.getMiddlemanFor(
+        ruleContext, ":host_jdk" + implicitAttributesSuffix, Mode.HOST);
   }
 
   /**
