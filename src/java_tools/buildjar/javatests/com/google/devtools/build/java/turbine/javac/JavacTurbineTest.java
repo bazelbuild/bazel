@@ -1080,7 +1080,7 @@ public class JavacTurbineTest {
         new JavacTurbine(new PrintWriter(errOutput, true), optionsBuilder.build())) {
       assertThat(turbine.compile()).isEqualTo(Result.ERROR);
     }
-    assertThat(errOutput.toString()).contains("NoSuchFileException: /classes/NO_SUCH_FILE");
+    assertThat(errOutput.toString()).contains("classes/NO_SUCH_FILE");
   }
 
   @Test

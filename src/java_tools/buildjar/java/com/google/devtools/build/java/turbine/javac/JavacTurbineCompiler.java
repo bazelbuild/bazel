@@ -68,9 +68,9 @@ public class JavacTurbineCompiler {
                     fm.getJavaFileObjectsFromPaths(request.sources()),
                     context);
 
-        Path classes = fs.getPath("/classes");
+        Path classes = fs.getPath("classes");
         Files.createDirectories(classes);
-        Path sources = fs.getPath("/sources");
+        Path sources = fs.getPath("sources");
         Files.createDirectories(sources);
 
         fm.setContext(context);
