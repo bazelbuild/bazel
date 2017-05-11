@@ -18,14 +18,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.Builder;
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.DeprecationValidator;
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.PrerequisiteValidator;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.constraints.EnvironmentRule;
 import com.google.devtools.build.lib.bazel.rules.BazelToolchainType.BazelToolchainTypeRule;
@@ -76,13 +73,7 @@ import com.google.devtools.build.lib.bazel.rules.workspace.NewGitRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.NewHttpArchiveRule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.ideinfo.AndroidStudioInfoAspect;
-import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
-import com.google.devtools.build.lib.packages.PackageGroup;
-import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.Alias.AliasRule;
-import com.google.devtools.build.lib.rules.AliasProvider;
 import com.google.devtools.build.lib.rules.android.AarImportBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidBinaryOnlyRule;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
@@ -172,7 +163,6 @@ import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.WorkspaceBaseRule;
 import com.google.devtools.build.lib.rules.test.SkylarkTestingModule;
 import com.google.devtools.build.lib.rules.test.TestSuiteRule;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import java.io.IOException;
 
@@ -188,121 +178,26 @@ public class BazelRuleClassProvider {
     return builder.build();
   }
 
-  private static class BazelPrerequisiteValidator implements PrerequisiteValidator {
-    @Override
-    public void validate(
-        RuleContext.Builder context, ConfiguredTarget prerequisite, Attribute attribute) {
-      validateDirectPrerequisiteVisibility(context, prerequisite, attribute.getName());
-      validateDirectPrerequisiteForTestOnly(context, prerequisite);
-      DeprecationValidator.validateDirectPrerequisiteForDeprecation(
-          context, context.getRule(), prerequisite, context.forAspect());
-    }
-
-    private void validateDirectPrerequisiteVisibility(
-        RuleContext.Builder context, ConfiguredTarget prerequisite, String attrName) {
-      Rule rule = context.getRule();
-      Target prerequisiteTarget = prerequisite.getTarget();
-      if (!context
-              .getRule()
-              .getLabel()
-              .getPackageIdentifier()
-              .equals(AliasProvider.getDependencyLabel(prerequisite).getPackageIdentifier())
-          && !context.isVisible(prerequisite)) {
-        if (!context.getConfiguration().checkVisibility()) {
-          context.ruleWarning(
-              String.format(
-                  "Target '%s' violates visibility of target "
-                      + "%s. Continuing because --nocheck_visibility is active",
-                  rule.getLabel(), AliasProvider.printLabelWithAliasChain(prerequisite)));
-        } else {
-          // Oddly enough, we use reportError rather than ruleError here.
-          context.reportError(
-              rule.getLocation(),
-              String.format(
-                  "Target %s is not visible from target '%s'. Check "
-                      + "the visibility declaration of the former target if you think "
-                      + "the dependency is legitimate",
-                  AliasProvider.printLabelWithAliasChain(prerequisite), rule.getLabel()));
-        }
-      }
-
-      if (prerequisiteTarget instanceof PackageGroup && !attrName.equals("visibility")) {
-        context.reportError(
-            rule.getAttributeLocation(attrName),
-            "in "
-                + attrName
-                + " attribute of "
-                + rule.getRuleClass()
-                + " rule "
-                + rule.getLabel()
-                + ": package group "
-                + AliasProvider.printLabelWithAliasChain(prerequisite)
-                + " is misplaced here "
-                + "(they are only allowed in the visibility attribute)");
-      }
-    }
-
-    private void validateDirectPrerequisiteForTestOnly(
-        RuleContext.Builder context, ConfiguredTarget prerequisite) {
-      Rule rule = context.getRule();
-
-      if (rule.getRuleClassObject().getAdvertisedProviders().canHaveAnyProvider()) {
-        // testonly-ness will be checked directly between the depender and the target of the alias;
-        // getTarget() called by the depender will not return the alias rule, but its actual target
-        return;
-      }
-
-      Target prerequisiteTarget = prerequisite.getTarget();
-      String thisPackage = rule.getLabel().getPackageName();
-
-      if (isTestOnlyRule(prerequisiteTarget) && !isTestOnlyRule(rule)) {
-        String message =
-            "non-test target '"
-                + rule.getLabel()
-                + "' depends on testonly target "
-                + AliasProvider.printLabelWithAliasChain(prerequisite)
-                + " and doesn't have testonly attribute set";
-        if (thisPackage.startsWith("experimental/")) {
-          context.ruleWarning(message);
-        } else {
-          context.ruleError(message);
-        }
-      }
-    }
-
-    private static boolean isTestOnlyRule(Target target) {
-      return (target instanceof Rule)
-          && (NonconfigurableAttributeMapper.of((Rule) target)).get("testonly", Type.BOOLEAN);
-    }
-  }
-
   public static void setup(ConfiguredRuleClassProvider.Builder builder) {
-    BAZEL_SETUP.init(builder);
-    CORE_RULES.init(builder);
-    CORE_WORKSPACE_RULES.init(builder);
-    GENERIC_RULES.init(builder);
-    CONFIG_RULES.init(builder);
-    PLATFORM_RULES.init(builder);
-    PROTO_RULES.init(builder);
-    SH_RULES.init(builder);
-    CPP_RULES.init(builder);
-    CPP_PROTO_RULES.init(builder);
-    JAVA_RULES.init(builder);
-    JAVA_PROTO_RULES.init(builder);
-    ANDROID_RULES.init(builder);
-    PYTHON_RULES.init(builder);
-    OBJC_RULES.init(builder);
-    J2OBJC_RULES.init(builder);
-    ANDROID_STUDIO_ASPECT.init(builder);
-    TESTING_SUPPORT.init(builder);
-    VARIOUS_WORKSPACE_RULES.init(builder);
-
-    // These rules are a little special: they need to depend on every configuration fragment that
-    // has Make variables, so we can't put them in any of the above buckets.
-    builder.addRuleDefinition(new BazelToolchainTypeRule());
-    builder.addRuleDefinition(new GenRuleBaseRule());
-    builder.addRuleDefinition(new BazelGenRuleRule());
+    for (RuleSet ruleSet : RULE_SETS) {
+      ruleSet.init(builder);
+    }
   }
+
+  public static final RuleSet TOOLCHAIN_RULES =
+      new RuleSet() {
+        @Override
+        public void init(Builder builder) {
+          builder.addRuleDefinition(new BazelToolchainTypeRule());
+          builder.addRuleDefinition(new GenRuleBaseRule());
+          builder.addRuleDefinition(new BazelGenRuleRule());
+        }
+
+        @Override
+        public ImmutableList<RuleSet> requires() {
+          return null;
+        }
+      };
 
   public static final RuleSet BAZEL_SETUP =
       new RuleSet() {
@@ -779,4 +674,29 @@ public class BazelRuleClassProvider {
           return ImmutableList.of(CORE_RULES, CORE_WORKSPACE_RULES);
         }
       };
+
+  private static final ImmutableSet<RuleSet> RULE_SETS =
+      ImmutableSet.of(
+          BAZEL_SETUP,
+          CORE_RULES,
+          CORE_WORKSPACE_RULES,
+          GENERIC_RULES,
+          CONFIG_RULES,
+          PLATFORM_RULES,
+          PROTO_RULES,
+          SH_RULES,
+          CPP_RULES,
+          CPP_PROTO_RULES,
+          JAVA_RULES,
+          JAVA_PROTO_RULES,
+          ANDROID_RULES,
+          PYTHON_RULES,
+          OBJC_RULES,
+          J2OBJC_RULES,
+          ANDROID_STUDIO_ASPECT,
+          TESTING_SUPPORT,
+          VARIOUS_WORKSPACE_RULES,
+          // This rule set is a little special: it needs to depend on every configuration fragment
+          // that has Make variables, so we put it last.
+          TOOLCHAIN_RULES);
 }
