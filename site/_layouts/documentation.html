@@ -107,6 +107,20 @@ version_prefix: /versions/master
           </nav>
         </div>
         <div class="col-lg-9">
+          <a id="gh-edit" style="visibility: hidden;"><i class="fa fa-pencil" aria-hidden="true"></i> Edit</a>
+          <script>
+            var ghDocsBazeURL = 'https://github.com/bazelbuild/bazel/tree/master/site/versions/master/docs/';
+            var editButton = document.getElementById('gh-edit');
+            // if there is an edit button and we are on a doc page but not in the Build Encyclopedia
+            if(editButton
+              && window.location.pathname.split('docs/').length > 1
+              && window.location.pathname.lastIndexOf('/be/') == -1) {
+              var mdFile = window.location.pathname.split('docs/')[1].replace('html', 'md');
+              editButton.href = ghDocsBazeURL + mdFile;
+              editButton.style.visibility = 'visible';
+            }
+          </script>
+
           {{ content }}
         </div>
       </div>
