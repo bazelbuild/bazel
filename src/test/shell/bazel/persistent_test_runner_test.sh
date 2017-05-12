@@ -87,7 +87,8 @@ EOF
   expect_log "Test is supposed to fail"
 }
 
-function test_reload_modified_classes() {
+#TODO(b/37304748): Re-enable once we fix its flakiness.
+function DISABLED_test_reload_modified_classes() {
   setup_javatest_support
   mkdir -p java/testrunners || fail "mkdir failed"
 
