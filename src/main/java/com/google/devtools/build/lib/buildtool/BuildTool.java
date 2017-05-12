@@ -28,7 +28,9 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
 import com.google.devtools.build.lib.analysis.MakeEnvironmentEvent;
+import com.google.devtools.build.lib.analysis.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
@@ -300,8 +302,14 @@ public final class BuildTool {
       EnvironmentCollection expectedEnvironments = builder.build();
 
       // Now check the target against those environments.
+      TransitiveInfoCollection asProvider;
+      if (topLevelTarget instanceof OutputFileConfiguredTarget) {
+        asProvider = ((OutputFileConfiguredTarget) topLevelTarget).getGeneratingRule();
+      } else {
+        asProvider = topLevelTarget;
+      }
       SupportedEnvironmentsProvider provider =
-          Verify.verifyNotNull(topLevelTarget.getProvider(SupportedEnvironmentsProvider.class));
+          Verify.verifyNotNull(asProvider.getProvider(SupportedEnvironmentsProvider.class));
         Collection<Label> missingEnvironments = ConstraintSemantics.getUnsupportedEnvironments(
             provider.getRefinedEnvironments(), expectedEnvironments);
         if (!missingEnvironments.isEmpty()) {
