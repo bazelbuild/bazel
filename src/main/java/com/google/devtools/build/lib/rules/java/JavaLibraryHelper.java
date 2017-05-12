@@ -44,6 +44,7 @@ public final class JavaLibraryHelper {
   private Artifact output;
   private final List<Artifact> sourceJars = new ArrayList<>();
   private final List<Artifact> sourceFiles = new ArrayList<>();
+  private final List<Artifact> resources = new ArrayList<>();
 
   /**
    * Contains all the dependencies; these are treated as both compile-time and runtime dependencies.
@@ -83,6 +84,11 @@ public final class JavaLibraryHelper {
    */
   public JavaLibraryHelper addSourceJars(Artifact... sourceJars) {
     return this.addSourceJars(Arrays.asList(sourceJars));
+  }
+
+  public JavaLibraryHelper addResources(Iterable<Artifact> resources) {
+    Iterables.addAll(this.resources, resources);
+    return this;
   }
 
   public JavaLibraryHelper addDep(JavaCompilationArgsProvider provider) {
@@ -151,6 +157,11 @@ public final class JavaLibraryHelper {
     attributes.setRuleKind(ruleContext.getRule().getRuleClass());
     attributes.setTargetLabel(ruleContext.getLabel());
     attributes.setSourcePath(sourcePathEntries);
+
+    for (Artifact resource : resources) {
+      attributes.addResource(
+          JavaHelper.getJavaResourcePath(semantics, ruleContext, resource), resource);
+    }
 
     if (isStrict() && classpathMode != JavaClasspathMode.OFF) {
       JavaCompilationHelper.addDependencyArtifactsToAttributes(

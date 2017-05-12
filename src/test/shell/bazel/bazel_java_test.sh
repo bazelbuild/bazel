@@ -76,6 +76,7 @@ def _impl(ctx):
     output = output_jar,
     javac_opts = java_common.default_javac_opts(ctx, java_toolchain_attr = "_java_toolchain"),
     deps = deps,
+    resources = ctx.files.resources,
     strict_deps = "ERROR",
     java_toolchain = ctx.attr._java_toolchain,
     host_javabase = ctx.attr._host_javabase
@@ -91,6 +92,7 @@ java_custom_library = rule(
   attrs = {
     "srcs": attr.label_list(allow_files=True),
     "deps": attr.label_list(),
+    "resources": attr.label_list(allow_files=True),
     "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:toolchain")),
     "_host_javabase": attr.label(default = Label("//tools/defaults:jdk"))
   },
@@ -733,6 +735,63 @@ EOF
   bazel test --test_output=streamed --explicit_java_test_deps //java/testrunners:Tests \
       &> "$TEST_log" || fail "Expected success"
   expect_log "testTest was run"
+}
+
+function test_java_sandwich_resources_file() {
+  mkdir -p java/com/google/sandwich
+  workspace_dir="$PWD"
+  cd java/com/google/sandwich
+
+  touch BUILD A.java java_custom_library.bzl my_precious_resource.txt
+
+  cat > BUILD << EOF
+load(':java_custom_library.bzl', 'java_custom_library')
+java_custom_library(
+  name = "custom",
+  srcs = ["A.java"],
+  resources = ["my_precious_resource.txt"]
+)
+EOF
+  cat > A.java << EOF
+package com.google.sandwich;
+class A { }
+EOF
+  write_java_custom_rule
+  cd "${workspace_dir}"
+  bazel build java/com/google/sandwich:custom > "$TEST_log" || fail "Java sandwich build failed"
+  unzip -l bazel-bin/java/com/google/sandwich/libcustom.jar  > "$TEST_log"
+  expect_log "my_precious_resource.txt"
+}
+
+function test_java_sandwich_resources_filegroup() {
+  mkdir -p java/com/google/sandwich
+  workspace_dir="$PWD"
+  cd java/com/google/sandwich
+
+  touch BUILD A.java java_custom_library.bzl my_precious_resource.txt my_other_precious_resource.txt
+
+  cat > BUILD << EOF
+load(':java_custom_library.bzl', 'java_custom_library')
+filegroup(
+  name = "resources_group",
+  srcs = ["my_precious_resource.txt", "my_other_precious_resource.txt"]
+)
+java_custom_library(
+  name = "custom",
+  srcs = ["A.java"],
+  resources = [":resources_group"]
+)
+EOF
+  cat > A.java << EOF
+package com.google.sandwich;
+class A { }
+EOF
+  write_java_custom_rule
+  cd "${workspace_dir}"
+  bazel build java/com/google/sandwich:custom > "$TEST_log" || fail "Java sandwich build failed"
+  unzip -l bazel-bin/java/com/google/sandwich/libcustom.jar  > "$TEST_log"
+  expect_log "my_precious_resource.txt"
+  expect_log "my_other_precious_resource.txt"
 }
 
 run_suite "Java integration tests"

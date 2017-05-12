@@ -177,6 +177,14 @@ public class JavaSkylarkCommon {
         type = SkylarkList.class,
         generic1 = Artifact.class,
         defaultValue = "[]"
+      ),
+      @Param(
+          name = "resources",
+          positional = false,
+          named = true,
+          type = SkylarkList.class,
+          generic1 = Artifact.class,
+          defaultValue = "[]"
       )
     }
   )
@@ -190,13 +198,15 @@ public class JavaSkylarkCommon {
       String strictDepsMode,
       ConfiguredTarget javaToolchain,
       ConfiguredTarget hostJavabase,
-      SkylarkList<Artifact> sourcepathEntries) throws EvalException {
+      SkylarkList<Artifact> sourcepathEntries,
+      SkylarkList<Artifact> resources) throws EvalException {
 
     JavaLibraryHelper helper =
         new JavaLibraryHelper(skylarkRuleContext.getRuleContext())
             .setOutput(outputJar)
             .addSourceJars(sourceJars)
             .addSourceFiles(sourceFiles)
+            .addResources(resources)
             .setSourcePathEntries(sourcepathEntries)
             .setJavacOpts(javacOpts);
 

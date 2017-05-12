@@ -93,7 +93,7 @@ public class ResourceJarActionBuilder {
           .setJarExecutable(
               ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable(),
               singleJar,
-              JavaToolchainProvider.fromRuleContext(ruleContext).getJvmOptions())
+              javaToolchain.getJvmOptions())
           .addTransitiveInputs(javabase);
     } else {
       builder.setExecutable(singleJar);
