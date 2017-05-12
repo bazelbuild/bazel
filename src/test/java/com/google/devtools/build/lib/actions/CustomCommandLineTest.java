@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -31,13 +32,12 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
+import java.util.Collection;
+import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.Collection;
 
 /**
  * Tests for CustomCommandLine.
@@ -82,6 +82,25 @@ public class CustomCommandLineTest {
     CustomCommandLine cl = CustomCommandLine.builder().addJoinStrings("--path", ":",
         ImmutableList.of("foo", "bar")).build();
     assertEquals(ImmutableList.of("--path", "foo:bar"), cl.arguments());
+  }
+
+  @Test
+  public void testJoinValues() {
+    CustomCommandLine cl =
+        CustomCommandLine.builder()
+            .addJoinValues(
+                "--path",
+                ":",
+                ImmutableList.of("foo", "bar", "baz"),
+                new Function<String, String>() {
+                  @Nullable
+                  @Override
+                  public String apply(@Nullable String s) {
+                    return s.toUpperCase();
+                  }
+                })
+            .build();
+    assertEquals(ImmutableList.of("--path", "FOO:BAR:BAZ"), cl.arguments());
   }
 
   @Test

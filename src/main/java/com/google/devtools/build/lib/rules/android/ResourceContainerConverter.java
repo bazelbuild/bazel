@@ -20,7 +20,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -216,25 +215,13 @@ public class ResourceContainerConverter {
       ToArtifacts toArtifacts) {
 
     if (dependencies != null) {
-      // TODO(bazel-team): Find an appropriately lazy method to deduplicate the dependencies between
-      // the direct and transitive data.
-      // Add transitive data inside an unmodifiableIterable to ensure it won't be expanded until
-      // iteration.
       if (!dependencies.getTransitiveResources().isEmpty()) {
-        cmdBuilder.addJoinStrings(
-            "--data",
-            toArg.listSeparator(),
-            Iterables.unmodifiableIterable(
-                Iterables.transform(dependencies.getTransitiveResources(), toArg)));
+        cmdBuilder.addJoinValues(
+            "--data", toArg.listSeparator(), dependencies.getTransitiveResources(), toArg);
       }
-      // Add direct data inside an unmodifiableIterable to ensure it won't be expanded until
-      // iteration.
       if (!dependencies.getDirectResources().isEmpty()) {
-        cmdBuilder.addJoinStrings(
-            "--directData",
-            toArg.listSeparator(),
-            Iterables.unmodifiableIterable(
-                Iterables.transform(dependencies.getDirectResources(), toArg)));
+        cmdBuilder.addJoinValues(
+            "--directData", toArg.listSeparator(), dependencies.getDirectResources(), toArg);
       }
       // This flattens the nested set. Since each ResourceContainer needs to be transformed into
       // Artifacts, and the NestedSetBuilder.wrap doesn't support lazy Iterator evaluation
