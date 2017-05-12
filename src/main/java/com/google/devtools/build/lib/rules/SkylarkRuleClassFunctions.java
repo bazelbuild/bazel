@@ -250,7 +250,7 @@ public class SkylarkRuleClassFunctions {
     name = "provider",
     returnType = ClassObjectConstructor.class,
     doc =
-        "Creates a declared provider 'constructor'. The return value of this"
+        "Creates a declared provider 'constructor'. The return value of this "
             + "function can be used to create \"struct-like\" values. Example:<br>"
             + "<pre class=\"language-python\">data = provider()\n"
             + "d = data(x = 2, y = 3)\n"
