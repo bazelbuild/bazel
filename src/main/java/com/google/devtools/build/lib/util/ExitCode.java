@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.util;
 
 import com.google.common.base.Objects;
-
 import java.util.Collection;
 import java.util.HashMap;
 
@@ -51,6 +50,11 @@ public class ExitCode {
       ExitCode.createInfrastructureFailure(36, "LOCAL_ENVIRONMENTAL_ERROR");
   public static final ExitCode BLAZE_INTERNAL_ERROR =
       ExitCode.createInfrastructureFailure(37, "BLAZE_INTERNAL_ERROR");
+  /**
+   * Exit code for when uploading the BES protocol fails.
+   */
+  public static final ExitCode PUBLISH_ERROR =
+      ExitCode.createInfrastructureFailure(38, "PUBLISH_ERROR");
   public static final ExitCode RESERVED = ExitCode.createInfrastructureFailure(40, "RESERVED");
   /*
     exit codes [50..60] and 253 are reserved for site specific wrappers to Bazel.
