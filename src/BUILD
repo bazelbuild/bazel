@@ -264,6 +264,12 @@ filegroup(
 ]]
 
 config_setting(
+    name = "linux_x86_64",
+    values = {"cpu": "k8"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
     name = "darwin",
     values = {"cpu": "darwin"},
     visibility = ["//visibility:public"],
