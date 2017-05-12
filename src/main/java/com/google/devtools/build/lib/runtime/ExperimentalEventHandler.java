@@ -87,6 +87,7 @@ public class ExperimentalEventHandler implements EventHandler {
   private long minimalUpdateInterval;
   private long lastRefreshMillis;
   private long mustRefreshAfterMillis;
+  private boolean dateShown;
   private int numLinesProgressBar;
   private boolean buildComplete;
   // Number of open build even protocol transports.
@@ -133,6 +134,7 @@ public class ExperimentalEventHandler implements EventHandler {
     this.minimalUpdateInterval = Math.max(this.minimalDelayMillis, MAXIMAL_UPDATE_DELAY_MILLIS);
     this.stdoutBuffer = new byte[] {};
     this.stderrBuffer = new byte[] {};
+    this.dateShown = false;
     // The progress bar has not been updated yet.
     ignoreRefreshLimitOnce();
   }
@@ -162,6 +164,18 @@ public class ExperimentalEventHandler implements EventHandler {
     return didFlush;
   }
 
+  private synchronized void maybeAddDate() {
+    if (!showTimestamp || dateShown) {
+      return;
+    }
+    dateShown = true;
+    handle(
+        Event.info(
+            null,
+            "Current date is "
+                + DateTimeFormat.forPattern("YYYY-MM-dd").print(clock.currentTimeMillis())));
+  }
+
   @Override
   public synchronized void handle(Event event) {
     try {
@@ -174,6 +188,7 @@ public class ExperimentalEventHandler implements EventHandler {
         addProgressBar();
         terminal.flush();
       } else {
+        maybeAddDate();
         switch (event.getKind()) {
           case STDOUT:
           case STDERR:
@@ -288,6 +303,7 @@ public class ExperimentalEventHandler implements EventHandler {
 
   @Subscribe
   public void buildStarted(BuildStartingEvent event) {
+    maybeAddDate();
     stateTracker.buildStarted(event);
     // As a new phase started, inform immediately.
     ignoreRefreshLimitOnce();
@@ -296,6 +312,7 @@ public class ExperimentalEventHandler implements EventHandler {
 
   @Subscribe
   public void loadingStarted(LoadingPhaseStartedEvent event) {
+    maybeAddDate();
     stateTracker.loadingStarted(event);
     // As a new phase started, inform immediately.
     ignoreRefreshLimitOnce();
@@ -361,6 +378,7 @@ public class ExperimentalEventHandler implements EventHandler {
 
   @Subscribe
   public void downloadProgress(FetchProgress event) {
+    maybeAddDate();
     stateTracker.downloadProgress(event);
     refresh();
   }
