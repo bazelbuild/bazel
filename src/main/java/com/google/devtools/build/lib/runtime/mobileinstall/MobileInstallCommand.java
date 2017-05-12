@@ -33,6 +33,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionPriority;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
 import java.util.List;
@@ -69,6 +70,26 @@ public class MobileInstallCommand implements BlazeCommand {
             + "that information to avoid unnecessary work. If false (the default), always do a "
             + "full install.")
     public boolean incremental;
+
+    @Option(
+      name = "v2",
+      category = "mobile-install",
+      defaultValue = "false",
+      help = "Whether to use the v2 mobile-install. If true, rather than using the current "
+          + "version of mobile-install, use version 2.",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED
+    )
+    public boolean v2;
+
+    @Option(
+      name = "mobile_install_aspects",
+      category = "mobile-install",
+      defaultValue =
+          "@android_test_support//tools/android/mobile_install:mobile-install.bzl%MIASPECT",
+      help = "The aspect to use for mobile-install.",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED
+    )
+    public String mobileInstallAspects;
   }
 
   @Override
@@ -93,16 +114,25 @@ public class MobileInstallCommand implements BlazeCommand {
   public void editOptions(CommandEnvironment env, OptionsParser optionsParser)
       throws AbruptExitException {
     try {
-      String outputGroup =
-          optionsParser.getOptions(Options.class).splitApks
-              ? "mobile_install_split" + INTERNAL_SUFFIX
-              : optionsParser.getOptions(Options.class).incremental
-                  ? "mobile_install_incremental" + INTERNAL_SUFFIX
-                  : "mobile_install_full" + INTERNAL_SUFFIX;
-
-      optionsParser.parse(OptionPriority.COMMAND_LINE,
-          "Options required by the mobile-install command",
-          ImmutableList.of("--output_groups=" + outputGroup));
+      if (optionsParser.getOptions(Options.class).v2) {
+        optionsParser.parse(
+            OptionPriority.COMMAND_LINE,
+            "Options required by the mobile-install v2 command",
+            ImmutableList.of(
+                "--aspects=" + optionsParser.getOptions(Options.class).mobileInstallAspects,
+                "--output_groups=mobile_install_v2" + INTERNAL_SUFFIX));
+      } else {
+        String outputGroup =
+            optionsParser.getOptions(Options.class).splitApks
+                ? "mobile_install_split" + INTERNAL_SUFFIX
+                : optionsParser.getOptions(Options.class).incremental
+                    ? "mobile_install_incremental" + INTERNAL_SUFFIX
+                    : "mobile_install_full" + INTERNAL_SUFFIX;
+        optionsParser.parse(
+            OptionPriority.COMMAND_LINE,
+            "Options required by the mobile-install command",
+            ImmutableList.of("--output_groups=" + outputGroup));
+      }
     } catch (OptionsParsingException e) {
       throw new IllegalStateException(e);
     }
