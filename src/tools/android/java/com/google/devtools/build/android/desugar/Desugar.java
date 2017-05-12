@@ -550,7 +550,7 @@ class Desugar {
   private static Path createAndRegisterLambdaDumpDirectory() throws IOException {
     String propertyValue = System.getProperty(LambdaClassMaker.LAMBDA_METAFACTORY_DUMPER_PROPERTY);
     if (propertyValue != null) {
-      return Paths.get(propertyValue);
+      return Paths.get(propertyValue).toAbsolutePath();
     }
 
     Path dumpDirectory = Files.createTempDirectory("lambdas");
