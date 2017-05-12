@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.proto;
 
 import static com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode.TARGET;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
-import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -31,7 +30,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
@@ -213,15 +211,6 @@ public class ProtoCommon {
         || flagValue == BuildConfiguration.StrictDepsMode.WARN) {
       return true;
     }
-
-    TriState attrValue = ruleContext.attributes().get("strict_proto_deps", TRISTATE);
-    if (attrValue == TriState.NO) {
-      return false;
-    }
-    if (attrValue == TriState.YES) {
-      return true;
-    }
-    
     return (flagValue == BuildConfiguration.StrictDepsMode.STRICT);
   }
 }

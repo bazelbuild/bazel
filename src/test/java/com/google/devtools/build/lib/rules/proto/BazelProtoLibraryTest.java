@@ -233,23 +233,6 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     }
   }
 
-  /**
-   * Assert that strict proto_library can depend on non-strict proto_library, without Bazel
-   * crashing.
-   */
-  @Test
-  public void strictCanDependOnNonStrict() throws Exception {
-    useConfiguration("--proto_compiler=//proto:compiler", "--strict_proto_deps=strict");
-    scratch.file(
-        "x/BUILD",
-        "proto_library(name = 'foo', deps = [':bar'], strict_proto_deps=1)",
-        "proto_library(name = 'bar', deps = [':baz'], strict_proto_deps=0)",
-        "proto_library(name = 'baz', srcs = ['baz.proto'])");
-
-    getConfiguredTarget("//x:foo");
-    // Implicitly check that Bazel doesn't crash.
-  }
-
   private Artifact getDescriptorOutput(String label) throws Exception {
     return getFirstArtifactEndingWith(getFilesToBuild(getConfiguredTarget(label)), ".proto.bin");
   }
