@@ -54,7 +54,7 @@ final class SandboxActionContextProvider extends ActionContextProvider {
       case LINUX:
         if (LinuxSandboxedStrategy.isSupported(cmdEnv)) {
           contexts.add(
-              new LinuxSandboxedStrategy(cmdEnv, buildRequest, sandboxBase, verboseFailures));
+              LinuxSandboxedStrategy.create(cmdEnv, buildRequest, sandboxBase, verboseFailures));
         }
         break;
       case DARWIN:

@@ -184,7 +184,8 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
         writableDirs);
 
     DarwinSandboxRunner runner =
-        new DarwinSandboxRunner(sandboxPath, sandboxExecRoot, writableDirs, verboseFailures);
+        new DarwinSandboxRunner(
+            sandboxPath, sandboxExecRoot, writableDirs, getInaccessiblePaths(), verboseFailures);
     try {
       runSpawn(
           spawn,

@@ -135,11 +135,10 @@ genrule(
   srcs = [ "a.txt" ],
   outs = [ "breaks2.txt" ],
   # The point of this test is to attempt to read something from the filesystem
-  # that resides outside the sandbox by using an absolute path to that file.
+  # that is blocked via --sandbox_block_path= and thus should't be accessible.
   #
-  # /var/log is an arbitrary choice of directory (we don't mount it in the
-  # sandbox and it should exist on every linux) which could be changed in
-  # case it turns out it's necessary to put it in sandbox.
+  # /var/log is an arbitrary choice of directory that should exist on all Linux
+  # systems.
   #
   cmd = "ls /var/log &> $@",
 )
@@ -301,6 +300,23 @@ function test_sandbox_undeclared_deps_skylark_with_local_tag() {
     || fail "Non-hermetic genrule failed even though tags=['local']: examples/genrule:skylark_breaks1_works_with_local_tag"
   [ -f "${BAZEL_BIN_DIR}/examples/genrule/skylark_breaks1_works_with_local_tag.txt" ] \
     || fail "Action did not produce output: examples/genrule:skylark_breaks1_works_with_local_tag"
+}
+
+function test_sandbox_block_filesystem() {
+  output_file="${BAZEL_GENFILES_DIR}/examples/genrule/breaks2.txt"
+
+  bazel build --sandbox_block_path=/var/log examples/genrule:breaks2 &> $TEST_log \
+    && fail "Non-hermetic genrule succeeded: examples/genrule:breaks2" || true
+
+  [ -f "$output_file" ] ||
+    fail "Action did not produce output: $output_file"
+
+  if [ $(wc -l $output_file) -gt 1 ]; then
+    fail "Output contained more than one line: $output_file"
+  fi
+
+  fgrep "Permission denied" $output_file ||
+    fail "Output did not contain expected error message: $output_file"
 }
 
 function test_sandbox_cyclic_symlink_in_inputs() {
