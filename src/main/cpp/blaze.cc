@@ -586,8 +586,7 @@ static void VerifyJavaVersionAndSetJvm() {
   globals->jvm_path = exe;
 }
 
-// Starts the Blaze server.  Returns a readable fd connected to the server.
-// This is currently used only to detect liveness.
+// Starts the Blaze server.
 static void StartServer(const WorkspaceLayout *workspace_layout,
                         BlazeServerStartup **server_startup) {
   vector<string> jvm_args_vector = GetArgumentArray();
