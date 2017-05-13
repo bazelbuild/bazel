@@ -118,18 +118,18 @@ final class DarwinSandboxRunner extends SandboxRunner {
 
       if (!allowNetwork) {
         out.println("(deny network*)");
+        out.println("(allow network* (local ip \"localhost:*\"))");
+        out.println("(allow network* (remote ip \"localhost:*\"))");
       }
 
-      out.println("(allow network* (local ip \"localhost:*\"))");
-      out.println("(allow network* (remote ip \"localhost:*\"))");
+      // By default, everything is read-only.
+      out.println("(deny file-write*)");
 
-      // Almost everything else is read-only.
-      out.println("(deny file-write* (subpath \"/\"))");
-
-      allowWriteSubpath(out, sandboxExecRoot);
+      out.println("(allow file-write*");
       for (Path path : writableDirs) {
-        allowWriteSubpath(out, path);
+        out.println("    (subpath \"" + path.getPathString() + "\")");
       }
+      out.println(")");
 
       if (!inaccessiblePaths.isEmpty()) {
         out.println("(deny file-read*");
@@ -140,14 +140,6 @@ final class DarwinSandboxRunner extends SandboxRunner {
         }
         out.println(")");
       }
-    }
-  }
-
-  private void allowWriteSubpath(PrintWriter out, Path path) throws IOException {
-    out.println("(allow file-write* (subpath \"" + path.getPathString() + "\"))");
-    Path resolvedPath = path.resolveSymbolicLinks();
-    if (!resolvedPath.equals(path)) {
-      out.println("(allow file-write* (subpath \"" + resolvedPath.getPathString() + "\"))");
     }
   }
 }

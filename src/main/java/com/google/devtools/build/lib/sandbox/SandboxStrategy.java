@@ -193,10 +193,15 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
   protected ImmutableSet<Path> getWritableDirs(Path sandboxExecRoot, Map<String, String> env)
       throws IOException {
     // We have to make the TEST_TMPDIR directory writable if it is specified.
+    ImmutableSet.Builder<Path> writablePaths = ImmutableSet.builder();
+    writablePaths.add(sandboxExecRoot);
     if (env.containsKey("TEST_TMPDIR")) {
-      return ImmutableSet.of(sandboxExecRoot.getRelative(env.get("TEST_TMPDIR")));
+      // We add this even though it may be below sandboxExecRoot (and thus would already be writable
+      // as a subpath) to take advantage of the side-effect that SymlinkedExecRoot also creates this
+      // needed directory if it doesn't exist yet.
+      writablePaths.add(sandboxExecRoot.getRelative(env.get("TEST_TMPDIR")));
     }
-    return ImmutableSet.of();
+    return writablePaths.build();
   }
 
   protected ImmutableSet<Path> getInaccessiblePaths() {
