@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.SkylarkProviders;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
@@ -133,12 +132,8 @@ public final class JavaProvider extends SkylarkClassObject implements Transitive
     if (provider != null) {
       return provider;
     }
-    SkylarkProviders skylarkProviders = target.getProvider(SkylarkProviders.class);
-    if (skylarkProviders == null) {
-      return null;
-    }
     JavaProvider javaProvider =
-        (JavaProvider) skylarkProviders.getDeclaredProvider(JavaProvider.JAVA_PROVIDER.getKey());
+        (JavaProvider) target.get(JavaProvider.JAVA_PROVIDER.getKey());
     if (javaProvider == null) {
       return null;
     }

@@ -14,11 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.util.Preconditions;
-import javax.annotation.Nullable;
 
 /**
  * Dummy ConfiguredTarget for environment groups. Contains no functionality, since
@@ -33,12 +30,5 @@ public final class EnvironmentGroupConfiguredTarget extends AbstractConfiguredTa
   @Override
   public EnvironmentGroup getTarget() {
     return (EnvironmentGroup) super.getTarget();
-  }
-
-  @Nullable
-  @Override
-  public SkylarkClassObject get(ClassObjectConstructor.Key providerKey) {
-    // No providers.
-    return null;
   }
 }

@@ -20,7 +20,6 @@ import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.SkylarkProviders;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -65,9 +64,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
       "    srcs = ['ToBeProcessed.java'])",
       "my_rule(name = 'my', dep = ':to_be_processed')");
     ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:my");
-    SkylarkProviders provider = configuredTarget.getProvider(SkylarkProviders.class);
-    SkylarkClassObject skylarkClassObject = provider
-      .getDeclaredProvider(
+    SkylarkClassObject skylarkClassObject = configuredTarget.get(
           new SkylarkKey(Label.parseAbsolute("//java/test:extension.bzl"), "result"));
 
     assertThat(
@@ -126,9 +123,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     ConfiguredTarget javaLibraryTarget = getConfiguredTarget("//java/test:jl");
 
     // Extract out the information from skylark rule
-    SkylarkProviders provider = myConfiguredTarget.getProvider(SkylarkProviders.class);
     SkylarkClassObject skylarkClassObject =
-        provider.getDeclaredProvider(
+        myConfiguredTarget.get(
             new SkylarkKey(Label.parseAbsolute("//java/test:extension.bzl"), "result"));
 
     SkylarkNestedSet rawMyCompileJars =
@@ -289,7 +285,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     SkylarkKey myProviderKey =
         new SkylarkKey(Label.parseAbsolute("//foo:extension.bzl"), "my_provider");
     SkylarkClassObject declaredProvider =
-        myRuleTarget.getProvider(SkylarkProviders.class).getDeclaredProvider(myProviderKey);
+        myRuleTarget.get(myProviderKey);
     Object javaProvider = declaredProvider.getValue("p");
     assertThat(javaProvider).isInstanceOf(JavaProvider.class);
     assertThat(javaLibraryTarget.getProvider(JavaProvider.class)).isEqualTo(javaProvider);

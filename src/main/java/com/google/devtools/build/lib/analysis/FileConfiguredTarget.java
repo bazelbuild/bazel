@@ -65,7 +65,7 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
   }
 
   /**
-   *  Returns the file type of this file target.
+   *  Returns the file name of this file target.
    */
   @Override
   public String getFilename() {

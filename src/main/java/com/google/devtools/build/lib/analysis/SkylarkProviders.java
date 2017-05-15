@@ -32,9 +32,13 @@ import java.util.Set;
 
 /**
  * A helper class for transitive infos provided by Skylark rule implementations.
+ *
+ * DO NOT USE THIS CLASS to access Skylark providers.
+ * Use {@link ConfiguredTarget#get(SkylarkProviderIdentifier)} or
+ * {@link ConfiguredAspect#getProvider(SkylarkProviderIdentifier)}.
  */
 @Immutable
-public final class SkylarkProviders implements TransitiveInfoProvider {
+final class SkylarkProviders implements TransitiveInfoProvider {
   private final ImmutableMap<ClassObjectConstructor.Key, SkylarkClassObject>
       declaredProviders;
   private final ImmutableMap<String, Object> skylarkProviders;

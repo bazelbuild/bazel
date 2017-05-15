@@ -18,12 +18,9 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.PackageSpecification;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.util.Preconditions;
-import javax.annotation.Nullable;
 
 /**
  * Dummy ConfiguredTarget for package groups. Contains no functionality, since
@@ -65,13 +62,5 @@ public final class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
   @Override
   public NestedSet<PackageSpecification> getPackageSpecifications() {
     return packageSpecifications;
-  }
-
-
-  @Nullable
-  @Override
-  public SkylarkClassObject get(ClassObjectConstructor.Key providerKey) {
-    // No providers.
-    return null;
   }
 }

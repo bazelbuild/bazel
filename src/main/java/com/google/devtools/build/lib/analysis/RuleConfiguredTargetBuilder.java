@@ -140,7 +140,7 @@ public final class RuleConfiguredTargetBuilder {
     return new RuleConfiguredTarget(
         ruleContext,
         providers,
-        new SkylarkProviders(skylarkProviders.build(), skylarkDeclaredProviders.build()));
+        skylarkProviders.build(), skylarkDeclaredProviders.build());
   }
 
   /** Adds skylark providers from a skylark provider registry, and checks for collisions. */
