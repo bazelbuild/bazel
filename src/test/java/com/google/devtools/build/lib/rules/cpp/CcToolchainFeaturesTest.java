@@ -1467,4 +1467,22 @@ public class CcToolchainFeaturesTest {
     }
     assertThat(objectNames.build()).containsExactly("foo", "bar");
   }
+
+  @Test
+  public void testProvidesCollision() throws Exception {
+    try {
+      buildFeatures(
+          "feature {",
+          " name: 'a'",
+          " provides: 'provides_string'",
+          "}",
+          "feature {",
+          " name: 'b'",
+          " provides: 'provides_string'",
+          "}").getFeatureConfiguration("a", "b");
+      fail("Should throw CollidingProvidesException on collision, instead did not throw.");
+    } catch (Exception e) {
+      assertThat(e).hasMessageThat().contains("a b");
+    }
+  }
 }

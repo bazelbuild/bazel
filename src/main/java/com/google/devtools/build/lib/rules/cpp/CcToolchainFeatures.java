@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -83,9 +84,22 @@ public class CcToolchainFeatures implements Serializable {
     }
   }
 
+  /**
+   * Thrown when multiple features provide the same string symbol.
+   */
+  public static class CollidingProvidesException extends RuntimeException {
+    CollidingProvidesException(String message) {
+      super(message);
+    }
+  }
+
   /** Error message thrown when a toolchain does not provide a required artifact_name_pattern. */
   public static final String MISSING_ARTIFACT_NAME_PATTERN_ERROR_TEMPLATE =
       "Toolchain must provide artifact_name_pattern for category %s";
+
+  /** Error message thrown when a toolchain enables two features that provide the same string. */
+  @VisibleForTesting static final String COLLIDING_PROVIDES_ERROR =
+      "Symbol %s is provided by all of the following features: %s";
 
   /**
    * A piece of a single string value.
@@ -1839,6 +1853,11 @@ public class CcToolchainFeatures implements Serializable {
       requires;
 
   /**
+   * Maps from a string to the set of selectables that 'provide' it.
+   */
+  private final ImmutableMultimap<String, CrosstoolSelectable> provides;
+
+  /**
    * Maps from a selectable to all selectables that have a requirement referencing it.
    *
    * <p>This will be used to determine which selectables need to be re-checked after a selectable
@@ -1907,11 +1926,12 @@ public class CcToolchainFeatures implements Serializable {
     }
     this.artifactNamePatterns = artifactNamePatternsBuilder.build();
 
-    // Next, we build up all forward references for 'implies' and 'requires' edges.
+    // Next, we build up all forward references for 'implies', 'requires', and 'provides' edges.
     ImmutableMultimap.Builder<CrosstoolSelectable, CrosstoolSelectable> implies =
         ImmutableMultimap.builder();
     ImmutableMultimap.Builder<CrosstoolSelectable, ImmutableSet<CrosstoolSelectable>> requires =
         ImmutableMultimap.builder();
+    ImmutableMultimap.Builder<CrosstoolSelectable, String> provides = ImmutableMultimap.builder();
     // We also store the reverse 'implied by' and 'required by' edges during this pass.
     ImmutableMultimap.Builder<CrosstoolSelectable, CrosstoolSelectable> impliedBy =
         ImmutableMultimap.builder();
@@ -1935,6 +1955,9 @@ public class CcToolchainFeatures implements Serializable {
         impliedBy.put(implied, selectable);
         implies.put(selectable, implied);
       }
+      for (String providesName : toolchainFeature.getProvidesList()) {
+        provides.put(selectable, providesName);
+      }
     }
 
     for (CToolchain.ActionConfig toolchainActionConfig : toolchain.getActionConfigList()) {
@@ -1949,6 +1972,7 @@ public class CcToolchainFeatures implements Serializable {
 
     this.implies = implies.build();
     this.requires = requires.build();
+    this.provides = provides.build().inverse();
     this.impliedBy = impliedBy.build();
     this.requiredBy = requiredBy.build();
   }
@@ -1980,7 +2004,7 @@ public class CcToolchainFeatures implements Serializable {
       }
     }
   }
- 
+
   /**
    * Assign an empty cache after default-deserializing all non-transient members.
    */
@@ -2150,7 +2174,7 @@ public class CcToolchainFeatures implements Serializable {
           enabledActivatablesInOrderBuilder.add(selectable);
         }
       }
-      
+
       ImmutableList<CrosstoolSelectable> enabledActivatablesInOrder =
           enabledActivatablesInOrderBuilder.build();
       Iterable<Feature> enabledFeaturesInOrder =
@@ -2158,10 +2182,24 @@ public class CcToolchainFeatures implements Serializable {
       Iterable<ActionConfig> enabledActionConfigsInOrder =
           Iterables.filter(enabledActivatablesInOrder, ActionConfig.class);
 
+      for (String provided : provides.keys()) {
+        List<String> conflicts = new ArrayList<>();
+        for (CrosstoolSelectable selectableProvidingString : provides.get(provided)) {
+          if (enabledActivatablesInOrder.contains(selectableProvidingString)) {
+            conflicts.add(selectableProvidingString.getName());
+          }
+        }
+
+        if (conflicts.size() > 1) {
+          throw new CollidingProvidesException(String.format(COLLIDING_PROVIDES_ERROR,
+              provided, Joiner.on(" ").join(conflicts)));
+        }
+      }
+
       return new FeatureConfiguration(
           enabledFeaturesInOrder, enabledActionConfigsInOrder, actionConfigsByActionName);
     }
-    
+
     /**
      * Transitively and unconditionally enable all selectables implied by the given selectable
      * and the selectable itself to the enabled selectable set.
