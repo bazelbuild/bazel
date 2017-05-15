@@ -38,10 +38,10 @@ if [ -n "${release_label}" ]; then
 fi
 
 # On windows-msvc-x86_64, we build a MSVC Bazel
-MSVC_OPTS=""
+OPTS="--cpu=x64_windown_msys --host_cpu=x64_windows_msys"
 MSVC_LABEL=""
 if [[ $PLATFORM_NAME == windows-msvc-x86_64* ]]; then
-  MSVC_OPTS="--cpu=x64_windows_msvc --copt=/w"
+  OPTS="--cpu=x64_windows_msvc --host_cpu=x64_windows_msvc --copt=/w"
   MSVC_LABEL="-msvc"
 fi
 
@@ -49,7 +49,7 @@ export MSYS_NO_PATHCONV=1
 export MSYS2_ARG_CONV_EXCL="*"
 ${BOOTSTRAP_BAZEL} --bazelrc=${BAZELRC:-/dev/null} --nomaster_bazelrc build \
     --embed_label=${release_label} --stamp \
-    ${MSVC_OPTS} \
+    ${OPTS} \
     //src:bazel //src:bazel_with_jdk
 
 # Copy the resulting artifacts.
