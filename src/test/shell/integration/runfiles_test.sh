@@ -140,9 +140,15 @@ EOF
   assert_equals 13 $(wc -l < MANIFEST)
 
   for i in $(find ${WORKSPACE_NAME} \! -type d); do
-    echo "$i $(readlink "$i")"
-  done >MANIFEST2
-  diff -u <(sort MANIFEST) <(sort MANIFEST2)
+    if readlink "$i" > /dev/null; then
+      echo "$i $(readlink "$i")" >> ${TEST_TMPDIR}/MANIFEST2
+    else
+      echo "$i " >> ${TEST_TMPDIR}/MANIFEST2
+    fi
+  done
+  sort MANIFEST > ${TEST_TMPDIR}/MANIFEST_sorted
+  sort ${TEST_TMPDIR}/MANIFEST2 > ${TEST_TMPDIR}/MANIFEST2_sorted
+  diff -u ${TEST_TMPDIR}/MANIFEST_sorted ${TEST_TMPDIR}/MANIFEST2_sorted
 }
 
 function test_workspace_name_change() {
