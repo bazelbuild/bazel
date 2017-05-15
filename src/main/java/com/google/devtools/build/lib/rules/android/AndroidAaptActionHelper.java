@@ -105,16 +105,17 @@ public final class AndroidAaptActionHelper {
     args.addAll(createAaptCommand("javasrcs", javaSourcesJar, rTxt, inlineConstants,
         "-J", javaResources, "--custom-package", javaPackage, "--rename-manifest-package",
         javaPackage));
-    final Builder builder = new SpawnAction.Builder()
-        .addInputs(getInputs())
-        .addTool(AndroidSdkProvider.fromRuleContext(ruleContext).getAapt())
-        .setExecutable(
-            ruleContext.getExecutablePrerequisite("$android_aapt_java_generator", Mode.HOST))
-        .addOutput(javaSourcesJar)
-        .setCommandLine(CommandLine.of(args, false))
-        .useParameterFile(ParameterFileType.UNQUOTED)
-        .setProgressMessage("Generating Java resources")
-        .setMnemonic("AndroidAapt");
+    final Builder builder =
+        new SpawnAction.Builder()
+            .addInputs(getInputs())
+            .addTool(AndroidSdkProvider.fromRuleContext(ruleContext).getAapt())
+            .setExecutable(
+                ruleContext.getExecutablePrerequisite("$android_aapt_java_generator", Mode.HOST))
+            .addOutput(javaSourcesJar)
+            .setCommandLine(CommandLine.of(args))
+            .useParameterFile(ParameterFileType.UNQUOTED)
+            .setProgressMessage("Generating Java resources")
+            .setMnemonic("AndroidAapt");
     if (rTxt != null) {
       builder.addOutput(rTxt);
     }
@@ -145,17 +146,18 @@ public final class AndroidAaptActionHelper {
 
     args.addAll(aaptOpts);
 
-    ruleContext.registerAction(new SpawnAction.Builder()
-        .addInputs(getInputs())
-        .addTool(AndroidSdkProvider.fromRuleContext(ruleContext).getAapt())
-        .addOutput(apk)
-        .setExecutable(
-            ruleContext.getExecutablePrerequisite("$android_aapt_apk_generator", Mode.HOST))
-        .setCommandLine(CommandLine.of(args, false))
-        .useParameterFile(ParameterFileType.UNQUOTED)
-        .setProgressMessage("Generating apk resources")
-        .setMnemonic("AndroidAapt")
-        .build(ruleContext));
+    ruleContext.registerAction(
+        new SpawnAction.Builder()
+            .addInputs(getInputs())
+            .addTool(AndroidSdkProvider.fromRuleContext(ruleContext).getAapt())
+            .addOutput(apk)
+            .setExecutable(
+                ruleContext.getExecutablePrerequisite("$android_aapt_apk_generator", Mode.HOST))
+            .setCommandLine(CommandLine.of(args))
+            .useParameterFile(ParameterFileType.UNQUOTED)
+            .setProgressMessage("Generating apk resources")
+            .setMnemonic("AndroidAapt")
+            .build(ruleContext));
   }
 
   private List<String> createAaptCommand(String actionKind, Artifact output,
@@ -272,16 +274,17 @@ public final class AndroidAaptActionHelper {
 
     List<String> aaptCommand =
         createAaptCommand("proguard", outputSpec, null, true, aaptArgs.build());
-    ruleContext.registerAction(new SpawnAction.Builder()
-        .addInputs(getInputs())
-        .addTool(AndroidSdkProvider.fromRuleContext(ruleContext).getAapt())
-        .addOutputs(outputs.build())
-        .setExecutable(
-            ruleContext.getExecutablePrerequisite("$android_aapt_apk_generator", Mode.HOST))
-        .setCommandLine(CommandLine.of(aaptCommand, false))
-        .useParameterFile(ParameterFileType.UNQUOTED)
-        .setProgressMessage("Generating Proguard configuration for resources")
-        .setMnemonic("AndroidAapt")
-        .build(ruleContext));
+    ruleContext.registerAction(
+        new SpawnAction.Builder()
+            .addInputs(getInputs())
+            .addTool(AndroidSdkProvider.fromRuleContext(ruleContext).getAapt())
+            .addOutputs(outputs.build())
+            .setExecutable(
+                ruleContext.getExecutablePrerequisite("$android_aapt_apk_generator", Mode.HOST))
+            .setCommandLine(CommandLine.of(aaptCommand))
+            .useParameterFile(ParameterFileType.UNQUOTED)
+            .setProgressMessage("Generating Proguard configuration for resources")
+            .setMnemonic("AndroidAapt")
+            .build(ruleContext));
   }
 }

@@ -119,7 +119,7 @@ public class AarGeneratorBuilder {
         this.builder
             .addInputs(ImmutableList.<Artifact>copyOf(ins))
             .addOutputs(ImmutableList.<Artifact>copyOf(outs))
-            .setCommandLine(CommandLine.of(args, false))
+            .setCommandLine(CommandLine.of(args))
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
             .setProgressMessage("Building AAR package for " + ruleContext.getLabel())

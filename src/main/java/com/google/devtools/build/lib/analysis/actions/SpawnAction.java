@@ -73,6 +73,7 @@ import javax.annotation.Nullable;
 /** An Action representing an arbitrary subprocess to be forked and exec'd. */
 public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifier, CommandAction {
 
+
   /** Sets extensions on ExtraActionInfo **/
   protected static class ExtraActionInfoSupplier<T> {
     private final GeneratedExtension<ExtraActionInfo, T> extension;
@@ -93,6 +94,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   private final CommandLine argv;
 
   private final boolean executeUnconditionally;
+  private final boolean isShellCommand;
   private final String progressMessage;
   private final String mnemonic;
 
@@ -120,6 +122,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
    * @param argv the command line to execute. This is merely a list of options to the executable,
    *     and is uninterpreted by the build tool for the purposes of dependency checking; typically
    *     it may include the names of input and output files, but this is not necessary.
+   * @param isShellCommand Whether the command line represents a shell command with the given shell
+   *     executable. This is used to give better error messages.
    * @param progressMessage the message printed during the progression of the build
    * @param mnemonic the mnemonic that is reported in the master log.
    */
@@ -130,6 +134,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       Iterable<Artifact> outputs,
       ResourceSet resourceSet,
       CommandLine argv,
+      boolean isShellCommand,
       Map<String, String> environment,
       Set<String> clientEnvironmentVariables,
       String progressMessage,
@@ -141,6 +146,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
         outputs,
         resourceSet,
         argv,
+        isShellCommand,
         ImmutableMap.copyOf(environment),
         ImmutableSet.copyOf(clientEnvironmentVariables),
         ImmutableMap.<String, String>of(),
@@ -171,6 +177,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
    *     options to the executable, and is uninterpreted by the build tool for the purposes of
    *     dependency checking; typically it may include the names of input and output files, but this
    *     is not necessary.
+   * @param isShellCommand Whether the command line represents a shell command with the given shell
+   *     executable. This is used to give better error messages.
    * @param progressMessage the message printed during the progression of the build
    * @param runfilesSupplier {@link RunfilesSupplier}s describing the runfiles for the action
    * @param mnemonic the mnemonic that is reported in the master log.
@@ -182,6 +190,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       Iterable<Artifact> outputs,
       ResourceSet resourceSet,
       CommandLine argv,
+      boolean isShellCommand,
       ImmutableMap<String, String> environment,
       ImmutableSet<String> clientEnvironmentVariables,
       ImmutableMap<String, String> executionInfo,
@@ -196,6 +205,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     this.environment = environment;
     this.clientEnvironmentVariables = clientEnvironmentVariables;
     this.argv = argv;
+    this.isShellCommand = isShellCommand;
     this.progressMessage = progressMessage;
     this.mnemonic = mnemonic;
     this.executeUnconditionally = executeUnconditionally;
@@ -211,18 +221,6 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   @Override
   public SkylarkList<String> getSkylarkArgv() {
     return SkylarkList.createImmutable(getArguments());
-  }
-
-  /**
-   * Returns the list of options written to the parameter file. Don't use this method outside tests.
-   * The list is often huge, resulting in significant garbage collection overhead.
-   */
-  @VisibleForTesting
-  public List<String> getArgumentsFromParamFile() {
-    if (argv.parameterFileWriteAction() != null) {
-      return ImmutableList.copyOf(argv.parameterFileWriteAction().getContents());
-    }
-    return ImmutableList.of();
   }
 
   /** Returns command argument, argv[0]. */
@@ -242,7 +240,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
 
   @VisibleForTesting
   public boolean isShellCommand() {
-    return argv.isShellCommand();
+    return isShellCommand;
   }
 
   @Override
@@ -614,8 +612,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
               configuration.getLocalShellEnvironment(),
               configuration.getVariableShellEnvironment(),
               configuration.getShellExecutable(),
-              paramsFile,
-              paramFileWriteAction));
+              paramsFile));
       if (paramFileWriteAction != null) {
         actions.add(paramFileWriteAction);
       }
@@ -647,19 +644,15 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
         @Nullable Map<String, String> defaultShellEnvironment,
         @Nullable Set<String> variableShellEnvironment,
         @Nullable PathFragment defaultShellExecutable,
-        @Nullable Artifact paramsFile,
-        @Nullable ParameterFileWriteAction paramFileWriteAction) {
+        @Nullable Artifact paramsFile) {
       List<String> argv = buildExecutableArgs(defaultShellExecutable);
       Iterable<String> arguments = argumentsBuilder.build();
       CommandLine actualCommandLine;
       if (paramsFile != null) {
         inputsBuilder.add(paramsFile);
-        actualCommandLine =
-            ParamFileHelper.createWithParamsFile(
-                argv, isShellCommand, paramFileInfo, paramsFile, paramFileWriteAction);
+        actualCommandLine = ParamFileHelper.createWithParamsFile(argv, paramFileInfo, paramsFile);
       } else {
-        actualCommandLine = ParamFileHelper.createWithoutParamsFile(argv, arguments, commandLine,
-            isShellCommand);
+        actualCommandLine = ParamFileHelper.createWithoutParamsFile(argv, arguments, commandLine);
       }
 
       NestedSet<Artifact> tools = toolsBuilder.build();
@@ -695,6 +688,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           ImmutableList.copyOf(outputs),
           resourceSet,
           actualCommandLine,
+          isShellCommand,
           ImmutableMap.copyOf(env),
           ImmutableSet.copyOf(clientEnv),
           ImmutableMap.copyOf(executionInfo),
@@ -712,6 +706,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
         ImmutableList<Artifact> outputs,
         ResourceSet resourceSet,
         CommandLine actualCommandLine,
+        boolean isShellCommand,
         ImmutableMap<String, String> env,
         ImmutableSet<String> clientEnvironmentVariables,
         ImmutableMap<String, String> executionInfo,
@@ -725,6 +720,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           outputs,
           resourceSet,
           actualCommandLine,
+          isShellCommand,
           env,
           clientEnvironmentVariables,
           executionInfo,

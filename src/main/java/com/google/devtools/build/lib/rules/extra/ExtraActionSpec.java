@@ -144,7 +144,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
             extraActionOutputs,
             actionToShadow,
             createDummyOutput,
-            CommandLine.of(argv, false),
+            CommandLine.of(argv),
             env,
             clientEnvVars,
             executionInfo,
