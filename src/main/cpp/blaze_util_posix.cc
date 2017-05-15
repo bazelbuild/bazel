@@ -257,22 +257,15 @@ bool SocketBlazeServerStartup::IsStillAlive() {
 }
 
 // NB: There should only be system calls in this function. See the comment
-// before ExecuteDaemon() to understand why.
-static int StrlenAfterFork(const char* c) {
-  const char* p = c;
-  while (*p != 0) p++;
-  return p - c;
-}
-
-// NB: There should only be system calls in this function. See the comment
-// before ExecuteDaemon() to understand why.
+// before ExecuteDaemon() to understand why. strerror() and strlen() are
+// hopefully okay.
 static void DieAfterFork(const char* message) {
   char* error_string = strerror(errno);  // strerror is hopefully okay
-  write(STDERR_FILENO, message, StrlenAfterFork(message));
+  write(STDERR_FILENO, message, strlen(message));  // strlen should be OK
   write(STDERR_FILENO, ": ", 2);
-  write(STDERR_FILENO, error_string, StrlenAfterFork(error_string));
+  write(STDERR_FILENO, error_string, strlen(error_string));
   write(STDERR_FILENO, "\n", 1);
-  exit(blaze_exit_code::INTERNAL_ERROR);
+  _exit(blaze_exit_code::INTERNAL_ERROR);
 }
 
 // NB: There should only be system calls in this function. See the comment
@@ -322,17 +315,10 @@ void WriteSystemSpecificProcessIdentifier(
 // closer to this ideal without writing logic specific to each POSIX system we
 // run on.
 //
-// There can also be problems with the dynamic linker if it does lazy symbol
-// resolution and the fork() happens to take place while another thread is in
-// the middle of that. We can't do much about that, apart from maybe calling
-// these functions in the main process so that their symbols are resolved.
-// the execv() invocation should fail then so that our binary is unchanged,
-// though :)
-//
 // Another way to tackle this issue would be to pre-fork a child process before
 // spawning any threads which is then used to fork all the other necessary
 // child processes. However, then we'd need to invent a protocol that can handle
-// sending stdour/stderr back and forking multiple times, which isn't trivial,
+// sending stdout/stderr back and forking multiple times, which isn't trivial,
 // either.
 //
 // Yet another fix would be not to use multiple threads before forking. However,
