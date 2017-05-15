@@ -174,7 +174,7 @@ filegroup(
         ":darwin_x86_64": [
             "@openjdk_macos//file",
         ],
-        ":windows": [
+        ":windows_msys": [
             "@openjdk_win//file",
         ],
         ":windows_msvc": [
