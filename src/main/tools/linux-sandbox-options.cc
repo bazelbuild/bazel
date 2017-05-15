@@ -12,13 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "src/main/tools/linux-sandbox-options.h"
+#include "linux-sandbox-options.h"
+#include "linux-sandbox-utils.h"
 
 #define DIE(args...)                                     \
   {                                                      \
     fprintf(stderr, __FILE__ ":" S__LINE__ ": \"" args); \
     fprintf(stderr, "\": ");                             \
-    perror(nullptr);                                     \
+    perror(NULL);                                        \
     exit(EXIT_FAILURE);                                  \
   }
 
@@ -37,8 +38,6 @@
 #include <memory>
 #include <string>
 #include <vector>
-
-#include "src/main/tools/linux-sandbox-utils.h"
 
 using std::ifstream;
 using std::unique_ptr;
@@ -200,7 +199,6 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
   if (optind < static_cast<int>(args->size())) {
     if (opt.args.empty()) {
       opt.args.assign(args->begin() + optind, args->end());
-      opt.args.push_back(nullptr);
     } else {
       Usage(args->front(), "Merging commands not supported.");
     }
@@ -209,8 +207,8 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
 
 // Expands a single argument, expanding options @filename to read in the content
 // of the file and add it to the list of processed arguments.
-static unique_ptr<vector<char *>> ExpandArgument(
-    unique_ptr<vector<char *>> expanded, char *arg) {
+unique_ptr<vector<char *>> ExpandArgument(unique_ptr<vector<char *>> expanded,
+                                          char *arg) {
   if (arg[0] == '@') {
     const char *filename = arg + 1;  // strip off the '@'.
     ifstream f(filename);
@@ -238,7 +236,7 @@ static unique_ptr<vector<char *>> ExpandArgument(
 // Pre-processes an argument list, expanding options @filename to read in the
 // content of the file and add it to the list of arguments. Stops expanding
 // arguments once it encounters "--".
-static unique_ptr<vector<char *>> ExpandArguments(const vector<char *> &args) {
+unique_ptr<vector<char *>> ExpandArguments(const vector<char *> &args) {
   unique_ptr<vector<char *>> expanded(new vector<char *>());
   expanded->reserve(args.size());
   for (auto arg = args.begin(); arg != args.end(); ++arg) {
@@ -262,6 +260,6 @@ void ParseOptions(int argc, char *argv[]) {
   }
 
   if (opt.working_dir.empty()) {
-    opt.working_dir = getcwd(nullptr, 0);
+    opt.working_dir = getcwd(NULL, 0);
   }
 }
