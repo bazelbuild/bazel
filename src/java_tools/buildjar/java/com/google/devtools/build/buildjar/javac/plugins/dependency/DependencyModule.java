@@ -14,12 +14,12 @@
 
 package com.google.devtools.build.buildjar.javac.plugins.dependency;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
-import com.google.common.base.Joiner;
-import com.google.common.base.Splitter;
-import com.google.common.base.Verify;
 import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.buildjar.JarOwner;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
@@ -28,15 +28,12 @@ import com.google.devtools.build.lib.view.proto.Deps.Dependency.Kind;
 import com.sun.tools.javac.code.Symbol.PackageSymbol;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -125,7 +122,8 @@ public final class DependencyModule {
    * <p>We collect precise dependency information to allow Blaze to analyze both strict and unused
    * dependencies, as well as packages contained by the output jar.
    */
-  public void emitDependencyInformation(String classpath, boolean successful) throws IOException {
+  public void emitDependencyInformation(ImmutableList<String> classpath, boolean successful)
+      throws IOException {
     if (outputDepsProtoFile == null) {
       return;
     }
@@ -139,7 +137,7 @@ public final class DependencyModule {
   }
 
   @VisibleForTesting
-  Deps.Dependencies buildDependenciesProto(String classpath, boolean successful) {
+  Deps.Dependencies buildDependenciesProto(ImmutableList<String> classpath, boolean successful) {
     Deps.Dependencies.Builder deps = Deps.Dependencies.newBuilder();
     if (targetLabel != null) {
       deps.setRuleLabel(targetLabel);
@@ -158,7 +156,7 @@ public final class DependencyModule {
             .toSortedList(Ordering.natural()));
 
     // Filter using the original classpath, to preserve ordering.
-    for (String entry : classpath.split(":")) {
+    for (String entry : classpath) {
       if (explicitDependenciesMap.containsKey(entry)) {
         deps.addDependency(explicitDependenciesMap.get(entry));
       } else if (implicitDependenciesMap.containsKey(entry)) {
@@ -244,29 +242,15 @@ public final class DependencyModule {
     return strictClasspathMode;
   }
 
-  private static final Splitter CLASSPATH_SPLITTER = Splitter.on(':');
-  private static final Joiner CLASSPATH_JOINER = Joiner.on(File.pathSeparator);
-
   /**
    * Computes a reduced compile-time classpath from the union of direct dependencies and their
    * dependencies, as listed in the associated .deps artifacts.
    */
-  public String computeStrictClasspath(String originalClasspath) throws IOException {
+  public ImmutableList<String> computeStrictClasspath(ImmutableList<String> originalClasspath)
+      throws IOException {
     if (!strictClasspathMode) {
       return originalClasspath;
     }
-
-    return CLASSPATH_JOINER.join(
-        computeStrictClasspath(CLASSPATH_SPLITTER.split(originalClasspath)));
-  }
-
-  /**
-   * Computes a reduced compile-time classpath from the union of direct dependencies and their
-   * dependencies, as listed in the associated .deps artifacts.
-   */
-  public List<String> computeStrictClasspath(Iterable<String> originalClasspath)
-      throws IOException {
-    Verify.verify(strictClasspathMode);
 
     // Classpath = direct deps + runtime direct deps + their .deps
     requiredClasspath = new HashSet<>(directJarsToTargets.keySet());
@@ -276,13 +260,10 @@ public final class DependencyModule {
     }
 
     // Filter the initial classpath and keep the original order
-    List<String> filteredClasspath = new ArrayList<>();
-    for (String entry : originalClasspath) {
-      if (requiredClasspath.contains(entry)) {
-        filteredClasspath.add(entry);
-      }
-    }
-    return filteredClasspath;
+    return originalClasspath
+        .stream()
+        .filter(requiredClasspath::contains)
+        .collect(toImmutableList());
   }
 
   @VisibleForTesting

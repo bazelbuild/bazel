@@ -17,7 +17,6 @@ package com.google.devtools.build.buildjar;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.Iterables;
@@ -244,7 +243,7 @@ public class VanillaJavaBuilder implements Closeable {
     fileManager.setLocation(
         StandardLocation.PLATFORM_CLASS_PATH,
         Iterables.concat(
-            toFiles(optionsParser.getBootClassPath()), toFiles(optionsParser.getExtdir())));
+            toFiles(optionsParser.getBootClassPath()), toFiles(optionsParser.getExtClassPath())));
     fileManager.setLocation(
         StandardLocation.ANNOTATION_PROCESSOR_PATH, toFiles(optionsParser.getProcessorPath()));
     if (optionsParser.getSourceGenDir() != null) {
@@ -307,12 +306,12 @@ public class VanillaJavaBuilder implements Closeable {
     jar.execute();
   }
 
-  private static ImmutableList<File> toFiles(String classPath) {
+  private static ImmutableList<File> toFiles(List<String> classPath) {
     if (classPath == null) {
       return ImmutableList.of();
     }
     ImmutableList.Builder<File> files = ImmutableList.builder();
-    for (String path : Splitter.on(File.pathSeparatorChar).split(classPath)) {
+    for (String path : classPath) {
       files.add(new File(path));
     }
     return files.build();

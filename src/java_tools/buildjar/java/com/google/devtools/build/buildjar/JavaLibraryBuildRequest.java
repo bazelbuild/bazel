@@ -14,17 +14,18 @@
 
 package com.google.devtools.build.buildjar;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.base.Joiner;
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.buildjar.instrumentation.JacocoInstrumentationProcessor;
 import com.google.devtools.build.buildjar.javac.BlazeJavacArguments;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule;
 import com.google.devtools.build.buildjar.javac.plugins.processing.AnnotationProcessingModule;
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -53,12 +54,12 @@ public final class JavaLibraryBuildRequest {
   /** Resource files that should be put in the root of the output jar. */
   private final ImmutableList<String> rootResourceFiles;
 
-  private final String sourcePath;
-  private final String classPath;
-  private final String bootClassPath;
-  private final String extdir;
+  private final ImmutableList<String> sourcePath;
+  private final ImmutableList<String> classPath;
+  private final ImmutableList<String> bootClassPath;
+  private final ImmutableList<String> extClassPath;
 
-  private final String processorPath;
+  private final ImmutableList<String> processorPath;
   private final List<String> processorNames;
 
   private final String outputJar;
@@ -150,11 +151,11 @@ public final class JavaLibraryBuildRequest {
     this.resourceFiles = ImmutableList.copyOf(optionsParser.getResourceFiles());
     this.resourceJars = ImmutableList.copyOf(optionsParser.getResourceJars());
     this.rootResourceFiles = ImmutableList.copyOf(optionsParser.getRootResourceFiles());
-    this.classPath = optionsParser.getClassPath();
-    this.sourcePath = optionsParser.getSourcePath();
-    this.bootClassPath = optionsParser.getBootClassPath();
-    this.extdir = optionsParser.getExtdir();
-    this.processorPath = optionsParser.getProcessorPath();
+    this.classPath = ImmutableList.copyOf(optionsParser.getClassPath());
+    this.sourcePath = ImmutableList.copyOf(optionsParser.getSourcePath());
+    this.bootClassPath = ImmutableList.copyOf(optionsParser.getBootClassPath());
+    this.extClassPath = ImmutableList.copyOf(optionsParser.getExtClassPath());
+    this.processorPath = ImmutableList.copyOf(optionsParser.getProcessorPath());
     this.processorNames = optionsParser.getProcessorNames();
     // Since the default behavior of this tool with no arguments is "rm -fr <classDir>", let's not
     // default to ".", shall we?
@@ -197,7 +198,7 @@ public final class JavaLibraryBuildRequest {
     return sourceGenDir;
   }
 
-  public String getSourcePath() {
+  public ImmutableList<String> getSourcePath() {
     return sourcePath;
   }
 
@@ -234,19 +235,19 @@ public final class JavaLibraryBuildRequest {
     return rootResourceFiles;
   }
 
-  public String getClassPath() {
+  public ImmutableList<String> getClassPath() {
     return classPath;
   }
 
-  public String getBootClassPath() {
+  public ImmutableList<String> getBootClassPath() {
     return bootClassPath;
   }
 
-  public String getExtdir() {
-    return extdir;
+  public ImmutableList<String> getExtClassPath() {
+    return extClassPath;
   }
 
-  public String getProcessorPath() {
+  public ImmutableList<String> getProcessorPath() {
     return processorPath;
   }
 
@@ -288,13 +289,11 @@ public final class JavaLibraryBuildRequest {
     return plugins;
   }
 
-  public BlazeJavacArguments toBlazeJavacArguments(final String classPath) {
+  public BlazeJavacArguments toBlazeJavacArguments(ImmutableList<String> classPath) {
     return BlazeJavacArguments.builder()
         .classPath(toPaths(classPath))
         .classOutput(Paths.get(getClassDir()))
-        .bootClassPath(
-            ImmutableList.copyOf(
-                Iterables.concat(toPaths(getBootClassPath()), toPaths(getExtdir()))))
+        .bootClassPath(toPaths(Iterables.concat(getBootClassPath(), getExtClassPath())))
         .javacOptions(makeJavacArguments())
         .sourceFiles(ImmutableList.copyOf(getSourceFiles()))
         .processors(null)
@@ -305,26 +304,8 @@ public final class JavaLibraryBuildRequest {
         .build();
   }
 
-  static ImmutableList<Path> toPaths(List<String> files) {
-    if (files == null) {
-      return ImmutableList.of();
-    }
-    ImmutableList.Builder<Path> result = ImmutableList.builder();
-    for (String e : files) {
-      result.add(Paths.get(e));
-    }
-    return result.build();
-  }
-
-  static ImmutableList<Path> toPaths(String classPath) {
-    if (classPath == null) {
-      return ImmutableList.of();
-    }
-    ImmutableList.Builder<Path> result = ImmutableList.builder();
-    for (String e : Splitter.on(File.pathSeparatorChar).split(classPath)) {
-      result.add(Paths.get(e));
-    }
-    return result.build();
+  static ImmutableList<Path> toPaths(Iterable<String> files) {
+    return Streams.stream(files).map(Paths::get).collect(toImmutableList());
   }
 
   /** Constructs a command line that can be used for a javac invocation. */
