@@ -211,7 +211,7 @@ public class ResourceSymbols {
     for (ResourceSymbols packageSymbol : packageSymbols) {
       symbols.putAll(packageSymbol.asTable());
     }
-    
+
     Path packageOut = sourceOut.resolve(packageName.replace('.', File.separatorChar));
     Files.createDirectories(packageOut);
 

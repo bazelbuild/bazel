@@ -88,8 +88,7 @@ public class ParsedAndroidData {
     private void checkForErrors() throws MergingException {
       if (!errors.isEmpty()) {
         MergingException mergingException =
-             MergingException
-                 .withMessage(String.format("%s Parse Error(s)", errors.size()));
+            MergingException.withMessage(String.format("%s Parse Error(s)", errors.size()));
         for (Exception e : errors) {
           mergingException.addSuppressed(e);
         }
@@ -500,7 +499,7 @@ public class ParsedAndroidData {
     return overwritingResources.get(name);
   }
 
-  void writeResourcesTo(AndroidResourceClassWriter writer) {
+  void writeResourcesTo(AndroidResourceSymbolSink writer) {
     for (Entry<DataKey, DataResource> resource : iterateDataResourceEntries()) {
       resource.getValue().writeResourceToClass((FullyQualifiedName) resource.getKey(), writer);
     }

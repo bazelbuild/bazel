@@ -17,7 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
-import com.google.devtools.build.android.AndroidResourceClassWriter;
+import com.google.devtools.build.android.AndroidResourceSymbolSink;
 import com.google.devtools.build.android.DataSource;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
@@ -164,8 +164,7 @@ public class ResourcesAttribute implements XmlResourceValue {
   }
 
   @Override
-  public void writeResourceToClass(
-      FullyQualifiedName key, AndroidResourceClassWriter resourceClassWriter) {
+  public void writeResourceToClass(FullyQualifiedName key, AndroidResourceSymbolSink sink) {
     // This is an xml attribute and does not have any java representation.
   }
 
