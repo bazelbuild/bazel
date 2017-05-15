@@ -45,6 +45,8 @@ if [[ $PLATFORM_NAME == windows-msvc-x86_64* ]]; then
   MSVC_LABEL="-msvc"
 fi
 
+export MSYS_NO_PATHCONV=1
+export MSYS2_ARG_CONV_EXCL="*"
 ${BOOTSTRAP_BAZEL} --bazelrc=${BAZELRC:-/dev/null} --nomaster_bazelrc build \
     --embed_label=${release_label} --stamp \
     ${MSVC_OPTS} \
