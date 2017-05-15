@@ -36,7 +36,7 @@
   <li><a href="${bazelbuildGithub}/rules_appengine" target="_blank">Java AppEngine</a></li>
   <li><a href="${bazelbuildGithub}/rules_dotnet" target="_blank">C#</a></li>
   <li><a href="${bazelbuildGithub}/rules_d" target="_blank">D</a></li>
-  <li><a href="${path}/docker.html">Docker</a></li>
+  <li><a href="${bazelbuildGithub}/rules_docker" target="_blank">Docker</a></li>
   <li><a href="${bazelbuildGithub}/rules_groovy" target="_blank">Groovy</a></li>
   <li><a href="${bazelbuildGithub}/rules_go" target="_blank">Go</a></li>
   <li><a href="${bazelbuildGithub}/rules_closure" target="_blank">JavaScript (Closure)</a></li>
