@@ -70,7 +70,7 @@ public abstract class Argument extends ASTNode {
   }
 
   /** positional argument: Expression */
-  public static class Positional extends Passed {
+  public static final class Positional extends Passed {
 
     public Positional(Expression value) {
       super(value);
@@ -86,7 +86,7 @@ public abstract class Argument extends ASTNode {
   }
 
   /** keyword argument: K = Expression */
-  public static class Keyword extends Passed {
+  public static final class Keyword extends Passed {
 
     final String name;
 
@@ -108,7 +108,7 @@ public abstract class Argument extends ASTNode {
   }
 
   /** positional rest (starred) argument: *Expression */
-  public static class Star extends Passed {
+  public static final class Star extends Passed {
 
     public Star(Expression value) {
       super(value);
@@ -124,7 +124,7 @@ public abstract class Argument extends ASTNode {
   }
 
   /** keyword rest (star_starred) parameter: **Expression */
-  public static class StarStar extends Passed {
+  public static final class StarStar extends Passed {
 
     public StarStar(Expression value) {
       super(value);

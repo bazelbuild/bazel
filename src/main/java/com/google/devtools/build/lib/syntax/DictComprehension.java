@@ -14,24 +14,72 @@
 package com.google.devtools.build.lib.syntax;
 
 
+import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.events.Location;
+import java.util.List;
 import java.util.Map;
 
 /**
  * Syntax node for dictionary comprehension expressions.
  */
-public class DictComprehension extends AbstractComprehension {
+public final class DictComprehension extends AbstractComprehension {
   private final Expression keyExpression;
   private final Expression valueExpression;
 
-  public DictComprehension(Expression keyExpression, Expression valueExpression) {
-    super('{', '}', keyExpression, valueExpression);
+  public DictComprehension(
+      List<Clause> clauses, Expression keyExpression, Expression valueExpression) {
+    super(clauses, keyExpression, valueExpression);
     this.keyExpression = keyExpression;
     this.valueExpression = valueExpression;
   }
 
   @Override
+  protected char openingBracket() {
+    return '{';
+  }
+
+  @Override
+  protected char closingBracket() {
+    return '}';
+  }
+
+  public Expression getKeyExpression() {
+    return keyExpression;
+  }
+
+  public Expression getValueExpression() {
+    return valueExpression;
+  }
+
+  @Override
   String printExpressions() {
     return String.format("%s: %s", keyExpression, valueExpression);
+  }
+
+  /** Builder for {@link DictComprehension}. */
+  public static class Builder extends AbstractBuilder {
+
+    private Expression keyExpression;
+    private Expression valueExpression;
+
+    public Builder setKeyExpression(Expression keyExpression) {
+      this.keyExpression = keyExpression;
+      return this;
+    }
+
+    public Builder setValueExpression(Expression valueExpression) {
+      this.valueExpression = valueExpression;
+      return this;
+    }
+
+    @Override
+    public DictComprehension build() {
+      Preconditions.checkState(!clauses.isEmpty());
+      return new DictComprehension(
+          clauses,
+          Preconditions.checkNotNull(keyExpression),
+          Preconditions.checkNotNull(valueExpression));
+    }
   }
 
   @Override
@@ -49,6 +97,16 @@ public class DictComprehension extends AbstractComprehension {
     DictOutputCollector(Environment env) {
       // We want to keep the iteration order
       result = SkylarkDict.<Object, Object>of(env);
+    }
+
+    @Override
+    public Location getLocation() {
+      return DictComprehension.this.getLocation();
+    }
+
+    @Override
+    public List<Clause> getClauses() {
+      return DictComprehension.this.getClauses();
     }
 
     @Override

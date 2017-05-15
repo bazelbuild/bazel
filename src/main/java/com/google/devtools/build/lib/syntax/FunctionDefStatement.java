@@ -20,7 +20,7 @@ import java.util.List;
 /**
  * Syntax node for a function definition.
  */
-public class FunctionDefStatement extends Statement {
+public final class FunctionDefStatement extends Statement {
 
   private final Identifier ident;
   private final FunctionSignature.WithValues<Expression, Expression> signature;

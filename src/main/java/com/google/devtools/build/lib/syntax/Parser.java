@@ -785,7 +785,7 @@ public class Parser {
   //                        | 'IF' expr comprehension_suffix
   //                        | ']'
   private Expression parseComprehensionSuffix(
-      AbstractComprehension comprehension, TokenKind closingBracket) {
+      AbstractComprehension.AbstractBuilder comprehensionBuilder, TokenKind closingBracket) {
     while (true) {
       if (token.kind == TokenKind.FOR) {
         nextToken();
@@ -794,13 +794,13 @@ public class Parser {
         // The expression cannot be a ternary expression ('x if y else z') due to
         // conflicts in Python grammar ('if' is used by the comprehension).
         Expression listExpression = parseNonTupleExpression(0);
-        comprehension.addFor(loopVar, listExpression);
+        comprehensionBuilder.addFor(loopVar, listExpression);
       } else if (token.kind == TokenKind.IF) {
         nextToken();
-        comprehension.addIf(parseExpression());
+        comprehensionBuilder.addIf(parseExpression());
       } else if (token.kind == closingBracket) {
         nextToken();
-        return comprehension;
+        return comprehensionBuilder.build();
       } else {
         syntaxError(token, "expected '" + closingBracket.getPrettyName() + "', 'for' or 'if'");
         syncPast(LIST_TERMINATOR_SET);
@@ -836,7 +836,9 @@ public class Parser {
       case FOR:
         { // list comprehension
           Expression result =
-              parseComprehensionSuffix(new ListComprehension(expression), TokenKind.RBRACKET);
+              parseComprehensionSuffix(
+                  new ListComprehension.Builder().setOutputExpression(expression),
+                  TokenKind.RBRACKET);
           return setLocation(result, start, token.right);
         }
       case COMMA:
@@ -883,7 +885,10 @@ public class Parser {
     if (token.kind == TokenKind.FOR) {
       // Dict comprehension
       Expression result = parseComprehensionSuffix(
-          new DictComprehension(entry.getKey(), entry.getValue()), TokenKind.RBRACE);
+          new DictComprehension.Builder()
+              .setKeyExpression(entry.getKey())
+              .setValueExpression(entry.getValue()),
+          TokenKind.RBRACE);
       return setLocation(result, start, token.right);
     }
     List<DictionaryEntryLiteral> entries = new ArrayList<>();

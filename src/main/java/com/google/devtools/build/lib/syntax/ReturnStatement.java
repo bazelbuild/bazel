@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.events.Location;
 /**
  * A wrapper Statement class for return expressions.
  */
-public class ReturnStatement extends Statement {
+public final class ReturnStatement extends Statement {
 
   /**
    * Exception sent by the return statement, to be caught by the function body.
