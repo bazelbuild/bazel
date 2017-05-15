@@ -1164,6 +1164,22 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
+  public void testFilteredResourcesOldAaptLocale() throws Exception {
+    testDirectResourceFiltering(
+        "en_US,fr_CA",
+        /* unexepectedQualifiers= */ ImmutableList.of("en-rCA"),
+        /* expectedQualifiers = */ ImmutableList.of("en-rUS", "fr-rCA"));
+  }
+
+  @Test
+  public void testFilteredResourcesOldAaptLocaleOtherQualifiers() throws Exception {
+    testDirectResourceFiltering(
+        "mcc310-en_US-ldrtl,mcc311-mnc312-fr_CA",
+        /* unexepectedQualifiers= */ ImmutableList.of("en-rCA", "mcc312", "mcc311-mnc311"),
+        /* expectedQualifiers = */ ImmutableList.of("en-rUS", "fr-rCA", "mcc310", "mcc311-mnc312"));
+  }
+
+  @Test
   public void testFilteredResourcesSmallestScreenWidth() throws Exception {
     testDirectResourceFiltering(
         "sw600dp",

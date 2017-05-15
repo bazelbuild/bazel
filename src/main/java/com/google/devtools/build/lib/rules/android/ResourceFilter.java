@@ -197,7 +197,7 @@ public class ResourceFilter {
     ImmutableList.Builder<FolderConfiguration> filterBuilder = ImmutableList.builder();
     for (String filter : configFilters) {
       addIfNotNull(
-          FolderConfiguration.getConfigForQualifierString(filter),
+          getFolderConfiguration(filter),
           filter,
           filterBuilder,
           ruleContext,
@@ -205,6 +205,27 @@ public class ResourceFilter {
     }
 
     return filterBuilder.build();
+  }
+
+  private static FolderConfiguration getFolderConfiguration(String filter) {
+    /*
+     * Aapt used to expect locale configurations of form 'en_US'. It now also supports the correct
+     * 'en-rUS' format. For backwards comparability, use a regex to convert filters with locales in
+     * the old format to filters with locales of the correct format.
+     *
+     * The correct format for locales is defined at
+     * https://developer.android.com/guide/topics/resources/providing-resources.html#LocaleQualifier
+     *
+     * TODO(bazel-team): Migrate consumers away from the old Aapt locale format, then remove this
+     * replacement.
+     *
+     * The regex is a bit complicated to avoid modifying potential new qualifiers that contain
+     * underscores. Specifically, it searches for the entire beginning of the resource qualifier,
+     * including (optionally) MCC and MNC, and then the locale itself.
+     */
+    String fixedFilter =
+        filter.replaceFirst("^((mcc[0-9]{3}-(mnc[0-9]{3}-)?)?[a-z]{2})_([A-Z]{2})", "$1-r$4");
+    return FolderConfiguration.getConfigForQualifierString(fixedFilter);
   }
 
   private ImmutableList<Density> getDensities(RuleContext ruleContext) {
