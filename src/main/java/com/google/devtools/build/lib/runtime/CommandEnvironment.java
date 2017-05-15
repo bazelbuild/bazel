@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
@@ -531,14 +532,18 @@ public final class CommandEnvironment {
   }
 
   /**
-   * Hook method called by the BlazeCommandDispatcher prior to the dispatch of
-   * each command.
+   * Hook method called by the BlazeCommandDispatcher prior to the dispatch of each command.
    *
    * @param options The CommonCommandOptions used by every command.
    * @throws AbruptExitException if this command is unsuitable to be run as specified
    */
-  void beforeCommand(Command command, OptionsParser optionsParser,
-      CommonCommandOptions options, long execStartTimeNanos, long waitTimeInMs)
+  void beforeCommand(
+      Command command,
+      OptionsParser optionsParser,
+      CommonCommandOptions options,
+      long execStartTimeNanos,
+      long waitTimeInMs,
+      InvocationPolicy invocationPolicy)
       throws AbruptExitException {
     commandStartTime -= options.startupTime;
     if (runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).watchFS) {
@@ -553,7 +558,8 @@ public final class CommandEnvironment {
     this.commandName = command.name();
     this.options = optionsParser;
 
-    eventBus.post(new GotOptionsEvent(runtime.getStartupOptionsProvider(), optionsParser));
+    eventBus.post(
+        new GotOptionsEvent(runtime.getStartupOptionsProvider(), optionsParser, invocationPolicy));
     throwPendingException();
 
     outputService = null;

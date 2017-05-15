@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.common.options.OptionsParser.UnparsedOptionValueDescription;
 import com.google.devtools.common.options.OptionsProvider;
@@ -32,6 +33,7 @@ public class GotOptionsEvent implements BuildEventWithOrderConstraint {
 
   private final OptionsProvider startupOptions;
   private final OptionsProvider options;
+  private final InvocationPolicy invocationPolicy;
 
   /**
    * Construct the options event.
@@ -39,9 +41,11 @@ public class GotOptionsEvent implements BuildEventWithOrderConstraint {
    * @param startupOptions the parsed startup options
    * @param options the parsed options
    */
-  public GotOptionsEvent(OptionsProvider startupOptions, OptionsProvider options) {
+  public GotOptionsEvent(
+      OptionsProvider startupOptions, OptionsProvider options, InvocationPolicy invocationPolicy) {
     this.startupOptions = startupOptions;
     this.options = options;
+    this.invocationPolicy = invocationPolicy;
   }
 
   /**
@@ -56,6 +60,11 @@ public class GotOptionsEvent implements BuildEventWithOrderConstraint {
    */
   public OptionsProvider getOptions() {
     return options;
+  }
+
+  /** @return the invocation policy. */
+  public InvocationPolicy getInvocationPolicy() {
+    return invocationPolicy;
   }
 
   @Override
