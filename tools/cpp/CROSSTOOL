@@ -45,6 +45,11 @@ default_toolchain {
 }
 
 default_toolchain {
+  cpu: "ppc64"
+  toolchain_identifier: "local_linux"
+}
+
+default_toolchain {
   cpu: "ios_x86_64"
   toolchain_identifier: "ios_x86_64"
 }

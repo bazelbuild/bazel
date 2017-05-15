@@ -161,7 +161,7 @@ def _get_cpu_value(repository_ctx):
     return "x64_windows"
   # Use uname to figure out whether we are on x86_32 or x86_64
   result = repository_ctx.execute(["uname", "-m"])
-  if result.stdout.strip() in ["power", "ppc64le", "ppc"]:
+  if result.stdout.strip() in ["power", "ppc64le", "ppc", "ppc64"]:
     return "ppc"
   if result.stdout.strip() in ["arm", "armv7l", "aarch64"]:
     return "arm"
