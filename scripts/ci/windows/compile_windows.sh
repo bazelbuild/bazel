@@ -38,10 +38,10 @@ if [ -n "${release_label}" ]; then
 fi
 
 # On windows-msvc-x86_64, we build a MSVC Bazel
-OPTS="--cpu=x64_windown_msys --host_cpu=x64_windows_msys"
+OPTS="--cpu=x64_windows_msys --host_cpu=x64_windows_msys"
 MSVC_LABEL=""
 if [[ $PLATFORM_NAME == windows-msvc-x86_64* ]]; then
-  OPTS="--cpu=x64_windows_msvc --host_cpu=x64_windows_msvc --copt=/w"
+  OPTS="--cpu=x64_windows_msvc --copt=/w"
   MSVC_LABEL="-msvc"
 fi
 
