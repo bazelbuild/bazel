@@ -58,10 +58,21 @@ public class AndroidNdkRepositoryRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder
-        .setUndocumented()
         .setWorkspaceOnly()
         .setExternalBindingsFunction(BINDINGS_FUNCTION)
+        /* <!-- #BLAZE_RULE(android_ndk_repository).ATTRIBUTE(path) -->
+        An absolute or relative path to an Android NDK. Either this attribute or the
+        <code>$ANDROID_NDK_HOME</code> environment variable must be set.
+
+        <p>The Android NDK can be downloaded from
+        <a href='https://developer.android.com/ndk/downloads/index.html'>the Android developer site
+        </a>.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("path", STRING).nonconfigurable("WORKSPACE rule"))
+        /* <!-- #BLAZE_RULE(android_ndk_repository).ATTRIBUTE(api_level) -->
+        The Android API level to build against. If not specified, the highest API level installed
+        will be used.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("api_level", INTEGER).nonconfigurable("WORKSPACE rule"))
         .build();
   }
@@ -76,3 +87,58 @@ public class AndroidNdkRepositoryRule implements RuleDefinition {
         .build();
   }
 }
+
+/*<!-- #BLAZE_RULE (NAME=android_ndk_repository, TYPE=OTHER, FAMILY=Workspace)[GENERIC_RULE] -->
+
+<p>Configures Bazel to use an Android NDK to support building Android targets with native
+code. NDK versions 10, 11, 12, 13 and 14 are currently supported.
+
+<p>Note that building for Android also requires an <code>android_sdk_repository</code> rule in your
+<code>WORKSPACE</code> file.
+
+<h4 id="android_ndk_repository_examples">Examples</h4>
+
+<pre class="code">
+android_ndk_repository(
+    name = "androidndk",
+)
+</pre>
+
+<p>The above example will locate your Android NDK from <code>$ANDROID_NDK_HOME</code> and detect
+the highest API level that it supports.
+
+<pre class="code">
+android_ndk_repository(
+    name = "androidndk",
+    path = "./android-ndk-r12b",
+    api_level = 24,
+)
+</pre>
+
+<p>The above example will use the Android NDK located inside your workspace in
+<code>./android-ndk-r12b</code>. It will use the API level 24 libraries when compiling your JNI
+code.
+
+<h4 id="android_ndk_repository_cpufeatures">cpufeatures</h4>
+
+<p>The Android NDK contains the
+<a href="https://developer.android.com/ndk/guides/cpu-features.html">cpufeatures library</a>
+which can be used to detect a device's CPU at runtime. The following example demonstrates how to use
+cpufeatures with Bazel.
+
+<pre class="code">
+# jni.cc
+#include "ndk/sources/android/cpufeatures/cpu-features.h"
+...
+</pre>
+
+<pre class="code">
+# BUILD
+cc_library(
+    name = "jni",
+    srcs = ["jni.cc"],
+    deps = ["@androidndk//:cpufeatures"],
+)
+</pre>
+
+<!-- #END_BLAZE_RULE -->*/
