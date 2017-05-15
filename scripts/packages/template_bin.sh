@@ -115,13 +115,20 @@ if [ -z "${JAVA_HOME-}" ]; then
       ;;
   esac
 fi
-if [ ! -x "${JAVA_HOME}/bin/javac" ]; then
-  echo >&2
-  echo "Java not found, please install the corresponding package" >&2
-  echo "See http://bazel.build/docs/install.html for more information on" >&2
-  echo "dependencies of Bazel." >&2
-  exit 1
-fi
+
+# Only check for an installed JDK if this version of Bazel does not contain a
+# bundled JDK.
+case "$0" in
+  *without-jdk*)
+  if [ ! -x "${JAVA_HOME}/bin/javac" ]; then
+    echo >&2
+    echo "Java not found, please install the corresponding package." >&2
+    echo "See http://bazel.build/docs/install.html for more information on" >&2
+    echo "dependencies of Bazel." >&2
+    exit 1
+  fi
+  ;;
+esac
 
 # Test for write access
 test_write "${bin}"
