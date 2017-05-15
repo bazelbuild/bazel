@@ -137,7 +137,7 @@ public final class ParamFileHelper {
       return commandLine;
     }
 
-    return commandLine.prepend(ImmutableList.copyOf(executableArgs));
+    return CommandLine.concat(ImmutableList.copyOf(executableArgs), commandLine);
   }
 
   /**

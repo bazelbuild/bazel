@@ -211,7 +211,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   protected String computeKey() {
     Fingerprint f = new Fingerprint();
     f.addString(GUID);
-    f.addStrings(executionSettings.getArgs());
+    f.addStrings(executionSettings.getArgs().arguments());
     f.addString(executionSettings.getTestFilter() == null ? "" : executionSettings.getTestFilter());
     RunUnder runUnder = executionSettings.getRunUnder();
     f.addString(runUnder == null ? "" : runUnder.getValue());
