@@ -33,7 +33,7 @@ import javax.annotation.Nullable;
 /**
  * Abstract syntax node for an entire BUILD file.
  */
-public final class BuildFileAST extends ASTNode {
+public class BuildFileAST extends ASTNode {
 
   private final ImmutableList<Statement> stmts;
 
