@@ -16,6 +16,7 @@ package com.google.devtools.build.android.resources;
 import com.google.common.base.MoreObjects;
 import java.io.IOException;
 import java.io.Writer;
+import java.util.Objects;
 import java.util.Set;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.commons.InstructionAdapter;
@@ -54,9 +55,11 @@ public final class IntFieldInitializer implements FieldInitializer {
   }
 
   @Override
-  public void writeInitSource(Writer writer) throws IOException {
-    writer.write(String.format("        public static int %s = 0x%x;\n",
-        fieldName, value));
+  public void writeInitSource(Writer writer, boolean finalFields) throws IOException {
+    writer.write(
+        String.format(
+            "        public static %sint %s = 0x%x;\n",
+            finalFields ? "final " : "", fieldName, value));
   }
 
   @Override
@@ -70,5 +73,29 @@ public final class IntFieldInitializer implements FieldInitializer {
         .add("fieldName", fieldName)
         .add("value", value)
         .toString();
+  }
+  
+  @Override
+  public int compareTo(FieldInitializer other) {
+    if (other instanceof IntFieldInitializer) {
+      return fieldName.compareTo(((IntFieldInitializer) other).fieldName);
+    }
+    // IntFields will go before Intarrays
+    return -1;
+  }
+  
+  @Override
+  public int hashCode() {
+    return Objects.hash(fieldName, value);
+  }
+  
+  @Override
+  public boolean equals(Object obj) {
+    if (obj instanceof IntFieldInitializer) {
+      IntFieldInitializer other = (IntFieldInitializer) obj;
+      return Objects.equals(fieldName, other.fieldName)
+          && value == other.value;
+    }
+    return false;
   }
 }

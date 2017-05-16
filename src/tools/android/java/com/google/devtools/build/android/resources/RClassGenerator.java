@@ -15,16 +15,13 @@ package com.google.devtools.build.android.resources;
 
 import com.android.SdkConstants;
 import com.android.resources.ResourceType;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
-import com.google.common.collect.Table;
-import com.google.devtools.build.android.resources.ResourceSymbols.RTxtSymbolEntry;
+import com.google.common.collect.Iterables;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.EnumMap;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -45,7 +42,7 @@ public class RClassGenerator {
   private static final int JAVA_VERSION = Opcodes.V1_7;
   private static final String SUPER_CLASS = "java/lang/Object";
   private final Path outFolder;
-  private final Map<ResourceType, List<FieldInitializer>> initializers;
+  private final FieldInitializers initializers;
   private final boolean finalFields;
   private static final Splitter PACKAGE_SPLITTER = Splitter.on('.');
 
@@ -58,12 +55,9 @@ public class RClassGenerator {
    */
   public static RClassGenerator fromSymbols(
       Path outFolder, ResourceSymbols values, boolean finalFields) {
-    Table<String, String, RTxtSymbolEntry> valuesTable = values.asTable();
-    Map<ResourceType, List<FieldInitializer>> initializers =
-        getInitializers(valuesTable);
-    return new RClassGenerator(outFolder, initializers, finalFields);
+    return with(outFolder, values.asInitializers(), finalFields);
   }
-
+ 
   /**
    * Create an RClassGenerator given a collection of initializers.
    *
@@ -71,42 +65,15 @@ public class RClassGenerator {
    * @param initializers the list of initializers to use for each inner class
    * @param finalFields true if the fields should be marked final
    */
-  public RClassGenerator(
-      Path outFolder,
-      Map<ResourceType, List<FieldInitializer>> initializers,
-      boolean finalFields) {
+  public static RClassGenerator with(
+      Path outFolder, FieldInitializers initializers, boolean finalFields) {
+    return new RClassGenerator(outFolder, initializers, finalFields);
+  }
+
+  private RClassGenerator(Path outFolder, FieldInitializers initializers, boolean finalFields) {
     this.outFolder = outFolder;
     this.finalFields = finalFields;
     this.initializers = initializers;
-  }
-  /** Convert the {@link ResourceSymbols} data, to a map of {@link FieldInitializer}. */
-  private static Map<ResourceType, List<FieldInitializer>> getInitializers(
-      Table<String, String, RTxtSymbolEntry> values) {
-    Map<ResourceType, List<FieldInitializer>> initializers = new EnumMap<>(ResourceType.class);
-    for (String typeName : values.rowKeySet()) {
-      ResourceType resourceType = ResourceType.getEnum(typeName);
-      Preconditions.checkNotNull(resourceType);
-      initializers.put(resourceType, getInitializers(typeName, values));
-    }
-    return initializers;
-  }
-
-  private static List<FieldInitializer> getInitializers(
-      String typeName, Table<String, String, RTxtSymbolEntry> symbols) {
-    Map<String, RTxtSymbolEntry> rowMap = symbols.row(typeName);
-    List<String> symbolList = new ArrayList<>(rowMap.keySet());
-    Collections.sort(symbolList);
-    List<FieldInitializer> initializers = new ArrayList<>();
-    for (String symbolName : symbolList) {
-      RTxtSymbolEntry value = symbols.get(typeName, symbolName);
-      if (value.getType().equals("int")) {
-        initializers.add(IntFieldInitializer.of(value.getName(), value.getValue()));
-      } else {
-        Preconditions.checkArgument(value.getType().equals("int[]"));
-        initializers.add(IntArrayFieldInitializer.of(value.getName(), value.getValue()));
-      }
-    }
-    return initializers;
   }
 
   /**
@@ -115,7 +82,7 @@ public class RClassGenerator {
    */
   public void write(String packageName, Map<ResourceType, Set<String>> symbolsToWrite)
       throws IOException {
-    writeClasses(packageName, filterInitializers(symbolsToWrite));
+    writeClasses(packageName, initializers.filter(symbolsToWrite));
   }
   
   /** Builds bytecode and writes out R.class file, and R$inner.class files for provided package. */
@@ -123,8 +90,10 @@ public class RClassGenerator {
     writeClasses(packageName, initializers);
   }
   
-  private void writeClasses(String packageName,
-      Map<ResourceType, List<FieldInitializer>> initializersToWrite) throws IOException {
+  private void writeClasses(
+      String packageName,
+      Iterable<Entry<ResourceType, Collection<FieldInitializer>>> initializersToWrite)
+      throws IOException {
     
     Iterable<String> folders = PACKAGE_SPLITTER.split(packageName);
     Path packageDir = outFolder;
@@ -135,7 +104,7 @@ public class RClassGenerator {
     // create the R.class and inner class files (no need to have an empty class).
     Files.createDirectories(packageDir);
     
-    if (initializersToWrite.isEmpty()) {
+    if (Iterables.isEmpty(initializersToWrite)) {
       return;
     }
     
@@ -154,47 +123,25 @@ public class RClassGenerator {
     classWriter.visitSource(SdkConstants.FN_RESOURCE_CLASS, null);
     writeConstructor(classWriter);
     // Build the R.class w/ the inner classes, then later build the individual R$inner.class.
-    for (ResourceType resourceType : initializersToWrite.keySet()) {
+    for (Entry<ResourceType, Collection<FieldInitializer>> entry : initializersToWrite) {
+      final String resourceType = entry.getKey().toString();
       String innerClassName = rClassName + "$" + resourceType;
       classWriter.visitInnerClass(
           innerClassName,
           rClassName,
-          resourceType.toString(),
+          resourceType,
           Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL | Opcodes.ACC_STATIC);
     }
     classWriter.visitEnd();
     Files.write(rClassFile, classWriter.toByteArray());
-
     // Now generate the R$inner.class files.
-    for (Map.Entry<ResourceType, List<FieldInitializer>> entry : initializersToWrite.entrySet()) {
+    for (Map.Entry<ResourceType, Collection<FieldInitializer>> entry : initializersToWrite) {
       writeInnerClass(entry.getValue(), packageDir, rClassName, entry.getKey().toString());
     }
   }
-  
-  private Map<ResourceType, List<FieldInitializer>> filterInitializers(
-      Map<ResourceType, Set<String>> symbolsToWrite) {
-    Map<ResourceType, List<FieldInitializer>> initializersToWrite =
-        new EnumMap<>(ResourceType.class);
-    for (Entry<ResourceType, Set<String>> entry : symbolsToWrite.entrySet()) {
-      List<FieldInitializer> fieldsToWrite = new ArrayList<>();
-      // Resource type may be missing if resource overriding eliminates resources at the binary
-      // level, which were originally present at the library level.
-      if (initializers.containsKey(entry.getKey())) {
-        for (FieldInitializer field : initializers.get(entry.getKey())) {
-          if (field.nameIsIn(entry.getValue())) {
-            fieldsToWrite.add(field);
-          }
-        }
-      }
-      if (!fieldsToWrite.isEmpty()) {
-        initializersToWrite.put(entry.getKey(), fieldsToWrite);
-      }
-    }
-    return initializersToWrite;
-  }
 
   private void writeInnerClass(
-      List<FieldInitializer> initializers,
+      Collection<FieldInitializer> initializers,
       Path packageDir,
       String fullyQualifiedOuterClass,
       String innerClass)

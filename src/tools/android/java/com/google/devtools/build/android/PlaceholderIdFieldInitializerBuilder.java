@@ -23,6 +23,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.android.AndroidFrameworkAttrIdProvider.AttrLookupException;
 import com.google.devtools.build.android.resources.FieldInitializer;
+import com.google.devtools.build.android.resources.FieldInitializers;
 import com.google.devtools.build.android.resources.IntArrayFieldInitializer;
 import com.google.devtools.build.android.resources.IntFieldInitializer;
 import java.util.Collection;
@@ -325,8 +326,9 @@ class PlaceholderIdFieldInitializerBuilder {
     return allocatedTypeIds;
   }
 
-  public Map<ResourceType, List<FieldInitializer>> build() throws AttrLookupException {
-    Map<ResourceType, List<FieldInitializer>> initializers = new EnumMap<>(ResourceType.class);
+  public FieldInitializers build() throws AttrLookupException {
+    Map<ResourceType, Collection<FieldInitializer>> initializers =
+        new EnumMap<>(ResourceType.class);
     Map<ResourceType, Integer> typeIdMap = chooseTypeIds();
     Map<String, Integer> attrAssignments = assignAttrIds(typeIdMap.get(ResourceType.ATTR));
     for (Map.Entry<ResourceType, Set<String>> fieldEntries : innerClasses.entrySet()) {
@@ -347,7 +349,7 @@ class PlaceholderIdFieldInitializerBuilder {
       Preconditions.checkArgument(fields.size() < (1 << 16));
       initializers.put(type, fields);
     }
-    return initializers;
+    return FieldInitializers.copyOf(initializers);
   }
 
   private Map<ResourceType, Integer> chooseTypeIds() {

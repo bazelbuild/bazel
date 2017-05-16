@@ -532,7 +532,7 @@ public class AndroidResourceProcessor {
       // Loop on all the package name, merge all the symbols to write, and write.
       for (String packageName : libSymbolMap.keySet()) {
         Collection<ResourceSymbols> symbols = libSymbolMap.get(packageName);
-        fullSymbolValues.writeTo(sourceOut, packageName, symbols);
+        fullSymbolValues.writeTo(sourceOut, packageName, symbols, true /* finalFields */);
       }
     }
   }
