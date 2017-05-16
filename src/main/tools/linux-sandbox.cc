@@ -37,15 +37,11 @@
  *    system are invisible.
  */
 
-#include "linux-sandbox-options.h"
-#include "linux-sandbox-pid1.h"
-#include "linux-sandbox-utils.h"
-
 #define DIE(args...)                                     \
   {                                                      \
     fprintf(stderr, __FILE__ ":" S__LINE__ ": \"" args); \
     fprintf(stderr, "\": ");                             \
-    perror(NULL);                                        \
+    perror(nullptr);                                     \
     exit(EXIT_FAILURE);                                  \
   }
 
@@ -66,9 +62,12 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-
 #include <string>
 #include <vector>
+
+#include "src/main/tools/linux-sandbox-options.h"
+#include "src/main/tools/linux-sandbox-pid1.h"
+#include "src/main/tools/linux-sandbox-utils.h"
 
 int global_outer_uid;
 int global_outer_gid;
@@ -83,7 +82,7 @@ static volatile sig_atomic_t global_signal;
 
 static void CloseFds() {
   DIR *fds = opendir("/proc/self/fd");
-  if (fds == NULL) {
+  if (fds == nullptr) {
     DIE("opendir");
   }
 
@@ -91,7 +90,7 @@ static void CloseFds() {
     errno = 0;
     struct dirent *dent = readdir(fds);
 
-    if (dent == NULL) {
+    if (dent == nullptr) {
       if (errno != 0) {
         DIE("readdir");
       }
@@ -125,7 +124,7 @@ static void HandleSignal(int signum, void (*handler)(int)) {
   if (sigemptyset(&sa.sa_mask) < 0) {
     DIE("sigemptyset");
   }
-  if (sigaction(signum, &sa, NULL) < 0) {
+  if (sigaction(signum, &sa, nullptr) < 0) {
     DIE("sigaction");
   }
 }

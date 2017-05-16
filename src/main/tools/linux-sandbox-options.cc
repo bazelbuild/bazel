@@ -12,16 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "linux-sandbox-options.h"
-#include "linux-sandbox-utils.h"
-
 #define DIE(args...)                                     \
   {                                                      \
     fprintf(stderr, __FILE__ ":" S__LINE__ ": \"" args); \
     fprintf(stderr, "\": ");                             \
-    perror(NULL);                                        \
+    perror(nullptr);                                     \
     exit(EXIT_FAILURE);                                  \
   }
+
+#include "src/main/tools/linux-sandbox-options.h"
 
 #include <errno.h>
 #include <sched.h>
@@ -32,12 +31,13 @@
 #include <string.h>
 #include <sys/wait.h>
 #include <unistd.h>
-
 #include <fstream>
 #include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
+
+#include "src/main/tools/linux-sandbox-utils.h"
 
 using std::ifstream;
 using std::unique_ptr;
@@ -260,6 +260,6 @@ void ParseOptions(int argc, char *argv[]) {
   }
 
   if (opt.working_dir.empty()) {
-    opt.working_dir = getcwd(NULL, 0);
+    opt.working_dir = getcwd(nullptr, 0);
   }
 }

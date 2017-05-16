@@ -22,8 +22,6 @@
 // die with raise(SIGTERM) even if the child process handles SIGTERM with
 // exit(0).
 
-#define _GNU_SOURCE
-
 #include <err.h>
 #include <errno.h>
 #include <signal.h>
@@ -31,57 +29,62 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <string>
+#include <vector>
 
-#include "process-tools.h"
+#include "src/main/tools/process-tools.h"
 
-// Not in headers on OSX.
-extern char **environ;
+bool global_debug = false;
 
 static double global_kill_delay;
-static int global_child_pid;
+static pid_t global_child_pid;
 static volatile sig_atomic_t global_signal;
 
 // Options parsing result.
 struct Options {
   double timeout_secs;
   double kill_delay_secs;
-  const char *stdout_path;
-  const char *stderr_path;
-  char *const *args;
+  std::string stdout_path;
+  std::string stderr_path;
+  std::vector<char *> args;
 };
 
-// Print out a usage error. argc and argv are the argument counter and vector,
-// fmt is a format,
-// string for the error message to print.
-static void Usage(char *const *argv) {
+static struct Options opt;
+
+// Print out a usage error and exit with EXIT_FAILURE.
+static void Usage(char *program_name) {
   fprintf(stderr,
           "Usage: %s <timeout-secs> <kill-delay-secs> <stdout-redirect> "
           "<stderr-redirect> <command> [args] ...\n",
-          argv[0]);
+          program_name);
   exit(EXIT_FAILURE);
 }
 
 // Parse the command line flags and return the result in an Options structure
 // passed as argument.
-static void ParseCommandLine(int argc, char *const *argv, struct Options *opt) {
-  if (argc <= 5) {
-    Usage(argv);
+static void ParseCommandLine(std::vector<char *> args) {
+  if (args.size() < 5) {
+    Usage(args.front());
   }
 
-  argv++;
-  if (sscanf(*argv++, "%lf", &opt->timeout_secs) != 1) {
+  int optind = 1;
+
+  if (sscanf(args[optind++], "%lf", &opt.timeout_secs) != 1) {
     DIE("timeout_secs is not a real number.\n");
   }
-  if (sscanf(*argv++, "%lf", &opt->kill_delay_secs) != 1) {
+  if (sscanf(args[optind++], "%lf", &opt.kill_delay_secs) != 1) {
     DIE("kill_delay_secs is not a real number.\n");
   }
-  opt->stdout_path = *argv++;
-  opt->stderr_path = *argv++;
-  opt->args = argv;
+  opt.stdout_path.assign(args[optind++]);
+  opt.stderr_path.assign(args[optind++]);
+  opt.args.assign(args.begin() + optind, args.end());
+
+  // argv[] passed to execve() must be a null-terminated array.
+  opt.args.push_back(nullptr);
 }
 
 // Called when timeout or signal occurs.
@@ -106,11 +109,15 @@ void OnSignal(int sig) {
 
 // Run the command specified by the argv array and kill it after timeout
 // seconds.
-static void SpawnCommand(char *const *argv, double timeout_secs) {
-  CHECK_CALL(global_child_pid = fork());
-  if (global_child_pid == 0) {
+static void SpawnCommand(const std::vector<char *> &args, double timeout_secs) {
+  global_child_pid = fork();
+  if (global_child_pid < 0) {
+    DIE("fork");
+  } else if (global_child_pid == 0) {
     // In child.
-    CHECK_CALL(setsid());
+    if (setsid() < 0) {
+      DIE("setsid");
+    }
     ClearSignalMask();
 
     // Force umask to include read and execute for everyone, to make
@@ -118,8 +125,9 @@ static void SpawnCommand(char *const *argv, double timeout_secs) {
     umask(022);
 
     // Does not return unless something went wrong.
-    execvp(argv[0], argv);
-    err(EXIT_FAILURE, "execvp(\"%s\", ...)", argv[0]);
+    if (execvp(args[0], args.data()) < 0) {
+      DIE("execvp(%s, ...)", args[0]);
+    }
   } else {
     // In parent.
 
@@ -130,7 +138,7 @@ static void SpawnCommand(char *const *argv, double timeout_secs) {
     HandleSignal(SIGINT, OnSignal);
     SetTimeout(timeout_secs);
 
-    int status = WaitChild(global_child_pid, argv[0]);
+    int status = WaitChild(global_child_pid);
 
     // The child is done for, but may have grandchildren that we still have to
     // kill.
@@ -151,17 +159,15 @@ static void SpawnCommand(char *const *argv, double timeout_secs) {
 }
 
 int main(int argc, char *argv[]) {
-  struct Options opt;
-  memset(&opt, 0, sizeof(opt));
-
-  ParseCommandLine(argc, argv, &opt);
+  std::vector<char *> args(argv, argv + argc);
+  ParseCommandLine(args);
   global_kill_delay = opt.kill_delay_secs;
 
   SwitchToEuid();
   SwitchToEgid();
 
-  RedirectStdout(opt.stdout_path);
-  RedirectStderr(opt.stderr_path);
+  Redirect(opt.stdout_path, STDOUT_FILENO);
+  Redirect(opt.stderr_path, STDERR_FILENO);
 
   SpawnCommand(opt.args, opt.timeout_secs);
 
