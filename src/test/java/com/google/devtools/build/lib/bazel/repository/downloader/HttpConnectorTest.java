@@ -116,7 +116,7 @@ public class HttpConnectorTest {
   @Test
   public void normalRequest() throws Exception {
     final Map<String, String> headers = new ConcurrentHashMap<>();
-    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
+    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
       @SuppressWarnings("unused") 
       Future<?> possiblyIgnoredError =
           executor.submit(
@@ -141,7 +141,7 @@ public class HttpConnectorTest {
       try (Reader payload =
               new InputStreamReader(
                   connector.connect(
-                          new URL(String.format("http://127.0.0.1:%d/boo", server.getLocalPort())),
+                          new URL(String.format("http://localhost:%d/boo", server.getLocalPort())),
                           ImmutableMap.of("Content-Encoding", "gzip"))
                       .getInputStream(),
                   ISO_8859_1)) {
@@ -155,7 +155,7 @@ public class HttpConnectorTest {
 
   @Test
   public void serverError_retriesConnect() throws Exception {
-    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
+    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
       @SuppressWarnings("unused")
       Future<?> possiblyIgnoredError =
           executor.submit(
@@ -192,7 +192,7 @@ public class HttpConnectorTest {
       try (Reader payload =
               new InputStreamReader(
                   connector.connect(
-                          new URL(String.format("http://127.0.0.1:%d", server.getLocalPort())),
+                          new URL(String.format("http://localhost:%d", server.getLocalPort())),
                           ImmutableMap.<String, String>of())
                       .getInputStream(),
                   ISO_8859_1)) {
@@ -204,7 +204,7 @@ public class HttpConnectorTest {
 
   @Test
   public void permanentError_doesNotRetryAndThrowsIOException() throws Exception {
-    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
+    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
       @SuppressWarnings("unused")
       Future<?> possiblyIgnoredError =
           executor.submit(
@@ -229,7 +229,7 @@ public class HttpConnectorTest {
       thrown.expect(IOException.class);
       thrown.expectMessage("404 Not Here");
       connector.connect(
-          new URL(String.format("http://127.0.0.1:%d", server.getLocalPort())),
+          new URL(String.format("http://localhost:%d", server.getLocalPort())),
           ImmutableMap.<String, String>of());
     }
   }
@@ -238,7 +238,7 @@ public class HttpConnectorTest {
   public void permanentError_consumesPayloadBeforeReturningn() throws Exception {
     final CyclicBarrier barrier = new CyclicBarrier(2);
     final AtomicBoolean consumed = new AtomicBoolean();
-    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
+    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
       @SuppressWarnings("unused")
       Future<?> possiblyIgnoredError =
           executor.submit(
@@ -264,7 +264,7 @@ public class HttpConnectorTest {
                 }
               });
       connector.connect(
-          new URL(String.format("http://127.0.0.1:%d", server.getLocalPort())),
+          new URL(String.format("http://localhost:%d", server.getLocalPort())),
           ImmutableMap.<String, String>of());
       fail();
     } catch (IOException ignored) {
@@ -279,7 +279,7 @@ public class HttpConnectorTest {
   @Test
   public void always500_givesUpEventually() throws Exception {
     final AtomicInteger tries = new AtomicInteger();
-    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
+    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
       @SuppressWarnings("unused")
       Future<?> possiblyIgnoredError =
           executor.submit(
@@ -307,7 +307,7 @@ public class HttpConnectorTest {
       thrown.expectMessage("500 Oh My");
       try {
         connector.connect(
-            new URL(String.format("http://127.0.0.1:%d", server.getLocalPort())),
+            new URL(String.format("http://localhost:%d", server.getLocalPort())),
             ImmutableMap.<String, String>of());
       } finally {
         assertThat(tries.get()).isGreaterThan(2);
@@ -318,7 +318,7 @@ public class HttpConnectorTest {
   @Test
   public void serverSays403_clientRetriesAnyway() throws Exception {
     final AtomicInteger tries = new AtomicInteger();
-    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
+    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
       @SuppressWarnings("unused")
       Future<?> possiblyIgnoredError =
           executor.submit(
@@ -346,7 +346,7 @@ public class HttpConnectorTest {
       thrown.expectMessage("403 Forbidden");
       try {
         connector.connect(
-            new URL(String.format("http://127.0.0.1:%d", server.getLocalPort())),
+            new URL(String.format("http://localhost:%d", server.getLocalPort())),
             ImmutableMap.<String, String>of());
       } finally {
         assertThat(tries.get()).isGreaterThan(2);
@@ -358,7 +358,7 @@ public class HttpConnectorTest {
   public void redirectToDifferentPath_works() throws Exception {
     final Map<String, String> headers1 = new ConcurrentHashMap<>();
     final Map<String, String> headers2 = new ConcurrentHashMap<>();
-    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
+    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
       @SuppressWarnings("unused")
       Future<?> possiblyIgnoredError =
           executor.submit(
@@ -394,10 +394,10 @@ public class HttpConnectorTest {
               });
       URLConnection connection =
           connector.connect(
-              new URL(String.format("http://127.0.0.1:%d", server.getLocalPort())),
+              new URL(String.format("http://localhost:%d", server.getLocalPort())),
               ImmutableMap.<String, String>of());
       assertThat(connection.getURL()).isEqualTo(
-          new URL(String.format("http://127.0.0.1:%d/doodle.tar.gz", server.getLocalPort())));
+          new URL(String.format("http://localhost:%d/doodle.tar.gz", server.getLocalPort())));
       try (InputStream input = connection.getInputStream()) {
         assertThat(ByteStreams.toByteArray(input)).isEmpty();
       }
@@ -408,8 +408,8 @@ public class HttpConnectorTest {
 
   @Test
   public void redirectToDifferentServer_works() throws Exception {
-    try (ServerSocket server1 = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"));
-        ServerSocket server2 = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
+    try (ServerSocket server1 = new ServerSocket(0, 1, InetAddress.getByName(null));
+        ServerSocket server2 = new ServerSocket(0, 1, InetAddress.getByName(null))) {
       @SuppressWarnings("unused")
       Future<?> possiblyIgnoredError =
           executor.submit(
@@ -424,7 +424,7 @@ public class HttpConnectorTest {
                         "Date: Fri, 31 Dec 1999 23:59:59 GMT",
                         "Connection: close",
                         String.format(
-                            "Location: http://127.0.0.1:%d/doodle.tar.gz", server2.getLocalPort()),
+                            "Location: http://localhost:%d/doodle.tar.gz", server2.getLocalPort()),
                         "Content-Length: 0",
                         "",
                         "");
@@ -455,10 +455,10 @@ public class HttpConnectorTest {
               });
       URLConnection connection =
           connector.connect(
-              new URL(String.format("http://127.0.0.1:%d", server1.getLocalPort())),
+              new URL(String.format("http://localhost:%d", server1.getLocalPort())),
               ImmutableMap.<String, String>of());
       assertThat(connection.getURL()).isEqualTo(
-          new URL(String.format("http://127.0.0.1:%d/doodle.tar.gz", server2.getLocalPort())));
+          new URL(String.format("http://localhost:%d/doodle.tar.gz", server2.getLocalPort())));
       try (InputStream input = connection.getInputStream()) {
         assertThat(ByteStreams.toByteArray(input)).isEqualTo("hello".getBytes(US_ASCII));
       }

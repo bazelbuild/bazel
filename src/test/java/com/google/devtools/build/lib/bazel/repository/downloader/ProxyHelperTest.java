@@ -173,10 +173,10 @@ public class ProxyHelperTest {
 
   @Test
   public void testNoProxyAuth() throws Exception {
-    Proxy proxy = ProxyHelper.createProxy("http://127.0.0.1:3128/");
+    Proxy proxy = ProxyHelper.createProxy("http://localhost:3128/");
     assertEquals(Proxy.Type.HTTP, proxy.type());
     assertThat(proxy.toString()).endsWith(":3128");
-    assertEquals(System.getProperty("http.proxyHost"), "127.0.0.1");
+    assertEquals(System.getProperty("http.proxyHost"), "localhost");
     assertEquals(System.getProperty("http.proxyPort"), "3128");
   }
 
