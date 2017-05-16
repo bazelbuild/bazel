@@ -6,7 +6,6 @@ filegroup(
     name = "package-srcs",
     srcs = [
         "platforms.BUILD",
-        "toolchains.bzl",
     ],
 )
 

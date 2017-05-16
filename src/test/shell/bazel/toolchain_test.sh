@@ -62,9 +62,19 @@ function test_toolchain_rule() {
 
   mkdir -p toolchain
   cat >> toolchain/toolchain.bzl <<EOF
-load('@bazel_tools//platforms:toolchains.bzl', 'toolchain_rule')
-test_toolchain = toolchain_rule(
-    extra_attrs = {
+def _test_toolchain_impl(ctx):
+  toolchain = platform_common.toolchain(
+      exec_compatible_with = ctx.attr.exec_compatible_with,
+      target_compatible_with = ctx.attr.target_compatible_with,
+      extra_label = ctx.attr.extra_label,
+      extra_str = ctx.attr.extra_str)
+  return [toolchain]
+
+test_toolchain = rule(
+    _test_toolchain_impl,
+    attrs = {
+        'exec_compatible_with': attr.label_list(providers = [platform_common.ConstraintValueInfo]),
+        'target_compatible_with': attr.label_list(providers = [platform_common.ConstraintValueInfo]),
        'extra_label': attr.label(),
        'extra_str': attr.string(),
     }
@@ -96,55 +106,6 @@ EOF
   bazel build //toolchain:report &> $TEST_log || fail "Build failed"
   expect_log 'extra_label = "//toolchain:dep_rule"'
   expect_log 'extra_str = "bar"'
-}
-
-function test_toolchain_rule_override_impl() {
-
-  mkdir -p toolchain
-  cat >> toolchain/toolchain.bzl <<EOF
-load('@bazel_tools//platforms:toolchains.bzl', 'toolchain_rule', 'default_toolchain_rule_impl')
-def _impl(ctx):
-  overridde_attrs = {
-    'extra_label': 'override:' + ctx.attr.extra_str,
-    'extra_str': 'foo',
-  }
-  return default_toolchain_rule_impl(ctx, overridde_attrs)
-
-test_toolchain = toolchain_rule(
-    implementation = _impl,
-    extra_attrs = {
-       'extra_label': attr.label(),
-       'extra_str': attr.string(),
-    }
-)
-
-EOF
-
-  cat >> toolchain/BUILD <<EOF
-load('//report:report.bzl', 'report_toolchain')
-load(':toolchain.bzl', 'test_toolchain')
-filegroup(name = 'dep_rule')
-test_toolchain(
-    name = 'linux_toolchain',
-    exec_compatible_with = [
-      '//constraints:linux',
-    ],
-    target_compatible_with = [
-      '//constraints:mac',
-    ],
-    extra_label = ':dep_rule',
-    extra_str = 'bar',
-)
-report_toolchain(
-  name = 'report',
-  fields = ['extra_label', 'extra_str'],
-  toolchain = ':linux_toolchain',
-)
-EOF
-
-  bazel build //toolchain:report &> $TEST_log || fail "Build failed"
-  expect_log 'extra_label = "override:bar"'
-  expect_log 'extra_str = "foo"'
 }
 
 run_suite "toolchain tests"
