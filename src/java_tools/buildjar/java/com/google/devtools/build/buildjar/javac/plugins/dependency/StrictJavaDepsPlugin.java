@@ -16,7 +16,6 @@ package com.google.devtools.build.buildjar.javac.plugins.dependency;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule.StrictJavaDeps.ERROR;
-import static com.google.devtools.build.buildjar.javac.plugins.dependency.ImplicitDependencyExtractor.getPlatformJars;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Ordering;
@@ -110,10 +109,10 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
         new ImplicitDependencyExtractor(
             dependencyModule.getUsedClasspath(),
             dependencyModule.getImplicitDependenciesMap(),
-            fileManager);
+            dependencyModule.getPlatformJars());
     checkingTreeScanner = context.get(CheckingTreeScanner.class);
     if (checkingTreeScanner == null) {
-      Set<String> platformJars = getPlatformJars(fileManager);
+      Set<String> platformJars = dependencyModule.getPlatformJars();
       checkingTreeScanner =
           new CheckingTreeScanner(dependencyModule, log, missingTargets, platformJars, fileManager);
       context.put(CheckingTreeScanner.class, checkingTreeScanner);

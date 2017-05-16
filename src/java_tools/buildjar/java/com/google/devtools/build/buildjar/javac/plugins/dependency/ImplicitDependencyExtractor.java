@@ -14,20 +14,15 @@
 
 package com.google.devtools.build.buildjar.javac.plugins.dependency;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.view.proto.Deps;
 import com.sun.tools.javac.code.Symbol.ClassSymbol;
 import com.sun.tools.javac.code.Symtab;
-import com.sun.tools.javac.file.JavacFileManager;
 import com.sun.tools.javac.util.Context;
 import java.lang.reflect.Field;
-import java.nio.file.Path;
 import java.util.Map;
 import java.util.Set;
 import javax.lang.model.util.SimpleTypeVisitor7;
-import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
-import javax.tools.StandardLocation;
 
 /**
  * A lightweight mechanism for extracting compile-time dependencies from javac, by performing a scan
@@ -44,7 +39,7 @@ public class ImplicitDependencyExtractor {
   private final Map<String, Deps.Dependency> depsMap;
 
   private final TypeVisitor typeVisitor = new TypeVisitor();
-  private final JavaFileManager fileManager;
+  private final Set<String> platformJars;
 
   /**
    * ImplicitDependencyExtractor does not guarantee any ordering of the reported dependencies.
@@ -52,10 +47,10 @@ public class ImplicitDependencyExtractor {
    * using this information.
    */
   public ImplicitDependencyExtractor(
-      Set<String> depsSet, Map<String, Deps.Dependency> depsMap, JavaFileManager fileManager) {
+      Set<String> depsSet, Map<String, Deps.Dependency> depsMap, Set<String> platformJars) {
     this.depsSet = depsSet;
     this.depsMap = depsMap;
-    this.fileManager = fileManager;
+    this.platformJars = platformJars;
   }
 
   /**
@@ -77,8 +72,6 @@ public class ImplicitDependencyExtractor {
       root.type.accept(typeVisitor, null);
     }
 
-    Set<String> platformJars = getPlatformJars(fileManager);
-
     // Collect all other partially resolved types
     for (ClassSymbol cs : symtab.getAllClasses()) {
       // When recording we want to differentiate between jar references through completed symbols
@@ -90,24 +83,6 @@ public class ImplicitDependencyExtractor {
         collectJarOf(cs.sourcefile, platformJars, completed);
       }
     }
-  }
-
-  /** Collect the set of jars on the compilation bootclasspath. */
-  public static Set<String> getPlatformJars(JavaFileManager fileManager) {
-
-    if (fileManager instanceof JavacFileManager) {
-      JavacFileManager jfm = (JavacFileManager) fileManager;
-      ImmutableSet.Builder<String> result = ImmutableSet.builder();
-      for (Path path : jfm.getLocationAsPaths(StandardLocation.PLATFORM_CLASS_PATH)) {
-        result.add(path.toString());
-      }
-      return result.build();
-    }
-
-    // TODO(cushon): Assuming JavacFileManager is brittle, but in practice it is the only
-    // implementation that matters.
-    throw new IllegalStateException(
-        "Unsupported file manager type: " + fileManager.getClass().getName());
   }
 
   /**

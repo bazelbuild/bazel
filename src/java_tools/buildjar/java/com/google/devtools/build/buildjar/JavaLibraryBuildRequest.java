@@ -117,6 +117,9 @@ public final class JavaLibraryBuildRequest {
       depsBuilder.setOutputDepsProtoFile(optionsParser.getOutputDepsProtoFile());
     }
     depsBuilder.addDepsArtifacts(optionsParser.getDepsArtifacts());
+    depsBuilder.setPlatformJars(
+        ImmutableSet.copyOf(
+            Iterables.concat(optionsParser.getBootClassPath(), optionsParser.getExtClassPath())));
     if (optionsParser.reduceClasspath()) {
       depsBuilder.setReduceClasspath();
     }
