@@ -43,7 +43,7 @@ public class BuildEventStreamOptions extends OptionsBase {
     name = "experimental_build_event_json_file",
     defaultValue = "",
     optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
-    help = "If non-empty, write a JOSN serialisation of the build event protocol to that file."
+    help = "If non-empty, write a JSON serialisation of the build event protocol to that file."
   )
   public String buildEventJsonFile;
 
