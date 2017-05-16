@@ -33,14 +33,11 @@ import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.VERSIONED_SHA
 import com.google.devtools.build.lib.analysis.LanguageDependentFragment.LibraryLanguage;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
 import com.google.devtools.build.lib.packages.Attribute.Transition;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleTransitionFactory;
-import com.google.devtools.build.lib.rules.cpp.transitions.EnableLipoTransition;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
@@ -85,20 +82,6 @@ public class CppRuleClasses {
       return true;
     }
   }
-
-  /**
-   * Rule transition factory that enables LIPO on the LIPO context binary (i.e. applies a DATA ->
-   * TARGET transition).
-   *
-   * <p>This is how dynamic configurations enable LIPO on the LIPO context.
-   */
-  public static final RuleTransitionFactory LIPO_ON_DEMAND =
-      new RuleTransitionFactory() {
-        @Override
-        public Attribute.Transition buildTransitionFor(Rule rule) {
-          return new EnableLipoTransition(rule.getLabel());
-        }
-      };
 
   /**
    * Label of a pseudo-filegroup that contains all crosstool and libcfiles for all configurations,

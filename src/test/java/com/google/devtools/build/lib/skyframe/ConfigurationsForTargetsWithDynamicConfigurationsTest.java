@@ -95,7 +95,7 @@ public class ConfigurationsForTargetsWithDynamicConfigurationsTest
         "rule_class_transition(name='rule_class')");
     List<ConfiguredTarget> deps = getConfiguredDeps("//a:attribute", "with_cpu_transition");
     BuildConfiguration ruleclass = Iterables.getOnlyElement(deps).getConfiguration();
-    assertThat(ruleclass.getCpu()).isEqualTo("SET BY PATCH");
+    assertThat(ruleclass.getCpu()).isEqualTo("SET BY SPLIT");
   }
 
   @Test
