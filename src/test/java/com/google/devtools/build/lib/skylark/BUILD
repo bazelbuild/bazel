@@ -20,6 +20,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:packages",
         "//src/main/java/com/google/devtools/build/lib:vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/rules/platform",
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
         "//src/test/java/com/google/devtools/build/lib:foundations_testutil",
         "//src/test/java/com/google/devtools/build/lib:syntax_testutil",

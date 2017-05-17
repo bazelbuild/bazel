@@ -14,13 +14,14 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.packages.ClassObjectConstructor.Key;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 
 /**
  * Constructor that can be used to generate toolchains. The key returned by {@link #getKey()} is a
  * serializable representation of the constructor and serves to identify toolchains of the same
  * type.
  */
-public interface ToolchainConstructor {
+public interface ToolchainConstructor extends SkylarkValue {
 
   Key getKey();
 }

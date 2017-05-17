@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.packages.SkylarkAspectClass;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.ToolchainConstructor;
 import com.google.devtools.build.lib.rules.SkylarkAttr;
 import com.google.devtools.build.lib.rules.SkylarkAttr.Descriptor;
 import com.google.devtools.build.lib.rules.SkylarkFileType;
@@ -1377,5 +1378,15 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
           + "provided.");
     }
   }
-}
 
+  @Test
+  public void testRuleAddToolchain() throws Exception {
+    evalAndExport(
+        "my_toolchain_type = platform_common.toolchain_type()",
+        "def impl(ctx): return None",
+        "r1 = rule(impl, toolchains=[my_toolchain_type])");
+    ToolchainConstructor toolchain = (ToolchainConstructor) lookup("my_toolchain_type");
+    RuleClass c = ((RuleFunction) lookup("r1")).getRuleClass();
+    assertThat(c.getRequiredToolchains()).containsExactly(toolchain.getKey());
+  }
+}

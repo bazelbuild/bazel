@@ -167,6 +167,7 @@ public final class RuleContext extends TargetContext
   private final ErrorReporter reporter;
   private final ImmutableBiMap<String, Class<? extends TransitiveInfoProvider>>
       skylarkProviderRegistry;
+  private final ToolchainContext toolchainContext;
 
   private ActionOwner actionOwner;
 
@@ -197,6 +198,8 @@ public final class RuleContext extends TargetContext
     this.skylarkProviderRegistry = builder.skylarkProviderRegistry;
     this.hostConfiguration = builder.hostConfiguration;
     reporter = builder.reporter;
+    // TODO(katre): Populate the actual selected toolchains.
+    this.toolchainContext = new ToolchainContext(null);
   }
 
   private ImmutableSet<String> getEnabledFeatures() {
@@ -1119,6 +1122,10 @@ public final class RuleContext extends TargetContext
       attributeError(attrName, e.getMessage());
       return expression;
     }
+  }
+
+  public ToolchainContext getToolchainContext() {
+    return toolchainContext;
   }
 
   private void checkAttribute(String attributeName, Mode mode) {

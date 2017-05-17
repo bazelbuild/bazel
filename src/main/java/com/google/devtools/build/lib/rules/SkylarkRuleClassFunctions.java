@@ -70,6 +70,7 @@ import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkExportable;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
+import com.google.devtools.build.lib.packages.ToolchainConstructor;
 import com.google.devtools.build.lib.rules.SkylarkAttr.Descriptor;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
@@ -266,122 +267,132 @@ public class SkylarkRuleClassFunctions {
         }
       };
 
-
   // TODO(bazel-team): implement attribute copy and other rule properties
   @SkylarkSignature(
-      name = "rule",
-      doc =
-          "Creates a new rule. Store it in a global value, so that it can be loaded and called "
-              + "from BUILD files.",
-      returnType = BaseFunction.class,
-      parameters = {
-          @Param(
-              name = "implementation",
-              type = BaseFunction.class,
-              doc =
-                  "the function implementing this rule, must have exactly one parameter: "
-                      + "<a href=\"ctx.html\">ctx</a>. The function is called during the analysis "
-                      + "phase for each instance of the rule. It can access the attributes "
-                      + "provided by the user. It must create actions to generate all the declared "
-                      + "outputs."
-          ),
-          @Param(
-              name = "test",
-              type = Boolean.class,
-              defaultValue = "False",
-              doc =
-                  "Whether this rule is a test rule. "
-                      + "If True, the rule must end with <code>_test</code> (otherwise it must "
-                      + "not), and there must be an action that generates "
-                      + "<code>ctx.outputs.executable</code>."
-          ),
-          @Param(
-              name = "attrs",
-              type = SkylarkDict.class,
-              noneable = true,
-              defaultValue = "None",
-              doc =
-                  "dictionary to declare all the attributes of the rule. It maps from an attribute "
-                      + "name to an attribute object (see <a href=\"attr.html\">attr</a> module). "
-                      + "Attributes starting with <code>_</code> are private, and can be used to "
-                      + "add an implicit dependency on a label. The attribute <code>name</code> is "
-                      + "implicitly added and must not be specified. Attributes "
-                      + "<code>visibility</code>, <code>deprecation</code>, <code>tags</code>, "
-                      + "<code>testonly</code>, and <code>features</code> are implicitly added and "
-                      + "cannot be overriden."
-          ),
-          // TODO(bazel-team): need to give the types of these builtin attributes
-          @Param(
-              name = "outputs",
-              type = SkylarkDict.class,
-              callbackEnabled = true,
-              noneable = true,
-              defaultValue = "None",
-              doc =
-                  "outputs of this rule. "
-                      + "It is a dictionary mapping from string to a template name. "
-                      + "For example: <code>{\"ext\": \"%{name}.ext\"}</code>. <br>"
-                      + "The dictionary key becomes an attribute in <code>ctx.outputs</code>. "
-                      + "Similar to computed dependency rule attributes, you can also specify the "
-                      + "name of a function that returns the dictionary. This function can access "
-                      + "all rule attributes that are listed as parameters in its function "
-                      + "signature. For example, <code>outputs = _my_func</code> with "
-                      + "<code>def _my_func(srcs, deps):</code> has access to the attributes "
-                      + "'srcs' and 'deps' (if defined)."
-          ),
-          @Param(
-              name = "executable",
-              type = Boolean.class,
-              defaultValue = "False",
-              doc =
-                  "whether this rule is marked as executable or not. If True, "
-                      + "there must be an action that generates "
-                      + "<code>ctx.outputs.executable</code>."
-          ),
-          @Param(
-              name = "output_to_genfiles",
-              type = Boolean.class,
-              defaultValue = "False",
-              doc =
-                  "If true, the files will be generated in the genfiles directory instead of the "
-                      + "bin directory. Unless you need it for compatibility with existing rules "
-                      + "(e.g. when generating header files for C++), do not set this flag."
-          ),
-          @Param(
-              name = "fragments",
-              type = SkylarkList.class,
-              generic1 = String.class,
-              defaultValue = "[]",
-              doc =
-                  "List of names of configuration fragments that the rule requires "
-                      + "in target configuration."
-          ),
-          @Param(
-              name = "host_fragments",
-              type = SkylarkList.class,
-              generic1 = String.class,
-              defaultValue = "[]",
-              doc =
-                  "List of names of configuration fragments that the rule requires "
-                      + "in host configuration."
-          ),
-          @Param(
-              name = "_skylark_testable",
-              type = Boolean.class,
-              defaultValue = "False",
-              doc =
-                  "<i>(Experimental)</i><br/><br/>"
-                      + "If true, this rule will expose its actions for inspection by rules that "
-                      + "depend on it via an <a href=\"globals.html#Actions\">Actions</a> "
-                      + "provider. The provider is also available to the rule itself by calling "
-                      + "<a href=\"ctx.html#created_actions\">ctx.created_actions()</a>."
-                      + "<br/><br/>"
-                      + "This should only be used for testing the analysis-time behavior of "
-                      + "Skylark rules. This flag may be removed in the future."
-          )
-      },
-      useAst = true,
-      useEnvironment = true
+    name = "rule",
+    doc =
+        "Creates a new rule. Store it in a global value, so that it can be loaded and called "
+            + "from BUILD files.",
+    returnType = BaseFunction.class,
+    parameters = {
+      @Param(
+        name = "implementation",
+        type = BaseFunction.class,
+        doc =
+            "the function implementing this rule, must have exactly one parameter: "
+                + "<a href=\"ctx.html\">ctx</a>. The function is called during the analysis "
+                + "phase for each instance of the rule. It can access the attributes "
+                + "provided by the user. It must create actions to generate all the declared "
+                + "outputs."
+      ),
+      @Param(
+        name = "test",
+        type = Boolean.class,
+        defaultValue = "False",
+        doc =
+            "Whether this rule is a test rule. "
+                + "If True, the rule must end with <code>_test</code> (otherwise it must "
+                + "not), and there must be an action that generates "
+                + "<code>ctx.outputs.executable</code>."
+      ),
+      @Param(
+        name = "attrs",
+        type = SkylarkDict.class,
+        noneable = true,
+        defaultValue = "None",
+        doc =
+            "dictionary to declare all the attributes of the rule. It maps from an attribute "
+                + "name to an attribute object (see <a href=\"attr.html\">attr</a> module). "
+                + "Attributes starting with <code>_</code> are private, and can be used to "
+                + "add an implicit dependency on a label. The attribute <code>name</code> is "
+                + "implicitly added and must not be specified. Attributes "
+                + "<code>visibility</code>, <code>deprecation</code>, <code>tags</code>, "
+                + "<code>testonly</code>, and <code>features</code> are implicitly added and "
+                + "cannot be overriden."
+      ),
+      // TODO(bazel-team): need to give the types of these builtin attributes
+      @Param(
+        name = "outputs",
+        type = SkylarkDict.class,
+        callbackEnabled = true,
+        noneable = true,
+        defaultValue = "None",
+        doc =
+            "outputs of this rule. "
+                + "It is a dictionary mapping from string to a template name. "
+                + "For example: <code>{\"ext\": \"%{name}.ext\"}</code>. <br>"
+                + "The dictionary key becomes an attribute in <code>ctx.outputs</code>. "
+                + "Similar to computed dependency rule attributes, you can also specify the "
+                + "name of a function that returns the dictionary. This function can access "
+                + "all rule attributes that are listed as parameters in its function "
+                + "signature. For example, <code>outputs = _my_func</code> with "
+                + "<code>def _my_func(srcs, deps):</code> has access to the attributes "
+                + "'srcs' and 'deps' (if defined)."
+      ),
+      @Param(
+        name = "executable",
+        type = Boolean.class,
+        defaultValue = "False",
+        doc =
+            "whether this rule is marked as executable or not. If True, "
+                + "there must be an action that generates "
+                + "<code>ctx.outputs.executable</code>."
+      ),
+      @Param(
+        name = "output_to_genfiles",
+        type = Boolean.class,
+        defaultValue = "False",
+        doc =
+            "If true, the files will be generated in the genfiles directory instead of the "
+                + "bin directory. Unless you need it for compatibility with existing rules "
+                + "(e.g. when generating header files for C++), do not set this flag."
+      ),
+      @Param(
+        name = "fragments",
+        type = SkylarkList.class,
+        generic1 = String.class,
+        defaultValue = "[]",
+        doc =
+            "List of names of configuration fragments that the rule requires "
+                + "in target configuration."
+      ),
+      @Param(
+        name = "host_fragments",
+        type = SkylarkList.class,
+        generic1 = String.class,
+        defaultValue = "[]",
+        doc =
+            "List of names of configuration fragments that the rule requires "
+                + "in host configuration."
+      ),
+      @Param(
+        name = "_skylark_testable",
+        type = Boolean.class,
+        defaultValue = "False",
+        doc =
+            "<i>(Experimental)</i><br/><br/>"
+                + "If true, this rule will expose its actions for inspection by rules that "
+                + "depend on it via an <a href=\"globals.html#Actions\">Actions</a> "
+                + "provider. The provider is also available to the rule itself by calling "
+                + "<a href=\"ctx.html#created_actions\">ctx.created_actions()</a>."
+                + "<br/><br/>"
+                + "This should only be used for testing the analysis-time behavior of "
+                + "Skylark rules. This flag may be removed in the future."
+      ),
+      @Param(
+        name = "toolchains",
+        type = SkylarkList.class,
+        generic1 = ToolchainConstructor.class,
+        defaultValue = "[]",
+        doc =
+            "<i>(Experimental)</i><br/><br/>"
+                + "If set, the set of toolchains this rule requires. Toolchains will be "
+                + "found by checking the current platform, and provided to the rule "
+                + "implementation via <code>ctx.toolchain</code>."
+      )
+    },
+    useAst = true,
+    useEnvironment = true
   )
   private static final BuiltinFunction rule =
       new BuiltinFunction("rule") {
@@ -397,6 +408,7 @@ public class SkylarkRuleClassFunctions {
             SkylarkList fragments,
             SkylarkList hostFragments,
             Boolean skylarkTestable,
+            SkylarkList<ToolchainConstructor> toolchains,
             FuncallExpression ast,
             Environment funcallEnv)
             throws EvalException, ConversionException {
@@ -455,6 +467,11 @@ public class SkylarkRuleClassFunctions {
               hostFragments.getContents(String.class, "host_fragments"));
           builder.setConfiguredTargetFunction(implementation);
           builder.setRuleDefinitionEnvironment(funcallEnv);
+
+          for (ToolchainConstructor toolchain : toolchains) {
+            builder.addRequiredToolchain(toolchain.getKey());
+          }
+
           return new RuleFunction(builder, type, attributes, ast.getLocation());
         }
       };

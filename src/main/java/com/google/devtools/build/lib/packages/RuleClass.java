@@ -508,6 +508,7 @@ public class RuleClass {
     private boolean supportsConstraintChecking = true;
 
     private final Map<String, Attribute> attributes = new LinkedHashMap<>();
+    private final List<ClassObjectConstructor.Key> requiredToolchains = new ArrayList<>();
 
     /**
      * Constructs a new {@code RuleClassBuilder} using all attributes from all
@@ -618,6 +619,7 @@ public class RuleClass {
           ruleDefinitionEnvironmentHashCode,
           configurationFragmentPolicy.build(),
           supportsConstraintChecking,
+          requiredToolchains,
           attributes.values().toArray(new Attribute[0]));
     }
 
@@ -998,6 +1000,11 @@ public class RuleClass {
       return this;
     }
 
+    public Builder addRequiredToolchain(ClassObjectConstructor.Key toolchain) {
+      this.requiredToolchains.add(toolchain);
+      return this;
+    }
+
     /**
      * Returns an Attribute.Builder object which contains a replica of the
      * same attribute in the parent rule if exists.
@@ -1118,26 +1125,27 @@ public class RuleClass {
    */
   private final boolean supportsConstraintChecking;
 
+  private final ImmutableList<ClassObjectConstructor.Key> requiredToolchains;
+
   /**
-   * Constructs an instance of RuleClass whose name is 'name', attributes
-   * are 'attributes'. The {@code srcsAllowedFiles} determines which types of
-   * files are allowed as parameters to the "srcs" attribute; rules are always
-   * allowed. For the "deps" attribute, there are four cases:
+   * Constructs an instance of RuleClass whose name is 'name', attributes are 'attributes'. The
+   * {@code srcsAllowedFiles} determines which types of files are allowed as parameters to the
+   * "srcs" attribute; rules are always allowed. For the "deps" attribute, there are four cases:
+   *
    * <ul>
-   *   <li>if the parameter is a file, it is allowed if its file type is given
-   *       in {@code depsAllowedFiles},
-   *   <li>if the parameter is a rule and the rule class is accepted by
-   *       {@code depsAllowedRules}, then it is allowed,
-   *   <li>if the parameter is a rule and the rule class is not accepted by
-   *       {@code depsAllowedRules}, but accepted by
-   *       {@code depsAllowedRulesWithWarning}, then it is allowed, but
-   *       triggers a warning;
+   *   <li>if the parameter is a file, it is allowed if its file type is given in {@code
+   *       depsAllowedFiles},
+   *   <li>if the parameter is a rule and the rule class is accepted by {@code depsAllowedRules},
+   *       then it is allowed,
+   *   <li>if the parameter is a rule and the rule class is not accepted by {@code
+   *       depsAllowedRules}, but accepted by {@code depsAllowedRulesWithWarning}, then it is
+   *       allowed, but triggers a warning;
    *   <li>all other parameters trigger an error.
    * </ul>
    *
-   * <p>The {@code depsAllowedRules} predicate should have a {@code toString}
-   * method which returns a plain English enumeration of the allowed rule class
-   * names, if it does not allow all rule classes.
+   * <p>The {@code depsAllowedRules} predicate should have a {@code toString} method which returns a
+   * plain English enumeration of the allowed rule class names, if it does not allow all rule
+   * classes.
    */
   @VisibleForTesting
   RuleClass(
@@ -1165,6 +1173,7 @@ public class RuleClass {
       String ruleDefinitionEnvironmentHashCode,
       ConfigurationFragmentPolicy configurationFragmentPolicy,
       boolean supportsConstraintChecking,
+      List<ClassObjectConstructor.Key> requiredToolchains,
       Attribute... attributes) {
     this.name = name;
     this.isSkylark = isSkylark;
@@ -1193,6 +1202,7 @@ public class RuleClass {
     this.outputsDefaultExecutable = outputsDefaultExecutable;
     this.configurationFragmentPolicy = configurationFragmentPolicy;
     this.supportsConstraintChecking = supportsConstraintChecking;
+    this.requiredToolchains = ImmutableList.copyOf(requiredToolchains);
 
     // Create the index and collect non-configurable attributes.
     int index = 0;
@@ -2000,6 +2010,10 @@ public class RuleClass {
    */
   public boolean outputsDefaultExecutable() {
     return outputsDefaultExecutable;
+  }
+
+  public ImmutableList<ClassObjectConstructor.Key> getRequiredToolchains() {
+    return requiredToolchains;
   }
 
   public static boolean isThirdPartyPackage(PackageIdentifier packageIdentifier) {

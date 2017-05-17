@@ -591,6 +591,7 @@ java_library(
         ":util",
         ":vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/causes",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
