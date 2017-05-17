@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.util;
 
-
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -173,8 +172,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             ruleClassProvider.getConfigurationFragments()));
     PackageFactory pkgFactory =
         analysisMock
-            .getPackageFactoryForTesting()
-            .create(ruleClassProvider, scratch.getFileSystem());
+            .getPackageFactoryBuilderForTesting()
+            .build(ruleClassProvider, scratch.getFileSystem());
     BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
     skyframeExecutor =
         SequencedSkyframeExecutor.create(

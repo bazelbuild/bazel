@@ -157,7 +157,7 @@ public class FileFunctionTest {
                     SkyFunctions.WORKSPACE_FILE,
                     new WorkspaceFileFunction(
                         TestRuleClassProvider.getRuleClassProvider(),
-                        TestConstants.PACKAGE_FACTORY_FACTORY_FOR_TESTING.create(
+                        TestConstants.PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING.builder().build(
                             TestRuleClassProvider.getRuleClassProvider(), fs),
                         directories))
                 .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())

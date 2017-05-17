@@ -604,7 +604,7 @@ public class LoadingPhaseRunnerTest {
 
       ConfiguredRuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
       PackageFactory pkgFactory =
-          analysisMock.getPackageFactoryForTesting().create(ruleClassProvider, fs);
+          analysisMock.getPackageFactoryBuilderForTesting().build(ruleClassProvider, fs);
       PackageCacheOptions options = Options.getDefaults(PackageCacheOptions.class);
       storedErrors = new StoredEventHandler();
       BlazeDirectories directories =

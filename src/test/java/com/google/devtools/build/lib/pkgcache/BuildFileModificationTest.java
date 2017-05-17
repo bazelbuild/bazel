@@ -81,8 +81,8 @@ public class BuildFileModificationTest extends FoundationTestCase {
     skyframeExecutor =
         SequencedSkyframeExecutor.create(
             analysisMock
-                .getPackageFactoryForTesting()
-                .create(ruleClassProvider, scratch.getFileSystem()),
+                .getPackageFactoryBuilderForTesting()
+                .build(ruleClassProvider, scratch.getFileSystem()),
             directories,
             null, /* BinTools */
             null, /* workspaceStatusActionFactory */

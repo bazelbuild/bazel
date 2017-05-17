@@ -468,8 +468,8 @@ public class IncrementalLoadingTest {
       skyframeExecutor =
           SequencedSkyframeExecutor.create(
               loadingMock
-                  .getPackageFactoryForTesting()
-                  .create(loadingMock.createRuleClassProvider(), fs),
+                  .getPackageFactoryBuilderForTesting()
+                  .build(loadingMock.createRuleClassProvider(), fs),
               new BlazeDirectories(
                   fs.getPath("/install"),
                   fs.getPath("/output"),

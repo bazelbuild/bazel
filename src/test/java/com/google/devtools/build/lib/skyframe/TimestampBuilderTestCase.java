@@ -205,7 +205,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                     SkyFunctions.WORKSPACE_FILE,
                     new WorkspaceFileFunction(
                         TestRuleClassProvider.getRuleClassProvider(),
-                        TestConstants.PACKAGE_FACTORY_FACTORY_FOR_TESTING.create(
+                        TestConstants.PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING.builder().build(
                             TestRuleClassProvider.getRuleClassProvider(), scratch.getFileSystem()),
                         directories))
                 .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())

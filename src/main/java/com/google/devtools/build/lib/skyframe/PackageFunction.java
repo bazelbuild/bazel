@@ -1297,7 +1297,7 @@ public class PackageFunction implements SkyFunction {
     }
   }
 
-  static boolean isDefaultsPackage(PackageIdentifier packageIdentifier) {
+  public static boolean isDefaultsPackage(PackageIdentifier packageIdentifier) {
     return packageIdentifier.getRepository().isMain()
         && packageIdentifier.getPackageFragment().equals(DEFAULTS_PACKAGE_NAME);
   }
