@@ -31,7 +31,15 @@ class StartupOptions;
 
 // The reason for a blaze server restart.
 // Keep in sync with logging.proto.
-enum RestartReason { NO_RESTART = 0, NO_DAEMON, NEW_VERSION, NEW_OPTIONS };
+enum RestartReason {
+  NO_RESTART = 0,
+  NO_DAEMON,
+  NEW_VERSION,
+  NEW_OPTIONS,
+  PID_FILE_BUT_NO_SERVER,
+  SERVER_VANISHED,
+  SERVER_UNRESPONSIVE
+};
 
 struct GlobalVariables {
   GlobalVariables(OptionProcessor *option_processor);
