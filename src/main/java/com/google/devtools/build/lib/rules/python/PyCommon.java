@@ -70,7 +70,6 @@ public final class PyCommon {
   public static final String TRANSITIVE_PYTHON_SRCS = "transitive_sources";
   public static final String IS_USING_SHARED_LIBRARY = "uses_shared_libraries";
   public static final String IMPORTS = "imports";
-  public static final String PACKAGE_FRAGMENT = "package_fragment";
 
   private static final LocalMetadataCollector METADATA_COLLECTOR = new LocalMetadataCollector() {
     @Override
@@ -153,7 +152,6 @@ public final class PyCommon {
             createSourceProvider(
                 transitivePythonSources,
                 usesSharedLibraries(),
-                semantics.getPackageFragment(ruleContext),
                 imports))
         // Python targets are not really compilable. The best we can do is make sure that all
         // generated source files are ready.
@@ -169,7 +167,6 @@ public final class PyCommon {
   public static SkylarkClassObject createSourceProvider(
       NestedSet<Artifact> transitivePythonSources,
       boolean isUsingSharedLibrary,
-      PathFragment packageFragment,
       NestedSet<PathFragment> imports) {
     return NativeClassObjectConstructor.STRUCT.create(
         ImmutableMap.<String, Object>of(
@@ -177,8 +174,6 @@ public final class PyCommon {
             SkylarkNestedSet.of(Artifact.class, transitivePythonSources),
             IS_USING_SHARED_LIBRARY,
             isUsingSharedLibrary,
-            PACKAGE_FRAGMENT,
-            packageFragment.toString(),
             IMPORTS,
             SkylarkNestedSet.of(String.class,
                                 makeImportStrings(imports ))

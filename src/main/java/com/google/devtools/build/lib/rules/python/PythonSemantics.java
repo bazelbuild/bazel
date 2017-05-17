@@ -60,11 +60,6 @@ public interface PythonSemantics {
       RuleContext ruleContext, Collection<Artifact> sources, PyCommon common);
 
   /**
-   * @return - {@link PathFragment} representing the python package.
-   */
-  PathFragment getPackageFragment(RuleContext ruleContext);
-
-  /**
    * Returns a list of PathFragments for the import paths specified in the imports attribute.
    */
   List<PathFragment> getImports(RuleContext ruleContext);

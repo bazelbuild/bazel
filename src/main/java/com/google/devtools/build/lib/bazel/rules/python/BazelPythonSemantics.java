@@ -87,19 +87,13 @@ public class BazelPythonSemantics implements PythonSemantics {
   }
 
   @Override
-  public PathFragment getPackageFragment(RuleContext ruleContext) {
-    final PathFragment packageFragment = ruleContext.getLabel().getPackageIdentifier().getRunfilesPath();
+  public List<PathFragment> getImports(RuleContext ruleContext) {
+    List<PathFragment> result = new ArrayList<>();
+    PathFragment packageFragment = ruleContext.getLabel().getPackageIdentifier().getRunfilesPath();
     // Python scripts start with x.runfiles/ as the module space, so everything must be manually
     // adjusted to be relative to the workspace name.
-    return PathFragment.create(ruleContext.getWorkspaceName())
-       .getRelative(packageFragment);
-  }
-
-  @Override
-  public List<PathFragment> getImports(RuleContext ruleContext) {
-    final List<PathFragment> result = new ArrayList<>();
-    final PathFragment packageFragment = getPackageFragment(ruleContext);
-    
+    packageFragment = PathFragment.create(ruleContext.getWorkspaceName())
+        .getRelative(packageFragment);
     for (String importsAttr : ruleContext.attributes().get("imports", Type.STRING_LIST)) {
       importsAttr = ruleContext.expandMakeVariables("includes", importsAttr);
       if (importsAttr.startsWith("/")) {
