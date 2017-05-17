@@ -38,10 +38,13 @@ void Redirect(const std::string &target_path, int fd);
 void KillEverything(pid_t pgrp, bool gracefully, double graceful_kill_delay);
 
 // Set up a signal handler for a signal.
-void HandleSignal(int sig, void (*handler)(int));
+void InstallSignalHandler(int signum, void (*handler)(int));
 
-// Revert signal handler for a signal to the default.
-void UnHandle(int sig);
+// Set the signal handler for `signum` to SIG_IGN (ignore).
+void IgnoreSignal(int signum);
+
+// Set the signal handler for `signum` to SIG_DFL (default).
+void InstallDefaultSignalHandler(int sig);
 
 // Use an empty signal mask for the process and set all signal handlers to their
 // default.

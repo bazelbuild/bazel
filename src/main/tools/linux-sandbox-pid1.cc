@@ -325,31 +325,6 @@ static void EnterSandbox() {
   }
 }
 
-static void InstallSignalHandler(int signum, void (*handler)(int)) {
-  struct sigaction sa = {};
-  sa.sa_handler = handler;
-  if (handler == SIG_IGN || handler == SIG_DFL) {
-    // No point in blocking signals when using the default handler or ignoring
-    // the signal.
-    if (sigemptyset(&sa.sa_mask) < 0) {
-      DIE("sigemptyset");
-    }
-  } else {
-    // When using a custom handler, block all signals from firing while the
-    // handler is running.
-    if (sigfillset(&sa.sa_mask) < 0) {
-      DIE("sigfillset");
-    }
-  }
-  // sigaction may fail for certain reserved signals. Ignore failure in this
-  // case, but report it in debug mode, just in case.
-  if (sigaction(signum, &sa, nullptr) < 0) {
-    PRINT_DEBUG("sigaction(%d, &sa, nullptr) failed", signum);
-  }
-}
-
-static void IgnoreSignal(int signum) { InstallSignalHandler(signum, SIG_IGN); }
-
 // Reset the signal mask and restore the default handler for all signals.
 static void RestoreSignalHandlersAndMask() {
   // Use an empty signal mask for the process (= unblock all signals).

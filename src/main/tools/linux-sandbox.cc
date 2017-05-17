@@ -213,7 +213,7 @@ int main(int argc, char *argv[]) {
   CloseFds();
 
   if (opt.timeout_secs > 0) {
-    HandleSignal(SIGALRM, OnTimeout);
+    InstallSignalHandler(SIGALRM, OnTimeout);
     SetTimeout(opt.timeout_secs);
   }
 

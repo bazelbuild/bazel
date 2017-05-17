@@ -92,27 +92,38 @@ void KillEverything(pid_t pgrp, bool gracefully, double graceful_kill_delay) {
   kill(-pgrp, SIGKILL);
 }
 
-void HandleSignal(int sig, void (*handler)(int)) {
+void InstallSignalHandler(int signum, void (*handler)(int)) {
   struct sigaction sa = {};
   sa.sa_handler = handler;
-  if (sigemptyset(&sa.sa_mask) < 0) {
-    DIE("sigemptyset");
+  if (handler == SIG_IGN || handler == SIG_DFL) {
+    // No point in blocking signals when using the default handler or ignoring
+    // the signal.
+    if (sigemptyset(&sa.sa_mask) < 0) {
+      DIE("sigemptyset");
+    }
+  } else {
+    // When using a custom handler, block all signals from firing while the
+    // handler is running.
+    if (sigfillset(&sa.sa_mask) < 0) {
+      DIE("sigfillset");
+    }
   }
-  if (sigaction(sig, &sa, nullptr) < 0) {
+  if (sigaction(signum, &sa, nullptr) < 0) {
     DIE("sigaction");
   }
 }
 
-void UnHandle(int sig) {
-  switch (sig) {
-    case SIGSTOP:
-    case SIGKILL:
-      // These signals can't be handled, so they'll always have a valid default
-      // handler. In fact, even trying to install SIG_DFL again will result in
-      // EINVAL, so we'll just not do anything for these.
-      return;
-    default:
-      HandleSignal(sig, SIG_DFL);
+void IgnoreSignal(int signum) {
+  // These signals can't be handled, so we'll just not do anything for these.
+  if (signum != SIGSTOP && signum != SIGKILL) {
+    InstallSignalHandler(signum, SIG_IGN);
+  }
+}
+
+void InstallDefaultSignalHandler(int signum) {
+  // These signals can't be handled, so we'll just not do anything for these.
+  if (signum != SIGSTOP && signum != SIGKILL) {
+    InstallSignalHandler(signum, SIG_DFL);
   }
 }
 
