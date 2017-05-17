@@ -75,30 +75,30 @@ new_local_repository(
 # OpenJDK distributions used to create a version of Bazel bundled with the OpenJDK.
 http_file(
     name = "openjdk_linux",
-    sha256 = "7fdfb17d890406470b2303d749d3138e7f353749e67a0a22f542e1ab3e482745",
+    sha256 = "17218c6bdd608b5714ffba9d5e28522bb2efc309266ba46232b8b918e6e62133",
     urls = [
-        "https://mirror.bazel.build/openjdk/azul-zulu-8.20.0.5-jdk8.0.121/zulu8.20.0.5-jdk8.0.121-linux_x64.tar.gz",
-        "https://bazel-mirror.storage.googleapis.com/openjdk/azul-zulu-8.20.0.5-jdk8.0.121/zulu8.20.0.5-jdk8.0.121-linux_x64.tar.gz",
-        "https://cdn.azul.com/zulu/bin/zulu8.20.0.5-jdk8.0.121-linux_x64.tar.gz",
+        "https://mirror.bazel.build/openjdk/azul-zulu-8.21.0.1-jdk8.0.131/zulu8.21.0.1-jdk8.0.131-linux_x64.tar.gz",
+        "https://bazel-mirror.storage.googleapis.com/openjdk/azul-zulu-8.21.0.1-jdk8.0.131/zulu8.21.0.1-jdk8.0.131-linux_x64.tar.gz",
+        "https://cdn.azul.com/zulu/bin/zulu8.21.0.1-jdk8.0.131-linux_x64.tar.gz",
     ],
 )
 
 http_file(
     name = "openjdk_macos",
-    sha256 = "2a58bd1d9b0cbf0b3d8d1bcdd117c407e3d5a0ec01e2f53565c9bec5cf9ea78b",
+    sha256 = "87575cbe5dc98ae4326c3c786dbe53515030f832451af910c11ce1b67e5b0977",
     urls = [
-        "https://mirror.bazel.build/openjdk/azul-zulu-8.20.0.5-jdk8.0.121/zulu8.20.0.5-jdk8.0.121-macosx_x64.zip",
-        "https://bazel-mirror.storage.googleapis.com/openjdk/azul-zulu-8.20.0.5-jdk8.0.121/zulu8.20.0.5-jdk8.0.121-macosx_x64.zip",
-        "https://cdn.azul.com/zulu/bin/zulu8.20.0.5-jdk8.0.121-macosx_x64.zip",
+        "https://mirror.bazel.build/openjdk/azul-zulu-8.21.0.1-jdk8.0.131/zulu8.21.0.1-jdk8.0.131-macosx_x64.zip",
+        "https://bazel-mirror.storage.googleapis.com/openjdk/azul-zulu-8.21.0.1-jdk8.0.131/zulu8.21.0.1-jdk8.0.131-macosx_x64.zip",
+        "https://cdn.azul.com/zulu/bin/zulu8.21.0.1-jdk8.0.131-macosx_x64.zip",
     ],
 )
 
 http_file(
     name = "openjdk_win",
-    sha256 = "35414df28f17704546b9559b5e62b4d00cdc8fdfd349116be4f987abaeaaff68",
+    sha256 = "474120caa9748e3512e2cd38d304a63d70cbf747ca2f8aa915f0a880ed807eb4",
     urls = [
-        "https://mirror.bazel.build/openjdk/azul-zulu-8.20.0.5-jdk8.0.121/zulu8.20.0.5-jdk8.0.121-win_x64.zip",
-        "https://bazel-mirror.storage.googleapis.com/openjdk/azul-zulu-8.20.0.5-jdk8.0.121/zulu8.20.0.5-jdk8.0.121-win_x64.zip",
-        "https://cdn.azul.com/zulu/bin/zulu8.20.0.5-jdk8.0.121-win_x64.zip",
+        "https://mirror.bazel.build/openjdk/azul-zulu-8.21.0.1-jdk8.0.131/zulu8.21.0.1-jdk8.0.131-win_x64.zip",
+        "https://bazel-mirror.storage.googleapis.com/openjdk/azul-zulu-8.21.0.1-jdk8.0.131/zulu8.21.0.1-jdk8.0.131-win_x64.zip",
+        "https://cdn.azul.com/zulu/bin/zulu8.21.0.1-jdk8.0.131-win_x64.zip",
     ],
 )
