@@ -14,24 +14,20 @@
 
 package com.google.devtools.build.lib.rules.platform;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.ClassObjectConstructor;
+import com.google.devtools.build.lib.packages.ToolchainConstructor;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
-import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
-import com.google.devtools.build.lib.syntax.Type.ConversionException;
 
 /** Skylark namespace used to interact with Blaze's platform APIs. */
 @SkylarkModule(
@@ -77,62 +73,22 @@ public class PlatformCommon {
   }
 
   @SkylarkSignature(
-    name = "toolchain",
-    doc =
-        "<i>(Experimental)</i> "
-            + "Returns a toolchain provider that can be configured to provide rule implementations "
-            + "access to needed configuration.",
+    name = "toolchain_type",
+    doc = "",
+    documented = false,
     objectType = PlatformCommon.class,
-    returnType = ToolchainInfo.class,
+    returnType = ToolchainConstructor.class,
     parameters = {
       @Param(name = "self", type = PlatformCommon.class, doc = "the platform_rules instance"),
-      @Param(
-        name = "exec_compatible_with",
-        type = SkylarkList.class,
-        generic1 = TransitiveInfoCollection.class,
-        defaultValue = "[]",
-        named = true,
-        positional = false,
-        doc = "Constraints the platform must fulfill to execute this toolchain."
-      ),
-      @Param(
-        name = "target_compatible_with",
-        type = SkylarkList.class,
-        generic1 = TransitiveInfoCollection.class,
-        defaultValue = "[]",
-        named = true,
-        positional = false,
-        doc = "Constraints fulfilled by the target platform for this toolchain."
-      ),
     },
-    extraKeywords =
-        @Param(
-          name = "toolchainData",
-          doc = "Extra information stored for the consumer of the toolchain."
-        ),
     useLocation = true
   )
-  private static final BuiltinFunction createToolchain =
-      new BuiltinFunction("toolchain") {
+  private static final BuiltinFunction createToolchainType =
+      new BuiltinFunction("toolchain_type") {
         @SuppressWarnings("unchecked")
-        public ToolchainInfo invoke(
-            PlatformCommon self,
-            SkylarkList<TransitiveInfoCollection> execCompatibleWith,
-            SkylarkList<TransitiveInfoCollection> targetCompatibleWith,
-            SkylarkDict<String, Object> skylarkToolchainData,
-            Location loc)
-            throws ConversionException, EvalException {
-
-          Iterable<ConstraintValueInfo> execConstraints =
-              ConstraintValue.constraintValues(execCompatibleWith);
-          Iterable<ConstraintValueInfo> targetConstraints =
-              ConstraintValue.constraintValues(targetCompatibleWith);
-          ImmutableMap<String, Object> toolchainData =
-              ImmutableMap.copyOf(
-                  SkylarkDict.castSkylarkDictOrNoneToDict(
-                      skylarkToolchainData, String.class, Object.class, "toolchainData"));
-
-          return new ToolchainInfo(execConstraints, targetConstraints, toolchainData, loc);
+        public ToolchainConstructor invoke(PlatformCommon self, Location loc)
+            throws EvalException {
+          return new SkylarkToolchainConstructor(loc);
         }
       };
 

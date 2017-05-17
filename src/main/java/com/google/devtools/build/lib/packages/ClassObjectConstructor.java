@@ -68,7 +68,6 @@ public abstract class ClassObjectConstructor extends BaseFunction {
     super(name, signature, location);
   }
 
-
   /**
    * Has this {@link ClassObjectConstructor} been exported?
    * All native constructors are always exported. Skylark constructors are exported

@@ -17,11 +17,11 @@ package com.google.devtools.build.lib.rules.platform;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
+import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
-import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -31,20 +31,21 @@ import org.junit.runners.JUnit4;
 public class PlatformCommonTest extends SkylarkTestCase {
 
   @Test
-  public void testCreateToolchain() throws Exception {
+  public void testCreateToolchainType() throws Exception {
     scratch.file(
-        "test/toolchain.bzl",
+        "test/toolchain_type.bzl",
+        "test_toolchain_type = platform_common.toolchain_type()",
         "def _impl(ctx):",
-        "    return platform_common.toolchain(",
+        "    toolchain = test_toolchain_type(",
         "        exec_compatible_with = ctx.attr.exec_compatible_with,",
         "        target_compatible_with = ctx.attr.target_compatible_with,",
         "        extra_label = ctx.attr.extra_label,",
         "        extra_str = ctx.attr.extra_str,",
         "    )",
+        "    return [toolchain]",
         "test_toolchain = rule(",
         "    implementation = _impl,",
         "    attrs = {",
-        "       'runs': attr.label_list(allow_files=True),",
         "       'exec_compatible_with': attr.label_list(",
         "           providers = [platform_common.ConstraintValueInfo]),",
         "       'target_compatible_with': attr.label_list(",
@@ -55,7 +56,7 @@ public class PlatformCommonTest extends SkylarkTestCase {
         ")");
     scratch.file(
         "test/BUILD",
-        "load(':toolchain.bzl', 'test_toolchain')",
+        "load(':toolchain_type.bzl', 'test_toolchain')",
         "constraint_setting(name = 'os')",
         "constraint_value(name = 'linux',",
         "    constraint_setting = ':os')",
@@ -73,20 +74,29 @@ public class PlatformCommonTest extends SkylarkTestCase {
         "    extra_label = ':dep_rule',",
         "    extra_str = 'bar',",
         ")");
-    TransitiveInfoCollection toolchainProvider = getConfiguredTarget("//test:linux_toolchain");
-    assertThat(toolchainProvider).isNotNull();
 
-    assertThat((List<?>) toolchainProvider.get("exec_compatible_with"))
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//test:linux_toolchain");
+    ToolchainInfo toolchainInfo =
+        (ToolchainInfo) configuredTarget.get(ToolchainInfo.SKYLARK_IDENTIFIER);
+    assertThat(toolchainInfo).isNotNull();
+
+    assertThat(toolchainInfo.toolchainConstructorKey()).isNotNull();
+    assertThat(toolchainInfo.toolchainConstructorKey())
+        .isEqualTo(
+            new SkylarkClassObjectConstructor.SkylarkKey(
+                makeLabel("//test:toolchain_type.bzl"), "test_toolchain_type"));
+
+    assertThat(toolchainInfo.execConstraints())
         .containsExactly(
             ConstraintValueInfo.create(
                 ConstraintSettingInfo.create(makeLabel("//test:os")), makeLabel("//test:linux")));
-    assertThat((List<?>) toolchainProvider.get("target_compatible_with"))
+    assertThat(toolchainInfo.targetConstraints())
         .containsExactly(
             ConstraintValueInfo.create(
                 ConstraintSettingInfo.create(makeLabel("//test:os")), makeLabel("//test:mac")));
 
-    assertThat(((ConfiguredTarget) toolchainProvider.get("extra_label")).getLabel())
+    assertThat(((ConfiguredTarget) toolchainInfo.getValue("extra_label")).getLabel())
         .isEqualTo(makeLabel("//test:dep_rule"));
-    assertThat(toolchainProvider.get("extra_str")).isEqualTo("bar");
+    assertThat(toolchainInfo.getValue("extra_str")).isEqualTo("bar");
   }
 }

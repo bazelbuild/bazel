@@ -50,15 +50,18 @@ public class ToolchainInfo extends SkylarkClassObject {
   public static final SkylarkProviderIdentifier SKYLARK_IDENTIFIER =
       SkylarkProviderIdentifier.forKey(SKYLARK_CONSTRUCTOR.getKey());
 
+  private final ClassObjectConstructor.Key toolchainConstructorKey;
   private final ImmutableList<ConstraintValueInfo> execConstraints;
   private final ImmutableList<ConstraintValueInfo> targetConstraints;
 
   public ToolchainInfo(
+      ClassObjectConstructor.Key toolchainConstructorKey,
       Iterable<ConstraintValueInfo> execConstraints,
       Iterable<ConstraintValueInfo> targetConstraints,
       Map<String, Object> toolchainData,
       Location loc) {
     this(
+        toolchainConstructorKey,
         ImmutableList.copyOf(execConstraints),
         ImmutableList.copyOf(targetConstraints),
         toolchainData,
@@ -66,6 +69,7 @@ public class ToolchainInfo extends SkylarkClassObject {
   }
 
   public ToolchainInfo(
+      ClassObjectConstructor.Key toolchainConstructorKey,
       ImmutableList<ConstraintValueInfo> execConstraints,
       ImmutableList<ConstraintValueInfo> targetConstraints,
       Map<String, Object> toolchainData,
@@ -73,14 +77,20 @@ public class ToolchainInfo extends SkylarkClassObject {
     super(
         SKYLARK_CONSTRUCTOR,
         ImmutableMap.<String, Object>builder()
+            .put("toolchain_type", toolchainConstructorKey)
             .put("exec_compatible_with", execConstraints)
             .put("target_compatible_with", targetConstraints)
             .putAll(toolchainData)
             .build(),
         loc);
 
+    this.toolchainConstructorKey = toolchainConstructorKey;
     this.execConstraints = execConstraints;
     this.targetConstraints = targetConstraints;
+  }
+
+  public ClassObjectConstructor.Key toolchainConstructorKey() {
+    return toolchainConstructorKey;
   }
 
   @SkylarkCallable(

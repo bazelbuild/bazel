@@ -62,8 +62,9 @@ function test_toolchain_rule() {
 
   mkdir -p toolchain
   cat >> toolchain/toolchain.bzl <<EOF
+test_toolchain_type = platform_common.toolchain_type()
 def _test_toolchain_impl(ctx):
-  toolchain = platform_common.toolchain(
+  toolchain = test_toolchain_type(
       exec_compatible_with = ctx.attr.exec_compatible_with,
       target_compatible_with = ctx.attr.target_compatible_with,
       extra_label = ctx.attr.extra_label,

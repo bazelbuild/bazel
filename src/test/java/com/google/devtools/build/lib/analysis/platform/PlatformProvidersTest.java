@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -108,6 +109,7 @@ public class PlatformProvidersTest extends BuildViewTestCase {
 
   @Test
   public void toolchainInfo_equalsTester() throws Exception {
+    ClassObjectConstructor.Key key = new ClassObjectConstructor.Key() {};
     ConstraintSettingInfo setting1 = ConstraintSettingInfo.create(makeLabel("//constraint:basic"));
     ConstraintSettingInfo setting2 = ConstraintSettingInfo.create(makeLabel("//constraint:other"));
 
@@ -122,11 +124,21 @@ public class PlatformProvidersTest extends BuildViewTestCase {
         .addEqualityGroup(
             // Base case.
             new ToolchainInfo(
+                key,
                 ImmutableList.of(value1, value2),
                 ImmutableList.of(value1, value3),
                 ImmutableMap.<String, Object>of("foo", "val1", "bar", "val2"),
                 Location.BUILTIN),
             new ToolchainInfo(
+                key,
+                ImmutableList.of(value1, value2),
+                ImmutableList.of(value1, value3),
+                ImmutableMap.<String, Object>of("foo", "val1", "bar", "val2"),
+                Location.BUILTIN))
+        .addEqualityGroup(
+            // Different type.
+            new ToolchainInfo(
+                new ClassObjectConstructor.Key() {},
                 ImmutableList.of(value1, value2),
                 ImmutableList.of(value1, value3),
                 ImmutableMap.<String, Object>of("foo", "val1", "bar", "val2"),
@@ -134,6 +146,7 @@ public class PlatformProvidersTest extends BuildViewTestCase {
         .addEqualityGroup(
             // Different target constraints.
             new ToolchainInfo(
+                key,
                 ImmutableList.of(value1, value2),
                 ImmutableList.of(value1, value2),
                 ImmutableMap.<String, Object>of("foo", "val1", "bar", "val2"),
@@ -141,6 +154,7 @@ public class PlatformProvidersTest extends BuildViewTestCase {
         .addEqualityGroup(
             // Different data.
             new ToolchainInfo(
+                key,
                 ImmutableList.of(value1, value2),
                 ImmutableList.of(value1, value3),
                 ImmutableMap.<String, Object>of("foo", "val1", "bar", "val3"),
