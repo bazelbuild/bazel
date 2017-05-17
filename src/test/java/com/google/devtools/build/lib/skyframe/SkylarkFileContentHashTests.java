@@ -177,7 +177,7 @@ public class SkylarkFileContentHashTests extends BuildViewTestCase {
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), pkgLookupKey, /*keepGoing=*/ false, reporter);
     assertFalse(result.hasError());
-    Collection<Target> targets = result.get(pkgLookupKey).getPackage().getTargets();
+    Collection<Target> targets = result.get(pkgLookupKey).getPackage().getTargets().values();
     for (Target target : targets) {
       if (target.getName().equals(name)) {
         return ((Rule) target)

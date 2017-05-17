@@ -87,7 +87,7 @@ public class PreciseAspectResolver implements AspectResolver {
     Set<PackageIdentifier> dependentPackages = new LinkedHashSet<>();
     // First compute with packages can possibly affect the aspect attributes of this package:
     // Iterate over all rules...
-    for (Target target : pkg.getTargets()) {
+    for (Target target : pkg.getTargets().values()) {
 
       if (!(target instanceof Rule)) {
         continue;

@@ -88,9 +88,10 @@ public class BazelPackageBuilderHelperForTesting implements Package.Builder.Help
       throw new IllegalStateException(e);
     }
     ImmutableSet<Label> targetsInPkg =
-        ImmutableSet.copyOf(Iterables.transform(pkg.getTargets(), TARGET_TO_LABEL));
+        ImmutableSet.copyOf(Iterables.transform(pkg.getTargets().values(), TARGET_TO_LABEL));
     ImmutableSet<Label> targetsInNewlyLoadedPkg =
-        ImmutableSet.copyOf(Iterables.transform(newlyLoadedPkg.getTargets(), TARGET_TO_LABEL));
+        ImmutableSet.copyOf(
+            Iterables.transform(newlyLoadedPkg.getTargets().values(), TARGET_TO_LABEL));
     if (!targetsInPkg.equals(targetsInNewlyLoadedPkg)) {
       throw new IllegalStateException(String.format(
           "The Package for %s had a different set of targets (<targetsInPkg> - "
