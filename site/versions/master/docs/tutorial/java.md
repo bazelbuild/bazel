@@ -51,7 +51,7 @@ for using Bazel in any language.
     in other languages may have a different workspace path and directory
     structure.
 
-4.  In the directory you created, add a file called `Greetings.java` with the
+4.  In the directory you created, add a file called `Greeting.java` with the
     following contents:
 
     ```java
