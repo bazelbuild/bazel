@@ -20,8 +20,8 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.io.Writer;
+import java.util.Collection;
 import java.util.Objects;
-import java.util.Set;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.InstructionAdapter;
@@ -103,7 +103,7 @@ public final class IntArrayFieldInitializer implements FieldInitializer {
   }
 
   @Override
-  public boolean nameIsIn(Set<String> fieldNames) {
+  public boolean nameIsIn(Collection<String> fieldNames) {
     return fieldNames.contains(fieldName);
   }
   
@@ -128,14 +128,18 @@ public final class IntArrayFieldInitializer implements FieldInitializer {
   public int hashCode() {
     return Objects.hash(fieldName, values);
   }
-  
+
   @Override
   public boolean equals(Object obj) {
     if (obj instanceof IntArrayFieldInitializer) {
       IntArrayFieldInitializer other = (IntArrayFieldInitializer) obj;
-      return Objects.equals(fieldName, other.fieldName)
-          && Objects.equals(values, other.values);
+      return Objects.equals(fieldName, other.fieldName) && Objects.equals(values, other.values);
     }
     return false;
+  }
+
+  @Override
+  public void addTo(Collection<String> fieldNames) {
+    fieldNames.add(fieldName);
   }
 }

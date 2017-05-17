@@ -15,7 +15,7 @@ package com.google.devtools.build.android.resources;
 
 import java.io.IOException;
 import java.io.Writer;
-import java.util.Set;
+import java.util.Collection;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.commons.InstructionAdapter;
 
@@ -41,6 +41,9 @@ public interface FieldInitializer extends Comparable<FieldInitializer> {
   /** Write the source code for the initializer to the given writer. */
   void writeInitSource(Writer writer, boolean finalFields) throws IOException;
 
-  /** Tests if the field's name is in the provided set. */
-  boolean nameIsIn(Set<String> fieldNames);
+  /** Tests if the field's name is in the provided collection. */
+  boolean nameIsIn(Collection<String> fieldNames);
+
+  /** Adds fieldName to the provided set. */
+  void addTo(Collection<String> fieldNames);
 }

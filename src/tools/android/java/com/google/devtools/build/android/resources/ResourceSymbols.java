@@ -16,14 +16,10 @@ package com.google.devtools.build.android.resources;
 import com.android.builder.core.VariantConfiguration;
 import com.android.builder.dependency.SymbolFileProvider;
 import com.android.resources.ResourceType;
-import com.android.utils.ILogger;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
-import com.google.common.collect.SetMultimap;
-import com.google.common.collect.Table;
+import com.google.common.collect.SortedSetMultimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import java.io.File;
@@ -32,56 +28,19 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
-import java.util.EnumMap;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
-/** This provides a unified interface for working with R.txt symbols files. */
+/** Encapsulates the logic for loading and writing resource symbols. */
 public class ResourceSymbols {
   private static final Logger logger = Logger.getLogger(ResourceSymbols.class.getCanonicalName());
-
-  /** Represents a resource symbol with a value. */
-  // Forked from com.android.builder.internal.SymbolLoader.SymbolEntry.
-  static class RTxtSymbolEntry {
-    private final String name;
-    private final String type;
-    private final String value;
-
-    RTxtSymbolEntry(String name, String type, String value) {
-      this.name = name;
-      this.type = type;
-      this.value = value;
-    }
-
-    public String getValue() {
-      return value;
-    }
-
-    public String getName() {
-      return name;
-    }
-
-    public String getType() {
-      return type;
-    }
-
-    public FieldInitializer toInitializer() {
-      if (type.equals("int")) {
-        return IntFieldInitializer.of(name, value);
-      }
-      Preconditions.checkArgument(type.equals("int[]"));
-      return IntArrayFieldInitializer.of(name, value);
-    }
-  }
 
   /** Task to load and parse R.txt symbols */
   private static final class SymbolLoadingTask implements Callable<ResourceSymbols> {
@@ -96,7 +55,8 @@ public class ResourceSymbols {
     public ResourceSymbols call() throws Exception {
       List<String> lines = Files.readAllLines(rTxtSymbols, StandardCharsets.UTF_8);
 
-      Table<String, String, RTxtSymbolEntry> symbols = HashBasedTable.create();
+      final SortedSetMultimap<ResourceType, FieldInitializer> initializers =
+          MultimapBuilder.enumKeys(ResourceType.class).treeSetValues().build();
 
       for (int lineIndex = 1; lineIndex <= lines.size(); lineIndex++) {
         String line = null;
@@ -113,7 +73,12 @@ public class ResourceSymbols {
           String name = line.substring(pos2 + 1, pos3);
           String value = line.substring(pos3 + 1);
 
-          symbols.put(className, name, new RTxtSymbolEntry(name, type, value));
+          final ResourceType resourceType = ResourceType.getEnum(className);
+          if ("int".equals(type)) {
+            initializers.put(resourceType, IntFieldInitializer.of(name, value));
+          } else {
+            initializers.put(resourceType, IntArrayFieldInitializer.of(name, value));
+          }
         } catch (IndexOutOfBoundsException e) {
           String s =
               String.format(
@@ -123,7 +88,7 @@ public class ResourceSymbols {
           throw new IOException(s, e);
         }
       }
-      return ResourceSymbols.from(symbols);
+      return ResourceSymbols.from(FieldInitializers.copyOf(initializers.asMap()));
     }
   }
 
@@ -146,7 +111,6 @@ public class ResourceSymbols {
    *
    * @param dependencies The full set of library symbols to load.
    * @param executor The executor use during loading.
-   * @param iLogger Android logger to use.
    * @param packageToExclude A string package to elide if it exists in the providers.
    * @return A list of loading {@link ResourceSymbols} instances.
    * @throws ExecutionException
@@ -155,7 +119,6 @@ public class ResourceSymbols {
   public static Multimap<String, ListenableFuture<ResourceSymbols>> loadFrom(
       Collection<SymbolFileProvider> dependencies,
       ListeningExecutorService executor,
-      ILogger iLogger,
       @Nullable String packageToExclude)
       throws InterruptedException, ExecutionException {
     Map<SymbolFileProvider, ListenableFuture<String>> providerToPackage = new HashMap<>();
@@ -173,16 +136,20 @@ public class ResourceSymbols {
     return packageToTable;
   }
 
-  public static ResourceSymbols from(Table<String, String, RTxtSymbolEntry> table) {
-    return new ResourceSymbols(table);
+  public static ResourceSymbols from(FieldInitializers fieldInitializers) {
+    return new ResourceSymbols(fieldInitializers);
   }
 
   public static ResourceSymbols merge(Collection<ResourceSymbols> symbolTables) {
-    final Table<String, String, RTxtSymbolEntry> mergedTable = HashBasedTable.create();
+    final SortedSetMultimap<ResourceType, FieldInitializer> initializers =
+        MultimapBuilder.enumKeys(ResourceType.class).treeSetValues().build();
     for (ResourceSymbols symbolTableProvider : symbolTables) {
-      mergedTable.putAll(symbolTableProvider.asTable());
+      for (Entry<ResourceType, Collection<FieldInitializer>> entry :
+          symbolTableProvider.asInitializers()) {
+        initializers.putAll(entry.getKey(), entry.getValue());
+      }
     }
-    return from(mergedTable);
+    return from(FieldInitializers.copyOf(initializers.asMap()));
   }
 
   /** Read the symbols from the provided symbol file. */
@@ -191,14 +158,10 @@ public class ResourceSymbols {
     return executorService.submit(new SymbolLoadingTask(primaryRTxt));
   }
 
-  private final Table<String, String, RTxtSymbolEntry> values;
+  private final FieldInitializers values;
 
-  private ResourceSymbols(Table<String, String, RTxtSymbolEntry> values) {
-    this.values = values;
-  }
-
-  public Table<String, String, RTxtSymbolEntry> asTable() {
-    return values;
+  private ResourceSymbols(FieldInitializers fieldInitializers) {
+    this.values = fieldInitializers;
   }
 
   /**
@@ -216,39 +179,12 @@ public class ResourceSymbols {
       Collection<ResourceSymbols> packageSymbols,
       boolean finalFields)
       throws IOException {
-
-    Map<ResourceType, Set<String>> symbols = new EnumMap<>(ResourceType.class);
-    for (ResourceSymbols packageSymbol : packageSymbols) {
-      symbols.putAll(packageSymbol.asFilterMap());
-    }
-    RSourceGenerator.with(sourceOut, asInitializers(), finalFields).write(packageName, symbols);
+    RSourceGenerator.with(sourceOut, asInitializers(), finalFields)
+        .write(packageName, merge(packageSymbols).asInitializers());
   }
 
   public FieldInitializers asInitializers() {
-    SetMultimap<ResourceType, FieldInitializer> valuesOut =
-        MultimapBuilder.enumKeys(ResourceType.class).treeSetValues().build();
-    Table<String, String, RTxtSymbolEntry> symbolTable = asTable();
-    for (String typeName : symbolTable.rowKeySet()) {
-      final ResourceType type = ResourceType.getEnum(typeName);
-      for (RTxtSymbolEntry symbolEntry : symbolTable.row(typeName).values()) {
-        valuesOut.put(type, symbolEntry.toInitializer());
-      }
-    }
-    return FieldInitializers.copyOf(valuesOut.asMap());
+    return values;
   }
 
-  public Map<ResourceType, Set<String>> asFilterMap() {
-    Map<ResourceType, Set<String>> filter = new EnumMap<>(ResourceType.class);
-    Table<String, String, RTxtSymbolEntry> symbolTable = asTable();
-    for (String typeName : symbolTable.rowKeySet()) {
-      Set<String> fields = new HashSet<>();
-      for (RTxtSymbolEntry symbolEntry : symbolTable.row(typeName).values()) {
-        fields.add(symbolEntry.getName());
-      }
-      if (!fields.isEmpty()) {
-        filter.put(ResourceType.getEnum(typeName), fields);
-      }
-    }
-    return filter;
-  }
 }

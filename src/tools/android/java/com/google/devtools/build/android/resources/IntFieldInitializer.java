@@ -16,8 +16,8 @@ package com.google.devtools.build.android.resources;
 import com.google.common.base.MoreObjects;
 import java.io.IOException;
 import java.io.Writer;
+import java.util.Collection;
 import java.util.Objects;
-import java.util.Set;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.commons.InstructionAdapter;
 
@@ -63,7 +63,7 @@ public final class IntFieldInitializer implements FieldInitializer {
   }
 
   @Override
-  public boolean nameIsIn(Set<String> fieldNames) {
+  public boolean nameIsIn(Collection<String> fieldNames) {
     return fieldNames.contains(fieldName);
   }
   
@@ -83,19 +83,23 @@ public final class IntFieldInitializer implements FieldInitializer {
     // IntFields will go before Intarrays
     return -1;
   }
-  
+
   @Override
   public int hashCode() {
     return Objects.hash(fieldName, value);
   }
-  
+
   @Override
   public boolean equals(Object obj) {
     if (obj instanceof IntFieldInitializer) {
       IntFieldInitializer other = (IntFieldInitializer) obj;
-      return Objects.equals(fieldName, other.fieldName)
-          && value == other.value;
+      return Objects.equals(fieldName, other.fieldName) && value == other.value;
     }
     return false;
+  }
+
+  @Override
+  public void addTo(Collection<String> fieldNames) {
+    fieldNames.add(fieldName);
   }
 }
