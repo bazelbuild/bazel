@@ -40,7 +40,7 @@ want to install the testing version of Bazel, replace `stable` with `testing`.
 sudo apt-get update && sudo apt-get install bazel
 ```
 
-Once installed, you can upgrade to newer version of Bazel with:
+Once installed, you can upgrade to a newer version of Bazel with:
 
 ```bash
 sudo apt-get upgrade bazel
