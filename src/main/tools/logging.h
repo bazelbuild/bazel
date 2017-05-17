@@ -1,4 +1,4 @@
-// Copyright 2016 The Bazel Authors. All rights reserved.
+// Copyright 2017 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,19 +12,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef LINUX_SANDBOX_UTILS_H__
-#define LINUX_SANDBOX_UTILS_H__
+#ifndef SRC_MAIN_TOOLS_LOGGING_H_
+#define SRC_MAIN_TOOLS_LOGGING_H_
 
+// see
+// http://stackoverflow.com/questions/5641427/how-to-make-preprocessor-generate-a-string-for-line-keyword
 #define S(x) #x
 #define S_(x) S(x)
 #define S__LINE__ S_(__LINE__)
 
+#define DIE(...)                                                \
+  {                                                             \
+    fprintf(stderr, __FILE__ ":" S__LINE__ ": \"" __VA_ARGS__); \
+    fprintf(stderr, "\": ");                                    \
+    perror(nullptr);                                            \
+    exit(EXIT_FAILURE);                                         \
+  }
+
 #define PRINT_DEBUG(...)                                        \
   do {                                                          \
-    if (opt.debug) {                                            \
+    if (global_debug) {                                         \
       fprintf(stderr, __FILE__ ":" S__LINE__ ": " __VA_ARGS__); \
       fprintf(stderr, "\n");                                    \
     }                                                           \
   } while (0)
 
-#endif
+// Set to `true` to let PRINT_DEBUG() print messages.
+extern bool global_debug;
+
+#endif  // SRC_MAIN_TOOLS_LOGGING_H_

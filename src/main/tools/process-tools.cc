@@ -27,7 +27,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-extern bool global_debug;
+#include "src/main/tools/logging.h"
 
 int SwitchToEuid() {
   int uid = getuid();
@@ -143,10 +143,6 @@ void ClearSignalMask() {
 }
 
 void SetTimeout(double timeout_secs) {
-  if (timeout_secs <= 0) {
-    return;
-  }
-
   double int_val, fraction_val;
   fraction_val = modf(timeout_secs, &int_val);
 

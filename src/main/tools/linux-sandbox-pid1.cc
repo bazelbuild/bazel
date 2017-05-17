@@ -17,20 +17,7 @@
  * mount, UTS, IPC and PID namespace.
  */
 
-#include "src/main/tools/linux-sandbox-options.h"
-#include "src/main/tools/linux-sandbox-utils.h"
-#include "src/main/tools/linux-sandbox.h"
-
-// Note that we define DIE() here and not in a shared header, because we want to
-// use _exit() in the
-// pid1 child, but exit() in the parent.
-#define DIE(args...)                                     \
-  {                                                      \
-    fprintf(stderr, __FILE__ ":" S__LINE__ ": \"" args); \
-    fprintf(stderr, "\": ");                             \
-    perror(nullptr);                                     \
-    _exit(EXIT_FAILURE);                                 \
-  }
+#include "src/main/tools/linux-sandbox-pid1.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -53,8 +40,12 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-
 #include <string>
+
+#include "src/main/tools/linux-sandbox-options.h"
+#include "src/main/tools/linux-sandbox.h"
+#include "src/main/tools/logging.h"
+#include "src/main/tools/process-tools.h"
 
 static int global_child_pid;
 
@@ -66,6 +57,13 @@ static void SetupSelfDestruction(int *sync_pipe) {
   // almost as obscure as this prctl.
   if (prctl(PR_SET_PDEATHSIG, SIGKILL) < 0) {
     DIE("prctl");
+  }
+
+  // Switch to a new process group, otherwise our process group will still refer
+  // to the outer PID namespace. We might then accidentally kill our parent by a
+  // call to e.g. `kill(0, sig)`.
+  if (setpgid(0, 0) < 0) {
+    DIE("setpgid");
   }
 
   // Verify that the parent still lives.
@@ -301,8 +299,7 @@ static void SetupNetworking() {
       DIE("socket");
     }
 
-    struct ifreq ifr;
-    memset(&ifr, 0, sizeof(ifr));
+    struct ifreq ifr = {};
     strncpy(ifr.ifr_name, "lo", IF_NAMESIZE);
 
     // Verify that name is valid.
@@ -329,8 +326,7 @@ static void EnterSandbox() {
 }
 
 static void InstallSignalHandler(int signum, void (*handler)(int)) {
-  struct sigaction sa;
-  memset(&sa, 0, sizeof(sa));
+  struct sigaction sa = {};
   sa.sa_handler = handler;
   if (handler == SIG_IGN || handler == SIG_DFL) {
     // No point in blocking signals when using the default handler or ignoring
@@ -366,8 +362,7 @@ static void RestoreSignalHandlersAndMask() {
   }
 
   // Set the default signal handler for all signals.
-  struct sigaction sa;
-  memset(&sa, 0, sizeof(sa));
+  struct sigaction sa = {};
   if (sigemptyset(&sa.sa_mask) < 0) {
     DIE("sigemptyset");
   }

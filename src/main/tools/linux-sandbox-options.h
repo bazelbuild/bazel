@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef LINUX_SANDBOX_OPTIONS_H__
-#define LINUX_SANDBOX_OPTIONS_H__
+#ifndef SRC_MAIN_TOOLS_LINUX_SANDBOX_OPTIONS_H_
+#define SRC_MAIN_TOOLS_LINUX_SANDBOX_OPTIONS_H_
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -56,6 +56,7 @@ struct Options {
 
 extern struct Options opt;
 
+// Handles parsing all command line flags and populates the global opt struct.
 void ParseOptions(int argc, char *argv[]);
 
 #endif

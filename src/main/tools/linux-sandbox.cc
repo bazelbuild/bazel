@@ -37,13 +37,7 @@
  *    system are invisible.
  */
 
-#define DIE(args...)                                     \
-  {                                                      \
-    fprintf(stderr, __FILE__ ":" S__LINE__ ": \"" args); \
-    fprintf(stderr, "\": ");                             \
-    perror(nullptr);                                     \
-    exit(EXIT_FAILURE);                                  \
-  }
+#include "src/main/tools/linux-sandbox.h"
 
 #include <ctype.h>
 #include <dirent.h>
@@ -67,7 +61,8 @@
 
 #include "src/main/tools/linux-sandbox-options.h"
 #include "src/main/tools/linux-sandbox-pid1.h"
-#include "src/main/tools/linux-sandbox-utils.h"
+#include "src/main/tools/logging.h"
+#include "src/main/tools/process-tools.h"
 
 int global_outer_uid;
 int global_outer_gid;
@@ -80,6 +75,8 @@ static volatile sig_atomic_t global_next_timeout_signal = SIGTERM;
 // The signal that caused us to kill the child (e.g. on timeout).
 static volatile sig_atomic_t global_signal;
 
+// Make sure the child process does not inherit any accidentally left open file
+// handles from our parent.
 static void CloseFds() {
   DIR *fds = opendir("/proc/self/fd");
   if (fds == nullptr) {
@@ -114,18 +111,6 @@ static void CloseFds() {
 
   if (closedir(fds) < 0) {
     DIE("closedir");
-  }
-}
-
-static void HandleSignal(int signum, void (*handler)(int)) {
-  struct sigaction sa;
-  memset(&sa, 0, sizeof(sa));
-  sa.sa_handler = handler;
-  if (sigemptyset(&sa.sa_mask) < 0) {
-    DIE("sigemptyset");
-  }
-  if (sigaction(signum, &sa, nullptr) < 0) {
-    DIE("sigaction");
   }
 }
 
@@ -210,31 +195,6 @@ static int WaitForPid1() {
   }
 }
 
-static void Redirect(const std::string &target_path, int fd) {
-  if (!target_path.empty() && target_path != "-") {
-    const int flags = O_WRONLY | O_CREAT | O_TRUNC | O_APPEND;
-    int fd_out = open(target_path.c_str(), flags, 0666);
-    if (fd_out < 0) {
-      DIE("open(%s)", target_path.c_str());
-    }
-    // If we were launched with less than 3 fds (stdin, stdout, stderr) open,
-    // but redirection is still requested via a command-line flag, something is
-    // wacky and the following code would not do what we intend to do, so let's
-    // bail.
-    if (fd_out < 3) {
-      DIE("open(%s) returned a handle that is reserved for stdin / stdout / "
-          "stderr",
-          target_path.c_str());
-    }
-    if (dup2(fd_out, fd) < 0) {
-      DIE("dup2()");
-    }
-    if (close(fd_out) < 0) {
-      DIE("close()");
-    }
-  }
-}
-
 int main(int argc, char *argv[]) {
   // Ask the kernel to kill us with SIGKILL if our parent dies.
   if (prctl(PR_SET_PDEATHSIG, SIGKILL) < 0) {
@@ -242,26 +202,19 @@ int main(int argc, char *argv[]) {
   }
 
   ParseOptions(argc, argv);
+  global_debug = opt.debug;
 
   Redirect(opt.stdout_path, STDOUT_FILENO);
   Redirect(opt.stderr_path, STDERR_FILENO);
 
-  // This should never be called as a setuid binary, drop privileges just in
-  // case. We don't need to be root, because we use user namespaces anyway.
-  if (setuid(getuid()) < 0) {
-    DIE("setuid");
-  }
-
   global_outer_uid = getuid();
   global_outer_gid = getgid();
 
-  // Make sure the sandboxed process does not inherit any accidentally left open
-  // file handles from our parent.
   CloseFds();
 
-  HandleSignal(SIGALRM, OnTimeout);
   if (opt.timeout_secs > 0) {
-    alarm(opt.timeout_secs);
+    HandleSignal(SIGALRM, OnTimeout);
+    SetTimeout(opt.timeout_secs);
   }
 
   SpawnPid1();

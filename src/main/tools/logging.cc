@@ -1,4 +1,4 @@
-// Copyright 2016 The Bazel Authors. All rights reserved.
+// Copyright 2017 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,10 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef SRC_MAIN_TOOLS_LINUX_SANDBOX_H_
-#define SRC_MAIN_TOOLS_LINUX_SANDBOX_H_
+#include "src/main/tools/logging.h"
 
-extern int global_outer_uid;
-extern int global_outer_gid;
-
-#endif
+bool global_debug = false;

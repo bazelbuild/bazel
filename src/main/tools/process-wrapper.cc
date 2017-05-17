@@ -36,9 +36,8 @@
 #include <string>
 #include <vector>
 
+#include "src/main/tools/logging.h"
 #include "src/main/tools/process-tools.h"
-
-bool global_debug = false;
 
 static double global_kill_delay;
 static pid_t global_child_pid;
@@ -136,7 +135,9 @@ static void SpawnCommand(const std::vector<char *> &args, double timeout_secs) {
     HandleSignal(SIGALRM, OnSignal);
     HandleSignal(SIGTERM, OnSignal);
     HandleSignal(SIGINT, OnSignal);
-    SetTimeout(timeout_secs);
+    if (timeout_secs > 0) {
+      SetTimeout(timeout_secs);
+    }
 
     int status = WaitChild(global_child_pid);
 

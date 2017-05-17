@@ -1,11 +1,16 @@
 package(default_visibility = ["//src:__subpackages__"])
 
 cc_library(
+    name = "logging",
+    srcs = ["logging.cc"],
+    hdrs = ["logging.h"],
+)
+
+cc_library(
     name = "process-tools",
-    srcs = [
-        "process-tools.cc",
-        "process-tools.h",
-    ],
+    srcs = ["process-tools.cc"],
+    hdrs = ["process-tools.h"],
+    deps = [":logging"],
 )
 
 cc_binary(
@@ -21,6 +26,7 @@ cc_binary(
         "//src:windows_msvc": [],
         "//conditions:default": [
             ":process-tools",
+            ":logging",
         ],
     }),
 )
@@ -49,10 +55,21 @@ cc_binary(
             "linux-sandbox-options.h",
             "linux-sandbox-pid1.cc",
             "linux-sandbox-pid1.h",
-            "linux-sandbox-utils.h",
         ],
     }),
     linkopts = ["-lm"],
+    deps = select({
+        "//src:darwin": [],
+        "//src:darwin_x86_64": [],
+        "//src:freebsd": [],
+        "//src:windows": [],
+        "//src:windows_msys": [],
+        "//src:windows_msvc": [],
+        "//conditions:default": [
+            ":logging",
+            ":process-tools",
+        ],
+    }),
 )
 
 filegroup(
