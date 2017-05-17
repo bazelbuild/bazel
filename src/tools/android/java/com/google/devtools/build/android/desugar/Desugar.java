@@ -16,6 +16,7 @@ package com.google.devtools.build.android.desugar;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.devtools.build.android.desugar.LambdaClassMaker.LAMBDA_METAFACTORY_DUMPER_PROPERTY;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.auto.value.AutoValue;
@@ -36,6 +37,7 @@ import com.google.errorprone.annotations.MustBeClosed;
 import java.io.IOError;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Field;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -532,11 +534,36 @@ class Desugar {
   public static void main(String[] args) throws Exception {
     // It is important that this method is called first. See its javadoc.
     Path dumpDirectory = createAndRegisterLambdaDumpDirectory();
+    verifyLambdaDumpDirectoryRegistered(dumpDirectory);
+
     Options options = parseCommandLineOptions(args);
     if (options.verbose) {
       System.out.printf("Lambda classes will be written under %s%n", dumpDirectory);
     }
     new Desugar(options, dumpDirectory).desugar();
+  }
+
+  static void verifyLambdaDumpDirectoryRegistered(Path dumpDirectory) {
+    try {
+      Class<?> klass = Class.forName("java.lang.invoke.InnerClassLambdaMetafactory");
+      Field dumperField = klass.getDeclaredField("dumper");
+      dumperField.setAccessible(true);
+      Object dumperValue = dumperField.get(null);
+      checkNotNull(dumperValue, "Failed to register lambda dump directory '%s'", dumpDirectory);
+
+      Field dumperPathField = dumperValue.getClass().getDeclaredField("dumpDir");
+      dumperPathField.setAccessible(true);
+      Object dumperPath = dumperPathField.get(dumperValue);
+      checkState(
+          dumpDirectory.equals(dumperPath),
+          "Inconsistent lambda dump directories. real='%s', expected='%s'",
+          dumperPath,
+          dumpDirectory);
+    } catch (ReflectiveOperationException e) {
+      // We do not want to crash Desugar, if we cannot load or access these classes or fields.
+      // We aim to provide better diagnostics. If we cannot, just let it go.
+      e.printStackTrace();
+    }
   }
 
   /**
@@ -547,15 +574,20 @@ class Desugar {
    * that case the specified directory is used as a temporary dir. Otherwise, it will be set here,
    * before doing anything else since the property is read in the static initializer.
    */
-  private static Path createAndRegisterLambdaDumpDirectory() throws IOException {
-    String propertyValue = System.getProperty(LambdaClassMaker.LAMBDA_METAFACTORY_DUMPER_PROPERTY);
+  static Path createAndRegisterLambdaDumpDirectory() throws IOException {
+    String propertyValue = System.getProperty(LAMBDA_METAFACTORY_DUMPER_PROPERTY);
     if (propertyValue != null) {
-      return Paths.get(propertyValue).toAbsolutePath();
+      Path path = Paths.get(propertyValue).toAbsolutePath();
+      checkState(Files.isDirectory(path), "The path '%s' is not a directory.", path);
+      // It is not necessary to check whether 'path' is an empty directory. It is possible that
+      // LambdaMetafactory is loaded before this class, and there are already lambda classes dumped
+      // into the 'path' folder.
+      // TODO(kmb): Maybe we can empty the folder here.
+      return path;
     }
 
     Path dumpDirectory = Files.createTempDirectory("lambdas");
-    System.setProperty(
-        LambdaClassMaker.LAMBDA_METAFACTORY_DUMPER_PROPERTY, dumpDirectory.toString());
+    System.setProperty(LAMBDA_METAFACTORY_DUMPER_PROPERTY, dumpDirectory.toString());
     deleteTreeOnExit(dumpDirectory);
     return dumpDirectory;
   }
@@ -589,9 +621,8 @@ class Desugar {
   private static ImmutableList<InputOutputPair> toInputOutputPairs(Options options) {
     final ImmutableList.Builder<InputOutputPair> ioPairListbuilder = ImmutableList.builder();
     for (Iterator<Path> inputIt = options.inputJars.iterator(),
-                outputIt = options.outputJars.iterator();
-        inputIt.hasNext();
-        ) {
+            outputIt = options.outputJars.iterator();
+        inputIt.hasNext(); ) {
       ioPairListbuilder.add(InputOutputPair.create(inputIt.next(), outputIt.next()));
     }
     return ioPairListbuilder.build();
