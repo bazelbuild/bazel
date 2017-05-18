@@ -112,6 +112,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
       new AtomicReference<>(ImmutableSet.<PackageIdentifier>of());
   protected final CachingPackageLocator packageManager;
   protected final BlazeDirectories directories;
+  private final int legacyGlobbingThreads;
 
   /** Abstract base class of a builder for {@link PackageLoader} instances. */
   public abstract static class Builder {
@@ -121,6 +122,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     protected ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions = ImmutableMap.of();
     protected ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues = ImmutableList.of();
     protected String defaultsPackageContents = getDefaultDefaulsPackageContents();
+    protected int legacyGlobbingThreads = 1;
 
     protected Builder(Path workspaceDir) {
       this.workspaceDir = workspaceDir;
@@ -153,6 +155,11 @@ public abstract class AbstractPackageLoader implements PackageLoader {
       return this;
     }
 
+    public Builder setLegacyGlobbingThreads(int numThreads) {
+      this.legacyGlobbingThreads = numThreads;
+      return this;
+    }
+
     public abstract PackageLoader build();
 
     protected abstract RuleClassProvider getDefaultRuleClassProvider();
@@ -168,6 +175,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     this.reporter = builder.reporter;
     this.extraSkyFunctions = builder.extraSkyFunctions;
     this.pkgLocatorRef = new AtomicReference<>(pkgLocator);
+    this.legacyGlobbingThreads = builder.legacyGlobbingThreads;
 
     // The 'installBase' and 'outputBase' directories won't be meaningfully used by
     // WorkspaceFileFunction, so we pass in a dummy Path.
@@ -285,6 +293,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         getEnvironmentExtensions(),
         getName(),
         Package.Builder.DefaultHelper.INSTANCE);
+    pkgFactory.setGlobbingThreads(legacyGlobbingThreads);
     ImmutableMap.Builder<SkyFunctionName, SkyFunction> builder = ImmutableMap.builder();
     builder
         .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
