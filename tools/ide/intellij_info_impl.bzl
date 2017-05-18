@@ -596,6 +596,7 @@ def intellij_info_aspect_impl(target, ctx, semantics):
   for dep in prerequisites:
     intellij_info_text = intellij_info_text | dep.intellij_info.intellij_info_text
     intellij_resolve_files = intellij_resolve_files | dep.intellij_info.intellij_resolve_files
+    intellij_compile_files = intellij_compile_files | dep.intellij_info.intellij_compile_files
 
   # Collect python-specific information
   (py_ide_info, py_resolve_files) = build_py_ide_info(target, ctx)
@@ -673,6 +674,7 @@ def intellij_info_aspect_impl(target, ctx, semantics):
           target_key = target_key,
           intellij_info_text = intellij_info_text,
           intellij_resolve_files = intellij_resolve_files,
+          intellij_compile_files = intellij_compile_files,
           export_deps = export_deps,
       ),
   )
