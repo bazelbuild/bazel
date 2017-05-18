@@ -337,18 +337,20 @@ def build_java_ide_info(target, ctx, semantics):
   """Build JavaIdeInfo."""
   java = get_java_provider(target)
   if not java:
-    return (None, set(), set())
+    return (None, set(), set(), set())
 
   java_semantics = semantics.java if hasattr(semantics, "java") else None
   if java_semantics and java_semantics.skip_target(target, ctx):
-    return (None, set(), set())
+    return (None, set(), set(), set())
 
   ide_info_files = set()
   sources = sources_from_target(ctx)
   java_jars = get_java_jars(java.outputs)
   jars = [library_artifact(output) for output in java_jars]
+  class_jars = [output.class_jar for output in java_jars if output and output.class_jar]
   output_jars = [jar for output in java_jars for jar in jars_from_output(output)]
   intellij_resolve_files = set(output_jars)
+  intellij_compile_files = set(class_jars)
 
   gen_jars = []
   if (hasattr(java, "annotation_processing") and
@@ -358,6 +360,9 @@ def build_java_ide_info(target, ctx, semantics):
     intellij_resolve_files = intellij_resolve_files | set([
         jar for jar in [java.annotation_processing.class_jar,
                         java.annotation_processing.source_jar]
+        if jar != None and not jar.is_source])
+    intellij_compile_files = intellij_compile_files | set([
+        jar for jar in [java.annotation_processing.class_jar]
         if jar != None and not jar.is_source])
 
   jdeps = None
@@ -394,7 +399,7 @@ def build_java_ide_info(target, ctx, semantics):
       filtered_gen_jar = filtered_gen_jar,
       main_class = ctx.rule.attr.main_class if hasattr(ctx.rule.attr, "main_class") else None,
   )
-  return (java_ide_info, ide_info_files, intellij_resolve_files)
+  return (java_ide_info, ide_info_files, intellij_resolve_files, intellij_compile_files)
 
 def _package_manifest_file_argument(f):
   artifact = artifact_location(f)
@@ -610,10 +615,11 @@ def intellij_info_aspect_impl(target, ctx, semantics):
   intellij_resolve_files = intellij_resolve_files | c_toolchain_resolve_files
 
   # Collect Java-specific information
-  (java_ide_info, java_ide_info_files, java_resolve_files) = build_java_ide_info(
-      target, ctx, semantics)
+  (java_ide_info, java_ide_info_files, java_resolve_files,
+   java_compile_files) = build_java_ide_info(target, ctx, semantics)
   intellij_info_text = intellij_info_text | java_ide_info_files
   intellij_resolve_files = intellij_resolve_files | java_resolve_files
+  intellij_compile_files = intellij_compile_files | java_compile_files
 
   # Collect Android-specific information
   (android_ide_info, android_resolve_files) = build_android_ide_info(
