@@ -77,8 +77,6 @@ public class VanillaJavaBuilderTest {
       jos.putNextEntry(new JarEntry("B.java"));
       jos.write("class B {}".getBytes(UTF_8));
     }
-    Path resource = temporaryFolder.newFile("resource.properties").toPath();
-    Files.write(resource, "hello".getBytes(UTF_8));
 
     VanillaJavaBuilderResult result =
         run(
@@ -91,8 +89,6 @@ public class VanillaJavaBuilderTest {
                 sourceJar.toString(),
                 "--output",
                 output.toString(),
-                "--classpath_resources",
-                resource.toString(),
                 "--bootclasspath",
                 Paths.get(System.getProperty("java.home")).resolve("lib/rt.jar").toString(),
                 "--classdir",
@@ -103,8 +99,7 @@ public class VanillaJavaBuilderTest {
 
     ImmutableMap<String, byte[]> outputEntries = readJar(output.toFile());
     assertThat(outputEntries.keySet())
-        .containsExactly(
-            "META-INF/", "META-INF/MANIFEST.MF", "A.class", "B.class", "resource.properties");
+        .containsExactly("META-INF/", "META-INF/MANIFEST.MF", "A.class", "B.class");
   }
 
   @Test
@@ -200,8 +195,6 @@ public class VanillaJavaBuilderTest {
       jos.putNextEntry(new JarEntry("B.java"));
       jos.write("class B {}".getBytes(UTF_8));
     }
-    Path resource = temporaryFolder.newFile("resource.properties").toPath();
-    Files.write(resource, "hello".getBytes(UTF_8));
 
     Path classDir = temporaryFolder.newFolder().toPath();
     Files.write(
@@ -219,8 +212,6 @@ public class VanillaJavaBuilderTest {
                 sourceJar.toString(),
                 "--output",
                 output.toString(),
-                "--classpath_resources",
-                resource.toString(),
                 "--bootclasspath",
                 Paths.get(System.getProperty("java.home")).resolve("lib/rt.jar").toString(),
                 "--classdir",
@@ -231,7 +222,6 @@ public class VanillaJavaBuilderTest {
 
     ImmutableMap<String, byte[]> outputEntries = readJar(output.toFile());
     assertThat(outputEntries.keySet())
-        .containsExactly(
-            "META-INF/", "META-INF/MANIFEST.MF", "A.class", "B.class", "resource.properties");
+        .containsExactly("META-INF/", "META-INF/MANIFEST.MF", "A.class", "B.class");
   }
 }

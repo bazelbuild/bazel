@@ -61,10 +61,6 @@ public final class OptionsParser {
 
   private final List<String> sourceFiles = new ArrayList<>();
   private final List<String> sourceJars = new ArrayList<>();
-  private final List<String> messageFiles = new ArrayList<>();
-  private final List<String> resourceFiles = new ArrayList<>();
-  private final List<String> resourceJars = new ArrayList<>();
-  private final List<String> rootResourceFiles = new ArrayList<>();
 
   private final List<String> classPath = new ArrayList<>();
   private final List<String> sourcePath = new ArrayList<>();
@@ -158,18 +154,6 @@ public final class OptionsParser {
           break;
         case "--source_jars":
           collectFlagArguments(sourceJars, argQueue, "-");
-          break;
-        case "--messages":
-          collectFlagArguments(messageFiles, argQueue, "-");
-          break;
-        case "--resources":
-          collectFlagArguments(resourceFiles, argQueue, "-");
-          break;
-        case "--resource_jars":
-          collectFlagArguments(resourceJars, argQueue, "-");
-          break;
-        case "--classpath_resources":
-          collectFlagArguments(rootResourceFiles, argQueue, "-");
           break;
         case "--classpath":
           collectClassPathArguments(classPath, argQueue);
@@ -410,22 +394,6 @@ public final class OptionsParser {
 
   public List<String> getSourceJars() {
     return sourceJars;
-  }
-
-  public List<String> getMessageFiles() {
-    return messageFiles;
-  }
-
-  public List<String> getResourceFiles() {
-    return resourceFiles;
-  }
-
-  public List<String> getResourceJars() {
-    return resourceJars;
-  }
-
-  public List<String> getRootResourceFiles() {
-    return rootResourceFiles;
   }
 
   public List<String> getClassPath() {

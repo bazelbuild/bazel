@@ -48,11 +48,6 @@ public final class JavaLibraryBuildRequest {
 
   private final ArrayList<Path> sourceFiles;
   private final ImmutableList<String> sourceJars;
-  private final ImmutableList<String> messageFiles;
-  private final ImmutableList<String> resourceFiles;
-  private final ImmutableList<String> resourceJars;
-  /** Resource files that should be put in the root of the output jar. */
-  private final ImmutableList<String> rootResourceFiles;
 
   private final ImmutableList<String> sourcePath;
   private final ImmutableList<String> classPath;
@@ -150,10 +145,6 @@ public final class JavaLibraryBuildRequest {
     this.compressJar = optionsParser.compressJar();
     this.sourceFiles = new ArrayList<>(toPaths(optionsParser.getSourceFiles()));
     this.sourceJars = ImmutableList.copyOf(optionsParser.getSourceJars());
-    this.messageFiles = ImmutableList.copyOf(optionsParser.getMessageFiles());
-    this.resourceFiles = ImmutableList.copyOf(optionsParser.getResourceFiles());
-    this.resourceJars = ImmutableList.copyOf(optionsParser.getResourceJars());
-    this.rootResourceFiles = ImmutableList.copyOf(optionsParser.getRootResourceFiles());
     this.classPath = ImmutableList.copyOf(optionsParser.getClassPath());
     this.sourcePath = ImmutableList.copyOf(optionsParser.getSourcePath());
     this.bootClassPath = ImmutableList.copyOf(optionsParser.getBootClassPath());
@@ -220,22 +211,6 @@ public final class JavaLibraryBuildRequest {
 
   public ImmutableList<String> getSourceJars() {
     return sourceJars;
-  }
-
-  public ImmutableList<String> getMessageFiles() {
-    return messageFiles;
-  }
-
-  public ImmutableList<String> getResourceFiles() {
-    return resourceFiles;
-  }
-
-  public ImmutableList<String> getResourceJars() {
-    return resourceJars;
-  }
-
-  public ImmutableList<String> getRootResourceFiles() {
-    return rootResourceFiles;
   }
 
   public ImmutableList<String> getClassPath() {

@@ -189,7 +189,6 @@ bootstrap_java_binary(
     deps = [
         ":skylark-deps",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:bootstrap_jarhelper",
-        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/resourcejar:bootstrap_resourcejar",
     ],
 )
 
@@ -206,7 +205,6 @@ java_library(
         ":javac_options",
         ":optionsparser",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper",
-        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/resourcejar",
         "//src/main/protobuf:deps_java_proto",
         "//src/main/protobuf:java_compilation_java_proto",
         "//src/main/protobuf:worker_protocol_java_proto",
@@ -219,7 +217,6 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:srcs",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
-        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/resourcejar:srcs",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:srcs",
     ],
     visibility = ["//src/java_tools/buildjar:__pkg__"],
