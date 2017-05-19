@@ -64,7 +64,7 @@ public class J2ObjcCommandLineOptions extends FragmentOptions {
     name = "explicit_jre_deps",
     defaultValue = "true",
     category = "flags",
-    help = "Requires JRE dependencies to be declared in j2objc_library's jre_deps attribute."
+    help = "This flag is a noop and will be removed."
   )
   public boolean explicitJreDeps;
 

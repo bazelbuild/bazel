@@ -48,10 +48,7 @@ public class J2ObjcLibraryBaseRule implements RuleDefinition {
         .add(attr("entry_classes", STRING_LIST))
         /* <!-- #BLAZE_RULE(j2objc_library).ATTRIBUTE(jre_deps) -->
         The list of additional JRE emulation libraries required by all Java code translated by this
-        <code>j2objc_library</code> rule. When --explicit_jre_deps is enabled only core JRE
-        functionality is included by default, so specifying additional JRE dependencies here is
-        necessary. Use with --explicit_jre_deps to reduce the size of dependent binary targets.
-        --explicit_jre_deps will eventually become the default behavior.
+        <code>j2objc_library</code> rule. Only core JRE functionality is linked by default.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("jre_deps", LABEL_LIST)
             .direct_compile_time_input()
