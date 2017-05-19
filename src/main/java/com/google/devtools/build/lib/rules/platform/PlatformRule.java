@@ -109,12 +109,12 @@ constraint_value(
     constraint=":cpu")
 platform(
     name="mobile_device",
-    constraints = [
+    constraint_values = [
         ":arm64",
     ])
 platform(
     name="devel",
-    constraints = [
+    constraint_values = [
         ":k8",
     ])
 </pre>
