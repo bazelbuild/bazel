@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import io.grpc.CallCredentials;
 import io.grpc.auth.MoreCallCredentials;
-import io.grpc.internal.GrpcUtil;
 import io.grpc.netty.GrpcSslContexts;
 import io.netty.handler.ssl.SslContext;
 import java.io.File;
@@ -118,7 +117,7 @@ public final class ChannelOptions {
     }
     final int maxMessageSize =
         Math.max(
-            GrpcUtil.DEFAULT_MAX_MESSAGE_SIZE,
+            4 * 1024 * 1024 /* GrpcUtil.DEFAULT_MAX_MESSAGE_SIZE */,
             options.grpcMaxChunkSizeBytes + CHUNK_MESSAGE_OVERHEAD);
     return new ChannelOptions(
         tlsEnabled, sslContext, tlsAuthorityOverride, credentials, maxMessageSize);
