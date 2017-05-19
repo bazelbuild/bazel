@@ -126,7 +126,7 @@ final class CachedLocalSpawnRunner implements SpawnRunner {
         }
       }
       SpawnResult spawnResult = delegate.exec(spawn, policy);
-      if (options.remoteLocalExecUploadResults
+      if (options.remoteUploadLocalResults
           && spawnResult.status() == Status.SUCCESS
           && spawnResult.exitCode() == 0) {
         writeCacheEntry(spawn, policy.getFileOutErr(), actionKey);

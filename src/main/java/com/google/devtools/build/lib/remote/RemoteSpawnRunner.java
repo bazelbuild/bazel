@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.remote.RemoteProtocol.ExecuteRequest;
 import com.google.devtools.build.lib.remote.RemoteProtocol.ExecutionStatus;
 import com.google.devtools.build.lib.remote.RemoteProtocol.Platform;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
+import com.google.devtools.build.lib.runtime.AuthAndTLSOptions;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -82,15 +83,18 @@ final class RemoteSpawnRunner implements SpawnRunner {
 
   RemoteSpawnRunner(
       Path execRoot,
-      RemoteOptions options) {
-    this(execRoot, options, connect(options));
+      RemoteOptions options,
+      AuthAndTLSOptions authTlsOptions) {
+    this(execRoot, options, connect(options, authTlsOptions));
   }
 
-  private static GrpcRemoteExecutor connect(RemoteOptions options) {
+  private static GrpcRemoteExecutor connect(RemoteOptions options,
+      AuthAndTLSOptions authTlsOptions) {
     Preconditions.checkArgument(GrpcRemoteExecutor.isRemoteExecutionOptions(options));
-    ChannelOptions channelOptions = ChannelOptions.create(options);
+    ChannelOptions channelOptions = ChannelOptions.create(authTlsOptions,
+        options.grpcMaxChunkSizeBytes);
     return new GrpcRemoteExecutor(
-        RemoteUtils.createChannel(options.remoteWorker, channelOptions), channelOptions, options);
+        RemoteUtils.createChannel(options.remoteExecutor, channelOptions), channelOptions, options);
   }
 
   @Override

@@ -87,9 +87,9 @@ public class GrpcActionCache implements RemoteActionCache {
       Channel channel, RemoteOptions options, ChannelOptions channelOptions) {
     this.options = options;
     this.casIface =
-        GrpcInterfaces.casInterface(options.grpcTimeoutSeconds, channel, channelOptions);
+        GrpcInterfaces.casInterface(options.remoteTimeout, channel, channelOptions);
     this.iface =
-        GrpcInterfaces.executionCacheInterface(options.grpcTimeoutSeconds, channel, channelOptions);
+        GrpcInterfaces.executionCacheInterface(options.remoteTimeout, channel, channelOptions);
   }
 
   public GrpcActionCache(RemoteOptions options, ChannelOptions channelOptions) {
@@ -392,7 +392,7 @@ public class GrpcActionCache implements RemoteActionCache {
     while (batches++ < numItems) {
       finishLatch.countDown(); // Non-sent batches.
     }
-    finishLatch.await(options.grpcTimeoutSeconds, TimeUnit.SECONDS);
+    finishLatch.await(options.remoteTimeout, TimeUnit.SECONDS);
     if (exception.get() != null) {
       throw exception.get(); // Re-throw the first encountered exception.
     }

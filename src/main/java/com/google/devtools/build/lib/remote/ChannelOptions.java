@@ -18,6 +18,7 @@ import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.runtime.AuthAndTLSOptions;
 import io.grpc.CallCredentials;
 import io.grpc.auth.MoreCallCredentials;
 import io.grpc.netty.GrpcSslContexts;
@@ -72,12 +73,13 @@ public final class ChannelOptions {
     return maxMessageSize;
   }
 
-  public static ChannelOptions create(RemoteOptions options) {
+  public static ChannelOptions create(AuthAndTLSOptions options, int grpcMaxChunkSizeBytes) {
     try {
       return create(
           options,
-          options.authCredentialsJson != null
-              ? new FileInputStream(options.authCredentialsJson)
+          grpcMaxChunkSizeBytes,
+          options.authCredentials != null
+              ? new FileInputStream(options.authCredentials)
               : null);
     } catch (IOException e) {
       throw new IllegalArgumentException(
@@ -86,18 +88,19 @@ public final class ChannelOptions {
   }
 
   @VisibleForTesting
-  public static ChannelOptions create(
-      RemoteOptions options, @Nullable InputStream credentialsInputStream) {
+  public static ChannelOptions create(AuthAndTLSOptions options, int grpcMaxChunkSizeBytes,
+      @Nullable InputStream credentialsInputStream) {
     boolean tlsEnabled = options.tlsEnabled;
     SslContext sslContext = null;
     String tlsAuthorityOverride = options.tlsAuthorityOverride;
     CallCredentials credentials = null;
-    if (options.tlsEnabled && options.tlsCert != null) {
+    if (options.tlsEnabled && options.tlsCertificate != null) {
       try {
-        sslContext = GrpcSslContexts.forClient().trustManager(new File(options.tlsCert)).build();
+        sslContext =
+            GrpcSslContexts.forClient().trustManager(new File(options.tlsCertificate)).build();
       } catch (SSLException e) {
         throw new IllegalArgumentException(
-            "SSL error initializing cert " + options.tlsCert + " : " + e);
+            "SSL error initializing cert " + options.tlsCertificate + " : " + e);
       }
     }
     if (options.authEnabled) {
@@ -118,7 +121,7 @@ public final class ChannelOptions {
     final int maxMessageSize =
         Math.max(
             4 * 1024 * 1024 /* GrpcUtil.DEFAULT_MAX_MESSAGE_SIZE */,
-            options.grpcMaxChunkSizeBytes + CHUNK_MESSAGE_OVERHEAD);
+            grpcMaxChunkSizeBytes + CHUNK_MESSAGE_OVERHEAD);
     return new ChannelOptions(
         tlsEnabled, sslContext, tlsAuthorityOverride, credentials, maxMessageSize);
   }

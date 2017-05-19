@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.Executor.ActionContext;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ActionContextProvider;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.runtime.AuthAndTLSOptions;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 
 /**
@@ -38,6 +39,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
             env.getClientEnv(),
             env.getExecRoot(),
             buildRequest.getOptions(RemoteOptions.class),
+            buildRequest.getOptions(AuthAndTLSOptions.class),
             verboseFailures,
             env.getRuntime().getProductName()));
     this.strategies = strategiesBuilder.build();

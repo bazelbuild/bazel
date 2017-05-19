@@ -25,7 +25,7 @@ import java.util.Iterator;
 @ThreadSafe
 public class GrpcRemoteExecutor extends GrpcActionCache {
   public static boolean isRemoteExecutionOptions(RemoteOptions options) {
-    return options.remoteWorker != null;
+    return options.remoteExecutor != null;
   }
 
   private final GrpcExecutionInterface executionIface;
@@ -43,11 +43,11 @@ public class GrpcRemoteExecutor extends GrpcActionCache {
       ManagedChannel channel, ChannelOptions channelOptions, RemoteOptions options) {
     super(
         options,
-        GrpcInterfaces.casInterface(options.grpcTimeoutSeconds, channel, channelOptions),
+        GrpcInterfaces.casInterface(options.remoteTimeout, channel, channelOptions),
         GrpcInterfaces.executionCacheInterface(
-            options.grpcTimeoutSeconds, channel, channelOptions));
+            options.remoteTimeout, channel, channelOptions));
     this.executionIface =
-        GrpcInterfaces.executionInterface(options.grpcTimeoutSeconds, channel, channelOptions);
+        GrpcInterfaces.executionInterface(options.remoteTimeout, channel, channelOptions);
   }
 
   public ExecuteReply executeRemotely(ExecuteRequest request) {

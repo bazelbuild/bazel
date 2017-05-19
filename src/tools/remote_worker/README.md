@@ -12,7 +12,7 @@ The simplest setup is as follows:
 
         bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
             --spawn_strategy=remote --remote_cache=localhost:8080 \
-            --remote_worker=localhost:8080 src/tools/generate_workspace:all
+            --remote_executor=localhost:8080 src/tools/generate_workspace:all
 
 The above command will build generate_workspace with remote spawn strategy that
 uses the local worker as the distributed caching and execution backend.

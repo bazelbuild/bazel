@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.remote.RemoteProtocol.CasStatus;
 import com.google.devtools.build.lib.remote.RemoteProtocol.CasUploadBlobReply;
 import com.google.devtools.build.lib.remote.RemoteProtocol.CasUploadBlobRequest;
 import com.google.devtools.build.lib.remote.RemoteProtocol.ContentDigest;
+import com.google.devtools.build.lib.runtime.AuthAndTLSOptions;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
@@ -105,19 +106,22 @@ public class GrpcActionCacheTest {
   }
 
   private GrpcActionCache newClient() throws IOException {
-    return newClient(Options.getDefaults(RemoteOptions.class));
+    return newClient(Options.getDefaults(RemoteOptions.class),
+        Options.getDefaults(AuthAndTLSOptions.class));
   }
 
-  private GrpcActionCache newClient(RemoteOptions options) throws IOException {
+  private GrpcActionCache newClient(RemoteOptions remoteOptions, AuthAndTLSOptions authTlsOptions)
+      throws IOException {
     ChannelOptions channelOptions =
-        options.authCredentialsJson != null
+        authTlsOptions.authCredentials != null
             ? ChannelOptions.create(
-                options, scratch.resolve(options.authCredentialsJson).getInputStream())
-            : ChannelOptions.create(options);
+                authTlsOptions, remoteOptions.grpcMaxChunkSizeBytes,
+                scratch.resolve(authTlsOptions.authCredentials).getInputStream())
+            : ChannelOptions.create(authTlsOptions, remoteOptions.grpcMaxChunkSizeBytes);
     return new GrpcActionCache(
         ClientInterceptors.intercept(
             channel, ImmutableList.of(new ChannelOptionsInterceptor(channelOptions))),
-        options,
+        remoteOptions,
         channelOptions);
   }
 
@@ -153,8 +157,8 @@ public class GrpcActionCacheTest {
     options.grpcMaxBatchInputs = 10;
     options.grpcMaxChunkSizeBytes = 2;
     options.grpcMaxBatchSizeBytes = 10;
-    options.grpcTimeoutSeconds = 10;
-    GrpcActionCache client = newClient(options);
+    options.remoteTimeout = 10;
+    GrpcActionCache client = newClient(options, Options.getDefaults(AuthAndTLSOptions.class));
     ContentDigest fooDigest = fakeRemoteCacheService.put("fooooooo".getBytes(UTF_8));
     ContentDigest barDigest = fakeRemoteCacheService.put("baaaar".getBytes(UTF_8));
     ContentDigest s1Digest = fakeRemoteCacheService.put("1".getBytes(UTF_8));
@@ -189,8 +193,8 @@ public class GrpcActionCacheTest {
     options.grpcMaxBatchInputs = 10;
     options.grpcMaxChunkSizeBytes = 2;
     options.grpcMaxBatchSizeBytes = 10;
-    options.grpcTimeoutSeconds = 10;
-    GrpcActionCache client = newClient(options);
+    options.remoteTimeout = 10;
+    GrpcActionCache client = newClient(options, Options.getDefaults(AuthAndTLSOptions.class));
 
     byte[] foo = "fooooooo".getBytes(UTF_8);
     byte[] bar = "baaaar".getBytes(UTF_8);
@@ -268,9 +272,9 @@ public class GrpcActionCacheTest {
 
   @Test
   public void testAuthCredentials() throws Exception {
-    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
+    AuthAndTLSOptions options = Options.getDefaults(AuthAndTLSOptions.class);
     options.authEnabled = true;
-    options.authCredentialsJson = "/exec/root/creds.json";
+    options.authCredentials = "/exec/root/creds.json";
     options.authScope = "dummy.scope";
 
     GenericJson json = new GenericJson();
@@ -278,9 +282,9 @@ public class GrpcActionCacheTest {
     json.put("client_id", "some_client");
     json.put("client_secret", "foo");
     json.put("refresh_token", "bar");
-    scratch.file(options.authCredentialsJson, new JacksonFactory().toString(json));
+    scratch.file(options.authCredentials, new JacksonFactory().toString(json));
 
-    GrpcActionCache client = newClient(options);
+    GrpcActionCache client = newClient(Options.getDefaults(RemoteOptions.class), options);
     byte[] foo = "foo".getBytes(UTF_8);
     ContentDigest fooDigest = ContentDigests.computeDigest(foo);
     ImmutableList<ContentDigest> digests = client.uploadBlobs(ImmutableList.<byte[]>of(foo));

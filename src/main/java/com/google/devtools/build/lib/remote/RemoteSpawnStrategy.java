@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.remote.RemoteProtocol.ExecutionStatus;
 import com.google.devtools.build.lib.remote.RemoteProtocol.Platform;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.rules.fileset.FilesetActionContext;
+import com.google.devtools.build.lib.runtime.AuthAndTLSOptions;
 import com.google.devtools.build.lib.standalone.StandaloneSpawnStrategy;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
@@ -71,7 +72,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
   private final Path execRoot;
   private final StandaloneSpawnStrategy standaloneStrategy;
   private final boolean verboseFailures;
-  private final RemoteOptions options;
+  private final RemoteOptions remoteOptions;
   // TODO(olaola): This will be set on a per-action basis instead.
   private final Platform platform;
   private final ChannelOptions channelOptions;
@@ -80,18 +81,20 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
   RemoteSpawnStrategy(
       Map<String, String> clientEnv,
       Path execRoot,
-      RemoteOptions options,
+      RemoteOptions remoteOptions,
+      AuthAndTLSOptions authTlsOptions,
       boolean verboseFailures,
       String productName) {
     this.execRoot = execRoot;
     this.standaloneStrategy = new StandaloneSpawnStrategy(execRoot, verboseFailures, productName);
     this.verboseFailures = verboseFailures;
-    this.options = options;
-    channelOptions = ChannelOptions.create(options);
-    if (options.experimentalRemotePlatformOverride != null) {
+    this.remoteOptions = remoteOptions;
+    channelOptions = ChannelOptions.create(authTlsOptions, remoteOptions.grpcMaxChunkSizeBytes);
+    if (remoteOptions.experimentalRemotePlatformOverride != null) {
       Platform.Builder platformBuilder = Platform.newBuilder();
       try {
-        TextFormat.getParser().merge(options.experimentalRemotePlatformOverride, platformBuilder);
+        TextFormat.getParser().merge(remoteOptions.experimentalRemotePlatformOverride,
+            platformBuilder);
       } catch (ParseException e) {
         throw new IllegalArgumentException(
             "Failed to parse --experimental_remote_platform_override", e);
@@ -139,7 +142,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
       ActionKey actionKey)
       throws ExecException, InterruptedException {
     standaloneStrategy.exec(spawn, actionExecutionContext);
-    if (options.remoteLocalExecUploadResults && actionCache != null && actionKey != null) {
+    if (remoteOptions.remoteUploadLocalResults && actionCache != null && actionKey != null) {
       ArrayList<Path> outputFiles = new ArrayList<>();
       for (ActionInput output : spawn.getOutputFiles()) {
         Path outputFile = execRoot.getRelative(output.getExecPathString());
@@ -214,19 +217,19 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
     if (spawn.isRemotable()) {
       // Initialize remote cache and execution handlers. We use separate handlers for every
       // action to enable server-side parallelism (need a different gRPC channel per action).
-      if (SimpleBlobStoreFactory.isRemoteCacheOptions(options)) {
-        actionCache = new SimpleBlobStoreActionCache(SimpleBlobStoreFactory.create(options));
-      } else if (GrpcActionCache.isRemoteCacheOptions(options)) {
-        actionCache = new GrpcActionCache(options, channelOptions);
+      if (SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions)) {
+        actionCache = new SimpleBlobStoreActionCache(SimpleBlobStoreFactory.create(remoteOptions));
+      } else if (GrpcActionCache.isRemoteCacheOptions(remoteOptions)) {
+        actionCache = new GrpcActionCache(remoteOptions, channelOptions);
       }
       // Otherwise actionCache remains null and remote caching/execution are disabled.
 
-      if (actionCache != null && GrpcRemoteExecutor.isRemoteExecutionOptions(options)) {
+      if (actionCache != null && GrpcRemoteExecutor.isRemoteExecutionOptions(remoteOptions)) {
         workExecutor =
             new GrpcRemoteExecutor(
-                RemoteUtils.createChannel(options.remoteWorker, channelOptions),
+                RemoteUtils.createChannel(remoteOptions.remoteExecutor, channelOptions),
                 channelOptions,
-                options);
+                remoteOptions);
       }
     }
     if (!spawn.isRemotable() || actionCache == null) {
@@ -260,9 +263,10 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
 
       // Look up action cache, and reuse the action output if it is found.
       actionKey = ContentDigests.computeActionKey(action);
-      ActionResult result =
-          this.options.remoteAcceptCached ? actionCache.getCachedActionResult(actionKey) : null;
-      boolean acceptCachedResult = this.options.remoteAcceptCached;
+      ActionResult result = this.remoteOptions.remoteAcceptCached
+          ? actionCache.getCachedActionResult(actionKey)
+          : null;
+      boolean acceptCachedResult = this.remoteOptions.remoteAcceptCached;
       if (result != null) {
         // We don't cache failed actions, so we know the outputs exist.
         // For now, download all outputs locally; in the future, we can reuse the digests to
@@ -304,7 +308,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
         return;
       }
       if (status.getError() == ExecutionStatus.ErrorCode.EXEC_FAILED
-          || !options.remoteAllowLocalFallback) {
+          || !remoteOptions.remoteLocalFallback) {
         passRemoteOutErr(actionCache, result, actionExecutionContext.getFileOutErr());
         throw new UserExecException(status.getErrorDetail());
       }
@@ -323,14 +327,14 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
         stackTrace = "\n" + Throwables.getStackTraceAsString(e);
       }
       eventHandler.handle(Event.warn(mnemonic + " remote work failed (" + e + ")" + stackTrace));
-      if (options.remoteAllowLocalFallback) {
+      if (remoteOptions.remoteLocalFallback) {
         execLocally(spawn, actionExecutionContext, actionCache, actionKey);
       } else {
         throw new UserExecException(e);
       }
     } catch (CacheNotFoundException e) {
       eventHandler.handle(Event.warn(mnemonic + " remote work results cache miss (" + e + ")"));
-      if (options.remoteAllowLocalFallback) {
+      if (remoteOptions.remoteLocalFallback) {
         execLocally(spawn, actionExecutionContext, actionCache, actionKey);
       } else {
         throw new UserExecException(e);

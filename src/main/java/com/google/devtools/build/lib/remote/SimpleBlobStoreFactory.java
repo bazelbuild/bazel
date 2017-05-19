@@ -187,7 +187,7 @@ public final class SimpleBlobStoreFactory {
   }
 
   public static SimpleBlobStore createRest(RemoteOptions options) {
-    return new RestBlobStore(options.restCacheUrl);
+    return new RestBlobStore(options.remoteRestCache);
   }
 
   public static SimpleBlobStore create(RemoteOptions options) {
@@ -213,6 +213,6 @@ public final class SimpleBlobStoreFactory {
   }
 
   private static boolean isRestUrlOptions(RemoteOptions options) {
-    return options.restCacheUrl != null;
+    return options.remoteRestCache != null;
   }
 }

@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.remote.RemoteProtocol.Platform;
 import com.google.devtools.build.lib.remote.SimpleBlobStore;
 import com.google.devtools.build.lib.remote.SimpleBlobStoreActionCache;
 import com.google.devtools.build.lib.remote.SimpleBlobStoreFactory;
+import com.google.devtools.build.lib.runtime.AuthAndTLSOptions;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
@@ -64,6 +65,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.protobuf.Duration;
 import com.google.protobuf.util.Durations;
@@ -121,7 +123,8 @@ public class RemoteWorker {
   public Server startServer() throws IOException {
     NettyServerBuilder b =
         NettyServerBuilder.forPort(workerOptions.listenPort)
-            .maxMessageSize(ChannelOptions.create(remoteOptions).maxMessageSize())
+            .maxMessageSize(ChannelOptions.create(Options.getDefaults(AuthAndTLSOptions.class),
+                remoteOptions.grpcMaxChunkSizeBytes).maxMessageSize())
             .addService(casServer)
             .addService(execCacheServer);
     if (execServer != null) {

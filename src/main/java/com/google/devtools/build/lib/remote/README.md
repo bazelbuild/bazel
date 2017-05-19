@@ -18,7 +18,7 @@ execution support.
 
 This option is always needed to support distributed caching and remote execution.
 
-* ```build --spawn_strategy=remote --rest_cache_url=http://remote-cache:8080/cache```
+* ```build --spawn_strategy=remote --remote_rest_cache=http://remote-cache:8080/cache```
 
 This option enables distributed caching with a REST endpoint that supports GET, HEAD and PUT.
 
@@ -30,7 +30,7 @@ This option enables distributed caching using a gRPC content-addressable storage
 
 This option enables distributed caching using Hazelcast memory cluster as a content-addressable storage (CAS). Please watch for future announcement as this might be removed in favor of the REST endpoint.
 
-* ```build --spawn_strategy=remote --remote_worker=grpc-builder:5000 --remote_cache=grpc-builder:5000```
+* ```build --spawn_strategy=remote --remote_executor=grpc-builder:5000 --remote_cache=grpc-builder:5000```
 
 This option enables remote execution with a gRPC service at ```grpc-builder:5000```. Remote execution requires a distributed caching service, which is also at ```grpc-builder:5000```.
 
@@ -150,7 +150,7 @@ following options to enable distributed caching. Change `http://server-address:p
 one that you provide. You may also put the options in `~/.bazelrc`.
 
 ```
-build --spawn_strategy=remote --rest_cache_url=http://server-address:port/cache
+build --spawn_strategy=remote --remote_rest_cache=http://server-address:port/cache
 ```
 
 ### Distributed caching with gRPC CAS endpoint
@@ -261,5 +261,5 @@ memory cluster.
 
 Use the following build options.
 ```
-build --spawn_strategy=remote --remote_worker=localhost:8080 --remote_cache=localhost:8080
+build --spawn_strategy=remote --remote_executor=localhost:8080 --remote_cache=localhost:8080
 ```

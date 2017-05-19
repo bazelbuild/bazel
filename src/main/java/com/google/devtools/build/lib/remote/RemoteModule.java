@@ -19,6 +19,7 @@ import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
+import com.google.devtools.build.lib.runtime.AuthAndTLSOptions;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -67,7 +68,8 @@ public final class RemoteModule extends BlazeModule {
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
     return "build".equals(command.name())
-        ? ImmutableList.<Class<? extends OptionsBase>>of(RemoteOptions.class)
+        ? ImmutableList.<Class<? extends OptionsBase>>of(RemoteOptions.class,
+        AuthAndTLSOptions.class)
         : ImmutableList.<Class<? extends OptionsBase>>of();
   }
 }
