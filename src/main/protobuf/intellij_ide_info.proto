@@ -120,6 +120,7 @@ message TestInfo {
 message JavaToolchainIdeInfo {
   string source_version = 1;
   string target_version = 2;
+  ArtifactLocation javac_jar = 3;
 }
 
 message TargetKey {

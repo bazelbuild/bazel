@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.rules.SkylarkApiProvider;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -52,6 +53,18 @@ public final class JavaToolchainSkylarkApiProvider extends SkylarkApiProvider {
     JavaToolchainProvider javaToolchainProvider =
         getInfo().getProvider(JavaToolchainProvider.class);
     return javaToolchainProvider.getTargetVersion();
+  }
+
+  /** @return The {@link Artifact} of the javac jar */
+  @SkylarkCallable(
+      name = "javac_jar",
+      doc = "The javac jar.",
+      structField = true
+  )
+  public Artifact getJavacJar() {
+    JavaToolchainProvider javaToolchainProvider =
+        getInfo().getProvider(JavaToolchainProvider.class);
+    return javaToolchainProvider.getJavac();
   }
 
 }

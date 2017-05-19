@@ -544,9 +544,11 @@ def build_java_toolchain_ide_info(target):
   if not hasattr(target, "java_toolchain"):
     return None
   toolchain_info = target.java_toolchain
+  javac_jar_file = toolchain_info.javac_jar if hasattr(toolchain_info, "javac_jar") else None
   return struct_omit_none(
       source_version = toolchain_info.source_version,
       target_version = toolchain_info.target_version,
+      javac_jar = artifact_location(javac_jar_file),
   )
 
 ##### Main aspect function
