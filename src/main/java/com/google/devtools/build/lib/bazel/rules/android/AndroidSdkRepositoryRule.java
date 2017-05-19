@@ -105,7 +105,7 @@ public class AndroidSdkRepositoryRule implements RuleDefinition {
   }
 }
 
-/*<!-- #BLAZE_RULE (NAME=android_sdk_repository, TYPE=OTHER, FAMILY=Workspace)[GENERIC_RULE] -->
+/*<!-- #BLAZE_RULE (NAME = android_sdk_repository, TYPE = OTHER, FAMILY = Android) -->
 
 <p>Configures Bazel to use a local Android SDK to support building Android targets.</p>
 
