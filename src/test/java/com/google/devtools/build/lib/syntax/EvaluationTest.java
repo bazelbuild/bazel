@@ -322,6 +322,20 @@ public class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testFloorDivision() throws Exception {
+    newTest()
+        .testStatement("6 // 2", 3)
+        .testStatement("6 // 4", 1)
+        .testStatement("3 // 6", 0)
+        .testStatement("7 // -2", -4)
+        .testStatement("-7 // 2", -4)
+        .testStatement("-7 // -2", 3)
+        .testStatement("2147483647 // 2", 1073741823)
+        .testIfErrorContains("unsupported operand type(s) for /: 'string' and 'int'", "'str' / 2")
+        .testIfExactError("integer division by zero", "5 // 0");
+  }
+
+  @Test
   public void testOperatorPrecedence() throws Exception {
     newTest()
         .testStatement("2 + 3 * 4", 14)

@@ -134,6 +134,7 @@ public final class BinaryOperatorExpression extends Expression {
         return mult(lval, rval, env, location);
 
       case DIVIDE:
+      case FLOOR_DIVIDE:
         return divide(lval, rval, location);
 
       case PERCENT:

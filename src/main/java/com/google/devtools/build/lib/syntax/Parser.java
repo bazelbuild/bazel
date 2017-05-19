@@ -38,7 +38,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-
 /**
  * Recursive descent parser for LL(2) BUILD language.
  * Loosely based on Python 2 grammar.
@@ -159,6 +158,7 @@ public class Parser {
           .put(TokenKind.OR, Operator.OR)
           .put(TokenKind.PERCENT, Operator.PERCENT)
           .put(TokenKind.SLASH, Operator.DIVIDE)
+          .put(TokenKind.SLASH_SLASH, Operator.FLOOR_DIVIDE)
           .put(TokenKind.PLUS, Operator.PLUS)
           .put(TokenKind.PIPE, Operator.PIPE)
           .put(TokenKind.STAR, Operator.MULT)
@@ -171,6 +171,7 @@ public class Parser {
           .put(TokenKind.MINUS_EQUALS, Operator.MINUS)
           .put(TokenKind.STAR_EQUALS, Operator.MULT)
           .put(TokenKind.SLASH_EQUALS, Operator.DIVIDE)
+          .put(TokenKind.SLASH_SLASH_EQUALS, Operator.FLOOR_DIVIDE)
           .put(TokenKind.PERCENT_EQUALS, Operator.PERCENT)
           .build();
 
@@ -185,7 +186,7 @@ public class Parser {
           Operator.GREATER, Operator.GREATER_EQUALS, Operator.IN, Operator.NOT_IN),
       EnumSet.of(Operator.PIPE),
       EnumSet.of(Operator.MINUS, Operator.PLUS),
-      EnumSet.of(Operator.DIVIDE, Operator.MULT, Operator.PERCENT));
+      EnumSet.of(Operator.DIVIDE, Operator.FLOOR_DIVIDE, Operator.MULT, Operator.PERCENT));
 
   private final Iterator<Token> tokens;
   private int errorsCount;
@@ -1198,7 +1199,8 @@ public class Parser {
     if (token.kind == TokenKind.EQUALS) {
       nextToken();
       Expression rvalue = parseExpression();
-      return setLocation(new AssignmentStatement(expression, rvalue), start, rvalue);
+      return setLocation(
+          new AssignmentStatement(/*lvalue=*/ expression, /*expression=*/ rvalue), start, rvalue);
     } else if (augmentedAssignmentMethods.containsKey(token.kind)) {
       Operator operator = augmentedAssignmentMethods.get(token.kind);
       nextToken();
