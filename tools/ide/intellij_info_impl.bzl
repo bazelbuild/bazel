@@ -173,12 +173,13 @@ def replace_empty_path_with_dot(path):
 
 def sources_from_target(ctx):
   """Get the list of sources from a target as artifact locations."""
+  return artifacts_from_target_list_attr(ctx, "srcs")
 
-  if hasattr(ctx.rule.attr, "srcs"):
-    return [artifact_location(f)
-            for src in ctx.rule.attr.srcs
-            for f in src.files]
-  return []
+def artifacts_from_target_list_attr(ctx, attr_name):
+  """Converts a list of targets to a list of artifact locations."""
+  return [artifact_location(f)
+          for target in getattr(ctx.rule.attr, attr_name, [])
+          for f in target.files]
 
 def _collect_target_from_attr(rule_attrs, attr_name, result):
   """Collects the targets from the given attr into the result."""
@@ -266,7 +267,8 @@ def build_c_ide_info(target, ctx):
   if not hasattr(target, "cc"):
     return (None, set())
 
-  sources = sources_from_target(ctx)
+  sources = artifacts_from_target_list_attr(ctx, "srcs")
+  sources.extend(artifacts_from_target_list_attr(ctx, "hdrs"))
 
   target_includes = []
   if hasattr(ctx.rule.attr, "includes"):
