@@ -73,9 +73,9 @@ public final class SandboxOptionsTest extends SandboxTestCase {
       fail();
     } catch (OptionsParsingException e) {
       assertEquals(
-          e.getMessage(),
           "Input must be a single path to mount inside the sandbox or "
-              + "a mounting pair in the form of 'source:target'");
+              + "a mounting pair in the form of 'source:target'",
+          e.getMessage());
     }
   }
 

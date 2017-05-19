@@ -470,7 +470,7 @@ public abstract class FileSystemTest {
   public void testCreateDirectoryIsEmpty() throws Exception {
     Path newPath = xEmptyDirectory.getChild("new-dir");
     newPath.createDirectory();
-    assertEquals(newPath.getDirectoryEntries().size(), 0);
+    assertEquals(0, newPath.getDirectoryEntries().size());
   }
 
   @Test
@@ -512,7 +512,7 @@ public abstract class FileSystemTest {
   public void testCreateDirectoriesIsEmpty() throws Exception {
     Path newPath = absolutize("new-dir/sub/directory");
     FileSystemUtils.createDirectoryAndParents(newPath);
-    assertEquals(newPath.getDirectoryEntries().size(), 0);
+    assertEquals(0, newPath.getDirectoryEntries().size());
   }
 
   @Test
@@ -528,7 +528,7 @@ public abstract class FileSystemTest {
     Path newPath = xEmptyDirectory.getChild("new-file");
     FileSystemUtils.createEmptyFile(newPath);
 
-    assertEquals(newPath.getFileSize(), 0);
+    assertEquals(0, newPath.getFileSize());
   }
 
   @Test

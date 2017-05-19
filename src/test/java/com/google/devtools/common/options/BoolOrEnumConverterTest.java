@@ -55,15 +55,14 @@ public class BoolOrEnumConverterTest {
   @Test
   public void converterFromEnum() throws Exception {
     CompilationModeConverter converter = new CompilationModeConverter();
-    assertEquals(converter.convert("dbg"), CompilationMode.DBG);
-    assertEquals(converter.convert("opt"), CompilationMode.OPT);
+    assertEquals(CompilationMode.DBG, converter.convert("dbg"));
+    assertEquals(CompilationMode.OPT, converter.convert("opt"));
 
     try {
       converter.convert("none");
       fail();
     } catch (OptionsParsingException e) {
-      assertEquals(e.getMessage(),
-                   "Not a valid compilation mode: 'none' (should be dbg or opt)");
+      assertEquals("Not a valid compilation mode: 'none' (should be dbg or opt)", e.getMessage());
     }
     assertEquals("dbg or opt", converter.getTypeDescription());
   }

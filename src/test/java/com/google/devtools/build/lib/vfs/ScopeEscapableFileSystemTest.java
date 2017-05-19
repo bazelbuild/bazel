@@ -168,7 +168,7 @@ public abstract class ScopeEscapableFileSystemTest extends SymlinkAwareFileSyste
 
   // Checks that the semi-resolved path passed to the delegator matches the expected value.
   private void checkPath(TestDelegator delegator, PathFragment expectedDelegatedPath) {
-    assertEquals(delegator.lastPath(), expectedDelegatedPath);
+    assertEquals(expectedDelegatedPath, delegator.lastPath());
   }
 
   // Asserts that the condition is false and checks that the expected path was delegated.

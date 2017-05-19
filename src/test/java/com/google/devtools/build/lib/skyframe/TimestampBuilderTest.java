@@ -26,13 +26,11 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
-
+import java.util.Collection;
+import java.util.Collections;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.Collection;
-import java.util.Collections;
 
 /**
  * Test suite for TimestampBuilder.
@@ -73,7 +71,7 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
 
     counter.count = 0;
     buildArtifacts(amnesiacBuilder, hello, hello);
-    assertEquals(counter.count, 1); // built only once
+    assertEquals(1, counter.count); // built only once
   }
 
   @Test

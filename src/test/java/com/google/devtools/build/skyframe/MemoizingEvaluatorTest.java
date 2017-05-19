@@ -3423,7 +3423,7 @@ public class MemoizingEvaluatorTest {
     assertNull(nonNullValueMessage.get(), nonNullValueMessage.get());
 
     // And the SkyFunction for otherErrorKey was evaluated exactly once.
-    assertEquals(numOtherInvocations.get(), 1);
+    assertEquals(1, numOtherInvocations.get());
     assertNull(bogusInvocationMessage.get(), bogusInvocationMessage.get());
 
     // NB: The SkyFunction for otherErrorKey gets evaluated exactly once--it does not get

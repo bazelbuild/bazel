@@ -132,13 +132,13 @@ public class TypeTest {
       Type.BOOLEAN.convert(2, null);
       fail();
     } catch (Type.ConversionException e) {
-      assertEquals(e.getMessage(), "boolean is not one of [0, 1]");
+      assertEquals("boolean is not one of [0, 1]", e.getMessage());
     }
     try {
       Type.BOOLEAN.convert(-1, null);
       fail();
     } catch (Type.ConversionException e) {
-      assertEquals(e.getMessage(), "boolean is not one of [0, 1]");
+      assertEquals("boolean is not one of [0, 1]", e.getMessage());
     }
   }
 

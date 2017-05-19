@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
+
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.appendWithoutExtension;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.commonAncestor;
@@ -373,7 +374,7 @@ public class FileSystemUtilsTest {
     createTestDirectoryTree();
     String str = "this is a test of readContentWithLimit method";
     FileSystemUtils.writeContent(file1, StandardCharsets.ISO_8859_1, str);
-    assertEquals(readStringFromFile(file1, 0), "");
+    assertEquals("", readStringFromFile(file1, 0));
     assertEquals(readStringFromFile(file1, 10), str.substring(0, 10));
     assertEquals(readStringFromFile(file1, 1000000), str);
   }

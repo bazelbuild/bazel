@@ -28,12 +28,6 @@ import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Arrays;
@@ -42,6 +36,10 @@ import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.Inflater;
 import java.util.zip.InflaterInputStream;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Unit tests for the profiler.
@@ -133,17 +131,17 @@ public class ProfilerTest extends FoundationTestCase {
         count++;
       }
     }
-    assertEquals(count, 2); // only children are GENERIC and ACTION_CHECK
+    assertEquals(2, count); // only children are GENERIC and ACTION_CHECK
     assertEquals(task.aggregatedStats.toArray().length, ProfilerTask.TASK_COUNT);
-    assertEquals(task.aggregatedStats.getAttr(ProfilerTask.VFS_STAT).count, 2);
+    assertEquals(2, task.aggregatedStats.getAttr(ProfilerTask.VFS_STAT).count);
 
     task = info.allTasksById.get(2);
     assertThat(task.durationNanos).isEqualTo(0);
 
     task = info.allTasksById.get(3);
-    assertEquals(task.stats.getAttr(ProfilerTask.VFS_STAT).count, 2);
-    assertEquals(task.subtasks.length, 1);
-    assertEquals(task.subtasks[0].getDescription(), "stat2");
+    assertEquals(2, task.stats.getAttr(ProfilerTask.VFS_STAT).count);
+    assertEquals(1, task.subtasks.length);
+    assertEquals("stat2", task.subtasks[0].getDescription());
     // assert that startTime grows with id
     long time = -1;
     for (ProfileInfo.Task t : info.allTasksById) {
@@ -266,17 +264,17 @@ public class ProfilerTest extends FoundationTestCase {
     ProfileInfo info = ProfileInfo.loadProfile(cacheFile);
     info.calculateStats();
     info.analyzeRelationships();
-    assertEquals(info.allTasksById.size(), 4 + 10000 + 10000); // total number of tasks
-    assertEquals(info.tasksByThread.size(), 3); // total number of threads
+    assertEquals(4 + 10000 + 10000, info.allTasksById.size()); // total number of tasks
+    assertEquals(3, info.tasksByThread.size()); // total number of threads
     // while main thread had 3 tasks, 2 of them were nested, so tasksByThread
     // would contain only one "main task" task
-    assertEquals(info.tasksByThread.get(id).length, 2);
+    assertEquals(2, info.tasksByThread.get(id).length);
     ProfileInfo.Task mainTask = info.tasksByThread.get(id)[0];
-    assertEquals(mainTask.getDescription(), "main task");
-    assertEquals(mainTask.subtasks.length, 2);
+    assertEquals("main task", mainTask.getDescription());
+    assertEquals(2, mainTask.subtasks.length);
     // other threads had 10000 independent recorded tasks each
-    assertEquals(info.tasksByThread.get(id1).length, 10000);
-    assertEquals(info.tasksByThread.get(id2).length, 10000);
+    assertEquals(10000, info.tasksByThread.get(id1).length);
+    assertEquals(10000, info.tasksByThread.get(id2).length);
     int startId = mainTask.subtasks[0].id; // id of "starting threads"
     int endId = mainTask.subtasks[1].id; // id of "joining"
     assertTrue(startId < info.tasksByThread.get(id1)[0].id);

@@ -28,10 +28,10 @@ public class TestSizeTest {
 
   @Test
   public void testBasicConversion() {
-    assertEquals(TestSize.valueOf("SMALL"), TestSize.SMALL);
-    assertEquals(TestSize.valueOf("MEDIUM"), TestSize.MEDIUM);
-    assertEquals(TestSize.valueOf("LARGE"), TestSize.LARGE);
-    assertEquals(TestSize.valueOf("ENORMOUS"), TestSize.ENORMOUS);
+    assertEquals(TestSize.SMALL, TestSize.valueOf("SMALL"));
+    assertEquals(TestSize.MEDIUM, TestSize.valueOf("MEDIUM"));
+    assertEquals(TestSize.LARGE, TestSize.valueOf("LARGE"));
+    assertEquals(TestSize.ENORMOUS, TestSize.valueOf("ENORMOUS"));
   }
 
   @Test
