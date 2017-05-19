@@ -97,10 +97,10 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
           new Attribute("$protobuf_lib", Mode.TARGET), new Attribute("deps", Mode.TARGET));
 
   private static final Label JRE_CORE_LIB =
-      Label.parseAbsoluteUnchecked("//third_party/java/j2objc:jre_core_lib");
+      Label.parseAbsoluteUnchecked("@bazel_j2objc//:jre_core_lib");
 
   private static final Label JRE_EMUL_LIB =
-      Label.parseAbsoluteUnchecked("//third_party/java/j2objc:jre_emul_lib");
+      Label.parseAbsoluteUnchecked("@bazel_j2objc//:jre_emul_lib");
 
   private static final String PROTO_SOURCE_FILE_BLACKLIST_ATTR = "$j2objc_proto_blacklist";
 
@@ -133,7 +133,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
             .exec()
             .value(
                 Label.parseAbsoluteUnchecked(
-                    toolsRepository + "//third_party/java/j2objc:proto_plugin")));
+                    "@bazel_j2objc//:proto_plugin")));
   }
 
   /** Returns whether this aspect should generate J2ObjC protos from this proto rule */
@@ -193,7 +193,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                 .cfg(HOST)
                 .value(
                     Label.parseAbsoluteUnchecked(
-                        toolsRepository + "//third_party/java/j2objc:jre_emul.jar")))
+                        "@bazel_j2objc//:jre_emul.jar")))
         .add(
             attr(":dead_code_report", LABEL)
                 .cfg(HOST)
@@ -201,7 +201,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         .add(attr(":jre_lib", LABEL).value(JRE_LIB))
         .add(
             attr("$protobuf_lib", LABEL)
-                .value(Label.parseAbsoluteUnchecked("//third_party/java/j2objc:proto_runtime")))
+                .value(Label.parseAbsoluteUnchecked("@bazel_j2objc//:proto_runtime")))
         .add(
             attr("$xcrunwrapper", LABEL)
                 .cfg(HOST)
