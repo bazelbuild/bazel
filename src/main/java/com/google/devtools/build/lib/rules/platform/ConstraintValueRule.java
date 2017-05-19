@@ -40,7 +40,7 @@ public class ConstraintValueRule implements RuleDefinition {
                 .value(ImmutableList.of("manual"))
                 .nonconfigurable("low-level attribute, used in platform configuration"))
 
-        /* <!-- #BLAZE_RULE(constraint_value).ATTRIBUTE(constraint) -->
+        /* <!-- #BLAZE_RULE(constraint_value).ATTRIBUTE(constraint_setting) -->
         The constraint_setting rule this value is applied to.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
