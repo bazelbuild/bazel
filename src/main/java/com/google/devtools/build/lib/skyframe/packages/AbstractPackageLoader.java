@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.packages;
 
-import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -113,6 +113,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
   protected final CachingPackageLocator packageManager;
   protected final BlazeDirectories directories;
   private final int legacyGlobbingThreads;
+  private final int skyframeThreads;
 
   /** Abstract base class of a builder for {@link PackageLoader} instances. */
   public abstract static class Builder {
@@ -123,6 +124,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     protected ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues = ImmutableList.of();
     protected String defaultsPackageContents = getDefaultDefaulsPackageContents();
     protected int legacyGlobbingThreads = 1;
+    int skyframeThreads = 1;
 
     protected Builder(Path workspaceDir) {
       this.workspaceDir = workspaceDir;
@@ -160,6 +162,11 @@ public abstract class AbstractPackageLoader implements PackageLoader {
       return this;
     }
 
+    public Builder setSkyframeThreads(int skyframeThreads) {
+      this.skyframeThreads = skyframeThreads;
+      return this;
+    }
+
     public abstract PackageLoader build();
 
     protected abstract RuleClassProvider getDefaultRuleClassProvider();
@@ -176,6 +183,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     this.extraSkyFunctions = builder.extraSkyFunctions;
     this.pkgLocatorRef = new AtomicReference<>(pkgLocator);
     this.legacyGlobbingThreads = builder.legacyGlobbingThreads;
+    this.skyframeThreads = builder.skyframeThreads;
 
     // The 'installBase' and 'outputBase' directories won't be meaningfully used by
     // WorkspaceFileFunction, so we pass in a dummy Path.
@@ -234,34 +242,57 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     return new ImmutableDiff(ImmutableList.<SkyKey>of(), valuesToInject);
   }
 
-  /**
-   * Returns a {@link Package} instance, if any, representing the Blaze package specified by
-   * {@code pkgId}. Note that the returned {@link Package} instance may be in error (see
-   * {@link Package#containsErrors}), e.g. if there was syntax error in the package's BUILD file.
-   *
-   * @throws InterruptedException if the package loading was interrupted.
-   * @throws NoSuchPackageException if there was a non-recoverable error loading the package, e.g.
-   *     an io error reading the BUILD file.
-   */
   @Override
-  public Package loadPackage(PackageIdentifier pkgId) throws NoSuchPackageException,
-      InterruptedException {
-    SkyKey key = PackageValue.key(pkgId);
-    EvaluationResult<PackageValue> result =
-        makeFreshDriver()
-            .evaluate(ImmutableList.of(key), /*keepGoing=*/ true, /*numThreads=*/ 1, reporter);
-    if (result.hasError()) {
-      ErrorInfo error = result.getError();
-      if (!Iterables.isEmpty(error.getCycleInfo())) {
-        throw new BuildFileContainsErrorsException(
-            pkgId, "Cycle encountered while loading package " + pkgId);
-      }
-      Throwable e = Preconditions.checkNotNull(error.getException());
-      throwIfInstanceOf(e, NoSuchPackageException.class);
-      throw new IllegalStateException("Unexpected Exception type from PackageValue for '"
-          + pkgId + "'' with root causes: " + Iterables.toString(error.getRootCauses()), e);
+  public Package loadPackage(PackageIdentifier pkgId)
+      throws NoSuchPackageException, InterruptedException {
+    return loadPackages(ImmutableList.of(pkgId)).get(pkgId).get();
+  }
+
+  @Override
+  public ImmutableMap<PackageIdentifier, PackageLoader.PackageOrException> loadPackages(
+      Iterable<PackageIdentifier> pkgIds) throws InterruptedException {
+    ImmutableList.Builder<SkyKey> keysBuilder = ImmutableList.builder();
+    for (PackageIdentifier pkgId : pkgIds) {
+      keysBuilder.add(PackageValue.key(pkgId));
     }
-    return result.get(key).getPackage();
+    ImmutableList<SkyKey> keys = keysBuilder.build();
+
+    EvaluationResult<PackageValue> evalResult =
+        makeFreshDriver().evaluate(keys, /*keepGoing=*/ true, skyframeThreads, reporter);
+
+    ImmutableMap.Builder<PackageIdentifier, PackageLoader.PackageOrException> result =
+        ImmutableMap.builder();
+    for (SkyKey key : keys) {
+      ErrorInfo error = evalResult.getError(key);
+      PackageValue packageValue = evalResult.get(key);
+      checkState((error == null) != (packageValue == null));
+      PackageIdentifier pkgId = (PackageIdentifier) key.argument();
+      result.put(
+          pkgId,
+          error != null
+              ? new PackageOrException(null, exceptionFromErrorInfo(error, pkgId))
+              : new PackageOrException(packageValue.getPackage(), null));
+    }
+
+    return result.build();
+  }
+
+  private static NoSuchPackageException exceptionFromErrorInfo(
+      ErrorInfo error, PackageIdentifier pkgId) {
+    if (!Iterables.isEmpty(error.getCycleInfo())) {
+      return new BuildFileContainsErrorsException(
+          pkgId, "Cycle encountered while loading package " + pkgId);
+    }
+    Throwable e = Preconditions.checkNotNull(error.getException());
+    if (e instanceof NoSuchPackageException) {
+      return (NoSuchPackageException) e;
+    }
+    throw new IllegalStateException(
+        "Unexpected Exception type from PackageValue for '"
+            + pkgId
+            + "'' with root causes: "
+            + Iterables.toString(error.getRootCauses()),
+        e);
   }
 
   private BuildDriver makeFreshDriver() {

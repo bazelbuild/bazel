@@ -19,6 +19,8 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertNoEvents;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Reporter;
@@ -85,6 +87,25 @@ public abstract class AbstractPackageLoaderTest {
     assertThat(
         goodPkg.getTarget("good").getAssociatedRule().getRuleClass()).isEqualTo("sh_library");
     assertNoEvents(goodPkg.getEvents());
+    assertNoEvents(handler.getEvents());
+  }
+
+  @Test
+  public void simpleMultipleGoodPackage() throws Exception {
+    file("good1/BUILD", "sh_library(name = 'good1')");
+    file("good2/BUILD", "sh_library(name = 'good2')");
+    PackageIdentifier pkgId1 = PackageIdentifier.createInMainRepo(PathFragment.create("good1"));
+    PackageIdentifier pkgId2 = PackageIdentifier.createInMainRepo(PathFragment.create("good2"));
+    ImmutableMap<PackageIdentifier, PackageLoader.PackageOrException> pkgs =
+        pkgLoader.loadPackages(ImmutableList.of(pkgId1, pkgId2));
+    assertThat(pkgs.get(pkgId1).get().containsErrors()).isFalse();
+    assertThat(pkgs.get(pkgId2).get().containsErrors()).isFalse();
+    assertThat(pkgs.get(pkgId1).get().getTarget("good1").getAssociatedRule().getRuleClass())
+        .isEqualTo("sh_library");
+    assertThat(pkgs.get(pkgId2).get().getTarget("good2").getAssociatedRule().getRuleClass())
+        .isEqualTo("sh_library");
+    assertNoEvents(pkgs.get(pkgId1).get().getEvents());
+    assertNoEvents(pkgs.get(pkgId2).get().getEvents());
     assertNoEvents(handler.getEvents());
   }
 

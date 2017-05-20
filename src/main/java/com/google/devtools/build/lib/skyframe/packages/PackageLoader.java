@@ -13,12 +13,54 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.packages;
 
+import static com.google.common.base.Preconditions.checkState;
+
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
+import javax.annotation.Nullable;
 
 /** A standalone library for performing Bazel package loading. */
 public interface PackageLoader {
-  /** Loads and returns the specified package. */
+  /**
+   * Returns a {@link Package} instance, if any, representing the Blaze package specified by {@code
+   * pkgId}. Note that the returned {@link Package} instance may be in error (see {@link
+   * Package#containsErrors}), e.g. if there was syntax error in the package's BUILD file.
+   *
+   * @throws InterruptedException if the package loading was interrupted.
+   * @throws NoSuchPackageException if there was a non-recoverable error loading the package, e.g.
+   *     an io error reading the BUILD file.
+   */
   Package loadPackage(PackageIdentifier pkgId) throws NoSuchPackageException, InterruptedException;
+
+  /**
+   * Returns {@link Package} instances, if any, representing Blaze packages specified by {@code
+   * pkgIds}. Note that returned {@link Package} instances may be in error (see {@link
+   * Package#containsErrors}), e.g. if there was syntax error in the package's BUILD file.
+   */
+  ImmutableMap<PackageIdentifier, PackageOrException> loadPackages(
+      Iterable<PackageIdentifier> pkgIds) throws InterruptedException;
+
+  class PackageOrException {
+    private final Package pkg;
+    private final NoSuchPackageException exception;
+
+    PackageOrException(@Nullable Package pkg, @Nullable NoSuchPackageException exception) {
+      checkState((pkg == null) != (exception == null));
+      this.pkg = pkg;
+      this.exception = exception;
+    }
+
+    /**
+     * @throws NoSuchPackageException if there was a non-recoverable error loading the package, e.g.
+     *     an io error reading the BUILD file.
+     */
+    Package get() throws NoSuchPackageException {
+      if (pkg != null) {
+        return pkg;
+      }
+      throw exception;
+    }
+  }
 }

@@ -626,6 +626,7 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:invocation_policy_java_proto",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
