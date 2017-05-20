@@ -170,6 +170,7 @@ public final class SimpleBlobStoreFactory {
         HttpClient client = new DefaultHttpClient();
         HttpPut put = new HttpPut(baseUrl + "/" + key);
         put.setEntity(new ByteArrayEntity(value));
+        put.setHeader("Content-Type", "application/octet-stream");
         HttpResponse response = client.execute(put);
         int statusCode = response.getStatusLine().getStatusCode();
 
