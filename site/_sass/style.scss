@@ -552,3 +552,11 @@ dd {
     box-sizing: content-box !important;
   }
 }
+
+.gh-edit {
+  float: right;
+}
+
+.gh-edit.default-hidden {
+  visibility: hidden;
+}
