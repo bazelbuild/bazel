@@ -576,7 +576,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .setZipalignApk(true)
         .registerActions(ruleContext, androidSemantics);
 
-    // Don't add blacklistedApk, so it's only built if explicitly requested.
     filesBuilder.add(binaryJar);
     filesBuilder.add(unsignedApk);
     filesBuilder.add(zipAlignedApk);
