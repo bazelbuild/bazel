@@ -105,6 +105,20 @@ public class TestAspects {
   }
 
   /**
+   * A transitive info provider used as sentinel. Created by aspects.
+   */
+  @Immutable
+  public static final class FooProvider implements TransitiveInfoProvider {
+  }
+
+  /**
+   * A transitive info provider used as sentinel. Created by aspects.
+   */
+  @Immutable
+  public static final class BarProvider implements TransitiveInfoProvider {
+  }
+
+  /**
    * A transitive info provider for collecting aspects in the transitive closure. Created by
    * rules.
    */
@@ -198,6 +212,37 @@ public class TestAspects {
   }
 
   /**
+   * A simple rule configured target factory that expects different providers added through
+   * different aspects.
+   */
+  public static class MultiAspectRuleFactory implements RuleConfiguredTargetFactory {
+    @Override
+    public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
+      TransitiveInfoCollection fooAttribute = ruleContext.getPrerequisite("foo", Mode.DONT_CHECK);
+      TransitiveInfoCollection barAttribute = ruleContext.getPrerequisite("bar", Mode.DONT_CHECK);
+
+      NestedSetBuilder<String> infoBuilder = NestedSetBuilder.<String>stableOrder();
+
+      if (fooAttribute.getProvider(FooProvider.class) != null) {
+        infoBuilder.add("foo");
+      }
+      if (barAttribute.getProvider(BarProvider.class) != null) {
+        infoBuilder.add("bar");
+      }
+
+      RuleConfiguredTargetBuilder builder =
+          new RuleConfiguredTargetBuilder(ruleContext)
+              .addProvider(
+                  new RuleInfo(infoBuilder.build()))
+              .setFilesToBuild(NestedSetBuilder.<Artifact>create(Order.STABLE_ORDER))
+              .setRunfilesSupport(null, null)
+              .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY));
+
+      return builder.build();
+    }
+  }
+
+  /**
    * A base class for mock aspects to reduce boilerplate.
    */
   public abstract static class BaseAspect extends NativeAspectClass
@@ -217,8 +262,16 @@ public class TestAspects {
   }
 
   public static final SimpleAspect SIMPLE_ASPECT = new SimpleAspect();
+  public static final FooProviderAspect FOO_PROVIDER_ASPECT = new FooProviderAspect();
+  public static final BarProviderAspect BAR_PROVIDER_ASPECT = new BarProviderAspect();
+
   private static final AspectDefinition SIMPLE_ASPECT_DEFINITION =
       new AspectDefinition.Builder(SIMPLE_ASPECT).build();
+
+  private static final AspectDefinition FOO_PROVIDER_ASPECT_DEFINITION =
+      new AspectDefinition.Builder(FOO_PROVIDER_ASPECT).build();
+  private static final AspectDefinition BAR_PROVIDER_ASPECT_DEFINITION =
+      new AspectDefinition.Builder(BAR_PROVIDER_ASPECT).build();
 
   /**
    * A very simple aspect.
@@ -227,6 +280,44 @@ public class TestAspects {
     @Override
     public AspectDefinition getDefinition(AspectParameters aspectParameters) {
       return SIMPLE_ASPECT_DEFINITION;
+    }
+  }
+
+  /**
+   * A simple aspect that propagates a FooProvider provider.
+   */
+  public static class FooProviderAspect extends NativeAspectClass
+      implements ConfiguredAspectFactory {
+    @Override
+    public AspectDefinition getDefinition(AspectParameters aspectParameters) {
+      return FOO_PROVIDER_ASPECT_DEFINITION;
+    }
+
+    @Override
+    public ConfiguredAspect create(
+        ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters) {
+      return new ConfiguredAspect.Builder(this, parameters, ruleContext)
+          .addProvider(new FooProvider())
+          .build();
+    }
+  }
+
+  /**
+   * A simple aspect that propagates a BarProvider provider.
+   */
+  public static class BarProviderAspect extends NativeAspectClass
+      implements ConfiguredAspectFactory{
+    @Override
+    public AspectDefinition getDefinition(AspectParameters aspectParameters) {
+      return BAR_PROVIDER_ASPECT_DEFINITION;
+    }
+
+    @Override
+    public ConfiguredAspect create(
+        ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters) {
+      return new ConfiguredAspect.Builder(this, parameters, ruleContext)
+          .addProvider(new BarProvider())
+          .build();
     }
   }
 
@@ -528,6 +619,33 @@ public class TestAspects {
       return RuleDefinition.Metadata.builder()
           .name("aspect")
           .factoryClass(DummyRuleFactory.class)
+          .ancestors(BaseRule.class)
+          .build();
+    }
+  }
+
+  /**
+   * A rule that defines different aspects on different attributes.
+   */
+  public static class MultiAspectRule implements RuleDefinition {
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+      return builder
+          .add(attr("foo", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE)
+              .mandatory()
+              .aspect(FOO_PROVIDER_ASPECT))
+          .add(attr("bar", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE)
+              .mandatory()
+              .aspect(BAR_PROVIDER_ASPECT))
+          .build();
+
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("multi_aspect")
+          .factoryClass(MultiAspectRuleFactory.class)
           .ancestors(BaseRule.class)
           .build();
     }

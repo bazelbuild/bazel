@@ -376,6 +376,18 @@ public class AspectTest extends AnalysisTestCase {
   }
 
   @Test
+  public void sameTargetInDifferentAttributesWithDifferentAspects() throws Exception {
+    setRulesAvailableInTests(new TestAspects.BaseRule(), new TestAspects.MultiAspectRule(),
+        new TestAspects.SimpleRule());
+    pkg("a",
+        "multi_aspect(name='a', foo=':b', bar=':b')",
+        "simple(name='b')");
+
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
+    assertThat(a.getProvider(RuleInfo.class).getData()).containsExactly("foo", "bar");
+  }
+
+  @Test
   public void informationFromBaseRulePassedToAspect() throws Exception {
     setRulesAvailableInTests(new TestAspects.BaseRule(), new TestAspects.HonestRule(),
         new TestAspects.AspectRequiringProviderRule());

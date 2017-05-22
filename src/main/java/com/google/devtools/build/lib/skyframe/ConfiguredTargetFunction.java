@@ -866,6 +866,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
       NestedSetBuilder<Package> transitivePackages)
       throws AspectCreationException, InterruptedException {
     OrderedSetMultimap<SkyKey, ConfiguredAspect> result = OrderedSetMultimap.create();
+    OrderedSetMultimap<SkyKey, SkyKey> processedAspects = OrderedSetMultimap.create();
     Set<SkyKey> allAspectKeys = new HashSet<>();
     for (Dependency dep : deps) {
       allAspectKeys.addAll(getAspectKeys(dep).values());
@@ -877,16 +878,16 @@ final class ConfiguredTargetFunction implements SkyFunction {
 
     for (Dependency dep : deps) {
       SkyKey depKey = TO_KEYS.apply(dep);
-      // If the same target was declared in different attributes of rule, we should not process it
-      // twice.
-      if (result.containsKey(depKey)) {
-        continue;
-      }
       Map<AspectDescriptor, SkyKey> aspectToKeys = getAspectKeys(dep);
 
       ConfiguredTarget depConfiguredTarget = configuredTargetMap.get(depKey);
       for (AspectDeps depAspect : dep.getAspects().getVisibleAspects()) {
         SkyKey aspectKey = aspectToKeys.get(depAspect.getAspect());
+        // Skip if the aspect was already applied to the target (perhaps through different
+        // attributes).
+        if (!processedAspects.put(depKey, aspectKey)) {
+          continue;
+        }
 
         AspectValue aspectValue;
         try {
