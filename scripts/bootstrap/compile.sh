@@ -164,7 +164,7 @@ the protoc compiler (as we prefer not to version generated files).
   compile.sh on the unpacked archive.
 
 The full install instructions to install a release version of bazel can be found
-at https://bazel.build/versions/master/docs/install.html#compiling-from-source
+at https://bazel.build/versions/master/docs/install-compile-source.html
 For a rationale, why the bootstrap process is organized in this way, see
 https://bazel.build/designs/2016/10/11/distribution-artifact.html
 --------------------------------------------------------------------------------
