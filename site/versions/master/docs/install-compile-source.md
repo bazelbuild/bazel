@@ -14,6 +14,9 @@ title: Compile Bazel from Source
    [release page](https://github.com/bazelbuild/bazel/releases) for the desired
    version. We recommend to also verify the signature made by our
    [release key](https://bazel.build/bazel-release.pub.gpg) 48457EE0.
+   The distribution archive also contains generated files in addition to the
+   versioned sources, so this step _cannot_ be short cut by using a checkout
+   of the source tree.
 
 3. Unzip the archive and call `bash ./compile.sh`; this will create a bazel
    binary in `output/bazel`. This binary is self-contained, so it can be copied
