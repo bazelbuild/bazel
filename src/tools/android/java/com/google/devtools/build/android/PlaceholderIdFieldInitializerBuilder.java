@@ -31,7 +31,6 @@ import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
@@ -327,7 +326,7 @@ class PlaceholderIdFieldInitializerBuilder {
   }
 
   public FieldInitializers build() throws AttrLookupException {
-    Map<ResourceType, Collection<FieldInitializer>> initializers =
+    Map<ResourceType, Map<String, FieldInitializer>> initializers =
         new EnumMap<>(ResourceType.class);
     Map<ResourceType, Integer> typeIdMap = chooseTypeIds();
     Map<String, Integer> attrAssignments = assignAttrIds(typeIdMap.get(ResourceType.ATTR));
@@ -335,7 +334,7 @@ class PlaceholderIdFieldInitializerBuilder {
       ResourceType type = fieldEntries.getKey();
       ImmutableList<String> sortedFields =
           Ordering.natural().immutableSortedCopy(fieldEntries.getValue());
-      List<FieldInitializer> fields;
+      Map<String, FieldInitializer> fields;
       if (type == ResourceType.STYLEABLE) {
         fields = getStyleableInitializers(attrAssignments, sortedFields);
       } else if (type == ResourceType.ATTR) {
@@ -379,19 +378,19 @@ class PlaceholderIdFieldInitializerBuilder {
     return allocatedTypeIds;
   }
 
-  private List<FieldInitializer> getAttrInitializers(
+  private Map<String, FieldInitializer> getAttrInitializers(
       Map<String, Integer> attrAssignments, Collection<String> sortedFields) {
-    ImmutableList.Builder<FieldInitializer> initList = ImmutableList.builder();
+    ImmutableMap.Builder<String, FieldInitializer> initList = ImmutableMap.builder();
     for (String field : sortedFields) {
       int attrId = attrAssignments.get(field);
-      initList.add(new IntFieldInitializer(field, attrId));
+      initList.put(field, IntFieldInitializer.of(attrId));
     }
     return initList.build();
   }
 
-  private List<FieldInitializer> getResourceInitializers(
+  private Map<String, FieldInitializer> getResourceInitializers(
       ResourceType type, int typeId, Collection<String> sortedFields) {
-    ImmutableList.Builder<FieldInitializer> initList = ImmutableList.builder();
+    ImmutableMap.Builder<String, FieldInitializer> initList = ImmutableMap.builder();
     Map<String, Integer> publicNameToId = new HashMap<>();
     Set<Integer> assignedIds = ImmutableSet.of();
     if (publicIds.containsKey(type)) {
@@ -404,15 +403,15 @@ class PlaceholderIdFieldInitializerBuilder {
         fieldValue = resourceIds;
         resourceIds = nextFreeId(resourceIds + 1, assignedIds);
       }
-      initList.add(new IntFieldInitializer(field, fieldValue));
+      initList.put(field, IntFieldInitializer.of(fieldValue));
     }
     return initList.build();
   }
 
-  private List<FieldInitializer> getStyleableInitializers(
+  private Map<String, FieldInitializer> getStyleableInitializers(
       Map<String, Integer> attrAssignments, Collection<String> styleableFields)
       throws AttrLookupException {
-    ImmutableList.Builder<FieldInitializer> initList = ImmutableList.builder();
+    ImmutableMap.Builder<String, FieldInitializer> initList = ImmutableMap.builder();
     for (String field : styleableFields) {
       Set<String> attrs = styleableAttrs.get(field).keySet();
       ImmutableMap.Builder<String, Integer> arrayInitValues = ImmutableMap.builder();
@@ -432,10 +431,10 @@ class PlaceholderIdFieldInitializerBuilder {
       // Make sure that if we have android: framework attributes, their IDs are listed first.
       ImmutableMap<String, Integer> arrayInitMap =
           arrayInitValues.orderEntriesByValue(Ordering.<Integer>natural()).build();
-      initList.add(new IntArrayFieldInitializer(field, arrayInitMap.values()));
+      initList.put(field, IntArrayFieldInitializer.of(arrayInitMap.values()));
       int index = 0;
       for (String attr : arrayInitMap.keySet()) {
-        initList.add(new IntFieldInitializer(field + "_" + attr, index));
+        initList.put(field + "_" + attr, IntFieldInitializer.of(index));
         ++index;
       }
     }

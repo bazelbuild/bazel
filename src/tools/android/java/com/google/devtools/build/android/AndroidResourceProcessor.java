@@ -42,7 +42,6 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.RevisionConverter;
 import com.google.devtools.build.android.SplitConfigurationFilter.UnrecognizedSplitsException;
-import com.google.devtools.build.android.resources.RClassGenerator;
 import com.google.devtools.build.android.resources.ResourceSymbols;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
@@ -530,28 +529,8 @@ public class AndroidResourceProcessor {
       // Loop on all the package name, merge all the symbols to write, and write.
       for (String packageName : libSymbolMap.keySet()) {
         Collection<ResourceSymbols> symbols = libSymbolMap.get(packageName);
-        fullSymbolValues.writeTo(sourceOut, packageName, symbols, true /* finalFields */);
+        fullSymbolValues.writeSourcesTo(sourceOut, packageName, symbols, true /* finalFields */);
       }
-    }
-  }
-
-  void writePackageRClasses(
-      Multimap<String, ResourceSymbols> libMap,
-      ResourceSymbols fullSymbolValues,
-      @Nullable String appPackageName,
-      Path classesOut,
-      boolean finalFields)
-      throws IOException {
-    RClassGenerator classWriter =
-        RClassGenerator.fromSymbols(classesOut, fullSymbolValues, finalFields);
-    for (String packageName : libMap.keySet()) { 
-      classWriter.write(
-          packageName, ResourceSymbols.merge(libMap.get(packageName)).asInitializers());
-    }
-    if (appPackageName != null) {
-      // Unlike the R.java generation, we also write the app's R.class file so that the class
-      // jar file can be complete (aapt doesn't generate it for us).
-      classWriter.write(appPackageName);
     }
   }
 

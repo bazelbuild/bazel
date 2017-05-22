@@ -18,8 +18,6 @@ import com.android.builder.dependency.SymbolFileProvider;
 import com.android.resources.ResourceType;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
-import com.google.common.collect.MultimapBuilder;
-import com.google.common.collect.SortedSetMultimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import java.io.File;
@@ -27,12 +25,15 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.TreeMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.logging.Logger;
@@ -55,8 +56,8 @@ public class ResourceSymbols {
     public ResourceSymbols call() throws Exception {
       List<String> lines = Files.readAllLines(rTxtSymbols, StandardCharsets.UTF_8);
 
-      final SortedSetMultimap<ResourceType, FieldInitializer> initializers =
-          MultimapBuilder.enumKeys(ResourceType.class).treeSetValues().build();
+      Map<ResourceType, Map<String, FieldInitializer>> initializers =
+          new EnumMap<>(ResourceType.class);
 
       for (int lineIndex = 1; lineIndex <= lines.size(); lineIndex++) {
         String line = null;
@@ -74,10 +75,17 @@ public class ResourceSymbols {
           String value = line.substring(pos3 + 1);
 
           final ResourceType resourceType = ResourceType.getEnum(className);
-          if ("int".equals(type)) {
-            initializers.put(resourceType, IntFieldInitializer.of(name, value));
+          final Map<String, FieldInitializer> fields;
+          if (initializers.containsKey(resourceType)) {
+            fields = initializers.get(resourceType);
           } else {
-            initializers.put(resourceType, IntArrayFieldInitializer.of(name, value));
+            fields = new TreeMap<>();
+            initializers.put(resourceType, fields);
+          }
+          if ("int".equals(type)) {
+            fields.put(name, IntFieldInitializer.of(value));
+          } else {
+            fields.put(name, IntArrayFieldInitializer.of(value));
           }
         } catch (IndexOutOfBoundsException e) {
           String s =
@@ -88,7 +96,7 @@ public class ResourceSymbols {
           throw new IOException(s, e);
         }
       }
-      return ResourceSymbols.from(FieldInitializers.copyOf(initializers.asMap()));
+      return ResourceSymbols.from(FieldInitializers.copyOf(initializers));
     }
   }
 
@@ -141,15 +149,11 @@ public class ResourceSymbols {
   }
 
   public static ResourceSymbols merge(Collection<ResourceSymbols> symbolTables) {
-    final SortedSetMultimap<ResourceType, FieldInitializer> initializers =
-        MultimapBuilder.enumKeys(ResourceType.class).treeSetValues().build();
+    List<FieldInitializers> fieldInitializers = new ArrayList<>(symbolTables.size());
     for (ResourceSymbols symbolTableProvider : symbolTables) {
-      for (Entry<ResourceType, Collection<FieldInitializer>> entry :
-          symbolTableProvider.asInitializers()) {
-        initializers.putAll(entry.getKey(), entry.getValue());
-      }
+      fieldInitializers.add(symbolTableProvider.asInitializers());
     }
-    return from(FieldInitializers.copyOf(initializers.asMap()));
+    return from(FieldInitializers.mergedFrom(fieldInitializers));
   }
 
   /** Read the symbols from the provided symbol file. */
@@ -173,7 +177,7 @@ public class ResourceSymbols {
    * @param finalFields
    * @throws IOException when encountering an error during writing.
    */
-  public void writeTo(
+  public void writeSourcesTo(
       Path sourceOut,
       String packageName,
       Collection<ResourceSymbols> packageSymbols,
@@ -187,4 +191,20 @@ public class ResourceSymbols {
     return values;
   }
 
+  public void writeClassesTo(
+      Multimap<String, ResourceSymbols> libMap,
+      String appPackageName,
+      Path classesOut,
+      boolean finalFields)
+      throws IOException {
+    RClassGenerator classWriter = RClassGenerator.with(classesOut, values, finalFields);
+    for (String packageName : libMap.keySet()) {
+      classWriter.write(packageName, ResourceSymbols.merge(libMap.get(packageName)).values);
+    }
+    if (appPackageName != null) {
+      // Unlike the R.java generation, we also write the app's R.class file so that the class
+      // jar file can be complete (aapt doesn't generate it for us).
+      classWriter.write(appPackageName);
+    }
+  }
 }

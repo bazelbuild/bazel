@@ -20,9 +20,7 @@ import com.google.common.collect.Iterables;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import org.objectweb.asm.ClassWriter;
@@ -45,18 +43,6 @@ public class RClassGenerator {
   private final boolean finalFields;
   private static final Splitter PACKAGE_SPLITTER = Splitter.on('.');
 
-  /**
-   * Create an RClassGenerator initialized with the ResourceSymbols values.
-   *
-   * @param outFolder base folder to place the output R class files.
-   * @param values the final symbol values
-   * @param finalFields true if the fields should be marked final
-   */
-  public static RClassGenerator fromSymbols(
-      Path outFolder, ResourceSymbols values, boolean finalFields) {
-    return with(outFolder, values.asInitializers(), finalFields);
-  }
- 
   /**
    * Create an RClassGenerator given a collection of initializers.
    *
@@ -82,17 +68,17 @@ public class RClassGenerator {
   public void write(String packageName, FieldInitializers symbolsToWrite) throws IOException {
     writeClasses(packageName, initializers.filter(symbolsToWrite));
   }
-  
+
   /** Builds bytecode and writes out R.class file, and R$inner.class files for provided package. */
   public void write(String packageName) throws IOException {
     writeClasses(packageName, initializers);
   }
-  
+
   private void writeClasses(
       String packageName,
-      Iterable<Entry<ResourceType, Collection<FieldInitializer>>> initializersToWrite)
+      Iterable<Entry<ResourceType, Map<String, FieldInitializer>>> initializersToWrite)
       throws IOException {
-    
+
     Iterable<String> folders = PACKAGE_SPLITTER.split(packageName);
     Path packageDir = outFolder;
     for (String folder : folders) {
@@ -101,11 +87,11 @@ public class RClassGenerator {
     // At least create the outFolder that was requested. However, if there are no symbols, don't
     // create the R.class and inner class files (no need to have an empty class).
     Files.createDirectories(packageDir);
-     
+
     if (Iterables.isEmpty(initializersToWrite)) {
       return;
     }
-    
+
     Path rClassFile = packageDir.resolve(SdkConstants.FN_COMPILED_RESOURCE_CLASS);
 
     String packageWithSlashes = packageName.replaceAll("\\.", "/");
@@ -121,7 +107,7 @@ public class RClassGenerator {
     classWriter.visitSource(SdkConstants.FN_RESOURCE_CLASS, null);
     writeConstructor(classWriter);
     // Build the R.class w/ the inner classes, then later build the individual R$inner.class.
-    for (Entry<ResourceType, Collection<FieldInitializer>> entry : initializersToWrite) {
+    for (Entry<ResourceType, Map<String, FieldInitializer>> entry : initializersToWrite) {
       String innerClassName = rClassName + "$" + entry.getKey().toString();
       classWriter.visitInnerClass(
           innerClassName,
@@ -132,13 +118,13 @@ public class RClassGenerator {
     classWriter.visitEnd();
     Files.write(rClassFile, classWriter.toByteArray());
     // Now generate the R$inner.class files.
-    for (Map.Entry<ResourceType, Collection<FieldInitializer>> entry : initializersToWrite) {
+    for (Map.Entry<ResourceType, Map<String, FieldInitializer>> entry : initializersToWrite) {
       writeInnerClass(entry.getValue(), packageDir, rClassName, entry.getKey().toString());
     }
   }
 
   private void writeInnerClass(
-      Collection<FieldInitializer> initializers,
+      Map<String, FieldInitializer> initializers,
       Path packageDir,
       String fullyQualifiedOuterClass,
       String innerClass)
@@ -147,14 +133,16 @@ public class RClassGenerator {
     String fullyQualifiedInnerClass =
         writeInnerClassHeader(fullyQualifiedOuterClass, innerClass, innerClassWriter);
 
-    List<FieldInitializer> deferredInitializers = new ArrayList<>();
+    Map<String, FieldInitializer> deferredInitializers = new LinkedHashMap<>();
     int fieldAccessLevel = Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC;
     if (finalFields) {
       fieldAccessLevel |= Opcodes.ACC_FINAL;
     }
-    for (FieldInitializer init : initializers) {
-      if (init.writeFieldDefinition(innerClassWriter, fieldAccessLevel, finalFields)) {
-        deferredInitializers.add(init);
+    for (Entry<String, FieldInitializer> entry : initializers.entrySet()) {
+      FieldInitializer init = entry.getValue();
+      if (init.writeFieldDefinition(
+          entry.getKey(), innerClassWriter, fieldAccessLevel, finalFields)) {
+        deferredInitializers.put(entry.getKey(), init);
       }
     }
     if (!deferredInitializers.isEmpty()) {
@@ -199,15 +187,19 @@ public class RClassGenerator {
   }
 
   private static void writeStaticClassInit(
-      ClassWriter classWriter, String className, List<FieldInitializer> initializers) {
+      ClassWriter classWriter,
+      String className,
+      Map<String, FieldInitializer> deferredInitializers) {
     MethodVisitor visitor =
         classWriter.visitMethod(
             Opcodes.ACC_STATIC, "<clinit>", "()V", null, /* signature */ null /* exceptions */);
     visitor.visitCode();
     int stackSlotsNeeded = 0;
     InstructionAdapter insts = new InstructionAdapter(visitor);
-    for (FieldInitializer fieldInit : initializers) {
-      stackSlotsNeeded = Math.max(stackSlotsNeeded, fieldInit.writeCLInit(insts, className));
+    for (Entry<String, FieldInitializer> fieldEntry : deferredInitializers.entrySet()) {
+      final FieldInitializer fieldInit = fieldEntry.getValue();
+      stackSlotsNeeded =
+          Math.max(stackSlotsNeeded, fieldInit.writeCLInit(fieldEntry.getKey(), insts, className));
     }
     insts.areturn(Type.VOID_TYPE);
     visitor.visitMaxs(stackSlotsNeeded, 0);

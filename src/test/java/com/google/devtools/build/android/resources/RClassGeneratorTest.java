@@ -86,7 +86,7 @@ public class RClassGeneratorTest {
             "lib.R.txt", "int attr agility 0x1", "int id someTextView 0x1", "int string ok 0x1");
     Path out = temp.resolve("classes");
     Files.createDirectories(out);
-    RClassGenerator writer = RClassGenerator.fromSymbols(out, symbolValues, finalFields);
+    RClassGenerator writer = RClassGenerator.with(out, symbolValues.asInitializers(), finalFields);
     writer.write("com.bar", symbolsInLibrary.asInitializers());
 
     Path packageDir = out.resolve("com/bar");
@@ -127,7 +127,7 @@ public class RClassGeneratorTest {
     ResourceSymbols symbolsInLibrary = symbolValues;
     Path out = temp.resolve("classes");
     Files.createDirectories(out);
-    RClassGenerator writer = RClassGenerator.fromSymbols(out, symbolValues, finalFields);
+    RClassGenerator writer = RClassGenerator.with(out, symbolValues.asInitializers(), finalFields);
     writer.write("com.testEmptyIntArray", symbolsInLibrary.asInitializers());
 
     Path packageDir = out.resolve("com/testEmptyIntArray");
@@ -193,7 +193,7 @@ public class RClassGeneratorTest {
             "int layout stubbable_activity 0x1");
     Path out = temp.resolve("classes");
     Files.createDirectories(out);
-    RClassGenerator writer = RClassGenerator.fromSymbols(out, symbolValues, finalFields);
+    RClassGenerator writer = RClassGenerator.with(out, symbolValues.asInitializers(), finalFields);
     writer.write("com.foo", symbolsInLibrary.asInitializers());
 
     Path packageDir = out.resolve("com/foo");
@@ -219,7 +219,7 @@ public class RClassGeneratorTest {
     ResourceSymbols symbolsInLibrary = createSymbolFile("lib.R.txt");
     Path out = temp.resolve("classes");
     Files.createDirectories(out);
-    RClassGenerator writer = RClassGenerator.fromSymbols(out, symbolValues, finalFields);
+    RClassGenerator writer = RClassGenerator.with(out, symbolValues.asInitializers(), finalFields);
     writer.write("com.foo", symbolsInLibrary.asInitializers());
 
     Path packageDir = out.resolve("com/foo");
@@ -262,7 +262,7 @@ public class RClassGeneratorTest {
     ResourceSymbols symbolsInLibrary = symbolValues;
     Path out = temp.resolve("classes");
     Files.createDirectories(out);
-    RClassGenerator writer = RClassGenerator.fromSymbols(out, symbolValues, finalFields);
+    RClassGenerator writer = RClassGenerator.with(out, symbolValues.asInitializers(), finalFields);
     writer.write("com.intArray", symbolsInLibrary.asInitializers());
 
     Path packageDir = out.resolve("com/intArray");
@@ -315,7 +315,7 @@ public class RClassGeneratorTest {
     ResourceSymbols symbolsInLibrary = symbolValues;
     Path out = temp.resolve("classes");
     Files.createDirectories(out);
-    RClassGenerator writer = RClassGenerator.fromSymbols(out, symbolValues, finalFields);
+    RClassGenerator writer = RClassGenerator.with(out, symbolValues.asInitializers(), finalFields);
     writer.write("", symbolsInLibrary.asInitializers());
 
     Path packageDir = out.resolve("");
