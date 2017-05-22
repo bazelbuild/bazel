@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.test;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -22,12 +23,13 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
+
+import java.util.List;
 
 /**
  * Container for common test execution settings shared by all
@@ -35,7 +37,7 @@ import com.google.devtools.build.lib.vfs.Path;
  */
 public final class TestTargetExecutionSettings {
 
-  private final CommandLine testArguments;
+  private final List<String> testArguments;
   private final String testFilter;
   private final int totalShards;
   private final RunUnder runUnder;
@@ -53,8 +55,10 @@ public final class TestTargetExecutionSettings {
     Preconditions.checkArgument(shards >= 0);
     BuildConfiguration config = ruleContext.getConfiguration();
 
-    CommandLine targetArgs = runfilesSupport.getArgs();
-    testArguments = CommandLine.concat(targetArgs, ImmutableList.copyOf(config.getTestArguments()));
+    List<String> targetArgs = runfilesSupport.getArgs();
+    testArguments = targetArgs.isEmpty()
+      ? config.getTestArguments()
+      : ImmutableList.copyOf(Iterables.concat(targetArgs, config.getTestArguments()));
 
     totalShards = shards;
     runUnder = config.getRunUnder();
@@ -77,7 +81,7 @@ public final class TestTargetExecutionSettings {
         : runUnderTarget.getProvider(FilesToRunProvider.class).getExecutable();
   }
 
-  public CommandLine getArgs() {
+  public List<String> getArgs() {
     return testArguments;
   }
 

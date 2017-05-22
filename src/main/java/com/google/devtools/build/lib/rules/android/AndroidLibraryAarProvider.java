@@ -28,18 +28,13 @@ import javax.annotation.Nullable;
 @Immutable
 public abstract class AndroidLibraryAarProvider implements TransitiveInfoProvider {
 
-  public static AndroidLibraryAarProvider create(
-      @Nullable Aar aar,
-      NestedSet<Aar> transitiveAars,
-      NestedSet<Artifact> transitiveAarArtifacts) {
-    return new AutoValue_AndroidLibraryAarProvider(aar, transitiveAars, transitiveAarArtifacts);
+  public static AndroidLibraryAarProvider create(@Nullable Aar aar, NestedSet<Aar> transitiveAars) {
+    return new AutoValue_AndroidLibraryAarProvider(aar, transitiveAars);
   }
 
   @Nullable public abstract Aar getAar();
 
   public abstract NestedSet<Aar> getTransitiveAars();
-
-  public abstract NestedSet<Artifact> getTransitiveAarArtifacts();
 
   /** The .aar file and associated AndroidManifest.xml contributed by a single target. */
   @AutoValue
