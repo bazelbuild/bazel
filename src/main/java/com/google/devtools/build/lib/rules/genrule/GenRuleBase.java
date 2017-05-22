@@ -56,7 +56,7 @@ import java.util.regex.Pattern;
 public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
 
   private static final Pattern CROSSTOOL_MAKE_VARIABLE =
-      Pattern.compile("\\$\\((CC|AR|NM|OBJCOPY|STRIP|GCOVTOOL)\\)");
+      Pattern.compile("\\$\\((CC|AR|NM|OBJCOPY|STRIP|GCOVTOOL|CC_FLAGS)\\)");
   private static final Pattern JDK_MAKE_VARIABLE =
       Pattern.compile("\\$\\((JAVABASE|JAVA)\\)");
 
