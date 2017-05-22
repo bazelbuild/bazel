@@ -254,6 +254,12 @@ public final class ApplicationManifest {
       if (merger == null) {
         merger = ruleContext.getFragment(AndroidConfiguration.class).getManifestMerger();
       }
+      if (merger == AndroidManifestMerger.LEGACY) {
+        ruleContext.ruleWarning(
+            "manifest_merger 'legacy' is deprecated. Please update to 'android'.\n"
+                + "See https://developer.android.com/studio/build/manifest-merge.html for more "
+                + "information about the manifest merger.");
+      }
       legacy = merger == AndroidManifestMerger.LEGACY;
     }
     return legacy;
