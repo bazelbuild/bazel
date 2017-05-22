@@ -60,6 +60,7 @@ import javax.annotation.Nullable;
  * <p>This class can be used only after the loading phase.
  */
 public class CppHelper {
+
   static final PathFragment OBJS = PathFragment.create("_objs");
 
   private static final String GREPPED_INCLUDES_SUFFIX = ".includes";
@@ -224,6 +225,18 @@ public class CppHelper {
     return false;
   }
 
+  /**
+   * Return {@link FdoSupportProvider} using default cc_toolchain attribute name.
+   *
+   * <p>Be careful to provide explicit attribute name if the rule doesn't store cc_toolchain under
+   * the default name.
+   */
+  @Nullable
+  public static FdoSupportProvider getFdoSupportUsingDefaultCcToolchainAttribute(
+      RuleContext ruleContext) {
+    return getFdoSupport(ruleContext, CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME);
+  }
+
   @Nullable public static FdoSupportProvider getFdoSupport(RuleContext ruleContext,
       String ccToolchainAttribute) {
     return ruleContext
@@ -247,6 +260,21 @@ public class CppHelper {
     } else {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
+  }
+
+  /**
+   * This almost trivial method looks up the default cc toolchain attribute on the rule context,
+   * makes sure that it refers to a rule that has a {@link CcToolchainProvider} (gives an error
+   * otherwise), and returns a reference to that {@link CcToolchainProvider}. The method only
+   * returns {@code null} if there is no such attribute (this is currently not an error).
+   *
+   * <p>Be careful to provide explicit attribute name if the rule doesn't store cc_toolchain under
+   * the default name.
+   */
+  @Nullable
+  public static CcToolchainProvider getToolchainUsingDefaultCcToolchainAttribute(
+      RuleContext ruleContext) {
+    return getToolchain(ruleContext, CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME);
   }
 
   /**

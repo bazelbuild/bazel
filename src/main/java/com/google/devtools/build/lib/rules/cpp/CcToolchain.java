@@ -63,6 +63,9 @@ import java.util.Map;
  */
 public class CcToolchain implements RuleConfiguredTargetFactory {
 
+  /** Default attribute name where rules store the reference to cc_toolchain */
+  public static final String CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME = ":cc_toolchain";
+
   /**
    * This file (found under the sysroot) may be unconditionally included in every C/C++ compilation.
    */

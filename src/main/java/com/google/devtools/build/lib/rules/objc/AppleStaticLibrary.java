@@ -155,7 +155,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
               objcProvider,
               intermediateArtifacts.strippedSingleArchitectureLibrary(),
               childConfigurationsAndToolchains.get(childConfig),
-              CppHelper.getFdoSupport(ruleContext, ":cc_toolchain"))
+              CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext))
           .validateAttributes();
       ruleContext.assertNoErrors();
 

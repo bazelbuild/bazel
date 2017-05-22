@@ -298,7 +298,8 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
             .addVariableCategory(VariableCategory.EXECUTABLE_LINKING_VARIABLES);
 
     Artifact binaryToLink = getBinaryToLink();
-    FdoSupportProvider fdoSupport = CppHelper.getFdoSupport(ruleContext, ":cc_toolchain");
+    FdoSupportProvider fdoSupport =
+        CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext);
     CppLinkActionBuilder executableLinkAction =
         new CppLinkActionBuilder(ruleContext, binaryToLink, toolchain, fdoSupport)
             .setMnemonic("ObjcLink")

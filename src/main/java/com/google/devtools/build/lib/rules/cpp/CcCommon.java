@@ -75,7 +75,7 @@ public final class CcCommon {
       }
     }
   };
-    
+
   /** Features we request to enable unless a rule explicitly doesn't support them. */
   private static final ImmutableSet<String> DEFAULT_FEATURES =
       ImmutableSet.of(
@@ -92,7 +92,7 @@ public final class CcCommon {
 
   /** C++ configuration */
   private final CppConfiguration cppConfiguration;
-  
+
   private final RuleContext ruleContext;
 
   private final CcToolchainProvider ccToolchain;
@@ -103,9 +103,11 @@ public final class CcCommon {
     this.ruleContext = ruleContext;
     this.cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     this.ccToolchain =
-        Preconditions.checkNotNull(CppHelper.getToolchain(ruleContext, ":cc_toolchain"));
+        Preconditions.checkNotNull(
+            CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext));
     this.fdoSupport =
-        Preconditions.checkNotNull(CppHelper.getFdoSupport(ruleContext, ":cc_toolchain"));
+        Preconditions.checkNotNull(
+            CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext));
   }
 
   /**
@@ -126,12 +128,12 @@ public final class CcCommon {
         CppHelper.expandAttribute(ruleContext, result, "linkopts", linkopt, true);
       }
     }
-    
+
     if (Platform.isApplePlatform(cppConfiguration.getTargetCpu()) && result.contains("-static")) {
       ruleContext.attributeError(
           "linkopts", "Apple builds do not support statically linked binaries");
     }
-    
+
     return ImmutableList.copyOf(result);
   }
 
@@ -271,7 +273,7 @@ public final class CcCommon {
         }
       }
     }
-    
+
     ImmutableList.Builder<Pair<Artifact, Label>> result = ImmutableList.builder();
     for (Map.Entry<Artifact, Label> entry : map.entrySet()) {
       result.add(Pair.of(entry.getKey(), entry.getValue()));
@@ -574,16 +576,20 @@ public final class CcCommon {
         toolchain.getFeatures().getFeatureConfiguration(requestedFeatures.build());
     for (String feature : unsupportedFeatures) {
       if (configuration.isEnabled(feature)) {
-        ruleContext.ruleError("The C++ toolchain '"
-            + ruleContext.getPrerequisite(":cc_toolchain", Mode.TARGET).getLabel()
-            + "' unconditionally implies feature '" + feature
-            + "', which is unsupported by this rule. "
-            + "This is most likely a misconfiguration in the C++ toolchain.");
+        ruleContext.ruleError(
+            "The C++ toolchain '"
+                + ruleContext
+                    .getPrerequisite(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, Mode.TARGET)
+                    .getLabel()
+                + "' unconditionally implies feature '"
+                + feature
+                + "', which is unsupported by this rule. "
+                + "This is most likely a misconfiguration in the C++ toolchain.");
       }
     }
-    return configuration; 
+    return configuration;
   }
- 
+
   /**
    * Creates a feature configuration for a given rule.
    *

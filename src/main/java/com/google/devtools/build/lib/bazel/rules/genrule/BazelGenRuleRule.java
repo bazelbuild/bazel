@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.genrule.GenRuleBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
@@ -41,19 +42,16 @@ public final class BazelGenRuleRule implements RuleDefinition {
     <code>srcs</code> attribute.
     <!-- #END_BLAZE_RULE.NAME --> */
     return builder
-
         .setOutputToGenfiles()
-
         .add(attr("$genrule_setup", LABEL).cfg(HOST).value(env.getToolsLabel(GENRULE_SETUP_LABEL)))
-
         .requiresConfigurationFragments(CppConfiguration.class, JavaConfiguration.class)
 
         // TODO(bazel-team): stamping doesn't seem to work. Fix it or remove attribute.
         .add(attr("stamp", BOOLEAN).value(false))
-
-        .add(attr(":cc_toolchain", LABEL).value(GenRuleBaseRule.CC_TOOLCHAIN))
+        .add(
+            attr(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL)
+                .value(GenRuleBaseRule.CC_TOOLCHAIN))
         .add(attr(":host_jdk", LABEL).cfg(HOST).value(JavaSemantics.HOST_JDK))
-
         .build();
   }
 

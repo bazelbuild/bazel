@@ -198,7 +198,8 @@ public abstract class NativeDepsHelper {
     } else {
       sharedLibrary = nativeDeps;
     }
-    FdoSupportProvider fdoSupport = CppHelper.getFdoSupport(ruleContext, ":cc_toolchain");
+    FdoSupportProvider fdoSupport =
+        CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext);
     CppLinkActionBuilder builder =
         new CppLinkActionBuilder(ruleContext, sharedLibrary, configuration, toolchain, fdoSupport);
     if (useDynamicRuntime) {

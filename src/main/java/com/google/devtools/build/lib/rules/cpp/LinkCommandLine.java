@@ -693,7 +693,8 @@ public final class LinkCommandLine extends CommandLine {
 
       if (toolchain == null) {
         toolchain =
-            Preconditions.checkNotNull(CppHelper.getToolchain(ruleContext, ":cc_toolchain"));
+            Preconditions.checkNotNull(
+                CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext));
       }
 
       // The ruleContext can be null for some tests.
@@ -704,7 +705,8 @@ public final class LinkCommandLine extends CommandLine {
         }
 
         if (fdoSupport == null) {
-          fdoSupport = CppHelper.getFdoSupport(ruleContext, ":cc_toolchain").getFdoSupport();
+          fdoSupport =
+              CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext).getFdoSupport();
         }
       }
       
