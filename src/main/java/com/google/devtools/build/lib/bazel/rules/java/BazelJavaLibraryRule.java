@@ -115,8 +115,8 @@ public final class BazelJavaLibraryRule implements RuleDefinition {
         .add(
             attr("exports", LABEL_LIST)
                 .allowedRuleClasses(BazelJavaRuleClasses.ALLOWED_RULES_IN_DEPS)
-                .allowedFileTypes(/*May not have files in exports!*/ ))
-
+                .allowedFileTypes(/*May not have files in exports!*/ )
+                .mandatoryProvidersList(BazelJavaRuleClasses.MANDATORY_JAVA_PROVIDER_ONLY))
         /* <!-- #BLAZE_RULE(java_library).ATTRIBUTE(neverlink) -->
         Whether this library should only be used for compilation and not at runtime.
         Useful if the library will be provided by the runtime environment during execution. Examples

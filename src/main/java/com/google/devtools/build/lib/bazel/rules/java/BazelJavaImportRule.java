@@ -44,26 +44,32 @@ public final class BazelJavaImportRule implements RuleDefinition {
         The list of other libraries to be linked in to the target.
         See <a href="${link java_library.deps}">java_library.deps</a>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("deps", LABEL_LIST)
-            .allowedRuleClasses(ALLOWED_DEPS)
-            .allowedFileTypes()  // none allowed
-            .validityPredicate(ANY_EDGE))
+        .add(
+            attr("deps", LABEL_LIST)
+                .allowedRuleClasses(ALLOWED_DEPS)
+                .allowedFileTypes() // none allowed
+                .validityPredicate(ANY_EDGE)
+                .mandatoryProvidersList(BazelJavaRuleClasses.MANDATORY_JAVA_PROVIDER_ONLY))
         /* <!-- #BLAZE_RULE(java_import).ATTRIBUTE(exports) -->
         Targets to make available to users of this rule.
         See <a href="${link java_library.exports}">java_library.exports</a>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("exports", LABEL_LIST)
-            .allowedRuleClasses(ALLOWED_DEPS)
-            .allowedFileTypes()  // none allowed
-            .validityPredicate(ANY_EDGE))
+        .add(
+            attr("exports", LABEL_LIST)
+                .allowedRuleClasses(ALLOWED_DEPS)
+                .allowedFileTypes() // none allowed
+                .validityPredicate(ANY_EDGE)
+                .mandatoryProvidersList(BazelJavaRuleClasses.MANDATORY_JAVA_PROVIDER_ONLY))
         /* <!-- #BLAZE_RULE(java_import).ATTRIBUTE(runtime_deps) -->
         Libraries to make available to the final binary or test at runtime only.
         See <a href="${link java_library.runtime_deps}">java_library.runtime_deps</a>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("runtime_deps", LABEL_LIST)
-            .allowedFileTypes(JavaSemantics.JAR)
-            .allowedRuleClasses(ALLOWED_DEPS)
-            .skipAnalysisTimeFileTypeCheck())
+        .add(
+            attr("runtime_deps", LABEL_LIST)
+                .allowedFileTypes(JavaSemantics.JAR)
+                .allowedRuleClasses(ALLOWED_DEPS)
+                .mandatoryProvidersList(BazelJavaRuleClasses.MANDATORY_JAVA_PROVIDER_ONLY)
+                .skipAnalysisTimeFileTypeCheck())
         .advertiseProvider(JavaSourceInfoProvider.class)
         .build();
 

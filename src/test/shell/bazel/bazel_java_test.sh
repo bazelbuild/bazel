@@ -59,6 +59,111 @@ public class HelloLibrary {
 EOF
 }
 
+function write_files_for_java_provider_in_attr() {
+  mkdir -p java/com/google/sandwich
+  cd java/com/google/sandwich
+
+  touch BUILD A.java B.java Main.java java_custom_library.bzl
+
+  rule_type="$1" # java_library / java_import
+  attribute_name="$2" # exports / runtime_deps
+  srcs_attribute_row="srcs = ['A.java']"
+  if [ "$rule_type" = "java_import" ]; then
+    srcs_attribute_row="jars = []"
+  fi
+
+  cat > BUILD <<EOF
+load(':java_custom_library.bzl', 'java_custom_library')
+
+java_binary(
+  name = "Main",
+EOF
+
+  if [ "$attribute_name" = "runtime_deps" ]; then
+    cat >> BUILD <<EOF
+  main_class = "com.google.sandwich.Main",
+  runtime_deps = [":top"]
+)
+
+EOF
+  else
+    cat >> BUILD <<EOF
+  srcs = ["Main.java"],
+  deps = [":top"]
+)
+
+EOF
+  fi
+
+  echo "$rule_type(" >> BUILD
+
+  cat >> BUILD <<EOF
+  name = "top",
+EOF
+
+  echo "  $srcs_attribute_row," >> BUILD
+  echo "  $attribute_name = [':middle']" >> BUILD
+
+  cat >> BUILD <<EOF
+)
+
+java_custom_library(
+  name = "middle",
+EOF
+
+  if [ "$attribute_name" = "runtime_deps" ]; then
+    cat >> BUILD <<EOF
+  srcs = ["B.java", "Main.java"],
+)
+EOF
+  else
+    cat >> BUILD <<EOF
+  srcs = ["B.java"],
+)
+EOF
+  fi
+
+  cat > B.java <<EOF
+package com.google.sandwich;
+class B {
+  public void printB() {
+    System.out.println("Message from B");
+  }
+}
+EOF
+
+if [ "$rule_type" = "java_library" ]; then
+  cat > A.java <<EOF
+package com.google.sandwich;
+class A {
+  public void printA() {
+    System.out.println("Message from A");
+  }
+}
+EOF
+fi
+
+cat > Main.java <<EOF
+package com.google.sandwich;
+class Main {
+  public static void main(String[] args) {
+EOF
+
+if [[ "$rule_type" = "java_library" && "$attribute_name" = "exports" ]]; then
+  cat >> Main.java <<EOF
+    A myObjectA = new A();
+    myObjectA.printA();
+EOF
+fi
+
+cat >> Main.java <<EOF
+    B myObjectB = new B();
+    myObjectB.printB();
+  }
+}
+EOF
+}
+
 function write_java_custom_rule() {
   cat > java_custom_library.bzl << EOF
 def _impl(ctx):
@@ -492,6 +597,39 @@ EOF
   expect_log "Message from A"
   expect_log "Message from B"
   expect_log "Message from C"
+}
+
+function test_java_library_exports_java_sandwich() {
+  write_files_for_java_provider_in_attr "java_library" "exports"
+  write_java_custom_rule
+
+  bazel run :Main > $TEST_log || fail "Java sandwich build failed"
+  expect_log "Message from A"
+  expect_log "Message from B"
+}
+
+function test_java_library_runtime_deps_java_sandwich() {
+  write_files_for_java_provider_in_attr "java_library" "runtime_deps"
+  write_java_custom_rule
+
+  bazel run :Main > $TEST_log || fail "Java sandwich build failed"
+  expect_log "Message from B"
+}
+
+function test_java_import_exports_java_sandwich() {
+  write_files_for_java_provider_in_attr "java_import" "exports"
+  write_java_custom_rule
+
+  bazel run :Main > $TEST_log || fail "Java sandwich build failed"
+  expect_log "Message from B"
+}
+
+function test_java_import_runtime_deps_java_sandwich() {
+  write_files_for_java_provider_in_attr "java_import" "runtime_deps"
+  write_java_custom_rule
+
+  bazel run :Main > $TEST_log || fail "Java sandwich build failed"
+  expect_log "Message from B"
 }
 
 function test_java_binary_deps_java_sandwich() {
