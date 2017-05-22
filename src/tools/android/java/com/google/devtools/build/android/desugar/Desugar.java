@@ -543,7 +543,7 @@ class Desugar {
     new Desugar(options, dumpDirectory).desugar();
   }
 
-  static void verifyLambdaDumpDirectoryRegistered(Path dumpDirectory) {
+  static void verifyLambdaDumpDirectoryRegistered(Path dumpDirectory) throws IOException {
     try {
       Class<?> klass = Class.forName("java.lang.invoke.InnerClassLambdaMetafactory");
       Field dumperField = klass.getDeclaredField("dumper");
@@ -555,7 +555,7 @@ class Desugar {
       dumperPathField.setAccessible(true);
       Object dumperPath = dumperPathField.get(dumperValue);
       checkState(
-          dumpDirectory.equals(dumperPath),
+          dumperPath instanceof Path && Files.isSameFile(dumpDirectory, (Path) dumperPath),
           "Inconsistent lambda dump directories. real='%s', expected='%s'",
           dumperPath,
           dumpDirectory);
