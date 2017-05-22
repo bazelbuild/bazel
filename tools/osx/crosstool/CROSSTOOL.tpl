@@ -1217,7 +1217,7 @@ toolchain {
     config_name: "c++-link-static-library"
     action_name: "c++-link-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -1230,7 +1230,7 @@ toolchain {
     config_name: "c++-link-alwayslink-static-library"
     action_name: "c++-link-alwayslink-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -1243,7 +1243,7 @@ toolchain {
     config_name: "c++-link-pic-static-library"
     action_name: "c++-link-pic-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -1256,7 +1256,7 @@ toolchain {
     config_name: "c++-link-alwayslink-pic-static-library"
     action_name: "c++-link-alwayslink-pic-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -2478,7 +2478,7 @@ toolchain {
     config_name: "c++-link-static-library"
     action_name: "c++-link-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -2491,7 +2491,7 @@ toolchain {
     config_name: "c++-link-alwayslink-static-library"
     action_name: "c++-link-alwayslink-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -2504,7 +2504,7 @@ toolchain {
     config_name: "c++-link-pic-static-library"
     action_name: "c++-link-pic-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -2517,7 +2517,7 @@ toolchain {
     config_name: "c++-link-alwayslink-pic-static-library"
     action_name: "c++-link-alwayslink-pic-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -3741,7 +3741,7 @@ toolchain {
     config_name: "c++-link-static-library"
     action_name: "c++-link-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -3754,7 +3754,7 @@ toolchain {
     config_name: "c++-link-alwayslink-static-library"
     action_name: "c++-link-alwayslink-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -3767,7 +3767,7 @@ toolchain {
     config_name: "c++-link-pic-static-library"
     action_name: "c++-link-pic-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -3780,7 +3780,7 @@ toolchain {
     config_name: "c++-link-alwayslink-pic-static-library"
     action_name: "c++-link-alwayslink-pic-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -5041,7 +5041,7 @@ toolchain {
     config_name: "c++-link-static-library"
     action_name: "c++-link-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -5054,7 +5054,7 @@ toolchain {
     config_name: "c++-link-alwayslink-static-library"
     action_name: "c++-link-alwayslink-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -5067,7 +5067,7 @@ toolchain {
     config_name: "c++-link-pic-static-library"
     action_name: "c++-link-pic-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -5080,7 +5080,7 @@ toolchain {
     config_name: "c++-link-alwayslink-pic-static-library"
     action_name: "c++-link-alwayslink-pic-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -6302,7 +6302,7 @@ toolchain {
     config_name: "c++-link-static-library"
     action_name: "c++-link-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -6315,7 +6315,7 @@ toolchain {
     config_name: "c++-link-alwayslink-static-library"
     action_name: "c++-link-alwayslink-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -6328,7 +6328,7 @@ toolchain {
     config_name: "c++-link-pic-static-library"
     action_name: "c++-link-pic-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -6341,7 +6341,7 @@ toolchain {
     config_name: "c++-link-alwayslink-pic-static-library"
     action_name: "c++-link-alwayslink-pic-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -7548,7 +7548,7 @@ toolchain {
     config_name: "c++-link-static-library"
     action_name: "c++-link-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -7561,7 +7561,7 @@ toolchain {
     config_name: "c++-link-alwayslink-static-library"
     action_name: "c++-link-alwayslink-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -7574,7 +7574,7 @@ toolchain {
     config_name: "c++-link-pic-static-library"
     action_name: "c++-link-pic-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -7587,7 +7587,7 @@ toolchain {
     config_name: "c++-link-alwayslink-pic-static-library"
     action_name: "c++-link-alwayslink-pic-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -8796,7 +8796,7 @@ toolchain {
     config_name: "c++-link-static-library"
     action_name: "c++-link-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -8809,7 +8809,7 @@ toolchain {
     config_name: "c++-link-alwayslink-static-library"
     action_name: "c++-link-alwayslink-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -8822,7 +8822,7 @@ toolchain {
     config_name: "c++-link-pic-static-library"
     action_name: "c++-link-pic-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -8835,7 +8835,7 @@ toolchain {
     config_name: "c++-link-alwayslink-pic-static-library"
     action_name: "c++-link-alwayslink-pic-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -10081,7 +10081,7 @@ toolchain {
     config_name: "c++-link-static-library"
     action_name: "c++-link-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -10094,7 +10094,7 @@ toolchain {
     config_name: "c++-link-alwayslink-static-library"
     action_name: "c++-link-alwayslink-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -10107,7 +10107,7 @@ toolchain {
     config_name: "c++-link-pic-static-library"
     action_name: "c++-link-pic-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -10120,7 +10120,7 @@ toolchain {
     config_name: "c++-link-alwayslink-pic-static-library"
     action_name: "c++-link-alwayslink-pic-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -11327,7 +11327,7 @@ toolchain {
     config_name: "c++-link-static-library"
     action_name: "c++-link-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -11340,7 +11340,7 @@ toolchain {
     config_name: "c++-link-alwayslink-static-library"
     action_name: "c++-link-alwayslink-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -11353,7 +11353,7 @@ toolchain {
     config_name: "c++-link-pic-static-library"
     action_name: "c++-link-pic-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -11366,7 +11366,7 @@ toolchain {
     config_name: "c++-link-alwayslink-pic-static-library"
     action_name: "c++-link-alwayslink-pic-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -12579,7 +12579,7 @@ toolchain {
     config_name: "c++-link-static-library"
     action_name: "c++-link-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -12592,7 +12592,7 @@ toolchain {
     config_name: "c++-link-alwayslink-static-library"
     action_name: "c++-link-alwayslink-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -12605,7 +12605,7 @@ toolchain {
     config_name: "c++-link-pic-static-library"
     action_name: "c++-link-pic-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
@@ -12618,7 +12618,7 @@ toolchain {
     config_name: "c++-link-alwayslink-pic-static-library"
     action_name: "c++-link-alwayslink-pic-static-library"
     tool {
-      tool_path: "/usr/bin/ar"
+      tool_path: "wrapped_ar"
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"

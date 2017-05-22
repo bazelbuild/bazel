@@ -815,6 +815,9 @@ def _impl(repository_ctx):
           Label("@bazel_tools//tools/objc:make_hashed_objlist.py"),
           "make_hashed_objlist.py")
       repository_ctx.symlink(
+          Label("@bazel_tools//tools/osx/crosstool:wrapped_ar.tpl"),
+          "wrapped_ar")
+      repository_ctx.symlink(
           Label("@bazel_tools//tools/osx/crosstool:wrapped_clang.tpl"),
           "wrapped_clang")
       repository_ctx.symlink(
