@@ -21,6 +21,65 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+function test_cc_test_coverage() {
+  if [[ ! -x /usr/bin/lcov ]]; then
+    echo "lcov not installed. Skipping test."
+    return
+  fi
+
+  cat << EOF > BUILD
+cc_library(
+    name = "a",
+    srcs = ["a.cc"],
+    hdrs = ["a.h"],
+)
+
+cc_test(
+    name = "t",
+    srcs = ["t.cc"],
+    deps = [":a"],
+)
+EOF
+
+  cat << EOF > a.h
+int a(bool what);
+EOF
+
+  cat << EOF > a.cc
+#include "a.h"
+
+int a(bool what) {
+  if (what) {
+    return 1;
+  } else {
+    return 2;
+  }
+}
+EOF
+
+  cat << EOF > t.cc
+#include <stdio.h>
+#include "a.h"
+
+int main(void) {
+  a(true);
+}
+EOF
+
+  bazel coverage --test_output=all //:t &>$TEST_log || fail "Coverage for //:t failed"
+
+  ending_part=$(sed -n -e '/PASSED/,$p' $TEST_log)
+
+  coverage_file_path=$(grep -Eo "/[/a-zA-Z0-9\.\_\-]+\.dat$" <<< "$ending_part")
+  [ -e $coverage_file_path ] || fail "Coverage output file does not exist!"
+
+  # Check if a.cc is in the coverage file
+  assert_contains "^SF:.*a.cc$" "$coverage_file_path"
+  # Check if the only branch in a() has correct coverage:
+  assert_contains "^DA:5,1$" "$coverage_file_path"  # true branch should be taken
+  assert_contains "^DA:7,0$" "$coverage_file_path"  # false branch should not be
+}
+
 function test_java_test_coverage() {
 
   cat <<EOF > BUILD
@@ -82,7 +141,7 @@ EOF
   ending_part=$(sed -n -e '/PASSED/,$p' $TEST_log)
 
   coverage_file_path=$(grep -Eo "/[/a-zA-Z0-9\.\_\-]+\.dat$" <<< "$ending_part")
-  [ -e $coverage_file_path ] || fail "Coverage output file not exists!"
+  [ -e $coverage_file_path ] || fail "Coverage output file does not exist!"
 
   cat <<EOF > result.dat
 SF:com/example/Collatz.java
