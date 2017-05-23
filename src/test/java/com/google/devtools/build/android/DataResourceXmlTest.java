@@ -23,8 +23,6 @@ import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.MoreFiles;
-import com.google.common.io.RecursiveDeleteOption;
 import com.google.common.jimfs.Jimfs;
 import com.google.common.truth.FailureStrategy;
 import com.google.common.truth.SubjectFactory;
@@ -53,8 +51,11 @@ import com.google.devtools.build.android.xml.StyleableXmlResourceValue;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -1324,7 +1325,26 @@ public class DataResourceXmlTest {
     parseResourcesFrom(path, toOverwrite, toCombine);
     Path out = fs.getPath("out");
     if (Files.exists(out)) {
-      MoreFiles.deleteRecursively(out, RecursiveDeleteOption.ALLOW_INSECURE);
+      Files.walkFileTree(
+          out,
+          new SimpleFileVisitor<Path>() {
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
+                throws IOException {
+              Files.delete(file);
+              return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult postVisitDirectory(Path directory, IOException e)
+                throws IOException {
+              if (e != null) {
+                throw e;
+              }
+              Files.delete(directory);
+              return FileVisitResult.CONTINUE;
+            }
+          });
     }
     // find and write the resource -- the categorization is tested during parsing.
     AndroidDataWriter mergedDataWriter = AndroidDataWriter.createWithDefaults(out);
