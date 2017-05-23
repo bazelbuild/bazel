@@ -286,4 +286,48 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
 
     assertThat(getConfiguredTarget("@androidsdk//:sdk")).isNotNull();
   }
+
+  @Test
+  public void testMissingPlatformsDirectory() throws Exception {
+    scratchBuildToolsDirectories("25.0.0");
+    FileSystemUtils.appendIsoLatin1(
+        scratch.resolve("WORKSPACE"),
+        "local_repository(name = 'bazel_tools', path = '/bazel_tools_workspace')",
+        "android_sdk_repository(",
+        "    name = 'androidsdk',",
+        "    path = '/sdk',",
+        ")");
+    invalidatePackages();
+
+    try {
+      getTarget("@androidsdk//:files");
+      fail("android_sdk_repository should have failed due to missing SDK platforms dir.");
+    } catch (BuildFileNotFoundException e) {
+      assertThat(e.getMessage())
+          .contains("Expected directory at /sdk/platforms but it is not a directory or it does "
+              + "not exist.");
+    }
+  }
+
+  @Test
+  public void testMissingBuildToolsDirectory() throws Exception {
+    scratchPlatformsDirectories(24);
+    FileSystemUtils.appendIsoLatin1(
+        scratch.resolve("WORKSPACE"),
+        "local_repository(name = 'bazel_tools', path = '/bazel_tools_workspace')",
+        "android_sdk_repository(",
+        "    name = 'androidsdk',",
+        "    path = '/sdk',",
+        ")");
+    invalidatePackages();
+
+    try {
+      getTarget("@androidsdk//:files");
+      fail("android_sdk_repository should have failed due to missing SDK build tools dir.");
+    } catch (BuildFileNotFoundException e) {
+      assertThat(e.getMessage())
+          .contains("Expected directory at /sdk/build-tools but it is not a directory or it does "
+              + "not exist.");
+    }
+  }
 }

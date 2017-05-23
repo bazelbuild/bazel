@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.bazel.rules.android;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -22,6 +23,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.AttributeContainer;
+import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -176,5 +178,27 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
     assertThat(attributes.isAttributeValueExplicitlySpecified("hdrs")).isTrue();
     assertThat(attributes.getAttr("hdrs").toString())
         .isEqualTo("[@androidndk//:ndk/sources/android/cpufeatures/cpu-features.h]");
+  }
+
+  @Test
+  public void testMissingPlatformsDirectory() throws Exception {
+    FileSystemUtils.appendIsoLatin1(
+        scratch.resolve("WORKSPACE"),
+        "android_ndk_repository(",
+        "    name = 'androidndk',",
+        "    path = '/ndk',",
+        ")");
+    try {
+      // Invalidating configs re-runs AndroidNdkRepositoryFunction which results in a
+      // RuntimeException. This way we can catch a checked exception instead.
+      invalidatePackages(false);
+      getTarget("@androidndk//:files");
+      fail("android_ndk_repository should have failed due to missing NDK platforms dir.");
+    } catch (BuildFileNotFoundException e) {
+      assertThat(e.getMessage())
+          .contains(
+              "Expected directory at /ndk/platforms but it is not a directory or it does not "
+                  + "exist.");
+    }
   }
 }
