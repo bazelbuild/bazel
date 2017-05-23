@@ -118,7 +118,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
 
   @Option(
     name = "experimental_enable_objc_cc_deps",
-    defaultValue = "false",
+    defaultValue = "true",
     optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     help =
         "Allows objc_* rules to depend on cc_library and causes any objc dependencies to be "
