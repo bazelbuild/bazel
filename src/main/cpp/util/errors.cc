@@ -43,7 +43,7 @@ void pdie(const int exit_status, const char *format, ...) {
 
 void PrintError(const char *format, ...) {
   const char *errormsg = GetLastErrorString().c_str();
-  fprintf(stderr, "Error: ");
+  fprintf(stderr, "ERROR: ");
   va_list ap;
   va_start(ap, format);
   vfprintf(stderr, format, ap);
