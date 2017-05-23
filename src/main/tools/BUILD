@@ -19,9 +19,6 @@ cc_binary(
         "//src:windows_msvc": ["process-wrapper-windows.cc"],
         "//conditions:default": [
             "process-wrapper.cc",
-            "process-wrapper.h",
-            "process-wrapper-legacy.cc",
-            "process-wrapper-legacy.h",
         ],
     }),
     linkopts = ["-lm"],

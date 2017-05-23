@@ -22,8 +22,6 @@
 // die with raise(SIGTERM) even if the child process handles SIGTERM with
 // exit(0).
 
-#include "src/main/tools/process-wrapper.h"
-
 #include <err.h>
 #include <errno.h>
 #include <signal.h>
@@ -40,9 +38,21 @@
 
 #include "src/main/tools/logging.h"
 #include "src/main/tools/process-tools.h"
-#include "src/main/tools/process-wrapper-legacy.h"
 
-struct Options opt;
+static double global_kill_delay;
+static pid_t global_child_pid;
+static volatile sig_atomic_t global_signal;
+
+// Options parsing result.
+struct Options {
+  double timeout_secs;
+  double kill_delay_secs;
+  std::string stdout_path;
+  std::string stderr_path;
+  std::vector<char *> args;
+};
+
+static struct Options opt;
 
 // Print out a usage error and exit with EXIT_FAILURE.
 static void Usage(char *program_name) {
@@ -76,9 +86,83 @@ static void ParseCommandLine(std::vector<char *> args) {
   opt.args.push_back(nullptr);
 }
 
+// Called when timeout or signal occurs.
+void OnSignal(int sig) {
+  global_signal = sig;
+
+  // Nothing to do if we received a signal before spawning the child.
+  if (global_child_pid == -1) {
+    return;
+  }
+
+  if (sig == SIGALRM) {
+    // SIGALRM represents a timeout, so we should give the process a bit of
+    // time to die gracefully if it needs it.
+    KillEverything(global_child_pid, true, global_kill_delay);
+  } else {
+    // Signals should kill the process quickly, as it's typically blocking
+    // the return of the prompt after a user hits "Ctrl-C".
+    KillEverything(global_child_pid, false, global_kill_delay);
+  }
+}
+
+// Run the command specified by the argv array and kill it after timeout
+// seconds.
+static void SpawnCommand(const std::vector<char *> &args, double timeout_secs) {
+  global_child_pid = fork();
+  if (global_child_pid < 0) {
+    DIE("fork");
+  } else if (global_child_pid == 0) {
+    // In child.
+    if (setsid() < 0) {
+      DIE("setsid");
+    }
+    ClearSignalMask();
+
+    // Force umask to include read and execute for everyone, to make
+    // output permissions predictable.
+    umask(022);
+
+    // Does not return unless something went wrong.
+    if (execvp(args[0], args.data()) < 0) {
+      DIE("execvp(%s, ...)", args[0]);
+    }
+  } else {
+    // In parent.
+
+    // Set up a signal handler which kills all subprocesses when the given
+    // signal is triggered.
+    InstallSignalHandler(SIGALRM, OnSignal);
+    InstallSignalHandler(SIGTERM, OnSignal);
+    InstallSignalHandler(SIGINT, OnSignal);
+    if (timeout_secs > 0) {
+      SetTimeout(timeout_secs);
+    }
+
+    int status = WaitChild(global_child_pid);
+
+    // The child is done for, but may have grandchildren that we still have to
+    // kill.
+    kill(-global_child_pid, SIGKILL);
+
+    if (global_signal > 0) {
+      // Don't trust the exit code if we got a timeout or signal.
+      InstallDefaultSignalHandler(global_signal);
+      raise(global_signal);
+    } else if (WIFEXITED(status)) {
+      exit(WEXITSTATUS(status));
+    } else {
+      int sig = WTERMSIG(status);
+      InstallDefaultSignalHandler(sig);
+      raise(sig);
+    }
+  }
+}
+
 int main(int argc, char *argv[]) {
   std::vector<char *> args(argv, argv + argc);
   ParseCommandLine(args);
+  global_kill_delay = opt.kill_delay_secs;
 
   SwitchToEuid();
   SwitchToEgid();
@@ -86,7 +170,7 @@ int main(int argc, char *argv[]) {
   Redirect(opt.stdout_path, STDOUT_FILENO);
   Redirect(opt.stderr_path, STDERR_FILENO);
 
-  LegacyProcessWrapper::RunCommand();
+  SpawnCommand(opt.args, opt.timeout_secs);
 
   return 0;
 }
