@@ -71,10 +71,6 @@ public class BazelAndroidLibraryRule implements RuleDefinition {
   the compilation class path.
 </p>
 
-<p>If you need to depend on the appcompat library, put
-<code>//external:android/appcompat_v4</code> or <code>//external:android/appcompat_v7</code>
-in the <code>deps</code> attribute.
-</p>
 ${IMPLICIT_OUTPUTS}
 
 
