@@ -77,10 +77,10 @@ public final class AndroidDeviceRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(android_device).ATTRIBUTE(system_image) -->
         A filegroup containing the following files:
         <ul>
-        <li>system.img: The system partition.</li>
-        <li>kernel-qemu: The Linux kernel the emliator will load</li>
+        <li>system.img: The system partition</li>
+        <li>kernel-qemu: The Linux kernel the emulator will load</li>
         <li>ramdisk.img: The initrd image to use at boot time</li>
-        <li>userdata.img: The initial userdata partition.</li>
+        <li>userdata.img: The initial userdata partition</li>
         <li>source.properties: A properties file containing information about the
         images</li>
         </ul>
