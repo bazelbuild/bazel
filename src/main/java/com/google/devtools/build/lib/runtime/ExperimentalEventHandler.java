@@ -49,6 +49,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Logger;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -97,13 +98,74 @@ public class ExperimentalEventHandler implements EventHandler {
   private byte[] stdoutBuffer;
   private byte[] stderrBuffer;
 
+  private final long outputLimit;
+  private final AtomicLong counter;
+  /**
+   * The following constants determine how the output limiting is done gracefully. They are all
+   * values for the remaining relative capacity left at which we start taking given measure.
+   *
+   * <p>The degrading of progress updates to stay within output limit is done in the following
+   * steps. - We limit progress updates to at most one per second; this is the granularity at which
+   * times in he progress bar are shown. So the appearance won't look too bad. Hence we start that
+   * measure realatively early. - We only show the short version of the progress bar, even if curses
+   * are enabled. - We reduce the update frequency of the progress bar to at most one update per 5s.
+   * This still looks as moving and is is line with escalation strategy that so far, every step
+   * reduces output by about a factor of 5. - We start decreasing the update frequency to what we
+   * would do, if curses were not allowed. Note that now the time between updates is at least a
+   * fixed fraction of the time that passed so far; so the time between progress updates will
+   * continue to increase.
+   */
+  private static final double CAPACITY_INCREASE_UPDATE_DELAY = 0.7;
+
+  private static final double CAPACITY_SHORT_PROGRESS_BAR = 0.5;
+  private static final double CAPACITY_UPDATE_DELAY_5_SECONDS = 0.4;
+  private static final double CAPACITY_UPDATE_DELAY_AS_NO_CURSES = 0.3;
+  /**
+   * The degrading of printing stdout/stderr is achieved by limiting the output for an individual
+   * event if printing it fully would get us above the threshold. If limited, at most a given
+   * fraction of the remaining capacity my be used by any such event; larger events are truncated to
+   * their end (this is what the user would anyway only see on the terminal if the output is very
+   * large). In any case, we always allow at least twice the terminal width, to make the output at
+   * least somewhat useful.
+   */
+  private static final double CAPACITY_LIMIT_OUT_ERR_EVENTS = 0.6;
+
+  private static final double RELATIVE_OUT_ERR_LIMIT = 0.1;
+
   public final int terminalWidth;
+
+  static class CountingOutputStream extends OutputStream {
+    private final OutputStream stream;
+    private final AtomicLong counter;
+
+    CountingOutputStream(OutputStream stream, AtomicLong counter) {
+      this.stream = stream;
+      this.counter = counter;
+    }
+
+    @Override
+    public void write(int b) throws IOException {
+      if (counter.decrementAndGet() >= 0) {
+        stream.write(b);
+      }
+    }
+  }
 
   public ExperimentalEventHandler(
       OutErr outErr, BlazeCommandEventHandler.Options options, Clock clock) {
-    this.outErr = outErr;
+    this.outputLimit = options.experimentalUiLimitConsoleOutput;
+    this.counter = new AtomicLong(outputLimit);
+    if (outputLimit > 0) {
+      this.outErr =
+          OutErr.create(
+              new CountingOutputStream(outErr.getOutputStream(), this.counter),
+              new CountingOutputStream(outErr.getErrorStream(), this.counter));
+    } else {
+      // unlimited output; no need to count and limit
+      this.outErr = outErr;
+    }
     this.cursorControl = options.useCursorControl();
-    this.terminal = new AnsiTerminal(outErr.getErrorStream());
+    this.terminal = new AnsiTerminal(this.outErr.getErrorStream());
     this.terminalWidth = (options.terminalColumns > 0 ? options.terminalColumns : 80);
     this.showProgress = options.showProgress;
     this.progressInTermTitle = options.progressInTermTitle && options.useCursorControl();
@@ -137,6 +199,23 @@ public class ExperimentalEventHandler implements EventHandler {
     this.dateShown = false;
     // The progress bar has not been updated yet.
     ignoreRefreshLimitOnce();
+  }
+
+  /**
+   * Return the remaining output capacity, relative to the total capacity, afer a write of the given
+   * number of bytes.
+   */
+  private double remainingCapacity(long wantWrite) {
+    if (outputLimit <= 0) {
+      // we have unlimited capacity, so we're still at full capacity, regardless of
+      // how much we write.
+      return 1.0;
+    }
+    return (counter.get() - wantWrite) / (double) outputLimit;
+  }
+
+  private double remainingCapacity() {
+    return remainingCapacity(0);
   }
 
   /**
@@ -201,6 +280,21 @@ public class ExperimentalEventHandler implements EventHandler {
               stream.flush();
             } else {
               byte[] message = event.getMessageBytes();
+              if (remainingCapacity(message.length) < CAPACITY_LIMIT_OUT_ERR_EVENTS) {
+                // Have to ensure the message is not too large.
+                long allowedLength =
+                    Math.max(2 * terminalWidth, Math.round(RELATIVE_OUT_ERR_LIMIT * counter.get()));
+                if (message.length > allowedLength) {
+                  // Have to truncate the message
+                  message =
+                      Arrays.copyOfRange(
+                          message, message.length - (int) allowedLength, message.length);
+                  // Mark message as truncated
+                  message[0] = '.';
+                  message[1] = '.';
+                  message[2] = '.';
+                }
+              }
               int eolIndex = Bytes.lastIndexOf(message, (byte) '\n');
               if (eolIndex >= 0) {
                 clearProgressBar();
@@ -501,7 +595,15 @@ public class ExperimentalEventHandler implements EventHandler {
             clearProgressBar();
             addProgressBar();
             terminal.flush();
-            if (!cursorControl) {
+            double remaining = remainingCapacity();
+            if (remaining < CAPACITY_INCREASE_UPDATE_DELAY) {
+              // Increase the update interval if the start producing too much output
+              minimalDelayMillis = Math.max(minimalDelayMillis, 1000);
+              if (remaining < CAPACITY_UPDATE_DELAY_5_SECONDS) {
+                minimalDelayMillis = Math.max(minimalDelayMillis, 5000);
+              }
+            }
+            if (!cursorControl || remaining < CAPACITY_UPDATE_DELAY_AS_NO_CURSES) {
               // If we can't update the progress bar in place, make sure we increase the update
               // interval as time progresses, to avoid too many progress messages in place.
               minimalDelayMillis =
@@ -655,7 +757,10 @@ public class ExperimentalEventHandler implements EventHandler {
     if (showTimestamp) {
       timestamp = TIMESTAMP_FORMAT.print(clock.currentTimeMillis());
     }
-    stateTracker.writeProgressBar(terminalWriter, /* shortVersion=*/ !cursorControl, timestamp);
+    stateTracker.writeProgressBar(
+        terminalWriter,
+        /* shortVersion=*/ !cursorControl || remainingCapacity() < CAPACITY_SHORT_PROGRESS_BAR,
+        timestamp);
     terminalWriter.newline();
     numLinesProgressBar = countingTerminalWriter.getWrittenLines();
     if (progressInTermTitle) {

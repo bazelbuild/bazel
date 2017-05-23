@@ -197,6 +197,18 @@ public class BlazeCommandEventHandler implements EventHandler {
     )
     public int experimentalUiActionsShown;
 
+    @Option(
+      name = "experimental_ui_limit_console_output",
+      defaultValue = "0",
+      category = "verbosity",
+      help =
+          "Number of bytes to which the experimental UI will limit its output (non-positive "
+              + "values indicate unlimited). Once the limit is approaching, the experimental UI "
+              + "will try hard to limit in a meaningful way, but will ultimately just drop all  "
+              + "output."
+    )
+    public int experimentalUiLimitConsoleOutput;
+
     public boolean useColor() {
       return useColorEnum == UseColor.YES || (useColorEnum == UseColor.AUTO && isATty);
     }

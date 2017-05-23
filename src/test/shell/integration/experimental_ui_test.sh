@@ -51,6 +51,15 @@ sleep 1
 exit 0
 EOF
   chmod 755 pkg/output.sh
+  cat > pkg/do_output.sh <<EOF
+#!/bin/sh
+echo Beginning \$1
+for _ in \`seq 1 1024\`
+do echo '1234567890'
+done
+echo Ending \$1
+EOF
+  chmod 755 pkg/do_output.sh
   cat > pkg/BUILD <<EOF
 sh_test(
   name = "true",
@@ -72,6 +81,18 @@ genrule(
   name = "gentext",
   outs = ["gentext.txt"],
   cmd = "echo here be dragons > \"\$@\""
+)
+genrule(
+  name = "withOutputA",
+  outs = ["a"],
+  tools = [":do_output.sh"],
+  cmd = "\$(location :do_output.sh) A && touch \$@",
+)
+genrule(
+  name = "withOutputB",
+  outs = ["b"],
+  tools = [":do_output.sh"],
+  cmd = "\$(location :do_output.sh) B && touch \$@",
 )
 EOF
 }
@@ -248,6 +269,24 @@ function test_streamed {
     --nocache_test_results --test_output=streamed pkg:output >$TEST_log \
     || fail "expected success"
   expect_log 'foobar'
+}
+
+function test_output_limit {
+    # Verify that output limting works
+    bazel clean --expunge
+    # The two actions produce about 10k of output each. As we set an output
+    # limit to 5k total, we expect it to be truncated reasonably so that we
+    # can see the end of the output of both actions, while still staying in
+    # the limit.
+    bazel build --experimental_ui --curses=yes --color=yes \
+          --experimental_ui_limit_console_output=5120 \
+          pkg:withOutputA pkg:withOutputB >$TEST_log 2>&1 \
+    || fail "expected success"
+    expect_log 'Ending A'
+    expect_log 'Ending B'
+    output_length=`cat $TEST_log | wc -c`
+    [ "${output_length}" -le 5120 ] \
+        || fail "Output too large, is ${output_length}"
 }
 
 run_suite "Integration tests for ${PRODUCT_NAME}'s experimental UI"
