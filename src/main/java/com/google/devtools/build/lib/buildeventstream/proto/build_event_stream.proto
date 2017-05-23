@@ -362,7 +362,7 @@ message TargetComplete {
   // Temporarily, also report the important outputs directly. This is only to
   // allow existing clients help transition to the deduplicated representation;
   // new clients should not use it.
-  repeated File important_output = 4;
+  repeated File important_output = 4 [deprecated = true];
 
   // List of tags associated with this target.
   repeated string tag = 3;
