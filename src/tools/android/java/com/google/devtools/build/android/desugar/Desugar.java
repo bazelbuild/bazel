@@ -203,7 +203,6 @@ class Desugar {
   }
 
   private final Options options;
-  private final Path dumpDirectory;
   private final CoreLibraryRewriter rewriter;
   private final LambdaClassMaker lambdas;
   private final GeneratedClassStore store;
@@ -219,7 +218,6 @@ class Desugar {
 
   private Desugar(Options options, Path dumpDirectory) {
     this.options = options;
-    this.dumpDirectory = dumpDirectory;
     this.rewriter = new CoreLibraryRewriter(options.coreLibrary ? "__desugar__/" : "");
     this.lambdas = new LambdaClassMaker(dumpDirectory);
     this.store = new GeneratedClassStore();
@@ -399,8 +397,7 @@ class Desugar {
         lambdaClasses.keySet());
 
     for (Map.Entry<Path, LambdaInfo> lambdaClass : lambdaClasses.entrySet()) {
-      try (InputStream bytecode =
-          Files.newInputStream(dumpDirectory.resolve(lambdaClass.getKey()))) {
+      try (InputStream bytecode = Files.newInputStream(lambdaClass.getKey())) {
         ClassReader reader = rewriter.reader(bytecode);
         UnprefixingClassWriter writer =
             rewriter.writer(ClassWriter.COMPUTE_MAXS /*for invoking bridges*/);
@@ -577,7 +574,7 @@ class Desugar {
   static Path createAndRegisterLambdaDumpDirectory() throws IOException {
     String propertyValue = System.getProperty(LAMBDA_METAFACTORY_DUMPER_PROPERTY);
     if (propertyValue != null) {
-      Path path = Paths.get(propertyValue).toAbsolutePath();
+      Path path = Paths.get(propertyValue);
       checkState(Files.isDirectory(path), "The path '%s' is not a directory.", path);
       // It is not necessary to check whether 'path' is an empty directory. It is possible that
       // LambdaMetafactory is loaded before this class, and there are already lambda classes dumped
