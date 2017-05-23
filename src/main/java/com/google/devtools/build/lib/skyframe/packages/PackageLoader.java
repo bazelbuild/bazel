@@ -40,7 +40,7 @@ public interface PackageLoader {
    * Package#containsErrors}), e.g. if there was syntax error in the package's BUILD file.
    */
   ImmutableMap<PackageIdentifier, PackageOrException> loadPackages(
-      Iterable<PackageIdentifier> pkgIds) throws InterruptedException;
+      Iterable<? extends PackageIdentifier> pkgIds) throws InterruptedException;
 
   class PackageOrException {
     private final Package pkg;
@@ -56,7 +56,7 @@ public interface PackageLoader {
      * @throws NoSuchPackageException if there was a non-recoverable error loading the package, e.g.
      *     an io error reading the BUILD file.
      */
-    Package get() throws NoSuchPackageException {
+    public Package get() throws NoSuchPackageException {
       if (pkg != null) {
         return pkg;
       }

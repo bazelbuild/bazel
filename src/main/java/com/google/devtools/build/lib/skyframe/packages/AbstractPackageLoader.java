@@ -250,7 +250,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
 
   @Override
   public ImmutableMap<PackageIdentifier, PackageLoader.PackageOrException> loadPackages(
-      Iterable<PackageIdentifier> pkgIds) throws InterruptedException {
+      Iterable<? extends PackageIdentifier> pkgIds) throws InterruptedException {
     ImmutableList.Builder<SkyKey> keysBuilder = ImmutableList.builder();
     for (PackageIdentifier pkgId : pkgIds) {
       keysBuilder.add(PackageValue.key(pkgId));
