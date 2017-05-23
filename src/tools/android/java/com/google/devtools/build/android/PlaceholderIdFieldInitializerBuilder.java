@@ -26,6 +26,7 @@ import com.google.devtools.build.android.resources.FieldInitializer;
 import com.google.devtools.build.android.resources.FieldInitializers;
 import com.google.devtools.build.android.resources.IntArrayFieldInitializer;
 import com.google.devtools.build.android.resources.IntFieldInitializer;
+import java.nio.file.Path;
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -158,6 +159,15 @@ class PlaceholderIdFieldInitializerBuilder {
     return resourceName.replace('.', '_');
   }
 
+  public static PlaceholderIdFieldInitializerBuilder from(
+      AndroidFrameworkAttrIdProvider androidIdProvider) {
+    return new PlaceholderIdFieldInitializerBuilder(androidIdProvider);
+  }
+
+  public static PlaceholderIdFieldInitializerBuilder from(Path androidJar) {
+    return from(new AndroidFrameworkAttrIdJar(androidJar));
+  }
+
   private final AndroidFrameworkAttrIdProvider androidIdProvider;
 
   private final Map<ResourceType, Set<String>> innerClasses = new EnumMap<>(ResourceType.class);
@@ -167,7 +177,7 @@ class PlaceholderIdFieldInitializerBuilder {
 
   private final Map<String, Map<String, Boolean>> styleableAttrs = new HashMap<>();
 
-  public PlaceholderIdFieldInitializerBuilder(AndroidFrameworkAttrIdProvider androidIdProvider) {
+  private PlaceholderIdFieldInitializerBuilder(AndroidFrameworkAttrIdProvider androidIdProvider) {
     this.androidIdProvider = androidIdProvider;
   }
 

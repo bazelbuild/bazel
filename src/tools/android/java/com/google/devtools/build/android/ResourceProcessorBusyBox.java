@@ -71,6 +71,12 @@ public class ResourceProcessorBusyBox {
         LibraryRClassGeneratorAction.main(args);
       }
     },
+    GENERATE_ROBOLECTRIC_R() {
+      @Override
+      void call(String[] args) throws Exception {
+        GenerateRobolectricResourceSymbolsAction.main(args);
+      }
+    },
     PARSE() {
       @Override
       void call(String[] args) throws Exception {

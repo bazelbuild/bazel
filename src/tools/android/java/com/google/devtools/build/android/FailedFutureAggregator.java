@@ -56,11 +56,12 @@ class FailedFutureAggregator<T extends Throwable> {
     this.exceptionFactory = exceptionFactory;
   }
 
-  /** Iterates throw a list of futures, throwing an Exception if any have failed. */
-  public void aggregateAndMaybeThrow(List<ListenableFuture<Boolean>> tasks) throws T {
+  /** Iterates a list of futures, throwing an Exception if any have failed. */
+  public <V> void aggregateAndMaybeThrow(List<? extends ListenableFuture<? extends V>> tasks)
+      throws T {
     // Retrieve all the exceptions and wrap them in an IOException.
     T exception = null;
-    for (ListenableFuture<Boolean> task : tasks) {
+    for (ListenableFuture<?> task : tasks) {
       try {
         task.get();
       } catch (ExecutionException | InterruptedException e) {

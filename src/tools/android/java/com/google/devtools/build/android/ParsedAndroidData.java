@@ -24,6 +24,8 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.xml.StyleableXmlResourceValue;
 import java.io.IOException;
@@ -42,6 +44,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.logging.Logger;
 import javax.annotation.concurrent.Immutable;
 import javax.annotation.concurrent.NotThreadSafe;
@@ -392,6 +395,70 @@ public class ParsedAndroidData {
       data.walk(pathWalker);
     }
     return pathWalker.createParsedAndroidData();
+  }
+
+  private static final class ParseDependencyDataTask implements Callable<Void> {
+
+    private final SerializedAndroidData dependency;
+
+    private final Builder targetBuilder;
+
+    private final AndroidDataDeserializer deserializer;
+
+    private ParseDependencyDataTask(
+        AndroidDataDeserializer deserializer,
+        SerializedAndroidData dependency,
+        Builder targetBuilder) {
+      this.deserializer = deserializer;
+      this.dependency = dependency;
+      this.targetBuilder = targetBuilder;
+    }
+
+    @Override
+    public Void call() throws Exception {
+      final Builder parsedDataBuilder = ParsedAndroidData.Builder.newBuilder();
+      try {
+        dependency.deserialize(deserializer, parsedDataBuilder.consumers());
+      } catch (DeserializationException e) {
+        if (!e.isLegacy()) {
+          throw MergingException.wrapException(e);
+        }
+        logger.fine(
+            String.format(
+                "\u001B[31mDEPRECATION:\u001B[0m Legacy resources used for %s",
+                dependency.getLabel()));
+        // Legacy android resources -- treat them as direct dependencies.
+        dependency.walk(ParsedAndroidDataBuildingPathWalker.create(parsedDataBuilder));
+      }
+      // The builder isn't threadsafe, so synchronize the copyTo call.
+      synchronized (targetBuilder) {
+        // All the resources are sorted before writing, so they can be aggregated in
+        // whatever order here.
+        parsedDataBuilder.copyTo(targetBuilder);
+      }
+      return null;
+    }
+  }
+
+  /**
+   * Deserializes data and merges them into a single {@link ParsedAndroidData}.
+   *
+   * @throws MergingException for deserialization errors.
+   */
+  public static ParsedAndroidData loadedFrom(
+      List<? extends SerializedAndroidData> data,
+      ListeningExecutorService executorService,
+      AndroidDataDeserializer deserializer) {
+    List<ListenableFuture<Void>> tasks = new ArrayList<>();
+    final Builder target = Builder.newBuilder();
+    for (SerializedAndroidData serialized : data) {
+      tasks.add(
+          executorService.submit(new ParseDependencyDataTask(deserializer, serialized, target)));
+    }
+    FailedFutureAggregator.createForMergingExceptionWithMessage(
+            "Failure(s) during dependency parsing")
+        .aggregateAndMaybeThrow(tasks);
+    return target.build();
   }
 
   private final ImmutableSet<MergeConflict> conflicts;
