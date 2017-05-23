@@ -323,9 +323,9 @@ sh_test(
 )
 
 sh_test(
-    name = "cc_inc_library_test",
+    name = "cc_integration_test",
     size = "medium",
-    srcs = ["cc_inc_library_test.sh"],
+    srcs = ["cc_integration_test.sh"],
     data = [":test-deps"],
 )
 

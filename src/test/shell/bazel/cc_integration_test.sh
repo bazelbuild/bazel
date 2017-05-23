@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -eu
 #
 # Copyright 2016 The Bazel Authors. All rights reserved.
 #
@@ -48,6 +48,32 @@ EOF
   cat > package/hdr.h <<EOF
 int some_function();
 EOF
+}
+
+function test_extra_action_for_compile() {
+  mkdir -p ea
+  cat > ea/BUILD <<EOF
+action_listener(
+    name = "al",
+    extra_actions = [":ea"],
+    mnemonics = ["CppCompile"],
+    visibility = ["//visibility:public"],
+)
+
+extra_action(
+    name = "ea",
+    cmd = "if ! [[ -r ea/cc.cc ]]; then echo 'source file not in inputs'; exit 1; fi",
+)
+
+cc_library(
+    name = "cc",
+    srcs = ["cc.cc"],
+)
+EOF
+
+  echo 'void cc() {}' > ea/cc.cc
+
+  bazel build --experimental_action_listener=//ea:al //ea:cc || fail "expected success"
 }
 
 function test_cc_library_include_prefix_external_repository() {
