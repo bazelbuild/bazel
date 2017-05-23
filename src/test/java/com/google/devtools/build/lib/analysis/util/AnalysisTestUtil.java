@@ -250,8 +250,7 @@ public final class AnalysisTestUtil {
 
     @Override
     public int hashCode() {
-      // TODO(b/38132001): return key.hashCode();
-      return System.identityHashCode(this);
+      return key.hashCode();
     }
   }
 
