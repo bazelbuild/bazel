@@ -171,5 +171,9 @@ message TargetIdeInfo {
 
   AndroidSdkIdeInfo android_sdk_ide_info = 22;
 
-  // Next available: 24
+  reserved 23;
+
+  repeated string features = 24;
+
+  // Next available: 25
 }

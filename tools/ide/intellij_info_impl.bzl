@@ -665,6 +665,7 @@ def intellij_info_aspect_impl(target, ctx, semantics):
       test_info = test_info,
       java_toolchain_ide_info = java_toolchain_ide_info,
       py_ide_info = py_ide_info,
+      features = ctx.features,
       **extra_ide_info
   )
 
