@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.util.Preconditions;
 
@@ -41,12 +42,37 @@ import java.util.Objects;
  * link order (preorder) and linkstamps are sorted.
  */
 public final class CcLinkParams {
-  private final NestedSet<ImmutableList<String>> linkOpts;
+
+  /**
+   * A list of link options contributed by a single configured target.
+   *
+   * <b>WARNING:</b> Do not implement {@code #equals()} in the obvious way. This class must be
+   * checked for equality by object identity because otherwise if two configured targets contribute
+   * the same link options, they will be de-duplicated, which is not the desirable behavior.
+   */
+  @Immutable
+  public static final class LinkOptions {
+    private final ImmutableList<String> linkOptions;
+
+    private LinkOptions(Iterable<String> linkOptions) {
+      this.linkOptions = ImmutableList.copyOf(linkOptions);
+    }
+
+    public ImmutableList<String> get() {
+      return linkOptions;
+    }
+
+    public static LinkOptions of(Iterable<String> linkOptions) {
+      return new LinkOptions(linkOptions);
+    }
+  }
+
+  private final NestedSet<LinkOptions> linkOpts;
   private final NestedSet<Linkstamp> linkstamps;
   private final NestedSet<LibraryToLink> libraries;
   private final ExtraLinkTimeLibraries extraLinkTimeLibraries;
 
-  private CcLinkParams(NestedSet<ImmutableList<String>> linkOpts,
+  private CcLinkParams(NestedSet<LinkOptions> linkOpts,
                        NestedSet<Linkstamp> linkstamps,
                        NestedSet<LibraryToLink> libraries,
                        ExtraLinkTimeLibraries extraLinkTimeLibraries) {
@@ -59,12 +85,18 @@ public final class CcLinkParams {
   /**
    * @return the linkopts
    */
-  public NestedSet<ImmutableList<String>> getLinkopts() {
+  public NestedSet<LinkOptions> getLinkopts() {
     return linkOpts;
   }
 
   public ImmutableList<String> flattenedLinkopts() {
-    return ImmutableList.copyOf(Iterables.concat(linkOpts));
+    return ImmutableList.copyOf(Iterables.concat(Iterables.transform(linkOpts,
+        new Function<LinkOptions, ImmutableList<String>>() {
+          @Override
+          public ImmutableList<String> apply(LinkOptions linkOptions) {
+            return linkOptions.get();
+          }
+        })));
   }
 
   /**
@@ -115,7 +147,7 @@ public final class CcLinkParams {
 
     private ImmutableList.Builder<String> localLinkoptsBuilder = ImmutableList.builder();
 
-    private final NestedSetBuilder<ImmutableList<String>> linkOptsBuilder =
+    private final NestedSetBuilder<LinkOptions> linkOptsBuilder =
         NestedSetBuilder.linkOrder();
     private final NestedSetBuilder<Linkstamp> linkstampsBuilder =
         NestedSetBuilder.compileOrder();
@@ -145,7 +177,7 @@ public final class CcLinkParams {
       built = true;
       ImmutableList<String> localLinkopts = localLinkoptsBuilder.build();
       if (!localLinkopts.isEmpty()) {
-        linkOptsBuilder.add(localLinkopts);
+        linkOptsBuilder.add(LinkOptions.of(localLinkopts));
       }
       ExtraLinkTimeLibraries extraLinkTimeLibraries = null;
       if (extraLinkTimeLibrariesBuilder != null) {
@@ -367,7 +399,7 @@ public final class CcLinkParams {
    * Empty CcLinkParams.
    */
   public static final CcLinkParams EMPTY = new CcLinkParams(
-      NestedSetBuilder.<ImmutableList<String>>emptySet(Order.LINK_ORDER),
+      NestedSetBuilder.<LinkOptions>emptySet(Order.LINK_ORDER),
       NestedSetBuilder.<Linkstamp>emptySet(Order.COMPILE_ORDER),
       NestedSetBuilder.<LibraryToLink>emptySet(Order.LINK_ORDER),
       null);
