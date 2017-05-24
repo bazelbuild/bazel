@@ -25,19 +25,20 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.TypePath;
 
 /**
- * Visitor that moves methods with bodies from interfaces into a companion class and rewrites
- * call sites accordingly (which is only needed for static interface methods).  Default methods
- * are kept as abstract methods with all their annotations.
+ * Visitor that moves methods with bodies from interfaces into a companion class and rewrites call
+ * sites accordingly (which is only needed for static interface methods). Default methods are kept
+ * as abstract methods with all their annotations.
  *
- * <p>Any necessary companion classes will be added to the given {@link GeneratedClassStore}.  It's
+ * <p>Any necessary companion classes will be added to the given {@link GeneratedClassStore}. It's
  * the caller's responsibility to write those out.
  *
  * <p>Relies on {@link DefaultMethodClassFixer} to stub in method bodies for moved default methods.
- * Assumes that lambdas are already desugared.  Ignores bridge methods, which are handled specially.
+ * Assumes that lambdas are already desugared. Ignores bridge methods, which are handled specially.
  */
 class InterfaceDesugaring extends ClassVisitor {
 
   static final String COMPANION_SUFFIX = "$$CC";
+  static final String INTERFACE_STATIC_COMPANION_METHOD_SUFFIX = "$$STATIC$$";
 
   private final ClassReaderFactory bootclasspath;
   private final GeneratedClassStore store;
@@ -47,8 +48,8 @@ class InterfaceDesugaring extends ClassVisitor {
   private int accessFlags;
   @Nullable private ClassVisitor companion;
 
-  public InterfaceDesugaring(ClassVisitor dest, ClassReaderFactory bootclasspath,
-      GeneratedClassStore store) {
+  public InterfaceDesugaring(
+      ClassVisitor dest, ClassReaderFactory bootclasspath, GeneratedClassStore store) {
     super(Opcodes.ASM5, dest);
     this.bootclasspath = bootclasspath;
     this.store = store;
@@ -90,10 +91,10 @@ class InterfaceDesugaring extends ClassVisitor {
           name.startsWith("lambda$") && BitFlags.isSet(access, Opcodes.ACC_SYNTHETIC);
       if (isLambdaBody) {
         access &= ~Opcodes.ACC_PUBLIC; // undo visibility change from LambdaDesugaring
-        // Rename lambda method to reflect the new owner.  Not doing so confuses LambdaDesugaring
-        // if it's run over this class again.
-        name += COMPANION_SUFFIX;
       }
+      name =
+          normalizeInterfaceMethodName(
+              name, isLambdaBody, BitFlags.isSet(access, Opcodes.ACC_STATIC));
       if (BitFlags.isSet(access, Opcodes.ACC_STATIC)) {
         // Completely move static interface methods, which requires rewriting call sites
         result =
@@ -109,10 +110,14 @@ class InterfaceDesugaring extends ClassVisitor {
           // Make default methods abstract but move their implementation into a static method with
           // corresponding signature.  Doesn't require callsite rewriting but implementing classes
           // may need to implement default methods explicitly.
-          checkArgument(BitFlags.noneSet(access, Opcodes.ACC_PRIVATE),
-              "Unexpected private interface method %s.%s : %s", name, internalName, desc);
-          abstractDest = super.visitMethod(
-              access | Opcodes.ACC_ABSTRACT, name, desc, signature, exceptions);
+          checkArgument(
+              BitFlags.noneSet(access, Opcodes.ACC_PRIVATE),
+              "Unexpected private interface method %s.%s : %s",
+              name,
+              internalName,
+              desc);
+          abstractDest =
+              super.visitMethod(access | Opcodes.ACC_ABSTRACT, name, desc, signature, exceptions);
         }
 
         // TODO(b/37110951): adjust signature with explicit receiver type, which may be generic
@@ -131,6 +136,22 @@ class InterfaceDesugaring extends ClassVisitor {
       result = super.visitMethod(access, name, desc, signature, exceptions);
     }
     return result != null ? new InterfaceInvocationRewriter(result) : null;
+  }
+
+  private static String normalizeInterfaceMethodName(
+      String name, boolean isLambda, boolean isStatic) {
+    String suffix;
+    if (isLambda) {
+      // Rename lambda method to reflect the new owner.  Not doing so confuses LambdaDesugaring
+      // if it's run over this class again. LambdaDesugaring has already renamed the method from
+      // its original name to include the interface name at this point.
+      suffix = COMPANION_SUFFIX;
+    } else if (isStatic) {
+      suffix = INTERFACE_STATIC_COMPANION_METHOD_SUFFIX;
+    } else {
+      return name;
+    }
+    return name + suffix;
   }
 
   /**
@@ -166,9 +187,9 @@ class InterfaceDesugaring extends ClassVisitor {
 
   /**
    * Rewriter for calls to static interface methods and super calls to default methods, unless
-   * they're part of the bootclasspath, as well as all lambda body methods.  Keeps calls to
-   * interface methods declared in the bootclasspath as-is (but note that these would presumably
-   * fail on devices without those methods).
+   * they're part of the bootclasspath, as well as all lambda body methods. Keeps calls to interface
+   * methods declared in the bootclasspath as-is (but note that these would presumably fail on
+   * devices without those methods).
    */
   private class InterfaceInvocationRewriter extends MethodVisitor {
 
@@ -180,28 +201,44 @@ class InterfaceDesugaring extends ClassVisitor {
     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
       // Assume that any static interface methods on the classpath are moved
       if (itf) {
-        if (name.startsWith("lambda$")) {
+        boolean isLambda = name.startsWith("lambda$");
+        name = normalizeInterfaceMethodName(name, isLambda, opcode == Opcodes.INVOKESTATIC);
+        if (isLambda) {
           // Redirect lambda invocations to completely remove all lambda methods from interfaces.
-          checkArgument(!owner.endsWith(COMPANION_SUFFIX),
-              "%s shouldn't consider %s an interface", internalName, owner);
+          checkArgument(
+              !owner.endsWith(COMPANION_SUFFIX),
+              "%s shouldn't consider %s an interface",
+              internalName,
+              owner);
           checkArgument(!bootclasspath.isKnown(owner)); // must be in current input
           if (opcode == Opcodes.INVOKEINTERFACE) {
             opcode = Opcodes.INVOKESTATIC;
             desc = companionDefaultMethodDescriptor(owner, desc);
           } else {
-            checkArgument(opcode == Opcodes.INVOKESTATIC,
-                "Unexpected opcode %s to invoke %s.%s", opcode, owner, name);
+            checkArgument(
+                opcode == Opcodes.INVOKESTATIC,
+                "Unexpected opcode %s to invoke %s.%s",
+                opcode,
+                owner,
+                name);
           }
           // Reflect that InterfaceDesugaring moves and renames the lambda body method
           owner += COMPANION_SUFFIX;
-          name += COMPANION_SUFFIX;
-          checkState(name.equals(LambdaDesugaring.uniqueInPackage(owner, name)),
-              "Unexpected lambda body method name %s for %s", name, owner);
+          String expectedLambdaMethodName = LambdaDesugaring.uniqueInPackage(owner, name);
+          checkState(
+              name.equals(expectedLambdaMethodName),
+              "Unexpected lambda body method name for %s: real=%s, expected=%s",
+              owner,
+              name,
+              expectedLambdaMethodName);
           itf = false;
         } else if ((opcode == Opcodes.INVOKESTATIC || opcode == Opcodes.INVOKESPECIAL)
             && !bootclasspath.isKnown(owner)) {
-          checkArgument(!owner.endsWith(COMPANION_SUFFIX),
-              "%s shouldn't consider %s an interface", internalName, owner);
+          checkArgument(
+              !owner.endsWith(COMPANION_SUFFIX),
+              "%s shouldn't consider %s an interface",
+              internalName,
+              owner);
           if (opcode == Opcodes.INVOKESPECIAL) {
             // Turn Interface.super.m() into Interface$$CC.m(receiver)
             opcode = Opcodes.INVOKESTATIC;
@@ -216,8 +253,8 @@ class InterfaceDesugaring extends ClassVisitor {
   }
 
   /**
-   * Method visitor that behaves like a passthrough but additionally duplicates all annotations
-   * into a second given {@link MethodVisitor}.
+   * Method visitor that behaves like a passthrough but additionally duplicates all annotations into
+   * a second given {@link MethodVisitor}.
    */
   private static class MultiplexAnnotations extends MethodVisitor {
 
@@ -267,8 +304,8 @@ class InterfaceDesugaring extends ClassVisitor {
 
     private final AnnotationVisitor[] moreDestinations;
 
-    public MultiplexAnnotationVisitor(@Nullable AnnotationVisitor dest,
-        AnnotationVisitor... moreDestinations) {
+    public MultiplexAnnotationVisitor(
+        @Nullable AnnotationVisitor dest, AnnotationVisitor... moreDestinations) {
       super(Opcodes.ASM5, dest);
       this.moreDestinations = moreDestinations;
     }
