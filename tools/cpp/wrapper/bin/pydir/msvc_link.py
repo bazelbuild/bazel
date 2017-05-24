@@ -36,6 +36,7 @@ LINKPATTERNS = [
     ('-no-whole-archive', []),
     ('-rdynamic', []),
     (r'-Wl,(.+)\.lib', ['$0.lib']),
+    (r'-DEFAULTLIB:(.+)', ['/DEFAULTLIB:$0']),
     ('-Wl,@(.+)', ['$LOAD_PARAMS0']),
     ('@(.+)', ['$LOAD_PARAMS0']),
     ('-Wl,-rpath(.+)', []),
