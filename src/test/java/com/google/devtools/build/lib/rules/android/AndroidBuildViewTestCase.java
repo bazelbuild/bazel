@@ -17,7 +17,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
-import static org.junit.Assert.assertNotNull;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
@@ -132,9 +131,11 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
   }
 
   protected void assertProguardUsed(ConfiguredTarget binary) {
-    assertNotNull("proguard.jar is not in the rule output",
-        actionsTestUtil().getActionForArtifactEndingWith(
-            getFilesToBuild(binary), "_proguard.jar"));
+    assertWithMessage("proguard.jar is not in the rule output")
+        .that(
+            actionsTestUtil()
+                .getActionForArtifactEndingWith(getFilesToBuild(binary), "_proguard.jar"))
+        .isNotNull();
   }
 
   protected List<String> resourceArguments(ResourceContainer resource) {

@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static org.junit.Assert.assertNotNull;
 
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
@@ -168,7 +167,7 @@ public class AndroidDeviceTest extends BuildViewTestCase {
             getToolDependencyExecPathString("//tools/android/emulator:support_file1"),
             getToolDependencyExecPathString("//tools/android/emulator:support_file2"));
 
-    assertNotNull(target.get(ExecutionInfoProvider.SKYLARK_CONSTRUCTOR.getKey()));
+    assertThat(target.get(ExecutionInfoProvider.SKYLARK_CONSTRUCTOR.getKey())).isNotNull();
     ExecutionInfoProvider executionInfoProvider =
         (ExecutionInfoProvider) target.get(ExecutionInfoProvider.SKYLARK_CONSTRUCTOR.getKey());
     assertThat(executionInfoProvider.getExecutionInfo()).doesNotContainKey(REQUIRES_KVM);
@@ -228,7 +227,7 @@ public class AndroidDeviceTest extends BuildViewTestCase {
 
     assertThat(action.getExecutionInfo())
         .containsEntry(REQUIRES_KVM, "");
-    assertNotNull(target.get(ExecutionInfoProvider.SKYLARK_CONSTRUCTOR.getKey()));
+    assertThat(target.get(ExecutionInfoProvider.SKYLARK_CONSTRUCTOR.getKey())).isNotNull();
     assertThat(
             ((ExecutionInfoProvider) target.get(ExecutionInfoProvider.SKYLARK_CONSTRUCTOR.getKey()))
                 .getExecutionInfo())

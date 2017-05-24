@@ -15,11 +15,8 @@ package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
-import static junit.framework.Assert.assertTrue;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
@@ -158,11 +155,12 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     assertThat(javacAction.getProcessorNames()).contains("com.google.process.stuff");
     assertThat(javacAction.getProcessorNames()).hasSize(1);
 
-    assertEquals("libplugin.jar libplugin_dep.jar", ActionsTestUtil.baseNamesOf(
-        javacAction.getProcessorpath()));
-    assertEquals("ToBeProcessed.java AnnotationProcessor.java ProcessorDep.java",
-        actionsTestUtil().predecessorClosureOf(getFilesToBuild(target),
-            JavaSemantics.JAVA_SOURCE));
+    assertThat(ActionsTestUtil.baseNamesOf(javacAction.getProcessorpath()))
+        .isEqualTo("libplugin.jar libplugin_dep.jar");
+    assertThat(
+            actionsTestUtil()
+                .predecessorClosureOf(getFilesToBuild(target), JavaSemantics.JAVA_SOURCE))
+        .isEqualTo("ToBeProcessed.java AnnotationProcessor.java ProcessorDep.java");
   }
 
   // Same test as above, enabling the plugin through the command line.
@@ -186,11 +184,12 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     assertThat(javacAction.getProcessorNames()).contains("com.google.process.stuff");
     assertThat(javacAction.getProcessorNames()).hasSize(1);
-    assertEquals("libplugin.jar libplugin_dep.jar",
-        ActionsTestUtil.baseNamesOf(javacAction.getProcessorpath()));
-    assertEquals("ToBeProcessed.java AnnotationProcessor.java ProcessorDep.java",
-        actionsTestUtil().predecessorClosureOf(getFilesToBuild(target),
-            JavaSemantics.JAVA_SOURCE));
+    assertThat(ActionsTestUtil.baseNamesOf(javacAction.getProcessorpath()))
+        .isEqualTo("libplugin.jar libplugin_dep.jar");
+    assertThat(
+            actionsTestUtil()
+                .predecessorClosureOf(getFilesToBuild(target), JavaSemantics.JAVA_SOURCE))
+        .isEqualTo("ToBeProcessed.java AnnotationProcessor.java ProcessorDep.java");
   }
 
   @Test
@@ -314,11 +313,12 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   private void assertNativeLibraryLinked(ConfiguredTarget target, String... srcNames) {
     Artifact linkedLib = getOnlyElement(getNativeLibrariesInApk(target));
-    assertEquals(
-        "lib" + target.getLabel().toPathFragment().getBaseName() + ".so", linkedLib.getFilename());
-    assertFalse(linkedLib.isSourceArtifact());
-    assertEquals("Native libraries were not linked to produce " + linkedLib,
-        target.getLabel(), getGeneratingLabelForArtifact(linkedLib));
+    assertThat(linkedLib.getFilename())
+        .isEqualTo("lib" + target.getLabel().toPathFragment().getBaseName() + ".so");
+    assertThat(linkedLib.isSourceArtifact()).isFalse();
+    assertWithMessage("Native libraries were not linked to produce " + linkedLib)
+        .that(getGeneratingLabelForArtifact(linkedLib))
+        .isEqualTo(target.getLabel());
     assertThat(artifactsToStrings(actionsTestUtil().artifactClosureOf(linkedLib)))
         .containsAllIn(ImmutableSet.copyOf(Arrays.asList(srcNames)));
   }
@@ -692,26 +692,28 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     assertThat(getFirstArtifactEndingWith(artifacts, "signed_hello.apk")).isNull();
     SpawnAction unsignedApkAction = (SpawnAction) actionsTestUtil()
         .getActionForArtifactEndingWith(artifacts, "/hello_unsigned.apk");
-    assertTrue(
-        Iterables.any(
-            unsignedApkAction.getInputs(),
-            new Predicate<Artifact>() {
-              @Override
-              public boolean apply(Artifact artifact) {
-                return artifact.getFilename().equals("SingleJar_deploy.jar");
-              }
-            }));
+    assertThat(
+            Iterables.any(
+                unsignedApkAction.getInputs(),
+                new Predicate<Artifact>() {
+                  @Override
+                  public boolean apply(Artifact artifact) {
+                    return artifact.getFilename().equals("SingleJar_deploy.jar");
+                  }
+                }))
+        .isTrue();
     SpawnAction compressedUnsignedApkAction = (SpawnAction) actionsTestUtil()
         .getActionForArtifactEndingWith(artifacts, "compressed_hello_unsigned.apk");
-    assertTrue(
-        Iterables.any(
-            compressedUnsignedApkAction.getInputs(),
-            new Predicate<Artifact>() {
-              @Override
-              public boolean apply(Artifact artifact) {
-                return artifact.getFilename().equals("SingleJar_deploy.jar");
-              }
-            }));
+    assertThat(
+            Iterables.any(
+                compressedUnsignedApkAction.getInputs(),
+                new Predicate<Artifact>() {
+                  @Override
+                  public boolean apply(Artifact artifact) {
+                    return artifact.getFilename().equals("SingleJar_deploy.jar");
+                  }
+                }))
+        .isTrue();
     SpawnAction zipalignAction = (SpawnAction) actionsTestUtil()
         .getActionForArtifactEndingWith(artifacts, "zipaligned_hello.apk");
     assertThat(zipalignAction.getCommandFilename()).endsWith("sdk/zipalign");
@@ -811,15 +813,16 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     // Assert that the ProGuard executable set in the android_sdk rule appeared in the command-line
     // of the SpawnAction that generated the _proguard.jar.
-    assertTrue(
-        Iterables.any(
-            action.getArguments(),
-            new Predicate<String>() {
-              @Override
-              public boolean apply(String s) {
-                return s.endsWith("ProGuard");
-              }
-            }));
+    assertThat(
+            Iterables.any(
+                action.getArguments(),
+                new Predicate<String>() {
+                  @Override
+                  public boolean apply(String s) {
+                    return s.endsWith("ProGuard");
+                  }
+                }))
+        .isTrue();
     assertThat(action.getArguments())
         .containsAllOf(
             "-injars",
@@ -832,8 +835,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     // Checks that the output files are produced.
     assertProguardUsed(output);
-    assertNotNull(getBinArtifact("b_proguard.usage", output));
-    assertNotNull(getBinArtifact("b_proguard.seeds", output));
+    assertThat(getBinArtifact("b_proguard.usage", output)).isNotNull();
+    assertThat(getBinArtifact("b_proguard.seeds", output)).isNotNull();
   }
 
   @Test
@@ -861,9 +864,9 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         getHostConfiguredTarget("//java/com/google/devtools/build/jkrunchy")
             .getProvider(FilesToRunProvider.class)
             .getExecutable();
-    assertEquals("ProGuard implementation was not correctly taken from the configuration",
-        jkrunchyExecutable.getExecPathString(),
-        proguardAction.getCommandFilename());
+    assertWithMessage("ProGuard implementation was not correctly taken from the configuration")
+        .that(proguardAction.getCommandFilename())
+        .isEqualTo(jkrunchyExecutable.getExecPathString());
   }
 
   @Test
@@ -966,7 +969,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     int start = args.indexOf("--dex") + 1;
     assertThat(start).isNotEqualTo(0);
     int end = Math.min(args.size(), start + expectedArgs.size());
-    assertEquals(expectedArgs, args.subList(start, end));
+    assertThat(args.subList(start, end)).isEqualTo(expectedArgs);
   }
 
   @Test
@@ -1789,22 +1792,22 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     ConfiguredTarget binary = getConfiguredTarget("//java/android:app");
     SpawnAction action = (SpawnAction) actionsTestUtil().getActionForArtifactEndingWith(
         actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)), "zipaligned_app.apk");
-    assertEquals("AndroidZipAlign", action.getMnemonic());
+    assertThat(action.getMnemonic()).isEqualTo("AndroidZipAlign");
 
     List<String> arguments = action.getArguments();
-    assertEquals(1, Iterables.frequency(arguments, "4"));
+    assertThat(Iterables.frequency(arguments, "4")).isEqualTo(1);
 
     Artifact zipAlignTool =
         getFirstArtifactEndingWith(action.getInputs(), "/zipalign");
-    assertEquals(1, Iterables.frequency(arguments, zipAlignTool.getExecPathString()));
+    assertThat(Iterables.frequency(arguments, zipAlignTool.getExecPathString())).isEqualTo(1);
 
     Artifact unsignedApk =
         getFirstArtifactEndingWith(action.getInputs(), "/app_unsigned.apk");
-    assertEquals(1, Iterables.frequency(arguments, unsignedApk.getExecPathString()));
+    assertThat(Iterables.frequency(arguments, unsignedApk.getExecPathString())).isEqualTo(1);
 
     Artifact zipalignedApk =
         getFirstArtifactEndingWith(action.getOutputs(), "/zipaligned_app.apk");
-    assertEquals(1, Iterables.frequency(arguments, zipalignedApk.getExecPathString()));
+    assertThat(Iterables.frequency(arguments, zipalignedApk.getExecPathString())).isEqualTo(1);
   }
 
   @Test
@@ -2304,8 +2307,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     List<String> args = getGeneratingSpawnAction(getResourceApk(resource)).getArguments();
     assertPrimaryResourceDirs(ImmutableList.of("java/android/resources/bin-res"), args);
-    assertThat(getDirectDependentResourceDirs(args)).containsAllIn(ImmutableList.of(
-        "java/android/resources/d1/d1-res", "java/android/resources/d2/d2-res"));
+    assertThat(getDirectDependentResourceDirs(args))
+        .containsAllOf("java/android/resources/d1/d1-res", "java/android/resources/d2/d2-res");
     assertNoEvents();
   }
 
@@ -2423,8 +2426,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
       "               resource_files = ['res/values/strings.xml'],",
       "               )");
     ConfiguredTarget r = getConfiguredTarget("//java/android/resources:r");
-    assertEquals(getTargetConfiguration().getBinDirectory(RepositoryName.MAIN),
-        getFirstArtifactEndingWith(getFilesToBuild(r), ".apk").getRoot());
+    assertThat(getFirstArtifactEndingWith(getFilesToBuild(r), ".apk").getRoot())
+        .isEqualTo(getTargetConfiguration().getBinDirectory(RepositoryName.MAIN));
   }
 
   @Test
