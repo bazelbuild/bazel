@@ -99,19 +99,7 @@ uint64_t GetMillisecondsSinceProcessStart() {
 }
 
 void SetScheduling(bool batch_cpu_scheduling, int io_nice_level) {
-  // Move ourself into a low priority CPU scheduling group if the
-  // machine is configured appropriately.  Fail silently, because this
-  // isn't available on all kernels.
-
-  if (io_nice_level >= 0) {
-    if (blaze_util::sys_ioprio_set(
-            IOPRIO_WHO_PROCESS, getpid(),
-            IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, io_nice_level)) < 0) {
-      pdie(blaze_exit_code::INTERNAL_ERROR,
-           "ioprio_set() with class %d and level %d failed", IOPRIO_CLASS_BE,
-           io_nice_level);
-    }
-  }
+  // Stubbed out so we can compile for FreeBSD.
 }
 
 string GetProcessCWD(int pid) {
