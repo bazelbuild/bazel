@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 // TODO(b/32967056) die() and pdie() are really error statements with an exit;
-//    these can be removed now that logging exists.
+//    these can be removed once logging is on by default.
 
 #ifndef BAZEL_SRC_MAIN_CPP_UTIL_ERRORS_H_
 #define BAZEL_SRC_MAIN_CPP_UTIL_ERRORS_H_
