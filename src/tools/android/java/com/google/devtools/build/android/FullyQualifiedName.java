@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
 import com.google.devtools.build.android.proto.SerializeFormat;
+import com.google.devtools.build.android.xml.ResourcesAttribute;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Path;
@@ -63,7 +64,7 @@ public class FullyQualifiedName implements DataKey {
 
     public String getName();
     public ConcreteType getType();
-    public boolean isOverwritable();
+    public boolean isOverwritable(FullyQualifiedName fqn);
     public int compareTo(Type other);
     @Override public boolean equals(Object obj);
     @Override public int hashCode();
@@ -99,7 +100,7 @@ public class FullyQualifiedName implements DataKey {
     }
 
     @Override
-    public boolean isOverwritable() {
+    public boolean isOverwritable(FullyQualifiedName fqn) {
       return !(resourceType == ResourceType.ID
           || resourceType == ResourceType.PUBLIC
           || resourceType == ResourceType.STYLEABLE);
@@ -182,7 +183,10 @@ public class FullyQualifiedName implements DataKey {
     }
 
     @Override
-    public boolean isOverwritable() {
+    public boolean isOverwritable(FullyQualifiedName fqn) {
+      if (this == RESOURCES_ATTRIBUTE) {
+        return !ResourcesAttribute.AttributeType.from(fqn.name()).isCombining();
+      }
       return true;
     }
 
@@ -531,7 +535,7 @@ public class FullyQualifiedName implements DataKey {
   }
 
   public boolean isOverwritable() {
-    return type.isOverwritable();
+    return type.isOverwritable(this);
   }
 
   /** Creates a FullyQualifiedName from this one with a different package. */
