@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.exec;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closeables;
@@ -188,7 +189,7 @@ public abstract class TestStrategy implements TestActionContext {
 
     // Execute the test using the alias in the runfiles tree, as mandated by the Test Encyclopedia.
     args.add(execSettings.getExecutable().getRootRelativePath().getCallablePathString());
-    args.addAll(execSettings.getArgs());
+    Iterables.addAll(args, execSettings.getArgs().arguments());
     return ImmutableList.copyOf(args);
   }
 

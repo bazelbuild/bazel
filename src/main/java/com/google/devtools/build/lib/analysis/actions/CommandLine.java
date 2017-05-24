@@ -19,10 +19,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.collect.CollectionUtils;
-import com.google.devtools.build.lib.util.Preconditions;
 
 /** A representation of a list of arguments, often a command executed by {@link SpawnAction}. */
 public abstract class CommandLine {
+  public static final CommandLine EMPTY =
+      new CommandLine() {
+        @Override
+        public Iterable<String> arguments() {
+          return ImmutableList.of();
+        }
+      };
+
   /**
    * Returns the command line.
    */
@@ -55,18 +62,42 @@ public abstract class CommandLine {
    * Returns a {@link CommandLine} that is constructed by prepending the {@code executableArgs} to
    * {@code commandLine}.
    */
-  CommandLine prepend(final ImmutableList<String> executableArgs) {
-    final CommandLine self = this;
-    Preconditions.checkState(!executableArgs.isEmpty());
+  public static CommandLine concat(
+      final ImmutableList<String> executableArgs, final CommandLine commandLine) {
+    if (executableArgs.isEmpty()) {
+      return commandLine;
+    }
     return new CommandLine() {
       @Override
       public Iterable<String> arguments() {
-        return Iterables.concat(executableArgs, self.arguments());
+        return Iterables.concat(executableArgs, commandLine.arguments());
       }
 
       @Override
       public Iterable<String> arguments(ArtifactExpander artifactExpander) {
-        return Iterables.concat(executableArgs, self.arguments(artifactExpander));
+        return Iterables.concat(executableArgs, commandLine.arguments(artifactExpander));
+      }
+    };
+  }
+
+  /**
+   * Returns a {@link CommandLine} that is constructed by appending the {@code args} to {@code
+   * commandLine}.
+   */
+  public static CommandLine concat(
+      final CommandLine commandLine, final ImmutableList<String> args) {
+    if (args.isEmpty()) {
+      return commandLine;
+    }
+    return new CommandLine() {
+      @Override
+      public Iterable<String> arguments() {
+        return Iterables.concat(commandLine.arguments(), args);
+      }
+
+      @Override
+      public Iterable<String> arguments(ArtifactExpander artifactExpander) {
+        return Iterables.concat(commandLine.arguments(artifactExpander), args);
       }
     };
   }

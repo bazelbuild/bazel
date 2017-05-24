@@ -16,11 +16,13 @@ package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
+import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -224,18 +226,15 @@ public class RunCommand implements BlazeCommand  {
       return ExitCode.LOCAL_ENVIRONMENTAL_ERROR;
     }
 
-    List<String> args = runTargetArgs;
+    List<String> args = Lists.newArrayList();
 
     FilesToRunProvider provider = targetToRun.getProvider(FilesToRunProvider.class);
     RunfilesSupport runfilesSupport = provider == null ? null : provider.getRunfilesSupport();
     if (runfilesSupport != null && runfilesSupport.getArgs() != null) {
-      List<String> targetArgs = runfilesSupport.getArgs();
-      if (!targetArgs.isEmpty()) {
-        args = Lists.newArrayListWithCapacity(targetArgs.size() + runTargetArgs.size());
-        args.addAll(targetArgs);
-        args.addAll(runTargetArgs);
-      }
+      CommandLine targetArgs = runfilesSupport.getArgs();
+      Iterables.addAll(args, targetArgs.arguments());
     }
+    args.addAll(runTargetArgs);
 
     String productName = env.getRuntime().getProductName();
     //
