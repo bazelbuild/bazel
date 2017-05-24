@@ -125,7 +125,10 @@ class MsvcCompiler(msvc_tools.WindowsRunner):
     if rt_idx >= 0:
       parser.options[rt_idx] = rt
     else:
-      parser.options.append(rt)
+      if parser.is_cuda_compilation:
+        parser.options.append('--compiler-options="%s"' % rt)
+      else:
+        parser.options.append(rt)
 
     compiler = 'cl'
     if parser.is_cuda_compilation:
