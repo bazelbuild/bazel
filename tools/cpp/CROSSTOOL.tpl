@@ -200,8 +200,6 @@ toolchain {
   compiler_flag: "/Gy"
   # Use string pooling.
   compiler_flag: "/GF"
-  # Warning level 3 (could possibly go to 4 in the future).
-  compiler_flag: "/W3"
   # Catch both asynchronous (structured) and synchronous (C++) exceptions.
   compiler_flag: "/EHsc"
 
