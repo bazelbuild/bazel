@@ -523,7 +523,7 @@ final class ProtobufSupport {
     return ruleContext.getUniqueDirectoryArtifact(
         "_protos",
         "_proto_input_files" + suffix,
-        ruleContext.getConfiguration().getGenfilesDirectory());
+        buildConfiguration.getGenfilesDirectory());
   }
 
   private String getProtoInputsFileContents(Iterable<Artifact> outputProtos) {
@@ -607,11 +607,12 @@ final class ProtobufSupport {
   /**
    * Returns a target specific generated artifact that represents a portable filter file.
    */
-  public static Artifact getGeneratedPortableFilter(RuleContext ruleContext) {
+  public static Artifact getGeneratedPortableFilter(RuleContext ruleContext,
+      BuildConfiguration buildConfiguration) {
     return ruleContext.getUniqueDirectoryArtifact(
         "_proto_filters",
         "generated_filter_file.pbascii",
-        ruleContext.getConfiguration().getGenfilesDirectory());
+        buildConfiguration.getGenfilesDirectory());
   }
 
   /**
