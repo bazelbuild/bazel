@@ -501,71 +501,97 @@ public class SkylarkRuleClassFunctions {
     }
   }
 
-
-  @SkylarkSignature(name = "aspect", doc =
-      "Creates a new aspect. The result of this function must be stored in a global value. "
-          + "Please see the <a href=\"../aspects.md\">introduction to Aspects</a> for more "
-          + "details.",
-      returnType = SkylarkAspect.class,
-      parameters = {
-          @Param(name = "implementation", type = BaseFunction.class,
-              doc = "the function implementing this aspect. Must have two parameters: "
-                  + "<a href=\"Target.html\">Target</a> (the target to which the aspect is "
-                  + "applied) and <a href=\"ctx.html\">ctx</a>. Attributes of the target are "
-                  + "available via ctx.rule field. The function is called during the analysis "
-                  + "phase for each application of an aspect to a target."
-          ),
-          @Param(name = "attr_aspects", type = SkylarkList.class, generic1 = String.class,
-              defaultValue = "[]",
-              doc = "List of attribute names.  The aspect propagates along dependencies specified "
-                  + "by attributes of a target with this name. The list can also contain a single "
-                  + "string '*': in that case aspect propagates along all dependencies of a target."
-          ),
-          @Param(name = "attrs", type = SkylarkDict.class, noneable = true, defaultValue = "None",
-              doc = "dictionary to declare all the attributes of the aspect.  "
-                  + "It maps from an attribute name to an attribute object "
-                  + "(see <a href=\"attr.html\">attr</a> module). "
-                  + "Aspect attributes are available to implementation function as fields of ctx "
-                  + "parameter. Implicit attributes starting with <code>_</code> must have default "
-                  + "values, and have type <code>label</code> or <code>label_list</code>. "
-                  + "Explicit attributes must have type <code>string</code>, and must use the "
-                  + "<code>values</code> restriction. If explicit attributes are present, the "
-                  + "aspect can only be used with rules that have attributes of the same name and "
-                  + "type, with valid values."
-          ),
-          @Param(name = "required_aspect_providers",
-              type = SkylarkList.class,
-              defaultValue = "[]",
-              // todo(dslomov): Document once it works.
-              doc = "<not available>"
-          ),
-          @Param(name = "provides",
-              type = SkylarkList.class,
-              defaultValue = "[]",
-              // todo(dslomov): Document once it works.
-              doc = "<not available>"
-          ),
-          @Param(
-              name = "fragments",
-              type = SkylarkList.class,
-              generic1 = String.class,
-              defaultValue = "[]",
-              doc =
-                  "List of names of configuration fragments that the aspect requires "
-                      + "in target configuration."
-          ),
-          @Param(
-              name = "host_fragments",
-              type = SkylarkList.class,
-              generic1 = String.class,
-              defaultValue = "[]",
-              doc =
-                  "List of names of configuration fragments that the aspect requires "
-                      + "in host configuration."
-          )
-      },
-      useEnvironment = true,
-      useAst = true
+  @SkylarkSignature(
+    name = "aspect",
+    doc =
+        "Creates a new aspect. The result of this function must be stored in a global value. "
+            + "Please see the <a href=\"../aspects.md\">introduction to Aspects</a> for more "
+            + "details.",
+    returnType = SkylarkAspect.class,
+    parameters = {
+      @Param(
+        name = "implementation",
+        type = BaseFunction.class,
+        doc =
+            "the function implementing this aspect. Must have two parameters: "
+                + "<a href=\"Target.html\">Target</a> (the target to which the aspect is "
+                + "applied) and <a href=\"ctx.html\">ctx</a>. Attributes of the target are "
+                + "available via ctx.rule field. The function is called during the analysis "
+                + "phase for each application of an aspect to a target."
+      ),
+      @Param(
+        name = "attr_aspects",
+        type = SkylarkList.class,
+        generic1 = String.class,
+        defaultValue = "[]",
+        doc =
+            "List of attribute names.  The aspect propagates along dependencies specified "
+                + "by attributes of a target with this name. The list can also contain a single "
+                + "string '*': in that case aspect propagates along all dependencies of a target."
+      ),
+      @Param(
+        name = "attrs",
+        type = SkylarkDict.class,
+        noneable = true,
+        defaultValue = "None",
+        doc =
+            "dictionary to declare all the attributes of the aspect.  "
+                + "It maps from an attribute name to an attribute object "
+                + "(see <a href=\"attr.html\">attr</a> module). "
+                + "Aspect attributes are available to implementation function as fields of ctx "
+                + "parameter. Implicit attributes starting with <code>_</code> must have default "
+                + "values, and have type <code>label</code> or <code>label_list</code>. "
+                + "Explicit attributes must have type <code>string</code>, and must use the "
+                + "<code>values</code> restriction. If explicit attributes are present, the "
+                + "aspect can only be used with rules that have attributes of the same name and "
+                + "type, with valid values."
+      ),
+      @Param(
+        name = "required_aspect_providers",
+        type = SkylarkList.class,
+        defaultValue = "[]",
+        // todo(dslomov): Document once it works.
+        doc = "<not available>"
+      ),
+      @Param(
+        name = "provides",
+        type = SkylarkList.class,
+        defaultValue = "[]",
+        // todo(dslomov): Document once it works.
+        doc = "<not available>"
+      ),
+      @Param(
+        name = "fragments",
+        type = SkylarkList.class,
+        generic1 = String.class,
+        defaultValue = "[]",
+        doc =
+            "List of names of configuration fragments that the aspect requires "
+                + "in target configuration."
+      ),
+      @Param(
+        name = "host_fragments",
+        type = SkylarkList.class,
+        generic1 = String.class,
+        defaultValue = "[]",
+        doc =
+            "List of names of configuration fragments that the aspect requires "
+                + "in host configuration."
+      ),
+      @Param(
+        name = "toolchains",
+        type = SkylarkList.class,
+        generic1 = ToolchainConstructor.class,
+        defaultValue = "[]",
+        doc =
+            "<i>(Experimental)</i><br/><br/>"
+                + "If set, the set of toolchains this rule requires. Toolchains will be "
+                + "found by checking the current platform, and provided to the rule "
+                + "implementation via <code>ctx.toolchain</code>."
+      )
+    },
+    useEnvironment = true,
+    useAst = true
   )
   private static final BuiltinFunction aspect =
       new BuiltinFunction("aspect") {
@@ -577,6 +603,7 @@ public class SkylarkRuleClassFunctions {
             SkylarkList providesArg,
             SkylarkList fragments,
             SkylarkList hostFragments,
+            SkylarkList<ToolchainConstructor> toolchains,
             FuncallExpression ast,
             Environment funcallEnv)
             throws EvalException {
@@ -586,14 +613,12 @@ public class SkylarkRuleClassFunctions {
 
             if (attrName.equals("*") && attributeAspects.size() != 1) {
               throw new EvalException(
-                  ast.getLocation(),
-                  "'*' must be the only string in 'attr_aspects' list"
-              );
+                  ast.getLocation(), "'*' must be the only string in 'attr_aspects' list");
             }
 
             if (!attrName.startsWith("_")) {
               attrAspects.add(attrName);
-            } else  {
+            } else {
               // Implicit attribute names mean either implicit or late-bound attributes
               // (``$attr`` or ``:attr``). Depend on both.
               attrAspects.add(
@@ -613,7 +638,7 @@ public class SkylarkRuleClassFunctions {
             Attribute attribute = nameDescriptorPair.second.build(nameDescriptorPair.first);
             if (attribute.getType() == Type.STRING
                 && ((String) attribute.getDefaultValue(null)).isEmpty()) {
-              hasDefault = false;  // isValueSet() is always true for attr.string.
+              hasDefault = false; // isValueSet() is always true for attr.string.
             }
             if (!Attribute.isImplicit(nativeName)) {
               if (!attribute.checkAllowedValues() || attribute.getType() != Type.STRING) {
@@ -634,11 +659,10 @@ public class SkylarkRuleClassFunctions {
                       ast.getLocation(),
                       String.format(
                           "Aspect parameter attribute '%s' has a bad default value: %s",
-                          nativeName,
-                          allowed.getErrorReason(defaultVal)));
+                          nativeName, allowed.getErrorReason(defaultVal)));
                 }
               }
-            } else if (!hasDefault) {  // Implicit attribute
+            } else if (!hasDefault) { // Implicit attribute
               String skylarkName = "_" + nativeName.substring(1);
               throw new EvalException(
                   ast.getLocation(),
@@ -649,28 +673,37 @@ public class SkylarkRuleClassFunctions {
 
           for (Object o : providesArg) {
             if (!SkylarkAttr.isProvider(o)) {
-              throw new EvalException(ast.getLocation(),
-                  String.format("Illegal argument: element in 'provides' is of unexpected type. "
-                      + "Should be list of providers, but got %s. ",
+              throw new EvalException(
+                  ast.getLocation(),
+                  String.format(
+                      "Illegal argument: element in 'provides' is of unexpected type. "
+                          + "Should be list of providers, but got %s. ",
                       EvalUtils.getDataTypeName(o, true)));
             }
+          }
+
+          // Collect the required toolchain keys.
+          ImmutableList.Builder<ClassObjectConstructor.Key> requiredToolchains =
+              new ImmutableList.Builder<>();
+          for (ToolchainConstructor toolchain :
+              toolchains.getContents(ToolchainConstructor.class, "toolchains")) {
+            requiredToolchains.add(toolchain.getKey());
           }
 
           return new SkylarkAspect(
               implementation,
               attrAspects.build(),
               attributes.build(),
-              SkylarkAttr.buildProviderPredicate(requiredAspectProvidersArg,
-                  "required_aspect_providers", ast.getLocation()
-              ),
+              SkylarkAttr.buildProviderPredicate(
+                  requiredAspectProvidersArg, "required_aspect_providers", ast.getLocation()),
               SkylarkAttr.getSkylarkProviderIdentifiers(providesArg, ast.getLocation()),
               requiredParams.build(),
               ImmutableSet.copyOf(fragments.getContents(String.class, "fragments")),
               ImmutableSet.copyOf(hostFragments.getContents(String.class, "host_fragments")),
+              requiredToolchains.build(),
               funcallEnv);
         }
       };
-
 
   /** The implementation for the magic function "rule" that creates Skylark rule classes */
   public static final class RuleFunction extends BaseFunction implements SkylarkExportable {

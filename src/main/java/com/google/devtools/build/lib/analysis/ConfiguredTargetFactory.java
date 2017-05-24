@@ -244,6 +244,9 @@ public final class ConfiguredTargetFactory {
             .setConfigConditions(configConditions)
             .setUniversalFragment(ruleClassProvider.getUniversalFragment())
             .setSkylarkProvidersRegistry(ruleClassProvider.getRegisteredSkylarkProviders())
+            // TODO(katre): Populate the actual selected toolchains.
+            .setToolchainContext(
+                new ToolchainContext(rule.getRuleClassObject().getRequiredToolchains(), null))
             .build();
     if (ruleContext.hasErrors()) {
       return null;
@@ -350,6 +353,9 @@ public final class ConfiguredTargetFactory {
             .setAspectAttributes(aspect.getDefinition().getAttributes())
             .setConfigConditions(configConditions)
             .setUniversalFragment(ruleClassProvider.getUniversalFragment())
+            // TODO(katre): Populate the actual selected toolchains.
+            .setToolchainContext(
+                new ToolchainContext(aspect.getDefinition().getRequiredToolchains(), null))
             .build();
     if (ruleContext.hasErrors()) {
       return null;

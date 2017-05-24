@@ -262,7 +262,6 @@ public final class SkylarkRuleContext implements SkylarkValue {
               this, attributes, ruleContext, attributeValueExtractorForRule(ruleContext));
       this.splitAttributes = buildSplitAttributeInfo(attributes, ruleContext);
       this.ruleAttributesCollection = null;
-      toolchains = ruleContext.getToolchainContext().collectToolchains();
     } else { // ASPECT
       this.artifactsLabelMap = ImmutableMap.of();
       this.outputsObject = null;
@@ -279,11 +278,13 @@ public final class SkylarkRuleContext implements SkylarkValue {
               ruleContext.getRule().getAttributes(),
               ruleContext,
               attributeValueExtractorForRule(ruleContext));
-      // TODO(katre): Collect toolchains for aspects.
-      toolchains = null;
     }
 
     makeVariables = ruleContext.getConfigurationMakeVariableContext().collectMakeVariables();
+    toolchains =
+        ruleContext.getToolchainContext() == null
+            ? SkylarkDict.<ClassObjectConstructor.Key, ToolchainInfo>of(null)
+            : ruleContext.getToolchainContext().collectToolchains();
   }
 
   /**

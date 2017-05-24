@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.packages.ClassObjectConstructor;
@@ -23,13 +24,21 @@ import javax.annotation.Nullable;
 
 /** Contains toolchain-related information needed for a {@link RuleContext}. */
 public class ToolchainContext {
+  private final ImmutableList<ClassObjectConstructor.Key> requiredToolchains;
   private final ImmutableMap<ClassObjectConstructor.Key, ToolchainInfo> toolchains;
 
-  public ToolchainContext(@Nullable Map<ClassObjectConstructor.Key, ToolchainInfo> toolchains) {
+  public ToolchainContext(
+      ImmutableList<ClassObjectConstructor.Key> requiredToolchains,
+      @Nullable Map<ClassObjectConstructor.Key, ToolchainInfo> toolchains) {
+    this.requiredToolchains = requiredToolchains;
     this.toolchains =
         toolchains == null
             ? ImmutableMap.<ClassObjectConstructor.Key, ToolchainInfo>of()
             : ImmutableMap.copyOf(toolchains);
+  }
+
+  public ImmutableList<ClassObjectConstructor.Key> getRequiredToolchains() {
+    return requiredToolchains;
   }
 
   public SkylarkDict<ClassObjectConstructor.Key, ToolchainInfo> collectToolchains() {

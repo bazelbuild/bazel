@@ -167,7 +167,7 @@ public final class RuleContext extends TargetContext
   private final ErrorReporter reporter;
   private final ImmutableBiMap<String, Class<? extends TransitiveInfoProvider>>
       skylarkProviderRegistry;
-  private final ToolchainContext toolchainContext;
+  @Nullable private final ToolchainContext toolchainContext;
 
   private ActionOwner actionOwner;
 
@@ -182,7 +182,8 @@ public final class RuleContext extends TargetContext
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       Class<? extends BuildConfiguration.Fragment> universalFragment,
       String ruleClassNameForLogging,
-      ImmutableMap<String, Attribute> aspectAttributes) {
+      ImmutableMap<String, Attribute> aspectAttributes,
+      @Nullable ToolchainContext toolchainContext) {
     super(builder.env, builder.rule, builder.configuration, builder.prerequisiteMap.get(null),
         builder.visibility);
     this.rule = builder.rule;
@@ -198,8 +199,7 @@ public final class RuleContext extends TargetContext
     this.skylarkProviderRegistry = builder.skylarkProviderRegistry;
     this.hostConfiguration = builder.hostConfiguration;
     reporter = builder.reporter;
-    // TODO(katre): Populate the actual selected toolchains.
-    this.toolchainContext = new ToolchainContext(null);
+    this.toolchainContext = toolchainContext;
   }
 
   private ImmutableSet<String> getEnabledFeatures() {
@@ -1124,6 +1124,7 @@ public final class RuleContext extends TargetContext
     }
   }
 
+  @Nullable
   public ToolchainContext getToolchainContext() {
     return toolchainContext;
   }
@@ -1497,6 +1498,7 @@ public final class RuleContext extends TargetContext
     private ImmutableMap<String, Attribute> aspectAttributes;
     private ImmutableBiMap<String, Class<? extends TransitiveInfoProvider>> skylarkProviderRegistry;
     private ImmutableList<AspectDescriptor> aspectDescriptors;
+    private ToolchainContext toolchainContext;
 
     Builder(
         AnalysisEnvironment env,
@@ -1533,7 +1535,8 @@ public final class RuleContext extends TargetContext
           configConditions,
           universalFragment,
           getRuleClassNameForLogging(),
-          aspectAttributes != null ? aspectAttributes : ImmutableMap.<String, Attribute>of());
+          aspectAttributes != null ? aspectAttributes : ImmutableMap.<String, Attribute>of(),
+          toolchainContext);
     }
 
     private void validateAttributes(AttributeMap attributes) {
@@ -1590,6 +1593,12 @@ public final class RuleContext extends TargetContext
     Builder setSkylarkProvidersRegistry(
         ImmutableBiMap<String, Class<? extends TransitiveInfoProvider>> skylarkProviderRegistry) {
       this.skylarkProviderRegistry = skylarkProviderRegistry;
+      return this;
+    }
+
+    /** Sets the {@link ToolchainContext} used to access toolchains used by this rule. */
+    Builder setToolchainContext(ToolchainContext toolchainContext) {
+      this.toolchainContext = toolchainContext;
       return this;
     }
 

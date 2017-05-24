@@ -28,9 +28,11 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.LabelClass;
 import com.google.devtools.build.lib.syntax.Type.LabelVisitor;
 import com.google.devtools.build.lib.util.Preconditions;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -58,6 +60,7 @@ public final class AspectDefinition {
   private final RequiredProviders requiredProviders;
   private final RequiredProviders requiredProvidersForAspects;
   private final ImmutableMap<String, Attribute> attributes;
+  private final ImmutableList<ClassObjectConstructor.Key> requiredToolchains;
 
   /**
    * Which attributes aspect should propagate along:
@@ -74,13 +77,13 @@ public final class AspectDefinition {
     return advertisedProviders;
   }
 
-
   private AspectDefinition(
       AspectClass aspectClass,
       AdvertisedProviderSet advertisedProviders,
       RequiredProviders requiredProviders,
       RequiredProviders requiredAspectProviders,
       ImmutableMap<String, Attribute> attributes,
+      ImmutableList<ClassObjectConstructor.Key> requiredToolchains,
       @Nullable ImmutableSet<String> restrictToAttributes,
       @Nullable ConfigurationFragmentPolicy configurationFragmentPolicy,
       boolean applyToFiles) {
@@ -90,6 +93,7 @@ public final class AspectDefinition {
     this.requiredProvidersForAspects = requiredAspectProviders;
 
     this.attributes = attributes;
+    this.requiredToolchains = requiredToolchains;
     this.restrictToAttributes = restrictToAttributes;
     this.configurationFragmentPolicy = configurationFragmentPolicy;
     this.applyToFiles = applyToFiles;
@@ -110,6 +114,11 @@ public final class AspectDefinition {
    */
   public ImmutableMap<String, Attribute> getAttributes() {
     return attributes;
+  }
+
+  /** Returns the required toolchains declared by this aspect. */
+  public ImmutableList<ClassObjectConstructor.Key> getRequiredToolchains() {
+    return requiredToolchains;
   }
 
   /**
@@ -256,6 +265,7 @@ public final class AspectDefinition {
     private final ConfigurationFragmentPolicy.Builder configurationFragmentPolicy =
         new ConfigurationFragmentPolicy.Builder();
     private boolean applyToFiles = false;
+    private final List<ClassObjectConstructor.Key> requiredToolchains = new ArrayList<>();
 
     public Builder(AspectClass aspectClass) {
       this.aspectClass = aspectClass;
@@ -456,21 +466,25 @@ public final class AspectDefinition {
       return this;
     }
 
-
+    /** Adds the given toolchains as requirements for this aspect. */
+    public Builder addRequiredToolchains(List<ClassObjectConstructor.Key> requiredToolchains) {
+      this.requiredToolchains.addAll(requiredToolchains);
+      return this;
+    }
     /**
      * Builds the aspect definition.
      *
      * <p>The builder object is reusable afterwards.
      */
     public AspectDefinition build() {
-      return new AspectDefinition(aspectClass,
+      return new AspectDefinition(
+          aspectClass,
           advertisedProviders.build(),
           requiredProviders.build(),
           requiredAspectProviders.build(),
           ImmutableMap.copyOf(attributes),
-          propagateAlongAttributes == null
-              ? null
-              : ImmutableSet.copyOf(propagateAlongAttributes),
+          ImmutableList.copyOf(requiredToolchains),
+          propagateAlongAttributes == null ? null : ImmutableSet.copyOf(propagateAlongAttributes),
           configurationFragmentPolicy.build(),
           applyToFiles);
     }

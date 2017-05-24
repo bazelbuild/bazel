@@ -47,6 +47,8 @@ public class SkylarkAspect implements SkylarkExportable {
   private final ImmutableSet<String> paramAttributes;
   private final ImmutableSet<String> fragments;
   private final ImmutableSet<String> hostFragments;
+  private final ImmutableList<ClassObjectConstructor.Key> requiredToolchains;
+
   private final Environment funcallEnv;
   private SkylarkAspectClass aspectClass;
 
@@ -59,6 +61,7 @@ public class SkylarkAspect implements SkylarkExportable {
       ImmutableSet<String> paramAttributes,
       ImmutableSet<String> fragments,
       ImmutableSet<String> hostFragments,
+      ImmutableList<ClassObjectConstructor.Key> requiredToolchains,
       Environment funcallEnv) {
     this.implementation = implementation;
     this.attributeAspects = attributeAspects;
@@ -68,6 +71,7 @@ public class SkylarkAspect implements SkylarkExportable {
     this.paramAttributes = paramAttributes;
     this.fragments = fragments;
     this.hostFragments = hostFragments;
+    this.requiredToolchains = requiredToolchains;
     this.funcallEnv = funcallEnv;
   }
 
@@ -153,6 +157,7 @@ public class SkylarkAspect implements SkylarkExportable {
     builder.advertiseProvider(advertisedSkylarkProviders.build());
     builder.requiresConfigurationFragmentsBySkylarkModuleName(fragments);
     builder.requiresHostConfigurationFragmentsBySkylarkModuleName(hostFragments);
+    builder.addRequiredToolchains(requiredToolchains);
     return builder.build();
   }
 
@@ -194,5 +199,9 @@ public class SkylarkAspect implements SkylarkExportable {
         return builder.build();
       }
     };
+  }
+
+  public ImmutableList<ClassObjectConstructor.Key> getRequiredToolchains() {
+    return requiredToolchains;
   }
 }
