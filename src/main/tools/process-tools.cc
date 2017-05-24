@@ -108,8 +108,10 @@ void InstallSignalHandler(int signum, void (*handler)(int)) {
       DIE("sigfillset");
     }
   }
+  // sigaction may fail for certain reserved signals. Ignore failure in this
+  // case, but report it in debug mode, just in case.
   if (sigaction(signum, &sa, nullptr) < 0) {
-    DIE("sigaction");
+    PRINT_DEBUG("sigaction(%d, &sa, nullptr) failed", signum);
   }
 }
 
