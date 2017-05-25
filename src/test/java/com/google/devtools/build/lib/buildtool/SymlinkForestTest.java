@@ -282,4 +282,13 @@ public class SymlinkForestTest {
         .plantSymlinkForest();
     assertThat(linkRoot.getRelative("../wsname").exists()).isTrue();
   }
+
+  @Test
+  public void testExecrootVersionChanges() throws Exception {
+    ImmutableMap<PackageIdentifier, Path> packageRootMap = ImmutableMap.of();
+    linkRoot.getRelative("wsname").createDirectory();
+    new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, "wsname")
+        .plantSymlinkForest();
+    assertThat(linkRoot.getRelative("../wsname").isSymbolicLink()).isTrue();
+  }
 }

@@ -38,20 +38,20 @@ import java.util.logging.Logger;
  */
 class SymlinkForest {
 
-  private static final Logger LOG = Logger.getLogger(SymlinkForest.class.getName());
-  private static final boolean LOG_FINER = LOG.isLoggable(Level.FINER);
+  private static final Logger log = Logger.getLogger(SymlinkForest.class.getName());
+  private static final boolean LOG_FINER = log.isLoggable(Level.FINER);
 
   private final ImmutableMap<PackageIdentifier, Path> packageRoots;
-  private final Path workspace;
+  private final Path execroot;
   private final String workspaceName;
   private final String productName;
   private final String[] prefixes;
 
   SymlinkForest(
-      ImmutableMap<PackageIdentifier, Path> packageRoots, Path workspace, String productName,
+      ImmutableMap<PackageIdentifier, Path> packageRoots, Path execroot, String productName,
       String workspaceName) {
     this.packageRoots = packageRoots;
-    this.workspace = workspace;
+    this.execroot = execroot;
     this.workspaceName = workspaceName;
     this.productName = productName;
     this.prefixes = new String[] { ".", "_", productName + "-"};
@@ -96,7 +96,19 @@ class SymlinkForest {
   }
 
   void plantSymlinkForest() throws IOException {
-    deleteTreesBelowNotPrefixed(workspace, prefixes);
+    deleteTreesBelowNotPrefixed(execroot, prefixes);
+    // TODO(kchodorow): this can be removed once the execution root is rearranged.
+    // Current state: symlink tree was created under execroot/$(basename ws) and then
+    // execroot/wsname is symlinked to that. The execution root change creates (and cleans up)
+    // subtrees for each repository and has been rolled forward and back several times. Thus, if
+    // someone was using a with-execroot-change version of bazel and then switched to this one,
+    // their execution root would contain a subtree for execroot/wsname that would never be
+    // cleaned up by this version of Bazel.
+    Path realWorkspaceDir = execroot.getParentDirectory().getRelative(workspaceName);
+    if (!workspaceName.equals(execroot.getBaseName()) && realWorkspaceDir.exists()
+        && !realWorkspaceDir.isSymbolicLink()) {
+      FileSystemUtils.deleteTree(realWorkspaceDir);
+    }
 
     // Create a sorted map of all dirs (packages and their ancestors) to sets of their roots.
     // Packages come from exactly one root, but their shared ancestors may come from more.
@@ -134,14 +146,14 @@ class SymlinkForest {
       PackageIdentifier dir = entry.getKey();
       if (!dir.getRepository().isMain()) {
         FileSystemUtils.createDirectoryAndParents(
-            workspace.getRelative(dir.getRepository().getPathUnderExecRoot()));
+            execroot.getRelative(dir.getRepository().getPathUnderExecRoot()));
       }
       if (entry.getValue().size() > 1) {
         if (LOG_FINER) {
-          LOG.finer("mkdir " + workspace.getRelative(dir.getPathUnderExecRoot()));
+          log.finer("mkdir " + execroot.getRelative(dir.getPathUnderExecRoot()));
         }
         FileSystemUtils.createDirectoryAndParents(
-            workspace.getRelative(dir.getPathUnderExecRoot()));
+            execroot.getRelative(dir.getPathUnderExecRoot()));
       }
     }
 
@@ -158,10 +170,10 @@ class SymlinkForest {
         // This is the top-most dir that can be linked to a single root. Make it so.
         Path root = roots.iterator().next();  // lone root in set
         if (LOG_FINER) {
-          LOG.finer("ln -s " + root.getRelative(dir.getSourceRoot()) + " "
-              + workspace.getRelative(dir.getPathUnderExecRoot()));
+          log.finer("ln -s " + root.getRelative(dir.getSourceRoot()) + " "
+              + execroot.getRelative(dir.getPathUnderExecRoot()));
         }
-        workspace.getRelative(dir.getPathUnderExecRoot())
+        execroot.getRelative(dir.getPathUnderExecRoot())
             .createSymbolicLink(root.getRelative(dir.getSourceRoot()));
       }
     }
@@ -177,18 +189,18 @@ class SymlinkForest {
             Path absdir = root.getRelative(dir.getSourceRoot());
             if (absdir.isDirectory()) {
               if (LOG_FINER) {
-                LOG.finer("ln -s " + absdir + "/* "
-                    + workspace.getRelative(dir.getSourceRoot()) + "/");
+                log.finer("ln -s " + absdir + "/* "
+                    + execroot.getRelative(dir.getSourceRoot()) + "/");
               }
               for (Path target : absdir.getDirectoryEntries()) {
                 PathFragment p = target.relativeTo(root);
                 if (!dirRootsMap.containsKey(createInRepo(pkgId, p))) {
                   //LOG.finest("ln -s " + target + " " + linkRoot.getRelative(p));
-                  workspace.getRelative(p).createSymbolicLink(target);
+                  execroot.getRelative(p).createSymbolicLink(target);
                 }
               }
             } else {
-              LOG.fine("Symlink planting skipping dir '" + absdir + "'");
+              log.fine("Symlink planting skipping dir '" + absdir + "'");
             }
           } catch (IOException e) {
             e.printStackTrace();
@@ -203,7 +215,7 @@ class SymlinkForest {
       if (!pkgId.getPackageFragment().equals(PathFragment.EMPTY_FRAGMENT)) {
         continue;
       }
-      Path execrootDirectory = workspace.getRelative(pkgId.getPathUnderExecRoot());
+      Path execrootDirectory = execroot.getRelative(pkgId.getPathUnderExecRoot());
       // If there were no subpackages, this directory might not exist yet.
       if (!execrootDirectory.exists()) {
         FileSystemUtils.createDirectoryAndParents(execrootDirectory);
@@ -233,9 +245,9 @@ class SymlinkForest {
    * @throws IOException
    */
   private void symlinkCorrectWorkspaceName() throws IOException {
-    Path correctDirectory = workspace.getParentDirectory().getRelative(workspaceName);
+    Path correctDirectory = execroot.getParentDirectory().getRelative(workspaceName);
     if (!correctDirectory.exists()) {
-      correctDirectory.createSymbolicLink(workspace);
+      correctDirectory.createSymbolicLink(execroot);
     }
   }
 
