@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ProtoCommandLineArgv;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ToolchainInvocation;
 import com.google.devtools.build.lib.util.LazyString;
@@ -52,7 +53,7 @@ public class ProtoCompileActionBuilderTest {
   public void commandLine_basic() throws Exception {
     FilesToRunProvider plugin =
         new FilesToRunProvider(
-            ImmutableList.<Artifact>of(),
+            NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
             null /* runfilesSupport */,
             artifact("//:dont-care", "protoc-gen-javalite.exe"));
 

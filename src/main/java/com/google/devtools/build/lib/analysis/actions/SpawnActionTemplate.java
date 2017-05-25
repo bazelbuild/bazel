@@ -281,7 +281,7 @@ public final class SpawnActionTemplate implements ActionTemplate<SpawnAction> {
      * for expanded actions.
      */
     public Builder addCommonTool(FilesToRunProvider tool) {
-      toolsBuilder.addAll(tool.getFilesToRun());
+      toolsBuilder.addTransitive(tool.getFilesToRun());
       spawnActionBuilder.addTool(tool);
       return this;
     }

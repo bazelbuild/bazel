@@ -16,12 +16,12 @@ package com.google.devtools.build.lib.bazel.rules.android;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
@@ -69,9 +69,10 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
         ")");
     invalidatePackages();
 
-    ImmutableList<Artifact> x86ClangHighestApiLevelFilesToRun =
+    NestedSet<Artifact> x86ClangHighestApiLevelFilesToRun =
         getConfiguredTarget("@androidndk//:x86-clang3.8-gnu-libstdcpp-all_files")
-            .getProvider(FilesToRunProvider.class).getFilesToRun();
+            .getProvider(FilesToRunProvider.class)
+            .getFilesToRun();
     assertThat(artifactsToStrings(x86ClangHighestApiLevelFilesToRun))
         .contains(
             "src external/androidndk/ndk/platforms/android-24/arch-x86/usr/lib/libandroid.so");

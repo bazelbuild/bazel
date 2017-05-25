@@ -355,7 +355,7 @@ public final class RunfilesSupport {
       return runfilesProvider.getDefaultRunfiles();
     } else {
       return new Runfiles.Builder(workspaceName)
-          .addArtifacts(target.getProvider(FilesToRunProvider.class).getFilesToRun())
+          .addTransitiveArtifacts(target.getProvider(FilesToRunProvider.class).getFilesToRun())
           .build();
     }
   }

@@ -184,7 +184,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     inputs.addAll(commandHelper.getResolvedTools());
     FilesToRunProvider genruleSetup =
         ruleContext.getPrerequisite("$genrule_setup", Mode.HOST, FilesToRunProvider.class);
-    inputs.addAll(genruleSetup.getFilesToRun());
+    inputs.addTransitive(genruleSetup.getFilesToRun());
     List<String> argv = commandHelper.buildCommandLine(command, inputs, ".genrule_script.sh",
           ImmutableMap.copyOf(executionInfo));
 

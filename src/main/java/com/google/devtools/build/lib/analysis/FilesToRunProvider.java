@@ -14,10 +14,12 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -32,14 +34,16 @@ public final class FilesToRunProvider implements TransitiveInfoProvider {
   public static final String SKYLARK_NAME = "files_to_run";
 
   public static final FilesToRunProvider EMPTY =
-      new FilesToRunProvider(ImmutableList.<Artifact>of(), null, null);
+      new FilesToRunProvider(NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER), null, null);
 
-  private final ImmutableList<Artifact> filesToRun;
+  private final NestedSet<Artifact> filesToRun;
   @Nullable private final RunfilesSupport runfilesSupport;
   @Nullable private final Artifact executable;
 
-  public FilesToRunProvider(ImmutableList<Artifact> filesToRun,
-      @Nullable RunfilesSupport runfilesSupport, @Nullable Artifact executable) {
+  public FilesToRunProvider(
+      NestedSet<Artifact> filesToRun,
+      @Nullable RunfilesSupport runfilesSupport,
+      @Nullable Artifact executable) {
     this.filesToRun = filesToRun;
     this.runfilesSupport = runfilesSupport;
     this.executable  = executable;
@@ -49,13 +53,12 @@ public final class FilesToRunProvider implements TransitiveInfoProvider {
    * Creates an instance that contains one single executable and no other files.
    */
   public static FilesToRunProvider fromSingleExecutableArtifact(Artifact artifact) {
-    return new FilesToRunProvider(ImmutableList.of(artifact), null, artifact);
+    return new FilesToRunProvider(
+        NestedSetBuilder.create(Order.STABLE_ORDER, artifact), null, artifact);
   }
 
-  /**
-   * Returns artifacts needed to run the executable for this target.
-   */
-  public ImmutableList<Artifact> getFilesToRun() {
+  /** Returns artifacts needed to run the executable for this target. */
+  public NestedSet<Artifact> getFilesToRun() {
     return filesToRun;
   }
 

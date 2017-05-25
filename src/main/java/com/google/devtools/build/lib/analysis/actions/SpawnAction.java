@@ -772,6 +772,12 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       return this;
     }
 
+    /** Adds tools to this action. */
+    public Builder addTransitiveTools(NestedSet<Artifact> artifacts) {
+      toolsBuilder.addTransitive(artifacts);
+      return this;
+    }
+
     /**
      * Adds inputs to this action.
      */
@@ -1008,7 +1014,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
      * source code).
      */
     public Builder addTool(FilesToRunProvider tool) {
-      addTools(tool.getFilesToRun());
+      addTransitiveTools(tool.getFilesToRun());
       toolRunfilesSuppliers.add(tool.getRunfilesSupplier());
       return this;
     }

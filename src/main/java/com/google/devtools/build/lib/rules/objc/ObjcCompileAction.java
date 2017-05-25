@@ -353,6 +353,13 @@ public class ObjcCompileAction extends SpawnAction {
       return this;
     }
 
+    @Override
+    public Builder addTransitiveTools(NestedSet<Artifact> artifacts) {
+      super.addTransitiveTools(artifacts);
+      mandatoryInputs.addTransitive(artifacts);
+      return this;
+    }
+
     /** Sets a .d file that will used to prune input headers */
     public Builder setDotdFile(DotdFile dotdFile) {
       Preconditions.checkNotNull(dotdFile);
