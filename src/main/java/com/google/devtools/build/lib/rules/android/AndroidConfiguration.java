@@ -488,15 +488,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     // other settings default to empty and are set or modified via dynamic configuration.
     public ResourceFilter resourceFilter;
 
-    // TODO(b/33043897) - remove this once removed from global blazerc.
-    @Option(
-      name = "use_singlejar_for_proguard_libraryjars",
-      defaultValue = "false",
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-      help = "Unused flag."
-    )
-    public boolean useSingleJarForProguardLibraryJars;
-
     @Option(
       name = "experimental_android_compress_java_resources",
       defaultValue = "false",
