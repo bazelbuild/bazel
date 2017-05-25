@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.JRE_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_STATIC;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -47,6 +48,17 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
 
   public static final ImmutableList<String> J2OBJC_SUPPORTED_RULES =
       ImmutableList.of("java_import", "java_library", "proto_library");
+
+  private ObjcCommon common(RuleContext ruleContext) {
+    return new ObjcCommon.Builder(ruleContext)
+        .setCompilationAttributes(
+            CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
+        .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))
+        .addDeps(ruleContext.getPrerequisites("jre_deps", Mode.TARGET))
+        .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
+        .setHasModuleMap()
+        .build();
+  }
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
@@ -84,6 +96,23 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
 
     J2ObjcMappingFileProvider j2ObjcMappingFileProvider = J2ObjcMappingFileProvider.union(
         ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcMappingFileProvider.class));
+
+    ObjcCommon common = common(ruleContext);
+    CompilationArtifacts moduleMapCompilationArtifacts =
+        new CompilationArtifacts.Builder()
+            .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
+            .setPchFile(Optional.<Artifact>absent())
+            .build();
+
+    new CompilationSupport.Builder()
+        .setRuleContext(ruleContext)
+        .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
+        .build()
+        .registerFullyLinkAction(
+            common.getObjcProvider(),
+            ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB))
+        .registerGenerateModuleMapAction(moduleMapCompilationArtifacts)
+        .validateAttributes();
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
