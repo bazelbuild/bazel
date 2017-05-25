@@ -52,7 +52,7 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
       "Invalid version string \"%s\". Version must be of the form 'x.y' without alphabetic "
           + "characters, such as '4.3'.";
 
-  private static final String EXTENSION_COPT = "-application-extension";
+  private static final String EXTENSION_COPT = "-fapplication-extension";
   private static final ImmutableSet<PlatformType> SUPPORTED_PLATFORM_TYPES =
       ImmutableSet.of(
           PlatformType.IOS, PlatformType.WATCHOS, PlatformType.TVOS, PlatformType.MACOS);
