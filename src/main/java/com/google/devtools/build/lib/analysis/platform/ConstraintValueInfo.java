@@ -14,15 +14,20 @@
 
 package com.google.devtools.build.lib.analysis.platform;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 
 /** Provider for a platform constraint value that fulfills a {@link ConstraintSettingInfo}. */
 @SkylarkModule(
@@ -36,9 +41,32 @@ public class ConstraintValueInfo extends SkylarkClassObject {
   /** Name used in Skylark for accessing this provider. */
   public static final String SKYLARK_NAME = "ConstraintValueInfo";
 
+  private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
+      FunctionSignature.WithValues.create(
+          FunctionSignature.of(
+              /*numMandatoryPositionals=*/ 2,
+              /*numOptionalPositionals=*/ 0,
+              /*numMandatoryNamedOnly*/ 0,
+              /*starArg=*/ false,
+              /*kwArg=*/ false,
+              /*names=*/ "label",
+              "constraint_setting"),
+          /*defaultValues=*/ null,
+          /*types=*/ ImmutableList.<SkylarkType>of(
+              SkylarkType.of(Label.class), SkylarkType.of(ConstraintSettingInfo.class)));
+
   /** Skylark constructor and identifier for this provider. */
   public static final ClassObjectConstructor SKYLARK_CONSTRUCTOR =
-      new NativeClassObjectConstructor(SKYLARK_NAME) {};
+      new NativeClassObjectConstructor(SKYLARK_NAME, SIGNATURE) {
+        @Override
+        protected ConstraintValueInfo createInstanceFromSkylark(Object[] args, Location loc)
+            throws EvalException {
+          // Based on SIGNATURE above, the args are label, constraint_setting.
+          Label label = (Label) args[0];
+          ConstraintSettingInfo constraint = (ConstraintSettingInfo) args[1];
+          return ConstraintValueInfo.create(constraint, label, loc);
+        }
+      };
 
   /** Identifier used to retrieve this provider from rules which export it. */
   public static final SkylarkProviderIdentifier SKYLARK_IDENTIFIER =
@@ -47,12 +75,13 @@ public class ConstraintValueInfo extends SkylarkClassObject {
   private final ConstraintSettingInfo constraint;
   private final Label label;
 
-  private ConstraintValueInfo(ConstraintSettingInfo constraint, Label label) {
+  private ConstraintValueInfo(ConstraintSettingInfo constraint, Label label, Location location) {
     super(
         SKYLARK_CONSTRUCTOR,
         ImmutableMap.<String, Object>of(
             "constraint", constraint,
-            "label", label));
+            "label", label),
+        location);
 
     this.constraint = constraint;
     this.label = label;
@@ -68,6 +97,12 @@ public class ConstraintValueInfo extends SkylarkClassObject {
 
   /** Returns a new {@link ConstraintValueInfo} with the given data. */
   public static ConstraintValueInfo create(ConstraintSettingInfo constraint, Label value) {
-    return new ConstraintValueInfo(constraint, value);
+    return create(constraint, value, Location.BUILTIN);
+  }
+
+  /** Returns a new {@link ConstraintValueInfo} with the given data. */
+  public static ConstraintValueInfo create(
+      ConstraintSettingInfo constraint, Label value, Location location) {
+    return new ConstraintValueInfo(constraint, value, location);
   }
 }

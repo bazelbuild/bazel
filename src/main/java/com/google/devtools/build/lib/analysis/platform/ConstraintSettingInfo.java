@@ -14,15 +14,20 @@
 
 package com.google.devtools.build.lib.analysis.platform;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 
 /** Provider for a platform constraint setting that is available to be fulfilled. */
 @SkylarkModule(
@@ -36,9 +41,29 @@ public class ConstraintSettingInfo extends SkylarkClassObject {
   /** Name used in Skylark for accessing this provider. */
   public static final String SKYLARK_NAME = "ConstraintSettingInfo";
 
+  private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
+      FunctionSignature.WithValues.create(
+          FunctionSignature.of(
+              /*numMandatoryPositionals=*/ 1,
+              /*numOptionalPositionals=*/ 0,
+              /*numMandatoryNamedOnly*/ 0,
+              /*starArg=*/ false,
+              /*kwArg=*/ false,
+              /*names=*/ "label"),
+          /*defaultValues=*/ null,
+          /*types=*/ ImmutableList.<SkylarkType>of(SkylarkType.of(Label.class)));
+
   /** Skylark constructor and identifier for this provider. */
   public static final ClassObjectConstructor SKYLARK_CONSTRUCTOR =
-      new NativeClassObjectConstructor(SKYLARK_NAME) {};
+      new NativeClassObjectConstructor(SKYLARK_NAME, SIGNATURE) {
+        @Override
+        protected ConstraintSettingInfo createInstanceFromSkylark(Object[] args, Location loc)
+            throws EvalException {
+          // Based on SIGNATURE above, the args are label.
+          Label label = (Label) args[0];
+          return ConstraintSettingInfo.create(label, loc);
+        }
+      };
 
   /** Identifier used to retrieve this provider from rules which export it. */
   public static final SkylarkProviderIdentifier SKYLARK_IDENTIFIER =
@@ -46,8 +71,8 @@ public class ConstraintSettingInfo extends SkylarkClassObject {
 
   private final Label label;
 
-  private ConstraintSettingInfo(Label label) {
-    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of("label", label));
+  private ConstraintSettingInfo(Label label, Location location) {
+    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of("label", label), location);
 
     this.label = label;
   }
@@ -58,6 +83,11 @@ public class ConstraintSettingInfo extends SkylarkClassObject {
 
   /** Returns a new {@link ConstraintSettingInfo} with the given data. */
   public static ConstraintSettingInfo create(Label constraintSetting) {
-    return new ConstraintSettingInfo(constraintSetting);
+    return create(constraintSetting, Location.BUILTIN);
+  }
+
+  /** Returns a new {@link ConstraintSettingInfo} with the given data. */
+  public static ConstraintSettingInfo create(Label constraintSetting, Location location) {
+    return new ConstraintSettingInfo(constraintSetting, location);
   }
 }

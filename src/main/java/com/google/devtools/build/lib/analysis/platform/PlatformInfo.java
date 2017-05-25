@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
@@ -27,6 +28,10 @@ import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -44,9 +49,38 @@ public class PlatformInfo extends SkylarkClassObject {
   /** Name used in Skylark for accessing this provider. */
   public static final String SKYLARK_NAME = "PlatformInfo";
 
+  private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
+      FunctionSignature.WithValues.create(
+          FunctionSignature.of(
+              /*numMandatoryPositionals=*/ 1,
+              /*numOptionalPositionals=*/ 0,
+              /*numMandatoryNamedOnly*/ 0,
+              /*starArg=*/ false,
+              /*kwArg=*/ false,
+              /*names=*/ "constraint_values"),
+          /*defaultValues=*/ null,
+          /*types=*/ ImmutableList.<SkylarkType>of(
+              SkylarkType.Combination.of(
+                  SkylarkType.LIST, SkylarkType.of(ConstraintValueInfo.class))));
+
   /** Skylark constructor and identifier for this provider. */
   public static final ClassObjectConstructor SKYLARK_CONSTRUCTOR =
-      new NativeClassObjectConstructor(SKYLARK_NAME) {};
+      new NativeClassObjectConstructor(SKYLARK_NAME, SIGNATURE) {
+        @Override
+        protected PlatformInfo createInstanceFromSkylark(Object[] args, Location loc)
+            throws EvalException {
+          // Based on SIGNATURE above, the args are constraint_values.
+
+          SkylarkList<ConstraintValueInfo> constraintValues =
+              (SkylarkList<ConstraintValueInfo>) args[0];
+          try {
+            return builder().addConstraints(constraintValues).setLocation(loc).build();
+          } catch (DuplicateConstraintException dce) {
+            throw new EvalException(
+                loc, String.format("Cannot create PlatformInfo: %s", dce.getMessage()));
+          }
+        }
+      };
 
   /** Identifier used to retrieve this provider from rules which export it. */
   public static final SkylarkProviderIdentifier SKYLARK_IDENTIFIER =
@@ -57,8 +91,10 @@ public class PlatformInfo extends SkylarkClassObject {
 
   private PlatformInfo(
       ImmutableList<ConstraintValueInfo> constraints,
-      ImmutableMap<String, String> remoteExecutionProperties) {
-    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of("constraints", constraints));
+      ImmutableMap<String, String> remoteExecutionProperties,
+      Location location) {
+    super(
+        SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of("constraints", constraints), location);
 
     this.constraints = constraints;
     this.remoteExecutionProperties = remoteExecutionProperties;
@@ -86,6 +122,7 @@ public class PlatformInfo extends SkylarkClassObject {
   public static class Builder {
     private final List<ConstraintValueInfo> constraints = new ArrayList<>();
     private final Map<String, String> remoteExecutionProperties = new HashMap<>();
+    private Location location = Location.BUILTIN;
 
     /**
      * Adds the given constraint value to the constraints that define this {@link PlatformInfo}.
@@ -140,6 +177,17 @@ public class PlatformInfo extends SkylarkClassObject {
     }
 
     /**
+     * Sets the {@link Location} where this {@link PlatformInfo} was created.
+     *
+     * @param location the location where the instance was created
+     * @return the {@link Builder} instance for method chaining
+     */
+    public Builder setLocation(Location location) {
+      this.location = location;
+      return this;
+    }
+
+    /**
      * Returns the new {@link PlatformInfo} instance.
      *
      * @throws DuplicateConstraintException if more than one constraint value exists for the same
@@ -147,7 +195,8 @@ public class PlatformInfo extends SkylarkClassObject {
      */
     public PlatformInfo build() throws DuplicateConstraintException {
       ImmutableList<ConstraintValueInfo> validatedConstraints = validateConstraints(constraints);
-      return new PlatformInfo(validatedConstraints, ImmutableMap.copyOf(remoteExecutionProperties));
+      return new PlatformInfo(
+          validatedConstraints, ImmutableMap.copyOf(remoteExecutionProperties), location);
     }
 
     private ImmutableList<ConstraintValueInfo> validateConstraints(

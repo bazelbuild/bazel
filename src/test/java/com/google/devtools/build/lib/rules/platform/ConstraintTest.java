@@ -75,7 +75,7 @@ public class ConstraintTest extends BuildViewTestCase {
         "    setting = constraint_value.constraint.label,",
         "    value = constraint_value.label)",
         "my_rule = rule(",
-        "  _impl,",
+        "  implementation = _impl,",
         "  attrs = { 'constraint': attr.label(providers = [platform_common.ConstraintValueInfo])},",
         ")");
 

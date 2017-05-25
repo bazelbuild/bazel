@@ -153,7 +153,7 @@ public class PlatformTest extends BuildViewTestCase {
         "    first_setting = platform.constraints[0].constraint.label,",
         "    first_value = platform.constraints[0].label)",
         "my_rule = rule(",
-        "  _impl,",
+        "  implementation = _impl,",
         "  attrs = { 'platform': attr.label(providers = [platform_common.PlatformInfo])},",
         ")");
 
