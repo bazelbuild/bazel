@@ -49,7 +49,12 @@ public class SkylarkClassObjectConstructor extends ClassObjectConstructor
    * Needs to be exported later.
    */
   public SkylarkClassObjectConstructor(String name, Location location) {
-    super(name, SIGNATURE, location);
+    this(name, SIGNATURE, location);
+  }
+
+  public SkylarkClassObjectConstructor(
+      String name, FunctionSignature.WithValues<Object, SkylarkType> signature, Location location) {
+    super(name, signature, location);
     this.errorMessageFormatForInstances = DEFAULT_ERROR_MESSAFE;
   }
 

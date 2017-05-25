@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.platform;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
@@ -24,8 +24,10 @@ import com.google.devtools.build.lib.packages.ToolchainConstructor;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
+import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -36,10 +38,32 @@ public class SkylarkToolchainConstructor extends SkylarkClassObjectConstructor
 
   private static final String EXEC_COMPATIBLE_WITH = "exec_compatible_with";
   private static final String TARGET_COMPATIBLE_WITH = "target_compatible_with";
+  private static final String TOOLCHAIN_DATA = "toolchain_data";
+
+  private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
+      FunctionSignature.WithValues.create(
+          FunctionSignature.of(
+              /*numMandatoryPositionals=*/ 0,
+              /*numOptionalPositionals=*/ 0,
+              /*numMandatoryNamedOnly*/ 0,
+              /*starArg=*/ false,
+              /*kwArg=*/ true,
+              /*names=*/ EXEC_COMPATIBLE_WITH,
+              TARGET_COMPATIBLE_WITH,
+              TOOLCHAIN_DATA),
+          /*defaultValues=*/ ImmutableList.<Object>of(
+              SkylarkList.MutableList.EMPTY, SkylarkList.MutableList.EMPTY),
+          /*types=*/ ImmutableList.<SkylarkType>of(
+              SkylarkType.Combination.of(
+                  SkylarkType.LIST, SkylarkType.Simple.of(TransitiveInfoCollection.class)),
+              SkylarkType.Combination.of(
+                  SkylarkType.LIST, SkylarkType.Simple.of(TransitiveInfoCollection.class)),
+              SkylarkType.DICT));
 
   public SkylarkToolchainConstructor(Location location) {
     super(
         "<no name>", // name is set on export.
+        SIGNATURE,
         location);
   }
 
@@ -48,20 +72,12 @@ public class SkylarkToolchainConstructor extends SkylarkClassObjectConstructor
   protected Object call(Object[] args, @Nullable FuncallExpression ast, @Nullable Environment env)
       throws EvalException, InterruptedException {
 
-    // Decode arguments.
-    @SuppressWarnings("unchecked")
-    SkylarkDict<String, Object> receivedArguments = (SkylarkDict<String, Object>) args[0];
-    @SuppressWarnings("unchecked")
+    // Based on SIGNATURE above, the args are exec (list), target (list), data (map).
     Iterable<ConstraintValueInfo> execConstraints =
-        ConstraintValue.constraintValues(
-            (SkylarkList<TransitiveInfoCollection>) receivedArguments.get(EXEC_COMPATIBLE_WITH));
-    @SuppressWarnings("unchecked")
+        ConstraintValue.constraintValues((SkylarkList<TransitiveInfoCollection>) args[0]);
     Iterable<ConstraintValueInfo> targetConstraints =
-        ConstraintValue.constraintValues(
-            (SkylarkList<TransitiveInfoCollection>) receivedArguments.get(TARGET_COMPATIBLE_WITH));
-    Map<String, Object> toolchainData =
-        collectData(
-            receivedArguments, ImmutableSet.of(EXEC_COMPATIBLE_WITH, TARGET_COMPATIBLE_WITH));
+        ConstraintValue.constraintValues((SkylarkList<TransitiveInfoCollection>) args[1]);
+    SkylarkDict<String, Object> toolchainData = (SkylarkDict<String, Object>) args[2];
     Location loc = ast != null ? ast.getLocation() : Location.BUILTIN;
 
     return new ToolchainInfo(getKey(), execConstraints, targetConstraints, toolchainData, loc);
