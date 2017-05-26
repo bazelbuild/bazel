@@ -268,7 +268,8 @@ def build_c_ide_info(target, ctx):
     return (None, set())
 
   sources = artifacts_from_target_list_attr(ctx, "srcs")
-  sources.extend(artifacts_from_target_list_attr(ctx, "hdrs"))
+  headers = artifacts_from_target_list_attr(ctx, "hdrs")
+  textual_headers = artifacts_from_target_list_attr(ctx, "textual_hdrs")
 
   target_includes = []
   if hasattr(ctx.rule.attr, "includes"):
@@ -284,6 +285,8 @@ def build_c_ide_info(target, ctx):
 
   c_ide_info = struct_omit_none(
       source = sources,
+      header = headers,
+      textual_header = textual_headers,
       target_include = target_includes,
       target_define = target_defines,
       target_copt = target_copts,
