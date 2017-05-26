@@ -52,17 +52,6 @@ else
   }
 fi
 
-# Returns the full release name in the form NAME(rcRC)?
-function get_full_release_name() {
-  local rc=$(get_release_candidate)
-  local name=$(get_release_name)
-  if [ -n "${rc}" ]; then
-    echo "${name}rc${rc}"
-  else
-    echo "${name}"
-  fi
-}
-
 function setup_android_repositories() {
   if [ ! -f WORKSPACE.bak ] && [ -n "${ANDROID_SDK_PATH-}" ]; then
     cp WORKSPACE WORKSPACE.bak
