@@ -390,7 +390,7 @@ public class Package {
   /**
    * Returns all make variables for a given platform.
    */
-  public Map<String, String> getAllMakeVariables(String platform) {
+  public ImmutableMap<String, String> getAllMakeVariables(String platform) {
     ImmutableMap.Builder<String, String> map = ImmutableMap.builder();
     for (String var : makeEnv.getBindings().keySet()) {
       String value = makeEnv.lookup(var, platform);

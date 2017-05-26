@@ -2356,14 +2356,14 @@ public final class BuildConfiguration implements BuildEvent {
    * (Fragments, in particular the Google C++ support, can set variables through the
    * command line.)
    */
-  public Map<String, String> getCommandLineBuildVariables() {
+  public ImmutableMap<String, String> getCommandLineBuildVariables() {
     return commandLineBuildVariables;
   }
 
   /**
    * Returns the global defaults for this configuration for the Make environment.
    */
-  public Map<String, String> getGlobalMakeEnvironment() {
+  public ImmutableMap<String, String> getGlobalMakeEnvironment() {
     return globalMakeEnv;
   }
 

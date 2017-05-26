@@ -101,6 +101,7 @@ public final class CcLibraryHelper {
             CppFileTypes.ASSEMBLER,
             CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR),
         ImmutableSet.<String>of(
+            CppCompileAction.CC_FLAGS_MAKE_VARIABLE_ACTION_NAME,
             CppCompileAction.C_COMPILE,
             CppCompileAction.CPP_COMPILE,
             CppCompileAction.CPP_HEADER_PARSING,
@@ -128,6 +129,7 @@ public final class CcLibraryHelper {
             CppFileTypes.ASSEMBLER,
             CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR),
         ImmutableSet.<String>of(
+            CppCompileAction.CC_FLAGS_MAKE_VARIABLE_ACTION_NAME,
             CppCompileAction.C_COMPILE,
             CppCompileAction.CPP_COMPILE,
             CppCompileAction.OBJC_COMPILE,
@@ -147,9 +149,9 @@ public final class CcLibraryHelper {
             Link.LinkTargetType.EXECUTABLE.getActionName()));
 
     private final FileTypeSet sourceTypeSet;
-    private final Set<String> actionConfigSet;
+    private final ImmutableSet<String> actionConfigSet;
 
-    private SourceCategory(FileTypeSet sourceTypeSet, Set<String> actionConfigSet) {
+    private SourceCategory(FileTypeSet sourceTypeSet, ImmutableSet<String> actionConfigSet) {
       this.sourceTypeSet = sourceTypeSet;
       this.actionConfigSet = actionConfigSet;
     }

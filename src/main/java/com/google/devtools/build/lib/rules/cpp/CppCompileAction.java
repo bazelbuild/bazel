@@ -83,6 +83,7 @@ import javax.annotation.Nullable;
 @ThreadCompatible
 public class CppCompileAction extends AbstractAction
     implements IncludeScannable, ExecutionInfoSpecifier, CommandAction {
+
   /**
    * Represents logic that determines if an artifact is a special input, meaning that it may require
    * additional inputs when it is compiled or may not be available to other actions.
@@ -114,6 +115,10 @@ public class CppCompileAction extends AbstractAction
 
   private static final int VALIDATION_DEBUG = 0;  // 0==none, 1==warns/errors, 2==all
   private static final boolean VALIDATION_DEBUG_WARN = VALIDATION_DEBUG >= 1;
+
+  /** A string constant used to compute CC_FLAGS make variable value */
+  public static final java.lang.String CC_FLAGS_MAKE_VARIABLE_ACTION_NAME =
+      "cc-flags-make-variable";
 
   /**
    * A string constant for the c compilation action.

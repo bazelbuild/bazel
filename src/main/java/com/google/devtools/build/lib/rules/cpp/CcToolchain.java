@@ -464,9 +464,9 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     // Overwrite the CC_FLAGS variable to include sysroot, if it's available.
     if (sysroot != null) {
       String sysrootFlag = "--sysroot=" + sysroot;
-      String ccFlags = makeVariables.get("CC_FLAGS");
+      String ccFlags = makeVariables.get(CppConfiguration.CC_FLAGS_MAKE_VARIABLE_NAME);
       ccFlags = ccFlags.isEmpty() ? sysrootFlag : ccFlags + " " + sysrootFlag;
-      makeVariables.put("CC_FLAGS", ccFlags);
+      makeVariables.put(CppConfiguration.CC_FLAGS_MAKE_VARIABLE_NAME, ccFlags);
     }
     return new MakeVariableProvider(ImmutableMap.copyOf(makeVariables));
   }

@@ -88,6 +88,9 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    */
   public static final String MAC_SYSTEM_NAME = "x86_64-apple-macosx";
 
+  /** String constant for CC_FLAGS make variable name */
+  public static final String CC_FLAGS_MAKE_VARIABLE_NAME = "CC_FLAGS";
+
   /**
    * An enumeration of all the tools that comprise a toolchain.
    */
@@ -576,7 +579,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     // The following are to be used to allow some build rules to avoid the limits on stack frame
     // sizes and variable-length arrays. Ensure that these are always set.
     makeVariablesBuilder.put("STACK_FRAME_UNLIMITED", "");
-    makeVariablesBuilder.put("CC_FLAGS", "");
+    makeVariablesBuilder.put(CC_FLAGS_MAKE_VARIABLE_NAME, "");
     for (CrosstoolConfig.MakeVariable variable : toolchain.getMakeVariableList()) {
       makeVariablesBuilder.put(variable.getName(), variable.getValue());
     }

@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
@@ -87,13 +86,12 @@ public final class RunfilesSupport {
    * @param executable the executable for whose runfiles this runfiles support is responsible, may
    *     be null
    * @param runfiles the runfiles
-   * @param appendingArgs to be added after the rule's args
    */
   private RunfilesSupport(
       RuleContext ruleContext,
       Artifact executable,
       Runfiles runfiles,
-      CommandLine appendingArgs,
+      CommandLine args,
       boolean createSymlinks) {
     owningExecutable = Preconditions.checkNotNull(executable);
     this.createSymlinks = createSymlinks;
@@ -127,8 +125,7 @@ public final class RunfilesSupport {
         ruleContext, artifactsMiddleman, runfilesManifest);
     sourcesManifest = createSourceManifest(ruleContext, runfiles);
 
-    ImmutableList<String> args = ruleContext.getTokenizedStringListAttr("args");
-    this.args = CommandLine.concat(args, appendingArgs);
+    this.args = args;
   }
 
   /**
@@ -323,7 +320,7 @@ public final class RunfilesSupport {
   }
 
   /**
-   * Creates an Artifact which writes the "sources only" manifest file.
+   * Creates an {@link Artifact} which writes the "sources only" manifest file.
    *
    * @param context the owner for the manifest action
    * @param runfiles the runfiles
@@ -366,44 +363,51 @@ public final class RunfilesSupport {
   }
 
   /**
-   * Creates and returns a RunfilesSupport object for the given rule and executable. Note that this
-   * method calls back into the passed in rule to obtain the runfiles.
+   * Creates and returns a {@link RunfilesSupport} object for the given rule and executable. Note
+   * that this method calls back into the passed in rule to obtain the runfiles.
    */
-  public static RunfilesSupport withExecutable(RuleContext ruleContext, Runfiles runfiles,
-      Artifact executable) {
+  public static RunfilesSupport withExecutable(
+      RuleContext ruleContext, Runfiles runfiles, Artifact executable) {
     return new RunfilesSupport(
         ruleContext,
         executable,
         runfiles,
-        CommandLine.EMPTY,
+        computeArgs(ruleContext, CommandLine.EMPTY, ImmutableList.<MakeVariableSupplier>of()),
         ruleContext.shouldCreateRunfilesSymlinks());
   }
 
   /**
-   * Creates and returns a RunfilesSupport object for the given rule and executable. Note that this
-   * method calls back into the passed in rule to obtain the runfiles.
+   * Creates and returns a {@link RunfilesSupport} object for the given rule and executable. Note
+   * that this method calls back into the passed in rule to obtain the runfiles.
    */
-  public static RunfilesSupport withExecutable(RuleContext ruleContext, Runfiles runfiles,
-      Artifact executable, boolean createSymlinks) {
-    return new RunfilesSupport(
-        ruleContext, executable, runfiles, CommandLine.EMPTY, createSymlinks);
-  }
-
-  /**
-   * Creates and returns a RunfilesSupport object for the given rule, executable, runfiles and args.
-   */
-  public static RunfilesSupport withExecutable(RuleContext ruleContext, Runfiles runfiles,
-      Artifact executable, List<String> appendingArgs) {
+  public static RunfilesSupport withExecutable(
+      RuleContext ruleContext, Runfiles runfiles, Artifact executable, boolean createSymlinks) {
     return new RunfilesSupport(
         ruleContext,
         executable,
         runfiles,
-        CustomCommandLine.builder().add(appendingArgs).build(),
+        computeArgs(ruleContext, CommandLine.EMPTY, ImmutableList.<MakeVariableSupplier>of()),
+        createSymlinks);
+  }
+
+  /**
+   * Creates and returns a {@link RunfilesSupport} object for the given rule and executable. Note
+   * that this method calls back into the passed in rule to obtain the runfiles.
+   */
+  public static RunfilesSupport withExecutable(
+      RuleContext ruleContext, Runfiles runfiles, Artifact executable, List<String> appendingArgs) {
+    return new RunfilesSupport(
+        ruleContext,
+        executable,
+        runfiles,
+        computeArgs(
+            ruleContext, CommandLine.of(appendingArgs), ImmutableList.<MakeVariableSupplier>of()),
         ruleContext.shouldCreateRunfilesSymlinks());
   }
 
   /**
-   * Creates and returns a RunfilesSupport object for the given rule, executable, runfiles and args.
+   * Creates and returns a {@link RunfilesSupport} object for the given rule, executable, runfiles
+   * and args.
    */
   public static RunfilesSupport withExecutable(
       RuleContext ruleContext, Runfiles runfiles, Artifact executable, CommandLine appendingArgs) {
@@ -411,7 +415,29 @@ public final class RunfilesSupport {
         ruleContext,
         executable,
         runfiles,
-        appendingArgs,
+        computeArgs(ruleContext, appendingArgs, ImmutableList.<MakeVariableSupplier>of()),
         ruleContext.shouldCreateRunfilesSymlinks());
+  }
+
+  public static RunfilesSupport withExecutable(
+      RuleContext ruleContext,
+      Runfiles runfiles,
+      Artifact executable,
+      boolean createSymlinks,
+      ImmutableList<? extends MakeVariableSupplier> makeVariableSuppliers) {
+    return new RunfilesSupport(
+        ruleContext,
+        executable,
+        runfiles,
+        computeArgs(ruleContext, CommandLine.EMPTY, makeVariableSuppliers),
+        createSymlinks);
+  }
+
+  private static CommandLine computeArgs(
+      RuleContext ruleContext,
+      CommandLine additionalArgs,
+      ImmutableList<? extends MakeVariableSupplier> makeVariableSuppliers) {
+    return CommandLine.concat(
+        ruleContext.getTokenizedStringListAttr("args", makeVariableSuppliers), additionalArgs);
   }
 }

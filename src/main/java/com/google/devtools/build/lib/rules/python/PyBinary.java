@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.python;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -23,6 +24,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
@@ -84,8 +86,13 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
     semantics.collectDefaultRunfilesForBinary(ruleContext, defaultRunfilesBuilder);
     Runfiles defaultRunfiles = defaultRunfilesBuilder.build();
 
-    RunfilesSupport runfilesSupport = RunfilesSupport.withExecutable(ruleContext, defaultRunfiles,
-        common.getExecutable(), ruleContext.shouldCreateRunfilesSymlinks());
+    RunfilesSupport runfilesSupport =
+        RunfilesSupport.withExecutable(
+            ruleContext,
+            defaultRunfiles,
+            common.getExecutable(),
+            ruleContext.shouldCreateRunfilesSymlinks(),
+            ImmutableList.of(new CcFlagsSupplier(ruleContext)));
 
     if (ruleContext.hasErrors()) {
       return null;

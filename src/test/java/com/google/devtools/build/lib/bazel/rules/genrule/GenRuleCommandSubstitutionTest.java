@@ -14,10 +14,12 @@
 
 package com.google.devtools.build.lib.bazel.rules.genrule;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 
 import com.google.common.base.Joiner;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -474,5 +476,32 @@ public class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
             "genrule(name = 'test',",
             "        outs = ['out'],",
             "        cmd = '" + command + "')");
+  }
+
+  @Test
+  public void testCcFlagsFromFeatureConfiguration() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            "action_config {",
+            "  action_name: 'cc-flags-make-variable'",
+            "  config_name: 'cc-flags-make-variable'",
+            "  flag_set {",
+            "    flag_group {",
+            "      flag: 'foo'",
+            "      flag: 'bar'",
+            "      flag: 'baz'",
+            "    }",
+            "  }",
+            "}");
+    useConfiguration();
+    scratch.file(
+        "foo/BUILD",
+        "genrule(name = 'foo',",
+        "        outs = ['out'],",
+        "        cmd = '$(CC_FLAGS)')");
+    String command = getGenruleCommand("//foo");
+    assertThat(command).endsWith("foo bar baz");
   }
 }
