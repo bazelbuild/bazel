@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_FILE;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -98,6 +99,19 @@ public class ObjcCppSemantics implements CppSemantics {
 
     actionBuilder.addTransitiveMandatoryInputs(objcProvider.get(STATIC_FRAMEWORK_FILE));
     actionBuilder.addTransitiveMandatoryInputs(objcProvider.get(DYNAMIC_FRAMEWORK_FILE));
+
+    ImmutableSet.Builder<Artifact> generatedHeaders = ImmutableSet.builder();
+
+    // TODO(b/62060839): Identify the mechanism used to add generated headers in c++, and recycle
+    // it here.
+    PathFragment genfilesSegment =
+        ruleContext.getConfiguration().getGenfilesDirectory().getExecPath().getLastSegment();
+    for (Artifact header : objcProvider.get(HEADER)) {
+      if (genfilesSegment.equals(header.getRoot().getExecPath().getLastSegment())) {
+        generatedHeaders.add(header);
+      }
+    }
+    actionBuilder.addMandatoryInputs(generatedHeaders.build());
 
     if (isHeaderThinningEnabled) {
       Artifact sourceFile = actionBuilder.getSourceFile();
