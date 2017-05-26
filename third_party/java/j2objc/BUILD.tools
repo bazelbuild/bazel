@@ -20,16 +20,29 @@ package(
     default_visibility = ["//visibility:public"],
 )
 
-filegroup(
-    name = "srcs",
-    srcs = glob(["**"]),
-    visibility = ["//third_party:__pkg__"],
+java_library(
+    name = "annotations",
+    exports = ["@bazel_j2objc//:annotations"],
+)
+
+genrule(
+    name = "jre_emul_jar",
+    srcs = ["@bazel_j2objc//:jre_emul.jar"],
+    outs = ["jre_emul.jar"],
+    cmd = "cp $< $@",
+)
+
+objc_library(
+    name = "jre_core_lib",
+    deps = ["@bazel_j2objc//:jre_core_lib"],
 )
 
 filegroup(
-    name = "embedded_tools_srcs",
-    srcs = [
-        "BUILD.remote",
-        "BUILD.tools",
-    ],
+    name = "proto_plugin",
+    srcs = ["@bazel_j2objc//:proto_plugin"],
+)
+
+objc_library(
+    name = "proto_runtime",
+    deps = ["@bazel_j2objc//:proto_runtime"],
 )
