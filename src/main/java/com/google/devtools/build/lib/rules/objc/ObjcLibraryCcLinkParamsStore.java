@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.rules.cpp.ArtifactCategory;
@@ -50,9 +51,11 @@ class ObjcLibraryCcLinkParamsStore extends CcLinkParamsStore {
           library, ArtifactCategory.STATIC_LIBRARY,
           FileSystemUtils.removeExtension(library.getRootRelativePathString())));
     }
-
     libraries.addAll(objcProvider.get(ObjcProvider.CC_LIBRARY));
-
     builder.addLibraries(libraries.build());
+
+    for (SdkFramework sdkFramework : objcProvider.get(ObjcProvider.SDK_FRAMEWORK)) {
+      builder.addLinkOpts(ImmutableList.of("-framework", sdkFramework.getName()));
+    }
   }
 }
