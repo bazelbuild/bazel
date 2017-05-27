@@ -21,9 +21,8 @@ write-host @"
 bazel installed to $packageDir
 
 You also need, in your environment variables (adjust paths for your system):
-  JAVA_HOME="`$(ls -d C:/Program\ Files/Java/jdk* | sort | tail -n 1)`"
-  BAZEL_SH=c:/tools/msys64/usr/bin/bash.exe
-  BAZEL_PYTHON=c:/tools/python2/python.exe
+  BAZEL_SH=c:\tools\msys64\usr\bin\bash.exe
+  BAZEL_PYTHON=c:\tools\python2\python.exe
 
 See also https://bazel.build/docs/windows.html
 "@
