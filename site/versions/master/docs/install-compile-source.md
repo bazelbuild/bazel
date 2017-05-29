@@ -6,7 +6,7 @@ title: Compile Bazel from Source
 # <a name="compiling-from-source"></a>Compile Bazel from source
 
 1. Ensure that you have OpenJDK 8 installed on your system.
-   For a system based on debian packages (e.g., Debian, Ubuntu), install
+   For a system based on debian packages (e.g. Debian, Ubuntu), install
    OpenJDK 8 by running the command `sudo apt-get install openjdk-8-jdk`.
 
 2. The standard way of compiling a release version of Bazel from source is to
@@ -50,9 +50,9 @@ title: Compile Bazel from Source
     ```
 
     This is caused by a bug in one of the bootstrap scripts
-    (`scripts/bootstrap/compile.sh`). Manually apply this one-line fix if you want
-    to build Bazel purely from source (without using an existing Bazel binary):
-    [5402993a5e9065984a42eca2132ec56ca3aa456f]( https://github.com/bazelbuild/bazel/commit/5402993a5e9065984a42eca2132ec56ca3aa456f).
+    (`scripts/bootstrap/compile.sh`). Manually apply this one-line fix if you
+    want to build Bazel purely from source (without using an existing Bazel
+    binary): [5402993a5e9065984a42eca2132ec56ca3aa456f]( https://github.com/bazelbuild/bazel/commit/5402993a5e9065984a42eca2132ec56ca3aa456f).
 
 * version 0.3.2 and below:
   [github issue #1919](https://github.com/bazelbuild/bazel/issues/1919)

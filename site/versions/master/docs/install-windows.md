@@ -29,9 +29,9 @@ You can install the unofficial package using the
 choco install bazel
 ```
 
-This will install the latest available version of bazel, and dependencies.
+This will install the latest available version of Bazel, and dependencies.
 
-This package is experimental; please provide feedback to `@petemounce` in GitHub
+This package is experimental. Please provide feedback to `@petemounce` in GitHub
 issue tracker. See the [Chocolatey installation and package
 maintenance](windows-chocolatey-maintenance.md) guide for more information.
 
@@ -41,6 +41,7 @@ maintenance](windows-chocolatey-maintenance.md) guide for more information.
 We provide binary versions on our
 <a href="https://github.com/bazelbuild/bazel/releases">GitHub releases page</a>
 
-This is merely the Bazel binary. You'll need additional software (e.g. msys2
-shell of the right version) and some setup in your environment to run Bazel.
-See these requirements on our [Windows page](windows.md#requirements).
+The installer contains only the Bazel binary. You'll need additional software
+(e.g. msys2 shell of the right version) and some setup in your environment to
+run Bazel. See these requirements on our
+[Windows page](windows.md#requirements).

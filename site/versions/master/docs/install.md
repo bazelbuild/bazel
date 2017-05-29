@@ -15,8 +15,11 @@ For other platforms, you can try to [compile from source](install-compile-source
 
 Required Java version:
 
-*   Java JDK 8 or later ([JDK 7](#jdk7) is still supported
-    but deprecated).
+Java JDK 8 or later is required. To address the problem of JDK 8 not being
+available on some machines, Bazel's binary installer embeds a JDK by default.
+
+**Note:** Homebrew and Debian packages do not contain the embedded JDK. The
+shell installers are the only ones with an embedded JDK.
 
 Extras:
 
@@ -27,15 +30,17 @@ For more information on using Bazel, see
 [Getting Started with Bazel](getting-started.html).
 
 
-## <a name="jdk7"></a>Using Bazel with JDK 7 (deprecated)
+## <a name="jdk7"></a>Using Bazel with JDK 7
 
-Bazel version _0.1.0_ runs without any change with JDK 7. However, future
-version will stop supporting JDK 7 when our CI cannot build for it anymore.
-The installer for JDK 7 for Bazel versions after _0.1.0_ is labeled
-<pre>
-./bazel-<em>version</em>-jdk7-installer-<em>os</em>.sh
-</pre>
-If you wish to use JDK 7, follow the same steps as for JDK 8 but with the _jdk7_ installer or using a different APT repository as described [here](#1-add-bazel-distribution-uri-as-a-package-source-one-time-setup).
+Bazel version _0.5.0_ does run with JDK 7. However, starting with version
+_0.5.1_ Bazel must use JDK 8.
+
+The installers available for _0.5.0_ are:
+
+*  `bazel-0.5.0-installer.sh`: default version with embedded JDK
+*  `bazel-0.5.0-without-jdk-installer.sh`: version without embedded JDK
+*  `bazel-0.5.0-jdk7-installer.sh`: version compatible with JDK 7, will not be
+   available in later releases
 
 ## <a name="bash"></a>Getting bash completion
 

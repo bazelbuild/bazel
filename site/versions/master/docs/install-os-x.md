@@ -15,7 +15,7 @@ If you had Command Line Tools installed, you also need to switch to Xcode using
 
 Install Bazel on macOS (OS X) using one of the following methods:
 
-*   [Use Homebrew](#install-on-mac-os-x-homebrew)
+*   [Use Homebrew (recommended)](#install-on-mac-os-x-homebrew)
 *   [Use the binary installer](#install-with-installer-mac-os-x)
 *   [Compile Bazel from source](install-compile-source.md)
 
@@ -30,6 +30,7 @@ Bazel comes with two completion scripts. After installing Bazel, you can:
 
 JDK 8 can be downloaded from [Oracle's JDK
 Page](http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html).
+
 Look for "Mac OS X" under "Java SE Development Kit". This will download a DMG
 image with an install wizard.
 
@@ -53,26 +54,18 @@ You are all set. You can confirm Bazel is installed successfully by running
 
 You can later upgrade to newer version of Bazel with `brew upgrade bazel`.
 
-## <a name="install-with-installer-mac-os-x"></a>Install with installer
+## <a name="install-with-installer-mac-os-x"></a>Install using binary installer
 
-We provide binary installers on our
-<a href="https://github.com/bazelbuild/bazel/releases">GitHub releases page</a>
+The binary installers are on Bazel's [GitHub releases page](https://github.com/bazelbuild/bazel/releases").
 
-The installer only contains Bazel binary, some additional libraries are required
-to be installed on the machine to work.
+The installer contains the Bazel binary and the required JDK. Some additional
+libraries must also be installed for Bazel to work.
 
-### 1. Install JDK 8
-
-JDK 8 can be downloaded from [Oracle's JDK
-Page](http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html).
-Look for "Mac OS X" under "Java SE Development Kit". This will download a DMG
-image with an install wizard.
-
-### 2. Install XCode command line tools
+### 1. Install XCode command line tools
 
 Xcode can be downloaded from the [Apple Developer
-Site](https://developer.apple.com/xcode/downloads/), which will redirect to the
-App Store.
+Site](https://developer.apple.com/xcode/downloads/) (this link redirects to
+their App Store).
 
 For `objc_*` and `ios_*` rule support, you must have Xcode 6.1 or later with iOS
 SDK 8.1 installed on your system.
@@ -84,25 +77,38 @@ command:
 sudo gcc --version
 ```
 
-### 3. Download Bazel
+### 2. Download the Bazel installer
 
-Download the [Bazel installer](https://github.com/bazelbuild/bazel/releases) for
-your operating system.
+Go to Bazel's [GitHub releases page](https://github.com/bazelbuild/bazel/releases).
 
-### 4. Run the installer
+Download the binary installer `bazel-0.5.0-installer-darwin-x86_64.sh`. This
+installer contains the Bazel binary and the required JDK, and can be used even
+if a JDK is already installed.
+
+Note that `bazel-0.5.0-without-jdk-installer-darwin-x86_64.sh` is a version of
+the installer without embedded JDK 8. Only use this installer if you already
+have JDK 8 installed.
+
+Note that two other versions of the installer exist:
+*   `bazel-0.5.0-without-jdk-installer-darwin-x86_64.sh`: version without
+    embedded JDK 8. Only use this installer if you already have JDK 8 installed.
+*   `bazel-0.5.0-jdk7-installer-darwin-x86_64.sh`: last release compatible
+    with JDK 7.
+
+### 3. Run the installer
 
 Run the installer:
 
 <pre>
-chmod +x bazel-&lt;version&gt;-installer-&lt;os&gt;.sh
-./bazel-&lt;version&gt;-installer-&lt;os&gt;.sh --user
+chmod +x bazel-0.5.0-installer-darwin-x86_64.sh
+./bazel-0.5.0-installer-darwin-x86_64.sh --user
 </pre>
 
 The `--user` flag installs Bazel to the `$HOME/bin` directory on your system and
 sets the `.bazelrc` path to `$HOME/.bazelrc`. Use the `--help` command to see
 additional installation options.
 
-### 5. Set up your environment
+### 4. Set up your environment
 
 If you ran the Bazel installer with the `--user` flag as above, the Bazel
 executable is installed in your `$HOME/bin` directory. It's a good idea to add
@@ -117,4 +123,10 @@ You can also add this command to your `~/.bashrc` file.
 You are all set. You can confirm Bazel is installed successfully by running
 ```bash
 bazel version
+```
+
+Once installed, you can upgrade to a newer version of Bazel with:
+
+```bash
+sudo apt-get upgrade bazel
 ```
