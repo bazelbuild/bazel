@@ -5,13 +5,11 @@ title: Installing Bazel on macOS
 
 # <a name="mac-os-x"></a>Install Bazel on macOS (OS X)
 
-**Known issue on MacOS**
-
-Bazel release 0.5.0 contains a bug in the compiler detection on macOS which
-requires Xcode and the iOS tooling to be installed
-([corresponding issue #3063](https://github.com/bazelbuild/bazel/issues/3063)).
-If you had Command Line Tools installed, you also need to switch to Xcode using
-`sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`.
+> Note: Bazel release 0.5.0 contains a bug in the compiler detection on macOS which
+> requires Xcode and the iOS tooling to be installed
+> ([corresponding issue #3063](https://github.com/bazelbuild/bazel/issues/3063)).
+> If you had Command Line Tools installed, you also need to switch to Xcode using
+> `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`.
 
 Install Bazel on macOS (OS X) using one of the following methods:
 

@@ -11,13 +11,11 @@ This release simplifies Bazel installation on Windows and platforms where a JDK
 is not available. It solidifies the Build Event Protocol and [Remote Execution
 APIs](https://docs.google.com/document/d/1AaGk7fOPByEvpAbqeXIyE8HX_A3_axxNnvroblTZ_6s/edit).
 
-**Known issue on MacOS**
-
-Bazel release 0.5.0 contains a bug in the compiler detection on macOS which
-requires Xcode and the iOS tooling to be installed
-([corresponding issue #3063](https://github.com/bazelbuild/bazel/issues/3063)).
-If you had Command Line Tools installed, you also need to switch to Xcode using
-`sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`.
+> Note: Bazel release 0.5.0 contains a bug in the compiler detection on macOS which
+> requires Xcode and the iOS tooling to be installed
+> ([corresponding issue #3063](https://github.com/bazelbuild/bazel/issues/3063)).
+> If you had Command Line Tools installed, you also need to switch to Xcode using
+> `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`.
 
 ## Improvements from our roadmap
 
