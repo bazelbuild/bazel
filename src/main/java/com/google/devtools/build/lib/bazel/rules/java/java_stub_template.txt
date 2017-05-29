@@ -264,9 +264,8 @@ ARGS=(
   %java_start_class%
   "${ARGS[@]}")
 
-if is_windows && (("${#CLASSPATH}" > 7000)); then
-  # Windows per-arg limit MAX_ARG_STRLEN == 8k
 
+function create_and_run_classpath_jar() {
   # Build class path as one single string separated by spaces
   MANIFEST_CLASSPATH=""
   IFS=';'
@@ -295,17 +294,27 @@ if is_windows && (("${#CLASSPATH}" > 7000)); then
   echo "Created-By: Bazel" >>$MANIFEST_FILE
 
   # Create classpath JAR file
-  MANIFEST_JAR_FILE="${self}-classpath.jar"
-  JARBIN=${JARBIN:-$(rlocation local_jdk/bin/jar.exe)}
-  $JARBIN cvfm $MANIFEST_JAR_FILE $MANIFEST_FILE >/dev/null
+  MANIFEST_JAR_FILE="$1"
+  JARBIN=$2
+  $JARBIN cvfm "$MANIFEST_JAR_FILE" "$MANIFEST_FILE" >/dev/null \
+    || { echo >$2 "ERROR: $0 failed because $JARBIN failed" ; exit 1 ; }
 
   # Execute JAVA command
   MANIFEST_JAR_FILE=$(cygpath --windows "$MANIFEST_JAR_FILE")
   $JAVABIN -classpath "$MANIFEST_JAR_FILE" "${ARGS[@]}"
+}
+
+
+if is_windows && (("${#CLASSPATH}" > 7000)); then
+  # Windows per-arg limit MAX_ARG_STRLEN == 8k
+  create_and_run_classpath_jar \
+    "$(cygpath --windows "${self}-classpath.jar")" \
+    "${JARBIN:-$(rlocation local_jdk/bin/jar.exe)}"
 elif (("${#CLASSPATH}" > 120000)); then
   # Linux per-arg limit MAX_ARG_STRLEN == 128k
-  set +o posix  # Enable process substitution.
-  exec $JAVABIN -classpath @<(echo $CLASSPATH) "${ARGS[@]}"
+  create_and_run_classpath_jar \
+    "${self}-classpath.jar" \
+    "${JARBIN:-$(rlocation local_jdk/bin/jar)}"
 else
   exec $JAVABIN -classpath $CLASSPATH "${ARGS[@]}"
 fi
