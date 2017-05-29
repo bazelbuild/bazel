@@ -67,8 +67,8 @@ MSYS_DLLS=""
 
 function get_minor_java_version() {
   get_java_version
-  java_minor_version=$(echo $JAVA_VERSION | sed -E 's/.+\.(.+)(\..*)?/\1/')
-  javac_minor_version=$(echo $JAVAC_VERSION | sed -E 's/.+\.(.+)(\..*)?/\1/')
+  java_minor_version=$(echo $JAVA_VERSION | sed 's/[^.][^.]*\.//' | sed 's/\..*$//')
+  javac_minor_version=$(echo $JAVAC_VERSION | sed 's/[^.][^.]*\.//' | sed 's/\..*$//')
 }
 
 # Check that javac -version returns a upper version than $JAVA_VERSION.
