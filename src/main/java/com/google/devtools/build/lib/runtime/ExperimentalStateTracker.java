@@ -502,6 +502,10 @@ class ExperimentalStateTracker {
     bepOpenTransports.remove(event.transport());
   }
 
+  synchronized int pendingTransports() {
+    return bepOpenTransports.size();
+  }
+
   /***
    * Predicate indicating whether the contents of the progress bar can change, if the
    * only thing that happens is that time passes; this is the case, e.g., if the progress

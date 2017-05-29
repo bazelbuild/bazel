@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
-import static com.google.devtools.build.lib.util.Preconditions.checkState;
-
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.primitives.Bytes;
@@ -25,6 +23,7 @@ import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransportClosedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
@@ -92,7 +91,6 @@ public class ExperimentalEventHandler implements EventHandler {
   private int numLinesProgressBar;
   private boolean buildComplete;
   // Number of open build even protocol transports.
-  private int openBepTransports;
   private boolean progressBarNeedsRefresh;
   private Thread updateThread;
   private byte[] stdoutBuffer;
@@ -445,7 +443,7 @@ public class ExperimentalEventHandler implements EventHandler {
 
       // After a build has completed, only stop updating the UI if there is no more BEP
       // upload happening.
-      if (openBepTransports == 0) {
+      if (stateTracker.pendingTransports() == 0) {
         buildComplete = true;
         stopUpdateThread();
         flushStdOutStdErrBuffers();
@@ -555,17 +553,24 @@ public class ExperimentalEventHandler implements EventHandler {
 
   @Subscribe
   public synchronized void buildEventTransportsAnnounced(AnnounceBuildEventTransportsEvent event) {
-    openBepTransports += event.transports().size();
     stateTracker.buildEventTransportsAnnounced(event);
+    if (debugAllEvents) {
+      String message = "Transports announced:";
+      for (BuildEventTransport transport : event.transports()) {
+        message += " " + transport.name();
+      }
+      this.handle(Event.info(null, message));
+    }
   }
 
   @Subscribe
   public synchronized void buildEventTransportClosed(BuildEventTransportClosedEvent event) {
-    checkState(openBepTransports > 0);
-    openBepTransports--;
     stateTracker.buildEventTransportClosed(event);
+    if (debugAllEvents) {
+      this.handle(Event.info(null, "Transport " + event.transport().name() + " closed"));
+    }
 
-    if (openBepTransports == 0) {
+    if (stateTracker.pendingTransports() == 0) {
       stopUpdateThread();
       flushStdOutStdErrBuffers();
       ignoreRefreshLimitOnce();
