@@ -56,7 +56,7 @@ To **run** Bazel (even pre-built binaries), you will need:
      but then you will need to compile Bazel from the distribution archive (the
      source zip file) so that it's linked against the right version of
      ``msys-2.0.dll``. See also the
-     [known issues](install.md#compiling-from-source-issues).
+     [known issues](install-compile-source.md#known-issues-when-compiling-from-source).
 *    Several msys2 packages. Use the ``pacman`` command to install them:
 
      ```
@@ -69,7 +69,7 @@ To **compile** Bazel, in addition to the above you will need:
      or the full [Visual C++](https://www.visualstudio.com/) (as part of Visual
      Studio; Community Edition is fine) with Windows SDK installed.
 *    You may need to apply some patches/workarounds, see the
-     [known issues](install.md#compiling-from-source-issues).
+     [known issues](install-compile-source.md#known-issues-when-compiling-from-source).
 
 ## <a name="compiling"></a>Compiling Bazel on Windows
 
@@ -101,9 +101,10 @@ You can set `BAZEL_VS` environment variable to tell Bazel
 where Visual Studio is, otherwise Bazel will try to find the latest version installed.
 <br/>For example: `export BAZEL_VS="C:/Program Files (x86)/Microsoft Visual Studio 14.0"`
 
-* [Python 2.7](https://www.python.org/downloads/)
-<br/>Currently, we use python wrapper scripts to call the actual MSVC compiler, so
-please make sure Python is installed and its location is added into PATH.
+* [Python](https://www.python.org/downloads/)
+<br/>Both Python 2 and Python 3 are supported.
+Currently, we use python wrapper scripts to call the actual MSVC compiler, so
+please make sure python is installed and its location is added into PATH.
 It's also a good idea to set `BAZEL_PYTHON` environment variable to tell Bazel
 where python is.
 <br/>For example: `export BAZEL_PYTHON=C:/Python27/python.exe`
@@ -112,14 +113,20 @@ Bazel will auto-configure the location of Visual Studio and Python at the first
 time you build any target.
 If you need to auto-configure again, just run `bazel clean` then build a target.
 
-If everything is set up, you can build C++ target now! However, since MSVC
-toolchain is not default on Windows yet, you should use flag
+If everything is set up, you can build C++ target now!
+
+```bash
+bazel build examples/cpp:hello-world
+./bazel-bin/examples/cpp/hello-world.exe
+bazel run examples/cpp:hello-world
+```
+
+However, with Bazel version prior to 0.5.0, MSVC
+toolchain is not default on Windows, you should use flag
 `--cpu=x64_windows_msvc` to enable it like this:
 
 ```bash
 bazel build --cpu=x64_windows_msvc examples/cpp:hello-world
-./bazel-bin/examples/cpp/hello-world.exe
-bazel run --cpu=x64_windows_msvc examples/cpp:hello-world
 ```
 
 ### Build Java
