@@ -76,7 +76,6 @@ Supply like `--params="/option:'value' ..."` ([see docs for --params](https://gi
     </dependencies>-->
     <dependencies>
       <dependency id="chocolatey-core.extension" version="1.0.7"/>
-      <dependency id="jdk8" version="[8.0.102,)"/>
       <dependency id="msys2" version="[20160719.1.0,20160719.1.1]"/>
       <dependency id="python2" version="[2.7.11,3.0)"/>
     </dependencies>
