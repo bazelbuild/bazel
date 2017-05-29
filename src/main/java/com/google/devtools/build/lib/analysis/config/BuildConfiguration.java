@@ -2712,13 +2712,12 @@ public final class BuildConfiguration implements BuildEvent {
 
   @Override
   public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
-    return GenericBuildEvent.protoChaining(this)
-        .setConfiguration(
-            BuildEventStreamProtos.Configuration.newBuilder()
-                .setMnemonic(getMnemonic())
-                .setPlatformName(getPlatformName())
-                .setCpu(getCpu())
-                .build())
-        .build();
+    BuildEventStreamProtos.Configuration.Builder builder =
+        BuildEventStreamProtos.Configuration.newBuilder()
+            .setMnemonic(getMnemonic())
+            .setPlatformName(getPlatformName())
+            .putAllMakeVariable(getMakeEnvironment())
+            .setCpu(getCpu());
+    return GenericBuildEvent.protoChaining(this).setConfiguration(builder.build()).build();
   }
 }

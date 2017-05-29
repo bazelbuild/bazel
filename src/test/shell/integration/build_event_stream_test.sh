@@ -122,7 +122,7 @@ function test_basic() {
   # - the command line is reported
   # - the target_kind is reported
   # - for single-configuration builds, there is precisely one configuration
-  #   event reported
+  #   event reported; also make variables are shown
   bazel test --experimental_build_event_text_file=$TEST_log pkg:true \
     || fail "bazel test failed"
   expect_log 'pkg:true'
@@ -135,9 +135,11 @@ function test_basic() {
   expect_log 'SUCCESS'
   expect_log 'finish_time'
   expect_not_log 'aborted'
-  expect_log_once '^configuration '
   # target kind for the sh_test
   expect_log 'target_kind:.*sh'
+  # configuration reported with make variables
+  expect_log_once '^configuration '
+  expect_log 'key: "TARGET_CPU"'
 }
 
 function test_workspace_status() {
