@@ -7,6 +7,16 @@ filegroup(
     srcs = glob(["**"]),
 )
 
+config_setting(
+    name = "windows",
+    values = { "cpu": "x64_windows" },
+)
+
+config_setting(
+    name = "windows_msvc",
+    values = { "cpu": "x64_windows_msvc" },
+)
+
 java_import(
     name = "grpc-jar",
     jars = [
@@ -413,10 +423,14 @@ cc_library(
         "include/grpc/support/tls_pthread.h",
         "include/grpc/support/useful.h",
     ],
-    copts = [
-        "-std=gnu99",
-        "-Wimplicit-function-declaration",
-    ],
+    copts = select({
+        "//conditions:default": [
+            "-std=gnu99",
+            "-Wimplicit-function-declaration",
+        ],
+        ":windows": ["/we4013"],
+        ":windows_msvc": ["/we4013"],
+    }),
     includes = [
         ".",
         "include",
