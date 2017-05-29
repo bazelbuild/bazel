@@ -103,10 +103,10 @@ where Visual Studio is, otherwise Bazel will try to find the latest version inst
 
 * [Python](https://www.python.org/downloads/)
 <br/>Both Python 2 and Python 3 are supported.
-Currently, we use python wrapper scripts to call the actual MSVC compiler, so
-please make sure python is installed and its location is added into PATH.
+Currently, we use Python wrapper scripts to call the actual MSVC compiler, so
+please make sure Python is installed and its location is added into PATH.
 It's also a good idea to set `BAZEL_PYTHON` environment variable to tell Bazel
-where python is.
+where Python is.
 <br/>For example: `export BAZEL_PYTHON=C:/Python27/python.exe`
 
 Bazel will auto-configure the location of Visual Studio and Python at the first
@@ -142,7 +142,7 @@ bazel run examples/java-native/src/main/java/com/example/myproject:hello-world
 
 ### Build Python
 
-On Windows, we build a self-extracting zip file for executable python targets, you can even use
+On Windows, we build a self-extracting zip file for executable Python targets, you can even use
 `python ./bazel-bin/path/to/target` to run it in native Windows command line (cmd.exe).
 See more details in this [design doc](/designs/2016/09/05/build-python-on-windows.html).
 
