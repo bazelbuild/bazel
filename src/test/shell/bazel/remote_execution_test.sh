@@ -78,13 +78,14 @@ EOF
 
   bazel clean --expunge
   bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
-    --spawn_strategy=remote \
-    --remote_executor=localhost:${worker_port} \
-    --remote_cache=localhost:${worker_port} \
-        //a:test >& $TEST_log \
-    || fail "Failed to build //a:test with remote execution"
+      --spawn_strategy=remote \
+      --noremote_local_fallback \
+      --remote_executor=localhost:${worker_port} \
+      --remote_cache=localhost:${worker_port} \
+      //a:test >& $TEST_log \
+      || fail "Failed to build //a:test with remote execution"
   diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
-    || fail "Remote execution generated different result"
+      || fail "Remote execution generated different result"
 }
 
 function test_cc_test() {
@@ -102,6 +103,7 @@ int main() { std::cout << "Hello test!" << std::endl; return 0; }
 EOF
   bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
       --spawn_strategy=remote \
+      --noremote_local_fallback \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
       --test_output=errors \
@@ -128,12 +130,12 @@ EOF
 
   bazel clean --expunge
   bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
-    --spawn_strategy=remote \
-    --remote_cache=localhost:${worker_port} \
-        //a:test >& $TEST_log \
-    || fail "Failed to build //a:test with remote gRPC cache service"
+      --spawn_strategy=remote \
+      --remote_cache=localhost:${worker_port} \
+      //a:test >& $TEST_log \
+      || fail "Failed to build //a:test with remote gRPC cache service"
   diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
-    || fail "Remote cache generated different result"
+      || fail "Remote cache generated different result"
 }
 
 # Tests that the remote worker can return a 200MB blob that requires chunking.
@@ -159,14 +161,15 @@ EOF
 
   bazel clean --expunge
   bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
-    --spawn_strategy=remote \
-    --grpc_max_chunk_size_bytes=120000000 \
-    --remote_executor=localhost:${worker_port} \
-    --remote_cache=localhost:${worker_port} \
-        //a:large_output >& $TEST_log \
-    || fail "Failed to build //a:large_output with remote execution"
+      --spawn_strategy=remote \
+      --noremote_local_fallback \
+      --grpc_max_chunk_size_bytes=120000000 \
+      --remote_executor=localhost:${worker_port} \
+      --remote_cache=localhost:${worker_port} \
+      //a:large_output >& $TEST_log \
+      || fail "Failed to build //a:large_output with remote execution"
   diff bazel-genfiles/a/large_blob.txt ${TEST_TMPDIR}/large_blob_expected.txt \
-    || fail "Remote execution generated different result"
+      || fail "Remote execution generated different result"
 }
 
 function test_cc_binary_rest_cache() {
@@ -188,12 +191,13 @@ EOF
 
   bazel clean --expunge
   bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
-    --spawn_strategy=remote \
-    --remote_rest_cache=http://localhost:${hazelcast_port}/hazelcast/rest/maps/cache \
-        //a:test >& $TEST_log \
-    || fail "Failed to build //a:test with remote gRPC cache service"
+      --spawn_strategy=remote \
+      --noremote_local_fallback \
+      --remote_rest_cache=http://localhost:${hazelcast_port}/hazelcast/rest/maps/cache \
+      //a:test >& $TEST_log \
+      || fail "Failed to build //a:test with remote gRPC cache service"
   diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
-    || fail "Remote cache generated different result"
+      || fail "Remote cache generated different result"
 }
 
 function test_py_test() {
@@ -212,6 +216,7 @@ if __name__ == "__main__":
 EOF
   bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
       --spawn_strategy=remote \
+      --noremote_local_fallback \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
       --test_output=errors \

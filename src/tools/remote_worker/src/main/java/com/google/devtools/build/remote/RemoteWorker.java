@@ -588,6 +588,7 @@ public class RemoteWorker {
           LOG.warning("Preserving work directory " + tempRoot.toString() + ".");
         }
       } catch (IOException | InterruptedException e) {
+        LOG.log(Level.SEVERE, "Failure", e);
         ExecuteReply.Builder reply = ExecuteReply.newBuilder();
         reply.getStatusBuilder().setSucceeded(false).setErrorDetail(e.toString());
         responseObserver.onNext(reply.build());

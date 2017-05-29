@@ -122,6 +122,9 @@ public final class SimpleBlobStoreActionCache implements RemoteActionCache {
   public void uploadAllResults(Path execRoot, Collection<Path> files, ActionResult.Builder result)
       throws IOException, InterruptedException {
     for (Path file : files) {
+      if (!file.exists()) {
+        continue;
+      }
       if (file.isDirectory()) {
         // TODO(olaola): to implement this for a directory, will need to create or pass a
         // TreeNodeRepository to call uploadTree.
