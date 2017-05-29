@@ -555,7 +555,7 @@ public class ExperimentalEventHandler implements EventHandler {
 
   @Subscribe
   public synchronized void buildEventTransportsAnnounced(AnnounceBuildEventTransportsEvent event) {
-    openBepTransports = event.transports().size();
+    openBepTransports += event.transports().size();
     stateTracker.buildEventTransportsAnnounced(event);
   }
 

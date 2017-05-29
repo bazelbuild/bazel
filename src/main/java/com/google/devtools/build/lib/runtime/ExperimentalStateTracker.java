@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.util.io.PositionAwareAnsiTerminalWriter;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import java.io.IOException;
 import java.util.ArrayDeque;
-import java.util.Collections;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -106,7 +105,7 @@ class ExperimentalStateTracker {
   private PackageProgressReceiver packageProgressReceiver;
 
   // Set of build event protocol transports that need yet to be closed.
-  private Set<BuildEventTransport> bepOpenTransports = Collections.emptySet();
+  private Set<BuildEventTransport> bepOpenTransports = new HashSet<>();
   // The point in time when closing of BEP transports was started.
   private long bepTransportClosingStartTimeMillis;
 
@@ -496,7 +495,7 @@ class ExperimentalStateTracker {
   }
 
   synchronized void buildEventTransportsAnnounced(AnnounceBuildEventTransportsEvent event) {
-    this.bepOpenTransports = new HashSet<BuildEventTransport>(event.transports());
+    this.bepOpenTransports.addAll(event.transports());
   }
 
   synchronized void buildEventTransportClosed(BuildEventTransportClosedEvent event) {
