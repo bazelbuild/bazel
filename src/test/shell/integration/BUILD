@@ -185,6 +185,8 @@ sh_test(
     size = "small",
     srcs = ["skylark_flag_test.sh"],
     data = [":test-deps"],
+    # TODO(brandjon): Fix GitHub issue #3072 and remove the "manual" tag.
+    tags = ["manual"],
 )
 
 sh_test(
