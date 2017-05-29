@@ -366,7 +366,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
       getConfiguredTarget("//hello:hello");
       fail("Should fail");
     } catch (AssertionError e) {
-      assertThat(e.getMessage())
+      assertThat(e)
+          .hasMessageThat()
           .contains("Invalid toolchain configuration: Cannot find variable named 'bad_variable'");
     }
   }

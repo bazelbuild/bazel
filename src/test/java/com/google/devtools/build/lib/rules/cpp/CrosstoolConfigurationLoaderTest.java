@@ -922,7 +922,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
       create(loader, "--cpu=cpu");
       fail();
     } catch (IllegalArgumentException e) {
-      assertThat(e.getMessage()).contains("Tool path for 'strip' is missing");
+      assertThat(e).hasMessageThat().contains("Tool path for 'strip' is missing");
     }
   }
 
@@ -937,7 +937,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
       create(loader, "--cpu=cpu");
       fail("Expected failed check on 'dwp' tool path");
     } catch (IllegalArgumentException e) {
-      assertThat(e.getMessage()).contains("Tool path for 'dwp' is missing");
+      assertThat(e).hasMessageThat().contains("Tool path for 'dwp' is missing");
     }
   }
 
