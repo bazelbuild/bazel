@@ -410,6 +410,13 @@ java_import(
     }),
 )
 
+java_import(
+    name = "instrumentation",
+    jars = [
+        "instrumentation/instrumentation-api-0.3.0.jar",
+    ],
+)
+
 # For bootstrapping JavaBuilder
 filegroup(
     name = "guava-jars",
@@ -469,7 +476,7 @@ java_import(
 
 java_import(
     name = "netty",
-    jars = ["netty/netty-all-4.1.0.CR6.jar"],
+    jars = ["netty/netty-all-4.1.8.Final.jar"],
 )
 
 java_import(
