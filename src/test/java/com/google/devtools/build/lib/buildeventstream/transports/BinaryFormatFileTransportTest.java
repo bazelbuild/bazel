@@ -15,8 +15,6 @@
 package com.google.devtools.build.lib.buildeventstream.transports;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.when;
 
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
@@ -103,7 +101,7 @@ public class BinaryFormatFileTransportTest {
     // Get a file that doesn't exist by creating a new file and immediately deleting it.
     File output = tmp.newFile();
     String path = output.getAbsolutePath();
-    assertTrue(output.delete());
+    assertThat(output.delete()).isTrue();
 
     BuildEventStreamProtos.BuildEvent started =
         BuildEventStreamProtos.BuildEvent.newBuilder()
@@ -135,7 +133,7 @@ public class BinaryFormatFileTransportTest {
 
     // Close the file.
     transport.ch.close();
-    assertFalse(transport.ch.isOpen());
+    assertThat(transport.ch.isOpen()).isFalse();
 
     // This should not throw an exception.
     transport.sendBuildEvent(buildEvent, artifactGroupNamer);
@@ -166,7 +164,7 @@ public class BinaryFormatFileTransportTest {
     transport.sendBuildEvent(buildEvent, artifactGroupNamer);
 
     closeFuture.get();
-    assertFalse(transport.ch.isOpen());
+    assertThat(transport.ch.isOpen()).isFalse();
 
     // There should have only been one write.
     try (InputStream in = new FileInputStream(output)) {

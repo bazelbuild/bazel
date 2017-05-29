@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android.ziputils;
 
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.android.ziputils.DirectoryEntry.CENATT;
 import static com.google.devtools.build.android.ziputils.DirectoryEntry.CENATX;
 import static com.google.devtools.build.android.ziputils.DirectoryEntry.CENCRC;
@@ -27,20 +28,15 @@ import static com.google.devtools.build.android.ziputils.DirectoryEntry.CENTIM;
 import static com.google.devtools.build.android.ziputils.DirectoryEntry.CENVEM;
 import static com.google.devtools.build.android.ziputils.DirectoryEntry.CENVER;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.assertEquals;
-
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.zip.ZipInputStream;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
-/**
- * Unit tests for {@link DirectoryEntry}.
- */
+/** Unit tests for {@link DirectoryEntry}. */
 @RunWith(JUnit4.class)
 public class DirectoryEntryTest {
 
@@ -67,10 +63,10 @@ public class DirectoryEntryTest {
     int expMark = (int) ZipInputStream.CENSIG;
     int expSize = ZipInputStream.CENHDR + filenameLength + extraLength + commentLength;
     int expPos = 0;
-    assertEquals("not based at current position", expMark, view.get(CENSIG));
-    assertEquals("Not slice with position 0", expPos, view.buffer.position());
-    assertEquals("Not sized with comment", expSize, view.getSize());
-    assertEquals("Not limited to size", expSize, view.buffer.limit());
+    assertWithMessage("not based at current position").that(view.get(CENSIG)).isEqualTo(expMark);
+    assertWithMessage("Not slice with position 0").that(view.buffer.position()).isEqualTo(expPos);
+    assertWithMessage("Not sized with comment").that(view.getSize()).isEqualTo(expSize);
+    assertWithMessage("Not limited to size").that(view.buffer.limit()).isEqualTo(expSize);
   }
 
   /**
@@ -85,12 +81,12 @@ public class DirectoryEntryTest {
         + extraData.length + comment.getBytes(UTF_8).length;
     int expPos = 0;
     DirectoryEntry view = DirectoryEntry.allocate(filename, extraData, comment);
-    assertEquals("Incorrect filename", filename, view.getFilename());
-    Assert.assertArrayEquals("Incorrect extra data", extraData, view.getExtraData());
-    assertEquals("Incorrect comment", comment, view.getComment());
-    assertEquals("Not at position 0", expPos, view.buffer.position());
-    assertEquals("Not sized correctly", expSize, view.getSize());
-    assertEquals("Not limited to size", expSize, view.buffer.limit());
+    assertWithMessage("Incorrect filename").that(view.getFilename()).isEqualTo(filename);
+    assertWithMessage("Incorrect extra data").that(view.getExtraData()).isEqualTo(extraData);
+    assertWithMessage("Incorrect comment").that(view.getComment()).isEqualTo(comment);
+    assertWithMessage("Not at position 0").that(view.buffer.position()).isEqualTo(expPos);
+    assertWithMessage("Not sized correctly").that(view.getSize()).isEqualTo(expSize);
+    assertWithMessage("Not limited to size").that(view.buffer.limit()).isEqualTo(expSize);
   }
 
   /**
@@ -112,13 +108,13 @@ public class DirectoryEntryTest {
         + comment.getBytes(UTF_8).length;
     int expPos = 0;
     DirectoryEntry view = DirectoryEntry.view(buffer, filename, extraData, comment);
-    assertEquals("not based at current position", expMark, view.get(CENSIG));
-    assertEquals("Not slice with position 0", expPos, view.buffer.position());
-    assertEquals("Not sized with filename", expSize, view.getSize());
-    assertEquals("Not limited to size", expSize, view.buffer.limit());
-    assertEquals("Incorrect filename", filename, view.getFilename());
-    Assert.assertArrayEquals("Incorrect extra data", extraData, view.getExtraData());
-    assertEquals("Incorrect comment", comment, view.getComment());
+    assertWithMessage("not based at current position").that(view.get(CENSIG)).isEqualTo(expMark);
+    assertWithMessage("Not slice with position 0").that(view.buffer.position()).isEqualTo(expPos);
+    assertWithMessage("Not sized with filename").that(view.getSize()).isEqualTo(expSize);
+    assertWithMessage("Not limited to size").that(view.buffer.limit()).isEqualTo(expSize);
+    assertWithMessage("Incorrect filename").that(view.getFilename()).isEqualTo(filename);
+    assertWithMessage("Incorrect extra data").that(view.getExtraData()).isEqualTo(extraData);
+    assertWithMessage("Incorrect comment").that(view.getComment()).isEqualTo(comment);
   }
 
   /**
@@ -133,13 +129,17 @@ public class DirectoryEntryTest {
     DirectoryEntry view = DirectoryEntry.allocate(filename, extraData, comment);
     view.copy(buffer);
     int expSize = view.getSize();
-    assertEquals("buffer not advanced as expected", expSize, buffer.position());
+    assertWithMessage("buffer not advanced as expected").that(buffer.position()).isEqualTo(expSize);
     buffer.position(0);
     DirectoryEntry clone = DirectoryEntry.viewOf(buffer);
-    assertEquals("Fail to copy mark", view.get(CENSIG), clone.get(CENSIG));
-    assertEquals("Fail to copy comment", view.getFilename(), clone.getFilename());
-    Assert.assertArrayEquals("Fail to copy comment", view.getExtraData(), clone.getExtraData());
-    assertEquals("Fail to copy comment", view.getComment(), clone.getComment());
+    assertWithMessage("Fail to copy mark").that(clone.get(CENSIG)).isEqualTo(view.get(CENSIG));
+    assertWithMessage("Fail to copy comment")
+        .that(clone.getFilename())
+        .isEqualTo(view.getFilename());
+    assertWithMessage("Fail to copy comment")
+        .that(clone.getExtraData())
+        .isEqualTo(view.getExtraData());
+    assertWithMessage("Fail to copy comment").that(clone.getComment()).isEqualTo(view.getComment());
   }
 
   /**
@@ -172,17 +172,17 @@ public class DirectoryEntryTest {
         .set(CENATX, extAttr)
         .set(CENATT, intAttr)
         .set(CENOFF, offset);
-    assertEquals("CRC", crc, view.get(CENCRC));
-    assertEquals("Compressed size", compressed, view.get(CENSIZ));
-    assertEquals("Uncompressed size", uncompressed, view.get(CENLEN));
-    assertEquals("Flags", flags, view.get(CENFLG));
-    assertEquals("Method", method, view.get(CENHOW));
-    assertEquals("Modified time", time, view.get(CENTIM));
-    assertEquals("Version needed", version, view.get(CENVER));
-    assertEquals("Version made by", versionMadeBy, view.get(CENVEM));
-    assertEquals("Disk", disk, view.get(CENDSK));
-    assertEquals("External attributes", extAttr, view.get(CENATX));
-    assertEquals("Internal attributes", intAttr, view.get(CENATT));
-    assertEquals("Offset", offset, view.get(CENOFF));
+    assertWithMessage("CRC").that(view.get(CENCRC)).isEqualTo(crc);
+    assertWithMessage("Compressed size").that(view.get(CENSIZ)).isEqualTo(compressed);
+    assertWithMessage("Uncompressed size").that(view.get(CENLEN)).isEqualTo(uncompressed);
+    assertWithMessage("Flags").that(view.get(CENFLG)).isEqualTo(flags);
+    assertWithMessage("Method").that(view.get(CENHOW)).isEqualTo(method);
+    assertWithMessage("Modified time").that(view.get(CENTIM)).isEqualTo(time);
+    assertWithMessage("Version needed").that(view.get(CENVER)).isEqualTo(version);
+    assertWithMessage("Version made by").that(view.get(CENVEM)).isEqualTo(versionMadeBy);
+    assertWithMessage("Disk").that(view.get(CENDSK)).isEqualTo(disk);
+    assertWithMessage("External attributes").that(view.get(CENATX)).isEqualTo(extAttr);
+    assertWithMessage("Internal attributes").that(view.get(CENATT)).isEqualTo(intAttr);
+    assertWithMessage("Offset").that(view.get(CENOFF)).isEqualTo(offset);
   }
 }

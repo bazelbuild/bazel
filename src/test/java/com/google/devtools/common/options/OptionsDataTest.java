@@ -75,8 +75,7 @@ public class OptionsDataTest {
       construct(ExampleNameConflictOptions.class);
       fail("foo should conflict with the previous flag foo");
     } catch (DuplicateOptionDeclarationException e) {
-      assertThat(e.getMessage()).contains(
-          "Duplicate option name, due to option: --foo");
+      assertThat(e).hasMessageThat().contains("Duplicate option name, due to option: --foo");
     }
   }
 
@@ -104,8 +103,7 @@ public class OptionsDataTest {
       construct(ExampleIntegerFooOptions.class, ExampleBooleanFooOptions.class);
       fail("foo should conflict with the previous flag foo");
     } catch (DuplicateOptionDeclarationException e) {
-      assertThat(e.getMessage()).contains(
-          "Duplicate option name, due to option: --foo");
+      assertThat(e).hasMessageThat().contains("Duplicate option name, due to option: --foo");
     }
   }
 
@@ -127,9 +125,11 @@ public class OptionsDataTest {
       fail("nofoo should conflict with the previous flag foo, "
          + "since foo, as a boolean flag, can be written as --nofoo");
     } catch (DuplicateOptionDeclarationException e) {
-      assertThat(e.getMessage()).contains(
-          "Duplicate option name, due to option --nofoo, it "
-          + "conflicts with a negating alias for boolean flag --foo");
+      assertThat(e)
+          .hasMessageThat()
+          .contains(
+              "Duplicate option name, due to option --nofoo, it "
+                  + "conflicts with a negating alias for boolean flag --foo");
     }
 
     try {
@@ -137,8 +137,9 @@ public class OptionsDataTest {
       fail("nofoo should conflict with the previous flag foo, "
          + "since foo, as a boolean flag, can be written as --nofoo");
     } catch (DuplicateOptionDeclarationException e) {
-      assertThat(e.getMessage()).contains(
-          "Duplicate option name, due to boolean option alias: --nofoo");
+      assertThat(e)
+          .hasMessageThat()
+          .contains("Duplicate option name, due to boolean option alias: --nofoo");
     }
   }
 
@@ -161,8 +162,9 @@ public class OptionsDataTest {
       fail("nofoo should conflict with the previous flag foo, "
          + "since foo, as a boolean flag, can be written as --nofoo");
     } catch (DuplicateOptionDeclarationException e) {
-      assertThat(e.getMessage()).contains(
-          "Duplicate option name, due to boolean option alias: --nofoo");
+      assertThat(e)
+          .hasMessageThat()
+          .contains("Duplicate option name, due to boolean option alias: --nofoo");
     }
   }
 
@@ -185,9 +187,11 @@ public class OptionsDataTest {
       fail("nofoo, the old name for bar, should conflict with the previous flag foo, "
          + "since foo, as a boolean flag, can be written as --nofoo");
     } catch (DuplicateOptionDeclarationException e) {
-      assertThat(e.getMessage()).contains(
-          "Duplicate option name, due to old option name --nofoo, it conflicts with a "
-          + "negating alias for boolean flag --foo");
+      assertThat(e)
+          .hasMessageThat()
+          .contains(
+              "Duplicate option name, due to old option name --nofoo, it conflicts with a "
+                  + "negating alias for boolean flag --foo");
     }
   }
 

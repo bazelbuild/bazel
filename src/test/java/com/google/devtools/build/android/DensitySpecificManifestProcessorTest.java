@@ -18,7 +18,6 @@ import static com.google.devtools.build.android.DensitySpecificManifestProcessor
 import static com.google.devtools.build.android.DensitySpecificManifestProcessor.SCREEN_SIZES;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
@@ -225,19 +224,20 @@ public class DensitySpecificManifestProcessorTest {
     DocumentBuilder db = DocumentBuilderFactory.newInstance().newDocumentBuilder();
     Document doc = db.parse(Files.newInputStream(manifest));
     NodeList compatibleScreensNodes = doc.getElementsByTagName("compatible-screens");
-    assertEquals(1, compatibleScreensNodes.getLength());
+    assertThat(compatibleScreensNodes.getLength()).isEqualTo(1);
     Node compatibleScreens = compatibleScreensNodes.item(0);
     NodeList screens = doc.getElementsByTagName("screen");
-    assertEquals(densities.size() * SCREEN_SIZES.size(),
-        screens.getLength());
+    assertThat(screens.getLength()).isEqualTo(densities.size() * SCREEN_SIZES.size());
     for (int i = 0; i < screens.getLength(); i++) {
       Node s = screens.item(i);
-      assertTrue(s.getParentNode().isSameNode(compatibleScreens));
+      assertThat(s.getParentNode().isSameNode(compatibleScreens)).isTrue();
       if (s.getNodeType() == Node.ELEMENT_NODE) {
         Element screen = (Element) s;
-        assertTrue(sizeDensities.remove(
-            screen.getAttribute("android:screenSize")
-            + screen.getAttribute("android:screenDensity")));
+        assertThat(
+                sizeDensities.remove(
+                    screen.getAttribute("android:screenSize")
+                        + screen.getAttribute("android:screenDensity")))
+            .isTrue();
       }
     }
     assertThat(sizeDensities).isEmpty();
@@ -247,9 +247,9 @@ public class DensitySpecificManifestProcessorTest {
     DocumentBuilder db = DocumentBuilderFactory.newInstance().newDocumentBuilder();
     Document doc = db.parse(Files.newInputStream(manifest));
     NodeList compatibleScreensNodes = doc.getElementsByTagName("compatible-screens");
-    assertEquals(0, compatibleScreensNodes.getLength());
+    assertThat(compatibleScreensNodes.getLength()).isEqualTo(0);
     NodeList screens = doc.getElementsByTagName("screen");
-    assertEquals(0, screens.getLength());
+    assertThat(screens.getLength()).isEqualTo(0);
   }
 
 }

@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.cmdline.Label;
@@ -106,7 +105,7 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
   }
 
   private static Set<Target> getFailFast(ResolvedTargets<Target> result) {
-    assertFalse(result.hasError());
+    assertThat(result.hasError()).isFalse();
     return result.getTargets();
   }
 

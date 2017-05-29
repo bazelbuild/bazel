@@ -255,7 +255,8 @@ public class ProtoCompileActionBuilderTest {
           ImmutableList.<String>of() /* protocOpts */);
       fail("Expected an exception");
     } catch (IllegalStateException e) {
-      assertThat(e.getMessage())
+      assertThat(e)
+          .hasMessageThat()
           .isEqualTo(
               "Invocation name pluginName appears more than once. "
                   + "This could lead to incorrect proto-compiler behavior");

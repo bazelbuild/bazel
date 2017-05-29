@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import static org.junit.Assert.assertArrayEquals;
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -241,7 +241,7 @@ public class DensitySpecificResourceFilterTest {
     String[] actual = filteredResources.build().toArray(new String[0]);
     Arrays.sort(expected);
     Arrays.sort(actual);
-    assertArrayEquals(expected, actual);
+    assertThat(actual).isEqualTo(expected);
   }
 
   @Before
@@ -281,6 +281,6 @@ public class DensitySpecificResourceFilterTest {
     Arrays.sort(expected);
     Arrays.sort(actual);
 
-    assertArrayEquals(expected, actual);
+    assertThat(actual).isEqualTo(expected);
   }
 }

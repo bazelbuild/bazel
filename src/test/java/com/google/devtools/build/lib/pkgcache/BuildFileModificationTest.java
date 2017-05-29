@@ -13,11 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.pkgcache;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNotSame;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -145,7 +141,7 @@ public class BuildFileModificationTest extends FoundationTestCase {
     Path build = scratch.file(
         "a/BUILD", "cc_library(name='a', feet='stinky')".getBytes(StandardCharsets.ISO_8859_1));
     Package a1 = getPackage("a");
-    assertTrue(a1.containsErrors());
+    assertThat(a1.containsErrors()).isTrue();
     assertContainsEvent("//a:a: no such attribute 'feet'");
     eventCollector.clear();
     // writeContent updates mtime and ctime. Note that we keep the content length exactly the same.
@@ -155,8 +151,8 @@ public class BuildFileModificationTest extends FoundationTestCase {
 
     invalidatePackages();
     Package a2 = getPackage("a");
-    assertNotSame(a1, a2);
-    assertFalse(a2.containsErrors());
+    assertThat(a2).isNotSameAs(a1);
+    assertThat(a2.containsErrors()).isFalse();
     assertNoEvents();
   }
 
@@ -170,13 +166,14 @@ public class BuildFileModificationTest extends FoundationTestCase {
     clock.advanceMillis(1);
     FileSystemUtils.writeContent(
         path, "cc_library(name = 'bar')\n".getBytes(StandardCharsets.ISO_8859_1));
-    assertSame(oldPkg, getPackage("pkg")); // Change only becomes visible after invalidatePackages.
+    assertThat(getPackage("pkg"))
+        .isSameAs(oldPkg); // Change only becomes visible after invalidatePackages.
 
     invalidatePackages();
 
     Package newPkg = getPackage("pkg");
-    assertNotSame(oldPkg, newPkg);
-    assertNotNull(newPkg.getTarget("bar"));
+    assertThat(newPkg).isNotSameAs(oldPkg);
+    assertThat(newPkg.getTarget("bar")).isNotNull();
   }
 
   @Test
@@ -193,7 +190,7 @@ public class BuildFileModificationTest extends FoundationTestCase {
 
     invalidatePackages();
     Package a2 = getPackage("a");
-    assertNotSame(a1, a2);
+    assertThat(a2).isNotSameAs(a1);
     assertNoEvents();
   }
 
@@ -206,11 +203,11 @@ public class BuildFileModificationTest extends FoundationTestCase {
     // Change ctime to 1.
     clock.advanceMillis(1);
     path.setLastModifiedTime(1001);
-    assertSame(oldPkg, getPackage("pkg")); // change not yet visible
+    assertThat(getPackage("pkg")).isSameAs(oldPkg); // change not yet visible
 
     invalidatePackages();
 
     Package newPkg = getPackage("pkg");
-    assertNotSame(oldPkg, newPkg);
+    assertThat(newPkg).isNotSameAs(oldPkg);
   }
 }

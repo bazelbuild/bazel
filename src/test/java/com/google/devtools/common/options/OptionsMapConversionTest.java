@@ -168,9 +168,11 @@ public class OptionsMapConversionTest {
       OptionsParser.fromMap(SubFooBOptions.class, fieldMap);
       fail("Should have failed due to the given map's fields not matching the ones on the class");
     } catch (IllegalArgumentException e) {
-      assertThat(e.getMessage()).contains(
-          "Map keys do not match fields of options class; extra map keys: {'a'}; "
-          + "extra options class options: {'b1', 'b2'}");
+      assertThat(e)
+          .hasMessageThat()
+          .contains(
+              "Map keys do not match fields of options class; extra map keys: {'a'}; "
+                  + "extra options class options: {'b1', 'b2'}");
     }
   }
 
@@ -182,8 +184,9 @@ public class OptionsMapConversionTest {
       OptionsParser.fromMap(FooOptions.class, fieldMap);
       fail("Should have failed due to trying to assign a field value with the wrong type");
     } catch (IllegalArgumentException e) {
-      assertThat(e.getMessage()).matches(
-          "Can not set boolean field .*\\.foo to java\\.lang\\.Integer");
+      assertThat(e)
+          .hasMessageThat()
+          .matches("Can not set boolean field .*\\.foo to java\\.lang\\.Integer");
     }
   }
 

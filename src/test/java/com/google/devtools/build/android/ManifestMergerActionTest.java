@@ -58,7 +58,7 @@ public class ManifestMergerActionTest {
     final File expectedManifestDirectory = manifestData.resolve("expected").toFile();
     final File[] expectedManifestDirectoryManifests =
         expectedManifestDirectory.listFiles(new PatternFilenameFilter(".*AndroidManifest\\.xml$"));
-    assertThat(expectedManifestDirectoryManifests.length).isEqualTo(1);
+    assertThat(expectedManifestDirectoryManifests).hasLength(1);
     final Path expectedManifest = expectedManifestDirectoryManifests[0].toPath();
 
     Files.createDirectories(working.resolve("output"));

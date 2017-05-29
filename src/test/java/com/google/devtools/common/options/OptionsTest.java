@@ -115,9 +115,9 @@ public class OptionsTest {
 
     assertThat(webFlags.host).isEqualTo("www.google.com");
     assertThat(webFlags.port).isEqualTo(80);
-    assertThat(webFlags.isDebugging).isEqualTo(false);
+    assertThat(webFlags.isDebugging).isFalse();
     assertThat(webFlags.triState).isEqualTo(TriState.AUTO);
-    assertThat(remainingArgs.length).isEqualTo(0);
+    assertThat(remainingArgs).hasLength(0);
   }
 
   @Test
@@ -145,8 +145,8 @@ public class OptionsTest {
     assertThat(likeLeft).isEqualTo(left);
     assertThat(left).isNotEqualTo(right);
     assertThat(right).isNotEqualTo(left);
-    assertThat(left).isNotEqualTo(null);
-    assertThat(likeLeft).isNotEqualTo(null);
+    assertThat(left).isNotNull();
+    assertThat(likeLeft).isNotNull();
     assertThat(likeLeft.hashCode()).isEqualTo(likeLeft.hashCode());
     assertThat(likeLeft.hashCode()).isEqualTo(left.hashCode());
     // Strictly speaking this is not required for hashCode to be correct,
@@ -186,8 +186,8 @@ public class OptionsTest {
 
     assertThat(webFlags.host).isEqualTo("google.com");
     assertThat(webFlags.port).isEqualTo(8080);
-    assertThat(webFlags.isDebugging).isEqualTo(true);
-    assertThat(remainingArgs.length).isEqualTo(0);
+    assertThat(webFlags.isDebugging).isTrue();
+    assertThat(remainingArgs).hasLength(0);
   }
 
   @Test
@@ -201,8 +201,8 @@ public class OptionsTest {
 
     assertThat(webFlags.host).isEqualTo("google.com");
     assertThat(webFlags.port).isEqualTo(8080);
-    assertThat(webFlags.isDebugging).isEqualTo(true);
-    assertThat(remainingArgs.length).isEqualTo(0);
+    assertThat(webFlags.isDebugging).isTrue();
+    assertThat(remainingArgs).hasLength(0);
   }
 
   @Test
@@ -210,7 +210,7 @@ public class OptionsTest {
     Options<HttpOptions> options =
         Options.parse(HttpOptions.class, new String[]{"--nodebug", "--notristate"});
     HttpOptions webFlags = options.getOptions();
-    assertThat(webFlags.isDebugging).isEqualTo(false);
+    assertThat(webFlags.isDebugging).isFalse();
     assertThat(webFlags.triState).isEqualTo(TriState.NO);
   }
 
@@ -219,7 +219,7 @@ public class OptionsTest {
     Options<HttpOptions> options =
         Options.parse(HttpOptions.class, new String[]{"-d-", "-t-"});
     HttpOptions webFlags = options.getOptions();
-    assertThat(webFlags.isDebugging).isEqualTo(false);
+    assertThat(webFlags.isDebugging).isFalse();
     assertThat(webFlags.triState).isEqualTo(TriState.NO);
   }
 
@@ -228,7 +228,7 @@ public class OptionsTest {
     Options<HttpOptions> options =
         Options.parse(HttpOptions.class, new String[]{"--debug=0", "--tristate=0"});
     HttpOptions webFlags = options.getOptions();
-    assertThat(webFlags.isDebugging).isEqualTo(false);
+    assertThat(webFlags.isDebugging).isFalse();
     assertThat(webFlags.triState).isEqualTo(TriState.NO);
   }
 
@@ -237,7 +237,7 @@ public class OptionsTest {
     Options<HttpOptions> options =
         Options.parse(HttpOptions.class, new String[]{"--debug=1", "--tristate=1"});
     HttpOptions webFlags = options.getOptions();
-    assertThat(webFlags.isDebugging).isEqualTo(true);
+    assertThat(webFlags.isDebugging).isTrue();
     assertThat(webFlags.triState).isEqualTo(TriState.YES);
   }
 
@@ -270,7 +270,7 @@ public class OptionsTest {
       Options.parse(HttpOptions.class, args);
       fail();
     } catch (OptionsParsingException e) {
-      assertThat(e.getMessage()).isEqualTo("Unrecognized option: --unknown");
+      assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --unknown");
     }
   }
 
@@ -281,7 +281,7 @@ public class OptionsTest {
       Options.parse(HttpOptions.class, args);
       fail();
     } catch (OptionsParsingException e) {
-      assertThat(e.getMessage()).isEqualTo("Expected value after --port");
+      assertThat(e).hasMessageThat().isEqualTo("Expected value after --port");
     }
   }
 
@@ -314,7 +314,8 @@ public class OptionsTest {
       Options.parse(HttpOptions.class, new String[]{"--debug=not_a_boolean"});
       fail();
     } catch (OptionsParsingException e) {
-      assertThat(e.getMessage())
+      assertThat(e)
+          .hasMessageThat()
           .isEqualTo(
               "While parsing option --debug=not_a_boolean: "
                   + "\'not_a_boolean\' is not a boolean");
@@ -327,7 +328,9 @@ public class OptionsTest {
       Options.parse(HttpOptions.class, new String[]{"--nodebug=1"});
       fail();
     } catch (OptionsParsingException e) {
-      assertThat(e.getMessage()).isEqualTo("Unexpected value after boolean option: --nodebug=1");
+      assertThat(e)
+          .hasMessageThat()
+          .isEqualTo("Unexpected value after boolean option: --nodebug=1");
     }
   }
 
@@ -429,7 +432,8 @@ public class OptionsTest {
       Options.parse(UsesCustomConverter.class, args);
       fail();
     } catch (OptionsParsingException e) {
-      assertThat(e.getMessage())
+      assertThat(e)
+          .hasMessageThat()
           .isEqualTo(
               "While parsing option --url=a_malformed:url: "
                   + "Could not convert 'a_malformed:url': "
@@ -449,7 +453,7 @@ public class OptionsTest {
       Options.parse(HttpOptions.class, new String[]{"--no-debug"});
       fail();
     } catch (OptionsParsingException e) {
-      assertThat(e.getMessage()).isEqualTo("Unrecognized option: --no-debug");
+      assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --no-debug");
     }
   }
 
@@ -477,8 +481,10 @@ public class OptionsTest {
       Options.parse(K.class, NO_ARGS).getOptions();
       fail();
     } catch (OptionsParser.ConstructionException e) {
-      assertThat(e.getCause()).isInstanceOf(IllegalStateException.class);
-      assertThat(e.getCause().getMessage())
+      assertThat(e).hasCauseThat().isInstanceOf(IllegalStateException.class);
+      assertThat(e)
+          .hasCauseThat()
+          .hasMessageThat()
           .isEqualTo(
               "OptionsParsingException while retrieving default for "
                   + "int1: 'null' is not an int");

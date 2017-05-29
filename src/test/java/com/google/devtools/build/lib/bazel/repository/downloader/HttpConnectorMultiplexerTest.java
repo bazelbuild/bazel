@@ -157,7 +157,7 @@ public class HttpConnectorMultiplexerTest {
       multiplexer.connect(asList(URL1, URL2, URL3), "");
       fail("Expected IOException");
     } catch (IOException e) {
-      assertThat(e.getMessage()).contains("All mirrors are down");
+      assertThat(e).hasMessageThat().contains("All mirrors are down");
     }
     verify(connector, times(3)).connect(any(URL.class), any(ImmutableMap.class));
     verify(sleeper, times(2)).sleepMillis(anyLong());
