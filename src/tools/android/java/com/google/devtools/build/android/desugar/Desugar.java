@@ -168,7 +168,7 @@ class Desugar {
 
     @Option(
       name = "desugar_try_with_resources_if_needed",
-      defaultValue = "false",
+      defaultValue = "true",
       category = "misc",
       help = "Rewrites try-with-resources statements if --min_sdk_version < 19."
     )
