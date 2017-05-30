@@ -44,8 +44,11 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransportClosedEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.ProgressEvent;
+import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.TestingCompleteEvent;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.events.Event;
@@ -87,6 +90,9 @@ public class BuildEventStreamer implements EventHandler {
   private final CountingArtifactGroupNamer artifactGroupNamer = new CountingArtifactGroupNamer();
   private OutErrProvider outErrProvider;
   private AbortReason abortReason = AbortReason.UNKNOWN;
+  // Will be set to true if the build was invoked through "bazel test".
+  private boolean isTestCommand;
+
   private static final Logger log = Logger.getLogger(BuildEventStreamer.class.getName());
 
   /**
@@ -335,6 +341,17 @@ public class BuildEventStreamer implements EventHandler {
       return;
     }
 
+    if (isTestCommand && event instanceof BuildCompleteEvent) {
+      // In case of "bazel test" ignore the BuildCompleteEvent, as it will be followed by a
+      // TestingCompleteEvent that contains the correct exit code.
+      return;
+    }
+
+    if (event instanceof BuildStartingEvent) {
+      BuildRequest buildRequest = ((BuildStartingEvent) event).getRequest();
+      isTestCommand = "test".equals(buildRequest.getCommandName());
+    }
+
     if (event instanceof BuildEventWithConfiguration) {
       for (BuildConfiguration configuration :
           ((BuildEventWithConfiguration) event).getConfigurations()) {
@@ -357,7 +374,7 @@ public class BuildEventStreamer implements EventHandler {
       buildEvent(freedEvent);
     }
 
-    if (event instanceof BuildCompleteEvent) {
+    if (event instanceof BuildCompleteEvent || event instanceof TestingCompleteEvent) {
       buildComplete();
     }
   }

@@ -210,6 +210,8 @@ function test_test_attempts() {
   expect_log 'flaky/.*test.xml'
   expect_log 'name:.*test.log'
   expect_log 'name:.*test.xml'
+  expect_log 'name:.*TESTS_FAILED'
+  expect_not_log 'name:.*SUCCESS'
 }
 
 function test_test_runtime() {

@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.BuildTool;
+import com.google.devtools.build.lib.buildtool.buildevent.TestingCompleteEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.TestStrategy;
@@ -142,9 +143,11 @@ public class TestCommand implements BlazeCommand {
           + AnsiTerminalPrinter.Mode.DEFAULT);
     }
 
-    return buildSuccess ?
-           (testSuccess ? ExitCode.SUCCESS : ExitCode.TESTS_FAILED)
-           : buildResult.getExitCondition();
+    ExitCode exitCode = buildSuccess
+        ? (testSuccess ? ExitCode.SUCCESS : ExitCode.TESTS_FAILED)
+        : buildResult.getExitCondition();
+    env.getEventBus().post(new TestingCompleteEvent(exitCode, buildResult.getStopTime()));
+    return exitCode;
   }
 
   /**
