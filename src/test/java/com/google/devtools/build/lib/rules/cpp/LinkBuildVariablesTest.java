@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -78,7 +79,8 @@ public class LinkBuildVariablesTest extends BuildViewTestCase {
                 "      }",
                 "   }",
                 "}")
-            .getFeatureConfiguration("a");
+            .getFeatureConfiguration(
+                FeatureSpecification.create(ImmutableSet.of("a"), ImmutableSet.<String>of()));
     return mockFeatureConfiguration.getCommandLine("foo", variables);
   }
 

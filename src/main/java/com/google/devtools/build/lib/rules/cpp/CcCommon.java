@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import javax.annotation.Nullable;
@@ -594,21 +593,20 @@ public final class CcCommon {
   /**
    * Creates the feature configuration for a given rule.
    *
-   * @param ruleContext the context of the rule we want the feature configuration for.
-   * @param ruleSpecificRequestedFeatures features that will be requested, and thus be always
-   * enabled if the toolchain supports them.
-   * @param ruleSpecificUnsupportedFeatures features that are not supported in the current context.
-   * @param sourceCategory the source category for this build.
+   * @see CcCommon#configureFeatures(
+   *   RuleContext, FeatureSpecification, SourceCategory, CcToolchainProvider)
+   *
+   * @param features CcToolchainFeatures instance to use to get FeatureConfiguration
    * @return the feature configuration for the given {@code ruleContext}.
    */
   public static FeatureConfiguration configureFeatures(
       RuleContext ruleContext,
-      Set<String> ruleSpecificRequestedFeatures,
-      Set<String> ruleSpecificUnsupportedFeatures,
+      FeatureSpecification featureSpecification,
       SourceCategory sourceCategory,
-      CcToolchainProvider toolchain) {
+      CcToolchainProvider toolchain,
+      CcToolchainFeatures features) {
     ImmutableSet.Builder<String> unsupportedFeaturesBuilder = ImmutableSet.builder();
-    unsupportedFeaturesBuilder.addAll(ruleSpecificUnsupportedFeatures);
+    unsupportedFeaturesBuilder.addAll(featureSpecification.getUnsupportedFeatures());
     if (!toolchain.supportsHeaderParsing()) {
       // TODO(bazel-team): Remove once supports_header_parsing has been removed from the
       // cc_toolchain rule.
@@ -618,7 +616,7 @@ public final class CcCommon {
     if (toolchain.getCppCompilationContext().getCppModuleMap() == null) {
       unsupportedFeaturesBuilder.add(CppRuleClasses.MODULE_MAPS);
     }
-    Set<String> unsupportedFeatures = unsupportedFeaturesBuilder.build();
+    ImmutableSet<String> unsupportedFeatures = unsupportedFeaturesBuilder.build();
     ImmutableSet.Builder<String> requestedFeatures = ImmutableSet.builder();
     for (String feature :
         Iterables.concat(
@@ -631,12 +629,14 @@ public final class CcCommon {
         requestedFeatures.add(feature);
       }
     }
-    requestedFeatures.addAll(ruleSpecificRequestedFeatures);
+    requestedFeatures.addAll(featureSpecification.getRequestedFeatures());
 
     requestedFeatures.addAll(sourceCategory.getActionConfigSet());
 
+    FeatureSpecification currentFeatureSpecification =
+        FeatureSpecification.create(requestedFeatures.build(), unsupportedFeatures);
     FeatureConfiguration configuration =
-        toolchain.getFeatures().getFeatureConfiguration(requestedFeatures.build());
+        features.getFeatureConfiguration(currentFeatureSpecification);
     for (String feature : unsupportedFeatures) {
       if (configuration.isEnabled(feature)) {
         ruleContext.ruleError(
@@ -653,22 +653,35 @@ public final class CcCommon {
     return configuration;
   }
 
+
+  /**
+   * Creates the feature configuration for a given rule.
+   *
+   * @see CcCommon#configureFeatures(RuleContext, CcToolchainProvider, SourceCategory)
+   *
+   * @param toolchain the current toolchain provider
+   * @return the feature configuration for the given {@code ruleContext}.
+   */
+  public static FeatureConfiguration configureFeatures(
+      RuleContext ruleContext,
+      FeatureSpecification featureSpecification,
+      SourceCategory sourceCategory,
+      CcToolchainProvider toolchain) {
+    return configureFeatures(
+        ruleContext, featureSpecification, sourceCategory, toolchain, toolchain.getFeatures());
+  }
+
   /**
    * Creates a feature configuration for a given rule.
    *
-   * @param ruleContext the context of the rule we want the feature configuration for.
-   * @param toolchain the toolchain we want the feature configuration for.
+   * @see CcCommon#configureFeatures(RuleContext, CcToolchainProvider)
+   *
    * @param sourceCategory the category of sources to be used in this build.
    * @return the feature configuration for the given {@code ruleContext}.
    */
   public static FeatureConfiguration configureFeatures(
       RuleContext ruleContext, CcToolchainProvider toolchain, SourceCategory sourceCategory) {
-    return configureFeatures(
-        ruleContext,
-        ImmutableSet.<String>of(),
-        ImmutableSet.<String>of(),
-        sourceCategory,
-        toolchain);
+    return configureFeatures(ruleContext, FeatureSpecification.EMPTY, sourceCategory, toolchain);
   }
 
   /**

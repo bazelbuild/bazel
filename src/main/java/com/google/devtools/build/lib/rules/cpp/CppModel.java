@@ -263,10 +263,8 @@ public final class CppModel {
     this.soImplArtifact = soImplFilename;
     return this;
   }
-  
-  /**
-   * Sets the feature configuration to be used for C/C++ actions. 
-   */
+
+  /** Sets the feature configuration to be used for C/C++ actions. */
   public CppModel setFeatureConfiguration(FeatureConfiguration featureConfiguration) {
     this.featureConfiguration = featureConfiguration;
     return this;
@@ -615,7 +613,8 @@ public final class CppModel {
         /*ltoIndexingFile=*/ null,
         builder.getContext().getCppModuleMap(),
         ImmutableMap.<String, String>of());
-    semantics.finalizeCompileActionBuilder(ruleContext, builder);
+    semantics.finalizeCompileActionBuilder(
+        ruleContext, builder, featureConfiguration.getFeatureSpecification());
     CppCompileAction compileAction = builder.buildAndValidate(ruleContext);
     env.registerAction(compileAction);
     Artifact tokenFile = compileAction.getOutputFile();
@@ -675,7 +674,8 @@ public final class CppModel {
     builder.setGcnoFile(gcnoFile);
     builder.setDwoFile(dwoFile);
 
-    semantics.finalizeCompileActionBuilder(ruleContext, builder);
+    semantics.finalizeCompileActionBuilder(
+        ruleContext, builder, featureConfiguration.getFeatureSpecification());
     CppCompileAction compileAction = builder.build();
     AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
     env.registerAction(compileAction);
@@ -734,7 +734,8 @@ public final class CppModel {
         /*ltoIndexingFile=*/ null,
         builder.getContext().getCppModuleMap(),
         /*sourceSpecificBuildVariables=*/ ImmutableMap.<String, String>of());
-    semantics.finalizeCompileActionBuilder(ruleContext, builder);
+    semantics.finalizeCompileActionBuilder(
+        ruleContext, builder, featureConfiguration.getFeatureSpecification());
     CppCompileAction compileAction = builder.buildAndValidate(ruleContext);
     env.registerAction(compileAction);
     Artifact tokenFile = compileAction.getOutputFile();
@@ -813,7 +814,8 @@ public final class CppModel {
         picBuilder.setDwoFile(dwoFile);
         picBuilder.setLTOIndexingFile(ltoIndexingFile);
 
-        semantics.finalizeCompileActionBuilder(ruleContext, picBuilder);
+        semantics.finalizeCompileActionBuilder(
+            ruleContext, picBuilder, featureConfiguration.getFeatureSpecification());
         CppCompileAction picAction = picBuilder.buildAndValidate(ruleContext);
         env.registerAction(picAction);
         directOutputs.add(picAction.getOutputFile());
@@ -879,7 +881,8 @@ public final class CppModel {
         builder.setDwoFile(noPicDwoFile);
         builder.setLTOIndexingFile(ltoIndexingFile);
 
-        semantics.finalizeCompileActionBuilder(ruleContext, builder);
+        semantics.finalizeCompileActionBuilder(
+            ruleContext, builder, featureConfiguration.getFeatureSpecification());
         CppCompileAction compileAction = builder.buildAndValidate(ruleContext);
         env.registerAction(compileAction);
         Artifact objectFile = compileAction.getOutputFile();
@@ -919,7 +922,8 @@ public final class CppModel {
         /*ltoIndexingFile=*/ null,
         builder.getContext().getCppModuleMap(),
         source.getBuildVariables());
-    semantics.finalizeCompileActionBuilder(ruleContext, builder);
+    semantics.finalizeCompileActionBuilder(
+        ruleContext, builder, featureConfiguration.getFeatureSpecification());
     CppCompileActionTemplate actionTemplate = new CppCompileActionTemplate(
         sourceArtifact,
         outputFiles,
@@ -965,7 +969,8 @@ public final class CppModel {
         /*ltoIndexingFile=*/ null,
         builder.getContext().getCppModuleMap(),
         ImmutableMap.<String, String>of());
-    semantics.finalizeCompileActionBuilder(ruleContext, builder);
+    semantics.finalizeCompileActionBuilder(
+        ruleContext, builder, featureConfiguration.getFeatureSpecification());
     CppCompileAction action = builder.buildAndValidate(ruleContext);
     env.registerAction(action);
     if (addObject) {
@@ -1301,7 +1306,8 @@ public final class CppModel {
         /*ltoIndexingFile=*/ null,
         builder.getContext().getCppModuleMap(),
         ImmutableMap.<String, String>of());
-    semantics.finalizeCompileActionBuilder(ruleContext, dBuilder);
+    semantics.finalizeCompileActionBuilder(
+        ruleContext, dBuilder, featureConfiguration.getFeatureSpecification());
     CppCompileAction dAction = dBuilder.buildAndValidate(ruleContext);
     ruleContext.registerAction(dAction);
 
@@ -1318,7 +1324,8 @@ public final class CppModel {
         /*ltoIndexingFile=*/ null,
         builder.getContext().getCppModuleMap(),
         ImmutableMap.<String, String>of());
-    semantics.finalizeCompileActionBuilder(ruleContext, sdBuilder);
+    semantics.finalizeCompileActionBuilder(
+        ruleContext, sdBuilder, featureConfiguration.getFeatureSpecification());
     CppCompileAction sdAction = sdBuilder.buildAndValidate(ruleContext);
     ruleContext.registerAction(sdAction);
 

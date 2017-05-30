@@ -38,7 +38,9 @@ public interface CppSemantics {
    * minute.
    */
   void finalizeCompileActionBuilder(
-      RuleContext ruleContext, CppCompileActionBuilder actionBuilder);
+      RuleContext ruleContext,
+      CppCompileActionBuilder actionBuilder,
+      FeatureSpecification featureSpecification);
 
   /**
    * Called before {@link CppCompilationContext}s are finalized.
