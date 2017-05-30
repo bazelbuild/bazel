@@ -120,7 +120,7 @@ def _execute(repository_ctx, command, environment = None,
   return stripped_stdout
 
 
-def _get_tool_paths(repository_ctx, cc):
+def _get_tool_paths(repository_ctx, darwin, cc):
   """Compute the path to the various tools. Doesn't %-escape the result!"""
   return {k: _which(repository_ctx, k, "/usr/bin/" + k)
           for k in [
@@ -134,7 +134,8 @@ def _get_tool_paths(repository_ctx, cc):
               "strip",
           ]} + {
               "gcc": cc,
-              "ar": _which(repository_ctx, "ar", "/usr/bin/ar")
+              "ar": "/usr/bin/libtool"
+                    if darwin else _which(repository_ctx, "ar", "/usr/bin/ar")
           }
 
 
@@ -234,7 +235,7 @@ def _is_gold_supported(repository_ctx, cc):
   return result.return_code == 0
 
 
-def _crosstool_content(repository_ctx, cc, cpu_value):
+def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
   """Return the content for the CROSSTOOL file, in a dictionary."""
   supports_gold_linker = _is_gold_supported(repository_ctx, cc)
   return {
@@ -250,7 +251,7 @@ def _crosstool_content(repository_ctx, cc, cpu_value):
       "supports_interface_shared_objects": False,
       "supports_normalizing_ar": False,
       "supports_start_end_lib": supports_gold_linker,
-      "target_libc": _escape_string(_get_env_var(repository_ctx, "BAZEL_TARGET_LIBC", "local", False)),
+      "target_libc": "macosx" if darwin else _escape_string(_get_env_var(repository_ctx, "BAZEL_TARGET_LIBC", "local", False)),
       "target_cpu": _escape_string(_get_env_var(repository_ctx, "BAZEL_TARGET_CPU", cpu_value, False)),
       "target_system_name": _escape_string(_get_env_var(repository_ctx, "BAZEL_TARGET_SYSTEM", "local", False)),
       "cxx_flag": [
@@ -266,17 +267,22 @@ def _crosstool_content(repository_ctx, cc, cpu_value):
           repository_ctx, cc, "-Wl,-no-as-needed"
       ) + _add_option_if_supported(
           repository_ctx, cc, "-Wl,-z,relro,-z,now"
-      ) + (["-B" + str(repository_ctx.path(cc).dirname),
-            # Always have -B/usr/bin, see https://github.com/bazelbuild/bazel/issues/760.
-            "-B/usr/bin",
-            # Gold linker only? Can we enable this by default?
-            # "-Wl,--warn-execstack",
-            # "-Wl,--detect-odr-violations"
-           ] + _add_option_if_supported(
-               # Have gcc return the exit code from ld.
-               repository_ctx, cc, "-pass-exit-codes")
+      ) + ([
+          "-undefined",
+          "dynamic_lookup",
+          "-headerpad_max_install_names",
+          ] if darwin else [
+              "-B" + str(repository_ctx.path(cc).dirname),
+              # Always have -B/usr/bin, see https://github.com/bazelbuild/bazel/issues/760.
+              "-B/usr/bin",
+              # Gold linker only? Can we enable this by default?
+              # "-Wl,--warn-execstack",
+              # "-Wl,--detect-odr-violations"
+          ] + _add_option_if_supported(
+              # Have gcc return the exit code from ld.
+              repository_ctx, cc, "-pass-exit-codes")
           ),
-      "ar_flag": [],
+      "ar_flag": ["-static", "-s", "-o"] if darwin else [],
       "cxx_builtin_include_directory": _get_escaped_cxx_inc_directories(repository_ctx, cc),
       "objcopy_embed_flag": ["-I", "binary"],
       "unfiltered_cxx_flag":
@@ -299,7 +305,7 @@ def _crosstool_content(repository_ctx, cc, cpu_value):
           # All warnings are enabled. Maybe enable -Werror as well?
           "-Wall",
           # Enable a few more warnings that aren't part of -Wall.
-      ] + ([
+      ] + (["-Wthread-safety", "-Wself-assign"] if darwin else [
           "-B" + _escape_string(str(repository_ctx.path(cc).dirname)),
           # Always have -B/usr/bin, see https://github.com/bazelbuild/bazel/issues/760.
           "-B/usr/bin",
@@ -360,7 +366,7 @@ def _get_escaped_windows_msys_crosstool_content(repository_ctx):
       '   tool_path { name: "strip" path: "%susr/bin/strip" }'% escaped_msys_root )
 
 
-def _opt_content():
+def _opt_content(darwin):
   """Return the content of the opt specific section of the CROSSTOOL file."""
   return {
       "compiler_flag": [
@@ -386,7 +392,7 @@ def _opt_content():
           "-ffunction-sections",
           "-fdata-sections"
       ],
-      "linker_flag": ["-Wl,--gc-sections"]
+      "linker_flag": [] if darwin else ["-Wl,--gc-sections"]
   }
 
 
@@ -669,7 +675,23 @@ def _get_env(repository_ctx):
     return ""
 
 
-def _coverage_feature():
+def _coverage_feature(darwin):
+  if darwin:
+    compile_flags = """flag_group {
+        flag: '-fprofile-instr-generate'
+        flag: '-fcoverage-mapping'
+      }"""
+    link_flags = """flag_group {
+        flag: '-fprofile-instr-generate'
+      }"""
+  else:
+    compile_flags = """flag_group {
+        flag: '-fprofile-arcs'
+        flag: '-ftest-coverage'
+      }"""
+    link_flags = """flag_group {
+        flag: '-lgcov'
+      }"""
   return """
     feature {
       name: 'coverage'
@@ -681,51 +703,37 @@ def _coverage_feature():
         action: 'c++-header-parsing'
         action: 'c++-header-preprocessing'
         action: 'c++-module-compile'
-        flag_group {
-          flag: '-fprofile-arcs'
-          flag: '-ftest-coverage'
-        }
+        """ + compile_flags + """
+
+
+
       }
       flag_set {
         action: 'c++-link-interface-dynamic-library'
         action: 'c++-link-dynamic-library'
         action: 'c++-link-executable'
-        flag_group {
-          flag: '-lgcov'
-        }
+        """ + link_flags + """
       }
     }
   """
 
-
-def _get_escaped_darwin_cxx_inc_directories(repository_ctx, cc):
-  """Compute the list of default C++ include directories on darwin.
-
-  Uses the xcode-locator tool to add all xcode developer directories to the
-  list of builtin include paths.
-
-  This should only be invoked on a darwin OS, as xcode-locator cannot be built
-  otherwise.
+def _get_escaped_xcode_cxx_inc_directories(repository_ctx, cc, xcode_toolchains):
+  """Compute the list of default C++ include paths on Xcode-enabled darwin.
 
   Args:
     repository_ctx: The repository context.
     cc: The default C++ compiler on the local system.
+    xcode_toolchains: A list containing the xcode toolchains available
   Returns:
-    A 2-tuple containing:
     include_paths: A list of builtin include paths.
-    err: An error string describing the error that occurred when attempting
-        to build and run xcode-locator, or None if the run was successful.
   """
-
-  (toolchains, xcodeloc_err) = run_xcode_locator(repository_ctx,
-                                                 Label("@bazel_tools//tools/osx:xcode_locator.m"))
 
   # TODO(cparsons): Falling back to the default C++ compiler builtin include
   # paths shouldn't be unnecessary once all actions are using xcrun.
   include_dirs = _get_escaped_cxx_inc_directories(repository_ctx, cc)
-  for toolchain in toolchains:
+  for toolchain in xcode_toolchains:
     include_dirs.append(_escape_string(toolchain.developer_dir))
-  return (include_dirs, xcodeloc_err)
+  return include_dirs
 
 
 def _impl(repository_ctx):
@@ -801,12 +809,17 @@ def _impl(repository_ctx):
     })
   else:
     darwin = cpu_value == "darwin"
+    xcode_toolchains = []
+    if darwin:
+      (xcode_toolchains, xcodeloc_err) = run_xcode_locator(
+          repository_ctx,
+          Label("@bazel_tools//tools/osx:xcode_locator.m"))
     cc = _find_cc(repository_ctx)
     _tpl(repository_ctx, "osx_cc_wrapper.sh" if darwin else "linux_cc_wrapper.sh", {
         "%{cc}": _escape_string(str(cc)),
         "%{env}": _escape_string(_get_env(repository_ctx))
     }, "cc_wrapper.sh")
-    if darwin:
+    if xcode_toolchains:
       repository_ctx.symlink(
           Label("@bazel_tools//tools/objc:xcrunwrapper.sh"), "xcrunwrapper.sh")
       repository_ctx.symlink(
@@ -829,7 +842,7 @@ def _impl(repository_ctx):
       repository_ctx.symlink(
           Label("@bazel_tools//tools/osx/crosstool:osx_archs.bzl"),
           "osx_archs.bzl")
-      (escaped_include_paths, xcodeloc_err) = _get_escaped_darwin_cxx_inc_directories(repository_ctx, cc)
+      escaped_include_paths = _get_escaped_xcode_cxx_inc_directories(repository_ctx, cc, xcode_toolchains)
       escaped_cxx_include_directories = []
       for path in escaped_include_paths:
         escaped_cxx_include_directories.append(("cxx_builtin_include_directory: \"%s\"" % path))
@@ -840,17 +853,21 @@ def _impl(repository_ctx):
           Label("@bazel_tools//tools/osx/crosstool:CROSSTOOL.tpl"),
           {"%{cxx_builtin_include_directory}": "\n".join(escaped_cxx_include_directories)})
     else:
-      tool_paths = _get_tool_paths(repository_ctx, str(cc))
-      crosstool_content = _crosstool_content(repository_ctx, cc, cpu_value)
-      opt_content = _opt_content()
+      tool_paths = _get_tool_paths(repository_ctx, darwin,
+                                   "cc_wrapper.sh" if darwin else str(cc))
+      crosstool_content = _crosstool_content(repository_ctx, cc, cpu_value, darwin)
+      opt_content = _opt_content(darwin)
       dbg_content = _dbg_content()
       _tpl(repository_ctx, "BUILD", {
-          "%{name}": _escape_string(cpu_value),
-          "%{supports_param_files}": "1",
-          "%{cc_compiler_deps}": ":empty",
-          "%{compiler}": _escape_string(
-              _get_env_var(repository_ctx, "BAZEL_COMPILER", "compiler", False)),
+          "%{name}": cpu_value,
+          "%{supports_param_files}": "0" if darwin else "1",
+          "%{cc_compiler_deps}": ":cc_wrapper" if darwin else ":empty",
+          "%{compiler}": _get_env_var(repository_ctx, "BAZEL_COMPILER", "compiler", False),
       })
+      _tpl(repository_ctx,
+           "osx_cc_wrapper.sh" if darwin else "linux_cc_wrapper.sh",
+           {"%{cc}": str(cc), "%{env}": _get_env(repository_ctx)},
+           "cc_wrapper.sh")
       _tpl(repository_ctx, "CROSSTOOL", {
           "%{cpu}": _escape_string(cpu_value),
           "%{default_toolchain_name}": _escape_string(
@@ -865,7 +882,7 @@ def _impl(repository_ctx):
           "%{opt_content}": _build_crosstool(opt_content, "    "),
           "%{dbg_content}": _build_crosstool(dbg_content, "    "),
           "%{cxx_builtin_include_directory}": "",
-          "%{coverage}": _coverage_feature(),
+          "%{coverage}": _coverage_feature(darwin),
           "%{msvc_env_tmp}": "",
           "%{msvc_env_path}": "",
           "%{msvc_env_include}": "",
