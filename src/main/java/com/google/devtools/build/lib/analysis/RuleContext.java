@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static java.util.Collections.singleton;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -28,6 +30,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
@@ -64,6 +67,7 @@ import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy;
 import com.google.devtools.build.lib.packages.FileTarget;
 import com.google.devtools.build.lib.packages.FilesetEntry;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.TemplateSubstitution;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageSpecification;
@@ -1418,14 +1422,17 @@ public final class RuleContext extends TargetContext
    */
   public Artifact getImplicitOutputArtifact(ImplicitOutputsFunction function)
       throws InterruptedException {
-    Iterable<String> result;
+    TemplateSubstitution implicitOutputs;
     try {
-      result = function.getImplicitOutputs(RawAttributeMapper.of(rule));
+      implicitOutputs = function.getImplicitOutputs(RawAttributeMapper.of(rule));
+      if (implicitOutputs.isPlural()) {
+        throw new IllegalStateException("implicit output must be singular");
+      }
     } catch (EvalException e) {
       // It's ok as long as we don't use this method from Skylark.
       throw new IllegalStateException(e);
     }
-    return getImplicitOutputArtifact(Iterables.getOnlyElement(result));
+    return getImplicitOutputArtifact(implicitOutputs.singular());
   }
 
   /**
@@ -1433,6 +1440,21 @@ public final class RuleContext extends TargetContext
    */
   public Artifact getImplicitOutputArtifact(String path) {
     return getPackageRelativeArtifact(path, getBinOrGenfilesDirectory());
+  }
+
+  /**
+   * Only use from Skylark. Returns the implicit output artifacts for a given output paths list.
+   */
+  public Object getImplicitOutputArtifacts(TemplateSubstitution substitution) {
+    if (!substitution.isPlural()) {
+      return getPackageRelativeArtifact(substitution.singular(), getBinOrGenfilesDirectory());
+    }
+
+    List<Artifact> result = Lists.<Artifact>newArrayList();
+    for( String path : substitution.plural() ) {
+      result.add(getPackageRelativeArtifact(path, getBinOrGenfilesDirectory()));
+    }
+    return result;
   }
 
   /**

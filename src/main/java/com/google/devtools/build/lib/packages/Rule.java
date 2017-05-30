@@ -520,19 +520,27 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
       throws InterruptedException {
     try {
       RawAttributeMapper attributeMap = RawAttributeMapper.of(this);
-      for (String out : implicitOutputsFunction.getImplicitOutputs(attributeMap)) {
-        try {
-          addOutputFile(pkgBuilder.createLabel(out), eventHandler, outputFilesBuilder);
-        } catch (LabelSyntaxException e) {
-          reportError(
-              "illegal output file name '"
-                  + out
-                  + "' in rule "
-                  + getLabel()
-                  + " due to: "
-                  + e.getMessage(),
-              eventHandler);
+      ImplicitOutputsFunction.TemplateSubstitution implicitOutputs = implicitOutputsFunction.getImplicitOutputs(attributeMap);
+      String currentOut = "unspecified";
+      try {
+        if (implicitOutputs.isPlural()) {
+          for (String out : implicitOutputs.plural()) {
+              currentOut = out;
+              addOutputFile(pkgBuilder.createLabel(out), eventHandler, outputFilesBuilder);
+          }
+        } else {
+          currentOut = implicitOutputs.singular();
+          addOutputFile(pkgBuilder.createLabel(currentOut), eventHandler, outputFilesBuilder);
         }
+      } catch (LabelSyntaxException e) {
+        reportError(
+            "illegal output file name '"
+                + currentOut
+                + "' in rule "
+                + getLabel()
+                + " due to: "
+                + e.getMessage(),
+            eventHandler);
       }
     } catch (EvalException e) {
       reportError(String.format("In rule %s: %s", getLabel(), e.print()), eventHandler);

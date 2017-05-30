@@ -609,7 +609,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "r1 = rule(impl, outputs = {'a': 'a.txt'})");
     RuleClass c = ((RuleFunction) lookup("r1")).getRuleClass();
     ImplicitOutputsFunction function = c.getDefaultImplicitOutputsFunction();
-    assertEquals("a.txt", Iterables.getOnlyElement(function.getImplicitOutputs(null)));
+    assertEquals("a.txt", function.getImplicitOutputs(null).singular());
   }
 
   @Test
