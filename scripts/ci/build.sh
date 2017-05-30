@@ -134,7 +134,7 @@ function bazel_build() {
         cp bazel-genfiles/bazel-distfile.zip $1/bazel-${release_label}-dist.zip
       fi
     fi
-    cp bazel-genfiles/site/jekyll-tree.tar $1/www.bazel.build.tar
+    cp bazel-genfiles/site/jekyll-tree.tar $1/docs.bazel.build.tar
     cp bazel-bin/src/tools/benchmark/webapp/site.tar $1/perf.bazel.build.tar.nobuild
     cp bazel-genfiles/scripts/packages/README.md $1/README.md
   fi
