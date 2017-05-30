@@ -175,8 +175,8 @@ static void MountFilesystems() {
   }
 
   for (size_t i = 0; i < opt.bind_mount_sources.size(); i++) {
-    std::string source = opt.bind_mount_sources.at(i);
-    std::string target = opt.bind_mount_targets.at(i);
+    const std::string& source = opt.bind_mount_sources.at(i);
+    const std::string& target = opt.bind_mount_targets.at(i);
     PRINT_DEBUG("bind mount: %s -> %s", source.c_str(), target.c_str());
     if (mount(source.c_str(), target.c_str(), nullptr, MS_BIND, nullptr) < 0) {
       DIE("mount(%s, %s, nullptr, MS_BIND, nullptr)", source.c_str(),
