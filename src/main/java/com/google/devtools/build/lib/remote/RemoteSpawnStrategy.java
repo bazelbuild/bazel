@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.remote;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -187,12 +185,21 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
   }
 
   private static void passRemoteOutErr(
-      RemoteActionCache cache, ActionResult result, FileOutErr outErr) {
+      RemoteActionCache cache, ActionResult result, FileOutErr outErr) throws IOException {
     try {
       ImmutableList<byte[]> streams =
           cache.downloadBlobs(ImmutableList.of(result.getStdoutDigest(), result.getStderrDigest()));
-      outErr.printOut(new String(streams.get(0), UTF_8));
-      outErr.printErr(new String(streams.get(1), UTF_8));
+      byte[] stdout = streams.get(0);
+      byte[] stderr = streams.get(1);
+      // Don't round-trip through String - write to the output streams directly.
+      if (stdout.length != 0) {
+        outErr.getOutputStream().write(stdout);
+        outErr.getOutputStream().flush();
+      }
+      if (stderr.length != 0) {
+        outErr.getErrorStream().write(stderr);
+        outErr.getErrorStream().flush();
+      }
     } catch (CacheNotFoundException e) {
       // Ignoring.
     }
