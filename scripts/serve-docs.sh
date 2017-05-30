@@ -15,6 +15,12 @@
 
 set -eu
 
+readonly WORKING_DIR=$(mktemp -d)
+HOST=localhost
+PORT=12345
+TARGET=
+SERVING_PREFIX=
+
 usage() {
   cat <<EOF
 Usage: $0 [--port 12345] [--target DIR [PREFIX]] [--share]
@@ -31,45 +37,6 @@ Usage: $0 [--port 12345] [--target DIR [PREFIX]] [--share]
  --help
      This message.
 EOF
-}
-
-HOST=localhost
-PORT=12345
-TARGET=
-SERVING_PREFIX=
-while [[ $# -gt 0 ]]
-do
-  key="$1"
-  case $key in
-    --port)
-      PORT="$2"
-      shift
-      ;;
-    --share)
-      HOST="$HOSTNAME"
-      ;;
-    --target)
-      TARGET="$2"
-      shift
-      SERVING_PREFIX="${2:-}"
-      build_static
-      exit 0
-      ;;
-    --help|help)
-      usage
-      exit 0
-      ;;
-    *)
-      usage
-      exit 1
-  esac
-  shift
-done
-
-readonly WORKING_DIR=$(mktemp -d)
-
-check() {
-  which $1 > /dev/null || (echo "$1 not installed. Please install $1."; exit 1)
 }
 
 build_tree() {
@@ -94,6 +61,20 @@ build_and_serve() {
   build_tree
   echo "Serving bazel.build site at $HOST:$PORT"
   jekyll serve --host "$HOST" --detach --quiet --port "$PORT" --source "$WORKING_DIR"
+}
+
+check() {
+  which $1 > /dev/null || (echo "$1 not installed. Please install $1."; exit 1)
+}
+
+kill_jekyll() {
+  pid="$(lsof "-tiTCP:$PORT" -sTCP:LISTEN)" || true
+  if [ ! -z "$pid" ]; then
+     kill "$pid"
+  fi
+  # I found I got bind errors sometimes if I didn't wait a second for the server to
+  # actually shut down.
+  sleep 2
 }
 
 main() {
@@ -125,15 +106,34 @@ main() {
   done
 }
 
-kill_jekyll() {
-  pid="$(lsof "-tiTCP:$PORT" -sTCP:LISTEN)" || true
-  if [ ! -z "$pid" ]; then
-     kill "$pid"
-  fi
-  # I found I got bind errors sometimes if I didn't wait a second for the server to
-  # actually shut down.
-  sleep 2
-}
+while [[ $# -gt 0 ]]
+do
+  key="$1"
+  case $key in
+    --port)
+      PORT="$2"
+      shift
+      ;;
+    --share)
+      HOST="$HOSTNAME"
+      ;;
+    --target)
+      TARGET="$2"
+      shift
+      SERVING_PREFIX="${2:-}"
+      build_static
+      exit 0
+      ;;
+    --help|help)
+      usage
+      exit 0
+      ;;
+    *)
+      usage
+      exit 1
+  esac
+  shift
+done
 
 cleanup() {
   rm -rf $WORKING_DIR
