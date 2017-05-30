@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.java.turbine;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.java.turbine.javac.JavacTurbine;
 import com.google.devtools.build.java.turbine.javac.JavacTurbine.Result;
 import com.google.turbine.diag.TurbineError;
@@ -21,7 +22,6 @@ import com.google.turbine.main.Main;
 import com.google.turbine.options.TurbineOptions;
 import com.google.turbine.options.TurbineOptionsParser;
 import java.io.IOException;
-import java.util.Arrays;
 
 /**
  * A turbine entry point that falls back to javac-turbine for failures, and for compilations that
@@ -30,17 +30,20 @@ import java.util.Arrays;
 public class Turbine {
 
   public static void main(String[] args) throws Exception {
-    System.exit(new Turbine("An exception has occurred in turbine.").compile(args));
+    System.exit(new Turbine("An exception has occurred in turbine.", "").compile(args));
   }
 
   private final String bugMessage;
 
-  public Turbine(String bugMessage) {
+  private final String unhelpfulMessage;
+
+  public Turbine(String bugMessage, String unhelpfulMessage) {
     this.bugMessage = bugMessage;
+    this.unhelpfulMessage = unhelpfulMessage;
   }
 
   public int compile(String[] args) throws IOException {
-    return compile(TurbineOptionsParser.parse(Arrays.asList(args)));
+    return compile(TurbineOptionsParser.parse(ImmutableList.copyOf(args)));
   }
 
   public int compile(TurbineOptions options) throws IOException {
@@ -62,6 +65,17 @@ public class Turbine {
       }
     } catch (Throwable t) {
       turbineCrash = t;
+    }
+    if (!options.javacFallback()) {
+      if (turbineCrash instanceof TurbineError) {
+        System.err.println();
+        System.err.println(turbineCrash.getMessage());
+        System.err.println(unhelpfulMessage);
+      } else if (turbineCrash != null) {
+        System.err.println(bugMessage);
+        turbineCrash.printStackTrace();
+      }
+      System.exit(1);
     }
     Result result = JavacTurbine.compile(options);
     if (result == Result.OK_WITH_REDUCED_CLASSPATH && turbineCrash != null) {
