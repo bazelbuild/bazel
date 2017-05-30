@@ -147,14 +147,16 @@ public class LegacyCompilationSupport extends CompilationSupport {
       IntermediateArtifacts intermediateArtifacts,
       CompilationAttributes compilationAttributes,
       boolean useDeps,
-      Map<String, NestedSet<Artifact>> outputGroupCollector) {
+      Map<String, NestedSet<Artifact>> outputGroupCollector,
+      CcToolchainProvider toolchain) {
     super(
         ruleContext,
         buildConfiguration,
         intermediateArtifacts,
         compilationAttributes,
         useDeps,
-        outputGroupCollector);
+        outputGroupCollector,
+        toolchain);
   }
 
   @Override
