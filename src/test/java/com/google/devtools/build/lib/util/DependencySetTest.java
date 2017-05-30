@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -52,7 +51,7 @@ public class DependencySetTest {
         " " + file2 + " ");
     DependencySet depset = newDependencySet().read(dotd);
     assertThat(depset.getDependencies()).containsExactlyElementsIn(Sets.newHashSet(file1, file2));
-    assertEquals(depset.getOutputFileName(), filename);
+    assertThat(filename).isEqualTo(depset.getOutputFileName());
   }
 
   @Test
@@ -66,7 +65,7 @@ public class DependencySetTest {
         " " + file2 + " ");
     DependencySet depset = newDependencySet().read(dotd);
     assertThat(depset.getDependencies()).containsExactlyElementsIn(Sets.newHashSet(file1, file2));
-    assertEquals(depset.getOutputFileName(), filename);
+    assertThat(filename).isEqualTo(depset.getOutputFileName());
   }
 
   @Test
@@ -74,13 +73,11 @@ public class DependencySetTest {
     Path file1 = fileSystem.getPath("/usr/local/blah/blah/genhello/hello.cc");
     Path file2 = fileSystem.getPath("/usr/local/blah/blah/genhello/hello.h");
     String filename = "hello.o";
-    Path dotd = scratch.file("/tmp/foo.d",
-        filename + ": \\\r"
-        + " " + file1 + " \\\r"
-        + " " + file2 + " ");
+    Path dotd =
+        scratch.file("/tmp/foo.d", filename + ": \\\r " + file1 + " \\\r " + file2 + " ");
     DependencySet depset = newDependencySet().read(dotd);
     assertThat(depset.getDependencies()).containsExactlyElementsIn(Sets.newHashSet(file1, file2));
-    assertEquals(depset.getOutputFileName(), filename);
+    assertThat(filename).isEqualTo(depset.getOutputFileName());
   }
 
   @Test
@@ -88,13 +85,13 @@ public class DependencySetTest {
     Path file1 = fileSystem.getPath("/usr/local/blah/blah/genhello/hello.cc");
     Path file2 = fileSystem.getPath("/usr/local/blah/blah/genhello/hello.h");
     String filename = "hello.o";
-    Path dotd = scratch.file("/tmp/foo.d",
-        "\r\n" + filename + ": \\\r\n"
-        + " " + file1 + " \\\r\n"
-        + " " + file2 + " ");
+    Path dotd =
+        scratch.file(
+            "/tmp/foo.d",
+            "\r\n" + filename + ": \\\r\n " + file1 + " \\\r\n " + file2 + " ");
     DependencySet depset = newDependencySet().read(dotd);
     assertThat(depset.getDependencies()).containsExactlyElementsIn(Sets.newHashSet(file1, file2));
-    assertEquals(depset.getOutputFileName(), filename);
+    assertThat(filename).isEqualTo(depset.getOutputFileName());
   }
 
   @Test
@@ -111,7 +108,7 @@ public class DependencySetTest {
     DependencySet depset = newDependencySet().read(dotd);
     assertThat(depset.getDependencies())
         .containsExactlyElementsIn(Sets.newHashSet(file1, file2, file3, file4));
-    assertEquals(depset.getOutputFileName(), filename);
+    assertThat(filename).isEqualTo(depset.getOutputFileName());
   }
 
   @Test
@@ -125,7 +122,7 @@ public class DependencySetTest {
         " " + file2.relativeTo(root) + " ");
     DependencySet depset = newDependencySet().read(dotd);
     assertThat(depset.getDependencies()).containsExactlyElementsIn(Sets.newHashSet(file1, file2));
-    assertEquals(depset.getOutputFileName(), filename);
+    assertThat(filename).isEqualTo(depset.getOutputFileName());
   }
 
   @Test
@@ -136,7 +133,7 @@ public class DependencySetTest {
     if (!headers.isEmpty()) {
       fail("Not empty: " + headers.size() + " " + headers);
     }
-    assertEquals(depset.getOutputFileName(), null);
+    assertThat(depset.getOutputFileName()).isNull();
   }
 
   @Test
@@ -203,7 +200,7 @@ public class DependencySetTest {
         " " + file2 + " ");
     DependencySet depset = newDependencySet().read(dotd);
     assertThat(depset.getDependencies()).containsExactlyElementsIn(Sets.newHashSet(file1, file2));
-    assertEquals(depset.getOutputFileName(), filename);
+    assertThat(filename).isEqualTo(depset.getOutputFileName());
   }
 
   /*
@@ -240,12 +237,12 @@ public class DependencySetTest {
 
     String dotdContents = new String(FileSystemUtils.readContentAsLatin1(dotd));
     String expected =
-        "usr/local/blah/blah/genhello/hello.o:  \\\n" +
-        "  /usr/local/blah/blah/genhello/hello.cc \\\n" +
-        "  /usr/local/blah/blah/genhello/hello.h \\\n" +
-        "  /usr/local/blah/blah/genhello/other.h\n";
-    assertEquals(expected, dotdContents);
-    assertEquals(filename, depSet1.getOutputFileName());
+        "usr/local/blah/blah/genhello/hello.o:  \\\n"
+            + "  /usr/local/blah/blah/genhello/hello.cc \\\n"
+            + "  /usr/local/blah/blah/genhello/hello.h \\\n"
+            + "  /usr/local/blah/blah/genhello/other.h\n";
+    assertThat(dotdContents).isEqualTo(expected);
+    assertThat(depSet1.getOutputFileName()).isEqualTo(filename);
   }
 
   @Test
@@ -263,9 +260,9 @@ public class DependencySetTest {
     depSet1.write(dotd, ".d");
 
     DependencySet depSet2 = newDependencySet().read(dotd);
-    assertEquals(depSet1, depSet2);
+    assertThat(depSet2).isEqualTo(depSet1);
     // due to how pic.d files are written, absolute paths are changed into relatives
-    assertEquals(depSet1.getOutputFileName(), "/" + depSet2.getOutputFileName());
+    assertThat("/" + depSet2.getOutputFileName()).isEqualTo(depSet1.getOutputFileName());
   }
 
 }

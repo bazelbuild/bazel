@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.util.io;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 
 import java.io.ByteArrayOutputStream;
 import org.junit.Test;
@@ -38,39 +37,39 @@ public class OutErrTest {
   @Test
   public void testPrintsToOut() {
     outErr.printOut("Hello, world.");
-    assertEquals("Hello, world.", new String(out.toByteArray()));
+    assertThat(new String(out.toByteArray())).isEqualTo("Hello, world.");
   }
 
   @Test
   public void testPrintsToErr() {
     outErr.printErr("Hello, moon.");
-    assertEquals("Hello, moon.", new String(err.toByteArray()));
+    assertThat(new String(err.toByteArray())).isEqualTo("Hello, moon.");
   }
 
   @Test
   public void testPrintsToOutWithANewline() {
     outErr.printOutLn("With a newline.");
-    assertEquals("With a newline.\n", new String(out.toByteArray()));
+    assertThat(new String(out.toByteArray())).isEqualTo("With a newline.\n");
   }
 
   @Test
-  public void testPrintsToErrWithANewline(){
+  public void testPrintsToErrWithANewline() {
     outErr.printErrLn("With a newline.");
-    assertEquals("With a newline.\n", new String(err.toByteArray()));
+    assertThat(new String(err.toByteArray())).isEqualTo("With a newline.\n");
   }
 
   @Test
   public void testPrintsTwoLinesToOut() {
     outErr.printOutLn("line 1");
     outErr.printOutLn("line 2");
-    assertEquals("line 1\nline 2\n", new String(out.toByteArray()));
+    assertThat(new String(out.toByteArray())).isEqualTo("line 1\nline 2\n");
   }
 
   @Test
   public void testPrintsTwoLinesToErr() {
     outErr.printErrLn("line 1");
     outErr.printErrLn("line 2");
-    assertEquals("line 1\nline 2\n", new String(err.toByteArray()));
+    assertThat(new String(err.toByteArray())).isEqualTo("line 1\nline 2\n");
   }
 
 }

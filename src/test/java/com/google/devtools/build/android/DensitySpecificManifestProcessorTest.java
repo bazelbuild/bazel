@@ -16,8 +16,6 @@ package com.google.devtools.build.android;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.android.DensitySpecificManifestProcessor.PLAY_STORE_SUPPORTED_DENSITIES;
 import static com.google.devtools.build.android.DensitySpecificManifestProcessor.SCREEN_SIZES;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
@@ -58,7 +56,7 @@ public class DensitySpecificManifestProcessorTest {
         "</manifest>");
     Path modified = new DensitySpecificManifestProcessor(ImmutableList.<String>of(),
         tmp.resolve("manifest-filtered/AndroidManifest.xml")).process(manifest);
-    assertEquals(manifest, modified);
+    assertThat((Object) modified).isEqualTo(manifest);
   }
 
   @Test public void testSingleDensity() throws Exception {
@@ -69,7 +67,7 @@ public class DensitySpecificManifestProcessorTest {
         "</manifest>");
     Path modified = new DensitySpecificManifestProcessor(densities,
         tmp.resolve("manifest-filtered/AndroidManifest.xml")).process(manifest);
-    assertNotNull(modified);
+    assertThat((Object) modified).isNotNull();
     checkModification(modified, densities);
   }
   
@@ -81,7 +79,7 @@ public class DensitySpecificManifestProcessorTest {
         "</manifest>");
     Path modified = new DensitySpecificManifestProcessor(densities,
         tmp.resolve("manifest-filtered/AndroidManifest.xml")).process(manifest);
-    assertNotNull(modified);
+    assertThat((Object) modified).isNotNull();
     checkModification(modified, densities);
   }
 
@@ -93,7 +91,7 @@ public class DensitySpecificManifestProcessorTest {
         "</manifest>");
     Path modified = new DensitySpecificManifestProcessor(densities,
         tmp.resolve("manifest-filtered/AndroidManifest.xml")).process(manifest);
-    assertNotNull(modified);
+    assertThat((Object) modified).isNotNull();
     checkModification(modified, densities);
   }
 
@@ -105,7 +103,7 @@ public class DensitySpecificManifestProcessorTest {
         "</manifest>");
     Path modified = new DensitySpecificManifestProcessor(densities,
         tmp.resolve("manifest-filtered/AndroidManifest.xml")).process(manifest);
-    assertNotNull(modified);
+    assertThat((Object) modified).isNotNull();
     checkCompatibleScreensOmitted(modified);
   }
 
@@ -119,7 +117,7 @@ public class DensitySpecificManifestProcessorTest {
         "</manifest>");
     Path modified = new DensitySpecificManifestProcessor(densities,
         tmp.resolve("manifest-filtered/AndroidManifest.xml")).process(manifest);
-    assertNotNull(modified);
+    assertThat((Object) modified).isNotNull();
     checkModification(modified, densities);
   }
 
@@ -141,7 +139,7 @@ public class DensitySpecificManifestProcessorTest {
         "</manifest>");
     Path modified = new DensitySpecificManifestProcessor(densities,
         tmp.resolve("manifest-filtered/AndroidManifest.xml")).process(manifest);
-    assertNotNull(modified);
+    assertThat((Object) modified).isNotNull();
     checkModification(modified, ImmutableList.<String>of("ldpi", "xxhdpi"));
   }
 

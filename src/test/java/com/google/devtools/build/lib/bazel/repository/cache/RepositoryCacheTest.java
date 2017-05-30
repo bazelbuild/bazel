@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.bazel.repository.cache;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 
 import com.google.common.base.Strings;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
@@ -117,7 +116,7 @@ public class RepositoryCacheTest {
         .isEqualTo(FileSystemUtils.readContent(actualTargetPath, Charset.defaultCharset()));
 
     // Check that the returned value is stored under outputBaseExternal.
-    assertEquals(targetPath, actualTargetPath);
+    assertThat((Object) actualTargetPath).isEqualTo(targetPath);
   }
 
   /**
@@ -129,7 +128,7 @@ public class RepositoryCacheTest {
     Path targetPath = targetDirectory.getChild(downloadedFile.getBaseName());
     Path actualTargetPath = repositoryCache.get(downloadedFileSha256, targetPath, KeyType.SHA256);
 
-    assertEquals(actualTargetPath, null);
+    assertThat(actualTargetPath).isNull();
   }
 
   @Test

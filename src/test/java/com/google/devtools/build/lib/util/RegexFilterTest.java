@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import com.google.common.testing.EqualsTester;
@@ -53,7 +52,7 @@ public class RegexFilterTest {
   @Test
   public void inclusions() throws Exception {
     createFilter("a/b,+^c,_test$");
-    assertEquals("(?:(?>a/b)|(?>^c)|(?>_test$))", filter.toString());
+    assertThat(filter.toString()).isEqualTo("(?:(?>a/b)|(?>^c)|(?>_test$))");
     assertIncluded("a/b");
     assertIncluded("a/b/c");
     assertIncluded("c");
@@ -70,7 +69,7 @@ public class RegexFilterTest {
   @Test
   public void exclusions() throws Exception {
     createFilter("-a/b,-^c,-_test$");
-    assertEquals("-(?:(?>a/b)|(?>^c)|(?>_test$))", filter.toString());
+    assertThat(filter.toString()).isEqualTo("-(?:(?>a/b)|(?>^c)|(?>_test$))");
     assertExcluded("a/b");
     assertExcluded("a/b/c");
     assertExcluded("c");
@@ -87,7 +86,8 @@ public class RegexFilterTest {
   @Test
   public void inclusionsAndExclusions() throws Exception {
     createFilter("a,-^c,,-,+,d,+a/b/c,-a/b,a/b/d");
-    assertEquals("(?:(?>a)|(?>d)|(?>a/b/c)|(?>a/b/d)),-(?:(?>^c)|(?>a/b))", filter.toString());
+    assertThat(filter.toString())
+        .isEqualTo("(?:(?>a)|(?>d)|(?>a/b/c)|(?>a/b/d)),-(?:(?>^c)|(?>a/b))");
     assertIncluded("a");
     assertIncluded("a/c");
     assertExcluded("a/b");
@@ -103,7 +103,7 @@ public class RegexFilterTest {
   @Test
   public void commas() throws Exception {
     createFilter("a\\,b,c\\,d");
-    assertEquals("(?:(?>a\\,b)|(?>c\\,d))", filter.toString());
+    assertThat(filter.toString()).isEqualTo("(?:(?>a\\,b)|(?>c\\,d))");
     assertIncluded("a,b");
     assertIncluded("c,d");
     assertExcluded("a");

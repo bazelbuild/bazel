@@ -14,8 +14,6 @@
 package com.google.devtools.build.lib.windows;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertSame;
 
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
@@ -77,14 +75,14 @@ public class PathWindowsTest {
   }
 
   private void assertAsFragmentWorks(String expected) {
-    assertEquals(PathFragment.create(expected), filesystem.getPath(expected).asFragment());
+    assertThat(filesystem.getPath(expected).asFragment()).isEqualTo(PathFragment.create(expected));
   }
 
   @Test
   public void testWindowsPath() {
     Path p = filesystem.getPath("C:/foo/bar");
-    assertEquals("C:/foo/bar", p.getPathString());
-    assertEquals("C:/foo/bar", p.toString());
+    assertThat(p.getPathString()).isEqualTo("C:/foo/bar");
+    assertThat(p.toString()).isEqualTo("C:/foo/bar");
   }
 
   @Test
@@ -99,29 +97,29 @@ public class PathWindowsTest {
   @Test
   public void testGetRelativeWithFragmentWindows() {
     Path dir = filesystem.getPath("C:/first/x");
-    assertEquals("C:/first/x/y", dir.getRelative(PathFragment.create("y")).toString());
-    assertEquals("C:/first/x/x", dir.getRelative(PathFragment.create("./x")).toString());
-    assertEquals("C:/first/y", dir.getRelative(PathFragment.create("../y")).toString());
-    assertEquals("C:/first/y", dir.getRelative(PathFragment.create("../y")).toString());
-    assertEquals("C:/y", dir.getRelative(PathFragment.create("../../../y")).toString());
+    assertThat(dir.getRelative(PathFragment.create("y")).toString()).isEqualTo("C:/first/x/y");
+    assertThat(dir.getRelative(PathFragment.create("./x")).toString()).isEqualTo("C:/first/x/x");
+    assertThat(dir.getRelative(PathFragment.create("../y")).toString()).isEqualTo("C:/first/y");
+    assertThat(dir.getRelative(PathFragment.create("../y")).toString()).isEqualTo("C:/first/y");
+    assertThat(dir.getRelative(PathFragment.create("../../../y")).toString()).isEqualTo("C:/y");
   }
 
   @Test
   public void testGetRelativeWithAbsoluteFragmentWindows() {
     Path x = filesystem.getPath("C:/first/x");
-    assertEquals("C:/x/y", x.getRelative(PathFragment.create("C:/x/y")).toString());
+    assertThat(x.getRelative(PathFragment.create("C:/x/y")).toString()).isEqualTo("C:/x/y");
   }
 
   @Test
   public void testGetRelativeWithAbsoluteStringWorksWindows() {
     Path x = filesystem.getPath("C:/first/x");
-    assertEquals("C:/x/y", x.getRelative("C:/x/y").toString());
+    assertThat(x.getRelative("C:/x/y").toString()).isEqualTo("C:/x/y");
   }
 
   @Test
   public void testParentOfRootIsRootWindows() {
-    assertSame(root, root.getRelative(".."));
-    assertSame(root.getRelative("dots"), root.getRelative("broken/../../dots"));
+    assertThat(root).isSameAs(root.getRelative(".."));
+    assertThat(root.getRelative("dots")).isSameAs(root.getRelative("broken/../../dots"));
   }
 
   @Test

@@ -54,12 +54,12 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 @TestSpec(size = Suite.MEDIUM_TESTS)
 public class CcToolchainFeaturesTest {
-  
+
   /**
    * Creates a {@code Variables} configuration from a list of key/value pairs.
-   * 
+   *
    * <p>If there are multiple entries with the same key, the variable will be treated as sequence
-   * type.    
+   * type.
    */
   private Variables createVariables(String... entries) {
     if (entries.length % 2 != 0) {
@@ -81,14 +81,14 @@ public class CcToolchainFeaturesTest {
     }
     return variables.build();
   }
-  
+
   /**
    * Creates a CcToolchainFeatures from features described in the given toolchain fragment.
    */
   public static CcToolchainFeatures buildFeatures(String... toolchain) throws Exception {
     CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
-    TextFormat.merge(Joiner.on("").join(toolchain), toolchainBuilder);      
-    return new CcToolchainFeatures(toolchainBuilder.buildPartial());    
+    TextFormat.merge(Joiner.on("").join(toolchain), toolchainBuilder);
+    return new CcToolchainFeatures(toolchainBuilder.buildPartial());
   }
 
   private Set<String> getEnabledFeatures(CcToolchainFeatures features,
@@ -204,7 +204,7 @@ public class CcToolchainFeaturesTest {
   private String getExpansionOfFlag(String value) throws Exception {
     return getExpansionOfFlag(value, createVariables());
   }
-  
+
   private List<String> getCommandLineForFlagGroups(String groups, Variables variables)
       throws Exception {
     FeatureConfiguration configuration =
@@ -219,11 +219,11 @@ public class CcToolchainFeaturesTest {
             .getFeatureConfiguration(assumptionsFor("a"));
     return configuration.getCommandLine(CppCompileAction.CPP_COMPILE, variables);
   }
-  
+
   private List<String> getCommandLineForFlag(String value, Variables variables) throws Exception {
     return getCommandLineForFlagGroups("flag_group { flag: '" + value + "' }", variables);
   }
-  
+
   private String getExpansionOfFlag(String value, Variables variables) throws Exception {
     return getCommandLineForFlag(value, variables).get(0);
   }
@@ -237,7 +237,7 @@ public class CcToolchainFeaturesTest {
       return e.getMessage();
     }
   }
-  
+
   private String getFlagExpansionError(String value, Variables variables) throws Exception {
     try {
       getExpansionOfFlag(value, variables);
@@ -752,7 +752,7 @@ public class CcToolchainFeaturesTest {
       assertThat(e).hasMessageThat().contains("'v1' and 'v2'");
     }
   }
-  
+
   private VariableValueBuilder createNestedSequence(int depth, int count, String prefix) {
     if (depth == 0) {
       StringSequenceBuilder builder = new StringSequenceBuilder();
@@ -836,7 +836,7 @@ public class CcToolchainFeaturesTest {
     CcToolchainFeatures features = buildFeatures(
         "feature { name: 'a' requires: { feature: 'b' } }",
         "feature { name: 'b' requires: { feature: 'c' } }",
-        "feature { name: 'c' }"); 
+        "feature { name: 'c' }");
     assertThat(getEnabledFeatures(features, "a")).isEmpty();
     assertThat(getEnabledFeatures(features, "a", "b")).isEmpty();
     assertThat(getEnabledFeatures(features, "a", "c")).containsExactly("c");
@@ -855,7 +855,7 @@ public class CcToolchainFeaturesTest {
         "feature { name: 'b' requires: { feature: 'a' } implies: 'c' }",
         "feature { name: 'c' }",
         "feature { name: 'd' requires: { feature: 'c' } implies: 'e' }",
-        "feature { name: 'e' }"); 
+        "feature { name: 'e' }");
     assertThat(getEnabledFeatures(features, "b", "d")).isEmpty();
   }
 
@@ -867,7 +867,7 @@ public class CcToolchainFeaturesTest {
         "feature { name: 'b' requires: { feature: 'a' } implies: 'c' }",
         "feature { name: 'c' }",
         "feature { name: 'd' requires: { feature: 'c' } implies: 'e' }",
-        "feature { name: 'e' }"); 
+        "feature { name: 'e' }");
     assertThat(getEnabledFeatures(features, "0", "b", "d")).containsExactly(
         "0", "a", "b", "c", "d", "e");
   }
@@ -912,7 +912,7 @@ public class CcToolchainFeaturesTest {
         "feature { name: 'a' implies: 'b' requires: { feature: 'c' } }",
         "feature { name: 'b' }",
         "feature { name: 'c' }");
-    assertThat(getEnabledFeatures(features, "a")).isEmpty();    
+    assertThat(getEnabledFeatures(features, "a")).isEmpty();
   }
 
   @Test
@@ -979,7 +979,7 @@ public class CcToolchainFeaturesTest {
         "feature { name: 'b' requires: { feature: 'a' } implies: 'd' }",
         "feature { name: 'c' implies: 'd' }",
         "feature { name: 'd' }");
-    assertThat(getEnabledFeatures(features, "b", "c")).containsExactly("c", "d");    
+    assertThat(getEnabledFeatures(features, "b", "c")).containsExactly("c", "d");
   }
 
   @Test
@@ -989,7 +989,7 @@ public class CcToolchainFeaturesTest {
         "feature { name: 'b' }",
         "feature { name: 'c' requires: { feature: 'd' } }",
         "feature { name: 'd' }");
-    assertThat(getEnabledFeatures(features, "a", "b", "c")).containsExactly("a", "b");        
+    assertThat(getEnabledFeatures(features, "a", "b", "c")).containsExactly("a", "b");
   }
 
   @Test
@@ -1056,14 +1056,14 @@ public class CcToolchainFeaturesTest {
     byte[] serialized = TestUtils.serializeObject(features);
     CcToolchainFeatures deserialized =
         (CcToolchainFeatures) TestUtils.deserializeObject(serialized);
-    assertThat(getEnabledFeatures(deserialized, "b")).containsExactly("a", "b");    
+    assertThat(getEnabledFeatures(deserialized, "b")).containsExactly("a", "b");
     assertThat(
             features
                 .getFeatureConfiguration(assumptionsFor("b"))
                 .getCommandLine(CppCompileAction.CPP_COMPILE, createVariables("v", "1")))
         .containsExactly("-f", "1");
   }
-  
+
   @Test
   public void testDefaultFeatures() throws Exception {
     CcToolchainFeatures features =
@@ -1446,7 +1446,6 @@ public class CcToolchainFeaturesTest {
     List<String> commandLine =
         featureConfiguration.getCommandLine("c++-compile", createVariables());
     assertThat(commandLine).contains("foo");
-    ;
   }
 
   @Test

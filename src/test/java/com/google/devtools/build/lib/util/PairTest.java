@@ -14,8 +14,8 @@
 package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 
+import com.google.common.testing.EqualsTester;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -33,7 +33,7 @@ public class PairTest {
     Pair<Object, Object> p = Pair.of(a, b);
     assertThat(p.first).isSameAs(a);
     assertThat(p.second).isSameAs(b);
-    assertEquals(Pair.of(a, b), p);
+    assertThat(p).isEqualTo(Pair.of(a, b));
     assertThat(p.hashCode()).isEqualTo(31 * a.hashCode() + b.hashCode());
   }
 
@@ -43,6 +43,6 @@ public class PairTest {
     assertThat(p.first).isNull();
     assertThat(p.second).isNull();
     p.hashCode(); // Should not throw.
-    assertEquals(p, p);
+    new EqualsTester().addEqualityGroup(p).testEquals();
   }
 }

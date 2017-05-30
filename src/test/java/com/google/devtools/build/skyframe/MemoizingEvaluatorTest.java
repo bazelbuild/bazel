@@ -24,7 +24,6 @@ import static com.google.devtools.build.skyframe.GraphTester.CONCATENATE;
 import static com.google.devtools.build.skyframe.GraphTester.COPY;
 import static com.google.devtools.build.skyframe.GraphTester.NODE_TYPE;
 import static com.google.devtools.build.skyframe.GraphTester.skyKey;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Predicates;
@@ -1297,7 +1296,8 @@ public class MemoizingEvaluatorTest {
               }
             });
     // Prime the graph with otherTop, so we can dirty it next build.
-    assertEquals(new StringValue("otherTop"), tester.evalAndGet(/*keepGoing=*/false, otherTop));
+    assertThat(tester.evalAndGet(/*keepGoing=*/ false, otherTop))
+        .isEqualTo(new StringValue("otherTop"));
     // Mark dep1 changed, so otherTop will be dirty and request re-evaluation of dep1.
     tester.getOrCreate(dep1, /*markAsModified=*/true);
     SkyKey topKey = GraphTester.toSkyKey("top");
@@ -1631,7 +1631,8 @@ public class MemoizingEvaluatorTest {
     SkyKey topKey = GraphTester.toSkyKey("top");
     tester.set(topKey, new StringValue("initial"));
     // Put topKey into graph so it will be dirtied on next run.
-    assertEquals(new StringValue("initial"), tester.evalAndGet(/*keepGoing=*/false, topKey));
+    assertThat(tester.evalAndGet(/*keepGoing=*/ false, topKey))
+        .isEqualTo(new StringValue("initial"));
     CountDownLatch slowStart = new CountDownLatch(1);
     CountDownLatch errorFinish = new CountDownLatch(1);
     SkyKey errorKey = GraphTester.toSkyKey("error");
@@ -1750,7 +1751,7 @@ public class MemoizingEvaluatorTest {
     SkyKey leafKey = GraphTester.toSkyKey("leaf");
     tester.set(leafKey, new StringValue("leaf"));
     // Prime the graph by putting leaf in beforehand.
-    assertEquals(new StringValue("leaf"), tester.evalAndGet(/*keepGoing=*/false, leafKey));
+    assertThat(tester.evalAndGet(/*keepGoing=*/ false, leafKey)).isEqualTo(new StringValue("leaf"));
     SkyKey topKey = GraphTester.toSkyKey("top");
     tester.getOrCreate(topKey).addDependency(leafKey).setHasError(true);
     // Build top -- it has an error.
@@ -1799,8 +1800,8 @@ public class MemoizingEvaluatorTest {
     assertThat(result.get(midKey)).isNull();
     assertThat(result.getError().getRootCauses()).containsExactly(errorKey);
     // In a keepGoing build, midKey should be re-evaluated.
-    assertEquals("recovered",
-        ((StringValue) tester.evalAndGet(/*keepGoing=*/true, parentKey)).getValue());
+    assertThat(((StringValue) tester.evalAndGet(/*keepGoing=*/ true, parentKey)).getValue())
+        .isEqualTo("recovered");
   }
 
   /**
@@ -2216,7 +2217,7 @@ public class MemoizingEvaluatorTest {
     });
 
     // First build: assert we can evaluate "top".
-    assertEquals(topValue, tester.evalAndGet(/*keepGoing=*/false, topKey));
+    assertThat(tester.evalAndGet(/*keepGoing=*/ false, topKey)).isEqualTo(topValue);
 
     // Second build: replace "leaf4" by "leaf5" in leaf2's value. Assert leaf4 is not requested.
     final SkyKey leaf5 = GraphTester.toSkyKey("leaf5");
@@ -2224,7 +2225,7 @@ public class MemoizingEvaluatorTest {
     tester.set(leaves.get(2), new StringValue("leaf5"));
     tester.invalidate();
     shouldNotBuildLeaf4.set(true);
-    assertEquals(topValue, tester.evalAndGet(/*keepGoing=*/false, topKey));
+    assertThat(tester.evalAndGet(/*keepGoing=*/ false, topKey)).isEqualTo(topValue);
   }
 
   @Test
@@ -2596,7 +2597,8 @@ public class MemoizingEvaluatorTest {
       }
     }
     // Seed the graph.
-    assertEquals("node0", ((StringValue) tester.evalAndGet(/*keepGoing=*/false, key)).getValue());
+    assertThat(((StringValue) tester.evalAndGet(/*keepGoing=*/ false, key)).getValue())
+        .isEqualTo("node0");
     // Start the dirtying process.
     tester.set("node0", new StringValue("new"));
     tester.invalidate();
@@ -2611,7 +2613,8 @@ public class MemoizingEvaluatorTest {
     // Now delete all the nodes. The node that was going to be dirtied is also deleted, which we
     // should handle.
     tester.evaluator.delete(Predicates.<SkyKey>alwaysTrue());
-    assertEquals("new", ((StringValue) tester.evalAndGet(/*keepGoing=*/false, key)).getValue());
+    assertThat(((StringValue) tester.evalAndGet(/*keepGoing=*/ false, key)).getValue())
+        .isEqualTo("new");
   }
 
   @Test
@@ -3452,8 +3455,8 @@ public class MemoizingEvaluatorTest {
     tester.set(errorKey, new StringValue("biding time"));
     SkyKey absentParentKey = GraphTester.toSkyKey("absentParent");
     tester.getOrCreate(absentParentKey).addDependency(errorKey).setComputedValue(CONCATENATE);
-    assertEquals(new StringValue("biding time"),
-        tester.evalAndGet(/*keepGoing=*/false, absentParentKey));
+    assertThat(tester.evalAndGet(/*keepGoing=*/ false, absentParentKey))
+        .isEqualTo(new StringValue("biding time"));
     tester.getOrCreate(errorKey, /*markAsModified=*/true).setHasError(true);
     SkyKey newParent = GraphTester.toSkyKey("newParent");
     tester.getOrCreate(newParent).addDependency(errorKey).setComputedValue(CONCATENATE);

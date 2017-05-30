@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.Lists;
@@ -74,7 +73,7 @@ public class OptionsUtilsTest {
   public void asStringOfExplicitOptions() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(IntrospectionExample.class);
     parser.parse("--alpha=no", "--gamma=no", "--echo=no");
-    assertEquals("--alpha=no --gamma=no", OptionsUtils.asShellEscapedString(parser));
+    assertThat(OptionsUtils.asShellEscapedString(parser)).isEqualTo("--alpha=no --gamma=no");
     assertThat(OptionsUtils.asArgumentList(parser))
         .containsExactly("--alpha=no", "--gamma=no")
         .inOrder();
@@ -85,7 +84,7 @@ public class OptionsUtilsTest {
     OptionsParser parser = OptionsParser.newOptionsParser(IntrospectionExample.class);
     parser.parse(OptionPriority.COMMAND_LINE, null, Arrays.asList("--alpha=no"));
     parser.parse(OptionPriority.COMPUTED_DEFAULT, null, Arrays.asList("--beta=no"));
-    assertEquals("--beta=no --alpha=no", OptionsUtils.asShellEscapedString(parser));
+    assertThat(OptionsUtils.asShellEscapedString(parser)).isEqualTo("--beta=no --alpha=no");
     assertThat(OptionsUtils.asArgumentList(parser))
         .containsExactly("--beta=no", "--alpha=no")
         .inOrder();
@@ -107,7 +106,7 @@ public class OptionsUtilsTest {
   public void asStringOfExplicitOptionsWithBooleans() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(BooleanOpts.class);
     parser.parse(OptionPriority.COMMAND_LINE, null, Arrays.asList("--b_one", "--nob_two"));
-    assertEquals("--b_one --nob_two", OptionsUtils.asShellEscapedString(parser));
+    assertThat(OptionsUtils.asShellEscapedString(parser)).isEqualTo("--b_one --nob_two");
     assertThat(OptionsUtils.asArgumentList(parser))
         .containsExactly("--b_one", "--nob_two")
         .inOrder();
@@ -116,7 +115,7 @@ public class OptionsUtilsTest {
     parser.parse(OptionPriority.COMMAND_LINE, null, Arrays.asList("--b_one=true", "--b_two=0"));
     assertThat(parser.getOptions(BooleanOpts.class).bOne).isTrue();
     assertThat(parser.getOptions(BooleanOpts.class).bTwo).isFalse();
-    assertEquals("--b_one --nob_two", OptionsUtils.asShellEscapedString(parser));
+    assertThat(OptionsUtils.asShellEscapedString(parser)).isEqualTo("--b_one --nob_two");
     assertThat(OptionsUtils.asArgumentList(parser))
         .containsExactly("--b_one", "--nob_two")
         .inOrder();
@@ -127,7 +126,7 @@ public class OptionsUtilsTest {
     OptionsParser parser = OptionsParser.newOptionsParser(IntrospectionExample.class);
     parser.parse(OptionPriority.COMMAND_LINE, null, Arrays.asList("--alpha=one"));
     parser.parse(OptionPriority.COMMAND_LINE, null, Arrays.asList("--alpha=two"));
-    assertEquals("--alpha=one --alpha=two", OptionsUtils.asShellEscapedString(parser));
+    assertThat(OptionsUtils.asShellEscapedString(parser)).isEqualTo("--alpha=one --alpha=two");
     assertThat(OptionsUtils.asArgumentList(parser))
         .containsExactly("--alpha=one", "--alpha=two")
         .inOrder();
@@ -147,23 +146,25 @@ public class OptionsUtilsTest {
 
   @Test
   public void emptyStringYieldsEmptyList() throws Exception {
-    assertEquals(list(), convert(""));
+    assertThat(convert("")).isEqualTo(list());
   }
 
   @Test
   public void lonelyDotYieldsLonelyDot() throws Exception {
-    assertEquals(list(fragment(".")), convert("."));
+    assertThat(convert(".")).containsExactly(fragment("."));
   }
 
   @Test
   public void converterSkipsEmptyStrings() throws Exception {
-    assertEquals(list(fragment("foo"), fragment("bar")), convert("foo::bar:"));
+    assertThat(convert("foo::bar:")).containsExactly(fragment("foo"), fragment("bar")).inOrder();
   }
 
   @Test
   public void multiplePaths() throws Exception {
-    assertEquals(list(fragment("foo"), fragment("/bar/baz"), fragment("."),
-                 fragment("/tmp/bang")), convert("foo:/bar/baz:.:/tmp/bang"));
+    assertThat(convert("foo:/bar/baz:.:/tmp/bang"))
+        .containsExactly(
+            fragment("foo"), fragment("/bar/baz"), fragment("."), fragment("/tmp/bang"))
+        .inOrder();
   }
 
   @Test

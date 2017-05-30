@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
@@ -87,7 +86,7 @@ public class PathFragmentFilterTest {
     assertExcluded("e");
     // When converted back to string, inclusion entries will be put first, followed by exclusion
     // entries.
-    assertEquals("a,d,a/b/c,a/b/d,-c,-a/b", filter.toString());
+    assertThat(filter.toString()).isEqualTo("a,d,a/b/c,a/b/d,-c,-a/b");
   }
 
 }

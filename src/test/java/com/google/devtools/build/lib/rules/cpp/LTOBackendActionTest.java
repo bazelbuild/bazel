@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -93,12 +92,14 @@ public class LTOBackendActionTest extends BuildViewTestCase {
             .build(ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
     collectingAnalysisEnvironment.registerAction(actions);
     LTOBackendAction action = (LTOBackendAction) actions[0];
-    assertEquals(ActionsTestUtil.NULL_ACTION_OWNER.getLabel(), action.getOwner().getLabel());
+    assertThat(action.getOwner().getLabel())
+        .isEqualTo(ActionsTestUtil.NULL_ACTION_OWNER.getLabel());
     assertThat(action.getInputs()).containsExactly(bitcode1Artifact, index1Artifact);
     assertThat(action.getOutputs()).containsExactly(destinationArtifact);
-    assertEquals(AbstractAction.DEFAULT_RESOURCE_SET, action.getSpawn().getLocalResources());
+    assertThat(action.getSpawn().getLocalResources())
+        .isEqualTo(AbstractAction.DEFAULT_RESOURCE_SET);
     assertThat(action.getArguments()).containsExactly("/bin/clang");
-    assertEquals("Test", action.getProgressMessage());
+    assertThat(action.getProgressMessage()).isEqualTo("Test");
     assertThat(action.inputsDiscovered()).isFalse();
 
     // Discover inputs, which should not add any inputs since bitcode1.imports is empty.
@@ -120,12 +121,14 @@ public class LTOBackendActionTest extends BuildViewTestCase {
             .build(ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
     collectingAnalysisEnvironment.registerAction(actions);
     LTOBackendAction action = (LTOBackendAction) actions[0];
-    assertEquals(ActionsTestUtil.NULL_ACTION_OWNER.getLabel(), action.getOwner().getLabel());
+    assertThat(action.getOwner().getLabel())
+        .isEqualTo(ActionsTestUtil.NULL_ACTION_OWNER.getLabel());
     assertThat(action.getInputs()).containsExactly(bitcode2Artifact, index2Artifact);
     assertThat(action.getOutputs()).containsExactly(destinationArtifact);
-    assertEquals(AbstractAction.DEFAULT_RESOURCE_SET, action.getSpawn().getLocalResources());
+    assertThat(action.getSpawn().getLocalResources())
+        .isEqualTo(AbstractAction.DEFAULT_RESOURCE_SET);
     assertThat(action.getArguments()).containsExactly("/bin/clang");
-    assertEquals("Test", action.getProgressMessage());
+    assertThat(action.getProgressMessage()).isEqualTo("Test");
     assertThat(action.inputsDiscovered()).isFalse();
 
     // Discover inputs, which should add bitcode1.o which is listed in bitcode2.imports.

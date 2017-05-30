@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 
 import com.google.common.base.Function;
 import com.google.common.base.Strings;
@@ -112,7 +111,7 @@ public abstract class StringIndexerTest {
     }
     for (String key : keys) {
       // Validate mapping between keys and indices.
-      assertEquals(key, indexer.getStringForIndex(indexer.getIndex(key)));
+      assertThat(indexer.getStringForIndex(indexer.getIndex(key))).isEqualTo(key);
     }
   }
 

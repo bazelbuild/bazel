@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.util.io;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
@@ -57,7 +56,7 @@ public class StreamDemultiplexerTest {
     try (final StreamDemultiplexer demux = new StreamDemultiplexer((byte) 1, out)) {
       demux.write(multiplexed);
     }
-    assertEquals("Hello, world.", out.toString("ISO-8859-1"));
+    assertThat(out.toString("ISO-8859-1")).isEqualTo("Hello, world.");
   }
 
   @Test
@@ -66,9 +65,9 @@ public class StreamDemultiplexerTest {
     try (final StreamDemultiplexer demux = new StreamDemultiplexer((byte) 1, out, err, ctl)) {
       demux.write(multiplexed);
     }
-    assertEquals("out", toAnsi(out));
-    assertEquals("err", toAnsi(err));
-    assertEquals("ctl", toAnsi(ctl));
+    assertThat(toAnsi(out)).isEqualTo("out");
+    assertThat(toAnsi(err)).isEqualTo("err");
+    assertThat(toAnsi(ctl)).isEqualTo("ctl");
   }
 
   @Test
@@ -77,7 +76,7 @@ public class StreamDemultiplexerTest {
     try (final StreamDemultiplexer demux = new StreamDemultiplexer((byte) 1, out)) {
       demux.write(multiplexed);
     }
-    assertEquals("just one line", out.toString("ISO-8859-1"));
+    assertThat(out.toString("ISO-8859-1")).isEqualTo("just one line");
   }
 
   @Test
@@ -87,7 +86,7 @@ public class StreamDemultiplexerTest {
     OutputStream out = mux.createStdout();
     out.write(inAnsi("Hello, world."));
     out.flush();
-    assertEquals("Hello, world.", toAnsi(this.out));
+    assertThat(toAnsi(this.out)).isEqualTo("Hello, world.");
   }
 
   @Test

@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.util.io;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 
 import java.io.PrintWriter;
 import org.junit.Test;
@@ -47,8 +46,8 @@ public class RecordingOutErrTest {
     writer.println("Testerr2");
     writer.flush();
 
-    assertEquals("Testout1\nTestout2\n", outErr.outAsLatin1());
-    assertEquals("Testerr1\nTesterr2\n", outErr.errAsLatin1());
+    assertThat(outErr.outAsLatin1()).isEqualTo("Testout1\nTestout2\n");
+    assertThat(outErr.errAsLatin1()).isEqualTo("Testerr1\nTesterr2\n");
 
     assertThat(outErr.hasRecordedOutput()).isTrue();
 

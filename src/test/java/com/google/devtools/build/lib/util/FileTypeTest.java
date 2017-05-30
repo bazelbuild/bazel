@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
@@ -116,17 +115,18 @@ public class FileTypeTest {
 
   @Test
   public void justJava() {
-    assertEquals("Foo.java", filterAll(JAVA_SOURCE));
+    assertThat(filterAll(JAVA_SOURCE)).isEqualTo("Foo.java");
   }
 
   @Test
   public void javaAndCpp() {
-    assertEquals("Foo.java bar.cc", filterAll(JAVA_SOURCE, CPP_SOURCE));
+    assertThat(filterAll(JAVA_SOURCE, CPP_SOURCE)).isEqualTo("Foo.java bar.cc");
   }
 
   @Test
   public void allThree() {
-    assertEquals("Foo.java bar.cc baz.py", filterAll(JAVA_SOURCE, CPP_SOURCE, PYTHON_SOURCE));
+    assertThat(filterAll(JAVA_SOURCE, CPP_SOURCE, PYTHON_SOURCE))
+        .isEqualTo("Foo.java bar.cc baz.py");
   }
 
   private HasFilename filename(final String name) {

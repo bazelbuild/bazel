@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.util.io;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 
 import java.io.IOException;
 import org.junit.Test;
@@ -39,7 +38,7 @@ public class PositionAwareAnsiTerminalWriterTest {
     terminalWriter.append(sample);
 
     assertThat(terminalWriter.getPosition()).isEqualTo(sample.length());
-    assertEquals(sample, loggingTerminalWriter.getTranscript());
+    assertThat(loggingTerminalWriter.getTranscript()).isEqualTo(sample);
   }
 
   @Test
@@ -59,7 +58,7 @@ public class PositionAwareAnsiTerminalWriterTest {
     assertThat(terminalWriter.getPosition()).isEqualTo(secondLine.length());
     terminalWriter.newline();
     assertThat(terminalWriter.getPosition()).isEqualTo(0);
-    assertEquals(firstLine + NL + secondLine + NL, loggingTerminalWriter.getTranscript());
+    assertThat(loggingTerminalWriter.getTranscript()).isEqualTo(firstLine + NL + secondLine + NL);
   }
 
   @Test
@@ -75,7 +74,7 @@ public class PositionAwareAnsiTerminalWriterTest {
     assertThat(terminalWriter.getPosition()).isEqualTo(secondLine.length());
     terminalWriter.append("\n");
     assertThat(terminalWriter.getPosition()).isEqualTo(0);
-    assertEquals(firstLine + NL + secondLine + NL, loggingTerminalWriter.getTranscript());
+    assertThat(loggingTerminalWriter.getTranscript()).isEqualTo(firstLine + NL + secondLine + NL);
   }
 
   @Test
@@ -92,9 +91,8 @@ public class PositionAwareAnsiTerminalWriterTest {
         .append("fail")
         .normal()
         .append("normal");
-    assertEquals(
-        "abc" + OK + "ok" + FAIL + "fail" + NORMAL + "normal",
-        loggingTerminalWriter.getTranscript());
+    assertThat(loggingTerminalWriter.getTranscript())
+        .isEqualTo("abc" + OK + "ok" + FAIL + "fail" + NORMAL + "normal");
   }
 
   @Test
@@ -109,6 +107,6 @@ public class PositionAwareAnsiTerminalWriterTest {
     assertThat(terminalWriter.getPosition()).isEqualTo(0);
     terminalWriter.append(sample);
     assertThat(terminalWriter.getPosition()).isEqualTo(sample.length());
-    assertEquals(FAIL + sample, loggingTerminalWriter.getTranscript());
+    assertThat(loggingTerminalWriter.getTranscript()).isEqualTo(FAIL + sample);
   }
 }

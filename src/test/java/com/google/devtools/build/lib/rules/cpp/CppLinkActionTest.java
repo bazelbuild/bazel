@@ -15,8 +15,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
@@ -386,17 +384,17 @@ public class CppLinkActionTest extends BuildViewTestCase {
             CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext),
             CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext));
     builder.setLinkType(LinkTargetType.STATIC_LIBRARY);
-    assertTrue(builder.canSplitCommandLine());
+    assertThat(builder.canSplitCommandLine()).isTrue();
 
     builder.setLinkType(LinkTargetType.DYNAMIC_LIBRARY);
-    assertTrue(builder.canSplitCommandLine());
+    assertThat(builder.canSplitCommandLine()).isTrue();
 
     builder.setInterfaceOutput(outputIfso);
-    assertFalse(builder.canSplitCommandLine());
+    assertThat(builder.canSplitCommandLine()).isFalse();
 
     builder.setInterfaceOutput(null);
     builder.setLinkType(LinkTargetType.INTERFACE_DYNAMIC_LIBRARY);
-    assertFalse(builder.canSplitCommandLine());
+    assertThat(builder.canSplitCommandLine()).isFalse();
   }
 
   /**
@@ -426,11 +424,11 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
     CppLinkAction linkAction =
         createLinkBuilder(
-                Link.LinkTargetType.EXECUTABLE,
-                "dummyRuleContext/binary2",
-                objects.build(),
-                ImmutableList.<LibraryToLink>of(),
-                new FeatureConfiguration())
+            Link.LinkTargetType.EXECUTABLE,
+            "dummyRuleContext/binary2",
+            objects.build(),
+            ImmutableList.<LibraryToLink>of(),
+            new FeatureConfiguration())
             .setFake(true)
             .build();
 
@@ -451,12 +449,12 @@ public class CppLinkActionTest extends BuildViewTestCase {
     );
 
     // Ensure that anything above the minimum is properly scaled.
-    assertTrue(resources.getMemoryMb() == CppLinkAction.MIN_STATIC_LINK_RESOURCES.getMemoryMb()
-      || resources.getMemoryMb() == scaledSet.getMemoryMb());
-    assertTrue(resources.getCpuUsage() == CppLinkAction.MIN_STATIC_LINK_RESOURCES.getCpuUsage()
-      || resources.getCpuUsage() == scaledSet.getCpuUsage());
-    assertTrue(resources.getIoUsage() == CppLinkAction.MIN_STATIC_LINK_RESOURCES.getIoUsage()
-      || resources.getIoUsage() == scaledSet.getIoUsage());
+    assertThat(resources.getMemoryMb() == CppLinkAction.MIN_STATIC_LINK_RESOURCES.getMemoryMb()
+        || resources.getMemoryMb() == scaledSet.getMemoryMb()).isTrue();
+    assertThat(resources.getCpuUsage() == CppLinkAction.MIN_STATIC_LINK_RESOURCES.getCpuUsage()
+        || resources.getCpuUsage() == scaledSet.getCpuUsage()).isTrue();
+    assertThat(resources.getIoUsage() == CppLinkAction.MIN_STATIC_LINK_RESOURCES.getIoUsage()
+        || resources.getIoUsage() == scaledSet.getIoUsage()).isTrue();
   }
 
   private CppLinkActionBuilder createLinkBuilder(
