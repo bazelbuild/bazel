@@ -16,6 +16,7 @@ cc_library(
 cc_binary(
     name = "process-wrapper",
     srcs = select({
+        "//src:windows": ["process-wrapper-windows.cc"],
         "//src:windows_msvc": ["process-wrapper-windows.cc"],
         "//conditions:default": [
             "process-wrapper.cc",
@@ -23,6 +24,7 @@ cc_binary(
     }),
     linkopts = ["-lm"],
     deps = select({
+        "//src:windows": [],
         "//src:windows_msvc": [],
         "//conditions:default": [
             ":process-tools",
@@ -34,6 +36,7 @@ cc_binary(
 cc_binary(
     name = "build-runfiles",
     srcs = select({
+        "//src:windows": ["build-runfiles-windows.cc"],
         "//src:windows_msvc": ["build-runfiles-windows.cc"],
         "//conditions:default": ["build-runfiles.cc"],
     }),

@@ -4,6 +4,13 @@ package(
     default_visibility = ["//visibility:public"],
 )
 
+WIN_LINK_OPTS = [
+    "-Wl,advapi32.lib",  # GetUserNameW
+    "-Wl,ole32.lib",  # CoTaskMemFree
+    "-Wl,shell32.lib",  # SHGetKnownFolderPath
+    "-Wl,ws2_32.lib",  # grpc
+]
+
 cc_library(
     name = "blaze_util",
     srcs = [
@@ -50,12 +57,8 @@ cc_library(
         ],
         "//src:freebsd": [
         ],
-        "//src:windows_msvc": [
-            "-Wl,advapi32.lib",  # GetUserNameW
-            "-Wl,ole32.lib",  # CoTaskMemFree
-            "-Wl,shell32.lib",  # SHGetKnownFolderPath
-            "-Wl,ws2_32.lib",  # grpc
-        ],
+        "//src:windows": WIN_LINK_OPTS,
+        "//src:windows_msvc": WIN_LINK_OPTS,
         "//conditions:default": [
             "-lrt",
         ],
