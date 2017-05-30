@@ -1504,6 +1504,68 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         .containsAllOf(matchingResource, unqualifiedResource);
   }
 
+  @Test
+  public void testFilteredResourcesAllFilteredOut() throws Exception {
+    String dir = "java/r/android";
+
+    useConfiguration("--experimental_android_resource_filtering_method", "filter_in_analysis");
+
+    final String keptBaseDir = "partly_filtered_dir";
+    String removedLibraryDir = "fully_filtered_library_dir";
+    String removedBinaryDir = "fully_filtered_binary_dir";
+
+    ConfiguredTarget binary =
+        scratchConfiguredTarget(
+            dir,
+            "bin",
+            "android_library(name = 'not_fully_filtered_lib',",
+            "  manifest = 'AndroidManifest.xml',",
+            "  resource_files = [",
+            // Some of the resources in this directory are kept:
+            "    '" + keptBaseDir + "/values-es/foo.xml',",
+            "    '" + keptBaseDir + "/values-fr/foo.xml',",
+            "    '" + keptBaseDir + "/values-en/foo.xml',",
+            "  ])",
+            "android_library(name = 'fully_filtered_lib',",
+            "  manifest = 'AndroidManifest.xml',",
+            "  resource_files = [",
+            // All of the resources in this directory are filtered out:
+            "    '" + removedLibraryDir + "/values-es/foo.xml',",
+            "    '" + removedLibraryDir + "/values-fr/foo.xml',",
+            "  ])",
+            "android_binary(name = 'bin',",
+            "  manifest = 'AndroidManifest.xml',",
+            "  resource_configuration_filters = ['en'],",
+            "  resource_files = [",
+            // All of the resources in this directory are filtered out:
+            "    '" + removedBinaryDir + "/values-es/foo.xml',",
+            "    '" + removedBinaryDir + "/values-fr/foo.xml',",
+            "  ],",
+            "  deps = [",
+            "    ':fully_filtered_lib',",
+            "    ':not_fully_filtered_lib',",
+            "  ])");
+
+    List<String> resourceProcessingArgs =
+        getGeneratingSpawnAction(getResourceContainer(binary).getRTxt()).getArguments();
+
+    assertThat(
+            Iterables.filter(
+                resourceProcessingArgs,
+                new Predicate<String>() {
+                  @Override
+                  public boolean apply(String input) {
+                    return input.contains(keptBaseDir);
+                  }
+                }))
+        .isNotEmpty();
+
+    for (String arg : resourceProcessingArgs) {
+      assertThat(arg).doesNotContain(removedLibraryDir);
+      assertThat(arg).doesNotContain(removedBinaryDir);
+    }
+  }
+
   /**
    * Gets the paths of matching artifacts contained within a resource container
    *

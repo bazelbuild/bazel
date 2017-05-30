@@ -126,10 +126,32 @@ public abstract class ResourceContainer {
   public abstract Builder toBuilder();
 
   /**
-   * Returns a copy of this container with filtered resources. The original container is unchanged.
+   * Returns a copy of this container with filtered resources, or the original if no resources
+   * should be filtered. The original container is unchanged.
    */
   public ResourceContainer filter(RuleContext ruleContext, ResourceFilter filter) {
-    return toBuilder().setResources(filter.filter(ruleContext, getResources())).build();
+    ImmutableList<Artifact> filteredResources = filter.filter(ruleContext, getResources());
+
+    if (filteredResources.size() == getResources().size()) {
+      // No filtering was done; return this container
+      return this;
+    }
+
+    // If the resources were filtered, also filter the resource roots
+    ImmutableList.Builder<PathFragment> filteredResourcesRootsBuilder = ImmutableList.builder();
+    for (PathFragment resourceRoot : getResourcesRoots()) {
+      for (Artifact resource : filteredResources) {
+        if (resource.getRootRelativePath().startsWith(resourceRoot)) {
+          filteredResourcesRootsBuilder.add(resourceRoot);
+          break;
+        }
+      }
+    }
+
+    return toBuilder()
+        .setResources(filteredResources)
+        .setResourcesRoots(filteredResourcesRootsBuilder.build())
+        .build();
   }
 
   /** Creates a new builder with default values. */
