@@ -16,6 +16,7 @@ package com.google.devtools.build.remote;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.exec.SpawnResult.Status;
 import com.google.devtools.build.lib.remote.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.CasServiceGrpc.CasServiceImplBase;
 import com.google.devtools.build.lib.remote.ChannelOptions;
@@ -56,6 +57,7 @@ import com.google.devtools.build.lib.remote.SimpleBlobStoreFactory;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
+import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.shell.TimeoutKillableObserver;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.OS;
@@ -94,6 +96,10 @@ import java.util.logging.Logger;
 public class RemoteWorker {
   private static final Logger LOG = Logger.getLogger(RemoteWorker.class.getName());
   private static final boolean LOG_FINER = LOG.isLoggable(Level.FINER);
+
+  private static final int LOCAL_EXEC_ERROR = -1;
+  private static final int SIGALRM_EXIT_CODE = /*SIGNAL_BASE=*/128 + /*SIGALRM=*/14;
+
   private final CasServiceImplBase casServer;
   private final ExecuteServiceImplBase execServer;
   private final ExecutionCacheServiceImplBase execCacheServer;
@@ -477,67 +483,11 @@ public class RemoteWorker {
         throws IOException, InterruptedException, IllegalArgumentException {
       ByteArrayOutputStream stdout = new ByteArrayOutputStream();
       ByteArrayOutputStream stderr = new ByteArrayOutputStream();
+      RemoteProtocol.Command command;
       try {
-        RemoteProtocol.Command command =
+        command =
             RemoteProtocol.Command.parseFrom(cache.downloadBlob(action.getCommandDigest()));
         cache.downloadTree(action.getInputRootDigest(), execRoot);
-
-        List<Path> outputs = new ArrayList<>(action.getOutputPathList().size());
-        for (String output : action.getOutputPathList()) {
-          Path file = execRoot.getRelative(output);
-          if (file.exists()) {
-            throw new FileAlreadyExistsException("Output file already exists: " + file);
-          }
-          FileSystemUtils.createDirectoryAndParents(file.getParentDirectory());
-          outputs.add(file);
-        }
-
-        // TODO(olaola): time out after specified server-side deadline.
-        Command cmd =
-            getCommand(
-                action,
-                command.getArgvList().toArray(new String[] {}),
-                getEnvironmentVariables(command),
-                execRoot.getPathString());
-        cmd.execute(Command.NO_INPUT, Command.NO_OBSERVER, stdout, stderr, true);
-
-        // Execute throws a CommandException on non-zero return values, so action has succeeded.
-        ImmutableList<ContentDigest> outErrDigests =
-            cache.uploadBlobs(ImmutableList.of(stdout.toByteArray(), stderr.toByteArray()));
-        ActionResult.Builder result =
-            ActionResult.newBuilder()
-                .setReturnCode(0)
-                .setStdoutDigest(outErrDigests.get(0))
-                .setStderrDigest(outErrDigests.get(1));
-        cache.uploadAllResults(execRoot, outputs, result);
-        cache.setCachedActionResult(ContentDigests.computeActionKey(action), result.build());
-        return ExecuteReply.newBuilder()
-            .setResult(result)
-            .setStatus(ExecutionStatus.newBuilder().setExecuted(true).setSucceeded(true))
-            .build();
-      } catch (CommandException e) {
-        ImmutableList<ContentDigest> outErrDigests =
-            cache.uploadBlobs(ImmutableList.of(stdout.toByteArray(), stderr.toByteArray()));
-        final int returnCode =
-            e instanceof AbnormalTerminationException
-                ? ((AbnormalTerminationException) e)
-                    .getResult()
-                    .getTerminationStatus()
-                    .getExitCode()
-                : -1;
-        return ExecuteReply.newBuilder()
-            .setResult(
-                ActionResult.newBuilder()
-                    .setReturnCode(returnCode)
-                    .setStdoutDigest(outErrDigests.get(0))
-                    .setStderrDigest(outErrDigests.get(1)))
-            .setStatus(
-                ExecutionStatus.newBuilder()
-                    .setExecuted(true)
-                    .setSucceeded(false)
-                    .setError(ExecutionStatus.ErrorCode.EXEC_FAILED)
-                    .setErrorDetail(e.toString()))
-            .build();
       } catch (CacheNotFoundException e) {
         LOG.warning("Cache miss on " + ContentDigests.toString(e.getMissingDigest()));
         return ExecuteReply.newBuilder()
@@ -558,6 +508,77 @@ public class RemoteWorker {
                     .setErrorDetail(e.toString()))
             .build();
       }
+
+      List<Path> outputs = new ArrayList<>(action.getOutputPathList().size());
+      for (String output : action.getOutputPathList()) {
+        Path file = execRoot.getRelative(output);
+        if (file.exists()) {
+          throw new FileAlreadyExistsException("Output file already exists: " + file);
+        }
+        FileSystemUtils.createDirectoryAndParents(file.getParentDirectory());
+        outputs.add(file);
+      }
+
+      // TODO(ulfjack): This is basically a copy of LocalSpawnRunner. Ideally, we'd use that
+      // implementation instead of copying it.
+      // TODO(ulfjack): Timeout is specified in ExecuteRequest, but not passed in yet.
+      int timeoutSeconds = 60 * 15;
+      Command cmd =
+          getCommand(
+              action,
+              command.getArgvList().toArray(new String[] {}),
+              getEnvironmentVariables(command),
+              execRoot.getPathString());
+
+      long startTime = System.currentTimeMillis();
+      CommandResult cmdResult;
+      try {
+        cmdResult = cmd.execute(Command.NO_INPUT, Command.NO_OBSERVER, stdout, stderr, true);
+      } catch (AbnormalTerminationException e) {
+        cmdResult = e.getResult();
+      } catch (CommandException e) {
+        // At the time this comment was written, this must be a ExecFailedException encapsulating an
+        // IOException from the underlying Subprocess.Factory.
+        LOG.warning("Execution failed for " + command.getArgvList());
+        return ExecuteReply.newBuilder()
+            .setResult(
+                ActionResult.newBuilder()
+                    .setReturnCode(LOCAL_EXEC_ERROR))
+            .setStatus(
+                ExecutionStatus.newBuilder()
+                    .setExecuted(false)
+                    .setSucceeded(false)
+                    .setError(ExecutionStatus.ErrorCode.EXEC_FAILED)
+                    .setErrorDetail(e.toString()))
+            .build();
+      }
+      long wallTime = System.currentTimeMillis() - startTime;
+      boolean wasTimeout = cmdResult.getTerminationStatus().timedout()
+          || wasTimeout(timeoutSeconds, wallTime);
+      Status status = wasTimeout ? Status.TIMEOUT : Status.SUCCESS;
+      int exitCode = status == Status.TIMEOUT
+          ? SIGALRM_EXIT_CODE
+          : cmdResult.getTerminationStatus().getRawExitCode();
+
+      ImmutableList<ContentDigest> outErrDigests =
+          cache.uploadBlobs(ImmutableList.of(stdout.toByteArray(), stderr.toByteArray()));
+      ContentDigest stdoutDigest = outErrDigests.get(0);
+      ContentDigest stderrDigest = outErrDigests.get(1);
+      ActionResult.Builder actionResult =
+          ActionResult.newBuilder()
+              .setReturnCode(exitCode)
+              .setStdoutDigest(stdoutDigest)
+              .setStderrDigest(stderrDigest);
+      cache.uploadAllResults(execRoot, outputs, actionResult);
+      cache.setCachedActionResult(ContentDigests.computeActionKey(action), actionResult.build());
+      return ExecuteReply.newBuilder()
+          .setResult(actionResult)
+          .setStatus(ExecutionStatus.newBuilder().setExecuted(true).setSucceeded(true))
+          .build();
+    }
+
+    private boolean wasTimeout(int timeoutSeconds, long wallTimeMillis) {
+      return timeoutSeconds > 0 && wallTimeMillis / 1000.0 > timeoutSeconds;
     }
 
     @Override
