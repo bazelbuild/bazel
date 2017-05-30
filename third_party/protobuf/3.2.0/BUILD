@@ -18,19 +18,20 @@ filegroup(
             "protobuf.bzl",
             "python/google/protobuf/**/*.py",
             "src/google/protobuf/**/*.proto",
-        ]) + [
-            "//third_party/protobuf/3.2.0/util/python:srcs"
         ],
+    ) + [
+        "//third_party/protobuf/3.2.0/util/python:srcs",
+    ],
     visibility = ["//visibility:public"],
 )
 
 java_import(
     name = "protobuf_java_util",
     jars = ["libprotobuf_java_util.jar"],
+    visibility = ["//visibility:public"],
     exports = [
         "//third_party:gson",
     ],
-    visibility = ["//visibility:public"],
 )
 
 java_import(
@@ -63,15 +64,21 @@ proto_library(
 proto_library(
     name = "well_known_types_api_proto",
     srcs = ["google/protobuf/api.proto"],
-    deps = [":well_known_types_source_context_proto", ":well_known_types_type_proto"],
     visibility = ["//visibility:public"],
+    deps = [
+        ":well_known_types_source_context_proto",
+        ":well_known_types_type_proto",
+    ],
 )
 
 proto_library(
     name = "well_known_types_type_proto",
     srcs = ["google/protobuf/type.proto"],
-    deps = [":well_known_types_any_proto", ":well_known_types_source_context_proto"],
     visibility = ["//visibility:public"],
+    deps = [
+        ":well_known_types_any_proto",
+        ":well_known_types_source_context_proto",
+    ],
 )
 
 proto_library(
@@ -83,8 +90,8 @@ proto_library(
 proto_library(
     name = "well_known_types_compiler_plugin_proto",
     srcs = ["google/protobuf/compiler/plugin.proto"],
-    deps = [":well_known_types_descriptor_proto"],
     visibility = ["//visibility:public"],
+    deps = [":well_known_types_descriptor_proto"],
 )
 
 proto_library(
@@ -177,7 +184,10 @@ config_setting(
 # Android builds do not need to link in a separate pthread library.
 LINK_OPTS = select({
     ":android": [],
-    "//conditions:default": ["-lpthread", "-lm"],
+    "//conditions:default": [
+        "-lpthread",
+        "-lm",
+    ],
 })
 
 load(
@@ -626,11 +636,14 @@ cc_binary(
 cc_test(
     name = "win32_test",
     srcs = ["src/google/protobuf/stubs/io_win32_unittest.cc"],
+    tags = [
+        "manual",
+        "windows",
+    ],
     deps = [
         ":protobuf_lite",
         "//external:gtest_main",
     ],
-    tags = ["manual", "windows"],
 )
 
 cc_test(

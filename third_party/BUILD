@@ -31,6 +31,7 @@ filegroup(
         "//third_party/py/six:srcs",
         "//third_party/zlib:srcs",
         "//third_party/nanopb:srcs",
+        "//third_party/googleapis:srcs",
     ],
 )
 
