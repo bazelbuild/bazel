@@ -184,10 +184,14 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                 .cfg(HOST)
                 .value(DEAD_CODE_REPORT))
         .add(attr("$jre_lib", LABEL)
-            .value(Label.parseAbsoluteUnchecked("//third_party/java/j2objc:jre_core_lib")))
+            .value(
+                Label.parseAbsoluteUnchecked(
+                    toolsRepository + "//third_party/java/j2objc:jre_core_lib")))
         .add(
             attr("$protobuf_lib", LABEL)
-                .value(Label.parseAbsoluteUnchecked("//third_party/java/j2objc:proto_runtime")))
+                .value(
+                    Label.parseAbsoluteUnchecked(
+                        toolsRepository + "//third_party/java/j2objc:proto_runtime")))
         .add(
             attr("$xcrunwrapper", LABEL)
                 .cfg(HOST)

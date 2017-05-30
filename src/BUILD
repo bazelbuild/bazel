@@ -129,6 +129,7 @@ filegroup(
         ":create_embedded_tools.sh",
         "//tools:embedded_tools_srcs",
         "//third_party:gpl-srcs",
+        "//third_party/java/j2objc:embedded_tools_srcs",
         "//third_party/java/jarjar:embedded_tools_srcs",
         "//third_party/java/jdk/langtools:test-srcs",
         "//third_party/py/concurrent:srcs",
