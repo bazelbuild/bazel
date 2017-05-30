@@ -39,10 +39,11 @@ for i in $*; do
     *turbine_deploy.jar) OUTPUT_PATH=tools/jdk/turbine_deploy.jar ;;
     *javac-9-dev-r4023-2.jar) OUTPUT_PATH=third_party/java/jdk/langtools/javac-9-dev-r4023-2.jar ;;
     *javac7.jar) OUTPUT_PATH=third_party/java/jdk/langtools/javac7.jar ;;
-    *SingleJar_deploy.jar) OUTPUT_PATH=tools/jdk/SingleJar_deploy.jar ;;
+    *SingleJar_deploy.jar) OUTPUT_PATH=tools/jdk/singlejar/SingleJar_deploy.jar ;;
     *GenClass_deploy.jar) OUTPUT_PATH=tools/jdk/GenClass_deploy.jar ;;
     *ExperimentalRunner_deploy.jar) OUTPUT_PATH=tools/jdk/ExperimentalTestRunner_deploy.jar ;;
     *Runner_deploy.jar) OUTPUT_PATH=tools/jdk/TestRunner_deploy.jar ;;
+    *singlejar) OUTPUT_PATH=tools/jdk/singlejar/singlejar ;;
     *ijar.exe) OUTPUT_PATH=tools/jdk/ijar/ijar.exe ;;
     *ijar) OUTPUT_PATH=tools/jdk/ijar/ijar ;;
     *zipper.exe) OUTPUT_PATH=tools/zip/zipper/zipper.exe ;;
