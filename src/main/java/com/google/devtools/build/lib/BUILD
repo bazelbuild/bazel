@@ -366,6 +366,19 @@ java_library(
     ],
 )
 
+java_library(
+    name = "auth_and_tls_options",
+    srcs = ["authandtls/AuthAndTLSOptions.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/remote:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib:__pkg__",
+        "//src/tools/remote_worker/src/main/java/com/google/devtools/build/remote:__pkg__",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/common/options",
+    ],
+)
+
 ########################################################################
 #
 # The "foundation" library (concurrent, events, util, vfs, inmemoryfs, options)
