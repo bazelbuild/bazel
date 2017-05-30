@@ -8,9 +8,8 @@ title: External Dependencies
 External dependencies can be specified in the `WORKSPACE` file of the
 [workspace directory](/docs/build-ref.html#workspace). This `WORKSPACE` file
 uses the same syntax as BUILD files, but allows a different set of
-rules. See the full list of rules that are allowed in the
-[Workspace](/docs/be/workspace.html) list of rules in the Build
-Encyclopedia.
+rules. The full list of rules are in the Build Encyclopedia's
+[Workspace Rules](/docs/be/workspace.html).
 
 External dependencies are all downloaded and symlinked under a directory named
 `external`. You can see this directory by running:
@@ -20,11 +19,11 @@ ls $(bazel info output_base)/external
 ```
 
 Note that running `bazel clean` will not actually delete the external
-directory: to remove all external artifacts, use `bazel clean --expunge`.
+directory. To remove all external artifacts, use `bazel clean --expunge`.
 
 ## Supported types of external dependencies
 
-There are a few basic types of external dependencies that can be used:
+A few basic types of external dependencies can be used:
 
 - [Dependencies on other Bazel projects](#bazel-projects)
 - [Dependencies on non-Bazel projects](#non-bazel-projects)
@@ -33,7 +32,7 @@ There are a few basic types of external dependencies that can be used:
 <a name="bazel-projects"></a>
 ### Depending on other Bazel projects
 
-If you have a second Bazel project that you'd like to use targets from, you can
+If you want to use targets from a second Bazel project, you can
 use
 [`local_repository`](http://bazel.build/docs/be/workspace.html#local_repository),
 [`git_repository`](https://bazel.build/docs/be/workspace.html#git_repository)
@@ -98,12 +97,10 @@ files.
 
 #### Maven repositories
 
-Use [`maven_jar`](https://bazel.build/versions/master/docs/be/workspace.html#maven_jar)
-(and optionally [`maven_server`](https://bazel.build/versions/master/docs/be/workspace.html#maven_server))
+Use the rule [`maven_jar`](https://bazel.build/versions/master/docs/be/workspace.html#maven_jar)
+(and optionally the rule [`maven_server`](https://bazel.build/versions/master/docs/be/workspace.html#maven_server))
 to download a jar from a Maven repository and make it available as a Java
 dependency.
-
-
 
 ## Fetching dependencies
 
@@ -119,18 +116,20 @@ environment variables and use these to download HTTP/HTTPS files (if specified).
 <a name="transitive-dependencies"></a>
 ## Transitive dependencies
 
-Bazel only reads dependencies listed in your `WORKSPACE` file. This
-means that if your project (`A`) depends on another project (`B`) which list a
-dependency on project `C` in its `WORKSPACE` file, you'll have to add both `B`
-and `C` to your project's `WORKSPACE` file. This can balloon the `WORKSPACE`
-file size, but hopefully limits the chances of having one library include `C`
-at version 1.0 and another include `C` at 2.0.
+Bazel only reads dependencies listed in your `WORKSPACE` file. If your project
+(`A`) depends on another project (`B`) which list a dependency on a third
+project (`C`) in its `WORKSPACE` file, you'll have to add both `B`
+and `C` to your project's `WORKSPACE` file. This requirement can balloon the
+`WORKSPACE` file size, but hopefully limits the chances of having one library
+include `C` at version 1.0 and another include `C` at 2.0.
+
+## Generate a `WORKSPACE` file
 
 Bazel provides a tool to help generate these expansive `WORKSPACE` files, called
-`generate_workspace`. This is not included with the binary installer, so you'll
-need to clone the [GitHub repo](https://github.com/bazelbuild/bazel) to use it.
-We recommend using the tag corresponding to your current version of bazel, which
-you can check by running `bazel version`.
+`generate_workspace`. This tool is not included with the binary installer, so
+you'll need to clone the [GitHub repo](https://github.com/bazelbuild/bazel) to
+use it. We recommend using the tag corresponding to your current version of
+bazel, which you can check by running `bazel version`.
 
 `cd` to the GitHub clone, `git checkout` the appropriate tag, and run the
 following to build the tool and see usage:
@@ -139,7 +138,8 @@ following to build the tool and see usage:
 bazel run //src/tools/generate_workspace
 ```
 
-Note that you need run this from your Bazel source folder even if you build your binary from source.
+Note that you need run this command from your Bazel source folder even if you
+build your binary from source.
 
 You can specify directories containing Bazel projects (i.e., directories
 containing a `WORKSPACE` file), Maven projects (i.e., directories containing a
@@ -186,11 +186,12 @@ maven_jar(
 )
 ```
 
-This indicates that `org.springframework:spring:2.5.6`, `javax.mail:mail:1.4`,
-`httpunit:httpunit:1.6`, `org.springframework:spring-support:2.0.2`, and
-`org.slf4j:nlog4j:1.2.24` all depend on javax.activation. However, two of these
-libraries wanted version 1.1 and three of them wanted 1.0.2. The `WORKSPACE`
-file is using version 1.1, but that might not be the right version to use.
+The example above indicates that `org.springframework:spring:2.5.6`,
+`javax.mail:mail:1.4`, `httpunit:httpunit:1.6`,
+`org.springframework:spring-support:2.0.2`, and `org.slf4j:nlog4j:1.2.24`
+all depend on javax.activation. However, two of these libraries wanted
+version 1.1 and three of them wanted 1.0.2. The `WORKSPACE` file is using
+version 1.1, but that might not be the right version to use.
 
 You may also want to break `transitive-deps` into smaller targets, as it is
 unlikely that all of your targets depend on the transitive closure of your
@@ -198,19 +199,5 @@ maven jars.
 
 ## Caching of external dependencies
 
-Bazel caches external dependencies and only re-downloads or updates them when
-the `WORKSPACE` file changes. If the `WORKSPACE` file does not change, Bazel
-assumes that the external dependencies have not changed, either. This can cause
-unexpected results, especially with local repositories.
-
-For instance, in the example above, suppose that `my-project/` has a target that
-depends on `@coworkers-project//:a`, which you build. Then you change to
-`coworkers-project/` and pull the latest updates to their library, which changes
-the behavior of `@coworkers-project//:a`. If you go back to `my-project/` and
-build your target again, it will assume `@coworkers-project//:a` is already
-up-to-date and reuse the cached library (instead of realizing that the sources
-have changed and, thus, rebuilding).
-
-To avoid this situation, prefer remote repositories to local ones and do not
-manually change the files in `[output_base]/external`. If you change a file
-in `[output_base]/external`, rerun `bazel fetch ...` to update the cache.
+Bazel caches external dependencies and re-downloads or updates them when
+the `WORKSPACE` file changes.
