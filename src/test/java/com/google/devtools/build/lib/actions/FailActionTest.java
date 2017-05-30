@@ -13,22 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
-import static org.junit.Assert.assertSame;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.testutil.Scratch;
-
+import java.util.Collection;
+import java.util.Collections;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.Collection;
-import java.util.Collections;
 
 @RunWith(JUnit4.class)
 public class FailActionTest {
@@ -50,7 +46,7 @@ public class FailActionTest {
     outputs = ImmutableList.of(anOutput);
     failAction = new FailAction(NULL_ACTION_OWNER, outputs, errorMessage);
     actionGraph.registerAction(failAction);
-    assertSame(failAction, actionGraph.getGeneratingAction(anOutput));
+    assertThat(actionGraph.getGeneratingAction(anOutput)).isSameAs(failAction);
   }
 
   @Test
@@ -75,6 +71,6 @@ public class FailActionTest {
 
   @Test
   public void testPrimaryOutput() {
-    assertSame(anOutput, failAction.getPrimaryOutput());
+    assertThat(failAction.getPrimaryOutput()).isSameAs(anOutput);
   }
 }

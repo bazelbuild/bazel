@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -24,14 +23,14 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 /**
  * Tests {@link BlazeCommand}.
  */
@@ -70,8 +69,8 @@ public class AbstractCommandTest {
 
   @Test
   public void testGetNameYieldsAnnotatedName() {
-    assertEquals("test_name",
-        new TestCommand().getClass().getAnnotation(Command.class).name());
+    assertThat(new TestCommand().getClass().getAnnotation(Command.class).name())
+        .isEqualTo("test_name");
   }
 
   @Test

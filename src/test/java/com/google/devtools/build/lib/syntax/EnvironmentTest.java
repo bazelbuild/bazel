@@ -15,8 +15,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.Sets;
@@ -41,9 +39,9 @@ public class EnvironmentTest extends EvaluationTestCase {
   // Test the API directly
   @Test
   public void testLookupAndUpdate() throws Exception {
-    assertNull(lookup("foo"));
+    assertThat(lookup("foo")).isNull();
     update("foo", "bar");
-    assertEquals("bar", lookup("foo"));
+    assertThat(lookup("foo")).isEqualTo("bar");
   }
 
   @Test
@@ -56,17 +54,17 @@ public class EnvironmentTest extends EvaluationTestCase {
   @Test
   public void testDoubleUpdateSucceeds() throws Exception {
     update("VERSION", 42);
-    assertEquals(42, lookup("VERSION"));
+    assertThat(lookup("VERSION")).isEqualTo(42);
     update("VERSION", 43);
-    assertEquals(43, lookup("VERSION"));
+    assertThat(lookup("VERSION")).isEqualTo(43);
   }
 
   // Test assign through interpreter, lookup through API:
   @Test
   public void testAssign() throws Exception {
-    assertNull(lookup("foo"));
+    assertThat(lookup("foo")).isNull();
     eval("foo = 'bar'");
-    assertEquals("bar", lookup("foo"));
+    assertThat(lookup("foo")).isEqualTo("bar");
   }
 
   // Test update through API, reference through interpreter:
@@ -80,7 +78,7 @@ public class EnvironmentTest extends EvaluationTestCase {
       assertThat(e).hasMessage("name 'foo' is not defined");
     }
     update("foo", "bar");
-    assertEquals("bar", eval("foo"));
+    assertThat(eval("foo")).isEqualTo("bar");
   }
 
   // Test assign and reference through interpreter:
@@ -94,7 +92,7 @@ public class EnvironmentTest extends EvaluationTestCase {
       assertThat(e).hasMessage("name 'foo' is not defined");
     }
     eval("foo = 'bar'");
-    assertEquals("bar", eval("foo"));
+    assertThat(eval("foo")).isEqualTo("bar");
   }
 
   @Test
@@ -116,71 +114,71 @@ public class EnvironmentTest extends EvaluationTestCase {
           .update("quux", 42);
     }
 
-    assertEquals(
-        Sets.newHashSet(
-            "foo",
-            "wiz",
-            "False",
-            "None",
-            "True",
-            "-",
-            "all",
-            "any",
-            "bool",
-            "dict",
-            "dir",
-            "enumerate",
-            "fail",
-            "getattr",
-            "hasattr",
-            "hash",
-            "int",
-            "len",
-            "list",
-            "max",
-            "min",
-            "print",
-            "range",
-            "repr",
-            "reversed",
-            "sorted",
-            "str",
-            "tuple",
-            "zip"),
-        outerEnv.getVariableNames());
-    assertEquals(
-        Sets.newHashSet(
-            "foo",
-            "wiz",
-            "quux",
-            "False",
-            "None",
-            "True",
-            "-",
-            "all",
-            "any",
-            "bool",
-            "dict",
-            "dir",
-            "enumerate",
-            "fail",
-            "getattr",
-            "hasattr",
-            "hash",
-            "int",
-            "len",
-            "list",
-            "max",
-            "min",
-            "print",
-            "range",
-            "repr",
-            "reversed",
-            "sorted",
-            "str",
-            "tuple",
-            "zip"),
-        innerEnv.getVariableNames());
+    assertThat(outerEnv.getVariableNames())
+        .isEqualTo(
+            Sets.newHashSet(
+                "foo",
+                "wiz",
+                "False",
+                "None",
+                "True",
+                "-",
+                "all",
+                "any",
+                "bool",
+                "dict",
+                "dir",
+                "enumerate",
+                "fail",
+                "getattr",
+                "hasattr",
+                "hash",
+                "int",
+                "len",
+                "list",
+                "max",
+                "min",
+                "print",
+                "range",
+                "repr",
+                "reversed",
+                "sorted",
+                "str",
+                "tuple",
+                "zip"));
+    assertThat(innerEnv.getVariableNames())
+        .isEqualTo(
+            Sets.newHashSet(
+                "foo",
+                "wiz",
+                "quux",
+                "False",
+                "None",
+                "True",
+                "-",
+                "all",
+                "any",
+                "bool",
+                "dict",
+                "dir",
+                "enumerate",
+                "fail",
+                "getattr",
+                "hasattr",
+                "hash",
+                "int",
+                "len",
+                "list",
+                "max",
+                "min",
+                "print",
+                "range",
+                "repr",
+                "reversed",
+                "sorted",
+                "str",
+                "tuple",
+                "zip"));
   }
 
   @Test
@@ -210,12 +208,12 @@ public class EnvironmentTest extends EvaluationTestCase {
               .setEventHandler(Environment.FAIL_FAST_HANDLER)
               .build();
       env.update("x", 1);
-      assertEquals(1, env.lookup("x"));
+      assertThat(env.lookup("x")).isEqualTo(1);
       env.update("y", 2);
-      assertEquals(2, env.lookup("y"));
-      assertEquals(1, env.lookup("x"));
+      assertThat(env.lookup("y")).isEqualTo(2);
+      assertThat(env.lookup("x")).isEqualTo(1);
       env.update("x", 3);
-      assertEquals(3, env.lookup("x"));
+      assertThat(env.lookup("x")).isEqualTo(3);
     }
     try {
       // This update to an existing variable should fail because the environment was frozen.
@@ -299,15 +297,18 @@ public class EnvironmentTest extends EvaluationTestCase {
       BuildFileAST.eval(env, "special_var = 41");
       throw new AssertionError("failed to fail");
     } catch (EvalException e) {
-      assertThat(e.getMessage()).contains("Variable special_var is read only");
+      assertThat(e).hasMessageThat().contains("Variable special_var is read only");
     }
 
     try {
       BuildFileAST.eval(env, "def foo(x): x += global_var; global_var = 36; return x", "foo(1)");
       throw new AssertionError("failed to fail");
     } catch (EvalExceptionWithStackTrace e) {
-      assertThat(e.getMessage()).contains("Variable 'global_var' is referenced before assignment. "
-          + "The variable is defined in the global scope.");
+      assertThat(e)
+          .hasMessageThat()
+          .contains(
+              "Variable 'global_var' is referenced before assignment. "
+                  + "The variable is defined in the global scope.");
     }
   }
 }

@@ -18,12 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertEventCount;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertEventCountAtLeast;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Function;
@@ -32,7 +26,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
-import com.google.common.truth.Truth;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -96,11 +89,11 @@ public class BuildViewTest extends BuildViewTestBase {
         "        outs=['a.out'])");
     update("//pkg:foo");
     Rule ruleTarget = (Rule) getTarget("//pkg:foo");
-    assertEquals("genrule", ruleTarget.getRuleClass());
+    assertThat(ruleTarget.getRuleClass()).isEqualTo("genrule");
 
     ConfiguredTarget ruleCT = getConfiguredTarget("//pkg:foo");
 
-    assertSame(ruleTarget, ruleCT.getTarget());
+    assertThat(ruleCT.getTarget()).isSameAs(ruleTarget);
   }
 
   @Test
@@ -143,8 +136,8 @@ public class BuildViewTest extends BuildViewTestBase {
     update("//pkg:a.src");
     InputFileConfiguredTarget inputCT = getInputFileConfiguredTarget("//pkg:a.src");
     Artifact inputArtifact = inputCT.getArtifact();
-    assertNull(getGeneratingAction(inputArtifact));
-    assertEquals("pkg/a.src", inputArtifact.getExecPathString());
+    assertThat(getGeneratingAction(inputArtifact)).isNull();
+    assertThat(inputArtifact.getExecPathString()).isEqualTo("pkg/a.src");
   }
 
   @Test
@@ -154,16 +147,18 @@ public class BuildViewTest extends BuildViewTestBase {
     OutputFileConfiguredTarget outputCT = (OutputFileConfiguredTarget)
         getConfiguredTarget("//pkg:a.out");
     Artifact outputArtifact = outputCT.getArtifact();
-    assertEquals(
-        outputCT.getConfiguration().getBinDirectory(
-            outputCT.getTarget().getLabel().getPackageIdentifier().getRepository()),
-        outputArtifact.getRoot());
-    assertEquals(outputCT.getConfiguration().getBinFragment().getRelative("pkg/a.out"),
-        outputArtifact.getExecPath());
-    assertEquals(PathFragment.create("pkg/a.out"), outputArtifact.getRootRelativePath());
+    assertThat(outputArtifact.getRoot())
+        .isEqualTo(
+            outputCT
+                .getConfiguration()
+                .getBinDirectory(
+                    outputCT.getTarget().getLabel().getPackageIdentifier().getRepository()));
+    assertThat(outputArtifact.getExecPath())
+        .isEqualTo(outputCT.getConfiguration().getBinFragment().getRelative("pkg/a.out"));
+    assertThat(outputArtifact.getRootRelativePath()).isEqualTo(PathFragment.create("pkg/a.out"));
 
     Action action = getGeneratingAction(outputArtifact);
-    assertSame(FailAction.class, action.getClass());
+    assertThat(action.getClass()).isSameAs(FailAction.class);
   }
 
   @Test
@@ -218,8 +213,8 @@ public class BuildViewTest extends BuildViewTestBase {
     assertThat(result.hasError()).isTrue();
     assertThat(recorder.events).hasSize(1);
     AnalysisFailureEvent event = recorder.events.get(0);
-    assertEquals("//foo:bar", event.getFailureReason().toString());
-    assertEquals("//foo:foo", event.getFailedTarget().getLabel().toString());
+    assertThat(event.getFailureReason().toString()).isEqualTo("//foo:bar");
+    assertThat(event.getFailedTarget().getLabel().toString()).isEqualTo("//foo:foo");
   }
 
   @Test
@@ -274,9 +269,13 @@ public class BuildViewTest extends BuildViewTestBase {
         "//third_party/first", "//third_party/third");
     assertThat(result.hasError()).isTrue();
     assertThat(recorder.events).hasSize(2);
-    assertTrue(recorder.events.toString(), recorder.events.contains(
-        Pair.of(Label.parseAbsolute("//third_party/first"),
-            Label.parseAbsolute("//third_party/fourth"))));
+    assertWithMessage(recorder.events.toString())
+        .that(
+            recorder.events.contains(
+                Pair.of(
+                    Label.parseAbsolute("//third_party/first"),
+                    Label.parseAbsolute("//third_party/fourth"))))
+        .isTrue();
     assertThat(recorder.events)
         .contains(Pair.of(
             Label.parseAbsolute("//third_party/third"),
@@ -298,9 +297,11 @@ public class BuildViewTest extends BuildViewTestBase {
     AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//gp");
     assertThat(result.hasError()).isTrue();
     assertThat(recorder.events).hasSize(2);
-    assertTrue(recorder.events.toString(), recorder.events.contains(
-        Pair.of(Label.parseAbsolute("//gp"),
-            Label.parseAbsolute("//c1:not"))));
+    assertWithMessage(recorder.events.toString())
+        .that(
+            recorder.events.contains(
+                Pair.of(Label.parseAbsolute("//gp"), Label.parseAbsolute("//c1:not"))))
+        .isTrue();
     assertThat(recorder.events)
         .contains(Pair.of(Label.parseAbsolute("//gp"), Label.parseAbsolute("//c2:not")));
   }
@@ -318,7 +319,7 @@ public class BuildViewTest extends BuildViewTestBase {
     update("//tropical:guava");
 
     // Check if the included package group also got analyzed
-    assertNotNull(getConfiguredTarget("//tropical:mango", null));
+    assertThat(getConfiguredTarget("//tropical:mango", null)).isNotNull();
   }
 
   @Test
@@ -326,7 +327,7 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file("tropical/BUILD",
         "exports_files(['file.txt'])");
     update("//tropical:file.txt");
-    assertNotNull(getConfiguredTarget("//tropical:file.txt", null));
+    assertThat(getConfiguredTarget("//tropical:file.txt", null)).isNotNull();
   }
 
   @Test
@@ -585,14 +586,15 @@ public class BuildViewTest extends BuildViewTestBase {
         getConfiguredTarget("//pkg:a.out");
     Artifact outputArtifact = outputCT.getArtifact();
     Action action = getGeneratingAction(outputArtifact);
-    assertNotNull(action);
+    assertThat(action).isNotNull();
     scratch.overwriteFile("pkg/BUILD",
         "genrule(name='a', ",
         "        cmd='false',",
         "        outs=['a.out'])");
     update("//pkg:a.out");
-    assertFalse("Actions should not be compatible",
-        Actions.canBeShared(action, getGeneratingAction(outputArtifact)));
+    assertWithMessage("Actions should not be compatible")
+        .that(Actions.canBeShared(action, getGeneratingAction(outputArtifact)))
+        .isFalse();
   }
 
   /**
@@ -623,8 +625,7 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.deleteFile("java/a/C.java");
     update("//java/a:B");
     update("//java/a:A");
-    assertNotNull(getGeneratingAction(
-        getBinArtifact("A_deploy.jar", ct)));
+    assertThat(getGeneratingAction(getBinArtifact("A_deploy.jar", ct))).isNotNull();
   }
 
   /**
@@ -646,10 +647,10 @@ public class BuildViewTest extends BuildViewTestBase {
         "sh_library(name = 'bad-target')",
         "invalidbuildsyntax");
     update(defaultFlags().with(Flag.KEEP_GOING), "//parent:foo");
-    assertEquals(1, getFrequencyOfErrorsWithLocation(
-        badpkg1BuildFile.asFragment(), eventCollector));
-    assertEquals(1, getFrequencyOfErrorsWithLocation(
-        badpkg2BuildFile.asFragment(), eventCollector));
+    assertThat(getFrequencyOfErrorsWithLocation(badpkg1BuildFile.asFragment(), eventCollector))
+        .isEqualTo(1);
+    assertThat(getFrequencyOfErrorsWithLocation(badpkg2BuildFile.asFragment(), eventCollector))
+        .isEqualTo(1);
   }
 
   @Test
@@ -705,12 +706,12 @@ public class BuildViewTest extends BuildViewTestBase {
 
     // However, a ConfiguredTarget was actually produced.
     ConfiguredTarget target = Iterables.getOnlyElement(getAnalysisResult().getTargetsToBuild());
-    assertEquals(aoutLabel, target.getLabel().toString());
+    assertThat(target.getLabel().toString()).isEqualTo(aoutLabel);
 
     Artifact aout = Iterables.getOnlyElement(
         target.getProvider(FileProvider.class).getFilesToBuild());
     Action action = getGeneratingAction(aout);
-    assertSame(FailAction.class, action.getClass());
+    assertThat(action.getClass()).isSameAs(FailAction.class);
   }
 
   /**
@@ -727,7 +728,7 @@ public class BuildViewTest extends BuildViewTestBase {
     Artifact fooOut = Iterables.getOnlyElement(
         getConfiguredTarget("//actions_not_registered:foo")
             .getProvider(FileProvider.class).getFilesToBuild());
-    assertNotNull(getActionGraph().getGeneratingAction(fooOut));
+    assertThat(getActionGraph().getGeneratingAction(fooOut)).isNotNull();
     clearAnalysisResult();
 
     scratch.overwriteFile("actions_not_registered/BUILD",
@@ -739,7 +740,7 @@ public class BuildViewTest extends BuildViewTestBase {
       update("//actions_not_registered:foo");
       fail("This build should fail because: 'linkshared' used in non-shared library");
     } catch (ViewCreationFailedException e) {
-      assertNull(getActionGraph().getGeneratingAction(fooOut));
+      assertThat(getActionGraph().getGeneratingAction(fooOut)).isNull();
     }
   }
 
@@ -772,12 +773,12 @@ public class BuildViewTest extends BuildViewTestBase {
 
     // However, a ConfiguredTarget was actually produced.
     ConfiguredTarget target = Iterables.getOnlyElement(getAnalysisResult().getTargetsToBuild());
-    assertEquals(aoutLabel, target.getLabel().toString());
+    assertThat(target.getLabel().toString()).isEqualTo(aoutLabel);
 
     Artifact aout = Iterables.getOnlyElement(
         target.getProvider(FileProvider.class).getFilesToBuild());
     Action action = getGeneratingAction(aout);
-    assertSame(FailAction.class, action.getClass());
+    assertThat(action.getClass()).isSameAs(FailAction.class);
   }
 
   /**
@@ -809,10 +810,16 @@ public class BuildViewTest extends BuildViewTestBase {
     AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//gp");
     assertThat(result.hasError()).isTrue();
     assertThat(recorder.events).hasSize(2);
-    assertTrue(recorder.events.toString(), recorder.events.contains(
-        Pair.of(Label.parseAbsolute("//gp"), Label.parseAbsolute("//cycles1"))));
-    assertTrue(recorder.events.toString(), recorder.events.contains(
-        Pair.of(Label.parseAbsolute("//gp"), Label.parseAbsolute("//cycles2"))));
+    assertWithMessage(recorder.events.toString())
+        .that(
+            recorder.events.contains(
+                Pair.of(Label.parseAbsolute("//gp"), Label.parseAbsolute("//cycles1"))))
+        .isTrue();
+    assertWithMessage(recorder.events.toString())
+        .that(
+            recorder.events.contains(
+                Pair.of(Label.parseAbsolute("//gp"), Label.parseAbsolute("//cycles2"))))
+        .isTrue();
   }
 
   /**
@@ -895,7 +902,8 @@ public class BuildViewTest extends BuildViewTestBase {
       update("//foo:query", "//foo:zquery");
       fail();
     } catch (ViewCreationFailedException e) {
-      Truth.assertThat(e.getMessage())
+      assertThat(e)
+          .hasMessageThat()
           .contains("Analysis of target '//foo:query' failed; build aborted");
     }
     TrackingAwaiter.INSTANCE.assertNoErrors();
@@ -948,7 +956,8 @@ public class BuildViewTest extends BuildViewTestBase {
       update("//foo:java", "//foo:cpp");
       fail();
     } catch (ViewCreationFailedException expected) {
-      Truth.assertThat(expected.getMessage())
+      assertThat(expected)
+          .hasMessageThat()
           .matches("Analysis of target '//foo:(java|cpp)' failed; build aborted.*");
     }
     assertContainsEvent("cycle in dependency graph");
@@ -965,7 +974,8 @@ public class BuildViewTest extends BuildViewTestBase {
       update("//foo:test");
       fail();
     } catch (ViewCreationFailedException expected) {
-      Truth.assertThat(expected.getMessage())
+      assertThat(expected)
+          .hasMessageThat()
           .matches("Analysis of target '//foo:test' failed; build aborted.*");
     }
   }
@@ -985,7 +995,8 @@ public class BuildViewTest extends BuildViewTestBase {
       fail();
     } catch (ViewCreationFailedException expected) {
       assertContainsEvent("in cc_library rule //cycle:foo: cycle in dependency graph:");
-      assertThat(expected.getMessage())
+      assertThat(expected)
+          .hasMessageThat()
           .contains("Analysis of target '//cycle:foo' failed; build aborted");
     }
   }
@@ -1069,7 +1080,7 @@ public class BuildViewTest extends BuildViewTestBase {
       update(defaultFlags().with(Flag.KEEP_GOING));
       fail();
     } catch (InvalidConfigurationException e) {
-      assertThat(e.getMessage()).contains("third_party/crosstool/v2");
+      assertThat(e).hasMessageThat().contains("third_party/crosstool/v2");
     }
   }
 
@@ -1118,7 +1129,7 @@ public class BuildViewTest extends BuildViewTestBase {
       update(defaultFlags().with(Flag.KEEP_GOING));
       fail();
     } catch (InvalidConfigurationException e) {
-      assertThat(e.getMessage()).contains("//xcode:does_not_exist");
+      assertThat(e).hasMessageThat().contains("//xcode:does_not_exist");
     }
   }
 

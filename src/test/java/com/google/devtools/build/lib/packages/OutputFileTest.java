@@ -13,14 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertSame;
+import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.vfs.Path;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -49,20 +47,20 @@ public class OutputFileTest extends PackageLoadingTestCase {
   }
 
   private void checkTargetRetainsGeneratingRule(OutputFile output) throws Exception {
-    assertSame(rule, output.getGeneratingRule());
+    assertThat(output.getGeneratingRule()).isSameAs(rule);
   }
 
   private void checkName(OutputFile output, String expectedName) throws Exception {
-    assertEquals(expectedName, output.getName());
+    assertThat(output.getName()).isEqualTo(expectedName);
   }
 
   private void checkLabel(OutputFile output, String expectedLabelString) throws Exception {
-    assertEquals(expectedLabelString, output.getLabel().toString());
+    assertThat(output.getLabel().toString()).isEqualTo(expectedLabelString);
   }
 
   @Test
   public void testGetAssociatedRule() throws Exception {
-    assertSame(rule, pkg.getTarget("x").getAssociatedRule());
+    assertThat(pkg.getTarget("x").getAssociatedRule()).isSameAs(rule);
   }
 
   @Test
@@ -71,7 +69,7 @@ public class OutputFileTest extends PackageLoadingTestCase {
     checkTargetRetainsGeneratingRule(outputFileX);
     checkName(outputFileX, "x");
     checkLabel(outputFileX, "//pkg:x");
-    assertEquals("generated file", outputFileX.getTargetKind());
+    assertThat(outputFileX.getTargetKind()).isEqualTo("generated file");
   }
 
   @Test
@@ -88,16 +86,12 @@ public class OutputFileTest extends PackageLoadingTestCase {
     OutputFile outputFileX2 = (OutputFile) pkg.getTarget("x");
     OutputFile outputFileY1 = (OutputFile) pkg.getTarget("subdir/y");
     OutputFile outputFileY2 = (OutputFile) pkg.getTarget("subdir/y");
-    assertSame(outputFileX1, outputFileX2);
-    assertSame(outputFileY1, outputFileY2);
-    assertEquals(outputFileX1, outputFileX2);
-    assertEquals(outputFileX2, outputFileX1);
-    assertEquals(outputFileY1, outputFileY2);
-    assertEquals(outputFileY2, outputFileY1);
-    assertFalse(outputFileX1.equals(outputFileY1));
-    assertFalse(outputFileY1.equals(outputFileX1));
-    assertEquals(outputFileX1.hashCode(), outputFileX2.hashCode());
-    assertEquals(outputFileY1.hashCode(), outputFileY2.hashCode());
+    assertThat(outputFileX2).isSameAs(outputFileX1);
+    assertThat(outputFileY2).isSameAs(outputFileY1);
+    new EqualsTester()
+        .addEqualityGroup(outputFileX1, outputFileX2)
+        .addEqualityGroup(outputFileY1, outputFileY2)
+        .testEquals();
   }
 
   @Test

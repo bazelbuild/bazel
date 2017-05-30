@@ -13,9 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -174,8 +172,8 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
   private void checkSuccessfulLookup(String label) throws Exception {
     SkyKey skylarkImportLookupKey = key(label);
     EvaluationResult<SkylarkImportLookupValue> result = get(skylarkImportLookupKey);
-    assertEquals(result.get(skylarkImportLookupKey).getDependency().getLabel().toString(),
-        label);
+    assertThat(label)
+        .isEqualTo(result.get(skylarkImportLookupKey).getDependency().getLabel().toString());
   }
 
   @Test
@@ -186,11 +184,13 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
     EvaluationResult<SkylarkImportLookupValue> result =
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
-    assertTrue(result.hasError());
+    assertThat(result.hasError()).isTrue();
     ErrorInfo errorInfo = result.getError(skylarkImportLookupKey);
     String errorMessage = errorInfo.getException().getMessage();
-    assertEquals("Extension file not found. Unable to load package for '//pkg:ext.bzl': "
-        + "BUILD file not found on package path", errorMessage);
+    assertThat(errorMessage)
+        .isEqualTo(
+            "Extension file not found. Unable to load package for '//pkg:ext.bzl': "
+                + "BUILD file not found on package path");
   }
 
   @Test
@@ -203,11 +203,13 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
     EvaluationResult<SkylarkImportLookupValue> result =
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
-    assertTrue(result.hasError());
+    assertThat(result.hasError()).isTrue();
     ErrorInfo errorInfo = result.getError(skylarkImportLookupKey);
     String errorMessage = errorInfo.getException().getMessage();
-    assertEquals("Extension file not found. Unable to load package for '//pkg:ext.bzl': "
-        + "BUILD file not found on package path", errorMessage);
+    assertThat(errorMessage)
+        .isEqualTo(
+            "Extension file not found. Unable to load package for '//pkg:ext.bzl': "
+                + "BUILD file not found on package path");
   }
 
   @Test
@@ -219,11 +221,13 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
     EvaluationResult<SkylarkImportLookupValue> result =
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
-    assertTrue(result.hasError());
+    assertThat(result.hasError()).isTrue();
     ErrorInfo errorInfo = result.getError(skylarkImportLookupKey);
     String errorMessage = errorInfo.getException().getMessage();
-    assertEquals("invalid target name 'oops<?>.bzl': "
-        + "target names may not contain non-printable characters: '\\x00'", errorMessage);
+    assertThat(errorMessage)
+        .isEqualTo(
+            "invalid target name 'oops<?>.bzl': "
+                + "target names may not contain non-printable characters: '\\x00'");
   }
 
   @Test
@@ -246,6 +250,6 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
 
-    assertFalse(result.hasError());
+    assertThat(result.hasError()).isFalse();
   }
 }

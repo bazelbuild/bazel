@@ -14,10 +14,6 @@
 package com.google.devtools.build.lib.vfs.inmemoryfs;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.testutil.TestThread;
@@ -26,11 +22,6 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.ScopeEscapableFileSystemTest;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -38,6 +29,9 @@ import java.io.OutputStream;
 import java.nio.charset.Charset;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests for {@link InMemoryFileSystem}. Note that most tests are inherited
@@ -134,42 +128,42 @@ public class InMemoryFileSystemTest extends ScopeEscapableFileSystemTest {
       @Override
       public void runTest() throws Exception {
         Path base = testFS.getPath("/base" + baseSelector.getAndIncrement());
-        assertTrue(base.exists());
-        assertFalse(base.getRelative("notreal").exists());
+        assertThat(base.exists()).isTrue();
+        assertThat(base.getRelative("notreal").exists()).isFalse();
 
         for (int i = 0; i < NUM_TO_WRITE; i++) {
           Path subdir1 = base.getRelative("subdir1_" + i);
-          assertTrue(subdir1.exists());
-          assertTrue(subdir1.isDirectory());
-          assertTrue(subdir1.isReadable());
-          assertFalse(subdir1.isWritable());
-          assertFalse(subdir1.isExecutable());
-          assertEquals(100, subdir1.getLastModifiedTime());
+          assertThat(subdir1.exists()).isTrue();
+          assertThat(subdir1.isDirectory()).isTrue();
+          assertThat(subdir1.isReadable()).isTrue();
+          assertThat(subdir1.isWritable()).isFalse();
+          assertThat(subdir1.isExecutable()).isFalse();
+          assertThat(subdir1.getLastModifiedTime()).isEqualTo(100);
 
           Path subdir2 = base.getRelative("subdir2_" + i);
-          assertTrue(subdir2.exists());
-          assertTrue(subdir2.isDirectory());
-          assertFalse(subdir2.isReadable());
-          assertTrue(subdir2.isWritable());
-          assertTrue(subdir2.isExecutable());
-          assertEquals(200, subdir2.getLastModifiedTime());
+          assertThat(subdir2.exists()).isTrue();
+          assertThat(subdir2.isDirectory()).isTrue();
+          assertThat(subdir2.isReadable()).isFalse();
+          assertThat(subdir2.isWritable()).isTrue();
+          assertThat(subdir2.isExecutable()).isTrue();
+          assertThat(subdir2.getLastModifiedTime()).isEqualTo(200);
 
           Path file = base.getRelative("somefile" + i);
-          assertTrue(file.exists());
-          assertTrue(file.isFile());
-          assertTrue(file.isReadable());
-          assertFalse(file.isWritable());
-          assertFalse(file.isExecutable());
-          assertEquals(300, file.getLastModifiedTime());
+          assertThat(file.exists()).isTrue();
+          assertThat(file.isFile()).isTrue();
+          assertThat(file.isReadable()).isTrue();
+          assertThat(file.isWritable()).isFalse();
+          assertThat(file.isExecutable()).isFalse();
+          assertThat(file.getLastModifiedTime()).isEqualTo(300);
           BufferedReader reader = new BufferedReader(
               new InputStreamReader(file.getInputStream(), Charset.defaultCharset()));
-          assertEquals(TEST_FILE_DATA, reader.readLine());
-          assertNull(reader.readLine());
+          assertThat(reader.readLine()).isEqualTo(TEST_FILE_DATA);
+          assertThat(reader.readLine()).isNull();
 
           Path symlink = base.getRelative("symlink" + i);
-          assertTrue(symlink.exists());
-          assertTrue(symlink.isSymbolicLink());
-          assertEquals(file.asFragment(), symlink.readSymbolicLink());
+          assertThat(symlink.exists()).isTrue();
+          assertThat(symlink.isSymbolicLink()).isTrue();
+          assertThat(symlink.readSymbolicLink()).isEqualTo(file.asFragment());
         }
       }
     }
@@ -234,27 +228,27 @@ public class InMemoryFileSystemTest extends ScopeEscapableFileSystemTest {
       public void runTest() throws Exception {
         final int threadId = baseSelector.getAndIncrement();
         Path base = testFS.getPath("/common_dir");
-        assertTrue(base.exists());
+        assertThat(base.exists()).isTrue();
 
         for (int i = 0; i < NUM_TO_WRITE; i++) {
           Path file = base.getRelative("somefile_" + threadId + "_" + i);
-          assertTrue(file.exists());
-          assertTrue(file.isFile());
-          assertEquals(i % 2 == 0, file.isReadable());
-          assertEquals(i % 3 == 0, file.isWritable());
-          assertEquals(i % 4 == 0, file.isExecutable());
-          assertEquals(i, file.getLastModifiedTime());
+          assertThat(file.exists()).isTrue();
+          assertThat(file.isFile()).isTrue();
+          assertThat(file.isReadable()).isEqualTo(i % 2 == 0);
+          assertThat(file.isWritable()).isEqualTo(i % 3 == 0);
+          assertThat(file.isExecutable()).isEqualTo(i % 4 == 0);
+          assertThat(file.getLastModifiedTime()).isEqualTo(i);
           if (file.isReadable()) {
             BufferedReader reader = new BufferedReader(
                 new InputStreamReader(file.getInputStream(), Charset.defaultCharset()));
-            assertEquals(TEST_FILE_DATA, reader.readLine());
-            assertNull(reader.readLine());
+            assertThat(reader.readLine()).isEqualTo(TEST_FILE_DATA);
+            assertThat(reader.readLine()).isNull();
           }
 
           Path symlink = base.getRelative("symlink_" + threadId + "_" + i);
-          assertTrue(symlink.exists());
-          assertTrue(symlink.isSymbolicLink());
-          assertEquals(file.asFragment(), symlink.readSymbolicLink());
+          assertThat(symlink.exists()).isTrue();
+          assertThat(symlink.isSymbolicLink()).isTrue();
+          assertThat(symlink.readSymbolicLink()).isEqualTo(file.asFragment());
         }
       }
     }
@@ -296,12 +290,12 @@ public class InMemoryFileSystemTest extends ScopeEscapableFileSystemTest {
           int whichFile = baseSelector.getAndIncrement();
           Path file = base.getRelative("file" + whichFile);
           if (whichFile % 25 != 0) {
-            assertTrue(file.delete());
+            assertThat(file.delete()).isTrue();
           } else {
             // Throw another concurrent access point into the mix.
             file.setExecutable(whichFile % 2 == 0);
           }
-          assertFalse(base.getRelative("doesnotexist" + whichFile).delete());
+          assertThat(base.getRelative("doesnotexist" + whichFile).delete()).isFalse();
         }
       }
     }
@@ -322,10 +316,10 @@ public class InMemoryFileSystemTest extends ScopeEscapableFileSystemTest {
     for (int i = 0; i < NUM_TO_WRITE; i++) {
       Path file = base.getRelative("file" + i);
       if (i % 25 != 0) {
-        assertFalse(file.exists());
+        assertThat(file.exists()).isFalse();
       } else {
-        assertTrue(file.exists());
-        assertEquals(i % 2 == 0, file.isExecutable());
+        assertThat(file.exists()).isTrue();
+        assertThat(file.isExecutable()).isEqualTo(i % 2 == 0);
       }
     }
   }
@@ -360,7 +354,7 @@ public class InMemoryFileSystemTest extends ScopeEscapableFileSystemTest {
             // Throw another concurrent access point into the mix.
             file.setExecutable(whichFile % 2 == 0);
           }
-          assertFalse(base.getRelative("doesnotexist" + whichFile).delete());
+          assertThat(base.getRelative("doesnotexist" + whichFile).delete()).isFalse();
         }
       }
     }
@@ -381,11 +375,11 @@ public class InMemoryFileSystemTest extends ScopeEscapableFileSystemTest {
     for (int i = 0; i < NUM_TO_WRITE; i++) {
       Path file = base.getRelative("file" + i);
       if (i % 25 != 0) {
-        assertFalse(file.exists());
-        assertTrue(base.getRelative("newname" + i).exists());
+        assertThat(file.exists()).isFalse();
+        assertThat(base.getRelative("newname" + i).exists()).isTrue();
       } else {
-        assertTrue(file.exists());
-        assertEquals(i % 2 == 0, file.isExecutable());
+        assertThat(file.exists()).isTrue();
+        assertThat(file.isExecutable()).isEqualTo(i % 2 == 0);
       }
     }
   }

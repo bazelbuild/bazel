@@ -14,9 +14,6 @@
 package com.google.devtools.build.lib.actions.cache;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -24,12 +21,6 @@ import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.EOFException;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -38,6 +29,10 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Test for the PersistentStringIndexer class.
@@ -79,12 +74,12 @@ public class PersistentStringIndexerTest {
   }
 
   private void assertSize(int expected) {
-    assertEquals(expected, psi.size());
+    assertThat(psi.size()).isEqualTo(expected);
   }
 
   private void assertIndex(int expected, String s) {
     int index = psi.getOrCreateIndex(s);
-    assertEquals(expected, index);
+    assertThat(index).isEqualTo(expected);
     mappings.put(expected, s);
   }
 
@@ -150,109 +145,111 @@ public class PersistentStringIndexerTest {
 
   @Test
   public void testNormalOperation() throws Exception {
-    assertFalse(dataPath.exists());
-    assertFalse(journalPath.exists());
+    assertThat(dataPath.exists()).isFalse();
+    assertThat(journalPath.exists()).isFalse();
     setupTestContent();
-    assertFalse(dataPath.exists());
-    assertFalse(journalPath.exists());
+    assertThat(dataPath.exists()).isFalse();
+    assertThat(journalPath.exists()).isFalse();
 
     clock.advance(4);
     assertIndex(9, "xyzqwerty"); // This should flush journal to disk.
-    assertFalse(dataPath.exists());
-    assertTrue(journalPath.exists());
+    assertThat(dataPath.exists()).isFalse();
+    assertThat(journalPath.exists()).isTrue();
 
     psi.save(); // Successful save will remove journal file.
-    assertTrue(dataPath.exists());
-    assertFalse(journalPath.exists());
+    assertThat(dataPath.exists()).isTrue();
+    assertThat(journalPath.exists()).isFalse();
 
     // Now restore data from file and verify it.
     psi = PersistentStringIndexer.newPersistentStringIndexer(dataPath, clock);
-    assertFalse(journalPath.exists());
+    assertThat(journalPath.exists()).isFalse();
     clock.advance(4);
     assertSize(10);
     assertContent();
-    assertFalse(journalPath.exists());
+    assertThat(journalPath.exists()).isFalse();
   }
 
   @Test
   public void testJournalRecoveryWithoutMainDataFile() throws Exception {
-    assertFalse(dataPath.exists());
-    assertFalse(journalPath.exists());
+    assertThat(dataPath.exists()).isFalse();
+    assertThat(journalPath.exists()).isFalse();
     setupTestContent();
-    assertFalse(dataPath.exists());
-    assertFalse(journalPath.exists());
+    assertThat(dataPath.exists()).isFalse();
+    assertThat(journalPath.exists()).isFalse();
 
     clock.advance(4);
     assertIndex(9, "abc1234"); // This should flush journal to disk.
-    assertFalse(dataPath.exists());
-    assertTrue(journalPath.exists());
+    assertThat(dataPath.exists()).isFalse();
+    assertThat(journalPath.exists()).isTrue();
 
     // Now restore data from file and verify it. All data should be restored from journal;
     psi = PersistentStringIndexer.newPersistentStringIndexer(dataPath, clock);
-    assertTrue(dataPath.exists());
-    assertFalse(journalPath.exists());
+    assertThat(dataPath.exists()).isTrue();
+    assertThat(journalPath.exists()).isFalse();
     clock.advance(4);
     assertSize(10);
     assertContent();
-    assertFalse(journalPath.exists());
+    assertThat(journalPath.exists()).isFalse();
   }
 
   @Test
   public void testJournalRecovery() throws Exception {
-    assertFalse(dataPath.exists());
-    assertFalse(journalPath.exists());
+    assertThat(dataPath.exists()).isFalse();
+    assertThat(journalPath.exists()).isFalse();
     setupTestContent();
     psi.save();
-    assertTrue(dataPath.exists());
-    assertFalse(journalPath.exists());
+    assertThat(dataPath.exists()).isTrue();
+    assertThat(journalPath.exists()).isFalse();
     long oldDataFileLen = dataPath.getFileSize();
 
     clock.advance(4);
     assertIndex(9, "another record"); // This should flush journal to disk.
     assertSize(10);
-    assertTrue(dataPath.exists());
-    assertTrue(journalPath.exists());
+    assertThat(dataPath.exists()).isTrue();
+    assertThat(journalPath.exists()).isTrue();
 
     // Now restore data from file and verify it. All data should be restored from journal;
     psi = PersistentStringIndexer.newPersistentStringIndexer(dataPath, clock);
-    assertTrue(dataPath.exists());
-    assertFalse(journalPath.exists());
-    assertTrue(dataPath.getFileSize() > oldDataFileLen); // data file should have been updated
+    assertThat(dataPath.exists()).isTrue();
+    assertThat(journalPath.exists()).isFalse();
+    assertThat(dataPath.getFileSize())
+        .isGreaterThan(oldDataFileLen); // data file should have been updated
     clock.advance(4);
     assertSize(10);
     assertContent();
-    assertFalse(journalPath.exists());
+    assertThat(journalPath.exists()).isFalse();
   }
 
   @Test
   public void testConcurrentWritesJournalRecovery() throws Exception {
-    assertFalse(dataPath.exists());
-    assertFalse(journalPath.exists());
+    assertThat(dataPath.exists()).isFalse();
+    assertThat(journalPath.exists()).isFalse();
     setupTestContent();
     psi.save();
-    assertTrue(dataPath.exists());
-    assertFalse(journalPath.exists());
+    assertThat(dataPath.exists()).isTrue();
+    assertThat(journalPath.exists()).isFalse();
     long oldDataFileLen = dataPath.getFileSize();
 
     int size = psi.size();
     int numToWrite = 50000;
     writeLotsOfEntriesConcurrently(numToWrite);
-    assertFalse(journalPath.exists());
+    assertThat(journalPath.exists()).isFalse();
     clock.advance(4);
     assertIndex(size + numToWrite, "another record"); // This should flush journal to disk.
     assertSize(size + numToWrite + 1);
-    assertTrue(dataPath.exists());
-    assertTrue(journalPath.exists());
+    assertThat(dataPath.exists()).isTrue();
+    assertThat(journalPath.exists()).isTrue();
 
     // Now restore data from file and verify it. All data should be restored from journal;
     psi = PersistentStringIndexer.newPersistentStringIndexer(dataPath, clock);
-    assertTrue(dataPath.exists());
-    assertFalse(journalPath.exists());
-    assertTrue(dataPath.getFileSize() > oldDataFileLen); // data file should have been updated
+    assertThat(dataPath.exists()).isTrue();
+    assertThat(journalPath.exists()).isFalse();
+    assertThat(dataPath.getFileSize())
+        .isGreaterThan(oldDataFileLen); // data file should have been updated
     clock.advance(4);
     assertSize(size + numToWrite + 1);
     assertContent();
-    assertFalse(journalPath.exists());
+    assertThat(journalPath.exists()).isFalse();
   }
 
   @Test
@@ -263,28 +260,28 @@ public class PersistentStringIndexerTest {
       psi = PersistentStringIndexer.newPersistentStringIndexer(dataPath, clock);
       fail();
     } catch (IOException e) {
-      assertThat(e.getMessage()).contains("too short: Only 13 bytes");
+      assertThat(e).hasMessageThat().contains("too short: Only 13 bytes");
     }
 
     journalPath.delete();
     setupTestContent();
-    assertFalse(dataPath.exists());
-    assertFalse(journalPath.exists());
+    assertThat(dataPath.exists()).isFalse();
+    assertThat(journalPath.exists()).isFalse();
 
     clock.advance(4);
     assertIndex(9, "abc1234"); // This should flush journal to disk.
-    assertFalse(dataPath.exists());
-    assertTrue(journalPath.exists());
+    assertThat(dataPath.exists()).isFalse();
+    assertThat(journalPath.exists()).isTrue();
 
     byte[] journalContent = FileSystemUtils.readContent(journalPath);
 
     // Now restore data from file and verify it. All data should be restored from journal;
     psi = PersistentStringIndexer.newPersistentStringIndexer(dataPath, clock);
-    assertTrue(dataPath.exists());
-    assertFalse(journalPath.exists());
+    assertThat(dataPath.exists()).isTrue();
+    assertThat(journalPath.exists()).isFalse();
 
     // Now put back truncated journal. We should get an error.
-    assertTrue(dataPath.delete());
+    assertThat(dataPath.delete()).isTrue();
     FileSystemUtils.writeContent(journalPath,
         Arrays.copyOf(journalContent, journalContent.length - 1));
     try {
@@ -304,7 +301,7 @@ public class PersistentStringIndexerTest {
       fail();
     } catch (IOException e) {
       // Expected.
-      assertThat(e.getMessage()).contains("corrupt key length");
+      assertThat(e).hasMessageThat().contains("corrupt key length");
     }
 
     // Now put back corrupted journal. We should get an error.
@@ -321,13 +318,13 @@ public class PersistentStringIndexerTest {
   @Test
   public void testDupeIndexCorruption() throws Exception {
     setupTestContent();
-    assertFalse(dataPath.exists());
-    assertFalse(journalPath.exists());
+    assertThat(dataPath.exists()).isFalse();
+    assertThat(journalPath.exists()).isFalse();
 
     assertIndex(9, "abc1234"); // This should flush journal to disk.
     psi.save();
-    assertTrue(dataPath.exists());
-    assertFalse(journalPath.exists());
+    assertThat(dataPath.exists()).isTrue();
+    assertThat(journalPath.exists()).isFalse();
 
     byte[] content = FileSystemUtils.readContent(dataPath);
 
@@ -344,7 +341,7 @@ public class PersistentStringIndexerTest {
     // index that is guaranteed to already exist. If it is the index 1, we change it to 2, otherwise
     // we change it to 1 - in both cases, the code currently guarantees that the duplicate comes
     // earlier in the stream.
-    assertTrue(dataPath.delete());
+    assertThat(dataPath.delete()).isTrue();
     content[content.length - 1] = content[content.length - 1] == 1 ? (byte) 2 : (byte) 1;
     FileSystemUtils.writeContent(journalPath, content);
 
@@ -353,24 +350,24 @@ public class PersistentStringIndexerTest {
       fail();
     } catch (IOException e) {
       // Expected.
-      assertThat(e.getMessage()).contains("Corrupted filename index has duplicate entry");
+      assertThat(e).hasMessageThat().contains("Corrupted filename index has duplicate entry");
     }
   }
 
   @Test
   public void testDeferredIOFailure() throws Exception {
-    assertFalse(dataPath.exists());
-    assertFalse(journalPath.exists());
+    assertThat(dataPath.exists()).isFalse();
+    assertThat(journalPath.exists()).isFalse();
     setupTestContent();
-    assertFalse(dataPath.exists());
-    assertFalse(journalPath.exists());
+    assertThat(dataPath.exists()).isFalse();
+    assertThat(journalPath.exists()).isFalse();
 
     // Ensure that journal cannot be saved.
     FileSystemUtils.createDirectoryAndParents(journalPath);
 
     clock.advance(4);
     assertIndex(9, "abc1234"); // This should flush journal to disk (and fail at that).
-    assertFalse(dataPath.exists());
+    assertThat(dataPath.exists()).isFalse();
 
     // Subsequent updates should succeed even though journaling is disabled at this point.
     clock.advance(4);
@@ -381,7 +378,7 @@ public class PersistentStringIndexerTest {
       psi.save();
       fail();
     } catch(IOException e) {
-      assertThat(e.getMessage()).contains(journalPath.getPathString() + " (Is a directory)");
+      assertThat(e).hasMessageThat().contains(journalPath.getPathString() + " (Is a directory)");
     }
   }
 }

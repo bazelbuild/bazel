@@ -13,11 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -137,7 +134,7 @@ public class LicensingTests extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//a:a");
     License license = getTarget(target.getLabel()).getLicense();
-    assertEquals(License.parseLicense(Arrays.asList("restricted", "reciprocal")), license);
+    assertThat(license).isEqualTo(License.parseLicense(Arrays.asList("restricted", "reciprocal")));
   }
 
   @Test
@@ -197,7 +194,7 @@ public class LicensingTests extends BuildViewTestCase {
         kablamMap);
 
     License cLicense = getTarget(cTarget.getLabel()).getLicense();
-    assertEquals(License.parseLicense(Arrays.asList("restricted", "reciprocal")), cLicense);
+    assertThat(cLicense).isEqualTo(License.parseLicense(Arrays.asList("restricted", "reciprocal")));
   }
 
   @Test
@@ -213,11 +210,10 @@ public class LicensingTests extends BuildViewTestCase {
     License aLicense = getTarget(aTarget.getLabel()).getLicense();
     License bLicense = getTarget(bTarget.getLabel()).getLicense();
     License cLicense = getTarget(cTarget.getLabel()).getLicense();
-    assertFalse(aLicense.equals(bLicense));
-    assertEquals(License.parseLicense(Arrays.asList("unencumbered")), aLicense);
-    assertEquals(License.parseLicense(Arrays.asList("restricted", "reciprocal")),
-        bLicense);
-    assertEquals(License.parseLicense(Arrays.asList("unencumbered")), cLicense);
+    assertThat(aLicense.equals(bLicense)).isFalse();
+    assertThat(aLicense).isEqualTo(License.parseLicense(Arrays.asList("unencumbered")));
+    assertThat(bLicense).isEqualTo(License.parseLicense(Arrays.asList("restricted", "reciprocal")));
+    assertThat(cLicense).isEqualTo(License.parseLicense(Arrays.asList("unencumbered")));
   }
 
   @Test
@@ -485,9 +481,10 @@ public class LicensingTests extends BuildViewTestCase {
         "reciprocal", "exception=//a:a"));
     License l3 = License.parseLicense(Arrays.asList("by_exception_only",
         "reciprocal", "exception=//a:a", "exception=//b:b"));
-    assertEquals("[restricted] with exceptions [//a:a]", l1.toString());
-    assertEquals("[restricted, reciprocal] with exceptions [//a:a]", l2.toString());
-    assertEquals("[by_exception_only, reciprocal] with exceptions [//a:a, //b:b]", l3.toString());
+    assertThat(l1.toString()).isEqualTo("[restricted] with exceptions [//a:a]");
+    assertThat(l2.toString()).isEqualTo("[restricted, reciprocal] with exceptions [//a:a]");
+    assertThat(l3.toString())
+        .isEqualTo("[by_exception_only, reciprocal] with exceptions [//a:a, //b:b]");
   }
 
   /**
@@ -526,7 +523,9 @@ public class LicensingTests extends BuildViewTestCase {
       V expectedValue = expected.get(key);
       V actualValue = actual.get(key);
       assertWithMessage("Key '%s'", key).that(actualValue).isNotNull();
-      assertEquals("Values for key '" + key + "' should match", expectedValue, actualValue);
+      assertWithMessage("Values for key '" + key + "' should match")
+          .that(actualValue)
+          .isEqualTo(expectedValue);
     }
   }
 

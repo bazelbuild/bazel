@@ -14,10 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -86,10 +83,10 @@ public class CircularDependencyTest extends BuildViewTestCase {
       }
     }
 
-    assertNotNull(foundEvent);
+    assertThat(foundEvent).isNotNull();
     Location location = foundEvent.getLocation();
-    assertEquals(3, location.getStartLineAndColumn().getLine());
-    assertEquals("/workspace/cycle/BUILD", location.getPath().toString());
+    assertThat(location.getStartLineAndColumn().getLine()).isEqualTo(3);
+    assertThat(location.getPath().toString()).isEqualTo("/workspace/cycle/BUILD");
   }
 
   /**
@@ -106,7 +103,7 @@ public class CircularDependencyTest extends BuildViewTestCase {
     } catch (NoSuchTargetException e) {
       /* ok */
     }
-    assertTrue(pkg.containsErrors());
+    assertThat(pkg.containsErrors()).isTrue();
     assertContainsEvent("rule 'jcyc' has file 'libjcyc.jar' as both an" + " input and an output");
   }
 
@@ -123,7 +120,7 @@ public class CircularDependencyTest extends BuildViewTestCase {
             "    srcs = ['//googledata/geo:geo_info.txt'],",
             "    outs = ['geoinfo.txt'],",
             "    cmd = '$(SRCS) > $@')");
-    assertFalse(pkg.containsErrors());
+    assertThat(pkg.containsErrors()).isFalse();
   }
 
   @Test

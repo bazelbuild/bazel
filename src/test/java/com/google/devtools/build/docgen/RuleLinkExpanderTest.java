@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.docgen;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
 import java.util.Map;
@@ -41,11 +41,11 @@ public class RuleLinkExpanderTest {
   }
 
   private void checkExpandSingle(String docs, String expected) {
-    assertEquals(expected, singlePageExpander.expand(docs));
+    assertThat(singlePageExpander.expand(docs)).isEqualTo(expected);
   }
 
   private void checkExpandMulti(String docs, String expected) {
-    assertEquals(expected, multiPageExpander.expand(docs));
+    assertThat(multiPageExpander.expand(docs)).isEqualTo(expected);
   }
 
   @Test public void testRule() {
@@ -151,11 +151,9 @@ public class RuleLinkExpanderTest {
   }
 
   @Test public void testExpandRef() {
-    assertEquals(
-        "java.html#java_binary.runtime_deps",
-        multiPageExpander.expandRef("java_binary.runtime_deps"));
-    assertEquals(
-        "#java_binary.runtime_deps",
-        singlePageExpander.expandRef("java_binary.runtime_deps"));
+    assertThat(multiPageExpander.expandRef("java_binary.runtime_deps"))
+        .isEqualTo("java.html#java_binary.runtime_deps");
+    assertThat(singlePageExpander.expandRef("java_binary.runtime_deps"))
+        .isEqualTo("#java_binary.runtime_deps");
   }
 }

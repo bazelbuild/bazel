@@ -15,10 +15,6 @@ package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 
 import java.io.File;
 import org.junit.Assert;
@@ -34,22 +30,22 @@ public class PathFragmentWindowsTest {
 
   @Test
   public void testWindowsSeparator() {
-    assertEquals("bar/baz", PathFragment.create("bar\\baz").toString());
-    assertEquals("C:/bar/baz", PathFragment.create("c:\\bar\\baz").toString());
+    assertThat(PathFragment.create("bar\\baz").toString()).isEqualTo("bar/baz");
+    assertThat(PathFragment.create("c:\\bar\\baz").toString()).isEqualTo("C:/bar/baz");
   }
 
   @Test
   public void testIsAbsoluteWindows() {
-    assertTrue(PathFragment.create("C:/").isAbsolute());
-    assertTrue(PathFragment.create("C:/").isAbsolute());
-    assertTrue(PathFragment.create("C:/foo").isAbsolute());
-    assertTrue(PathFragment.create("d:/foo/bar").isAbsolute());
+    assertThat(PathFragment.create("C:/").isAbsolute()).isTrue();
+    assertThat(PathFragment.create("C:/").isAbsolute()).isTrue();
+    assertThat(PathFragment.create("C:/foo").isAbsolute()).isTrue();
+    assertThat(PathFragment.create("d:/foo/bar").isAbsolute()).isTrue();
 
-    assertFalse(PathFragment.create("*:/").isAbsolute());
+    assertThat(PathFragment.create("*:/").isAbsolute()).isFalse();
 
     // C: is not an absolute path, it points to the current active directory on drive C:.
-    assertFalse(PathFragment.create("C:").isAbsolute());
-    assertFalse(PathFragment.create("C:foo").isAbsolute());
+    assertThat(PathFragment.create("C:").isAbsolute()).isFalse();
+    assertThat(PathFragment.create("C:foo").isAbsolute()).isFalse();
   }
 
   @Test
@@ -90,34 +86,37 @@ public class PathFragmentWindowsTest {
 
   @Test
   public void testIsAbsoluteWindowsBackslash() {
-    assertTrue(PathFragment.create(new File("C:\\blah")).isAbsolute());
-    assertTrue(PathFragment.create(new File("C:\\")).isAbsolute());
-    assertTrue(PathFragment.create(new File("\\blah")).isAbsolute());
-    assertTrue(PathFragment.create(new File("\\")).isAbsolute());
+    assertThat(PathFragment.create(new File("C:\\blah")).isAbsolute()).isTrue();
+    assertThat(PathFragment.create(new File("C:\\")).isAbsolute()).isTrue();
+    assertThat(PathFragment.create(new File("\\blah")).isAbsolute()).isTrue();
+    assertThat(PathFragment.create(new File("\\")).isAbsolute()).isTrue();
   }
 
   @Test
   public void testIsNormalizedWindows() {
-    assertTrue(PathFragment.create("C:/").isNormalized());
-    assertTrue(PathFragment.create("C:/absolute/path").isNormalized());
-    assertFalse(PathFragment.create("C:/absolute/./path").isNormalized());
-    assertFalse(PathFragment.create("C:/absolute/../path").isNormalized());
+    assertThat(PathFragment.create("C:/").isNormalized()).isTrue();
+    assertThat(PathFragment.create("C:/absolute/path").isNormalized()).isTrue();
+    assertThat(PathFragment.create("C:/absolute/./path").isNormalized()).isFalse();
+    assertThat(PathFragment.create("C:/absolute/../path").isNormalized()).isFalse();
   }
 
   @Test
   public void testRootNodeReturnsRootStringWindows() {
     PathFragment rootFragment = PathFragment.create("C:/");
-    assertEquals("C:/", rootFragment.getPathString());
+    assertThat(rootFragment.getPathString()).isEqualTo("C:/");
   }
 
   @Test
   public void testGetRelativeWindows() {
-    assertEquals("C:/a/b", PathFragment.create("C:/a").getRelative("b").getPathString());
-    assertEquals("C:/a/b/c/d", PathFragment.create("C:/a/b").getRelative("c/d").getPathString());
-    assertEquals("C:/b", PathFragment.create("C:/a").getRelative("C:/b").getPathString());
-    assertEquals("C:/c/d", PathFragment.create("C:/a/b").getRelative("C:/c/d").getPathString());
-    assertEquals("C:/b", PathFragment.create("a").getRelative("C:/b").getPathString());
-    assertEquals("C:/c/d", PathFragment.create("a/b").getRelative("C:/c/d").getPathString());
+    assertThat(PathFragment.create("C:/a").getRelative("b").getPathString()).isEqualTo("C:/a/b");
+    assertThat(PathFragment.create("C:/a/b").getRelative("c/d").getPathString())
+        .isEqualTo("C:/a/b/c/d");
+    assertThat(PathFragment.create("C:/a").getRelative("C:/b").getPathString()).isEqualTo("C:/b");
+    assertThat(PathFragment.create("C:/a/b").getRelative("C:/c/d").getPathString())
+        .isEqualTo("C:/c/d");
+    assertThat(PathFragment.create("a").getRelative("C:/b").getPathString()).isEqualTo("C:/b");
+    assertThat(PathFragment.create("a/b").getRelative("C:/c/d").getPathString())
+        .isEqualTo("C:/c/d");
   }
 
   private void assertGetRelative(String path, String relative, PathFragment expected)
@@ -144,7 +143,7 @@ public class PathFragmentWindowsTest {
       PathFragment.create(path).relativeTo(relativeTo);
       Assert.fail("expected failure");
     } catch (Exception e) {
-      assertThat(e.getMessage()).contains("is not beneath");
+      assertThat(e).hasMessageThat().contains("is not beneath");
     }
   }
 
@@ -194,7 +193,7 @@ public class PathFragmentWindowsTest {
   @Test
   public void testGetChildWorks() {
     PathFragment pf = PathFragment.create("../some/path");
-    assertEquals(PathFragment.create("../some/path/hi"), pf.getChild("hi"));
+    assertThat(pf.getChild("hi")).isEqualTo(PathFragment.create("../some/path/hi"));
   }
 
   // Tests after here test the canonicalization
@@ -300,81 +299,84 @@ public class PathFragmentWindowsTest {
     PathFragment fooBarAbs = PathFragment.create("C:/foo/bar");
     PathFragment fooAbs = PathFragment.create("C:/foo");
     PathFragment rootAbs = PathFragment.create("C:/");
-    assertEquals(fooBarAbs, fooBarWizAbs.getParentDirectory());
-    assertEquals(fooAbs, fooBarAbs.getParentDirectory());
-    assertEquals(rootAbs, fooAbs.getParentDirectory());
-    assertNull(rootAbs.getParentDirectory());
+    assertThat(fooBarWizAbs.getParentDirectory()).isEqualTo(fooBarAbs);
+    assertThat(fooBarAbs.getParentDirectory()).isEqualTo(fooAbs);
+    assertThat(fooAbs.getParentDirectory()).isEqualTo(rootAbs);
+    assertThat(rootAbs.getParentDirectory()).isNull();
 
     // Note, this is suprising but correct behaviour:
-    assertEquals(fooBarAbs,
-                 PathFragment.create("C:/foo/bar/..").getParentDirectory());
+    assertThat(PathFragment.create("C:/foo/bar/..").getParentDirectory()).isEqualTo(fooBarAbs);
   }
 
   @Test
   public void testSegmentsCountWindows() {
-    assertEquals(1, PathFragment.create("C:/foo").segmentCount());
-    assertEquals(0, PathFragment.create("C:/").segmentCount());
+    assertThat(PathFragment.create("C:/foo").segmentCount()).isEqualTo(1);
+    assertThat(PathFragment.create("C:/").segmentCount()).isEqualTo(0);
   }
 
   @Test
   public void testGetSegmentWindows() {
-    assertEquals("foo", PathFragment.create("C:/foo/bar").getSegment(0));
-    assertEquals("bar", PathFragment.create("C:/foo/bar").getSegment(1));
-    assertEquals("foo", PathFragment.create("C:/foo/").getSegment(0));
-    assertEquals("foo", PathFragment.create("C:/foo").getSegment(0));
+    assertThat(PathFragment.create("C:/foo/bar").getSegment(0)).isEqualTo("foo");
+    assertThat(PathFragment.create("C:/foo/bar").getSegment(1)).isEqualTo("bar");
+    assertThat(PathFragment.create("C:/foo/").getSegment(0)).isEqualTo("foo");
+    assertThat(PathFragment.create("C:/foo").getSegment(0)).isEqualTo("foo");
   }
 
   @Test
   public void testBasenameWindows() throws Exception {
-    assertEquals("bar", PathFragment.create("C:/foo/bar").getBaseName());
-    assertEquals("foo", PathFragment.create("C:/foo").getBaseName());
+    assertThat(PathFragment.create("C:/foo/bar").getBaseName()).isEqualTo("bar");
+    assertThat(PathFragment.create("C:/foo").getBaseName()).isEqualTo("foo");
     // Never return the drive name as a basename.
     assertThat(PathFragment.create("C:/").getBaseName()).isEmpty();
   }
 
   private static void assertPath(String expected, PathFragment actual) {
-    assertEquals(expected, actual.getPathString());
+    assertThat(actual.getPathString()).isEqualTo(expected);
   }
 
   @Test
   public void testReplaceNameWindows() throws Exception {
     assertPath("C:/foo/baz", PathFragment.create("C:/foo/bar").replaceName("baz"));
-    assertNull(PathFragment.create("C:/").replaceName("baz"));
+    assertThat(PathFragment.create("C:/").replaceName("baz")).isNull();
   }
 
   @Test
   public void testStartsWithWindows() {
-    assertTrue(PathFragment.create("C:/foo/bar").startsWith(PathFragment.create("C:/foo")));
-    assertTrue(PathFragment.create("C:/foo/bar").startsWith(PathFragment.create("C:/")));
-    assertTrue(PathFragment.create("C:foo/bar").startsWith(PathFragment.create("C:")));
-    assertTrue(PathFragment.create("C:/").startsWith(PathFragment.create("C:/")));
-    assertTrue(PathFragment.create("C:").startsWith(PathFragment.create("C:")));
+    assertThat(PathFragment.create("C:/foo/bar").startsWith(PathFragment.create("C:/foo")))
+        .isTrue();
+    assertThat(PathFragment.create("C:/foo/bar").startsWith(PathFragment.create("C:/"))).isTrue();
+    assertThat(PathFragment.create("C:foo/bar").startsWith(PathFragment.create("C:"))).isTrue();
+    assertThat(PathFragment.create("C:/").startsWith(PathFragment.create("C:/"))).isTrue();
+    assertThat(PathFragment.create("C:").startsWith(PathFragment.create("C:"))).isTrue();
 
     // The first path is absolute, the second is not.
-    assertFalse(PathFragment.create("C:/foo/bar").startsWith(PathFragment.create("C:")));
-    assertFalse(PathFragment.create("C:/").startsWith(PathFragment.create("C:")));
+    assertThat(PathFragment.create("C:/foo/bar").startsWith(PathFragment.create("C:"))).isFalse();
+    assertThat(PathFragment.create("C:/").startsWith(PathFragment.create("C:"))).isFalse();
   }
 
   @Test
   public void testEndsWithWindows() {
-    assertTrue(PathFragment.create("C:/foo/bar").endsWith(PathFragment.create("bar")));
-    assertTrue(PathFragment.create("C:/foo/bar").endsWith(PathFragment.create("foo/bar")));
-    assertTrue(PathFragment.create("C:/foo/bar").endsWith(PathFragment.create("C:/foo/bar")));
-    assertTrue(PathFragment.create("C:/").endsWith(PathFragment.create("C:/")));
+    assertThat(PathFragment.create("C:/foo/bar").endsWith(PathFragment.create("bar"))).isTrue();
+    assertThat(PathFragment.create("C:/foo/bar").endsWith(PathFragment.create("foo/bar"))).isTrue();
+    assertThat(PathFragment.create("C:/foo/bar").endsWith(PathFragment.create("C:/foo/bar")))
+        .isTrue();
+    assertThat(PathFragment.create("C:/").endsWith(PathFragment.create("C:/"))).isTrue();
   }
 
   @Test
   public void testGetSafePathStringWindows() {
-    assertEquals("C:/", PathFragment.create("C:/").getSafePathString());
-    assertEquals("C:/abc", PathFragment.create("C:/abc").getSafePathString());
-    assertEquals("C:/abc/def", PathFragment.create("C:/abc/def").getSafePathString());
+    assertThat(PathFragment.create("C:/").getSafePathString()).isEqualTo("C:/");
+    assertThat(PathFragment.create("C:/abc").getSafePathString()).isEqualTo("C:/abc");
+    assertThat(PathFragment.create("C:/abc/def").getSafePathString()).isEqualTo("C:/abc/def");
   }
 
   @Test
   public void testNormalizeWindows() {
-    assertEquals(PathFragment.create("C:/a/b"), PathFragment.create("C:/a/b").normalize());
-    assertEquals(PathFragment.create("C:/a/b"), PathFragment.create("C:/a/./b").normalize());
-    assertEquals(PathFragment.create("C:/b"), PathFragment.create("C:/a/../b").normalize());
-    assertEquals(PathFragment.create("C:/../b"), PathFragment.create("C:/../b").normalize());
+    assertThat(PathFragment.create("C:/a/b").normalize()).isEqualTo(PathFragment.create("C:/a/b"));
+    assertThat(PathFragment.create("C:/a/./b").normalize())
+        .isEqualTo(PathFragment.create("C:/a/b"));
+    assertThat(PathFragment.create("C:/a/../b").normalize()).isEqualTo(PathFragment.create("C:/b"));
+    assertThat(PathFragment.create("C:/../b").normalize())
+        .isEqualTo(PathFragment.create("C:/../b"));
   }
 }

@@ -13,26 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
+import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.io.IOException;
-
-/**
- * Tests for {@link Root}.
- */
+/** Tests for {@link Root}. */
 @RunWith(JUnit4.class)
 public class RootTest {
   private Scratch scratch = new Scratch();
@@ -41,10 +34,10 @@ public class RootTest {
   public void testAsSourceRoot() throws IOException {
     Path sourceDir = scratch.dir("/source");
     Root root = Root.asSourceRoot(sourceDir);
-    assertTrue(root.isSourceRoot());
-    assertEquals(PathFragment.EMPTY_FRAGMENT, root.getExecPath());
-    assertEquals(sourceDir, root.getPath());
-    assertEquals("/source[source]", root.toString());
+    assertThat(root.isSourceRoot()).isTrue();
+    assertThat(root.getExecPath()).isEqualTo(PathFragment.EMPTY_FRAGMENT);
+    assertThat(root.getPath()).isEqualTo(sourceDir);
+    assertThat(root.toString()).isEqualTo("/source[source]");
   }
 
   @Test
@@ -61,10 +54,10 @@ public class RootTest {
     Path execRoot = scratch.dir("/exec");
     Path rootDir = scratch.dir("/exec/root");
     Root root = Root.asDerivedRoot(execRoot, rootDir);
-    assertFalse(root.isSourceRoot());
-    assertEquals(PathFragment.create("root"), root.getExecPath());
-    assertEquals(rootDir, root.getPath());
-    assertEquals("/exec/root[derived]", root.toString());
+    assertThat(root.isSourceRoot()).isFalse();
+    assertThat(root.getExecPath()).isEqualTo(PathFragment.create("root"));
+    assertThat(root.getPath()).isEqualTo(rootDir);
+    assertThat(root.toString()).isEqualTo("/exec/root[derived]");
   }
 
   @Test
@@ -125,8 +118,8 @@ public class RootTest {
     if (expected) {
       new EqualsTester().addEqualityGroup(b, a).testEquals();
     } else {
-      assertFalse(a.equals(b));
-      assertFalse(a.hashCode() == b.hashCode());
+      assertThat(a.equals(b)).isFalse();
+      assertThat(a.hashCode() == b.hashCode()).isFalse();
     }
   }
 }

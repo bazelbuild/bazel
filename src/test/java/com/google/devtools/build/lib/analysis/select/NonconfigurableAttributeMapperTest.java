@@ -14,13 +14,11 @@
 package com.google.devtools.build.lib.analysis.select;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.syntax.Type;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -46,8 +44,8 @@ public class NonconfigurableAttributeMapperTest extends AbstractAttributeMapperT
 
   @Test
   public void testGetNonconfigurableAttribute() throws Exception {
-    assertEquals("this rule is deprecated!",
-        NonconfigurableAttributeMapper.of(rule).get("deprecation", Type.STRING));
+    assertThat(NonconfigurableAttributeMapper.of(rule).get("deprecation", Type.STRING))
+        .isEqualTo("this rule is deprecated!");
   }
 
   @Test

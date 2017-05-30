@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.cmdline;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -34,20 +33,20 @@ public class RepositoryNameTest {
       RepositoryName.create(name);
       fail();
     } catch (LabelSyntaxException expected) {
-      assertThat(expected.getMessage()).contains(expectedMessage);
+      assertThat(expected).hasMessageThat().contains(expectedMessage);
     }
   }
 
   @Test
   public void testValidateRepositoryName() throws Exception {
-    assertEquals("@foo", RepositoryName.create("@foo").toString());
+    assertThat(RepositoryName.create("@foo").toString()).isEqualTo("@foo");
     assertThat(RepositoryName.create("").toString()).isEmpty();
-    assertEquals("@foo_bar", RepositoryName.create("@foo_bar").toString());
-    assertEquals("@foo-bar", RepositoryName.create("@foo-bar").toString());
-    assertEquals("@foo.bar", RepositoryName.create("@foo.bar").toString());
-    assertEquals("@..foo", RepositoryName.create("@..foo").toString());
-    assertEquals("@foo..", RepositoryName.create("@foo..").toString());
-    assertEquals("@.foo", RepositoryName.create("@.foo").toString());
+    assertThat(RepositoryName.create("@foo_bar").toString()).isEqualTo("@foo_bar");
+    assertThat(RepositoryName.create("@foo-bar").toString()).isEqualTo("@foo-bar");
+    assertThat(RepositoryName.create("@foo.bar").toString()).isEqualTo("@foo.bar");
+    assertThat(RepositoryName.create("@..foo").toString()).isEqualTo("@..foo");
+    assertThat(RepositoryName.create("@foo..").toString()).isEqualTo("@foo..");
+    assertThat(RepositoryName.create("@.foo").toString()).isEqualTo("@.foo");
 
     assertNotValid("x", "workspace names must start with '@'");
     assertNotValid("@.", "workspace names are not allowed to be '@.'");

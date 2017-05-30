@@ -636,7 +636,8 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         SkyKey key = rftvSkyKey(traversalRoot);
         EvaluationResult<SkyValue> result = eval(key);
         assertThat(result.hasError()).isTrue();
-        assertThat(result.getError().getException().getMessage())
+        assertThat(result.getError().getException())
+            .hasMessageThat()
             .contains("crosses package boundary into package rooted at");
         break;
       default:
@@ -811,7 +812,8 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     assertThat(result.hasError()).isTrue();
     ErrorInfo error = result.getError(key);
     assertThat(error.isTransient()).isFalse();
-    assertThat(error.getException().getMessage())
+    assertThat(error.getException())
+        .hasMessageThat()
         .contains("Generated directory a/b/c conflicts with package under the same path.");
   }
 }

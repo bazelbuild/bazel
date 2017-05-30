@@ -13,31 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions.cache;
 
-
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
+import java.io.IOException;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.io.IOException;
-
-/**
- * Test for the CompactPersistentActionCache class.
- */
+/** Test for the CompactPersistentActionCache class. */
 @RunWith(JUnit4.class)
 public class CompactPersistentActionCacheTest {
 
@@ -72,7 +62,7 @@ public class CompactPersistentActionCacheTest {
 
   @Test
   public void testGetInvalidKey() {
-    assertNull(cache.get("key"));
+    assertThat(cache.get("key")).isNull();
   }
 
   @Test
@@ -80,9 +70,9 @@ public class CompactPersistentActionCacheTest {
     String key = "key";
     putKey(key);
     ActionCache.Entry readentry = cache.get(key);
-    assertNotNull(readentry);
-    assertEquals(cache.get(key).toString(), readentry.toString());
-    assertFalse(mapFile.exists());
+    assertThat(readentry).isNotNull();
+    assertThat(readentry.toString()).isEqualTo(cache.get(key).toString());
+    assertThat(mapFile.exists()).isFalse();
   }
 
   @Test
@@ -90,8 +80,8 @@ public class CompactPersistentActionCacheTest {
     String key = "key";
     putKey(key);
     cache.remove(key);
-    assertNull(cache.get(key));
-    assertFalse(mapFile.exists());
+    assertThat(cache.get(key)).isNull();
+    assertThat(mapFile.exists()).isFalse();
   }
 
   @Test
@@ -108,14 +98,14 @@ public class CompactPersistentActionCacheTest {
     String key = "key";
     putKey(key, discoverInputs);
     cache.save();
-    assertTrue(mapFile.exists());
-    assertFalse(journalFile.exists());
+    assertThat(mapFile.exists()).isTrue();
+    assertThat(journalFile.exists()).isFalse();
 
     CompactPersistentActionCache newcache =
         new CompactPersistentActionCache(dataRoot, clock);
     ActionCache.Entry readentry = newcache.get(key);
-    assertNotNull(readentry);
-    assertEquals(cache.get(key).toString(), readentry.toString());
+    assertThat(readentry).isNotNull();
+    assertThat(readentry.toString()).isEqualTo(cache.get(key).toString());
   }
 
   @Test
@@ -150,8 +140,8 @@ public class CompactPersistentActionCacheTest {
     }
     assertKeyEquals(cache, newerCache, "abc");
     assertKeyEquals(cache, newerCache, "123");
-    assertNotNull(newerCache.get("xyz"));
-    assertNull(newerCache.get("not_a_key"));
+    assertThat(newerCache.get("xyz")).isNotNull();
+    assertThat(newerCache.get("not_a_key")).isNull();
 
     // Add another 10 entries. This should not be incremental.
     for (int i = 300; i < 310; i++) {
@@ -194,20 +184,20 @@ public class CompactPersistentActionCacheTest {
 
   private static void assertKeyEquals(ActionCache cache1, ActionCache cache2, String key) {
     Object entry = cache1.get(key);
-    assertNotNull(entry);
-    assertEquals(entry.toString(), cache2.get(key).toString());
+    assertThat(entry).isNotNull();
+    assertThat(cache2.get(key).toString()).isEqualTo(entry.toString());
   }
 
   private void assertFullSave() throws IOException {
     cache.save();
-    assertTrue(mapFile.exists());
-    assertFalse(journalFile.exists());
+    assertThat(mapFile.exists()).isTrue();
+    assertThat(journalFile.exists()).isFalse();
   }
 
   private void assertIncrementalSave(ActionCache ac) throws IOException {
     ac.save();
-    assertTrue(mapFile.exists());
-    assertTrue(journalFile.exists());
+    assertThat(mapFile.exists()).isTrue();
+    assertThat(journalFile.exists()).isTrue();
   }
 
   private void putKey(String key) {

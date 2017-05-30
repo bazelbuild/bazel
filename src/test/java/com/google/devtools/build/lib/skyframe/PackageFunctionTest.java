@@ -15,9 +15,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Predicates;
@@ -102,7 +99,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
       fail(result.getError(skyKey).getException().getMessage());
     }
     PackageValue value = result.get(skyKey);
-    assertFalse(value.getPackage().containsErrors());
+    assertThat(value.getPackage().containsErrors()).isFalse();
     return value;
   }
 
@@ -171,7 +168,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         + "an existing directory";
     EvaluationResult<PackageValue> result = SkyframeExecutorTestUtils.evaluate(
         getSkyframeExecutor(), skyKey, /*keepGoing=*/false, reporter);
-    assertTrue(result.hasError());
+    assertThat(result.hasError()).isTrue();
     ErrorInfo errorInfo = result.getError(skyKey);
     String errorMessage = errorInfo.getException().getMessage();
     assertThat(errorMessage).contains("Inconsistent filesystem operations");
@@ -207,7 +204,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     String expectedMessage = "/workspace/foo/bar/baz is no longer an existing directory";
     EvaluationResult<PackageValue> result = SkyframeExecutorTestUtils.evaluate(
         getSkyframeExecutor(), skyKey, /*keepGoing=*/false, reporter);
-    assertTrue(result.hasError());
+    assertThat(result.hasError()).isTrue();
     ErrorInfo errorInfo = result.getError(skyKey);
     String errorMessage = errorInfo.getException().getMessage();
     assertThat(errorMessage).contains("Inconsistent filesystem operations");
@@ -229,7 +226,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     String expectedMessage = "Encountered error 'Directory is not readable'";
     EvaluationResult<PackageValue> result = SkyframeExecutorTestUtils.evaluate(
         getSkyframeExecutor(), skyKey, /*keepGoing=*/false, reporter);
-    assertTrue(result.hasError());
+    assertThat(result.hasError()).isTrue();
     ErrorInfo errorInfo = result.getError(skyKey);
     String errorMessage = errorInfo.getException().getMessage();
     assertThat(errorMessage).contains("Inconsistent filesystem operations");
@@ -468,7 +465,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//test/skylark"));
     EvaluationResult<PackageValue> result = SkyframeExecutorTestUtils.evaluate(
         getSkyframeExecutor(), skyKey, /*keepGoing=*/false, reporter);
-    assertTrue(result.hasError());
+    assertThat(result.hasError()).isTrue();
     ErrorInfo errorInfo = result.getError(skyKey);
     String expectedMsg = "error loading package 'test/skylark': "
         + "Extension file not found. Unable to load file '//test/skylark:bad_extension.bzl': "
@@ -493,7 +490,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//test/skylark"));
     EvaluationResult<PackageValue> result = SkyframeExecutorTestUtils.evaluate(
         getSkyframeExecutor(), skyKey, /*keepGoing=*/false, reporter);
-    assertTrue(result.hasError());
+    assertThat(result.hasError()).isTrue();
     ErrorInfo errorInfo = result.getError(skyKey);
     assertThat(errorInfo.getException())
         .hasMessage("error loading package 'test/skylark': Extension file not found. "
@@ -516,9 +513,9 @@ public class PackageFunctionTest extends BuildViewTestCase {
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//test/skylark"));
     EvaluationResult<PackageValue> result = SkyframeExecutorTestUtils.evaluate(
         getSkyframeExecutor(), skyKey, /*keepGoing=*/false, reporter);
-    assertTrue(result.hasError());
+    assertThat(result.hasError()).isTrue();
     ErrorInfo errorInfo = result.getError(skyKey);
-    assertEquals(skyKey, errorInfo.getRootCauseOfException());
+    assertThat(errorInfo.getRootCauseOfException()).isEqualTo(skyKey);
     assertThat(errorInfo.getException())
         .hasMessage(
             "error loading package 'test/skylark': Encountered error while reading extension "
@@ -535,7 +532,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
     EvaluationResult<PackageValue> result = SkyframeExecutorTestUtils.evaluate(
         getSkyframeExecutor(), skyKey, /*keepGoing=*/false, reporter);
-    assertTrue(result.hasError());
+    assertThat(result.hasError()).isTrue();
     assertContainsEvent("nope");
   }
 
@@ -571,8 +568,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
     EvaluationResult<PackageValue> result =
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
-    assertFalse(result.hasError());
-    assertTrue(result.get(skyKey).getPackage().containsErrors());
+    assertThat(result.hasError()).isFalse();
+    assertThat(result.get(skyKey).getPackage().containsErrors()).isTrue();
   }
 
   // Regression test for the two ugly consequences of a bug where GlobFunction incorrectly matched
@@ -588,7 +585,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
     PackageValue value = validPackage(skyKey);
-    assertFalse(value.getPackage().containsErrors());
+    assertThat(value.getPackage().containsErrors()).isFalse();
     assertThat(value.getPackage().getTarget("existing.txt").getName()).isEqualTo("existing.txt");
     try {
       value.getPackage().getTarget("dangling.txt");
@@ -604,7 +601,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         ModifiedFileSet.builder().modify(PathFragment.create("foo/BUILD")).build(), rootDirectory);
 
     value = validPackage(skyKey);
-    assertFalse(value.getPackage().containsErrors());
+    assertThat(value.getPackage().containsErrors()).isFalse();
     assertThat(value.getPackage().getTarget("existing.txt").getName()).isEqualTo("existing.txt");
     try {
       value.getPackage().getTarget("dangling.txt");
@@ -620,7 +617,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         ModifiedFileSet.builder().modify(PathFragment.create("foo/nope")).build(), rootDirectory);
 
     PackageValue newValue = validPackage(skyKey);
-    assertFalse(newValue.getPackage().containsErrors());
+    assertThat(newValue.getPackage().containsErrors()).isFalse();
     assertThat(newValue.getPackage().getTarget("existing.txt").getName()).isEqualTo("existing.txt");
     // Another consequence of the bug is that change pruning would incorrectly cut off changes that
     // caused a dangling symlink potentially matched by a glob to come into existence.
@@ -641,7 +638,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
     PackageValue value = validPackage(skyKey);
-    assertFalse(value.getPackage().containsErrors());
+    assertThat(value.getPackage().containsErrors()).isFalse();
     assertThat(value.getPackage().getTarget("bar-matched").getName()).isEqualTo("bar-matched");
     try {
       value.getPackage().getTarget("-matched");
@@ -656,7 +653,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         ModifiedFileSet.builder().modify(PathFragment.create("foo/BUILD")).build(), rootDirectory);
 
     value = validPackage(skyKey);
-    assertFalse(value.getPackage().containsErrors());
+    assertThat(value.getPackage().containsErrors()).isFalse();
     assertThat(value.getPackage().getTarget("bar-matched").getName()).isEqualTo("bar-matched");
     try {
       value.getPackage().getTarget("-matched");

@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.skylark;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -49,7 +48,7 @@ public class SkylarkFileHelperTest extends SkylarkTestCase {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result =
         evalRuleContextCode(ruleContext, "FileType(['.img']).filter(ruleContext.files.srcs)");
-    assertEquals("b.img", ActionsTestUtil.baseNamesOf((Iterable<Artifact>) result));
+    assertThat(ActionsTestUtil.baseNamesOf((Iterable<Artifact>) result)).isEqualTo("b.img");
   }
 
   @Test
@@ -64,7 +63,7 @@ public class SkylarkFileHelperTest extends SkylarkTestCase {
   public void testArtifactPath() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     String result = (String) evalRuleContextCode(ruleContext, "ruleContext.files.tools[0].path");
-    assertEquals("foo/t.exe", result);
+    assertThat(result).isEqualTo("foo/t.exe");
   }
 
   @Test
@@ -72,6 +71,6 @@ public class SkylarkFileHelperTest extends SkylarkTestCase {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     String result =
         (String) evalRuleContextCode(ruleContext, "ruleContext.files.tools[0].short_path");
-    assertEquals("foo/t.exe", result);
+    assertThat(result).isEqualTo("foo/t.exe");
   }
 }

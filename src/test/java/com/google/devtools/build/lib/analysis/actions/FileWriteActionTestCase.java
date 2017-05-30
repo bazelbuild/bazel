@@ -15,10 +15,6 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -65,20 +61,20 @@ public abstract class FileWriteActionTestCase extends BuildViewTestCase {
 
   protected void checkNoInputsByDefault() {
     assertThat(action.getInputs()).isEmpty();
-    assertNull(action.getPrimaryInput());
+    assertThat(action.getPrimaryInput()).isNull();
   }
 
   protected void checkDestinationArtifactIsOutput() {
     Collection<Artifact> outputs = action.getOutputs();
-    assertEquals(Sets.newHashSet(outputArtifact), Sets.newHashSet(outputs));
-    assertEquals(outputArtifact, action.getPrimaryOutput());
+    assertThat(Sets.newHashSet(outputs)).isEqualTo(Sets.newHashSet(outputArtifact));
+    assertThat(action.getPrimaryOutput()).isEqualTo(outputArtifact);
   }
 
   protected void checkCanWriteNonExecutableFile() throws Exception {
     action.execute(context);
     String content = new String(FileSystemUtils.readContentAsLatin1(output));
-    assertEquals("Hello World", content);
-    assertFalse(output.isExecutable());
+    assertThat(content).isEqualTo("Hello World");
+    assertThat(output.isExecutable()).isFalse();
   }
 
   protected void checkCanWriteExecutableFile() throws Exception {
@@ -87,8 +83,8 @@ public abstract class FileWriteActionTestCase extends BuildViewTestCase {
     Action action = createAction(NULL_ACTION_OWNER, outputArtifact, "echo 'Hello World'", true);
     action.execute(context);
     String content = new String(FileSystemUtils.readContentAsLatin1(output));
-    assertEquals("echo 'Hello World'", content);
-    assertTrue(output.isExecutable());
+    assertThat(content).isEqualTo("echo 'Hello World'");
+    assertThat(output.isExecutable()).isTrue();
   }
 
   private enum KeyAttributes {

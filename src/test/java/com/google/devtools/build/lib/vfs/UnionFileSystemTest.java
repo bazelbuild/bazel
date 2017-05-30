@@ -15,12 +15,6 @@ package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
@@ -89,9 +83,9 @@ public class UnionFileSystemTest extends SymlinkAwareFileSystemTest {
     Path fooPath = unionfs.getPath("/foo");
     Path inPath = unionfs.getPath("/in");
     Path outPath = unionfs.getPath("/out/in.txt");
-    assertSame(inDelegate, unionfs.getDelegate(inPath));
-    assertSame(outDelegate, unionfs.getDelegate(outPath));
-    assertSame(defaultDelegate, unionfs.getDelegate(fooPath));
+    assertThat(unionfs.getDelegate(inPath)).isSameAs(inDelegate);
+    assertThat(unionfs.getDelegate(outPath)).isSameAs(outDelegate);
+    assertThat(unionfs.getDelegate(fooPath)).isSameAs(defaultDelegate);
   }
 
   @Test
@@ -100,12 +94,12 @@ public class UnionFileSystemTest extends SymlinkAwareFileSystemTest {
     Path inPath = unionfs.getPath("/in");
     Path outPath = unionfs.getPath("/out/in.txt");
 
-    assertArrayEquals(XATTR_VAL.getBytes(UTF_8), inPath.getxattr(XATTR_KEY));
-    assertArrayEquals(XATTR_VAL.getBytes(UTF_8), outPath.getxattr(XATTR_KEY));
-    assertArrayEquals(XATTR_VAL.getBytes(UTF_8), fooPath.getxattr(XATTR_KEY));
-    assertNull(inPath.getxattr("not_key"));
-    assertNull(outPath.getxattr("not_key"));
-    assertNull(fooPath.getxattr("not_key"));
+    assertThat(inPath.getxattr(XATTR_KEY)).isEqualTo(XATTR_VAL.getBytes(UTF_8));
+    assertThat(outPath.getxattr(XATTR_KEY)).isEqualTo(XATTR_VAL.getBytes(UTF_8));
+    assertThat(fooPath.getxattr(XATTR_KEY)).isEqualTo(XATTR_VAL.getBytes(UTF_8));
+    assertThat(inPath.getxattr("not_key")).isNull();
+    assertThat(outPath.getxattr("not_key")).isNull();
+    assertThat(fooPath.getxattr("not_key")).isNull();
   }
 
   @Test
@@ -126,20 +120,20 @@ public class UnionFileSystemTest extends SymlinkAwareFileSystemTest {
               PathFragment.create("/foo"), inDelegate,
               PathFragment.create("/foo/bar"), outDelegate), defaultDelegate);
 
-    assertSame(inDelegate, unionfs.getDelegate(unionfs.getPath("/foo/foo.txt")));
-    assertSame(outDelegate, unionfs.getDelegate(unionfs.getPath("/foo/bar/foo.txt")));
-    assertSame(inDelegate, unionfs.getDelegate(unionfs.getPath("/foo/bar/../foo.txt")));
-    assertSame(defaultDelegate, unionfs.getDelegate(unionfs.getPath("/bar/foo.txt")));
-    assertSame(defaultDelegate, unionfs.getDelegate(unionfs.getPath("/foo/bar/../..")));
+    assertThat(unionfs.getDelegate(unionfs.getPath("/foo/foo.txt"))).isSameAs(inDelegate);
+    assertThat(unionfs.getDelegate(unionfs.getPath("/foo/bar/foo.txt"))).isSameAs(outDelegate);
+    assertThat(unionfs.getDelegate(unionfs.getPath("/foo/bar/../foo.txt"))).isSameAs(inDelegate);
+    assertThat(unionfs.getDelegate(unionfs.getPath("/bar/foo.txt"))).isSameAs(defaultDelegate);
+    assertThat(unionfs.getDelegate(unionfs.getPath("/foo/bar/../.."))).isSameAs(defaultDelegate);
   }
 
   // Checks that files cannot be modified when the filesystem is created
   // read-only, even if the delegate filesystems are read/write.
   @Test
   public void testModificationFlag() throws Exception {
-    assertTrue(unionfs.supportsModifications());
+    assertThat(unionfs.supportsModifications()).isTrue();
     Path outPath = unionfs.getPath("/out/foo.txt");
-    assertTrue(unionfs.createDirectory(outPath.getParentDirectory()));
+    assertThat(unionfs.createDirectory(outPath.getParentDirectory())).isTrue();
     OutputStream outFile = unionfs.getOutputStream(outPath);
     outFile.write('b');
     outFile.close();
@@ -149,14 +143,14 @@ public class UnionFileSystemTest extends SymlinkAwareFileSystemTest {
     // Note that this does not destroy the underlying filesystems;
     // UnionFileSystem is just a view.
     unionfs = createDefaultUnionFileSystem(true);
-    assertFalse(unionfs.supportsModifications());
+    assertThat(unionfs.supportsModifications()).isFalse();
 
     InputStream outFileInput = unionfs.getInputStream(outPath);
     int outFileByte = outFileInput.read();
     outFileInput.close();
-    assertEquals('b', outFileByte);
+    assertThat(outFileByte).isEqualTo('b');
 
-    assertTrue(unionfs.isExecutable(outPath));
+    assertThat(unionfs.isExecutable(outPath)).isTrue();
 
     // Modifying files through the unionfs isn't permitted, even if the
     // delegates are read/write.
@@ -175,9 +169,9 @@ public class UnionFileSystemTest extends SymlinkAwareFileSystemTest {
     Path foo = unionfs.getPath("/foo");
     Path bar = unionfs.getPath("/bar");
     Path out = unionfs.getPath("/out");
-    assertTrue(unionfs.createDirectory(foo));
-    assertTrue(unionfs.createDirectory(bar));
-    assertTrue(unionfs.createDirectory(out));
+    assertThat(unionfs.createDirectory(foo)).isTrue();
+    assertThat(unionfs.createDirectory(bar)).isTrue();
+    assertThat(unionfs.createDirectory(out)).isTrue();
     Path outFile = unionfs.getPath("/out/in");
     FileSystemUtils.writeContentAsLatin1(outFile, "Out");
 
@@ -187,41 +181,43 @@ public class UnionFileSystemTest extends SymlinkAwareFileSystemTest {
         out, testDirUnderRoot);
     assertThat(unionfs.getDirectoryEntries(out)).containsExactly(outFile);
 
-    assertSame(unionfs.getDelegate(foo), defaultDelegate);
-    assertEquals(foo.asFragment(), unionfs.adjustPath(foo, defaultDelegate).asFragment());
-    assertSame(unionfs.getDelegate(bar), defaultDelegate);
-    assertSame(unionfs.getDelegate(outFile), outDelegate);
-    assertSame(unionfs.getDelegate(out), outDelegate);
+    assertThat(defaultDelegate).isSameAs(unionfs.getDelegate(foo));
+    assertThat(unionfs.adjustPath(foo, defaultDelegate).asFragment()).isEqualTo(foo.asFragment());
+    assertThat(defaultDelegate).isSameAs(unionfs.getDelegate(bar));
+    assertThat(outDelegate).isSameAs(unionfs.getDelegate(outFile));
+    assertThat(outDelegate).isSameAs(unionfs.getDelegate(out));
 
     // As a fragment (i.e. without filesystem or root info), the path name should be preserved.
-    assertEquals(outFile.asFragment(), unionfs.adjustPath(outFile, outDelegate).asFragment());
+    assertThat(unionfs.adjustPath(outFile, outDelegate).asFragment())
+        .isEqualTo(outFile.asFragment());
   }
 
   // Ensure that the right filesystem is still chosen when paths contain "..".
   @Test
   public void testDelegationOfUpLevelReferences() throws Exception {
-    assertSame(defaultDelegate, unionfs.getDelegate(unionfs.getPath("/in/../foo.txt")));
-    assertSame(inDelegate, unionfs.getDelegate(unionfs.getPath("/out/../in")));
-    assertSame(outDelegate, unionfs.getDelegate(unionfs.getPath("/out/../in/../out/foo.txt")));
-    assertSame(inDelegate, unionfs.getDelegate(unionfs.getPath("/in/./foo.txt")));
+    assertThat(unionfs.getDelegate(unionfs.getPath("/in/../foo.txt"))).isSameAs(defaultDelegate);
+    assertThat(unionfs.getDelegate(unionfs.getPath("/out/../in"))).isSameAs(inDelegate);
+    assertThat(unionfs.getDelegate(unionfs.getPath("/out/../in/../out/foo.txt")))
+        .isSameAs(outDelegate);
+    assertThat(unionfs.getDelegate(unionfs.getPath("/in/./foo.txt"))).isSameAs(inDelegate);
   }
 
   // Basic *explicit* cross-filesystem symlink check.
   // Note: This does not work implicitly yet, as the next test illustrates.
   @Test
   public void testCrossDeviceSymlinks() throws Exception {
-    assertTrue(unionfs.createDirectory(unionfs.getPath("/out")));
+    assertThat(unionfs.createDirectory(unionfs.getPath("/out"))).isTrue();
 
     // Create an "/in" directory directly on the output delegate to bypass the
     // UnionFileSystem's mapping.
-    assertTrue(inDelegate.getPath("/in").createDirectory());
+    assertThat(inDelegate.getPath("/in").createDirectory()).isTrue();
     OutputStream outStream = inDelegate.getPath("/in/bar.txt").getOutputStream();
     outStream.write('i');
     outStream.close();
 
     Path outFoo = unionfs.getPath("/out/foo");
     unionfs.createSymbolicLink(outFoo, PathFragment.create("../in/bar.txt"));
-    assertTrue(unionfs.stat(outFoo, false).isSymbolicLink());
+    assertThat(unionfs.stat(outFoo, false).isSymbolicLink()).isTrue();
 
     try {
       unionfs.stat(outFoo, true).isFile();
@@ -231,22 +227,26 @@ public class UnionFileSystemTest extends SymlinkAwareFileSystemTest {
     }
 
     Path resolved = unionfs.resolveSymbolicLinks(outFoo);
-    assertSame(unionfs, resolved.getFileSystem());
+    assertThat(resolved.getFileSystem()).isSameAs(unionfs);
     InputStream barInput = resolved.getInputStream();
     int barChar = barInput.read();
     barInput.close();
-    assertEquals('i', barChar);
+    assertThat(barChar).isEqualTo('i');
   }
 
   @Test
   public void testNoDelegateLeakage() throws Exception {
-    assertSame(unionfs, unionfs.getPath("/in/foo.txt").getFileSystem());
-    assertSame(unionfs, unionfs.getPath("/in/foo/bar").getParentDirectory().getFileSystem());
+    assertThat(unionfs.getPath("/in/foo.txt").getFileSystem()).isSameAs(unionfs);
+    assertThat(unionfs.getPath("/in/foo/bar").getParentDirectory().getFileSystem())
+        .isSameAs(unionfs);
     unionfs.createDirectory(unionfs.getPath("/out"));
     unionfs.createDirectory(unionfs.getPath("/out/foo"));
     unionfs.createDirectory(unionfs.getPath("/out/foo/bar"));
-    assertSame(unionfs, Iterables.getOnlyElement(unionfs.getDirectoryEntries(
-        unionfs.getPath("/out/foo"))).getParentDirectory().getFileSystem());
+    assertThat(
+            Iterables.getOnlyElement(unionfs.getDirectoryEntries(unionfs.getPath("/out/foo")))
+                .getParentDirectory()
+                .getFileSystem())
+        .isSameAs(unionfs);
   }
 
   // Prefix mappings can apply to files starting with a prefix within a directory.
@@ -255,30 +255,36 @@ public class UnionFileSystemTest extends SymlinkAwareFileSystemTest {
     unionfs = new UnionFileSystem(ImmutableMap.<PathFragment, FileSystem>of(
         PathFragment.create("/fruit/a"), inDelegate,
         PathFragment.create("/fruit/b"), outDelegate), defaultDelegate);
-    assertTrue(unionfs.createDirectory(unionfs.getPath("/fruit")));
-    assertTrue(defaultDelegate.getPath("/fruit").isDirectory());
-    assertTrue(inDelegate.getPath("/fruit").createDirectory());
-    assertTrue(outDelegate.getPath("/fruit").createDirectory());
+    assertThat(unionfs.createDirectory(unionfs.getPath("/fruit"))).isTrue();
+    assertThat(defaultDelegate.getPath("/fruit").isDirectory()).isTrue();
+    assertThat(inDelegate.getPath("/fruit").createDirectory()).isTrue();
+    assertThat(outDelegate.getPath("/fruit").createDirectory()).isTrue();
 
     Path apple = unionfs.getPath("/fruit/apple");
     Path banana = unionfs.getPath("/fruit/banana");
     Path cherry = unionfs.getPath("/fruit/cherry");
     unionfs.createDirectory(apple);
     unionfs.createDirectory(banana);
-    assertSame(inDelegate, unionfs.getDelegate(apple));
-    assertSame(outDelegate, unionfs.getDelegate(banana));
-    assertSame(defaultDelegate, unionfs.getDelegate(cherry));
+    assertThat(unionfs.getDelegate(apple)).isSameAs(inDelegate);
+    assertThat(unionfs.getDelegate(banana)).isSameAs(outDelegate);
+    assertThat(unionfs.getDelegate(cherry)).isSameAs(defaultDelegate);
 
     FileSystemUtils.writeContentAsLatin1(apple.getRelative("table"), "penny");
     FileSystemUtils.writeContentAsLatin1(banana.getRelative("nana"), "nanana");
     FileSystemUtils.writeContentAsLatin1(cherry, "garcia");
 
-    assertEquals("penny", new String(
-        FileSystemUtils.readContentAsLatin1(inDelegate.getPath("/fruit/apple/table"))));
-    assertEquals("nanana", new String(
-        FileSystemUtils.readContentAsLatin1(outDelegate.getPath("/fruit/banana/nana"))));
-    assertEquals("garcia", new String(
-        FileSystemUtils.readContentAsLatin1(defaultDelegate.getPath("/fruit/cherry"))));
+    assertThat(
+            new String(
+                FileSystemUtils.readContentAsLatin1(inDelegate.getPath("/fruit/apple/table"))))
+        .isEqualTo("penny");
+    assertThat(
+            new String(
+                FileSystemUtils.readContentAsLatin1(outDelegate.getPath("/fruit/banana/nana"))))
+        .isEqualTo("nanana");
+    assertThat(
+            new String(
+                FileSystemUtils.readContentAsLatin1(defaultDelegate.getPath("/fruit/cherry"))))
+        .isEqualTo("garcia");
   }
 
   // Write using the VFS through a UnionFileSystem and check that the file can
@@ -294,14 +300,14 @@ public class UnionFileSystemTest extends SymlinkAwareFileSystemTest {
     // It would be created in setup(), but of course, that didn't use a UnixFileSystem.
     unionfs.createDirectory(workingDir);
     Path testFile = unionfs.getPath(workingDir.getRelative("test_file").asFragment());
-    assertTrue(testFile.asFragment().startsWith(workingDir.asFragment()));
+    assertThat(testFile.asFragment().startsWith(workingDir.asFragment())).isTrue();
     String testString = "This is a test file";
     FileSystemUtils.writeContentAsLatin1(testFile, testString);
     try {
-      assertEquals(testString, new String(FileSystemUtils.readContentAsLatin1(testFile)));
+      assertThat(new String(FileSystemUtils.readContentAsLatin1(testFile))).isEqualTo(testString);
     } finally {
       testFile.delete();
-      assertTrue(unionfs.delete(workingDir));
+      assertThat(unionfs.delete(workingDir)).isTrue();
     }
   }
 
@@ -312,7 +318,7 @@ public class UnionFileSystemTest extends SymlinkAwareFileSystemTest {
         PathFragment.create("/out/dir"), outDelegate), defaultDelegate, false);
     Path outDir = unionfs.getPath("/out/dir/biz/bang");
     FileSystemUtils.createDirectoryAndParents(outDir);
-    assertTrue(outDir.isDirectory());
+    assertThat(outDir.isDirectory()).isTrue();
   }
 
   private static class XAttrInMemoryFs extends InMemoryFileSystem {
@@ -322,7 +328,7 @@ public class UnionFileSystemTest extends SymlinkAwareFileSystemTest {
 
     @Override
     protected byte[] getxattr(Path path, String name) {
-      assertSame(this, path.getFileSystem());
+      assertThat(path.getFileSystem()).isSameAs(this);
       return (name.equals(XATTR_KEY)) ? XATTR_VAL.getBytes(UTF_8) : null;
     }
   }

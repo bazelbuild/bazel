@@ -13,19 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.shell;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests the command class with large inputs
@@ -62,9 +61,9 @@ public class CommandLargeInputsTest {
     final Command command = new Command(new String[] {"cat"});
     byte[] randomBytes = getRandomBytes();
     final CommandResult result = command.execute(randomBytes);
-    assertEquals(0, result.getTerminationStatus().getRawExitCode());
+    assertThat(result.getTerminationStatus().getRawExitCode()).isEqualTo(0);
     TestUtil.assertArrayEquals(randomBytes, result.getStdout());
-    assertEquals(0, result.getStderr().length);
+    assertThat(result.getStderr()).isEmpty();
    }
 
   @Test
@@ -75,9 +74,9 @@ public class CommandLargeInputsTest {
     byte[] randomBytes = getRandomBytes();
     final CommandResult result = command.execute(randomBytes,
                                                  Command.NO_OBSERVER, out, err);
-    assertEquals(0, result.getTerminationStatus().getRawExitCode());
+    assertThat(result.getTerminationStatus().getRawExitCode()).isEqualTo(0);
     TestUtil.assertArrayEquals(randomBytes, out.toByteArray());
-    assertEquals(0, err.toByteArray().length);
+    assertThat(err.toByteArray()).isEmpty();
     assertOutAndErrNotAvailable(result);
   }
 
@@ -89,8 +88,8 @@ public class CommandLargeInputsTest {
     byte[] randomBytes = getRandomBytes();
     final CommandResult result = command.execute(randomBytes,
                                                  Command.NO_OBSERVER, out, err);
-    assertEquals(0, result.getTerminationStatus().getRawExitCode());
-    assertEquals(0, out.toByteArray().length);
+    assertThat(result.getTerminationStatus().getRawExitCode()).isEqualTo(0);
+    assertThat(out.toByteArray()).isEmpty();
     TestUtil.assertArrayEquals(randomBytes, err.toByteArray());
     assertOutAndErrNotAvailable(result);
   }
@@ -106,8 +105,8 @@ public class CommandLargeInputsTest {
 
     final CommandResult result = command.execute(in,
                                                  Command.NO_OBSERVER, out, err);
-    assertEquals(0, result.getTerminationStatus().getRawExitCode());
-    assertEquals(0, out.toByteArray().length);
+    assertThat(result.getTerminationStatus().getRawExitCode()).isEqualTo(0);
+    assertThat(out.toByteArray()).isEmpty();
     TestUtil.assertArrayEquals(randomBytes, err.toByteArray());
     assertOutAndErrNotAvailable(result);
   }
@@ -126,8 +125,8 @@ public class CommandLargeInputsTest {
       expectedOut.append("OUT").append(i).append("\n");
       expectedErr.append("ERR").append(i).append("\n");
     }
-    assertEquals(expectedOut.toString(), out.toString("UTF-8"));
-    assertEquals(expectedErr.toString(), err.toString("UTF-8"));
+    assertThat(out.toString("UTF-8")).isEqualTo(expectedOut.toString());
+    assertThat(err.toString("UTF-8")).isEqualTo(expectedErr.toString());
   }
 
   private void assertOutAndErrNotAvailable(final CommandResult result) {
@@ -146,8 +145,8 @@ public class CommandLargeInputsTest {
     final Command command = new Command(new String[] {"cat"});
     byte[] allByteValues = getAllByteValues();
     final CommandResult result = command.execute(allByteValues);
-    assertEquals(0, result.getTerminationStatus().getRawExitCode());
-    assertEquals(0, result.getStderr().length);
+    assertThat(result.getTerminationStatus().getRawExitCode()).isEqualTo(0);
+    assertThat(result.getStderr()).isEmpty();
     TestUtil.assertArrayEquals(allByteValues, result.getStdout());
   }
 

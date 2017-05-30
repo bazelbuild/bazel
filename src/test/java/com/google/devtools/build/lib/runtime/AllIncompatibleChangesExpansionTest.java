@@ -186,7 +186,7 @@ public class AllIncompatibleChangesExpansionTest {
       OptionsParser.newOptionsParser(ExampleOptions.class, optionsBaseClass);
       fail("Should have failed with message \"" + message + "\"");
     } catch (OptionsParser.ConstructionException e) {
-      assertThat(e.getMessage()).contains(message);
+      assertThat(e).hasMessageThat().contains(message);
     }
   }
 

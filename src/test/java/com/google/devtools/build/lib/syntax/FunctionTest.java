@@ -14,8 +14,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
@@ -38,7 +36,7 @@ public class FunctionTest extends EvaluationTestCase {
         "  a = 1",
         "  b = a\n");
     UserDefinedFunction stmt = (UserDefinedFunction) lookup("func");
-    assertNotNull(stmt);
+    assertThat(stmt).isNotNull();
     assertThat(stmt.getName()).isEqualTo("func");
     assertThat(stmt.getFunctionSignature().getSignature().getShape().getMandatoryPositionals())
         .isEqualTo(3);
@@ -82,7 +80,7 @@ public class FunctionTest extends EvaluationTestCase {
     eval("def func():",
         "  a = 2",
         "func()\n");
-    assertEquals(1, lookup("a"));
+    assertThat(lookup("a")).isEqualTo(1);
   }
 
   @Test
@@ -92,7 +90,7 @@ public class FunctionTest extends EvaluationTestCase {
         "  b = a",
         "  return b",
         "c = func()\n");
-    assertEquals(1, lookup("c"));
+    assertThat(lookup("c")).isEqualTo(1);
   }
 
   @Test
@@ -103,7 +101,7 @@ public class FunctionTest extends EvaluationTestCase {
         "  b = a",
         "  return b",
         "c = func()\n");
-    assertEquals(2, lookup("c"));
+    assertThat(lookup("c")).isEqualTo(2);
   }
 
   @Test
@@ -138,7 +136,7 @@ public class FunctionTest extends EvaluationTestCase {
         "  a = 3",
         "  return b",
         "c = func()\n");
-    assertEquals(2, lookup("c"));
+    assertThat(lookup("c")).isEqualTo(2);
   }
 
   @SuppressWarnings("unchecked")
@@ -153,7 +151,7 @@ public class FunctionTest extends EvaluationTestCase {
     eval("def func():",
         "  return 2",
         "b = func()\n");
-    assertEquals(2, lookup("b"));
+    assertThat(lookup("b")).isEqualTo(2);
   }
 
   @Test
@@ -162,7 +160,7 @@ public class FunctionTest extends EvaluationTestCase {
         "  for i in [1, 2, 3, 4, 5]:",
         "    return i",
         "b = func()\n");
-    assertEquals(1, lookup("b"));
+    assertThat(lookup("b")).isEqualTo(1);
   }
 
   @Test
@@ -174,8 +172,8 @@ public class FunctionTest extends EvaluationTestCase {
         "  return b",
         "c = func(0)",
         "d = func(1)\n");
-    assertEquals(1, lookup("c"));
-    assertEquals(2, lookup("d"));
+    assertThat(lookup("c")).isEqualTo(1);
+    assertThat(lookup("d")).isEqualTo(2);
   }
 
   @Test
@@ -199,14 +197,14 @@ public class FunctionTest extends EvaluationTestCase {
         "def func1():",
         "  return func2()",
         "b = func1()\n");
-    assertEquals(1, lookup("b"));
+    assertThat(lookup("b")).isEqualTo(1);
   }
 
   @Test
   public void testSingleLineFunction() throws Exception {
     eval("def func(): return 'a'",
         "s = func()\n");
-    assertEquals("a", lookup("s"));
+    assertThat(lookup("s")).isEqualTo("a");
   }
 
   @Test
@@ -214,7 +212,7 @@ public class FunctionTest extends EvaluationTestCase {
     eval("def func(): return {'a' : 1}",
         "d = func()",
         "a = d['a']\n");
-    assertEquals(1, lookup("a"));
+    assertThat(lookup("a")).isEqualTo(1);
   }
 
   @Test
@@ -222,7 +220,7 @@ public class FunctionTest extends EvaluationTestCase {
     eval("def func(): return [1, 2, 3]",
         "d = func()",
         "a = d[1]\n");
-    assertEquals(2, lookup("a"));
+    assertThat(lookup("a")).isEqualTo(2);
   }
 
   @SuppressWarnings("unchecked")
@@ -241,7 +239,7 @@ public class FunctionTest extends EvaluationTestCase {
         "def func(d):",
         "  d += {'a' : 2}",
         "func(d)");
-    assertEquals(ImmutableMap.of("a", 1), lookup("d"));
+    assertThat(lookup("d")).isEqualTo(ImmutableMap.of("a", 1));
   }
 
   @Test
@@ -250,7 +248,7 @@ public class FunctionTest extends EvaluationTestCase {
         "  return a + 1",
         "alias = func",
         "r = alias(1)");
-    assertEquals(2, lookup("r"));
+    assertThat(lookup("r")).isEqualTo(2);
   }
 
   @Test
@@ -258,7 +256,7 @@ public class FunctionTest extends EvaluationTestCase {
     eval("def func(a, b, c):",
         "  return a + b + c",
         "v = func(1, c = 2, b = 3)");
-    assertEquals(6, lookup("v"));
+    assertThat(lookup("v")).isEqualTo(6);
   }
 
   private String functionWithOptionalArgs() {
@@ -278,10 +276,10 @@ public class FunctionTest extends EvaluationTestCase {
         "v2 = func(b = 2, a = '2', c = 2)",
         "v3 = func('3')",
         "v4 = func('4', c = 1)\n");
-    assertEquals("1abc", lookup("v1"));
-    assertEquals("2abc", lookup("v2"));
-    assertEquals("3a", lookup("v3"));
-    assertEquals("4ac", lookup("v4"));
+    assertThat(lookup("v1")).isEqualTo("1abc");
+    assertThat(lookup("v2")).isEqualTo("2abc");
+    assertThat(lookup("v3")).isEqualTo("3a");
+    assertThat(lookup("v4")).isEqualTo("4ac");
   }
 
   @Test
@@ -292,10 +290,10 @@ public class FunctionTest extends EvaluationTestCase {
         "v2 = func(b = 'x', a = 'a', c = 'y')",
         "v3 = func('a')",
         "v4 = func('a', c = 'y')\n");
-    assertEquals("axy", lookup("v1"));
-    assertEquals("axy", lookup("v2"));
-    assertEquals("abc", lookup("v3"));
-    assertEquals("aby", lookup("v4"));
+    assertThat(lookup("v1")).isEqualTo("axy");
+    assertThat(lookup("v2")).isEqualTo("axy");
+    assertThat(lookup("v3")).isEqualTo("abc");
+    assertThat(lookup("v4")).isEqualTo("aby");
   }
 
   @Test
@@ -328,11 +326,11 @@ public class FunctionTest extends EvaluationTestCase {
       "v1 = foo(**args)",
       "v2 = foo('x', c = 'c', d = 'e', **{'b': 'y'})",
       "v3 = foo(c = 'z', a = 'x', **{'b': 'y', 'd': 'f'})");
-    assertEquals("xbzd", lookup("v1"));
-    assertEquals("xyce", lookup("v2"));
-    assertEquals("xyzf", lookup("v3"));
+    assertThat(lookup("v1")).isEqualTo("xbzd");
+    assertThat(lookup("v2")).isEqualTo("xyce");
+    assertThat(lookup("v3")).isEqualTo("xyzf");
     UserDefinedFunction foo = (UserDefinedFunction) lookup("foo");
-    assertEquals("foo(a, b = \"b\", *, c, d = \"d\")", foo.toString());
+    assertThat(foo.toString()).isEqualTo("foo(a, b = \"b\", *, c, d = \"d\")");
   }
 
   @Test
@@ -385,14 +383,14 @@ public class FunctionTest extends EvaluationTestCase {
         "  a = 3",
         "  return foo()",
         "v = bar()\n");
-    assertEquals(2, lookup("v"));
+    assertThat(lookup("v")).isEqualTo(2);
   }
 
   @Test
   public void testMixingPositionalOptional() throws Exception {
     eval("def f(name, value = '', optional = ''): return value",
         "v = f('name', 'value')\n");
-    assertEquals("value", lookup("v"));
+    assertThat(lookup("v")).isEqualTo("value");
   }
 
   @Test
@@ -402,10 +400,10 @@ public class FunctionTest extends EvaluationTestCase {
         "v2 = f('0', *['name', 'value'])",
         "v3 = f('0', *['b'], optional = '3')",
         "v4 = f(*[],name='a')\n");
-    assertEquals("namevalue2", lookup("v1"));
-    assertEquals("0namevalue", lookup("v2"));
-    assertEquals("0b3", lookup("v3"));
-    assertEquals("a12", lookup("v4"));
+    assertThat(lookup("v1")).isEqualTo("namevalue2");
+    assertThat(lookup("v2")).isEqualTo("0namevalue");
+    assertThat(lookup("v3")).isEqualTo("0b3");
+    assertThat(lookup("v4")).isEqualTo("a12");
   }
 
   @Test
@@ -419,11 +417,11 @@ public class FunctionTest extends EvaluationTestCase {
         "v3 = f('a', *['b', 'c', 'd'], mandatory = 'y', optional = 'z')",
         "v4 = f(*['a'], **{'value': 'b', 'mandatory': 'c'})",
         "v5 = f('a', 'b', 'c', *['d', 'e'], mandatory = 'f', **{'optional': 'g'})\n");
-    assertEquals("abz2|", lookup("v1"));
-    assertEquals("abz2|cd", lookup("v2"));
-    assertEquals("abyz|cd", lookup("v3"));
-    assertEquals("abc2|", lookup("v4"));
-    assertEquals("abfg|cde", lookup("v5"));
+    assertThat(lookup("v1")).isEqualTo("abz2|");
+    assertThat(lookup("v2")).isEqualTo("abz2|cd");
+    assertThat(lookup("v3")).isEqualTo("abyz|cd");
+    assertThat(lookup("v4")).isEqualTo("abc2|");
+    assertThat(lookup("v5")).isEqualTo("abfg|cde");
   }
 
   @Test
@@ -436,8 +434,8 @@ public class FunctionTest extends EvaluationTestCase {
         "v1 = f('a', 'b', 'c', 'd', 'e')",
         "v2 = f('a', optional='b', value='c')",
         "v3 = f('a')");
-    assertEquals("abc|de", lookup("v1"));
-    assertEquals("acb|", lookup("v2"));
-    assertEquals("a12|", lookup("v3"));
+    assertThat(lookup("v1")).isEqualTo("abc|de");
+    assertThat(lookup("v2")).isEqualTo("acb|");
+    assertThat(lookup("v3")).isEqualTo("a12|");
   }
 }

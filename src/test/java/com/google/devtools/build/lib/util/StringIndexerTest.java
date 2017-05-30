@@ -15,22 +15,12 @@ package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 
 import com.google.common.base.Function;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.testutil.TestUtils;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.util.List;
 import java.util.SortedMap;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -38,6 +28,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Test for the StringIndexer classes.
@@ -58,26 +52,26 @@ public abstract class StringIndexerTest {
   protected abstract StringIndexer newIndexer();
 
   protected void assertSize(int expected) {
-    assertEquals(expected, indexer.size());
+    assertThat(indexer.size()).isEqualTo(expected);
   }
 
   protected void assertNoIndex(String s) {
     int size = indexer.size();
-    assertEquals(-1, indexer.getIndex(s));
-    assertEquals(size, indexer.size());
+    assertThat(indexer.getIndex(s)).isEqualTo(-1);
+    assertThat(indexer.size()).isEqualTo(size);
   }
 
   protected void assertIndex(int expected, String s) {
     // System.out.println("Adding " + s + ", expecting " + expected);
     int index = indexer.getOrCreateIndex(s);
     // System.out.println(csi);
-    assertEquals(expected, index);
+    assertThat(index).isEqualTo(expected);
     mappings.put(expected, s);
   }
 
   protected void assertContent() {
     for (int i = 0; i < indexer.size(); i++) {
-      assertNotNull(mappings.get(i));
+      assertThat(mappings.get(i)).isNotNull();
       assertThat(mappings).containsEntry(i, indexer.getStringForIndex(i));
     }
   }
@@ -108,8 +102,8 @@ public abstract class StringIndexerTest {
           int index = safeIndex.get();
           // Retrieve string using random existing index and validate reverse mapping.
           String key = indexer.getStringForIndex(index);
-          assertNotNull(key);
-          assertEquals(index, indexer.getIndex(key));
+          assertThat(key).isNotNull();
+          assertThat(indexer.getIndex(key)).isEqualTo(index);
         }
       }
     } finally {
@@ -176,8 +170,8 @@ public abstract class StringIndexerTest {
       assertContent();
       indexer.clear();
       assertSize(0);
-      assertNull(indexer.getStringForIndex(0));
-      assertNull(indexer.getStringForIndex(1000));
+      assertThat(indexer.getStringForIndex(0)).isNull();
+      assertThat(indexer.getStringForIndex(1000)).isNull();
     }
 
     @Test
@@ -241,10 +235,10 @@ public abstract class StringIndexerTest {
     @Test
     public void addStringResult() {
       assertSize(0);
-      assertTrue(indexer.addString("abcdef"));
-      assertTrue(indexer.addString("abcdgh"));
-      assertFalse(indexer.addString("abcd"));
-      assertTrue(indexer.addString("ab"));
+      assertThat(indexer.addString("abcdef")).isTrue();
+      assertThat(indexer.addString("abcdgh")).isTrue();
+      assertThat(indexer.addString("abcd")).isFalse();
+      assertThat(indexer.addString("ab")).isTrue();
     }
   }
 
@@ -279,18 +273,18 @@ public abstract class StringIndexerTest {
       assertContent();
       indexer.clear();
       assertSize(0);
-      assertNull(indexer.getStringForIndex(0));
-      assertNull(indexer.getStringForIndex(1000));
+      assertThat(indexer.getStringForIndex(0)).isNull();
+      assertThat(indexer.getStringForIndex(1000)).isNull();
     }
 
     @Test
     public void addStringResult() {
       assertSize(0);
-      assertTrue(indexer.addString("abcdef"));
-      assertTrue(indexer.addString("abcdgh"));
-      assertTrue(indexer.addString("abcd"));
-      assertTrue(indexer.addString("ab"));
-      assertFalse(indexer.addString("ab"));
+      assertThat(indexer.addString("abcdef")).isTrue();
+      assertThat(indexer.addString("abcdgh")).isTrue();
+      assertThat(indexer.addString("abcd")).isTrue();
+      assertThat(indexer.addString("ab")).isTrue();
+      assertThat(indexer.addString("ab")).isFalse();
     }
 
     protected void setupTestContent() {

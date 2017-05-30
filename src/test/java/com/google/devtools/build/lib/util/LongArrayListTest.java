@@ -13,9 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -41,64 +39,64 @@ public class LongArrayListTest {
       list.add(i);
     }
     for (int i = 0; i < 50; i++) {
-      assertEquals(list.get(i), i);
+      assertThat(i).isEqualTo(list.get(i));
     }
     list.add(25, 42);
-    assertEquals(42, list.get(25));
-    assertEquals(25, list.get(26));
-    assertEquals(49, list.get(list.size() - 1));
-    assertEquals(51, list.size());
-    assertEquals(23, list.indexOf(23));
-    assertEquals(29, list.indexOf(28));
+    assertThat(list.get(25)).isEqualTo(42);
+    assertThat(list.get(26)).isEqualTo(25);
+    assertThat(list.get(list.size() - 1)).isEqualTo(49);
+    assertThat(list.size()).isEqualTo(51);
+    assertThat(list.indexOf(23)).isEqualTo(23);
+    assertThat(list.indexOf(28)).isEqualTo(29);
   }
 
   @Test
   public void testAddAlls() throws Exception {
     list.addAll(new long[] {1, 2, 3, 4, 5}, 1, 3);
-    assertEquals(2, list.get(0));
-    assertEquals(3, list.get(1));
-    assertEquals(4, list.get(2));
-    assertEquals(3, list.size());
+    assertThat(list.get(0)).isEqualTo(2);
+    assertThat(list.get(1)).isEqualTo(3);
+    assertThat(list.get(2)).isEqualTo(4);
+    assertThat(list.size()).isEqualTo(3);
     list.addAll(new long[] {42, 41}, 0, 2, 1);
-    assertEquals(42, list.get(1));
-    assertEquals(41, list.get(2));
-    assertEquals(3, list.get(3));
-    assertEquals(4, list.get(4));
-    assertEquals(5, list.size());
+    assertThat(list.get(1)).isEqualTo(42);
+    assertThat(list.get(2)).isEqualTo(41);
+    assertThat(list.get(3)).isEqualTo(3);
+    assertThat(list.get(4)).isEqualTo(4);
+    assertThat(list.size()).isEqualTo(5);
     LongArrayList other = new LongArrayList(new long[] {5, 6, 7});
     list.addAll(other, list.size());
-    assertEquals(42, list.get(1));
-    assertEquals(4, list.get(4));
-    assertEquals(5, list.get(5));
-    assertEquals(6, list.get(6));
-    assertEquals(7, list.get(7));
-    assertEquals(8, list.size());
+    assertThat(list.get(1)).isEqualTo(42);
+    assertThat(list.get(4)).isEqualTo(4);
+    assertThat(list.get(5)).isEqualTo(5);
+    assertThat(list.get(6)).isEqualTo(6);
+    assertThat(list.get(7)).isEqualTo(7);
+    assertThat(list.size()).isEqualTo(8);
     list.addAll(new LongArrayList());
-    assertEquals(8, list.size());
+    assertThat(list.size()).isEqualTo(8);
     list.addAll(new long[] {});
-    assertEquals(8, list.size());
+    assertThat(list.size()).isEqualTo(8);
   }
 
   @Test
   public void testSet() throws Exception {
     list.addAll(new long[] {1, 2, 3});
     list.set(1, 42);
-    assertEquals(42, list.get(1));
-    assertEquals(3, list.size());
+    assertThat(list.get(1)).isEqualTo(42);
+    assertThat(list.size()).isEqualTo(3);
   }
 
   @Test
   public void testSort() throws Exception {
     list = new LongArrayList(new long[] {3, 2, 1});
     list.sort();
-    assertEquals(1, list.get(0));
-    assertEquals(2, list.get(1));
-    assertEquals(3, list.get(2));
+    assertThat(list.get(0)).isEqualTo(1);
+    assertThat(list.get(1)).isEqualTo(2);
+    assertThat(list.get(2)).isEqualTo(3);
     list.addAll(new long[] {-5, -2});
     list.sort(2, 5);
-    assertEquals(-5, list.get(2));
-    assertEquals(-2, list.get(3));
-    assertEquals(3, list.get(4));
+    assertThat(list.get(2)).isEqualTo(-5);
+    assertThat(list.get(3)).isEqualTo(-2);
+    assertThat(list.get(4)).isEqualTo(3);
   }
 
   @Test
@@ -108,13 +106,13 @@ public class LongArrayListTest {
       list.add(i);
     }
     long removed = list.remove(last);
-    assertEquals(last, removed);
-    assertEquals(last, list.size());
+    assertThat(removed).isEqualTo(last);
+    assertThat(list.size()).isEqualTo(last);
     removed = list.remove(0);
-    assertEquals(0, removed);
-    assertEquals(1, list.get(0));
-    assertEquals(last - 1, list.get(last - 2));
-    assertEquals(last - 1, list.size());
+    assertThat(removed).isEqualTo(0);
+    assertThat(list.get(0)).isEqualTo(1);
+    assertThat(list.get(last - 2)).isEqualTo(last - 1);
+    assertThat(list.size()).isEqualTo(last - 1);
   }
 
   @Test
@@ -124,17 +122,17 @@ public class LongArrayListTest {
       list.add(i);
     }
     boolean removed = list.remove((long) last);
-    assertTrue(removed);
-    assertEquals(last, list.size());
-    assertEquals(last - 1, list.get(last - 1));
+    assertThat(removed).isTrue();
+    assertThat(list.size()).isEqualTo(last);
+    assertThat(list.get(last - 1)).isEqualTo(last - 1);
     removed = list.remove(3L);
-    assertTrue(removed);
-    assertEquals(0, list.get(0));
-    assertEquals(last - 1, list.get(last - 2));
-    assertEquals(last - 1, list.size());
+    assertThat(removed).isTrue();
+    assertThat(list.get(0)).isEqualTo(0);
+    assertThat(list.get(last - 2)).isEqualTo(last - 1);
+    assertThat(list.size()).isEqualTo(last - 1);
     removed = list.remove(42L);
-    assertFalse(removed);
-    assertEquals(last - 1, list.size());
+    assertThat(removed).isFalse();
+    assertThat(list.size()).isEqualTo(last - 1);
   }
 
   @Test
@@ -144,9 +142,9 @@ public class LongArrayListTest {
       list.add(i);
     }
     list.ensureCapacity(512);
-    assertEquals(last + 1, list.size());
-    assertEquals(0, list.get(0));
-    assertEquals(last, list.get(last));
+    assertThat(list.size()).isEqualTo(last + 1);
+    assertThat(list.get(0)).isEqualTo(0);
+    assertThat(list.get(last)).isEqualTo(last);
   }
 
   @Test(expected = IndexOutOfBoundsException.class)

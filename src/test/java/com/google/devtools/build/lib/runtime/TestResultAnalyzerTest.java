@@ -13,8 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -58,8 +57,8 @@ public class TestResultAnalyzerTest {
   @Test
   public void testIncrementalAnalyzeSetsActionRanTrueWhenThereAreNonCachedResults() {
     TestSummary.Builder summaryBuilder = makeTestSummaryBuilder();
-    assertFalse(summaryBuilder.peek().actionRan());
-    
+    assertThat(summaryBuilder.peek().actionRan()).isFalse();
+
     TestResultData testResultData = TestResultData.newBuilder().setRemotelyCached(false).build();
     TestResult result = new TestResult(
         mock(TestRunnerAction.class),
@@ -67,14 +66,14 @@ public class TestResultAnalyzerTest {
         /*cached=*/false);
 
     TestSummary.Builder newSummaryBuilder = underTest.incrementalAnalyze(summaryBuilder, result);
-    assertTrue(newSummaryBuilder.peek().actionRan());
+    assertThat(newSummaryBuilder.peek().actionRan()).isTrue();
   }
 
   @Test
   public void testIncrementalAnalyzeSetsActionRanFalseForLocallyCachedTests() {
     TestSummary.Builder summaryBuilder = makeTestSummaryBuilder();
-    assertFalse(summaryBuilder.peek().actionRan());
-    
+    assertThat(summaryBuilder.peek().actionRan()).isFalse();
+
     TestResultData testResultData = TestResultData.newBuilder().setRemotelyCached(false).build();
     TestResult result = new TestResult(
         mock(TestRunnerAction.class),
@@ -82,14 +81,14 @@ public class TestResultAnalyzerTest {
         /*cached=*/true);
     
     TestSummary.Builder newSummaryBuilder = underTest.incrementalAnalyze(summaryBuilder, result);
-    assertFalse(newSummaryBuilder.peek().actionRan());
+    assertThat(newSummaryBuilder.peek().actionRan()).isFalse();
   }
 
   @Test
   public void testIncrementalAnalyzeSetsActionRanFalseForRemotelyCachedTests() {
     TestSummary.Builder summaryBuilder = makeTestSummaryBuilder();
-    assertFalse(summaryBuilder.peek().actionRan());
-    
+    assertThat(summaryBuilder.peek().actionRan()).isFalse();
+
     TestResultData testResultData = TestResultData.newBuilder().setRemotelyCached(true).build();
     TestResult result = new TestResult(
         mock(TestRunnerAction.class),
@@ -97,7 +96,7 @@ public class TestResultAnalyzerTest {
         /*cached=*/false);
 
     TestSummary.Builder newSummaryBuilder = underTest.incrementalAnalyze(summaryBuilder, result);
-    assertFalse(newSummaryBuilder.peek().actionRan());
+    assertThat(newSummaryBuilder.peek().actionRan()).isFalse();
   }
 
   @Test
@@ -111,7 +110,7 @@ public class TestResultAnalyzerTest {
         /*cached=*/true);
 
     TestSummary.Builder newSummaryBuilder = underTest.incrementalAnalyze(summaryBuilder, result);
-    assertTrue(newSummaryBuilder.peek().actionRan());
+    assertThat(newSummaryBuilder.peek().actionRan()).isTrue();
   }
 
   private TestSummary.Builder makeTestSummaryBuilder() {

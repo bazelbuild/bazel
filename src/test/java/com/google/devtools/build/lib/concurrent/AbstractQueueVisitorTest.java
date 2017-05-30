@@ -14,10 +14,7 @@
 package com.google.devtools.build.lib.concurrent;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.Lists;
@@ -52,23 +49,24 @@ public class AbstractQueueVisitorTest {
     CountingQueueVisitor counter = new CountingQueueVisitor();
     counter.enqueue();
     counter.awaitQuiescence(/*interruptWorkers=*/ false);
-    assertSame(10, counter.getCount());
-    assertSame(0, counter.activeParallelTasks());
+    assertThat(counter.getCount()).isSameAs(10);
+    assertThat(counter.activeParallelTasks()).isSameAs(0);
   }
 
   @Test
   public void callerOwnedPool() throws Exception {
     ThreadPoolExecutor executor = new ThreadPoolExecutor(5, 5, 0, TimeUnit.SECONDS,
                                                          new LinkedBlockingQueue<Runnable>());
-    assertSame(0, executor.getActiveCount());
+    assertThat(executor.getActiveCount()).isSameAs(0);
 
     CountingQueueVisitor counter = new CountingQueueVisitor(executor);
     counter.enqueue();
     counter.awaitQuiescence(/*interruptWorkers=*/ false);
-    assertSame(10, counter.getCount());
+    assertThat(counter.getCount()).isSameAs(10);
 
     executor.shutdown();
-    assertTrue(executor.awaitTermination(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS));
+    assertThat(executor.awaitTermination(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+        .isTrue();
   }
 
   @Test
@@ -77,7 +75,7 @@ public class AbstractQueueVisitorTest {
     counter.enqueue();
     counter.enqueue();
     counter.awaitQuiescence(/*interruptWorkers=*/ false);
-    assertSame(10, counter.getCount());
+    assertThat(counter.getCount()).isSameAs(10);
   }
 
   @Test
@@ -98,7 +96,7 @@ public class AbstractQueueVisitorTest {
       visitor.awaitQuiescence(/*interruptWorkers=*/ false);
       fail();
     } catch (Exception e) {
-      assertSame(myException, e);
+      assertThat(e).isSameAs(myException);
     }
   }
 
@@ -131,10 +129,10 @@ public class AbstractQueueVisitorTest {
     } catch (Error expected) {
       assertThat(expected).hasMessage("Could not create thread (fakeout)");
     }
-    assertSame(5, counter.getCount());
+    assertThat(counter.getCount()).isSameAs(5);
 
     executor.shutdown();
-    assertTrue(executor.awaitTermination(10, TimeUnit.SECONDS));
+    assertThat(executor.awaitTermination(10, TimeUnit.SECONDS)).isTrue();
   }
 
   // Regression test to make sure that AbstractQueueVisitor doesn't swallow unchecked exceptions if
@@ -149,21 +147,22 @@ public class AbstractQueueVisitorTest {
           @Override
           public void run() {
             threadStarted.countDown();
-            assertTrue(
-                Uninterruptibles.awaitUninterruptibly(
-                    visitor.getInterruptionLatchForTestingOnly(), 2, TimeUnit.SECONDS));
+            assertThat(
+                    Uninterruptibles.awaitUninterruptibly(
+                        visitor.getInterruptionLatchForTestingOnly(), 2, TimeUnit.SECONDS))
+                .isTrue();
             throw THROWABLE;
           }
         });
-    assertTrue(threadStarted.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS));
+    assertThat(threadStarted.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)).isTrue();
     // Interrupt will not be processed until work starts.
     Thread.currentThread().interrupt();
     try {
       visitor.awaitQuiescence(/*interruptWorkers=*/ true);
       fail();
     } catch (Exception e) {
-      assertEquals(THROWABLE, e);
-      assertTrue(Thread.interrupted());
+      assertThat(e).isEqualTo(THROWABLE);
+      assertThat(Thread.interrupted()).isTrue();
     }
   }
 
@@ -195,10 +194,11 @@ public class AbstractQueueVisitorTest {
           public void runTest() throws Exception {
             latch1.await();
             mainThread.interrupt();
-            assertTrue(
-                visitor
-                    .getInterruptionLatchForTestingOnly()
-                    .await(TestUtils.WAIT_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS));
+            assertThat(
+                    visitor
+                        .getInterruptionLatchForTestingOnly()
+                        .await(TestUtils.WAIT_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS))
+                .isTrue();
             latch2.countDown();
           }
         };
@@ -213,7 +213,7 @@ public class AbstractQueueVisitorTest {
     }
 
     interrupterThread.joinAndAssertState(400);
-    assertTrue(workerThreadCompleted[0]);
+    assertThat(workerThreadCompleted[0]).isTrue();
   }
 
   @Test
@@ -258,7 +258,7 @@ public class AbstractQueueVisitorTest {
       // Expected.
     }
 
-    assertTrue(workerThreadInterrupted[0]);
+    assertThat(workerThreadInterrupted[0]).isTrue();
   }
 
   @Test
@@ -287,7 +287,8 @@ public class AbstractQueueVisitorTest {
     assertFailFast(executor, false, true, "a", "b");
 
     executor.shutdown();
-    assertTrue(executor.awaitTermination(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS));
+    assertThat(executor.awaitTermination(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+        .isTrue();
   }
 
   private static void assertFailFast(
@@ -296,7 +297,7 @@ public class AbstractQueueVisitorTest {
       boolean interrupt,
       String... expectedVisited)
       throws Exception {
-    assertTrue(executor == null || !executor.isShutdown());
+    assertThat(executor == null || !executor.isShutdown()).isTrue();
     AbstractQueueVisitor visitor =
         (executor == null)
             ? new ConcreteQueueVisitor(failFastOnException)
@@ -330,15 +331,16 @@ public class AbstractQueueVisitorTest {
       if (interrupt) {
         assertThat(e).isInstanceOf(InterruptedException.class);
       } else {
-        assertSame(THROWABLE, e);
+        assertThat(e).isSameAs(THROWABLE);
       }
     }
-    assertEquals("got: " + visitedList + "\nwant: " + Arrays.toString(expectedVisited),
-        Sets.newHashSet(expectedVisited), Sets.newHashSet(visitedList));
+    assertWithMessage("got: " + visitedList + "\nwant: " + Arrays.toString(expectedVisited))
+        .that(Sets.newHashSet(visitedList))
+        .isEqualTo(Sets.newHashSet(expectedVisited));
 
     if (executor != null) {
-      assertFalse(executor.isShutdown());
-      assertEquals(0, visitor.getTaskCount());
+      assertThat(executor.isShutdown()).isFalse();
+      assertThat(visitor.getTaskCount()).isEqualTo(0);
     }
   }
 
@@ -377,12 +379,12 @@ public class AbstractQueueVisitorTest {
       visitor.awaitQuiescence(/*interruptWorkers=*/ true);
       fail();
     } catch (Exception e) {
-      assertSame(THROWABLE, e);
+      assertThat(e).isSameAs(THROWABLE);
     }
 
-    assertTrue(wasInterrupted.get());
-    assertTrue(executor.isShutdown());
-    assertTrue(exnLatch.await(0, TimeUnit.MILLISECONDS));
+    assertThat(wasInterrupted.get()).isTrue();
+    assertThat(executor.isShutdown()).isTrue();
+    assertThat(exnLatch.await(0, TimeUnit.MILLISECONDS)).isTrue();
   }
 
   @Test
@@ -430,10 +432,10 @@ public class AbstractQueueVisitorTest {
     } catch (Error e) {
       thrownError = e;
     }
-    assertTrue(sleepInterrupted.get());
-    assertFalse(sleepFinished.get());
-    assertEquals(error, thrownError);
-    assertTrue(exnLatch.await(0, TimeUnit.MILLISECONDS));
+    assertThat(sleepInterrupted.get()).isTrue();
+    assertThat(sleepFinished.get()).isFalse();
+    assertThat(thrownError).isEqualTo(error);
+    assertThat(exnLatch.await(0, TimeUnit.MILLISECONDS)).isTrue();
   }
 
   private static class ClassifiedException extends RuntimeException {
@@ -497,7 +499,7 @@ public class AbstractQueueVisitorTest {
     } catch (ClassifiedException e) {
       exn = e;
     }
-    assertEquals(criticalAndLogException, exn);
+    assertThat(exn).isEqualTo(criticalAndLogException);
   }
 
   private static Runnable throwingRunnable() {
@@ -532,10 +534,11 @@ public class AbstractQueueVisitorTest {
         }
 
         try {
-          assertTrue(
-              interrupt
-                  ? visitor.getInterruptionLatchForTestingOnly().await(1, TimeUnit.MINUTES)
-                  : visitor.getExceptionLatchForTestingOnly().await(1, TimeUnit.MINUTES));
+          assertThat(
+                  interrupt
+                      ? visitor.getInterruptionLatchForTestingOnly().await(1, TimeUnit.MINUTES)
+                      : visitor.getExceptionLatchForTestingOnly().await(1, TimeUnit.MINUTES))
+              .isTrue();
         } catch (InterruptedException e) {
           // Unexpected.
           throw new RuntimeException(e);

@@ -14,9 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -24,13 +22,11 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.syntax.Type;
-
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Unit tests for {@link ConfiguredAttributeMapper}.
@@ -81,13 +77,13 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
         "    }))");
 
     useConfiguration("--define", "mode=a");
-    assertEquals("a command", getMapper("//a:gen").get("cmd", Type.STRING));
+    assertThat(getMapper("//a:gen").get("cmd", Type.STRING)).isEqualTo("a command");
 
     useConfiguration("--define", "mode=b");
-    assertEquals("b command", getMapper("//a:gen").get("cmd", Type.STRING));
+    assertThat(getMapper("//a:gen").get("cmd", Type.STRING)).isEqualTo("b command");
 
     useConfiguration("--define", "mode=c");
-    assertEquals("default command", getMapper("//a:gen").get("cmd", Type.STRING));
+    assertThat(getMapper("//a:gen").get("cmd", Type.STRING)).isEqualTo("default command");
   }
 
   /**
@@ -130,20 +126,17 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
 
     useConfiguration("--define", "mode=a");
     getMapper("//a:bin").visitLabels(testVisitor);
-    assertThat(visitedLabels)
-        .containsExactlyElementsIn(ImmutableList.of(binSrc, Label.parseAbsolute("//a:adep")));
+    assertThat(visitedLabels).containsExactly(binSrc, Label.parseAbsolute("//a:adep"));
 
     visitedLabels.clear();
     useConfiguration("--define", "mode=b");
     getMapper("//a:bin").visitLabels(testVisitor);
-    assertThat(visitedLabels)
-        .containsExactlyElementsIn(ImmutableList.of(binSrc, Label.parseAbsolute("//a:bdep")));
+    assertThat(visitedLabels).containsExactly(binSrc, Label.parseAbsolute("//a:bdep"));
 
     visitedLabels.clear();
     useConfiguration("--define", "mode=c");
     getMapper("//a:bin").visitLabels(testVisitor);
-    assertThat(visitedLabels)
-        .containsExactlyElementsIn(ImmutableList.of(binSrc, Label.parseAbsolute("//a:defaultdep")));
+    assertThat(visitedLabels).containsExactly(binSrc, Label.parseAbsolute("//a:defaultdep"));
   }
 
   /**
@@ -177,13 +170,17 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
 
     // Target configuration is in dbg mode, so we should match //conditions:b:
     assertThat(getMapper("//a:gen").get("tools", BuildType.LABEL_LIST))
-        .containsExactlyElementsIn(ImmutableList.of(Label.parseAbsolute("//a:bdep")));
+        .containsExactly(Label.parseAbsolute("//a:bdep"));
 
     // Verify the "tools" dep uses a different configuration that's not also in "dbg":
-    assertEquals(Attribute.ConfigurationTransition.HOST,
-        getTarget("//a:gen").getAssociatedRule().getRuleClassObject()
-            .getAttributeByName("tools").getConfigurationTransition());
-    assertEquals(CompilationMode.OPT, getHostConfiguration().getCompilationMode());
+    assertThat(
+            getTarget("//a:gen")
+                .getAssociatedRule()
+                .getRuleClassObject()
+                .getAttributeByName("tools")
+                .getConfigurationTransition())
+        .isEqualTo(Attribute.ConfigurationTransition.HOST);
+    assertThat(getHostConfiguration().getCompilationMode()).isEqualTo(CompilationMode.OPT);
   }
 
   @Test
@@ -202,9 +199,7 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
         ")");
     useConfiguration("--define", "foo=a", "--define", "bar=d");
     assertThat(getMapper("//hello:gen").get("srcs", BuildType.LABEL_LIST))
-        .containsExactlyElementsIn(
-            ImmutableList.of(
-                Label.parseAbsolute("//hello:a.in"), Label.parseAbsolute("//hello:d.in")));
+        .containsExactly(Label.parseAbsolute("//hello:a.in"), Label.parseAbsolute("//hello:d.in"));
   }
 
   @Test

@@ -14,19 +14,17 @@
 
 package com.google.testing.junit.runner.sharding;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import com.google.testing.junit.runner.sharding.api.ShardingFilterFactory;
 import com.google.testing.junit.runner.sharding.testing.RoundRobinShardingFilterFactory;
 import com.google.testing.junit.runner.sharding.testing.ShardingFilterTestCase;
-
+import java.util.List;
+import java.util.Map;
 import org.junit.runner.Description;
 import org.junit.runner.manipulation.Filter;
 
-import java.util.List;
-import java.util.Map;
-
-/**
- * Tests for the {@link RoundRobinShardingFilter}.
- */
+/** Tests for the {@link RoundRobinShardingFilter}. */
 public class RoundRobinShardingFilterTest extends ShardingFilterTestCase {
 
   private static final List<Description> GENERIC_TEST_DESCRIPTIONS =
@@ -39,15 +37,15 @@ public class RoundRobinShardingFilterTest extends ShardingFilterTestCase {
 
   public void testShardingIsBalanced() {
     Map<Filter, List<Description>> run1 = simulateTestRun(FILTERS_1, GENERIC_TEST_DESCRIPTIONS);
-    assertEquals(2, run1.get(FILTERS_1.get(0)).size());
-    assertEquals(2, run1.get(FILTERS_1.get(1)).size());
-    assertEquals(2, run1.get(FILTERS_1.get(2)).size());
+    assertThat(run1.get(FILTERS_1.get(0))).hasSize(2);
+    assertThat(run1.get(FILTERS_1.get(1))).hasSize(2);
+    assertThat(run1.get(FILTERS_1.get(2))).hasSize(2);
 
     Map<Filter, List<Description>> run2 = simulateTestRun(FILTERS_2, GENERIC_TEST_DESCRIPTIONS);
-    assertEquals(2, run2.get(FILTERS_2.get(0)).size());
-    assertEquals(2, run2.get(FILTERS_2.get(1)).size());
-    assertEquals(1, run2.get(FILTERS_2.get(2)).size());
-    assertEquals(1, run2.get(FILTERS_2.get(3)).size());
+    assertThat(run2.get(FILTERS_2.get(0))).hasSize(2);
+    assertThat(run2.get(FILTERS_2.get(1))).hasSize(2);
+    assertThat(run2.get(FILTERS_2.get(2))).hasSize(1);
+    assertThat(run2.get(FILTERS_2.get(3))).hasSize(1);
   }
 
   public void testShouldRun_throwsExceptionForUnknownDescription() {

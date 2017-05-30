@@ -14,21 +14,14 @@
 package com.google.devtools.build.lib.shell;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.shell.TestUtil.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -39,6 +32,10 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Unit tests for {@link Command}. This test will only succeed on Linux,
@@ -95,7 +92,7 @@ public class CommandTest {
     for (final String key : env.keySet()) {
       assertThat(command.getEnvironmentVariables()).containsEntry(key, env.get(key));
     }
-    assertEquals(workingDir, command.getWorkingDirectory());
+    assertThat(command.getWorkingDirectory()).isEqualTo(workingDir);
   }
 
   // Platform-dependent tests ------------------------------------------------
@@ -104,8 +101,8 @@ public class CommandTest {
   public void testSimpleCommand() throws Exception {
     final Command command = new Command(new String[] {"ls"});
     final CommandResult result = command.execute();
-    assertTrue(result.getTerminationStatus().success());
-    assertEquals(0, result.getStderr().length);
+    assertThat(result.getTerminationStatus().success()).isTrue();
+    assertThat(result.getStderr()).isEmpty();
     assertThat(result.getStdout().length).isGreaterThan(0);
   }
 
@@ -141,8 +138,8 @@ public class CommandTest {
                                                        "-e",
                                                        "print 'a'x100000" });
     final CommandResult result = command.execute();
-    assertTrue(result.getTerminationStatus().success());
-    assertEquals(0, result.getStderr().length);
+    assertThat(result.getTerminationStatus().success()).isTrue();
+    assertThat(result.getStderr()).isEmpty();
     assertThat(result.getStdout().length).isGreaterThan(0);
   }
 
@@ -159,16 +156,16 @@ public class CommandTest {
   public void testHugeOutput() throws Exception {
     final Command command = new Command(new String[] {"perl", "-e", "print 'a'x100000"});
     final CommandResult result = command.execute();
-    assertTrue(result.getTerminationStatus().success());
-    assertEquals(0, result.getStderr().length);
-    assertEquals(100000, result.getStdout().length);
+    assertThat(result.getTerminationStatus().success()).isTrue();
+    assertThat(result.getStderr()).isEmpty();
+    assertThat(result.getStdout()).hasLength(100000);
   }
 
   @Test
   public void testIgnoreOutput() throws Exception {
     final Command command = new Command(new String[] {"perl", "-e", "print 'a'x100000"});
     final CommandResult result = command.execute(Command.NO_INPUT, null, true);
-    assertTrue(result.getTerminationStatus().success());
+    assertThat(result.getTerminationStatus().success()).isTrue();
     try {
       result.getStdout();
       fail("Should have thrown IllegalStateException");
@@ -191,7 +188,7 @@ public class CommandTest {
     ByteArrayOutputStream err = new ByteArrayOutputStream();
     CommandResult result = command.execute(emptyInput,
                                            Command.NO_OBSERVER, out, err);
-    assertTrue(result.getTerminationStatus().success());
+    assertThat(result.getTerminationStatus().success()).isTrue();
     assertThat(out.toString("UTF-8")).isEmpty();
     assertThat(err.toString("UTF-8")).isEmpty();
   }
@@ -200,7 +197,7 @@ public class CommandTest {
   public void testNoInputForCat() throws Exception {
     final Command command = new Command(new String[]{"/bin/cat"});
     CommandResult result = command.execute();
-    assertTrue(result.getTerminationStatus().success());
+    assertThat(result.getTerminationStatus().success()).isTrue();
     assertThat(new String(result.getStdout(), "UTF-8")).isEmpty();
     assertThat(new String(result.getStderr(), "UTF-8")).isEmpty();
   }
@@ -212,8 +209,8 @@ public class CommandTest {
     ByteArrayOutputStream stdOut = new ByteArrayOutputStream();
     ByteArrayOutputStream stdErr = new ByteArrayOutputStream();
     command.execute(Command.NO_INPUT, Command.NO_OBSERVER, stdOut, stdErr);
-    assertEquals(helloWorld + "\n", stdOut.toString("UTF-8"));
-    assertEquals(0, stdErr.toByteArray().length);
+    assertThat(stdOut.toString("UTF-8")).isEqualTo(helloWorld + "\n");
+    assertThat(stdErr.toByteArray()).isEmpty();
   }
 
   @Test
@@ -225,8 +222,8 @@ public class CommandTest {
     FutureCommandResult result =
         command.executeAsynchronously(Command.NO_INPUT);
     result.get();
-    assertTrue(tempFile.exists());
-    assertTrue(result.isDone());
+    assertThat(tempFile.exists()).isTrue();
+    assertThat(result.isDone()).isTrue();
     tempFile.delete();
   }
 
@@ -236,14 +233,14 @@ public class CommandTest {
     final SimpleKillableObserver observer = new SimpleKillableObserver();
     FutureCommandResult result =
         command.executeAsynchronously(Command.NO_INPUT, observer);
-    assertFalse(result.isDone());
+    assertThat(result.isDone()).isFalse();
     observer.kill();
     try {
       result.get();
     } catch (AbnormalTerminationException e) {
       // Expects, but does not insist on termination with a signal.
     }
-    assertTrue(result.isDone());
+    assertThat(result.isDone()).isTrue();
   }
 
   @Test
@@ -260,8 +257,8 @@ public class CommandTest {
         stdOut,
         stdErr);
     result.get(); // Make sure the process actually finished
-    assertEquals(helloWorld + "\n", stdOut.toString("UTF-8"));
-    assertEquals(0, stdErr.toByteArray().length);
+    assertThat(stdOut.toString("UTF-8")).isEqualTo(helloWorld + "\n");
+    assertThat(stdErr.toByteArray()).isEmpty();
   }
 
   @Test
@@ -336,9 +333,9 @@ public class CommandTest {
       String args[] = { "/bin/sh", "-c", "exit 0" };
       CommandResult result = new Command(args).execute();
       TerminationStatus status = result.getTerminationStatus();
-      assertTrue(status.success());
-      assertTrue(status.exited());
-      assertEquals(0, status.getExitCode());
+      assertThat(status.success()).isTrue();
+      assertThat(status.exited()).isTrue();
+      assertThat(status.getExitCode()).isEqualTo(0);
     }
 
     // Every exit value in range [1-255] is reported as such (except [129-191],
@@ -352,10 +349,10 @@ public class CommandTest {
         assertThat(e).hasMessage("Process exited with status " + exit);
         checkCommandElements(e, "/bin/sh", "-c", "exit " + exit);
         TerminationStatus status = e.getResult().getTerminationStatus();
-        assertFalse(status.success());
-        assertTrue(status.exited());
-        assertEquals(exit, status.getExitCode());
-        assertEquals("Exit " + exit , status.toShortString());
+        assertThat(status.success()).isFalse();
+        assertThat(status.exited()).isTrue();
+        assertThat(status.getExitCode()).isEqualTo(exit);
+        assertThat(status.toShortString()).isEqualTo("Exit " + exit);
       }
     }
 
@@ -370,10 +367,10 @@ public class CommandTest {
         assertThat(e).hasMessage("Process exited with status " + expected);
         checkCommandElements(e, "/bin/bash", "-c", "exit " + exit);
         TerminationStatus status = e.getResult().getTerminationStatus();
-        assertFalse(status.success());
-        assertTrue(status.exited());
-        assertEquals(expected, status.getExitCode());
-        assertEquals("Exit " + expected, status.toShortString());
+        assertThat(status.success()).isFalse();
+        assertThat(status.exited()).isTrue();
+        assertThat(status.getExitCode()).isEqualTo(expected);
+        assertThat(status.toShortString()).isEqualTo("Exit " + expected);
       }
     }
   }
@@ -395,9 +392,9 @@ public class CommandTest {
         assertThat(e).hasMessage("Process terminated by signal " + signal);
         checkCommandElements(e, killmyself, "" + signal);
         TerminationStatus status = e.getResult().getTerminationStatus();
-        assertFalse(status.success());
-        assertFalse(status.exited());
-        assertEquals(signal, status.getTerminatingSignal());
+        assertThat(status.success()).isFalse();
+        assertThat(status.exited()).isFalse();
+        assertThat(status.getTerminatingSignal()).isEqualTo(signal);
 
         switch (signal) {
           case 1:  assertEquals("Hangup",     status.toShortString()); break;
@@ -464,7 +461,7 @@ public class CommandTest {
 
     CommandResult result = command.execute(in, Command.NO_OBSERVER, out, out);
     TerminationStatus status = result.getTerminationStatus();
-    assertTrue(status.success());
+    assertThat(status.success()).isTrue();
   }
 
   @Test
@@ -489,14 +486,14 @@ public class CommandTest {
       }
     };
     command.execute(Command.NO_INPUT, Command.NO_OBSERVER, out, System.err);
-    assertFalse(flushed[0]);
-    assertFalse(flushed[1]); // 'F'
-    assertFalse(flushed[2]); // 'o'
-    assertTrue(flushed[3]);  // 'o'   <- expect flush here.
-    assertFalse(flushed[4]); // 'B'
-    assertFalse(flushed[5]); // 'a'
-    assertFalse(flushed[6]); // 'r'
-    assertTrue(flushed[7]);  // '\n'
+    assertThat(flushed[0]).isFalse();
+    assertThat(flushed[1]).isFalse(); // 'F'
+    assertThat(flushed[2]).isFalse(); // 'o'
+    assertThat(flushed[3]).isTrue(); // 'o'   <- expect flush here.
+    assertThat(flushed[4]).isFalse(); // 'B'
+    assertThat(flushed[5]).isFalse(); // 'a'
+    assertThat(flushed[6]).isFalse(); // 'r'
+    assertThat(flushed[7]).isTrue(); // '\n'
   }
 
   // See also InterruptibleTest.
@@ -528,9 +525,9 @@ public class CommandTest {
     commandThread.join();
 
     final CommandResult result = resultContainer[0];
-    assertTrue(result.getTerminationStatus().success());
-    assertEquals(0, result.getStderr().length);
-    assertEquals(0, result.getStdout().length);
+    assertThat(result.getTerminationStatus().success()).isTrue();
+    assertThat(result.getStderr()).isEmpty();
+    assertThat(result.getStdout()).isEmpty();
   }
 
   @Test
@@ -570,12 +567,13 @@ public class CommandTest {
       TerminationStatus status = e.getResult().getTerminationStatus();
       // Subprocess either gets a SIGPIPE trying to write to our output stream,
       // or it exits with failure.  Both are observed, nondetermistically.
-      assertTrue(status.exited()
-                 ? status.getExitCode() == 1
-                 : status.getTerminatingSignal() == 13);
-      assertTrue(e.getMessage(),
-          e.getMessage().endsWith("also encountered an error while attempting "
-                                  + "to retrieve output"));
+      assertThat(status.exited() ? status.getExitCode() == 1 : status.getTerminatingSignal() == 13)
+          .isTrue();
+      assertWithMessage(e.getMessage())
+          .that(
+              e.getMessage()
+                  .endsWith("also encountered an error while attempting " + "to retrieve output"))
+          .isTrue();
     }
   }
 
@@ -622,8 +620,8 @@ public class CommandTest {
     TimeoutKillableObserver observer = new TimeoutKillableObserver(LONG_TIME);
     observer.startObserving(killable);
     observer.stopObserving(killable);
-    assertFalse(observer.hasTimedOut());
-    assertFalse(killable.getIsKilled());
+    assertThat(observer.hasTimedOut()).isFalse();
+    assertThat(killable.getIsKilled()).isFalse();
   }
 
   @Test
@@ -633,8 +631,8 @@ public class CommandTest {
     observer.startObserving(killable);
     killable.sleepUntilKilled(SHORT_TIME);
     observer.stopObserving(killable);
-    assertFalse(observer.hasTimedOut());
-    assertFalse(killable.getIsKilled());
+    assertThat(observer.hasTimedOut()).isFalse();
+    assertThat(killable.getIsKilled()).isFalse();
   }
 
   @Test
@@ -644,8 +642,8 @@ public class CommandTest {
     observer.startObserving(killable);
     killable.sleepUntilKilled(LONG_TIME);
     observer.stopObserving(killable);
-    assertTrue(observer.hasTimedOut());
-    assertTrue(killable.getIsKilled());
+    assertThat(observer.hasTimedOut()).isTrue();
+    assertThat(killable.getIsKilled()).isTrue();
   }
 
   @Test
@@ -655,8 +653,8 @@ public class CommandTest {
     observer.startObserving(killable);
     killable.sleepUntilKilled(LONG_TIME);
     observer.stopObserving(killable);
-    assertTrue(observer.hasTimedOut());
-    assertTrue(killable.getIsKilled());
+    assertThat(observer.hasTimedOut()).isTrue();
+    assertThat(killable.getIsKilled()).isTrue();
   }
 
   private static void checkCommandElements(CommandException e,
@@ -666,14 +664,14 @@ public class CommandTest {
 
   private static void checkATE(final AbnormalTerminationException ate) {
     final CommandResult result = ate.getResult();
-    assertFalse(result.getTerminationStatus().success());
+    assertThat(result.getTerminationStatus().success()).isFalse();
   }
 
   private static void checkSuccess(final CommandResult result,
                                    final String expectedOutput) {
-    assertTrue(result.getTerminationStatus().success());
-    assertEquals(0, result.getStderr().length);
-    assertEquals(expectedOutput, new String(result.getStdout()));
+    assertThat(result.getTerminationStatus().success()).isTrue();
+    assertThat(result.getStderr()).isEmpty();
+    assertThat(new String(result.getStdout())).isEqualTo(expectedOutput);
   }
 
   @Test

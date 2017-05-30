@@ -14,10 +14,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotSame;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -37,7 +33,6 @@ import com.google.devtools.build.lib.testutil.MoreAsserts;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -59,7 +54,7 @@ public class TypeTest {
   @Test
   public void testInteger() throws Exception {
     Object x = 3;
-    assertEquals(x, Type.INTEGER.convert(x, null));
+    assertThat(Type.INTEGER.convert(x, null)).isEqualTo(x);
     assertThat(collectLabels(Type.INTEGER, x)).isEmpty();
   }
 
@@ -91,7 +86,7 @@ public class TypeTest {
   @Test
   public void testString() throws Exception {
     Object s = "foo";
-    assertEquals(s, Type.STRING.convert(s, null));
+    assertThat(Type.STRING.convert(s, null)).isEqualTo(s);
     assertThat(collectLabels(Type.STRING, s)).isEmpty();
   }
 
@@ -109,12 +104,12 @@ public class TypeTest {
   public void testBoolean() throws Exception {
     Object myTrue = true;
     Object myFalse = false;
-    assertEquals(Boolean.TRUE, Type.BOOLEAN.convert(1, null));
-    assertEquals(Boolean.FALSE, Type.BOOLEAN.convert(0, null));
-    assertTrue(Type.BOOLEAN.convert(true, null));
-    assertTrue(Type.BOOLEAN.convert(myTrue, null));
-    assertFalse(Type.BOOLEAN.convert(false, null));
-    assertFalse(Type.BOOLEAN.convert(myFalse, null));
+    assertThat(Type.BOOLEAN.convert(1, null)).isEqualTo(Boolean.TRUE);
+    assertThat(Type.BOOLEAN.convert(0, null)).isEqualTo(Boolean.FALSE);
+    assertThat(Type.BOOLEAN.convert(true, null)).isTrue();
+    assertThat(Type.BOOLEAN.convert(myTrue, null)).isTrue();
+    assertThat(Type.BOOLEAN.convert(false, null)).isFalse();
+    assertThat(Type.BOOLEAN.convert(myFalse, null)).isFalse();
     assertThat(collectLabels(Type.BOOLEAN, myTrue)).isEmpty();
   }
 
@@ -132,26 +127,26 @@ public class TypeTest {
       Type.BOOLEAN.convert(2, null);
       fail();
     } catch (Type.ConversionException e) {
-      assertEquals("boolean is not one of [0, 1]", e.getMessage());
+      assertThat(e).hasMessageThat().isEqualTo("boolean is not one of [0, 1]");
     }
     try {
       Type.BOOLEAN.convert(-1, null);
       fail();
     } catch (Type.ConversionException e) {
-      assertEquals("boolean is not one of [0, 1]", e.getMessage());
+      assertThat(e).hasMessageThat().isEqualTo("boolean is not one of [0, 1]");
     }
   }
 
   @Test
   public void testTriState() throws Exception {
-    Assert.assertEquals(TriState.YES, BuildType.TRISTATE.convert(1, null));
-    assertEquals(TriState.NO, BuildType.TRISTATE.convert(0, null));
-    assertEquals(TriState.AUTO, BuildType.TRISTATE.convert(-1, null));
-    assertEquals(TriState.YES, BuildType.TRISTATE.convert(true, null));
-    assertEquals(TriState.NO, BuildType.TRISTATE.convert(false, null));
-    assertEquals(TriState.YES, BuildType.TRISTATE.convert(TriState.YES, null));
-    assertEquals(TriState.NO, BuildType.TRISTATE.convert(TriState.NO, null));
-    assertEquals(TriState.AUTO, BuildType.TRISTATE.convert(TriState.AUTO, null));
+    assertThat(BuildType.TRISTATE.convert(1, null)).isEqualTo(TriState.YES);
+    assertThat(BuildType.TRISTATE.convert(0, null)).isEqualTo(TriState.NO);
+    assertThat(BuildType.TRISTATE.convert(-1, null)).isEqualTo(TriState.AUTO);
+    assertThat(BuildType.TRISTATE.convert(true, null)).isEqualTo(TriState.YES);
+    assertThat(BuildType.TRISTATE.convert(false, null)).isEqualTo(TriState.NO);
+    assertThat(BuildType.TRISTATE.convert(TriState.YES, null)).isEqualTo(TriState.YES);
+    assertThat(BuildType.TRISTATE.convert(TriState.NO, null)).isEqualTo(TriState.NO);
+    assertThat(BuildType.TRISTATE.convert(TriState.AUTO, null)).isEqualTo(TriState.AUTO);
     assertThat(collectLabels(BuildType.TRISTATE, TriState.YES)).isEmpty();
   }
 
@@ -227,7 +222,7 @@ public class TypeTest {
   public void testLabel() throws Exception {
     Label label = Label
         .parseAbsolute("//foo:bar");
-    assertEquals(label, BuildType.LABEL.convert("//foo:bar", null, currentRule));
+    assertThat(BuildType.LABEL.convert("//foo:bar", null, currentRule)).isEqualTo(label);
     assertThat(collectLabels(BuildType.LABEL, label)).containsExactly(label);
   }
 
@@ -235,16 +230,16 @@ public class TypeTest {
   public void testNodepLabel() throws Exception {
     Label label = Label
         .parseAbsolute("//foo:bar");
-    assertEquals(label, BuildType.NODEP_LABEL.convert("//foo:bar", null, currentRule));
+    assertThat(BuildType.NODEP_LABEL.convert("//foo:bar", null, currentRule)).isEqualTo(label);
     assertThat(collectLabels(BuildType.NODEP_LABEL, label)).containsExactly(label);
   }
 
   @Test
   public void testRelativeLabel() throws Exception {
-    assertEquals(Label.parseAbsolute("//quux:wiz"),
-        BuildType.LABEL.convert(":wiz", null, currentRule));
-    assertEquals(Label.parseAbsolute("//quux:wiz"),
-        BuildType.LABEL.convert("wiz", null, currentRule));
+    assertThat(BuildType.LABEL.convert(":wiz", null, currentRule))
+        .isEqualTo(Label.parseAbsolute("//quux:wiz"));
+    assertThat(BuildType.LABEL.convert("wiz", null, currentRule))
+        .isEqualTo(Label.parseAbsolute("//quux:wiz"));
     try {
       BuildType.LABEL.convert("wiz", null);
       fail();
@@ -278,8 +273,8 @@ public class TypeTest {
     Object input = Arrays.asList("foo", "bar", "wiz");
     List<String> converted =
         Type.STRING_LIST.convert(input, null);
-    assertEquals(input, converted);
-    assertNotSame(input, converted);
+    assertThat(converted).isEqualTo(input);
+    assertThat(converted).isNotSameAs(input);
     assertThat(collectLabels(Type.STRING_LIST, input)).isEmpty();
   }
 
@@ -288,8 +283,8 @@ public class TypeTest {
     Object input = ImmutableMap.of("foo", "bar",
                                    "wiz", "bang");
     Map<String, String> converted = Type.STRING_DICT.convert(input, null);
-    assertEquals(input, converted);
-    assertNotSame(input, converted);
+    assertThat(converted).isEqualTo(input);
+    assertThat(converted).isNotSameAs(input);
     assertThat(collectLabels(Type.STRING_DICT, converted)).isEmpty();
   }
 
@@ -343,8 +338,8 @@ public class TypeTest {
     List<Label> expected =
       Arrays.asList(Label.parseAbsolute("//foo:bar"),
                     Label.parseAbsolute("//quux:wiz"));
-    assertEquals(expected, converted);
-    assertNotSame(expected, converted);
+    assertThat(converted).isEqualTo(expected);
+    assertThat(converted).isNotSameAs(expected);
     assertThat(collectLabels(BuildType.LABEL_LIST, converted)).containsExactlyElementsIn(expected);
   }
 
@@ -392,8 +387,8 @@ public class TypeTest {
     Map<?, ?> expected = ImmutableMap.<String, List<String>>of(
             "foo", Arrays.asList("foo", "bar"),
             "wiz", Arrays.asList("bang"));
-    assertEquals(expected, converted);
-    assertNotSame(expected, converted);
+    assertThat(converted).isEqualTo(expected);
+    assertThat(converted).isNotSameAs(expected);
     assertThat(collectLabels(Type.STRING_LIST_DICT, converted)).isEmpty();
   }
 

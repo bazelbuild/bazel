@@ -14,21 +14,16 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
-
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.util.List;
-
-/**
- * Tests for {@link GlobList}
- */
+/** Tests for {@link GlobList} */
 @TestSpec(size = Suite.SMALL_TESTS)
 @RunWith(JUnit4.class)
 public class GlobListTest {
@@ -36,19 +31,19 @@ public class GlobListTest {
   @Test
   public void testParse_glob() throws Exception {
     String expression = "glob(['abc'])";
-    assertEquals(expression, GlobList.parse(expression).toExpression());
+    assertThat(GlobList.parse(expression).toExpression()).isEqualTo(expression);
   }
 
   @Test
   public void testParse_multipleGlobs() throws Exception {
     String expression = "glob(['abc']) + glob(['def']) + glob(['ghi'])";
-    assertEquals(expression, GlobList.parse(expression).toExpression());
+    assertThat(GlobList.parse(expression).toExpression()).isEqualTo(expression);
   }
 
   @Test
   public void testParse_multipleLists() throws Exception {
     String expression = "['abc'] + ['def'] + ['ghi']";
-    assertEquals(expression, GlobList.parse(expression).toExpression());
+    assertThat(GlobList.parse(expression).toExpression()).isEqualTo(expression);
   }
 
   @Test
@@ -56,7 +51,7 @@ public class GlobListTest {
     String expression = "glob(['abc', 'def', 'ghi'], "
       + "exclude=['rst', 'uvw', 'xyz']) "
       + "+ glob(['abc', 'def', 'ghi'], exclude=['rst', 'uvw', 'xyz'])";
-    assertEquals(expression, GlobList.parse(expression).toExpression());
+    assertThat(GlobList.parse(expression).toExpression()).isEqualTo(expression);
   }
 
   @Test
@@ -66,7 +61,7 @@ public class GlobListTest {
     GlobList<String> glob2 = GlobList.parse(
         "glob(['xyzzy']) + glob(['foo'], exclude=['bar'])");
     GlobList<String> cat = GlobList.concat(glob1, glob2);
-    assertEquals(glob1.toExpression() + " + " + glob2.toExpression(), cat.toExpression());
+    assertThat(cat.toExpression()).isEqualTo(glob1.toExpression() + " + " + glob2.toExpression());
   }
 
   @Test
@@ -75,8 +70,8 @@ public class GlobListTest {
         "glob(['abc'], exclude=['def']) + glob(['xyz'])");
     List<String> list = ImmutableList.of("xyzzy", "foo", "bar");
     GlobList<String> cat = GlobList.concat(list, glob);
-    assertEquals("['xyzzy', 'foo', 'bar'] + glob(['abc'], exclude=['def']) + glob(['xyz'])",
-        cat.toExpression());
+    assertThat(cat.toExpression())
+        .isEqualTo("['xyzzy', 'foo', 'bar'] + glob(['abc'], exclude=['def']) + glob(['xyz'])");
   }
 
   @Test
@@ -85,8 +80,8 @@ public class GlobListTest {
         "glob(['abc'], exclude=['def']) + glob(['xyz'])");
     List<String> list = ImmutableList.of("xyzzy", "foo", "bar");
     GlobList<String> cat = GlobList.concat(glob, list);
-    assertEquals("glob(['abc'], exclude=['def']) + glob(['xyz']) + ['xyzzy', 'foo', 'bar']",
-        cat.toExpression());
+    assertThat(cat.toExpression())
+        .isEqualTo("glob(['abc'], exclude=['def']) + glob(['xyz']) + ['xyzzy', 'foo', 'bar']");
   }
 
   @Test
@@ -95,10 +90,10 @@ public class GlobListTest {
     List<String> exclude = ImmutableList.of("rst", "uvw", "xyz");
     List<String> matches = ImmutableList.of("xyzzy", "foo", "bar");
     GlobList<String> glob = GlobList.captureResults(include, exclude, matches);
-    assertEquals(matches, glob);
+    assertThat(glob).isEqualTo(matches);
     ImmutableList<GlobCriteria> criteria = glob.getCriteria();
     assertThat(criteria).hasSize(1);
-    assertEquals(include, criteria.get(0).getIncludePatterns());
-    assertEquals(exclude, criteria.get(0).getExcludePatterns());
+    assertThat(criteria.get(0).getIncludePatterns()).isEqualTo(include);
+    assertThat(criteria.get(0).getExcludePatterns()).isEqualTo(exclude);
   }
 }

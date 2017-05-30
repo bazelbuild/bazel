@@ -352,7 +352,8 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
         SkyKey key = FilesetEntryValue.key(params);
         EvaluationResult<SkyValue> result = eval(key);
         assertThat(result.hasError()).isTrue();
-        assertThat(result.getError(key).getException().getMessage())
+        assertThat(result.getError(key).getException())
+            .hasMessageThat()
             .contains("'foo/dir' crosses package boundary into package rooted at foo/dir/subpkg");
         break;
       default:
@@ -438,7 +439,8 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
         SkyKey key = FilesetEntryValue.key(params);
         EvaluationResult<SkyValue> result = eval(key);
         assertThat(result.hasError()).isTrue();
-        assertThat(result.getError(key).getException().getMessage())
+        assertThat(result.getError(key).getException())
+            .hasMessageThat()
             .contains(
                 "'foo/dir_sym' crosses package boundary into package rooted at foo/dir_sym/subpkg");
         break;
@@ -530,7 +532,8 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
         SkyKey key = FilesetEntryValue.key(params);
         EvaluationResult<SkyValue> result = eval(key);
         assertThat(result.hasError()).isTrue();
-        assertThat(result.getError(key).getException().getMessage())
+        assertThat(result.getError(key).getException())
+            .hasMessageThat()
             .contains("'foo' crosses package boundary into package rooted at foo/subpkg");
         break;
       default:

@@ -20,22 +20,16 @@ import static com.google.devtools.build.lib.util.StringUtil.joinEnglishList;
 import static com.google.devtools.build.lib.util.StringUtil.splitAndInternString;
 import static com.google.devtools.build.lib.util.StringUtil.stripSuffix;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
 
 import com.google.common.collect.ImmutableList;
-
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-
-/**
- * A test for {@link StringUtil}.
- */
+/** A test for {@link StringUtil}. */
 @RunWith(JUnit4.class)
 public class StringUtilTest {
 
@@ -66,9 +60,9 @@ public class StringUtilTest {
 
     assertThat(list1).containsExactly("x", "y", "z", "z").inOrder();
     assertThat(list2).containsExactly("a", "z", "c", "z").inOrder();
-    assertSame(list1.get(2), list1.get(3));
-    assertSame(list1.get(2), list2.get(1));
-    assertSame(list2.get(1), list2.get(3));
+    assertThat(list1.get(3)).isSameAs(list1.get(2));
+    assertThat(list2.get(1)).isSameAs(list1.get(2));
+    assertThat(list2.get(3)).isSameAs(list2.get(1));
   }
 
   @Test
@@ -95,10 +89,10 @@ public class StringUtilTest {
   @Test
   public void testStripSuffix() throws Exception {
     assertThat(stripSuffix("", "")).isEmpty();
-    assertNull(stripSuffix("", "a"));
+    assertThat(stripSuffix("", "a")).isNull();
     assertEquals("a", stripSuffix("a", ""));
     assertEquals("a", stripSuffix("aa", "a"));
-    assertNull(stripSuffix("ab", "c"));
+    assertThat(stripSuffix("ab", "c")).isNull();
   }
 
   @Test

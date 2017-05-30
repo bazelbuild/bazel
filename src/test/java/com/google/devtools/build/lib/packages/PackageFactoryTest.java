@@ -15,12 +15,6 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -61,7 +55,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   public void testCreatePackage() throws Exception {
     Path buildFile = scratch.file("/pkgname/BUILD", "# empty build file ");
     Package pkg = packages.createPackage("pkgname", buildFile);
-    assertEquals("pkgname", pkg.getName());
+    assertThat(pkg.getName()).isEqualTo("pkgname");
     assertThat(Sets.newHashSet(pkg.getTargets(Rule.class))).isEmpty();
   }
 
@@ -83,10 +77,11 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
 
     // wait for all to finish
     e.shutdown();
-    assertTrue(e.awaitTermination(TestUtils.WAIT_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS));
+    assertThat(e.awaitTermination(TestUtils.WAIT_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS))
+        .isTrue();
     log.removeHandler(parser);
     log.setLevel(originalLevel);
-    assertTrue(parser.hasParsed());
+    assertThat(parser.hasParsed()).isTrue();
   }
 
   @Test
@@ -97,7 +92,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     Package pkg = packages.createPackage("badrulename", buildFile);
 
     events.assertContainsError("cc_library 'name' attribute must be a string");
-    assertTrue(pkg.containsErrors());
+    assertThat(pkg.containsErrors()).isTrue();
   }
 
   @Test
@@ -108,7 +103,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     Package pkg = packages.createPackage("badrulename", buildFile);
 
     events.assertContainsError("cc_library rule has no 'name' attribute");
-    assertTrue(pkg.containsErrors());
+    assertThat(pkg.containsErrors()).isTrue();
   }
 
   @Test
@@ -120,7 +115,8 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
           emptyBuildFile("not even a legal/.../label"));
       fail();
     } catch (NoSuchPackageException e) {
-      assertThat(e.getMessage())
+      assertThat(e)
+          .hasMessageThat()
           .contains(
               "no such package 'not even a legal/.../label': "
                   + "illegal package name: 'not even a legal/.../label' ");
@@ -138,16 +134,16 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     events.assertContainsError("target names may not contain ':'");
     assertThat(pkg.getTargets(FileTarget.class).toString())
         .doesNotContain("houseads/house_ads:ca-aol_parenting_html");
-    assertTrue(pkg.containsErrors());
+    assertThat(pkg.containsErrors()).isTrue();
   }
 
   @Test
   public void testPackageNameWithPROTECTEDIsOk() throws Exception {
     events.setFailFast(false);
     // One "PROTECTED":
-    assertTrue(isValidPackageName("foo/PROTECTED/bar"));
+    assertThat(isValidPackageName("foo/PROTECTED/bar")).isTrue();
     // Multiple "PROTECTED"s:
-    assertTrue(isValidPackageName("foo/PROTECTED/bar/PROTECTED/wiz"));
+    assertThat(isValidPackageName("foo/PROTECTED/bar/PROTECTED/wiz")).isTrue();
   }
 
   @Test
@@ -164,7 +160,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     events.assertContainsError(
         "cc_library rule 'spell_proto' in package "
             + "'duplicaterulename' conflicts with existing proto_library rule");
-    assertTrue(pkg.containsErrors());
+    assertThat(pkg.containsErrors()).isTrue();
   }
 
   @Test
@@ -179,11 +175,11 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     Package pkg = packages.createPackage("has_dupe", buildFile);
     events.assertContainsError(
         "Label '//has_dupe:dep' is duplicated in the 'deps' " + "attribute of rule 'has_dupe'");
-    assertTrue(pkg.containsErrors());
-    assertNotNull(pkg.getRule("has_dupe"));
-    assertNotNull(pkg.getRule("dep"));
-    assertTrue(pkg.getRule("has_dupe").containsErrors());
-    assertTrue(pkg.getRule("dep").containsErrors()); // because all rules in an
+    assertThat(pkg.containsErrors()).isTrue();
+    assertThat(pkg.getRule("has_dupe")).isNotNull();
+    assertThat(pkg.getRule("dep")).isNotNull();
+    assertThat(pkg.getRule("has_dupe").containsErrors()).isTrue();
+    assertThat(pkg.getRule("dep").containsErrors()).isTrue(); // because all rules in an
     // errant package are
     // themselves errant.
   }
@@ -245,10 +241,10 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
 
     Package pkg = packages.createPackage("pina", buildFile);
     events.assertNoWarningsOrErrors();
-    assertFalse(pkg.containsErrors());
-    assertNotNull(pkg.getRule("pina-colada"));
-    assertFalse(pkg.getRule("pina-colada").containsErrors());
-    assertSame(1, Sets.newHashSet(pkg.getTargets(Rule.class)).size());
+    assertThat(pkg.containsErrors()).isFalse();
+    assertThat(pkg.getRule("pina-colada")).isNotNull();
+    assertThat(pkg.getRule("pina-colada").containsErrors()).isFalse();
+    assertThat(Sets.newHashSet(pkg.getTargets(Rule.class)).size()).isSameAs(1);
   }
 
   @Test
@@ -257,10 +253,10 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
 
     Package pkg = packages.createPackage("pina", buildFile);
     events.assertNoWarningsOrErrors();
-    assertFalse(pkg.containsErrors());
-    assertNotNull(pkg.getRule("pina-colada"));
-    assertFalse(pkg.getRule("pina-colada").containsErrors());
-    assertSame(1, Sets.newHashSet(pkg.getTargets(Rule.class)).size());
+    assertThat(pkg.containsErrors()).isFalse();
+    assertThat(pkg.getRule("pina-colada")).isNotNull();
+    assertThat(pkg.getRule("pina-colada").containsErrors()).isFalse();
+    assertThat(Sets.newHashSet(pkg.getTargets(Rule.class)).size()).isSameAs(1);
   }
 
   @Test
@@ -313,7 +309,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     events.assertContainsError(
         "cc_library rule 'spell_proto' in package "
             + "'multipleduplicaterulename' conflicts with existing proto_library rule");
-    assertTrue(pkg.containsErrors());
+    assertThat(pkg.containsErrors()).isTrue();
   }
 
   @Test
@@ -322,10 +318,10 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     Package pkg = packages.createPackage("foo", buildFile);
 
     Target target = pkg.getTarget("BUILD");
-    assertEquals("BUILD", target.getName());
+    assertThat(target.getName()).isEqualTo("BUILD");
 
     // Test that it's memoized:
-    assertSame(target, pkg.getTarget("BUILD"));
+    assertThat(pkg.getTarget("BUILD")).isSameAs(target);
   }
 
   @Test
@@ -338,16 +334,16 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
             "cc_library(name='X', srcs=['X'])",
             "cc_library(name='Y')");
     Package pkg = packages.createPackage("foo", buildFile);
-    assertFalse(pkg.containsErrors());
+    assertThat(pkg.containsErrors()).isFalse();
 
     // X is a rule with a circular self-dependency.
-    assertSame(Rule.class, pkg.getTarget("X").getClass());
+    assertThat(pkg.getTarget("X").getClass()).isSameAs(Rule.class);
 
     // Y is a rule
-    assertSame(Rule.class, pkg.getTarget("Y").getClass());
+    assertThat(pkg.getTarget("Y").getClass()).isSameAs(Rule.class);
 
     // Z is a file
-    assertSame(InputFile.class, pkg.getTarget("Z").getClass());
+    assertThat(pkg.getTarget("Z").getClass()).isSameAs(InputFile.class);
 
     // A is nothing
     try {
@@ -365,7 +361,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     for (InputFile inputFile : pkg.getTargets(InputFile.class)) {
       inputFiles.add(inputFile.getName());
     }
-    assertEquals(ImmutableList.of("BUILD", "Z"), Lists.newArrayList(inputFiles));
+    assertThat(Lists.newArrayList(inputFiles)).containsExactly("BUILD", "Z").inOrder();
   }
 
   @Test
@@ -378,7 +374,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
         "third-party rule '//third_party/foo:bar' lacks a license "
             + "declaration with one of the following types: "
             + "notice, reciprocal, permissive, restricted, unencumbered, by_exception_only");
-    assertTrue(pkg.containsErrors());
+    assertThat(pkg.containsErrors()).isTrue();
   }
 
   @Test
@@ -390,7 +386,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
         "third-party file 'bar' lacks a license "
             + "declaration with one of the following types: "
             + "notice, reciprocal, permissive, restricted, unencumbered, by_exception_only");
-    assertTrue(pkg.containsErrors());
+    assertThat(pkg.containsErrors()).isTrue();
   }
 
   @Test
@@ -409,12 +405,12 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     events.assertContainsError(
         "cc_library rule 'dup_proto' in package 'dup' "
             + "conflicts with existing proto_library rule");
-    assertTrue(pkg.containsErrors());
+    assertThat(pkg.containsErrors()).isTrue();
 
     Rule dupProto = pkg.getRule("dup_proto");
     // Check that the first rule of the given name "wins", and that each of the
     // "winning" rule's outputs is a member of the package.
-    assertEquals("proto_library", dupProto.getRuleClass());
+    assertThat(dupProto.getRuleClass()).isEqualTo("proto_library");
     for (OutputFile out : dupProto.getOutputFiles()) {
       assertThat(pkg.getTargets(FileTarget.class)).contains(out);
     }
@@ -443,12 +439,13 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     events.assertContainsError(
         "generated file 'out2' in rule 'rule2' "
             + "conflicts with existing generated file from rule 'rule1'");
-    assertTrue(pkg.containsErrors());
+    assertThat(pkg.containsErrors()).isTrue();
 
-    assertNull(pkg.getRule("rule2"));
+    assertThat(pkg.getRule("rule2")).isNull();
 
     // Ensure that rule2's "out2" didn't overwrite rule1's:
-    assertSame(pkg.getRule("rule1"), ((OutputFile) pkg.getTarget("out2")).getGeneratingRule());
+    assertThat(((OutputFile) pkg.getTarget("out2")).getGeneratingRule())
+        .isSameAs(pkg.getRule("rule1"));
 
     // None of rule2, its inputs, or its outputs should belong to pkg:
     List<Target> found = new ArrayList<>();
@@ -483,17 +480,18 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     Package pkg = packages.createPackage("error", path);
     events.assertContainsError("name 'PopulateList' is not defined");
 
-    assertTrue(pkg.containsErrors());
+    assertThat(pkg.containsErrors()).isTrue();
 
     // rule1 would be fine but is still marked as in error:
-    assertTrue(pkg.getRule("rule1").containsErrors());
+    assertThat(pkg.getRule("rule1").containsErrors()).isTrue();
 
     // rule2 is considered "in error" because it's after an error.
     // Indeed, it has the wrong "outs" set because the call to PopulateList
     // failed.
     Rule rule2 = pkg.getRule("rule2");
-    assertTrue(rule2.containsErrors());
-    assertEquals(Sets.newHashSet(pkg.getTarget("bad")), Sets.newHashSet(rule2.getOutputFiles()));
+    assertThat(rule2.containsErrors()).isTrue();
+    assertThat(Sets.newHashSet(rule2.getOutputFiles()))
+        .isEqualTo(Sets.newHashSet(pkg.getTarget("bad")));
   }
 
   @Test
@@ -505,7 +503,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
 
     Package pkg = packages.createPackage("x", path);
 
-    assertNotNull(pkg.getTarget("x.cc")); // existing and mentioned.
+    assertThat(pkg.getTarget("x.cc")).isNotNull(); // existing and mentioned.
 
     try {
       pkg.getTarget("y.cc"); // existing but not mentioned.
@@ -879,7 +877,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   @Test
   public void testPackageSpecMinimal() throws Exception {
     Package pkg = expectEvalSuccess("package(default_visibility=[])");
-    assertNotNull(pkg.getDefaultVisibility());
+    assertThat(pkg.getDefaultVisibility()).isNotNull();
   }
 
   @Test
@@ -908,21 +906,21 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   @Test
   public void testDefaultTestonly() throws Exception {
     Package pkg = expectEvalSuccess("package(default_testonly = 1)");
-    assertTrue(pkg.getDefaultTestOnly());
+    assertThat(pkg.getDefaultTestOnly()).isTrue();
   }
 
   @Test
   public void testDefaultDeprecation() throws Exception {
     String testMessage = "OMG PONIES!";
     Package pkg = expectEvalSuccess("package(default_deprecation = \"" + testMessage + "\")");
-    assertEquals(testMessage, pkg.getDefaultDeprecation());
+    assertThat(pkg.getDefaultDeprecation()).isEqualTo(testMessage);
   }
 
   @Test
   public void testExportsBuildFile() throws Exception {
     Package pkg =
         expectEvalSuccess("exports_files(['BUILD'], visibility=['//visibility:private'])");
-    assertEquals(pkg.getBuildFile(), pkg.getTarget("BUILD"));
+    assertThat(pkg.getTarget("BUILD")).isEqualTo(pkg.getBuildFile());
   }
 
   @Test
@@ -938,7 +936,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     Rule fooRule = (Rule) pkg.getTarget("bar");
     String deprAttr =
         attributes(fooRule).get("deprecation", com.google.devtools.build.lib.syntax.Type.STRING);
-    assertEquals(msg, deprAttr);
+    assertThat(deprAttr).isEqualTo(msg);
   }
 
   @Test
@@ -952,12 +950,14 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     Package pkg = packages.eval("foo", file);
 
     Rule fooRule = (Rule) pkg.getTarget("foo");
-    assertTrue(
-        attributes(fooRule).get("testonly", com.google.devtools.build.lib.syntax.Type.BOOLEAN));
+    assertThat(
+            attributes(fooRule).get("testonly", com.google.devtools.build.lib.syntax.Type.BOOLEAN))
+        .isTrue();
 
     Rule barRule = (Rule) pkg.getTarget("bar");
-    assertFalse(
-        attributes(barRule).get("testonly", com.google.devtools.build.lib.syntax.Type.BOOLEAN));
+    assertThat(
+            attributes(barRule).get("testonly", com.google.devtools.build.lib.syntax.Type.BOOLEAN))
+        .isFalse();
   }
 
   @Test
@@ -974,7 +974,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     Rule fooRule = (Rule) pkg.getTarget("bar");
     String deprAttr =
         attributes(fooRule).get("deprecation", com.google.devtools.build.lib.syntax.Type.STRING);
-    assertEquals(msg, deprAttr);
+    assertThat(deprAttr).isEqualTo(msg);
   }
 
   @Test
@@ -1001,12 +1001,12 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     scratch.file("/e/data.txt");
     throwOnReaddir = parentDir;
     Package pkg = packages.createPackage("e", buildFile);
-    assertTrue(pkg.containsErrors());
+    assertThat(pkg.containsErrors()).isTrue();
     events.setFailFast(true);
     throwOnReaddir = null;
     pkg = packages.createPackage("e", buildFile);
-    assertFalse(pkg.containsErrors());
-    assertNotNull(pkg.getRule("e"));
+    assertThat(pkg.containsErrors()).isFalse();
+    assertThat(pkg.getRule("e")).isNotNull();
     GlobList globList = (GlobList) pkg.getRule("e").getAttributeContainer().getAttr("data");
     assertThat(globList).containsExactly(Label.parseAbsolute("//e:data.txt"));
   }

@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.sandbox;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
@@ -72,10 +72,11 @@ public final class SandboxOptionsTest extends SandboxTestCase {
       pathPair = new SandboxOptions.MountPairConverter().convert(input);
       fail();
     } catch (OptionsParsingException e) {
-      assertEquals(
-          "Input must be a single path to mount inside the sandbox or "
-              + "a mounting pair in the form of 'source:target'",
-          e.getMessage());
+      assertThat(e)
+          .hasMessageThat()
+          .isEqualTo(
+              "Input must be a single path to mount inside the sandbox or "
+                  + "a mounting pair in the form of 'source:target'");
     }
   }
 
@@ -86,19 +87,19 @@ public final class SandboxOptionsTest extends SandboxTestCase {
       pathPair = new SandboxOptions.MountPairConverter().convert(input);
       fail();
     } catch (OptionsParsingException e) {
-      assertEquals(
-          e.getMessage(),
-          "Input "
-              + input
-              + " contains one or more empty paths. "
-              + "Input must be a single path to mount inside the sandbox or "
-              + "a mounting pair in the form of 'source:target'");
+      assertThat(
+              "Input "
+                  + input
+                  + " contains one or more empty paths. "
+                  + "Input must be a single path to mount inside the sandbox or "
+                  + "a mounting pair in the form of 'source:target'")
+          .isEqualTo(e.getMessage());
     }
   }
 
   private static void assertMountPair(
       ImmutableMap.Entry<String, String> pathPair, String source, String target) {
-    assertEquals(pathPair.getKey(), source);
-    assertEquals(pathPair.getValue(), target);
+    assertThat(source).isEqualTo(pathPair.getKey());
+    assertThat(target).isEqualTo(pathPair.getValue());
   }
 }

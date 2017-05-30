@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static org.junit.Assert.assertSame;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
@@ -83,13 +83,13 @@ public class ActionDataTest extends TimestampBuilderTestCase {
         .buildArtifacts(
             reporter, outputs, null, null, null, null, executor, null, /*explain=*/ false, null,
             null);
-    assertSame(executor, action.executor);
+    assertThat(action.executor).isSameAs(executor);
 
     executor = new DummyExecutor(scratch.dir("/"));
     amnesiacBuilder()
         .buildArtifacts(
             reporter, outputs, null, null, null, null, executor, null, /*explain=*/ false, null,
             null);
-    assertSame(executor, action.executor);
+    assertThat(action.executor).isSameAs(executor);
   }
 }

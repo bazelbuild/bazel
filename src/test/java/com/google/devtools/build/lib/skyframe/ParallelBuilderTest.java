@@ -15,8 +15,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -194,7 +193,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
 
     buildArtifacts(createBuilder(DEFAULT_NUM_JOBS, true), pear);
     assertThat(recorder.actionExecutedEvents).hasSize(1);
-    assertEquals(action, recorder.actionExecutedEvents.get(0).getAction());
+    assertThat(recorder.actionExecutedEvents.get(0).getAction()).isEqualTo(action);
   }
 
   @Test
@@ -480,7 +479,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
         BuildKind kind) {
       // Check that we really did build all the targets.
       for (Artifact file : targets) {
-        assertTrue(file.getPath().exists());
+        assertThat(file.getPath().exists()).isTrue();
       }
       // Check that each action was executed the right number of times
       for (Counter counter : counters) {
@@ -554,12 +553,15 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
       buildArtifacts(foo, bar);
       fail();
     } catch (BuildFailedException e) {
-      assertThat(e.getMessage()).contains("TestAction failed due to exception: foo action failed");
+      assertThat(e)
+          .hasMessageThat()
+          .contains("TestAction failed due to exception: foo action failed");
       assertContainsEvent("TestAction failed due to exception: foo action failed");
     }
 
-    assertTrue("bar action not finished, yet buildArtifacts has completed.",
-               finished[0]);
+    assertWithMessage("bar action not finished, yet buildArtifacts has completed.")
+        .that(finished[0])
+        .isTrue();
   }
 
   @Test
@@ -577,7 +579,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
       buildArtifacts(foo);
       fail("Builder failed to detect cyclic action graph");
     } catch (BuildFailedException e) {
-      assertEquals(CYCLE_MSG, e.getMessage());
+      assertThat(e).hasMessageThat().isEqualTo(CYCLE_MSG);
     }
   }
 
@@ -590,7 +592,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
       buildArtifacts(foo);
       fail("Builder failed to detect cyclic action graph");
     } catch (BuildFailedException e) {
-      assertEquals(CYCLE_MSG, e.getMessage());
+      assertThat(e).hasMessageThat().isEqualTo(CYCLE_MSG);
     }
   }
 
@@ -612,7 +614,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
       buildArtifacts(foo1, foo2);
       fail("Builder failed to detect cyclic action graph");
     } catch (BuildFailedException e) {
-      assertEquals(CYCLE_MSG, e.getMessage());
+      assertThat(e).hasMessageThat().isEqualTo(CYCLE_MSG);
     }
   }
 
@@ -634,7 +636,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
       buildArtifacts(foo);
       fail("Builder failed to detect cyclic action graph");
     } catch (BuildFailedException e) {
-      assertEquals(CYCLE_MSG, e.getMessage());
+      assertThat(e).hasMessageThat().isEqualTo(CYCLE_MSG);
     }
   }
 

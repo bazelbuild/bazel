@@ -26,9 +26,6 @@ import static com.google.devtools.build.lib.syntax.Type.INTEGER;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Function;
@@ -162,46 +159,42 @@ public class RuleClassTest extends PackageLoadingTestCase {
   public void testRuleClassBasics() throws Exception {
     RuleClass ruleClassA = createRuleClassA();
 
-    assertEquals("ruleA", ruleClassA.getName());
-    assertEquals(7, ruleClassA.getAttributeCount());
+    assertThat(ruleClassA.getName()).isEqualTo("ruleA");
+    assertThat(ruleClassA.getAttributeCount()).isEqualTo(7);
 
-    assertEquals(0, (int) ruleClassA.getAttributeIndex("my-string-attr"));
-    assertEquals(1, (int) ruleClassA.getAttributeIndex("my-label-attr"));
-    assertEquals(2, (int) ruleClassA.getAttributeIndex("my-labellist-attr"));
-    assertEquals(3, (int) ruleClassA.getAttributeIndex("my-integer-attr"));
-    assertEquals(4, (int) ruleClassA.getAttributeIndex("my-string-attr2"));
-    assertEquals(5, (int) ruleClassA.getAttributeIndex("my-stringlist-attr"));
-    assertEquals(6, (int) ruleClassA.getAttributeIndex("my-sorted-stringlist-attr"));
+    assertThat((int) ruleClassA.getAttributeIndex("my-string-attr")).isEqualTo(0);
+    assertThat((int) ruleClassA.getAttributeIndex("my-label-attr")).isEqualTo(1);
+    assertThat((int) ruleClassA.getAttributeIndex("my-labellist-attr")).isEqualTo(2);
+    assertThat((int) ruleClassA.getAttributeIndex("my-integer-attr")).isEqualTo(3);
+    assertThat((int) ruleClassA.getAttributeIndex("my-string-attr2")).isEqualTo(4);
+    assertThat((int) ruleClassA.getAttributeIndex("my-stringlist-attr")).isEqualTo(5);
+    assertThat((int) ruleClassA.getAttributeIndex("my-sorted-stringlist-attr")).isEqualTo(6);
 
-    assertEquals(ruleClassA.getAttribute(0),
-                 ruleClassA.getAttributeByName("my-string-attr"));
-    assertEquals(ruleClassA.getAttribute(1),
-                 ruleClassA.getAttributeByName("my-label-attr"));
-    assertEquals(ruleClassA.getAttribute(2),
-                 ruleClassA.getAttributeByName("my-labellist-attr"));
-    assertEquals(ruleClassA.getAttribute(3),
-                 ruleClassA.getAttributeByName("my-integer-attr"));
-    assertEquals(ruleClassA.getAttribute(4),
-                 ruleClassA.getAttributeByName("my-string-attr2"));
-    assertEquals(ruleClassA.getAttribute(5),
-                 ruleClassA.getAttributeByName("my-stringlist-attr"));
-    assertEquals(ruleClassA.getAttribute(6),
-                 ruleClassA.getAttributeByName("my-sorted-stringlist-attr"));
+    assertThat(ruleClassA.getAttributeByName("my-string-attr"))
+        .isEqualTo(ruleClassA.getAttribute(0));
+    assertThat(ruleClassA.getAttributeByName("my-label-attr"))
+        .isEqualTo(ruleClassA.getAttribute(1));
+    assertThat(ruleClassA.getAttributeByName("my-labellist-attr"))
+        .isEqualTo(ruleClassA.getAttribute(2));
+    assertThat(ruleClassA.getAttributeByName("my-integer-attr"))
+        .isEqualTo(ruleClassA.getAttribute(3));
+    assertThat(ruleClassA.getAttributeByName("my-string-attr2"))
+        .isEqualTo(ruleClassA.getAttribute(4));
+    assertThat(ruleClassA.getAttributeByName("my-stringlist-attr"))
+        .isEqualTo(ruleClassA.getAttribute(5));
+    assertThat(ruleClassA.getAttributeByName("my-sorted-stringlist-attr"))
+        .isEqualTo(ruleClassA.getAttribute(6));
 
     assertEquals("", // default based on type
                  ruleClassA.getAttribute(0).getDefaultValue(null));
-    assertEquals(Label.parseAbsolute("//default:label"),
-                 ruleClassA.getAttribute(1).getDefaultValue(null));
-    assertEquals(Collections.emptyList(),
-                 ruleClassA.getAttribute(2).getDefaultValue(null));
-    assertEquals(42,
-                 ruleClassA.getAttribute(3).getDefaultValue(null));
+    assertThat(ruleClassA.getAttribute(1).getDefaultValue(null))
+        .isEqualTo(Label.parseAbsolute("//default:label"));
+    assertThat(ruleClassA.getAttribute(2).getDefaultValue(null)).isEqualTo(Collections.emptyList());
+    assertThat(ruleClassA.getAttribute(3).getDefaultValue(null)).isEqualTo(42);
     assertEquals(null, // default explicitly specified
                  ruleClassA.getAttribute(4).getDefaultValue(null));
-    assertEquals(Collections.emptyList(),
-                 ruleClassA.getAttribute(5).getDefaultValue(null));
-    assertEquals(Collections.emptyList(),
-                 ruleClassA.getAttribute(6).getDefaultValue(null));
+    assertThat(ruleClassA.getAttribute(5).getDefaultValue(null)).isEqualTo(Collections.emptyList());
+    assertThat(ruleClassA.getAttribute(6).getDefaultValue(null)).isEqualTo(Collections.emptyList());
   }
 
   @Test
@@ -209,34 +202,34 @@ public class RuleClassTest extends PackageLoadingTestCase {
     RuleClass ruleClassA = createRuleClassA();
     RuleClass ruleClassB = createRuleClassB(ruleClassA);
 
-    assertEquals("ruleB", ruleClassB.getName());
-    assertEquals(8, ruleClassB.getAttributeCount());
+    assertThat(ruleClassB.getName()).isEqualTo("ruleB");
+    assertThat(ruleClassB.getAttributeCount()).isEqualTo(8);
 
-    assertEquals(0, (int) ruleClassB.getAttributeIndex("my-string-attr"));
-    assertEquals(1, (int) ruleClassB.getAttributeIndex("my-label-attr"));
-    assertEquals(2, (int) ruleClassB.getAttributeIndex("my-labellist-attr"));
-    assertEquals(3, (int) ruleClassB.getAttributeIndex("my-integer-attr"));
-    assertEquals(4, (int) ruleClassB.getAttributeIndex("my-string-attr2"));
-    assertEquals(5, (int) ruleClassB.getAttributeIndex("my-stringlist-attr"));
-    assertEquals(6, (int) ruleClassB.getAttributeIndex("my-sorted-stringlist-attr"));
-    assertEquals(7, (int) ruleClassB.getAttributeIndex("another-string-attr"));
+    assertThat((int) ruleClassB.getAttributeIndex("my-string-attr")).isEqualTo(0);
+    assertThat((int) ruleClassB.getAttributeIndex("my-label-attr")).isEqualTo(1);
+    assertThat((int) ruleClassB.getAttributeIndex("my-labellist-attr")).isEqualTo(2);
+    assertThat((int) ruleClassB.getAttributeIndex("my-integer-attr")).isEqualTo(3);
+    assertThat((int) ruleClassB.getAttributeIndex("my-string-attr2")).isEqualTo(4);
+    assertThat((int) ruleClassB.getAttributeIndex("my-stringlist-attr")).isEqualTo(5);
+    assertThat((int) ruleClassB.getAttributeIndex("my-sorted-stringlist-attr")).isEqualTo(6);
+    assertThat((int) ruleClassB.getAttributeIndex("another-string-attr")).isEqualTo(7);
 
-    assertEquals(ruleClassB.getAttribute(0),
-                 ruleClassB.getAttributeByName("my-string-attr"));
-    assertEquals(ruleClassB.getAttribute(1),
-                 ruleClassB.getAttributeByName("my-label-attr"));
-    assertEquals(ruleClassB.getAttribute(2),
-                 ruleClassB.getAttributeByName("my-labellist-attr"));
-    assertEquals(ruleClassB.getAttribute(3),
-                 ruleClassB.getAttributeByName("my-integer-attr"));
-    assertEquals(ruleClassB.getAttribute(4),
-                 ruleClassB.getAttributeByName("my-string-attr2"));
-    assertEquals(ruleClassB.getAttribute(5),
-                 ruleClassB.getAttributeByName("my-stringlist-attr"));
-    assertEquals(ruleClassB.getAttribute(6),
-                 ruleClassB.getAttributeByName("my-sorted-stringlist-attr"));
-    assertEquals(ruleClassB.getAttribute(7),
-                 ruleClassB.getAttributeByName("another-string-attr"));
+    assertThat(ruleClassB.getAttributeByName("my-string-attr"))
+        .isEqualTo(ruleClassB.getAttribute(0));
+    assertThat(ruleClassB.getAttributeByName("my-label-attr"))
+        .isEqualTo(ruleClassB.getAttribute(1));
+    assertThat(ruleClassB.getAttributeByName("my-labellist-attr"))
+        .isEqualTo(ruleClassB.getAttribute(2));
+    assertThat(ruleClassB.getAttributeByName("my-integer-attr"))
+        .isEqualTo(ruleClassB.getAttribute(3));
+    assertThat(ruleClassB.getAttributeByName("my-string-attr2"))
+        .isEqualTo(ruleClassB.getAttribute(4));
+    assertThat(ruleClassB.getAttributeByName("my-stringlist-attr"))
+        .isEqualTo(ruleClassB.getAttribute(5));
+    assertThat(ruleClassB.getAttributeByName("my-sorted-stringlist-attr"))
+        .isEqualTo(ruleClassB.getAttribute(6));
+    assertThat(ruleClassB.getAttributeByName("another-string-attr"))
+        .isEqualTo(ruleClassB.getAttribute(7));
   }
 
   private static final String TEST_PACKAGE_NAME = "testpackage";
@@ -301,7 +294,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
     reporter.removeHandler(failFastHandler);
     createRule(depsRuleClass, "depsRule", attributeValues, testRuleLocation);
 
-    assertSame(3, eventCollector.count());
+    assertThat(eventCollector.count()).isSameAs(3);
     assertDupError("//testpackage:dup1", "list1", "depsRule");
     assertDupError("//testpackage:dup1", "list3", "depsRule");
     assertDupError("//testpackage:dup2", "list3", "depsRule");
@@ -380,29 +373,28 @@ public class RuleClassTest extends PackageLoadingTestCase {
     ).iterator();
 
     for (Event event : collector) {
-      assertEquals(TEST_RULE_DEFINED_AT_LINE,
-          event.getLocation().getStartLineAndColumn().getLine());
-      assertEquals(testBuildfilePath.asFragment(), event.getLocation().getPath());
-      assertEquals(TEST_RULE_LABEL.toString().substring(1)
-          + ": " + expectedMessages.next(), event.getMessage());
+      assertThat(event.getLocation().getStartLineAndColumn().getLine())
+          .isEqualTo(TEST_RULE_DEFINED_AT_LINE);
+      assertThat(event.getLocation().getPath()).isEqualTo(testBuildfilePath.asFragment());
+      assertThat(event.getMessage())
+          .isEqualTo(TEST_RULE_LABEL.toString().substring(1) + ": " + expectedMessages.next());
     }
 
     // Test basic rule properties:
-    assertEquals("ruleA", rule.getRuleClass());
-    assertEquals(TEST_RULE_NAME, rule.getName());
-    assertEquals(TEST_RULE_LABEL.substring(1), rule.getLabel().toString());
+    assertThat(rule.getRuleClass()).isEqualTo("ruleA");
+    assertThat(rule.getName()).isEqualTo(TEST_RULE_NAME);
+    assertThat(rule.getLabel().toString()).isEqualTo(TEST_RULE_LABEL.substring(1));
 
     // Test attribute access:
     AttributeMap attributes = RawAttributeMapper.of(rule);
-    assertEquals("//default:label",
-                 attributes.get("my-label-attr", BuildType.LABEL).toString());
-    assertEquals(42,
-                 attributes.get("my-integer-attr", Type.INTEGER).intValue());
+    assertThat(attributes.get("my-label-attr", BuildType.LABEL).toString())
+        .isEqualTo("//default:label");
+    assertThat(attributes.get("my-integer-attr", Type.INTEGER).intValue()).isEqualTo(42);
     assertEquals("",  // missing attribute -> default chosen based on type
                  attributes.get("my-string-attr", Type.STRING));
     assertThat(attributes.get("my-labellist-attr", BuildType.LABEL_LIST)).isEmpty();
-    assertEquals(Arrays.asList("foo", "bar"),
-                 attributes.get("my-stringlist-attr", Type.STRING_LIST));
+    assertThat(attributes.get("my-stringlist-attr", Type.STRING_LIST))
+        .isEqualTo(Arrays.asList("foo", "bar"));
     try {
       attributes.get("my-labellist-attr", Type.STRING); // wrong type
       fail();
@@ -449,7 +441,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
     Set<String> set = new HashSet<>();
     for (OutputFile outputFile : rule.getOutputFiles()) {
       set.add(outputFile.getName());
-      assertSame(rule, outputFile.getGeneratingRule());
+      assertThat(outputFile.getGeneratingRule()).isSameAs(rule);
     }
     assertThat(set).containsExactly("foo-myrule.bar", "libmyrule-wazoo-myrule.mumble",
         "stuff-explicit_out-bar", "explicit_out");
@@ -482,12 +474,13 @@ public class RuleClassTest extends PackageLoadingTestCase {
 
     Rule rule = createRule(ruleClass, "myRule", Collections.<String, Object>emptyMap(),
         testRuleLocation);
-    assertEquals("libmyRule.bar", Iterables.getOnlyElement(rule.getOutputFiles()).getName());
+    assertThat(Iterables.getOnlyElement(rule.getOutputFiles()).getName())
+        .isEqualTo("libmyRule.bar");
 
     Rule ruleWithSlash = createRule(ruleClass, "myRule/with/slash",
         Collections.<String, Object>emptyMap(), testRuleLocation);
-    assertEquals("myRule/with/libslash.bar",
-                 Iterables.getOnlyElement(ruleWithSlash.getOutputFiles()).getName());
+    assertThat(Iterables.getOnlyElement(ruleWithSlash.getOutputFiles()).getName())
+        .isEqualTo("myRule/with/libslash.bar");
   }
 
   /**
@@ -528,13 +521,13 @@ public class RuleClassTest extends PackageLoadingTestCase {
    */
   private void checkValidComputedDefault(Object expectedValue, Attribute computedDefault,
       ImmutableMap<String, Object> attrValueMap) throws Exception {
-    assertTrue(computedDefault.getDefaultValueForTesting() instanceof Attribute.ComputedDefault);
+    assertThat(computedDefault.getDefaultValueForTesting() instanceof Attribute.ComputedDefault)
+        .isTrue();
     Rule rule = createRule(getRuleClassWithComputedDefault(computedDefault), "myRule",
         attrValueMap, testRuleLocation);
     AttributeMap attributes = RawAttributeMapper.of(rule);
-    assertEquals(
-        expectedValue,
-        attributes.get(computedDefault.getName(), computedDefault.getType()));
+    assertThat(attributes.get(computedDefault.getName(), computedDefault.getType()))
+        .isEqualTo(expectedValue);
   }
 
   /**
@@ -691,7 +684,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
     List<String> actual = new ArrayList<>();
     for (OutputFile outputFile : rule.getOutputFiles()) {
       actual.add(outputFile.getName());
-      assertSame(rule, outputFile.getGeneratingRule());
+      assertThat(outputFile.getGeneratingRule()).isSameAs(rule);
     }
     assertWithMessage("unexpected output set").that(actual).containsExactly("first-myrule",
         "second-myrule", "out-third", "out-fourth", "third", "fourth");
@@ -768,10 +761,9 @@ public class RuleClassTest extends PackageLoadingTestCase {
     Rule rule = createRule(ruleClassA, "testrule", attributeValues, testRuleLocation);
     AttributeMap attributes = RawAttributeMapper.of(rule);
 
-    assertEquals(list,
-                 attributes.get("my-stringlist-attr", Type.STRING_LIST));
-    assertEquals(Arrays.asList("bar", "baz", "foo"),
-                 attributes.get("my-sorted-stringlist-attr", Type.STRING_LIST));
+    assertThat(attributes.get("my-stringlist-attr", Type.STRING_LIST)).isEqualTo(list);
+    assertThat(attributes.get("my-sorted-stringlist-attr", Type.STRING_LIST))
+        .isEqualTo(Arrays.asList("bar", "baz", "foo"));
   }
 
   private Rule createRule(
@@ -839,7 +831,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
     reporter.removeHandler(failFastHandler);
     createRule(childRuleClass, "child_rule", childValues, testRuleLocation);
 
-    assertSame(1, eventCollector.count());
+    assertThat(eventCollector.count()).isSameAs(1);
     assertContainsEvent("//testpackage:child_rule: missing value for mandatory "
         + "attribute 'attr' in 'child_rule' rule");
   }
@@ -959,20 +951,21 @@ public class RuleClassTest extends PackageLoadingTestCase {
     final Rule dep2 = createRule(depClass, "dep2", Collections.<String, Object>emptyMap(),
         testRuleLocation);
 
-    ValidityPredicate checker = new ValidityPredicate() {
-      @Override
-      public String checkValid(Rule from, Rule to) {
-        assertEquals("top", from.getName());
-        if (to.getName().equals("dep1")) {
-          return "pear";
-        } else if (to.getName().equals("dep2")) {
-          return null;
-        } else {
-          fail("invalid dependency");
-          return null;
-        }
-      }
-    };
+    ValidityPredicate checker =
+        new ValidityPredicate() {
+          @Override
+          public String checkValid(Rule from, Rule to) {
+            assertThat(from.getName()).isEqualTo("top");
+            if (to.getName().equals("dep1")) {
+              return "pear";
+            } else if (to.getName().equals("dep2")) {
+              return null;
+            } else {
+              fail("invalid dependency");
+              return null;
+            }
+          }
+        };
 
     RuleClass topClass = new RuleClass.Builder("top", RuleClassType.NORMAL, false)
         .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
@@ -984,10 +977,10 @@ public class RuleClassTest extends PackageLoadingTestCase {
     Rule topRule = createRule(topClass, "top", Collections.<String, Object>emptyMap(),
         testRuleLocation);
 
-    assertEquals("pear", topClass.getAttributeByName("deps").getValidityPredicate().checkValid(
-        topRule, dep1));
-    assertEquals(null, topClass.getAttributeByName("deps").getValidityPredicate().checkValid(
-        topRule, dep2));
+    assertThat(topClass.getAttributeByName("deps").getValidityPredicate().checkValid(topRule, dep1))
+        .isEqualTo("pear");
+    assertThat(topClass.getAttributeByName("deps").getValidityPredicate().checkValid(topRule, dep2))
+        .isNull();
   }
 
   /**
@@ -1006,8 +999,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
         .build();
     final Rule defaultRule = createRule(defaultClass, "defaultRule",
         Collections.<String, Object>emptyMap(), testRuleLocation);
-    assertFalse(defaultRule.getRuleClassObject().isPreferredDependency(cppFile));
-    assertFalse(defaultRule.getRuleClassObject().isPreferredDependency(textFile));
+    assertThat(defaultRule.getRuleClassObject().isPreferredDependency(cppFile)).isFalse();
+    assertThat(defaultRule.getRuleClassObject().isPreferredDependency(textFile)).isFalse();
 
     // Make a rule that's preferred for C++ sources.
     RuleClass cppClass = new RuleClass.Builder("cppClass", RuleClassType.NORMAL, false)
@@ -1022,8 +1015,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
         .build();
     final Rule cppRule = createRule(cppClass, "cppRule",
         Collections.<String, Object>emptyMap(), testRuleLocation);
-    assertTrue(cppRule.getRuleClassObject().isPreferredDependency(cppFile));
-    assertFalse(cppRule.getRuleClassObject().isPreferredDependency(textFile));
+    assertThat(cppRule.getRuleClassObject().isPreferredDependency(cppFile)).isTrue();
+    assertThat(cppRule.getRuleClassObject().isPreferredDependency(textFile)).isFalse();
   }
 
   @Test

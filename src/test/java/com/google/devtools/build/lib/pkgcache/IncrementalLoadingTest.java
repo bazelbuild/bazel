@@ -14,9 +14,6 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNotSame;
-import static org.junit.Assert.assertSame;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
@@ -118,11 +115,11 @@ public class IncrementalLoadingTest {
         "filegroup(name = 'hello', srcs = ['foo.txt'])");
     tester.sync();
     Target oldTarget = tester.getTarget("//base:hello");
-    assertNotNull(oldTarget);
+    assertThat(oldTarget).isNotNull();
 
     tester.sync();
     Target newTarget = tester.getTarget("//base:hello");
-    assertSame(oldTarget, newTarget);
+    assertThat(newTarget).isSameAs(oldTarget);
   }
 
   @Test
@@ -134,7 +131,7 @@ public class IncrementalLoadingTest {
     tester.modifyFile("base/BUILD", "filegroup(name = 'hello', srcs = ['bar.txt'])");
     tester.sync();
     Target newTarget = tester.getTarget("//base:hello");
-    assertNotSame(oldTarget, newTarget);
+    assertThat(newTarget).isNotSameAs(oldTarget);
   }
 
   @Test
@@ -147,7 +144,7 @@ public class IncrementalLoadingTest {
     tester.modifyFile("base/foo.txt", "other");
     tester.sync();
     Target newTarget = tester.getTarget("//base:hello");
-    assertSame(oldTarget, newTarget);
+    assertThat(newTarget).isSameAs(oldTarget);
   }
 
   @Test
@@ -160,7 +157,7 @@ public class IncrementalLoadingTest {
     tester.removeFile("base/foo.txt");
     tester.sync();
     Target newTarget = tester.getTarget("//base:hello");
-    assertSame(oldTarget, newTarget);
+    assertThat(newTarget).isSameAs(oldTarget);
   }
 
   @Test
@@ -172,7 +169,7 @@ public class IncrementalLoadingTest {
     tester.modifyFile("base/mybuild", "filegroup(name = 'hello', srcs = ['bar.txt'])");
     tester.sync();
     Target newTarget = tester.getTarget("//base:hello");
-    assertNotSame(oldTarget, newTarget);
+    assertThat(newTarget).isNotSameAs(oldTarget);
   }
 
   @Test
@@ -185,7 +182,7 @@ public class IncrementalLoadingTest {
     tester.modifyFile("other/BUILD", "filegroup(name = 'hello', srcs = ['bar.txt'])");
     tester.sync();
     Target newTarget = tester.getTarget("//base:hello");
-    assertNotSame(oldTarget, newTarget);
+    assertThat(newTarget).isNotSameAs(oldTarget);
   }
 
   @Test
@@ -212,7 +209,7 @@ public class IncrementalLoadingTest {
     tester.sync();
 
     Target a3 = tester.getTarget("//a:a");
-    assertNotSame(a1, a3);
+    assertThat(a3).isNotSameAs(a1);
   }
 
   @Test
@@ -228,7 +225,7 @@ public class IncrementalLoadingTest {
     Target a2 = tester.getTarget("//a:a");
     tester.sync();
 
-    assertNotSame(a1, a2);
+    assertThat(a2).isNotSameAs(a1);
   }
 
   @Test
@@ -242,7 +239,7 @@ public class IncrementalLoadingTest {
     tester.sync();
 
     Target fg2 = tester.getTarget("//a:fg");
-    assertSame(fg1, fg2);
+    assertThat(fg2).isSameAs(fg1);
   }
 
   @Test
@@ -255,7 +252,7 @@ public class IncrementalLoadingTest {
     tester.addFile("base/bar.txt", "also nothing");
     tester.sync();
     Target newTarget = tester.getTarget("//base:hello");
-    assertNotSame(oldTarget, newTarget);
+    assertThat(newTarget).isNotSameAs(oldTarget);
   }
 
   @Test
@@ -269,7 +266,7 @@ public class IncrementalLoadingTest {
     tester.removeFile("base/bar.txt");
     tester.sync();
     Target newTarget = tester.getTarget("//base:hello");
-    assertNotSame(oldTarget, newTarget);
+    assertThat(newTarget).isNotSameAs(oldTarget);
   }
 
   @Test
@@ -285,7 +282,7 @@ public class IncrementalLoadingTest {
 
     tester.sync();
     Target a2 = tester.getTarget("//a:a");
-    assertNotSame(a1, a2);
+    assertThat(a2).isNotSameAs(a1);
   }
 
   @Test
@@ -301,7 +298,7 @@ public class IncrementalLoadingTest {
     tester.addFile("c");
     tester.sync();
     Target a3 = tester.getTarget("//a:a");
-    assertNotSame(a1, a3);
+    assertThat(a3).isNotSameAs(a1);
   }
 
   @Test
@@ -365,7 +362,7 @@ public class IncrementalLoadingTest {
     // Write file in directory to force reload of top-level glob.
     tester.addFile("pkg/irrelevant_file");
     tester.addFile("pkg/bar/irrelevant_file"); // Subglob is also reloaded.
-    assertSame(pkg, tester.getTarget("//pkg:pkg").getPackage());
+    assertThat(tester.getTarget("//pkg:pkg").getPackage()).isSameAs(pkg);
   }
 
   @Test

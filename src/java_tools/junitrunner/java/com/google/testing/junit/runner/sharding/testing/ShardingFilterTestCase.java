@@ -14,6 +14,8 @@
 
 package com.google.testing.junit.runner.sharding.testing;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import com.google.testing.junit.runner.sharding.api.ShardingFilterFactory;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -90,7 +92,7 @@ public abstract class ShardingFilterTestCase extends TestCase {
   public final void testShouldRunTestSuite() {
     Description testSuiteDescription = createTestSuiteDescription();
     Filter filter = createShardingFilterFactory().createFilter(TEST_DESCRIPTIONS, 0, 1);
-    assertTrue(filter.shouldRun(testSuiteDescription));
+    assertThat(filter.shouldRun(testSuiteDescription)).isTrue();
   }
 
   /**
@@ -210,13 +212,13 @@ public abstract class ShardingFilterTestCase extends TestCase {
       List<Filter> filters, List<Description> descriptions) {
     Map<Filter, List<Description>> run1 = simulateTestRun(filters, descriptions);
     Map<Filter, List<Description>> run2 = simulateTestRun(filters, descriptions);
-    assertEquals(run1, run2);
+    assertThat(run2).isEqualTo(run1);
 
     Map<Filter, List<Description>> randomizedRun1 =
         simulateSelfRandomizingTestRun(filters, descriptions);
     Map<Filter, List<Description>> randomizedRun2 =
         simulateSelfRandomizingTestRun(filters, descriptions);
-    assertEquals(randomizedRun1, randomizedRun2);
+    assertThat(randomizedRun2).isEqualTo(randomizedRun1);
   }
 
   private static void addDescriptionForFilterToMap(

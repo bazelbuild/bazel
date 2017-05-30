@@ -292,9 +292,11 @@ public class ValidationTest extends EvaluationTestCase {
       EvalUtils.getSkylarkType(ClassObject.class);
       throw new Exception("Should have raised IllegalArgumentException exception");
     } catch (IllegalArgumentException e) {
-      assertThat(e.getMessage()).contains(
-          "interface com.google.devtools.build.lib.syntax.ClassObject is not allowed "
-          + "as a Skylark value");
+      assertThat(e)
+          .hasMessageThat()
+          .contains(
+              "interface com.google.devtools.build.lib.syntax.ClassObject is not allowed "
+                  + "as a Skylark value");
     }
   }
 
@@ -313,9 +315,11 @@ public class ValidationTest extends EvaluationTestCase {
       SkylarkType.of(ClassObject.class);
       throw new Exception("foo");
     } catch (Exception e) {
-      assertThat(e.getMessage()).contains(
-          "interface com.google.devtools.build.lib.syntax.ClassObject "
-          + "is not allowed as a Skylark value");
+      assertThat(e)
+          .hasMessageThat()
+          .contains(
+              "interface com.google.devtools.build.lib.syntax.ClassObject "
+                  + "is not allowed as a Skylark value");
     }
 
     // Also test for these bazel classes, to avoid some regression.

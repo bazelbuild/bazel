@@ -14,12 +14,10 @@
 
 package com.google.devtools.build.singlejar;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.singlejar.DefaultJarEntryFilter.PathFilter;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -43,12 +41,14 @@ public class PrefixListPathFilterTest {
   }
 
   private void assertExcluded(String path) {
-    assertFalse(path + " should have been excluded, but was included",
-        filter.allowed(path));
+    assertWithMessage(path + " should have been excluded, but was included")
+        .that(filter.allowed(path))
+        .isFalse();
   }
 
   private void assertIncluded(String path) {
-    assertTrue(path + " should have been included but was not",
-        filter.allowed(path));
+    assertWithMessage(path + " should have been included but was not")
+        .that(filter.allowed(path))
+        .isTrue();
   }
 }

@@ -14,8 +14,6 @@
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Predicate;
@@ -24,12 +22,6 @@ import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -45,6 +37,10 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests {@link UnixGlob}
@@ -228,7 +224,7 @@ public class GlobTest {
                 .addPattern("foo/bar/wiz/file")
                 .setFilesystemCalls(new AtomicReference<>(syscalls))
                 .glob())
-        .containsExactlyElementsIn(ImmutableList.of(tmpPath.getRelative("foo/bar/wiz/file")));
+        .containsExactly(tmpPath.getRelative("foo/bar/wiz/file"));
   }
 
   @Test
@@ -264,7 +260,7 @@ public class GlobTest {
 
   @Test
   public void testMatchesCallWithNoCache() {
-    assertTrue(UnixGlob.matches("*a*b", "CaCb", null));
+    assertThat(UnixGlob.matches("*a*b", "CaCb", null)).isTrue();
   }
 
   @Test
@@ -276,11 +272,11 @@ public class GlobTest {
   public void testMatcherMethodRecursiveBelowDir() throws Exception {
     FileSystemUtils.createEmptyFile(tmpPath.getRelative("foo/file"));
     String pattern = "foo/**/*";
-    assertTrue(UnixGlob.matches(pattern, "foo/bar"));
-    assertTrue(UnixGlob.matches(pattern, "foo/bar/baz"));
-    assertFalse(UnixGlob.matches(pattern, "foo"));
-    assertFalse(UnixGlob.matches(pattern, "foob"));
-    assertTrue(UnixGlob.matches("**/foo", "foo"));
+    assertThat(UnixGlob.matches(pattern, "foo/bar")).isTrue();
+    assertThat(UnixGlob.matches(pattern, "foo/bar/baz")).isTrue();
+    assertThat(UnixGlob.matches(pattern, "foo")).isFalse();
+    assertThat(UnixGlob.matches(pattern, "foob")).isFalse();
+    assertThat(UnixGlob.matches("**/foo", "foo")).isTrue();
   }
 
   @Test
@@ -307,7 +303,7 @@ public class GlobTest {
           .globInterruptible();
       fail();
     } catch (IllegalArgumentException e) {
-      assertThat(e.getMessage()).containsMatch("in glob pattern");
+      assertThat(e).hasMessageThat().containsMatch("in glob pattern");
     }
   }
 
@@ -370,9 +366,10 @@ public class GlobTest {
     }
 
     Thread.interrupted();
-    assertFalse(executor.isShutdown());
+    assertThat(executor.isShutdown()).isFalse();
     executor.shutdown();
-    assertTrue(executor.awaitTermination(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS));
+    assertThat(executor.awaitTermination(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+        .isTrue();
   }
 
   @Test
@@ -397,7 +394,7 @@ public class GlobTest {
 
     // In the non-interruptible case, the interrupt bit should be set, but the
     // glob should return the correct set of full results.
-    assertTrue(Thread.interrupted());
+    assertThat(Thread.interrupted()).isTrue();
     assertThat(result)
         .containsExactlyElementsIn(
             resolvePaths(
@@ -415,8 +412,9 @@ public class GlobTest {
                 "fool/barnacle",
                 "fool/barnacle/wiz"));
 
-    assertFalse(executor.isShutdown());
+    assertThat(executor.isShutdown()).isFalse();
     executor.shutdown();
-    assertTrue(executor.awaitTermination(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS));
+    assertThat(executor.awaitTermination(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+        .isTrue();
   }
 }

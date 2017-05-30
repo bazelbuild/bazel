@@ -191,7 +191,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
           ImmutableList.of(PathFragment.create("one")));
       fail("MissingInputFileException expected, got " + value);
     } catch (Exception e) {
-      assertThat(Throwables.getRootCause(e).getMessage()).contains(exception.getMessage());
+      assertThat(Throwables.getRootCause(e)).hasMessageThat().contains(exception.getMessage());
     }
   }
 

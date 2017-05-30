@@ -14,18 +14,15 @@
 
 package com.google.devtools.build.singlejar;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
 
+import java.io.IOException;
+import java.util.Arrays;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.io.IOException;
-import java.util.Arrays;
-
-/**
- * Unit tests for {@link CopyEntryFilter}.
- */
+/** Unit tests for {@link CopyEntryFilter}. */
 @RunWith(JUnit4.class)
 public class CopyEntryFilterTest {
 
@@ -33,7 +30,7 @@ public class CopyEntryFilterTest {
   public void testSingleInput() throws IOException {
     RecordingCallback callback = new RecordingCallback();
     new CopyEntryFilter().accept("abc", callback);
-    assertEquals(Arrays.asList("copy"), callback.calls);
+    assertThat(callback.calls).isEqualTo(Arrays.asList("copy"));
   }
 
 }

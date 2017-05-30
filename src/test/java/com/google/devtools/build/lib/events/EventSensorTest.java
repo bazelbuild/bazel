@@ -13,9 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.events;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.eventbus.EventBus;
 import org.junit.Test;
@@ -30,9 +28,9 @@ public class EventSensorTest extends EventTestTemplate {
 
   @Test
   public void sensorStartsOutWithFalse() {
-    assertFalse(new EventSensor(EventKind.ALL_EVENTS).wasTriggered());
-    assertFalse(new EventSensor(EventKind.ERRORS).wasTriggered());
-    assertFalse(new EventSensor(EventKind.ERRORS_AND_WARNINGS).wasTriggered());
+    assertThat(new EventSensor(EventKind.ALL_EVENTS).wasTriggered()).isFalse();
+    assertThat(new EventSensor(EventKind.ERRORS).wasTriggered()).isFalse();
+    assertThat(new EventSensor(EventKind.ERRORS_AND_WARNINGS).wasTriggered()).isFalse();
   }
 
   @Test
@@ -40,7 +38,7 @@ public class EventSensorTest extends EventTestTemplate {
     EventSensor sensor = new EventSensor(EventKind.ERRORS);
     Reporter reporter = new Reporter(new EventBus(), sensor);
     reporter.handle(Event.error(location, "An ERROR event."));
-    assertTrue(sensor.wasTriggered());
+    assertThat(sensor.wasTriggered()).isTrue();
   }
 
   @Test
@@ -49,7 +47,7 @@ public class EventSensorTest extends EventTestTemplate {
     Reporter reporter = new Reporter(new EventBus(), sensor);
     reporter.handle(Event.error(location, "An ERROR event."));
     reporter.handle(Event.warn(location, "A warning event."));
-    assertTrue(sensor.wasTriggered());
+    assertThat(sensor.wasTriggered()).isTrue();
   }
 
   @Test
@@ -57,7 +55,7 @@ public class EventSensorTest extends EventTestTemplate {
     EventSensor sensor = new EventSensor(EventKind.ERRORS_AND_WARNINGS);
     Reporter reporter = new Reporter(new EventBus(), sensor);
     reporter.handle(Event.info(location, "An INFO event."));
-    assertFalse(sensor.wasTriggered());
+    assertThat(sensor.wasTriggered()).isFalse();
   }
 
   @Test
@@ -68,8 +66,8 @@ public class EventSensorTest extends EventTestTemplate {
     reporter.handle(Event.error(location, "Another ERROR event."));
     reporter.handle(Event.warn(location, "A warning event."));
     reporter.handle(Event.info(location, "An info event.")); // not in mask
-    assertEquals(3, sensor.getTriggerCount());
-    assertTrue(sensor.wasTriggered());
+    assertThat(sensor.getTriggerCount()).isEqualTo(3);
+    assertThat(sensor.wasTriggered()).isTrue();
   }
 
 }

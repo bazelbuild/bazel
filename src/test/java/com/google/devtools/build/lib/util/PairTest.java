@@ -13,9 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -32,17 +31,17 @@ public class PairTest {
     Object a = new Object();
     Object b = new Object();
     Pair<Object, Object> p = Pair.of(a, b);
-    assertSame(a, p.first);
-    assertSame(b, p.second);
+    assertThat(p.first).isSameAs(a);
+    assertThat(p.second).isSameAs(b);
     assertEquals(Pair.of(a, b), p);
-    assertEquals(31 * a.hashCode() + b.hashCode(), p.hashCode());
+    assertThat(p.hashCode()).isEqualTo(31 * a.hashCode() + b.hashCode());
   }
 
   @Test
   public void nullable() {
     Pair<Object, Object> p = Pair.of(null, null);
-    assertNull(p.first);
-    assertNull(p.second);
+    assertThat(p.first).isNull();
+    assertThat(p.second).isNull();
     p.hashCode(); // Should not throw.
     assertEquals(p, p);
   }

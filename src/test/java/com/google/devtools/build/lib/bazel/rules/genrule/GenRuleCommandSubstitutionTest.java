@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.bazel.rules.genrule;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.base.Joiner;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -59,10 +59,9 @@ public class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
       command = m.group("command");
     }
 
-    assertEquals(
-        "Expected command to be \"" + expected + "\", but found \"" + command + "\"",
-        expected,
-        command);
+    assertWithMessage("Expected command to be \"" + expected + "\", but found \"" + command + "\"")
+        .that(command)
+        .isEqualTo(expected);
   }
 
   private void assertExpansionFails(String expectedErrorSuffix, String genrule) throws Exception {

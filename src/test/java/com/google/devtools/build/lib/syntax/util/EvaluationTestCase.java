@@ -184,7 +184,7 @@ public class EvaluationTestCase {
       eval(input);
       fail("Expected error containing '" + msg + "' but got no error");
     } catch (IllegalArgumentException | EvalException e) {
-      assertThat(e.getMessage()).contains(msg);
+      assertThat(e).hasMessageThat().contains(msg);
     }
   }
 

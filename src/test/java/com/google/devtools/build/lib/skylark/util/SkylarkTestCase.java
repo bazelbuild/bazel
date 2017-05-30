@@ -151,7 +151,7 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
       evalRuleContextCode(ruleContext, lines);
       fail();
     } catch (EvalException e) {
-      assertThat(e.getMessage()).startsWith(errorMsg);
+      assertThat(e).hasMessageThat().startsWith(errorMsg);
     }
   }
 
@@ -161,7 +161,7 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
       eval(lines);
       fail("checkErrorContains(String, String...): There was no error");
     } catch (EvalException e) {
-      assertThat(e.getMessage()).contains(errorMsg);
+      assertThat(e).hasMessageThat().contains(errorMsg);
     }
   }
 
@@ -171,7 +171,7 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
       evalRuleContextCode(ruleContext, lines);
       fail("checkErrorContains(SkylarkRuleContext, String, String...): There was no error");
     } catch (EvalException e) {
-      assertThat(e.getMessage()).contains(errorMsg);
+      assertThat(e).hasMessageThat().contains(errorMsg);
     }
   }
 }

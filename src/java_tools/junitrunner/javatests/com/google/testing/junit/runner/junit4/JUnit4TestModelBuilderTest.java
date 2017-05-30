@@ -14,9 +14,8 @@
 
 package com.google.testing.junit.runner.junit4;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.testing.junit.runner.sharding.ShardingFilters.DEFAULT_SHARDING_STRATEGY;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -106,16 +105,16 @@ public class JUnit4TestModelBuilderTest {
 
     TestSuiteModel model = modelBuilder.get();
     TestNode suiteNode = Iterables.getOnlyElement(model.getTopLevelTestSuites());
-    assertEquals(suite, suiteNode.getDescription());
+    assertThat(suiteNode.getDescription()).isEqualTo(suite);
     List<TestNode> testCases = suiteNode.getChildren();
-    assertEquals(2, testCases.size());
+    assertThat(testCases).hasSize(2);
     TestNode testOneNode = testCases.get(0);
     TestNode testTwoNode = testCases.get(1);
-    assertEquals(testOne, testOneNode.getDescription());
-    assertEquals(testTwo, testTwoNode.getDescription());
-    assertTrue(testOneNode.getChildren().isEmpty());
-    assertTrue(testTwoNode.getChildren().isEmpty());
-    assertEquals(2, model.getNumTestCases());
+    assertThat(testOneNode.getDescription()).isEqualTo(testOne);
+    assertThat(testTwoNode.getDescription()).isEqualTo(testTwo);
+    assertThat(testOneNode.getChildren()).isEmpty();
+    assertThat(testTwoNode.getChildren()).isEmpty();
+    assertThat(model.getNumTestCases()).isEqualTo(2);
   }
 
   @Test
@@ -132,13 +131,13 @@ public class JUnit4TestModelBuilderTest {
 
     TestSuiteModel model = modelBuilder.get();
     TestNode topSuiteNode = Iterables.getOnlyElement(model.getTopLevelTestSuites());
-    assertEquals(topSuite, topSuiteNode.getDescription());
+    assertThat(topSuiteNode.getDescription()).isEqualTo(topSuite);
     TestNode innerSuiteNode = Iterables.getOnlyElement(topSuiteNode.getChildren());
-    assertEquals(innerSuite, innerSuiteNode.getDescription());
+    assertThat(innerSuiteNode.getDescription()).isEqualTo(innerSuite);
     TestNode testOneNode = Iterables.getOnlyElement(innerSuiteNode.getChildren());
-    assertEquals(testOne, testOneNode.getDescription());
-    assertTrue(testOneNode.getChildren().isEmpty());
-    assertEquals(1, model.getNumTestCases());
+    assertThat(testOneNode.getDescription()).isEqualTo(testOne);
+    assertThat(testOneNode.getChildren()).isEmpty();
+    assertThat(model.getNumTestCases()).isEqualTo(1);
   }
 
 

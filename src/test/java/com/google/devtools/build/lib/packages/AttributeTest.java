@@ -22,9 +22,6 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.syntax.Type.INTEGER;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Predicates;
@@ -37,39 +34,35 @@ import com.google.devtools.build.lib.packages.Attribute.SplitTransitionProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
-
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-
-/**
- * Tests of Attribute code.
- */
+/** Tests of Attribute code. */
 @RunWith(JUnit4.class)
 public class AttributeTest {
 
   private void assertDefaultValue(Object expected, Attribute attr) {
-    assertEquals(expected, attr.getDefaultValue(null));
+    assertThat(attr.getDefaultValue(null)).isEqualTo(expected);
   }
 
   private void assertType(Type<?> expectedType, Attribute attr) {
-    assertEquals(expectedType, attr.getType());
+    assertThat(attr.getType()).isEqualTo(expectedType);
   }
 
   @Test
   public void testBasics() throws Exception {
     Attribute attr = attr("foo", Type.INTEGER).mandatory().value(3).build();
-    assertEquals("foo", attr.getName());
-    assertEquals(3, attr.getDefaultValue(null));
-    assertEquals(Type.INTEGER, attr.getType());
-    assertTrue(attr.isMandatory());
-    assertTrue(attr.isDocumented());
+    assertThat(attr.getName()).isEqualTo("foo");
+    assertThat(attr.getDefaultValue(null)).isEqualTo(3);
+    assertThat(attr.getType()).isEqualTo(Type.INTEGER);
+    assertThat(attr.isMandatory()).isTrue();
+    assertThat(attr.isDocumented()).isTrue();
     attr = attr("$foo", Type.INTEGER).build();
-    assertFalse(attr.isDocumented());
+    assertThat(attr.isDocumented()).isFalse();
   }
 
   @Test
@@ -85,9 +78,9 @@ public class AttributeTest {
   @Test
   public void testNonEmpty() throws Exception {
     Attribute attr = attr("foo", BuildType.LABEL_LIST).nonEmpty().legacyAllowAnyFileType().build();
-    assertEquals("foo", attr.getName());
-    assertEquals(BuildType.LABEL_LIST, attr.getType());
-    assertTrue(attr.isNonEmpty());
+    assertThat(attr.getName()).isEqualTo("foo");
+    assertThat(attr.getType()).isEqualTo(BuildType.LABEL_LIST);
+    assertThat(attr.isNonEmpty()).isTrue();
   }
 
   @Test
@@ -224,11 +217,11 @@ public class AttributeTest {
 
     {
       Attribute childAttr1 = parentAttr.cloneBuilder().build();
-      assertEquals("x", childAttr1.getName());
-      assertEquals(txtFiles, childAttr1.getAllowedFileTypesPredicate());
-      assertEquals(Predicates.alwaysTrue(), childAttr1.getAllowedRuleClassesPredicate());
-      assertTrue(childAttr1.isMandatory());
-      assertFalse(childAttr1.isNonEmpty());
+      assertThat(childAttr1.getName()).isEqualTo("x");
+      assertThat(childAttr1.getAllowedFileTypesPredicate()).isEqualTo(txtFiles);
+      assertThat(childAttr1.getAllowedRuleClassesPredicate()).isEqualTo(Predicates.alwaysTrue());
+      assertThat(childAttr1.isMandatory()).isTrue();
+      assertThat(childAttr1.isNonEmpty()).isFalse();
       assertThat(childAttr1.getAspects(null /* rule */)).hasSize(1);
     }
 
@@ -240,17 +233,17 @@ public class AttributeTest {
               .allowedRuleClasses(ruleClasses)
               .aspect(TestAspects.ERROR_ASPECT)
               .build();
-      assertEquals("x", childAttr2.getName());
-      assertEquals(txtFiles, childAttr2.getAllowedFileTypesPredicate());
-      assertEquals(ruleClasses, childAttr2.getAllowedRuleClassesPredicate());
-      assertTrue(childAttr2.isMandatory());
-      assertTrue(childAttr2.isNonEmpty());
+      assertThat(childAttr2.getName()).isEqualTo("x");
+      assertThat(childAttr2.getAllowedFileTypesPredicate()).isEqualTo(txtFiles);
+      assertThat(childAttr2.getAllowedRuleClassesPredicate()).isEqualTo(ruleClasses);
+      assertThat(childAttr2.isMandatory()).isTrue();
+      assertThat(childAttr2.isNonEmpty()).isTrue();
       assertThat(childAttr2.getAspects(null /* rule */)).hasSize(2);
     }
 
-    //Check if the parent attribute is unchanged
-    assertFalse(parentAttr.isNonEmpty());
-    assertEquals(Predicates.alwaysTrue(), parentAttr.getAllowedRuleClassesPredicate());
+    // Check if the parent attribute is unchanged
+    assertThat(parentAttr.isNonEmpty()).isFalse();
+    assertThat(parentAttr.getAllowedRuleClassesPredicate()).isEqualTo(Predicates.alwaysTrue());
   }
 
   /**
@@ -258,10 +251,19 @@ public class AttributeTest {
    */
   @Test
   public void testConfigurability() {
-    assertTrue(attr("foo_configurable", BuildType.LABEL_LIST).legacyAllowAnyFileType().build()
-        .isConfigurable());
-    assertFalse(attr("foo_nonconfigurable", BuildType.LABEL_LIST).legacyAllowAnyFileType()
-        .nonconfigurable("test").build().isConfigurable());
+    assertThat(
+            attr("foo_configurable", BuildType.LABEL_LIST)
+                .legacyAllowAnyFileType()
+                .build()
+                .isConfigurable())
+        .isTrue();
+    assertThat(
+            attr("foo_nonconfigurable", BuildType.LABEL_LIST)
+                .legacyAllowAnyFileType()
+                .nonconfigurable("test")
+                .build()
+                .isConfigurable())
+        .isFalse();
   }
 
   @Test
@@ -269,7 +271,7 @@ public class AttributeTest {
     TestSplitTransition splitTransition = new TestSplitTransition();
     Attribute attr = attr("foo", LABEL).cfg(splitTransition).allowedFileTypes().build();
     assertThat(attr.getConfigurationTransition()).isEqualTo(SPLIT);
-    assertTrue(attr.hasSplitConfigurationTransition());
+    assertThat(attr.hasSplitConfigurationTransition()).isTrue();
     assertThat(attr.getSplitTransition(null)).isEqualTo(splitTransition);
   }
 
@@ -279,15 +281,15 @@ public class AttributeTest {
     Attribute attr =
         attr("foo", LABEL).cfg(splitTransitionProvider).allowedFileTypes().build();
     assertThat(attr.getConfigurationTransition()).isEqualTo(SPLIT);
-    assertTrue(attr.hasSplitConfigurationTransition());
-    assertTrue(attr.getSplitTransition(null) instanceof TestSplitTransition);
+    assertThat(attr.hasSplitConfigurationTransition()).isTrue();
+    assertThat(attr.getSplitTransition(null) instanceof TestSplitTransition).isTrue();
   }
 
   @Test
   public void testHostTransition() throws Exception {
     Attribute attr = attr("foo", LABEL).cfg(HOST).allowedFileTypes().build();
     assertThat(attr.getConfigurationTransition()).isEqualTo(HOST);
-    assertFalse(attr.hasSplitConfigurationTransition());
+    assertThat(attr.hasSplitConfigurationTransition()).isFalse();
   }
 
   private static class TestSplitTransition implements SplitTransition<BuildOptions> {

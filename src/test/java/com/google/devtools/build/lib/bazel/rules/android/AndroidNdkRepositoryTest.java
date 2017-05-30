@@ -196,7 +196,8 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
       getTarget("@androidndk//:files");
       fail("android_ndk_repository should have failed due to missing NDK platforms dir.");
     } catch (BuildFileNotFoundException e) {
-      assertThat(e.getMessage())
+      assertThat(e)
+          .hasMessageThat()
           .contains(
               "Expected directory at /ndk/platforms but it is not a directory or it does not "
                   + "exist.");

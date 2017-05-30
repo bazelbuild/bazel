@@ -14,10 +14,6 @@
 package com.google.devtools.build.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -176,7 +172,8 @@ public abstract class GraphTest {
     final CountDownLatch waitForSetValue = new CountDownLatch(1);
     ExecutorService pool = Executors.newFixedThreadPool(numThreads);
     // Add single rdep before transition to done.
-    assertEquals(DependencyState.NEEDS_SCHEDULING, entry.addReverseDepAndCheckIfDone(key("rdep")));
+    assertThat(entry.addReverseDepAndCheckIfDone(key("rdep")))
+        .isEqualTo(DependencyState.NEEDS_SCHEDULING);
     List<SkyKey> rdepKeys = new ArrayList<>();
     for (int i = 0; i < numKeys; i++) {
       rdepKeys.add(key("rdep" + i));
@@ -211,11 +208,10 @@ public abstract class GraphTest {
     entry.setValue(new StringValue("foo1"), startingVersion);
     waitForSetValue.countDown();
     wrapper.waitForTasksAndMaybeThrow();
-    assertFalse(ExecutorUtil.interruptibleShutdown(pool));
-    assertEquals(new StringValue("foo1"), graph.get(null, Reason.OTHER, key).getValue());
-    assertEquals(
-        numKeys + 1,
-        Iterables.size(graph.get(null, Reason.OTHER, key).getReverseDepsForDoneEntry()));
+    assertThat(ExecutorUtil.interruptibleShutdown(pool)).isFalse();
+    assertThat(graph.get(null, Reason.OTHER, key).getValue()).isEqualTo(new StringValue("foo1"));
+    assertThat(graph.get(null, Reason.OTHER, key).getReverseDepsForDoneEntry())
+        .hasSize(numKeys + 1);
 
     graph = getGraph(getNextVersion(startingVersion));
     NodeEntry sameEntry = Preconditions.checkNotNull(graph.get(null, Reason.OTHER, key));
@@ -224,10 +220,9 @@ public abstract class GraphTest {
     startEvaluation(sameEntry);
     sameEntry.markRebuilding();
     sameEntry.setValue(new StringValue("foo2"), getNextVersion(startingVersion));
-    assertEquals(new StringValue("foo2"), graph.get(null, Reason.OTHER, key).getValue());
-    assertEquals(
-        numKeys + 1,
-        Iterables.size(graph.get(null, Reason.OTHER, key).getReverseDepsForDoneEntry()));
+    assertThat(graph.get(null, Reason.OTHER, key).getValue()).isEqualTo(new StringValue("foo2"));
+    assertThat(graph.get(null, Reason.OTHER, key).getReverseDepsForDoneEntry())
+        .hasSize(numKeys + 1);
   }
 
   // Tests adding inflight nodes with a given key while an existing node with the same key
@@ -276,7 +271,7 @@ public abstract class GraphTest {
                     // NEEDS_SCHEDULING at most once.
                     try {
                       if (startEvaluation(entry).equals(DependencyState.NEEDS_SCHEDULING)) {
-                        assertTrue(valuesSet.add(key));
+                        assertThat(valuesSet.add(key)).isTrue();
                         // Set to done.
                         entry.setValue(new StringValue("bar" + keyNum), startingVersion);
                         assertThat(entry.isDone()).isTrue();
@@ -298,12 +293,12 @@ public abstract class GraphTest {
       }
     }
     wrapper.waitForTasksAndMaybeThrow();
-    assertFalse(ExecutorUtil.interruptibleShutdown(pool));
+    assertThat(ExecutorUtil.interruptibleShutdown(pool)).isFalse();
     // Check that all the values are as expected.
     for (int i = 0; i < numKeys; i++) {
       SkyKey key = key("foo" + i);
-      assertTrue(nodeCreated.contains(key));
-      assertTrue(valuesSet.contains(key));
+      assertThat(nodeCreated).contains(key);
+      assertThat(valuesSet).contains(key);
       assertThat(graph.get(null, Reason.OTHER, key).getValue())
           .isEqualTo(new StringValue("bar" + i));
       assertThat(graph.get(null, Reason.OTHER, key).getVersion()).isEqualTo(startingVersion);
@@ -331,9 +326,9 @@ public abstract class GraphTest {
       entry.setValue(new StringValue("bar"), startingVersion);
     }
 
-    assertNotNull(graph.get(null, Reason.OTHER, key("foo" + 0)));
+    assertThat(graph.get(null, Reason.OTHER, key("foo" + 0))).isNotNull();
     graph = getGraph(getNextVersion(startingVersion));
-    assertNotNull(graph.get(null, Reason.OTHER, key("foo" + 0)));
+    assertThat(graph.get(null, Reason.OTHER, key("foo" + 0))).isNotNull();
     ExecutorService pool1 = Executors.newFixedThreadPool(numThreads);
     ExecutorService pool2 = Executors.newFixedThreadPool(numThreads);
     ExecutorService pool3 = Executors.newFixedThreadPool(numThreads);
@@ -396,7 +391,7 @@ public abstract class GraphTest {
               } catch (InterruptedException e) {
                 throw new IllegalStateException(e);
               }
-              assertNotNull(entry);
+              assertThat(entry).isNotNull();
               // Requests for the value are made at the same time that the version increments from
               // the base. Check that there is no problem in requesting the version and that the
               // number is sane.
@@ -448,18 +443,18 @@ public abstract class GraphTest {
       pool3.execute(wrapper.wrap(r3));
     }
     wrapper.waitForTasksAndMaybeThrow();
-    assertFalse(ExecutorUtil.interruptibleShutdown(pool1));
-    assertFalse(ExecutorUtil.interruptibleShutdown(pool2));
-    assertFalse(ExecutorUtil.interruptibleShutdown(pool3));
+    assertThat(ExecutorUtil.interruptibleShutdown(pool1)).isFalse();
+    assertThat(ExecutorUtil.interruptibleShutdown(pool2)).isFalse();
+    assertThat(ExecutorUtil.interruptibleShutdown(pool3)).isFalse();
     for (int i = 0; i < numKeys; i++) {
       NodeEntry entry = graph.get(null, Reason.OTHER, key("foo" + i));
       assertThat(entry.getValue()).isEqualTo(new StringValue("bar" + i));
       assertThat(entry.getVersion()).isEqualTo(getNextVersion(startingVersion));
       for (SkyKey key : entry.getReverseDepsForDoneEntry()) {
-        assertEquals(key("rdep"), key);
+        assertThat(key).isEqualTo(key("rdep"));
       }
       for (SkyKey key : entry.getDirectDeps()) {
-        assertEquals(key("dep"), key);
+        assertThat(key).isEqualTo(key("dep"));
       }
     }
   }

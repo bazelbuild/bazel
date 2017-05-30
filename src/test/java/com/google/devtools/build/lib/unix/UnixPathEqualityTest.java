@@ -14,9 +14,6 @@
 package com.google.devtools.build.lib.unix;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.testing.EqualsTester;
@@ -41,17 +38,17 @@ public class UnixPathEqualityTest {
   public final void initializeFileSystem() throws Exception  {
     unixFs = new UnixFileSystem();
     otherUnixFs = new UnixFileSystem();
-    assertTrue(unixFs != otherUnixFs);
+    assertThat(unixFs != otherUnixFs).isTrue();
   }
 
   private void assertTwoWayEquals(Object obj1, Object obj2) {
-    assertEquals(obj2, obj1);
+    assertThat(obj1).isEqualTo(obj2);
     new EqualsTester().addEqualityGroup(obj1, obj2).testEquals();
   }
 
   private void assertTwoWayNotEquals(Object obj1, Object obj2) {
-    assertFalse(obj1.equals(obj2));
-    assertFalse(obj2.equals(obj1));
+    assertThat(obj1.equals(obj2)).isFalse();
+    assertThat(obj2.equals(obj1)).isFalse();
   }
 
   @Test
@@ -88,7 +85,7 @@ public class UnixPathEqualityTest {
 
   @Test
   public void testCrossFilesystemStartsWithReturnsFalse() {
-    assertFalse(unixFs.getPath("/a").startsWith(otherUnixFs.getPath("/b")));
+    assertThat(unixFs.getPath("/a").startsWith(otherUnixFs.getPath("/b"))).isFalse();
   }
 
   @Test
@@ -100,21 +97,21 @@ public class UnixPathEqualityTest {
       a.renameTo(b);
       fail();
     } catch (IllegalArgumentException e) {
-      assertThat(e.getMessage()).contains("different filesystems");
+      assertThat(e).hasMessageThat().contains("different filesystems");
     }
 
     try {
       a.relativeTo(b);
       fail();
     } catch (IllegalArgumentException e) {
-      assertThat(e.getMessage()).contains("different filesystems");
+      assertThat(e).hasMessageThat().contains("different filesystems");
     }
 
     try {
       a.createSymbolicLink(b);
       fail();
     } catch (IllegalArgumentException e) {
-      assertThat(e.getMessage()).contains("different filesystems");
+      assertThat(e).hasMessageThat().contains("different filesystems");
     }
   }
 }

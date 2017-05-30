@@ -131,6 +131,6 @@ public class BuildEventStreamerModuleTest {
     BuildEventStreamerModule module = new BuildEventStreamerModule();
     Optional<BuildEventStreamer> buildEventStreamer =
         module.tryCreateStreamer(optionsProvider, moduleEnvironment);
-    assertThat(buildEventStreamer.isPresent()).isFalse();
+    assertThat(buildEventStreamer).isAbsent();
   }
 }

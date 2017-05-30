@@ -27,11 +27,6 @@ import static com.google.devtools.build.lib.vfs.FileSystemUtils.touchFile;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.traverseTree;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Predicate;
@@ -119,35 +114,35 @@ public class FileSystemUtilsTest {
 
   private void checkTestDirectoryTreesBelow(Path toPath) throws IOException {
     Path copiedFile1 = toPath.getChild("file-1");
-    assertTrue(copiedFile1.exists());
-    assertTrue(copiedFile1.isFile());
+    assertThat(copiedFile1.exists()).isTrue();
+    assertThat(copiedFile1.isFile()).isTrue();
 
     Path copiedFile2 = toPath.getChild("file-2");
-    assertTrue(copiedFile2.exists());
-    assertTrue(copiedFile2.isFile());
+    assertThat(copiedFile2.exists()).isTrue();
+    assertThat(copiedFile2.isFile()).isTrue();
 
     Path copiedADir = toPath.getChild("a-dir");
-    assertTrue(copiedADir.exists());
-    assertTrue(copiedADir.isDirectory());
+    assertThat(copiedADir.exists()).isTrue();
+    assertThat(copiedADir.isDirectory()).isTrue();
     Collection<Path> aDirEntries = copiedADir.getDirectoryEntries();
     assertThat(aDirEntries).hasSize(2);
 
     Path copiedFile3 = copiedADir.getChild("file-3");
-    assertTrue(copiedFile3.exists());
-    assertTrue(copiedFile3.isFile());
+    assertThat(copiedFile3.exists()).isTrue();
+    assertThat(copiedFile3.isFile()).isTrue();
 
     Path copiedInnerDir = copiedADir.getChild("inner-dir");
-    assertTrue(copiedInnerDir.exists());
-    assertTrue(copiedInnerDir.isDirectory());
+    assertThat(copiedInnerDir.exists()).isTrue();
+    assertThat(copiedInnerDir.isDirectory()).isTrue();
 
     Path copiedLink1 = copiedInnerDir.getChild("link-1");
-    assertTrue(copiedLink1.exists());
-    assertFalse(copiedLink1.isSymbolicLink());
+    assertThat(copiedLink1.exists()).isTrue();
+    assertThat(copiedLink1.isSymbolicLink()).isFalse();
 
     Path copiedDirLink = copiedInnerDir.getChild("dir-link");
-    assertTrue(copiedDirLink.exists());
-    assertTrue(copiedDirLink.isDirectory());
-    assertTrue(copiedDirLink.getChild("file-5").exists());
+    assertThat(copiedDirLink.exists()).isTrue();
+    assertThat(copiedDirLink.isDirectory()).isTrue();
+    assertThat(copiedDirLink.getChild("file-5").exists()).isTrue();
   }
 
   // tests
@@ -164,33 +159,33 @@ public class FileSystemUtilsTest {
     FileSystemUtils.createEmptyFile(file);
     long prevMtime = file.getLastModifiedTime();
     BlazeTestUtils.changeModtime(file);
-    assertFalse(prevMtime == file.getLastModifiedTime());
+    assertThat(prevMtime == file.getLastModifiedTime()).isFalse();
   }
 
   @Test
   public void testCommonAncestor() {
-    assertEquals(topDir, commonAncestor(topDir, topDir));
-    assertEquals(topDir, commonAncestor(file1, file3));
-    assertEquals(topDir, commonAncestor(file1, dirLink));
+    assertThat(commonAncestor(topDir, topDir)).isEqualTo(topDir);
+    assertThat(commonAncestor(file1, file3)).isEqualTo(topDir);
+    assertThat(commonAncestor(file1, dirLink)).isEqualTo(topDir);
   }
 
   @Test
   public void testRelativePath() throws IOException {
     createTestDirectoryTree();
-    assertEquals("file-1", relativePath(topDir, file1).getPathString());
-    assertEquals(".", relativePath(topDir, topDir).getPathString());
-    assertEquals("a-dir/inner-dir/dir-link", relativePath(topDir, dirLink).getPathString());
-    assertEquals("../file-4", relativePath(topDir, file4).getPathString());
-    assertEquals("../../../file-4", relativePath(innerDir, file4).getPathString());
+    assertThat(relativePath(topDir, file1).getPathString()).isEqualTo("file-1");
+    assertThat(relativePath(topDir, topDir).getPathString()).isEqualTo(".");
+    assertThat(relativePath(topDir, dirLink).getPathString()).isEqualTo("a-dir/inner-dir/dir-link");
+    assertThat(relativePath(topDir, file4).getPathString()).isEqualTo("../file-4");
+    assertThat(relativePath(innerDir, file4).getPathString()).isEqualTo("../../../file-4");
   }
 
   @Test
   public void testRemoveExtension_Strings() throws Exception {
-    assertEquals("foo", removeExtension("foo.c"));
-    assertEquals("a/foo", removeExtension("a/foo.c"));
-    assertEquals("a.b/foo", removeExtension("a.b/foo"));
-    assertEquals("foo", removeExtension("foo"));
-    assertEquals("foo", removeExtension("foo."));
+    assertThat(removeExtension("foo.c")).isEqualTo("foo");
+    assertThat(removeExtension("a/foo.c")).isEqualTo("a/foo");
+    assertThat(removeExtension("a.b/foo")).isEqualTo("a.b/foo");
+    assertThat(removeExtension("foo")).isEqualTo("foo");
+    assertThat(removeExtension("foo.")).isEqualTo("foo");
   }
 
   @Test
@@ -203,11 +198,11 @@ public class FileSystemUtilsTest {
   }
 
   private static void assertPath(String expected, PathFragment actual) {
-    assertEquals(expected, actual.getPathString());
+    assertThat(actual.getPathString()).isEqualTo(expected);
   }
 
   private static void assertPath(String expected, Path actual) {
-    assertEquals(expected, actual.getPathString());
+    assertThat(actual.getPathString()).isEqualTo(expected);
   }
 
   @Test
@@ -222,7 +217,7 @@ public class FileSystemUtilsTest {
     assertPath("/foo.baz", FileSystemUtils.replaceExtension(fileSystem.getPath("/foo"), ".baz"));
     assertPath("/foo.baz", FileSystemUtils.replaceExtension(fileSystem.getPath("/foo.cc"), ".baz"));
     assertPath("/.baz", FileSystemUtils.replaceExtension(fileSystem.getPath("/.cc"), ".baz"));
-    assertNull(FileSystemUtils.replaceExtension(fileSystem.getPath("/"), ".baz"));
+    assertThat(FileSystemUtils.replaceExtension(fileSystem.getPath("/"), ".baz")).isNull();
   }
 
   @Test
@@ -246,15 +241,17 @@ public class FileSystemUtilsTest {
     assertPath("/foo.baz",
                FileSystemUtils.replaceExtension(PathFragment.create("/foo.cc"), ".baz"));
     assertPath(".baz", FileSystemUtils.replaceExtension(PathFragment.create(".cc"), ".baz"));
-    assertNull(FileSystemUtils.replaceExtension(PathFragment.create("/"), ".baz"));
-    assertNull(FileSystemUtils.replaceExtension(PathFragment.create(""), ".baz"));
+    assertThat(FileSystemUtils.replaceExtension(PathFragment.create("/"), ".baz")).isNull();
+    assertThat(FileSystemUtils.replaceExtension(PathFragment.create(""), ".baz")).isNull();
     assertPath("foo/bar.baz",
         FileSystemUtils.replaceExtension(PathFragment.create("foo/bar.pony"), ".baz", ".pony"));
     assertPath("foo/bar.baz",
         FileSystemUtils.replaceExtension(PathFragment.create("foo/bar"), ".baz", ""));
-    assertNull(FileSystemUtils.replaceExtension(PathFragment.create(""), ".baz", ".pony"));
-    assertNull(
-        FileSystemUtils.replaceExtension(PathFragment.create("foo/bar.pony"), ".baz", ".unicorn"));
+    assertThat(FileSystemUtils.replaceExtension(PathFragment.create(""), ".baz", ".pony")).isNull();
+    assertThat(
+            FileSystemUtils.replaceExtension(
+                PathFragment.create("foo/bar.pony"), ".baz", ".unicorn"))
+        .isNull();
   }
 
   @Test
@@ -273,8 +270,8 @@ public class FileSystemUtilsTest {
         appendWithoutExtension(PathFragment.create("libfoo.jar/"), "-src"));
     assertPath("libfoo.src.jar",
         appendWithoutExtension(PathFragment.create("libfoo.jar"), ".src"));
-    assertNull(appendWithoutExtension(PathFragment.create("/"), "-src"));
-    assertNull(appendWithoutExtension(PathFragment.create(""), "-src"));
+    assertThat(appendWithoutExtension(PathFragment.create("/"), "-src")).isNull();
+    assertThat(appendWithoutExtension(PathFragment.create(""), "-src")).isNull();
   }
 
   @Test
@@ -298,12 +295,12 @@ public class FileSystemUtilsTest {
   public void testGetWorkingDirectory() {
     String userDir = System.getProperty("user.dir");
 
-    assertEquals(FileSystemUtils.getWorkingDirectory(fileSystem),
-        fileSystem.getPath(System.getProperty("user.dir", "/")));
+    assertThat(fileSystem.getPath(System.getProperty("user.dir", "/")))
+        .isEqualTo(FileSystemUtils.getWorkingDirectory(fileSystem));
 
     System.setProperty("user.dir", "/blah/blah/blah");
-    assertEquals(FileSystemUtils.getWorkingDirectory(fileSystem),
-        fileSystem.getPath("/blah/blah/blah"));
+    assertThat(fileSystem.getPath("/blah/blah/blah"))
+        .isEqualTo(FileSystemUtils.getWorkingDirectory(fileSystem));
 
     System.setProperty("user.dir", userDir);
   }
@@ -311,22 +308,21 @@ public class FileSystemUtilsTest {
   @Test
   public void testResolveRelativeToFilesystemWorkingDir() {
     PathFragment relativePath = PathFragment.create("relative/path");
-    assertEquals(workingDir.getRelative(relativePath),
-                 workingDir.getRelative(relativePath));
+    assertThat(workingDir.getRelative(relativePath))
+        .isEqualTo(workingDir.getRelative(relativePath));
 
     PathFragment absolutePath = PathFragment.create("/absolute/path");
-    assertEquals(fileSystem.getPath(absolutePath),
-                 workingDir.getRelative(absolutePath));
+    assertThat(workingDir.getRelative(absolutePath)).isEqualTo(fileSystem.getPath(absolutePath));
   }
 
   @Test
   public void testTouchFileCreatesFile() throws IOException {
     createTestDirectoryTree();
     Path nonExistingFile = fileSystem.getPath("/previously-non-existing");
-    assertFalse(nonExistingFile.exists());
+    assertThat(nonExistingFile.exists()).isFalse();
     touchFile(nonExistingFile);
 
-    assertTrue(nonExistingFile.exists());
+    assertThat(nonExistingFile.exists()).isTrue();
   }
 
   @Test
@@ -351,7 +347,7 @@ public class FileSystemUtilsTest {
 
     copyFile(originalFile, copyTarget);
 
-    assertTrue(Arrays.equals(content, FileSystemUtils.readContent(copyTarget)));
+    assertThat(FileSystemUtils.readContent(copyTarget)).isEqualTo(content);
   }
 
   @Test
@@ -365,8 +361,8 @@ public class FileSystemUtilsTest {
 
     moveFile(originalFile, moveTarget);
 
-    assertTrue(Arrays.equals(content, FileSystemUtils.readContent(moveTarget)));
-    assertFalse(originalFile.exists());
+    assertThat(FileSystemUtils.readContent(moveTarget)).isEqualTo(content);
+    assertThat(originalFile.exists()).isFalse();
   }
 
   @Test
@@ -374,9 +370,9 @@ public class FileSystemUtilsTest {
     createTestDirectoryTree();
     String str = "this is a test of readContentWithLimit method";
     FileSystemUtils.writeContent(file1, StandardCharsets.ISO_8859_1, str);
-    assertEquals("", readStringFromFile(file1, 0));
-    assertEquals(readStringFromFile(file1, 10), str.substring(0, 10));
-    assertEquals(readStringFromFile(file1, 1000000), str);
+    assertThat(readStringFromFile(file1, 0)).isEmpty();
+    assertThat(str.substring(0, 10)).isEqualTo(readStringFromFile(file1, 10));
+    assertThat(str).isEqualTo(readStringFromFile(file1, 1000000));
   }
 
   private String readStringFromFile(Path file, int limit) throws IOException {
@@ -390,9 +386,8 @@ public class FileSystemUtilsTest {
     FileSystemUtils.writeIsoLatin1(file1, "nobody says ");
     FileSystemUtils.writeIsoLatin1(file1, "mary had");
     FileSystemUtils.appendIsoLatin1(file1, "a little lamb");
-    assertEquals(
-        "mary had\na little lamb\n",
-        new String(FileSystemUtils.readContentAsLatin1(file1)));
+    assertThat(new String(FileSystemUtils.readContentAsLatin1(file1)))
+        .isEqualTo("mary had\na little lamb\n");
   }
 
   @Test
@@ -408,19 +403,18 @@ public class FileSystemUtilsTest {
     Path copyTarget = file2;
     copyFile(originalFile, copyTarget);
 
-    assertEquals(12345L, file2.getLastModifiedTime());
-    assertFalse(file2.isExecutable());
-    assertFalse(file2.isWritable());
+    assertThat(file2.getLastModifiedTime()).isEqualTo(12345L);
+    assertThat(file2.isExecutable()).isFalse();
+    assertThat(file2.isWritable()).isFalse();
 
     file1.setWritable(true);
     file1.setExecutable(true);
 
     copyFile(originalFile, copyTarget);
 
-    assertEquals(12345L, file2.getLastModifiedTime());
-    assertTrue(file2.isExecutable());
-    assertTrue(file2.isWritable());
-
+    assertThat(file2.getLastModifiedTime()).isEqualTo(12345L);
+    assertThat(file2.isExecutable()).isTrue();
+    assertThat(file2.isWritable()).isTrue();
   }
 
   @Test
@@ -448,10 +442,10 @@ public class FileSystemUtilsTest {
 
     Path copyTarget = copyTool(topDir.getRelative("file-1"), aDir.getRelative("file-1"));
 
-    assertTrue(Arrays.equals(content, FileSystemUtils.readContent(copyTarget)));
-    assertEquals(file1.isWritable(), copyTarget.isWritable());
-    assertEquals(file1.isExecutable(), copyTarget.isExecutable());
-    assertEquals(file1.getLastModifiedTime(), copyTarget.getLastModifiedTime());
+    assertThat(FileSystemUtils.readContent(copyTarget)).isEqualTo(content);
+    assertThat(copyTarget.isWritable()).isEqualTo(file1.isWritable());
+    assertThat(copyTarget.isExecutable()).isEqualTo(file1.isExecutable());
+    assertThat(copyTarget.getLastModifiedTime()).isEqualTo(file1.getLastModifiedTime());
   }
 
   @Test
@@ -585,12 +579,12 @@ public class FileSystemUtilsTest {
     Path toDelete = topDir;
     deleteTree(toDelete);
 
-    assertTrue(file4.exists());
-    assertFalse(topDir.exists());
-    assertFalse(file1.exists());
-    assertFalse(file2.exists());
-    assertFalse(aDir.exists());
-    assertFalse(file3.exists());
+    assertThat(file4.exists()).isTrue();
+    assertThat(topDir.exists()).isFalse();
+    assertThat(file1.exists()).isFalse();
+    assertThat(file2.exists()).isFalse();
+    assertThat(aDir.exists()).isFalse();
+    assertThat(file3.exists()).isFalse();
   }
 
   @Test
@@ -608,9 +602,8 @@ public class FileSystemUtilsTest {
     }
 
     deleteTree(toDelete);
-    assertFalse(topDir.exists());
-    assertFalse(aDir.exists());
-
+    assertThat(topDir.exists()).isFalse();
+    assertThat(aDir.exists()).isFalse();
   }
 
   @Test
@@ -622,26 +615,26 @@ public class FileSystemUtilsTest {
 
     deleteTree(toDelete);
 
-    assertTrue(file4.exists());
-    assertFalse(topDir.exists());
-    assertFalse(file1.exists());
-    assertFalse(file2.exists());
-    assertFalse(aDir.exists());
-    assertFalse(file3.exists());
+    assertThat(file4.exists()).isTrue();
+    assertThat(topDir.exists()).isFalse();
+    assertThat(file1.exists()).isFalse();
+    assertThat(file2.exists()).isFalse();
+    assertThat(aDir.exists()).isFalse();
+    assertThat(file3.exists()).isFalse();
   }
 
   @Test
   public void testCreateDirectories() throws IOException {
     Path mainPath = fileSystem.getPath("/some/where/deep/in/the/hierarchy");
-    assertTrue(createDirectoryAndParents(mainPath));
-    assertTrue(mainPath.exists());
-    assertFalse(createDirectoryAndParents(mainPath));
+    assertThat(createDirectoryAndParents(mainPath)).isTrue();
+    assertThat(mainPath.exists()).isTrue();
+    assertThat(createDirectoryAndParents(mainPath)).isFalse();
   }
 
   @Test
   public void testCreateDirectoriesWhenAncestorIsFile() throws IOException {
     Path somewhereDeepIn = fileSystem.getPath("/somewhere/deep/in");
-    assertTrue(createDirectoryAndParents(somewhereDeepIn.getParentDirectory()));
+    assertThat(createDirectoryAndParents(somewhereDeepIn.getParentDirectory())).isTrue();
     FileSystemUtils.createEmptyFile(somewhereDeepIn);
     Path theHierarchy = somewhereDeepIn.getChild("the-hierarchy");
     try {
@@ -655,28 +648,28 @@ public class FileSystemUtilsTest {
   @Test
   public void testCreateDirectoriesWhenSymlinkToDir() throws IOException {
     Path somewhereDeepIn = fileSystem.getPath("/somewhere/deep/in");
-    assertTrue(createDirectoryAndParents(somewhereDeepIn));
+    assertThat(createDirectoryAndParents(somewhereDeepIn)).isTrue();
     Path realDir = fileSystem.getPath("/real/dir");
-    assertTrue(createDirectoryAndParents(realDir));
+    assertThat(createDirectoryAndParents(realDir)).isTrue();
 
     Path theHierarchy = somewhereDeepIn.getChild("the-hierarchy");
     theHierarchy.createSymbolicLink(realDir);
 
-    assertFalse(createDirectoryAndParents(theHierarchy));
+    assertThat(createDirectoryAndParents(theHierarchy)).isFalse();
   }
 
   @Test
   public void testCreateDirectoriesWhenSymlinkEmbedded() throws IOException {
     Path somewhereDeepIn = fileSystem.getPath("/somewhere/deep/in");
-    assertTrue(createDirectoryAndParents(somewhereDeepIn));
+    assertThat(createDirectoryAndParents(somewhereDeepIn)).isTrue();
     Path realDir = fileSystem.getPath("/real/dir");
-    assertTrue(createDirectoryAndParents(realDir));
+    assertThat(createDirectoryAndParents(realDir)).isTrue();
 
     Path the = somewhereDeepIn.getChild("the");
     the.createSymbolicLink(realDir);
 
     Path theHierarchy = somewhereDeepIn.getChild("hierarchy");
-    assertTrue(createDirectoryAndParents(theHierarchy));
+    assertThat(createDirectoryAndParents(theHierarchy)).isTrue();
   }
 
 
@@ -686,7 +679,7 @@ public class FileSystemUtilsTest {
     FileSystemUtils.writeIsoLatin1(file, "Line 1", "Line 2", "Line 3");
     String expected = "Line 1\nLine 2\nLine 3\n";
     String actual = new String(FileSystemUtils.readContentAsLatin1(file));
-    assertEquals(expected, actual);
+    assertThat(actual).isEqualTo(expected);
   }
 
   @Test
@@ -695,7 +688,7 @@ public class FileSystemUtilsTest {
     FileSystemUtils.writeLinesAs(file, UTF_8, "\u00F6"); // an oe umlaut
     byte[] expected = new byte[] {(byte) 0xC3, (byte) 0xB6, 0x0A};//"\u00F6\n";
     byte[] actual = FileSystemUtils.readContent(file);
-    assertArrayEquals(expected, actual);
+    assertThat(actual).isEqualTo(expected);
   }
 
   @Test
@@ -707,19 +700,19 @@ public class FileSystemUtilsTest {
     byte[] content = new byte[] { 'a', 'b', 'c', 23, 42 };
     FileSystemUtils.maybeUpdateContent(file, content);
     byte[] actual = FileSystemUtils.readContent(file);
-    assertArrayEquals(content, actual);
+    assertThat(actual).isEqualTo(content);
     FileStatus stat = file.stat();
-    assertEquals(1000, stat.getLastChangeTime());
-    assertEquals(1000, stat.getLastModifiedTime());
+    assertThat(stat.getLastChangeTime()).isEqualTo(1000);
+    assertThat(stat.getLastModifiedTime()).isEqualTo(1000);
 
     clock.advanceMillis(1000);
 
     // Update with same contents; should not write anything.
     FileSystemUtils.maybeUpdateContent(file, content);
-    assertArrayEquals(content, actual);
+    assertThat(actual).isEqualTo(content);
     stat = file.stat();
-    assertEquals(1000, stat.getLastChangeTime());
-    assertEquals(1000, stat.getLastModifiedTime());
+    assertThat(stat.getLastChangeTime()).isEqualTo(1000);
+    assertThat(stat.getLastModifiedTime()).isEqualTo(1000);
 
     clock.advanceMillis(1000);
 
@@ -728,10 +721,10 @@ public class FileSystemUtilsTest {
     file.chmod(0400);  // Protect the file to ensure we can rewrite it.
     FileSystemUtils.maybeUpdateContent(file, content);
     actual = FileSystemUtils.readContent(file);
-    assertArrayEquals(content, actual);
+    assertThat(actual).isEqualTo(content);
     stat = file.stat();
-    assertEquals(3000, stat.getLastChangeTime());
-    assertEquals(3000, stat.getLastModifiedTime());
+    assertThat(stat.getLastChangeTime()).isEqualTo(3000);
+    assertThat(stat.getLastModifiedTime()).isEqualTo(3000);
   }
 
   @Test
@@ -748,67 +741,71 @@ public class FileSystemUtilsTest {
         "proc proc proc rw,noexec,nosuid,nodev 0 0");
     Path path = fileSystem.getPath("/usr/local/google/_blaze");
     FileSystemUtils.createDirectoryAndParents(path);
-    assertEquals("ext3", FileSystemUtils.getFileSystem(path));
+    assertThat(FileSystemUtils.getFileSystem(path)).isEqualTo("ext3");
 
     // Should match the root "/"
     path = fileSystem.getPath("/usr/local/tmp");
     FileSystemUtils.createDirectoryAndParents(path);
-    assertEquals("ext2", FileSystemUtils.getFileSystem(path));
+    assertThat(FileSystemUtils.getFileSystem(path)).isEqualTo("ext2");
 
     // Make sure we don't consider /foobar matches /foo
     path = fileSystem.getPath("/foo");
     FileSystemUtils.createDirectoryAndParents(path);
-    assertEquals("dummy_foo", FileSystemUtils.getFileSystem(path));
+    assertThat(FileSystemUtils.getFileSystem(path)).isEqualTo("dummy_foo");
     path = fileSystem.getPath("/foobar");
     FileSystemUtils.createDirectoryAndParents(path);
-    assertEquals("dummy_foobar", FileSystemUtils.getFileSystem(path));
+    assertThat(FileSystemUtils.getFileSystem(path)).isEqualTo("dummy_foobar");
 
     path = fileSystem.getPath("/dev/shm/blaze");
     FileSystemUtils.createDirectoryAndParents(path);
-    assertEquals("tmpfs", FileSystemUtils.getFileSystem(path));
+    assertThat(FileSystemUtils.getFileSystem(path)).isEqualTo("tmpfs");
 
     Path fusePath = fileSystem.getPath("/fuse/mnt/tmp");
     FileSystemUtils.createDirectoryAndParents(fusePath);
-    assertEquals("fuse", FileSystemUtils.getFileSystem(fusePath));
+    assertThat(FileSystemUtils.getFileSystem(fusePath)).isEqualTo("fuse");
 
     // Create a symlink and make sure it gives the file system of the symlink target.
     path = fileSystem.getPath("/usr/local/google/_blaze/out");
     path.createSymbolicLink(fusePath);
-    assertEquals("fuse", FileSystemUtils.getFileSystem(path));
+    assertThat(FileSystemUtils.getFileSystem(path)).isEqualTo("fuse");
 
     // Non existent path should return "unknown"
     path = fileSystem.getPath("/does/not/exist");
-    assertEquals("unknown", FileSystemUtils.getFileSystem(path));
+    assertThat(FileSystemUtils.getFileSystem(path)).isEqualTo("unknown");
   }
 
   @Test
   public void testStartsWithAnySuccess() throws Exception {
     PathFragment a = PathFragment.create("a");
-    assertTrue(FileSystemUtils.startsWithAny(a,
-        Arrays.asList(PathFragment.create("b"), PathFragment.create("a"))));
+    assertThat(
+            FileSystemUtils.startsWithAny(
+                a, Arrays.asList(PathFragment.create("b"), PathFragment.create("a"))))
+        .isTrue();
   }
 
   @Test
   public void testStartsWithAnyNotFound() throws Exception {
     PathFragment a = PathFragment.create("a");
-    assertFalse(FileSystemUtils.startsWithAny(a,
-        Arrays.asList(PathFragment.create("b"), PathFragment.create("c"))));
+    assertThat(
+            FileSystemUtils.startsWithAny(
+                a, Arrays.asList(PathFragment.create("b"), PathFragment.create("c"))))
+        .isFalse();
   }
 
   @Test
   public void testIterateLines() throws Exception {
     Path file = fileSystem.getPath("/test.txt");
     FileSystemUtils.writeContent(file, ISO_8859_1, "a\nb");
-    assertEquals(Arrays.asList("a", "b"),
-        Lists.newArrayList(FileSystemUtils.iterateLinesAsLatin1(file)));
+    assertThat(Lists.newArrayList(FileSystemUtils.iterateLinesAsLatin1(file)))
+        .isEqualTo(Arrays.asList("a", "b"));
 
     FileSystemUtils.writeContent(file, ISO_8859_1, "a\rb");
-    assertEquals(Arrays.asList("a", "b"),
-        Lists.newArrayList(FileSystemUtils.iterateLinesAsLatin1(file)));
+    assertThat(Lists.newArrayList(FileSystemUtils.iterateLinesAsLatin1(file)))
+        .isEqualTo(Arrays.asList("a", "b"));
 
     FileSystemUtils.writeContent(file, ISO_8859_1, "a\r\nb");
-    assertEquals(Arrays.asList("a", "b"),
-        Lists.newArrayList(FileSystemUtils.iterateLinesAsLatin1(file)));
+    assertThat(Lists.newArrayList(FileSystemUtils.iterateLinesAsLatin1(file)))
+        .isEqualTo(Arrays.asList("a", "b"));
   }
 
   @Test
@@ -820,7 +817,7 @@ public class FileSystemUtilsTest {
     clock.advanceMillis(1000);
     FileSystemUtils.ensureSymbolicLink(file, target);
     long timestamp = file.getLastModifiedTime(Symlinks.NOFOLLOW);
-    assertEquals(prevTimeMillis, timestamp);
+    assertThat(timestamp).isEqualTo(prevTimeMillis);
   }
 
   @Test
@@ -831,11 +828,10 @@ public class FileSystemUtilsTest {
     Path linkPath = workingDir.getRelative("link");
     FileSystemUtils.createEmptyFile(originalPath);
     FileSystemUtils.createHardLink(linkPath, originalPath);
-    assertTrue(originalPath.exists());
-    assertTrue(linkPath.exists());
-    assertEquals(
-        fileSystem.stat(originalPath, false).getNodeId(),
-        fileSystem.stat(linkPath, false).getNodeId());
+    assertThat(originalPath.exists()).isTrue();
+    assertThat(linkPath.exists()).isTrue();
+    assertThat(fileSystem.stat(linkPath, false).getNodeId())
+        .isEqualTo(fileSystem.stat(originalPath, false).getNodeId());
   }
 
   @Test
@@ -848,7 +844,7 @@ public class FileSystemUtilsTest {
 
     /* Original directory is empty, no link to be created. */
     FileSystemUtils.createHardLink(linkPath, originalDir);
-    assertFalse(linkPath.exists());
+    assertThat(linkPath.exists()).isFalse();
   }
 
   @Test
@@ -871,18 +867,15 @@ public class FileSystemUtilsTest {
 
     /* Three link files created under linkPath */
     FileSystemUtils.createHardLink(linkPath, originalDir);
-    assertTrue(linkPath.exists());
-    assertTrue(linkPath1.exists());
-    assertTrue(linkPath2.exists());
-    assertTrue(linkPath3.exists());
-    assertEquals(
-        fileSystem.stat(originalPath1, false).getNodeId(),
-        fileSystem.stat(linkPath1, false).getNodeId());
-    assertEquals(
-        fileSystem.stat(originalPath2, false).getNodeId(),
-        fileSystem.stat(linkPath2, false).getNodeId());
-    assertEquals(
-        fileSystem.stat(originalPath3, false).getNodeId(),
-        fileSystem.stat(linkPath3, false).getNodeId());
+    assertThat(linkPath.exists()).isTrue();
+    assertThat(linkPath1.exists()).isTrue();
+    assertThat(linkPath2.exists()).isTrue();
+    assertThat(linkPath3.exists()).isTrue();
+    assertThat(fileSystem.stat(linkPath1, false).getNodeId())
+        .isEqualTo(fileSystem.stat(originalPath1, false).getNodeId());
+    assertThat(fileSystem.stat(linkPath2, false).getNodeId())
+        .isEqualTo(fileSystem.stat(originalPath2, false).getNodeId());
+    assertThat(fileSystem.stat(linkPath3, false).getNodeId())
+        .isEqualTo(fileSystem.stat(originalPath3, false).getNodeId());
   }
 }

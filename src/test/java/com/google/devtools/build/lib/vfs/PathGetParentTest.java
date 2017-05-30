@@ -13,8 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
@@ -52,17 +51,17 @@ public class PathGetParentTest {
 
   @Test
   public void testAbsoluteRootHasNoParent() {
-    assertNull(getParent("/"));
+    assertThat(getParent("/")).isNull();
   }
 
   @Test
   public void testParentOfSimpleDirectory() {
-    assertEquals("/foo", getParent("/foo/bar").getPathString());
+    assertThat(getParent("/foo/bar").getPathString()).isEqualTo("/foo");
   }
 
   @Test
   public void testParentOfDotDotInMiddleOfPathname() {
-    assertEquals("/", getParent("/foo/../bar").getPathString());
+    assertThat(getParent("/foo/../bar").getPathString()).isEqualTo("/");
   }
 
   @Test
@@ -75,12 +74,12 @@ public class PathGetParentTest {
     // ln -sf /tmp /tmp/wiz
     tmpWiz.createSymbolicLink(tmp);
 
-    assertEquals(testRoot, tmp.getParentDirectory());
+    assertThat(tmp.getParentDirectory()).isEqualTo(testRoot);
 
-    assertEquals(tmp, tmpWiz.getParentDirectory());
+    assertThat(tmpWiz.getParentDirectory()).isEqualTo(tmp);
 
     // Under UNIX, inode(/tmp/wiz/..) == inode(/).  However getPath() does not
     // perform I/O, only string operations, so it disagrees:
-    assertEquals(tmp, tmp.getRelative(PathFragment.create("wiz/..")));
+    assertThat(tmp.getRelative(PathFragment.create("wiz/.."))).isEqualTo(tmp);
   }
 }

@@ -14,8 +14,7 @@
 
 package com.google.devtools.build.java.bazel;
 
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import java.io.File;
@@ -53,13 +52,13 @@ public class BazelJavaCompilerTest {
   public void testCompilerNewInstance() throws Exception {
     JavaCompiler javac = BazelJavaCompiler.newInstance();
 
-    assertNotNull(javac.getStandardFileManager(null, null, null));
+    assertThat(javac.getStandardFileManager(null, null, null)).isNotNull();
 
     // This is a simplified pattern of invoking the compiler API. Note, however, that
     // many examples cast to JavacTask or JavacTaskImpl and invoke the phases separately.
     // Currently, either cast will fail with something that looks like classloader issues:
     // "com.sun.tools.javac.api.JavacTask cannot be cast to com.sun.tools.javac.api.JavacTask"
-    assertNotNull(javac.getTask(null, null, null, null, null, null));
+    assertThat(javac.getTask(null, null, null, null, null, null)).isNotNull();
   }
 
   @Test
@@ -88,8 +87,8 @@ public class BazelJavaCompilerTest {
     // the default options include the correct -encoding (which is loaded from
     // JavaBuilder), and that BazelJavaCompiler is appending the -bootclasspath.
     List<String> opts = BazelJavaCompiler.getDefaultJavacopts();
-    assertTrue(opts.contains("UTF-8"));
-    assertTrue(opts.contains("-bootclasspath"));
+    assertThat(opts).contains("UTF-8");
+    assertThat(opts).contains("-bootclasspath");
   }
 
   private void assertCompileSucceeds(final String uri, final String content) throws Exception {
@@ -107,7 +106,7 @@ public class BazelJavaCompilerTest {
     DiagnosticCollector<JavaFileObject> messages = new DiagnosticCollector<>();
     JavaCompiler.CompilationTask task =
         javac.getTask(null, fileManager, messages, null, null, Collections.singletonList(source));
-    assertTrue(task.call());
-    assertTrue(messages.getDiagnostics().isEmpty());
+    assertThat(task.call()).isTrue();
+    assertThat(messages.getDiagnostics()).isEmpty();
   }
 }

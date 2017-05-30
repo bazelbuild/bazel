@@ -14,12 +14,11 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.common.collect.Iterables.size;
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.OutputGroupProvider.HIDDEN_OUTPUT_GROUP_PREFIX;
 import static com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.getAllArtifactsToBuild;
 import static com.google.devtools.build.lib.util.Preconditions.checkNotNull;
 import static java.util.Arrays.asList;
-import static org.junit.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
@@ -73,20 +72,20 @@ public class TopLevelArtifactHelperTest {
     setup(asList(Pair.of("foo", 3), Pair.of("bar", 2)));
 
     ArtifactsToBuild allArtifacts = getAllArtifactsToBuild(groupProvider, null, ctx);
-    assertEquals(5, size(allArtifacts.getAllArtifacts()));
-    assertEquals(5, size(allArtifacts.getImportantArtifacts()));
+    assertThat(allArtifacts.getAllArtifacts()).hasSize(5);
+    assertThat(allArtifacts.getImportantArtifacts()).hasSize(5);
 
     NestedSet<ArtifactsInOutputGroup> artifactsByGroup =
         allArtifacts.getAllArtifactsByOutputGroup();
     // Two groups
-    assertEquals(2, size(artifactsByGroup));
+    assertThat(artifactsByGroup).hasSize(2);
 
     for (ArtifactsInOutputGroup artifacts : artifactsByGroup) {
       String outputGroup = artifacts.getOutputGroup();
       if ("foo".equals(outputGroup)) {
-        assertEquals(3, size(artifacts.getArtifacts()));
+        assertThat(artifacts.getArtifacts()).hasSize(3);
       } else if ("bar".equals(outputGroup)) {
-        assertEquals(2, size(artifacts.getArtifacts()));
+        assertThat(artifacts.getArtifacts()).hasSize(2);
       }
     }
   }
@@ -96,14 +95,14 @@ public class TopLevelArtifactHelperTest {
     setup(asList(Pair.of("foo", 1), Pair.of("bar", 0)));
 
     ArtifactsToBuild allArtifacts = getAllArtifactsToBuild(groupProvider, null, ctx);
-    assertEquals(1, size(allArtifacts.getAllArtifacts()));
-    assertEquals(1, size(allArtifacts.getImportantArtifacts()));
+    assertThat(allArtifacts.getAllArtifacts()).hasSize(1);
+    assertThat(allArtifacts.getImportantArtifacts()).hasSize(1);
 
     NestedSet<ArtifactsInOutputGroup> artifactsByGroup =
         allArtifacts.getAllArtifactsByOutputGroup();
     // The bar list should not appear here, as it contains no artifacts.
-    assertEquals(1, size(artifactsByGroup));
-    assertEquals("foo", artifactsByGroup.toList().get(0).getOutputGroup());
+    assertThat(artifactsByGroup).hasSize(1);
+    assertThat(artifactsByGroup.toList().get(0).getOutputGroup()).isEqualTo("foo");
   }
 
   @Test
@@ -111,8 +110,8 @@ public class TopLevelArtifactHelperTest {
     setup(asList(Pair.of(HIDDEN_OUTPUT_GROUP_PREFIX + "notimportant", 1), Pair.of("important", 2)));
 
     ArtifactsToBuild allArtifacts = getAllArtifactsToBuild(groupProvider, null, ctx);
-    assertEquals(3, size(allArtifacts.getAllArtifacts()));
-    assertEquals(2, size(allArtifacts.getImportantArtifacts()));
+    assertThat(allArtifacts.getAllArtifacts()).hasSize(3);
+    assertThat(allArtifacts.getImportantArtifacts()).hasSize(2);
   }
 
   private NestedSet<Artifact> newArtifacts(int num) {

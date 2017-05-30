@@ -19,23 +19,17 @@ import static com.google.devtools.build.lib.util.StringUtilities.joinLines;
 import static com.google.devtools.build.lib.util.StringUtilities.layoutTable;
 import static com.google.devtools.build.lib.util.StringUtilities.prettyPrintBytes;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.Maps;
-
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-
-/**
- * A test for {@link StringUtilities}.
- */
+/** A test for {@link StringUtilities}. */
 @RunWith(JUnit4.class)
 public class StringUtilitiesTest {
 
@@ -172,17 +166,23 @@ public class StringUtilitiesTest {
 
   @Test
   public void containsSubarray() {
-    assertTrue(StringUtilities.containsSubarray("abcde".toCharArray(), "ab".toCharArray()));
-    assertTrue(StringUtilities.containsSubarray("abcde".toCharArray(), "de".toCharArray()));
-    assertTrue(StringUtilities.containsSubarray("abcde".toCharArray(), "bc".toCharArray()));
-    assertTrue(StringUtilities.containsSubarray("abcde".toCharArray(), "".toCharArray()));
+    assertThat(StringUtilities.containsSubarray("abcde".toCharArray(), "ab".toCharArray()))
+        .isTrue();
+    assertThat(StringUtilities.containsSubarray("abcde".toCharArray(), "de".toCharArray()))
+        .isTrue();
+    assertThat(StringUtilities.containsSubarray("abcde".toCharArray(), "bc".toCharArray()))
+        .isTrue();
+    assertThat(StringUtilities.containsSubarray("abcde".toCharArray(), "".toCharArray())).isTrue();
   }
 
   @Test
   public void notContainsSubarray() {
-    assertFalse(StringUtilities.containsSubarray("abc".toCharArray(), "abcd".toCharArray()));
-    assertFalse(StringUtilities.containsSubarray("abc".toCharArray(), "def".toCharArray()));
-    assertFalse(StringUtilities.containsSubarray("abcde".toCharArray(), "bd".toCharArray()));
+    assertThat(StringUtilities.containsSubarray("abc".toCharArray(), "abcd".toCharArray()))
+        .isFalse();
+    assertThat(StringUtilities.containsSubarray("abc".toCharArray(), "def".toCharArray()))
+        .isFalse();
+    assertThat(StringUtilities.containsSubarray("abcde".toCharArray(), "bd".toCharArray()))
+        .isFalse();
   }
 
   @Test

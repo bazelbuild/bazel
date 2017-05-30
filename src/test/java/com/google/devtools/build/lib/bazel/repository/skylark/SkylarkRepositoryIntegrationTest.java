@@ -300,10 +300,13 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
       getTarget("@//:git_repo");
       fail();
     } catch (AssertionError expected) {
-      assertThat(expected.getMessage()).contains("Failed to load Skylark extension "
-          + "'@git_repo//xyz:foo.bzl'.\n"
-          + "It usually happens when the repository is not defined prior to being used.\n"
-          + "Maybe repository 'git_repo' was defined later in your WORKSPACE file?");
+      assertThat(expected)
+          .hasMessageThat()
+          .contains(
+              "Failed to load Skylark extension "
+                  + "'@git_repo//xyz:foo.bzl'.\n"
+                  + "It usually happens when the repository is not defined prior to being used.\n"
+                  + "Maybe repository 'git_repo' was defined later in your WORKSPACE file?");
     }
   }
 
@@ -329,7 +332,7 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
       fail();
     } catch (NoSuchPackageException e) {
       // This is expected
-      assertThat(e.getMessage()).contains("Could not load //external package");
+      assertThat(e).hasMessageThat().contains("Could not load //external package");
     }
     assertContainsEvent("missing value for mandatory attribute 'path' in 'local_repository' rule");
   }
@@ -371,8 +374,9 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
       getConfiguredTarget("@foo//:bar");
       fail();
     } catch (AssertionError e) {
-      assertThat(e.getMessage()).contains("There is already a built-in attribute 'name' "
-          + "which cannot be overridden");
+      assertThat(e)
+          .hasMessageThat()
+          .contains("There is already a built-in attribute 'name' " + "which cannot be overridden");
     }
   }
 

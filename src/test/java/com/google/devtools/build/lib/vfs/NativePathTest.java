@@ -14,10 +14,6 @@
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.Lists;
@@ -31,7 +27,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -67,21 +62,17 @@ public class NativePathTest {
 
   @Test
   public void testExists() {
-    assertTrue(fs.getPath(aDirectory.getPath()).exists());
-    assertTrue(fs.getPath(aFile.getPath()).exists());
-    assertFalse(fs.getPath("/does/not/exist").exists());
+    assertThat(fs.getPath(aDirectory.getPath()).exists()).isTrue();
+    assertThat(fs.getPath(aFile.getPath()).exists()).isTrue();
+    assertThat(fs.getPath("/does/not/exist").exists()).isFalse();
   }
 
   @Test
   public void testDirectoryEntriesForDirectory() throws IOException {
-    Collection<Path> entries =
-        fs.getPath(tmpDir.getPath()).getDirectoryEntries();
-    List<Path> expectedEntries = Arrays.asList(
+    assertThat(fs.getPath(tmpDir.getPath()).getDirectoryEntries()).containsExactly(
       fs.getPath(tmpDir.getPath() + "/a_file"),
       fs.getPath(tmpDir.getPath() + "/a_directory"));
 
-    assertEquals(new HashSet<Object>(expectedEntries),
-        new HashSet<Object>(entries));
   }
 
   @Test
@@ -96,36 +87,36 @@ public class NativePathTest {
 
   @Test
   public void testIsFileIsTrueForFile() {
-    assertTrue(fs.getPath(aFile.getPath()).isFile());
+    assertThat(fs.getPath(aFile.getPath()).isFile()).isTrue();
   }
 
   @Test
   public void testIsFileIsFalseForDirectory() {
-    assertFalse(fs.getPath(aDirectory.getPath()).isFile());
+    assertThat(fs.getPath(aDirectory.getPath()).isFile()).isFalse();
   }
 
   @Test
   public void testBaseName() {
-    assertEquals("base", fs.getPath("/foo/base").getBaseName());
+    assertThat(fs.getPath("/foo/base").getBaseName()).isEqualTo("base");
   }
 
   @Test
   public void testBaseNameRunsAfterDotDotInterpretation() {
-    assertEquals("base", fs.getPath("/base/foo/..").getBaseName());
+    assertThat(fs.getPath("/base/foo/..").getBaseName()).isEqualTo("base");
   }
 
   @Test
   public void testParentOfRootIsRoot() {
-    assertEquals(fs.getPath("/"), fs.getPath("/.."));
-    assertEquals(fs.getPath("/"), fs.getPath("/../../../../../.."));
-    assertEquals(fs.getPath("/foo"), fs.getPath("/../../../foo"));
+    assertThat(fs.getPath("/..")).isEqualTo(fs.getPath("/"));
+    assertThat(fs.getPath("/../../../../../..")).isEqualTo(fs.getPath("/"));
+    assertThat(fs.getPath("/../../../foo")).isEqualTo(fs.getPath("/foo"));
   }
 
   @Test
   public void testIsDirectory() {
-    assertTrue(fs.getPath(aDirectory.getPath()).isDirectory());
-    assertFalse(fs.getPath(aFile.getPath()).isDirectory());
-    assertFalse(fs.getPath("/does/not/exist").isDirectory());
+    assertThat(fs.getPath(aDirectory.getPath()).isDirectory()).isTrue();
+    assertThat(fs.getPath(aFile.getPath()).isDirectory()).isFalse();
+    assertThat(fs.getPath("/does/not/exist").isDirectory()).isFalse();
   }
 
   @Test
@@ -155,7 +146,7 @@ public class NativePathTest {
         .globInterruptible();
     assertThat(textFiles).hasSize(1);
     Path onlyFile = textFiles.iterator().next();
-    assertEquals(fs.getPath(anotherFile.getPath()), onlyFile);
+    assertThat(onlyFile).isEqualTo(fs.getPath(anotherFile.getPath()));
 
     Collection<Path> onlyFiles =
         UnixGlob.forPath(fs.getPath(tmpDir.getPath()))
@@ -176,7 +167,7 @@ public class NativePathTest {
   public void testGetRelative() {
     Path relative = fs.getPath("/foo").getChild("bar");
     Path expected = fs.getPath("/foo/bar");
-    assertEquals(expected, relative);
+    assertThat(relative).isEqualTo(expected);
   }
 
   @Test
@@ -187,8 +178,8 @@ public class NativePathTest {
     Object differentType = new Object();
 
     new EqualsTester().addEqualityGroup(path, equalPath).testEquals();
-    assertFalse(path.equals(differentPath));
-    assertFalse(path.equals(differentType));
+    assertThat(path.equals(differentPath)).isFalse();
+    assertThat(path.equals(differentType)).isFalse();
   }
 
   @Test
@@ -201,7 +192,7 @@ public class NativePathTest {
     String latin1String = new String(allLatin1Chars);
     FileSystemUtils.writeContentAsLatin1(path, latin1String);
     String fileContent = new String(FileSystemUtils.readContentAsLatin1(path));
-    assertEquals(fileContent, latin1String);
+    assertThat(latin1String).isEqualTo(fileContent);
   }
 
   /**
@@ -219,7 +210,7 @@ public class NativePathTest {
     String latin1String = new String(allLatin1Chars);
     FileSystemUtils.writeContentAsLatin1(path, latin1String);
     byte[] bytes = FileSystemUtils.readContent(path);
-    assertEquals(new String(bytes, "ISO-8859-1"), latin1String);
+    assertThat(latin1String).isEqualTo(new String(bytes, "ISO-8859-1"));
   }
 
   @Test
@@ -229,9 +220,9 @@ public class NativePathTest {
     Path path = fs.getPath(aFile.getPath());
     FileSystemUtils.writeContent(path, bytes);
     byte[] content = FileSystemUtils.readContent(path);
-    assertEquals(bytes.length, content.length);
+    assertThat(content).hasLength(bytes.length);
     for (int i = 0; i < bytes.length; i++) {
-      assertEquals(bytes[i], content[i]);
+      assertThat(content[i]).isEqualTo(bytes[i]);
     }
   }
 
@@ -245,9 +236,9 @@ public class NativePathTest {
     out.close();
     InputStream in = path.getInputStream();
     for (int i = 0; i < 256; i++) {
-      assertEquals(i, in.read());
+      assertThat(in.read()).isEqualTo(i);
     }
-    assertEquals(-1, in.read());
+    assertThat(in.read()).isEqualTo(-1);
     in.close();
   }
 
@@ -258,6 +249,6 @@ public class NativePathTest {
     Path derivedNode = absoluteSegment.getChild("derivedSegment");
     Path otherDerivedNode = absoluteSegment.getChild("derivedSegment");
 
-    assertSame(derivedNode, otherDerivedNode);
+    assertThat(otherDerivedNode).isSameAs(derivedNode);
   }
 }

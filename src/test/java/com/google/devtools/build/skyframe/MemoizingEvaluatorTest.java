@@ -25,11 +25,6 @@ import static com.google.devtools.build.skyframe.GraphTester.COPY;
 import static com.google.devtools.build.skyframe.GraphTester.NODE_TYPE;
 import static com.google.devtools.build.skyframe.GraphTester.skyKey;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Predicates;
@@ -61,7 +56,6 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -150,21 +144,21 @@ public class MemoizingEvaluatorTest {
   public void smoke() throws Exception {
     tester.set("x", new StringValue("y"));
     StringValue value = (StringValue) tester.evalAndGet("x");
-    assertEquals("y", value.getValue());
+    assertThat(value.getValue()).isEqualTo("y");
   }
 
   @Test
   public void invalidationWithNothingChanged() throws Exception {
     tester.set("x", new StringValue("y")).setWarning("fizzlepop");
     StringValue value = (StringValue) tester.evalAndGet("x");
-    assertEquals("y", value.getValue());
+    assertThat(value.getValue()).isEqualTo("y");
     assertContainsEvent(eventCollector, "fizzlepop");
     assertEventCount(1, eventCollector);
 
     initializeReporter();
     tester.invalidate();
     value = (StringValue) tester.evalAndGet("x");
-    assertEquals("y", value.getValue());
+    assertThat(value.getValue()).isEqualTo("y");
     if (eventsStored()) {
       assertContainsEvent(eventCollector, "fizzlepop");
       assertEventCount(1, eventCollector);
@@ -212,8 +206,8 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate("otherValue1").setConstantValue(new StringValue("otherVal1"));
 
     EvaluationResult<SkyValue> result = tester.eval(false, "top");
-    assertTrue(result.hasError());
-    assertEquals(toSkyKey("badValue"), Iterables.getOnlyElement(result.getError().getRootCauses()));
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().getRootCauses()).containsExactly(toSkyKey("badValue"));
     assertThat(result.keyNames()).isEmpty();
   }
 
@@ -294,7 +288,7 @@ public class MemoizingEvaluatorTest {
     } catch (RuntimeException e) {
       // Then the Evaluator#evaluate call throws a RuntimeException e where e.getCause() is the
       // RuntimeException thrown by that SkyFunction.
-      assertThat(e.getCause()).hasMessage("I don't like being woken up!");
+      assertThat(e).hasCauseThat().hasMessage("I don't like being woken up!");
     }
   }
 
@@ -361,12 +355,11 @@ public class MemoizingEvaluatorTest {
     tester.eval(true, "d3");
 
     assertThat(tester.getDirtyKeys()).isEmpty();
-    assertEquals(
-        ImmutableSet.of(skyKey("d1"), skyKey("top")), tester.getDeletedKeys());
-    assertEquals(null, tester.getExistingValue("top"));
-    assertEquals(null, tester.getExistingValue("d1"));
-    assertEquals(d2, tester.getExistingValue("d2"));
-    assertEquals(d3, tester.getExistingValue("d3"));
+    assertThat(tester.getDeletedKeys()).isEqualTo(ImmutableSet.of(skyKey("d1"), skyKey("top")));
+    assertThat(tester.getExistingValue("top")).isNull();
+    assertThat(tester.getExistingValue("d1")).isNull();
+    assertThat(tester.getExistingValue("d2")).isEqualTo(d2);
+    assertThat(tester.getExistingValue("d3")).isEqualTo(d3);
   }
 
   @Test
@@ -432,12 +425,13 @@ public class MemoizingEvaluatorTest {
     tester.set("d2", new StringValue("2"));
     tester.set("d3", new StringValue("3"));
     tester.eval(true, "top1");
-    assertThat(tester.getEnqueuedValues()).containsExactlyElementsIn(
-        Arrays.asList(MemoizingEvaluatorTester.toSkyKeys("top1", "d1", "d2")));
+    assertThat(tester.getEnqueuedValues())
+        .containsExactlyElementsIn(MemoizingEvaluatorTester.toSkyKeys("top1", "d1", "d2"));
 
     tester.eval(true, "top2");
-    assertThat(tester.getEnqueuedValues()).containsExactlyElementsIn(
-        Arrays.asList(MemoizingEvaluatorTester.toSkyKeys("top1", "d1", "d2", "top2", "d3")));
+    assertThat(tester.getEnqueuedValues())
+        .containsExactlyElementsIn(MemoizingEvaluatorTester.toSkyKeys(
+            "top1", "d1", "d2", "top2", "d3"));
   }
 
   // NOTE: Some of these tests exercising errors/warnings run through a size-2 for loop in order
@@ -466,12 +460,14 @@ public class MemoizingEvaluatorTest {
     for (int i = 0; i < 2; i++) {
       initializeReporter();
       EvaluationResult<StringValue> result = tester.eval(false, "top");
-      assertTrue(result.hasError());
+      assertThat(result.hasError()).isTrue();
       if (rootCausesStored()) {
         assertThat(result.getError(topKey).getRootCauses()).containsExactly(topKey);
       }
-      assertEquals(topKey.toString(), result.getError(topKey).getException().getMessage());
-      assertTrue(result.getError(topKey).getException() instanceof SomeErrorException);
+      assertThat(result.getError(topKey).getException())
+          .hasMessageThat()
+          .isEqualTo(topKey.toString());
+      assertThat(result.getError(topKey).getException()).isInstanceOf(SomeErrorException.class);
       if (i == 0 || eventsStored()) {
         assertContainsEvent(eventCollector, "warn-dep");
         assertEventCount(1, eventCollector);
@@ -486,12 +482,14 @@ public class MemoizingEvaluatorTest {
     for (int i = 0; i < 2; i++) {
       initializeReporter();
       EvaluationResult<StringValue> result = tester.eval(false, "top");
-      assertTrue(result.hasError());
+      assertThat(result.hasError()).isTrue();
       if (rootCausesStored()) {
         assertThat(result.getError(topKey).getRootCauses()).containsExactly(topKey);
       }
-      assertEquals(topKey.toString(), result.getError(topKey).getException().getMessage());
-      assertTrue(result.getError(topKey).getException() instanceof SomeErrorException);
+      assertThat(result.getError(topKey).getException())
+          .hasMessageThat()
+          .isEqualTo(topKey.toString());
+      assertThat(result.getError(topKey).getException()).isInstanceOf(SomeErrorException.class);
       if (i == 0 || eventsStored()) {
         assertContainsEvent(eventCollector, "warning msg");
         assertEventCount(1, eventCollector);
@@ -506,12 +504,14 @@ public class MemoizingEvaluatorTest {
     for (int i = 0; i < 2; i++) {
       initializeReporter();
       EvaluationResult<StringValue> result = tester.eval(i == 0, "top");
-      assertTrue(result.hasError());
+      assertThat(result.hasError()).isTrue();
       if (rootCausesStored()) {
         assertThat(result.getError(topKey).getRootCauses()).containsExactly(topKey);
       }
-      assertEquals(topKey.toString(), result.getError(topKey).getException().getMessage());
-      assertTrue(result.getError(topKey).getException() instanceof SomeErrorException);
+      assertThat(result.getError(topKey).getException())
+          .hasMessageThat()
+          .isEqualTo(topKey.toString());
+      assertThat(result.getError(topKey).getException()).isInstanceOf(SomeErrorException.class);
       if (i == 0 || eventsStored()) {
         assertContainsEvent(eventCollector, "warning msg");
         assertEventCount(1, eventCollector);
@@ -567,7 +567,7 @@ public class MemoizingEvaluatorTest {
         .setProgress("just letting you know");
 
     StringValue value = (StringValue) tester.evalAndGet("x");
-    assertEquals("y", value.getValue());
+    assertThat(value.getValue()).isEqualTo("y");
     assertContainsEvent(eventCollector, "fizzlepop");
     assertContainsEvent(eventCollector, "just letting you know");
     assertEventCount(2, eventCollector);
@@ -576,7 +576,7 @@ public class MemoizingEvaluatorTest {
       // On the rebuild, we only replay warning messages.
       initializeReporter();
       value = (StringValue) tester.evalAndGet("x");
-      assertEquals("y", value.getValue());
+      assertThat(value.getValue()).isEqualTo("y");
       assertContainsEvent(eventCollector, "fizzlepop");
       assertEventCount(1, eventCollector);
     }
@@ -589,11 +589,11 @@ public class MemoizingEvaluatorTest {
         .setComputedValue(COPY);
     tester.set("b", new StringValue("y"));
     StringValue original = (StringValue) tester.evalAndGet("a");
-    assertEquals("y", original.getValue());
+    assertThat(original.getValue()).isEqualTo("y");
     tester.set("b", new StringValue("z"));
     tester.invalidate();
     StringValue old = (StringValue) tester.evalAndGet("a");
-    assertEquals("z", old.getValue());
+    assertThat(old.getValue()).isEqualTo("z");
     tester.invalidate();
     StringValue current = (StringValue) tester.evalAndGet("a");
     assertThat(current).isEqualTo(old);
@@ -664,7 +664,7 @@ public class MemoizingEvaluatorTest {
         .setComputedValue(COPY);
     tester.set("a", new StringValue("me"));
     StringValue value = (StringValue) tester.evalAndGet("ab");
-    assertEquals("me", value.getValue());
+    assertThat(value.getValue()).isEqualTo("me");
   }
 
   @Test
@@ -678,7 +678,7 @@ public class MemoizingEvaluatorTest {
     tester.set("a", new StringValue("other"));
     tester.invalidate();
     StringValue value = (StringValue) tester.evalAndGet("ab");
-    assertEquals("other", value.getValue());
+    assertThat(value.getValue()).isEqualTo("other");
   }
 
   @Test
@@ -686,7 +686,7 @@ public class MemoizingEvaluatorTest {
     setupDiamondDependency();
     tester.set("d", new StringValue("me"));
     StringValue value = (StringValue) tester.evalAndGet("a");
-    assertEquals("meme", value.getValue());
+    assertThat(value.getValue()).isEqualTo("meme");
   }
 
   @Test
@@ -698,7 +698,7 @@ public class MemoizingEvaluatorTest {
     tester.set("d", new StringValue("other"));
     tester.invalidate();
     StringValue value = (StringValue) tester.evalAndGet("a");
-    assertEquals("otherother", value.getValue());
+    assertThat(value.getValue()).isEqualTo("otherother");
   }
 
   private void setupDiamondDependency() {
@@ -750,7 +750,7 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(top).addDependency(mid).setComputedValue(CONCATENATE);
     tester.getOrCreate(mid).setHasError(true);
     tester.eval(/*keepGoing=*/false, top, mid);
-    assertEquals(0L, valueSet.getCount());
+    assertThat(valueSet.getCount()).isEqualTo(0L);
     assertThat(tester.progressReceiver.evaluated).containsExactly(mid);
   }
 
@@ -784,7 +784,7 @@ public class MemoizingEvaluatorTest {
     tester.set("b", new StringValue("now"));
     tester.invalidate();
     StringValue value = (StringValue) tester.evalAndGet("a");
-    assertEquals("nowsecond", value.getValue());
+    assertThat(value.getValue()).isEqualTo("nowsecond");
   }
 
   @Test
@@ -802,7 +802,7 @@ public class MemoizingEvaluatorTest {
     EvaluationResult<StringValue> result = tester.eval(/*keep_going=*/false, values);
     for (int i = 0; i < values.length; i++) {
       SkyValue actual = result.get(toSkyKey(values[i]));
-      assertEquals(new StringValue("leaf"), actual);
+      assertThat(actual).isEqualTo(new StringValue("leaf"));
     }
 
     for (int j = 0; j < TESTED_NODES; j++) {
@@ -811,7 +811,9 @@ public class MemoizingEvaluatorTest {
       result = tester.eval(/*keep_going=*/false, values);
       for (int i = 0; i < values.length; i++) {
         SkyValue actual = result.get(toSkyKey(values[i]));
-        assertEquals("Run " + j + ", value " + i, new StringValue("other" + j), actual);
+        assertWithMessage("Run " + j + ", value " + i)
+            .that(actual)
+            .isEqualTo(new StringValue("other" + j));
       }
     }
   }
@@ -834,7 +836,7 @@ public class MemoizingEvaluatorTest {
     }
 
     EvaluationResult<StringValue> result = tester.eval(/*keep_going=*/false, rootKey);
-    assertEquals(new StringValue(expected.toString()), result.get(rootKey));
+    assertThat(result.get(rootKey)).isEqualTo(new StringValue(expected.toString()));
 
     for (int j = 0; j < 10; j++) {
       expected.setLength(0);
@@ -846,7 +848,7 @@ public class MemoizingEvaluatorTest {
       tester.invalidate();
 
       result = tester.eval(/*keep_going=*/false, rootKey);
-      assertEquals(new StringValue(expected.toString()), result.get(rootKey));
+      assertThat(result.get(rootKey)).isEqualTo(new StringValue(expected.toString()));
     }
   }
 
@@ -882,16 +884,16 @@ public class MemoizingEvaluatorTest {
     String lastRight = "right-" + (TEST_NODE_COUNT - 1);
 
     EvaluationResult<StringValue> result = tester.eval(/*keep_going=*/false, lastLeft, lastRight);
-    assertEquals(new StringValue("leaf"), result.get(toSkyKey(lastLeft)));
-    assertEquals(new StringValue("leaf"), result.get(toSkyKey(lastRight)));
+    assertThat(result.get(toSkyKey(lastLeft))).isEqualTo(new StringValue("leaf"));
+    assertThat(result.get(toSkyKey(lastRight))).isEqualTo(new StringValue("leaf"));
 
     for (int j = 0; j < TESTED_NODES; j++) {
       String value = "other" + j;
       tester.set("leaf", new StringValue(value));
       tester.invalidate();
       result = tester.eval(/*keep_going=*/false, lastLeft, lastRight);
-      assertEquals(new StringValue(value), result.get(toSkyKey(lastLeft)));
-      assertEquals(new StringValue(value), result.get(toSkyKey(lastRight)));
+      assertThat(result.get(toSkyKey(lastLeft))).isEqualTo(new StringValue(value));
+      assertThat(result.get(toSkyKey(lastRight))).isEqualTo(new StringValue(value));
     }
   }
 
@@ -910,8 +912,8 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(aKey).addDependency(bKey);
     tester.getOrCreate(bKey).addDependency(aKey);
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/true, topKey, goodKey);
-    assertEquals(goodValue, result.get(goodKey));
-    assertEquals(null, result.get(topKey));
+    assertThat(result.get(goodKey)).isEqualTo(goodValue);
+    assertThat(result.get(topKey)).isNull();
     ErrorInfo errorInfo = result.getError(topKey);
     CycleInfo cycleInfo = Iterables.getOnlyElement(errorInfo.getCycleInfo());
     if (cyclesDetected()) {
@@ -921,7 +923,7 @@ public class MemoizingEvaluatorTest {
 
     tester.invalidate();
     result = tester.eval(/*keepGoing=*/false, topKey, goodKey);
-    assertEquals(null, result.get(topKey));
+    assertThat(result.get(topKey)).isNull();
     errorInfo = result.getError(topKey);
     cycleInfo = Iterables.getOnlyElement(errorInfo.getCycleInfo());
     if (cyclesDetected()) {
@@ -963,7 +965,7 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(aKey).addDependency(bKey).setComputedValue(COPY);
     tester.getOrCreate(bKey).addDependency(aKey);
     EvaluationResult<StringValue> result = tester.eval(keepGoing, topKey);
-    assertEquals(null, result.get(topKey));
+    assertThat(result.get(topKey)).isNull();
     ErrorInfo errorInfo = result.getError(topKey);
     CycleInfo cycleInfo = Iterables.getOnlyElement(errorInfo.getCycleInfo());
     if (cyclesDetected()) {
@@ -975,8 +977,8 @@ public class MemoizingEvaluatorTest {
     tester.set(bKey, new StringValue("bValue"));
     tester.invalidate();
     result = tester.eval(keepGoing, topKey);
-    assertEquals(new StringValue("bValue"), result.get(topKey));
-    assertEquals(null, result.getError(topKey));
+    assertThat(result.get(topKey)).isEqualTo(new StringValue("bValue"));
+    assertThat(result.getError(topKey)).isNull();
   }
 
   @Test
@@ -1024,7 +1026,7 @@ public class MemoizingEvaluatorTest {
     // Then when we evaluate,
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/ true, aKey);
     // aKey has an error,
-    assertEquals(null, result.get(aKey));
+    assertThat(result.get(aKey)).isNull();
     if (cyclesDetected()) {
       // And both cycles were found underneath aKey: the (aKey->bKey->cKey) cycle, and the
       // aKey->(bKey->cKey) cycle. This is because cKey depended on aKey and then bKey, so it pushed
@@ -1050,7 +1052,7 @@ public class MemoizingEvaluatorTest {
     // Then when we evaluate,
     EvaluationResult<StringValue> result2 = tester.eval(/*keepGoing=*/ true, aKey);
     // Things are just as before.
-    assertEquals(null, result2.get(aKey));
+    assertThat(result2.get(aKey)).isNull();
     if (cyclesDetected()) {
       assertThatEvaluationResult(result)
           .hasErrorEntryForKeyThat(aKey)
@@ -1079,7 +1081,7 @@ public class MemoizingEvaluatorTest {
     .setComputedValue(CONCATENATE);
     tester.getOrCreate(cycleKey2).addDependency(cycleKey1).setComputedValue(COPY);
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/true, cycleKey1);
-    assertEquals(null, result.get(cycleKey1));
+    assertThat(result.get(cycleKey1)).isNull();
     ErrorInfo errorInfo = result.getError(cycleKey1);
     CycleInfo cycleInfo = Iterables.getOnlyElement(errorInfo.getCycleInfo());
     if (cyclesDetected()) {
@@ -1089,7 +1091,7 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(cycleKey1, /*markAsModified=*/true);
     tester.invalidate();
     result = tester.eval(/*keepGoing=*/true, cycleKey1, cycleKey2);
-    assertEquals(null, result.get(cycleKey1));
+    assertThat(result.get(cycleKey1)).isNull();
     errorInfo = result.getError(cycleKey1);
     cycleInfo = Iterables.getOnlyElement(errorInfo.getCycleInfo());
     if (cyclesDetected()) {
@@ -1135,7 +1137,7 @@ public class MemoizingEvaluatorTest {
     // Evaluate twice to make sure nothing strange happens with invalidation the second time.
     for (int i = 0; i < 2; i++) {
       EvaluationResult<SkyValue> result = tester.eval(/*keepGoing=*/ true, cycleKey1);
-      assertEquals(null, result.get(cycleKey1));
+      assertThat(result.get(cycleKey1)).isNull();
       ErrorInfo errorInfo = result.getError(cycleKey1);
       CycleInfo cycleInfo = Iterables.getOnlyElement(errorInfo.getCycleInfo());
       if (cyclesDetected()) {
@@ -1154,7 +1156,7 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(cycleKey1).addDependency(cycleKey2).setComputedValue(COPY);
     tester.getOrCreate(cycleKey2).addDependency(cycleKey1).setComputedValue(COPY);
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/true, cycleKey1);
-    assertEquals(null, result.get(cycleKey1));
+    assertThat(result.get(cycleKey1)).isNull();
     ErrorInfo errorInfo = result.getError(cycleKey1);
     CycleInfo cycleInfo = Iterables.getOnlyElement(errorInfo.getCycleInfo());
     if (cyclesDetected()) {
@@ -1164,7 +1166,7 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(cycleKey1, /*markAsModified=*/true);
     tester.invalidate();
     result = tester.eval(/*keepGoing=*/true, cycleKey1);
-    assertEquals(null, result.get(cycleKey1));
+    assertThat(result.get(cycleKey1)).isNull();
     errorInfo = result.getError(cycleKey1);
     cycleInfo = Iterables.getOnlyElement(errorInfo.getCycleInfo());
     if (cyclesDetected()) {
@@ -1490,8 +1492,8 @@ public class MemoizingEvaluatorTest {
 
     EvaluationResult<StringValue> result = tester.eval(
         /*keepGoing=*/true, /*numThreads=*/5, topLevel);
-    assertFalse(result.hasError());
-    assertEquals(5, maxValue[0]);
+    assertThat(result.hasError()).isFalse();
+    assertThat(maxValue[0]).isEqualTo(5);
   }
 
   /**
@@ -1528,7 +1530,7 @@ public class MemoizingEvaluatorTest {
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/false, topKey);
     assertThat(result.getError().getRootCauses()).containsExactly(errorKey);
     // Make sure midKey didn't finish building.
-    assertEquals(null, tester.getExistingValue(midKey));
+    assertThat(tester.getExistingValue(midKey)).isNull();
     // Give slowKey a nice ordinary builder.
     tester.getOrCreate(slowKey, /*markAsModified=*/false).setBuilder(null)
         .setConstantValue(new StringValue("slow"));
@@ -1568,7 +1570,7 @@ public class MemoizingEvaluatorTest {
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/false, topKey);
     assertThat(result.getError().getRootCauses()).containsExactly(errorKey);
     // Make sure midKey didn't finish building.
-    assertEquals(null, tester.getExistingValue(midKey));
+    assertThat(tester.getExistingValue(midKey)).isNull();
     // Give slowKey a nice ordinary builder.
     tester.getOrCreate(slowKey, /*markAsModified=*/false).setBuilder(null)
         .setConstantValue(new StringValue("slow"));
@@ -1653,7 +1655,7 @@ public class MemoizingEvaluatorTest {
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/false, topKey);
     assertThat(result.getError().getRootCauses()).containsExactly(errorKey);
     // Make sure midKey didn't finish building.
-    assertEquals(null, tester.getExistingValue(midKey));
+    assertThat(tester.getExistingValue(midKey)).isNull();
     // Give slowKey a nice ordinary builder.
     tester.getOrCreate(slowKey, /*markAsModified=*/false).setBuilder(null)
         .setConstantValue(new StringValue("slow"));
@@ -1676,12 +1678,12 @@ public class MemoizingEvaluatorTest {
         .setComputedValue(CONCATENATE).addDependency("after");
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/true, parentKey);
     assertThat(result.errorMap()).isEmpty();
-    assertEquals("recoveredafter", result.get(parentKey).getValue());
+    assertThat(result.get(parentKey).getValue()).isEqualTo("recoveredafter");
     tester.set("after", new StringValue("before"));
     tester.invalidate();
     result = tester.eval(/*keepGoing=*/true, parentKey);
     assertThat(result.errorMap()).isEmpty();
-    assertEquals("recoveredbefore", result.get(parentKey).getValue());
+    assertThat(result.get(parentKey).getValue()).isEqualTo("recoveredbefore");
   }
 
   @Test
@@ -1695,12 +1697,12 @@ public class MemoizingEvaluatorTest {
         .setComputedValue(CONCATENATE).addDependency("after");
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/true, parentKey);
     assertThat(result.errorMap()).isEmpty();
-    assertEquals("recoveredafter", result.get(parentKey).getValue());
+    assertThat(result.get(parentKey).getValue()).isEqualTo("recoveredafter");
     tester.set(errorKey, new StringValue("reformed")).setHasError(false);
     tester.invalidate();
     result = tester.eval(/*keepGoing=*/true, parentKey);
     assertThat(result.errorMap()).isEmpty();
-    assertEquals("reformedafter", result.get(parentKey).getValue());
+    assertThat(result.get(parentKey).getValue()).isEqualTo("reformedafter");
   }
 
   @Test
@@ -1725,7 +1727,7 @@ public class MemoizingEvaluatorTest {
     // Request the parent again. This time it should succeed.
     result = tester.eval(/*keepGoing=*/false, parentKey);
     assertThat(result.errorMap()).isEmpty();
-    assertEquals("reformed", result.get(parentKey).getValue());
+    assertThat(result.get(parentKey).getValue()).isEqualTo("reformed");
     // Confirm that the parent no longer depends on the error transience value -- make it
     // unbuildable again, but without invalidating it, and invalidate transient errors. The parent
     // should not be rebuilt.
@@ -1733,7 +1735,7 @@ public class MemoizingEvaluatorTest {
     tester.invalidateTransientErrors();
     result = tester.eval(/*keepGoing=*/false, parentKey);
     assertThat(result.errorMap()).isEmpty();
-    assertEquals("reformed", result.get(parentKey).getValue());
+    assertThat(result.get(parentKey).getValue()).isEqualTo("reformed");
   }
 
   /**
@@ -1768,7 +1770,7 @@ public class MemoizingEvaluatorTest {
     tester.set(leaf, new StringValue("leaf"));
     tester.getOrCreate(top).addDependency(leaf).setHasTransientError(true);
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/false, top);
-    assertTrue(result.toString(), result.hasError());
+    assertWithMessage(result.toString()).that(result.hasError()).isTrue();
     tester.getOrCreate(leaf, /*markAsModified=*/true);
     tester.invalidate();
     SkyKey irrelevant = GraphTester.toSkyKey("irrelevant");
@@ -1776,7 +1778,7 @@ public class MemoizingEvaluatorTest {
     tester.eval(/*keepGoing=*/true, irrelevant);
     tester.invalidateTransientErrors();
     result = tester.eval(/*keepGoing=*/true, top);
-    assertTrue(result.toString(), result.hasError());
+    assertWithMessage(result.toString()).that(result.hasError()).isTrue();
   }
 
   @Test
@@ -1794,7 +1796,7 @@ public class MemoizingEvaluatorTest {
     // because
     // it was only called during the bubbling-up phase.
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/false, midKey);
-    assertEquals(null, result.get(midKey));
+    assertThat(result.get(midKey)).isNull();
     assertThat(result.getError().getRootCauses()).containsExactly(errorKey);
     // In a keepGoing build, midKey should be re-evaluated.
     assertEquals("recovered",
@@ -1846,14 +1848,14 @@ public class MemoizingEvaluatorTest {
 
     // Assert that build fails and "error" really is in error.
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/false, topKey);
-    assertTrue(result.hasError());
+    assertThat(result.hasError()).isTrue();
     assertThat(result.getError(topKey).getRootCauses()).containsExactly(errorKey);
 
     // Ensure that evaluation succeeds if errorKey does not throw an error.
     tester.getOrCreate(errorKey).setBuilder(null);
     tester.set(errorKey, new StringValue("ok"));
     tester.invalidate();
-    assertEquals(new StringValue("top"), tester.evalAndGet("top"));
+    assertThat(tester.evalAndGet("top")).isEqualTo(new StringValue("top"));
   }
 
   /**
@@ -1896,19 +1898,19 @@ public class MemoizingEvaluatorTest {
 
     EvaluationResult<StringValue> evaluationResult = tester.eval(
         /*keepGoing=*/true, groupDepA, depC);
-    assertTrue(evaluationResult.hasError());
-    assertEquals("depC", evaluationResult.get(groupDepA).getValue());
+    assertThat(evaluationResult.hasError()).isTrue();
+    assertThat(evaluationResult.get(groupDepA).getValue()).isEqualTo("depC");
     assertThat(evaluationResult.getError(depC).getRootCauses()).containsExactly(depC).inOrder();
     evaluationResult = tester.eval(/*keepGoing=*/false, topKey);
-    assertTrue(evaluationResult.hasError());
+    assertThat(evaluationResult.hasError()).isTrue();
     assertThat(evaluationResult.getError(topKey).getRootCauses()).containsExactly(topKey).inOrder();
 
     tester.set(groupDepA, new StringValue("groupDepB"));
     tester.getOrCreate(depC, /*markAsModified=*/true);
     tester.invalidate();
     evaluationResult = tester.eval(/*keepGoing=*/false, topKey);
-    assertFalse(evaluationResult.toString(), evaluationResult.hasError());
-    assertEquals("top", evaluationResult.get(topKey).getValue());
+    assertWithMessage(evaluationResult.toString()).that(evaluationResult.hasError()).isFalse();
+    assertThat(evaluationResult.get(topKey).getValue()).isEqualTo("top");
   }
 
   @Test
@@ -1916,13 +1918,13 @@ public class MemoizingEvaluatorTest {
     initializeTester();
     tester.set("x", new StringValue("y")).setWarning("fizzlepop");
     StringValue value = (StringValue) tester.evalAndGet("x");
-    assertEquals("y", value.getValue());
+    assertThat(value.getValue()).isEqualTo("y");
     assertContainsEvent(eventCollector, "fizzlepop");
     assertEventCount(1, eventCollector);
 
     tester.invalidate();
     value = (StringValue) tester.evalAndGet("x");
-    assertEquals("y", value.getValue());
+    assertThat(value.getValue()).isEqualTo("y");
     // No new events emitted.
     assertEventCount(1, eventCollector);
   }
@@ -2015,9 +2017,9 @@ public class MemoizingEvaluatorTest {
         };
     // First build : just prime the graph.
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/false, top);
-    assertFalse(result.hasError());
-    assertEquals(new StringValue("top"), result.get(top));
-    assertEquals(2, numTopInvocations.get());
+    assertThat(result.hasError()).isFalse();
+    assertThat(result.get(top)).isEqualTo(new StringValue("top"));
+    assertThat(numTopInvocations.get()).isEqualTo(2);
     // Now dirty the graph, and maybe have firstKey throw an error.
     String warningText = "warning text";
     tester.getOrCreate(firstKey, /*markAsModified=*/true).setHasError(throwError)
@@ -2026,21 +2028,27 @@ public class MemoizingEvaluatorTest {
     delayTopSignaling.set(true);
     result = tester.eval(/*keepGoing=*/false, top);
     if (throwError) {
-      assertTrue(result.hasError());
+      assertThat(result.hasError()).isTrue();
       assertThat(result.keyNames()).isEmpty(); // No successfully evaluated values.
       ErrorInfo errorInfo = result.getError(top);
       assertThat(errorInfo.getRootCauses()).containsExactly(firstKey);
-      assertEquals("on the incremental build, top's builder should have only been used in error "
-          + "bubbling", 3, numTopInvocations.get());
+      assertWithMessage(
+              "on the incremental build, top's builder should have only been used in error "
+                  + "bubbling")
+          .that(numTopInvocations.get())
+          .isEqualTo(3);
     } else {
-      assertEquals(new StringValue("top"), result.get(top));
-      assertFalse(result.hasError());
-      assertEquals("on the incremental build, top's builder should have only been executed once in "
-          + "normal evaluation", 3, numTopInvocations.get());
+      assertThat(result.get(top)).isEqualTo(new StringValue("top"));
+      assertThat(result.hasError()).isFalse();
+      assertWithMessage(
+              "on the incremental build, top's builder should have only been executed once in "
+                  + "normal evaluation")
+          .that(numTopInvocations.get())
+          .isEqualTo(3);
     }
     assertContainsEvent(eventCollector, warningText);
-    assertEquals(0, topSignaled.getCount());
-    assertEquals(0, topRestartedBuild.getCount());
+    assertThat(topSignaled.getCount()).isEqualTo(0);
+    assertThat(topRestartedBuild.getCount()).isEqualTo(0);
   }
 
   @Test
@@ -2231,7 +2239,7 @@ public class MemoizingEvaluatorTest {
     // For invalidation.
     tester.set("dummy", new StringValue("dummy"));
     StringValue topValue = (StringValue) tester.evalAndGet("top");
-    assertEquals("leafy", topValue.getValue());
+    assertThat(topValue.getValue()).isEqualTo("leafy");
     tester.set(leaf, new StringValue("crunchy"));
     tester.invalidate();
     // For invalidation.
@@ -2239,7 +2247,7 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(mid, /*markAsModified=*/true);
     tester.invalidate();
     topValue = (StringValue) tester.evalAndGet("top");
-    assertEquals("crunchy", topValue.getValue());
+    assertThat(topValue.getValue()).isEqualTo("crunchy");
   }
 
   /**
@@ -2297,7 +2305,7 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(parent).addDependency(leaf).setComputedValue(CONCATENATE);
     EvaluationResult<StringValue> result;
     result = tester.eval(/*keepGoing=*/false, parent);
-    assertEquals("leaf", result.get(parent).getValue());
+    assertThat(result.get(parent).getValue()).isEqualTo("leaf");
     // Invalidate leaf, but don't actually change it. It will transitively dirty parent
     // concurrently with parent directly dirtying itself.
     tester.getOrCreate(leaf, /*markAsModified=*/true);
@@ -2308,9 +2316,9 @@ public class MemoizingEvaluatorTest {
     tester.invalidate();
     blockingEnabled.set(true);
     result = tester.eval(/*keepGoing=*/false, parent);
-    assertEquals("leafother2", result.get(parent).getValue());
-    assertEquals(0, waitForChanged.getCount());
-    assertEquals(0, threadsStarted.getCount());
+    assertThat(result.get(parent).getValue()).isEqualTo("leafother2");
+    assertThat(waitForChanged.getCount()).isEqualTo(0);
+    assertThat(threadsStarted.getCount()).isEqualTo(0);
   }
 
   @Test
@@ -2332,7 +2340,7 @@ public class MemoizingEvaluatorTest {
     }
 
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/false, topKey);
-    assertEquals(new StringValue(expected.toString()), result.get(topKey));
+    assertThat(result.get(topKey)).isEqualTo(new StringValue(expected.toString()));
 
     for (int j = 0; j < RUNS; j++) {
       for (int i = 0; i < values.length; i++) {
@@ -2344,7 +2352,7 @@ public class MemoizingEvaluatorTest {
       tester.invalidate();
 
       result = tester.eval(/*keep_going=*/false, topKey);
-      assertEquals(new StringValue(expected.toString()), result.get(topKey));
+      assertThat(result.get(topKey)).isEqualTo(new StringValue(expected.toString()));
     }
   }
 
@@ -2372,8 +2380,8 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(fatherKey).addDependency(errorKey)
         .addDependency(midKey).addDependency(lastKey).setComputedValue(CONCATENATE);
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/false, motherKey, fatherKey);
-    assertEquals("biding timeslowlast", result.get(motherKey).getValue());
-    assertEquals("biding timeslowlast", result.get(fatherKey).getValue());
+    assertThat(result.get(motherKey).getValue()).isEqualTo("biding timeslowlast");
+    assertThat(result.get(fatherKey).getValue()).isEqualTo("biding timeslowlast");
     tester.set(slowKey, null);
     // Each parent depends on errorKey, midKey, lastKey. We keep slowKey waiting until errorKey is
     // finished. So there is no way lastKey can be enqueued by either parent. Thus, the parent that
@@ -2394,10 +2402,11 @@ public class MemoizingEvaluatorTest {
     // -> one of mother or father builds. The other one should be cleaned, and no references to it
     // left in the graph.
     result = tester.eval(/*keepGoing=*/false, motherKey, fatherKey);
-    assertTrue(result.hasError());
+    assertThat(result.hasError()).isTrue();
     // Only one of mother or father should be in the graph.
-    assertTrue(result.getError(motherKey) + ", " + result.getError(fatherKey),
-        (result.getError(motherKey) == null) != (result.getError(fatherKey) == null));
+    assertWithMessage(result.getError(motherKey) + ", " + result.getError(fatherKey))
+        .that((result.getError(motherKey) == null) != (result.getError(fatherKey) == null))
+        .isTrue();
     SkyKey parentKey = (reevaluateMissingValue == (result.getError(motherKey) == null))
         ? motherKey : fatherKey;
     // Give slowKey a nice ordinary builder.
@@ -2419,7 +2428,7 @@ public class MemoizingEvaluatorTest {
     if (removeError) {
       assertThat(result.get(parentKey).getValue()).isEqualTo("reformedleaf2" + lastString);
     } else {
-      assertNotNull(result.getError(parentKey));
+      assertThat(result.getError(parentKey)).isNotNull();
     }
   }
 
@@ -2510,7 +2519,7 @@ public class MemoizingEvaluatorTest {
         }
       };
       evalThread.start();
-      assertTrue(notifyStart.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS));
+      assertThat(notifyStart.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)).isTrue();
       evalThread.interrupt();
       evalThread.joinAndAssertState(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
       // Free leafKey to compute next time.
@@ -2532,7 +2541,9 @@ public class MemoizingEvaluatorTest {
     EvaluationResult<StringValue> result =
         tester.eval(/*keepGoing=*/false, tops.toArray(new SkyKey[0]));
     for (SkyKey topKey : tops) {
-      assertEquals(topKey.toString(), "crunchynew last", result.get(topKey).getValue());
+      assertWithMessage(topKey.toString())
+          .that(result.get(topKey).getValue())
+          .isEqualTo("crunchynew last");
     }
   }
 
@@ -2613,7 +2624,7 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(mid).addDependency(leaf).setComputedValue(COPY);
     tester.set(leaf, new StringValue("leafy"));
     StringValue topValue = (StringValue) tester.evalAndGet("top");
-    assertEquals("leafy", topValue.getValue());
+    assertThat(topValue.getValue()).isEqualTo("leafy");
     // Mark leaf changed, but don't actually change it.
     tester.getOrCreate(leaf, /*markAsModified=*/true);
     // mid will give an error if re-evaluated, but it shouldn't be because it is not marked changed,
@@ -2621,9 +2632,9 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(mid, /*markAsModified=*/false).setHasError(true);
     tester.invalidate();
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/false, top);
-    assertFalse(result.hasError());
+    assertThat(result.hasError()).isFalse();
     topValue = result.get(top);
-    assertEquals("leafy", topValue.getValue());
+    assertThat(topValue.getValue()).isEqualTo("leafy");
     assertThat(tester.getDirtyKeys()).isEmpty();
     assertThat(tester.getDeletedKeys()).isEmpty();
   }
@@ -2642,7 +2653,7 @@ public class MemoizingEvaluatorTest {
     SkyValue leafyValue = new StringValue("leafy");
     tester.set(leaf, leafyValue);
     StringValue value = (StringValue) tester.evalAndGet("top");
-    assertEquals("leafysuffixsuffix", value.getValue());
+    assertThat(value.getValue()).isEqualTo("leafysuffixsuffix");
     // Mark leaf changed, but don't actually change it.
     tester.getOrCreate(leaf, /*markAsModified=*/true);
     // mid will give an error if re-evaluated, but it shouldn't be because it is not marked changed,
@@ -2650,13 +2661,13 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(mid, /*markAsModified=*/false).setHasError(true);
     tester.invalidate();
     value = (StringValue) tester.evalAndGet("leaf");
-    assertEquals("leafy", value.getValue());
+    assertThat(value.getValue()).isEqualTo("leafy");
     assertThat(tester.getDirtyKeys()).containsExactly(mid, top);
     assertThat(tester.getDeletedKeys()).isEmpty();
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/false, top);
     assertWithMessage(result.toString()).that(result.hasError()).isFalse();
     value = result.get(top);
-    assertEquals("leafysuffixsuffix", value.getValue());
+    assertThat(value.getValue()).isEqualTo("leafysuffixsuffix");
     assertThat(tester.getDirtyKeys()).isEmpty();
     assertThat(tester.getDeletedKeys()).isEmpty();
   }
@@ -2689,7 +2700,7 @@ public class MemoizingEvaluatorTest {
     // And top is evaluated,
     StringValue topValue = (StringValue) tester.evalAndGet("top");
     // Then top's value is as expected,
-    assertEquals(fixedTopValue, topValue);
+    assertThat(topValue).isEqualTo(fixedTopValue);
     // And top was actually evaluated.
     assertThat(topEvaluated.get()).isTrue();
     // When leaf is changed,
@@ -2699,7 +2710,7 @@ public class MemoizingEvaluatorTest {
     // And top is evaluated,
     StringValue topValue2 = (StringValue) tester.evalAndGet("top");
     // Then top's value is as expected,
-    assertEquals(fixedTopValue, topValue2);
+    assertThat(topValue2).isEqualTo(fixedTopValue);
     // And top was actually evaluated.
     assertThat(topEvaluated.get()).isTrue();
     // When leaf is invalidated but not actually changed,
@@ -2709,7 +2720,7 @@ public class MemoizingEvaluatorTest {
     // And top is evaluated,
     StringValue topValue3 = (StringValue) tester.evalAndGet("top");
     // Then top's value is as expected,
-    assertEquals(fixedTopValue, topValue3);
+    assertThat(topValue3).isEqualTo(fixedTopValue);
     // And top was *not* actually evaluated, because change pruning cut off evaluation.
     assertThat(topEvaluated.get()).isFalse();
   }
@@ -2747,7 +2758,7 @@ public class MemoizingEvaluatorTest {
     // And top is evaluated,
     StringValue topValue = (StringValue) tester.evalAndGet("top");
     // Then top's value is as expected,
-    assertEquals(fixedTopValue, topValue);
+    assertThat(topValue).isEqualTo(fixedTopValue);
     // And top was actually evaluated.
     assertThat(topEvaluated.get()).isTrue();
     // When leaf is changed,
@@ -2757,7 +2768,7 @@ public class MemoizingEvaluatorTest {
     // And top is evaluated,
     StringValue topValue2 = (StringValue) tester.evalAndGet("top");
     // Then top's value is as expected,
-    assertEquals(fixedTopValue, topValue2);
+    assertThat(topValue2).isEqualTo(fixedTopValue);
     // And top was actually evaluated.
     assertThat(topEvaluated.get()).isTrue();
     // When other is invalidated but not actually changed,
@@ -2767,7 +2778,7 @@ public class MemoizingEvaluatorTest {
     // And top is evaluated,
     StringValue topValue3 = (StringValue) tester.evalAndGet("top");
     // Then top's value is as expected,
-    assertEquals(fixedTopValue, topValue3);
+    assertThat(topValue3).isEqualTo(fixedTopValue);
     // And top was *not* actually evaluated, because change pruning cut off evaluation.
     assertThat(topEvaluated.get()).isFalse();
   }
@@ -2808,13 +2819,13 @@ public class MemoizingEvaluatorTest {
     SkyKey top = GraphTester.toSkyKey("top");
     tester.getOrCreate(top).addDependency(buildFile).setComputedValue(authorDrink);
     StringValue topValue = (StringValue) tester.evalAndGet("top");
-    assertEquals("hemingway drank absinthe", topValue.getValue());
+    assertThat(topValue.getValue()).isEqualTo("hemingway drank absinthe");
     tester.set(buildFile, new StringValue("joyce"));
     // Don't evaluate absinthe successfully anymore.
     tester.getOrCreate(absinthe).setHasError(true);
     tester.invalidate();
     topValue = (StringValue) tester.evalAndGet("top");
-    assertEquals("joyce drank whiskey", topValue.getValue());
+    assertThat(topValue.getValue()).isEqualTo("joyce drank whiskey");
     assertThat(tester.getDirtyKeys()).containsExactly(buildFile, top);
     assertThat(tester.getDeletedKeys()).isEmpty();
   }
@@ -2830,20 +2841,20 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(mid).addDependency(leaf);
     tester.set(leaf, new StringValue("leafy"));
     StringValue topValue = (StringValue) tester.evalAndGet("top");
-    assertEquals("ignore", topValue.getValue());
+    assertThat(topValue.getValue()).isEqualTo("ignore");
     assertThat(tester.getDirtyKeys()).isEmpty();
     assertThat(tester.getDeletedKeys()).isEmpty();
     // Change leaf.
     tester.set(leaf, new StringValue("crunchy"));
     tester.invalidate();
     topValue = (StringValue) tester.evalAndGet("top");
-    assertEquals("ignore", topValue.getValue());
+    assertThat(topValue.getValue()).isEqualTo("ignore");
     assertThat(tester.getDirtyKeys()).containsExactly(leaf);
     assertThat(tester.getDeletedKeys()).isEmpty();
     tester.set(leaf, new StringValue("smushy"));
     tester.invalidate();
     topValue = (StringValue) tester.evalAndGet("top");
-    assertEquals("ignore", topValue.getValue());
+    assertThat(topValue.getValue()).isEqualTo("ignore");
     assertThat(tester.getDirtyKeys()).containsExactly(leaf);
     assertThat(tester.getDeletedKeys()).isEmpty();
   }
@@ -2892,7 +2903,7 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(top).addDependency(leaf).setComputedValue(COPY);
     tester.set(leaf, new StringValue("leafy"));
     StringValue topValue = (StringValue) tester.evalAndGet("top");
-    assertEquals("leafy", topValue.getValue());
+    assertThat(topValue.getValue()).isEqualTo("leafy");
     assertThat(tester.getDirtyKeys()).isEmpty();
     assertThat(tester.getDeletedKeys()).isEmpty();
     failBuildAndRemoveValue(leaf);
@@ -2901,7 +2912,7 @@ public class MemoizingEvaluatorTest {
     tester.set(leaf, new StringValue("crunchy"));
     tester.invalidate();
     topValue = (StringValue) tester.evalAndGet("top");
-    assertEquals("crunchy", topValue.getValue());
+    assertThat(topValue.getValue()).isEqualTo("crunchy");
   }
 
   /**
@@ -2917,7 +2928,7 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(top).addDependency(leaf).setComputedValue(COPY);
     tester.set(leaf, new StringValue("leafy"));
     StringValue topValue = (StringValue) tester.evalAndGet("top");
-    assertEquals("leafy", topValue.getValue());
+    assertThat(topValue.getValue()).isEqualTo("leafy");
     assertThat(tester.getDirtyKeys()).isEmpty();
     assertThat(tester.getDeletedKeys()).isEmpty();
     failBuildAndRemoveValue(leaf);
@@ -2929,7 +2940,7 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(top, /*markAsModified=*/true);
     tester.invalidate();
     topValue = (StringValue) tester.evalAndGet("top");
-    assertEquals("crunchy", topValue.getValue());
+    assertThat(topValue.getValue()).isEqualTo("crunchy");
   }
 
   /**
@@ -2987,7 +2998,7 @@ public class MemoizingEvaluatorTest {
         .setComputedValue(COPY);
     tester.set(leaf, new StringValue("leafy"));
     StringValue topValue = (StringValue) tester.evalAndGet("top");
-    assertEquals("leafy", topValue.getValue());
+    assertThat(topValue.getValue()).isEqualTo("leafy");
     assertThat(tester.getDirtyKeys()).isEmpty();
     assertThat(tester.getDeletedKeys()).isEmpty();
     // Change leaf.
@@ -2995,7 +3006,7 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(top, /*markAsModified=*/false).setHasError(true);
     tester.invalidate();
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/false, top);
-    assertNull("value should not have completed evaluation", result.get(top));
+    assertWithMessage("value should not have completed evaluation").that(result.get(top)).isNull();
     assertWithMessage(
         "The error thrown by leaf should have been swallowed by the error thrown by top")
         .that(result.getError().getRootCauses()).containsExactly(top);
@@ -3012,7 +3023,7 @@ public class MemoizingEvaluatorTest {
     tester.set(secondError, new StringValue("secondError")).addDependency(leaf);
     tester.set(leaf, new StringValue("leafy"));
     StringValue topValue = (StringValue) tester.evalAndGet("top");
-    assertEquals("leafysecondError", topValue.getValue());
+    assertThat(topValue.getValue()).isEqualTo("leafysecondError");
     assertThat(tester.getDirtyKeys()).isEmpty();
     assertThat(tester.getDeletedKeys()).isEmpty();
     // Invalidate leaf.
@@ -3022,7 +3033,7 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(top, /*markAsModified=*/false).setHasError(true);
     tester.invalidate();
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/false, top);
-    assertNull("value should not have completed evaluation", result.get(top));
+    assertWithMessage("value should not have completed evaluation").that(result.get(top)).isNull();
     assertWithMessage(
         "The error thrown by leaf should have been swallowed by the error thrown by top")
         .that(result.getError().getRootCauses()).containsExactly(top);
@@ -3033,13 +3044,13 @@ public class MemoizingEvaluatorTest {
     initializeTester();
     SkyKey error = GraphTester.toSkyKey("error");
     tester.getOrCreate(error).setHasError(true);
-    assertNotNull(tester.evalAndGetError(error));
+    assertThat(tester.evalAndGetError(error)).isNotNull();
     tester.invalidateTransientErrors();
     SkyKey secondError = GraphTester.toSkyKey("secondError");
     tester.getOrCreate(secondError).setHasError(true);
     // secondError declares a new dependence on ErrorTransienceValue, but not until it has already
     // thrown an error.
-    assertNotNull(tester.evalAndGetError(secondError));
+    assertThat(tester.evalAndGetError(secondError)).isNotNull();
   }
 
   @Test
@@ -3056,8 +3067,8 @@ public class MemoizingEvaluatorTest {
     tester.set(error, val);
     tester.invalidate();
     result = tester.eval(/*keepGoing=*/false, topKey);
-    assertEquals(val, result.get(topKey));
-    assertFalse(result.hasError());
+    assertThat(result.get(topKey)).isEqualTo(val);
+    assertThat(result.hasError()).isFalse();
   }
 
   /** Regression test for crash bug. */
@@ -3094,8 +3105,8 @@ public class MemoizingEvaluatorTest {
     tester.invalidate();
     tester.invalidateTransientErrors();
     result = tester.eval(/*keepGoing=*/false, topKey);
-    assertEquals(reformed, result.get(topKey));
-    assertFalse(result.hasError());
+    assertThat(result.get(topKey)).isEqualTo(reformed);
+    assertThat(result.hasError()).isFalse();
   }
 
   /**
@@ -3133,8 +3144,8 @@ public class MemoizingEvaluatorTest {
     // First error-free evaluation, to put all values in graph.
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/false,
         topErrorFirstKey, topBubbleKey);
-    assertEquals("biding time", result.get(topErrorFirstKey).getValue());
-    assertEquals("slowbiding time", result.get(topBubbleKey).getValue());
+    assertThat(result.get(topErrorFirstKey).getValue()).isEqualTo("biding time");
+    assertThat(result.get(topBubbleKey).getValue()).isEqualTo("slowbiding time");
     // Set up timing of child values: slowKey waits to finish until errorKey has thrown an
     // exception that has been caught by the threadpool.
     tester.set(slowKey, null);
@@ -3152,7 +3163,7 @@ public class MemoizingEvaluatorTest {
     // errorKey finishes, written to graph -> slowKey maybe starts+finishes & (Visitor aborts)
     // -> some top key builds.
     result = tester.eval(/*keepGoing=*/false, topErrorFirstKey, topBubbleKey);
-    assertTrue(result.hasError());
+    assertThat(result.hasError()).isTrue();
     assertWithMessage(result.toString()).that(result.getError(topErrorFirstKey)).isNotNull();
   }
 
@@ -3188,8 +3199,8 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(topKey).setBuilder(null).addDependency(error).setComputedValue(COPY);
     tester.invalidate();
     result = tester.eval(/*keepGoing=*/false, topKey);
-    assertEquals(reformed, result.get(topKey));
-    assertFalse(result.hasError());
+    assertThat(result.get(topKey)).isEqualTo(reformed);
+    assertThat(result.hasError()).isFalse();
   }
 
   /**
@@ -3227,12 +3238,12 @@ public class MemoizingEvaluatorTest {
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/ false, parentKey);
     assertThat(result.keyNames()).isEmpty();
     Map.Entry<SkyKey, ErrorInfo> error = Iterables.getOnlyElement(result.errorMap().entrySet());
-    assertEquals(parentKey, error.getKey());
+    assertThat(error.getKey()).isEqualTo(parentKey);
     assertThat(error.getValue().getRootCauses()).containsExactly(errorKey);
-    assertFalse(Thread.interrupted());
+    assertThat(Thread.interrupted()).isFalse();
     result = tester.eval(/*keepGoing=*/ true, parentKey);
     assertThat(result.errorMap()).isEmpty();
-    assertEquals("recovered", result.get(parentKey).getValue());
+    assertThat(result.get(parentKey).getValue()).isEqualTo("recovered");
   }
 
   /**
@@ -3287,8 +3298,8 @@ public class MemoizingEvaluatorTest {
     assertThat(result.getError(midKey).getRootCauses()).containsExactly(badKey);
     waitForSecondCall.set(true);
     result = tester.eval(/*keepGoing=*/ true, topKey, midKey);
-    assertNotNull(firstThread.get());
-    assertEquals(0, otherThreadWinning.getCount());
+    assertThat(firstThread.get()).isNotNull();
+    assertThat(otherThreadWinning.getCount()).isEqualTo(0);
     assertThatEvaluationResult(result).hasErrorEntryForKeyThat(midKey).isNotNull();
     assertThatEvaluationResult(result).hasErrorEntryForKeyThat(topKey).isNotNull();
     if (rootCausesStored()) {
@@ -3315,11 +3326,11 @@ public class MemoizingEvaluatorTest {
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/ false, parentKey);
     assertThat(result.keyNames()).isEmpty();
     Map.Entry<SkyKey, ErrorInfo> error = Iterables.getOnlyElement(result.errorMap().entrySet());
-    assertEquals(parentKey, error.getKey());
+    assertThat(error.getKey()).isEqualTo(parentKey);
     assertThat(error.getValue().getRootCauses()).containsExactly(errorKey);
     result = tester.eval(/*keepGoing=*/ true, parentKey);
     assertThat(result.errorMap()).isEmpty();
-    assertEquals("recoveredafter", result.get(parentKey).getValue());
+    assertThat(result.get(parentKey).getValue()).isEqualTo("recoveredafter");
   }
 
   @Test
@@ -3412,19 +3423,19 @@ public class MemoizingEvaluatorTest {
         tester.eval(/*keepGoing=*/ false, errorKey, otherErrorKey);
 
     // Then the result reports that an error occurred because of errorKey,
-    assertTrue(result.hasError());
-    assertEquals(errorKey, result.getError().getRootCauseOfException());
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().getRootCauseOfException()).isEqualTo(errorKey);
 
     // And no value is committed for otherErrorKey,
-    assertNull(tester.driver.getExistingErrorForTesting(otherErrorKey));
-    assertNull(tester.driver.getExistingValueForTesting(otherErrorKey));
+    assertThat(tester.driver.getExistingErrorForTesting(otherErrorKey)).isNull();
+    assertThat(tester.driver.getExistingValueForTesting(otherErrorKey)).isNull();
 
     // And no value was committed for errorKey,
-    assertNull(nonNullValueMessage.get(), nonNullValueMessage.get());
+    assertWithMessage(nonNullValueMessage.get()).that(nonNullValueMessage.get()).isNull();
 
     // And the SkyFunction for otherErrorKey was evaluated exactly once.
-    assertEquals(1, numOtherInvocations.get());
-    assertNull(bogusInvocationMessage.get(), bogusInvocationMessage.get());
+    assertThat(numOtherInvocations.get()).isEqualTo(1);
+    assertWithMessage(bogusInvocationMessage.get()).that(bogusInvocationMessage.get()).isNull();
 
     // NB: The SkyFunction for otherErrorKey gets evaluated exactly once--it does not get
     // re-evaluated during error bubbling. Why? When otherErrorKey throws, it is always the
@@ -3538,11 +3549,11 @@ public class MemoizingEvaluatorTest {
   @Test
   public void errorTransienceBug() throws Exception {
     tester.getOrCreate("key").setHasTransientError(true);
-    assertNotNull(tester.evalAndGetError("key").getException());
+    assertThat(tester.evalAndGetError("key").getException()).isNotNull();
     StringValue value = new StringValue("hi");
     tester.getOrCreate("key").setHasTransientError(false).setConstantValue(value);
     tester.invalidateTransientErrors();
-    assertEquals(value, tester.evalAndGet("key"));
+    assertThat(tester.evalAndGet("key")).isEqualTo(value);
     // This works because the version of the ValueEntry for the ErrorTransience value is always
     // increased on each InMemoryMemoizingEvaluator#evaluate call. But that's not the only way to
     // implement error transience; another valid implementation would be to unconditionally mark
@@ -3556,19 +3567,19 @@ public class MemoizingEvaluatorTest {
     SkyKey errorKey = GraphTester.toSkyKey("my_error_value");
     tester.getOrCreate(errorKey).setHasTransientError(true);
     ErrorInfo errorInfo = tester.evalAndGetError(errorKey);
-    assertNotNull(errorInfo);
+    assertThat(errorInfo).isNotNull();
     assertThat(errorInfo.getRootCauses()).containsExactly(errorKey);
     // Re-evaluates to same thing when errors are invalidated
     tester.invalidateTransientErrors();
     errorInfo = tester.evalAndGetError(errorKey);
-    assertNotNull(errorInfo);
+    assertThat(errorInfo).isNotNull();
     StringValue value = new StringValue("reformed");
     assertThat(errorInfo.getRootCauses()).containsExactly(errorKey);
     tester.getOrCreate(errorKey, /*markAsModified=*/false).setHasTransientError(false)
         .setConstantValue(value);
     tester.invalidateTransientErrors();
     StringValue stringValue = (StringValue) tester.evalAndGet(/*keepGoing=*/true, errorKey);
-    assertSame(stringValue, value);
+    assertThat(value).isSameAs(stringValue);
     // Value builder will now throw, but we should never get to it because it isn't dirty.
     tester.getOrCreate(errorKey, /*markAsModified=*/false).setHasTransientError(true);
     tester.invalidateTransientErrors();
@@ -3639,16 +3650,16 @@ public class MemoizingEvaluatorTest {
         tester.invalidate();
         EvaluationResult<StringValue> result = tester.eval(
             /*keep_going=*/false, lastLeft, lastRight);
-        assertTrue(result.hasError());
+        assertThat(result.hasError()).isTrue();
         tester.differencer.invalidate(ImmutableList.of(leftValues[i]));
         tester.invalidate();
         result = tester.eval(/*keep_going=*/false, lastLeft, lastRight);
-        assertTrue(result.hasError());
+        assertThat(result.hasError()).isTrue();
         tester.getOrCreate(leftValues[i], /*markAsModified=*/true).setHasError(false);
         tester.invalidate();
         result = tester.eval(/*keep_going=*/false, lastLeft, lastRight);
-        assertEquals(new StringValue("leaf"), result.get(toSkyKey(lastLeft)));
-        assertEquals(new StringValue("leaf"), result.get(toSkyKey(lastRight)));
+        assertThat(result.get(toSkyKey(lastLeft))).isEqualTo(new StringValue("leaf"));
+        assertThat(result.get(toSkyKey(lastRight))).isEqualTo(new StringValue("leaf"));
       } catch (Exception e) {
         System.err.println("twoRailLeftRightDependenciesWithFailure exception on run " + i);
         throw e;
@@ -3662,7 +3673,7 @@ public class MemoizingEvaluatorTest {
     SkyValue val = new StringValue("val");
 
     tester.differencer.inject(ImmutableMap.of(key, val));
-    assertEquals(val, tester.evalAndGet("new_value"));
+    assertThat(tester.evalAndGet("new_value")).isEqualTo(val);
   }
 
   @Test
@@ -3672,7 +3683,7 @@ public class MemoizingEvaluatorTest {
 
     tester.getOrCreate(key).setConstantValue(new StringValue("old_val"));
     tester.differencer.inject(ImmutableMap.of(key, val));
-    assertEquals(val, tester.evalAndGet("value"));
+    assertThat(tester.evalAndGet("value")).isEqualTo(val);
   }
 
   @Test
@@ -3689,7 +3700,7 @@ public class MemoizingEvaluatorTest {
 
     tester.differencer.inject(ImmutableMap.of(key, val));
     tester.eval(/*keepGoing=*/false, new SkyKey[0]); // Inject again.
-    assertEquals(val, tester.evalAndGet("value"));
+    assertThat(tester.evalAndGet("value")).isEqualTo(val);
   }
 
   @Test
@@ -3700,7 +3711,7 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(key).setConstantValue(new StringValue("old_val"));
     tester.differencer.invalidate(ImmutableList.of(key));
     tester.differencer.inject(ImmutableMap.of(key, val));
-    assertEquals(val, tester.evalAndGet("value"));
+    assertThat(tester.evalAndGet("value")).isEqualTo(val);
   }
 
   @Test
@@ -3711,7 +3722,7 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(key).setConstantValue(new StringValue("old_val"));
     tester.evaluator.delete(Predicates.<SkyKey>alwaysTrue());
     tester.differencer.inject(ImmutableMap.of(key, val));
-    assertEquals(val, tester.evalAndGet("value"));
+    assertThat(tester.evalAndGet("value")).isEqualTo(val);
   }
 
   @Test
@@ -3720,11 +3731,11 @@ public class MemoizingEvaluatorTest {
     SkyValue val = new StringValue("val");
 
     tester.differencer.inject(ImmutableMap.of(key, val));
-    assertEquals(val, tester.evalAndGet("value"));
+    assertThat(tester.evalAndGet("value")).isEqualTo(val);
 
     tester.differencer.invalidate(ImmutableList.of(key));
     tester.differencer.inject(ImmutableMap.of(key, val));
-    assertEquals(val, tester.evalAndGet("value"));
+    assertThat(tester.evalAndGet("value")).isEqualTo(val);
   }
 
   @Test
@@ -3733,11 +3744,11 @@ public class MemoizingEvaluatorTest {
     SkyValue val = new StringValue("val");
 
     tester.differencer.inject(ImmutableMap.of(key, val));
-    assertEquals(val, tester.evalAndGet("value"));
+    assertThat(tester.evalAndGet("value")).isEqualTo(val);
 
     tester.evaluator.delete(Predicates.<SkyKey>alwaysTrue());
     tester.differencer.inject(ImmutableMap.of(key, val));
-    assertEquals(val, tester.evalAndGet("value"));
+    assertThat(tester.evalAndGet("value")).isEqualTo(val);
   }
 
   @Test
@@ -3748,7 +3759,7 @@ public class MemoizingEvaluatorTest {
 
     tester.getOrCreate("other").setConstantValue(prevVal);
     tester.getOrCreate(key).addDependency("other").setComputedValue(COPY);
-    assertEquals(prevVal, tester.evalAndGet("value"));
+    assertThat(tester.evalAndGet("value")).isEqualTo(prevVal);
     tester.differencer.inject(ImmutableMap.of(key, val));
     try {
       tester.evalAndGet("value");
@@ -3767,7 +3778,7 @@ public class MemoizingEvaluatorTest {
 
     tester.getOrCreate("other").setConstantValue(val);
     tester.getOrCreate(key).addDependency("other").setComputedValue(COPY);
-    assertEquals(val, tester.evalAndGet("value"));
+    assertThat(tester.evalAndGet("value")).isEqualTo(val);
     tester.differencer.inject(ImmutableMap.of(key, val));
     try {
       tester.evalAndGet("value");
@@ -3788,7 +3799,7 @@ public class MemoizingEvaluatorTest {
     tester.evalAndGetError(key);
 
     tester.differencer.inject(ImmutableMap.of(key, val));
-    assertEquals(val, tester.evalAndGet(false, key));
+    assertThat(tester.evalAndGet(false, key)).isEqualTo(val);
   }
 
   @Test
@@ -3801,19 +3812,19 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(parentKey).addDependency("child").setComputedValue(COPY);
 
     EvaluationResult<SkyValue> result = tester.eval(false, parentKey);
-    assertFalse(result.hasError());
-    assertEquals(oldVal, result.get(parentKey));
+    assertThat(result.hasError()).isFalse();
+    assertThat(result.get(parentKey)).isEqualTo(oldVal);
 
     SkyValue val = new StringValue("val");
     tester.differencer.inject(ImmutableMap.of(childKey, val));
-    assertEquals(val, tester.evalAndGet("child"));
+    assertThat(tester.evalAndGet("child")).isEqualTo(val);
     // Injecting a new child should have invalidated the parent.
-    Assert.assertNull(tester.getExistingValue("parent"));
+    assertThat(tester.getExistingValue("parent")).isNull();
 
     tester.eval(false, childKey);
-    assertEquals(val, tester.getExistingValue("child"));
-    Assert.assertNull(tester.getExistingValue("parent"));
-    assertEquals(val, tester.evalAndGet("parent"));
+    assertThat(tester.getExistingValue("child")).isEqualTo(val);
+    assertThat(tester.getExistingValue("parent")).isNull();
+    assertThat(tester.evalAndGet("parent")).isEqualTo(val);
   }
 
   @Test
@@ -3824,12 +3835,12 @@ public class MemoizingEvaluatorTest {
 
     tester.getOrCreate(parentKey).addDependency("child").setComputedValue(COPY);
     tester.getOrCreate(childKey).setConstantValue(new StringValue("same_val"));
-    assertEquals(val, tester.evalAndGet("parent"));
+    assertThat(tester.evalAndGet("parent")).isEqualTo(val);
 
     tester.differencer.inject(ImmutableMap.of(childKey, val));
-    assertEquals(val, tester.getExistingValue("child"));
+    assertThat(tester.getExistingValue("child")).isEqualTo(val);
     // Since we are injecting an equal value, the parent should not have been invalidated.
-    assertEquals(val, tester.getExistingValue("parent"));
+    assertThat(tester.getExistingValue("parent")).isEqualTo(val);
   }
 
   @Test
@@ -3846,7 +3857,7 @@ public class MemoizingEvaluatorTest {
       // Expected.
     }
     SkyValue newVal = tester.evalAndGet("key");
-    assertEquals(val, newVal);
+    assertThat(newVal).isEqualTo(val);
   }
 
   @Test
@@ -3919,7 +3930,8 @@ public class MemoizingEvaluatorTest {
             if (type == EventType.IS_DIRTY && key.equals(failingKey)) {
               // Wait for the build to abort or for the other node to incorrectly build.
               try {
-                assertTrue(slowBuilt.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS));
+                assertThat(slowBuilt.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+                    .isTrue();
               } catch (InterruptedException e) {
                 // This is ok, because it indicates the build is shutting down.
                 Thread.currentThread().interrupt();
@@ -4005,7 +4017,8 @@ public class MemoizingEvaluatorTest {
               // When the uncached parent is first signaled by its changed dep, make sure that
               // we wait until the cached parent is signaled too.
               try {
-                assertTrue(cachedSignaled.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS));
+                assertThat(cachedSignaled.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+                    .isTrue();
               } catch (InterruptedException e) {
                 // Before the relevant bug was fixed, this code was not interrupted, and the
                 // uncached parent got to build, yielding an inconsistent state at a later point
@@ -4484,7 +4497,7 @@ public class MemoizingEvaluatorTest {
 
     public <T extends SkyValue> EvaluationResult<T> eval(boolean keepGoing, String... keys)
         throws InterruptedException {
-      return eval(keepGoing, toSkyKeys(keys));
+      return eval(keepGoing, toSkyKeys(keys).toArray(new SkyKey[0]));
     }
 
     public SkyValue evalAndGet(boolean keepGoing, String key)
@@ -4500,14 +4513,14 @@ public class MemoizingEvaluatorTest {
         throws InterruptedException {
       EvaluationResult<StringValue> evaluationResult = eval(keepGoing, key);
       SkyValue result = evaluationResult.get(key);
-      assertNotNull(evaluationResult.toString(), result);
+      assertWithMessage(evaluationResult.toString()).that(result).isNotNull();
       return result;
     }
 
     public ErrorInfo evalAndGetError(SkyKey key) throws InterruptedException {
       EvaluationResult<StringValue> evaluationResult = eval(/*keepGoing=*/true, key);
       ErrorInfo result = evaluationResult.getError(key);
-      assertNotNull(evaluationResult.toString(), result);
+      assertWithMessage(evaluationResult.toString()).that(result).isNotNull();
       return result;
     }
 

@@ -14,8 +14,7 @@
 package com.google.devtools.build.lib.standalone;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -166,8 +165,9 @@ public class StandaloneSpawnStrategyTest {
       run(createSpawn(getFalseCommand()));
       fail();
     } catch (ExecException e) {
-      assertTrue("got: " + e.getMessage(), e
-          .getMessage().startsWith("false failed: error executing command"));
+      assertWithMessage("got: " + e.getMessage())
+          .that(e.getMessage().startsWith("false failed: error executing command"))
+          .isTrue();
     }
   }
 
@@ -183,7 +183,7 @@ public class StandaloneSpawnStrategyTest {
   public void testBinEchoPrintsArguments() throws Exception {
     Spawn spawn = createSpawn("/bin/echo", "Hello,", "world.");
     run(spawn);
-    assertEquals("Hello, world.\n", out());
+    assertThat(out()).isEqualTo("Hello, world.\n");
     assertThat(err()).isEmpty();
   }
 
@@ -191,7 +191,7 @@ public class StandaloneSpawnStrategyTest {
   public void testCommandRunsInWorkingDir() throws Exception {
     Spawn spawn = createSpawn("/bin/pwd");
     run(spawn);
-    assertEquals(executor.getExecRoot() + "\n", out());
+    assertThat(out()).isEqualTo(executor.getExecRoot() + "\n");
   }
 
   @Test
@@ -202,14 +202,14 @@ public class StandaloneSpawnStrategyTest {
         new ActionsTestUtil.NullAction(),
         ResourceSet.ZERO);
     run(spawn);
-    assertEquals(Sets.newHashSet("foo=bar", "baz=boo"), Sets.newHashSet(out().split("\n")));
+    assertThat(Sets.newHashSet(out().split("\n"))).isEqualTo(Sets.newHashSet("foo=bar", "baz=boo"));
   }
 
   @Test
   public void testStandardError() throws Exception {
     Spawn spawn = createSpawn("/bin/sh", "-c", "echo Oops! >&2");
     run(spawn);
-    assertEquals("Oops!\n", err());
+    assertThat(err()).isEqualTo("Oops!\n");
     assertThat(out()).isEmpty();
   }
 
@@ -232,7 +232,9 @@ public class StandaloneSpawnStrategyTest {
       run(spawn);
       fail("action should fail due to being unable to resolve SDKROOT");
     } catch (ExecException e) {
-      assertThat(e.getMessage()).contains("Cannot locate iOS SDK on non-darwin operating system");
+      assertThat(e)
+          .hasMessageThat()
+          .contains("Cannot locate iOS SDK on non-darwin operating system");
     }
   }
 }

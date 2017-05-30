@@ -197,7 +197,7 @@ public class InvocationPolicyDisallowValuesTest extends InvocationPolicyEnforcer
       enforcer.enforce(parser, BUILD_COMMAND);
       fail();
     } catch (OptionsParsingException e) {
-      assertThat(e.getMessage()).contains("but also specifies to use the default value");
+      assertThat(e).hasMessageThat().contains("but also specifies to use the default value");
     }
   }
   
@@ -267,7 +267,8 @@ public class InvocationPolicyDisallowValuesTest extends InvocationPolicyEnforcer
       enforcer.enforce(parser, BUILD_COMMAND);
       fail();
     } catch (OptionsParsingException e) {
-      assertThat(e.getMessage())
+      assertThat(e)
+          .hasMessageThat()
           .contains(
               "Flag value 'a' for flag 'test_list_converters' is not allowed by invocation policy");
     }

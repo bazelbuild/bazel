@@ -14,10 +14,7 @@
 package com.google.devtools.build.lib.packages.util;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -65,7 +62,7 @@ public abstract class PackageFactoryTestBase {
       throws InterruptedException, IOException {
     Path file = scratch.file("/pkg/BUILD", content);
     Package pkg = packages.eval("pkg", file);
-    assertFalse(pkg.containsErrors());
+    assertThat(pkg.containsErrors()).isFalse();
     return pkg;
   }
 
@@ -73,7 +70,9 @@ public abstract class PackageFactoryTestBase {
     events.setFailFast(false);
     Path file = scratch.file("/pkg/BUILD", content);
     Package pkg = packages.eval("pkg", file);
-    assertTrue("Expected evaluation error, but none was not reported", pkg.containsErrors());
+    assertWithMessage("Expected evaluation error, but none was not reported")
+        .that(pkg.containsErrors())
+        .isTrue();
     events.assertContainsError(expectedError);
   }
 
@@ -90,9 +89,9 @@ public abstract class PackageFactoryTestBase {
     for (String outName : outNames) {
       OutputFile out = (OutputFile) pkg.getTarget(outName);
       assertThat(rule.getOutputFiles()).contains(out);
-      assertSame(rule, out.getGeneratingRule());
-      assertEquals(outName, out.getName());
-      assertEquals("generated file", out.getTargetKind());
+      assertThat(out.getGeneratingRule()).isSameAs(rule);
+      assertThat(out.getName()).isEqualTo(outName);
+      assertThat(out.getTargetKind()).isEqualTo("generated file");
     }
     assertThat(rule.getOutputFiles()).hasSize(outNames.size());
   }
@@ -161,7 +160,7 @@ public abstract class PackageFactoryTestBase {
     Package pkg = buildPackageWithGlob(globCallExpression);
 
     events.assertContainsError(expectedError);
-    assertTrue(pkg.containsErrors());
+    assertThat(pkg.containsErrors()).isTrue();
   }
 
   private Package buildPackageWithGlob(String globCallExpression) throws Exception {
@@ -208,9 +207,11 @@ public abstract class PackageFactoryTestBase {
     GlobCache globCache = evaluated.second;
 
     // Ensure all of the patterns are recorded against this package:
-    assertTrue(globCache.getKeySet().containsAll(createGlobCacheKeys(includes, excludeDirs)));
-    assertTrue(globCache.getKeySet().containsAll(createGlobCacheKeys(excludes, excludeDirs)));
-    assertFalse(pkg.containsErrors());
+    assertThat(globCache.getKeySet().containsAll(createGlobCacheKeys(includes, excludeDirs)))
+        .isTrue();
+    assertThat(globCache.getKeySet().containsAll(createGlobCacheKeys(excludes, excludeDirs)))
+        .isTrue();
+    assertThat(pkg.containsErrors()).isFalse();
   }
 
   /**
@@ -246,7 +247,7 @@ public abstract class PackageFactoryTestBase {
     events.setFailFast(false);
     Package pkg =
         evaluateGlob(ImmutableList.of(pattern), Collections.<String>emptyList(), false, "").first;
-    assertEquals(errorExpected, pkg.containsErrors());
+    assertThat(pkg.containsErrors()).isEqualTo(errorExpected);
     boolean foundError = false;
     for (Event event : events.collector()) {
       if (event.getMessage().contains("glob")) {
@@ -258,7 +259,7 @@ public abstract class PackageFactoryTestBase {
         break;
       }
     }
-    assertEquals(errorExpected, foundError);
+    assertThat(foundError).isEqualTo(errorExpected);
   }
 
   /** Runnable that asks for parsing of build file and synchronizes it with

@@ -15,13 +15,10 @@ package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.common.options.OptionsParsingException;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -39,11 +36,11 @@ public class RegexFilterTest {
   }
 
   protected void assertIncluded(String value) {
-    assertTrue(filter.isIncluded(value));
+    assertThat(filter.isIncluded(value)).isTrue();
   }
 
   protected void assertExcluded(String value) {
-    assertFalse(filter.isIncluded(value));
+    assertThat(filter.isIncluded(value)).isFalse();
   }
 
   @Test
@@ -120,9 +117,11 @@ public class RegexFilterTest {
       createFilter("*a");
       fail(); // OptionsParsingException should be thrown.
     } catch (OptionsParsingException e) {
-      assertThat(e.getMessage())
-          .contains("Failed to build valid regular expression: Dangling meta character '*' "
-              + "near index");
+      assertThat(e)
+          .hasMessageThat()
+          .contains(
+              "Failed to build valid regular expression: Dangling meta character '*' "
+                  + "near index");
     }
   }
 

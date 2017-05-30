@@ -13,10 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.testing.GcFinalization;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
@@ -40,54 +37,54 @@ public class ConcurrentMultimapWithHeadElementTest {
   public void testSmoke() throws Exception {
     ConcurrentMultimapWithHeadElement<String, String> multimap =
         new ConcurrentMultimapWithHeadElement<>();
-    assertEquals("val", multimap.putAndGet("key", "val"));
-    assertEquals("val", multimap.get("key"));
-    assertEquals("val", multimap.putAndGet("key", "val2"));
+    assertThat(multimap.putAndGet("key", "val")).isEqualTo("val");
+    assertThat(multimap.get("key")).isEqualTo("val");
+    assertThat(multimap.putAndGet("key", "val2")).isEqualTo("val");
     multimap.remove("key", "val2");
-    assertEquals("val", multimap.get("key"));
-    assertEquals("val", multimap.putAndGet("key", "val2"));
+    assertThat(multimap.get("key")).isEqualTo("val");
+    assertThat(multimap.putAndGet("key", "val2")).isEqualTo("val");
     multimap.remove("key", "val");
-    assertEquals("val2", multimap.get("key"));
+    assertThat(multimap.get("key")).isEqualTo("val2");
   }
 
   @Test
   public void testDuplicate() throws Exception {
     ConcurrentMultimapWithHeadElement<String, String> multimap =
         new ConcurrentMultimapWithHeadElement<>();
-    assertEquals("val", multimap.putAndGet("key", "val"));
-    assertEquals("val", multimap.get("key"));
-    assertEquals("val", multimap.putAndGet("key", "val"));
+    assertThat(multimap.putAndGet("key", "val")).isEqualTo("val");
+    assertThat(multimap.get("key")).isEqualTo("val");
+    assertThat(multimap.putAndGet("key", "val")).isEqualTo("val");
     multimap.remove("key", "val");
-    assertNull(multimap.get("key"));
+    assertThat(multimap.get("key")).isNull();
   }
 
   @Test
   public void testDuplicateWithEqualsObject() throws Exception {
     ConcurrentMultimapWithHeadElement<String, String> multimap =
         new ConcurrentMultimapWithHeadElement<>();
-    assertEquals("val", multimap.putAndGet("key", "val"));
-    assertEquals("val", multimap.get("key"));
-    assertEquals("val", multimap.putAndGet("key", "val"));
+    assertThat(multimap.putAndGet("key", "val")).isEqualTo("val");
+    assertThat(multimap.get("key")).isEqualTo("val");
+    assertThat(multimap.putAndGet("key", "val")).isEqualTo("val");
     multimap.remove("key", "val");
-    assertNull(multimap.get("key"));
+    assertThat(multimap.get("key")).isNull();
   }
 
   @Test
   public void testFailedRemoval() throws Exception {
     ConcurrentMultimapWithHeadElement<String, String> multimap =
         new ConcurrentMultimapWithHeadElement<>();
-    assertEquals("val", multimap.putAndGet("key", "val"));
+    assertThat(multimap.putAndGet("key", "val")).isEqualTo("val");
     multimap.remove("key", "val2");
-    assertEquals("val", multimap.get("key"));
+    assertThat(multimap.get("key")).isEqualTo("val");
   }
 
   @Test
   public void testNotEmpty() throws Exception {
     ConcurrentMultimapWithHeadElement<String, String> multimap =
         new ConcurrentMultimapWithHeadElement<>();
-    assertEquals("val", multimap.putAndGet("key", "val"));
+    assertThat(multimap.putAndGet("key", "val")).isEqualTo("val");
     multimap.remove("key", "val2");
-    assertEquals("val", multimap.get("key"));
+    assertThat(multimap.get("key")).isEqualTo("val");
   }
 
   @Test
@@ -95,7 +92,7 @@ public class ConcurrentMultimapWithHeadElementTest {
     String key = new String("key");
     ConcurrentMultimapWithHeadElement<String, String> multimap =
         new ConcurrentMultimapWithHeadElement<>();
-    assertEquals("val", multimap.putAndGet(key, "val"));
+    assertThat(multimap.putAndGet(key, "val")).isEqualTo("val");
     WeakReference<String> weakKey = new WeakReference<>(key);
     multimap.remove(key, "val");
     key = null;
@@ -109,7 +106,7 @@ public class ConcurrentMultimapWithHeadElementTest {
     // Because we have two threads racing, run the test many times. Before fixed, there was a 90%
     // chance of failure in 10,000 runs.
     for (int i = 0; i < 10000; i++) {
-      assertEquals("val", multimap.putAndGet("key", "val"));
+      assertThat(multimap.putAndGet("key", "val")).isEqualTo("val");
       final CountDownLatch threadStart = new CountDownLatch(1);
       TestThread testThread = new TestThread() {
         @Override
@@ -119,9 +116,10 @@ public class ConcurrentMultimapWithHeadElementTest {
         }
       };
       testThread.start();
-      assertTrue(threadStart.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS));
-      assertNotNull(multimap.putAndGet("key", "val2")); // Removal may not have happened yet.
-      assertNotNull(multimap.get("key")); // If put failed, this will be null.
+      assertThat(threadStart.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)).isTrue();
+      assertThat(multimap.putAndGet("key", "val2"))
+          .isNotNull(); // Removal may not have happened yet.
+      assertThat(multimap.get("key")).isNotNull(); // If put failed, this will be null.
       testThread.joinAndAssertState(2000);
       multimap.clear();
     }
@@ -148,7 +146,7 @@ public class ConcurrentMultimapWithHeadElementTest {
           new Runnable() {
             @Override
             public void run() {
-              assertNotNull(multimap.putAndGet(key, add));
+              assertThat(multimap.putAndGet(key, add)).isNotNull();
               multimap.remove(key, remove);
               doRandom();
             }

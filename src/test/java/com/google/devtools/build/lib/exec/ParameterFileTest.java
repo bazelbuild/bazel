@@ -13,14 +13,14 @@
 // limitations under the License.
 
 package com.google.devtools.build.lib.exec;
-import static org.junit.Assert.assertEquals;
+
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -34,11 +34,9 @@ public class ParameterFileTest extends FoundationTestCase {
 
   @Test
   public void testDerive() {
-    assertEquals(
-        PathFragment.create("a/b-2.params"),
-        ParameterFile.derivePath(PathFragment.create("a/b")));
-    assertEquals(
-        PathFragment.create("b-2.params"),
-        ParameterFile.derivePath(PathFragment.create("b")));
+    assertThat(ParameterFile.derivePath(PathFragment.create("a/b")))
+        .isEqualTo(PathFragment.create("a/b-2.params"));
+    assertThat(ParameterFile.derivePath(PathFragment.create("b")))
+        .isEqualTo(PathFragment.create("b-2.params"));
   }
 }

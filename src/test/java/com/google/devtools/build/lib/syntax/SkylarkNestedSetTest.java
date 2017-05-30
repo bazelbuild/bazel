@@ -50,7 +50,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
       eval("s = set([1, 2, 3], order='postorder')");
       Assert.fail("`set` should have failed");
     } catch (EvalException e) {
-      assertThat(e.getMessage()).contains("The `set` constructor for depsets is deprecated");
+      assertThat(e).hasMessageThat().contains("The `set` constructor for depsets is deprecated");
     }
   }
 

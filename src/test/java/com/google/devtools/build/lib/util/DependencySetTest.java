@@ -23,14 +23,12 @@ import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.Collection;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class DependencySetTest {
@@ -187,7 +185,7 @@ public class DependencySetTest {
       newDependencySet().read(dotd);
       fail();
     } catch (IOException e) {
-      assertThat(e.getMessage()).contains("File does not end in a newline");
+      assertThat(e).hasMessageThat().contains("File does not end in a newline");
     }
   }
 

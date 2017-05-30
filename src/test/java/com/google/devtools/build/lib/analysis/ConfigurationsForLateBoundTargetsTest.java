@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
-import static org.junit.Assert.assertNotNull;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -36,7 +35,6 @@ import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.testutil.UnknownRuleConfiguredTarget;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -126,7 +124,7 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
         "rule_with_test_fragment(",
         "    name = 'latebound_dep')");
     update("//foo:foo");
-    assertNotNull(getConfiguredTarget("//foo:foo", getTargetConfiguration()));
+    assertThat(getConfiguredTarget("//foo:foo", getTargetConfiguration())).isNotNull();
     ConfiguredTarget dep = Iterables.getOnlyElement(
         SkyframeExecutorTestUtils.getExistingConfiguredTargets(
             skyframeExecutor, Label.parseAbsolute("//foo:latebound_dep")));
@@ -148,7 +146,7 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
         "rule_with_test_fragment(",
         "    name = 'latebound_dep')");
     update("//foo:gen");
-    assertNotNull(getConfiguredTarget("//foo:foo", getHostConfiguration()));
+    assertThat(getConfiguredTarget("//foo:foo", getHostConfiguration())).isNotNull();
     ConfiguredTarget dep = Iterables.getOnlyElement(
         SkyframeExecutorTestUtils.getExistingConfiguredTargets(
             skyframeExecutor, Label.parseAbsolute("//foo:latebound_dep")));
@@ -166,7 +164,7 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
         "rule_with_test_fragment(",
         "    name = 'latebound_dep')");
     update("//foo:foo");
-    assertNotNull(getConfiguredTarget("//foo:foo"));
+    assertThat(getConfiguredTarget("//foo:foo")).isNotNull();
     Iterable<ConfiguredTarget> deps = SkyframeExecutorTestUtils.getExistingConfiguredTargets(
         skyframeExecutor, Label.parseAbsolute("//foo:latebound_dep"));
     assertThat(deps).hasSize(2);
@@ -191,7 +189,7 @@ public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
         "rule_with_test_fragment(",
         "    name = 'latebound_dep')");
     update("//foo:gen");
-    assertNotNull(getConfiguredTarget("//foo:foo", getHostConfiguration()));
+    assertThat(getConfiguredTarget("//foo:foo", getHostConfiguration())).isNotNull();
     ConfiguredTarget dep = Iterables.getOnlyElement(
         SkyframeExecutorTestUtils.getExistingConfiguredTargets(
             skyframeExecutor, Label.parseAbsolute("//foo:latebound_dep")));

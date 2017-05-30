@@ -14,10 +14,7 @@
 
 package com.google.testing.junit.runner.internal.junit4;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import java.util.Arrays;
@@ -103,9 +100,9 @@ public class CancellableRequestFactoryTest {
       fail("exception expected");
     } catch (ExecutionException e) {
       Throwable runnerException = e.getCause();
-      assertTrue(runnerException instanceof RuntimeException);
-      assertEquals("Test run interrupted", runnerException.getMessage());
-      assertTrue(runnerException.getCause() instanceof StoppedByUserException);
+      assertThat(runnerException).isInstanceOf(RuntimeException.class);
+      assertThat(runnerException).hasMessageThat().isEqualTo("Test run interrupted");
+      assertThat(runnerException).hasCauseThat().isInstanceOf(StoppedByUserException.class);
     }
 
     executor.shutdownNow();
@@ -131,11 +128,11 @@ public class CancellableRequestFactoryTest {
       core.run(request);
       fail("exception expected");
     } catch (RuntimeException e) {
-      assertEquals("Test run interrupted", e.getMessage());
-      assertTrue(e.getCause() instanceof StoppedByUserException);
+      assertThat(e).hasMessageThat().isEqualTo("Test run interrupted");
+      assertThat(e).hasCauseThat().isInstanceOf(StoppedByUserException.class);
     }
 
-    assertFalse(testRan.get());
+    assertThat(testRan.get()).isFalse();
   }
 
   @Test
@@ -154,9 +151,9 @@ public class CancellableRequestFactoryTest {
     JUnitCore core = new JUnitCore();
     Result result = core.run(request);
 
-    assertTrue(testRan.get());
-    assertEquals(1, result.getRunCount());
-    assertEquals(0, result.getFailureCount());
+    assertThat(testRan.get()).isTrue();
+    assertThat(result.getRunCount()).isEqualTo(1);
+    assertThat(result.getFailureCount()).isEqualTo(0);
   }
 
   @Test
@@ -177,10 +174,10 @@ public class CancellableRequestFactoryTest {
     JUnitCore core = new JUnitCore();
     Result result = core.run(request);
 
-    assertTrue(testRan.get());
-    assertEquals(1, result.getRunCount());
-    assertEquals(1, result.getFailureCount());
-    assertSame(expectedFailure, result.getFailures().get(0).getException());
+    assertThat(testRan.get()).isTrue();
+    assertThat(result.getRunCount()).isEqualTo(1);
+    assertThat(result.getFailureCount()).isEqualTo(1);
+    assertThat(result.getFailures().get(0).getException()).isSameAs(expectedFailure);
   }
 
 

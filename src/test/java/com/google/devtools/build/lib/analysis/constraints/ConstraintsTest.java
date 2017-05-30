@@ -14,8 +14,6 @@
 package com.google.devtools.build.lib.analysis.constraints;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
@@ -33,17 +31,13 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.UnknownRuleConfiguredTarget;
 import com.google.devtools.build.lib.util.FileTypeSet;
-
+import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.util.Set;
-
-/**
- * Tests for the constraint enforcement system.
- */
+/** Tests for the constraint enforcement system. */
 @RunWith(JUnit4.class)
 public class ConstraintsTest extends AbstractConstraintsTest {
 
@@ -271,7 +265,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults("a").make();
     reporter.removeHandler(failFastHandler);
     String ruleDef = getDependencyRule(constrainedTo());
-    assertNull(scratchConfiguredTarget("hello", "dep", ruleDef));
+    assertThat(scratchConfiguredTarget("hello", "dep", ruleDef)).isNull();
     assertContainsEvent("attribute cannot be empty");
   }
 
@@ -298,7 +292,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     reporter.removeHandler(failFastHandler);
     String ruleDef = getDependencyRule(
         constrainedTo("//buildenv/foo:b"), compatibleWith("//buildenv/foo:b"));
-    assertNull(scratchConfiguredTarget("hello", "dep", ruleDef));
+    assertThat(scratchConfiguredTarget("hello", "dep", ruleDef)).isNull();
     assertContainsEvent("//buildenv/foo:b cannot appear both here and in restricted_to");
   }
 
@@ -311,7 +305,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     reporter.removeHandler(failFastHandler);
     String ruleDef = getDependencyRule(
         constrainedTo("//buildenv/foo:a"), compatibleWith("//buildenv/foo:b"));
-    assertNull(scratchConfiguredTarget("hello", "dep", ruleDef));
+    assertThat(scratchConfiguredTarget("hello", "dep", ruleDef)).isNull();
     assertContainsEvent(
         "//buildenv/foo:b and //buildenv/foo:a belong to the same environment group");
   }
@@ -371,7 +365,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     writeRuleClassDefaultEnvironments();
     reporter.removeHandler(failFastHandler);
     String ruleDef = "bad_rule_class_default(name = 'a')";
-    assertNull(scratchConfiguredTarget("hello", "a", ruleDef));
+    assertThat(scratchConfiguredTarget("hello", "a", ruleDef)).isNull();
     assertContainsEvent("//buildenv/rule_class_compat:a and //buildenv/rule_class_compat:b "
         + "belong to the same environment group");
   }
@@ -385,7 +379,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file("hello/BUILD",
         getDependencyRule(),
         getDependingRule());
-    assertNotNull(getConfiguredTarget("//hello:main"));
+    assertThat(getConfiguredTarget("//hello:main")).isNotNull();
     assertNoEvents();
   }
 
@@ -398,7 +392,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file("hello/BUILD",
         getDependencyRule(constrainedTo("//buildenv/foo:b")),
         getDependingRule(constrainedTo("//buildenv/foo:b")));
-    assertNotNull(getConfiguredTarget("//hello:main"));
+    assertThat(getConfiguredTarget("//hello:main")).isNotNull();
     assertNoEvents();
   }
 
@@ -412,7 +406,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file("hello/BUILD",
         getDependencyRule(constrainedTo("//buildenv/foo:a", "//buildenv/foo:b")),
         getDependingRule(constrainedTo("//buildenv/foo:b")));
-    assertNotNull(getConfiguredTarget("//hello:main"));
+    assertThat(getConfiguredTarget("//hello:main")).isNotNull();
     assertNoEvents();
   }
 
@@ -427,7 +421,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         getDependencyRule(constrainedTo("//buildenv/foo:b")),
         getDependingRule(constrainedTo("//buildenv/foo:a", "//buildenv/foo:b")));
     reporter.removeHandler(failFastHandler);
-    assertNull(getConfiguredTarget("//hello:main"));
+    assertThat(getConfiguredTarget("//hello:main")).isNull();
     assertContainsEvent(
         "dependency //hello:dep doesn't support expected environment: //buildenv/foo:a");
   }
@@ -443,7 +437,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file("hello/BUILD",
         getDependencyRule(compatibleWith("//buildenv/foo:b", "//buildenv/foo:c")),
         getDependingRule(compatibleWith("//buildenv/foo:b", "//buildenv/foo:c")));
-    assertNotNull(getConfiguredTarget("//hello:main"));
+    assertThat(getConfiguredTarget("//hello:main")).isNotNull();
     assertNoEvents();
   }
 
@@ -458,7 +452,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file("hello/BUILD",
         getDependencyRule(compatibleWith("//buildenv/foo:b", "//buildenv/foo:c")),
         getDependingRule(compatibleWith("//buildenv/foo:c")));
-    assertNotNull(getConfiguredTarget("//hello:main"));
+    assertThat(getConfiguredTarget("//hello:main")).isNotNull();
     assertNoEvents();
   }
 
@@ -474,7 +468,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         getDependencyRule(compatibleWith("//buildenv/foo:c")),
         getDependingRule(compatibleWith("//buildenv/foo:b", "//buildenv/foo:c")));
     reporter.removeHandler(failFastHandler);
-    assertNull(getConfiguredTarget("//hello:main"));
+    assertThat(getConfiguredTarget("//hello:main")).isNull();
     assertContainsEvent(
         "dependency //hello:dep doesn't support expected environment: //buildenv/foo:b");
   }
@@ -490,7 +484,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         getDependencyRule(),
         getDependingRule(compatibleWith("//buildenv/foo:b", "//buildenv/foo:c")));
     reporter.removeHandler(failFastHandler);
-    assertNull(getConfiguredTarget("//hello:main"));
+    assertThat(getConfiguredTarget("//hello:main")).isNull();
     assertContainsEvent("dependency //hello:dep doesn't support expected environments: "
         + "//buildenv/foo:b, //buildenv/foo:c");
   }
@@ -508,7 +502,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         getDependencyRule(constrainedTo("//buildenv/foo:b", "//buildenv/foo:c"),
             compatibleWith("//buildenv/bar:e")),
         getDependingRule(constrainedTo("//buildenv/foo:c"), compatibleWith("//buildenv/bar:e")));
-    assertNotNull(getConfiguredTarget("//hello:main"));
+    assertThat(getConfiguredTarget("//hello:main")).isNotNull();
     assertNoEvents();
   }
 
@@ -526,7 +520,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         getDependingRule(constrainedTo("//buildenv/foo:b", "//buildenv/foo:c"),
             compatibleWith("//buildenv/bar:e")));
     reporter.removeHandler(failFastHandler);
-    assertNull(getConfiguredTarget("//hello:main"));
+    assertThat(getConfiguredTarget("//hello:main")).isNull();
     assertContainsEvent(
         "dependency //hello:dep doesn't support expected environment: //buildenv/foo:b");
   }
@@ -542,7 +536,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file("hello/BUILD",
         getDependencyRule(),
         getDependingRule(constrainedTo("//buildenv/foo:b")));
-    assertNotNull(getConfiguredTarget("//hello:main"));
+    assertThat(getConfiguredTarget("//hello:main")).isNotNull();
     assertNoEvents();
   }
 
@@ -558,7 +552,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         getDependencyRule(),
         getDependingRule(constrainedTo("//buildenv/foo:c")));
     reporter.removeHandler(failFastHandler);
-    assertNull(getConfiguredTarget("//hello:main"));
+    assertThat(getConfiguredTarget("//hello:main")).isNull();
     assertContainsEvent(
         "dependency //hello:dep doesn't support expected environment: //buildenv/foo:c");
   }
@@ -575,7 +569,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file("hello/BUILD",
         getDependencyRule(constrainedTo("//buildenv/foo:a", "//buildenv/foo:b")),
         getDependingRule());
-    assertNotNull(getConfiguredTarget("//hello:main"));
+    assertThat(getConfiguredTarget("//hello:main")).isNotNull();
     assertNoEvents();
   }
 
@@ -592,7 +586,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         getDependencyRule(constrainedTo("//buildenv/foo:b")),
         getDependingRule());
     reporter.removeHandler(failFastHandler);
-    assertNull(getConfiguredTarget("//hello:main"));
+    assertThat(getConfiguredTarget("//hello:main")).isNull();
     assertContainsEvent(
         "dependency //hello:dep doesn't support expected environment: //buildenv/foo:a");
   }
@@ -610,7 +604,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
             constrainedTo("//buildenv/foo:a", "//buildenv/foo:b"),
             getAttrDef("deps", "good_dep", "bad_dep")));
     reporter.removeHandler(failFastHandler);
-    assertNull(getConfiguredTarget("//hello:depender"));
+    assertThat(getConfiguredTarget("//hello:depender")).isNull();
     assertContainsEvent("//hello:bad_dep doesn't support expected environment: //buildenv/foo:a");
     assertDoesNotContainEvent("//hello:good_dep");
   }
@@ -623,7 +617,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file("hello/BUILD",
         getDependencyRule(),
         getDependingRule(compatibleWith("//buildenv/foo:b", "//buildenv/foo:c")));
-    assertNotNull(getConfiguredTarget("//hello:main"));
+    assertThat(getConfiguredTarget("//hello:main")).isNotNull();
     assertNoEvents();
   }
 
@@ -640,7 +634,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         "    tools = [':main'])",
         getDependencyRule(),
         getDependingRule(compatibleWith("//buildenv/foo:a")));
-    assertNotNull(getConfiguredTarget("//hello:gen"));
+    assertThat(getConfiguredTarget("//hello:gen")).isNotNull();
     assertNoEvents();
   }
 
@@ -655,7 +649,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         "package(default_compatible_with = ['//buildenv/foo:b'])",
         getDependencyRule(),
         getDependingRule(compatibleWith("//buildenv/foo:b")));
-    assertNotNull(getConfiguredTarget("//hello:main"));
+    assertThat(getConfiguredTarget("//hello:main")).isNotNull();
     assertNoEvents();
   }
 
@@ -673,7 +667,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         getDependencyRule(compatibleWith("//buildenv/foo:a")),
         getDependingRule(compatibleWith("//buildenv/foo:a", "//buildenv/foo:b")));
     reporter.removeHandler(failFastHandler);
-    assertNull(getConfiguredTarget("//hello:main"));
+    assertThat(getConfiguredTarget("//hello:main")).isNull();
     assertContainsEvent(
         "dependency //hello:dep doesn't support expected environment: //buildenv/foo:b");
   }
@@ -690,7 +684,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         "package(default_restricted_to = ['//buildenv/foo:b'])",
         getDependencyRule(constrainedTo("//buildenv/foo:b")),
         getDependingRule());
-    assertNotNull(getConfiguredTarget("//hello:main"));
+    assertThat(getConfiguredTarget("//hello:main")).isNotNull();
     assertNoEvents();
   }
 
@@ -708,7 +702,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         getDependencyRule(constrainedTo("//buildenv/foo:a")),
         getDependingRule(constrainedTo("//buildenv/foo:a", "//buildenv/foo:b")));
     reporter.removeHandler(failFastHandler);
-    assertNull(getConfiguredTarget("//hello:main"));
+    assertThat(getConfiguredTarget("//hello:main")).isNull();
     assertContainsEvent(
         "dependency //hello:dep doesn't support expected environment: //buildenv/foo:b");
   }
@@ -726,7 +720,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         "package(default_restricted_to = ['//buildenv/foo:b'])",
         getDependencyRule(compatibleWith("//buildenv/foo:a")));
     reporter.removeHandler(failFastHandler);
-    assertNull(getConfiguredTarget("//hello:dep"));
+    assertThat(getConfiguredTarget("//hello:dep")).isNull();
     assertContainsEvent("//buildenv/foo:a and //buildenv/foo:b belong to the same "
         + "environment group. They should be declared together either here or in restricted_to");
   }
@@ -745,7 +739,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         "    cmd = '',",
         "    tools = [':host_tool'],",
         "    compatible_with = ['//buildenv/foo:a'])");
-    assertNotNull(getConfiguredTarget("//hello:hello"));
+    assertThat(getConfiguredTarget("//hello:hello")).isNotNull();
     assertNoEvents();
   }
 
@@ -764,7 +758,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         "    cmd = '',",
         "    tools = [':host_tool'],",
         "    compatible_with = ['//buildenv/foo:a'])");
-    assertNotNull(getConfiguredTarget("//hello:hello"));
+    assertThat(getConfiguredTarget("//hello:hello")).isNotNull();
     assertNoEvents();
   }
 
@@ -775,7 +769,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         "rule_with_implicit_and_latebound_deps(",
         "    name = 'hi',",
         "    compatible_with = ['//buildenv/foo:b'])");
-    assertNotNull(getConfiguredTarget("//hello:hi"));
+    assertThat(getConfiguredTarget("//hello:hi")).isNotNull();
     // Note that the event "cannot build rule_with_implicit_and_latebound_deps" *does* occur
     // because of the implementation of UnknownRuleConfiguredTarget.
     assertDoesNotContainEvent(":implicit doesn't support expected environment");
@@ -791,7 +785,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         "    name = 'hi',",
         "    compatible_with = ['//buildenv/foo:b'])");
     reporter.removeHandler(failFastHandler);
-    assertNull(getConfiguredTarget("//hello:hi"));
+    assertThat(getConfiguredTarget("//hello:hi")).isNull();
     assertContainsEvent(
         "dependency //helpers:implicit doesn't support expected environment: //buildenv/foo:b");
   }
@@ -804,7 +798,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         "    name = 'hi',",
         "    some_attr = '//helpers:default',",
         "    compatible_with = ['//buildenv/foo:b'])");
-    assertNotNull(getConfiguredTarget("//hello:hi"));
+    assertThat(getConfiguredTarget("//hello:hi")).isNotNull();
     // This rule is implemented by UnknownRuleConfiguredTarget, which fails on analysis by design.
     // Ensure that's the only event reported.
     assertThat(Iterables.getOnlyElement(eventCollector).getMessage()).isEqualTo(
@@ -820,7 +814,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         "    data = ['//helpers:default'],",
         "    resources = ['//helpers:default'],",
         "    compatible_with = ['//buildenv/foo:b'])");
-    assertNotNull(getConfiguredTarget("//hello:hi"));
+    assertThat(getConfiguredTarget("//hello:hi")).isNotNull();
     assertNoEvents();
   }
 
@@ -835,7 +829,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         "    data = ['whatever.txt'],",
         "    compatible_with = ['//buildenv/foo:a'])");
     reporter.removeHandler(failFastHandler);
-    assertNull(getConfiguredTarget("//hello:shlib"));
+    assertThat(getConfiguredTarget("//hello:shlib")).isNull();
     assertContainsEvent(
         "dependency //hello:gen doesn't support expected environment: //buildenv/foo:a");
   }
@@ -851,7 +845,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         "    }),",
         "    compatible_with = ['//buildenv/foo:a'])");
     useConfiguration("--define", "mode=a");
-    assertNotNull(getConfiguredTarget("//hello:shlib"));
+    assertThat(getConfiguredTarget("//hello:shlib")).isNotNull();
     assertNoEvents();
   }
 
@@ -865,7 +859,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file("hello/BUILD",
         getDependencyRule(constrainedTo("//buildenv/foo:a")),
         getDependingRule(constrainedTo("//buildenv/foo:b")));
-    assertNotNull(getConfiguredTarget("//hello:main"));
+    assertThat(getConfiguredTarget("//hello:main")).isNotNull();
     assertNoEvents();
   }
 
@@ -880,7 +874,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         getDependencyRule(constrainedTo("//buildenv/foo:b")),
         getDependingRule(constrainedTo("//buildenv/foo:a")));
     reporter.removeHandler(failFastHandler);
-    assertNull(getConfiguredTarget("//hello:main"));
+    assertThat(getConfiguredTarget("//hello:main")).isNull();
     assertContainsEvent(
         "dependency //hello:dep doesn't support expected environment: //buildenv/foo:a");
   }
@@ -896,7 +890,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file("hello/BUILD",
         getDependencyRule(constrainedTo("//buildenv/foo:a")),
         getDependingRule(constrainedTo("//buildenv/foo:c")));
-    assertNotNull(getConfiguredTarget("//hello:main"));
+    assertThat(getConfiguredTarget("//hello:main")).isNotNull();
     assertNoEvents();
   }
 
@@ -910,7 +904,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file("hello/BUILD",
         getDependencyRule(),
         getDependingRule(constrainedTo("//buildenv/foo:b")));
-    assertNotNull(getConfiguredTarget("//hello:main"));
+    assertThat(getConfiguredTarget("//hello:main")).isNotNull();
     assertNoEvents();
   }
 
@@ -925,7 +919,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file("hello/BUILD",
         getDependencyRule(),
         getDependingRule(constrainedTo("//buildenv/foo:c")));
-    assertNotNull(getConfiguredTarget("//hello:main"));
+    assertThat(getConfiguredTarget("//hello:main")).isNotNull();
     assertNoEvents();
   }
 
@@ -939,7 +933,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file("hello/BUILD",
         getDependencyRule(constrainedTo("//buildenv/foo:a")),
         getDependingRule());
-    assertNotNull(getConfiguredTarget("//hello:main"));
+    assertThat(getConfiguredTarget("//hello:main")).isNotNull();
     assertNoEvents();
   }
 
@@ -956,7 +950,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         ")");
 
     reporter.removeHandler(failFastHandler);
-    assertNull(getConfiguredTarget("//ihave:nolimits"));
+    assertThat(getConfiguredTarget("//ihave:nolimits")).isNull();
     assertContainsEvent("no such attribute 'restricted_to' in 'totally_free_rule'");
   }
 
@@ -966,7 +960,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         .setEnvironments("a", "b")
         .setDefaults("a")
         .make();
-    assertNotNull(getConfiguredTarget("//buildenv/foo:foo"));
+    assertThat(getConfiguredTarget("//buildenv/foo:foo")).isNotNull();
   }
 
   private void writeDepsForSelectTests() throws Exception {
@@ -995,7 +989,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         "    }),",
         "    compatible_with = ['//buildenv/foo:a', '//buildenv/foo:b'])");
     useConfiguration("--define", "mode=a");
-    assertNotNull(getConfiguredTarget("//hello:lib"));
+    assertThat(getConfiguredTarget("//hello:lib")).isNotNull();
   }
 
   @Test
@@ -1016,7 +1010,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         "    }),",
         "    compatible_with = ['//buildenv/foo:a', '//buildenv/foo:b', '//buildenv/foo:c'])");
     useConfiguration("--define", "mode=a");
-    assertNotNull(getConfiguredTarget("//hello:lib"));
+    assertThat(getConfiguredTarget("//hello:lib")).isNotNull();
   }
 
   @Test
@@ -1035,7 +1029,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         "    compatible_with = ['//buildenv/foo:a', '//buildenv/foo:b'])");
     useConfiguration("--define", "mode=a");
     reporter.removeHandler(failFastHandler);
-    assertNull(getConfiguredTarget("//hello:lib"));
+    assertThat(getConfiguredTarget("//hello:lib")).isNull();
     assertContainsEvent(
         "dependency //deps:dep_a doesn't support expected environment: //buildenv/foo:b");
   }
@@ -1053,7 +1047,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         "    }),",
         "    compatible_with = ['//buildenv/foo:a', '//buildenv/foo:b'])");
     reporter.removeHandler(failFastHandler);
-    assertNull(getConfiguredTarget("//hello:lib"));
+    assertThat(getConfiguredTarget("//hello:lib")).isNull();
     assertContainsEvent(
         "dependency //deps:dep_a doesn't support expected environment: //buildenv/foo:b");
   }
@@ -1073,7 +1067,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         "    compatible_with = ['//buildenv/foo:a'])");
     useConfiguration("--define", "mode=a");
     // Valid because "--define mode=a" refines :lib to "compatible_with = ['//buildenv/foo:a']".
-    assertNotNull(getConfiguredTarget("//hello:lib"));
+    assertThat(getConfiguredTarget("//hello:lib")).isNotNull();
   }
 
   @Test
@@ -1092,7 +1086,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     useConfiguration("--define", "mode=a");
     reporter.removeHandler(failFastHandler);
     // Invalid because "--define mode=a" refines :lib to "compatible_with = []" (empty).
-    assertNull(getConfiguredTarget("//hello:lib"));
+    assertThat(getConfiguredTarget("//hello:lib")).isNull();
     assertContainsEvent("//hello:lib: the current command-line flags disqualify all supported "
         + "environments because of incompatible select() paths:\n"
         + " environment: //buildenv/foo:b removed by: //hello:lib (/workspace/hello/BUILD:1:1)");
@@ -1118,7 +1112,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         "    compatible_with = ['//buildenv/foo:a'])");
     useConfiguration("--define", "mode=a");
     // Valid because "--define mode=a" refines :lib to "compatible_with = ['//buildenv/foo:a']".
-    assertNotNull(getConfiguredTarget("//hello:depender"));
+    assertThat(getConfiguredTarget("//hello:depender")).isNotNull();
   }
 
   @Test
@@ -1142,7 +1136,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     useConfiguration("--define", "mode=a");
     reporter.removeHandler(failFastHandler);
     // Invalid because "--define mode=a" refines :lib to "compatible_with = ['//buildenv/foo:a']".
-    assertNull(getConfiguredTarget("//hello:depender"));
+    assertThat(getConfiguredTarget("//hello:depender")).isNull();
     assertContainsEvent("//hello:depender: the current command-line flags disqualify all supported "
         + "environments because of incompatible select() paths:\n"
         + " environment: //buildenv/foo:b removed by: //hello:lib (/workspace/hello/BUILD:1:1)");
@@ -1177,7 +1171,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     useConfiguration("--define", "mode=a");
     reporter.removeHandler(failFastHandler);
     // Invalid because "--define mode=a" refines :lib to "compatible_with = ['//buildenv/foo:a']".
-    assertNull(getConfiguredTarget("//hello:depender"));
+    assertThat(getConfiguredTarget("//hello:depender")).isNull();
     assertContainsEvent("//hello:depender: the current command-line flags disqualify all supported "
         + "environments because of incompatible select() paths:\n"
         + " environment: //buildenv/foo:b removed by: //hello:lib2 (/workspace/hello/BUILD:1:1)");
@@ -1199,7 +1193,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     reporter.removeHandler(failFastHandler);
     // Invalid because :lib has an implicit default of ['//buildenv/foo:b'] and "--define mode=a"
     // refines it to "compatible_with = []" (empty).
-    assertNull(getConfiguredTarget("//hello:lib"));
+    assertThat(getConfiguredTarget("//hello:lib")).isNull();
     assertContainsEvent("//hello:lib: the current command-line flags disqualify all supported "
         + "environments because of incompatible select() paths:\n"
         + " environment: //buildenv/foo:b removed by: //hello:lib (/workspace/hello/BUILD:1:1)");
@@ -1229,9 +1223,9 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         "    compatible_with = ['//buildenv/foo:a', '//buildenv/bar:c'])");
         useConfiguration("--define", "mode=a");
         reporter.removeHandler(failFastHandler);
-        // Invalid because while the //buildenv/foo refinement successfully refines :lib to
-        // ['//buildenv/foo:a'], the bar refinement refines it to [].
-        assertNull(getConfiguredTarget("//hello:lib"));
+    // Invalid because while the //buildenv/foo refinement successfully refines :lib to
+    // ['//buildenv/foo:a'], the bar refinement refines it to [].
+    assertThat(getConfiguredTarget("//hello:lib")).isNull();
     assertContainsEvent("//hello:lib: the current command-line flags disqualify all supported "
         + "environments because of incompatible select() paths:\n"
         + " environment: //buildenv/bar:c removed by: //hello:lib (/workspace/hello/BUILD:1:1)");
@@ -1264,7 +1258,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         "    compatible_with = ['//buildenv/foo:a', '//buildenv/bar:c'])");
     useConfiguration("--define", "mode=a");
     reporter.removeHandler(failFastHandler);
-    assertNull(getConfiguredTarget("//hello:lib"));
+    assertThat(getConfiguredTarget("//hello:lib")).isNull();
     assertContainsEvent("//hello:lib: the current command-line flags disqualify all supported "
         + "environments because of incompatible select() paths:\n"
         + "\nenvironment group: //buildenv/foo:foo:\n"

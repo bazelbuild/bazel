@@ -13,12 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -35,11 +33,11 @@ public class PathFragmentFilterTest {
   }
 
   protected void assertIncluded(String path) {
-    assertTrue(filter.isIncluded(PathFragment.create(path)));
+    assertThat(filter.isIncluded(PathFragment.create(path))).isTrue();
   }
 
   protected void assertExcluded(String path) {
-    assertFalse(filter.isIncluded(PathFragment.create(path)));
+    assertThat(filter.isIncluded(PathFragment.create(path))).isFalse();
   }
 
   @Test

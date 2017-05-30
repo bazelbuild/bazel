@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.testutil;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.common.truth.Truth.assert_;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Function;
@@ -185,8 +184,9 @@ public class MoreAsserts {
   public static void assertContainsWordsWithQuotes(String message,
       String... strings) {
     for (String string : strings) {
-      assertTrue(message + " should contain '" + string + "' (with quotes)",
-          message.contains("'" + string + "'"));
+      assertWithMessage(message + " should contain '" + string + "' (with quotes)")
+          .that(message.contains("'" + string + "'"))
+          .isTrue();
     }
   }
 

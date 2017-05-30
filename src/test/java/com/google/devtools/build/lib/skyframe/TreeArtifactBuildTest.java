@@ -15,8 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.ActionInputHelper.treeFileArtifact;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Function;
@@ -121,8 +119,8 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     registerAction(action);
     buildArtifact(action.getSoleOutput());
 
-    assertTrue(outOneFileOne.getPath().exists());
-    assertTrue(outOneFileTwo.getPath().exists());
+    assertThat(outOneFileOne.getPath().exists()).isTrue();
+    assertThat(outOneFileTwo.getPath().exists()).isTrue();
   }
 
   /** Simple test for the case with dependencies. */
@@ -138,10 +136,10 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
     buildArtifact(outTwo);
 
-    assertTrue(outOneFileOne.getPath().exists());
-    assertTrue(outOneFileTwo.getPath().exists());
-    assertTrue(outTwoFileOne.getPath().exists());
-    assertTrue(outTwoFileTwo.getPath().exists());
+    assertThat(outOneFileOne.getPath().exists()).isTrue();
+    assertThat(outOneFileTwo.getPath().exists()).isTrue();
+    assertThat(outTwoFileOne.getPath().exists()).isTrue();
+    assertThat(outTwoFileTwo.getPath().exists()).isTrue();
   }
 
   @Test
@@ -191,13 +189,13 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
     buttonOne.pressed = buttonTwo.pressed = false;
     buildArtifact(outTwo);
-    assertTrue(buttonOne.pressed); // built
-    assertTrue(buttonTwo.pressed); // built
+    assertThat(buttonOne.pressed).isTrue(); // built
+    assertThat(buttonTwo.pressed).isTrue(); // built
 
     buttonOne.pressed = buttonTwo.pressed = false;
     buildArtifact(outTwo);
-    assertFalse(buttonOne.pressed); // not built
-    assertFalse(buttonTwo.pressed); // not built
+    assertThat(buttonOne.pressed).isFalse(); // not built
+    assertThat(buttonTwo.pressed).isFalse(); // not built
   }
 
   /**
@@ -220,26 +218,26 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
     buttonOne.pressed = buttonTwo.pressed = false;
     buildArtifact(outTwo);
-    assertTrue(buttonOne.pressed); // built
-    assertTrue(buttonTwo.pressed); // built
+    assertThat(buttonOne.pressed).isTrue(); // built
+    assertThat(buttonTwo.pressed).isTrue(); // built
 
     buttonOne.pressed = buttonTwo.pressed = false;
     writeFile(in, "modified_input");
     buildArtifact(outTwo);
-    assertTrue(buttonOne.pressed); // built
-    assertTrue(buttonTwo.pressed); // not built
+    assertThat(buttonOne.pressed).isTrue(); // built
+    assertThat(buttonTwo.pressed).isTrue(); // not built
 
     buttonOne.pressed = buttonTwo.pressed = false;
     writeFile(outOneFileOne, "modified_output");
     buildArtifact(outTwo);
-    assertTrue(buttonOne.pressed); // built
-    assertFalse(buttonTwo.pressed); // should have been cached
+    assertThat(buttonOne.pressed).isTrue(); // built
+    assertThat(buttonTwo.pressed).isFalse(); // should have been cached
 
     buttonOne.pressed = buttonTwo.pressed = false;
     writeFile(outTwoFileOne, "more_modified_output");
     buildArtifact(outTwo);
-    assertFalse(buttonOne.pressed); // not built
-    assertTrue(buttonTwo.pressed); // built
+    assertThat(buttonOne.pressed).isFalse(); // not built
+    assertThat(buttonTwo.pressed).isTrue(); // built
   }
 
   /** Tests that changing a TreeArtifact directory should cause reexeuction. */
@@ -260,8 +258,8 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     buttonOne.pressed = buttonTwo.pressed = false;
     buildArtifact(outTwo);
     // just a smoke test--if these aren't built we have bigger problems!
-    assertTrue(buttonOne.pressed);
-    assertTrue(buttonTwo.pressed);
+    assertThat(buttonOne.pressed).isTrue();
+    assertThat(buttonTwo.pressed).isTrue();
 
     // Adding a file to a directory should cause reexecution.
     buttonOne.pressed = buttonTwo.pressed = false;
@@ -269,32 +267,32 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     touchFile(spuriousOutputOne);
     buildArtifact(outTwo);
     // Should re-execute, and delete spurious output
-    assertFalse(spuriousOutputOne.exists());
-    assertTrue(buttonOne.pressed);
-    assertFalse(buttonTwo.pressed); // should have been cached
+    assertThat(spuriousOutputOne.exists()).isFalse();
+    assertThat(buttonOne.pressed).isTrue();
+    assertThat(buttonTwo.pressed).isFalse(); // should have been cached
 
     buttonOne.pressed = buttonTwo.pressed = false;
     Path spuriousOutputTwo = outTwo.getPath().getRelative("anotherSpuriousOutput");
     touchFile(spuriousOutputTwo);
     buildArtifact(outTwo);
-    assertFalse(spuriousOutputTwo.exists());
-    assertFalse(buttonOne.pressed);
-    assertTrue(buttonTwo.pressed);
+    assertThat(spuriousOutputTwo.exists()).isFalse();
+    assertThat(buttonOne.pressed).isFalse();
+    assertThat(buttonTwo.pressed).isTrue();
 
     // Deleting should cause reexecution.
     buttonOne.pressed = buttonTwo.pressed = false;
     deleteFile(outOneFileOne);
     buildArtifact(outTwo);
-    assertTrue(outOneFileOne.getPath().exists());
-    assertTrue(buttonOne.pressed);
-    assertFalse(buttonTwo.pressed); // should have been cached
+    assertThat(outOneFileOne.getPath().exists()).isTrue();
+    assertThat(buttonOne.pressed).isTrue();
+    assertThat(buttonTwo.pressed).isFalse(); // should have been cached
 
     buttonOne.pressed = buttonTwo.pressed = false;
     deleteFile(outTwoFileOne);
     buildArtifact(outTwo);
-    assertTrue(outTwoFileOne.getPath().exists());
-    assertFalse(buttonOne.pressed);
-    assertTrue(buttonTwo.pressed);
+    assertThat(outTwoFileOne.getPath().exists()).isTrue();
+    assertThat(buttonOne.pressed).isFalse();
+    assertThat(buttonTwo.pressed).isTrue();
   }
 
   /** TreeArtifacts don't care about mtime, even when the file is empty. */
@@ -318,30 +316,30 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
     buttonOne.pressed = buttonTwo.pressed = false;
     buildArtifact(outTwo);
-    assertTrue(buttonOne.pressed); // built
-    assertTrue(buttonTwo.pressed); // built
+    assertThat(buttonOne.pressed).isTrue(); // built
+    assertThat(buttonTwo.pressed).isTrue(); // built
 
     buttonOne.pressed = buttonTwo.pressed = false;
     touchFile(in);
     buildArtifact(outTwo);
     // mtime does not matter.
-    assertFalse(buttonOne.pressed);
-    assertFalse(buttonTwo.pressed);
+    assertThat(buttonOne.pressed).isFalse();
+    assertThat(buttonTwo.pressed).isFalse();
 
     // None of the below following should result in anything being built.
     buttonOne.pressed = buttonTwo.pressed = false;
     touchFile(outOneFileOne);
     buildArtifact(outTwo);
     // Nothing should be built.
-    assertFalse(buttonOne.pressed);
-    assertFalse(buttonTwo.pressed);
+    assertThat(buttonOne.pressed).isFalse();
+    assertThat(buttonTwo.pressed).isFalse();
 
     buttonOne.pressed = buttonTwo.pressed = false;
     touchFile(outOneFileTwo);
     buildArtifact(outTwo);
     // Nothing should be built.
-    assertFalse(buttonOne.pressed);
-    assertFalse(buttonTwo.pressed);
+    assertThat(buttonOne.pressed).isFalse();
+    assertThat(buttonTwo.pressed).isFalse();
   }
 
   /** Tests that the declared order of TreeArtifact contents does not matter. */
@@ -455,17 +453,17 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   }
 
   private static void checkDirectoryPermissions(Path path) throws IOException {
-    assertTrue(path.isDirectory());
-    assertTrue(path.isExecutable());
-    assertTrue(path.isReadable());
-    assertFalse(path.isWritable());
+    assertThat(path.isDirectory()).isTrue();
+    assertThat(path.isExecutable()).isTrue();
+    assertThat(path.isReadable()).isTrue();
+    assertThat(path.isWritable()).isFalse();
   }
 
   private static void checkFilePermissions(Path path) throws IOException {
-    assertFalse(path.isDirectory());
-    assertTrue(path.isExecutable());
-    assertTrue(path.isReadable());
-    assertFalse(path.isWritable());
+    assertThat(path.isDirectory()).isFalse();
+    assertThat(path.isExecutable()).isTrue();
+    assertThat(path.isReadable()).isTrue();
+    assertThat(path.isWritable()).isFalse();
   }
 
   @Test
@@ -777,7 +775,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
       buildArtifact(artifact2);
       fail("Expected BuildFailedException");
     } catch (BuildFailedException e) {
-      assertThat(e.getMessage()).contains("not all outputs were created or valid");
+      assertThat(e).hasMessageThat().contains("not all outputs were created or valid");
     }
   }
 
@@ -822,7 +820,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
       buildArtifact(artifact2);
       fail("Expected BuildFailedException");
     } catch (BuildFailedException e) {
-      assertThat(e.getMessage()).contains("Throwing dummy action");
+      assertThat(e).hasMessageThat().contains("Throwing dummy action");
     }
   }
 
@@ -866,7 +864,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
       buildArtifact(artifact2);
       fail("Expected BuildFailedException");
     } catch (BuildFailedException e) {
-      assertThat(e.getMessage()).contains("Throwing dummy action");
+      assertThat(e).hasMessageThat().contains("Throwing dummy action");
     }
   }
 
@@ -890,7 +888,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
       buildArtifact(artifact2);
       fail("Expected BuildFailedException");
     } catch (BuildFailedException e) {
-      assertThat(e.getMessage()).contains("Throwing dummy action");
+      assertThat(e).hasMessageThat().contains("Throwing dummy action");
     }
   }
 
@@ -999,7 +997,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
       }
 
       Artifact output = getSoleOutput();
-      assertTrue(output.getPath().exists());
+      assertThat(output.getPath().exists()).isTrue();
       try {
         effect.call();
         executeTestBehavior(actionExecutionContext);
@@ -1147,8 +1145,8 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
       }
 
       // both iterators must be of the same size
-      assertFalse(inputIterator.hasNext());
-      assertFalse(inputIterator.hasNext());
+      assertThat(inputIterator.hasNext()).isFalse();
+      assertThat(inputIterator.hasNext()).isFalse();
     }
   }
 

@@ -15,9 +15,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -81,38 +78,38 @@ public class EvalUtilsTest extends EvaluationTestCase {
 
   @Test
   public void testDataTypeNames() throws Exception {
-    assertEquals("string", EvalUtils.getDataTypeName("foo"));
-    assertEquals("int", EvalUtils.getDataTypeName(3));
-    assertEquals("tuple", EvalUtils.getDataTypeName(Tuple.of(1, 2, 3)));
-    assertEquals("list",  EvalUtils.getDataTypeName(makeList(null)));
-    assertEquals("dict",  EvalUtils.getDataTypeName(makeDict(null)));
-    assertEquals("NoneType", EvalUtils.getDataTypeName(Runtime.NONE));
-    assertEquals("MockClassA", EvalUtils.getDataTypeName(new MockClassA()));
-    assertEquals("MockClassA", EvalUtils.getDataTypeName(new MockClassB()));
+    assertThat(EvalUtils.getDataTypeName("foo")).isEqualTo("string");
+    assertThat(EvalUtils.getDataTypeName(3)).isEqualTo("int");
+    assertThat(EvalUtils.getDataTypeName(Tuple.of(1, 2, 3))).isEqualTo("tuple");
+    assertThat(EvalUtils.getDataTypeName(makeList(null))).isEqualTo("list");
+    assertThat(EvalUtils.getDataTypeName(makeDict(null))).isEqualTo("dict");
+    assertThat(EvalUtils.getDataTypeName(Runtime.NONE)).isEqualTo("NoneType");
+    assertThat(EvalUtils.getDataTypeName(new MockClassA())).isEqualTo("MockClassA");
+    assertThat(EvalUtils.getDataTypeName(new MockClassB())).isEqualTo("MockClassA");
   }
 
   @Test
   public void testDatatypeMutabilityPrimitive() throws Exception {
-    assertTrue(EvalUtils.isImmutable("foo"));
-    assertTrue(EvalUtils.isImmutable(3));
+    assertThat(EvalUtils.isImmutable("foo")).isTrue();
+    assertThat(EvalUtils.isImmutable(3)).isTrue();
   }
 
   @Test
   public void testDatatypeMutabilityShallow() throws Exception {
-    assertTrue(EvalUtils.isImmutable(Tuple.of(1, 2, 3)));
+    assertThat(EvalUtils.isImmutable(Tuple.of(1, 2, 3))).isTrue();
 
     // Mutability depends on the environment.
-    assertTrue(EvalUtils.isImmutable(makeList(null)));
-    assertTrue(EvalUtils.isImmutable(makeDict(null)));
-    assertFalse(EvalUtils.isImmutable(makeList(env)));
-    assertFalse(EvalUtils.isImmutable(makeDict(env)));
+    assertThat(EvalUtils.isImmutable(makeList(null))).isTrue();
+    assertThat(EvalUtils.isImmutable(makeDict(null))).isTrue();
+    assertThat(EvalUtils.isImmutable(makeList(env))).isFalse();
+    assertThat(EvalUtils.isImmutable(makeDict(env))).isFalse();
   }
 
   @Test
   public void testDatatypeMutabilityDeep() throws Exception {
-    assertTrue(EvalUtils.isImmutable(Tuple.<Object>of(makeList(null))));
+    assertThat(EvalUtils.isImmutable(Tuple.<Object>of(makeList(null)))).isTrue();
 
-    assertFalse(EvalUtils.isImmutable(Tuple.<Object>of(makeList(env))));
+    assertThat(EvalUtils.isImmutable(Tuple.<Object>of(makeList(env)))).isFalse();
   }
 
   @Test

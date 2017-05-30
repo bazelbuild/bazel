@@ -13,11 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.events;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -28,31 +26,31 @@ public class LocationTest extends EventTestTemplate {
   @Test
   public void fromFile() throws Exception {
     Location location = Location.fromPathFragment(path);
-    assertEquals(path, location.getPath());
-    assertEquals(0, location.getStartOffset());
-    assertEquals(0, location.getEndOffset());
-    assertNull(location.getStartLineAndColumn());
-    assertNull(location.getEndLineAndColumn());
-    assertEquals(path + ":1", location.print());
+    assertThat(location.getPath()).isEqualTo(path);
+    assertThat(location.getStartOffset()).isEqualTo(0);
+    assertThat(location.getEndOffset()).isEqualTo(0);
+    assertThat(location.getStartLineAndColumn()).isNull();
+    assertThat(location.getEndLineAndColumn()).isNull();
+    assertThat(location.print()).isEqualTo(path + ":1");
   }
   
   @Test
   public void testPrintRelative() throws Exception {
     Location location = Location.fromPathFragment(path);
-    assertEquals(
-        "/path/to/workspace/my/sample/path.txt:1",
-        location.print(PathFragment.create("/some/other/path"), PathFragment.create("baz")));
-    assertEquals(
-        "new/sample/path.txt:1",
-        location.print(PathFragment.create("/path/to/workspace/my"), PathFragment.create("new")));
-    assertEquals(
-        "new/path.txt:1",
-        location.print(
-            PathFragment.create("/path/to/workspace/my/sample"), PathFragment.create("new")));
-    assertEquals(
-        "new:1",
-        location.print(
-            PathFragment.create("/path/to/workspace/my/sample/path.txt"),
-            PathFragment.create("new")));
+    assertThat(location.print(PathFragment.create("/some/other/path"), PathFragment.create("baz")))
+        .isEqualTo("/path/to/workspace/my/sample/path.txt:1");
+    assertThat(
+            location.print(
+                PathFragment.create("/path/to/workspace/my"), PathFragment.create("new")))
+        .isEqualTo("new/sample/path.txt:1");
+    assertThat(
+            location.print(
+                PathFragment.create("/path/to/workspace/my/sample"), PathFragment.create("new")))
+        .isEqualTo("new/path.txt:1");
+    assertThat(
+            location.print(
+                PathFragment.create("/path/to/workspace/my/sample/path.txt"),
+                PathFragment.create("new")))
+        .isEqualTo("new:1");
   }
 }

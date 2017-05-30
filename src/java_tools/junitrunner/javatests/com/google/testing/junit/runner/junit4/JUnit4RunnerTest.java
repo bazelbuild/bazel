@@ -15,8 +15,7 @@
 package com.google.testing.junit.runner.junit4;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyListOf;
@@ -126,9 +125,9 @@ public class JUnit4RunnerTest {
 
     Result result = runner.run();
 
-    assertEquals(1, result.getRunCount());
-    assertEquals(0, result.getFailureCount());
-    assertEquals(0, result.getIgnoreCount());
+    assertThat(result.getRunCount()).isEqualTo(1);
+    assertThat(result.getFailureCount()).isEqualTo(0);
+    assertThat(result.getIgnoreCount()).isEqualTo(0);
 
     assertPassingTestHasExpectedOutput(stdoutByteStream, SamplePassingTest.class);
 
@@ -154,13 +153,16 @@ public class JUnit4RunnerTest {
 
     Result result = runner.run();
 
-    assertEquals(1, result.getRunCount());
-    assertEquals(1, result.getFailureCount());
-    assertEquals(0, result.getIgnoreCount());
+    assertThat(result.getRunCount()).isEqualTo(1);
+    assertThat(result.getFailureCount()).isEqualTo(1);
+    assertThat(result.getIgnoreCount()).isEqualTo(0);
 
-    assertTrue(extractOutput(stdoutByteStream).contains(
-        "1) testThatAlwaysFails(" + SampleFailingTest.class.getName() + ")\n" +
-        "java.lang.AssertionError: expected"));
+    assertThat(extractOutput(stdoutByteStream))
+        .contains(
+            "1) testThatAlwaysFails("
+                + SampleFailingTest.class.getName()
+                + ")\n"
+                + "java.lang.AssertionError: expected");
 
     InOrder inOrder = inOrder(mockRunListener);
 
@@ -186,14 +188,14 @@ public class JUnit4RunnerTest {
 
     Result result = runner.run();
 
-    assertEquals(1, result.getRunCount());
-    assertEquals(1, result.getFailureCount());
-    assertEquals(0, result.getIgnoreCount());
+    assertThat(result.getRunCount()).isEqualTo(1);
+    assertThat(result.getFailureCount()).isEqualTo(1);
+    assertThat(result.getIgnoreCount()).isEqualTo(0);
 
     String output = new String(stdoutByteStream.toByteArray(), StandardCharsets.UTF_8);
     // Intentionally swapped "Test 日\u672C." / "Test \u65E5本." to make sure that the "raw"
     // character does not get corrupted (would become ? in both cases and we would not notice).
-    assertTrue(output.contains("expected:<Test [Japan].> but was:<Test [日\u672C].>"));
+    assertThat(output).contains("expected:<Test [Japan].> but was:<Test [日\u672C].>");
 
     InOrder inOrder = inOrder(mockRunListener);
 
@@ -222,9 +224,10 @@ public class JUnit4RunnerTest {
       runner.run();
       fail("exception expected");
     } catch (RuntimeException e) {
-      assertEquals("Test run interrupted", e.getMessage());
-      assertTrue("Expected cause to be a StoppedByUserException",
-          e.getCause() instanceof StoppedByUserException);
+      assertThat(e).hasMessageThat().isEqualTo("Test run interrupted");
+      assertWithMessage("Expected cause to be a StoppedByUserException")
+          .that(e.getCause() instanceof StoppedByUserException)
+          .isTrue();
 
       InOrder inOrder = inOrder(mockRunListener);
       inOrder.verify(mockRunListener).testRunStarted(any(Description.class));
@@ -255,9 +258,9 @@ public class JUnit4RunnerTest {
     JUnit4Runner runner = createRunner(SampleExitingTest.class);
     Result result = runner.run();
 
-    assertEquals(1, result.getRunCount());
-    assertEquals(1, result.getFailureCount());
-    assertEquals(0, result.getIgnoreCount());
+    assertThat(result.getRunCount()).isEqualTo(1);
+    assertThat(result.getFailureCount()).isEqualTo(1);
+    assertThat(result.getIgnoreCount()).isEqualTo(0);
   }
 
   @Test
@@ -275,13 +278,13 @@ public class JUnit4RunnerTest {
 
     verify(shardingEnvironment).touchShardFile();
 
-    assertEquals(2, result.getRunCount());
+    assertThat(result.getRunCount()).isEqualTo(2);
     if (result.getFailureCount() > 1) {
       fail("Too many failures: " + result.getFailures());
     }
-    assertEquals(1, result.getFailureCount());
-    assertEquals(0, result.getIgnoreCount());
-    assertEquals(2, runner.getModel().getNumTestCases());
+    assertThat(result.getFailureCount()).isEqualTo(1);
+    assertThat(result.getIgnoreCount()).isEqualTo(0);
+    assertThat(runner.getModel().getNumTestCases()).isEqualTo(2);
   }
 
   @Test
@@ -290,12 +293,12 @@ public class JUnit4RunnerTest {
     JUnit4Runner runner = createRunner(SampleSuite.class);
     Result result = runner.run();
 
-    assertEquals(1, result.getRunCount());
-    assertEquals(1, result.getFailureCount());
-    assertEquals(0, result.getIgnoreCount());
-    assertEquals(
-        Description.createTestDescription(SampleFailingTest.class, "testThatAlwaysFails"),
-        result.getFailures().get(0).getDescription());
+    assertThat(result.getRunCount()).isEqualTo(1);
+    assertThat(result.getFailureCount()).isEqualTo(1);
+    assertThat(result.getIgnoreCount()).isEqualTo(0);
+    assertThat(result.getFailures().get(0).getDescription())
+        .isEqualTo(
+            Description.createTestDescription(SampleFailingTest.class, "testThatAlwaysFails"));
   }
 
   @Test
@@ -304,10 +307,10 @@ public class JUnit4RunnerTest {
     JUnit4Runner runner = createRunner(SampleSuite.class);
     Result result = runner.run();
 
-    assertEquals(1, result.getRunCount());
-    assertEquals(1, result.getFailureCount());
-    assertEquals(0, result.getIgnoreCount());
-    assertTrue(result.getFailures().get(0).getMessage().contains("No tests found"));
+    assertThat(result.getRunCount()).isEqualTo(1);
+    assertThat(result.getFailureCount()).isEqualTo(1);
+    assertThat(result.getIgnoreCount()).isEqualTo(0);
+    assertThat(result.getFailures().get(0).getMessage()).contains("No tests found");
   }
 
   @Test
@@ -316,12 +319,12 @@ public class JUnit4RunnerTest {
     JUnit4Runner runner = createRunner(SampleSuite.class);
     Result result = runner.run();
 
-    assertEquals(2, result.getRunCount());
-    assertEquals(1, result.getFailureCount());
-    assertEquals(0, result.getIgnoreCount());
-    assertEquals(
-        Description.createTestDescription(SampleFailingTest.class, "testThatAlwaysFails"),
-        result.getFailures().get(0).getDescription());
+    assertThat(result.getRunCount()).isEqualTo(2);
+    assertThat(result.getFailureCount()).isEqualTo(1);
+    assertThat(result.getIgnoreCount()).isEqualTo(0);
+    assertThat(result.getFailures().get(0).getDescription())
+        .isEqualTo(
+            Description.createTestDescription(SampleFailingTest.class, "testThatAlwaysFails"));
   }
 
   @Test
@@ -339,12 +342,12 @@ public class JUnit4RunnerTest {
 
     verify(shardingEnvironment).touchShardFile();
 
-    assertEquals(2, result.getRunCount());
-    assertEquals(1, result.getFailureCount());
-    assertEquals(0, result.getIgnoreCount());
-    assertEquals(
-        Description.createTestDescription(SampleFailingTest.class, "testThatAlwaysFails"),
-        result.getFailures().get(0).getDescription());
+    assertThat(result.getRunCount()).isEqualTo(2);
+    assertThat(result.getFailureCount()).isEqualTo(1);
+    assertThat(result.getIgnoreCount()).isEqualTo(0);
+    assertThat(result.getFailures().get(0).getDescription())
+        .isEqualTo(
+            Description.createTestDescription(SampleFailingTest.class, "testThatAlwaysFails"));
   }
 
   @Test
@@ -361,9 +364,9 @@ public class JUnit4RunnerTest {
 
     verify(shardingEnvironment).touchShardFile();
 
-    assertEquals(0, result.getRunCount());
-    assertEquals(0, result.getFailureCount());
-    assertEquals(0, result.getIgnoreCount());
+    assertThat(result.getRunCount()).isEqualTo(0);
+    assertThat(result.getFailureCount()).isEqualTo(0);
+    assertThat(result.getIgnoreCount()).isEqualTo(0);
   }
 
   @Test
@@ -379,10 +382,10 @@ public class JUnit4RunnerTest {
     JUnit4Runner runner = createRunner(SampleSuite.class);
     Result result = runner.run();
 
-    assertEquals(1, result.getRunCount());
-    assertEquals(1, result.getFailureCount());
-    assertEquals(0, result.getIgnoreCount());
-    assertTrue(result.getFailures().get(0).getMessage().contains("No tests found"));
+    assertThat(result.getRunCount()).isEqualTo(1);
+    assertThat(result.getFailureCount()).isEqualTo(1);
+    assertThat(result.getIgnoreCount()).isEqualTo(0);
+    assertThat(result.getFailures().get(0).getMessage()).contains("No tests found");
 
     verify(shardingEnvironment).touchShardFile();
     verify(shardingFilters).createShardingFilter(anyListOf(Description.class));
@@ -397,7 +400,7 @@ public class JUnit4RunnerTest {
       runner.run();
       fail();
     } catch (IllegalStateException e) {
-      assertThat(e.getMessage()).startsWith("Unsupported JUnit Runner API version");
+      assertThat(e).hasMessageThat().startsWith("Unsupported JUnit Runner API version");
     }
   }
 
@@ -417,7 +420,7 @@ public class JUnit4RunnerTest {
       Class<?> testClass) {
     ByteArrayOutputStream expectedOutputStream = getExpectedOutput(testClass);
 
-    assertEquals(extractOutput(expectedOutputStream), extractOutput(outputStream));
+    assertThat(extractOutput(outputStream)).isEqualTo(extractOutput(expectedOutputStream));
   }
 
   private String extractOutput(ByteArrayOutputStream outputStream) {
@@ -487,7 +490,7 @@ public class JUnit4RunnerTest {
 
     @Test
     public void testThatAlwaysFails() {
-      assertEquals("Test Japan.", "Test \u65E5本.");
+      assertThat("Test \u65E5本.").isEqualTo("Test Japan.");
     }
   }
 

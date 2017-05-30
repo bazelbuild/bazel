@@ -14,18 +14,15 @@
 
 package com.google.testing.junit.runner.sharding;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.testutil.TestUtils;
+import java.io.File;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import java.io.File;
 
-/**
- * Tests interactions with the test environment related to sharding.
- */
+/** Tests interactions with the test environment related to sharding. */
 @RunWith(JUnit4.class)
 public class ShardingEnvironmentTest {
 
@@ -33,10 +30,10 @@ public class ShardingEnvironmentTest {
   @Test
   public void testTouchShardingFile() {
     File shardFile = new File(TestUtils.tmpDirFile(), "shard_file_123");
-    assertFalse(shardFile.exists());
+    assertThat(shardFile.exists()).isFalse();
     try {
       ShardingEnvironment.touchShardFile(shardFile);
-      assertTrue(shardFile.exists());
+      assertThat(shardFile.exists()).isTrue();
     } finally {
       shardFile.delete();
     }

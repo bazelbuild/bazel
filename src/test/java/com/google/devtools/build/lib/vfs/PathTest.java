@@ -14,10 +14,6 @@
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotSame;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.Lists;
@@ -105,7 +101,7 @@ public class PathTest {
                                        String descendant) {
     Path parent = filesystem.getPath(ancestor);
     Path child = filesystem.getPath(descendant);
-    assertEquals(expected, child.startsWith(parent));
+    assertThat(child.startsWith(parent)).isEqualTo(expected);
   }
 
   @Test
@@ -116,8 +112,8 @@ public class PathTest {
   }
 
   private void assertGetChildWorks(String childName) {
-    assertEquals(filesystem.getPath("/first/" + childName),
-        filesystem.getPath("/first").getChild(childName));
+    assertThat(filesystem.getPath("/first").getChild(childName))
+        .isEqualTo(filesystem.getPath("/first/" + childName));
   }
 
   @Test
@@ -178,26 +174,21 @@ public class PathTest {
   @Test
   public void testGetRelativeWithFragmentWorks() {
     Path dir = filesystem.getPath("/first/x");
-    assertEquals("/first/x/y",
-                 dir.getRelative(PathFragment.create("y")).toString());
-    assertEquals("/first/x/x",
-                 dir.getRelative(PathFragment.create("./x")).toString());
-    assertEquals("/first/y",
-                 dir.getRelative(PathFragment.create("../y")).toString());
-
+    assertThat(dir.getRelative(PathFragment.create("y")).toString()).isEqualTo("/first/x/y");
+    assertThat(dir.getRelative(PathFragment.create("./x")).toString()).isEqualTo("/first/x/x");
+    assertThat(dir.getRelative(PathFragment.create("../y")).toString()).isEqualTo("/first/y");
   }
 
   @Test
   public void testGetRelativeWithAbsoluteFragmentWorks() {
     Path root = filesystem.getPath("/first/x");
-    assertEquals("/x/y",
-                 root.getRelative(PathFragment.create("/x/y")).toString());
+    assertThat(root.getRelative(PathFragment.create("/x/y")).toString()).isEqualTo("/x/y");
   }
 
   @Test
   public void testGetRelativeWithAbsoluteStringWorks() {
     Path root = filesystem.getPath("/first/x");
-    assertEquals("/x/y", root.getRelative("/x/y").toString());
+    assertThat(root.getRelative("/x/y").toString()).isEqualTo("/x/y");
   }
 
   @Test
@@ -215,31 +206,26 @@ public class PathTest {
 
   @Test
   public void testParentOfRootIsRoot() {
-    assertSame(root, root.getRelative(".."));
+    assertThat(root.getRelative("..")).isSameAs(root);
 
-    assertSame(root.getRelative("dots"),
-               root.getRelative("broken/../../dots"));
+    assertThat(root.getRelative("broken/../../dots")).isSameAs(root.getRelative("dots"));
   }
 
   @Test
   public void testSingleSegmentEquivalence() {
-    assertSame(
-        root.getRelative("aSingleSegment"),
-        root.getRelative("aSingleSegment"));
+    assertThat(root.getRelative("aSingleSegment")).isSameAs(root.getRelative("aSingleSegment"));
   }
 
   @Test
   public void testSiblingNonEquivalenceString() {
-    assertNotSame(
-        root.getRelative("aSingleSegment"),
-        root.getRelative("aDifferentSegment"));
+    assertThat(root.getRelative("aDifferentSegment"))
+        .isNotSameAs(root.getRelative("aSingleSegment"));
   }
 
   @Test
   public void testSiblingNonEquivalenceFragment() {
-    assertNotSame(
-        root.getRelative(PathFragment.create("aSingleSegment")),
-        root.getRelative(PathFragment.create("aDifferentSegment")));
+    assertThat(root.getRelative(PathFragment.create("aDifferentSegment")))
+        .isNotSameAs(root.getRelative(PathFragment.create("aSingleSegment")));
   }
 
   @Test
@@ -249,11 +235,11 @@ public class PathTest {
     Path child = parent.getRelative(childFragment);
     WeakReference<Path> childRef = new WeakReference<>(child);
     int childHashCode1 = childRef.get().hashCode();
-    assertEquals(childHashCode1, parent.getRelative(childFragment).hashCode());
+    assertThat(parent.getRelative(childFragment).hashCode()).isEqualTo(childHashCode1);
     child = null;
     GcFinalization.awaitClear(childRef);
     int childHashCode2 = parent.getRelative(childFragment).hashCode();
-    assertEquals(childHashCode1, childHashCode2);
+    assertThat(childHashCode2).isEqualTo(childHashCode1);
   }
 
   @Test
@@ -285,18 +271,19 @@ public class PathTest {
           .addEqualityGroup(p2, dsP2)
           .testEquals();
 
-      assertTrue(p2.startsWith(p1));
-      assertTrue(p2.startsWith(dsP1));
-      assertTrue(dsP2.startsWith(p1));
-      assertTrue(dsP2.startsWith(dsP1));
+      assertThat(p2.startsWith(p1)).isTrue();
+      assertThat(p2.startsWith(dsP1)).isTrue();
+      assertThat(dsP2.startsWith(p1)).isTrue();
+      assertThat(dsP2.startsWith(dsP1)).isTrue();
 
       // Regression test for a very specific bug in compareTo involving our incorrect usage of
       // reference equality rather than logical equality.
       String relativePathStringA = "child/grandchildA";
       String relativePathStringB = "child/grandchildB";
-      assertEquals(
-          p1.getRelative(relativePathStringA).compareTo(p1.getRelative(relativePathStringB)),
-          p1.getRelative(relativePathStringA).compareTo(dsP1.getRelative(relativePathStringB)));
+      assertThat(
+              p1.getRelative(relativePathStringA).compareTo(dsP1.getRelative(relativePathStringB)))
+          .isEqualTo(
+              p1.getRelative(relativePathStringA).compareTo(p1.getRelative(relativePathStringB)));
     } finally {
       Path.setFileSystemForSerialization(oldFileSystem);
     }
@@ -304,27 +291,27 @@ public class PathTest {
 
   @Test
   public void testAbsolutePathRoot() {
-    assertEquals("/", new Path(null).toString());
+    assertThat(new Path(null).toString()).isEqualTo("/");
   }
 
   @Test
   public void testAbsolutePath() {
     Path segment = new Path(null, "bar.txt",
       new Path(null, "foo", new Path(null)));
-    assertEquals("/foo/bar.txt", segment.toString());
+    assertThat(segment.toString()).isEqualTo("/foo/bar.txt");
   }
 
   private void assertAsFragmentWorks(String expected) {
-    assertEquals(PathFragment.create(expected), filesystem.getPath(expected).asFragment());
+    assertThat(filesystem.getPath(expected).asFragment()).isEqualTo(PathFragment.create(expected));
   }
 
   private void assertGetRelativeWorks(String expected, String relative) {
-    assertEquals(filesystem.getPath(expected),
-        filesystem.getPath("/first/x").getRelative(relative));
+    assertThat(filesystem.getPath("/first/x").getRelative(relative))
+        .isEqualTo(filesystem.getPath(expected));
   }
 
   private void assertRelativeToWorks(String expected, String relative, String original) {
-    assertEquals(PathFragment.create(expected),
-                 filesystem.getPath(relative).relativeTo(filesystem.getPath(original)));
+    assertThat(filesystem.getPath(relative).relativeTo(filesystem.getPath(original)))
+        .isEqualTo(PathFragment.create(expected));
   }
 }

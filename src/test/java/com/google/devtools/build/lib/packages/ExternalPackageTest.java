@@ -13,12 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -52,7 +51,8 @@ public class ExternalPackageTest extends BuildViewTestCase {
 
     invalidatePackages(/*alsoConfigs=*/false);
     // Make sure the second rule "wins."
-    assertEquals("new_local_repository rule", getTarget("//external:my_rule").getTargetKind());
+    assertThat(getTarget("//external:my_rule").getTargetKind())
+        .isEqualTo("new_local_repository rule");
   }
 
   @Test
@@ -70,6 +70,7 @@ public class ExternalPackageTest extends BuildViewTestCase {
 
     invalidatePackages(/*alsoConfigs=*/false);
     // Make sure the second rule "wins."
-    assertEquals("new_local_repository rule", getTarget("//external:my_rule").getTargetKind());
+    assertThat(getTarget("//external:my_rule").getTargetKind())
+        .isEqualTo("new_local_repository rule");
   }
 }

@@ -174,7 +174,8 @@ public class ErrorInfoTest {
           false);
     } catch (IllegalStateException e) {
       // Brittle, but confirms we failed for the right reason.
-      assertThat(e.getMessage())
+      assertThat(e)
+          .hasMessageThat()
           .startsWith("exception and rootCauseOfException must both be null or non-null");
     }
   }

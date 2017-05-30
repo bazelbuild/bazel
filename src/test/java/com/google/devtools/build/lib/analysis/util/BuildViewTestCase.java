@@ -14,12 +14,8 @@
 package com.google.devtools.build.lib.analysis.util;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Function;
@@ -552,7 +548,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected void assertConfigurationsEqual(BuildConfiguration config1, BuildConfiguration config2) {
     // BuildOptions and crosstool files determine a configuration's content. Within the context
     // of these tests only the former actually change.
-    assertEquals(config1.cloneOptions(), config2.cloneOptions());
+    assertThat(config2.cloneOptions()).isEqualTo(config1.cloneOptions());
   }
 
   /**
@@ -848,8 +844,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     reporter.removeHandler(failFastHandler); // expect errors
     ConfiguredTarget target = scratchConfiguredTarget(packageName, ruleName, lines);
     if (target != null) {
-      assertTrue("Rule '" + "//" + packageName + ":" + ruleName + "' did not contain an error",
-          view.hasErrors(target));
+      assertWithMessage(
+              "Rule '" + "//" + packageName + ":" + ruleName + "' did not contain an error")
+          .that(view.hasErrors(target))
+          .isTrue();
     }
     return assertContainsEvent(expectedErrorMessage);
   }
@@ -892,9 +890,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     eventCollector.clear();
     ConfiguredTarget target = scratchConfiguredTarget(packageName, ruleName,
         lines);
-    assertFalse(
-        "Rule '" + "//" + packageName + ":" + ruleName + "' did contain an error",
-        view.hasErrors(target));
+    assertWithMessage("Rule '" + "//" + packageName + ":" + ruleName + "' did contain an error")
+        .that(view.hasErrors(target))
+        .isFalse();
     return assertContainsEvent(expectedWarningMessage);
   }
 
@@ -921,21 +919,23 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       Target outTarget = getTarget(expectedOut);
       if (!(outTarget instanceof OutputFile)) {
         fail("Target " + outTarget + " is not an output");
-        assertSame(ruleTarget, ((OutputFile) outTarget).getGeneratingRule());
+        assertThat(((OutputFile) outTarget).getGeneratingRule()).isSameAs(ruleTarget);
         // This ensures that the output artifact is wired up in the action graph
         getConfiguredTarget(expectedOut);
       }
     }
 
     Collection<OutputFile> outs = ruleTarget.getOutputFiles();
-    assertEquals("Mismatched outputs: " + outs, expectedOuts.length, outs.size());
+    assertWithMessage("Mismatched outputs: " + outs)
+        .that(outs.size())
+        .isEqualTo(expectedOuts.length);
   }
 
   /**
    * Asserts that there exists a configured target file for the given label.
    */
   protected void assertConfiguredTargetExists(String label) throws Exception {
-    assertNotNull(getFileConfiguredTarget(label));
+    assertThat(getFileConfiguredTarget(label)).isNotNull();
   }
 
   /**
@@ -944,10 +944,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected void assertSameGeneratingAction(String labelA, String labelB)
       throws Exception {
-    assertSame(
-        "Action for " + labelA + " did not match " + labelB,
-        getGeneratingActionForLabel(labelA),
-        getGeneratingActionForLabel(labelB));
+    assertWithMessage("Action for " + labelA + " did not match " + labelB)
+        .that(getGeneratingActionForLabel(labelB))
+        .isSameAs(getGeneratingActionForLabel(labelA));
   }
 
   protected Artifact getSourceArtifact(PathFragment rootRelativePath, Root root) {
@@ -1248,14 +1247,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       String... expectedMessages) throws Exception{
     ConfiguredTarget target = getConfiguredTarget(targetName);
     if (expectedError) {
-      assertTrue(view.hasErrors(target));
+      assertThat(view.hasErrors(target)).isTrue();
       for (String expectedMessage : expectedMessages) {
         String message = "in srcs attribute of " + ruleType + " rule " + targetName + ": "
             + expectedMessage;
         assertContainsEvent(message);
       }
     } else {
-      assertFalse(view.hasErrors(target));
+      assertThat(view.hasErrors(target)).isFalse();
       for (String expectedMessage : expectedMessages) {
         String message = "in srcs attribute of " + ruleType + " rule " + target.getLabel() + ": "
             + expectedMessage;
@@ -1824,7 +1823,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     ConfiguredTarget target = getConfiguredTarget(targetLabel);
     List<Action> actions = getExtraActionActions(target);
 
-    assertNotNull(actions);
+    assertThat(actions).isNotNull();
     assertThat(actions).hasSize(2);
 
     ExtraAction extraAction = null;
@@ -1836,15 +1835,16 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       }
     }
 
-    assertNotNull(actions.toString(), extraAction);
+    assertWithMessage(actions.toString()).that(extraAction).isNotNull();
 
     Action pseudoAction = extraAction.getShadowedAction();
 
     assertThat(pseudoAction).isInstanceOf(PseudoAction.class);
-    assertEquals(
-        String.format("%s%s.extra_action_dummy", targetConfig.getGenfilesFragment(),
-            convertLabelToPath(targetLabel)),
-        pseudoAction.getPrimaryOutput().getExecPathString());
+    assertThat(pseudoAction.getPrimaryOutput().getExecPathString())
+        .isEqualTo(
+            String.format(
+                "%s%s.extra_action_dummy",
+                targetConfig.getGenfilesFragment(), convertLabelToPath(targetLabel)));
 
     return (PseudoAction<?>) pseudoAction;
   }

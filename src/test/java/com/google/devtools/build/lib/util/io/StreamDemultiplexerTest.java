@@ -13,18 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util.io;
 
-import static org.junit.Assert.assertArrayEquals;
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 import java.util.Random;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests {@link StreamDemultiplexer}.
@@ -109,9 +108,9 @@ public class StreamDemultiplexerTest {
       muxOuts[streamId].write(buffer);
       muxOuts[streamId].flush();
     }
-    assertArrayEquals(expectedOuts[0].toByteArray(), out.toByteArray());
-    assertArrayEquals(expectedOuts[1].toByteArray(), err.toByteArray());
-    assertArrayEquals(expectedOuts[2].toByteArray(), ctl.toByteArray());
+    assertThat(out.toByteArray()).isEqualTo(expectedOuts[0].toByteArray());
+    assertThat(err.toByteArray()).isEqualTo(expectedOuts[1].toByteArray());
+    assertThat(ctl.toByteArray()).isEqualTo(expectedOuts[2].toByteArray());
   }
 
   private static byte[] chunk(int stream, String payload) {

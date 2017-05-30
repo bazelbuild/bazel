@@ -14,8 +14,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
@@ -1293,11 +1291,11 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testSkylarkTypes() {
-    assertEquals(TransitiveInfoCollection.class,
-        EvalUtils.getSkylarkType(FileConfiguredTarget.class));
-    assertEquals(TransitiveInfoCollection.class,
-        EvalUtils.getSkylarkType(RuleConfiguredTarget.class));
-    assertEquals(Artifact.class, EvalUtils.getSkylarkType(SpecialArtifact.class));
+    assertThat(EvalUtils.getSkylarkType(FileConfiguredTarget.class))
+        .isEqualTo(TransitiveInfoCollection.class);
+    assertThat(EvalUtils.getSkylarkType(RuleConfiguredTarget.class))
+        .isEqualTo(TransitiveInfoCollection.class);
+    assertThat(EvalUtils.getSkylarkType(SpecialArtifact.class)).isEqualTo(Artifact.class);
   }
 
   // Override tests in EvaluationTest incompatible with Skylark
@@ -1317,11 +1315,11 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     // tuple
     x = eval("(1,2)");
     assertThat((Iterable<Object>) x).containsExactly(1, 2).inOrder();
-    assertTrue(((SkylarkList) x).isTuple());
+    assertThat(((SkylarkList) x).isTuple()).isTrue();
 
     x = eval("(1,2) + (3,4)");
     assertThat((Iterable<Object>) x).containsExactly(1, 2, 3, 4).inOrder();
-    assertTrue(((SkylarkList) x).isTuple());
+    assertThat(((SkylarkList) x).isTuple()).isTrue();
   }
 
   @Override

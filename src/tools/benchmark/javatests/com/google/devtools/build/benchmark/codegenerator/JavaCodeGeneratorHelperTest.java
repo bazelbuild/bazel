@@ -14,8 +14,7 @@
 
 package com.google.devtools.build.benchmark.codegenerator;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Joiner;
 import java.io.IOException;
@@ -157,10 +156,10 @@ public class JavaCodeGeneratorHelperTest {
     JavaCodeGeneratorHelper.writeRandomClassToDir(false, "ClassName", "com.package.name", dir);
 
     Path javaFile = dir.resolve("com/package/name/ClassName.java");
-    assertTrue(javaFile.toFile().exists());
+    assertThat(javaFile.toFile().exists()).isTrue();
 
     String content = new Scanner(javaFile).useDelimiter("\\Z").next();
-    assertEquals(RANDOM_CLASS_CONTENT, content);
+    assertThat(content).isEqualTo(RANDOM_CLASS_CONTENT);
   }
 
   @Test
@@ -169,10 +168,10 @@ public class JavaCodeGeneratorHelperTest {
     JavaCodeGeneratorHelper.writeRandomClassToDir(true, "ClassNameExtra", "com.package.name", dir);
 
     Path javaFile = dir.resolve("com/package/name/ClassNameExtra.java");
-    assertTrue(javaFile.toFile().exists());
+    assertThat(javaFile.toFile().exists()).isTrue();
 
     String content = new Scanner(javaFile).useDelimiter("\\Z").next();
-    assertEquals(RANDOM_CLASS_EXTRA_CONTENT, content);
+    assertThat(content).isEqualTo(RANDOM_CLASS_EXTRA_CONTENT);
   }
 
   @Test
@@ -181,10 +180,10 @@ public class JavaCodeGeneratorHelperTest {
     JavaCodeGeneratorHelper.writeMainClassToDir("com.package.name", dir);
 
     Path javaFile = dir.resolve("com/package/name/Main.java");
-    assertTrue(javaFile.toFile().exists());
+    assertThat(javaFile.toFile().exists()).isTrue();
 
     String content = new Scanner(javaFile).useDelimiter("\\Z").next();
-    assertEquals(MAIN_CLASS_CONTENT, content);
+    assertThat(content).isEqualTo(MAIN_CLASS_CONTENT);
   }
 
   @Test
@@ -194,10 +193,10 @@ public class JavaCodeGeneratorHelperTest {
     JavaCodeGeneratorHelper.buildFileWithNextDeps(42, "<this is deps>", dir);
 
     Path buildFile = dir.resolve("BUILD");
-    assertTrue(buildFile.toFile().exists());
+    assertThat(buildFile.toFile().exists()).isTrue();
 
     String content = new Scanner(buildFile).useDelimiter("\\Z").next();
-    assertEquals(DEPS_BUILD_FILE_CONTENT, content);
+    assertThat(content).isEqualTo(DEPS_BUILD_FILE_CONTENT);
   }
 
   @Test
@@ -207,10 +206,10 @@ public class JavaCodeGeneratorHelperTest {
     JavaCodeGeneratorHelper.buildFileWithMainClass("Target", "<this is deps>", dir);
 
     Path buildFile = dir.resolve("BUILD");
-    assertTrue(buildFile.toFile().exists());
+    assertThat(buildFile.toFile().exists()).isTrue();
 
     String content = new Scanner(buildFile).useDelimiter("\\Z").next();
-    assertEquals(TARGET_BUILD_FILE_CONTENT, content);
+    assertThat(content).isEqualTo(TARGET_BUILD_FILE_CONTENT);
   }
 
   @Test
@@ -219,10 +218,10 @@ public class JavaCodeGeneratorHelperTest {
     JavaCodeGeneratorHelper.targetWithNextHelper(42, true, dir);
 
     Path javaFile = dir.resolve("com/example/deps42/Deps42.java");
-    assertTrue(javaFile.toFile().exists());
+    assertThat(javaFile.toFile().exists()).isTrue();
 
     String content = new Scanner(javaFile).useDelimiter("\\Z").next();
-    assertEquals(DEPS_CLASS_CONTENT, content);
+    assertThat(content).isEqualTo(DEPS_CLASS_CONTENT);
   }
 
   @Test
@@ -231,10 +230,10 @@ public class JavaCodeGeneratorHelperTest {
     JavaCodeGeneratorHelper.targetWithNextExtraHelper(42, false, dir);
 
     Path javaFile = dir.resolve("com/example/deps42/Deps42.java");
-    assertTrue(javaFile.toFile().exists());
+    assertThat(javaFile.toFile().exists()).isTrue();
 
     String content = new Scanner(javaFile).useDelimiter("\\Z").next();
-    assertEquals(DEPS_CLASS_EXTRA_CONTENT, content);
+    assertThat(content).isEqualTo(DEPS_CLASS_EXTRA_CONTENT);
   }
 
   @Test
@@ -243,10 +242,10 @@ public class JavaCodeGeneratorHelperTest {
     JavaCodeGeneratorHelper.parallelDepsMainClassHelper(4, dir);
 
     Path javaFile = dir.resolve("com/example/generated/Main.java");
-    assertTrue(javaFile.toFile().exists());
+    assertThat(javaFile.toFile().exists()).isTrue();
 
     String content = new Scanner(javaFile).useDelimiter("\\Z").next();
-    assertEquals(MAIN_CLASS_WITH_DEPS_CONTENT, content);
+    assertThat(content).isEqualTo(MAIN_CLASS_WITH_DEPS_CONTENT);
   }
 
   private static String joinLines(String... lines) {

@@ -145,21 +145,27 @@ public class SkylarkRepositoryContextTest {
       context.createFile(context.path("/absolute"), "", true);
       fail("Expected error on creating path outside of the repository directory");
     } catch (RepositoryFunctionException ex) {
-      assertThat(ex.getCause().getMessage())
+      assertThat(ex)
+          .hasCauseThat()
+          .hasMessageThat()
           .isEqualTo("Cannot write outside of the repository directory for path /absolute");
     }
     try {
       context.createFile(context.path("../somepath"), "", true);
       fail("Expected error on creating path outside of the repository directory");
     } catch (RepositoryFunctionException ex) {
-      assertThat(ex.getCause().getMessage())
+      assertThat(ex)
+          .hasCauseThat()
+          .hasMessageThat()
           .isEqualTo("Cannot write outside of the repository directory for path /somepath");
     }
     try {
       context.createFile(context.path("foo/../../somepath"), "", true);
       fail("Expected error on creating path outside of the repository directory");
     } catch (RepositoryFunctionException ex) {
-      assertThat(ex.getCause().getMessage())
+      assertThat(ex)
+          .hasCauseThat()
+          .hasMessageThat()
           .isEqualTo("Cannot write outside of the repository directory for path /somepath");
     }
   }

@@ -265,7 +265,8 @@ public class InvocationPolicyAllowValuesTest extends InvocationPolicyEnforcerTes
       enforcer.enforce(parser, BUILD_COMMAND);
       fail();
     } catch (OptionsParsingException e) {
-      assertThat(e.getMessage())
+      assertThat(e)
+          .hasMessageThat()
           .contains(
               "Flag value 'b' for flag 'test_list_converters' is not allowed by invocation policy");
     }

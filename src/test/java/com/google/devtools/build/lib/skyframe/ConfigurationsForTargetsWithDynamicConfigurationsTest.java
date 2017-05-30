@@ -330,7 +330,7 @@ public class ConfigurationsForTargetsWithDynamicConfigurationsTest
       applier.split(newSplitTransition("disallowed second split"));
       fail("expected failure: deps cannot apply more than one split transition each");
     } catch (IllegalStateException e) {
-      assertThat(e.getMessage()).contains("dependency edges may apply at most one split");
+      assertThat(e).hasMessageThat().contains("dependency edges may apply at most one split");
     }
   }
 

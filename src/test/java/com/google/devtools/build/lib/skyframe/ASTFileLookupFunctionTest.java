@@ -15,9 +15,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -81,8 +78,8 @@ public class ASTFileLookupFunctionTest extends BuildViewTestCase {
     EvaluationResult<PackageValue> result =
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
-    assertFalse(result.hasError());
-    assertFalse(result.get(skyKey).getPackage().containsErrors());
+    assertThat(result.hasError()).isFalse();
+    assertThat(result.get(skyKey).getPackage().containsErrors()).isFalse();
   }
 
   @Test
@@ -98,12 +95,12 @@ public class ASTFileLookupFunctionTest extends BuildViewTestCase {
     EvaluationResult<PackageValue> result =
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
-    assertTrue(result.hasError());
+    assertThat(result.hasError()).isTrue();
     ErrorInfo errorInfo = result.getError(skyKey);
     Throwable e = errorInfo.getException();
-    assertEquals(skyKey, errorInfo.getRootCauseOfException());
+    assertThat(errorInfo.getRootCauseOfException()).isEqualTo(skyKey);
     assertThat(e).isInstanceOf(NoSuchPackageException.class);
-    assertThat(e.getMessage()).contains("bork");
+    assertThat(e).hasMessageThat().contains("bork");
   }
 
   @Test

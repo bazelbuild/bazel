@@ -14,7 +14,7 @@
 
 package com.google.testing.junit.runner.model;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Joiner;
 import java.io.ByteArrayOutputStream;
@@ -226,7 +226,7 @@ public class XmlWriterTest {
   
   private void assertHasContents(String... contents) throws UnsupportedEncodingException {
     Object[] expected = contents;
-    
-    assertEquals(LINE_JOINER.join(expected).trim(), outputStream.toString("UTF-8").trim());
+
+    assertThat(outputStream.toString("UTF-8").trim()).isEqualTo(LINE_JOINER.join(expected).trim());
   }
 }

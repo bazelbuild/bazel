@@ -13,12 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.util.OptionsUtils.PathFragmentListConverter;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -77,7 +75,9 @@ public class OptionsUtilsTest {
     OptionsParser parser = OptionsParser.newOptionsParser(IntrospectionExample.class);
     parser.parse("--alpha=no", "--gamma=no", "--echo=no");
     assertEquals("--alpha=no --gamma=no", OptionsUtils.asShellEscapedString(parser));
-    assertEquals(ImmutableList.of("--alpha=no", "--gamma=no"), OptionsUtils.asArgumentList(parser));
+    assertThat(OptionsUtils.asArgumentList(parser))
+        .containsExactly("--alpha=no", "--gamma=no")
+        .inOrder();
   }
 
   @Test
@@ -86,7 +86,9 @@ public class OptionsUtilsTest {
     parser.parse(OptionPriority.COMMAND_LINE, null, Arrays.asList("--alpha=no"));
     parser.parse(OptionPriority.COMPUTED_DEFAULT, null, Arrays.asList("--beta=no"));
     assertEquals("--beta=no --alpha=no", OptionsUtils.asShellEscapedString(parser));
-    assertEquals(ImmutableList.of("--beta=no", "--alpha=no"), OptionsUtils.asArgumentList(parser));
+    assertThat(OptionsUtils.asArgumentList(parser))
+        .containsExactly("--beta=no", "--alpha=no")
+        .inOrder();
   }
 
   public static class BooleanOpts extends OptionsBase {
@@ -106,14 +108,18 @@ public class OptionsUtilsTest {
     OptionsParser parser = OptionsParser.newOptionsParser(BooleanOpts.class);
     parser.parse(OptionPriority.COMMAND_LINE, null, Arrays.asList("--b_one", "--nob_two"));
     assertEquals("--b_one --nob_two", OptionsUtils.asShellEscapedString(parser));
-    assertEquals(ImmutableList.of("--b_one", "--nob_two"), OptionsUtils.asArgumentList(parser));
+    assertThat(OptionsUtils.asArgumentList(parser))
+        .containsExactly("--b_one", "--nob_two")
+        .inOrder();
 
     parser = OptionsParser.newOptionsParser(BooleanOpts.class);
     parser.parse(OptionPriority.COMMAND_LINE, null, Arrays.asList("--b_one=true", "--b_two=0"));
-    assertTrue(parser.getOptions(BooleanOpts.class).bOne);
-    assertFalse(parser.getOptions(BooleanOpts.class).bTwo);
+    assertThat(parser.getOptions(BooleanOpts.class).bOne).isTrue();
+    assertThat(parser.getOptions(BooleanOpts.class).bTwo).isFalse();
     assertEquals("--b_one --nob_two", OptionsUtils.asShellEscapedString(parser));
-    assertEquals(ImmutableList.of("--b_one", "--nob_two"), OptionsUtils.asArgumentList(parser));
+    assertThat(OptionsUtils.asArgumentList(parser))
+        .containsExactly("--b_one", "--nob_two")
+        .inOrder();
   }
 
   @Test
@@ -122,8 +128,9 @@ public class OptionsUtilsTest {
     parser.parse(OptionPriority.COMMAND_LINE, null, Arrays.asList("--alpha=one"));
     parser.parse(OptionPriority.COMMAND_LINE, null, Arrays.asList("--alpha=two"));
     assertEquals("--alpha=one --alpha=two", OptionsUtils.asShellEscapedString(parser));
-    assertEquals(
-        ImmutableList.of("--alpha=one", "--alpha=two"), OptionsUtils.asArgumentList(parser));
+    assertThat(OptionsUtils.asArgumentList(parser))
+        .containsExactly("--alpha=one", "--alpha=two")
+        .inOrder();
   }
 
   private static List<PathFragment> list(PathFragment... fragments) {

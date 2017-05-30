@@ -14,19 +14,15 @@
 package com.google.devtools.build.lib.shell;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
-/**
- * Tests {@link LogUtil#toTruncatedString}.
- */
+/** Tests {@link LogUtil#toTruncatedString}. */
 /*
  * Note: The toTruncatedString method uses the platform encoding intentionally,
  * so the unittest does to. Check out the comment in the implementation in
@@ -63,14 +59,13 @@ public class ToTruncatedStringTest {
             "want to produce a useful log. A log is useful if it contains " +
             "the interesting information (like what the c[... truncated. " +
             "original size was 261 bytes.]";
-    assertEquals(expectedOutput,
-                 LogUtil.toTruncatedString(sampleInput.getBytes()));
+    assertThat(LogUtil.toTruncatedString(sampleInput.getBytes())).isEqualTo(expectedOutput);
   }
 
   @Test
   public void testTruncatingHelloWorldYieldsHelloWorld() {
     String helloWorld = "Hello, world.";
-    assertEquals(helloWorld, LogUtil.toTruncatedString(helloWorld.getBytes()));
+    assertThat(LogUtil.toTruncatedString(helloWorld.getBytes())).isEqualTo(helloWorld);
   }
 
 }

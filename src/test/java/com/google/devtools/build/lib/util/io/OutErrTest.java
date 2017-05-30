@@ -13,18 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util.io;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertSame;
 
+import java.io.ByteArrayOutputStream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.io.ByteArrayOutputStream;
-
-/**
- * Tests {@link OutErr}.
- */
+/** Tests {@link OutErr}. */
 @RunWith(JUnit4.class)
 public class OutErrTest {
 
@@ -34,8 +31,8 @@ public class OutErrTest {
 
   @Test
   public void testRetainsOutErr() {
-    assertSame(out, outErr.getOutputStream());
-    assertSame(err, outErr.getErrorStream());
+    assertThat(outErr.getOutputStream()).isSameAs(out);
+    assertThat(outErr.getErrorStream()).isSameAs(err);
   }
 
   @Test

@@ -16,11 +16,6 @@ package com.google.devtools.build.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.skyframe.GraphTester.CONCATENATE;
 import static com.google.devtools.build.skyframe.GraphTester.NODE_TYPE;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -53,7 +48,6 @@ import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
 
 /**
  * Tests for {@link InvalidatingNodeVisitor}.
@@ -100,19 +94,19 @@ public class EagerInvalidatorTest {
   private void assertChanged(SkyKey key) {
     NodeEntry entry = graph.get(null, Reason.OTHER, key);
     if (gcExpected()) {
-      assertNull(entry);
+      assertThat(entry).isNull();
     } else {
-      assertTrue(entry.isChanged());
+      assertThat(entry.isChanged()).isTrue();
     }
   }
 
   private void assertDirtyAndNotChanged(SkyKey key) {
     NodeEntry entry = graph.get(null, Reason.OTHER, key);
     if (gcExpected()) {
-      assertNull(entry);
+      assertThat(entry).isNull();
     } else {
-      assertTrue(entry.isDirty());
-      assertFalse(entry.isChanged());
+      assertThat(entry.isDirty()).isTrue();
+      assertThat(entry.isChanged()).isFalse();
     }
 
   }
@@ -156,7 +150,7 @@ public class EagerInvalidatorTest {
   protected void invalidateWithoutError(DirtyTrackingProgressReceiver progressReceiver,
       SkyKey... keys) throws InterruptedException {
     invalidate(graph, progressReceiver, keys);
-    assertTrue(state.isEmpty());
+    assertThat(state.isEmpty()).isTrue();
   }
 
   protected void set(String name, String value) {
@@ -164,12 +158,12 @@ public class EagerInvalidatorTest {
   }
 
   protected SkyKey skyKey(String name) {
-    return GraphTester.toSkyKeys(name)[0];
+    return GraphTester.toSkyKeys(name).get(0);
   }
 
   protected void assertValueValue(String name, String expectedValue) throws InterruptedException {
     StringValue value = (StringValue) eval(false, skyKey(name));
-    assertEquals(expectedValue, value.getValue());
+    assertThat(value.getValue()).isEqualTo(expectedValue);
   }
 
   @Before
@@ -272,7 +266,7 @@ public class EagerInvalidatorTest {
       // Not a reliable check, but better than nothing.
       System.gc();
       Thread.sleep(300);
-      assertNotNull(weakRef.get());
+      assertThat(weakRef.get()).isNotNull();
     }
   }
 
@@ -299,8 +293,8 @@ public class EagerInvalidatorTest {
     eval(false);
 
     // The graph values should be gone.
-    assertTrue(isInvalidated(skyKey("ab")));
-    assertTrue(isInvalidated(skyKey("abc")));
+    assertThat(isInvalidated(skyKey("ab"))).isTrue();
+    assertThat(isInvalidated(skyKey("abc"))).isTrue();
 
     // The reverse deps to ab and ab_c should have been removed if reverse deps are cleared.
     Set<SkyKey> reverseDeps = new HashSet<>();
@@ -340,38 +334,44 @@ public class EagerInvalidatorTest {
     eval(/*keepGoing=*/false, parent);
     final Thread mainThread = Thread.currentThread();
     final AtomicReference<SkyKey> badKey = new AtomicReference<>();
-    DirtyTrackingProgressReceiver receiver = new DirtyTrackingProgressReceiver(
-        new EvaluationProgressReceiver.NullEvaluationProgressReceiver() {
-          @Override
-          public void invalidated(SkyKey skyKey, InvalidationState state) {
-            if (skyKey.equals(child)) {
-              // Interrupt on the very first invalidate
-              mainThread.interrupt();
-            } else if (!skyKey.functionName().equals(NODE_TYPE)) {
-              // All other invalidations should have the GraphTester's key type.
-              // Exceptions thrown here may be silently dropped, so keep track of errors ourselves.
-              badKey.set(skyKey);
-            }
-            try {
-              assertTrue(
-                  visitor.get().getInterruptionLatchForTestingOnly().await(2, TimeUnit.HOURS));
-            } catch (InterruptedException e) {
-              // We may well have thrown here because by the time we try to await, the main
-              // thread is already interrupted.
-            }
-          }
-        });
+    DirtyTrackingProgressReceiver receiver =
+        new DirtyTrackingProgressReceiver(
+            new EvaluationProgressReceiver.NullEvaluationProgressReceiver() {
+              @Override
+              public void invalidated(SkyKey skyKey, InvalidationState state) {
+                if (skyKey.equals(child)) {
+                  // Interrupt on the very first invalidate
+                  mainThread.interrupt();
+                } else if (!skyKey.functionName().equals(NODE_TYPE)) {
+                  // All other invalidations should have the GraphTester's key type.
+                  // Exceptions thrown here may be silently dropped, so keep track of errors
+                  // ourselves.
+                  badKey.set(skyKey);
+                }
+                try {
+                  assertThat(
+                          visitor
+                              .get()
+                              .getInterruptionLatchForTestingOnly()
+                              .await(2, TimeUnit.HOURS))
+                      .isTrue();
+                } catch (InterruptedException e) {
+                  // We may well have thrown here because by the time we try to await, the main
+                  // thread is already interrupted.
+                }
+              }
+            });
     try {
       invalidateWithoutError(receiver, child);
       fail();
     } catch (InterruptedException e) {
       // Expected.
     }
-    assertNull(badKey.get());
-    assertFalse(state.isEmpty());
+    assertThat(badKey.get()).isNull();
+    assertThat(state.isEmpty()).isFalse();
     final Set<SkyKey> invalidated = Sets.newConcurrentHashSet();
-    assertFalse(isInvalidated(parent));
-    assertNotNull(graph.get(null, Reason.OTHER, parent).getValue());
+    assertThat(isInvalidated(parent)).isFalse();
+    assertThat(graph.get(null, Reason.OTHER, parent).getValue()).isNotNull();
     receiver = new DirtyTrackingProgressReceiver(
         new EvaluationProgressReceiver.NullEvaluationProgressReceiver() {
       @Override
@@ -380,12 +380,12 @@ public class EagerInvalidatorTest {
       }
     });
     invalidateWithoutError(receiver);
-    assertTrue(invalidated.contains(parent));
+    assertThat(invalidated).contains(parent);
     assertThat(state.getInvalidationsForTesting()).isEmpty();
 
     // Regression test coverage:
     // "all pending values are marked changed on interrupt".
-    assertTrue(isInvalidated(child));
+    assertThat(isInvalidated(child)).isTrue();
     assertChanged(child);
     for (int i = 1; i < numValues; i++) {
       assertDirtyAndNotChanged(family[i]);

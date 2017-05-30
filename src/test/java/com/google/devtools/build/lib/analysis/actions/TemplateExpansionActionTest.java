@@ -15,13 +15,10 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -98,7 +95,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
 
   @Test
   public void testDestinationArtifactIsOutput() {
-    assertEquals(ImmutableSet.of(outputArtifact), create().getOutputs());
+    assertThat(create().getOutputs()).containsExactly(outputArtifact);
   }
 
   @Test
@@ -107,7 +104,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
     create().execute(createContext(executor));
     String content = new String(FileSystemUtils.readContentAsLatin1(output));
     String expected = Joiner.on('\n').join("key=foo", "value=bar");
-    assertEquals(expected, content);
+    assertThat(content).isEqualTo(expected);
   }
 
   @Test
@@ -120,7 +117,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
     TemplateExpansionAction b = new TemplateExpansionAction(NULL_ACTION_OWNER,
          outputArtifact2, Template.forString(TEMPLATE),
          ImmutableList.of(Substitution.of("%key%", "foo")), false);
-    assertEquals(a.computeKey(), b.computeKey());
+    assertThat(b.computeKey()).isEqualTo(a.computeKey());
   }
 
   @Test
@@ -133,7 +130,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
     TemplateExpansionAction b = new TemplateExpansionAction(NULL_ACTION_OWNER,
          outputArtifact2, Template.forString(TEMPLATE),
          ImmutableList.of(Substitution.of("%key%", "foo2")), false);
-    assertFalse(a.computeKey().equals(b.computeKey()));
+    assertThat(a.computeKey().equals(b.computeKey())).isFalse();
   }
 
   @Test
@@ -146,7 +143,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
     TemplateExpansionAction b = new TemplateExpansionAction(NULL_ACTION_OWNER,
          outputArtifact2, Template.forString(TEMPLATE),
          ImmutableList.of(Substitution.of("%key%", "foo")), true);
-    assertFalse(a.computeKey().equals(b.computeKey()));
+    assertThat(a.computeKey().equals(b.computeKey())).isFalse();
   }
 
   @Test
@@ -159,7 +156,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
     TemplateExpansionAction b = new TemplateExpansionAction(NULL_ACTION_OWNER,
          outputArtifact2, Template.forString(TEMPLATE + " "),
          ImmutableList.of(Substitution.of("%key%", "foo")), false);
-    assertFalse(a.computeKey().equals(b.computeKey()));
+    assertThat(a.computeKey().equals(b.computeKey())).isFalse();
   }
 
   private TemplateExpansionAction createWithArtifact() {
@@ -191,12 +188,12 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
 
   @Test
   public void testArtifactTemplateHasInput() {
-    assertEquals(ImmutableList.of(inputArtifact), createWithArtifact().getInputs());
+    assertThat(createWithArtifact().getInputs()).containsExactly(inputArtifact);
   }
 
   @Test
   public void testArtifactTemplateHasOutput() {
-    assertEquals(ImmutableSet.of(outputArtifact), createWithArtifact().getOutputs());
+    assertThat(createWithArtifact().getOutputs()).containsExactly(outputArtifact);
   }
 
   @Test
