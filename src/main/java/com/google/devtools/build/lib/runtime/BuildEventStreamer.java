@@ -89,7 +89,10 @@ public class BuildEventStreamer implements EventHandler {
   private AbortReason abortReason = AbortReason.UNKNOWN;
   private static final Logger log = Logger.getLogger(BuildEventStreamer.class.getName());
 
-  interface OutErrProvider {
+  /**
+   * Provider for stdout and stderr output.
+   */
+  public interface OutErrProvider {
     /**
      * Return the chunk of stdout that was produced since the last call to this function (or the
      * beginning of the build, for the first call). It is the responsibility of the class
