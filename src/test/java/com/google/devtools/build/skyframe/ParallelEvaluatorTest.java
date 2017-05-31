@@ -21,7 +21,6 @@ import static com.google.devtools.build.lib.testutil.MoreAsserts.assertEventCoun
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertNoEvents;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 import static com.google.devtools.build.skyframe.GraphTester.CONCATENATE;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Supplier;
@@ -397,6 +396,7 @@ public class ParallelEvaluatorTest {
     SkyKey valueToEval = GraphTester.toSkyKey("a");
     try {
       evaluator.eval(ImmutableList.of(valueToEval));
+      fail("Expected RuntimeException");
     } catch (RuntimeException re) {
       assertThat(re)
           .hasMessageThat()
@@ -1671,7 +1671,7 @@ public class ParallelEvaluatorTest {
       }
     });
     eval(/*keepGoing=*/false, topKey);
-    assertEquals(new StringValue("top"), eval(/*keepGoing=*/false, topKey));
+    assertThat(eval(/*keepGoing=*/false, topKey)).isEqualTo(new StringValue("top"));
   }
 
   @Test

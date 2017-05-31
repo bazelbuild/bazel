@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.shell;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.shell.TestUtil.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
@@ -397,10 +396,10 @@ public class CommandTest {
         assertThat(status.getTerminatingSignal()).isEqualTo(signal);
 
         switch (signal) {
-          case 1:  assertEquals("Hangup",     status.toShortString()); break;
-          case 2:  assertEquals("Interrupt",  status.toShortString()); break;
-          case 9:  assertEquals("Killed",     status.toShortString()); break;
-          case 15: assertEquals("Terminated", status.toShortString()); break;
+          case 1: assertThat(status.toShortString()).isEqualTo("Hangup"); break;
+          case 2: assertThat(status.toShortString()).isEqualTo("Interrupt"); break;
+          case 9: assertThat(status.toShortString()).isEqualTo("Killed"); break;
+          case 15: assertThat(status.toShortString()).isEqualTo("Terminated"); break;
         }
       }
     }

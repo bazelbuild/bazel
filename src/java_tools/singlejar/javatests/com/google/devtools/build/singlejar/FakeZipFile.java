@@ -17,7 +17,6 @@ package com.google.devtools.build.singlejar;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.assertEquals;
 
 import com.google.devtools.build.singlejar.SingleJarTest.EntryMode;
 import java.io.ByteArrayInputStream;
@@ -111,10 +110,10 @@ public final class FakeZipFile {
       assertThat(zipEntry).isNotNull();
       switch (mode) {
         case EXPECT_DEFLATE:
-          assertEquals(ZipEntry.DEFLATED, zipEntry.getMethod());
+          assertThat(zipEntry.getMethod()).isEqualTo(ZipEntry.DEFLATED);
           break;
         case EXPECT_STORED:
-          assertEquals(ZipEntry.STORED, zipEntry.getMethod());
+          assertThat(zipEntry.getMethod()).isEqualTo(ZipEntry.STORED);
           break;
         default:
           // we don't care.

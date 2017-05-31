@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.windows;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.windows.WindowsFileSystem.SHORT_NAME_MATCHER;
-import static org.junit.Assert.assertSame;
 
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
@@ -290,8 +289,8 @@ public class WindowsFileSystemTest {
     assertThat(p.getPathString()).endsWith(longPath);
     assertThat(p).isEqualTo(fs.getPath(scratchRoot).getRelative(shortPath));
     assertThat(p).isEqualTo(fs.getPath(scratchRoot).getRelative(longPath));
-    assertSame(p, fs.getPath(scratchRoot).getRelative(shortPath));
-    assertSame(p, fs.getPath(scratchRoot).getRelative(longPath));
+    assertThat(fs.getPath(scratchRoot).getRelative(shortPath)).isSameAs(p);
+    assertThat(fs.getPath(scratchRoot).getRelative(longPath)).isSameAs(p);
   }
 
   @Test

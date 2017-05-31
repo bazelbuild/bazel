@@ -25,7 +25,6 @@ import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.INTEGER;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Function;
@@ -185,14 +184,14 @@ public class RuleClassTest extends PackageLoadingTestCase {
     assertThat(ruleClassA.getAttributeByName("my-sorted-stringlist-attr"))
         .isEqualTo(ruleClassA.getAttribute(6));
 
-    assertEquals("", // default based on type
-                 ruleClassA.getAttribute(0).getDefaultValue(null));
+    // default based on type
+    assertThat(ruleClassA.getAttribute(0).getDefaultValue(null)).isEqualTo("");
     assertThat(ruleClassA.getAttribute(1).getDefaultValue(null))
         .isEqualTo(Label.parseAbsolute("//default:label"));
     assertThat(ruleClassA.getAttribute(2).getDefaultValue(null)).isEqualTo(Collections.emptyList());
     assertThat(ruleClassA.getAttribute(3).getDefaultValue(null)).isEqualTo(42);
-    assertEquals(null, // default explicitly specified
-                 ruleClassA.getAttribute(4).getDefaultValue(null));
+    // default explicitly specified
+    assertThat(ruleClassA.getAttribute(4).getDefaultValue(null)).isNull();
     assertThat(ruleClassA.getAttribute(5).getDefaultValue(null)).isEqualTo(Collections.emptyList());
     assertThat(ruleClassA.getAttribute(6).getDefaultValue(null)).isEqualTo(Collections.emptyList());
   }
@@ -390,8 +389,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
     assertThat(attributes.get("my-label-attr", BuildType.LABEL).toString())
         .isEqualTo("//default:label");
     assertThat(attributes.get("my-integer-attr", Type.INTEGER).intValue()).isEqualTo(42);
-    assertEquals("",  // missing attribute -> default chosen based on type
-                 attributes.get("my-string-attr", Type.STRING));
+    // missing attribute -> default chosen based on type
+    assertThat(attributes.get("my-string-attr", Type.STRING)).isEmpty();
     assertThat(attributes.get("my-labellist-attr", BuildType.LABEL_LIST)).isEmpty();
     assertThat(attributes.get("my-stringlist-attr", Type.STRING_LIST))
         .isEqualTo(Arrays.asList("foo", "bar"));

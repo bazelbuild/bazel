@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.skyframe.FileArtifactValue.create;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Predicate;
@@ -101,7 +100,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
   @Test
   public void testMissingNonMandatoryArtifact() throws Throwable {
     Artifact input = createSourceArtifact("input1");
-    assertNotNull(evaluateArtifactValue(input, /*mandatory=*/ false));
+    assertThat(evaluateArtifactValue(input, /*mandatory=*/ false)).isNotNull();
   }
 
   @Test

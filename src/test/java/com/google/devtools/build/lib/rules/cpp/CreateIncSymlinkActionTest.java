@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
-import static org.junit.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -54,7 +53,7 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
     d = new Artifact(PathFragment.create("d"), root);
     CreateIncSymlinkAction action2 = new CreateIncSymlinkAction(NULL_ACTION_OWNER,
         ImmutableMap.of(c, d, a, b), root.getPath());
-    assertEquals(action1.computeKey(), action2.computeKey());
+    assertThat(action2.computeKey()).isEqualTo(action1.computeKey());
   }
 
   @Test
@@ -100,7 +99,7 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
     action.execute(null);
     symlink.stat(Symlinks.NOFOLLOW);
     assertThat(symlink.isSymbolicLink()).isTrue();
-    assertEquals(symlink.readSymbolicLink(), b.getPath().asFragment());
+    assertThat(b.getPath().asFragment()).isEqualTo(symlink.readSymbolicLink());
     assertThat(rootDirectory.getRelative("a").exists()).isFalse();
   }
 

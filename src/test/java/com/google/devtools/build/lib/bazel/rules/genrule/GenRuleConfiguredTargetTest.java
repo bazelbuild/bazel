@@ -18,8 +18,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.TestConstants.GENRULE_SETUP;
 import static com.google.devtools.build.lib.testutil.TestConstants.GENRULE_SETUP_PATH;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Predicate;
@@ -485,11 +483,12 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
           foundSrc = true;
           break;
         case "tool":
-          assertTrue(getHostConfiguration().equalsOrIsSupersetOf(prereq.getConfiguration()));
+          assertThat(getHostConfiguration().equalsOrIsSupersetOf(prereq.getConfiguration()))
+              .isTrue();
           foundTool = true;
           break;
         case GENRULE_SETUP_PATH:
-          assertNull(prereq.getConfiguration());
+          assertThat(prereq.getConfiguration()).isNull();
           foundSetup = true;
           break;
         default:
