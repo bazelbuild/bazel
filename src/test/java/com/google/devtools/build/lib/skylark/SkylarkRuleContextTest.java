@@ -495,6 +495,23 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   @Test
+  public void existingRuleWithSelect() throws Exception {
+    scratch.file(
+        "test/existing_rule.bzl",
+        "def macro():",
+        "  s = select({'//foo': ['//bar']})",
+        "  native.cc_library(name = 'x', srcs = s)",
+        "  print(native.existing_rule('x')['srcs'])");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:existing_rule.bzl', 'macro')",
+        "macro()",
+        "cc_library(name = 'a', srcs = [])");
+    getConfiguredTarget("//test:a");
+    assertContainsEvent("selector({\"//foo:foo\": [\"//bar:bar\"]})");
+  }
+
+  @Test
   public void testGetRule() throws Exception {
     scratch.file("test/skylark/BUILD");
     scratch.file(
