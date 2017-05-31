@@ -63,17 +63,6 @@ filegroup(
     srcs = glob(["ijar/*"]),
 )
 
-# On Windows, Java implementation of singlejar is used. We create a little
-# filegroup that contains the appropriate platform-dependent file.
-# Once https://github.com/bazelbuild/bazel/issues/2241 is fixed (that is,
-# the native singlejar is used on windows), this file group can be reused since
-# on Windows, executables end in ".exe", but the label we reach it through
-# must be platform-independent.
-filegroup(
-    name = "singlejar",
-    srcs = glob(["singlejar/*"]),
-)
-
 filegroup(
     name = "genclass",
     srcs = ["//tools/jdk:GenClass_deploy.jar"],
@@ -82,6 +71,11 @@ filegroup(
 filegroup(
     name = "turbine",
     srcs = ["//tools/jdk:turbine_deploy.jar"],
+)
+
+filegroup(
+    name = "singlejar",
+    srcs = ["//tools/jdk:SingleJar_deploy.jar"],
 )
 
 filegroup(
@@ -158,7 +152,7 @@ java_toolchain(
     misc = [
         "-XDskipDuplicateBridges=true",
     ],
-    singlejar = ["@bazel_tools//tools/jdk:singlejar"],
+    singlejar = ["@bazel_tools//tools/jdk:SingleJar_deploy.jar"],
     source_version = "8",
     target_version = "8",
 )
@@ -206,4 +200,15 @@ alias(
 java_import(
     name = "JacocoCoverage",
     jars = [":JacocoCoverage_deploy.jar"],
+)
+
+java_import(
+    name = "SingleJar",
+    jars = ["SingleJar_deploy.jar"],
+)
+
+java_binary(
+    name = "SingleJar_binary",
+    main_class = "com.google.devtools.build.singlejar.SingleJar",
+    runtime_deps = [":SingleJar"],
 )

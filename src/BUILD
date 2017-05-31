@@ -143,6 +143,7 @@ filegroup(
         "//src/main/protobuf:srcs",
         "//src/java_tools/buildjar:JavaBuilderDeploy",
         "//src/java_tools/buildjar:VanillaJavaBuilder_deploy.jar",
+        "//src/java_tools/singlejar:SingleJar_deploy.jar",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:ExperimentalRunner_deploy.jar",
@@ -161,19 +162,6 @@ filegroup(
         "//conditions:default": [
             ":dummy_darwin_tools",
             "//third_party/ijar:zipper",
-        ],
-    }) + select({
-        ":windows": [
-            "//src/java_tools/singlejar:SingleJar_deploy.jar",
-        ],
-        ":windows_msys": [
-            "//src/java_tools/singlejar:SingleJar_deploy.jar",
-        ],
-        ":windows_msvc": [
-            "//src/java_tools/singlejar:SingleJar_deploy.jar",
-        ],
-        "//conditions:default": [
-            "//src/tools/singlejar:singlejar",
         ],
     }) + select({
         "//tools/jdk:jdk7": [],

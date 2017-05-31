@@ -61,13 +61,13 @@ genrule(
         "@local_jdk//:bootclasspath"
     ],
     tools = [
-        "@bazel_tools//tools/jdk:singlejar",
+        "@bazel_tools//tools/jdk:SingleJar_binary",
     ],
     outs = ["java_lang_extras.jar"],
     cmd = """
           for jar in $(locations @local_jdk//:bootclasspath); do
             if [[ "$${jar}" == *"/rt.jar" ]]; then
-              $(location @bazel_tools//tools/jdk:singlejar) \
+              $(location @bazel_tools//tools/jdk:SingleJar_binary) \
                   --exclude_build_data \
                   --dont_change_compression \
                   --sources $${jar} \
