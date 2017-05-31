@@ -559,7 +559,7 @@ def _find_vcvarsall_bat_script(repository_ctx, vc_path):
     vcvarsall = vc_path + "\\VCVARSALL.BAT"
 
   if not repository_ctx.path(vcvarsall).exists:
-    auto_configure_fail("vcvarsall.bat doesn't exists, please check your VC++ installation")
+    auto_configure_fail("vcvarsall.bat doesn't exist, please check your VC++ installation")
   return vcvarsall
 
 

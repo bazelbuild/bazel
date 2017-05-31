@@ -297,7 +297,7 @@ function cleanup_branches() {
   local tag_name=$1
   local i
   echo "Destroying the release branches for release ${tag_name}"
-  # Destroy branch, ignoring if it doesn't exists.
+  # Destroy branch, ignoring if it doesn't exist.
   git branch -D release-${tag_name} &>/dev/null || true
   for i in $RELEASE_REPOSITORIES; do
     git push -f $i :release-${tag_name} &>/dev/null || true
