@@ -354,11 +354,9 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
       Map<String, String> booleanAliasMap,
       String optionName) {
     // Check that the negating alias does not conflict with existing flags.
-    checkForCollisions(nameToFieldMap, "no_" + optionName, "boolean option alias");
     checkForCollisions(nameToFieldMap, "no" + optionName, "boolean option alias");
 
     // Record that the boolean option takes up additional namespace for its negating alias.
-    booleanAliasMap.put("no_" + optionName, optionName);
     booleanAliasMap.put("no" + optionName, optionName);
   }
 

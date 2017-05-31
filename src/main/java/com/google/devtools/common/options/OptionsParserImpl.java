@@ -619,15 +619,7 @@ class OptionsParserImpl {
 
       // Look for a "no"-prefixed option name: "no<optionName>".
       if (field == null && name.startsWith("no")) {
-        // Give a nice error if someone is using the deprecated --no_ prefix.
-        // TODO(Bazel-team): Remove the --no_ check when sufficient time has passed for users of
-        // that feature to have stopped using it.
         name = name.substring(2);
-        if (name.startsWith("_") && optionsData.getFieldFromName(name.substring(1)) != null) {
-          name = name.substring(1);
-          warnings.add("Option '" + name + "' is specified using the deprecated --no_ prefix. "
-            + "Use --no without the underscore instead.");
-        }
         field = optionsData.getFieldFromName(name);
         booleanValue = false;
         if (field != null) {
