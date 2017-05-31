@@ -45,7 +45,11 @@ if is_windows; then
 
   export JAVA_HOME="$(ls -d C:/Program\ Files/Java/jdk* | sort | tail -n 1)"
   export BAZEL_SH="c:/tools/msys64/usr/bin/bash.exe"
-  export BAZEL_VC="c:/Program Files (x86)/Microsoft Visual Studio 14.0/VC"
+  export BAZEL_VC="c:/Program Files (x86)/Microsoft Visual Studio/2017/Professional/VC"
+  if [ ! -d "$BAZEL_VC" ]; then
+    # OK, well, maybe Visual C++ 2015 then?
+    export BAZEL_VC="c:/Program Files (x86)/Microsoft Visual Studio 14.0/VC"
+  fi
   if [ -x /c/Python27/python.exe ]; then
     export BAZEL_PYTHON="C:/Python27/python.exe"
     export PATH="/c/Python27:$PATH"
