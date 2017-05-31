@@ -14,8 +14,11 @@
 
 package com.google.devtools.build.lib.rules.config;
 
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -34,6 +37,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
+import com.google.devtools.build.lib.rules.AliasProvider;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -41,6 +45,7 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -69,9 +74,6 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
         ruleContext.getPrerequisites(
             ConfigRuleClasses.ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE, Mode.TARGET);
 
-    ImmutableMap<Label, ConfigFeatureFlagProvider> configProviders =
-        buildConfigFeatureFlagMap(flagValues);
-
     if (settings.isEmpty() && flagSettings.isEmpty()) {
       ruleContext.ruleError(
           String.format(
@@ -81,7 +83,9 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
       return null;
     }
 
-    boolean flagSettingsMatch = matchesUserConfig(flagSettings, configProviders, ruleContext);
+    ConfigFeatureFlagMatch featureFlags =
+        ConfigFeatureFlagMatch.fromAttributeValueAndPrerequisites(
+            flagSettings, flagValues, (RuleErrorConsumer) ruleContext);
 
     boolean settingsMatch =
         matchesConfig(
@@ -95,7 +99,10 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
 
     ConfigMatchingProvider configMatcher =
         new ConfigMatchingProvider(
-            ruleContext.getLabel(), settings, flagSettings, settingsMatch && flagSettingsMatch);
+            ruleContext.getLabel(),
+            settings,
+            featureFlags.getSpecifiedFlagValues(),
+            settingsMatch && featureFlags.matches());
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
@@ -104,52 +111,6 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
         .addProvider(LicensesProviderImpl.EMPTY)
         .addProvider(ConfigMatchingProvider.class, configMatcher)
         .build();
-  }
-
-  /** Maps the labels of the given prerequisites to their {@link ConfigFeatureFlagProvider}s. */
-  private static ImmutableMap<Label, ConfigFeatureFlagProvider> buildConfigFeatureFlagMap(
-      Iterable<? extends TransitiveInfoCollection> prerequisites) {
-    ImmutableMap.Builder<Label, ConfigFeatureFlagProvider> output = new ImmutableMap.Builder<>();
-
-    for (TransitiveInfoCollection target : prerequisites) {
-      ConfigFeatureFlagProvider provider = ConfigFeatureFlagProvider.fromTarget(target);
-      // We know the provider exists because only labels with ConfigFeatureFlagProvider can be added
-      // to this attribute.
-      assert provider != null;
-      output.put(target.getLabel(), provider);
-    }
-
-    return output.build();
-  }
-
-  /** Returns whether the actual user-defined flags are set to the specified values. */
-  private static boolean matchesUserConfig(
-      Map<Label, String> specifiedFlags,
-      Map<Label, ConfigFeatureFlagProvider> actualFlags,
-      RuleErrorConsumer errors) {
-    boolean foundMismatch = false;
-    for (Map.Entry<Label, String> specifiedFlag : specifiedFlags.entrySet()) {
-      Label label = specifiedFlag.getKey();
-      String specifiedValue = specifiedFlag.getValue();
-      ConfigFeatureFlagProvider provider = actualFlags.get(label);
-      // Both specifiedFlags and actualFlags are built from the same set of keys; therefore, the
-      // provider will always be present.
-      assert provider != null;
-      if (!provider.isValidValue(specifiedValue)) {
-        errors.attributeError(
-            ConfigRuleClasses.ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
-            String.format(
-                "error while parsing user-defined configuration values: "
-                    + "'%s' is not a valid value for '%s'",
-                specifiedValue, label));
-        foundMismatch = true;
-        continue;
-      }
-      if (!provider.getValue().equals(specifiedValue)) {
-        foundMismatch = true;
-      }
-    }
-    return !foundMismatch;
   }
 
   /**
@@ -257,5 +218,99 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
 
     // Multi-value list:
     return actualList.contains(expectedSingleValue);
+  }
+
+  private static final class ConfigFeatureFlagMatch {
+    private final boolean matches;
+    private final ImmutableMap<Label, String> specifiedFlagValues;
+
+    private static final Joiner QUOTED_COMMA_JOINER = Joiner.on("', '");
+
+    private ConfigFeatureFlagMatch(
+        boolean matches, ImmutableMap<Label, String> specifiedFlagValues) {
+      this.matches = matches;
+      this.specifiedFlagValues = specifiedFlagValues;
+    }
+
+    /** Returns whether the specified flag values matched the actual flag values. */
+    public boolean matches() {
+      return matches;
+    }
+
+    /** Gets the specified flag values, with aliases converted to their original targets' labels. */
+    public ImmutableMap<Label, String> getSpecifiedFlagValues() {
+      return specifiedFlagValues;
+    }
+
+    /** Groups aliases in the list of prerequisites by the target they point to. */
+    private static ListMultimap<Label, Label> collectAliases(
+        Iterable<? extends TransitiveInfoCollection> prerequisites) {
+      ImmutableListMultimap.Builder<Label, Label> targetsToAliases =
+          new ImmutableListMultimap.Builder<>();
+      for (TransitiveInfoCollection target : prerequisites) {
+        targetsToAliases.put(target.getLabel(), AliasProvider.getDependencyLabel(target));
+      }
+      return targetsToAliases.build();
+    }
+
+    public static ConfigFeatureFlagMatch fromAttributeValueAndPrerequisites(
+        Map<Label, String> attributeValue,
+        Iterable<? extends TransitiveInfoCollection> prerequisites,
+        RuleErrorConsumer errors) {
+      Map<Label, String> specifiedFlagValues = new LinkedHashMap<>();
+      boolean matches = true;
+      boolean foundDuplicate = false;
+
+      for (TransitiveInfoCollection target : prerequisites) {
+        ConfigFeatureFlagProvider provider = ConfigFeatureFlagProvider.fromTarget(target);
+        // We know the provider exists because only labels with ConfigFeatureFlagProvider can be
+        // added to this attribute.
+        assert provider != null;
+
+        Label actualLabel = target.getLabel();
+        Label specifiedLabel = AliasProvider.getDependencyLabel(target);
+        String specifiedValue = attributeValue.get(specifiedLabel);
+        if (specifiedFlagValues.containsKey(actualLabel)) {
+          foundDuplicate = true;
+        }
+        specifiedFlagValues.put(actualLabel, specifiedValue);
+
+        if (!provider.isValidValue(specifiedValue)) {
+          errors.attributeError(
+              ConfigRuleClasses.ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
+              String.format(
+                  "error while parsing user-defined configuration values: "
+                      + "'%s' is not a valid value for '%s'",
+                  specifiedValue, specifiedLabel));
+          matches = false;
+          continue;
+        }
+        if (!provider.getValue().equals(specifiedValue)) {
+          matches = false;
+        }
+      }
+
+      // attributeValue is the source of the prerequisites in prerequisites, so the final map built
+      // from iterating over prerequisites should always be the same size, barring duplicates.
+      assert foundDuplicate || attributeValue.size() == specifiedFlagValues.size();
+
+      if (foundDuplicate) {
+        ListMultimap<Label, Label> aliases = collectAliases(prerequisites);
+        for (Label actualLabel : aliases.keySet()) {
+          List<Label> aliasList = aliases.get(actualLabel);
+          if (aliasList.size() > 1) {
+            errors.attributeError(
+                ConfigRuleClasses.ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
+                String.format(
+                    "flag '%s' referenced multiple times as ['%s']",
+                    actualLabel, QUOTED_COMMA_JOINER.join(aliasList)));
+          }
+        }
+
+        matches = false;
+      }
+
+      return new ConfigFeatureFlagMatch(matches, ImmutableMap.copyOf(specifiedFlagValues));
+    }
   }
 }

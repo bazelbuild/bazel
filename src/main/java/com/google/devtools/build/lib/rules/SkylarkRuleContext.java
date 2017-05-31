@@ -404,7 +404,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
         List<? extends TransitiveInfoCollection> allPrereq =
             ruleContext.getPrerequisites(a.getName(), Mode.DONT_CHECK);
         for (TransitiveInfoCollection prereq : allPrereq) {
-          builder.put(prereq, original.get(prereq.getLabel()));
+          builder.put(prereq, original.get(AliasProvider.getDependencyLabel(prereq)));
         }
         attrBuilder.put(skyname, SkylarkType.convertToSkylark(builder.build(), null));
       } else if (type == BuildType.LABEL_DICT_UNARY) {

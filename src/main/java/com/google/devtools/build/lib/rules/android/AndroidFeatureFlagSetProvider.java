@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.rules.AliasProvider;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagProvider;
 import java.util.Map;
 
@@ -53,7 +54,7 @@ public abstract class AndroidFeatureFlagSetProvider implements TransitiveInfoPro
   /**
    * Builds a map which can be used with create, confirming that the desired flag values were
    * actually received, and producing an error if they were not (because dynamic configurations are
-   * not enabled).
+   * not enabled, or because aliases were used).
    */
   public static ImmutableMap<Label, String> getAndValidateFlagMapFromRuleContext(
       RuleContext ruleContext) throws RuleErrorException {
@@ -62,8 +63,18 @@ public abstract class AndroidFeatureFlagSetProvider implements TransitiveInfoPro
             .get(FEATURE_FLAG_ATTR, BuildType.LABEL_KEYED_STRING_DICT);
     Iterable<? extends TransitiveInfoCollection> actualTargets =
         ruleContext.getPrerequisites(FEATURE_FLAG_ATTR, Mode.TARGET);
+    boolean aliasFound = false;
     for (TransitiveInfoCollection target : actualTargets) {
-      Label label = target.getLabel();
+      Label label = AliasProvider.getDependencyLabel(target);
+      if (!label.equals(target.getLabel())) {
+        ruleContext.attributeError(
+            FEATURE_FLAG_ATTR,
+            String.format(
+                "Feature flags must be named directly, not through aliases; use '%s', not '%s'",
+                target.getLabel(), label));
+        aliasFound = true;
+      }
+
       String expectedValue = expectedValues.get(label);
       String actualValue = ConfigFeatureFlagProvider.fromTarget(target).getValue();
 
@@ -74,6 +85,9 @@ public abstract class AndroidFeatureFlagSetProvider implements TransitiveInfoPro
             "Setting " + FEATURE_FLAG_ATTR + " requires dynamic configurations to be enabled");
         throw new RuleErrorException();
       }
+    }
+    if (aliasFound) {
+      throw new RuleErrorException();
     }
     return ImmutableMap.copyOf(expectedValues);
   }

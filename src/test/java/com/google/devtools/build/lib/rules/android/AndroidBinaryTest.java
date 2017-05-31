@@ -2762,6 +2762,36 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
+  public void testFeatureFlagsAttributeFailsAnalysisIfFlagIsAliased()
+      throws Exception {
+    reporter.removeHandler(failFastHandler);
+    useConfiguration("--experimental_dynamic_configs=on");
+    scratch.file(
+        "java/com/foo/BUILD",
+        "config_feature_flag(",
+        "  name = 'flag1',",
+        "  allowed_values = ['on', 'off'],",
+        "  default_value = 'off',",
+        ")",
+        "alias(",
+        "  name = 'alias',",
+        "  actual = 'flag1',",
+        ")",
+        "android_binary(",
+        "  name = 'foo',",
+        "  manifest = 'AndroidManifest.xml',",
+        "  feature_flags = {",
+        "    'alias': 'on',",
+        "  }",
+        ")");
+    assertThat(getConfiguredTarget("//java/com/foo")).isNull();
+    assertContainsEvent(
+        "in feature_flags attribute of android_binary rule //java/com/foo:foo: "
+            + "Feature flags must be named directly, not through aliases; "
+            + "use '//java/com/foo:flag1', not '//java/com/foo:alias'");
+  }
+
+  @Test
   public void testFeatureFlagsAttributeSetsFeatureFlagProviderValues() throws Exception {
     useConfiguration("--experimental_dynamic_configs=on");
     scratch.file(

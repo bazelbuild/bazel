@@ -932,6 +932,90 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   @Test
+  public void matchesAliasedFlagsInFlagValues() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'alias_matcher',",
+        "    flag_values = {",
+        "        ':alias': 'right',",
+        "    },",
+        ")",
+        "alias(",
+        "    name = 'alias',",
+        "    actual = 'flag',",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['right', 'wrong'],",
+        "    default_value = 'right',",
+        ")");
+    assertThat(getConfigMatchingProvider("//test:alias_matcher").matches()).isTrue();
+  }
+
+  @Test
+  public void aliasedFlagsAreCountedInRefining() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'refined',",
+        "    flag_values = {",
+        "        ':alias': 'right',",
+        "        ':flag2': 'good',",
+        "    },",
+        ")",
+        "config_setting(",
+        "    name = 'other',",
+        "    flag_values = {",
+        "        ':flag': 'right',",
+        "    },",
+        ")",
+        "alias(",
+        "    name = 'alias',",
+        "    actual = 'flag',",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['right', 'wrong'],",
+        "    default_value = 'right',",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag2',",
+        "    allowed_values = ['good', 'bad'],",
+        "    default_value = 'good',",
+        ")");
+    assertThat(
+            getConfigMatchingProvider("//test:refined")
+                .refines(getConfigMatchingProvider("//test:other")))
+        .isTrue();
+  }
+
+  @Test
+  public void referencingSameFlagViaMultipleAliasesFails() throws Exception {
+    checkError(
+        "test",
+        "multialias",
+        "in flag_values attribute of config_setting rule //test:multialias: "
+            + "flag '//test:direct' referenced multiple times as ['//test:alias', '//test:direct']",
+        "config_setting(",
+        "    name = 'multialias',",
+        "    flag_values = {",
+        "        ':alias': 'right',",
+        "        ':direct': 'right',",
+        "    },",
+        ")",
+        "alias(",
+        "    name = 'alias',",
+        "    actual = 'direct',",
+        ")",
+        "config_feature_flag(",
+        "    name = 'direct',",
+        "    allowed_values = ['right', 'wrong'],",
+        "    default_value = 'right',",
+        ")");
+  }
+
+  @Test
   public void forbidsNonConfigFeatureFlagRulesForFlagValues() throws Exception {
     checkError("test", "invalid_flag",
         "in flag_values attribute of config_setting rule //test:invalid_flag: "
@@ -959,6 +1043,28 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    flag_values = {",
         "        ':flag': 'invalid',",
         "    })",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['right', 'valid'],",
+        "    default_value = 'valid',",
+        ")");
+  }
+
+  @Test
+  public void usesAliasLabelWhenReportingErrorInFlagValues() throws Exception {
+    checkError("test", "invalid_flag",
+        "in flag_values attribute of config_setting rule //test:invalid_flag: "
+        + "error while parsing user-defined configuration values: "
+        + "'invalid' is not a valid value for '//test:alias'",
+        "config_setting(",
+        "    name = 'invalid_flag',",
+        "    flag_values = {",
+        "        ':alias': 'invalid',",
+        "    })",
+        "alias(",
+        "    name = 'alias',",
+        "    actual = ':flag',",
+        ")",
         "config_feature_flag(",
         "    name = 'flag',",
         "    allowed_values = ['right', 'valid'],",
