@@ -311,8 +311,14 @@ public class BuildRequest implements OptionsClassProvider {
       name = "aspects",
       converter = Converters.CommaSeparatedOptionListConverter.class,
       defaultValue = "",
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED, // for now
-      help = "List of top-level aspects"
+      allowMultiple = true,
+      help =
+          "Comma-separated list of aspects to be applied to top-level targets. All aspects "
+              + "are applied to all top-level targets independently. Aspects are specified in "
+              + "the form <bzl-file-label>%<aspect_name>, "
+              + "for example '//tools:my_def.bzl%my_aspect', where 'my_aspect' is a top-level "
+              + "value from from a file tools/my_def.bzl"
+
     )
     public List<String> aspects;
 
