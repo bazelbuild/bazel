@@ -204,6 +204,13 @@ message LoadingFailure {
   string details = 1;
 }
 
+// Payload of an event indicating that an expected event will not come, as
+// something went wrong during analysis. If the analysis of a target failed,
+// the id of the event will be the corresponding TargetCompletedId.
+message AnalysisFailure {
+  string details = 1;
+}
+
 // Payload of an event indicating the beginning of a new build. Usually, events
 // of those type start a new build-event stream. The target pattern requested
 // to be build is contained in one of the announced child events; it is an
@@ -464,6 +471,7 @@ message BuildEvent {
     Progress progress = 3;
     Aborted aborted = 4;
     LoadingFailure loading_failed = 11;
+    AnalysisFailure analysis_failed = 19;
     BuildStarted started = 5;
     CommandLine command_line = 12;
     OptionsParsed options_parsed = 13;

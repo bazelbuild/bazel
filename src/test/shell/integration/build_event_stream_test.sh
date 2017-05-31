@@ -110,6 +110,22 @@ cat > sample_workspace_status <<EOF
 echo SAMPLE_WORKSPACE_STATUS workspace_status_value
 EOF
 chmod  755 sample_workspace_status
+mkdir -p visibility/hidden
+cat > visibility/hidden/BUILD <<EOF
+genrule(
+    name = "hello",
+    outs = ["hello.txt"],
+    cmd = "echo Hello World > \$@",
+)
+EOF
+cat > visibility/BUILD <<EOF
+genrule(
+    name = "cannotsee",
+    outs = ["cannotsee.txt"],
+    srcs = ["//visibility/hidden:hello"],
+    cmd = "cp \$< \$@",
+)
+EOF
 }
 
 #### TESTS #############################################################
@@ -381,6 +397,14 @@ function test_loading_failure() {
   expect_log 'details.*BUILD file not found on package path'
   expect_not_log 'expanded'
   expect_not_log 'aborted'
+}
+
+function test_visibility_failure() {
+  bazel shutdown
+  (bazel build --experimental_build_event_text_file=$TEST_log \
+         //visibility:cannotsee && fail "build failure expected") || true
+  expect_log '^analysis_failed'
+  expect_not_log '^aborted'
 }
 
 function test_loading_failure_keep_going() {

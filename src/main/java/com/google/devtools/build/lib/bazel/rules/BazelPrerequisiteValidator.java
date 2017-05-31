@@ -48,22 +48,28 @@ public class BazelPrerequisiteValidator
             .getPackageIdentifier()
             .equals(AliasProvider.getDependencyLabel(prerequisite).getPackageIdentifier())
         && !context.isVisible(prerequisite)) {
+      String errorMessage;
       if (!context.getConfiguration().checkVisibility()) {
-        context.ruleWarning(
+        errorMessage =
             String.format(
                 "Target '%s' violates visibility of target "
                     + "%s. Continuing because --nocheck_visibility is active",
-                rule.getLabel(), AliasProvider.printLabelWithAliasChain(prerequisite)));
+                rule.getLabel(), AliasProvider.printLabelWithAliasChain(prerequisite));
+        context.ruleWarning(errorMessage);
       } else {
         // Oddly enough, we use reportError rather than ruleError here.
-        context.reportError(
-            rule.getLocation(),
+        errorMessage =
             String.format(
                 "Target %s is not visible from target '%s'. Check "
                     + "the visibility declaration of the former target if you think "
                     + "the dependency is legitimate",
-                AliasProvider.printLabelWithAliasChain(prerequisite), rule.getLabel()));
+                AliasProvider.printLabelWithAliasChain(prerequisite), rule.getLabel());
+        context.reportError(rule.getLocation(), errorMessage);
       }
+      // We can always post the visibility error as, regardless of the value of keep going,
+      // that target will not be built.
+      context.post(
+          new VisibilityErrorEvent(context.getConfiguration(), rule.getLabel(), errorMessage));
     }
 
     if (prerequisiteTarget instanceof PackageGroup && !attrName.equals("visibility")) {
