@@ -805,7 +805,7 @@ java_test(
     size = "medium",
     srcs = ["packages/BazelDocumentationTest.java"],
     data = [
-        "//site:versions/master/docs/bazel-user-manual.html",
+        "//site:docs/bazel-user-manual.html",
     ],
     test_class = "com.google.devtools.build.lib.packages.BazelDocumentationTest",
     deps = [

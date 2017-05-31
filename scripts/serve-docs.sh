@@ -59,7 +59,7 @@ build_static() {
 
 build_and_serve() {
   build_tree
-  echo "Serving bazel.build site at $HOST:$PORT"
+  echo "Serving docs.bazel.build site at $HOST:$PORT"
   jekyll serve --host "$HOST" --detach --quiet --port "$PORT" --source "$WORKING_DIR"
 }
 

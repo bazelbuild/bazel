@@ -38,7 +38,7 @@ public class BazelDocumentationTest {
    */
   @Test
   public void testBazelUserManual() throws Exception {
-    String documentationFilePath = "site/versions/master/docs/bazel-user-manual.html";
+    String documentationFilePath = "site/docs/bazel-user-manual.html";
     if (OS.getCurrent() == OS.WINDOWS) {
       documentationFilePath = WindowsTestUtil.getRunfile("io_bazel/" + documentationFilePath);
     }
