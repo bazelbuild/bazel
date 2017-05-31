@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TriState;
@@ -216,17 +215,15 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
       applicationManifest = ruleManifest.mergeWith(ruleContext, resourceDeps);
 
-      Artifact featureOfArtifact
-          = ruleContext.attributes().isAttributeValueExplicitlySpecified("feature_of")
-              ? Iterables.getOnlyElement(
-                  ruleContext.getPrerequisite("feature_of", Mode.TARGET, ApkProvider.class)
-                      .getTransitiveApks())
+      Artifact featureOfArtifact =
+          ruleContext.attributes().isAttributeValueExplicitlySpecified("feature_of")
+              ? ruleContext.getPrerequisite("feature_of", Mode.TARGET, ApkProvider.class).getApk()
               : null;
-      Artifact featureAfterArtifact
-          = ruleContext.attributes().isAttributeValueExplicitlySpecified("feature_after")
-              ? Iterables.getOnlyElement(
-                  ruleContext.getPrerequisite("feature_after", Mode.TARGET, ApkProvider.class)
-                      .getTransitiveApks())
+      Artifact featureAfterArtifact =
+          ruleContext.attributes().isAttributeValueExplicitlySpecified("feature_after")
+              ? ruleContext
+                  .getPrerequisite("feature_after", Mode.TARGET, ApkProvider.class)
+                  .getApk()
               : null;
 
       resourceApk = applicationManifest.packWithDataAndResources(
@@ -595,10 +592,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         Iterables.concat(ImmutableList.of(zipAlignedApk), apksUnderTest),
         dataDeps);
 
-    NestedSet<Artifact> coverageMetadata = (androidCommon.getInstrumentedJar() != null)
-        ? NestedSetBuilder.create(Order.STABLE_ORDER, androidCommon.getInstrumentedJar())
-        : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
-
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext);
 
@@ -830,9 +823,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .addProvider(
             ApkProvider.class,
             ApkProvider.create(
-                NestedSetBuilder.create(Order.STABLE_ORDER, zipAlignedApk),
-                coverageMetadata,
-                NestedSetBuilder.create(Order.STABLE_ORDER, applicationManifest.getManifest())))
+                zipAlignedApk,
+                androidCommon.getInstrumentedJar(),
+                applicationManifest.getManifest()))
         .addProvider(AndroidPreDexJarProvider.class, AndroidPreDexJarProvider.create(jarToDex))
         .addProvider(
             AndroidFeatureFlagSetProvider.class,

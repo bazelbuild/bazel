@@ -132,7 +132,7 @@ public class AndroidInstrumentation implements RuleConfiguredTargetFactory {
     Artifact existingApk;
     ApkProvider apkProvider = transitiveInfoCollection.getProvider(ApkProvider.class);
     if (apkProvider != null) {
-      existingApk = Iterables.getOnlyElement(apkProvider.getTransitiveApks());
+      existingApk = apkProvider.getApk();
     } else {
       existingApk =
           Iterables.getOnlyElement(
