@@ -206,6 +206,14 @@ public class CommonCommandOptions extends OptionsBase {
   public boolean alwaysProfileSlowOperations;
 
   @Option(
+    name = "allow_undefined_configs",
+    defaultValue = "true",
+    category = "flags",
+    help = "Do not throw an error when the config is not defined."
+  )
+  public boolean allowUndefinedConfigs;
+
+  @Option(
     name = "profile",
     defaultValue = "null",
     category = "misc",
