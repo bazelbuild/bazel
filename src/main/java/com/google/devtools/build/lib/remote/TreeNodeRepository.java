@@ -63,11 +63,15 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
 
     private final int hashCode;
     private final ImmutableList<ChildEntry> childEntries; // no need to make it a map thus far.
-    @Nullable private final ActionInput actionInput; // Null iff this is a directory.
+    @Nullable
+    private final ActionInput actionInput; // Null iff this is a directory.
 
-    /** A pair of path segment, TreeNode. */
+    /**
+     * A pair of path segment, TreeNode.
+     */
     @Immutable
     public static final class ChildEntry {
+
       private final String segment;
       private final TreeNode child;
 
@@ -176,6 +180,8 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
     }
   }
 
+  private static final TreeNode EMPTY_NODE = new TreeNode(ImmutableList.<TreeNode.ChildEntry>of());
+
   // Keep only one canonical instance of every TreeNode in the repository.
   private final Interner<TreeNode> interner = BlazeInterners.newWeakInterner();
   // Merkle hashes are computed and cached by the repository, therefore execRoot must
@@ -264,6 +270,12 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
       int inputsStart,
       int inputsEnd,
       int segmentIndex) {
+    if (segments.isEmpty()) {
+      // We sometimes have actions with no inputs (e.g., echo "xyz" > $@), so we need to handle that
+      // case here.
+      Preconditions.checkState(inputs.isEmpty());
+      return EMPTY_NODE;
+    }
     if (segmentIndex == segments.get(inputsStart).size()) {
       // Leaf node reached. Must be unique.
       Preconditions.checkArgument(

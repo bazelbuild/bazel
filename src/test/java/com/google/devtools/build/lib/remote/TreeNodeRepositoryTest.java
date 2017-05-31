@@ -152,4 +152,14 @@ public class TreeNodeRepositoryTest {
         .containsExactly(
             rootDigest, aDigest, barDigest, barContentsDigest, fooDigest, fooContentsDigest);
   }
+
+  @Test
+  public void testEmptyTree() throws Exception {
+    SortedMap<PathFragment, ActionInput> inputs = new TreeMap<>();
+    TreeNodeRepository repo = createTestTreeNodeRepository();
+    TreeNode root = repo.buildFromActionInputs(inputs);
+    repo.computeMerkleDigests(root);
+
+    assertThat(root.getChildEntries()).isEmpty();
+  }
 }
