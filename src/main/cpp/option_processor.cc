@@ -481,6 +481,18 @@ blaze_exit_code::ExitCode OptionProcessor::ParseStartupOptions(string *error) {
   return blaze_exit_code::SUCCESS;
 }
 
+static bool IsValidEnvName(const char* p) {
+#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+  for (; *p && *p != '='; ++p) {
+    if (!((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') ||
+          (*p >= '0' && *p <= '9') || *p == '_')) {
+      return false;
+    }
+  }
+#endif
+  return true;
+}
+
 #if defined(COMPILER_MSVC)
 static void PreprocessEnvString(string* env_str) {
   static std::set<string> vars_to_uppercase = {"PATH", "TMP", "TEMP", "TEMPDIR",
@@ -558,8 +570,10 @@ void OptionProcessor::AddRcfileArgsAndOptions(const string& cwd) {
   // Pass the client environment to the server.
   for (char** env = environ; *env != NULL; env++) {
     string env_str(*env);
-    PreprocessEnvString(&env_str);
-    command_arguments_.push_back("--client_env=" + env_str);
+    if (IsValidEnvName(*env)) {
+      PreprocessEnvString(&env_str);
+      command_arguments_.push_back("--client_env=" + env_str);
+    }
   }
   command_arguments_.push_back("--client_cwd=" + blaze::ConvertPath(cwd));
 

@@ -18,7 +18,7 @@
 
 PROTO_FILES=$(ls src/main/protobuf/*.proto src/main/java/com/google/devtools/build/lib/buildeventstream/proto/*.proto)
 LIBRARY_JARS=$(find third_party -name '*.jar' | grep -Fv /javac-9-dev-r3297-4.jar | grep -Fv /javac-9-dev-4023-2.jar | grep -Fv /javac7.jar | grep -Fv JavaBuilder | grep -Fv third_party/guava | grep -Fv third_party/guava | grep -ve third_party/grpc/grpc.*jar | tr "\n" " ")
-GRPC_JAVA_VERSION=1.3.0
+GRPC_JAVA_VERSION=0.15.0
 GRPC_LIBRARY_JARS=$(find third_party/grpc -name '*.jar' | grep -e .*${GRPC_JAVA_VERSION}.*jar | tr "\n" " ")
 # Guava jars are different for JDK 7 build and JDK 8 build, we select the good
 # one based on the name (21.0-{date} for JDK7).
@@ -327,9 +327,12 @@ function run_bazel_jar() {
   local client_env=()
   # Propagate all environment variables to bootstrapped Bazel.
   # See https://stackoverflow.com/questions/41898503/loop-over-environment-variables-in-posix-sh
-  local env_vars="$(awk 'END { for (name in ENVIRON) { if(name != "_") print name; } }' </dev/null)"
+  local env_vars="$(awk 'END { for (name in ENVIRON) { if(name != "_" && name ~ /^[A-Za-z0-9_]*$/) print name; } }' </dev/null)"
   for varname in $env_vars; do
     eval value=\$$varname
+    if [ "${PLATFORM}" = "windows" ] && echo "$varname" | grep -q -i "^\(path\|tmp\|temp\|tempdir\|systemroot\)$" ; then
+      varname="$(echo "$varname" | tr [:lower:] [:upper:])"
+    fi
     if [ "${value}" ]; then
       client_env=("${client_env[@]}" --client_env="${varname}=${value}")
     fi
