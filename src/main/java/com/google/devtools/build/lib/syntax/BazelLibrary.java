@@ -196,7 +196,7 @@ public class BazelLibrary {
    */
   @SkylarkSignature(
     name = "select",
-    doc = "Creates a SelectorValue from the dict parameter.",
+    doc = "Creates a select from the dict parameter, usable for setting configurable attributes.",
     parameters = {
       @Param(name = "x", type = SkylarkDict.class, doc = "The parameter to convert."),
       @Param(
