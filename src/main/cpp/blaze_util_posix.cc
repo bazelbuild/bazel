@@ -148,7 +148,7 @@ string GetJavaBinaryUnderJavabase() { return "bin/java"; }
 // binary anyway.
 const char** ConvertStringVectorToArgv(const vector<string>& args) {
   const char** argv = new const char*[args.size() + 1];
-  for (int i = 0; i < args.size(); i++) {
+  for (size_t i = 0; i < args.size(); i++) {
     argv[i] = args[i].c_str();
   }
 
@@ -276,7 +276,7 @@ static void ReadFromFdWithRetryEintr(
   do {
     result = read(fd, buf, count);
   } while (result < 0 && errno == EINTR);
-  if (result != count) {
+  if (result < 0 || static_cast<size_t>(result) != count) {
     DieAfterFork(error_message);
   }
 }
@@ -291,7 +291,7 @@ static void WriteToFdWithRetryEintr(
     // Darwin.
     result = write(fd, buf, count);
   } while (result < 0 && errno == EINTR);
-  if (result != count) {
+  if (result < 0 || static_cast<size_t>(result) != count) {
     DieAfterFork(error_message);
   }
 }
