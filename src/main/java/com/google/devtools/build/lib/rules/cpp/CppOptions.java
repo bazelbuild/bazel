@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.StripMode;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
@@ -753,8 +754,16 @@ public class CppOptions extends FragmentOptions {
 
     // -g0 is the default, but allowMultiple options cannot have default values so we just pass
     // -g0 first and let the user options override it.
-    host.coptList = ImmutableList.<String>builder().add("-g0").addAll(hostCoptList).build();
-    host.cxxoptList = ImmutableList.<String>builder().add("-g0").addAll(hostCxxoptList).build();
+    ImmutableList.Builder<String> coptListBuilder = ImmutableList.builder();
+    ImmutableList.Builder<String> cxxoptListBuilder = ImmutableList.builder();
+    // Don't add -g0 if the host platform is Windows.
+    // Note that host platform is not necessarily the platform bazel is running on (foundry)
+    if (OS.getCurrent() != OS.WINDOWS) {
+      coptListBuilder.add("-g0");
+      cxxoptListBuilder.add("-g0");
+    }
+    host.coptList = coptListBuilder.addAll(hostCoptList).build();
+    host.cxxoptList = cxxoptListBuilder.addAll(hostCxxoptList).build();
 
     host.useStartEndLib = useStartEndLib;
     host.stripBinaries = StripMode.ALWAYS;
