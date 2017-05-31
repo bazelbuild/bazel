@@ -91,6 +91,87 @@ be loaded, which rules must be analyzed, and which actions must be executed. For
 example, if a rule generates actions that we don't need for the current build,
 they will not be executed.
 
+## Backward-incompatible changes
+
+As we make changes and polish the extension mechanism, old features may be
+removed and new features that are not backwards-compatible may be added.
+
+Each release, new incompatible changes will be behind a flag with its default
+value set to `false`. In later releases, the flag will be enabled by default, or
+the flag will be removed entirely.
+
+To check if your code will be compatible with future releases:
+
+*   build your code with the flag `--all_incompatible_changes`, or
+*   use boolean flags to enable/disable specific incompatible changes.
+
+This following are the planned incompatible changes that are implemented and
+guarded behind flags.
+
+### Set constructor
+
+We are removing the `set` constructor. Use `depset` instead. `set` and `depset`
+are equivalent, you just need to do search and replace to update the old code.
+
+We are doing this to reduce confusion between the specialized
+[depset](depsets.md) data structure and Python's set datatype.
+
+*   Flag: `--incompatible_disallow_set_constructor=true`
+*   Introduced in: 0.5.1
+
+### Keyword-only arguments
+
+Keyword-only parameters are parameters that can be called only using their name.
+
+``` python
+def foo(arg1, *, arg2): pass
+
+foo(3, arg2=3)
+```
+
+``` python
+def bar(arg1, *rest, arg2): pass
+
+bar(3, arg2=3)
+```
+
+In both examples, `arg2` must be named at the call site. To preserve syntactic
+compatibility with Python 2, we are removing this feature (which we have never
+documented).
+
+*   Flag: `--incompatible_disallow_keyword_only_args=true`
+*   Introduced in: 0.5.1
+
+### Mutating `+=`
+
+We are changing `left += right` when `left` is a list. The old behavior is
+equivalent to `left = left + right`, which creates a new list and assigns it to
+`left`. The new behavior does not rebind `left`, but instead just mutates the
+list in-place.
+
+``` python
+def fct():
+  li = [1]
+  alias = li
+  li += [2]
+  # Old behavior: alias == [1]
+  # New behavior: alias == [1, 2]
+```
+
+This change makes Skylark more compatible with Python and avoids performance
+issues. The `+=` operator for tuples is unaffected.
+
+*   Flag: `--incompatible_list_plus_equals_inplace=true`
+*   Introduced in: 0.5.1
+
+### Dictionary concatenation
+
+We are removing the `+` operator on dictionaries. This includes the `+=` form
+where the left-hand side is a dictionary. This is done to improve compatibility
+with Python. A possible workaround is to use the `.update` method instead.
+
+*   Flag: `--incompatible_disallow_dict_plus=true`
+*   Introduced in: 0.5.1
 
 ## Upcoming changes
 
@@ -104,20 +185,6 @@ The following items are upcoming changes.
     Going forward, there is no guarantee on order besides that it is
     deterministic. As an implementation matter, some kinds of dictionaries may
     continue to use sorted order while others may use insertion order.
-
-*   The `+=` operator and similar operators are currently syntactic sugar; `x +=
-    y` is the same as `x = x + y`. This will change to follow Python semantics,
-    so that for mutable collection datatypes, `x += y` will be a mutation to the
-    value of `x` rather than a rebinding of the variable `x` itself to a new
-    value. E.g. for lists, `x += y` will be the same as `x.extend(y)`.
-
-*   The "set" datatype is being renamed to "depset" in order to avoid confusion
-    with Python's sets, which behave very differently.
-
-*   The `+` operator is defined for dictionaries, returning an immutable
-    concatenated dictionary created from the entries of the original
-    dictionaries. This will be going away. The same result can be achieved using
-    `dict(a.items() + b.items())`.
 
 These changes concern the `load()` syntax in particular.
 
