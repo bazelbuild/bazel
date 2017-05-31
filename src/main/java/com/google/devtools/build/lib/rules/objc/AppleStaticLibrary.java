@@ -177,8 +177,15 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
     objcProviderBuilder.add(
         MULTI_ARCH_LINKED_ARCHIVES, ruleIntermediateArtifacts.combinedArchitectureArchive());
 
+    ObjcProvider objcProvider = objcProviderBuilder.build();
+
     targetBuilder
-        .addProvider(ObjcProvider.class, objcProviderBuilder.build())
+        // TODO(cparsons): Remove ObjcProvider as a direct provider.
+        .addProvider(ObjcProvider.class, objcProvider)
+        .addNativeDeclaredProvider(
+            new AppleStaticLibraryProvider(
+                ruleIntermediateArtifacts.combinedArchitectureArchive(),
+                objcProvider))
         .addOutputGroups(outputGroupCollector);
     return targetBuilder.build();
   }
