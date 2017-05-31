@@ -125,8 +125,11 @@ be refined if appropriate.
       <td>P2. <a href="https://github.com/bazelbuild/bazel/commit/7b825b8ea442246aabfa6a5a8962abd70855d0da">Sandboxing of action for OS X</a></td>
     </tr>
     <tr>
-      <td rowspan="5"><b>0.5</b></td>
-      <td rowspan="5"><b>2017&#8209;03</b></td>
+      <td rowspan="5">
+        <a href="https://github.com/bazelbuild/bazel/releases/tag/0.5.0"><b>0.5</b>
+        <br/><span class="label label-default">Released</span></a>
+      </td>
+      <td rowspan="5"><b>2017&#8209;05&#8209;26</b></td>
       <td>P0. Support for building and testing Java, C++ and Python on Windows</td>
     </tr>
     <tr><td>P1. Initial API for a Build Event Protocol</td></tr>
@@ -181,4 +184,3 @@ be refined if appropriate.
     <tr><td>P2. Bazel is in the list of debian package for the next stable</td></tr>
   </tbody>
 </table>
-

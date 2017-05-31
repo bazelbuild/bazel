@@ -54,7 +54,7 @@ You can later upgrade to newer version of Bazel with `brew upgrade bazel`.
 
 ## <a name="install-with-installer-mac-os-x"></a>Install using binary installer
 
-The binary installers are on Bazel's [GitHub releases page](https://github.com/bazelbuild/bazel/releases").
+The binary installers are on Bazel's [GitHub releases page](https://github.com/bazelbuild/bazel/releases).
 
 The installer contains the Bazel binary and the required JDK. Some additional
 libraries must also be installed for Bazel to work.
