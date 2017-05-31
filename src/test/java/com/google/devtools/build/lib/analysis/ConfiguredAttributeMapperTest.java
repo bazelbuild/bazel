@@ -265,4 +265,26 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
     assertThat(getMapper("//a:lib").isAttributeValueExplicitlySpecified("linkstamp")).isFalse();
     assertThat(getMapper("//a:lib").get("linkstamp", BuildType.LABEL)).isNull();
   }
+
+  @Test
+  public void testAliasedConfigSetting() throws Exception {
+    writeConfigRules();
+    scratch.file(
+        "a/BUILD",
+        "alias(",
+        "    name = 'aliased_a',",
+        "    actual = '//conditions:a',",
+        ")",
+        "genrule(",
+        "    name = 'gen',",
+        "    srcs = [],",
+        "    outs = ['out'],",
+        "    cmd = '',",
+        "    message = select({",
+        "        ':aliased_a': 'defined message',",
+        "        '//conditions:default': None,",
+        "    }))");
+    useConfiguration("--define", "mode=a");
+    assertThat(getMapper("//a:gen").get("message", Type.STRING)).isEqualTo("defined message");
+  }
 }

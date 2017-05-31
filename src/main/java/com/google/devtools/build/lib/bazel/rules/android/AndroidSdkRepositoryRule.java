@@ -48,6 +48,9 @@ public class AndroidSdkRepositoryRule implements RuleDefinition {
           builder.put(
               "android/dx_jar_import", Label.parseAbsoluteUnchecked(prefix + "dx_jar_import"));
           builder.put("android_sdk_for_testing", Label.parseAbsoluteUnchecked(prefix + "files"));
+          builder.put(
+              "has_androidsdk",
+              Label.parseAbsoluteUnchecked("@bazel_tools//tools/android:always_true"));
           return builder.build();
         }
       };
