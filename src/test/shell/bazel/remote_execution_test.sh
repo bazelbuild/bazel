@@ -224,6 +224,33 @@ EOF
       || fail "Failed to run //a:test with remote execution"
 }
 
+function test_noinput_action() {
+  mkdir -p a
+  cat > a/rule.bzl <<'EOF'
+def _impl(ctx):
+  output = ctx.outputs.out
+  ctx.action(
+      outputs=[output],
+      command="echo 'Hello World' > %s" % (output.path))
+
+empty = rule(
+    implementation=_impl,
+    outputs={"out": "%{name}.txt"},
+)
+EOF
+  cat > a/BUILD <<'EOF'
+load("//a:rule.bzl", "empty")
+package(default_visibility = ["//visibility:public"])
+empty(name = 'test')
+EOF
+  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
+      --spawn_strategy=remote \
+      --remote_cache=localhost:${worker_port} \
+      --test_output=errors \
+      //a:test >& $TEST_log \
+      || fail "Failed to run //a:test with remote execution"
+}
+
 # TODO(alpha): Add a test that fails remote execution when remote worker
 # supports sandbox.
 
