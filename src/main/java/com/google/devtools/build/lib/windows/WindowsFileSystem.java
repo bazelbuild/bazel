@@ -347,7 +347,8 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     try {
       java.nio.file.Path link = getIoFile(linkPath).toPath();
       java.nio.file.Path target = getIoFile(targetPath).toPath();
-      if (target.toFile().isDirectory()) {
+      // Still Create a dangling junction if the target doesn't exist.
+      if (!target.toFile().exists() || target.toFile().isDirectory()) {
         WindowsFileOperations.createJunction(link.toString(), target.toString());
       } else {
         Files.copy(target, link);
