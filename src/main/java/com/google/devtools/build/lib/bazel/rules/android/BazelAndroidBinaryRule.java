@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagTransitionFac
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
+import com.google.devtools.build.lib.util.FileType;
 
 /**
  * Rule class definition for {@code android_binary}.
@@ -42,13 +43,17 @@ public class BazelAndroidBinaryRule implements RuleDefinition {
     return builder
         .requiresConfigurationFragments(
             AndroidConfiguration.class, JavaConfiguration.class, CppConfiguration.class)
-        .add(attr("$debug_keystore", BuildType.LABEL)
-            .cfg(HOST)
-            .singleArtifact()
-            .value(environment.getToolsLabel("//tools/android:debug_keystore")))
-        .add(attr(":cc_toolchain_split", BuildType.LABEL)
-            .cfg(AndroidRuleClasses.ANDROID_SPLIT_TRANSITION)
-            .value(CppRuleClasses.CC_TOOLCHAIN))
+        .override(
+            attr("manifest", BuildType.LABEL).mandatory().allowedFileTypes(FileType.of(".xml")))
+        .add(
+            attr("$debug_keystore", BuildType.LABEL)
+                .cfg(HOST)
+                .singleArtifact()
+                .value(environment.getToolsLabel("//tools/android:debug_keystore")))
+        .add(
+            attr(":cc_toolchain_split", BuildType.LABEL)
+                .cfg(AndroidRuleClasses.ANDROID_SPLIT_TRANSITION)
+                .value(CppRuleClasses.CC_TOOLCHAIN))
         /* <!-- #BLAZE_RULE(android_binary).IMPLICIT_OUTPUTS -->
          <ul>
          <li><code><var>name</var>.apk</code>: An Android application
