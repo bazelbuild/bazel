@@ -201,6 +201,20 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
 
   @Override
   public final void awaitQuiescence(boolean interruptWorkers) throws InterruptedException {
+    Throwables.propagateIfPossible(catastrophe);
+    try {
+      synchronized (zeroRemainingTasks) {
+        while (remainingTasks.get() != 0 && !jobsMustBeStopped) {
+          zeroRemainingTasks.wait();
+        }
+      }
+    } catch (InterruptedException e) {
+      // Mark the visitor, so that it's known to be interrupted, and
+      // then break out of here, stop the worker threads and return ASAP,
+      // sending the interruption to the parent thread.
+      setInterrupted();
+    }
+
     awaitTermination(interruptWorkers);
   }
 
@@ -431,26 +445,12 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
    * any worker thread failed unexpectedly.
    */
   protected final void awaitTermination(boolean interruptWorkers) throws InterruptedException {
-    Throwables.propagateIfPossible(catastrophe);
-    try {
-      synchronized (zeroRemainingTasks) {
-        while (remainingTasks.get() != 0 && !jobsMustBeStopped) {
-          zeroRemainingTasks.wait();
-        }
-      }
-    } catch (InterruptedException e) {
-      // Mark the visitor, so that it's known to be interrupted, and
-      // then break out of here, stop the worker threads and return ASAP,
-      // sending the interruption to the parent thread.
-      setInterrupted();
-    }
-
     reallyAwaitTermination(interruptWorkers);
 
     if (isInterrupted()) {
       // Set interrupted bit on current thread so that callers can see that it was interrupted. Note
       // that if the thread was interrupted while awaiting termination, we might not hit this
-      // codepath, but then the current thread's interrupt bit is already set, so we are fine.
+      // code path, but then the current thread's interrupt bit is already set, so we are fine.
       Thread.currentThread().interrupt();
     }
     // Throw the first unhandled (worker thread) exception in the main thread. We throw an unchecked

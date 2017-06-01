@@ -115,7 +115,7 @@ public abstract class ParallelVisitor<T> {
   }
 
   /** Factory for {@link ParallelVisitor} instances. */
-  public static interface Factory {
+  public interface Factory {
     ParallelVisitor<?> create();
   }
 
@@ -263,11 +263,10 @@ public abstract class ParallelVisitor<T> {
         } catch (InterruptedException e) {
           // If the main thread waiting for completion of the visitation is interrupted, we should
           // gracefully terminate all running and pending tasks before exit. If QueryException
-          // occured in any of the worker thread, awaitTerminationAndPropagateErrorsIfAny
+          // occurred in any of the worker thread, awaitTerminationAndPropagateErrorsIfAny
           // propagates the QueryException instead of InterruptedException.
           setInterrupted();
           awaitTerminationAndPropagateErrorsIfAny();
-          throw e;
         }
       }
 
