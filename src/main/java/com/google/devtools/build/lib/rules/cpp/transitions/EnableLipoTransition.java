@@ -17,15 +17,20 @@ package com.google.devtools.build.lib.rules.cpp.transitions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.cpp.CppOptions.LipoConfigurationState;
+
+import java.util.Objects;
 
 /**
  * Configuration transition that turns on LIPO/FDO settings for configurations that have them
  * disabled.
  */
+@Immutable
 public class EnableLipoTransition implements PatchTransition {
   private final Label ruleLabel;
+  private final int hashCode;
 
   /**
    * Creates a new transition that only triggers on the given rule. This can be used for
@@ -33,6 +38,7 @@ public class EnableLipoTransition implements PatchTransition {
    */
   public EnableLipoTransition(Label ruleLabel) {
     this.ruleLabel = ruleLabel;
+    this.hashCode = Objects.hashCode(ruleLabel);
   }
 
   @Override
@@ -51,5 +57,20 @@ public class EnableLipoTransition implements PatchTransition {
   @Override
   public boolean defaultsToSelf() {
     return false;
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    if (this == other) {
+      return true;
+    } else if (!(other instanceof EnableLipoTransition)) {
+      return false;
+    }
+    return ruleLabel.equals(((EnableLipoTransition) other).ruleLabel);
+  }
+
+  @Override
+  public int hashCode() {
+    return hashCode;
   }
 }
