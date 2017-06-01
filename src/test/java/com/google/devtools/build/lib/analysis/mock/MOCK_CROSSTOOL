@@ -298,9 +298,6 @@ toolchain {
 
   builtin_sysroot: ""
   cxx_flag: "-std=c++0x"
-  ar_flag: "-static"
-  ar_flag: "-s"
-  ar_flag: "-o"
   linker_flag: "-lstdc++"
   cxx_builtin_include_directory: "/usr/include"
   cxx_builtin_include_directory: "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain"
@@ -341,9 +338,6 @@ toolchain {
 
   builtin_sysroot: ""
   cxx_flag: "-std=c++0x"
-  ar_flag: "-static"
-  ar_flag: "-s"
-  ar_flag: "-o"
   linker_flag: "-lstdc++"
   cxx_builtin_include_directory: "/usr/include"
   cxx_builtin_include_directory: "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain"
@@ -387,9 +381,6 @@ toolchain {
 
   builtin_sysroot: ""
   cxx_flag: "-std=c++0x"
-  ar_flag: "-static"
-  ar_flag: "-s"
-  ar_flag: "-o"
   linker_flag: "-lstdc++"
   cxx_builtin_include_directory: "/usr/include"
   cxx_builtin_include_directory: "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain"

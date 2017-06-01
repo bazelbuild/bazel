@@ -299,7 +299,7 @@ toolchain {
     }
   }
   feature {
-    name: "cc_archiver_flags"
+    name: "archiver_flags"
     flag_set {
       action: "c++-link-static-library"
       action: "c++-link-alwayslink-static-library"
@@ -310,7 +310,7 @@ toolchain {
         flag: "%{output_execpath}"
       }
       expand_if_all_available: "output_execpath"
-      expand_if_all_available: "uses_action_configs_for_cc_archiver"
+      expand_if_all_available: "uses_action_configs_for_cc_archiving"
     }
   }
   feature {
@@ -1221,7 +1221,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -1234,7 +1234,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -1247,7 +1247,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -1260,7 +1260,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -1553,7 +1553,7 @@ toolchain {
     }
   }
   feature {
-    name: "cc_archiver_flags"
+    name: "archiver_flags"
     flag_set {
       action: "c++-link-static-library"
       action: "c++-link-alwayslink-static-library"
@@ -1564,7 +1564,7 @@ toolchain {
         flag: "%{output_execpath}"
       }
       expand_if_all_available: "output_execpath"
-      expand_if_all_available: "uses_action_configs_for_cc_archiver"
+      expand_if_all_available: "uses_action_configs_for_cc_archiving"
     }
   }
   feature {
@@ -2482,7 +2482,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -2495,7 +2495,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -2508,7 +2508,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -2521,7 +2521,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -2814,7 +2814,7 @@ toolchain {
     }
   }
   feature {
-    name: "cc_archiver_flags"
+    name: "archiver_flags"
     flag_set {
       action: "c++-link-static-library"
       action: "c++-link-alwayslink-static-library"
@@ -2825,7 +2825,7 @@ toolchain {
         flag: "%{output_execpath}"
       }
       expand_if_all_available: "output_execpath"
-      expand_if_all_available: "uses_action_configs_for_cc_archiver"
+      expand_if_all_available: "uses_action_configs_for_cc_archiving"
     }
   }
   feature {
@@ -3745,7 +3745,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -3758,7 +3758,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -3771,7 +3771,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -3784,7 +3784,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -4078,7 +4078,7 @@ toolchain {
     }
   }
   feature {
-    name: "cc_archiver_flags"
+    name: "archiver_flags"
     flag_set {
       action: "c++-link-static-library"
       action: "c++-link-alwayslink-static-library"
@@ -4089,7 +4089,7 @@ toolchain {
         flag: "%{output_execpath}"
       }
       expand_if_all_available: "output_execpath"
-      expand_if_all_available: "uses_action_configs_for_cc_archiver"
+      expand_if_all_available: "uses_action_configs_for_cc_archiving"
     }
   }
   feature {
@@ -5045,7 +5045,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -5058,7 +5058,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -5071,7 +5071,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -5084,7 +5084,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -5377,7 +5377,7 @@ toolchain {
     }
   }
   feature {
-    name: "cc_archiver_flags"
+    name: "archiver_flags"
     flag_set {
       action: "c++-link-static-library"
       action: "c++-link-alwayslink-static-library"
@@ -5388,7 +5388,7 @@ toolchain {
         flag: "%{output_execpath}"
       }
       expand_if_all_available: "output_execpath"
-      expand_if_all_available: "uses_action_configs_for_cc_archiver"
+      expand_if_all_available: "uses_action_configs_for_cc_archiving"
     }
   }
   feature {
@@ -6306,7 +6306,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -6319,7 +6319,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -6332,7 +6332,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -6345,7 +6345,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -6638,7 +6638,7 @@ toolchain {
     }
   }
   feature {
-    name: "cc_archiver_flags"
+    name: "archiver_flags"
     flag_set {
       action: "c++-link-static-library"
       action: "c++-link-alwayslink-static-library"
@@ -6649,7 +6649,7 @@ toolchain {
         flag: "%{output_execpath}"
       }
       expand_if_all_available: "output_execpath"
-      expand_if_all_available: "uses_action_configs_for_cc_archiver"
+      expand_if_all_available: "uses_action_configs_for_cc_archiving"
     }
   }
   feature {
@@ -7552,7 +7552,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -7565,7 +7565,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -7578,7 +7578,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -7591,7 +7591,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -7884,7 +7884,7 @@ toolchain {
     }
   }
   feature {
-    name: "cc_archiver_flags"
+    name: "archiver_flags"
     flag_set {
       action: "c++-link-static-library"
       action: "c++-link-alwayslink-static-library"
@@ -7895,7 +7895,7 @@ toolchain {
         flag: "%{output_execpath}"
       }
       expand_if_all_available: "output_execpath"
-      expand_if_all_available: "uses_action_configs_for_cc_archiver"
+      expand_if_all_available: "uses_action_configs_for_cc_archiving"
     }
   }
   feature {
@@ -8800,7 +8800,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -8813,7 +8813,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -8826,7 +8826,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -8839,7 +8839,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -9133,7 +9133,7 @@ toolchain {
     }
   }
   feature {
-    name: "cc_archiver_flags"
+    name: "archiver_flags"
     flag_set {
       action: "c++-link-static-library"
       action: "c++-link-alwayslink-static-library"
@@ -9144,7 +9144,7 @@ toolchain {
         flag: "%{output_execpath}"
       }
       expand_if_all_available: "output_execpath"
-      expand_if_all_available: "uses_action_configs_for_cc_archiver"
+      expand_if_all_available: "uses_action_configs_for_cc_archiving"
     }
   }
   feature {
@@ -10085,7 +10085,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -10098,7 +10098,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -10111,7 +10111,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -10124,7 +10124,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -10417,7 +10417,7 @@ toolchain {
     }
   }
   feature {
-    name: "cc_archiver_flags"
+    name: "archiver_flags"
     flag_set {
       action: "c++-link-static-library"
       action: "c++-link-alwayslink-static-library"
@@ -10428,7 +10428,7 @@ toolchain {
         flag: "%{output_execpath}"
       }
       expand_if_all_available: "output_execpath"
-      expand_if_all_available: "uses_action_configs_for_cc_archiver"
+      expand_if_all_available: "uses_action_configs_for_cc_archiving"
     }
   }
   feature {
@@ -11331,7 +11331,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -11344,7 +11344,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -11357,7 +11357,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -11370,7 +11370,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -11669,7 +11669,7 @@ toolchain {
     }
   }
   feature {
-    name: "cc_archiver_flags"
+    name: "archiver_flags"
     flag_set {
       action: "c++-link-static-library"
       action: "c++-link-alwayslink-static-library"
@@ -11680,7 +11680,7 @@ toolchain {
         flag: "%{output_execpath}"
       }
       expand_if_all_available: "output_execpath"
-      expand_if_all_available: "uses_action_configs_for_cc_archiver"
+      expand_if_all_available: "uses_action_configs_for_cc_archiving"
     }
   }
   feature {
@@ -12583,7 +12583,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -12596,7 +12596,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -12609,7 +12609,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"
@@ -12622,7 +12622,7 @@ toolchain {
     }
     implies: "global_whole_archive_open"
     implies: "runtime_root_flags"
-    implies: "cc_archiver_flags"
+    implies: "archiver_flags"
     implies: "input_param_flags"
     implies: "linker_param_file"
     implies: "apple_env"

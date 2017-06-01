@@ -25,15 +25,6 @@ filegroup(
     srcs = ["cc_wrapper.sh"],
 )
 
-sh_binary(
-    name = "wrapped_clang_sh",
-    srcs = ["wrapped_clang"],
-    data = [
-        "@bazel_tools//tools/objc:xcrunwrapper",
-    ],
-    visibility = ["//visibility:public"],
-)
-
 cc_toolchain_suite(
     name = "toolchain",
     toolchains = dict(CC_TOOLCHAINS),
@@ -47,6 +38,7 @@ cc_toolchain_suite(
           ":libtool",
           ":make_hashed_objlist.py",
           ":wrapped_clang",
+          ":wrapped_ar",
           ":xcrunwrapper.sh",
         ],
     )

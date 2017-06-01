@@ -297,7 +297,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
 
   private final ImmutableList<String> objcopyOptions;
   private final ImmutableList<String> ldOptions;
-  private final ImmutableList<String> arOptions;
 
   private final ImmutableMap<String, String> additionalMakeVariables;
 
@@ -488,7 +487,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
 
     this.objcopyOptions = ImmutableList.copyOf(toolchain.getObjcopyEmbedFlagList());
     this.ldOptions = ImmutableList.copyOf(toolchain.getLdEmbedFlagList());
-    this.arOptions = copyOrDefaultIfEmpty(toolchain.getArFlagList(), "rcsD");
 
     this.abi = toolchain.getAbiVersion();
     this.abiGlibcVersion = toolchain.getAbiLibcVersion();
@@ -651,6 +649,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       try {
         if (!linkActionsAreConfigured(toolchain)) {
           String linkerToolPath = "DUMMY_LINKER_TOOL";
+          String arToolPath = "DUMMY_AR_TOOL";
           for (ToolPath tool : toolchain.getToolPathList()) {
             if (tool.getName().equals(Tool.GCC.getNamePart())) {
               linkerToolPath =
@@ -658,18 +657,18 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
                       .getRelative(PathFragment.create(tool.getPath()))
                       .getPathString();
             }
+            if (tool.getName().equals(Tool.AR.getNamePart())) {
+              arToolPath = tool.getPath();
+            }
           }
-          if (getTargetLibc().equals("macosx")) {
-            TextFormat.merge(
-                CppLinkActionConfigs.getCppLinkActionConfigs(
-                    CppLinkPlatform.MAC, features, linkerToolPath, supportsEmbeddedRuntimes),
-                toolchainBuilder);
-          } else {
-            TextFormat.merge(
-                CppLinkActionConfigs.getCppLinkActionConfigs(
-                    CppLinkPlatform.LINUX, features, linkerToolPath, supportsEmbeddedRuntimes),
-                toolchainBuilder);
-          }
+          TextFormat.merge(
+              CppLinkActionConfigs.getCppLinkActionConfigs(
+                  getTargetLibc().equals("macosx") ? CppLinkPlatform.MAC : CppLinkPlatform.LINUX,
+                  features,
+                  linkerToolPath,
+                  arToolPath,
+                  supportsEmbeddedRuntimes),
+              toolchainBuilder);
         }
 
         if (!features.contains("dependency_file")) {
@@ -948,11 +947,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
 
     toolchainBuilder.mergeFrom(toolchain);
     return toolchainBuilder.build();
-  }
-
-  private static ImmutableList<String> copyOrDefaultIfEmpty(List<String> list,
-      String defaultValue) {
-    return list.isEmpty() ? ImmutableList.of(defaultValue) : ImmutableList.copyOf(list);
   }
 
   @VisibleForTesting
@@ -1262,13 +1256,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    */
   public Link.ArchiveType archiveType() {
     return useStartEndLib() ? Link.ArchiveType.START_END_LIB : Link.ArchiveType.REGULAR;
-  }
-
-  /**
-   * Returns the ar flags to be used.
-   */
-  public ImmutableList<String> getArFlags() {
-    return arOptions;
   }
 
   /**

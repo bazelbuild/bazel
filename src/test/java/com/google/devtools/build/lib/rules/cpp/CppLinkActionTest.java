@@ -85,6 +85,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 CppLinkPlatform.LINUX,
                 ImmutableSet.<String>of(),
                 "dynamic_library_linker_tool",
+                "ar_tool",
                 true))
         .getFeatureConfiguration(
             FeatureSpecification.create(
