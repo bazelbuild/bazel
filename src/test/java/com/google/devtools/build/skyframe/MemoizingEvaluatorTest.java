@@ -65,7 +65,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -2513,7 +2512,7 @@ public class MemoizingEvaluatorTest {
         public void runTest() {
           try {
             tester.eval(/*keepGoing=*/false, tops.toArray(new SkyKey[0]));
-            Assert.fail();
+            fail();
           } catch (InterruptedException e) {
             // Expected.
           }
@@ -2887,7 +2886,7 @@ public class MemoizingEvaluatorTest {
     tester.invalidate();
     try {
       tester.eval(/*keepGoing=*/false, value);
-      Assert.fail();
+      fail();
     } catch (InterruptedException e) {
       // Expected.
     }
@@ -2986,7 +2985,7 @@ public class MemoizingEvaluatorTest {
     tester.invalidate();
     try {
       tester.eval(/*keepGoing=*/false, tops.toArray(new SkyKey[0]));
-      Assert.fail();
+      fail();
     } catch (InterruptedException e) {
       // Expected.
     }
@@ -3766,7 +3765,7 @@ public class MemoizingEvaluatorTest {
     tester.differencer.inject(ImmutableMap.of(key, val));
     try {
       tester.evalAndGet("value");
-      Assert.fail("injection over value with deps should have failed");
+      fail("injection over value with deps should have failed");
     } catch (IllegalStateException e) {
       assertThat(e).hasMessage(
           "existing entry for " + NODE_TYPE.getName() + ":value has deps: "
@@ -3785,7 +3784,7 @@ public class MemoizingEvaluatorTest {
     tester.differencer.inject(ImmutableMap.of(key, val));
     try {
       tester.evalAndGet("value");
-      Assert.fail("injection over value with deps should have failed");
+      fail("injection over value with deps should have failed");
     } catch (IllegalStateException e) {
       assertThat(e).hasMessage(
           "existing entry for " + NODE_TYPE.getName() + ":value has deps: "

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -25,7 +26,6 @@ import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
-import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -135,7 +135,7 @@ public class EvalUtilsTest extends EvaluationTestCase {
         if (i != j) {
           try {
             EvalUtils.SKYLARK_COMPARATOR.compare(objects[i], objects[j]);
-            Assert.fail("Shouldn't have compared different types");
+            fail("Shouldn't have compared different types");
           } catch (ComparisonException e) {
             // expected
           }
@@ -148,7 +148,7 @@ public class EvalUtilsTest extends EvaluationTestCase {
   public void testComparatorWithNones() throws Exception {
     try {
       EvalUtils.SKYLARK_COMPARATOR.compare(Runtime.NONE, Runtime.NONE);
-      Assert.fail("Shouldn't have compared nones");
+      fail("Shouldn't have compared nones");
     } catch (ComparisonException e) {
       // expected
     }

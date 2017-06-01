@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static org.junit.Assert.fail;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
@@ -31,7 +32,6 @@ import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.HashMap;
 import java.util.HashSet;
-import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -228,7 +228,7 @@ public class AspectCollectionTest {
           .create(
               ImmutableList.of(a2, a1, a2, a3),
               ImmutableSet.of(a3.getDescriptor()));
-      Assert.fail();
+      fail();
     } catch (AspectCycleOnPathException e) {
       assertThat(e.getAspect()).isEqualTo(a2.getDescriptor());
       assertThat(e.getPreviousAspect()).isEqualTo(a1.getDescriptor());
@@ -250,7 +250,7 @@ public class AspectCollectionTest {
           .create(
               ImmutableList.of(a2, a1, a2, a3),
               ImmutableSet.of(a3.getDescriptor()));
-      Assert.fail();
+      fail();
     } catch (AspectCycleOnPathException e) {
       assertThat(e.getAspect()).isEqualTo(a2.getDescriptor());
       assertThat(e.getPreviousAspect()).isEqualTo(a1.getDescriptor());
@@ -298,7 +298,7 @@ public class AspectCollectionTest {
           .create(
               ImmutableList.of(a2, a1, a2, a3),
               ImmutableSet.of(a3.getDescriptor()));
-      Assert.fail();
+      fail();
     } catch (AspectCycleOnPathException e) {
       assertThat(e.getAspect()).isEqualTo(a2.getDescriptor());
       assertThat(e.getPreviousAspect()).isEqualTo(a1.getDescriptor());
@@ -320,7 +320,7 @@ public class AspectCollectionTest {
           .create(
               ImmutableList.of(a2, a1, a2, a3),
               ImmutableSet.of(a3.getDescriptor()));
-      Assert.fail();
+      fail();
     } catch (AspectCycleOnPathException e) {
       assertThat(e.getAspect()).isEqualTo(a2.getDescriptor());
       assertThat(e.getPreviousAspect()).isEqualTo(a1.getDescriptor());

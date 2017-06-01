@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skylark;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -57,7 +58,6 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.Collection;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -101,7 +101,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     try {
       evalAndExport(
           "def impl(ctx): return", "r = rule(impl, attrs = {'tags': attr.string_list()})");
-      Assert.fail("Expected error '"
+      fail("Expected error '"
           + "There is already a built-in attribute 'tags' which cannot be overridden"
           + "' but got no error");
     } catch (AssertionError e) {
@@ -117,7 +117,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     try {
       evalAndExport(
           "def impl(ctx): return", "r = rule(impl, attrs = {'name': attr.string()})");
-      Assert.fail("Expected error '"
+      fail("Expected error '"
           + "There is already a built-in attribute 'name' which cannot be overridden"
           + "' but got no error");
     } catch (AssertionError e) {
@@ -1371,7 +1371,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
     try {
       createRuleContext("//third_party/foo:main");
-      Assert.fail();
+      fail();
     } catch (AssertionError e) {
       assertThat(e)
           .hasMessageThat()

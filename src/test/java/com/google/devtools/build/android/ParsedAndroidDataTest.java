@@ -14,6 +14,7 @@
 package com.google.devtools.build.android;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -33,7 +34,6 @@ import com.google.devtools.build.android.xml.StyleableXmlResourceValue;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -603,7 +603,7 @@ public class ParsedAndroidDataTest {
             .createManifest("AndroidManifest.xml", "com.xyz", "");
     try {
       builder.buildParsed();
-      Assert.fail("expected MergingException");
+      fail("expected MergingException");
     } catch (MergingException e) {
       assertThat(e).hasMessageThat().isEqualTo("3 Parse Error(s)");
       String combinedSuberrors = Joiner.on('\n').join(e.getSuppressed());
@@ -647,7 +647,7 @@ public class ParsedAndroidDataTest {
             .createManifest("AndroidManifest.xml", "com.carroll.lewis", "");
     try {
       builder.buildParsed();
-      Assert.fail("expected exception");
+      fail("expected MergingException");
     } catch (MergingException e) {
       assertThat(e).hasMessageThat().isEqualTo("5 Parse Error(s)");
       String combinedSuberrors = Joiner.on('\n').join(e.getSuppressed());

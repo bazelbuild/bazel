@@ -14,12 +14,12 @@
 package com.google.devtools.build.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -110,7 +110,7 @@ public class ReverseDepsUtilityTest {
     ReverseDepsUtility.removeReverseDep(example, key);
     try {
       ReverseDepsUtility.getReverseDeps(example);
-      Assert.fail();
+      fail();
     } catch (IllegalStateException expected) {
     }
   }
@@ -127,7 +127,7 @@ public class ReverseDepsUtilityTest {
     ReverseDepsUtility.checkReverseDep(example, fixedKey);
     try {
       ReverseDepsUtility.checkReverseDep(example, fixedKey);
-      Assert.fail();
+      fail();
     } catch (IllegalStateException expected) {
     }
   }

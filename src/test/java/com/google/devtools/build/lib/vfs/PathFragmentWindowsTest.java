@@ -15,9 +15,9 @@ package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static org.junit.Assert.fail;
 
 import java.io.File;
-import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -141,7 +141,7 @@ public class PathFragmentWindowsTest {
   private void assertCantComputeRelativeTo(String path, String relativeTo) throws Exception {
     try {
       PathFragment.create(path).relativeTo(relativeTo);
-      Assert.fail("expected failure");
+      fail("expected failure");
     } catch (Exception e) {
       assertThat(e).hasMessageThat().contains("is not beneath");
     }

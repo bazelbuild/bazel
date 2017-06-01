@@ -13,13 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import static org.junit.Assert.fail;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.jimfs.Jimfs;
 import com.google.common.truth.Truth;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -89,7 +90,7 @@ public class UnvalidatedAndroidDataTest {
   @Test public void flagNoManifestFails() {
     try {
       UnvalidatedAndroidData.valueOf("::", fileSystem);
-      Assert.fail("expected exception for bad flag format");
+      fail("expected exception for bad flag format");
     } catch (IllegalArgumentException expected) {
     }
   }
@@ -97,7 +98,7 @@ public class UnvalidatedAndroidDataTest {
   @Test public void flagMissingManifestFails() {
     try {
       UnvalidatedAndroidData.valueOf("::Manifest.xml", fileSystem);
-      Assert.fail("expected exception for bad flag format");
+      fail("expected exception for bad flag format");
     } catch (IllegalArgumentException expected) {
     }
   }
