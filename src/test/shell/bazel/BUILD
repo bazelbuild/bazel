@@ -30,7 +30,6 @@ filegroup(
         "//src:bazel",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
-        "//src/java_tools/singlejar:SingleJar_deploy.jar",
         "//src/main/tools:linux-sandbox",
         "//src/main/tools:process-wrapper",
         "//src/test/shell:bashunit",
@@ -45,7 +44,17 @@ filegroup(
         # TODO(cushon): migrate to extclasspath and delete
         "@local_jdk//:extdir",
         "@local_jdk//:jdk",
-    ],
+    ] + select({
+        # TODO(bazel-team): Once https://github.com/bazelbuild/bazel/issues/3096
+        # is resolved, use cc implementation of singlejar on freebsd
+        "//src:freebsd": ["//src/java_tools/singlejar:SingleJar_deploy.jar"],
+        # TODO(bazel-team): Once https://github.com/bazelbuild/bazel/issues/2241
+        # is resolved, use cc implementation of singlejar on windows
+        "//src:windows": ["//src/java_tools/singlejar:SingleJar_deploy.jar"],
+        "//src:windows_msys": ["//src/java_tools/singlejar:SingleJar_deploy.jar"],
+        "//src:windows_msvc": ["//src/java_tools/singlejar:SingleJar_deploy.jar"],
+        "//conditions:default": ["//src/tools/singlejar:singlejar"],
+    }),
     visibility = [
         "//src/test/shell:__subpackages__",
     ],
