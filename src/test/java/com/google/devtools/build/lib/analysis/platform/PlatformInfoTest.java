@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.rules.platform.Platform;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -116,7 +115,7 @@ public class PlatformInfoTest extends BuildViewTestCase {
     ConfiguredTarget platform = getConfiguredTarget("//test/platform:custom");
     assertThat(platform).isNotNull();
 
-    PlatformInfo provider = Platform.platform(platform);
+    PlatformInfo provider = PlatformProviderUtils.platform(platform);
     assertThat(provider).isNotNull();
     assertThat(provider.constraints()).hasSize(1);
     ConstraintSettingInfo constraintSetting =

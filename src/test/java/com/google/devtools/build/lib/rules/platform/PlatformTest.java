@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.CPU;
@@ -57,7 +58,7 @@ public class PlatformTest extends BuildViewTestCase {
     ConfiguredTarget platform = getConfiguredTarget("//constraint:plat1");
     assertThat(platform).isNotNull();
 
-    PlatformInfo provider = Platform.platform(platform);
+    PlatformInfo provider = PlatformProviderUtils.platform(platform);
     assertThat(provider).isNotNull();
     assertThat(provider.constraints()).hasSize(1);
     ConstraintSettingInfo constraintSetting =
@@ -89,7 +90,7 @@ public class PlatformTest extends BuildViewTestCase {
     ConfiguredTarget platform = getConfiguredTarget("//host:host_platform");
     assertThat(platform).isNotNull();
 
-    PlatformInfo provider = Platform.platform(platform);
+    PlatformInfo provider = PlatformProviderUtils.platform(platform);
     assertThat(provider).isNotNull();
 
     // Check the CPU and OS.
@@ -135,7 +136,7 @@ public class PlatformTest extends BuildViewTestCase {
     ConfiguredTarget platform = getConfiguredTarget("//constraint/remote:plat_remote");
     assertThat(platform).isNotNull();
 
-    PlatformInfo provider = Platform.platform(platform);
+    PlatformInfo provider = PlatformProviderUtils.platform(platform);
     assertThat(provider).isNotNull();
     assertThat(provider.remoteExecutionProperties())
         .containsExactlyEntriesIn(ImmutableMap.of("foo", "val1", "bar", "val2"));

@@ -20,7 +20,6 @@ import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.rules.platform.ConstraintSetting;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -58,8 +57,8 @@ public class ConstraintSettingInfoTest extends BuildViewTestCase {
 
     ConfiguredTarget setting = getConfiguredTarget("//test/platform:custom");
     assertThat(setting).isNotNull();
-    assertThat(ConstraintSetting.constraintSetting(setting)).isNotNull();
-    assertThat(ConstraintSetting.constraintSetting(setting).label())
+    assertThat(PlatformProviderUtils.constraintSetting(setting)).isNotNull();
+    assertThat(PlatformProviderUtils.constraintSetting(setting).label())
         .isEqualTo(Label.parseAbsolute("//test/platform:custom"));
   }
 }

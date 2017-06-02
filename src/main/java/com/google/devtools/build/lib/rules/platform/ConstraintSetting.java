@@ -14,18 +14,14 @@
 
 package com.google.devtools.build.lib.rules.platform;
 
-import com.google.common.base.Function;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
-import com.google.devtools.build.lib.util.Preconditions;
 
 /**
  * Defines a category of constraint that can be fulfilled by a constraint_value rule in a platform
@@ -43,28 +39,5 @@ public class ConstraintSetting implements RuleConfiguredTargetFactory {
         .addProvider(FilesToRunProvider.class, FilesToRunProvider.EMPTY)
         .addNativeDeclaredProvider(ConstraintSettingInfo.create(ruleContext.getLabel()))
         .build();
-  }
-
-  /** Retrieves and casts the provider from the given target. */
-  public static ConstraintSettingInfo constraintSetting(TransitiveInfoCollection target) {
-    Object provider = target.get(ConstraintSettingInfo.SKYLARK_IDENTIFIER);
-    if (provider == null) {
-      return null;
-    }
-    Preconditions.checkState(provider instanceof ConstraintSettingInfo);
-    return (ConstraintSettingInfo) provider;
-  }
-
-  /** Retrieves and casts the providers from the given targets. */
-  public static Iterable<ConstraintSettingInfo> constraintSettings(
-      Iterable<? extends TransitiveInfoCollection> targets) {
-    return Iterables.transform(
-        targets,
-        new Function<TransitiveInfoCollection, ConstraintSettingInfo>() {
-          @Override
-          public ConstraintSettingInfo apply(TransitiveInfoCollection target) {
-            return constraintSetting(target);
-          }
-        });
   }
 }

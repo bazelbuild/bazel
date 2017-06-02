@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.rules.platform;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
@@ -28,8 +28,6 @@ import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
-import java.util.Map;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /** Skylark value that can be used to create toolchains. */
@@ -74,27 +72,12 @@ public class SkylarkToolchainConstructor extends SkylarkClassObjectConstructor
 
     // Based on SIGNATURE above, the args are exec (list), target (list), data (map).
     Iterable<ConstraintValueInfo> execConstraints =
-        ConstraintValue.constraintValues((SkylarkList<TransitiveInfoCollection>) args[0]);
+        PlatformProviderUtils.constraintValues((SkylarkList<TransitiveInfoCollection>) args[0]);
     Iterable<ConstraintValueInfo> targetConstraints =
-        ConstraintValue.constraintValues((SkylarkList<TransitiveInfoCollection>) args[1]);
+        PlatformProviderUtils.constraintValues((SkylarkList<TransitiveInfoCollection>) args[1]);
     SkylarkDict<String, Object> toolchainData = (SkylarkDict<String, Object>) args[2];
     Location loc = ast != null ? ast.getLocation() : Location.BUILTIN;
 
     return new ToolchainInfo(getKey(), execConstraints, targetConstraints, toolchainData, loc);
-  }
-
-  private Map<String, Object> collectData(
-      SkylarkDict<String, Object> receivedArguments, Set<String> ignoredKeys) {
-
-    ImmutableMap.Builder<String, Object> builder = new ImmutableMap.Builder<>();
-    for (Map.Entry<String, Object> entry : receivedArguments.entrySet()) {
-      String key = entry.getKey();
-      Object value = entry.getValue();
-      if (!ignoredKeys.contains(key)) {
-        builder.put(key, value);
-      }
-    }
-
-    return builder.build();
   }
 }

@@ -544,6 +544,15 @@ java_library(
 )
 
 java_library(
+    name = "skylark-provider-collection",
+    srcs = ["analysis/SkylarkProviderCollection.java"],
+    deps = [
+        ":packages-internal",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "build-configuration-option-details",
     srcs = ["analysis/config/BuildConfigurationOptionDetails.java"],
     visibility = [
@@ -597,6 +606,7 @@ java_library(
         ":os_util",
         ":packages-internal",
         ":shell",
+        ":skylark-provider-collection",
         ":skylarkinterface",
         ":syntax",
         ":transitive-info-provider",

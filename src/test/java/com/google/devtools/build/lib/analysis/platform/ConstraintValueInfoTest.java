@@ -20,7 +20,6 @@ import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.rules.platform.ConstraintValue;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -73,10 +72,10 @@ public class ConstraintValueInfoTest extends BuildViewTestCase {
 
     ConfiguredTarget value = getConfiguredTarget("//test/platform:custom");
     assertThat(value).isNotNull();
-    assertThat(ConstraintValue.constraintValue(value)).isNotNull();
-    assertThat(ConstraintValue.constraintValue(value).constraint().label())
+    assertThat(PlatformProviderUtils.constraintValue(value)).isNotNull();
+    assertThat(PlatformProviderUtils.constraintValue(value).constraint().label())
         .isEqualTo(Label.parseAbsolute("//test/platform:basic"));
-    assertThat(ConstraintValue.constraintValue(value).label())
+    assertThat(PlatformProviderUtils.constraintValue(value).label())
         .isEqualTo(Label.parseAbsolute("//test/platform:custom"));
   }
 }
