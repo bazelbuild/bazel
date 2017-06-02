@@ -29,16 +29,18 @@ import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 
-/** Skylark namespace used to interact with Blaze's platform APIs. */
+/** Skylark namespace used to interact with the platform APIs. */
 @SkylarkModule(
   name = "platform_common",
-  doc = "Functions for Skylark to interact with Blaze's platform APIs."
+  doc = "Functions for Skylark to interact with the platform APIs."
 )
 public class PlatformCommon {
 
   @SkylarkCallable(
     name = PlatformInfo.SKYLARK_NAME,
-    doc = "The key used to retrieve the provider containing platform_info's value.",
+    doc =
+        "The provider constructor for PlatformInfo. The constructor takes the list of "
+            + "ConstraintValueInfo providers that defines the platform.",
     structField = true
   )
   public ClassObjectConstructor getPlatformInfoConstructor() {
@@ -47,7 +49,9 @@ public class PlatformCommon {
 
   @SkylarkCallable(
     name = ConstraintSettingInfo.SKYLARK_NAME,
-    doc = "The key used to retrieve the provider containing constraint_setting_info's value.",
+    doc =
+        "The provider constructor for ConstraintSettingInfo. The constructor takes the label that "
+            + "uniquely identifies the constraint (and which should always be ctx.label).",
     structField = true
   )
   public ClassObjectConstructor getConstraintSettingInfoConstructor() {
@@ -56,25 +60,27 @@ public class PlatformCommon {
 
   @SkylarkCallable(
     name = ConstraintValueInfo.SKYLARK_NAME,
-    doc = "The key used to retrieve the provider containing constraint_value_info's value.",
+    doc =
+        "The provider constructor for ConstraintValueInfo. The constructor takes the label that "
+            + "uniquely identifies the constraint value (and which should always be ctx.label), "
+            + "and the ConstraintSettingInfo which the value belongs to.",
     structField = true
   )
   public ClassObjectConstructor getConstraintValueInfoConstructor() {
     return ConstraintValueInfo.SKYLARK_CONSTRUCTOR;
   }
 
-  @SkylarkCallable(
-    name = ToolchainInfo.SKYLARK_NAME,
-    doc = "The key used to retrieve the provider containing toolchain data.",
-    structField = true
-  )
+  @SkylarkCallable(name = ToolchainInfo.SKYLARK_NAME, documented = false, structField = true)
   public ClassObjectConstructor getToolchainInfoConstructor() {
     return ToolchainInfo.SKYLARK_CONSTRUCTOR;
   }
 
   @SkylarkSignature(
     name = "toolchain_type",
-    doc = "",
+    doc =
+        "Creates a new ToolchainConstructor instance, which can be used to create new "
+            + "ToolchainInfo instances. The constructor takes a list of execution constraints, a "
+            + "list of target constraints, and then other data which may be used by a rule author.",
     documented = false,
     objectType = PlatformCommon.class,
     returnType = ToolchainConstructor.class,
@@ -86,8 +92,7 @@ public class PlatformCommon {
   private static final BuiltinFunction createToolchainType =
       new BuiltinFunction("toolchain_type") {
         @SuppressWarnings("unchecked")
-        public ToolchainConstructor invoke(PlatformCommon self, Location loc)
-            throws EvalException {
+        public ToolchainConstructor invoke(PlatformCommon self, Location loc) throws EvalException {
           return new SkylarkToolchainConstructor(loc);
         }
       };

@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -31,7 +32,7 @@ import com.google.devtools.build.lib.syntax.SkylarkType;
 
 /** Provider for a platform constraint value that fulfills a {@link ConstraintSettingInfo}. */
 @SkylarkModule(
-  name = "ConstraintValueProvider",
+  name = "ConstraintValueInfo",
   doc = "A value for a constraint setting that can be used to define a platform.",
   category = SkylarkModuleCategory.PROVIDER
 )
@@ -87,10 +88,22 @@ public class ConstraintValueInfo extends SkylarkClassObject {
     this.label = label;
   }
 
+  @SkylarkCallable(
+    name = "constraint",
+    doc =
+        "The <a href=\"ConstraintSettingInfo.html\">ConstraintSettingInfo</a> this value can be "
+            + "applied to.",
+    structField = true
+  )
   public ConstraintSettingInfo constraint() {
     return constraint;
   }
 
+  @SkylarkCallable(
+    name = "label",
+    doc = "The label of the target that created this constraint value.",
+    structField = true
+  )
   public Label label() {
     return label;
   }

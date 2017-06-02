@@ -100,6 +100,13 @@ public class PlatformInfo extends SkylarkClassObject {
     this.remoteExecutionProperties = remoteExecutionProperties;
   }
 
+  @SkylarkCallable(
+    name = "constraints",
+    doc =
+        "The <a href=\"ConstraintValueInfo.html\">ConstraintValueInfo</a> instances that define "
+            + "this platform.",
+    structField = true
+  )
   public ImmutableList<ConstraintValueInfo> constraints() {
     return constraints;
   }

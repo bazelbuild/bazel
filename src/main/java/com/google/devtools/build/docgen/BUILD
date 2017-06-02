@@ -21,6 +21,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/apple/swift",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/objc",
+        "//src/main/java/com/google/devtools/build/lib/rules/platform",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:apache_velocity",
         "//third_party:guava",

@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -77,6 +78,11 @@ public class ConstraintSettingInfo extends SkylarkClassObject {
     this.label = label;
   }
 
+  @SkylarkCallable(
+    name = "label",
+    doc = "The label of the target that created this constraint.",
+    structField = true
+  )
   public Label label() {
     return label;
   }
