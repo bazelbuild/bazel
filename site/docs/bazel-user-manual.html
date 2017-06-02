@@ -2418,6 +2418,13 @@ either to the terminal, or to additional log files.
   but documented for completeness' sake.
 </p>
 
+<h4 id='flag--use_action_cache'><code class='flag'>--[no]use_action_cache</code></h4>
+<p>
+    This option is enabled by default.  If disabled, Bazel will not use its local action cache.
+    Disabling the local action cache saves memory and disk space for clean builds, but will make
+    incremental builds slower.
+</p>
+
 <h2 id='bazel-releng'>Using Bazel for releases</h2>
 <p>
   Bazel is used both by software engineers during the development
