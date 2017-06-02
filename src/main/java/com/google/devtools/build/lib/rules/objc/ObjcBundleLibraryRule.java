@@ -39,7 +39,7 @@ public class ObjcBundleLibraryRule implements RuleDefinition {
         .name("objc_bundle_library")
         .factoryClass(ObjcBundleLibrary.class)
         .ancestors(BaseRuleClasses.BaseRule.class, ObjcRuleClasses.ResourcesRule.class,
-            ObjcRuleClasses.BundlingRule.class, ObjcRuleClasses.XcodegenRule.class)
+            ObjcRuleClasses.BundlingRule.class)
         .build();
   }
 }

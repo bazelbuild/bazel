@@ -59,12 +59,9 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
   }
 
   private final HasReleaseBundlingSupport hasReleaseBundlingSupport;
-  private final XcodeProductType productType;
 
-  protected BinaryLinkingTargetFactory(
-      HasReleaseBundlingSupport hasReleaseBundlingSupport, XcodeProductType productType) {
+  protected BinaryLinkingTargetFactory(HasReleaseBundlingSupport hasReleaseBundlingSupport) {
     this.hasReleaseBundlingSupport = hasReleaseBundlingSupport;
-    this.productType = productType;
   }
 
   /**
@@ -100,15 +97,11 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
             .registerCompilationActions();
 
     Optional<ObjcProvider> protosObjcProvider = protoSupport.getObjcProvider();
-    Optional<XcodeProvider> protosXcodeProvider = protoSupport.getXcodeProvider();
 
     ObjcCommon common = common(ruleContext, protosObjcProvider);
 
     ObjcProvider objcProvider = common.getObjcProvider();
     assertLibraryOrSources(objcProvider, ruleContext);
-
-    XcodeProvider.Builder xcodeProviderBuilder =
-        new XcodeProvider.Builder().addPropagatedDependencies(protosXcodeProvider.asSet());
 
     IntermediateArtifacts intermediateArtifacts =
         ObjcRuleClasses.intermediateArtifacts(ruleContext);
@@ -117,7 +110,7 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
         NestedSetBuilder.<Artifact>stableOrder()
             .add(intermediateArtifacts.strippedSingleArchitectureBinary());
 
-    new ResourceSupport(ruleContext).validateAttributes().addXcodeSettings(xcodeProviderBuilder);
+    new ResourceSupport(ruleContext).validateAttributes();
 
     ruleContext.assertNoErrors();
 
@@ -139,7 +132,6 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
 
     compilationSupport
         .validateAttributes()
-        .addXcodeSettings(xcodeProviderBuilder, common)
         .registerCompileAndArchiveActions(common)
         .registerFullyLinkAction(
             common.getObjcProvider(),
@@ -168,7 +160,6 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
                 appleConfiguration.getSingleArchPlatform());
         releaseBundlingSupport
             .registerActions(DsymOutputType.APP)
-            .addXcodeSettings(xcodeProviderBuilder)
             .addFilesToBuild(filesToBuild, Optional.of(DsymOutputType.APP))
             .validateResources()
             .validateAttributes();
@@ -188,26 +179,8 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
         throw new AssertionError();
     }
 
-    XcodeSupport xcodeSupport =
-        new XcodeSupport(ruleContext)
-            // TODO(bazel-team): Use LIBRARY_STATIC as parameter instead of APPLICATION once
-            // objc_binary no longer creates an application bundle.
-            .addXcodeSettings(xcodeProviderBuilder, objcProvider, productType)
-            .addDependencies(xcodeProviderBuilder, new Attribute("bundles", Mode.TARGET))
-            .addDependencies(xcodeProviderBuilder, new Attribute("deps", Mode.TARGET))
-            .addNonPropagatedDependencies(
-                xcodeProviderBuilder, new Attribute("non_propagated_deps", Mode.TARGET))
-            .addFilesToBuild(filesToBuild);
-
-    if (productType != XcodeProductType.LIBRARY_STATIC) {
-      xcodeSupport.generateCompanionLibXcodeTarget(xcodeProviderBuilder);
-    }
-    XcodeProvider xcodeProvider = xcodeProviderBuilder.build();
-    xcodeSupport.registerActions(xcodeProvider);
-
     RuleConfiguredTargetBuilder targetBuilder =
         ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
-            .addProvider(XcodeProvider.class, xcodeProvider)
             .addProvider(ObjcProvider.class, objcProvider)
             .addProvider(
                 InstrumentedFilesProvider.class,

@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs
 @Deprecated
 public class IosExtensionBinary extends BinaryLinkingTargetFactory {
   public IosExtensionBinary() {
-    super(HasReleaseBundlingSupport.NO, XcodeProductType.LIBRARY_STATIC);
+    super(HasReleaseBundlingSupport.NO);
   }
 
   @Override

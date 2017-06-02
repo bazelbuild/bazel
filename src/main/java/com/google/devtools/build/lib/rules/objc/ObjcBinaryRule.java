@@ -73,7 +73,6 @@ public class ObjcBinaryRule implements RuleDefinition {
         .ancestors(
             BaseRuleClasses.BaseRule.class,
             ObjcRuleClasses.LinkingRule.class,
-            ObjcRuleClasses.XcodegenRule.class,
             ObjcRuleClasses.ReleaseBundlingRule.class,
             ObjcRuleClasses.SimulatorRule.class)
         .build();

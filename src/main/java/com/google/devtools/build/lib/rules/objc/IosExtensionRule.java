@@ -65,7 +65,6 @@ public class IosExtensionRule implements RuleDefinition {
         .ancestors(
             BaseRuleClasses.BaseRule.class,
             ObjcRuleClasses.ReleaseBundlingRule.class,
-            ObjcRuleClasses.XcodegenRule.class,
             IpaRule.class)
         .build();
   }

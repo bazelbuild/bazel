@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
-import com.google.devtools.build.lib.rules.objc.XcodeProvider.Builder;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -115,18 +114,6 @@ final class BundleSupport {
       Artifact mergedPlist = bundling.getBundleInfoplist().get();
       registerMergeInfoplistAction(
           mergingContentArtifacts, PlMergeControlBytes.fromBundling(bundling, mergedPlist));
-    }
-    return this;
-  }
-
-  /**
-   * Adds any Xcode settings related to this bundle to the given provider builder.
-   *
-   * @return this bundle support
-   */
-  BundleSupport addXcodeSettings(Builder xcodeProviderBuilder) {
-    if (bundling.getBundleInfoplist().isPresent()) {
-      xcodeProviderBuilder.setBundleInfoplist(bundling.getBundleInfoplist().get());
     }
     return this;
   }

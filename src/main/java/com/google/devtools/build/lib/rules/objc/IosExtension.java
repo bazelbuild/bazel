@@ -58,9 +58,9 @@ public class IosExtension extends ReleaseBundlingTargetFactory {
           ConfigurationDistinguisher.IOS_EXTENSION);
 
   public IosExtension() {
-    super(ReleaseBundlingSupport.EXTENSION_BUNDLE_DIR_FORMAT, XcodeProductType.EXTENSION,
-        ImmutableSet.of(new Attribute("binary", Mode.SPLIT)),
-        ConfigurationDistinguisher.IOS_EXTENSION);
+    super(
+        ReleaseBundlingSupport.EXTENSION_BUNDLE_DIR_FORMAT,
+        ImmutableSet.of(new Attribute("binary", Mode.SPLIT)));
   }
 
   @Override

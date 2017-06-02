@@ -162,6 +162,7 @@ import com.google.devtools.build.lib.rules.repository.WorkspaceBaseRule;
 import com.google.devtools.build.lib.rules.test.SkylarkTestingModule;
 import com.google.devtools.build.lib.rules.test.TestSuiteRule;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
+
 import java.io.IOException;
 
 /** A rule class provider implementing the rules Bazel knows. */
@@ -585,7 +586,6 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new ObjcRuleClasses.LinkingRule(objcProtoAspect));
           builder.addRuleDefinition(new ObjcRuleClasses.MultiArchPlatformRule());
           builder.addRuleDefinition(new ObjcRuleClasses.ResourcesRule());
-          builder.addRuleDefinition(new ObjcRuleClasses.XcodegenRule());
           builder.addRuleDefinition(new ObjcRuleClasses.AlwaysLinkRule());
           builder.addRuleDefinition(new ObjcRuleClasses.SdkFrameworksDependerRule());
           builder.addRuleDefinition(new ObjcRuleClasses.CompileDependencyRule());

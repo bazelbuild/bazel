@@ -97,7 +97,6 @@ public class AppleWatch1ExtensionRule implements RuleDefinition {
         .name("apple_watch1_extension")
         .factoryClass(AppleWatch1Extension.class)
         .ancestors(BaseRuleClasses.BaseRule.class,
-            ObjcRuleClasses.XcodegenRule.class,
             ObjcRuleClasses.WatchApplicationBundleRule.class,
             ObjcRuleClasses.WatchExtensionBundleRule.class)
         .build();

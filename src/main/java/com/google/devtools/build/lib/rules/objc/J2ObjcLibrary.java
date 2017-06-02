@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.JRE_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_STATIC;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -29,7 +28,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -85,14 +83,7 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
       objcProviderBuilder.addTransitiveAndPropagate(JRE_LIBRARY, prereq.get(LIBRARY));
     }
 
-    XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
-    XcodeSupport xcodeSupport =
-        new XcodeSupport(ruleContext)
-            .addJreDependencies(xcodeProviderBuilder)
-            .addDependencies(xcodeProviderBuilder, new Attribute("deps", Mode.TARGET));
-
     ObjcProvider objcProvider = objcProviderBuilder.build();
-    xcodeSupport.addXcodeSettings(xcodeProviderBuilder, objcProvider, LIBRARY_STATIC);
 
     J2ObjcMappingFileProvider j2ObjcMappingFileProvider = J2ObjcMappingFileProvider.union(
         ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcMappingFileProvider.class));
@@ -120,7 +111,6 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
         .addProvider(J2ObjcEntryClassProvider.class, j2ObjcEntryClassProvider)
         .addProvider(J2ObjcMappingFileProvider.class, j2ObjcMappingFileProvider)
         .addProvider(ObjcProvider.class, objcProvider)
-        .addProvider(XcodeProvider.class, xcodeProviderBuilder.build())
         .build();
   }
 

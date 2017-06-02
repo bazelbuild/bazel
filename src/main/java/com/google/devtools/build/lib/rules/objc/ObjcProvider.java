@@ -132,17 +132,6 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
       new Key<>(LINK_ORDER, "force_load_library", Artifact.class);
 
   /**
-   * Libraries to pass with -force_load flags when setting the linkopts in Xcodegen. This is needed
-   * in addition to {@link #FORCE_LOAD_LIBRARY} because that one, contains a mixture of import
-   * archives (which are not built by Xcode) and built-from-source library archives (which are built
-   * by Xcode). Archives that are built by Xcode are placed directly under
-   * {@code BUILT_PRODUCTS_DIR} while those not built by Xcode appear somewhere in the Bazel
-   * workspace under {@code WORKSPACE_ROOT}.
-   */
-  public static final Key<String> FORCE_LOAD_FOR_XCODEGEN =
-      new Key<>(LINK_ORDER, "force_load_for_xcodegen", String.class);
-
-  /**
    * Contains all header files. These may be either public or private headers.
    */
   public static final Key<Artifact> HEADER = new Key<>(STABLE_ORDER, "header", Artifact.class);
@@ -463,8 +452,6 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
   static final ImmutableList<Key<?>> KEYS_NOT_IN_SKYLARK = ImmutableList.<Key<?>>of(
       // LibraryToLink not exposed to skylark.
       CC_LIBRARY,
-      // Xcodegen is deprecated.
-      FORCE_LOAD_FOR_XCODEGEN,
       // Flag enum is not exposed to skylark.
       FLAG,
       // Bundle not exposed to skylark.

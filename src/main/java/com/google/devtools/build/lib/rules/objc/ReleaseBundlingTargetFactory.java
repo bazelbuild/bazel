@@ -21,10 +21,8 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
@@ -42,28 +40,18 @@ import javax.annotation.Nullable;
 public abstract class ReleaseBundlingTargetFactory implements RuleConfiguredTargetFactory {
 
   private final String bundleDirFormat;
-  private final XcodeProductType xcodeProductType;
   private final ImmutableSet<Attribute> dependencyAttributes;
-  private final ConfigurationDistinguisher configurationDistinguisher;
 
   /**
    * @param bundleDirFormat format string representing the bundle's directory with a single
    *     placeholder for the target name (e.g. {@code "Payload/%s.app"})
    * @param dependencyAttributes all attributes that contain dependencies of this rule. Any
-   *     dependency so listed must expose {@link XcodeProvider} and {@link ObjcProvider}.
-   * @param configurationDistinguisher distinguisher used for cases where inputs from dependencies
-   *     of this bundle may need distinguishing because they come from configurations that are only
-   *     different by this value
+   *     dependency so listed must expose {@link ObjcProvider}.
    */
   public ReleaseBundlingTargetFactory(
-      String bundleDirFormat,
-      XcodeProductType xcodeProductType,
-      ImmutableSet<Attribute> dependencyAttributes,
-      ConfigurationDistinguisher configurationDistinguisher) {
+      String bundleDirFormat, ImmutableSet<Attribute> dependencyAttributes) {
     this.bundleDirFormat = bundleDirFormat;
-    this.xcodeProductType = xcodeProductType;
     this.dependencyAttributes = dependencyAttributes;
-    this.configurationDistinguisher = configurationDistinguisher;
   }
 
   @Override
@@ -76,7 +64,6 @@ public abstract class ReleaseBundlingTargetFactory implements RuleConfiguredTarg
     validateAttributes(ruleContext);
     ObjcCommon common = common(ruleContext);
 
-    XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
 
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
@@ -86,28 +73,13 @@ public abstract class ReleaseBundlingTargetFactory implements RuleConfiguredTarg
         appleConfiguration.getMultiArchPlatform(PlatformType.IOS));
     releaseBundlingSupport
         .registerActions(DsymOutputType.APP)
-        .addXcodeSettings(xcodeProviderBuilder)
         .addFilesToBuild(filesToBuild, Optional.of(DsymOutputType.APP))
         .validateResources()
         .validateAttributes();
 
-    XcodeSupport xcodeSupport = new XcodeSupport(ruleContext)
-        .addFilesToBuild(filesToBuild)
-        .addXcodeSettings(xcodeProviderBuilder, common.getObjcProvider(), xcodeProductType,
-            ruleContext.getFragment(AppleConfiguration.class).getDependencySingleArchitecture(),
-            configurationDistinguisher)
-        .addDummySource(xcodeProviderBuilder);
-
-    for (Attribute attribute : dependencyAttributes) {
-      xcodeSupport.addDependencies(xcodeProviderBuilder, attribute);
-    }
-
-    xcodeSupport.registerActions(xcodeProviderBuilder.build());
-
     RuleConfiguredTargetBuilder targetBuilder =
         ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
             .addProvider(XcTestAppProvider.class, releaseBundlingSupport.xcTestAppProvider())
-            .addProvider(XcodeProvider.class, xcodeProviderBuilder.build())
             .addProvider(
                 InstrumentedFilesProvider.class,
                 InstrumentedFilesCollector.forward(ruleContext, "binary"));

@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
-import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 
 /**
  * Contains support methods for common processing and generating of watch extension and application
@@ -48,44 +47,20 @@ final class WatchUtils {
    */
   enum WatchOSVersion {
     OS1(
-        XcodeProductType.WATCH_OS1_APPLICATION,
-        XcodeProductType.WATCH_OS1_EXTENSION,
         ReleaseBundlingSupport.APP_BUNDLE_DIR_FORMAT,
         "WatchKitSupport"),
     OS2(
-        XcodeProductType.WATCH_OS2_APPLICATION,
-        XcodeProductType.WATCH_OS2_EXTENSION,
         WATCH2_APP_BUNDLE_DIR_FORMAT,
         "WatchKitSupport2");
 
-    private final XcodeProductType applicationXcodeProductType;
-    private final XcodeProductType extensionXcodeProductType;
     private final String applicationBundleDirFormat;
     private final String watchKitSupportDirName;
 
     WatchOSVersion(
-        XcodeProductType applicationXcodeProductType,
-        XcodeProductType extensionXcodeProductType,
         String applicationBundleDirFormat,
         String watchKitSupportDirName) {
-      this.applicationXcodeProductType = applicationXcodeProductType;
-      this.extensionXcodeProductType = extensionXcodeProductType;
       this.applicationBundleDirFormat = applicationBundleDirFormat;
       this.watchKitSupportDirName = watchKitSupportDirName;
-    }
-    
-    /**
-     * Returns the {@link XcodeProductType} to be used for the watch application's Xcode target.
-     */
-    XcodeProductType getApplicationXcodeProductType() {
-      return applicationXcodeProductType;
-    }
-
-    /**
-     * Returns the {@link XcodeProductType} to be used for the watch extension's Xcode target.
-     */
-    XcodeProductType getExtensionXcodeProductType() {
-      return extensionXcodeProductType;
     }
 
     /** Returns the bundle directory format of the watch application relative to its container. */
@@ -111,15 +86,6 @@ final class WatchUtils {
   static final DottedVersion MINIMUM_OS_VERSION = DottedVersion.fromString("8.2");
 
   /**
-   * Adds common xcode build settings required for watch bundles to the given xcode provider
-   * builder.
-   */
-  static void addXcodeSettings(RuleContext ruleContext,
-      XcodeProvider.Builder xcodeProviderBuilder) {
-    xcodeProviderBuilder.addMainTargetXcodeprojBuildSettings(xcodeSettings(ruleContext));
-  }
-
-  /**
    * Watch Extension are not accepted by Apple below iOS version 8.2. While applications built with
    * a minimum iOS version of less than 8.2 may contain watch extension in their bundle, the
    * extension itself needs to be built with 8.2 or higher. This logic overrides (if necessary)
@@ -130,10 +96,6 @@ final class WatchUtils {
     return Ordering.natural().max(fromFlag, MINIMUM_OS_VERSION);
   }
 
-  static boolean isBuildingForWatchOS1Version(WatchOSVersion watchOSVersion) {
-    return watchOSVersion == WatchOSVersion.OS1;
-  }
- 
   /**
    * Adds WatchKitSupport stub to the final ipa and exposes it to given @{link ObjcProvider.Builder}
    * based on watch OS version.
@@ -183,22 +145,5 @@ final class WatchUtils {
   private static Artifact watchSupportZip(RuleContext ruleContext) {
     return ruleContext.getRelatedArtifact(
         ruleContext.getUniqueDirectory("_watch"), "/WatchKitSupport.zip");
-  }
-
-  private static Iterable<XcodeprojBuildSetting> xcodeSettings(RuleContext ruleContext) {
-    ImmutableList.Builder<XcodeprojBuildSetting> xcodeSettings = new ImmutableList.Builder<>();
-    xcodeSettings.add(
-        XcodeprojBuildSetting.newBuilder()
-            .setName("RESOURCES_TARGETED_DEVICE_FAMILY")
-            .setValue(TargetDeviceFamily.WATCH.getNameInRule())
-            .build());
-    xcodeSettings.add(
-        XcodeprojBuildSetting.newBuilder()
-            .setName("IPHONEOS_DEPLOYMENT_TARGET")
-            .setValue(determineMinimumIosVersion(
-                ruleContext.getFragment(AppleConfiguration.class)
-                    .getMinimumOsForPlatformType(PlatformType.IOS)).toString())
-            .build());
-    return xcodeSettings.build();
   }
 }

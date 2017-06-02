@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_STATIC;
-
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -64,7 +62,6 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
 
     ObjcCommon common = common(ruleContext);
 
-    XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.<Artifact>stableOrder()
         .addAll(common.getCompiledArchive().asSet());
 
@@ -81,21 +78,9 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         .registerFullyLinkAction(
             common.getObjcProvider(),
             ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB))
-        .addXcodeSettings(xcodeProviderBuilder, common)
         .validateAttributes();
-    
-    new ResourceSupport(ruleContext)
-        .validateAttributes()
-        .addXcodeSettings(xcodeProviderBuilder);
-    
-    new XcodeSupport(ruleContext)
-        .addFilesToBuild(filesToBuild)
-        .addXcodeSettings(xcodeProviderBuilder, common.getObjcProvider(), LIBRARY_STATIC)
-        .addDependencies(xcodeProviderBuilder, new Attribute("bundles", Mode.TARGET))
-        .addDependencies(xcodeProviderBuilder, new Attribute("deps", Mode.TARGET))
-        .addNonPropagatedDependencies(
-            xcodeProviderBuilder, new Attribute("non_propagated_deps", Mode.TARGET))
-        .registerActions(xcodeProviderBuilder.build());
+
+    new ResourceSupport(ruleContext).validateAttributes();
 
     J2ObjcMappingFileProvider j2ObjcMappingFileProvider = J2ObjcMappingFileProvider.union(
             ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcMappingFileProvider.class));
@@ -104,7 +89,6 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
           J2ObjcEntryClassProvider.class)).build();
 
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
-        .addProvider(XcodeProvider.class, xcodeProviderBuilder.build())
         .addProvider(ObjcProvider.class, common.getObjcProvider())
         .addProvider(J2ObjcEntryClassProvider.class, j2ObjcEntryClassProvider)
         .addProvider(J2ObjcMappingFileProvider.class, j2ObjcMappingFileProvider)

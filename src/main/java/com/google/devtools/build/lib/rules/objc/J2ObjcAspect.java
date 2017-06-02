@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
-import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_STATIC;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Joiner;
@@ -253,21 +252,12 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       throws InterruptedException {
     ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(this, parameters, ruleContext);
     ObjcCommon common;
-    XcodeProvider xcodeProvider;
 
     if (!Iterables.isEmpty(j2ObjcSource.getObjcSrcs())) {
       common =
           common(
               ruleContext,
               j2ObjcSource.getObjcSrcs(),
-              j2ObjcSource.getObjcHdrs(),
-              j2ObjcSource.getHeaderSearchPaths(),
-              depAttributes);
-
-      xcodeProvider =
-          xcodeProvider(
-              ruleContext,
-              common,
               j2ObjcSource.getObjcHdrs(),
               j2ObjcSource.getHeaderSearchPaths(),
               depAttributes);
@@ -307,20 +297,12 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
               ImmutableList.<Artifact>of(),
               ImmutableList.<PathFragment>of(),
               depAttributes);
-      xcodeProvider =
-          xcodeProvider(
-              ruleContext,
-              common,
-              ImmutableList.<Artifact>of(),
-              ImmutableList.<PathFragment>of(),
-              depAttributes);
     }
 
     return builder
         .addProvider(
             exportedJ2ObjcMappingFileProvider(base, ruleContext, directJ2ObjcMappingFileProvider))
         .addProvider(common.getObjcProvider())
-        .addProvider(xcodeProvider)
         .build();
   }
 
@@ -831,37 +813,5 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         .addIncludes(headerSearchPaths)
         .setIntermediateArtifacts(intermediateArtifacts)
         .build();
-  }
-
-  /**
-   * Sets up and returns an {@link XcodeProvider} object containing the J2ObjC-translated code.
-   *
-   */
-  static XcodeProvider xcodeProvider(RuleContext ruleContext, ObjcCommon common,
-      Iterable<Artifact> transpiledHeaders, Iterable<PathFragment> headerSearchPaths,
-      Iterable<Attribute> dependentAttributes) {
-    XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
-    XcodeSupport xcodeSupport = new XcodeSupport(ruleContext);
-    xcodeSupport.addXcodeSettings(xcodeProviderBuilder, common.getObjcProvider(), LIBRARY_STATIC);
-
-    for (Attribute dependentAttribute : dependentAttributes) {
-      if (ruleContext.attributes().has(dependentAttribute.getName(), BuildType.LABEL_LIST)
-          || ruleContext.attributes().has(dependentAttribute.getName(), BuildType.LABEL)) {
-        xcodeSupport.addDependencies(xcodeProviderBuilder, dependentAttribute);
-      }
-    }
-
-    if (!Iterables.isEmpty(transpiledHeaders)) {
-      xcodeProviderBuilder
-          .addUserHeaderSearchPaths(headerSearchPaths)
-          .addCopts(ruleContext.getFragment(ObjcConfiguration.class).getCopts())
-          .addHeaders(transpiledHeaders);
-    }
-
-    if (common.getCompilationArtifacts().isPresent()) {
-      xcodeProviderBuilder.setCompilationArtifacts(common.getCompilationArtifacts().get());
-    }
-
-    return xcodeProviderBuilder.build();
   }
 }

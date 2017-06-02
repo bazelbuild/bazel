@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.objc;
 
 
-import com.google.common.base.Optional;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -23,7 +22,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 
@@ -68,15 +66,8 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
             .registerGenerationActions()
             .addFilesToBuild(filesToBuild);
 
-    Optional<XcodeProvider> xcodeProvider = protoSupport.getXcodeProvider();
-
-    new XcodeSupport(ruleContext)
-        .registerActions(xcodeProvider.get())
-        .addFilesToBuild(filesToBuild);
-
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
         .addProvider(ObjcProvider.class, protoSupport.getObjcProvider().get())
-        .addProvider(XcodeProvider.class, xcodeProvider.get())
         .build();
   }
 
@@ -117,13 +108,8 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
             .registerCompilationActions()
             .addFilesToBuild(filesToBuild);
 
-    XcodeProvider xcodeProvider = protoSupport.getXcodeProvider();
-
-    new XcodeSupport(ruleContext).registerActions(xcodeProvider).addFilesToBuild(filesToBuild);
-
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
         .addProvider(ObjcProvider.class, protoSupport.getObjcProvider())
-        .addProvider(XcodeProvider.class, xcodeProvider)
         .build();
   }
 }

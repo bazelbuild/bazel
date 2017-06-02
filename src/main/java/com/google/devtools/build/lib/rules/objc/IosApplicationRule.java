@@ -86,7 +86,6 @@ public class IosApplicationRule implements RuleDefinition {
         .ancestors(
             BaseRuleClasses.BaseRule.class,
             ObjcRuleClasses.ReleaseBundlingRule.class,
-            ObjcRuleClasses.XcodegenRule.class,
             ObjcRuleClasses.SimulatorRule.class,
             IpaRule.class)
         .build();

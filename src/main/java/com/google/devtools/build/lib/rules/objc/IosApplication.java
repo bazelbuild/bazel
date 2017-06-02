@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag;
@@ -54,8 +53,7 @@ public class IosApplication extends ReleaseBundlingTargetFactory {
           new Attribute("extensions", Mode.TARGET));
 
   public IosApplication() {
-    super(ReleaseBundlingSupport.APP_BUNDLE_DIR_FORMAT, XcodeProductType.APPLICATION,
-        DEPENDENCY_ATTRIBUTES, ConfigurationDistinguisher.IOS_APPLICATION);
+    super(ReleaseBundlingSupport.APP_BUNDLE_DIR_FORMAT, DEPENDENCY_ATTRIBUTES);
   }
   
   /**

@@ -531,28 +531,6 @@ public class ObjcRuleClasses {
   }
 
   /**
-   * Common attributes for {@code objc_*} rules that export an xcode project.
-   */
-  public static class XcodegenRule implements RuleDefinition {
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .add(attr("$xcodegen", LABEL).cfg(HOST).exec()
-              .value(env.getToolsLabel("//tools/objc:xcodegen")))
-          .add(attr("$dummy_source", LABEL)
-              .value(env.getToolsLabel("//tools/objc:objc_dummy.mm")))
-          .build();
-    }
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("$objc_xcodegen_rule")
-          .type(RuleClassType.ABSTRACT)
-          .build();
-    }
-  }
-
-  /**
    * Common attributes for {@code objc_*} rules that depend on a crosstool.
    */
   public static class CrosstoolRule implements RuleDefinition {

@@ -44,8 +44,7 @@ public class IosExtensionBinaryRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("ios_extension_binary")
         .factoryClass(IosExtensionBinary.class)
-        .ancestors(BaseRuleClasses.BaseRule.class, ObjcRuleClasses.LinkingRule.class,
-            ObjcRuleClasses.XcodegenRule.class)
+        .ancestors(BaseRuleClasses.BaseRule.class, ObjcRuleClasses.LinkingRule.class)
         .build();
   }
 }

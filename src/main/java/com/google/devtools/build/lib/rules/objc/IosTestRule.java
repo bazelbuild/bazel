@@ -173,7 +173,6 @@ public class IosTestRule implements RuleDefinition {
             BaseRuleClasses.TestBaseRule.class,
             ObjcRuleClasses.ReleaseBundlingRule.class,
             ObjcRuleClasses.LinkingRule.class,
-            ObjcRuleClasses.XcodegenRule.class,
             ObjcRuleClasses.SimulatorRule.class)
         .factoryClass(IosTest.class)
         .build();
