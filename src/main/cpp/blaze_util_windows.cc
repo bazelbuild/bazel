@@ -447,11 +447,6 @@ static void CreateCommandLine(CmdLine* result, const string& exe,
       cmdline << '\"';
     }
 
-    // TODO(bazel-team): get rid of the code to append character by character,
-    // because each time a new buffer is allocated and the old one copied, so
-    // this means N allocations (of O(N) size each) and N copies.
-    // If possible, get rid of the whole CreateCommandLine method and do the
-    // logic on the caller side.
     std::string::const_iterator it = s.begin();
     while (it != s.end()) {
       char ch = *it++;
@@ -497,7 +492,6 @@ static void CreateCommandLine(CmdLine* result, const string& exe,
 }  // namespace
 
 string GetJvmVersion(const string& java_exe) {
-  // TODO(bazel-team): implement IPipe for Windows and use that here.
   HANDLE pipe_read, pipe_write;
 
   SECURITY_ATTRIBUTES sa = {sizeof(SECURITY_ATTRIBUTES), NULL, TRUE};
@@ -634,17 +628,12 @@ static HANDLE CreateJvmOutputFile(const wstring& path,
     HANDLE handle = ::CreateFileW(
         /* lpFileName */ path.c_str(),
         /* dwDesiredAccess */ GENERIC_READ | GENERIC_WRITE,
-        // TODO(laszlocsomor): add FILE_SHARE_DELETE, that allows deleting
-        // jvm.out and maybe fixes
-        // https://github.com/bazelbuild/bazel/issues/2326 . Unfortunately
-        // however if a file that we opened with FILE_SHARE_DELETE is deleted
-        // while its still open, write operations will still succeed but have no
-        // effect, the file won't be recreated. (I haven't tried what happens
-        // with read operations.)
-        //
-        // FILE_SHARE_READ: So that the file can be read while the server is
-        // running
-        /* dwShareMode */ FILE_SHARE_READ,
+        // Share for reading and also for deletion, so `bazel clean
+        // --expunge/--expunge_async` can delete this file while the JVM holds
+        // an open file descriptor to it (via stdout). Although subsequent
+        // writes would not recreate the file after it's deleted, this is fine
+        // because --expunge/--expunge_async shut down the Bazel server.
+        /* dwShareMode */ FILE_SHARE_READ | FILE_SHARE_DELETE,
         /* lpSecurityAttributes */ sa,
         /* dwCreationDisposition */ CREATE_ALWAYS,
         /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
