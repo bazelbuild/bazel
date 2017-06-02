@@ -1004,27 +1004,19 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
 
       ImmutableMap.Builder<String, Object> skylarkFields = new ImmutableMap.Builder<>();
       for (Key<?> key : KEYS_FOR_SKYLARK) {
-        if (propagated.containsKey(key) && strictDependency.containsKey(key)) {
-          NestedSet<?> union = new NestedSetBuilder(STABLE_ORDER)
-              .addTransitive(propagated.get(key))
-              .addTransitive(strictDependency.get(key))
-              .build();
-          skylarkFields.put(
-              key.getSkylarkKeyName(), ObjcProviderSkylarkConverters.convertToSkylark(key, union));
-        } else if (items.containsKey(key)) {
-          skylarkFields.put(
-              key.getSkylarkKeyName(),
-              ObjcProviderSkylarkConverters.convertToSkylark(key, propagated.get(key)));
-        } else if (strictDependency.containsKey(key)) {
-          skylarkFields.put(
-              key.getSkylarkKeyName(),
-              ObjcProviderSkylarkConverters.convertToSkylark(key, strictDependency.get(key)));
-        } else {
-          skylarkFields.put(
-              key.getSkylarkKeyName(),
-              ObjcProviderSkylarkConverters.convertToSkylark(
-                  key, new NestedSetBuilder(STABLE_ORDER).build()));
+        NestedSetBuilder union = new NestedSetBuilder(key.order);
+        if (propagated.containsKey(key)) {
+          union.addTransitive((NestedSet<?>) propagated.get(key));
         }
+        if (strictDependency.containsKey(key)) {
+          union.addTransitive(strictDependency.get(key));
+        }
+        if (nonPropagated.containsKey(key)) {
+          union.addTransitive(nonPropagated.get(key));
+        }
+        skylarkFields.put(
+            key.getSkylarkKeyName(),
+            ObjcProviderSkylarkConverters.convertToSkylark(key, union.build()));
       }
 
       return new ObjcProvider(propagated, nonPropagated, strictDependency, skylarkFields.build());
