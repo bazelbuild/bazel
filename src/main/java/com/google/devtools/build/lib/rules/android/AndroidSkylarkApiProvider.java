@@ -108,6 +108,15 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider {
   }
 
   @SkylarkCallable(
+    name = "resource_apk",
+    structField = true,
+    doc = "Returns the resources container for the target."
+  )
+  public Artifact getResourceApk() {
+    return getIdeInfoProvider().getResourceApk();
+  }
+
+  @SkylarkCallable(
       name = "apks_under_test",
       structField = true,
       allowReturnNones = true,

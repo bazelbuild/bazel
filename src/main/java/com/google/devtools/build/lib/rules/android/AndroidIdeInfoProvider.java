@@ -128,6 +128,7 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
     private Artifact manifest = null;
     private Artifact generatedManifest = null;
     private Artifact apk = null;
+    private Artifact resourceApk = null;
     private Artifact idlClassJar = null;
     private Artifact idlSourceJar = null;
     private OutputJar resourceJar = null;
@@ -163,7 +164,8 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
           ImmutableList.copyOf(apksUnderTest),
           nativeLibs != null
               ? ImmutableMap.copyOf(nativeLibs)
-              : ImmutableMap.<String, NestedSet<Artifact>>of());
+              : ImmutableMap.<String, NestedSet<Artifact>>of(),
+          resourceApk);
     }
 
     public Builder setJavaPackage(String javaPackage) {
@@ -208,6 +210,11 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
 
     public Builder setResourceJar(OutputJar resourceJar) {
       this.resourceJar = resourceJar;
+      return this;
+    }
+
+    public Builder setResourceApk(Artifact resourceApk) {
+      this.resourceApk = resourceApk;
       return this;
     }
 
@@ -314,6 +321,7 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
   @Nullable private final Artifact idlClassJar;
   @Nullable private final Artifact idlSourceJar;
   @Nullable private final OutputJar resourceJar;
+  @Nullable private final Artifact resourceApk;
   private final ImmutableCollection<SourceDirectory> resourceDirs;
   private final boolean definesAndroidResources;
   private final Artifact aar;
@@ -341,7 +349,8 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
       ImmutableCollection<Artifact> idlSrcs,
       ImmutableCollection<Artifact> idlGeneratedJavaFiles,
       ImmutableCollection<Artifact> apksUnderTest,
-      ImmutableMap<String, NestedSet<Artifact>> nativeLibs) {
+      ImmutableMap<String, NestedSet<Artifact>> nativeLibs,
+      Artifact resourceApk) {
     this.javaPackage = javaPackage;
     this.idlImportRoot = idlImportRoot;
     this.manifest = manifest;
@@ -359,6 +368,7 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
     this.idlGeneratedJavaFiles = idlGeneratedJavaFiles;
     this.apksUnderTest = apksUnderTest;
     this.nativeLibs = nativeLibs;
+    this.resourceApk = resourceApk;
   }
 
   /** Returns java package for this target. */
@@ -415,6 +425,11 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
   @Nullable
   public Artifact getAar() {
     return aar;
+  }
+
+  @Nullable
+  public Artifact getResourceApk() {
+    return resourceApk;
   }
 
   /** A list of the direct Resource directories. */

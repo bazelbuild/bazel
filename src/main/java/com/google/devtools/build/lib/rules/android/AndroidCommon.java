@@ -282,7 +282,8 @@ public class AndroidCommon {
           // Sets the possibly merged manifest and the raw manifest.
           .setGeneratedManifest(resourceApk.getPrimaryResource().getManifest())
           .setManifest(ruleContext.getPrerequisiteArtifact("manifest", Mode.TARGET))
-          .setJavaPackage(getJavaPackage(ruleContext));
+          .setJavaPackage(getJavaPackage(ruleContext))
+          .setResourceApk(resourceApk.getArtifact());
     } else {
       semantics.addNonLocalResources(ruleContext, resourceApk, ideInfoProviderBuilder);
     }
