@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.apple;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
@@ -51,8 +52,7 @@ public class XcodeVersionRuleData {
         attrMapper.get(XcodeVersionRule.DEFAULT_WATCHOS_SDK_VERSION_ATTR_NAME, Type.STRING);
     String tvosSdkVersionString =
         attrMapper.get(XcodeVersionRule.DEFAULT_TVOS_SDK_VERSION_ATTR_NAME, Type.STRING);
-    String macosxSdkVersionString =
-        attrMapper.get(XcodeVersionRule.DEFAULT_MACOSX_SDK_VERSION_ATTR_NAME, Type.STRING);
+    String macosxSdkVersionString = getMacosSdkVersionString(attrMapper);
     this.version = xcodeVersion;
     this.xcodeVersionProperties = new XcodeVersionProperties(xcodeVersion, iosSdkVersionString,
         watchosSdkVersionString, tvosSdkVersionString, macosxSdkVersionString);
@@ -86,5 +86,16 @@ public class XcodeVersionRuleData {
    */
   public List<String> getAliases() {
     return aliases;
+  }
+  
+  private static String getMacosSdkVersionString(NonconfigurableAttributeMapper attrMapper) {
+    String versionAttr =
+        attrMapper.get(XcodeVersionRule.DEFAULT_MACOS_SDK_VERSION_ATTR_NAME, Type.STRING);
+    if (Strings.isNullOrEmpty(versionAttr)) {
+      return attrMapper.get(XcodeVersionRule.DEPRECATED_DEFAULT_MACOSX_SDK_VERSION_ATTR_NAME,
+          Type.STRING);
+    } else {
+      return versionAttr;
+    }
   }
 }
