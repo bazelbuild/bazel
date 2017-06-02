@@ -207,6 +207,18 @@ public final class BuildConfiguration implements BuildEvent {
     }
 
     /**
+     * Returns the transition that produces the "artifact owner" for this configuration, or null
+     * if this configuration is its own owner.
+     *
+     * <p>If multiple fragments return the same transition, that transition is only applied
+     * once. Multiple fragments may not return different non-null transitions.
+     */
+    @Nullable
+    public PatchTransition getArtifactOwnerTransition() {
+      return null;
+    }
+
+    /**
      * Returns an extra transition that should apply to top-level targets in this
      * configuration. Returns null if no transition is needed.
      *
@@ -1997,16 +2009,21 @@ public final class BuildConfiguration implements BuildEvent {
           if (currentTransition == ConfigurationTransition.NONE) {
             currentTransition = ruleClassTransition;
           } else {
-            currentTransition = new ComposingSplitTransition(ruleClassTransition,
-                currentTransition);
+            currentTransition = new ComposingSplitTransition(currentTransition,
+                ruleClassTransition);
           }
         }
       }
 
-      // We don't support rule class configurators (which may need intermediate configurations to
-      // apply). The only current use of that is LIPO, which can't currently be invoked with dynamic
-      // configurations (e.g. this code can never get called for LIPO builds). So check that
-      // if there is a configurator, it's for LIPO, in which case we can ignore it.
+      /**
+       * Dynamic configurations don't support rule class configurators (which may need intermediate
+       * configurations to apply). The only current use of that is LIPO, which dynamic
+       * configurations have a different code path for:
+       * {@link com.google.devtools.build.lib.rules.cpp.CppRuleClasses.LIPO_ON_DEMAND}.
+       *
+       * So just check that if there is a configurator, it's for LIPO, in which case we can ignore
+       * it.
+       */
       if (associatedRule != null) {
         @SuppressWarnings("unchecked")
         RuleClass.Configurator<?, ?> func =
@@ -2646,15 +2663,38 @@ public final class BuildConfiguration implements BuildEvent {
   }
 
   /**
+   * Returns the transition that produces the "artifact owner" for this configuration, or null
+   * if this configuration is its own owner.
+   *
+   * <p>This is the dynamic configuration version of {@link #getArtifactOwnerConfiguration}.
+   */
+  @Nullable
+  public PatchTransition getArtifactOwnerTransition() {
+    Preconditions.checkState(useDynamicConfigurations());
+    PatchTransition ownerTransition = null;
+    for (Fragment fragment : fragments.values()) {
+      PatchTransition fragmentTransition = fragment.getArtifactOwnerTransition();
+      if (fragmentTransition != null) {
+        if (ownerTransition != null) {
+          Verify.verify(ownerTransition == fragmentTransition,
+              String.format(
+                  "cannot determine owner transition: fragments returning both %s and %s",
+                  ownerTransition.toString(), fragmentTransition.toString()));
+        }
+        ownerTransition = fragmentTransition;
+      }
+    }
+    return ownerTransition;
+  }
+
+  /**
    * See {@code BuildConfigurationCollection.Transitions.getArtifactOwnerConfiguration()}.
+   *
+   * <p>This is the static configuration version of {@link #getArtifactOwnerTransition}.
    */
   public BuildConfiguration getArtifactOwnerConfiguration() {
-    // Dynamic configurations inherit transitions objects from other configurations exclusively
-    // for use of Transitions.getDynamicTransition. No other calls to transitions should be
-    // made for dynamic configurations.
-    // TODO(bazel-team): enforce the above automatically (without having to explicitly check
-    // for dynamic configuration mode).
-    return useDynamicConfigurations() ? this : transitions.getArtifactOwnerConfiguration();
+    Preconditions.checkState(!useDynamicConfigurations());
+    return transitions.getArtifactOwnerConfiguration();
   }
 
   /**

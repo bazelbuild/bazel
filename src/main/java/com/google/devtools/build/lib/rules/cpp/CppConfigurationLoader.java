@@ -75,14 +75,7 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
     if (params == null) {
       return null;
     }
-    CppConfiguration cppConfig = new CppConfiguration(params);
-    if (options.get(BuildConfiguration.Options.class).useDynamicConfigurations
-        != BuildConfiguration.Options.DynamicConfigsMode.OFF
-        && (cppConfig.isFdo() || cppConfig.getLipoMode() != CrosstoolConfig.LipoMode.OFF)) {
-      throw new InvalidConfigurationException(
-          "LIPO does not currently work with dynamic configurations");
-    }
-    return cppConfig;
+    return new CppConfiguration(params);
   }
 
   /**

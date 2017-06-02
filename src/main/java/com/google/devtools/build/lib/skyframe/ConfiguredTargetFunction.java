@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.AspectCollection.AspectDeps;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
@@ -1073,7 +1074,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
     boolean failed = false;
     Iterable<SkyKey> depKeys = Iterables.transform(deps, TO_KEYS);
     Map<SkyKey, ValueOrException<ConfiguredValueCreationException>> depValuesOrExceptions =
-        env.getValuesOrThrow(depKeys, ConfiguredValueCreationException.class);
+            env.getValuesOrThrow(depKeys, ConfiguredValueCreationException.class);
     Map<SkyKey, ConfiguredTarget> result =
         Maps.newHashMapWithExpectedSize(depValuesOrExceptions.size());
     for (Map.Entry<SkyKey, ValueOrException<ConfiguredValueCreationException>> entry
@@ -1119,8 +1120,11 @@ final class ConfiguredTargetFunction implements SkyFunction {
       NestedSetBuilder<Package> transitivePackages)
       throws ConfiguredTargetFunctionException, InterruptedException {
     StoredEventHandler events = new StoredEventHandler();
-    BuildConfiguration ownerConfig = (configuration == null)
-        ? null : configuration.getArtifactOwnerConfiguration();
+    BuildConfiguration ownerConfig =
+        ConfiguredTargetFactory.getArtifactOwnerConfiguration(env, configuration);
+    if (env.valuesMissing()) {
+      return null;
+    }
     CachingAnalysisEnvironment analysisEnvironment = view.createAnalysisEnvironment(
         new ConfiguredTargetKey(target.getLabel(), ownerConfig), false,
         events, env, configuration);

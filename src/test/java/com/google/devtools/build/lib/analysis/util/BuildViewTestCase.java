@@ -1465,12 +1465,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return Iterables.getOnlyElement(masterConfig.getTargetConfigurations());
   }
 
-  protected BuildConfiguration getDataConfiguration() {
-    BuildConfiguration targetConfig = getTargetConfiguration();
-    // TODO(bazel-team): do a proper data transition for dynamic configurations.
-    return targetConfig.useDynamicConfigurations()
-        ? targetConfig
-        : targetConfig.getConfiguration(ConfigurationTransition.DATA);
+  protected BuildConfiguration getDataConfiguration() throws InterruptedException {
+    return getConfiguration(getTargetConfiguration(), ConfigurationTransition.DATA);
   }
 
   protected BuildConfiguration getHostConfiguration() {
@@ -1500,7 +1496,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Returns an attribute value retriever for the given rule for the target configuration.
-
    */
   protected AttributeMap attributes(RuleConfiguredTarget ct) {
     return ConfiguredAttributeMapper.of(ct);
