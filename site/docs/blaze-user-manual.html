@@ -1107,15 +1107,12 @@ $ bazel fetch //...
   The <code class='flag'>--output_filter</code> option will only show build and compilation
   warnings for targets that match the regular expression. If a target does not
   match the given regular expression and its execution succeeds, its standard
-  output and standard error are thrown away. This option is intended to be used
-  to help focus efforts on fixing warnings in packages under development. Here
-  are some typical values for this option:
+  output and standard error are thrown away.
+</p>
+<p>
+  Here are some typical values for this option:
 </p>
 <table>
-  <tr>
-    <td><code class='flag'>--output_filter=</code></td>
-    <td>Show all output.</td>
-  </tr>
   <tr>
     <td><code class='flag'>--output_filter='^//(first/project|second/project):'</code></td>
     <td>Show the output for the specified packages.</td>
@@ -1125,8 +1122,14 @@ $ bazel fetch //...
     <td>Don't show output for the specified packages.</td>
   </tr>
   <tr>
+    <td><code class='flag'>--output_filter=</code></td>
+    <td>Show everthing.
+    </td>
+  </tr>
+  <tr>
     <td><code class='flag'>--output_filter=DONT_MATCH_ANYTHING</code></td>
-    <td>Don't show output.</td>
+    <td>Show nothing.
+    </td>
   </tr>
 </table>
 
