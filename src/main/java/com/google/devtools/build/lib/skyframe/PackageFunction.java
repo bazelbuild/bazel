@@ -1155,8 +1155,9 @@ public class PackageFunction implements SkyFunction {
             } catch (IOException e) {
               // Note that we did this work, so we should conservatively report this error as
               // transient.
-              throw new PackageFunctionException(new BuildFileContainsErrorsException(
-                  packageId, e.getMessage()), Transience.TRANSIENT);
+              throw new PackageFunctionException(
+                  new BuildFileContainsErrorsException(packageId, e.getMessage(), e),
+                  Transience.TRANSIENT);
             }
           } else {
             input = ParserInputSource.create(replacementContents, buildFilePath.asFragment());
