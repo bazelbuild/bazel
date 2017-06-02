@@ -459,4 +459,13 @@ public final class Converters {
     }
   }
 
+  /**
+   * A converter to check whether an integer denoting a percentage is in a valid range: [0, 100].
+   */
+  public static class PercentageConverter extends RangeConverter {
+    public PercentageConverter() {
+      super(0, 100);
+    }
+  }
+
 }
