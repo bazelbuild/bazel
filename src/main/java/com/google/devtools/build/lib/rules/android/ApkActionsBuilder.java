@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
@@ -28,7 +27,6 @@ import com.google.devtools.build.lib.rules.java.Jvm;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Map;
 
 /**
  * A class for coordinating APK building, signing and zipaligning.
@@ -246,14 +244,11 @@ public class ApkActionsBuilder {
    * Registers generating actions for {@code outApk} that build an unsigned APK using SingleJar.
    */
   private void buildApk(RuleContext ruleContext, Artifact outApk, String message) {
-    Map<String, String> executionInfo = ImmutableMap.of("supports-workers", "1");
-
     Artifact compressedApk =
         AndroidBinary.getDxArtifact(ruleContext, "compressed_" + outApk.getFilename());
     SpawnAction.Builder compressedApkActionBuilder = new SpawnAction.Builder()
         .setMnemonic("ApkBuilder")
         .setProgressMessage(message)
-        .setExecutionInfo(executionInfo)
         .addArgument("--exclude_build_data")
         .addArgument("--compression")
         .addArgument("--normalize")
@@ -302,7 +297,6 @@ public class ApkActionsBuilder {
     SpawnAction.Builder singleJarActionBuilder = new SpawnAction.Builder()
         .setMnemonic("ApkBuilder")
         .setProgressMessage(message)
-        .setExecutionInfo(executionInfo)
         .addArgument("--exclude_build_data")
         .addArgument("--dont_change_compression")
         .addArgument("--normalize")
