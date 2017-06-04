@@ -186,10 +186,10 @@ static void MountFilesystems() {
 
   for (const std::string &writable_file : opt.writable_files) {
     PRINT_DEBUG("writable: %s", writable_file.c_str());
-    if (mount(writable_file.c_str(), writable_file.c_str(), nullptr, MS_BIND,
-              nullptr) < 0) {
-      DIE("mount(%s, %s, nullptr, MS_BIND, nullptr)", writable_file.c_str(),
-          writable_file.c_str());
+    if (mount(writable_file.c_str(), writable_file.c_str(), nullptr,
+              MS_BIND | MS_REC, nullptr) < 0) {
+      DIE("mount(%s, %s, nullptr, MS_BIND | MS_REC, nullptr)",
+          writable_file.c_str(), writable_file.c_str());
     }
   }
 }
