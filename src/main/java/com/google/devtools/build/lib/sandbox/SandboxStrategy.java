@@ -201,6 +201,12 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
       // needed directory if it doesn't exist yet.
       writablePaths.add(sandboxExecRoot.getRelative(env.get("TEST_TMPDIR")));
     }
+
+    FileSystem fileSystem = sandboxExecRoot.getFileSystem();
+    for (String writablePath : sandboxOptions.sandboxWritablePath) {
+      writablePaths.add(fileSystem.getPath(writablePath));
+    }
+
     return writablePaths.build();
   }
 
