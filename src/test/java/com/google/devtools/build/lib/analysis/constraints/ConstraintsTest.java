@@ -1266,5 +1266,49 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         + "\nenvironment group: //buildenv/bar:bar:\n"
         + " environment: //buildenv/bar:c removed by: //hello:lib (/workspace/hello/BUILD:9:1)");
   }
-}
 
+  private void writeRulesForRefiningSubsetTests(String topLevelRestrictedTo) throws Exception {
+    new EnvironmentGroupMaker("buildenv/foo")
+        .setEnvironments("a", "b", "all")
+        .setFulfills("all", "a")
+        .setFulfills("all", "b")
+        .setDefaults()
+        .make();
+    scratch.file("hello/BUILD",
+        "cc_library(",
+        "    name = 'lib',",
+        "    srcs = [],",
+        "    deps = [':dep1'],",
+        "    restricted_to = ['//buildenv/foo:" + topLevelRestrictedTo + "'])",
+        "cc_library(",
+        "    name = 'dep1',",
+        "    srcs = [],",
+        // This is technically illegal because "dep1" declares support for both "a" and "b" but
+        // no dependency under the select can provide "b". This is known as "static select
+        // constraint checking" and is currently an unimplemented Bazel TODO.
+        "    deps = select({",
+        "        '//config:a': [':dep2'],",
+        "        '//conditions:default': [':dep2'],",
+        "    }),",
+        "    restricted_to = ['//buildenv/foo:all'])",
+        "cc_library(",
+        "    name = 'dep2',",
+        "    srcs = [],",
+        "    compatible_with = ['//buildenv/foo:a'])");
+  }
+
+  @Test
+  public void refiningReplacesRemovedEnvironmentWithValidFulfillingSubset() throws Exception {
+    writeRulesForRefiningSubsetTests("a");
+    assertThat(getConfiguredTarget("//hello:lib")).isNotNull();
+  }
+
+  @Test
+  public void refiningReplacesRemovedEnvironmentWithInvalidFulfillingSubset() throws Exception {
+    writeRulesForRefiningSubsetTests("b");
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//hello:lib")).isNull();
+    assertContainsEvent("//hello:lib: the current command-line flags disqualify all supported "
+        + "environments because of incompatible select() paths");
+  }
+}
