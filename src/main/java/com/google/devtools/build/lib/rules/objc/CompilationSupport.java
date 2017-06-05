@@ -64,7 +64,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.Platform;
@@ -306,6 +305,7 @@ public abstract class CompilationSupport {
   protected final boolean useDeps;
   protected final Map<String, NestedSet<Artifact>> outputGroupCollector;
   protected final CcToolchainProvider toolchain;
+  protected final boolean isTestRule;
 
   /**
    * Creates a new compilation support for the given rule and build configuration.
@@ -327,7 +327,8 @@ public abstract class CompilationSupport {
       CompilationAttributes compilationAttributes,
       boolean useDeps,
       Map<String, NestedSet<Artifact>> outputGroupCollector,
-      CcToolchainProvider toolchain) {
+      CcToolchainProvider toolchain,
+      boolean isTestRule) {
     this.ruleContext = ruleContext;
     this.buildConfiguration = buildConfiguration;
     this.objcConfiguration = buildConfiguration.getFragment(ObjcConfiguration.class);
@@ -335,6 +336,7 @@ public abstract class CompilationSupport {
     this.attributes = compilationAttributes;
     this.intermediateArtifacts = intermediateArtifacts;
     this.useDeps = useDeps;
+    this.isTestRule = isTestRule;
     this.outputGroupCollector = outputGroupCollector;
     // TODO(b/62143697): Remove this check once all rules are using the crosstool support.
     if (ruleContext
@@ -360,6 +362,7 @@ public abstract class CompilationSupport {
     private Map<String, NestedSet<Artifact>> outputGroupCollector;
     private boolean isObjcLibrary = false;
     private CcToolchainProvider toolchain;
+    private boolean isTestRule = false;
 
     /** Sets the {@link RuleContext} for the calling target. */
     public Builder setRuleContext(RuleContext ruleContext) {
@@ -398,8 +401,16 @@ public abstract class CompilationSupport {
      * Indicates that this CompilationSupport is for use in an objc_library target. This will cause
      * CrosstoolCompilationSupport to be used if --experimental_objc_crosstool=library
      */
-    public Builder isObjcLibrary() {
+    public Builder setIsObjcLibrary() {
       this.isObjcLibrary = true;
+      return this;
+    }
+
+    /**
+     * Indicates that this CompilationSupport is for use in a test rule.
+     */
+    public Builder setIsTestRule() {
+      this.isTestRule = true;
       return this;
     }
 
@@ -463,7 +474,8 @@ public abstract class CompilationSupport {
             compilationAttributes,
             useDeps,
             outputGroupCollector,
-            toolchain);
+            toolchain,
+            isTestRule);
       } else {
         return new LegacyCompilationSupport(
             ruleContext,
@@ -472,7 +484,8 @@ public abstract class CompilationSupport {
             compilationAttributes,
             useDeps,
             outputGroupCollector,
-            toolchain);
+            toolchain,
+            isTestRule);
       }
     }
   }
@@ -661,7 +674,7 @@ public abstract class CompilationSupport {
         getGcovForObjectiveCIfNeeded(),
         // The COVERAGE_GCOV_PATH environment variable is added in TestSupport#getExtraProviders()
         NestedSetBuilder.<Pair<String, String>>emptySet(Order.COMPILE_ORDER),
-        !TargetUtils.isTestRule(ruleContext.getTarget()));
+        !isTestRule);
   }
 
   /**
@@ -1182,7 +1195,7 @@ public abstract class CompilationSupport {
    */
   protected void registerBinaryStripAction(Artifact binaryToLink, StrippingType strippingType) {
     final Iterable<String> stripArgs;
-    if (TargetUtils.isTestRule(ruleContext.getRule())) {
+    if (isTestRule) {
       // For test targets, only debug symbols are stripped off, since /usr/bin/strip is not able
       // to strip off all symbols in XCTest bundle.
       stripArgs = ImmutableList.of("-S");

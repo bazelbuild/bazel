@@ -156,7 +156,7 @@ public final class IosTest implements RuleConfiguredTargetFactory {
             .build();
 
     CompilationSupport compilationSupport =
-        new CompilationSupport.Builder().setRuleContext(ruleContext).build();
+        new CompilationSupport.Builder().setRuleContext(ruleContext).setIsTestRule().build();
 
     compilationSupport
         .registerLinkActions(

@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcLibraryHelper;
@@ -135,7 +134,8 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
         CompilationAttributes.Builder.fromRuleContext(ruleContext).build(),
         /*useDeps=*/ true,
         outputGroupCollector,
-        null);
+        null,
+        /*isTestRule=*/ false);
   }
 
   /**
@@ -155,7 +155,8 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
       CompilationAttributes compilationAttributes,
       boolean useDeps,
       Map<String, NestedSet<Artifact>> outputGroupCollector,
-      CcToolchainProvider toolchain) {
+      CcToolchainProvider toolchain,
+      boolean isTestRule) {
     super(
         ruleContext,
         buildConfiguration,
@@ -163,7 +164,8 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
         compilationAttributes,
         useDeps,
         outputGroupCollector,
-        toolchain);
+        toolchain,
+        isTestRule);
   }
 
   @Override
@@ -453,7 +455,7 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
     return result;
   }
 
-  private static FeatureConfiguration getFeatureConfiguration(RuleContext ruleContext,
+  private FeatureConfiguration getFeatureConfiguration(RuleContext ruleContext,
       BuildConfiguration configuration) {
     ImmutableSet.Builder<String> activatedCrosstoolSelectables =
         ImmutableSet.<String>builder()
@@ -494,7 +496,7 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
     } else {
       activatedCrosstoolSelectables.add(GCC_COVERAGE_MAP_FORMAT);
     }
-    if (!TargetUtils.isTestRule(ruleContext.getRule())) {
+    if (!isTestRule) {
       activatedCrosstoolSelectables.add(IS_NOT_TEST_TARGET_FEATURE_NAME);
     }
     if (configuration.getFragment(ObjcConfiguration.class).generateDsym()) {

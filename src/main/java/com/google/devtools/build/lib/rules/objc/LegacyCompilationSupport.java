@@ -57,7 +57,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
@@ -148,7 +147,8 @@ public class LegacyCompilationSupport extends CompilationSupport {
       CompilationAttributes compilationAttributes,
       boolean useDeps,
       Map<String, NestedSet<Artifact>> outputGroupCollector,
-      CcToolchainProvider toolchain) {
+      CcToolchainProvider toolchain,
+      boolean isTestRule) {
     super(
         ruleContext,
         buildConfiguration,
@@ -156,7 +156,8 @@ public class LegacyCompilationSupport extends CompilationSupport {
         compilationAttributes,
         useDeps,
         outputGroupCollector,
-        toolchain);
+        toolchain,
+        isTestRule);
   }
 
   @Override
@@ -689,12 +690,9 @@ public class LegacyCompilationSupport extends CompilationSupport {
       commandLine.add(CLANG);
     }
 
-    // Do not perform code stripping on tests because XCTest binary is linked not as an executable
-    // but as a bundle without any entry point.
-    boolean isTestTarget = TargetUtils.isTestRule(ruleContext.getRule());
-    // TODO(b/36562173): Replace the "!isTestTarget" condition with the presence of "-bundle" in
+    // TODO(b/36562173): Replace the "!isTestRule" condition with the presence of "-bundle" in
     // the command line.
-    if (objcConfiguration.shouldStripBinary() && !isTestTarget) {
+    if (objcConfiguration.shouldStripBinary() && !isTestRule) {
       commandLine.add("-dead_strip").add("-no_dead_strip_inits_and_terms");
     }
 
