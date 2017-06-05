@@ -118,9 +118,14 @@ def run_xcode_locator(repository_ctx, xcode_locator_src_label):
                                          "xcode-locator-bin", xcodeloc_src_path], 30)
 
   if (xcrun_result.return_code != 0):
+    suggestion = ""
+    if "Agreeing to the Xcode/iOS license" in xcrun_result.stderr:
+      suggestion = ("(You may need to sign the xcode license." +
+                    " Try running 'sudo xcodebuild -license')")
     error_msg = (
-        "Generating xcode-locator-bin failed, " +
+        "Generating xcode-locator-bin failed. {suggestion} " +
         "return code {code}, stderr: {err}, stdout: {out}").format(
+            suggestion=suggestion,
             code=xcrun_result.return_code,
             err=xcrun_result.stderr,
             out=xcrun_result.stdout)
