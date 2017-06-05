@@ -960,7 +960,6 @@ std::string GetString() { return "h3ll0"; }
 EOF
 
   bazel build --verbose_failures //package:lipo_out \
-    --experimental_enable_objc_cc_deps \
     --experimental_objc_crosstool=all \
     --apple_crosstool_transition \
     --ios_multi_cpus=i386,x86_64 \
@@ -1033,7 +1032,6 @@ std::string GetString() { return "h3ll0"; }
 EOF
 
   bazel build --verbose_failures //package:lipo_out \
-      --experimental_enable_objc_cc_deps \
       --experimental_objc_crosstool=library \
       --apple_crosstool_transition \
       --watchos_cpus=armv7k \
