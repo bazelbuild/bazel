@@ -28,7 +28,7 @@ constraint_value(
 )
 
 constraint_value(
-    name = "x390x",
+    name = "s390x",
     constraint_setting = ":cpu",
 )
 
@@ -53,24 +53,4 @@ constraint_value(
 constraint_value(
     name = "windows",
     constraint_setting = ":os",
-)
-
-# A default platform referring to the host system. This only exists for
-# internal build configurations, and so can't be accessed by other packages.
-platform(
-    name = "host_platform",
-    host_cpu_constraints = [
-        ":x86_32",
-        ":x86_64",
-        ":ppc",
-        ":arm",
-        ":x390x",
-    ],
-    host_os_constraints = [
-        ":osx",
-        ":freebsd",
-        ":linux",
-        ":windows",
-    ],
-    host_platform = True,
 )
