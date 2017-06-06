@@ -2,18 +2,18 @@ $ErrorActionPreference = 'Stop'; # stop on all errors
 $packageName = 'bazel'
 
 $toolsDir = Split-Path -parent $MyInvocation.MyCommand.Definition
-$paramsText = get-content "$($toolsDir)\params.txt"
+$raw = get-content "$($toolsDir)\params.txt" | out-string
 write-host "Content of $($toolsDir)\params.txt:"
-write-host $paramsText
-write-host "url:  $($paramsText[0])"
-write-host "hash: $($paramsText[1])"
-write-host "Type: $($paramsText.GetType())"
+write-host $raw
+$params = $raw -split "`n"
+write-host "url:  $($params[0].Trim())"
+write-host "hash: $($params[1].Trim())"
 
 $packageDir = Split-Path -parent $toolsDir
 
 Install-ChocolateyZipPackage -PackageName "$packageName" `
-  -Url64bit "$($paramsText[0])" `
-  -Checksum64 "$($paramsText[1])" `
+  -Url64bit "$($params[0].Trim())" `
+  -Checksum64 "$($params[1].Trim())" `
   -ChecksumType64 "sha256" `
   -UnzipLocation "$packageDir"
 
