@@ -45,7 +45,13 @@ public class ExitCode {
   public static final ExitCode RUN_FAILURE = ExitCode.create(6, "RUN_FAILURE");
   public static final ExitCode ANALYSIS_FAILURE = ExitCode.create(7, "ANALYSIS_FAILURE");
   public static final ExitCode INTERRUPTED = ExitCode.create(8, "INTERRUPTED");
+
+  public static final ExitCode REMOTE_ENVIRONMENTAL_ERROR =
+      ExitCode.createInfrastructureFailure(32, "REMOTE_ENVIRONMENTAL_ERROR");
   public static final ExitCode OOM_ERROR = ExitCode.createInfrastructureFailure(33, "OOM_ERROR");
+
+  public static final ExitCode REMOTE_ERROR =
+      ExitCode.createInfrastructureFailure(34, "REMOTE_ERROR");
   public static final ExitCode LOCAL_ENVIRONMENTAL_ERROR =
       ExitCode.createInfrastructureFailure(36, "LOCAL_ENVIRONMENTAL_ERROR");
   public static final ExitCode BLAZE_INTERNAL_ERROR =
@@ -55,7 +61,12 @@ public class ExitCode {
    */
   public static final ExitCode PUBLISH_ERROR =
       ExitCode.createInfrastructureFailure(38, "PUBLISH_ERROR");
+
+  public static final ExitCode REMOTE_EXECUTOR_OVERLOADED =
+      ExitCode.createInfrastructureFailure(39, "REMOTE_EXECUTOR_OVERLOADED");
+
   public static final ExitCode RESERVED = ExitCode.createInfrastructureFailure(40, "RESERVED");
+
   /*
     exit codes [50..60] and 253 are reserved for site specific wrappers to Bazel.
    */
