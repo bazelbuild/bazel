@@ -50,6 +50,12 @@ filegroup(
     visibility = ["//visibility:private"],
 )
 
+filegroup(
+    name = "bootstrap-derived-java-srcs",
+    srcs = glob(["derived/**/*.java"]),
+    visibility = ["//:__subpackages__"],
+)
+
 load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
 pkg_tar(

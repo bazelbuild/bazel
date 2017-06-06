@@ -128,19 +128,16 @@ load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library", "bo
 
 bootstrap_java_library(
     name = "skylark-deps",
+    srcs = ["//:bootstrap-derived-java-srcs"],
     jars = [
         "//third_party:auto_value-jars",
         "//third_party:bootstrap_guava_and_error_prone-jars",
         "//third_party:jsr305-jars",
         "//third_party/protobuf:protobuf-jars",
         "//third_party/java/jacoco:core-jars",
+        "//third_party/grpc:bootstrap-grpc-jars",
     ],
     neverlink_jars = ["//third_party/java/jdk/langtools:javac_jar"],
-    srcjars = [
-        "//src/main/protobuf:deps_java_proto_srcjar",
-        "//src/main/protobuf:worker_protocol_java_proto_srcjar",
-        "//src/main/protobuf:java_compilation_java_proto_srcjar",
-    ],
 )
 
 bootstrap_java_library(

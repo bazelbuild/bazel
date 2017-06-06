@@ -1,10 +1,13 @@
 package(default_visibility = ["//src/tools/benchmark:__subpackages__"])
 
-load("//tools/build_rules:genproto.bzl", "java_proto_library")
-
 java_proto_library(
+    name = "build_data_java_proto",
+    deps = [":build_data_proto"],
+)
+
+proto_library(
     name = "build_data_proto",
-    src = "build_data.proto",
+    srcs = ["build_data.proto"],
 )
 
 java_binary(
@@ -12,7 +15,7 @@ java_binary(
     srcs = glob(["*.java"]),
     main_class = "com.google.devtools.build.benchmark.Main",
     deps = [
-        ":build_data_proto",
+        ":build_data_java_proto",
         "//src/main/java/com/google/devtools/build/lib:shell",
         "//src/main/java/com/google/devtools/build/lib:vfs",
         "//src/main/java/com/google/devtools/common/options",
@@ -29,7 +32,7 @@ java_library(
     testonly = 1,
     srcs = glob(["*.java"]),
     deps = [
-        ":build_data_proto",
+        ":build_data_java_proto",
         "//src/main/java/com/google/devtools/build/lib:shell",
         "//src/main/java/com/google/devtools/build/lib:vfs",
         "//src/main/java/com/google/devtools/common/options",

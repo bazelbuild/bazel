@@ -1067,6 +1067,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/remote",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:remote_protocol_java_grpc",
         "//src/main/protobuf:remote_protocol_java_proto",
         "//third_party:api_client",
         "//third_party:guava",

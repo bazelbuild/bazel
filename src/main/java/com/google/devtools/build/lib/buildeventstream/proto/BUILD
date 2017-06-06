@@ -1,18 +1,23 @@
 package(default_visibility = ["//src:__subpackages__"])
 
-load("//tools/build_rules:genproto.bzl", "java_proto_library")
+load("//tools/build_rules:utilities.bzl", "java_library_srcs")
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
 )
 
-java_proto_library(
-    name = "build_event_stream_java_proto",
-    src = "build_event_stream.proto",
+java_library_srcs(
+    name = "dist_jars",
+    deps = [":build_event_stream_java_proto"],
 )
 
-filegroup(
-    name = "dist_jars",
-    srcs = ["build_event_stream_java_proto_srcjar"],
+java_proto_library(
+    name = "build_event_stream_java_proto",
+    deps = ["build_event_stream_proto"],
+)
+
+proto_library(
+    name = "build_event_stream_proto",
+    srcs = ["build_event_stream.proto"],
 )
