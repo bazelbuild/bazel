@@ -292,18 +292,20 @@ public class FileOutErr extends OutErr {
   }
 
   /**
-   * An output stream that captures all output into a file.
-   * The file is created only if output is received.
+   * An output stream that captures all output into a file. The file is created only if output is
+   * received.
    *
-   * The user must take care that nobody else is writing to the
-   * file that is backing the output stream.
+   * The user must take care that nobody else is writing to the file that is backing the output
+   * stream.
    *
-   * The write() methods of type are synchronized to ensure
-   * that writes from different threads are not mixed up.
+   * The write() methods of type are synchronized to ensure that writes from different threads are
+   * not mixed up. Note that this class is otherwise
+   * {@link com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible}. Only the
+   * write() methods are allowed to be concurrently, and only concurrently with each other. All
+   * other calls must be serialized.
    *
-   * The outputStream is here only for the benefit of the pumping
-   * IO we're currently using for execution - Once that is gone,
-   * we can remove this output stream and fold its code into the
+   * The outputStream is here only for the benefit of the pumping IO we're currently using for
+   * execution - Once that is gone we can remove this output stream and fold its code into the
    * FileOutErr.
    */
   @ThreadSafety.ThreadCompatible
@@ -313,6 +315,7 @@ public class FileOutErr extends OutErr {
     private OutputStream outputStream;
     private String error;
     private OutputFilter outputFilter;
+    private boolean mightHaveOutput = false;
 
     protected FileRecordingOutputStream(Path outputFile) {
       this.outputFile = outputFile;
@@ -325,7 +328,14 @@ public class FileOutErr extends OutErr {
 
     @Override
     Path getFile() {
+      // The caller is getting a reference to the filesystem path, so conservatively assume the
+      // file has been modified.
+      markDirty();
       return outputFile;
+    }
+
+    private void markDirty() {
+      mightHaveOutput = true;
     }
 
     private OutputStream getOutputStream() throws IOException {
@@ -348,6 +358,7 @@ public class FileOutErr extends OutErr {
       close();
       outputStream = null;
       outputFile.delete();
+      mightHaveOutput = false;
     }
 
     @Override
@@ -368,6 +379,9 @@ public class FileOutErr extends OutErr {
       if (hadError()) {
         return true;
       }
+      if (!mightHaveOutput) {
+        return false;
+      }
       if (!outputFile.exists()) {
         return false;
       }
@@ -383,7 +397,7 @@ public class FileOutErr extends OutErr {
     String getRecordedOutput() {
       StringBuilder result = new StringBuilder();
       try {
-        if (getFile().exists()) {
+        if (mightHaveOutput && getFile().exists()) {
           result.append(FileSystemUtils.readContentAsLatin1(getFile()));
         }
       } catch (IOException ex) {
@@ -399,7 +413,7 @@ public class FileOutErr extends OutErr {
     @Override
     void dumpOut(OutputStream out) {
       try {
-        if (getFile().exists()) {
+        if (mightHaveOutput && getFile().exists()) {
           try (InputStream in = getFile().getInputStream()) {
             ByteStreams.copy(in, out);
           }
@@ -418,6 +432,7 @@ public class FileOutErr extends OutErr {
     @Override
     public synchronized void write(byte[] b, int off, int len) {
       if (len > 0) {
+        markDirty();
         try {
           getOutputStream().write(b, off, len);
         } catch (IOException ex) {
@@ -428,6 +443,7 @@ public class FileOutErr extends OutErr {
 
     @Override
     public synchronized void write(int b) {
+      markDirty();
       try {
         getOutputStream().write(b);
       } catch (IOException ex) {
@@ -438,6 +454,7 @@ public class FileOutErr extends OutErr {
     @Override
     public synchronized void write(byte[] b) throws IOException {
       if (b.length > 0) {
+        markDirty();
         getOutputStream().write(b);
       }
     }
