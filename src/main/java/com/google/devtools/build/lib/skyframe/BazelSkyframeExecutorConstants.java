@@ -17,13 +17,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
 
-class BazelSkyframeExecutorConstants {
+/** Hardcoded constants describing bazel-on-skyframe behavior. */
+public class BazelSkyframeExecutorConstants {
   private BazelSkyframeExecutorConstants() {
   }
 
-  static final CrossRepositoryLabelViolationStrategy CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY =
-      CrossRepositoryLabelViolationStrategy.ERROR;
+  public static final CrossRepositoryLabelViolationStrategy
+      CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY = CrossRepositoryLabelViolationStrategy.ERROR;
 
-  static final ImmutableList<BuildFileName> BUILD_FILES_BY_PRIORITY =
+  public static final ImmutableList<BuildFileName> BUILD_FILES_BY_PRIORITY =
       ImmutableList.of(BuildFileName.BUILD_DOT_BAZEL, BuildFileName.BUILD);
 }
