@@ -526,19 +526,6 @@ java_library(
 )
 
 java_library(
-    name = "execution-requirements",
-    srcs = ["analysis/actions/ExecutionRequirements.java"],
-    visibility = [
-        "//src/main/java/com/google/devtools/build/lib/rules:__subpackages__",
-    ],
-    deps = [
-        ":util",
-        "//third_party:auto_value",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
     name = "transitive-info-provider",
     srcs = ["analysis/TransitiveInfoProvider.java"],
 )
