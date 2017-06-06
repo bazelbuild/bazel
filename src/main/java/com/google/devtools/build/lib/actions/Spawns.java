@@ -48,6 +48,16 @@ public final class Spawns {
     }
   }
 
+  /**
+   * Returns whether a local {@link Spawn} runner implementation should prefetch the inputs before
+   * execution, based on the spawns execution info.
+   */
+  public static boolean shouldPrefetchInputsForLocalExecution(Spawn spawn) {
+    String disablePrefetchRequest =
+        spawn.getExecutionInfo().get(ExecutionRequirements.DISABLE_LOCAL_PREFETCH);
+    return (disablePrefetchRequest == null) || disablePrefetchRequest.equals("0");
+  }
+
   /** Convert a spawn into a Bourne shell command. */
   public static String asShellCommand(Spawn spawn, Path workingDirectory) {
     return asShellCommand(spawn.getArguments(), workingDirectory, spawn.getEnvironment());

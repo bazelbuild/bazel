@@ -119,13 +119,6 @@ public interface SpawnRunner {
    * be used by different threads, so they MUST not call any shared non-thread-safe objects.
    */
   public interface SpawnExecutionPolicy {
-    /**
-     * Returns whether inputs should be prefetched to the local machine using {@link
-     * ActionInputPrefetcher} if the spawn is executed locally (with or without sandboxing).
-     */
-    // TODO(ulfjack): Use an execution info value instead.
-    boolean shouldPrefetchInputsForLocalExecution(Spawn spawn);
-
     /** The input file cache for this specific spawn. */
     ActionInputFileCache getActionInputFileCache();
 

@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.exec.ActionInputPrefetcher;
 import com.google.devtools.build.lib.exec.SpawnResult;
@@ -223,7 +224,7 @@ public final class LocalSpawnRunner implements SpawnRunner {
             .build();
       }
 
-      if (policy.shouldPrefetchInputsForLocalExecution(spawn)) {
+      if (Spawns.shouldPrefetchInputsForLocalExecution(spawn)) {
         stepLog(INFO, "prefetching inputs for local execution");
         setState(State.PREFETCHING_LOCAL_INPUTS);
         actionInputPrefetcher.prefetchFiles(policy.getInputMapping().values());

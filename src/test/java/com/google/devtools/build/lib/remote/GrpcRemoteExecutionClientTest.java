@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
-import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnResult;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
@@ -78,11 +77,6 @@ public class GrpcRemoteExecutionClientTest {
   private long timeoutMillis = 0;
 
   private final SpawnExecutionPolicy simplePolicy = new SpawnExecutionPolicy() {
-    @Override
-    public boolean shouldPrefetchInputsForLocalExecution(Spawn spawn) {
-      throw new UnsupportedOperationException();
-    }
-
     @Override
     public void lockOutputFiles() throws InterruptedException {
       throw new UnsupportedOperationException();

@@ -107,6 +107,9 @@ public class ExecutionRequirements {
   /** If an action would not successfully run other than on Darwin. */
   public static final String REQUIRES_DARWIN = "requires-darwin";
 
+  /** Whether we should disable prefetching of inputs before running a local action. */
+  public static final String DISABLE_LOCAL_PREFETCH = "disable-local-prefetch";
+
   /** How many hardware threads an action requires for execution. */
   public static final ParseableRequirement CPU =
       ParseableRequirement.create(

@@ -77,11 +77,6 @@ public class CachedLocalSpawnRunnerTest {
 
   private final SpawnExecutionPolicy simplePolicy = new SpawnExecutionPolicy() {
     @Override
-    public boolean shouldPrefetchInputsForLocalExecution(Spawn spawn) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
     public void lockOutputFiles() throws InterruptedException {
       throw new UnsupportedOperationException();
     }
