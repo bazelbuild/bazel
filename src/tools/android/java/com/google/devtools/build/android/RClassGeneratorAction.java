@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
+
 /**
  * Provides an entry point for the compiling resource classes using a custom compiler (simply parse
  * R.txt and make a jar, which is simpler than parsing R.java and running errorprone, etc.).
