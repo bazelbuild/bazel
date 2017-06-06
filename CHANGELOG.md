@@ -1,3 +1,71 @@
+## Release 0.5.1 (2017-06-06)
+
+```
+Baseline: f3ae88ee043846e7acdffd645137075a4e72c573
+
+Cherry picks:
+   + c58ba098526b748f9c73e6229cafd74748205aa1:
+     Release to GCS: put the final release in its own directory
+   + 0acead4ea3631240659836ce6ecd6d7f67fd352b:
+     Update protobuf to latest master at a64497c and apply
+     @laszlocsomor's latest changes from
+     https://github.com/google/protobuf/pull/2969 on top of it.
+   + d0242ce4a87929f2528f4602d0fb09d1ccfcea94:
+     Make symlinks consistent
+   + d953ca8b87a46decbce385cebb446ae0dd390881:
+     Clean VanillaJavaBuilder output directories
+   + 755669fb5de1f4e762f27c19776cac9f410fcb94:
+     Pass all the environment variable to Bazel during bootstrapping
+   + 6f041661ca159903691fcb443d86dc7b6454253d:
+     Do not mark the JDK7 installer -without-jdk-installer
+   + 720561113bfa702acfc2ca24ce3cc3fd7ee9c115:
+     Fix #2958: Installer should not overwrite bazelrc
+   + 511c35b46cead500d4e76706e0a709e50995ceba:
+     Bootstrap: move the fail function to the top
+   + 8470be1122825aae8ad0903dd1e1e2a90cce47d2:
+     Clean up javac and Error Prone targets
+   + 4a404de2c6c38735167e17ab41be45ef6fc4713a:
+     Update javac version to 9-dev-r4023-2
+   + 36ce4b433e19498a78c34540d5a166d4e0006b22:
+     Update javac version to 9-dev-r4023-2
+   + 38949b8526bdb3e6db22f3846aac87162c28c33f:
+     Migrate off versioned javac and Error Prone targets
+   + 1a57d298f8aa6ea8136d93223902104f2479cd2a:
+     Re-enabling passing -sourcepath via javacopts.
+   + eb565f408e03125e92d42b00756e519795be6593:
+     Make make sure that msys build actually builds msys version
+   + 39f328cf392056618d1a3ead4835a138b189a06d:
+     Fix typo. Also do not override host_cpu for msvc.
+   + 624802893f4fe72118f00a78452605d41a2e1c6f:
+     Select correct JDK for windows_msys
+   + c4f271d1a68366b6fa5ff38ea7d951b6a22af044:
+     Automated g4 rollback of commit
+     3e5edafa2a04a71cd3596e929e83222da725f3f9.
+   + 926180997a0f296a5a009326aead887279ce0a90:
+     Remove process-tools.cc which I forgot to delete during the last
+     rollback.
+   + baca6e4cb023649920871b74810927d304729e59:
+     Fix #2982: Bazel installer should not check for installed JDK if
+     using a bundled JDK.
+   + 866ecc8c3d5e0b899e3f0c9c6b2265f16daae842:
+     Disable msys path conversion on Windows.
+   + cc21998c299b4d1f97df37b961552ff8168da17f:
+     Rollforward #2 of: Basic open-source crosstool to support
+     targeting apple platform types.
+   + 0f0ccc4fc8229c1860a9c9b58089d6cfb2ee971f:
+     Escape % in strings that will appear in Crosstool
+   + 3b08f774e7938928e3a240a47a0a7554cdc8d50b:
+     Adding feature for linking C Run-Time library on Windows
+   + 3566474202d1978acfdcb7e5ff73ee03ea6f3df9:
+     Do not use sed -E in bootstrap/compile.sh
+   + c3cf7d917afd02d71de3800cd46ad8d14f1ddf55:
+     Reverts non-xcode-available darwin crosstool generation.
+```
+
+Important changes:
+
+  - Fixes regression in 0.5.0 requiring Xcode to build C++ on OSX.
+
 ## Release 0.5.0 (2017-05-26)
 
 ```
@@ -1300,6 +1368,7 @@ Baseline: a0881e8
 ```
 
 Initial release.
+
 
 
 
