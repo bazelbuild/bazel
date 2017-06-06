@@ -343,7 +343,8 @@ public final class AndroidRuleClasses {
           if (LocalResourceContainer.definesAndroidResources(attributes)) {
             implicitOutputs.add(
                 AndroidRuleClasses.ANDROID_JAVA_SOURCE_JAR,
-                AndroidRuleClasses.ANDROID_R_TXT);
+                AndroidRuleClasses.ANDROID_R_TXT,
+                AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR);
           }
 
           return fromFunctions(implicitOutputs.build()).getImplicitOutputs(attributes);
