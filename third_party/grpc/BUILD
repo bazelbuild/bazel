@@ -17,9 +17,9 @@ config_setting(
     values = { "cpu": "x64_windows_msvc" },
 )
 
-java_import(
-    name = "grpc-jar",
-    jars = [
+filegroup(
+    name = "bootstrap-grpc-jars",
+    srcs = [
         "grpc-auth-1.3.0.jar",
         "grpc-netty-1.3.0.jar",
         "grpc-protobuf-1.3.0.jar",
@@ -28,6 +28,11 @@ java_import(
         "grpc-core-1.3.0.jar",
         "grpc-context-1.3.0.jar",
     ],
+)
+
+java_import(
+    name = "grpc-jar",
+    jars = [":bootstrap-grpc-jars"],
     deps = [
       "//third_party:guava",
       "//third_party:instrumentation",
