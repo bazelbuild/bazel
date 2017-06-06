@@ -44,8 +44,11 @@ public class DefaultMethodClassFixer extends ClassVisitor {
   private ImmutableList<String> directInterfaces;
   private String superName;
 
-  public DefaultMethodClassFixer(ClassVisitor dest, ClassReaderFactory classpath,
-      ClassReaderFactory bootclasspath, ClassLoader targetLoader) {
+  public DefaultMethodClassFixer(
+      ClassVisitor dest,
+      ClassReaderFactory classpath,
+      ClassReaderFactory bootclasspath,
+      ClassLoader targetLoader) {
     super(Opcodes.ASM5, dest);
     this.classpath = classpath;
     this.bootclasspath = bootclasspath;
@@ -63,8 +66,10 @@ public class DefaultMethodClassFixer extends ClassVisitor {
     checkState(this.directInterfaces == null);
     isInterface = BitFlags.isSet(access, Opcodes.ACC_INTERFACE);
     internalName = name;
-    checkArgument(superName != null || "java/lang/Object".equals(name), // ASM promises this
-        "Type without superclass: %s", name);
+    checkArgument(
+        superName != null || "java/lang/Object".equals(name), // ASM promises this
+        "Type without superclass: %s",
+        name);
     this.directInterfaces = ImmutableList.copyOf(interfaces);
     this.superName = superName;
     super.visit(version, access, name, signature, superName, interfaces);
@@ -76,7 +81,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
       // Inherited methods take precedence over default methods, so visit all superclasses and
       // figure out what methods they declare before stubbing in any missing default methods.
       recordInheritedMethods();
-      stubMissingDefaultMethods();
+      stubMissingDefaultAndBridgeMethods();
     }
     super.visitEnd();
   }
@@ -91,7 +96,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
     return super.visitMethod(access, name, desc, signature, exceptions);
   }
 
-  private void stubMissingDefaultMethods() {
+  private void stubMissingDefaultAndBridgeMethods() {
     TreeSet<Class<?>> allInterfaces = new TreeSet<>(InterfaceComparator.INSTANCE);
     for (String direct : directInterfaces) {
       // Loading ensures all transitively implemented interfaces can be loaded, which is necessary
@@ -113,7 +118,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
         // shouldn't stub default methods for this interface.
         continue;
       }
-      stubMissingDefaultMethods(interfaceToVisit.getName().replace('.', '/'));
+      stubMissingDefaultAndBridgeMethods(interfaceToVisit.getName().replace('.', '/'));
     }
   }
 
@@ -142,8 +147,9 @@ public class DefaultMethodClassFixer extends ClassVisitor {
     while (internalName != null) {
       ClassReader bytecode = bootclasspath.readIfKnown(internalName);
       if (bytecode == null) {
-        bytecode = checkNotNull(classpath.readIfKnown(internalName),
-            "Superclass not found: %s", internalName);
+        bytecode =
+            checkNotNull(
+                classpath.readIfKnown(internalName), "Superclass not found: %s", internalName);
       }
       bytecode.accept(recorder, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG);
       internalName = bytecode.getSuperName();
@@ -160,7 +166,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
 
   /**
    * Recursively searches the given interfaces for default methods not implemented by this class
-   * directly.  If this method returns true we need to think about stubbing missing default methods.
+   * directly. If this method returns true we need to think about stubbing missing default methods.
    */
   private boolean defaultMethodsDefined(ImmutableList<String> interfaces) {
     for (String implemented : interfaces) {
@@ -183,33 +189,48 @@ public class DefaultMethodClassFixer extends ClassVisitor {
     return false;
   }
 
-  /**
-   * Returns {@code true} for non-bridge default methods not in {@link #instanceMethods}.
-   */
-  private boolean shouldStub(int access, String name, String desc) {
+  /** Returns {@code true} for non-bridge default methods not in {@link #instanceMethods}. */
+  private boolean shouldStubAsDefaultMethod(int access, String name, String desc) {
     // Ignore private methods, which technically aren't default methods and can only be called from
     // other methods defined in the interface.  This also ignores lambda body methods, which is fine
     // as we don't want or need to stub those.  Also ignore bridge methods as javac adds them to
     // concrete classes as needed anyway and we handle them separately for generated lambda classes.
-    return BitFlags.noneSet(access,
+    // Note that an exception is that, if a bridge method is for a default interface method, javac
+    // will NOT generate the bridge method in the implementing class. So we need extra logic to
+    // handle these bridge methods.
+    return BitFlags.noneSet(
+            access,
             Opcodes.ACC_ABSTRACT | Opcodes.ACC_STATIC | Opcodes.ACC_BRIDGE | Opcodes.ACC_PRIVATE)
         && !instanceMethods.contains(name + ":" + desc);
   }
 
-  private void stubMissingDefaultMethods(String implemented) {
+  /**
+   * Check whether an interface method is a bridge method for a default interface method. This type
+   * of bridge methods is special, as they are not put in the implementing classes by javac.
+   */
+  private boolean shouldStubAsBridgeDefaultMethod(int access, String name, String desc) {
+    return BitFlags.isSet(access, Opcodes.ACC_BRIDGE | Opcodes.ACC_PUBLIC)
+        && BitFlags.noneSet(access, Opcodes.ACC_ABSTRACT | Opcodes.ACC_STATIC)
+        && !instanceMethods.contains(name + ":" + desc);
+  }
+
+  private void stubMissingDefaultAndBridgeMethods(String implemented) {
     if (bootclasspath.isKnown(implemented)) {
       // Default methods on the bootclasspath will be available at runtime, so just ignore them.
       return;
     }
-    ClassReader bytecode = checkNotNull(classpath.readIfKnown(implemented),
-        "Couldn't find interface %s implemented by %s", implemented, internalName);
-    // We can skip code attributes as we just need to find default methods to stub.
-    bytecode.accept(new DefaultMethodStubber(), ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG);
+    ClassReader bytecode =
+        checkNotNull(
+            classpath.readIfKnown(implemented),
+            "Couldn't find interface %s implemented by %s",
+            implemented,
+            internalName);
+    bytecode.accept(new DefaultMethodStubber(), ClassReader.SKIP_DEBUG);
   }
 
   /**
-   * Visitor for interfaces that produces delegates in the class visited by the outer
-   * {@link DefaultMethodClassFixer} for every default method encountered.
+   * Visitor for interfaces that produces delegates in the class visited by the outer {@link
+   * DefaultMethodClassFixer} for every default method encountered.
    */
   private class DefaultMethodStubber extends ClassVisitor {
 
@@ -235,7 +256,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
     @Override
     public MethodVisitor visitMethod(
         int access, String name, String desc, String signature, String[] exceptions) {
-      if (shouldStub(access, name, desc)) {
+      if (shouldStubAsDefaultMethod(access, name, desc)) {
         // Remember we stubbed this method in case it's also defined by subsequently visited
         // interfaces.  javac would force the method to be defined explicitly if there any two
         // definitions conflict, but see stubMissingDefaultMethods() for how we deal with default
@@ -267,8 +288,19 @@ public class DefaultMethodClassFixer extends ClassVisitor {
 
         stubMethod.visitMaxs(0, 0); // rely on class writer to compute these
         stubMethod.visitEnd();
+        return null;
+      } else if (shouldStubAsBridgeDefaultMethod(access, name, desc)) {
+        recordIfInstanceMethod(access, name, desc);
+        // For bridges we just copy their bodies instead of going through the companion class.
+        // Meanwhile, we also need to desugar the copied method bodies, so that any calls to
+        // interface methods are correctly handled.
+        return new InterfaceDesugaring.InterfaceInvocationRewriter(
+            DefaultMethodClassFixer.this.visitMethod(access, name, desc, (String) null, exceptions),
+            interfaceName,
+            bootclasspath);
+      } else {
+        return null; // we don't care about the actual code in these methods
       }
-      return null; // we don't care about the actual code in these methods
     }
   }
 
@@ -276,8 +308,9 @@ public class DefaultMethodClassFixer extends ClassVisitor {
    * Visitor for interfaces that recursively searches interfaces for default method declarations.
    */
   private class DefaultMethodFinder extends ClassVisitor {
+    @SuppressWarnings("hiding")
+    private ImmutableList<String> interfaces;
 
-    @SuppressWarnings("hiding") private ImmutableList<String> interfaces;
     private boolean found;
 
     public DefaultMethodFinder() {
@@ -311,7 +344,7 @@ public class DefaultMethodClassFixer extends ClassVisitor {
     @Override
     public MethodVisitor visitMethod(
         int access, String name, String desc, String signature, String[] exceptions) {
-      if (!found && shouldStub(access, name, desc)) {
+      if (!found && shouldStubAsDefaultMethod(access, name, desc)) {
         // Found a default method we're not ignoring (instanceMethods at this point contains methods
         // the top-level visited class implements itself).
         found = true;
