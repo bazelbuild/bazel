@@ -37,6 +37,10 @@
 # --singlejar           Start the program from the packed-up deployment
 #                       jar rather than from the classpath.
 # --print_javabin       Print the location of java executable binary and exit.
+# --classpath_limit=<length>
+#                       Specify the maximum classpath length. If the classpath
+#                       is shorter, this script passes it to Java as a command
+#                       line flag, otherwise it creates a classpath jar.
 #
 # The remainder of the command line is passed to the program.
 
@@ -62,6 +66,11 @@ function process_wrapper_argument() {
     --jvm_flags=*) JVM_FLAGS_CMDLINE+=( ${1#--jvm_flags=} ) ;;
     --singlejar) SINGLEJAR=1 ;;
     --print_javabin) PRINT_JAVABIN=1 ;;
+    --classpath_limit=*)
+        CLASSPATH_LIMIT="${1#--classpath_limit=}"
+        echo "$CLASSPATH_LIMIT" | grep -q '^[0-9]\+$' || \
+          die "ERROR: $self failed, --classpath_limit is not a number"
+        ;;
     *)
       return 1 ;;
   esac
@@ -75,8 +84,7 @@ die() {
 
 # Windows
 function is_windows() {
-  # On windows, the shell test actually running on msys
-  [[ "${OSTYPE}" =~ msys* ]]
+  [[ "${OSTYPE}" =~ msys* ]] || [[ "${OSTYPE}" =~ cygwin* ]]
 }
 
 # macOS
@@ -268,11 +276,16 @@ ARGS=(
 function create_and_run_classpath_jar() {
   # Build class path as one single string separated by spaces
   MANIFEST_CLASSPATH=""
-  IFS=';'
-  for x in $CLASSPATH
-  do
-    # Add file:/ prefix and escaped space characters, it should be a uri.
-    x="file:/${x// /%20}"
+  if is_windows; then
+    IFS=';'
+    URI_PREFIX="file:/"  # e.g. "file:/C:/temp/foo.jar"
+  else
+    IFS=':'
+    URI_PREFIX="file:$(pwd)/"  # e.g. "file:/usr/local/foo.jar"
+  fi
+  for x in $CLASSPATH; do
+    # Add file:/ prefix and escaped space characters, it should be a URI.
+    x="${URI_PREFIX}${x// /%20}"
     MANIFEST_CLASSPATH="$MANIFEST_CLASSPATH $x"
   done
   unset IFS
@@ -294,27 +307,27 @@ function create_and_run_classpath_jar() {
   echo "Created-By: Bazel" >>$MANIFEST_FILE
 
   # Create classpath JAR file
-  MANIFEST_JAR_FILE="$1"
-  JARBIN=$2
-  $JARBIN cvfm "$MANIFEST_JAR_FILE" "$MANIFEST_FILE" >/dev/null \
-    || { echo >$2 "ERROR: $0 failed because $JARBIN failed" ; exit 1 ; }
+  MANIFEST_JAR_FILE="${self}-classpath.jar"
+  is_windows && MANIFEST_JAR_FILE="$(cygpath --windows "$MANIFEST_JAR_FILE")"
+  JARBIN="${JARBIN:-$(rlocation "$1")}"
+  $JARBIN cvfm "$MANIFEST_JAR_FILE" "$MANIFEST_FILE" >/dev/null || \
+    die "ERROR: $self failed because $JARBIN failed"
 
   # Execute JAVA command
-  MANIFEST_JAR_FILE=$(cygpath --windows "$MANIFEST_JAR_FILE")
   $JAVABIN -classpath "$MANIFEST_JAR_FILE" "${ARGS[@]}"
 }
 
-
-if is_windows && (("${#CLASSPATH}" > 7000)); then
+# If the user didn't specify a --classpath_limit, use the default value.
+if [ -z "$CLASSPATH_LIMIT" ]; then
   # Windows per-arg limit MAX_ARG_STRLEN == 8k
-  create_and_run_classpath_jar \
-    "$(cygpath --windows "${self}-classpath.jar")" \
-    "${JARBIN:-$(rlocation local_jdk/bin/jar.exe)}"
-elif (("${#CLASSPATH}" > 120000)); then
   # Linux per-arg limit MAX_ARG_STRLEN == 128k
-  create_and_run_classpath_jar \
-    "${self}-classpath.jar" \
-    "${JARBIN:-$(rlocation local_jdk/bin/jar)}"
+  is_windows && CLASSPATH_LIMIT=7000 || CLASSPATH_LIMIT=120000
+fi
+
+if is_windows && (("${#CLASSPATH}" > ${CLASSPATH_LIMIT} )); then
+  create_and_run_classpath_jar "local_jdk/bin/jar.exe"
+elif (("${#CLASSPATH}" > ${CLASSPATH_LIMIT})); then
+  create_and_run_classpath_jar "local_jdk/bin/jar"
 else
   exec $JAVABIN -classpath $CLASSPATH "${ARGS[@]}"
 fi

@@ -453,6 +453,14 @@ sh_test(
     data = [":test-deps"],
 )
 
+sh_test(
+    name = "java_launcher_test",
+    size = "medium",
+    srcs = ["java_launcher_test.sh"],
+    args = ["$(JAVABASE)"],
+    data = [":test-deps"],
+)
+
 test_suite(
     name = "all_tests",
     visibility = ["//visibility:public"],

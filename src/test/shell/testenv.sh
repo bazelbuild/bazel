@@ -429,7 +429,18 @@ function cleanup_workspace() {
 # Clean-up the bazel install base
 function cleanup() {
   if [ -d "${BAZEL_INSTALL_BASE:-__does_not_exists__}" ]; then
-    rm -fr "${BAZEL_INSTALL_BASE}"
+    # Windows takes its time to shut down Bazel and we can't delete A-server.jar
+    # until then, so just give it time and keep trying for 2 minutes.
+    for i in {1..120}; do
+      if rm -fr "${BAZEL_INSTALL_BASE}" ; then
+        break
+      fi
+      if (( $i == 10 )) || (( $i == 30 )) || (( $i == 60 )) ; then
+        echo "Test cleanup: couldn't delete ${BAZEL_INSTALL_BASE} \ after $i seconds"
+        echo "(Timeout in $((120-$i)) seconds.)"
+        sleep 1
+      fi
+    done
   fi
 }
 
