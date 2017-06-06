@@ -68,7 +68,7 @@ import java.util.Set;
 public final class QueryCommand implements BlazeCommand {
 
   @Override
-  public void editOptions(CommandEnvironment env, OptionsParser optionsParser) { }
+  public void editOptions(OptionsParser optionsParser) { }
 
   /**
    * Exit codes:

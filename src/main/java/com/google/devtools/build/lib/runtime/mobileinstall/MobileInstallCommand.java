@@ -110,7 +110,7 @@ public class MobileInstallCommand implements BlazeCommand {
   }
 
   @Override
-  public void editOptions(CommandEnvironment env, OptionsParser optionsParser) {
+  public void editOptions(OptionsParser optionsParser) {
     try {
       if (optionsParser.getOptions(Options.class).v2) {
         optionsParser.parse(

@@ -51,7 +51,7 @@ import java.util.List;
 public final class BuildCommand implements BlazeCommand {
 
   @Override
-  public void editOptions(CommandEnvironment env, OptionsParser optionsParser) {
+  public void editOptions(OptionsParser optionsParser) {
   }
 
   @Override

@@ -58,7 +58,7 @@ public final class FetchCommand implements BlazeCommand {
   public static final String NAME = "fetch";
 
   @Override
-  public void editOptions(CommandEnvironment env, OptionsParser optionsParser) { }
+  public void editOptions(OptionsParser optionsParser) { }
 
   @Override
   public ExitCode exec(CommandEnvironment env, OptionsProvider options) {

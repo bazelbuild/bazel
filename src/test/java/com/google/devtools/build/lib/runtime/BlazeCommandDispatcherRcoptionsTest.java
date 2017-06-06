@@ -79,7 +79,7 @@ public class BlazeCommandDispatcherRcoptionsTest {
     }
 
     @Override
-    public void editOptions(CommandEnvironment env, OptionsParser optionsParser) {}
+    public void editOptions(OptionsParser optionsParser) {}
   }
 
   @Command(
@@ -101,7 +101,7 @@ public class BlazeCommandDispatcherRcoptionsTest {
     }
 
     @Override
-    public void editOptions(CommandEnvironment env, OptionsParser optionsParser) {}
+    public void editOptions(OptionsParser optionsParser) {}
   }
 
   @Command(

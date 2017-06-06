@@ -101,5 +101,5 @@ public class LicenseCommand implements BlazeCommand {
   }
 
   @Override
-  public void editOptions(CommandEnvironment env, OptionsParser optionsParser) {}
+  public void editOptions(OptionsParser optionsParser) {}
 }

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.runtime.commands;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.runtime.Command;
-import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.common.options.OptionPriority;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -120,8 +119,8 @@ public class CoverageCommand extends TestCommand {
   }
 
   @Override
-  public void editOptions(CommandEnvironment env, OptionsParser optionsParser) {
-    super.editOptions(env, optionsParser);
+  public void editOptions(OptionsParser optionsParser) {
+    super.editOptions(optionsParser);
     try {
       optionsParser.parse(OptionPriority.SOFTWARE_REQUIREMENT,
           "Options required by the coverage command",

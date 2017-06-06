@@ -57,7 +57,7 @@ public class AbstractCommandTest {
     }
 
     @Override
-    public void editOptions(CommandEnvironment env, OptionsParser optionsParser) {}
+    public void editOptions(OptionsParser optionsParser) {}
   }
 
   @Command(name = "test_name",

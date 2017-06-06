@@ -518,7 +518,7 @@ public class BlazeCommandDispatcher {
             waitTimeInMs,
             invocationPolicy);
         // Allow the command to edit options after parsing:
-        command.editOptions(env, optionsParser);
+        command.editOptions(optionsParser);
       } catch (AbruptExitException e) {
         reporter.handle(Event.error(e.getMessage()));
         return e.getExitCode().getNumericExitCode();

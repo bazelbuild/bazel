@@ -92,7 +92,7 @@ public final class CommandInterruptionTest {
     }
 
     @Override
-    public void editOptions(CommandEnvironment env, OptionsParser optionsParser) {}
+    public void editOptions(OptionsParser optionsParser) {}
 
     /**
      * Runs an instance of this command on the given executor, waits for it to start and returns a

@@ -66,14 +66,10 @@ public class TestCommand implements BlazeCommand {
   }
 
   @Override
-  public void editOptions(CommandEnvironment env, OptionsParser optionsParser) {
+  public void editOptions(OptionsParser optionsParser) {
     TestOutputFormat testOutput = optionsParser.getOptions(ExecutionOptions.class).testOutput;
-
     try {
       if (testOutput == TestStrategy.TestOutputFormat.STREAMED) {
-        env.getReporter().handle(Event.warn(
-            "Streamed test output requested. All tests will be run locally, without sharding, "
-            + "one at a time"));
         optionsParser.parse(OptionPriority.SOFTWARE_REQUIREMENT,
             "streamed output requires locally run tests, without sharding",
             ImmutableList.of("--test_sharding_strategy=disabled", "--test_strategy=exclusive"));
@@ -85,6 +81,13 @@ public class TestCommand implements BlazeCommand {
 
   @Override
   public ExitCode exec(CommandEnvironment env, OptionsProvider options) {
+    TestOutputFormat testOutput = options.getOptions(ExecutionOptions.class).testOutput;
+    if (testOutput == TestStrategy.TestOutputFormat.STREAMED) {
+      env.getReporter().handle(Event.warn(
+          "Streamed test output requested. All tests will be run locally, without sharding, "
+          + "one at a time"));
+    }
+
     TestResultAnalyzer resultAnalyzer = new TestResultAnalyzer(
         options.getOptions(TestSummaryOptions.class),
         options.getOptions(ExecutionOptions.class),

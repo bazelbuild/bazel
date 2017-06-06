@@ -112,7 +112,7 @@ public class DumpCommand implements BlazeCommand {
   }
 
   @Override
-  public void editOptions(CommandEnvironment env, OptionsParser optionsParser) {}
+  public void editOptions(OptionsParser optionsParser) {}
 
   @Override
   public ExitCode exec(CommandEnvironment env, OptionsProvider options) {
