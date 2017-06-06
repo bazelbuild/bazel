@@ -146,37 +146,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     this.customDirtinessCheckers = customDirtinessCheckers;
   }
 
-  public static SequencedSkyframeExecutor create(
-      PackageFactory pkgFactory,
-      BlazeDirectories directories,
-      BinTools binTools,
-      Factory workspaceStatusActionFactory,
-      ImmutableList<BuildInfoFactory> buildInfoFactories,
-      Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
-      Predicate<PathFragment> allowedMissingInputs,
-      ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
-      ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues,
-      Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,
-      String productName,
-      CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
-      List<BuildFileName> buildFilesByPriority) {
-    return create(
-        pkgFactory,
-        directories,
-        binTools,
-        workspaceStatusActionFactory,
-        buildInfoFactories,
-        diffAwarenessFactories,
-        allowedMissingInputs,
-        extraSkyFunctions,
-        extraPrecomputedValues,
-        customDirtinessCheckers,
-        /*blacklistedPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT,
-        productName,
-        crossRepositoryLabelViolationStrategy,
-        buildFilesByPriority);
-  }
-
   private static SequencedSkyframeExecutor create(
       PackageFactory pkgFactory,
       BlazeDirectories directories,
@@ -213,8 +182,100 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     return skyframeExecutor;
   }
 
-  @VisibleForTesting
   public static SequencedSkyframeExecutor create(
+      PackageFactory pkgFactory,
+      BlazeDirectories directories,
+      BinTools binTools,
+      Factory workspaceStatusActionFactory,
+      ImmutableList<BuildInfoFactory> buildInfoFactories,
+      Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
+      Predicate<PathFragment> allowedMissingInputs,
+      ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
+      ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues,
+      Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,
+      String productName,
+      CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
+      List<BuildFileName> buildFilesByPriority) {
+    return create(
+        pkgFactory,
+        directories,
+        binTools,
+        workspaceStatusActionFactory,
+        buildInfoFactories,
+        diffAwarenessFactories,
+        allowedMissingInputs,
+        extraSkyFunctions,
+        extraPrecomputedValues,
+        customDirtinessCheckers,
+        /*blacklistedPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT,
+        productName,
+        crossRepositoryLabelViolationStrategy,
+        buildFilesByPriority);
+  }
+
+  @VisibleForTesting
+  public static SequencedSkyframeExecutor createForTesting(
+      PackageFactory pkgFactory,
+      BlazeDirectories directories,
+      BinTools binTools,
+      Factory workspaceStatusActionFactory,
+      ImmutableList<BuildInfoFactory> buildInfoFactories,
+      Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
+      Predicate<PathFragment> allowedMissingInputs,
+      ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
+      ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues,
+      Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,
+      String productName) {
+    return createForTesting(
+        pkgFactory,
+        directories,
+        binTools,
+        workspaceStatusActionFactory,
+        buildInfoFactories,
+        diffAwarenessFactories,
+        allowedMissingInputs,
+        extraSkyFunctions,
+        extraPrecomputedValues,
+        customDirtinessCheckers,
+        productName,
+        BazelSkyframeExecutorConstants.CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY,
+        BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
+  }
+
+  @VisibleForTesting
+  public static SequencedSkyframeExecutor createForTesting(
+      PackageFactory pkgFactory,
+      BlazeDirectories directories,
+      BinTools binTools,
+      Factory workspaceStatusActionFactory,
+      ImmutableList<BuildInfoFactory> buildInfoFactories,
+      Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
+      Predicate<PathFragment> allowedMissingInputs,
+      ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
+      ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues,
+      Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,
+      String productName,
+      CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
+      ImmutableList<BuildFileName> buildFilesByPriority) {
+    return create(
+        pkgFactory,
+        directories,
+        binTools,
+        workspaceStatusActionFactory,
+        buildInfoFactories,
+        diffAwarenessFactories,
+        allowedMissingInputs,
+        extraSkyFunctions,
+        extraPrecomputedValues,
+        customDirtinessCheckers,
+        /*blacklistedPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT,
+        productName,
+        crossRepositoryLabelViolationStrategy,
+        buildFilesByPriority);
+  }
+
+  @VisibleForTesting
+  public static SequencedSkyframeExecutor createForTesting(
       PackageFactory pkgFactory,
       BlazeDirectories directories,
       BinTools binTools,
@@ -236,8 +297,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         ImmutableList.<SkyValueDirtinessChecker>of(),
         blacklistedPackagePrefixesFile,
         productName,
-        CrossRepositoryLabelViolationStrategy.ERROR,
-        ImmutableList.of(BuildFileName.BUILD_DOT_BAZEL, BuildFileName.BUILD));
+        BazelSkyframeExecutorConstants.CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY,
+        BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
   }
 
   @Override
