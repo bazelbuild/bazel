@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.remote.RemoteProtocol.Platform;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.rules.fileset.FilesetActionContext;
 import com.google.devtools.build.lib.standalone.StandaloneSpawnStrategy;
+import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -312,6 +313,13 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
       if (status.getSucceeded()) {
         passRemoteOutErr(actionCache, result, actionExecutionContext.getFileOutErr());
         actionCache.downloadAllResults(result, execRoot);
+        if (result.getReturnCode() != 0) {
+          String cwd = executor.getExecRoot().getPathString();
+          String message =
+              CommandFailureUtils.describeCommandFailure(
+                  verboseFailures, spawn.getArguments(), spawn.getEnvironment(), cwd);
+          throw new UserExecException(message + ": Exit " + result.getReturnCode());
+        }
         return;
       }
       if (status.getError() == ExecutionStatus.ErrorCode.EXEC_FAILED

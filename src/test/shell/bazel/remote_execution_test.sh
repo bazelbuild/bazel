@@ -138,6 +138,30 @@ EOF
       || fail "Remote cache generated different result"
 }
 
+function test_failing_cc_test() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+cc_test(
+name = 'test',
+srcs = [ 'test.cc' ],
+)
+EOF
+  cat > a/test.cc <<EOF
+#include <iostream>
+int main() { std::cout << "Fail me!" << std::endl; return 1; }
+EOF
+  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
+      --spawn_strategy=remote \
+      --noremote_local_fallback \
+      --remote_executor=localhost:${worker_port} \
+      --remote_cache=localhost:${worker_port} \
+      --test_output=errors \
+      //a:test >& $TEST_log \
+      && fail "Expected test failure" || exitcode=$?
+  # TODO(ulfjack): Check that the test failure gets reported correctly.
+}
+
 # Tests that the remote worker can return a 200MB blob that requires chunking.
 # Blob has to be that large in order to exceed the grpc default max message size.
 function test_genrule_large_output_chunking() {
