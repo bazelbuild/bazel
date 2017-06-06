@@ -164,9 +164,8 @@ public class BlazeServerStartupOptions extends OptionsBase {
     defaultValue = "false", // NOTE: purely decorative!  See class docstring.
     category = "server startup",
     help =
-        "If set, Blaze will be run in batch mode, instead of the standard client/server mode. "
-            + "Running in batch mode prevents Blaze from caching data in memory, which makes it a "
-            + "lot slower. We recommend against using this flag."
+        "If set, Blaze will be run as just a client process without a server, instead of in "
+            + "the standard client/server mode."
   )
   public boolean batch;
 
