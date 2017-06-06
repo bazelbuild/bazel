@@ -635,6 +635,32 @@ def _get_crt_library(repository_ctx, debug = False):
     crt_library += "d"
   return crt_library + ".lib"
 
+def _is_no_msvc_wrapper(repository_ctx):
+  """Returns True if NO_MSVC_WRAPPER is set to 1."""
+  env = repository_ctx.os.environ
+  return "NO_MSVC_WRAPPER" in env and env["NO_MSVC_WRAPPER"] == "1"
+
+
+def _get_compilation_mode_content():
+  """Return the content for adding flags for different compilation modes when using MSVC wrapper."""
+  return  "\n".join([
+      "    compilation_mode_flags {",
+      "      mode: DBG",
+      "      compiler_flag: '-Xcompilation-mode=dbg'",
+      "      linker_flag: '-Xcompilation-mode=dbg'",
+      "    }",
+      "    compilation_mode_flags {",
+      "      mode: FASTBUILD",
+      "      compiler_flag: '-Xcompilation-mode=fastbuild'",
+      "      linker_flag: '-Xcompilation-mode=fastbuild'",
+      "    }",
+      "    compilation_mode_flags {",
+      "      mode: OPT",
+      "      compiler_flag: '-Xcompilation-mode=opt'",
+      "      linker_flag: '-Xcompilation-mode=opt'",
+      "    }"])
+
+
 def _escaped_cuda_compute_capabilities(repository_ctx):
   """Returns a %-escaped list of strings representing cuda compute capabilities."""
 
@@ -763,7 +789,9 @@ def _impl(repository_ctx):
     python_dir = python_binary[0:-10].replace("\\", "\\\\")
     escaped_include_paths = env["INCLUDE"] + (python_dir + "include")
     escaped_lib_paths = _escape_string(env["LIB"] + (python_dir + "libs"))
-    lib_tool = _find_msvc_tool(repository_ctx, vc_path, "lib.exe").replace("\\", "\\\\")
+    msvc_cl_path = _find_msvc_tool(repository_ctx, vc_path, "cl.exe").replace("\\", "/")
+    msvc_link_path = _find_msvc_tool(repository_ctx, vc_path, "link.exe").replace("\\", "/")
+    msvc_lib_path = _find_msvc_tool(repository_ctx, vc_path, "lib.exe").replace("\\", "/")
     if _is_support_whole_archive(repository_ctx, vc_path):
       support_whole_archive = "True"
     else:
@@ -777,11 +805,24 @@ def _impl(repository_ctx):
       escaped_paths = _escape_string(cuda_path.replace("\\", "\\\\") + "/bin;") + escaped_paths
     escaped_compute_capabilities = _escaped_cuda_compute_capabilities(repository_ctx)
     _tpl(repository_ctx, "wrapper/bin/pydir/msvc_tools.py", {
-        "%{lib_tool}": _escape_string(lib_tool),
+        "%{lib_tool}": _escape_string(msvc_lib_path),
         "%{support_whole_archive}": support_whole_archive,
         "%{cuda_compute_capabilities}": ", ".join(
             ["\"%s\"" % c for c in escaped_compute_capabilities]),
     })
+    _tpl(repository_ctx, "windows_cc_wrapper.bat", {
+        "%{msvc_cl_path}": msvc_cl_path,
+        "%{msvc_link_path}": msvc_link_path,
+    }, "windows_cc_wrapper.bat")
+
+    if _is_no_msvc_wrapper(repository_ctx):
+      msvc_cl_path = "windows_cc_wrapper.bat"
+      compilation_mode_content = ""
+    else:
+      msvc_cl_path = "wrapper/bin/msvc_cl.bat"
+      msvc_link_path = "wrapper/bin/msvc_link.bat"
+      msvc_lib_path = "wrapper/bin/msvc_link.bat"
+      compilation_mode_content = _get_compilation_mode_content()
 
     # nvcc will generate some source files under tmp_dir
     escaped_cxx_include_directories = [ "cxx_builtin_include_directory: \"%s\"" % escaped_tmp_dir ]
@@ -796,6 +837,10 @@ def _impl(repository_ctx):
         "%{msvc_env_path}": escaped_paths,
         "%{msvc_env_include}": escaped_include_paths,
         "%{msvc_env_lib}": escaped_lib_paths,
+        "%{msvc_cl_path}": msvc_cl_path,
+        "%{msvc_link_path}": msvc_link_path,
+        "%{msvc_lib_path}": msvc_lib_path,
+        "%{compilation_mode_content}": compilation_mode_content,
         "%{content}": _get_escaped_windows_msys_crosstool_content(repository_ctx),
         "%{crt_option}": _get_crt_option(repository_ctx),
         "%{crt_debug_option}": _get_crt_option(repository_ctx, debug=True),
@@ -890,6 +935,10 @@ def _impl(repository_ctx):
           "%{crt_debug_option}": "",
           "%{crt_library}": "",
           "%{crt_debug_library}": "",
+          "%{msvc_cl_path}": "",
+          "%{msvc_link_path}": "",
+          "%{msvc_lib_path}": "",
+          "%{compilation_mode_content}": "",
       })
 
 cc_autoconf = repository_rule(
@@ -914,6 +963,7 @@ cc_autoconf = repository_rule(
         "HOMEBREW_RUBY_PATH",
         "NO_WHOLE_ARCHIVE_OPTION",
         "USE_DYNAMIC_CRT",
+        "NO_MSVC_WRAPPER",
         "SYSTEMROOT",
         "VS90COMNTOOLS",
         "VS100COMNTOOLS",

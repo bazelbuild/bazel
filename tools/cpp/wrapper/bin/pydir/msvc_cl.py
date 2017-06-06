@@ -69,24 +69,13 @@ GCCPATTERNS = [
 ]
 
 
-def _IsLink(args):
+def _IsLink():
   """Determines whether we need to link rather than compile.
 
-  A set of arguments is for linking if they contain -static, -shared, are adding
-  adding library search paths through -L, or libraries via -l.
-
-  Args:
-    args: List of arguments
-
   Returns:
-    Boolean whether this is a link operation or not.
+    True if USE_LINKER is set to 1.
   """
-  for arg in args:
-    # Certain flags indicate we are linking.
-    if (arg in ['-shared', '-static'] or arg[:2] in ['-l', '-L'] or
-        arg[:3] == '-Wl'):
-      return True
-  return False
+  return 'USE_LINKER' in os.environ and os.environ['USE_LINKER'] == '1'
 
 
 class MsvcCompiler(msvc_tools.WindowsRunner):
@@ -138,7 +127,7 @@ class MsvcCompiler(msvc_tools.WindowsRunner):
 
 def main(argv):
   # If we are supposed to link create a static library.
-  if _IsLink(argv[1:]):
+  if _IsLink():
     return msvc_link.main(argv)
   else:
     return MsvcCompiler().Run(argv[1:])
