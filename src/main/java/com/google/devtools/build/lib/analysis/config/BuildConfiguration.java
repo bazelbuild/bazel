@@ -68,7 +68,6 @@ import com.google.devtools.build.lib.rules.test.TestActionBuilder;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.util.CPU;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
@@ -438,59 +437,6 @@ public final class BuildConfiguration implements BuildEvent {
   public static class StrictDepsConverter extends EnumConverter<StrictDepsMode> {
     public StrictDepsConverter() {
       super(StrictDepsMode.class, "strict dependency checking level");
-    }
-  }
-
-  /**
-   * Converter to auto-detect the cpu of the machine on which Bazel runs.
-   *
-   * <p>If the compilation happens remotely then the cpu of the remote machine might be different
-   * from the auto-detected one and the --cpu and --host_cpu options must be set explicitly.
-   */
-  public static class AutoCpuConverter implements Converter<String> {
-    @Override
-    public String convert(String input) throws OptionsParsingException {
-      if (input.isEmpty()) {
-        // TODO(philwo) - replace these deprecated names with more logical ones (e.g. k8 becomes
-        // linux-x86_64, darwin includes the CPU architecture, ...).
-        switch (OS.getCurrent()) {
-          case DARWIN:
-            return "darwin";
-          case FREEBSD:
-            return "freebsd";
-          case WINDOWS:
-            switch (CPU.getCurrent()) {
-              case X86_64:
-                return "x64_windows";
-              default:
-                // We only support x64 Windows for now.
-                return "unknown";
-            }
-          case LINUX:
-            switch (CPU.getCurrent()) {
-              case X86_32:
-                return "piii";
-              case X86_64:
-                return "k8";
-              case PPC:
-                return "ppc";
-              case ARM:
-                return "arm";
-              case S390X:
-                return "s390x";
-              default:
-                return "unknown";
-            }
-          default:
-            return "unknown";
-        }
-      }
-      return input;
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "a string";
     }
   }
 

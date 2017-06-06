@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.config.AutoCpuConverter;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.CPU;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.Pair;
 import java.util.Map;
 
 /** Defines a platform for execution contexts. */
@@ -36,11 +38,16 @@ public class Platform implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
 
-    PlatformInfo.Builder platformBuilder = PlatformInfo.builder();
+    PlatformInfo.Builder platformBuilder = PlatformInfo.builder().setLabel(ruleContext.getLabel());
 
     if (ruleContext.attributes().get(PlatformRule.HOST_PLATFORM_ATTR, Type.BOOLEAN)) {
+      // Create default constraints based on the current host OS and CPU values.
+      String cpuOption = ruleContext.getConfiguration().getHostCpu();
+      autodetectConstraints(cpuOption, ruleContext, platformBuilder);
+    } else if (ruleContext.attributes().get(PlatformRule.TARGET_PLATFORM_ATTR, Type.BOOLEAN)) {
       // Create default constraints based on the current OS and CPU values.
-      autodetectHostConstraints(ruleContext, platformBuilder);
+      String cpuOption = ruleContext.getConfiguration().getCpu();
+      autodetectConstraints(cpuOption, ruleContext, platformBuilder);
     } else {
       platformBuilder.addConstraints(
           PlatformProviderUtils.constraintValues(
@@ -68,14 +75,16 @@ public class Platform implements RuleConfiguredTargetFactory {
         .build();
   }
 
-  private void autodetectHostConstraints(
-      RuleContext ruleContext, PlatformInfo.Builder platformBuilder) {
+  private void autodetectConstraints(
+      String cpuOption, RuleContext ruleContext, PlatformInfo.Builder platformBuilder) {
+
+    Pair<CPU, OS> cpuValues = AutoCpuConverter.reverse(cpuOption);
 
     // Add the CPU.
-    CPU cpu = CPU.getCurrent();
+    CPU cpu = cpuValues.getFirst();
     Iterable<ConstraintValueInfo> cpuConstraintValues =
         PlatformProviderUtils.constraintValues(
-            ruleContext.getPrerequisites(PlatformRule.HOST_CPU_CONSTRAINTS_ATTR, Mode.DONT_CHECK));
+            ruleContext.getPrerequisites(PlatformRule.CPU_CONSTRAINTS_ATTR, Mode.DONT_CHECK));
     for (ConstraintValueInfo constraint : cpuConstraintValues) {
       if (cpu.getCanonicalName().equals(constraint.label().getName())) {
         platformBuilder.addConstraint(constraint);
@@ -84,10 +93,10 @@ public class Platform implements RuleConfiguredTargetFactory {
     }
 
     // Add the OS.
-    OS os = OS.getCurrent();
+    OS os = cpuValues.getSecond();
     Iterable<ConstraintValueInfo> osConstraintValues =
         PlatformProviderUtils.constraintValues(
-            ruleContext.getPrerequisites(PlatformRule.HOST_OS_CONSTRAINTS_ATTR, Mode.DONT_CHECK));
+            ruleContext.getPrerequisites(PlatformRule.OS_CONSTRAINTS_ATTR, Mode.DONT_CHECK));
     for (ConstraintValueInfo constraint : osConstraintValues) {
       if (os.getCanonicalName().equals(constraint.label().getName())) {
         platformBuilder.addConstraint(constraint);

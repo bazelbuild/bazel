@@ -32,8 +32,9 @@ public class PlatformRule implements RuleDefinition {
   public static final String CONSTRAINT_VALUES_ATTR = "constraint_values";
   public static final String REMOTE_EXECUTION_PROPS_ATTR = "remote_execution_properties";
   static final String HOST_PLATFORM_ATTR = "host_platform";
-  static final String HOST_CPU_CONSTRAINTS_ATTR = "host_cpu_constraints";
-  static final String HOST_OS_CONSTRAINTS_ATTR = "host_os_constraints";
+  static final String TARGET_PLATFORM_ATTR = "target_platform";
+  static final String CPU_CONSTRAINTS_ATTR = "cpu_constraints";
+  static final String OS_CONSTRAINTS_ATTR = "os_constraints";
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
@@ -59,20 +60,28 @@ public class PlatformRule implements RuleDefinition {
         .add(attr(REMOTE_EXECUTION_PROPS_ATTR, Type.STRING_DICT))
 
         // Undocumented. Indicates that this platform should auto-configure the platform constraints
-        // based on the current OS and CPU settings.
+        // based on the current host OS and CPU settings.
         .add(
             attr(HOST_PLATFORM_ATTR, Type.BOOLEAN)
                 .value(false)
                 .undocumented("Should only be used by internal packages."))
-        // Undocumented. Indicates to the rule which constraint_values to use for host CPU mapping.
+        // Undocumented. Indicates that this platform should auto-configure the platform constraints
+        // based on the current OS and CPU settings.
         .add(
-            attr(HOST_CPU_CONSTRAINTS_ATTR, BuildType.LABEL_LIST)
+            attr(TARGET_PLATFORM_ATTR, Type.BOOLEAN)
+                .value(false)
+                .undocumented("Should only be used by internal packages."))
+        // Undocumented. Indicates to the rule which constraint_values to use for automatic CPU
+        // mapping.
+        .add(
+            attr(CPU_CONSTRAINTS_ATTR, BuildType.LABEL_LIST)
                 .allowedFileTypes(FileTypeSet.NO_FILE)
                 .mandatoryProviders(ImmutableList.of(ConstraintValueInfo.SKYLARK_IDENTIFIER))
                 .undocumented("Should only be used by internal packages."))
-        // Undocumented. Indicates to the rule which constraint_values to use for host OS mapping.
+        // Undocumented. Indicates to the rule which constraint_values to use for automatic CPU
+        // mapping.
         .add(
-            attr(HOST_OS_CONSTRAINTS_ATTR, BuildType.LABEL_LIST)
+            attr(OS_CONSTRAINTS_ATTR, BuildType.LABEL_LIST)
                 .allowedFileTypes(FileTypeSet.NO_FILE)
                 .mandatoryProviders(ImmutableList.of(ConstraintValueInfo.SKYLARK_IDENTIFIER))
                 .undocumented("Should only be used by internal packages."))
