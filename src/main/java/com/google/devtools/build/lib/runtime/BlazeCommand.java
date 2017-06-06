@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
-import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
@@ -52,8 +51,6 @@ public interface BlazeCommand {
    *
    * @param env the command environment of the currently running command
    * @param optionsParser the options parser for the current command
-   *
-   * @throws AbruptExitException if something went wrong
    */
-  void editOptions(CommandEnvironment env, OptionsParser optionsParser) throws AbruptExitException;
+  void editOptions(CommandEnvironment env, OptionsParser optionsParser);
 }

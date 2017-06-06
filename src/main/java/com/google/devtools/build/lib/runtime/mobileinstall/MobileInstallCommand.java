@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.commands.BuildCommand;
 import com.google.devtools.build.lib.runtime.commands.ProjectFileSupport;
-import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionPriority;
@@ -111,8 +110,7 @@ public class MobileInstallCommand implements BlazeCommand {
   }
 
   @Override
-  public void editOptions(CommandEnvironment env, OptionsParser optionsParser)
-      throws AbruptExitException {
+  public void editOptions(CommandEnvironment env, OptionsParser optionsParser) {
     try {
       if (optionsParser.getOptions(Options.class).v2) {
         optionsParser.parse(
