@@ -711,7 +711,7 @@ public class JavaCommon {
     genJarsBuilder.addTransitive(genJarsProvider.getTransitiveGenClassJars());
     genJarsBuilder.addTransitive(genJarsProvider.getTransitiveGenSourceJars());
 
-    javaSkylarkApiProvider.setGenJarsProvider1(genJarsProvider);
+    javaSkylarkApiProvider.setGenJarsProvider(genJarsProvider);
     builder
         .add(JavaGenJarsProvider.class, genJarsProvider)
         .addOutputGroup(JavaSemantics.GENERATED_JARS_OUTPUT_GROUP, genJarsBuilder.build());

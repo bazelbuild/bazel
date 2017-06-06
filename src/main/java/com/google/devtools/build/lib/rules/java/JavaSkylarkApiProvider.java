@@ -184,7 +184,7 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
       return this;
     }
 
-    public Builder setGenJarsProvider1(JavaGenJarsProvider genJarsProvider) {
+    public Builder setGenJarsProvider(JavaGenJarsProvider genJarsProvider) {
       this.genJarsProvider = genJarsProvider;
       return this;
     }
