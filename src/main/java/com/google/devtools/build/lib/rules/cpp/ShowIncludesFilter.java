@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.ByteArrayOutputStream;
@@ -77,8 +78,12 @@ public class ShowIncludesFilter implements FileOutErr.OutputFilter {
     @Override
     public void flush() throws IOException {
       String line = buffer.toString(StandardCharsets.UTF_8.name());
-      if (!line.startsWith(SHOW_INCLUDES_PREFIX) && !line.startsWith(sourceFileName)) {
+      if (!line.startsWith(SHOW_INCLUDES_PREFIX)
+          && !line.startsWith(sourceFileName)
+          && !SHOW_INCLUDES_PREFIX.startsWith(line)
+          && !sourceFileName.startsWith(line)) {
         buffer.writeTo(out);
+        buffer.reset();
       }
       out.flush();
     }
@@ -103,5 +108,10 @@ public class ShowIncludesFilter implements FileOutErr.OutputFilter {
       }
     }
     return Collections.unmodifiableCollection(dependenciesInPath);
+  }
+
+  @VisibleForTesting
+  Collection<String> getDependencies() {
+    return filterShowIncludesOutputStream.getDependencies();
   }
 }
