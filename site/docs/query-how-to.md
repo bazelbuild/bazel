@@ -166,7 +166,7 @@ Compiler, so every `genproto` rule carries an implicit dependency on the
 protocol compiler.  These dependencies are not mentioned in the build file,
 but added in by the build tool.  The full set of implicit dependencies is
 currently undocumented; read the source code of
-[`RuleClassProvider`](https://github.com/bazelbuild/bazel/tree/master/src/main/java/com/example/devtools/build/lib/packages/RuleClassProvider.java).
+[`RuleClassProvider`](https://github.com/bazelbuild/bazel/tree/master/src/main/java/com/google/devtools/build/lib/packages/RuleClassProvider.java).
 
 <a name="Reverse_Dependencies"></a>
 ## Reverse Dependencies
