@@ -408,6 +408,13 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
         }
 
         Type fieldType = getFieldSingularType(field, annotation);
+        // For simple, static expansions, don't accept non-Void types.
+        if (annotation.expansion().length != 0 && !isVoidField(field)) {
+          throw new ConstructionException(
+              "Option "
+                  + optionName
+                  + " is an expansion flag with a static expansion, but does not have Void type.");
+        }
 
         // Get the converter return type.
         @SuppressWarnings("rawtypes")
