@@ -54,3 +54,6 @@ constraint_value(
     name = "windows",
     constraint_setting = ":os",
 )
+
+# A default platform with nothing defined.
+platform(name = "default_platform")

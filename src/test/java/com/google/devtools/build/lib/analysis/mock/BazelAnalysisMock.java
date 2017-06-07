@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.PlatformConfigurationLoader;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
@@ -270,7 +271,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
         new J2ObjcConfiguration.Loader(),
         new ProtoConfiguration.Loader(),
         new ConfigFeatureFlagConfiguration.Loader(),
-        new AndroidConfiguration.Loader());
+        new AndroidConfiguration.Loader(),
+        new PlatformConfigurationLoader());
   }
 
   @Override

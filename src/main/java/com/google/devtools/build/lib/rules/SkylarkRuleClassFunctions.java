@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.DefaultProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.PlatformSemantics;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -125,10 +126,11 @@ public class SkylarkRuleClassFunctions {
   /** Parent rule class for non-executable non-test Skylark rules. */
   public static final RuleClass baseRule =
       BaseRuleClasses.commonCoreAndSkylarkAttributes(
-          BaseRuleClasses.nameAttribute(
-            new RuleClass.Builder("$base_rule", RuleClassType.ABSTRACT, true))
-            .add(attr("expect_failure", STRING)))
-            .build();
+              PlatformSemantics.platformAttributes(
+                  BaseRuleClasses.nameAttribute(
+                          new RuleClass.Builder("$base_rule", RuleClassType.ABSTRACT, true))
+                      .add(attr("expect_failure", STRING))))
+          .build();
 
   /** Parent rule class for executable non-test Skylark rules. */
   public static final RuleClass binaryBaseRule =

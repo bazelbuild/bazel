@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.Builder;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
+import com.google.devtools.build.lib.analysis.PlatformConfigurationLoader;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.constraints.EnvironmentRule;
 import com.google.devtools.build.lib.bazel.rules.BazelToolchainType.BazelToolchainTypeRule;
@@ -162,7 +164,6 @@ import com.google.devtools.build.lib.rules.repository.WorkspaceBaseRule;
 import com.google.devtools.build.lib.rules.test.SkylarkTestingModule;
 import com.google.devtools.build.lib.rules.test.TestSuiteRule;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
-
 import java.io.IOException;
 
 /** A rule class provider implementing the rules Bazel knows. */
@@ -242,6 +243,9 @@ public class BazelRuleClassProvider {
       new RuleSet() {
         @Override
         public void init(Builder builder) {
+          builder.addConfigurationOptions(PlatformOptions.class);
+          builder.addConfigurationFragment(new PlatformConfigurationLoader());
+
           builder.addRuleDefinition(new ConstraintSettingRule());
           builder.addRuleDefinition(new ConstraintValueRule());
           builder.addRuleDefinition(new PlatformRule());
