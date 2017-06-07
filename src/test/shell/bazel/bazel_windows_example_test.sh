@@ -167,5 +167,51 @@ function test_native_python_with_python3() {
   fi
 }
 
+function test_python_test_with_data() {
+  touch BUILD
+  touch WORKSPACE
+
+  mkdir data
+  cat >data/BUILD <<EOF
+filegroup(
+  name = "test_data",
+  srcs = ["data.txt"],
+  visibility = ["//visibility:public"],
+)
+EOF
+
+  cat >data/data.txt <<EOF
+hello world
+EOF
+
+  mkdir src
+  cat >src/BUILD <<EOF
+py_test(
+  name = "data_test",
+  srcs = ["data_test.py"],
+  data = ["//data:test_data"],
+)
+EOF
+
+  cat >src/data_test.py <<EOF
+import unittest
+import os
+
+class MyTest(unittest.TestCase):
+
+  def test_data(self):
+    with open("data/data.txt") as f:
+      line = f.readline().strip()
+      self.assertEqual(line, "hello world")
+
+if __name__ == '__main__':
+  print("CWD = " + os.getcwd())
+  unittest.main()
+EOF
+
+  bazel test --test_output=errors //src:data_test >& $TEST_log \
+    || fail "Test //src:test failed while expecting success"
+}
+
 run_suite "examples on Windows"
 

@@ -156,6 +156,11 @@ def Main():
   try:
     sys.stdout.flush()
     if IsRunningFromZip():
+      # If RUN_UNDER_RUNFILES equals 1, it means we need to
+      # change directory to the right runfiles directory.
+      # (So that the data files are accessible)
+      if os.environ.get("RUN_UNDER_RUNFILES") == "1":
+        os.chdir(os.path.join(module_space, "%workspace_name%"))
       retCode = subprocess.call(args)
       shutil.rmtree(os.path.dirname(module_space), True)
       exit(retCode)
