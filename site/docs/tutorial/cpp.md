@@ -1,395 +1,383 @@
 ---
 layout: documentation
-title: Build C++
+title: Build Tutorial - C++
 ---
 
-Build C++
-=========
+Introduction to Bazel: Build a C++ Project
+==========
 
-You can use Bazel to build your C++ application. In this tutorial you'll learn how to:
+In this tutorial, you'll learn the basics of building C++ applications with
+Bazel. You will set up your workspace and build a simple C++ project that
+illustrates key Bazel concepts, such as targets and `BUILD` files. After
+completing this tutorial, take a look at
+[Common C++ Build Use Cases](cpp-use-cases.md) for information on more advanced
+concepts such as writing and running C++ tests.
 
-* Build your first C++ target
-* Use external libraries
-* Write and run C++ tests
-* Use precompiled libraries
+Estimated completion time: 30 minutes.
 
-## Setting up your workspace
+## What you'll learn
 
-Suppose that you have an existing project in a directory, say,
-`~/gitroot/my-project/`. Create an empty file at
-`~/gitroot/my-project/WORKSPACE` to show Bazel where your project's root is.
-We are going to create a small hello world project with the following directory structure:
-{% highlight bash %}
-└── my-project
-    ├── lib
-    │   ├── BUILD
-    │   ├── hello-greet.cc
-    │   └── hello-greet.h
-    ├── main
-    │   ├── BUILD
-    │   ├── hello-time.cc
-    │   ├── hello-time.h
-    │   └── hello-world.cc
-    └── WORKSPACE
-{% endhighlight %}
+In this tutorial you'll learn how to:
 
-## Creating source files
+*  Build a target
+*  Visualize the project's dependencies
+*  Split the project into multiple targets and packages
+*  Control target visibility across packages
+*  Reference targets through labels
 
-Using the following commands to create the necessary source files:
-{% highlight bash %}
-# If you're not already there, move to your workspace directory.
-cd ~/gitroot/my-project
-mkdir ./main
-cat > main/hello-world.cc <<'EOF'
+## Before you begin
 
-#include "lib/hello-greet.h"
-#include "main/hello-time.h"
-#include <iostream>
-#include <string>
+To prepare for the tutorial, first [Install Bazel](/docs/install.md) if
+you don't have it installed already. Then, retrieve the sample project from
+Bazel's GitHub repository:
 
-int main(int argc, char** argv) {
-  std::string who = "world";
-  if (argc > 1) {
-    who = argv[1];
-  }
-  std::cout << get_greet(who) <<std::endl;
-  print_localtime();
-  return 0;
-}
-EOF
+```
+git clone https://github.com/bazelbuild/examples/
+```
 
-cat > main/hello-time.h <<'EOF'
+The sample project for this tutorial is in the `examples/cpp-tutorial` directory
+and is structured as follows:
 
-#ifndef MAIN_HELLO_TIME_H_
-#define MAIN_HELLO_TIME_H_
 
-void print_localtime();
+```
+examples
+└── cpp-tutorial
+    ├──stage1
+    │  └── main
+    │      ├── BUILD
+    │      ├── hello-world.cc
+    │  └── WORKSPACE
+    ├──stage2
+    │  ├── main
+    │  │   ├── BUILD
+    │  │   ├── hello-world.cc
+    │  │   ├── hello-greet.cc
+    │  │   ├── hello-greet.h
+    │  └── WORKSPACE
+    └──stage3
+       ├── main
+       │   ├── BUILD
+       │   ├── hello-world.cc
+       │   ├── hello-greet.cc
+       │   └── hello-greet.h
+       ├── lib
+       │   ├── BUILD
+       │   ├── hello-time.cc
+       │   └── hello-time.h
+       └── WORKSPACE
+```
 
-#endif
-EOF
+As you can see, there are three sets of files, each set representing a stage in
+this tutorial. In the first stage, you will build a single target residing in a
+single package. In the second stage, you will split your project into multiple
+targets but keep it in a single package. In the third and final stage, you will
+split your project into multiple packages and build it with multiple targets.
 
-cat > main/hello-time.cc <<'EOF'
+## Build with Bazel
 
-#include "main/hello-time.h"
-#include <ctime>
-#include <iostream>
+### Set up the workspace
 
-void print_localtime() {
-  std::time_t result = std::time(nullptr);
-  std::cout << std::asctime(std::localtime(&result));
-}
-EOF
+Before you can build a project, you need to set up its workspace. A workspace is
+a directory that holds your project's source files and Bazel's build outputs. It
+also contains files that Bazel recognizes as special:
 
-mkdir ./lib
-cat > lib/hello-greet.h <<'EOF'
+*  The `WORKSPACE` file, which identifies the directory and its contents as a
+   Bazel workspace and lives at the root of the project's directory structure,
 
-#ifndef LIB_HELLO_GREET_H_
-#define LIB_HELLO_GREET_H_
+*  One or more `BUILD` files, which tell Bazel how to build different parts of
+   the project. (A directory within the workspace that contains a `BUILD` file
+   is a *package*. You will learn about packages later in this tutorial.)
 
-#include <string>
+To designate a directory as a Bazel workspace, create an empty file named
+`WORKSPACE` in that directory.
 
-std::string get_greet(const std::string &thing);
+When Bazel builds the project, all inputs and dependencies must be in the same
+workspace. Files residing in different workspaces are independent of one
+another unless linked, which is beyond the scope of this tutorial.
 
-#endif
-EOF
+### Understand the BUILD file
 
-cat > lib/hello-greet.cc <<'EOF'
+A `BUILD` file contains several different types of instructions for Bazel.
+The most important type is the *build rule*, which tells Bazel how to build the
+desired outputs, such as executable binaries or libraries. Each instance
+of a build rule in the `BUILD` file is called a *target* and points to a
+specific set of source files and dependencies. A target can also point to other
+targets.
 
-#include "lib/hello-greet.h"
-#include <string>
+Take a look at the `BUILD` file in the `cpp-tutorial/stage1/main` directory:
 
-std::string get_greet(const std::string& who) {
-  return "Hello " + who;
-}
-EOF
-{% endhighlight %}
+```
+cc_binary(
+    name = "hello-world",
+    srcs = ["hello-world.cc"],
+)
+```
 
-## Adding BUILD files
+In our example, the `hello-world` target instantiates Bazel's built-in
+[`cc_binary` rule](docs/be/c-cpp.html#cc_binary). The rule tells Bazel to build
+a self-contained executable binary from the `hello-world.cc` source file with no
+dependencies.
 
-As you can see from the source code, `main/hello-world.cc` needs to include both `lib/hello-greet.h` and `main/hello-time.h`.
-First we create `lib/BUILD` for hello-greet.cc:
+The attributes in the target explicitly state its dependencies and options.
+While the `name` attribute is mandatory, many are optional. For example, in the
+`hello-greet` target, `name` is self-explanatory, and `srcs` specifies the
+source file(s) from which Bazel builds the target.
 
-{% highlight python %}
+### Build the project
+
+Let's build your sample project. Change into the `cpp-tutorial/stage1` directory
+and run the following command:
+
+```
+bazel build //main:hello-world
+```
+
+Notice the target label - the `//main:` part is the location of our `BUILD`
+file relative to the root of the workspace, and `hello-world` is what we named
+that target in the `BUILD` file. (You will learn about target labels in more
+detail at the end of this tutorial.)
+
+Bazel produces output similar to the following:
+
+```
+INFO: Found 1 target...
+Target //main:hello-world up-to-date:
+  bazel-bin/main/hello-world
+INFO: Elapsed time: 2.267s, Critical Path: 0.25s
+```
+
+Congratulations, you just built your first Bazel target! Bazel places build
+outputs in the `bazel-bin` directory at the root of the workspace. Browse
+through its contents to get an idea for Bazel's output structure.
+
+Now test your freshly built binary:
+
+```shell
+bazel-bin/main/hello-world
+```
+
+### Review the dependency graph
+
+A successful build has all of its dependencies explicitly stated in the `BUILD`
+file. Bazel uses those statements to create the project's dependency graph,
+which enables accurate incremental builds.
+
+Let's visualize our sample project's dependencies. First, generate a text
+representation of the dependency graph (run the command at the workspace root):
+
+```
+bazel query --nohost_deps --noimplicit_deps 'deps(//main:hello-world)' \
+  --output graph
+```
+
+The above command tells Bazel to look for all dependencies for the target
+`//main:hello-world` (excluding host and implicit dependencies) and format the
+output as a graph.
+
+Then, paste the text into [GraphViz](http://www.webgraphviz.com/).
+
+As you can see, the first stage of the sample project has a single target that
+that builds a single source file with no additional dependencies:
+
+![Dependency graph for 'hello-world'](/assets/cpp-tutorial-stage1.png)
+
+Now that you have set up your workspace, built your project, and examined its
+dependencies, let's add some complexity.
+
+## Refine your Bazel build
+
+While a single target is sufficient for small projects, you may want to split
+larger projects into multiple targets and packages to allow for fast incremental
+builds (that is, only rebuild what's changed) and to speed up your builds by
+building multiple parts of a project at once.
+
+### Specify multiple build targets
+
+Let's split our sample project build into two targets. Take a look at the
+`BUILD` file in the `cpp-tutorial/stage2/main` directory:
+
+```
 cc_library(
     name = "hello-greet",
     srcs = ["hello-greet.cc"],
     hdrs = ["hello-greet.h"],
-    visibility = ["//main:__pkg__"],
-)
-{% endhighlight %}
-
-Note that `visibility = ["//main:__pkg__"]` indicates `hello-greet` is visible from `main/BUILD`.
-Then we'd create the following `main/BUILD` file:
-
-{% highlight python %}
-cc_library(
-    name = "hello-time",
-    srcs = ["hello-time.cc"],
-    hdrs = ["hello-time.h"],
 )
 
 cc_binary(
     name = "hello-world",
     srcs = ["hello-world.cc"],
     deps = [
-        ":hello-time",
-        "//lib:hello-greet",
+        ":hello-greet",
     ],
 )
-{% endhighlight %}
+```
 
-Note when depending on a target in the same package, we can just use `:hello-time`.
-When the target is in other package, a full path from root should be used, like `//lib:hello-greet`.
+With this `BUILD` file, Bazel first builds the `hello-greet` library
+(using Bazel's built-in [`cc_library` rule](docs/be/c-cpp.html#cc_library),
+then the `hello-world` binary. The `deps` attribute in the `hello-world` target
+tells Bazel that the `hello-greet` library is required to build the `hello-world`
+binary.
 
-Now you are ready to build your hello world C++ binary:
+Let's build this new version of our project. Change into the
+`cpp-tutorial/stage2` directory and run the following command:
 
-{% highlight bash %}
-bazel build main:hello-world
-{% endhighlight %}
+```
+bazel build //main:hello-world
+```
 
-This produces the following output:
+Bazel produces output similar to the following:
 
-{% highlight bash %}
+```
 INFO: Found 1 target...
 Target //main:hello-world up-to-date:
   bazel-bin/main/hello-world
-INFO: Elapsed time: 2.869s, Critical Path: 1.00s
-{% endhighlight %}
+INFO: Elapsed time: 2.399s, Critical Path: 0.30s
+```
 
-{% highlight bash %}
-./bazel-bin/main/hello-world
-{% endhighlight %}
+Now test your freshly built binary:
 
-This produces the following output:
+```
+bazel-bin/main/hello-world
+```
 
-{% highlight bash %}
-Hello world
-Thu Jun 23 18:51:46 2016
-{% endhighlight %}
+If you now modify `hello-greet.cc` and rebuild the project, Bazel will
+only recompile that file.
 
-{% highlight bash %}
-./bazel-bin/main/hello-world Bazel
-{% endhighlight %}
+Looking at the dependency graph, you can see that `hello-world` depends on the
+same inputs as it did before, but the structure of the build is different:
 
-This produces the following output:
+![Dependency graph for 'hello-world'](/assets/cpp-tutorial-stage2.png)
 
-{% highlight bash %}
-Hello Bazel
-Thu Jun 23 18:52:10 2016
-{% endhighlight %}
+You've now built the project with two targets. The `hello-world` target builds
+one source file and depends on one other target (`//main:hello-greet`), which
+builds two additional source files.
 
-Congratulations, you've just built your first Bazel target!
+### Use multiple packages
 
-## Transitive includes
+Let’s now split the project into multiple packages. Take a look at the contents
+of the `cpp-tutorial/stage3` directory:
 
-If a file includes a header, then the file's rule should depend on that header's
-library.  Conversely, only direct dependencies need to be specified as
-dependencies.  For example, suppose `sandwich.h` includes `bread.h` and
-`bread.h` includes `flour.h`.  `sandwich.h` doesn't include `flour.h` (who wants
-flour in their sandwich?), so the BUILD file would look like:
+```
+└──stage3
+   ├── main
+   │   ├── BUILD
+   │   ├── hello-world.cc
+   │   ├── hello-greet.cc
+   │   └── hello-greet.h
+   ├── lib
+   │   ├── BUILD
+   │   ├── hello-time.cc
+   │   └── hello-time.h
+   └── WORKSPACE
+```
+Notice that we now have two sub-directories, and each contains a `BUILD` file.
+Therefore, to Bazel, the workspace now contains two packages, `lib` and `main`.
+
+Take a look at the `lib/BUILD` file:
 
 ```python
 cc_library(
-    name = "sandwich",
-    srcs = ["sandwich.cc"],
-    hdrs = ["sandwich.h"],
-    deps = [":bread"],
-)
-
-cc_library(
-    name = "bread",
-    srcs = ["bread.cc"],
-    hdrs = ["bread.h"],
-    deps = [":flour"],
-)
-
-cc_library(
-    name = "flour",
-    srcs = ["flour.cc"],
-    hdrs = ["flour.h"],
+    name = "hello-time",
+    srcs = ["hello-time.cc"],
+    hdrs = ["hello-time.h"],
+    visibility = ["//main:__pkg__"],
 )
 ```
 
-Here, the `sandwich` library depends on the `bread` library, which depends
-on the `flour` library.
-
-## Adding include paths
-
-Sometimes you cannot (or do not want to) base include paths at the workspace
-root. Existing libraries might already have a include directory that doesn't
-match its path in your workspace.  For example, suppose you have the following
-directory structure:
-
-```
-└── my-project
-    ├── third_party
-    │   └── some_lib
-    │       ├── BUILD
-    │       ├── include
-    │       │   └── some_lib.h
-    │       └── some_lib.cc
-    └── WORKSPACE
-```
-
-Bazel will expect `some_lib.h` to be included as
-`third_party/some_lib/include/some_lib.h`, but suppose `some_lib.cc` includes
-`"include/some_lib.h"`.  To make that include path valid,
-`third_party/some_lib/BUILD` will need to specify that the `some_lib/`
-directory is an include directory:
+And at the `main/BUILD` file:
 
 ```python
 cc_library(
-    name = "some_lib",
-    srcs = ["some_lib.cc"],
-    hdrs = ["some_lib.h"],
-    copts = ["-Ithird_party/some_lib"],
+    name = "hello-greet",
+    srcs = ["hello-greet.cc"],
+    hdrs = ["hello-greet.h"],
 )
-```
 
-This is especially useful for external dependencies, as their header files
-must otherwise be included with an `external/[repository-name]/` prefix.
-
-## Including external libraries
-
-Suppose you are using [Google Test](https://github.com/google/googletest). You
-can use one of the `new_` repository functions in the `WORKSPACE` file to
-download Google Test and make it available in your repository:
-
-```python
-new_http_archive(
-    name = "gtest",
-    url = "https://github.com/google/googletest/archive/release-1.7.0.zip",
-    sha256 = "b58cb7547a28b2c718d1e38aee18a3659c9e3ff52440297e965f5edffe34b6d0",
-    build_file = "gtest.BUILD",
-)
-```
-
-Then create `gtest.BUILD`, a BUILD file to use to compile Google Test.
-Google Test has several "special" requirements that make its `cc_library` rule
-more complicated:
-
-* `googletest-release-1.7.0/src/gtest-all.cc` `#include`s all of the other files in
-  `googletest-release-1.7.0/src/`, so we need to exclude it from the compile or we'll get
-  link errors for duplicate symbols.
-* It uses header files that are relative to the `googletest-release-1.7.0/include/` directory
-  (`"gtest/gtest.h"`), so we must add that directory to the include paths.
-* It needs to link in pthread, so we add that as a `linkopt`.
-
-The final rule looks like this:
-
-```python
-cc_library(
-    name = "main",
-    srcs = glob(
-        ["googletest-release-1.7.0/src/*.cc"],
-        exclude = ["googletest-release-1.7.0/src/gtest-all.cc"]
-    ),
-    hdrs = glob([
-        "googletest-release-1.7.0/include/**/*.h",
-        "googletest-release-1.7.0/src/*.h"
-    ]),
-    copts = [
-        "-Iexternal/gtest/googletest-release-1.7.0/include"
-    ],
-    linkopts = ["-pthread"],
-    visibility = ["//visibility:public"],
-)
-```
-
-This is somewhat messy: everything is prefixed with googletest-release-1.7.0 as a byproduct
-of the archive's structure. You can make `new_http_archive` strip this prefix by
-adding the `strip_prefix` attribute:
-
-```python
-new_http_archive(
-    name = "gtest",
-    url = "https://github.com/google/googletest/archive/release-1.7.0.zip",
-    sha256 = "b58cb7547a28b2c718d1e38aee18a3659c9e3ff52440297e965f5edffe34b6d0",
-    build_file = "gtest.BUILD",
-    strip_prefix = "googletest-release-1.7.0",
-)
-```
-
-Then `gtest.BUILD` would look like this:
-
-```python
-cc_library(
-    name = "main",
-    srcs = glob(
-        ["src/*.cc"],
-        exclude = ["src/gtest-all.cc"]
-    ),
-    hdrs = glob([
-        "include/**/*.h",
-        "src/*.h"
-    ]),
-    copts = ["-Iexternal/gtest/include"],
-    linkopts = ["-pthread"],
-    visibility = ["//visibility:public"],
-)
-```
-
-Now `cc_` rules can depend on `@gtest//:main`.
-
-## Writing and running C++ tests
-
-For example, we could create a test `./test/hello-test.cc` such as:
-
-```cpp
-#include "gtest/gtest.h"
-#include "lib/hello-greet.h"
-
-TEST(HelloTest, GetGreet) {
-  EXPECT_EQ(get_greet("Bazel"), "Hello Bazel");
-}
-```
-
-Then create `./test/BUILD` file for your tests:
-
-```python
-cc_test(
-    name = "hello-test",
-    srcs = ["hello-test.cc"],
-    copts = ["-Iexternal/gtest/include"],
+cc_binary(
+    name = "hello-world",
+    srcs = ["hello-world.cc"],
     deps = [
-        "@gtest//:main",
-        "//lib:hello-greet",
+        ":hello-greet",
+        "//lib:hello-time",
     ],
 )
 ```
 
-Note in order to make `hello-greet` visible to `hello-test`, we have to add `"//test:__pkg__",` to `visibility` attribute in `./lib/BUILD`.
+As you can see, the `hello-world` target in the `main` package depends on the
+`hello-time` target in the `lib` package (hence the target label
+`//lib:hello-time`) - Bazel knows this through the `deps` attribute. Take a look
+at the dependency graph:
 
-Now you can use `bazel test` to run the test.
+![Dependency graph for 'hello-world'](/assets/cpp-tutorial-stage3.png)
 
-{% highlight bash %}
-bazel test test:hello-test
-{% endhighlight %}
+Notice that for the build to succeed, we make the `//lib:hello-time` target in
+`lib/BUILD` explicitly visible to targets in `main/BUILD` using the `visibility`
+attribute. This is because by default targets are only visible to other targets
+in the same `BUILD` file. (Bazel uses target visibility to prevent issues such
+as libraries containing implementation details leaking into public APIs.)
 
-This produces the following output:
+Let's build this final version of our project. Change into the
+`cpp-tutorial/stage3` directory and run the following command:
 
-{% highlight bash %}
-INFO: Found 1 test target...
-Target //test:hello-test up-to-date:
-  bazel-bin/test/hello-test
-INFO: Elapsed time: 4.497s, Critical Path: 2.53s
-//test:hello-test                                                        PASSED in 0.3s
-
-Executed 1 out of 1 tests: 1 test passes.
-{% endhighlight %}
-
-
-## Adding dependencies on precompiled libraries
-
-If you want to use a library that you only have a compiled version of (e.g.,
-headers and a .so) wrap it in a `cc_library` rule:
-
-```python
-cc_library(
-    name = "mylib",
-    srcs = ["mylib.so"],
-    hdrs = ["mylib.h"],
-)
+```
+bazel build //main:hello-world
 ```
 
-Then other C++ targets in your workspace can depend on this rule.
+Bazel produces output similar to the following:
+
+```
+INFO: Found 1 target...
+Target //main:hello-world up-to-date:
+  bazel-bin/main/hello-world
+INFO: Elapsed time: 0.167s, Critical Path: 0.00s
+```
+
+Now test the freshly built binary:
+
+```
+bazel-bin/main/hello-world
+```
+
+You've now built the project as two packages with three targets and understand
+the dependencies between them.
+
+## Use labels to reference targets
+
+In `BUILD` files and at the command line, Bazel uses *labels* to reference
+targets - for example, `//main:hello-world` or `//lib:hello-time`. Their syntax
+is:
+
+```
+//path/to/package:target-name
+```
+
+If the target is a rule target, then `path/to/package` is the path to the
+directory containing the `BUILD` file, and `target-name` is what you named the
+target in the `BUILD` file (the `name` attribute). If the target is a file
+target, then `path/to/package` is the path to the root of the package, and
+`target-name` is the name of the target file, including its full path.
+
+When referencing targets within the same package, you can skip the package path
+and just use `//:target-name`. When referencing targets within the same `BUILD`
+file, you can even skip the `//` workspace root identifier and just use
+`:target-name`.
+
+
+## Further reading
+
+Congratulations! You now know the basics of building a C++ project with Bazel.
+Next, read up on the most common [C++ build use cases](cpp-use-cases.md). Then,
+check out the following:
+
+*  [External Dependencies](https://bazel.build/versions/master/docs/external.html)
+   to learn more about working with local and remote repositories.
+
+*  The [Build Encyclopedia](/docs/be/overview.html) to learn more about Bazel.
+
+*  The [Java build tutorial](/docs/tutorial/java.md) to get started with
+   building Java applications with Bazel.
+
+*  The [mobile application tutorial](/docs/tutorial/app.md) to get started with
+   building mobile applications for Android and iOS with Bazel.
+
+Happy building!
