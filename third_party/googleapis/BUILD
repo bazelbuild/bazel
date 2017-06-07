@@ -2,6 +2,8 @@ licenses(["notice"])
 
 exports_files(["LICENSE"])
 
+load("@//third_party/grpc:build_defs.bzl", "java_grpc_library")
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -18,6 +20,13 @@ java_proto_library(
     name = "google_devtools_build_v1_build_events_java_proto",
     visibility = ["//visibility:public"],
     deps = [":google_devtools_build_v1_build_events_proto"],
+)
+
+java_grpc_library(
+    name = "google_devtools_build_v1_publish_build_event_java_grpc",
+    srcs = [":google_devtools_build_v1_publish_build_event_proto"],
+    deps = [":google_devtools_build_v1_publish_build_event_java_proto"],
+    visibility = ["//visibility:public"],
 )
 
 java_proto_library(
