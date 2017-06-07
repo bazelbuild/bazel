@@ -25,8 +25,8 @@ java_proto_library(
 java_grpc_library(
     name = "google_devtools_build_v1_publish_build_event_java_grpc",
     srcs = [":google_devtools_build_v1_publish_build_event_proto"],
-    deps = [":google_devtools_build_v1_publish_build_event_java_proto"],
     visibility = ["//visibility:public"],
+    deps = [":google_devtools_build_v1_publish_build_event_java_proto"],
 )
 
 java_proto_library(
@@ -75,6 +75,13 @@ java_proto_library(
     name = "google_devtools_remoteexecution_v1test_remote_execution_java_proto",
     visibility = ["//visibility:public"],
     deps = [":google_devtools_remoteexecution_v1test_remote_execution_proto"],
+)
+
+java_grpc_library(
+    name = "google_bytestream_bytestream_java_grpc",
+    srcs = [":google_bytestream_bytestream_proto"],
+    visibility = ["//visibility:public"],
+    deps = [":google_bytestream_bytestream_java_proto"],
 )
 
 java_grpc_library(
@@ -219,4 +226,3 @@ proto_library(
     srcs = ["google/api/auth.proto"],
     deps = [":google_api_annotations_proto"],
 )
-
