@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -50,6 +51,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.Options;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -662,6 +664,23 @@ public class PackageFunctionTest extends BuildViewTestCase {
     }
   }
 
+  @Test
+  public void testPackageLoadingErrorOnIOExceptionReadingBuildFile() throws Exception {
+    Path fooBuildFilePath = scratch.file("foo/BUILD");
+    IOException exn = new IOException("nope");
+    fs.throwExceptionOnGetInputStream(fooBuildFilePath, exn);
+
+    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
+    EvaluationResult<PackageValue> result = SkyframeExecutorTestUtils.evaluate(
+        getSkyframeExecutor(), skyKey, /*keepGoing=*/false, reporter);
+    assertThat(result.hasError()).isTrue();
+    ErrorInfo errorInfo = result.getError(skyKey);
+    String errorMessage = errorInfo.getException().getMessage();
+    assertThat(errorMessage).contains("nope");
+    assertThat(errorInfo.getException()).isInstanceOf(NoSuchPackageException.class);
+    assertThat(errorInfo.getException()).hasCauseThat().isSameAs(exn);
+  }
+
   private static class CustomInMemoryFs extends InMemoryFileSystem {
     private abstract static class FileStatusOrException {
       abstract FileStatus get() throws IOException;
@@ -696,8 +715,9 @@ public class PackageFunctionTest extends BuildViewTestCase {
       }
     }
 
-    private Map<Path, FileStatusOrException> stubbedStats = Maps.newHashMap();
-    private Set<Path> makeUnreadableAfterReaddir = Sets.newHashSet();
+    private final Map<Path, FileStatusOrException> stubbedStats = Maps.newHashMap();
+    private final Set<Path> makeUnreadableAfterReaddir = Sets.newHashSet();
+    private final Map<Path, IOException> pathsToErrorOnGetInputStream = Maps.newHashMap();
 
     public CustomInMemoryFs(ManualClock manualClock) {
       super(manualClock);
@@ -730,6 +750,19 @@ public class PackageFunctionTest extends BuildViewTestCase {
         path.setReadable(false);
       }
       return result;
+    }
+
+    public void throwExceptionOnGetInputStream(Path path, IOException exn) {
+      pathsToErrorOnGetInputStream.put(path, exn);
+    }
+
+    @Override
+    protected InputStream getInputStream(Path path) throws IOException {
+      IOException exnToThrow = pathsToErrorOnGetInputStream.get(path);
+      if (exnToThrow != null) {
+        throw exnToThrow;
+      }
+      return super.getInputStream(path);
     }
   }
 }

@@ -56,6 +56,7 @@ public class SequencedSkyframeExecutorFactory implements SkyframeExecutorFactory
         customDirtinessCheckers,
         productName,
         BazelSkyframeExecutorConstants.CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY,
-        BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
+        BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
+        BazelSkyframeExecutorConstants.ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE);
   }
 }

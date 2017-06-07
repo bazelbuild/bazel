@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.skyframe.FileSymlinkCycleUniquenessFunction
 import com.google.devtools.build.lib.skyframe.FileSymlinkInfiniteExpansionUniquenessFunction;
 import com.google.devtools.build.lib.skyframe.GlobFunction;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
+import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageFunction.CacheEntryWithGlobDeps;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
@@ -310,6 +311,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
   protected abstract CrossRepositoryLabelViolationStrategy
       getCrossRepositoryLabelViolationStrategy();
   protected abstract ImmutableList<BuildFileName> getBuildFilesByPriority();
+  protected abstract ActionOnIOExceptionReadingBuildFile getActionOnIOExceptionReadingBuildFile();
   protected abstract ImmutableMap<SkyFunctionName, SkyFunction> getExtraExtraSkyFunctions();
 
   protected final ImmutableMap<SkyFunctionName, SkyFunction> makeFreshSkyFunctions() {
@@ -368,7 +370,9 @@ public abstract class AbstractPackageLoader implements PackageLoader {
                 packageFunctionCache,
                 astCache,
                 /*numPackagesLoaded=*/ new AtomicInteger(0),
-                null))
+                /*skylarkImportLookupFunctionForInlining=*/ null,
+                /*packageProgress=*/ null,
+                getActionOnIOExceptionReadingBuildFile()))
         .putAll(extraSkyFunctions)
         .putAll(getExtraExtraSkyFunctions());
     return builder.build();

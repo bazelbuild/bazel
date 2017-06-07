@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.LocalRepositoryLookupFunction;
+import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -83,6 +84,11 @@ public class BazelPackageLoader extends AbstractPackageLoader {
   @Override
   protected ImmutableList<BuildFileName> getBuildFilesByPriority() {
     return BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY;
+  }
+
+  @Override
+  protected ActionOnIOExceptionReadingBuildFile getActionOnIOExceptionReadingBuildFile() {
+    return BazelSkyframeExecutorConstants.ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE;
   }
 
   @Override

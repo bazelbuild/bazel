@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
 
@@ -27,4 +28,8 @@ public class BazelSkyframeExecutorConstants {
 
   public static final ImmutableList<BuildFileName> BUILD_FILES_BY_PRIORITY =
       ImmutableList.of(BuildFileName.BUILD_DOT_BAZEL, BuildFileName.BUILD);
+
+  public static final ActionOnIOExceptionReadingBuildFile
+      ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE =
+          ActionOnIOExceptionReadingBuildFile.UseOriginalIOException.INSTANCE;
 }
