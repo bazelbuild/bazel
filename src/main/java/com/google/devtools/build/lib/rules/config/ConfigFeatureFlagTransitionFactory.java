@@ -36,13 +36,18 @@ public class ConfigFeatureFlagTransitionFactory implements RuleTransitionFactory
   /** Transition which resets the set of flag-value pairs to the map it was constructed with. */
   private static final class ConfigFeatureFlagValuesTransition implements PatchTransition {
     private final ImmutableSortedMap<Label, String> flagValues;
+    private final int cachedHashCode;
 
     public ConfigFeatureFlagValuesTransition(Map<Label, String> flagValues) {
       this.flagValues = ImmutableSortedMap.copyOf(flagValues);
+      this.cachedHashCode = this.flagValues.hashCode();
     }
 
     @Override
     public BuildOptions apply(BuildOptions options) {
+      if (!options.contains(ConfigFeatureFlagConfiguration.Options.class)) {
+        return options;
+      }
       BuildOptions result = options.clone();
       result.get(ConfigFeatureFlagConfiguration.Options.class).replaceFlagValues(flagValues);
       return result;
@@ -51,6 +56,22 @@ public class ConfigFeatureFlagTransitionFactory implements RuleTransitionFactory
     @Override
     public boolean defaultsToSelf() {
       throw new UnsupportedOperationException("supported in dynamic mode only");
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      return other instanceof ConfigFeatureFlagValuesTransition
+          && this.flagValues.equals(((ConfigFeatureFlagValuesTransition) other).flagValues);
+    }
+
+    @Override
+    public int hashCode() {
+      return cachedHashCode;
+    }
+
+    @Override
+    public String toString() {
+      return String.format("ConfigFeatureFlagValuesTransition{flagValues=%s}", flagValues);
     }
   }
 
@@ -71,5 +92,21 @@ public class ConfigFeatureFlagTransitionFactory implements RuleTransitionFactory
   public PatchTransition buildTransitionFor(Rule rule) {
     return new ConfigFeatureFlagValuesTransition(
         NonconfigurableAttributeMapper.of(rule).get(attributeName, LABEL_KEYED_STRING_DICT));
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    return other instanceof ConfigFeatureFlagTransitionFactory
+        && this.attributeName.equals(((ConfigFeatureFlagTransitionFactory) other).attributeName);
+  }
+
+  @Override
+  public int hashCode() {
+    return attributeName.hashCode();
+  }
+
+  @Override
+  public String toString() {
+    return String.format("ConfigFeatureFlagTransitionFactory{attributeName=%s}", attributeName);
   }
 }
