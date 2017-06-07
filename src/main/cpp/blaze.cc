@@ -397,8 +397,8 @@ static vector<string> GetArgumentArray() {
   }
   result.insert(result.end(), user_options.begin(), user_options.end());
 
-  globals->options->AddJVMArgumentSuffix(
-      real_install_dir, globals->extracted_binaries[0], &result);
+  globals->options->AddJVMArgumentSuffix(real_install_dir,
+                                         globals->ServerJarPath(), &result);
 
   // JVM arguments are complete. Now pass in Blaze startup options.
   // Note that we always use the --flag=ARG form (instead of the --flag ARG one)
@@ -611,8 +611,8 @@ static void StartServer(const WorkspaceLayout *workspace_layout,
     globals->restart_reason = NO_DAEMON;
   }
 
-  string exe = globals->options->GetExe(globals->jvm_path,
-                                        globals->extracted_binaries[0]);
+  string exe =
+      globals->options->GetExe(globals->jvm_path, globals->ServerJarPath());
   // Go to the workspace before we daemonize, so
   // we can still print errors to the terminal.
   GoToWorkspace(workspace_layout);
@@ -665,8 +665,8 @@ static void StartStandalone(const WorkspaceLayout *workspace_layout,
 
   GoToWorkspace(workspace_layout);
 
-  string exe = globals->options->GetExe(globals->jvm_path,
-                                        globals->extracted_binaries[0]);
+  string exe =
+      globals->options->GetExe(globals->jvm_path, globals->ServerJarPath());
   ExecuteProgram(exe, jvm_args_vector);
   pdie(blaze_exit_code::INTERNAL_ERROR, "execv of '%s' failed", exe.c_str());
 }

@@ -34,6 +34,8 @@ mkdir -p "${PACKAGE_DIR}"
 trap "rm -fr ${PACKAGE_DIR}" EXIT
 
 cp $* ${PACKAGE_DIR}
+# The server jar needs to be the first binary we extract. This is how the Bazel
+# client knows what .jar to pass to the JVM.
 cp ${DEPLOY_JAR} ${PACKAGE_DIR}/A-server.jar
 cp ${INSTALL_BASE_KEY} ${PACKAGE_DIR}/install_base_key
 # The timestamp of embedded tools should already be zeroed out in the input zip
