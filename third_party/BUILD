@@ -130,12 +130,12 @@ java_import(
 
 java_import(
     name = "apache_httpclient",
-    jars = ["apache_httpclient/httpclient-4.2.5.jar"],
+    jars = ["apache_httpclient/httpclient-4.5.3.jar"],
 )
 
 java_import(
     name = "apache_httpcore",
-    jars = ["apache_httpcore/httpcore-4.2.4.jar"],
+    jars = ["apache_httpcore/httpcore-4.4.6.jar"],
 )
 
 java_import(
