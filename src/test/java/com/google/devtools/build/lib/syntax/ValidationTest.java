@@ -60,6 +60,18 @@ public class ValidationTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testForbiddenToplevelIfStatement() throws Exception {
+    env = newEnvironmentWithSkylarkOptions("--incompatible_disallow_toplevel_if_statement=true");
+    checkError("if statements are not allowed at the top level", "if True: a = 2");
+  }
+
+  @Test
+  public void testAllowedToplevelIfStatement() throws Exception {
+    env = newEnvironmentWithSkylarkOptions("--incompatible_disallow_toplevel_if_statement=false");
+    parse("if True: a = 5");
+  }
+
+  @Test
   public void testTwoFunctionsWithTheSameName() throws Exception {
     checkError(
         "Variable foo is read only", "def foo():", "  return 1", "def foo(x, y):", "  return 1");

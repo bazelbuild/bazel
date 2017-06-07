@@ -86,4 +86,14 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
             + "statement."
   )
   public boolean incompatibleBzlDisallowLoadAfterStatement;
+
+  @Option(
+    name = "incompatible_disallow_toplevel_if_statement",
+    defaultValue = "false",
+    category = "incompatible changes",
+    help =
+        "If set to true, 'if' statements are forbidden at the top-level "
+            + "(outside a function definition)"
+  )
+  public boolean incompatibleDisallowToplevelIfStatement;
 }

@@ -116,8 +116,8 @@ are equivalent, you just need to do search and replace to update the old code.
 We are doing this to reduce confusion between the specialized
 [depset](depsets.md) data structure and Python's set datatype.
 
-*   Flag: `--incompatible_disallow_set_constructor=true`
-*   Introduced in: 0.5.1
+*   Flag: `--incompatible_disallow_set_constructor`
+*   Default: `false`
 
 ### Keyword-only arguments
 
@@ -139,8 +139,8 @@ In both examples, `arg2` must be named at the call site. To preserve syntactic
 compatibility with Python 2, we are removing this feature (which we have never
 documented).
 
-*   Flag: `--incompatible_disallow_keyword_only_args=true`
-*   Introduced in: 0.5.1
+*   Flag: `--incompatible_disallow_keyword_only_args`
+*   Default: `false`
 
 ### Mutating `+=`
 
@@ -161,8 +161,8 @@ def fct():
 This change makes Skylark more compatible with Python and avoids performance
 issues. The `+=` operator for tuples is unaffected.
 
-*   Flag: `--incompatible_list_plus_equals_inplace=true`
-*   Introduced in: 0.5.1
+*   Flag: `--incompatible_list_plus_equals_inplace`
+*   Default: `false`
 
 ### Dictionary concatenation
 
@@ -170,8 +170,18 @@ We are removing the `+` operator on dictionaries. This includes the `+=` form
 where the left-hand side is a dictionary. This is done to improve compatibility
 with Python. A possible workaround is to use the `.update` method instead.
 
-*   Flag: `--incompatible_disallow_dict_plus=true`
-*   Introduced in: 0.5.1
+*   Flag: `--incompatible_disallow_dict_plus`
+*   Default: `false`
+
+### Top level `if` statements
+
+This change forbids `if` statements at the top level of `.bzl` files (they are
+already forbidden in `BUILD` files). This change ensures that every global
+value has a single declaration. This restriction is consistent with the idea
+that global values cannot be redefined.
+
+*   Flag: `--incompatible_disallow_toplevel_if_statement`
+*   Default: `false`
 
 ## Upcoming changes
 

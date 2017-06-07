@@ -180,6 +180,20 @@ public final class ValidationEnvironment {
     }
   }
 
+  /** Throws EvalException if a `if` statement appears at the top level. */
+  private void checkToplevelIfStatement(List<Statement> statements) throws EvalException {
+    for (Statement statement : statements) {
+      if (statement instanceof IfStatement) {
+        throw new EvalException(
+            statement.getLocation(),
+            "if statements are not allowed at the top level. You may move it inside a function "
+                + "or use an if expression (x if condition else y). "
+                + "Use --incompatible_disallow_toplevel_if_statement to temporarily disable "
+                + "this check.");
+      }
+    }
+  }
+
   /**
    * Validates the AST and runs static checks.
    */
@@ -187,6 +201,11 @@ public final class ValidationEnvironment {
     // Check that load() statements are on top.
     if (semantics.incompatibleBzlDisallowLoadAfterStatement) {
       checkLoadAfterStatement(statements);
+    }
+
+    // Check that load() statements are on top.
+    if (semantics.incompatibleDisallowToplevelIfStatement) {
+      checkToplevelIfStatement(statements);
     }
 
     // Add every function in the environment before validating. This is
