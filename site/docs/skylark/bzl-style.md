@@ -17,7 +17,7 @@ title: Style guide for bzl files
 * Variables and function names use lowercase with words separated by underscores
   (`[a-z][a-z0-9_]*`), e.g. `cc_library`. Top-level private values start with
   one underscore. Bazel enforces that private values cannot be used from other
-  files.
+  files. Local variables should not use the underscore prefix.
 
 * As in BUILD files, there is no strict line length limit as labels can be long.
   When possible, try to use at most 79 characters per line.
