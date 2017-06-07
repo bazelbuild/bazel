@@ -610,7 +610,9 @@ public class FdoSupport {
                 getGcdaArtifactsForGcdaPath(fdoSupportProvider, importedFile);
             if (gcdaArtifact == null) {
               ruleContext.ruleError(String.format(
-                  ".gcda file %s is not in the FDO zip (referenced by source file %s)",
+                  ".gcda file %s is not in the FDO zip (referenced by source file %s). Check if "
+                  + "your profile is generated from the same sources you are building the "
+                  + "optimized binary from",
                   importedFile, sourceName));
             } else {
               auxiliaryInputs.add(gcdaArtifact);
@@ -622,7 +624,10 @@ public class FdoSupport {
               auxiliaryInputs.add(importedArtifact);
             } else {
               ruleContext.ruleError(String.format(
-                  "cannot find source file '%s' referenced from '%s'", importedFile, objectName));
+                  "cannot find source file '%s' referenced from '%s' by LIPO inclusion. Check if "
+                  + "your profile is generated from the same sources you are building the "
+                  + "optimized binary from",
+                  importedFile, objectName));
             }
           }
         }
