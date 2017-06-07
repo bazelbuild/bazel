@@ -13,21 +13,23 @@
 // limitations under the License.
 package com.google.devtools.build.android.desugar;
 
+import com.google.common.collect.ImmutableList;
 import java.io.IOError;
 import java.io.IOException;
 import java.io.InputStream;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
 /**
  * Class loader that can "load" classes from header Jars. This class loader stubs in missing code
- * attributes on the fly to make {@link ClassLoader#defineClass} happy.  Classes loaded are unusable
- * other than to resolve method references, so this class loader should only be used to process
- * or inspect classes, not to execute their code.  Also note that the resulting classes may be
- * missing private members, which header Jars may omit.
+ * attributes on the fly to make {@link ClassLoader#defineClass} happy. Classes loaded are unusable
+ * other than to resolve method references, so this class loader should only be used to process or
+ * inspect classes, not to execute their code. Also note that the resulting classes may be missing
+ * private members, which header Jars may omit.
  *
  * @see java.net.URLClassLoader
  */
@@ -55,7 +57,8 @@ class HeaderClassLoader extends ClassLoader {
       ClassReader reader = rewriter.reader(content);
       // Have ASM compute maxs so we don't need to figure out how many formal parameters there are
       ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS);
-      reader.accept(new CodeStubber(writer), 0);
+      ImmutableList<FieldInfo> interfaceFieldNames = getFieldsIfReaderIsInterface(reader);
+      reader.accept(new CodeStubber(writer, interfaceFieldNames), 0);
       bytecode = writer.toByteArray();
     } catch (IOException e) {
       throw new IOError(e);
@@ -63,11 +66,82 @@ class HeaderClassLoader extends ClassLoader {
     return defineClass(name, bytecode, 0, bytecode.length);
   }
 
-  /** Class visitor that stubs in missing code attributes. */
+  /**
+   * If the {@code reader} is an interface, then extract all the declared fields in it. Otherwise,
+   * return an empty list.
+   */
+  private static ImmutableList<FieldInfo> getFieldsIfReaderIsInterface(ClassReader reader) {
+    if (BitFlags.isSet(reader.getAccess(), Opcodes.ACC_INTERFACE)) {
+      NonPrimitiveFieldCollector collector = new NonPrimitiveFieldCollector();
+      reader.accept(collector, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG);
+      return collector.declaredNonPrimitiveFields.build();
+    }
+    return ImmutableList.of();
+  }
+
+  /** Collect the fields defined in a class. */
+  private static class NonPrimitiveFieldCollector extends ClassVisitor {
+
+    final ImmutableList.Builder<FieldInfo> declaredNonPrimitiveFields = ImmutableList.builder();
+
+    public NonPrimitiveFieldCollector() {
+      super(Opcodes.ASM5);
+    }
+
+    @Override
+    public FieldVisitor visitField(
+        int access, String name, String desc, String signature, Object value) {
+      if (isNonPrimitiveType(desc)) {
+        declaredNonPrimitiveFields.add(new FieldInfo(name, desc));
+      }
+      return null;
+    }
+
+    private static boolean isNonPrimitiveType(String type) {
+      char firstChar = type.charAt(0);
+      return firstChar == '[' || firstChar == 'L';
+    }
+  }
+
+  private static final class FieldInfo {
+    final String name;
+    final String desc;
+
+    private FieldInfo(String name, String desc) {
+      this.name = name;
+      this.desc = desc;
+    }
+  }
+
+  /**
+   * Class visitor that stubs in missing code attributes, and erases the body of the static
+   * initializer of functional interfaces if the interfaces have default methods. The erasion of the
+   * clinit is mainly because when we are desugaring lambdas, we need to load the functional
+   * interfaces via class loaders, and since the interfaces have default methods, according to the
+   * JVM spec, these interfaces will be executed. This should be prevented due to security concerns.
+   */
   private static class CodeStubber extends ClassVisitor {
 
-    public CodeStubber(ClassVisitor cv) {
+    private String internalName;
+    private boolean isInterface;
+    private final ImmutableList<FieldInfo> interfaceFields;
+
+    public CodeStubber(ClassVisitor cv, ImmutableList<FieldInfo> interfaceFields) {
       super(Opcodes.ASM5, cv);
+      this.interfaceFields = interfaceFields;
+    }
+
+    @Override
+    public void visit(
+        int version,
+        int access,
+        String name,
+        String signature,
+        String superName,
+        String[] interfaces) {
+      super.visit(version, access, name, signature, superName, interfaces);
+      isInterface = BitFlags.isSet(access, Opcodes.ACC_INTERFACE);
+      internalName = name;
     }
 
     @Override
@@ -78,9 +152,49 @@ class HeaderClassLoader extends ClassLoader {
         // No need to stub out abstract or native methods
         return dest;
       }
+      if (isInterface && "<clinit>".equals(name)) {
+        // Delete class initializers, to avoid code gets executed when we desugar lambdas.
+        // See b/62184142
+        return new InterfaceInitializerEraser(dest, internalName, interfaceFields);
+      }
       return new BodyStubber(dest);
     }
+  }
 
+  /**
+   * Erase the static initializer of an interface. Given an interface with non-primitive fields,
+   * this eraser discards the original body of clinit, and initializes each non-primitive field to
+   * null
+   */
+  private static class InterfaceInitializerEraser extends MethodVisitor {
+
+    private final MethodVisitor dest;
+    private final String internalName;
+    private final ImmutableList<FieldInfo> interfaceFields;
+
+    public InterfaceInitializerEraser(
+        MethodVisitor mv, String internalName, ImmutableList<FieldInfo> interfaceFields) {
+      super(Opcodes.ASM5);
+      dest = mv;
+      this.internalName = internalName;
+      this.interfaceFields = interfaceFields;
+    }
+
+    @Override
+    public void visitCode() {
+      dest.visitCode();
+    }
+
+    @Override
+    public void visitEnd() {
+      for (FieldInfo fieldInfo : interfaceFields) {
+        dest.visitInsn(Opcodes.ACONST_NULL);
+        dest.visitFieldInsn(Opcodes.PUTSTATIC, internalName, fieldInfo.name, fieldInfo.desc);
+      }
+      dest.visitInsn(Opcodes.RETURN);
+      dest.visitMaxs(0, 0);
+      dest.visitEnd();
+    }
   }
 
   /** Method visitor used by {@link CodeStubber} to put code into methods without code. */
