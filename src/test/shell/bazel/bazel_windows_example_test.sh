@@ -41,6 +41,8 @@ startup --host_jvm_args=-Dbazel.windows_unix_root=C:/fake/msys
 startup --batch
 build --cpu=x64_windows_msvc
 EOF
+  export MSYS_NO_PATHCONV=1
+  export MSYS2_ARG_CONV_EXCL="*"
 }
 
 # An assertion that execute a binary from a sub directory (to test runfiles)
@@ -64,7 +66,10 @@ function test_cpp() {
   assert_build_output ./bazel-bin/${cpp_pkg}/hello-world.pdb -c dbg ${cpp_pkg}:hello-world --output_groups=pdb_file
   assert_build -c opt ${cpp_pkg}:hello-world --output_groups=pdb_file
   test -f ./bazel-bin/${cpp_pkg}/hello-world.pdb && fail "PDB file should not be generated in OPT mode"
-  assert_bazel_run "//examples/cpp:hello-world foo" "Hello foo"
+  assert_build ${cpp_pkg}:hello-world
+  ./bazel-bin/${cpp_pkg}/hello-world foo >& $TEST_log \
+    || fail "./bazel-bin/${cpp_pkg}/hello-world foo execution failed"
+  expect_log "Hello foo"
   assert_test_ok "//examples/cpp:hello-success_test"
   assert_test_fails "//examples/cpp:hello-fail_test"
 }
