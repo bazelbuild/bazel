@@ -206,12 +206,12 @@ class OptionsParserImpl {
         result.add(
             new OptionValueDescription(
                 fieldName,
-                /* originalValueString */null,
+                /*originalValueString=*/ null,
                 value,
                 OptionPriority.DEFAULT,
-                /* source */ null,
-                /* implicitDependant */ null,
-                /* expandedFrom */ null,
+                /*source=*/ null,
+                /*implicitDependant=*/ null,
+                /*expandedFrom=*/ null,
                 false));
       } else {
         result.add(entry);
@@ -355,19 +355,19 @@ class OptionsParserImpl {
             /* expandedFrom */ name,
             /* implicitDependant */ null),
         getExpansionDescriptions(
-            optionAnnotation.implicitRequirements(),
+            ImmutableList.copyOf(optionAnnotation.implicitRequirements()),
             /* expandedFrom */ null,
             /* implicitDependant */ name));
   }
 
   /**
-   * @return A list of the descriptions corresponding to the list of unparsed flags passed in.
-   * These descriptions are are divorced from the command line - there is no correct priority or
-   * source for these, as they are not actually set values. The value itself is also a string, no
-   * conversion has taken place.
+   * @return A list of the descriptions corresponding to the list of unparsed flags passed in. These
+   *     descriptions are are divorced from the command line - there is no correct priority or
+   *     source for these, as they are not actually set values. The value itself is also a string,
+   *     no conversion has taken place.
    */
   private ImmutableList<OptionValueDescription> getExpansionDescriptions(
-      String[] optionStrings, String expandedFrom, String implicitDependant)
+      ImmutableList<String> optionStrings, String expandedFrom, String implicitDependant)
       throws OptionsParsingException {
     ImmutableList.Builder<OptionValueDescription> builder = ImmutableList.builder();
     ImmutableList<String> options = ImmutableList.copyOf(optionStrings);
@@ -498,8 +498,8 @@ class OptionsParserImpl {
       }
 
       // Handle expansion options.
-      String[] expansion = optionsData.getEvaluatedExpansion(field);
-      if (expansion.length > 0) {
+      ImmutableList<String> expansion = optionsData.getEvaluatedExpansion(field);
+      if (!expansion.isEmpty()) {
         Function<Object, String> expansionSourceFunction =
             Functions.constant(
                 "expanded from option --"
@@ -507,8 +507,8 @@ class OptionsParserImpl {
                     + " from "
                     + sourceFunction.apply(originalName));
         maybeAddDeprecationWarning(field);
-        List<String> unparsed = parse(priority, expansionSourceFunction, null, originalName,
-            ImmutableList.copyOf(expansion));
+        List<String> unparsed =
+            parse(priority, expansionSourceFunction, null, originalName, expansion);
         if (!unparsed.isEmpty()) {
           // Throw an assertion, because this indicates an error in the code that specified the
           // expansion for the current option.

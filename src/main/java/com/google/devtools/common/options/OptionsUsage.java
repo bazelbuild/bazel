@@ -16,6 +16,7 @@ package com.google.devtools.common.options;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.google.common.escape.Escaper;
 import java.lang.reflect.Field;
 import java.text.BreakIterator;
@@ -83,9 +84,9 @@ class OptionsUsage {
    * object is supplied, the expansion is read from that. Otherwise, the annotation is inspected: If
    * the annotation uses {@link Option#expansion} it is returned, and if it uses {@link
    * Option#expansionFunction} null is returned, indicating a lack of definite information. In all
-   * cases, when the option is not an expansion option, an empty array is returned.
+   * cases, when the option is not an expansion option, an empty list is returned.
    */
-  private static @Nullable String[] getExpansionIfKnown(
+  private static @Nullable ImmutableList<String> getExpansionIfKnown(
       Field optionField, Option annotation, @Nullable OptionsData optionsData) {
     if (optionsData != null) {
       return optionsData.getEvaluatedExpansion(optionField);
@@ -93,8 +94,8 @@ class OptionsUsage {
       if (OptionsData.usesExpansionFunction(annotation)) {
         return null;
       } else {
-        // Empty array if it's not an expansion option.
-        return annotation.expansion();
+        // Empty list if it's not an expansion option.
+        return ImmutableList.copyOf(annotation.expansion());
       }
     }
   }
@@ -142,10 +143,10 @@ class OptionsUsage {
       usage.append(paragraphFill(annotation.help(), 4, 80)); // (indent, width)
       usage.append('\n');
     }
-    String[] expansion = getExpansionIfKnown(optionField, annotation, optionsData);
+    ImmutableList<String> expansion = getExpansionIfKnown(optionField, annotation, optionsData);
     if (expansion == null) {
       usage.append("    Expands to unknown options.\n");
-    } else if (expansion.length > 0) {
+    } else if (!expansion.isEmpty()) {
       StringBuilder expandsMsg = new StringBuilder("Expands to: ");
       for (String exp : expansion) {
         expandsMsg.append(exp).append(" ");
@@ -200,10 +201,10 @@ class OptionsUsage {
       usage.append(paragraphFill(escaper.escape(annotation.help()), 0, 80)); // (indent, width)
       usage.append('\n');
     }
-    String[] expansion = getExpansionIfKnown(optionField, annotation, optionsData);
+    ImmutableList<String> expansion = getExpansionIfKnown(optionField, annotation, optionsData);
     if (expansion == null) {
       usage.append("    Expands to unknown options.<br>\n");
-    } else if (expansion.length > 0) {
+    } else if (!expansion.isEmpty()) {
       usage.append("<br/>\n");
       StringBuilder expandsMsg = new StringBuilder("Expands to:<br/>\n");
       for (String exp : expansion) {

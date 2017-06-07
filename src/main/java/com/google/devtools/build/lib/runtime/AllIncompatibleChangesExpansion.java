@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.runtime;
 
-import com.google.common.collect.Iterables;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.ExpansionFunction;
 import com.google.devtools.common.options.IsolatedOptionsData;
@@ -147,7 +147,7 @@ public class AllIncompatibleChangesExpansion implements ExpansionFunction {
   }
 
   @Override
-  public String[] getExpansion(IsolatedOptionsData optionsData) {
+  public ImmutableList<String> getExpansion(IsolatedOptionsData optionsData) {
     // Grab all registered options that are identified as incompatible changes by either name or
     // by category. Ensure they satisfy our requirements.
     ArrayList<String> incompatibleChanges = new ArrayList<>();
@@ -163,6 +163,6 @@ public class AllIncompatibleChangesExpansion implements ExpansionFunction {
     // Sort to get a deterministic canonical order. This probably isn't necessary because the
     // options parser will do its own sorting when canonicalizing, but it seems like it can't hurt.
     incompatibleChanges.sort(null);
-    return Iterables.toArray(incompatibleChanges, String.class);
+    return ImmutableList.copyOf(incompatibleChanges);
   }
 }

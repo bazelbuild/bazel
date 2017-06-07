@@ -18,7 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.util.Arrays.asList;
 import static org.junit.Assert.fail;
 
-import com.google.common.collect.Iterables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.testing.EqualsTester;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -71,14 +71,14 @@ public class OptionsTest {
     /** SpecialExpansion */
     public static class SpecialExpansion implements ExpansionFunction {
       @Override
-      public String[] getExpansion(IsolatedOptionsData optionsData) {
+      public ImmutableList<String> getExpansion(IsolatedOptionsData optionsData) {
         TreeSet<String> flags = new TreeSet<>();
         for (Map.Entry<String, ?> entry : optionsData.getAllNamedFields()) {
           if (entry.getKey().startsWith("specialexp_")) {
             flags.add("--" + entry.getKey());
           }
         }
-        return Iterables.toArray(flags, String.class);
+        return ImmutableList.copyOf(flags);
       }
     }
 

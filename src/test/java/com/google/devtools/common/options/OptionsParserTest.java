@@ -868,8 +868,8 @@ public class OptionsParserTest {
     /** ExpFunc */
     public static class ExpFunc implements ExpansionFunction {
       @Override
-      public String[] getExpansion(IsolatedOptionsData optionsData) {
-        return new String[] {"--yyy"};
+      public ImmutableList<String> getExpansion(IsolatedOptionsData optionsData) {
+        return ImmutableList.of("--yyy");
       }
     }
 
@@ -900,7 +900,7 @@ public class OptionsParserTest {
     /** ExpFunc */
     public static class ExpFunc implements ExpansionFunction {
       @Override
-      public String[] getExpansion(IsolatedOptionsData optionsData) {
+      public ImmutableList<String> getExpansion(IsolatedOptionsData optionsData) {
         return null;
       }
     }
@@ -937,8 +937,8 @@ public class OptionsParserTest {
     /** ExpFunc */
     public static class ExpFunc implements ExpansionFunction {
       @Override
-      public String[] getExpansion(IsolatedOptionsData optionsData) {
-        return new String[] {"--expands"};
+      public ImmutableList<String> getExpansion(IsolatedOptionsData optionsData) {
+        return ImmutableList.of("--expands");
       }
     }
 

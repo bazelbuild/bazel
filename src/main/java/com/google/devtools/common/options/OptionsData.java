@@ -14,6 +14,7 @@
 
 package com.google.devtools.common.options;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import java.lang.reflect.Constructor;
@@ -31,28 +32,25 @@ import javax.annotation.concurrent.Immutable;
 @Immutable
 final class OptionsData extends IsolatedOptionsData {
 
-  /**
-   * Mapping from each Option-annotated field with a {@code String[]} expansion to that expansion.
-   */
-  // TODO(brandjon): This is technically not necessarily immutable due to String[], and should use
-  // ImmutableList. Either fix this or remove @Immutable.
-  private final ImmutableMap<Field, String[]> evaluatedExpansions;
+  /** Mapping from each Option-annotated field to expansion strings, if it has any. */
+  private final ImmutableMap<Field, ImmutableList<String>> evaluatedExpansions;
 
   /** Construct {@link OptionsData} by extending an {@link IsolatedOptionsData} with new info. */
-  private OptionsData(IsolatedOptionsData base, Map<Field, String[]> evaluatedExpansions) {
+  private OptionsData(
+      IsolatedOptionsData base, Map<Field, ImmutableList<String>> evaluatedExpansions) {
     super(base);
     this.evaluatedExpansions = ImmutableMap.copyOf(evaluatedExpansions);
   }
 
-  private static final String[] EMPTY_EXPANSION = new String[] {};
+  private static final ImmutableList<String> EMPTY_EXPANSION = ImmutableList.<String>of();
 
   /**
    * Returns the expansion of an options field, regardless of whether it was defined using {@link
    * Option#expansion} or {@link Option#expansionFunction}. If the field is not an expansion option,
    * returns an empty array.
    */
-  public String[] getEvaluatedExpansion(Field field) {
-    String[] result = evaluatedExpansions.get(field);
+  public ImmutableList<String> getEvaluatedExpansion(Field field) {
+    ImmutableList<String> result = evaluatedExpansions.get(field);
     return result != null ? result : EMPTY_EXPANSION;
   }
 
@@ -65,7 +63,7 @@ final class OptionsData extends IsolatedOptionsData {
     IsolatedOptionsData isolatedData = IsolatedOptionsData.from(classes);
 
     // All that's left is to compute expansions.
-    Map<Field, String[]> evaluatedExpansionsBuilder = Maps.newHashMap();
+    Map<Field, ImmutableList<String>> evaluatedExpansionsBuilder = Maps.newHashMap();
     for (Map.Entry<String, Field> entry : isolatedData.getAllNamedFields()) {
       Field field = entry.getValue();
       Option annotation = field.getAnnotation(Option.class);
@@ -76,7 +74,7 @@ final class OptionsData extends IsolatedOptionsData {
         throw new AssertionError(
             "Cannot set both expansion and expansionFunction for option --" + annotation.name());
       } else if (constExpansion.length > 0) {
-        evaluatedExpansionsBuilder.put(field, constExpansion);
+        evaluatedExpansionsBuilder.put(field, ImmutableList.copyOf(constExpansion));
       } else if (usesExpansionFunction(annotation)) {
         if (Modifier.isAbstract(expansionFunctionClass.getModifiers())) {
           throw new AssertionError(
@@ -92,7 +90,7 @@ final class OptionsData extends IsolatedOptionsData {
           // time it is used.
           throw new AssertionError(e);
         }
-        String[] expansion = instance.getExpansion(isolatedData);
+        ImmutableList<String> expansion = instance.getExpansion(isolatedData);
         evaluatedExpansionsBuilder.put(field, expansion);
       }
     }
