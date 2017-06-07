@@ -942,7 +942,7 @@ public final class CcLibraryHelper {
       for (LanguageDependentFragment dep :
           AnalysisUtils.getProviders(deps, LanguageDependentFragment.class)) {
         LanguageDependentFragment.Checker.depSupportsLanguage(
-            ruleContext, dep, CppRuleClasses.LANGUAGE);
+            ruleContext, dep, CppRuleClasses.LANGUAGE, "deps");
       }
     }
 
