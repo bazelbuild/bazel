@@ -30,7 +30,7 @@ java_import(
     jars = ["libprotobuf_java_util.jar"],
     visibility = ["//visibility:public"],
     exports = [
-        "//third_party:gson",
+        "@//third_party:gson",
     ],
 )
 
