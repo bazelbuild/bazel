@@ -23,6 +23,7 @@ import "google/protobuf/empty.proto";
 option go_package = "google.golang.org/genproto/googleapis/watcher/v1;watcher";
 option java_multiple_files = true;
 option java_outer_classname = "WatchProto";
+option java_package = "com.google.watcher.v1";
 
 // ## API Overview
 //

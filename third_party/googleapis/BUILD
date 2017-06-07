@@ -47,6 +47,92 @@ java_proto_library(
     deps = [":google_longrunning_operations_proto"],
 )
 
+java_proto_library(
+    name = "google_watch_v1_java_proto",
+    visibility = ["//visibility:public"],
+    deps = [":google_watch_v1_proto"],
+)
+
+java_proto_library(
+    name = "google_rpc_status_java_proto",
+    visibility = ["//visibility:public"],
+    deps = [":google_rpc_status_proto"],
+)
+
+java_proto_library(
+    name = "google_rpc_error_details_java_proto",
+    visibility = ["//visibility:public"],
+    deps = [":google_rpc_error_details_proto"],
+)
+
+java_proto_library(
+    name = "google_rpc_code_java_proto",
+    visibility = ["//visibility:public"],
+    deps = [":google_rpc_code_proto"],
+)
+
+java_proto_library(
+    name = "google_devtools_remoteexecution_v1test_remote_execution_java_proto",
+    visibility = ["//visibility:public"],
+    deps = [":google_devtools_remoteexecution_v1test_remote_execution_proto"],
+)
+
+java_grpc_library(
+    name = "google_watch_v1_java_grpc",
+    srcs = [":google_watch_v1_proto"],
+    visibility = ["//visibility:public"],
+    deps = [":google_watch_v1_java_proto"],
+)
+
+java_grpc_library(
+    name = "google_devtools_remoteexecution_v1test_remote_execution_java_grpc",
+    srcs = [":google_devtools_remoteexecution_v1test_remote_execution_proto"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":google_devtools_remoteexecution_v1test_remote_execution_java_proto",
+        ":google_longrunning_operations_java_proto",
+    ],
+)
+
+proto_library(
+    name = "google_devtools_remoteexecution_v1test_remote_execution_proto",
+    srcs = ["google/devtools/remoteexecution/v1test/remote_execution.proto"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":google_api_annotations_proto",
+        ":google_longrunning_operations_proto",
+        ":google_rpc_status_proto",
+        "@com_google_protobuf//:well_known_types_any_proto",
+        "@com_google_protobuf//:well_known_types_duration_proto",
+    ],
+)
+
+proto_library(
+    name = "google_rpc_code_proto",
+    srcs = ["google/rpc/code.proto"],
+    visibility = ["//visibility:public"],
+)
+
+proto_library(
+    name = "google_rpc_error_details_proto",
+    srcs = ["google/rpc/error_details.proto"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_google_protobuf//:well_known_types_any_proto",
+        "@com_google_protobuf//:well_known_types_duration_proto",
+    ],
+)
+
+proto_library(
+    name = "google_watch_v1_proto",
+    srcs = ["google/watcher/v1/watch.proto"],
+    deps = [
+        ":google_api_annotations_proto",
+        "@com_google_protobuf//:well_known_types_any_proto",
+        "@com_google_protobuf//:well_known_types_empty_proto",
+    ],
+)
+
 proto_library(
     name = "google_bytestream_bytestream_proto",
     srcs = ["google/bytestream/bytestream.proto"],
@@ -133,3 +219,4 @@ proto_library(
     srcs = ["google/api/auth.proto"],
     deps = [":google_api_annotations_proto"],
 )
+
