@@ -276,7 +276,9 @@ command. This command uses the Android Debug Bridge (`adb`) to communicate with
 the device. You must set up your device to use `adb` following the instructions
 in
 [Android Debug Bridge](http://developer.android.com/tools/help/adb.html) before
-deployment.
+deployment. You can also choose to install the app on the Android emulator
+included in Android Studio. Make sure the emulator is running before executing
+the command below.
 
 Enter the following:
 

@@ -10,8 +10,8 @@ The first step in this tutorial is to set up your environment.
 Here, you'll do the following:
 
 *   Install Bazel
-*   Install Android Studio and the Android SDK
-*   Install Xcode (macOS (OS X) only)
+*   Install Android Studio
+*   Install Xcode (macOS only)
 *   Get the sample project from the GitHub repo
 
 ## Install Bazel
@@ -19,47 +19,26 @@ Here, you'll do the following:
 Follow the [installation instructions](/docs/install.md) to install Bazel and
 its dependencies.
 
-## Install the Android SDK tools
+## Install Android Studio
 
-Do the following:
+Download and install Android Studio as described in [Install Android Studio](https://developer.android.com/sdk/index.html).
 
-1.  Download and install the
-    [Android SDK Tools](https://developer.android.com/sdk/index.html#Other).
+The installer does not automatically set the `ANDROID_HOME` variable.
+Set it to the location of the Android SDK, which defaults to `$HOME/Android/Sdk/`
+.
 
-2.  Run the Android SDK Manager and install the following packages:
+For example:
 
-    <table class="table table-condensed table-striped">
-    <thead>
-    <tr>
-    <td>Package</td>
-    <td>SDK directory</td>
-    </tr>
-    </thead>
-    <tbody>
-    <tr>
-    <td>Android SDK Platform Tools</td>
-    <td><code>platform-tools</code></td>
-    </tr>
-    <tr>
-    <td>Android SDK Build Tools</td>
-    <td><code>build-tools</code></td>
-    </tr>
-    <tr>
-    <td>Android SDK Platform</td>
-    <td><code>platform</code></td>
-    </tr>
-    </tbody>
-    </table>
+`export ANDROID_HOME=$HOME/Android/Sdk/`
 
-    The SDK Manager is an executable named `android` located in the `tools`
-    directory.
+For convenience, add the above statement to your `~/.bashrc` file.
 
-## Install Xcode (OS X only)
+## Install Xcode (macOS only)
 
-If you are following the steps in this tutorial on Mac OS X, download and
+If you are following the steps in this tutorial on macOS, download and
 install [Xcode](https://developer.apple.com/xcode/downloads/). The Xcode
-download contains the iOS libraries, Objective-C compiler other tools
-required by Bazel to build the iOS app.
+download contains the iOS libraries, the Objective-C compiler, and other tools
+required by Bazel to build iOS apps.
 
 ## Get the sample project
 

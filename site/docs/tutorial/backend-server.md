@@ -82,7 +82,8 @@ appengine_repositories()
 AppEngine rules from a GitHub archive. We could also have used
 [`git_repository`](/docs/be/workspace.html#git_repository) to fetch the rules
 directly from the Git repository.
-Then the next two lines use the `appengine_repositories` function defined in
+
+The next two lines use the `appengine_repositories` function defined in
 these rules to download the libraries and SDK needed to build AppEngine
 applications.
 
@@ -162,13 +163,13 @@ Make sure that your current working directory is inside your Bazel workspace:
 cd $WORKSPACE
 ```
 
-Now, enter the following to build the sample app:
+Now, enter the following to build the server:
 
 ```bash
 bazel build //backend:backend
 ```
 
-Bazel now launches and builds the sample app. During the build process, its
+Bazel now launches and builds the server files. During the build process, its
 output will appear similar to the following:
 
 ```bash
