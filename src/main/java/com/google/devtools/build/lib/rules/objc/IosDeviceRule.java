@@ -76,6 +76,10 @@ public final class IosDeviceRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = ios_device, TYPE = BINARY, FAMILY = Objective-C) -->
 
+<p><strong>This rule is deprecated.</strong> Please use the new Apple build rules
+(<a href="https://github.com/bazelbuild/rules_apple">https://github.com/bazelbuild/rules_apple</a>)
+to build Apple targets.</p>
+
 <p>This rule defines an iOS device profile that defines a simulator against
 which to run tests.</p>
 

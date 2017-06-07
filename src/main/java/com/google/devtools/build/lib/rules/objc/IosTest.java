@@ -84,6 +84,9 @@ public final class IosTest implements RuleConfiguredTargetFactory {
   @Override
   public final ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
+    ruleContext.ruleWarning(
+        "This rule is deprecated. Please use the new Apple build rules "
+            + "(https://github.com/bazelbuild/rules_apple) to build Apple targets.");
 
     Iterable<ObjcProtoProvider> objcProtoProviders =
         ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProtoProvider.class);
