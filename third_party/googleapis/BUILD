@@ -1,8 +1,11 @@
+package(default_visibility = ["//visibility:public"])
+
 licenses(["notice"])
 
 exports_files(["LICENSE"])
 
 load("@//third_party/grpc:build_defs.bzl", "java_grpc_library")
+load("@//tools/build_rules:utilities.bzl", "java_library_srcs")
 
 filegroup(
     name = "srcs",
@@ -10,91 +13,126 @@ filegroup(
     visibility = ["//third_party:__pkg__"],
 )
 
+JAVA_LIBRARY_PROTOS = [
+  "google_api_auth",
+  "google_api_http",
+  "google_api_annotations",
+  "google_watch_v1",
+  "google_rpc_status",
+  "google_rpc_error_details",
+  "google_rpc_code",
+  "google_longrunning_operations",
+  "google_devtools_remoteexecution_v1test_remote_execution",
+  "google_devtools_build_v1_publish_build_event",
+  "google_bytestream_bytestream",
+  "google_devtools_build_v1_build_status",
+  "google_devtools_build_v1_build_events",
+]
+
+[java_library_srcs(
+    name = proto + "_java_proto_srcs",
+    deps = [":" + proto + "_java_proto"],
+) for proto in JAVA_LIBRARY_PROTOS]
+
+# for bootstrapping
+filegroup(
+    name = "dist_jars",
+    srcs = [":" + proto + "_java_proto_srcs" for proto in JAVA_LIBRARY_PROTOS]
+    + [
+      ":google_devtools_build_v1_publish_build_event_java_grpc_srcs",
+      ":google_bytestream_bytestream_java_grpc_srcs",
+      ":google_devtools_remoteexecution_v1test_remote_execution_java_grpc_srcs",
+      ":google_watch_v1_java_grpc_srcs",
+    ],
+    visibility = ["@//src:__pkg__"],
+)
+
 java_proto_library(
     name = "google_devtools_build_v1_build_status_java_proto",
-    visibility = ["//visibility:public"],
     deps = [":google_devtools_build_v1_build_status_proto"],
 )
 
 java_proto_library(
     name = "google_devtools_build_v1_build_events_java_proto",
-    visibility = ["//visibility:public"],
     deps = [":google_devtools_build_v1_build_events_proto"],
 )
 
 java_grpc_library(
     name = "google_devtools_build_v1_publish_build_event_java_grpc",
     srcs = [":google_devtools_build_v1_publish_build_event_proto"],
-    visibility = ["//visibility:public"],
     deps = [":google_devtools_build_v1_publish_build_event_java_proto"],
 )
 
 java_proto_library(
     name = "google_devtools_build_v1_publish_build_event_java_proto",
-    visibility = ["//visibility:public"],
     deps = [":google_devtools_build_v1_publish_build_event_proto"],
 )
 
 java_proto_library(
     name = "google_bytestream_bytestream_java_proto",
-    visibility = ["//visibility:public"],
     deps = [":google_bytestream_bytestream_proto"],
 )
 
 java_proto_library(
     name = "google_longrunning_operations_java_proto",
-    visibility = ["//visibility:public"],
     deps = [":google_longrunning_operations_proto"],
 )
 
 java_proto_library(
     name = "google_watch_v1_java_proto",
-    visibility = ["//visibility:public"],
     deps = [":google_watch_v1_proto"],
 )
 
 java_proto_library(
     name = "google_rpc_status_java_proto",
-    visibility = ["//visibility:public"],
     deps = [":google_rpc_status_proto"],
 )
 
 java_proto_library(
     name = "google_rpc_error_details_java_proto",
-    visibility = ["//visibility:public"],
     deps = [":google_rpc_error_details_proto"],
 )
 
 java_proto_library(
     name = "google_rpc_code_java_proto",
-    visibility = ["//visibility:public"],
     deps = [":google_rpc_code_proto"],
 )
 
 java_proto_library(
     name = "google_devtools_remoteexecution_v1test_remote_execution_java_proto",
-    visibility = ["//visibility:public"],
     deps = [":google_devtools_remoteexecution_v1test_remote_execution_proto"],
+)
+
+java_proto_library(
+    name = "google_api_annotations_java_proto",
+    deps = [":google_api_annotations_proto"],
+)
+
+java_proto_library(
+    name = "google_api_http_java_proto",
+    deps = [":google_api_http_proto"],
+)
+
+java_proto_library(
+    name = "google_api_auth_java_proto",
+    deps = [":google_api_auth_proto"],
 )
 
 java_grpc_library(
     name = "google_bytestream_bytestream_java_grpc",
     srcs = [":google_bytestream_bytestream_proto"],
-    visibility = ["//visibility:public"],
     deps = [":google_bytestream_bytestream_java_proto"],
 )
 
 java_grpc_library(
     name = "google_watch_v1_java_grpc",
     srcs = [":google_watch_v1_proto"],
-    visibility = ["//visibility:public"],
     deps = [":google_watch_v1_java_proto"],
 )
 
 java_grpc_library(
     name = "google_devtools_remoteexecution_v1test_remote_execution_java_grpc",
     srcs = [":google_devtools_remoteexecution_v1test_remote_execution_proto"],
-    visibility = ["//visibility:public"],
     deps = [
         ":google_devtools_remoteexecution_v1test_remote_execution_java_proto",
         ":google_longrunning_operations_java_proto",
@@ -104,7 +142,6 @@ java_grpc_library(
 proto_library(
     name = "google_devtools_remoteexecution_v1test_remote_execution_proto",
     srcs = ["google/devtools/remoteexecution/v1test/remote_execution.proto"],
-    visibility = ["//visibility:public"],
     deps = [
         ":google_api_annotations_proto",
         ":google_longrunning_operations_proto",
@@ -117,13 +154,11 @@ proto_library(
 proto_library(
     name = "google_rpc_code_proto",
     srcs = ["google/rpc/code.proto"],
-    visibility = ["//visibility:public"],
 )
 
 proto_library(
     name = "google_rpc_error_details_proto",
     srcs = ["google/rpc/error_details.proto"],
-    visibility = ["//visibility:public"],
     deps = [
         "@com_google_protobuf//:well_known_types_any_proto",
         "@com_google_protobuf//:well_known_types_duration_proto",
@@ -143,7 +178,6 @@ proto_library(
 proto_library(
     name = "google_bytestream_bytestream_proto",
     srcs = ["google/bytestream/bytestream.proto"],
-    visibility = ["//visibility:public"],
     deps = [
         ":google_api_annotations_proto",
         "@com_google_protobuf//:well_known_types_wrappers_proto",
@@ -153,7 +187,6 @@ proto_library(
 proto_library(
     name = "google_longrunning_operations_proto",
     srcs = ["google/longrunning/operations.proto"],
-    visibility = ["//visibility:public"],
     deps = [
         ":google_api_annotations_proto",
         ":google_api_http_proto",
@@ -166,7 +199,6 @@ proto_library(
 proto_library(
     name = "google_devtools_build_v1_build_status_proto",
     srcs = ["google/devtools/build/v1/build_status.proto"],
-    visibility = ["//visibility:public"],
     deps = [
         ":google_api_annotations_proto",
         "@com_google_protobuf//:well_known_types_any_proto",
@@ -176,7 +208,6 @@ proto_library(
 proto_library(
     name = "google_devtools_build_v1_build_events_proto",
     srcs = ["google/devtools/build/v1/build_events.proto"],
-    visibility = ["//visibility:public"],
     deps = [
         ":google_api_annotations_proto",
         ":google_devtools_build_v1_build_status_proto",
@@ -190,7 +221,6 @@ proto_library(
 proto_library(
     name = "google_devtools_build_v1_publish_build_event_proto",
     srcs = ["google/devtools/build/v1/publish_build_event.proto"],
-    visibility = ["//visibility:public"],
     deps = [
         ":google_api_annotations_proto",
         ":google_api_auth_proto",
