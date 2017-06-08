@@ -5,14 +5,15 @@ title: Bazel Overview
 
 # Bazel Overview
 
-Bazel is a build tool which coordinates builds and run tests. It works with
-source files written in any language, with native support for Java, C, C++ and
-Python. Bazel produces builds and runs tests for multiple platforms.
+Bazel is a build tool which coordinates builds and runs tests. The extension
+language allows it to work with source files written in any language, with
+native support for Java, C, C++ and Python. Bazel produces builds and runs
+tests for multiple platforms.
 
 ## BUILD files use a simple declarative language
 
 Bazel’s BUILD files describe how Bazel should build your project. They have a
-declarative structure and use a build language similar to Python. BUILD files
+declarative structure and use a language similar to Python. BUILD files
 allow you to work at a high level of the system by listing rules and their
 attributes. The complexity of the build process is handled by these pre-existing
 rules. You can modify rules to tweak the build process, or write new rules to
@@ -56,7 +57,7 @@ dependencies and their relationships.
 
 ## Build and tests are fast, correct, and reproducible
 
-Hermetic rules and sandboxing allows Bazel to produce correct, reproducible
+Hermetic rules and sandboxing allow Bazel to produce correct, reproducible
 artifacts and test results. Caching allows reuse of build artifacts and test
 results.
 
