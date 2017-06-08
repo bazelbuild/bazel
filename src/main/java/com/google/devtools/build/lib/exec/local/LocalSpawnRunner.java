@@ -58,7 +58,7 @@ public final class LocalSpawnRunner implements SpawnRunner {
   private static final Joiner SPACE_JOINER = Joiner.on(' ');
   private static final String UNHANDLED_EXCEPTION_MSG = "Unhandled exception running a local spawn";
   private static final int LOCAL_EXEC_ERROR = -1;
-  private static final int POSIX_TIMEOUT_EXIT_CODE = /*SIGNAL_BASE=*/128 + /*SIGWINCH=*/28;
+  private static final int POSIX_TIMEOUT_EXIT_CODE = /*SIGNAL_BASE=*/128 + /*SIGALRM=*/14;
 
   private final Logger logger;
 
@@ -246,7 +246,7 @@ public final class LocalSpawnRunner implements SpawnRunner {
         cmdLine.add(getPathOrDevNull(outErr.getErrorPath()));
         cmdLine.addAll(spawn.getArguments());
         cmd = new Command(
-            cmdLine.toArray(new String[]{}),
+            cmdLine.toArray(new String[0]),
             spawn.getEnvironment(),
             execRoot.getPathFile());
       } else {
@@ -256,7 +256,7 @@ public final class LocalSpawnRunner implements SpawnRunner {
             spawn.getArguments().toArray(new String[0]),
             spawn.getEnvironment(),
             execRoot.getPathFile(),
-            timeoutSeconds);
+            policy.getTimeoutMillis());
       }
 
       long startTime = System.currentTimeMillis();
@@ -277,6 +277,7 @@ public final class LocalSpawnRunner implements SpawnRunner {
         String msg = e.getMessage() == null ? e.getClass().getName() : e.getMessage();
         setState(State.PERMANENT_ERROR);
         outErr.getErrorStream().write(("Action failed to execute: " + msg + "\n").getBytes(UTF_8));
+        outErr.getErrorStream().flush();
         return new SpawnResult.Builder()
             .setStatus(Status.EXECUTION_FAILED)
             .setExitCode(LOCAL_EXEC_ERROR)
@@ -287,8 +288,7 @@ public final class LocalSpawnRunner implements SpawnRunner {
 
       long wallTime = System.currentTimeMillis() - startTime;
       boolean wasTimeout = result.getTerminationStatus().timedout()
-          || wasTimeout(timeoutSeconds, wallTime)
-          || result.getTerminationStatus().getRawExitCode() == POSIX_TIMEOUT_EXIT_CODE;
+          || (useProcessWrapper && wasTimeout(timeoutSeconds, wallTime));
       Status status = wasTimeout ? Status.TIMEOUT : Status.SUCCESS;
       int exitCode = status == Status.TIMEOUT
           ? POSIX_TIMEOUT_EXIT_CODE
