@@ -69,7 +69,6 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
     super(
         requestOptions,
         env.getBlazeWorkspace().getBinTools(),
-        env.getClientEnv(),
         env.getWorkspace());
     this.workerPool = workerPool;
     this.extraFlags = extraFlags;

@@ -97,6 +97,7 @@ import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import javax.annotation.Nullable;
 
 /**
@@ -165,10 +166,11 @@ public final class BuildConfiguration implements BuildEvent {
     }
 
     /**
-     * Add items to the shell environment.
+     * Add items to the action environment.
+     *
+     * @param builder the map to add environment variables to
      */
-    @SuppressWarnings("unused")
-    public void setupShellEnvironment(ImmutableMap.Builder<String, String> builder) {
+    public void setupActionEnvironment(Map<String, String> builder) {
     }
 
     /**
@@ -629,7 +631,6 @@ public final class BuildConfiguration implements BuildEvent {
     // TODO(bazel-team): The test environment is actually computed in BlazeRuntime and this option
     // is not read anywhere else. Thus, it should be in a different options class, preferably one
     // specific to the "test" command or maybe in its own configuration fragment.
-    // BlazeRuntime, though.
     @Option(
       name = "test_env",
       converter = Converters.OptionalAssignmentConverter.class,
@@ -1213,15 +1214,29 @@ public final class BuildConfiguration implements BuildEvent {
    */
   private final ImmutableMap<String, String> globalMakeEnv;
 
-  private final ImmutableMap<String, String> localShellEnvironment;
-  private final ImmutableSet<String> envVariables;
+  // The action and test environments each consist of two parts. The first part are all the
+  // environment variables with a fixed value, and is stored in a map. The second part are all the
+  // environment variables inherited from the client environment, and is stored in a set. The second
+  // part is resolved as part of action execution - they are declared in the Action interface, and
+  // the SkyframeExecutor adds dependency edges from the actions to nodes corresponding to the
+  // individual client env variables, which ensures correct invalidation when the client env
+  // changes.
+  // Care needs to be taken that the two sets don't overlap - the order in which the two parts are
+  // combined later is undefined.
+  // TODO(ulfjack): Consider adding a wrapper class to construct and contain the two parts, and also
+  // handle case independence on certain platforms.
+  private final ImmutableMap<String, String> actionEnv;
+  private final ImmutableSet<String> inheritedActionEnvVars;
+
+  private final ImmutableMap<String, String> testEnv;
+  private final ImmutableSet<String> inheritedTestEnvVars;
+
   private final BuildOptions buildOptions;
   private final Options options;
 
   private final String mnemonic;
   private final String platformName;
 
-  private final ImmutableMap<String, String> testEnvironment;
   private final ImmutableMap<String, String> commandLineBuildVariables;
 
   private final int hashCode; // We can precompute the hash code as all its inputs are immutable.
@@ -1364,28 +1379,48 @@ public final class BuildConfiguration implements BuildEvent {
    * statically set environment variables with their values and the set of environment variables to
    * be inherited from the client environment.
    */
-  private Pair<ImmutableMap<String, String>, ImmutableSet<String>> setupShellEnvironment() {
-    ImmutableMap.Builder<String, String> builder = new ImmutableMap.Builder<>();
+  private Pair<ImmutableMap<String, String>, ImmutableSet<String>> setupActionEnvironment() {
+    // We make a copy first to remove duplicate entries; last one wins.
+    Map<String, String> actionEnv = new HashMap<>();
+    // TODO(ulfjack): Remove all env variables from configuration fragments.
     for (Fragment fragment : fragments.values()) {
-      fragment.setupShellEnvironment(builder);
+      fragment.setupActionEnvironment(actionEnv);
     }
     // Shell environment variables specified via options take precedence over the
     // ones inherited from the fragments. In the long run, these fragments will
     // be replaced by appropriate default rc files anyway.
-    Map<String, String> shellEnv = new TreeMap<>(builder.build());
     for (Map.Entry<String, String> entry : options.actionEnvironment) {
-      shellEnv.put(entry.getKey(), entry.getValue());
+      actionEnv.put(entry.getKey(), entry.getValue());
     }
-    Map<String, String> fixedShellEnv = new TreeMap<>(shellEnv);
-    Set<String> variableShellEnv = new HashSet<>();
-    for (Map.Entry<String, String> entry : shellEnv.entrySet()) {
-      if (entry.getValue() == null) {
+    return split(actionEnv);
+  }
+
+  /**
+   * Compute the test environment, which, at configuration level, is a pair consisting of the
+   * statically set environment variables with their values and the set of environment variables to
+   * be inherited from the client environment.
+   */
+  private Pair<ImmutableMap<String, String>, ImmutableSet<String>> setupTestEnvironment() {
+    // We make a copy first to remove duplicate entries; last one wins.
+    Map<String, String> testEnv = new HashMap<>();
+    for (Map.Entry<String, String> entry : options.testEnvironment) {
+      testEnv.put(entry.getKey(), entry.getValue());
+    }
+    return split(testEnv);
+  }
+
+  private Pair<ImmutableMap<String, String>, ImmutableSet<String>> split(Map<String, String> env) {
+    Map<String, String> fixedEnv = new TreeMap<>();
+    Set<String> variableEnv = new TreeSet<>();
+    for (Map.Entry<String, String> entry : env.entrySet()) {
+      if (entry.getValue() != null) {
+        fixedEnv.put(entry.getKey(), entry.getValue());
+      } else {
         String key = entry.getKey();
-        fixedShellEnv.remove(key);
-        variableShellEnv.add(key);
+        variableEnv.add(key);
       }
     }
-    return Pair.of(ImmutableMap.copyOf(fixedShellEnv), ImmutableSet.copyOf(variableShellEnv));
+    return Pair.of(ImmutableMap.copyOf(fixedEnv), ImmutableSet.copyOf(variableEnv));
   }
 
   /**
@@ -1416,15 +1451,6 @@ public final class BuildConfiguration implements BuildEvent {
     this.actionsEnabled = buildOptions.enableActions();
     this.options = buildOptions.get(Options.class);
     this.mainRepositoryName = RepositoryName.createFromValidStrippedName(repositoryName);
-
-    Map<String, String> testEnv = new TreeMap<>();
-    for (Map.Entry<String, String> entry : this.options.testEnvironment) {
-      if (entry.getValue() != null) {
-        testEnv.put(entry.getKey(), entry.getValue());
-      }
-    }
-
-    this.testEnvironment = ImmutableMap.copyOf(testEnv);
 
     // We can't use an ImmutableMap.Builder here; we need the ability to add entries with keys that
     // are already in the map so that the same define can be specified on the command line twice,
@@ -1465,10 +1491,13 @@ public final class BuildConfiguration implements BuildEvent {
 
     this.shellExecutable = computeShellExecutable();
 
-    Pair<ImmutableMap<String, String>, ImmutableSet<String>> shellEnvironment =
-        setupShellEnvironment();
-    this.localShellEnvironment = shellEnvironment.getFirst();
-    this.envVariables = shellEnvironment.getSecond();
+    Pair<ImmutableMap<String, String>, ImmutableSet<String>> actionEnvs = setupActionEnvironment();
+    this.actionEnv = actionEnvs.getFirst();
+    this.inheritedActionEnvVars = actionEnvs.getSecond();
+
+    Pair<ImmutableMap<String, String>, ImmutableSet<String>> testEnvs = setupTestEnvironment();
+    this.testEnv = testEnvs.getFirst();
+    this.inheritedTestEnvVars = testEnvs.getSecond();
 
     this.transitiveOptionDetails = computeOptionsMap(buildOptions, fragments.values());
 
@@ -2251,7 +2280,7 @@ public final class BuildConfiguration implements BuildEvent {
    * here as a map.
    */
   public ImmutableMap<String, String> getLocalShellEnvironment() {
-    return localShellEnvironment;
+    return actionEnv;
   }
 
   /**
@@ -2269,7 +2298,7 @@ public final class BuildConfiguration implements BuildEvent {
    * client environment.)
    */
   public ImmutableSet<String> getVariableShellEnvironment() {
-    return envVariables;
+    return inheritedActionEnvVars;
   }
 
   /**
@@ -2427,7 +2456,11 @@ public final class BuildConfiguration implements BuildEvent {
             + "as set by the --test_env options."
   )
   public ImmutableMap<String, String> getTestEnv() {
-    return testEnvironment;
+    return testEnv;
+  }
+
+  public ImmutableSet<String> getInheritedTestEnv() {
+    return inheritedTestEnvVars;
   }
 
   public TriState cacheTestResults() {

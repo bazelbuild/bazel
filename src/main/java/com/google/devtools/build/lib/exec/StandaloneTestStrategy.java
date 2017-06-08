@@ -82,9 +82,8 @@ public class StandaloneTestStrategy extends TestStrategy {
   public StandaloneTestStrategy(
       OptionsClassProvider requestOptions,
       BinTools binTools,
-      Map<String, String> clientEnv,
       Path tmpDirRoot) {
-    super(requestOptions, binTools, clientEnv);
+    super(requestOptions, binTools);
     this.tmpDirRoot = tmpDirRoot;
   }
 
@@ -106,7 +105,8 @@ public class StandaloneTestStrategy extends TestStrategy {
                 action.getExecutionSettings().getExecutable().getExecPath(),
                 action.getShardNum(),
                 action.getRunNumber()));
-    Map<String, String> env = setupEnvironment(action, execRoot, runfilesDir, tmpDir);
+    Map<String, String> env = setupEnvironment(
+        action, actionExecutionContext.getClientEnv(), execRoot, runfilesDir, tmpDir);
     Path workingDirectory = runfilesDir.getRelative(action.getRunfilesPrefix());
 
     ResolvedPaths resolvedPaths = action.resolve(execRoot);
@@ -287,7 +287,8 @@ public class StandaloneTestStrategy extends TestStrategy {
   }
 
   private Map<String, String> setupEnvironment(
-      TestRunnerAction action, Path execRoot, Path runfilesDir, Path tmpDir) {
+      TestRunnerAction action, Map<String, String> clientEnv, Path execRoot, Path runfilesDir,
+      Path tmpDir) {
     PathFragment relativeTmpDir;
     if (tmpDir.startsWith(execRoot)) {
       relativeTmpDir = tmpDir.relativeTo(execRoot);

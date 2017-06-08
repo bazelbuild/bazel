@@ -57,7 +57,7 @@ public class TestPolicy {
    */
   public Map<String, String> computeTestEnvironment(
       TestRunnerAction testAction,
-      ImmutableMap<String, String> clientEnv,
+      Map<String, String> clientEnv,
       int timeoutInSeconds,
       PathFragment relativeRunfilesDir,
       PathFragment tmpDir) {
@@ -84,19 +84,26 @@ public class TestPolicy {
       env.put(entry.getKey(), val);
     }
 
+    // Rule-specified test env.
+    env.putAll(testAction.getExtraTestEnv());
+
     // Overwrite with the environment common to all actions, see --action_env.
-    // TODO(ulfjack): This also includes env variables from the configuration fragments, and it does
-    // not include the env variables which are supposed to be inherited, i.e., for with --action_env
-    // does not specify an explicit value.
     env.putAll(testAction.getConfiguration().getLocalShellEnvironment());
+    for (String key : testAction.getConfiguration().getVariableShellEnvironment()) {
+      String value = clientEnv.get(key);
+      if (value != null) {
+        env.put(key, value);
+      }
+    }
 
     // Overwrite with the environment common to all tests, see --test_env.
-    // TODO(ulfjack): This is handled differently from --action_env such that changing the
-    // --test_env flag (or any of the inherited env variables) requires a full re-analysis of
-    // everything, instead of triggering just the subset of actions that rely on inherited
-    // variables. Needless to say, that is not optimal, and we should fix it to use the same
-    // approach as --action_env.
-    env.putAll(testAction.getTestEnv());
+    env.putAll(testAction.getConfiguration().getTestEnv());
+    for (String key : testAction.getConfiguration().getInheritedTestEnv()) {
+      String value = clientEnv.get(key);
+      if (value != null) {
+        env.put(key, value);
+      }
+    }
 
     // Setup any test-specific env variables; note that this does not overwrite existing values for
     // TEST_RANDOM_SEED or TEST_SIZE if they're already set.
