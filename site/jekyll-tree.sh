@@ -40,14 +40,14 @@ function setup {
 
 # Unpack the Build Encyclopedia into docs/be
 function unpack_build_encyclopedia {
-  local be_dir="$OUT_DIR/versions/master/docs/be"
+  local be_dir="$OUT_DIR/docs/be"
   mkdir -p "$be_dir"
   unzip -qq "$BE_ZIP" -d "$be_dir"
   mv "$be_dir/be-nav.html" "$OUT_DIR/_includes"
 
   # Create redirects to each page in the Build Encyclopedia.
   mkdir -p "$OUT_DIR/docs/be"
-  for f in $(find "$OUT_DIR/versions/master/docs/be" -name "*.html"); do
+  for f in $(find "$OUT_DIR/docs/be" -name "*.html"); do
     local filename=$(basename "$f")
     cat > "$OUT_DIR/docs/be/${filename}" <<EOF
 ---
@@ -60,14 +60,14 @@ EOF
 
 # Unpack the Skylark Library into docs/skylark/lib
 function unpack_skylark_library {
-  local sl_dir="$OUT_DIR/versions/master/docs/skylark/lib"
+  local sl_dir="$OUT_DIR/docs/skylark/lib"
   mkdir -p "$sl_dir"
   unzip -qq "$SL_ZIP" -d "$sl_dir"
   mv "$sl_dir/skylark-nav.html" "$OUT_DIR/_includes"
 
   # Create redirects to each page in the Skylark Library
   mkdir -p "$OUT_DIR/docs/skylark/lib"
-  for f in $(find "$OUT_DIR/versions/master/docs/skylark/lib" -name "*.html"); do
+  for f in $(find "$OUT_DIR/docs/skylark/lib" -name "*.html"); do
     local filename=$(basename "$f")
     cat > "$OUT_DIR/docs/skylark/lib/${filename}" <<EOF
 ---
@@ -81,7 +81,7 @@ EOF
 function copy_skylark_rule_doc {
   local rule_family=$1
   local rule_family_name=$2
-  local be_dir="$OUT_DIR/versions/master/docs/be"
+  local be_dir="$OUT_DIR/docs/be"
 
   ( cat <<EOF
 ---
@@ -111,10 +111,10 @@ function process_doc {
 }
 
 function process_docs {
-  for f in $(find "$OUT_DIR/versions/master/docs" -name "*.html"); do
+  for f in $(find "$OUT_DIR/docs" -name "*.html"); do
     process_doc $f
   done
-  for f in $(find "$OUT_DIR/versions/master/docs" -name "*.md"); do
+  for f in $(find "$OUT_DIR/docs" -name "*.md"); do
     process_doc $f
   done
   for f in $(find "$OUT_DIR/designs" -name "*.md"); do
@@ -132,7 +132,7 @@ function main {
   unpack_build_encyclopedia
   unpack_skylark_library
   unpack_skylark_rule_docs
-  cp ${CLR_HTML} ${OUT_DIR}/versions/master/docs
+  cp ${CLR_HTML} ${OUT_DIR}/docs
   process_docs
   package_output
 }

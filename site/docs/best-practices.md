@@ -73,7 +73,7 @@ inspecting the BUILD file to understand what a target's restrictions are.
 Prefer declaring third party dependencies as remote repositories in the WORKSPACE file. If it's
 necessary to check third party dependencies into your repository, put them in a directory called
 `third_party/` under your workspace directory.   Note that all BUILD files in `third_party/` must
-include [license](https://bazel.build/versions/master/docs/be/functions.html#licenses)
+include [license](https://docs.bazel.build/be/functions.html#licenses)
 declarations.
 
 ## Depending on binaries
@@ -116,7 +116,7 @@ dependencies will have to be updated.
 ## BUILD file style guide
 
 See the [BUILD file style
-guide](https://bazel.build/versions/master/docs/skylark/build-style.html).
+guide](https://docs.bazel.build/skylark/build-style.html).
 
 ## Formatting
 
@@ -194,18 +194,18 @@ less obvious than an empty list.
 ## Skylark style guide
 
 See the [Style guide for .bzl
-files](https://bazel.build/versions/master/docs/skylark/bzl-style.html) for Skylark rule guidelines.
+files](https://docs.bazel.build/skylark/bzl-style.html) for Skylark rule guidelines.
 
 ## Packaging rules
 
-See [Packaging rules](https://bazel.build/versions/master/docs/skylark/deploying.html) for advice
+See [Packaging rules](https://docs.bazel.build/skylark/deploying.html) for advice
 on how to structure and where to put new Skylark rules.
 
 ## Rule choice
 
 When using a language for which Bazel has built-in rules (e.g., C++), prefer using these rules to
 writing your own in Skylark. These rules are documented in the [build
-encyclopedia](https://bazel.build/versions/master/docs/be/overview.html).
+encyclopedia](https://docs.bazel.build/be/overview.html).
 
 # WORKSPACE files
 

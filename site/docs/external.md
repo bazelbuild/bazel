@@ -34,9 +34,9 @@ A few basic types of external dependencies can be used:
 
 If you want to use targets from a second Bazel project, you can
 use
-[`local_repository`](http://bazel.build/docs/be/workspace.html#local_repository),
-[`git_repository`](https://bazel.build/docs/be/workspace.html#git_repository)
-or [`http_archive`](http://bazel.build/docs/be/workspace.html#http_archive)
+[`local_repository`](http://docs.bazel.build/be/workspace.html#local_repository),
+[`git_repository`](https://docs.bazel.build/be/workspace.html#git_repository)
+or [`http_archive`](http://docs.bazel.build/be/workspace.html#http_archive)
 to symlink it from the local filesystem, reference a git repository or download
 it (respectively).
 
@@ -60,9 +60,9 @@ If your coworker has a target `//foo:bar`, your project can refer to it as
 ### Depending on non-Bazel projects
 
 Rules prefixed with `new_` (e.g.,
-[`new_local_repository`](http://bazel.build/docs/be/workspace.html#new_local_repository),
-[`new_git_repository`](https://bazel.build/docs/be/workspace.html#new_git_repository)
-and [`new_http_archive`](http://bazel.build/docs/be/workspace.html#new_http_archive)
+[`new_local_repository`](http://docs.bazel.build/be/workspace.html#new_local_repository),
+[`new_git_repository`](https://docs.bazel.build/be/workspace.html#new_git_repository)
+and [`new_http_archive`](http://docs.bazel.build/be/workspace.html#new_http_archive)
 ) allow you to create targets from projects that do not use Bazel.
 
 For example, suppose you are working on a project, `my-project/`, and you want
@@ -97,8 +97,8 @@ files.
 
 #### Maven repositories
 
-Use the rule [`maven_jar`](https://bazel.build/versions/master/docs/be/workspace.html#maven_jar)
-(and optionally the rule [`maven_server`](https://bazel.build/versions/master/docs/be/workspace.html#maven_server))
+Use the rule [`maven_jar`](https://docs.bazel.build/be/workspace.html#maven_jar)
+(and optionally the rule [`maven_server`](https://docs.bazel.build/be/workspace.html#maven_server))
 to download a jar from a Maven repository and make it available as a Java
 dependency.
 
@@ -106,7 +106,7 @@ dependency.
 
 By default, external dependencies are fetched as needed during `bazel build`. If
 you would like to disable this behavior or prefetch dependencies, use
-[`bazel fetch`](http://bazel.build/docs/bazel-user-manual.html#fetch).
+[`bazel fetch`](http://docs.bazel.build/bazel-user-manual.html#fetch).
 
 ## Using Proxies
 

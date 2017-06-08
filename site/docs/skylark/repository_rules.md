@@ -88,10 +88,10 @@ dependencies might cause a restart:
 - Declaration of the repository rule in the `WORKSPACE` file.
 - Value of any environment variable declared with the `environ`
 attribute of the
-[`repository_rule`](https://bazel.build/versions/master/docs/skylark/lib/globals.html#repository_rule)
+[`repository_rule`](https://docs.bazel.build/skylark/lib/globals.html#repository_rule)
 function. The value of those environment variable can be enforced from
 the command line with the
-[`--action_env`](/docs/command-line-reference.html#flag--action_env)
+[`--action_env`](https://docs.bazel.build/command-line-reference.html#flag--action_env)
 flag (but this flag will invalidate every action of the build).
 - Content of any file used and referred to by a label (e.g.,
   `//mypkg:label.txt` not `mypkg/label.txt`).
