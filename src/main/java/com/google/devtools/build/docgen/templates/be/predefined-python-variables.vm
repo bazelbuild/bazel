@@ -24,3 +24,6 @@ title: Predefined Python Variables
   of the package being evaluated. The value is unaffected by subinclude.
 </p>
 
+#if (!$singlePage)
+#parse("com/google/devtools/build/docgen/templates/be/footer.vm")
+#end
