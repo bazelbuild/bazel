@@ -21,6 +21,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader:srcs",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:srcs",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/transports:srcs",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:srcs",
         "//src/main/java/com/google/devtools/build/lib/causes:srcs",
         "//src/main/java/com/google/devtools/build/lib/cmdline:srcs",
         "//src/main/java/com/google/devtools/build/lib/exec/local:srcs",
@@ -363,6 +364,35 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
+    ],
+)
+
+java_library(
+    name = "buildeventservice",
+    srcs = glob(["buildeventservice/*.java"]),
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:auth_and_tls_options",
+        "//src/main/java/com/google/devtools/build/lib:buildeventstream",
+        "//src/main/java/com/google/devtools/build/lib:events",
+        "//src/main/java/com/google/devtools/build/lib:io",
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice/client",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
+        "//third_party:joda_time",
+        "//third_party:jsr305",
+        "//third_party/grpc:grpc-jar",
+        "@com_google_protobuf//:protobuf_java",
+        "@com_google_protobuf//:protobuf_java_util",
+        "@com_google_protobuf//:well_known_types_any_proto",
+        "@googleapis//:google_devtools_build_v1_build_events_java_proto",
+        "@googleapis//:google_devtools_build_v1_build_status_java_proto",
+        "@googleapis//:google_devtools_build_v1_publish_build_event_java_proto",
     ],
 )
 
@@ -716,6 +746,7 @@ java_library(
         ":bazel-rules",
         ":build-base",
         ":build-info",
+        ":buildeventservice",
         ":clock",
         ":events",
         ":io",
