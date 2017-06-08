@@ -59,9 +59,9 @@ def _new_git_repository_implementation(ctx):
   _clone_or_update(ctx)
   ctx.file('WORKSPACE', "workspace(name = \"{name}\")\n".format(name=ctx.name))
   if ctx.attr.build_file:
-    ctx.symlink(ctx.attr.build_file, 'BUILD')
+    ctx.symlink(ctx.attr.build_file, 'BUILD.bazel')
   else:
-    ctx.file('BUILD', ctx.attr.build_file_content)
+    ctx.file('BUILD.bazel', ctx.attr.build_file_content)
 
 def _git_repository_implementation(ctx):
   _clone_or_update(ctx)
