@@ -32,7 +32,7 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpHead;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.entity.ByteArrayEntity;
-import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.util.EntityUtils;
 
 /**
@@ -128,7 +128,7 @@ public final class SimpleBlobStoreFactory {
     @Override
     public boolean containsKey(String key) {
       try {
-        HttpClient client = new DefaultHttpClient();
+        HttpClient client = HttpClientBuilder.create().build();
         HttpHead head = new HttpHead(baseUrl + "/" + key);
         HttpResponse response = client.execute(head);
         int statusCode = response.getStatusLine().getStatusCode();
@@ -141,7 +141,7 @@ public final class SimpleBlobStoreFactory {
     @Override
     public byte[] get(String key) {
       try {
-        HttpClient client = new DefaultHttpClient();
+        HttpClient client = HttpClientBuilder.create().build();
         HttpGet get = new HttpGet(baseUrl + "/" + key);
         HttpResponse response = client.execute(get);
         int statusCode = response.getStatusLine().getStatusCode();
@@ -167,9 +167,10 @@ public final class SimpleBlobStoreFactory {
     @Override
     public void put(String key, byte[] value) {
       try {
-        HttpClient client = new DefaultHttpClient();
+        HttpClient client = HttpClientBuilder.create().build();
         HttpPut put = new HttpPut(baseUrl + "/" + key);
         put.setEntity(new ByteArrayEntity(value));
+        put.setHeader("Content-Type", "application/octet-stream");
         HttpResponse response = client.execute(put);
         int statusCode = response.getStatusLine().getStatusCode();
 
