@@ -17,7 +17,7 @@
 import os
 try:
   from StringIO import StringIO
-except ImportError:
+except ImportError or ModuleNotFoundError:
   from io import StringIO
 import subprocess
 import tarfile
