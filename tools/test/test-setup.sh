@@ -76,6 +76,10 @@ mkdir -p "$(dirname "$XML_OUTPUT_FILE")" \
     "$TEST_UNDECLARED_OUTPUTS_DIR" \
     "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR"
 
+# Create the test temp directory, which may not exist on the remote host when
+# doing a remote build.
+mkdir -p "$TEST_TMPDIR"
+
 # Unexport environment variables related to undeclared test outputs that are
 # only supposed to be used in this script.
 export -n TEST_UNDECLARED_OUTPUTS_MANIFEST
