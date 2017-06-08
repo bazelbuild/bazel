@@ -194,7 +194,7 @@ public final class BlazeRuntime {
     this.pathToUriConverter = pathToUriConverter;
   }
 
-  public void initWorkspace(BlazeDirectories directories, BinTools binTools)
+  public BlazeWorkspace initWorkspace(BlazeDirectories directories, BinTools binTools)
       throws AbruptExitException {
     Preconditions.checkState(this.workspace == null);
     WorkspaceBuilder builder = new WorkspaceBuilder(directories, binTools);
@@ -203,6 +203,7 @@ public final class BlazeRuntime {
     }
     this.workspace = builder.build(
         this, packageFactory, ruleClassProvider, getProductName(), eventBusExceptionHandler);
+    return workspace;
   }
 
   @Nullable public CoverageReportActionFactory getCoverageReportActionFactory(
@@ -237,16 +238,6 @@ public final class BlazeRuntime {
     for (BlazeCommand command : commands) {
       addCommand(command);
     }
-  }
-
-  /**
-   * Initializes a CommandEnvironment to execute a command in this server.
-   *
-   * <p>This method should be called from the "main" thread on which the command will execute;
-   * that thread will receive interruptions if a module requests an early exit.
-   */
-  public CommandEnvironment initCommand() {
-    return workspace.initCommand();
   }
 
   @Nullable
