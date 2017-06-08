@@ -63,9 +63,12 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
 
     private final int hashCode;
     private final ImmutableList<ChildEntry> childEntries; // no need to make it a map thus far.
-    @Nullable private final ActionInput actionInput; // Null iff this is a directory.
+    @Nullable
+    private final ActionInput actionInput; // Null iff this is a directory.
 
-    /** A pair of path segment, TreeNode. */
+    /**
+     * A pair of path segment, TreeNode.
+     */
     @Immutable
     public static final class ChildEntry {
 
