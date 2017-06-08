@@ -999,7 +999,7 @@ public final class BuildConfiguration implements BuildEvent {
 
     @Option(
       name = "experimental_dynamic_configs",
-      defaultValue = "notrim_partial",
+      defaultValue = "notrim",
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       converter = DynamicConfigsConverter.class,
       help =
