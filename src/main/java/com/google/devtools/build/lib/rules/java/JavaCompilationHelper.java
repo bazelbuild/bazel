@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -233,7 +234,7 @@ public final class JavaCompilationHelper {
 
   private ImmutableMap<String, String> getExecutionInfo() {
     if (javaToolchain.getJavacSupportsWorkers()) {
-      return ImmutableMap.of("supports-workers", "1");
+      return ExecutionRequirements.WORKER_MODE_ENABLED;
     }
     return ImmutableMap.of();
   }

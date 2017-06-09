@@ -26,11 +26,11 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
@@ -434,7 +434,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
             .addInput(paramFile)
             .addOutput(dexArchive)
             .setMnemonic("DexBuilder")
-            .setExecutionInfo(ImmutableMap.of("supports-workers", "1"))
+            .setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED)
             .setProgressMessage(
                 "Dexing " + jar.prettyPrint() + " with applicable dexopts " + incrementalDexopts);
     ruleContext.registerAction(dexbuilder.build(ruleContext));

@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceManager;
@@ -112,8 +113,8 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
       AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles)
       throws ExecException, InterruptedException {
     Executor executor = actionExecutionContext.getExecutor();
-    if (!spawn.getExecutionInfo().containsKey("supports-workers")
-        || !spawn.getExecutionInfo().get("supports-workers").equals("1")) {
+    if (!spawn.getExecutionInfo().containsKey(ExecutionRequirements.SUPPORTS_WORKERS)
+        || !spawn.getExecutionInfo().get(ExecutionRequirements.SUPPORTS_WORKERS).equals("1")) {
       StandaloneSpawnStrategy standaloneStrategy =
           Preconditions.checkNotNull(executor.getContext(StandaloneSpawnStrategy.class));
       executor.getEventHandler().handle(
