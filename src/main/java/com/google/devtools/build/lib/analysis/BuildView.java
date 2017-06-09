@@ -223,18 +223,6 @@ public class BuildView {
     public boolean extraActionTopLevelOnly;
 
     @Option(
-      name = "experimental_extra_action_top_level_only_with_aspects",
-      defaultValue = "true",
-      category = "experimental",
-      help =
-          "If true and --experimental_extra_action_top_level_only=true, will include actions "
-              + "from aspects injected by top-level rules. "
-              + "This is an escape hatch in case commit df9e5e16c370391098c4432779ad4d1c9dd693ca "
-              + "breaks something."
-    )
-    public boolean extraActionTopLevelOnlyWithAspects;
-
-    @Option(
       name = "version_window_for_dirty_node_gc",
       defaultValue = "0",
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
@@ -735,19 +723,15 @@ public class BuildView {
           target.getProvider(ExtraActionArtifactsProvider.class);
       if (provider != null) {
         if (viewOptions.extraActionTopLevelOnly) {
-          if (!viewOptions.extraActionTopLevelOnlyWithAspects) {
-            builder.addTransitive(provider.getExtraActionArtifacts());
-          } else {
-            // Collect all aspect-classes that topLevel might inject.
-            Set<AspectClass> aspectClasses = new HashSet<>();
-            for (Attribute attr : target.getTarget().getAssociatedRule().getAttributes()) {
-              aspectClasses.addAll(attr.getAspectClasses());
-            }
+          // Collect all aspect-classes that topLevel might inject.
+          Set<AspectClass> aspectClasses = new HashSet<>();
+          for (Attribute attr : target.getTarget().getAssociatedRule().getAttributes()) {
+            aspectClasses.addAll(attr.getAspectClasses());
+          }
 
-            builder.addTransitive(provider.getExtraActionArtifacts());
-            if (!aspectClasses.isEmpty()) {
-              builder.addAll(filterTransitiveExtraActions(provider, aspectClasses));
-            }
+          builder.addTransitive(provider.getExtraActionArtifacts());
+          if (!aspectClasses.isEmpty()) {
+            builder.addAll(filterTransitiveExtraActions(provider, aspectClasses));
           }
         } else {
           builder.addTransitive(provider.getTransitiveExtraActionArtifacts());
