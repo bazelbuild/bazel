@@ -89,7 +89,7 @@ function get_release_notes() {
 # candidate in this release.
 function get_release_branch() {
   local branch_name=$(git_get_branch)
-  if [ -z "$(get_release_name)" -o -z "$(get_release_candidate)" ]; then
+  if [ -z "$(get_release_name)" ] || [ -z "$(get_release_candidate)" ]; then
     echo "Not a release branch: ${branch_name}." >&2
     exit 1
   fi
@@ -123,7 +123,7 @@ function create_revision_information() {
     local subject="$(git_commit_subject $hash)"
     local lines=$(echo "$subject" | wrap_text 65)  # 5 leading spaces.
     echo "   + $hash:"
-    echo "$lines" | sed 's/^/     /'
+    echo "${lines//^/     }"
     shift
   done
 }

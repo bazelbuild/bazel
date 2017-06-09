@@ -120,7 +120,7 @@ function bazel_build() {
     mkdir -p $1/packages
     cp bazel-bin/src/bazel $1/bazel
     # The version with a bundled JDK may not exist on all platforms.
-    if [ "${JAVA_VERSION}" = "1.8" -a -e "bazel-bin/scripts/packages/with-jdk/install.sh" ]; then
+    if [ "${JAVA_VERSION}" = "1.8" ] && [ -e "bazel-bin/scripts/packages/with-jdk/install.sh" ]; then
       cp bazel-bin/scripts/packages/with-jdk/install.sh $1/bazel-${release_label}-installer.sh
       cp bazel-bin/scripts/packages/without-jdk/install.sh $1/bazel-${release_label}-without-jdk-installer.sh
     else
