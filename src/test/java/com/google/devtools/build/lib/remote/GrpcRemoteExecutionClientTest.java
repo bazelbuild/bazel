@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionPolicy;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -136,6 +137,7 @@ public class GrpcRemoteExecutionClientTest {
 
   @Before
   public final void setUp() throws Exception {
+    FileSystem.setDigestFunctionForTesting(HashFunction.SHA1);
     String fakeServerName = "fake server for " + getClass();
     // Use a mutable service registry for later registering the service impl for each test case.
     fakeServer =

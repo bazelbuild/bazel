@@ -13,6 +13,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:auth_and_tls_options",
         "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:buildeventstream",
         "//src/main/java/com/google/devtools/build/lib:concurrent",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:io",

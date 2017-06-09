@@ -20,6 +20,7 @@ import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
+import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.Path;
@@ -39,7 +40,9 @@ public final class Digests {
   }
 
   public static Digest computeDigest(Path file) throws IOException {
-    return buildDigest(file.getSHA1Digest(), file.getFileSize());
+    long fileSize = file.getFileSize();
+    byte[] digest = DigestUtils.getDigestOrFail(file, fileSize);
+    return buildDigest(digest, fileSize);
   }
 
   public static Digest computeDigest(VirtualActionInput input) throws IOException {

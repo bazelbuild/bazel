@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -73,6 +74,7 @@ public class GrpcActionCacheTest {
 
   @Before
   public final void setUp() throws Exception {
+    FileSystem.setDigestFunctionForTesting(HashFunction.SHA1);
     // Use a mutable service registry for later registering the service impl for each test case.
     fakeServer =
         InProcessServerBuilder.forName(fakeServerName)
