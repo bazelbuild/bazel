@@ -75,7 +75,7 @@ EOF
     || fail "Failed to build //a:test without remote execution"
   cp -f bazel-bin/a/test ${TEST_TMPDIR}/test_expected
 
-  bazel clean --expunge
+  bazel clean --expunge >& $TEST_log
   bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
       --spawn_strategy=remote \
       --noremote_local_fallback \
@@ -127,7 +127,7 @@ EOF
     || fail "Failed to build //a:test without remote cache"
   cp -f bazel-bin/a/test ${TEST_TMPDIR}/test_expected
 
-  bazel clean --expunge
+  bazel clean --expunge >& $TEST_log
   bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
       --spawn_strategy=remote \
       --remote_cache=localhost:${worker_port} \
@@ -182,7 +182,7 @@ EOF
     || fail "Failed to build //a:large_output without remote execution"
   cp -f bazel-genfiles/a/large_blob.txt ${TEST_TMPDIR}/large_blob_expected.txt
 
-  bazel clean --expunge
+  bazel clean --expunge >& $TEST_log
   bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
       --spawn_strategy=remote \
       --noremote_local_fallback \
@@ -211,7 +211,7 @@ EOF
     || fail "Failed to build //a:test without remote cache"
   cp -f bazel-bin/a/test ${TEST_TMPDIR}/test_expected
 
-  bazel clean --expunge
+  bazel clean --expunge >& $TEST_log
   bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
       --spawn_strategy=remote \
       --noremote_local_fallback \
@@ -231,7 +231,7 @@ name = 'test',
 srcs = [ 'test.py' ],
 )
 EOF
-  cat > a/test.py <<EOF
+  cat > a/test.py <<'EOF'
 import sys
 if __name__ == "__main__":
     sys.exit(0)
@@ -244,6 +244,82 @@ EOF
       --test_output=errors \
       //a:test >& $TEST_log \
       || fail "Failed to run //a:test with remote execution"
+}
+
+function test_py_test_with_xml_output() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+py_test(
+name = 'test',
+srcs = [ 'test.py' ],
+)
+EOF
+  cat > a/test.py <<'EOF'
+import sys
+import os
+if __name__ == "__main__":
+    f = open(os.environ['XML_OUTPUT_FILE'], "w")
+    f.write('''
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="test" tests="1" failures="0" errors="1">
+    <testcase name="first" status="run">That did not work!</testcase>
+  </testsuite>
+</testsuites>
+''')
+    sys.exit(0)
+EOF
+  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
+      --spawn_strategy=remote \
+      --noremote_local_fallback \
+      --remote_executor=localhost:${worker_port} \
+      --remote_cache=localhost:${worker_port} \
+      --test_output=errors \
+      //a:test >& $TEST_log \
+      || fail "Failed to run //a:test with remote execution"
+  xml=bazel-testlogs/a/test/test.xml
+  [ -e $xml ] || fail "Expected to find XML output"
+  cat $xml > $TEST_log
+  expect_log 'That did not work!'
+}
+
+function test_failing_py_test_with_xml_output() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+py_test(
+name = 'test',
+srcs = [ 'test.py' ],
+)
+EOF
+  cat > a/test.py <<'EOF'
+import sys
+import os
+if __name__ == "__main__":
+    f = open(os.environ['XML_OUTPUT_FILE'], "w")
+    f.write('''
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="test" tests="1" failures="0" errors="1">
+    <testcase name="first" status="run">That did not work!</testcase>
+  </testsuite>
+</testsuites>
+''')
+    sys.exit(1)
+EOF
+  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
+      --spawn_strategy=remote \
+      --noremote_local_fallback \
+      --remote_executor=localhost:${worker_port} \
+      --remote_cache=localhost:${worker_port} \
+      --test_output=errors \
+      //a:test >& $TEST_log \
+      && fail "Expected test failure" || exitcode=$?
+  xml=bazel-testlogs/a/test/test.xml
+  [ -e $xml ] || fail "Expected to find XML output"
+  cat $xml > $TEST_log
+  expect_log 'That did not work!'
 }
 
 function test_noinput_action() {

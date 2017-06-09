@@ -327,17 +327,14 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
         return;
       }
       passRemoteOutErr(remoteCache, result, actionExecutionContext.getFileOutErr());
-      if (result.getExitCode() == 0) {
-        remoteCache.downloadAllResults(result, execRoot);
-      } else {
+      remoteCache.downloadAllResults(result, execRoot);
+      if (result.getExitCode() != 0) {
         String cwd = executor.getExecRoot().getPathString();
         String message =
             CommandFailureUtils.describeCommandFailure(
                 verboseFailures, spawn.getArguments(), spawn.getEnvironment(), cwd);
         throw new UserExecException(message + ": Exit " + result.getExitCode());
       }
-      // For now, we retry locally on all other remote errors.
-      // TODO(olaola): add remote retries on cache miss errors.
     } catch (IOException e) {
       throw new UserExecException("Unexpected IO error.", e);
     } catch (InterruptedException e) {
