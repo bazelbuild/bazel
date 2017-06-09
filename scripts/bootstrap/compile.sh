@@ -332,17 +332,17 @@ function run_bazel_jar() {
         if (name == "_") continue;
         if (ENVIRON[name] ~ /^[[:space:]]*$/) continue;
         if (PLATFORM == "windows") {
-            if (tolower(name) ~ /path|tmp|temp|tempdir|systemroot|zzz/) {
+            if (tolower(name) ~ /^(path|tmp|temp|tempdir|systemroot)$/) {
                 value = ENVIRON[name]
                 delete ENVIRON[name]
                 name = toupper(name)
                 ENVIRON[name] = value
             }
         }
-        printf(" --client_env=%c%s=%s%c\n", 39, name, ENVIRON[name], 39);
+        gsub("\x27", "\\\x27", ENVIRON[name])
+        printf(" --client_env=%c%s=%s%c\n", 0x27, name, ENVIRON[name], 0x27);
     }
 }' "PLATFORM=${PLATFORM}" </dev/null)")
-
   "${JAVA_HOME}/bin/java" \
       -XX:+HeapDumpOnOutOfMemoryError -Xverify:none -Dfile.encoding=ISO-8859-1 \
       -XX:HeapDumpPath=${OUTPUT_DIR} \
