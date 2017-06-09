@@ -11,23 +11,33 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package com.google.devtools.build.lib.runtime.mobileinstall;
 
 import static com.google.devtools.build.lib.analysis.OutputGroupProvider.INTERNAL_SUFFIX;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.rules.android.WriteAdbArgsAction;
 import com.google.devtools.build.lib.rules.android.WriteAdbArgsAction.StartType;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
-import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.commands.BuildCommand;
 import com.google.devtools.build.lib.runtime.commands.ProjectFileSupport;
+import com.google.devtools.build.lib.shell.AbnormalTerminationException;
+import com.google.devtools.build.lib.shell.BadExitStatusException;
+import com.google.devtools.build.lib.shell.CommandException;
+import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.io.OutErr;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionPriority;
 import com.google.devtools.common.options.OptionsBase;
@@ -35,6 +45,8 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -49,6 +61,43 @@ import java.util.List;
          allowResidue = true,
          help = "resource:mobile-install.txt")
 public class MobileInstallCommand implements BlazeCommand {
+
+
+  /**
+   * An enumeration of all the modes that mobile-install supports.
+   */
+  public enum Mode {
+    CLASSIC("classic", null),
+    SKYLARK("skylark", "MIASPECT"),
+    SKYLARK_INCREMENTAL_RES("skylark_incremental_res", "MIRESASPECT");
+
+    private final String mode;
+    private final String aspectName;
+
+    private Mode(String mode, String aspectName) {
+      this.mode = mode;
+      this.aspectName = aspectName;
+    }
+
+    public String getAspectName() {
+      return aspectName;
+    }
+
+    @Override
+    public String toString() {
+      return mode;
+    }
+  }
+
+  /**
+   * Converter for the --mode option.
+   */
+  public static class ModeConverter extends EnumConverter<Mode> {
+    public ModeConverter() {
+      super(Mode.class, "mode");
+    }
+  }
+
   /**
    * Command line options for the 'mobile-install' command.
    */
@@ -71,65 +120,170 @@ public class MobileInstallCommand implements BlazeCommand {
     public boolean incremental;
 
     @Option(
-      name = "v2",
+      name = "mode",
       category = "mobile-install",
-      defaultValue = "false",
-      help = "Whether to use the v2 mobile-install. If true, rather than using the current "
-          + "version of mobile-install, use version 2.",
+      defaultValue = "classic",
+      converter = ModeConverter.class,
+      help = "Select how to run mobile-install. \"classic\" runs the current version of "
+          + "mobile-install. \"skylark\" uses the new skylark version, which has support for "
+          + "android_test. \"skylark_incremental_res\" is the same as \"skylark\" plus incremental "
+          + "resource processing. \"skylark_incremental_res\" requires a device with root access.",
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED
     )
-    public boolean v2;
+    public Mode mode;
 
     @Option(
-      name = "mobile_install_aspects",
+      name = "mobile_install_aspect",
       category = "mobile-install",
-      defaultValue =
-          "@android_test_support//tools/android/mobile_install:mobile-install.bzl%MIASPECT",
+      defaultValue = "@android_test_support//tools/android/mobile_install:mobile-install.bzl",
       help = "The aspect to use for mobile-install.",
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED
     )
-    public String mobileInstallAspects;
+    public String mobileInstallAspect;
   }
+
+  private static final String SINGLE_TARGET_MESSAGE =
+      "Can only run a single target. Do not use wildcards that match more than one target";
+  private static final String NO_TARGET_MESSAGE = "No targets found to run";
 
   @Override
   public ExitCode exec(CommandEnvironment env, OptionsProvider options) {
-    BlazeRuntime runtime = env.getRuntime();
     Options mobileInstallOptions = options.getOptions(Options.class);
-    WriteAdbArgsAction.Options adbOptions = options.getOptions(WriteAdbArgsAction.Options.class);
-    if (adbOptions.start == StartType.WARM && !mobileInstallOptions.incremental) {
-      env.getReporter().handle(Event.warn(
-         "Warm start is enabled, but will have no effect on a non-incremental build"));
+
+    if (mobileInstallOptions.mode == Mode.CLASSIC) {
+      WriteAdbArgsAction.Options adbOptions = options.getOptions(WriteAdbArgsAction.Options.class);
+      if (adbOptions.start == StartType.WARM && !mobileInstallOptions.incremental) {
+        env.getReporter().handle(Event.warn(
+           "Warm start is enabled, but will have no effect on a non-incremental build"));
+      }
+      List<String> targets = ProjectFileSupport.getTargets(env.getRuntime(), options);
+      BuildRequest request =
+          BuildRequest.create(
+              this.getClass().getAnnotation(Command.class).name(),
+              options,
+              env.getRuntime().getStartupOptionsProvider(),
+              targets,
+              env.getReporter().getOutErr(),
+              env.getCommandId(),
+              env.getCommandStartTime());
+      return new BuildTool(env).processRequest(request, null).getExitCondition();
     }
 
-    List<String> targets = ProjectFileSupport.getTargets(runtime, options);
-    BuildRequest request = BuildRequest.create(
-        this.getClass().getAnnotation(Command.class).name(), options,
-        runtime.getStartupOptionsProvider(), targets,
-        env.getReporter().getOutErr(), env.getCommandId(), env.getCommandStartTime());
-    return new BuildTool(env).processRequest(request, null).getExitCondition();
+    // This list should look like: ["//executable:target", "arg1", "arg2"]
+    List<String> targetAndArgs = options.getResidue();
+
+    // The user must at least specify an executable target.
+    if (targetAndArgs.isEmpty()) {
+      env.getReporter().handle(Event.error("Must specify a target to run"));
+      return ExitCode.COMMAND_LINE_ERROR;
+    }
+
+    List<String> targets = ImmutableList.of(targetAndArgs.get(0));
+    List<String> runTargetArgs = targetAndArgs.subList(1, targetAndArgs.size());
+
+    OutErr outErr = env.getReporter().getOutErr();
+    BuildRequest request =
+        BuildRequest.create(
+            this.getClass().getAnnotation(Command.class).name(),
+            options,
+            env.getRuntime().getStartupOptionsProvider(),
+            targets,
+            outErr,
+            env.getCommandId(),
+            env.getCommandStartTime());
+    BuildResult result = new BuildTool(env).processRequest(request, null);
+
+    if (!result.getSuccess()) {
+      env.getReporter().handle(Event.error("Build failed. Not running target"));
+      return result.getExitCondition();
+    }
+
+    Collection<ConfiguredTarget> targetsBuilt = result.getSuccessfulTargets();
+    if (targetsBuilt == null) {
+      env.getReporter().handle(Event.error(NO_TARGET_MESSAGE));
+      return ExitCode.COMMAND_LINE_ERROR;
+    }
+    if (targetsBuilt.size() != 1) {
+      env.getReporter().handle(Event.error(SINGLE_TARGET_MESSAGE));
+      return ExitCode.COMMAND_LINE_ERROR;
+    }
+    ConfiguredTarget targetToRun = Iterables.getOnlyElement(targetsBuilt);
+
+    List<String> cmdLine = new ArrayList<>();
+    // TODO(bazel-team): Get the executable path from the filesToRun provider from the aspect.
+    cmdLine.add(
+        targetToRun.getConfiguration().getBinFragment().getPathString()
+            + "/"
+            + targetToRun.getLabel().toPathFragment().getPathString()
+            + "_launcher");
+    cmdLine.addAll(runTargetArgs);
+
+    Path workingDir = env.getBlazeWorkspace().getOutputPath().getParentDirectory();
+    com.google.devtools.build.lib.shell.Command command =
+        new CommandBuilder()
+            .addArgs(cmdLine)
+            .setEnv(env.getClientEnv())
+            .setWorkingDir(workingDir)
+            .build();
+
+    try {
+      // Restore a raw EventHandler if it is registered. This allows for blaze run to produce the
+      // actual output of the command being run even if --color=no is specified.
+      env.getReporter().switchToAnsiAllowingHandler();
+
+      // The command API is a little strange in that the following statement
+      // will return normally only if the program exits with exit code 0.
+      // If it ends with any other code, we have to catch BadExitStatusException.
+      command
+          .execute(
+              com.google.devtools.build.lib.shell.Command.NO_INPUT,
+              com.google.devtools.build.lib.shell.Command.NO_OBSERVER,
+              outErr.getOutputStream(),
+              outErr.getErrorStream(),
+              true /* interruptible */)
+          .getTerminationStatus()
+          .getExitCode();
+      return ExitCode.SUCCESS;
+    } catch (BadExitStatusException e) {
+      String message =
+          "Non-zero return code '"
+              + e.getResult().getTerminationStatus().getExitCode()
+              + "' from command: "
+              + e.getMessage();
+      env.getReporter().handle(Event.error(message));
+      return ExitCode.RUN_FAILURE;
+    } catch (AbnormalTerminationException e) {
+      // The process was likely terminated by a signal in this case.
+      return ExitCode.INTERRUPTED;
+    } catch (CommandException e) {
+      env.getReporter().handle(Event.error("Error running program: " + e.getMessage()));
+      return ExitCode.RUN_FAILURE;
+    }
   }
 
   @Override
   public void editOptions(OptionsParser optionsParser) {
+    Options options = optionsParser.getOptions(Options.class);
     try {
-      if (optionsParser.getOptions(Options.class).v2) {
-        optionsParser.parse(
-            OptionPriority.COMMAND_LINE,
-            "Options required by the mobile-install v2 command",
-            ImmutableList.of(
-                "--aspects=" + optionsParser.getOptions(Options.class).mobileInstallAspects,
-                "--output_groups=mobile_install_v2" + INTERNAL_SUFFIX));
-      } else {
+      if (options.mode == Mode.CLASSIC) {
         String outputGroup =
-            optionsParser.getOptions(Options.class).splitApks
+            options.splitApks
                 ? "mobile_install_split" + INTERNAL_SUFFIX
-                : optionsParser.getOptions(Options.class).incremental
+                : options.incremental
                     ? "mobile_install_incremental" + INTERNAL_SUFFIX
                     : "mobile_install_full" + INTERNAL_SUFFIX;
         optionsParser.parse(
             OptionPriority.COMMAND_LINE,
             "Options required by the mobile-install command",
             ImmutableList.of("--output_groups=" + outputGroup));
+      } else {
+        optionsParser.parse(
+            OptionPriority.COMMAND_LINE,
+            "Options required by the skylark implementation of mobile-install command",
+            ImmutableList.of(
+                "--aspects=" + options.mobileInstallAspect + "%" + options.mode.getAspectName(),
+                "--output_groups=mobile_install" + INTERNAL_SUFFIX,
+                "--output_groups=mobile_install_launcher" + INTERNAL_SUFFIX));
       }
     } catch (OptionsParsingException e) {
       throw new IllegalStateException(e);
