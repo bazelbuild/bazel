@@ -58,7 +58,7 @@ done
 buildables=$(bazel query \
     --keep_going \
     --noshow_progress \
-    "kind(.*_binary, rdeps(//..., set(${files[@]})))")
+    "kind(.*_binary, rdeps(//..., set(${files[*]})))")
 # Run the tests if there were results
 if [[ ! -z $buildables ]]; then
   echo "Building binaries"
@@ -68,7 +68,7 @@ fi
 tests=$(bazel query \
     --keep_going \
     --noshow_progress \
-    "kind(test, rdeps(//..., set(${files[@]}))) except attr('tags', 'manual', //...)")
+    "kind(test, rdeps(//..., set(${files[*]}))) except attr('tags', 'manual', //...)")
 # Run the tests if there were results
 if [[ ! -z $tests ]]; then
   echo "Running tests"
