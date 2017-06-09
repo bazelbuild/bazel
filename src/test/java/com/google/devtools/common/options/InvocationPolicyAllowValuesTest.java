@@ -11,145 +11,150 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.runtime;
+package com.google.devtools.common.options;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
-import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
-import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Arrays;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Test InvocationPolicies with the DisallowValues operation. */
+/** Test InvocationPolicies with the AllowValues operation. */
 @RunWith(JUnit4.class)
-public class InvocationPolicyDisallowValuesTest extends InvocationPolicyEnforcerTestBase {
+public class InvocationPolicyAllowValuesTest extends InvocationPolicyEnforcerTestBase {
 
   // Useful constants
   public static final String BUILD_COMMAND = "build";
-  public static final String DISALLOWED_VALUE_1 = "foo";
-  public static final String DISALLOWED_VALUE_2 = "bar";
+  public static final String ALLOWED_VALUE_1 = "foo";
+  public static final String ALLOWED_VALUE_2 = "bar";
   public static final String UNFILTERED_VALUE = "baz";
 
+  /**
+   * Tests that AllowValues works in the normal case where the value the user specified is allowed
+   * by the policy.
+   */
   @Test
-  public void testDisallowValuesAllowsValue() throws Exception {
+  public void testAllowValuesAllowsValue() throws Exception {
     InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
     invocationPolicyBuilder
         .addFlagPoliciesBuilder()
         .setFlagName("test_string")
-        .getDisallowValuesBuilder()
-        .addDisallowedValues(DISALLOWED_VALUE_1)
-        .addDisallowedValues(DISALLOWED_VALUE_2);
+        .getAllowValuesBuilder()
+        .addAllowedValues(TestOptions.TEST_STRING_DEFAULT)
+        .addAllowedValues(ALLOWED_VALUE_1)
+        .addAllowedValues(ALLOWED_VALUE_2);
 
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
-    parser.parse("--test_string=" + UNFILTERED_VALUE);
-
-    // Option should be "baz" as specified by the user.
-    TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(UNFILTERED_VALUE);
-
-    enforcer.enforce(parser, BUILD_COMMAND);
-
-    // Still "baz" since "baz" is allowed by the policy.
-    testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(UNFILTERED_VALUE);
-  }
-
-  @Test
-  public void testDisallowValuesDisallowsValue() throws Exception {
-    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
-    invocationPolicyBuilder
-        .addFlagPoliciesBuilder()
-        .setFlagName("test_string")
-        .getDisallowValuesBuilder()
-        .addDisallowedValues(DISALLOWED_VALUE_1)
-        .addDisallowedValues(DISALLOWED_VALUE_2);
-
-    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
-    parser.parse("--test_string=" + DISALLOWED_VALUE_1);
+    parser.parse("--test_string=" + ALLOWED_VALUE_1);
 
     // Option should be "foo" as specified by the user.
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(DISALLOWED_VALUE_1);
+    assertThat(testOptions.testString).isEqualTo(ALLOWED_VALUE_1);
+
+    enforcer.enforce(parser, BUILD_COMMAND);
+
+    // Still "foo" since "foo" is allowed by the policy.
+    testOptions = getTestOptions();
+    assertThat(testOptions.testString).isEqualTo(ALLOWED_VALUE_1);
+  }
+
+  @Test
+  public void testAllowValuesDisallowsValue() throws Exception {
+    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
+    invocationPolicyBuilder
+        .addFlagPoliciesBuilder()
+        .setFlagName("test_string")
+        .getAllowValuesBuilder()
+        // no foo!
+        .addAllowedValues(TestOptions.TEST_STRING_DEFAULT)
+        .addAllowedValues(ALLOWED_VALUE_2);
+
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    parser.parse("--test_string=" + ALLOWED_VALUE_1);
+
+    // Option should be "foo" as specified by the user.
+    TestOptions testOptions = getTestOptions();
+    assertThat(testOptions.testString).isEqualTo(ALLOWED_VALUE_1);
 
     try {
+      // Should throw because "foo" is not allowed.
       enforcer.enforce(parser, BUILD_COMMAND);
       fail();
     } catch (OptionsParsingException e) {
-      // expected, since foo is disallowed.
+      // expected
     }
   }
 
   @Test
-  public void testDisallowValuesDisallowsMultipleValues() throws Exception {
+  public void testAllowValuesDisallowsMultipleValues() throws Exception {
     InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
     invocationPolicyBuilder
         .addFlagPoliciesBuilder()
         .setFlagName("test_multiple_string")
-        .getDisallowValuesBuilder()
-        .addDisallowedValues(DISALLOWED_VALUE_1)
-        .addDisallowedValues(DISALLOWED_VALUE_2);
+        .getAllowValuesBuilder()
+        .addAllowedValues(ALLOWED_VALUE_1)
+        .addAllowedValues(ALLOWED_VALUE_2);
 
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
     parser.parse(
-        "--test_multiple_string=" + UNFILTERED_VALUE,
-        "--test_multiple_string=" + DISALLOWED_VALUE_2);
+        "--test_multiple_string=" + UNFILTERED_VALUE, "--test_multiple_string=" + ALLOWED_VALUE_2);
 
     // Option should be "baz" and "bar" as specified by the user.
     TestOptions testOptions = getTestOptions();
     assertThat(testOptions.testMultipleString)
-        .containsExactly(UNFILTERED_VALUE, DISALLOWED_VALUE_2)
+        .containsExactly(UNFILTERED_VALUE, ALLOWED_VALUE_2)
         .inOrder();
 
     try {
       enforcer.enforce(parser, BUILD_COMMAND);
       fail();
     } catch (OptionsParsingException e) {
-      // expected, since bar is disallowed.
+      // expected, since baz is not allowed.
     }
   }
 
   @Test
-  public void testDisallowValuesSetsNewValue() throws Exception {
+  public void testAllowValuesSetsNewValue() throws Exception {
     InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
     invocationPolicyBuilder
         .addFlagPoliciesBuilder()
         .setFlagName("test_string")
-        .getDisallowValuesBuilder()
-        .addDisallowedValues(DISALLOWED_VALUE_1)
-        .setNewValue(UNFILTERED_VALUE);
+        .getAllowValuesBuilder()
+        .addAllowedValues(ALLOWED_VALUE_1)
+        .addAllowedValues(ALLOWED_VALUE_2)
+        .setNewValue(ALLOWED_VALUE_1);
 
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
-    parser.parse("--test_string=" + DISALLOWED_VALUE_1);
+    parser.parse("--test_string=" + UNFILTERED_VALUE);
 
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(DISALLOWED_VALUE_1);
+    assertThat(testOptions.testString).isEqualTo(UNFILTERED_VALUE);
 
     enforcer.enforce(parser, BUILD_COMMAND);
 
-    // Should now be "baz" because the policy forces disallowed values to "baz"
     testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(UNFILTERED_VALUE);
+    assertThat(testOptions.testString).isEqualTo(ALLOWED_VALUE_1);
   }
 
   @Test
-  public void testDisallowValuesSetsDefaultValue() throws Exception {
+  public void testAllowValuesSetsDefaultValue() throws Exception {
     InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
     invocationPolicyBuilder
         .addFlagPoliciesBuilder()
         .setFlagName("test_string")
-        .getDisallowValuesBuilder()
-        .addDisallowedValues(DISALLOWED_VALUE_1)
+        .getAllowValuesBuilder()
+        .addAllowedValues(ALLOWED_VALUE_1)
+        .addAllowedValues(TestOptions.TEST_STRING_DEFAULT)
         .getUseDefaultBuilder();
 
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
-    parser.parse("--test_string=" + DISALLOWED_VALUE_1);
+    parser.parse("--test_string=" + UNFILTERED_VALUE);
 
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(DISALLOWED_VALUE_1);
+    assertThat(testOptions.testString).isEqualTo(UNFILTERED_VALUE);
 
     enforcer.enforce(parser, BUILD_COMMAND);
 
@@ -158,85 +163,76 @@ public class InvocationPolicyDisallowValuesTest extends InvocationPolicyEnforcer
   }
 
   @Test
-  public void testDisallowValuesSetsDefaultValueForRepeatableFlag() throws Exception {
+  public void testAllowValuesSetsDefaultValueForRepeatableFlag() throws Exception {
     InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
     invocationPolicyBuilder
         .addFlagPoliciesBuilder()
         .setFlagName("test_multiple_string")
-        .getDisallowValuesBuilder()
-        .addDisallowedValues(DISALLOWED_VALUE_1)
+        .getAllowValuesBuilder()
+        .addAllowedValues(ALLOWED_VALUE_1)
+        .addAllowedValues(ALLOWED_VALUE_2)
         .getUseDefaultBuilder();
 
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
-    parser.parse("--test_multiple_string=" + DISALLOWED_VALUE_1);
+    parser.parse(
+        "--test_multiple_string=" + ALLOWED_VALUE_1, "--test_multiple_string=" + UNFILTERED_VALUE);
 
     TestOptions testOptions = getTestOptions();
-    assertThat(testOptions.testMultipleString).containsExactly(DISALLOWED_VALUE_1);
+    assertThat(testOptions.testMultipleString)
+        .containsExactly(ALLOWED_VALUE_1, UNFILTERED_VALUE)
+        .inOrder();
 
     enforcer.enforce(parser, BUILD_COMMAND);
 
     testOptions = getTestOptions();
-    // Default for repeatable flags is always empty.
+    // Default value for repeatable flags is always empty.
     assertThat(testOptions.testMultipleString).isEmpty();
   }
 
+  /**
+   * Tests that AllowValues sets its default value when the user doesn't provide a value and the
+   * flag's default value is disallowed.
+   */
   @Test
-  public void testDisallowValuesRaisesErrorIfDefaultIsDisallowedAndSetsUseDefault()
-      throws Exception {
+  public void testAllowValuesSetsNewDefaultWhenFlagDefaultIsDisallowed() throws Exception {
     InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
     invocationPolicyBuilder
         .addFlagPoliciesBuilder()
         .setFlagName("test_string")
-        .getDisallowValuesBuilder()
-        .addDisallowedValues(TestOptions.TEST_STRING_DEFAULT)
-        .getUseDefaultBuilder();
+        .getAllowValuesBuilder()
+        // default value from flag's definition is not allowed
+        .addAllowedValues(ALLOWED_VALUE_1)
+        .addAllowedValues(ALLOWED_VALUE_2)
+        .setNewValue("new default");
 
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
 
-    try {
-      enforcer.enforce(parser, BUILD_COMMAND);
-      fail();
-    } catch (OptionsParsingException e) {
-      assertThat(e).hasMessageThat().contains("but also specifies to use the default value");
-    }
-  }
-  
-  @Test
-  public void testDisallowValuesSetsNewValueWhenDefaultIsDisallowed() throws Exception {
-    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
-    invocationPolicyBuilder
-        .addFlagPoliciesBuilder()
-        .setFlagName("test_string")
-        .getDisallowValuesBuilder()
-        .addDisallowedValues(TestOptions.TEST_STRING_DEFAULT)
-        .setNewValue(UNFILTERED_VALUE);
-
-    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
-
-    // Option should be the default since the use didn't specify a value.
+    // Option should be its default
     TestOptions testOptions = getTestOptions();
     assertThat(testOptions.testString).isEqualTo(TestOptions.TEST_STRING_DEFAULT);
 
     enforcer.enforce(parser, BUILD_COMMAND);
 
-    // Should now be "baz" because the policy set the new default to "baz"
+    // Flag's value should be the default value from the policy.
     testOptions = getTestOptions();
-    assertThat(testOptions.testString).isEqualTo(UNFILTERED_VALUE);
+    assertThat(testOptions.testString).isEqualTo("new default");
   }
 
   @Test
-  public void testDisallowValuesDisallowsFlagDefaultButNoPolicyDefault() throws Exception {
+  public void testAllowValuesDisallowsFlagDefaultButNoPolicyDefault() throws Exception {
     InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
     invocationPolicyBuilder
         .addFlagPoliciesBuilder()
         .setFlagName("test_string")
-        .getDisallowValuesBuilder()
-        // No new default is set
-        .addDisallowedValues(TestOptions.TEST_STRING_DEFAULT);
+        .getAllowValuesBuilder()
+        // default value from flag's definition is not allowed, and no alternate default
+        // is given.
+        .addAllowedValues(ALLOWED_VALUE_1)
+        .addAllowedValues(ALLOWED_VALUE_2);
 
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
 
-    // Option should be the default since the use didn't specify a value.
+    // Option should be its default
     TestOptions testOptions = getTestOptions();
     assertThat(testOptions.testString).isEqualTo(TestOptions.TEST_STRING_DEFAULT);
 
@@ -249,13 +245,13 @@ public class InvocationPolicyDisallowValuesTest extends InvocationPolicyEnforcer
   }
 
   @Test
-  public void testDisallowValuesDisallowsListConverterFlag() throws Exception {
+  public void testAllowValuesDisallowsListConverterFlagValues() throws Exception {
     InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
     invocationPolicyBuilder
         .addFlagPoliciesBuilder()
         .setFlagName("test_list_converters")
-        .getDisallowValuesBuilder()
-        .addDisallowedValues("a");
+        .getAllowValuesBuilder()
+        .addAllowedValues("a");
 
     InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
     parser.parse("--test_list_converters=a,b,c");
@@ -270,7 +266,7 @@ public class InvocationPolicyDisallowValuesTest extends InvocationPolicyEnforcer
       assertThat(e)
           .hasMessageThat()
           .contains(
-              "Flag value 'a' for flag 'test_list_converters' is not allowed by invocation policy");
+              "Flag value 'b' for flag 'test_list_converters' is not allowed by invocation policy");
     }
   }
 }

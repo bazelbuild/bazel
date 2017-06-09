@@ -12,17 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.runtime;
+package com.google.devtools.common.options;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.BaseEncoding;
-import com.google.devtools.build.lib.flags.CommandNameCache;
-import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
-import com.google.devtools.build.lib.flags.InvocationPolicyParser;
+import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
-import com.google.devtools.common.options.Converter;
-import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsParsingException;
 import java.io.ByteArrayOutputStream;
 import java.util.Arrays;
 import java.util.List;

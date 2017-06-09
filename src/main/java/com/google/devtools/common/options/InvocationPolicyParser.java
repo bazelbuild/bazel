@@ -11,13 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.flags;
+package com.google.devtools.common.options;
 
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Strings;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
-import com.google.devtools.common.options.OptionsParsingException;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.TextFormat;
 
@@ -28,10 +27,11 @@ import com.google.protobuf.TextFormat;
  */
 public class InvocationPolicyParser {
   /**
-   * Parses InvocationPolicy in either of the accepted formats. Returns an empty policy if no
-   * policy is provided.
+   * Parses InvocationPolicy in either of the accepted formats. Returns an empty policy if no policy
+   * is provided.
    *
-   * @throws OptionsParsingException if the value of --invocation_policy is invalid.
+   * @throws com.google.devtools.common.options.OptionsParsingException if the value of
+   *     --invocation_policy is invalid.
    */
   public static InvocationPolicy parsePolicy(String policy) throws OptionsParsingException {
     if (Strings.isNullOrEmpty(policy)) {

@@ -132,22 +132,6 @@ java_library(
     ],
 )
 
-java_library(
-    name = "flags",
-    srcs = glob([
-        "flags/*.java",
-    ]),
-    deps = [
-        ":io",
-        ":preconditions",
-        "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:invocation_policy_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party/protobuf:protobuf_java",
-    ],
-)
-
 # Virtual file system; do not use externally!
 java_library(
     name = "vfs",
@@ -617,7 +601,6 @@ java_library(
         ":concurrent",
         ":events",
         ":exitcode-external",
-        ":flags",
         ":graph",
         ":io",
         ":os_util",
@@ -1167,7 +1150,6 @@ java_library(
         ":concurrent",
         ":events",
         ":exitcode-external",
-        ":flags",
         ":io",
         ":packages-internal",
         ":process_util",

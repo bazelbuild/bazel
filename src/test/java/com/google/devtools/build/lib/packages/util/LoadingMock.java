@@ -14,10 +14,10 @@
 package com.google.devtools.build.lib.packages.util;
 
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
 import com.google.devtools.build.lib.skyframe.packages.PackageFactoryBuilderWithSkyframeForTesting;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.common.options.InvocationPolicyEnforcer;
 
 /** Create a mock client for the loading phase, as well as a configuration factory. */
 public class LoadingMock {
