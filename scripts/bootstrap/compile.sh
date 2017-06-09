@@ -324,19 +324,24 @@ function get_cwd() {
 function run_bazel_jar() {
   local command=$1
   shift
-  local client_env=()
   # Propagate all environment variables to bootstrapped Bazel.
-  # See https://stackoverflow.com/questions/41898503/loop-over-environment-variables-in-posix-sh
-  local env_vars="$(awk 'END { for (name in ENVIRON) { if(name != "_" && name ~ /^[A-Za-z0-9_]*$/) print name; } }' </dev/null)"
-  for varname in $env_vars; do
-    eval value=\$$varname
-    if [ "${PLATFORM}" = "windows" ] && echo "$varname" | grep -q -i "^\(path\|tmp\|temp\|tempdir\|systemroot\)$" ; then
-      varname="$(echo "$varname" | tr [:lower:] [:upper:])"
-    fi
-    if [ "${value}" ]; then
-      client_env=("${client_env[@]}" --client_env="${varname}=${value}")
-    fi
-  done
+  # See https://stackoverflow.com/a/41914583/1229371 for example.
+  local client_env
+  eval client_env=("$(awk 'END {
+    for (name in ENVIRON) {
+        if (name == "_") continue;
+        if (ENVIRON[name] ~ /^[[:space:]]*$/) continue;
+        if (PLATFORM == "windows") {
+            if (tolower(name) ~ /path|tmp|temp|tempdir|systemroot|zzz/) {
+                value = ENVIRON[name]
+                delete ENVIRON[name]
+                name = toupper(name)
+                ENVIRON[name] = value
+            }
+        }
+        printf(" --client_env=%c%s=%s%c\n", 39, name, ENVIRON[name], 39);
+    }
+}' "PLATFORM=${PLATFORM}" </dev/null)")
 
   "${JAVA_HOME}/bin/java" \
       -XX:+HeapDumpOnOutOfMemoryError -Xverify:none -Dfile.encoding=ISO-8859-1 \
