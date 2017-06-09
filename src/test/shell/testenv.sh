@@ -435,9 +435,9 @@ function cleanup() {
       if rm -fr "${BAZEL_INSTALL_BASE}" ; then
         break
       fi
-      if (( $i == 10 )) || (( $i == 30 )) || (( $i == 60 )) ; then
+      if (( i == 10 )) || (( i == 30 )) || (( i == 60 )) ; then
         echo "Test cleanup: couldn't delete ${BAZEL_INSTALL_BASE} \ after $i seconds"
-        echo "(Timeout in $((120-$i)) seconds.)"
+        echo "(Timeout in $((120-i)) seconds.)"
         sleep 1
       fi
     done
