@@ -418,7 +418,7 @@ function cleanup_workspace() {
     done
     touch WORKSPACE
   fi
-  for i in ${workspaces}; do
+  for i in "${workspaces[@]}"; do
     if [ "$i" != "${WORKSPACE_DIR:-}" ]; then
       rm -fr $i
     fi
