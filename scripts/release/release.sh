@@ -102,10 +102,12 @@ function create_release_commit() {
   trap "rm -f ${tmpfile}" EXIT
   echo -n "## ${infos}" >${tmpfile}
   if [ -f "${changelog_path}" ]; then
-    echo >>${tmpfile}
-    echo >>${tmpfile}
-    cat "${changelog_path}" >>${tmpfile}
-    echo >>${tmpfile}
+    {
+      echo
+      echo
+      cat "${changelog_path}"
+      echo
+    } >> ${tmpfile}
   fi
   cat "${tmpfile}" > ${changelog_path}
   git add ${changelog_path}
