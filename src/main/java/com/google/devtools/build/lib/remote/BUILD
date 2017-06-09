@@ -23,8 +23,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/standalone",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:remote_protocol_java_grpc",
-        "//src/main/protobuf:remote_protocol_java_proto",
         "//third_party:apache_httpclient",
         "//third_party:apache_httpcore",
         "//third_party:auth",
@@ -35,6 +33,13 @@ java_library(
         "//third_party:netty",
         "//third_party/grpc:grpc-jar",
         "//third_party/protobuf:protobuf_java",
+        "//third_party/protobuf:protobuf_java_util",
+        "@googleapis//:google_bytestream_bytestream_java_grpc",
+        "@googleapis//:google_bytestream_bytestream_java_proto",
+        "@googleapis//:google_devtools_remoteexecution_v1test_remote_execution_java_grpc",
+        "@googleapis//:google_devtools_remoteexecution_v1test_remote_execution_java_proto",
+        "@googleapis//:google_longrunning_operations_java_proto",
+        "@googleapis//:google_rpc_error_details_java_proto",
     ],
 )
 

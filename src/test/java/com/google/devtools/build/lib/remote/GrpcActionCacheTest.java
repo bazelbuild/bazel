@@ -15,78 +15,81 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.fail;
+import static org.mockito.Mockito.when;
 
 import com.google.api.client.json.GenericJson;
 import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.bytestream.ByteStreamGrpc.ByteStreamImplBase;
+import com.google.bytestream.ByteStreamProto.ReadRequest;
+import com.google.bytestream.ByteStreamProto.ReadResponse;
+import com.google.bytestream.ByteStreamProto.WriteRequest;
+import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
-import com.google.devtools.build.lib.remote.CasServiceGrpc.CasServiceImplBase;
-import com.google.devtools.build.lib.remote.RemoteProtocol.ActionResult;
-import com.google.devtools.build.lib.remote.RemoteProtocol.BlobChunk;
-import com.google.devtools.build.lib.remote.RemoteProtocol.CasDownloadBlobRequest;
-import com.google.devtools.build.lib.remote.RemoteProtocol.CasDownloadReply;
-import com.google.devtools.build.lib.remote.RemoteProtocol.CasLookupReply;
-import com.google.devtools.build.lib.remote.RemoteProtocol.CasLookupRequest;
-import com.google.devtools.build.lib.remote.RemoteProtocol.CasStatus;
-import com.google.devtools.build.lib.remote.RemoteProtocol.CasUploadBlobReply;
-import com.google.devtools.build.lib.remote.RemoteProtocol.CasUploadBlobRequest;
-import com.google.devtools.build.lib.remote.RemoteProtocol.ContentDigest;
 import com.google.devtools.build.lib.testutil.Scratch;
-import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
+import com.google.devtools.remoteexecution.v1test.ActionResult;
+import com.google.devtools.remoteexecution.v1test.ContentAddressableStorageGrpc.ContentAddressableStorageImplBase;
+import com.google.devtools.remoteexecution.v1test.Digest;
+import com.google.devtools.remoteexecution.v1test.FindMissingBlobsRequest;
+import com.google.devtools.remoteexecution.v1test.FindMissingBlobsResponse;
 import com.google.protobuf.ByteString;
 import io.grpc.CallOptions;
 import io.grpc.Channel;
 import io.grpc.ClientCall;
 import io.grpc.ClientInterceptor;
 import io.grpc.ClientInterceptors;
-import io.grpc.ManagedChannel;
 import io.grpc.MethodDescriptor;
 import io.grpc.Server;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
+import io.grpc.util.MutableHandlerRegistry;
 import java.io.IOException;
-import java.util.concurrent.ConcurrentMap;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.MockitoAnnotations;
+import org.mockito.Mockito;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 
 /** Tests for {@link GrpcActionCache}. */
 @RunWith(JUnit4.class)
 public class GrpcActionCacheTest {
-  private final FakeRemoteCacheService fakeRemoteCacheService = new FakeRemoteCacheService();
-
-  private final Server server =
-      InProcessServerBuilder.forName(getClass().getSimpleName())
-          .directExecutor()
-          .addService(fakeRemoteCacheService)
-          .build();
-
-  private final ManagedChannel channel =
-      InProcessChannelBuilder.forName(getClass().getSimpleName()).directExecutor().build();
-  private Scratch scratch;
-  private Root rootDir;
+  private FileSystem fs;
+  private Path execRoot;
+  private FakeActionInputFileCache fakeFileCache;
+  private final MutableHandlerRegistry serviceRegistry = new MutableHandlerRegistry();
+  private final String fakeServerName = "fake server for " + getClass();
+  private Server fakeServer;
 
   @Before
   public final void setUp() throws Exception {
-    MockitoAnnotations.initMocks(this);
-    scratch = new Scratch();
-    rootDir = Root.asDerivedRoot(scratch.dir("/exec/root"));
-    server.start();
+    // Use a mutable service registry for later registering the service impl for each test case.
+    fakeServer =
+        InProcessServerBuilder.forName(fakeServerName)
+            .fallbackHandlerRegistry(serviceRegistry)
+            .directExecutor()
+            .build()
+            .start();
+    Chunker.setDefaultChunkSizeForTesting(1000); // Enough for everything to be one chunk.
+    fs = new InMemoryFileSystem();
+    execRoot = fs.getPath("/exec/root");
+    FileSystemUtils.createDirectoryAndParents(execRoot);
+    fakeFileCache = new FakeActionInputFileCache(execRoot);
   }
 
   @After
-  public void tearDown() {
-    server.shutdownNow();
-    channel.shutdownNow();
+  public void tearDown() throws Exception {
+    fakeServer.shutdownNow();
   }
 
   private static class ChannelOptionsInterceptor implements ClientInterceptor {
@@ -106,316 +109,332 @@ public class GrpcActionCacheTest {
   }
 
   private GrpcActionCache newClient() throws IOException {
-    return newClient(Options.getDefaults(RemoteOptions.class),
-        Options.getDefaults(AuthAndTLSOptions.class));
-  }
-
-  private GrpcActionCache newClient(RemoteOptions remoteOptions, AuthAndTLSOptions authTlsOptions)
-      throws IOException {
-    ChannelOptions channelOptions =
-        authTlsOptions.authCredentials != null
-            ? ChannelOptions.create(
-                authTlsOptions, remoteOptions.grpcMaxChunkSizeBytes,
-                scratch.resolve(authTlsOptions.authCredentials).getInputStream())
-            : ChannelOptions.create(authTlsOptions, remoteOptions.grpcMaxChunkSizeBytes);
-    return new GrpcActionCache(
-        ClientInterceptors.intercept(
-            channel, ImmutableList.of(new ChannelOptionsInterceptor(channelOptions))),
-        remoteOptions,
-        channelOptions);
-  }
-
-  @Test
-  public void testDownloadEmptyBlobs() throws Exception {
-    GrpcActionCache client = newClient();
-    ContentDigest fooDigest = fakeRemoteCacheService.put("foo".getBytes(UTF_8));
-    ContentDigest emptyDigest = ContentDigests.computeDigest(new byte[0]);
-    ImmutableList<byte[]> results =
-        client.downloadBlobs(ImmutableList.<ContentDigest>of(emptyDigest, fooDigest, emptyDigest));
-    // Will not query the server for empty blobs.
-    assertThat(new String(results.get(0), UTF_8)).isEmpty();
-    assertThat(new String(results.get(1), UTF_8)).isEqualTo("foo");
-    assertThat(new String(results.get(2), UTF_8)).isEmpty();
-    // Will not call the server at all.
-    assertThat(new String(client.downloadBlob(emptyDigest), UTF_8)).isEmpty();
-  }
-
-  @Test
-  public void testDownloadBlobs() throws Exception {
-    GrpcActionCache client = newClient();
-    ContentDigest fooDigest = fakeRemoteCacheService.put("foo".getBytes(UTF_8));
-    ContentDigest barDigest = fakeRemoteCacheService.put("bar".getBytes(UTF_8));
-    ImmutableList<byte[]> results =
-        client.downloadBlobs(ImmutableList.<ContentDigest>of(fooDigest, barDigest));
-    assertThat(new String(results.get(0), UTF_8)).isEqualTo("foo");
-    assertThat(new String(results.get(1), UTF_8)).isEqualTo("bar");
-  }
-
-  @Test
-  public void testDownloadBlobsBatchChunk() throws Exception {
-    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-    options.grpcMaxBatchInputs = 10;
-    options.grpcMaxChunkSizeBytes = 2;
-    options.grpcMaxBatchSizeBytes = 10;
-    options.remoteTimeout = 10;
-    GrpcActionCache client = newClient(options, Options.getDefaults(AuthAndTLSOptions.class));
-    ContentDigest fooDigest = fakeRemoteCacheService.put("fooooooo".getBytes(UTF_8));
-    ContentDigest barDigest = fakeRemoteCacheService.put("baaaar".getBytes(UTF_8));
-    ContentDigest s1Digest = fakeRemoteCacheService.put("1".getBytes(UTF_8));
-    ContentDigest s2Digest = fakeRemoteCacheService.put("2".getBytes(UTF_8));
-    ContentDigest s3Digest = fakeRemoteCacheService.put("3".getBytes(UTF_8));
-    ImmutableList<byte[]> results =
-        client.downloadBlobs(
-            ImmutableList.<ContentDigest>of(fooDigest, barDigest, s1Digest, s2Digest, s3Digest));
-    assertThat(new String(results.get(0), UTF_8)).isEqualTo("fooooooo");
-    assertThat(new String(results.get(1), UTF_8)).isEqualTo("baaaar");
-    assertThat(new String(results.get(2), UTF_8)).isEqualTo("1");
-    assertThat(new String(results.get(3), UTF_8)).isEqualTo("2");
-    assertThat(new String(results.get(4), UTF_8)).isEqualTo("3");
-  }
-
-  @Test
-  public void testUploadBlobs() throws Exception {
-    GrpcActionCache client = newClient();
-    byte[] foo = "foo".getBytes(UTF_8);
-    byte[] bar = "bar".getBytes(UTF_8);
-    ContentDigest fooDigest = ContentDigests.computeDigest(foo);
-    ContentDigest barDigest = ContentDigests.computeDigest(bar);
-    ImmutableList<ContentDigest> digests = client.uploadBlobs(ImmutableList.<byte[]>of(foo, bar));
-    assertThat(digests).containsExactly(fooDigest, barDigest);
-    assertThat(fakeRemoteCacheService.get(fooDigest)).isEqualTo(foo);
-    assertThat(fakeRemoteCacheService.get(barDigest)).isEqualTo(bar);
-  }
-
-  @Test
-  public void testUploadBlobsBatchChunk() throws Exception {
-    RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-    options.grpcMaxBatchInputs = 10;
-    options.grpcMaxChunkSizeBytes = 2;
-    options.grpcMaxBatchSizeBytes = 10;
-    options.remoteTimeout = 10;
-    GrpcActionCache client = newClient(options, Options.getDefaults(AuthAndTLSOptions.class));
-
-    byte[] foo = "fooooooo".getBytes(UTF_8);
-    byte[] bar = "baaaar".getBytes(UTF_8);
-    byte[] s1 = "1".getBytes(UTF_8);
-    byte[] s2 = "2".getBytes(UTF_8);
-    byte[] s3 = "3".getBytes(UTF_8);
-    ContentDigest fooDigest = ContentDigests.computeDigest(foo);
-    ContentDigest barDigest = ContentDigests.computeDigest(bar);
-    ContentDigest s1Digest = ContentDigests.computeDigest(s1);
-    ContentDigest s2Digest = ContentDigests.computeDigest(s2);
-    ContentDigest s3Digest = ContentDigests.computeDigest(s3);
-    ImmutableList<ContentDigest> digests =
-        client.uploadBlobs(ImmutableList.<byte[]>of(foo, bar, s1, s2, s3));
-    assertThat(digests).containsExactly(fooDigest, barDigest, s1Digest, s2Digest, s3Digest);
-    assertThat(fakeRemoteCacheService.get(fooDigest)).isEqualTo(foo);
-    assertThat(fakeRemoteCacheService.get(barDigest)).isEqualTo(bar);
-    assertThat(fakeRemoteCacheService.get(s1Digest)).isEqualTo(s1);
-    assertThat(fakeRemoteCacheService.get(s2Digest)).isEqualTo(s2);
-    assertThat(fakeRemoteCacheService.get(s3Digest)).isEqualTo(s3);
-  }
-
-  @Test
-  public void testUploadAllResults() throws Exception {
-    GrpcActionCache client = newClient();
-    byte[] foo = "foo".getBytes(UTF_8);
-    byte[] bar = "bar".getBytes(UTF_8);
-    Path fooFile = scratch.file("/exec/root/a/foo", foo);
-    Path emptyFile = scratch.file("/exec/root/b/empty");
-    Path barFile = scratch.file("/exec/root/a/bar", bar);
-    ContentDigest fooDigest = ContentDigests.computeDigest(fooFile);
-    ContentDigest barDigest = ContentDigests.computeDigest(barFile);
-    ContentDigest emptyDigest = ContentDigests.computeDigest(new byte[0]);
-    ActionResult.Builder result = ActionResult.newBuilder();
-    client.uploadAllResults(
-        rootDir.getPath(), ImmutableList.<Path>of(fooFile, emptyFile, barFile), result);
-    assertThat(fakeRemoteCacheService.get(fooDigest)).isEqualTo(foo);
-    assertThat(fakeRemoteCacheService.get(barDigest)).isEqualTo(bar);
-    ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult
-        .addOutputBuilder()
-        .setPath("a/foo")
-        .getFileMetadataBuilder()
-        .setDigest(fooDigest);
-    expectedResult
-        .addOutputBuilder()
-        .setPath("b/empty")
-        .getFileMetadataBuilder()
-        .setDigest(emptyDigest);
-    expectedResult
-        .addOutputBuilder()
-        .setPath("a/bar")
-        .getFileMetadataBuilder()
-        .setDigest(barDigest);
-    assertThat(result.build()).isEqualTo(expectedResult.build());
-  }
-
-  @Test
-  public void testDownloadAllResults() throws Exception {
-    GrpcActionCache client = newClient();
-    ContentDigest fooDigest = fakeRemoteCacheService.put("foo".getBytes(UTF_8));
-    ContentDigest barDigest = fakeRemoteCacheService.put("bar".getBytes(UTF_8));
-    ContentDigest emptyDigest = ContentDigests.computeDigest(new byte[0]);
-    ActionResult.Builder result = ActionResult.newBuilder();
-    result.addOutputBuilder().setPath("a/foo").getFileMetadataBuilder().setDigest(fooDigest);
-    result.addOutputBuilder().setPath("b/empty").getFileMetadataBuilder().setDigest(emptyDigest);
-    result.addOutputBuilder().setPath("a/bar").getFileMetadataBuilder().setDigest(barDigest);
-    client.downloadAllResults(result.build(), rootDir.getPath());
-    Path fooFile = rootDir.getPath().getRelative("a/foo");
-    Path emptyFile = rootDir.getPath().getRelative("b/empty");
-    Path barFile = rootDir.getPath().getRelative("a/bar");
-    assertThat(ContentDigests.computeDigest(fooFile)).isEqualTo(fooDigest);
-    assertThat(ContentDigests.computeDigest(emptyFile)).isEqualTo(emptyDigest);
-    assertThat(ContentDigests.computeDigest(barFile)).isEqualTo(barDigest);
-  }
-
-  @Test
-  public void testAuthCredentials() throws Exception {
-    AuthAndTLSOptions options = Options.getDefaults(AuthAndTLSOptions.class);
-    options.authEnabled = true;
-    options.authCredentials = "/exec/root/creds.json";
-    options.authScope = "dummy.scope";
+    AuthAndTLSOptions authTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
+    authTlsOptions.authEnabled = true;
+    authTlsOptions.authCredentials = "/exec/root/creds.json";
+    authTlsOptions.authScope = "dummy.scope";
 
     GenericJson json = new GenericJson();
     json.put("type", "authorized_user");
     json.put("client_id", "some_client");
     json.put("client_secret", "foo");
     json.put("refresh_token", "bar");
-    scratch.file(options.authCredentials, new JacksonFactory().toString(json));
+    Scratch scratch = new Scratch();
+    scratch.file(authTlsOptions.authCredentials, new JacksonFactory().toString(json));
 
-    GrpcActionCache client = newClient(Options.getDefaults(RemoteOptions.class), options);
-    byte[] foo = "foo".getBytes(UTF_8);
-    ContentDigest fooDigest = ContentDigests.computeDigest(foo);
-    ImmutableList<ContentDigest> digests = client.uploadBlobs(ImmutableList.<byte[]>of(foo));
-    assertThat(digests).containsExactly(fooDigest);
-    assertThat(fakeRemoteCacheService.get(fooDigest)).isEqualTo(foo);
+    ChannelOptions channelOptions =
+        ChannelOptions.create(
+            authTlsOptions, scratch.resolve(authTlsOptions.authCredentials).getInputStream());
+    return new GrpcActionCache(
+        ClientInterceptors.intercept(
+            InProcessChannelBuilder.forName(fakeServerName).directExecutor().build(),
+            ImmutableList.of(new ChannelOptionsInterceptor(channelOptions))),
+        channelOptions,
+        Options.getDefaults(RemoteOptions.class));
   }
 
-  private static class FakeRemoteCacheService extends CasServiceImplBase {
-    private final ConcurrentMap<String, byte[]> cache = Maps.newConcurrentMap();
+  @Test
+  public void testDownloadEmptyBlob() throws Exception {
+    GrpcActionCache client = newClient();
+    Digest emptyDigest = Digests.computeDigest(new byte[0]);
+    // Will not call the mock Bytestream interface at all.
+    assertThat(client.downloadBlob(emptyDigest)).isEmpty();
+  }
 
-    public ContentDigest put(byte[] blob) {
-      ContentDigest digest = ContentDigests.computeDigest(blob);
-      cache.put(ContentDigests.toHexString(digest), blob);
-      return digest;
-    }
-
-    public byte[] get(ContentDigest digest) {
-      return cache.get(ContentDigests.toHexString(digest));
-    }
-
-    public void clear() {
-      cache.clear();
-    }
-
-    @Override
-    public void lookup(CasLookupRequest request, StreamObserver<CasLookupReply> observer) {
-      CasLookupReply.Builder reply = CasLookupReply.newBuilder();
-      CasStatus.Builder status = reply.getStatusBuilder();
-      for (ContentDigest digest : request.getDigestList()) {
-        if (get(digest) == null) {
-          status.addMissingDigest(digest);
-        }
-      }
-      status.setSucceeded(true);
-      observer.onNext(reply.build());
-      observer.onCompleted();
-    }
-
-    @Override
-    public void downloadBlob(
-        CasDownloadBlobRequest request, StreamObserver<CasDownloadReply> observer) {
-      CasDownloadReply.Builder reply = CasDownloadReply.newBuilder();
-      CasStatus.Builder status = reply.getStatusBuilder();
-      boolean success = true;
-      for (ContentDigest digest : request.getDigestList()) {
-        if (get(digest) == null) {
-          status.addMissingDigest(digest);
-          success = false;
-        }
-      }
-      if (!success) {
-        status.setError(CasStatus.ErrorCode.MISSING_DIGEST);
-        status.setSucceeded(false);
-        observer.onNext(reply.build());
-        observer.onCompleted();
-        return;
-      }
-      // We change the order on purpose, to test for blobs out of order:
-      for (ContentDigest digest : Lists.reverse(request.getDigestList())) {
-        observer.onNext(
-            CasDownloadReply.newBuilder()
-                .setStatus(CasStatus.newBuilder().setSucceeded(true))
-                .setData(
-                    BlobChunk.newBuilder()
-                        .setDigest(digest)
-                        .setData(ByteString.copyFrom(get(digest))))
-                .build());
-      }
-      observer.onCompleted();
-    }
-
-    @Override
-    public StreamObserver<CasUploadBlobRequest> uploadBlob(
-        final StreamObserver<CasUploadBlobReply> responseObserver) {
-      return new StreamObserver<CasUploadBlobRequest>() {
-        byte[] blob = null;
-        ContentDigest digest = null;
-        long offset = 0;
-
-        @Override
-        public void onNext(CasUploadBlobRequest request) {
-          BlobChunk chunk = request.getData();
-          try {
-            if (chunk.hasDigest()) {
-              // Check if the previous chunk was really done.
-              Preconditions.checkArgument(
-                  digest == null || offset == 0,
-                  "Missing input chunk for digest %s",
-                  digest == null ? "" : ContentDigests.toString(digest));
-              digest = chunk.getDigest();
-              blob = new byte[(int) digest.getSizeBytes()];
-            }
-            Preconditions.checkArgument(digest != null, "First chunk contains no digest");
-            Preconditions.checkArgument(
-                offset == chunk.getOffset(),
-                "Missing input chunk for digest %s",
-                ContentDigests.toString(digest));
-            if (digest.getSizeBytes() > 0) {
-              chunk.getData().copyTo(blob, (int) offset);
-              offset = (offset + chunk.getData().size()) % digest.getSizeBytes();
-            }
-            if (offset == 0) {
-              ContentDigest uploadedDigest = put(blob);
-              Preconditions.checkArgument(
-                  uploadedDigest.equals(digest),
-                  "Digest mismatch: client sent %s, server computed %s",
-                  ContentDigests.toString(digest),
-                  ContentDigests.toString(uploadedDigest));
-            }
-          } catch (Exception e) {
-            CasUploadBlobReply.Builder reply = CasUploadBlobReply.newBuilder();
-            reply
-                .getStatusBuilder()
-                .setSucceeded(false)
-                .setError(
-                    e instanceof IllegalArgumentException
-                        ? CasStatus.ErrorCode.INVALID_ARGUMENT
-                        : CasStatus.ErrorCode.UNKNOWN)
-                .setErrorDetail(e.toString());
-            responseObserver.onNext(reply.build());
+  @Test
+  public void testDownloadBlobSingleChunk() throws Exception {
+    final GrpcActionCache client = newClient();
+    final Digest digest = Digests.computeDigestUtf8("abcdefg");
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            assertThat(request.getResourceName().contains(digest.getHash())).isTrue();
+            responseObserver.onNext(
+                ReadResponse.newBuilder().setData(ByteString.copyFromUtf8("abcdefg")).build());
+            responseObserver.onCompleted();
           }
-        }
+        });
+    assertThat(new String(client.downloadBlob(digest), UTF_8)).isEqualTo("abcdefg");
+  }
 
-        @Override
-        public void onError(Throwable t) {}
+  @Test
+  public void testDownloadBlobMultipleChunks() throws Exception {
+    final GrpcActionCache client = newClient();
+    final Digest digest = Digests.computeDigestUtf8("abcdefg");
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+            assertThat(request.getResourceName().contains(digest.getHash())).isTrue();
+            responseObserver.onNext(
+                ReadResponse.newBuilder().setData(ByteString.copyFromUtf8("abc")).build());
+            responseObserver.onNext(
+                ReadResponse.newBuilder().setData(ByteString.copyFromUtf8("def")).build());
+            responseObserver.onNext(
+                ReadResponse.newBuilder().setData(ByteString.copyFromUtf8("g")).build());
+            responseObserver.onCompleted();
+          }
+        });
+    assertThat(new String(client.downloadBlob(digest), UTF_8)).isEqualTo("abcdefg");
+  }
 
-        @Override
-        public void onCompleted() {
-          responseObserver.onCompleted();
-        }
-      };
+  @Test
+  public void testDownloadAllResults() throws Exception {
+    GrpcActionCache client = newClient();
+    Digest fooDigest = Digests.computeDigestUtf8("foo-contents");
+    Digest barDigest = Digests.computeDigestUtf8("bar-contents");
+    Digest emptyDigest = Digests.computeDigest(new byte[0]);
+    serviceRegistry.addService(
+        new FakeImmutableCacheByteStreamImpl(fooDigest, "foo-contents", barDigest, "bar-contents"));
+
+    ActionResult.Builder result = ActionResult.newBuilder();
+    result.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
+    result.addOutputFilesBuilder().setPath("b/empty").setDigest(emptyDigest);
+    result.addOutputFilesBuilder().setPath("a/bar").setDigest(barDigest).setIsExecutable(true);
+    client.downloadAllResults(result.build(), execRoot);
+    assertThat(Digests.computeDigest(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
+    assertThat(Digests.computeDigest(execRoot.getRelative("b/empty"))).isEqualTo(emptyDigest);
+    assertThat(Digests.computeDigest(execRoot.getRelative("a/bar"))).isEqualTo(barDigest);
+    assertThat(execRoot.getRelative("a/bar").isExecutable()).isTrue();
+  }
+
+  @Test
+  public void testUploadBlobCacheHit() throws Exception {
+    final GrpcActionCache client = newClient();
+    final Digest digest = Digests.computeDigestUtf8("abcdefg");
+    serviceRegistry.addService(
+        new ContentAddressableStorageImplBase() {
+          @Override
+          public void findMissingBlobs(
+              FindMissingBlobsRequest request,
+              StreamObserver<FindMissingBlobsResponse> responseObserver) {
+            responseObserver.onNext(FindMissingBlobsResponse.getDefaultInstance());
+            responseObserver.onCompleted();
+          }
+        });
+    assertThat(client.uploadBlob("abcdefg".getBytes(UTF_8))).isEqualTo(digest);
+  }
+
+  @Test
+  public void testUploadBlobSingleChunk() throws Exception {
+    final GrpcActionCache client = newClient();
+    final Digest digest = Digests.computeDigestUtf8("abcdefg");
+    serviceRegistry.addService(
+        new ContentAddressableStorageImplBase() {
+          @Override
+          public void findMissingBlobs(
+              FindMissingBlobsRequest request,
+              StreamObserver<FindMissingBlobsResponse> responseObserver) {
+            responseObserver.onNext(
+                FindMissingBlobsResponse.newBuilder().addMissingBlobDigests(digest).build());
+            responseObserver.onCompleted();
+          }
+        });
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public StreamObserver<WriteRequest> write(
+              final StreamObserver<WriteResponse> responseObserver) {
+            return new StreamObserver<WriteRequest>() {
+              @Override
+              public void onNext(WriteRequest request) {
+                assertThat(request.getResourceName()).contains(digest.getHash());
+                assertThat(request.getFinishWrite()).isTrue();
+                assertThat(request.getData().toStringUtf8()).isEqualTo("abcdefg");
+              }
+
+              @Override
+              public void onCompleted() {
+                responseObserver.onNext(WriteResponse.newBuilder().setCommittedSize(7).build());
+                responseObserver.onCompleted();
+              }
+
+              @Override
+              public void onError(Throwable t) {
+                fail("An error occurred: " + t);
+              }
+            };
+          }
+        });
+    assertThat(client.uploadBlob("abcdefg".getBytes(UTF_8))).isEqualTo(digest);
+  }
+
+  static class TestChunkedRequestObserver implements StreamObserver<WriteRequest> {
+    private final StreamObserver<WriteResponse> responseObserver;
+    private final String contents;
+    private Chunker chunker;
+
+    public TestChunkedRequestObserver(
+        StreamObserver<WriteResponse> responseObserver, String contents, int chunkSizeBytes) {
+      this.responseObserver = responseObserver;
+      this.contents = contents;
+      try {
+        chunker = Chunker.from(contents.getBytes(UTF_8), chunkSizeBytes);
+      } catch (IOException e) {
+        fail("An error occurred:" + e);
+      }
     }
+
+    @Override
+    public void onNext(WriteRequest request) {
+      assertThat(chunker.hasNext()).isTrue();
+      try {
+        Chunker.Chunk chunk = chunker.next();
+        Digest digest = chunk.getDigest();
+        long offset = chunk.getOffset();
+        byte[] data = chunk.getData();
+        if (offset == 0) {
+          assertThat(request.getResourceName()).contains(digest.getHash());
+        } else {
+          assertThat(request.getResourceName()).isEmpty();
+        }
+        assertThat(request.getFinishWrite())
+            .isEqualTo(offset + data.length == digest.getSizeBytes());
+        assertThat(request.getData().toByteArray()).isEqualTo(data);
+      } catch (IOException e) {
+        fail("An error occurred:" + e);
+      }
+    }
+
+    @Override
+    public void onCompleted() {
+      assertThat(chunker.hasNext()).isFalse();
+      responseObserver.onNext(
+          WriteResponse.newBuilder().setCommittedSize(contents.length()).build());
+      responseObserver.onCompleted();
+    }
+
+    @Override
+    public void onError(Throwable t) {
+      fail("An error occurred: " + t);
+    }
+  }
+
+  private Answer<StreamObserver<WriteRequest>> blobChunkedWriteAnswer(
+      final String contents, final int chunkSize) {
+    return new Answer<StreamObserver<WriteRequest>>() {
+      @Override
+      @SuppressWarnings("unchecked")
+      public StreamObserver<WriteRequest> answer(InvocationOnMock invocation) {
+        return new TestChunkedRequestObserver(
+            (StreamObserver<WriteResponse>) invocation.getArguments()[0], contents, chunkSize);
+      }
+    };
+  }
+
+  @Test
+  public void testUploadBlobMultipleChunks() throws Exception {
+    final Digest digest = Digests.computeDigestUtf8("abcdef");
+    serviceRegistry.addService(
+        new ContentAddressableStorageImplBase() {
+          @Override
+          public void findMissingBlobs(
+              FindMissingBlobsRequest request,
+              StreamObserver<FindMissingBlobsResponse> responseObserver) {
+            responseObserver.onNext(
+                FindMissingBlobsResponse.newBuilder().addMissingBlobDigests(digest).build());
+            responseObserver.onCompleted();
+          }
+        });
+
+    ByteStreamImplBase mockByteStreamImpl = Mockito.mock(ByteStreamImplBase.class);
+    serviceRegistry.addService(mockByteStreamImpl);
+    for (int chunkSize = 1; chunkSize <= 6; ++chunkSize) {
+      GrpcActionCache client = newClient();
+      Chunker.setDefaultChunkSizeForTesting(chunkSize);
+      when(mockByteStreamImpl.write(Mockito.<StreamObserver<WriteResponse>>anyObject()))
+          .thenAnswer(blobChunkedWriteAnswer("abcdef", chunkSize));
+      assertThat(client.uploadBlob("abcdef".getBytes(UTF_8))).isEqualTo(digest);
+    }
+  }
+
+  @Test
+  public void testUploadAllResultsCacheHits() throws Exception {
+    final GrpcActionCache client = newClient();
+    final Digest fooDigest =
+        fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
+    final Digest barDigest =
+        fakeFileCache.createScratchInput(ActionInputHelper.fromPath("bar"), "x");
+    final Path fooFile = execRoot.getRelative("a/foo");
+    final Path barFile = execRoot.getRelative("bar");
+    barFile.setExecutable(true);
+    serviceRegistry.addService(
+        new ContentAddressableStorageImplBase() {
+          @Override
+          public void findMissingBlobs(
+              FindMissingBlobsRequest request,
+              StreamObserver<FindMissingBlobsResponse> responseObserver) {
+            assertThat(request)
+                .isEqualTo(
+                    FindMissingBlobsRequest.newBuilder()
+                        .addBlobDigests(fooDigest)
+                        .addBlobDigests(barDigest)
+                        .build());
+            // Nothing is missing.
+            responseObserver.onNext(FindMissingBlobsResponse.getDefaultInstance());
+            responseObserver.onCompleted();
+          }
+        });
+
+    ActionResult.Builder result = ActionResult.newBuilder();
+    client.uploadAllResults(execRoot, ImmutableList.<Path>of(fooFile, barFile), result);
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
+    expectedResult
+        .addOutputFilesBuilder()
+        .setPath("bar")
+        .setDigest(barDigest)
+        .setIsExecutable(true);
+    assertThat(result.build()).isEqualTo(expectedResult.build());
+  }
+
+  @Test
+  public void testUploadAllResultsCacheMisses() throws Exception {
+    final GrpcActionCache client = newClient();
+    final Digest fooDigest =
+        fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
+    final Digest barDigest =
+        fakeFileCache.createScratchInput(ActionInputHelper.fromPath("bar"), "x");
+    final Path fooFile = execRoot.getRelative("a/foo");
+    final Path barFile = execRoot.getRelative("bar");
+    barFile.setExecutable(true);
+    serviceRegistry.addService(
+        new ContentAddressableStorageImplBase() {
+          @Override
+          public void findMissingBlobs(
+              FindMissingBlobsRequest request,
+              StreamObserver<FindMissingBlobsResponse> responseObserver) {
+            assertThat(request)
+                .isEqualTo(
+                    FindMissingBlobsRequest.newBuilder()
+                        .addBlobDigests(fooDigest)
+                        .addBlobDigests(barDigest)
+                        .build());
+            // Both are missing.
+            responseObserver.onNext(
+                FindMissingBlobsResponse.newBuilder()
+                    .addMissingBlobDigests(fooDigest)
+                    .addMissingBlobDigests(barDigest)
+                    .build());
+            responseObserver.onCompleted();
+          }
+        });
+    ByteStreamImplBase mockByteStreamImpl = Mockito.mock(ByteStreamImplBase.class);
+    serviceRegistry.addService(mockByteStreamImpl);
+    when(mockByteStreamImpl.write(Mockito.<StreamObserver<WriteResponse>>anyObject()))
+        .thenAnswer(blobChunkedWriteAnswer("xyz", 3))
+        .thenAnswer(blobChunkedWriteAnswer("x", 1));
+
+    ActionResult.Builder result = ActionResult.newBuilder();
+    client.uploadAllResults(execRoot, ImmutableList.<Path>of(fooFile, barFile), result);
+    ActionResult.Builder expectedResult = ActionResult.newBuilder();
+    expectedResult.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
+    expectedResult
+        .addOutputFilesBuilder()
+        .setPath("bar")
+        .setDigest(barDigest)
+        .setIsExecutable(true);
+    assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 }

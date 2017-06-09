@@ -22,7 +22,6 @@ FILES = [
     "android_deploy_info",
     "apk_manifest",
     "command_server",
-    "remote_protocol",
 ]
 
 [proto_library(
@@ -59,13 +58,6 @@ cc_grpc_library(
     src = "command_server.proto",
 )
 
-# TODO(olaola): add Golang support.
-java_grpc_library(
-    name = "remote_protocol_java_grpc",
-    srcs = [":remote_protocol_proto"],
-    deps = [":remote_protocol_java_proto"],
-)
-
 py_proto_library(
     name = "build_pb_py",
     srcs = ["build.proto"],
@@ -82,6 +74,5 @@ filegroup(
     name = "dist_jars",
     srcs = [s + "_java_proto_srcs" for s in FILES] + [
         ":command_server_java_grpc_srcs",
-        ":remote_protocol_java_grpc_srcs",
     ],
 )

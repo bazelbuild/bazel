@@ -17,9 +17,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.remote.RemoteProtocol.BlobChunk;
-import com.google.devtools.build.lib.remote.RemoteProtocol.ContentDigest;
-import com.google.protobuf.ByteString;
+import com.google.devtools.build.lib.remote.Chunker.Chunk;
+import com.google.devtools.remoteexecution.v1test.Digest;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -28,37 +27,29 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ChunkerTest {
 
-  static BlobChunk buildChunk(long offset, String data) {
-    return BlobChunk.newBuilder().setOffset(offset).setData(ByteString.copyFromUtf8(data)).build();
-  }
-
-  static BlobChunk buildChunk(ContentDigest digest, String data) {
-    return BlobChunk.newBuilder().setDigest(digest).setData(ByteString.copyFromUtf8(data)).build();
-  }
-
   @Test
   public void testChunker() throws Exception {
     byte[] b1 = "abcdefg".getBytes(UTF_8);
     byte[] b2 = "hij".getBytes(UTF_8);
     byte[] b3 = "klmnopqrstuvwxyz".getBytes(UTF_8);
-    ContentDigest d1 = ContentDigests.computeDigest(b1);
-    ContentDigest d2 = ContentDigests.computeDigest(b2);
-    ContentDigest d3 = ContentDigests.computeDigest(b3);
+    Digest d1 = Digests.computeDigest(b1);
+    Digest d2 = Digests.computeDigest(b2);
+    Digest d3 = Digests.computeDigest(b3);
     Chunker c = new Chunker.Builder().chunkSize(5).addInput(b1).addInput(b2).addInput(b3).build();
     assertThat(c.hasNext()).isTrue();
-    assertThat(c.next()).isEqualTo(buildChunk(d1, "abcde"));
+    assertThat(c.next()).isEqualTo(new Chunk(d1, "abcde".getBytes(UTF_8), 0));
     assertThat(c.hasNext()).isTrue();
-    assertThat(c.next()).isEqualTo(buildChunk(5, "fg"));
+    assertThat(c.next()).isEqualTo(new Chunk(d1, "fg".getBytes(UTF_8), 5));
     assertThat(c.hasNext()).isTrue();
-    assertThat(c.next()).isEqualTo(buildChunk(d2, "hij"));
+    assertThat(c.next()).isEqualTo(new Chunk(d2, "hij".getBytes(UTF_8), 0));
     assertThat(c.hasNext()).isTrue();
-    assertThat(c.next()).isEqualTo(buildChunk(d3, "klmno"));
+    assertThat(c.next()).isEqualTo(new Chunk(d3, "klmno".getBytes(UTF_8), 0));
     assertThat(c.hasNext()).isTrue();
-    assertThat(c.next()).isEqualTo(buildChunk(5, "pqrst"));
+    assertThat(c.next()).isEqualTo(new Chunk(d3, "pqrst".getBytes(UTF_8), 5));
     assertThat(c.hasNext()).isTrue();
-    assertThat(c.next()).isEqualTo(buildChunk(10, "uvwxy"));
+    assertThat(c.next()).isEqualTo(new Chunk(d3, "uvwxy".getBytes(UTF_8), 10));
     assertThat(c.hasNext()).isTrue();
-    assertThat(c.next()).isEqualTo(buildChunk(15, "z"));
+    assertThat(c.next()).isEqualTo(new Chunk(d3, "z".getBytes(UTF_8), 15));
     assertThat(c.hasNext()).isFalse();
   }
 
@@ -68,8 +59,8 @@ public class ChunkerTest {
     byte[] b2 = "bb".getBytes(UTF_8);
     byte[] b3 = "ccc".getBytes(UTF_8);
     byte[] b4 = "dddd".getBytes(UTF_8);
-    ContentDigest d1 = ContentDigests.computeDigest(b1);
-    ContentDigest d3 = ContentDigests.computeDigest(b3);
+    Digest d1 = Digests.computeDigest(b1);
+    Digest d3 = Digests.computeDigest(b3);
     Chunker c =
         new Chunker.Builder()
             .chunkSize(2)
@@ -80,11 +71,11 @@ public class ChunkerTest {
             .addInput(b4)
             .build();
     assertThat(c.hasNext()).isTrue();
-    assertThat(c.next()).isEqualTo(buildChunk(d1, "a"));
+    assertThat(c.next()).isEqualTo(new Chunk(d1, "a".getBytes(UTF_8), 0));
     assertThat(c.hasNext()).isTrue();
-    assertThat(c.next()).isEqualTo(buildChunk(d3, "cc"));
+    assertThat(c.next()).isEqualTo(new Chunk(d3, "cc".getBytes(UTF_8), 0));
     assertThat(c.hasNext()).isTrue();
-    assertThat(c.next()).isEqualTo(buildChunk(2, "c"));
+    assertThat(c.next()).isEqualTo(new Chunk(d3, "c".getBytes(UTF_8), 2));
     assertThat(c.hasNext()).isFalse();
   }
 }

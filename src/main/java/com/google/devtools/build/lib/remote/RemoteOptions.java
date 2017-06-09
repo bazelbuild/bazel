@@ -72,30 +72,6 @@ public final class RemoteOptions extends OptionsBase {
   public String remoteCache;
 
   @Option(
-    name = "grpc_max_chunk_size_bytes",
-    defaultValue = "16000",
-    category = "remote",
-    help = "The maximal number of data bytes to be sent in a single message."
-  )
-  public int grpcMaxChunkSizeBytes;
-
-  @Option(
-    name = "grpc_max_batch_inputs",
-    defaultValue = "100",
-    category = "remote",
-    help = "The maximal number of input files to be sent in a single batch."
-  )
-  public int grpcMaxBatchInputs;
-
-  @Option(
-    name = "grpc_max_batch_size_bytes",
-    defaultValue = "10485760", // 10MB
-    category = "remote",
-    help = "The maximal number of input bytes to be sent in a single batch."
-  )
-  public int grpcMaxBatchSizeBytes;
-
-  @Option(
     name = "remote_timeout",
     defaultValue = "60",
     category = "remote",
@@ -134,4 +110,12 @@ public final class RemoteOptions extends OptionsBase {
     help = "Temporary, for testing only. Manually set a Platform to pass to remote execution."
   )
   public String experimentalRemotePlatformOverride;
+
+  @Option(
+    name = "remote_instance_name",
+    defaultValue = "",
+    category = "remote",
+    help = "Value to pass as instance_name in the remote execution API."
+  )
+  public String remoteInstanceName;
 }

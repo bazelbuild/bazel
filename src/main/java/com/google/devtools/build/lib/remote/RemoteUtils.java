@@ -26,8 +26,7 @@ public final class RemoteUtils {
     NettyChannelBuilder builder =
         NettyChannelBuilder.forTarget(target)
             .negotiationType(
-                channelOptions.tlsEnabled() ? NegotiationType.TLS : NegotiationType.PLAINTEXT)
-            .maxMessageSize(channelOptions.maxMessageSize());
+                channelOptions.tlsEnabled() ? NegotiationType.TLS : NegotiationType.PLAINTEXT);
     if (channelOptions.getSslContext() != null) {
       builder.sslContext(channelOptions.getSslContext());
       if (channelOptions.getTlsAuthorityOverride() != null) {

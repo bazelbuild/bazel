@@ -20,7 +20,9 @@ import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.remoteexecution.v1test.Digest;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import javax.annotation.Nullable;
@@ -28,20 +30,21 @@ import javax.annotation.Nullable;
 /** A fake implementation of the {@link ActionInputFileCache} interface. */
 final class FakeActionInputFileCache implements ActionInputFileCache {
   private final Path execRoot;
-  private final BiMap<ActionInput, ByteString> cas = HashBiMap.create();
+  private final BiMap<ActionInput, String> cas = HashBiMap.create();
 
   FakeActionInputFileCache(Path execRoot) {
     this.execRoot = execRoot;
   }
 
-  void setDigest(ActionInput input, ByteString digest) {
+  void setDigest(ActionInput input, String digest) {
     cas.put(input, digest);
   }
 
   @Override
   @Nullable
   public byte[] getDigest(ActionInput input) throws IOException {
-    return Preconditions.checkNotNull(cas.get(input), input).toByteArray();
+    String hexDigest = Preconditions.checkNotNull(cas.get(input), input);
+    return HashCode.fromString(hexDigest).asBytes();
   }
 
   @Override
@@ -63,12 +66,20 @@ final class FakeActionInputFileCache implements ActionInputFileCache {
   @Nullable
   public ActionInput getInputFromDigest(ByteString hexDigest) {
     HashCode code = HashCode.fromString(hexDigest.toStringUtf8());
-    ByteString digest = ByteString.copyFrom(code.asBytes());
-    return Preconditions.checkNotNull(cas.inverse().get(digest));
+    return Preconditions.checkNotNull(cas.inverse().get(code.toString()));
   }
 
   @Override
   public Path getInputPath(ActionInput input) {
     throw new UnsupportedOperationException();
+  }
+
+  public Digest createScratchInput(ActionInput input, String content) throws IOException {
+    Path inputFile = execRoot.getRelative(input.getExecPath());
+    FileSystemUtils.createDirectoryAndParents(inputFile.getParentDirectory());
+    FileSystemUtils.writeContentAsLatin1(inputFile, content);
+    Digest digest = Digests.computeDigest(inputFile);
+    setDigest(input, digest.getHash());
+    return digest;
   }
 }

@@ -14,43 +14,16 @@
 
 package com.google.devtools.build.remote;
 
-import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
-import com.google.devtools.build.lib.exec.SpawnResult.Status;
+import com.google.bytestream.ByteStreamGrpc.ByteStreamImplBase;
+import com.google.bytestream.ByteStreamProto.ReadRequest;
+import com.google.bytestream.ByteStreamProto.ReadResponse;
+import com.google.bytestream.ByteStreamProto.WriteRequest;
+import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.devtools.build.lib.remote.CacheNotFoundException;
-import com.google.devtools.build.lib.remote.CasServiceGrpc.CasServiceImplBase;
-import com.google.devtools.build.lib.remote.ChannelOptions;
 import com.google.devtools.build.lib.remote.Chunker;
-import com.google.devtools.build.lib.remote.ContentDigests;
-import com.google.devtools.build.lib.remote.ContentDigests.ActionKey;
-import com.google.devtools.build.lib.remote.ExecuteServiceGrpc.ExecuteServiceImplBase;
-import com.google.devtools.build.lib.remote.ExecutionCacheServiceGrpc.ExecutionCacheServiceImplBase;
+import com.google.devtools.build.lib.remote.Digests;
+import com.google.devtools.build.lib.remote.Digests.ActionKey;
 import com.google.devtools.build.lib.remote.RemoteOptions;
-import com.google.devtools.build.lib.remote.RemoteProtocol;
-import com.google.devtools.build.lib.remote.RemoteProtocol.Action;
-import com.google.devtools.build.lib.remote.RemoteProtocol.ActionResult;
-import com.google.devtools.build.lib.remote.RemoteProtocol.BlobChunk;
-import com.google.devtools.build.lib.remote.RemoteProtocol.CasDownloadBlobRequest;
-import com.google.devtools.build.lib.remote.RemoteProtocol.CasDownloadReply;
-import com.google.devtools.build.lib.remote.RemoteProtocol.CasLookupReply;
-import com.google.devtools.build.lib.remote.RemoteProtocol.CasLookupRequest;
-import com.google.devtools.build.lib.remote.RemoteProtocol.CasStatus;
-import com.google.devtools.build.lib.remote.RemoteProtocol.CasUploadBlobReply;
-import com.google.devtools.build.lib.remote.RemoteProtocol.CasUploadBlobRequest;
-import com.google.devtools.build.lib.remote.RemoteProtocol.CasUploadTreeMetadataReply;
-import com.google.devtools.build.lib.remote.RemoteProtocol.CasUploadTreeMetadataRequest;
-import com.google.devtools.build.lib.remote.RemoteProtocol.Command.EnvironmentEntry;
-import com.google.devtools.build.lib.remote.RemoteProtocol.ContentDigest;
-import com.google.devtools.build.lib.remote.RemoteProtocol.ExecuteReply;
-import com.google.devtools.build.lib.remote.RemoteProtocol.ExecuteRequest;
-import com.google.devtools.build.lib.remote.RemoteProtocol.ExecutionCacheReply;
-import com.google.devtools.build.lib.remote.RemoteProtocol.ExecutionCacheRequest;
-import com.google.devtools.build.lib.remote.RemoteProtocol.ExecutionCacheSetReply;
-import com.google.devtools.build.lib.remote.RemoteProtocol.ExecutionCacheSetRequest;
-import com.google.devtools.build.lib.remote.RemoteProtocol.ExecutionCacheStatus;
-import com.google.devtools.build.lib.remote.RemoteProtocol.ExecutionStatus;
-import com.google.devtools.build.lib.remote.RemoteProtocol.FileNode;
-import com.google.devtools.build.lib.remote.RemoteProtocol.Platform;
 import com.google.devtools.build.lib.remote.SimpleBlobStore;
 import com.google.devtools.build.lib.remote.SimpleBlobStoreActionCache;
 import com.google.devtools.build.lib.remote.SimpleBlobStoreFactory;
@@ -61,23 +34,48 @@ import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.shell.TimeoutKillableObserver;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.remoteexecution.v1test.Action;
+import com.google.devtools.remoteexecution.v1test.ActionCacheGrpc.ActionCacheImplBase;
+import com.google.devtools.remoteexecution.v1test.ActionResult;
+import com.google.devtools.remoteexecution.v1test.BatchUpdateBlobsRequest;
+import com.google.devtools.remoteexecution.v1test.BatchUpdateBlobsResponse;
+import com.google.devtools.remoteexecution.v1test.Command.EnvironmentVariable;
+import com.google.devtools.remoteexecution.v1test.ContentAddressableStorageGrpc.ContentAddressableStorageImplBase;
+import com.google.devtools.remoteexecution.v1test.Digest;
+import com.google.devtools.remoteexecution.v1test.ExecuteRequest;
+import com.google.devtools.remoteexecution.v1test.ExecuteResponse;
+import com.google.devtools.remoteexecution.v1test.ExecutionGrpc.ExecutionImplBase;
+import com.google.devtools.remoteexecution.v1test.FindMissingBlobsRequest;
+import com.google.devtools.remoteexecution.v1test.FindMissingBlobsResponse;
+import com.google.devtools.remoteexecution.v1test.GetActionResultRequest;
+import com.google.devtools.remoteexecution.v1test.Platform;
+import com.google.devtools.remoteexecution.v1test.UpdateActionResultRequest;
+import com.google.devtools.remoteexecution.v1test.UpdateBlobRequest;
+import com.google.longrunning.Operation;
+import com.google.protobuf.Any;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Duration;
 import com.google.protobuf.util.Durations;
+import com.google.rpc.BadRequest;
+import com.google.rpc.BadRequest.FieldViolation;
+import com.google.rpc.Code;
+import com.google.rpc.Status;
 import io.grpc.Server;
+import io.grpc.StatusRuntimeException;
 import io.grpc.netty.NettyServerBuilder;
+import io.grpc.protobuf.StatusProto;
 import io.grpc.stub.StreamObserver;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.nio.file.FileAlreadyExistsException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -88,6 +86,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.annotation.Nullable;
 
 /**
  * Implements a remote worker that accepts work items as protobufs. The server implementation is
@@ -96,13 +95,10 @@ import java.util.logging.Logger;
 public class RemoteWorker {
   private static final Logger LOG = Logger.getLogger(RemoteWorker.class.getName());
   private static final boolean LOG_FINER = LOG.isLoggable(Level.FINER);
-
-  private static final int LOCAL_EXEC_ERROR = -1;
-  private static final int SIGALRM_EXIT_CODE = /*SIGNAL_BASE=*/128 + /*SIGALRM=*/14;
-
-  private final CasServiceImplBase casServer;
-  private final ExecuteServiceImplBase execServer;
-  private final ExecutionCacheServiceImplBase execCacheServer;
+  private final ContentAddressableStorageImplBase casServer;
+  private final ByteStreamImplBase bsServer;
+  private final ExecutionImplBase execServer;
+  private final ActionCacheImplBase actionCacheServer;
   private final SimpleBlobStoreActionCache cache;
   private final RemoteWorkerOptions workerOptions;
   private final RemoteOptions remoteOptions;
@@ -123,16 +119,16 @@ public class RemoteWorker {
       execServer = null;
     }
     casServer = new CasServer();
-    execCacheServer = new ExecutionCacheServer();
+    bsServer = new ByteStreamServer();
+    actionCacheServer = new ActionCacheServer();
   }
 
   public Server startServer() throws IOException {
     NettyServerBuilder b =
         NettyServerBuilder.forPort(workerOptions.listenPort)
-            .maxMessageSize(ChannelOptions.create(Options.getDefaults(AuthAndTLSOptions.class),
-                remoteOptions.grpcMaxChunkSizeBytes).maxMessageSize())
             .addService(casServer)
-            .addService(execCacheServer);
+            .addService(bsServer)
+            .addService(actionCacheServer);
     if (execServer != null) {
       b.addService(execServer);
     } else {
@@ -147,215 +143,258 @@ public class RemoteWorker {
     return server;
   }
 
-  class CasServer extends CasServiceImplBase {
-    private static final int MAX_MEMORY_KBYTES = 512 * 1024;
+  private static @Nullable Digest parseDigestFromResourceName(String resourceName) {
+    try {
+      String[] tokens = resourceName.split("/");
+      if (tokens.length < 2) {
+        return null;
+      }
+      String hash = tokens[tokens.length - 2];
+      long size = Long.parseLong(tokens[tokens.length - 1]);
+      return Digests.buildDigest(hash, size);
+    } catch (NumberFormatException e) {
+      return null;
+    }
+  }
 
+  private static StatusRuntimeException internalError(Exception e) {
+    return StatusProto.toStatusRuntimeException(internalErrorStatus(e));
+  }
+
+  private static com.google.rpc.Status internalErrorStatus(Exception e) {
+    return Status.newBuilder()
+        .setCode(Code.INTERNAL.getNumber())
+        .setMessage("Internal error: " + e)
+        .build();
+  }
+
+  private static StatusRuntimeException notFoundError(Digest digest) {
+    return StatusProto.toStatusRuntimeException(notFoundStatus(digest));
+  }
+
+  private static com.google.rpc.Status notFoundStatus(Digest digest) {
+    return Status.newBuilder()
+        .setCode(Code.NOT_FOUND.getNumber())
+        .setMessage("Digest not found:" + digest)
+        .build();
+  }
+
+  private static StatusRuntimeException invalidArgumentError(String field, String desc) {
+    return StatusProto.toStatusRuntimeException(invalidArgumentStatus(field, desc));
+  }
+
+  private static com.google.rpc.Status invalidArgumentStatus(String field, String desc) {
+    FieldViolation v = FieldViolation.newBuilder().setField(field).setDescription(desc).build();
+    return Status.newBuilder()
+        .setCode(Code.INVALID_ARGUMENT.getNumber())
+        .setMessage("invalid argument(s): " + field + ": " + desc)
+        .addDetails(Any.pack(BadRequest.newBuilder().addFieldViolations(v).build()))
+        .build();
+  }
+
+  class CasServer extends ContentAddressableStorageImplBase {
     @Override
-    public void lookup(CasLookupRequest request, StreamObserver<CasLookupReply> responseObserver) {
-      CasLookupReply.Builder reply = CasLookupReply.newBuilder();
-      CasStatus.Builder status = reply.getStatusBuilder();
-      for (ContentDigest digest : request.getDigestList()) {
+    public void findMissingBlobs(
+        FindMissingBlobsRequest request,
+        StreamObserver<FindMissingBlobsResponse> responseObserver) {
+      FindMissingBlobsResponse.Builder response = FindMissingBlobsResponse.newBuilder();
+      for (Digest digest : request.getBlobDigestsList()) {
         if (!cache.containsKey(digest)) {
-          status.addMissingDigest(digest);
+          response.addMissingBlobDigests(digest);
         }
       }
-      if (status.getMissingDigestCount() > 0) {
-        status.setSucceeded(false);
-        status.setError(CasStatus.ErrorCode.MISSING_DIGEST);
-      } else {
-        status.setSucceeded(true);
-      }
-      responseObserver.onNext(reply.build());
+      responseObserver.onNext(response.build());
       responseObserver.onCompleted();
     }
 
     @Override
-    public void uploadTreeMetadata(
-        CasUploadTreeMetadataRequest request,
-        StreamObserver<CasUploadTreeMetadataReply> responseObserver) {
-      try {
-        for (FileNode treeNode : request.getTreeNodeList()) {
-          cache.uploadBlob(treeNode.toByteArray());
+    public void batchUpdateBlobs(
+        BatchUpdateBlobsRequest request,
+        StreamObserver<BatchUpdateBlobsResponse> responseObserver) {
+      BatchUpdateBlobsResponse.Builder batchResponse = BatchUpdateBlobsResponse.newBuilder();
+      for (UpdateBlobRequest r : request.getRequestsList()) {
+        BatchUpdateBlobsResponse.Response.Builder resp = batchResponse.addResponsesBuilder();
+        try {
+          Digest digest = cache.uploadBlob(r.getData().toByteArray());
+          if (!r.getContentDigest().equals(digest)) {
+            String err =
+                "Upload digest " + r.getContentDigest() + " did not match data digest: " + digest;
+            resp.setStatus(invalidArgumentStatus("content_digest", err));
+            continue;
+          }
+          resp.getStatusBuilder().setCode(Code.OK.getNumber());
+        } catch (Exception e) {
+          resp.setStatus(internalErrorStatus(e));
         }
-        responseObserver.onNext(
-            CasUploadTreeMetadataReply.newBuilder()
-                .setStatus(CasStatus.newBuilder().setSucceeded(true))
-                .build());
-      } catch (Exception e) {
-        LOG.warning("Request failed: " + e.toString());
-        CasUploadTreeMetadataReply.Builder reply = CasUploadTreeMetadataReply.newBuilder();
-        reply
-            .getStatusBuilder()
-            .setSucceeded(false)
-            .setError(CasStatus.ErrorCode.UNKNOWN)
-            .setErrorDetail(e.toString());
-        responseObserver.onNext(reply.build());
-      } finally {
-        responseObserver.onCompleted();
       }
+      responseObserver.onNext(batchResponse.build());
+      responseObserver.onCompleted();
     }
+  }
 
+  class ByteStreamServer extends ByteStreamImplBase {
     @Override
-    public void downloadBlob(
-        CasDownloadBlobRequest request, StreamObserver<CasDownloadReply> responseObserver) {
-      CasDownloadReply.Builder reply = CasDownloadReply.newBuilder();
-      CasStatus.Builder status = reply.getStatusBuilder();
-      for (ContentDigest digest : request.getDigestList()) {
-        if (!cache.containsKey(digest)) {
-          status.addMissingDigest(digest);
-        }
+    public void read(ReadRequest request, StreamObserver<ReadResponse> responseObserver) {
+      Digest digest = parseDigestFromResourceName(request.getResourceName());
+      if (digest == null) {
+        responseObserver.onError(
+            invalidArgumentError(
+                "resource_name",
+                "Failed parsing digest from resource_name:" + request.getResourceName()));
       }
-      if (status.getMissingDigestCount() > 0) {
-        status.setSucceeded(false);
-        status.setError(CasStatus.ErrorCode.MISSING_DIGEST);
-        responseObserver.onNext(reply.build());
-        responseObserver.onCompleted();
+      if (!cache.containsKey(digest)) {
+        responseObserver.onError(notFoundError(digest));
         return;
       }
-      status.setSucceeded(true);
       try {
-        // This still relies on the total blob size to be small enough to fit in memory
-        // simultaneously! TODO(olaola): refactor to fix this if the need arises.
-        Chunker.Builder b = new Chunker.Builder().chunkSize(remoteOptions.grpcMaxChunkSizeBytes);
-        for (ContentDigest digest : request.getDigestList()) {
-          b.addInput(cache.downloadBlob(digest));
-        }
-        Chunker c = b.build();
+        // This still relies on the blob size to be small enough to fit in memory.
+        // TODO(olaola): refactor to fix this if the need arises.
+        Chunker c = Chunker.from(cache.downloadBlob(digest));
         while (c.hasNext()) {
-          reply.setData(c.next());
-          responseObserver.onNext(reply.build());
-          if (reply.hasStatus()) {
-            reply.clearStatus(); // Only send status on first chunk.
-          }
+          responseObserver.onNext(
+              ReadResponse.newBuilder().setData(ByteString.copyFrom(c.next().getData())).build());
         }
-      } catch (IOException e) {
-        // This cannot happen, as we are chunking in-memory blobs.
-        throw new RuntimeException("Internal error: " + e);
+        responseObserver.onCompleted();
       } catch (CacheNotFoundException e) {
         // This can only happen if an item gets evicted right after we check.
-        reply.clearData();
-        status.setSucceeded(false);
-        status.setError(CasStatus.ErrorCode.MISSING_DIGEST);
-        status.addMissingDigest(e.getMissingDigest());
-        responseObserver.onNext(reply.build());
-      } finally {
-        responseObserver.onCompleted();
+        responseObserver.onError(notFoundError(digest));
+      } catch (Exception e) {
+        LOG.warning("Read request failed: " + e);
+        responseObserver.onError(internalError(e));
       }
     }
 
     @Override
-    public StreamObserver<CasUploadBlobRequest> uploadBlob(
-        final StreamObserver<CasUploadBlobReply> responseObserver) {
-      return new StreamObserver<CasUploadBlobRequest>() {
+    public StreamObserver<WriteRequest> write(
+        final StreamObserver<WriteResponse> responseObserver) {
+      return new StreamObserver<WriteRequest>() {
         byte[] blob = null;
-        ContentDigest digest = null;
+        Digest digest = null;
         long offset = 0;
+        String resourceName = null;
+        boolean closed = false;
 
         @Override
-        public void onNext(CasUploadBlobRequest request) {
-          BlobChunk chunk = request.getData();
-          try {
-            if (chunk.hasDigest()) {
-              // Check if the previous chunk was really done.
-              Preconditions.checkArgument(
-                  digest == null || offset == 0,
-                  "Missing input chunk for digest %s",
-                  digest == null ? "" : ContentDigests.toString(digest));
-              digest = chunk.getDigest();
-              // This unconditionally downloads the whole blob into memory!
-              Preconditions.checkArgument((int) (digest.getSizeBytes() / 1024) < MAX_MEMORY_KBYTES);
-              blob = new byte[(int) digest.getSizeBytes()];
-            }
-            Preconditions.checkArgument(digest != null, "First chunk contains no digest");
-            Preconditions.checkArgument(
-                offset == chunk.getOffset(),
-                "Missing input chunk for digest %s",
-                ContentDigests.toString(digest));
-            if (digest.getSizeBytes() > 0) {
-              chunk.getData().copyTo(blob, (int) offset);
-              offset = (offset + chunk.getData().size()) % digest.getSizeBytes();
-            }
-            if (offset == 0) {
-              ContentDigest uploadedDigest = cache.uploadBlob(blob);
-              Preconditions.checkArgument(
-                  uploadedDigest.equals(digest),
-                  "Digest mismatch: client sent %s, server computed %s",
-                  ContentDigests.toString(digest),
-                  ContentDigests.toString(uploadedDigest));
-            }
-          } catch (Exception e) {
-            LOG.warning("Request failed: " + e.toString());
-            CasUploadBlobReply.Builder reply = CasUploadBlobReply.newBuilder();
-            reply
-                .getStatusBuilder()
-                .setSucceeded(false)
-                .setError(
-                    e instanceof IllegalArgumentException
-                        ? CasStatus.ErrorCode.INVALID_ARGUMENT
-                        : CasStatus.ErrorCode.UNKNOWN)
-                .setErrorDetail(e.toString());
-            responseObserver.onNext(reply.build());
+        public void onNext(WriteRequest request) {
+          if (closed) {
+            return;
+          }
+          if (digest == null) {
+            resourceName = request.getResourceName();
+            digest = parseDigestFromResourceName(resourceName);
+            blob = new byte[(int) digest.getSizeBytes()];
+          }
+          if (digest == null) {
+            responseObserver.onError(
+                invalidArgumentError(
+                    "resource_name",
+                    "Failed parsing digest from resource_name:" + request.getResourceName()));
+            closed = true;
+            return;
+          }
+          if (request.getWriteOffset() != offset) {
+            responseObserver.onError(
+                invalidArgumentError(
+                    "write_offset",
+                    "Expected:" + offset + ", received: " + request.getWriteOffset()));
+            closed = true;
+            return;
+          }
+          if (!request.getResourceName().isEmpty()
+              && !request.getResourceName().equals(resourceName)) {
+            responseObserver.onError(
+                invalidArgumentError(
+                    "resource_name",
+                    "Expected:" + resourceName + ", received: " + request.getResourceName()));
+            closed = true;
+            return;
+          }
+          long size = request.getData().size();
+          if (size > 0) {
+            request.getData().copyTo(blob, (int) offset);
+            offset += size;
+          }
+          boolean shouldFinishWrite = offset == digest.getSizeBytes();
+          if (shouldFinishWrite != request.getFinishWrite()) {
+            responseObserver.onError(
+                invalidArgumentError(
+                    "finish_write",
+                    "Expected:" + shouldFinishWrite + ", received: " + request.getFinishWrite()));
+            closed = true;
           }
         }
 
         @Override
         public void onError(Throwable t) {
-          LOG.warning("Request errored remotely: " + t);
+          LOG.warning("Write request errored remotely: " + t);
+          closed = true;
         }
 
         @Override
         public void onCompleted() {
-          responseObserver.onCompleted();
+          if (closed) {
+            return;
+          }
+          if (digest == null || offset != digest.getSizeBytes()) {
+            responseObserver.onError(
+                StatusProto.toStatusRuntimeException(
+                    Status.newBuilder()
+                        .setCode(Code.FAILED_PRECONDITION.getNumber())
+                        .setMessage("Request completed before all data was sent.")
+                        .build()));
+            closed = true;
+            return;
+          }
+          try {
+            Digest d = cache.uploadBlob(blob);
+            if (!d.equals(digest)) {
+              String err = "Received digest " + digest + " does not match computed digest " + d;
+              responseObserver.onError(invalidArgumentError("resource_name", err));
+              closed = true;
+              return;
+            }
+            responseObserver.onNext(WriteResponse.newBuilder().setCommittedSize(offset).build());
+            responseObserver.onCompleted();
+          } catch (Exception e) {
+            LOG.warning("Write request failed: " + e);
+            responseObserver.onError(internalError(e));
+            closed = true;
+          }
         }
       };
     }
   }
 
-  class ExecutionCacheServer extends ExecutionCacheServiceImplBase {
+  class ActionCacheServer extends ActionCacheImplBase {
     @Override
-    public void getCachedResult(
-        ExecutionCacheRequest request, StreamObserver<ExecutionCacheReply> responseObserver) {
+    public void getActionResult(
+        GetActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
       try {
-        ActionKey actionKey = ContentDigests.unsafeActionKeyFromDigest(request.getActionDigest());
-        ExecutionCacheReply.Builder reply = ExecutionCacheReply.newBuilder();
+        ActionKey actionKey = Digests.unsafeActionKeyFromDigest(request.getActionDigest());
         ActionResult result = cache.getCachedActionResult(actionKey);
-        if (result != null) {
-          reply.setResult(result);
+        if (result == null) {
+          responseObserver.onError(notFoundError(request.getActionDigest()));
+          return;
         }
-        reply.getStatusBuilder().setSucceeded(true);
-        responseObserver.onNext(reply.build());
-      } catch (Exception e) {
-        LOG.warning("getCachedActionResult request failed: " + e.toString());
-        ExecutionCacheReply.Builder reply = ExecutionCacheReply.newBuilder();
-        reply
-            .getStatusBuilder()
-            .setSucceeded(false)
-            .setError(ExecutionCacheStatus.ErrorCode.UNKNOWN);
-        responseObserver.onNext(reply.build());
-      } finally {
+        responseObserver.onNext(result);
         responseObserver.onCompleted();
+      } catch (Exception e) {
+        LOG.warning("getActionResult request failed: " + e);
+        responseObserver.onError(internalError(e));
       }
     }
 
     @Override
-    public void setCachedResult(
-        ExecutionCacheSetRequest request, StreamObserver<ExecutionCacheSetReply> responseObserver) {
+    public void updateActionResult(
+        UpdateActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
       try {
-        ActionKey actionKey = ContentDigests.unsafeActionKeyFromDigest(request.getActionDigest());
-        cache.setCachedActionResult(actionKey, request.getResult());
-        ExecutionCacheSetReply.Builder reply = ExecutionCacheSetReply.newBuilder();
-        reply.getStatusBuilder().setSucceeded(true);
-        responseObserver.onNext(reply.build());
-      } catch (Exception e) {
-        LOG.warning("setCachedActionResult request failed: " + e.toString());
-        ExecutionCacheSetReply.Builder reply = ExecutionCacheSetReply.newBuilder();
-        reply
-            .getStatusBuilder()
-            .setSucceeded(false)
-            .setError(ExecutionCacheStatus.ErrorCode.UNKNOWN);
-        responseObserver.onNext(reply.build());
-      } finally {
+        ActionKey actionKey = Digests.unsafeActionKeyFromDigest(request.getActionDigest());
+        cache.setCachedActionResult(actionKey, request.getActionResult());
+        responseObserver.onNext(request.getActionResult());
         responseObserver.onCompleted();
+      } catch (Exception e) {
+        LOG.warning("updateActionResult request failed: " + e);
+        responseObserver.onError(internalError(e));
       }
     }
   }
@@ -363,23 +402,26 @@ public class RemoteWorker {
   // How long to wait for the uid command.
   private static final Duration uidTimeout = Durations.fromMicros(30);
 
-  class ExecutionServer extends ExecuteServiceImplBase {
+  class ExecutionServer extends ExecutionImplBase {
     private final Path workPath;
 
     //The name of the container image entry in the Platform proto
-    // (see src/main/protobuf/remote_protocol.proto and
+    // (see third_party/googleapis/devtools/remoteexecution/*/remote_execution.proto and
     // experimental_remote_platform_override in
     // src/main/java/com/google/devtools/build/lib/remote/RemoteOptions.java)
     public static final String CONTAINER_IMAGE_ENTRY_NAME = "container-image";
+
+    private static final int LOCAL_EXEC_ERROR = -1;
 
     public ExecutionServer(Path workPath) {
       this.workPath = workPath;
     }
 
-    private Map<String, String> getEnvironmentVariables(RemoteProtocol.Command command) {
+    private Map<String, String> getEnvironmentVariables(
+        com.google.devtools.remoteexecution.v1test.Command command) {
       HashMap<String, String> result = new HashMap<>();
-      for (EnvironmentEntry entry : command.getEnvironmentList()) {
-        result.put(entry.getVariable(), entry.getValue());
+      for (EnvironmentVariable v : command.getEnvironmentVariablesList()) {
+        result.put(v.getName(), v.getValue());
       }
       return result;
     }
@@ -412,17 +454,14 @@ public class RemoteWorker {
     // null. Otherwise returns docker container name from the parameters.
     private String dockerContainer(Action action) throws IllegalArgumentException {
       String result = null;
-      List<Platform.Property> entries = action.getPlatform().getEntryList();
-
-      for (Platform.Property entry : entries) {
-        if (entry.getName().equals(CONTAINER_IMAGE_ENTRY_NAME)) {
-          if (result == null) {
-            result = entry.getValue();
-          } else {
+      for (Platform.Property property : action.getPlatform().getPropertiesList()) {
+        if (property.getName().equals(CONTAINER_IMAGE_ENTRY_NAME)) {
+          if (result != null) {
             // Multiple container name entries
             throw new IllegalArgumentException(
                 "Multiple entries for " + CONTAINER_IMAGE_ENTRY_NAME + " in action.Platform");
           }
+          result = property.getValue();
         }
       }
       return result;
@@ -479,38 +518,34 @@ public class RemoteWorker {
           new File(pathString));
     }
 
-    public ExecuteReply execute(Action action, Path execRoot)
-        throws IOException, InterruptedException, IllegalArgumentException {
+    static final int MAX_BLOB_SIZE_FOR_INLINE = 1024 * 10;
+
+    private void passOutErr(byte[] stdout, byte[] stderr, ActionResult.Builder result)
+        throws InterruptedException {
+      if (stdout.length <= MAX_BLOB_SIZE_FOR_INLINE) {
+        result.setStdoutRaw(ByteString.copyFrom(stdout));
+      } else if (stdout.length > 0) {
+        result.setStdoutDigest(cache.uploadBlob(stdout));
+      }
+      if (stderr.length <= MAX_BLOB_SIZE_FOR_INLINE) {
+        result.setStderrRaw(ByteString.copyFrom(stderr));
+      } else if (stderr.length > 0) {
+        result.setStderrDigest(cache.uploadBlob(stderr));
+      }
+    }
+
+    public ActionResult execute(Action action, Path execRoot)
+        throws IOException, InterruptedException, IllegalArgumentException, CacheNotFoundException {
       ByteArrayOutputStream stdout = new ByteArrayOutputStream();
       ByteArrayOutputStream stderr = new ByteArrayOutputStream();
-      RemoteProtocol.Command command;
-      try {
-        command =
-            RemoteProtocol.Command.parseFrom(cache.downloadBlob(action.getCommandDigest()));
-        cache.downloadTree(action.getInputRootDigest(), execRoot);
-      } catch (CacheNotFoundException e) {
-        LOG.warning("Cache miss on " + ContentDigests.toString(e.getMissingDigest()));
-        return ExecuteReply.newBuilder()
-            .setCasError(
-                CasStatus.newBuilder()
-                    .setSucceeded(false)
-                    .addMissingDigest(e.getMissingDigest())
-                    .setError(CasStatus.ErrorCode.MISSING_DIGEST)
-                    .setErrorDetail(e.toString()))
-            .setStatus(
-                ExecutionStatus.newBuilder()
-                    .setExecuted(false)
-                    .setSucceeded(false)
-                    .setError(
-                        e.getMissingDigest() == action.getCommandDigest()
-                            ? ExecutionStatus.ErrorCode.MISSING_COMMAND
-                            : ExecutionStatus.ErrorCode.MISSING_INPUT)
-                    .setErrorDetail(e.toString()))
-            .build();
-      }
+      ActionResult.Builder result = ActionResult.newBuilder();
+      com.google.devtools.remoteexecution.v1test.Command command =
+          com.google.devtools.remoteexecution.v1test.Command.parseFrom(
+              cache.downloadBlob(action.getCommandDigest()));
+      cache.downloadTree(action.getInputRootDigest(), execRoot);
 
-      List<Path> outputs = new ArrayList<>(action.getOutputPathList().size());
-      for (String output : action.getOutputPathList()) {
+      List<Path> outputs = new ArrayList<>(action.getOutputFilesList().size());
+      for (String output : action.getOutputFilesList()) {
         Path file = execRoot.getRelative(output);
         if (file.exists()) {
           throw new FileAlreadyExistsException("Output file already exists: " + file);
@@ -518,63 +553,58 @@ public class RemoteWorker {
         FileSystemUtils.createDirectoryAndParents(file.getParentDirectory());
         outputs.add(file);
       }
+      // TODO(olaola): support output directories.
 
       // TODO(ulfjack): This is basically a copy of LocalSpawnRunner. Ideally, we'd use that
       // implementation instead of copying it.
-      // TODO(ulfjack): Timeout is specified in ExecuteRequest, but not passed in yet.
-      int timeoutSeconds = 60 * 15;
       Command cmd =
           getCommand(
               action,
-              command.getArgvList().toArray(new String[] {}),
+              command.getArgumentsList().toArray(new String[] {}),
               getEnvironmentVariables(command),
               execRoot.getPathString());
-
       long startTime = System.currentTimeMillis();
-      CommandResult cmdResult;
+      CommandResult cmdResult = null;
       try {
         cmdResult = cmd.execute(Command.NO_INPUT, Command.NO_OBSERVER, stdout, stderr, true);
       } catch (AbnormalTerminationException e) {
         cmdResult = e.getResult();
       } catch (CommandException e) {
-        // At the time this comment was written, this must be a ExecFailedException encapsulating an
-        // IOException from the underlying Subprocess.Factory.
-        LOG.warning("Execution failed for " + command.getArgvList());
-        return ExecuteReply.newBuilder()
-            .setResult(
-                ActionResult.newBuilder()
-                    .setReturnCode(LOCAL_EXEC_ERROR))
-            .setStatus(
-                ExecutionStatus.newBuilder()
-                    .setExecuted(false)
-                    .setSucceeded(false)
-                    .setError(ExecutionStatus.ErrorCode.EXEC_FAILED)
-                    .setErrorDetail(e.toString()))
-            .build();
+        // At the time this comment was written, this must be a ExecFailedException encapsulating
+        // an IOException from the underlying Subprocess.Factory.
       }
-      long wallTime = System.currentTimeMillis() - startTime;
-      boolean wasTimeout = cmdResult.getTerminationStatus().timedout()
-          || wasTimeout(timeoutSeconds, wallTime);
-      Status status = wasTimeout ? Status.TIMEOUT : Status.SUCCESS;
-      int exitCode = status == Status.TIMEOUT
-          ? SIGALRM_EXIT_CODE
-          : cmdResult.getTerminationStatus().getRawExitCode();
+      final int timeoutSeconds = 60 * 15;
+      // TODO(ulfjack): Timeout is specified in ExecuteRequest, but not passed in yet.
+      boolean wasTimeout =
+          cmdResult != null && cmdResult.getTerminationStatus().timedout()
+              || wasTimeout(timeoutSeconds, System.currentTimeMillis() - startTime);
+      int exitCode;
+      if (wasTimeout) {
+        final String errMessage =
+            "Command:\n"
+                + command.getArgumentsList()
+                + "\nexceeded deadline of "
+                + timeoutSeconds
+                + "seconds";
+        LOG.warning(errMessage);
+        throw StatusProto.toStatusRuntimeException(
+            Status.newBuilder()
+                .setCode(Code.DEADLINE_EXCEEDED.getNumber())
+                .setMessage(errMessage)
+                .build());
+      } else if (cmdResult == null) {
+        exitCode = LOCAL_EXEC_ERROR;
+      } else {
+        exitCode = cmdResult.getTerminationStatus().getRawExitCode();
+      }
 
-      ImmutableList<ContentDigest> outErrDigests =
-          cache.uploadBlobs(ImmutableList.of(stdout.toByteArray(), stderr.toByteArray()));
-      ContentDigest stdoutDigest = outErrDigests.get(0);
-      ContentDigest stderrDigest = outErrDigests.get(1);
-      ActionResult.Builder actionResult =
-          ActionResult.newBuilder()
-              .setReturnCode(exitCode)
-              .setStdoutDigest(stdoutDigest)
-              .setStderrDigest(stderrDigest);
-      cache.uploadAllResults(execRoot, outputs, actionResult);
-      cache.setCachedActionResult(ContentDigests.computeActionKey(action), actionResult.build());
-      return ExecuteReply.newBuilder()
-          .setResult(actionResult)
-          .setStatus(ExecutionStatus.newBuilder().setExecuted(true).setSucceeded(true))
-          .build();
+      passOutErr(stdout.toByteArray(), stderr.toByteArray(), result);
+      cache.uploadAllResults(execRoot, outputs, result);
+      ActionResult finalResult = result.setExitCode(exitCode).build();
+      if (exitCode == 0) {
+        cache.setCachedActionResult(Digests.computeActionKey(action), finalResult);
+      }
+      return finalResult;
     }
 
     private boolean wasTimeout(int timeoutSeconds, long wallTimeMillis) {
@@ -582,7 +612,7 @@ public class RemoteWorker {
     }
 
     @Override
-    public void execute(ExecuteRequest request, StreamObserver<ExecuteReply> responseObserver) {
+    public void execute(ExecuteRequest request, StreamObserver<Operation> responseObserver) {
       Path tempRoot = workPath.getRelative("build-" + UUID.randomUUID().toString());
       try {
         tempRoot.createDirectory();
@@ -591,33 +621,42 @@ public class RemoteWorker {
               "Work received has "
                   + request.getTotalInputFileCount()
                   + " input files and "
-                  + request.getAction().getOutputPathCount()
+                  + request.getAction().getOutputFilesCount()
                   + " output files.");
         }
-        ExecuteReply reply = execute(request.getAction(), tempRoot);
-        responseObserver.onNext(reply);
+        ActionResult result = execute(request.getAction(), tempRoot);
+        responseObserver.onNext(
+            Operation.newBuilder()
+                .setDone(true)
+                .setResponse(Any.pack(ExecuteResponse.newBuilder().setResult(result).build()))
+                .build());
+        responseObserver.onCompleted();
         if (workerOptions.debug) {
-          if (!reply.getStatus().getSucceeded()) {
-            LOG.warning("Work failed. Request: " + request.toString() + ".");
-          } else if (LOG_FINER) {
-            LOG.fine("Work completed.");
-          }
-        }
-        if (!workerOptions.debug) {
-          FileSystemUtils.deleteTree(tempRoot);
+          LOG.fine("Work completed.");
+          LOG.warning("Preserving work directory " + tempRoot);
         } else {
-          LOG.warning("Preserving work directory " + tempRoot.toString() + ".");
+          FileSystemUtils.deleteTree(tempRoot);
         }
-      } catch (IOException | InterruptedException e) {
-        LOG.log(Level.SEVERE, "Failure", e);
-        ExecuteReply.Builder reply = ExecuteReply.newBuilder();
-        reply.getStatusBuilder().setSucceeded(false).setErrorDetail(e.toString());
-        responseObserver.onNext(reply.build());
+      } catch (CacheNotFoundException e) {
+        LOG.warning("Cache miss on " + e.getMissingDigest());
+        responseObserver.onError(notFoundError(e.getMissingDigest()));
+      } catch (StatusRuntimeException e) {
+        responseObserver.onError(e);
+      } catch (IllegalArgumentException e) {
+        responseObserver.onError(
+            StatusProto.toStatusRuntimeException(
+                Status.newBuilder()
+                    .setCode(Code.INVALID_ARGUMENT.getNumber())
+                    .setMessage(e.toString())
+                    .build()));
+      } catch (Exception e) {
+        StringWriter stringWriter = new StringWriter();
+        e.printStackTrace(new PrintWriter(stringWriter));
+        LOG.log(Level.SEVERE, "Work failed: " + e + stringWriter.toString());
+        responseObserver.onError(internalError(e));
         if (e instanceof InterruptedException) {
           Thread.currentThread().interrupt();
         }
-      } finally {
-        responseObserver.onCompleted();
       }
     }
   }

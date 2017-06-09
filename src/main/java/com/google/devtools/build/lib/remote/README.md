@@ -13,7 +13,7 @@ When it's configured to use a remote cache, Bazel computes a hash for each actio
 Starting at version 0.5.0, Bazel supports two caching protocols:
 
 1. a HTTP-based REST protocol
-2. [a gRPC-based protocol](https://github.com/bazelbuild/bazel/blob/master/src/main/protobuf/remote_protocol.proto)
+2. [a gRPC-based protocol](https://github.com/googleapis/googleapis/blob/master/google/devtools/remoteexecution/v1test/remote_execution.proto)
 
 ## Remote caching using the HTTP REST protocol
 
@@ -101,7 +101,7 @@ this directory to include security control.
 
 ## Remote caching using the gRPC protocol
 
-We're working on a [gRPC protocol](https://github.com/bazelbuild/bazel/blob/master/src/main/protobuf/remote_protocol.proto)
+We're working on a [gRPC protocol](https://github.com/googleapis/googleapis/blob/master/google/devtools/remoteexecution/v1test/remote_execution.proto)
 that supports both remote caching and remote execution. As of this writing, there is only a single server-side implementation, which is not intended for production use.
 
 ### Bazel Setup

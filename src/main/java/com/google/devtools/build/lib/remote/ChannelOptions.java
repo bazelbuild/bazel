@@ -19,6 +19,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.common.options.Options;
 import io.grpc.CallCredentials;
 import io.grpc.auth.MoreCallCredentials;
 import io.grpc.netty.GrpcSslContexts;
@@ -33,24 +34,21 @@ import javax.net.ssl.SSLException;
 /** Instantiate all authentication helpers from build options. */
 @ThreadSafe
 public final class ChannelOptions {
-  private final int maxMessageSize;
   private final boolean tlsEnabled;
   private final SslContext sslContext;
   private final String tlsAuthorityOverride;
   private final CallCredentials credentials;
-  private static final int CHUNK_MESSAGE_OVERHEAD = 1024;
+  public static final ChannelOptions DEFAULT = create(Options.getDefaults(AuthAndTLSOptions.class));
 
   private ChannelOptions(
       boolean tlsEnabled,
       SslContext sslContext,
       String tlsAuthorityOverride,
-      CallCredentials credentials,
-      int maxMessageSize) {
+      CallCredentials credentials) {
     this.tlsEnabled = tlsEnabled;
     this.sslContext = sslContext;
     this.tlsAuthorityOverride = tlsAuthorityOverride;
     this.credentials = credentials;
-    this.maxMessageSize = maxMessageSize;
   }
 
   public boolean tlsEnabled() {
@@ -69,15 +67,10 @@ public final class ChannelOptions {
     return sslContext;
   }
 
-  public int maxMessageSize() {
-    return maxMessageSize;
-  }
-
-  public static ChannelOptions create(AuthAndTLSOptions options, int grpcMaxChunkSizeBytes) {
+  public static ChannelOptions create(AuthAndTLSOptions options) {
     try {
       return create(
           options,
-          grpcMaxChunkSizeBytes,
           options.authCredentials != null
               ? new FileInputStream(options.authCredentials)
               : null);
@@ -88,7 +81,8 @@ public final class ChannelOptions {
   }
 
   @VisibleForTesting
-  public static ChannelOptions create(AuthAndTLSOptions options, int grpcMaxChunkSizeBytes,
+  public static ChannelOptions create(
+      AuthAndTLSOptions options,
       @Nullable InputStream credentialsInputStream) {
     boolean tlsEnabled = options.tlsEnabled;
     SslContext sslContext = null;
@@ -118,11 +112,7 @@ public final class ChannelOptions {
             "Failed initializing auth credentials for remote cache/execution " + e);
       }
     }
-    final int maxMessageSize =
-        Math.max(
-            4 * 1024 * 1024 /* GrpcUtil.DEFAULT_MAX_MESSAGE_SIZE */,
-            grpcMaxChunkSizeBytes + CHUNK_MESSAGE_OVERHEAD);
     return new ChannelOptions(
-        tlsEnabled, sslContext, tlsAuthorityOverride, credentials, maxMessageSize);
+        tlsEnabled, sslContext, tlsAuthorityOverride, credentials);
   }
 }

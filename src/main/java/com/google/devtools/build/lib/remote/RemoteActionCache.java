@@ -14,15 +14,14 @@
 
 package com.google.devtools.build.lib.remote;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
-import com.google.devtools.build.lib.remote.ContentDigests.ActionKey;
-import com.google.devtools.build.lib.remote.RemoteProtocol.ActionResult;
-import com.google.devtools.build.lib.remote.RemoteProtocol.ContentDigest;
+import com.google.devtools.build.lib.remote.Digests.ActionKey;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.remoteexecution.v1test.ActionResult;
+import com.google.devtools.remoteexecution.v1test.Digest;
 import java.io.IOException;
 import java.util.Collection;
 import javax.annotation.Nullable;
@@ -32,8 +31,8 @@ import javax.annotation.Nullable;
 interface RemoteActionCache {
   // CAS API
 
-  // TODO(olaola): create a unified set of exceptions raised by the cache to encapsulate the
-  // underlying CasStatus messages and gRPC errors errors.
+  // TODO(buchgr): consider removing the CacheNotFoundException, and replacing it with other
+  // ways to signal a cache miss.
 
   /**
    * Upload enough of the tree metadata and data into remote cache so that the entire tree can be
@@ -45,7 +44,7 @@ interface RemoteActionCache {
   /**
    * Download the entire tree data rooted by the given digest and write it into the given location.
    */
-  void downloadTree(ContentDigest rootDigest, Path rootLocation)
+  void downloadTree(Digest rootDigest, Path rootLocation)
       throws IOException, CacheNotFoundException;
 
   /**
@@ -68,7 +67,7 @@ interface RemoteActionCache {
    *
    * @return The key for fetching the file contents blob from cache.
    */
-  ContentDigest uploadFileContents(Path file) throws IOException, InterruptedException;
+  Digest uploadFileContents(Path file) throws IOException, InterruptedException;
 
   /**
    * Put the input file contents in cache if it is not already in it. No-op if the data is already
@@ -76,22 +75,14 @@ interface RemoteActionCache {
    *
    * @return The key for fetching the file contents blob from cache.
    */
-  ContentDigest uploadFileContents(
-      ActionInput input, Path execRoot, ActionInputFileCache inputCache)
+  Digest uploadFileContents(ActionInput input, Path execRoot, ActionInputFileCache inputCache)
       throws IOException, InterruptedException;
 
-  /** Upload the given blobs to the cache, and return their digests. */
-  ImmutableList<ContentDigest> uploadBlobs(Iterable<byte[]> blobs) throws InterruptedException;
-
   /** Upload the given blob to the cache, and return its digests. */
-  ContentDigest uploadBlob(byte[] blob) throws InterruptedException;
+  Digest uploadBlob(byte[] blob) throws InterruptedException;
 
   /** Download and return a blob with a given digest from the cache. */
-  byte[] downloadBlob(ContentDigest digest) throws CacheNotFoundException;
-
-  /** Download and return blobs with given digests from the cache. */
-  ImmutableList<byte[]> downloadBlobs(Iterable<ContentDigest> digests)
-      throws CacheNotFoundException;
+  byte[] downloadBlob(Digest digest) throws CacheNotFoundException;
 
   // Execution Cache API
 

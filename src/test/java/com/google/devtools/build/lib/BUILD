@@ -1068,8 +1068,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/remote",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:remote_protocol_java_grpc",
-        "//src/main/protobuf:remote_protocol_java_proto",
         "//third_party:api_client",
         "//third_party:guava",
         "//third_party:junit4",
@@ -1077,6 +1075,13 @@ java_test(
         "//third_party:truth",
         "//third_party/grpc:grpc-jar",
         "//third_party/protobuf:protobuf_java",
+        "@googleapis//:google_bytestream_bytestream_java_grpc",
+        "@googleapis//:google_bytestream_bytestream_java_proto",
+        "@googleapis//:google_devtools_remoteexecution_v1test_remote_execution_java_grpc",
+        "@googleapis//:google_devtools_remoteexecution_v1test_remote_execution_java_proto",
+        "@googleapis//:google_longrunning_operations_java_proto",
+        "@googleapis//:google_rpc_code_java_proto",
+        "@googleapis//:google_rpc_status_java_proto",
     ],
 )
 

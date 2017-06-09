@@ -30,7 +30,6 @@ function set_up() {
   ${bazel_data}/src/tools/remote_worker/remote_worker \
       --work_path=${work_path} \
       --listen_port=${worker_port} \
-      --grpc_max_chunk_size_bytes=120000000 \
       --hazelcast_standalone_listen_port=${hazelcast_port} \
       --pid_file=${pid_file} >& $TEST_log &
   local wait_seconds=0
@@ -187,7 +186,6 @@ EOF
   bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
       --spawn_strategy=remote \
       --noremote_local_fallback \
-      --grpc_max_chunk_size_bytes=120000000 \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
       //a:large_output >& $TEST_log \
