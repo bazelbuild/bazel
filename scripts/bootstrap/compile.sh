@@ -339,7 +339,7 @@ function run_bazel_jar() {
                 ENVIRON[name] = value
             }
         }
-        gsub("\x27", "\\\x27", ENVIRON[name])
+        gsub("\x27", "\\\x27", ENVIRON[name]) # 0x27 -> ASCII Apostrophe
         printf(" --client_env=%c%s=%s%c\n", 0x27, name, ENVIRON[name], 0x27);
     }
 }' "PLATFORM=${PLATFORM}" </dev/null)")
