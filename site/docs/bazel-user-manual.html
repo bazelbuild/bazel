@@ -1075,6 +1075,16 @@ $ bazel fetch //...
   ><code>extra_actions</code></a> into the build graph.
 </p>
 
+<h4 id='flag--experimental_extra_action_top_level_only'>
+  <code class='flag'>--[no]experimental_extra_action_top_level_only</code>
+</h4>
+<p>
+  If this option is set to true, extra actions specified by the
+  <a href='#flag--experimental_action_listener'> <code>
+  --experimental_action_listener</code></a> command line option will only be
+  scheduled for top level targets.
+</p>
+
 <h4 id='flag--experimental_extra_action_filter'>
   <code class='flag'>--experimental_extra_action_filter=<var>regex</var></code>
 </h4>
