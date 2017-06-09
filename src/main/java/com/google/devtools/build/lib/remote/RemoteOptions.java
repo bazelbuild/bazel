@@ -89,7 +89,7 @@ public final class RemoteOptions extends OptionsBase {
 
   @Option(
     name = "remote_local_fallback",
-    defaultValue = "true",
+    defaultValue = "false",
     category = "remote",
     help = "Whether to fall back to standalone local execution strategy if remote execution fails."
   )

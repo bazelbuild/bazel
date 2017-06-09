@@ -78,7 +78,6 @@ EOF
   bazel clean --expunge >& $TEST_log
   bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
       --spawn_strategy=remote \
-      --noremote_local_fallback \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
       //a:test >& $TEST_log \
@@ -102,7 +101,6 @@ int main() { std::cout << "Hello test!" << std::endl; return 0; }
 EOF
   bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
       --spawn_strategy=remote \
-      --noremote_local_fallback \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
       --test_output=errors \
@@ -152,7 +150,6 @@ int main() { std::cout << "Fail me!" << std::endl; return 1; }
 EOF
   bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
       --spawn_strategy=remote \
-      --noremote_local_fallback \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
       --test_output=errors \
@@ -185,7 +182,6 @@ EOF
   bazel clean --expunge >& $TEST_log
   bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
       --spawn_strategy=remote \
-      --noremote_local_fallback \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
       //a:large_output >& $TEST_log \
@@ -214,7 +210,6 @@ EOF
   bazel clean --expunge >& $TEST_log
   bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
       --spawn_strategy=remote \
-      --noremote_local_fallback \
       --remote_rest_cache=http://localhost:${hazelcast_port}/hazelcast/rest/maps/cache \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote gRPC cache service"
@@ -238,7 +233,6 @@ if __name__ == "__main__":
 EOF
   bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
       --spawn_strategy=remote \
-      --noremote_local_fallback \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
       --test_output=errors \
@@ -272,7 +266,6 @@ if __name__ == "__main__":
 EOF
   bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
       --spawn_strategy=remote \
-      --noremote_local_fallback \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
       --test_output=errors \
@@ -310,7 +303,6 @@ if __name__ == "__main__":
 EOF
   bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
       --spawn_strategy=remote \
-      --noremote_local_fallback \
       --remote_executor=localhost:${worker_port} \
       --remote_cache=localhost:${worker_port} \
       --test_output=errors \
