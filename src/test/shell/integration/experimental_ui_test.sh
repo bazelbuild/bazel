@@ -25,6 +25,9 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 
 set -e
 
+add_to_bazelrc "build --genrule_strategy=local"
+add_to_bazelrc "test --test_strategy=local"
+
 function set_up() {
   mkdir -p pkg
   cat > pkg/true.sh <<EOF
