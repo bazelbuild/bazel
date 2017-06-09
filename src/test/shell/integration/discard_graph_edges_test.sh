@@ -166,7 +166,8 @@ EOF
   echo "$histo_file"
 }
 
-function test_packages_cleared() {
+# TODO(b/62450749): This is flaky on CI, re-enable when we know what is wrong.
+function DISABLED_test_packages_cleared() {
   local histo_file="$(prepare_histogram "--nodiscard_analysis_cache")"
   local package_count="$(extract_histogram_count "$histo_file" \
       'devtools\.build\.lib\..*\.Package$')"
