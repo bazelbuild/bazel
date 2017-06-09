@@ -131,6 +131,7 @@ java_import(
 java_import(
     name = "apache_httpclient",
     jars = ["apache_httpclient/httpclient-4.5.3.jar"],
+    deps = [":apache_commons_logging"],
 )
 
 java_import(
