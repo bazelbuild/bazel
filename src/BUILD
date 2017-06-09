@@ -163,11 +163,6 @@ filegroup(
             "//third_party/ijar:zipper",
         ],
     }) + select({
-        # TODO(bazel-team): Once https://github.com/bazelbuild/bazel/issues/3096
-        # is resolved, use cc implementation of singlejar on freebsd
-        ":freebsd": [
-            "//src/java_tools/singlejar:SingleJar_deploy.jar",
-        ],
         # TODO(bazel-team): Once https://github.com/bazelbuild/bazel/issues/2241
         # is resolved, use cc implementation of singlejar on windows
         ":windows": [

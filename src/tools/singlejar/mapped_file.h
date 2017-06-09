@@ -35,7 +35,8 @@
  *
  * The implementation is 64-bit Linux or OSX specific.
  */
-#if !((defined(__linux__) || defined(__APPLE__)) && __SIZEOF_POINTER__ == 8)
+#if !((defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__)) && \
+      __SIZEOF_POINTER__ == 8)
 #error This code for 64 bit Unix.
 #endif
 

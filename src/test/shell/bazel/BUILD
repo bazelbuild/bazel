@@ -45,9 +45,6 @@ filegroup(
         "@local_jdk//:extdir",
         "@local_jdk//:jdk",
     ] + select({
-        # TODO(bazel-team): Once https://github.com/bazelbuild/bazel/issues/3096
-        # is resolved, use cc implementation of singlejar on freebsd
-        "//src:freebsd": ["//src/java_tools/singlejar:SingleJar_deploy.jar"],
         # TODO(bazel-team): Once https://github.com/bazelbuild/bazel/issues/2241
         # is resolved, use cc implementation of singlejar on windows
         "//src:windows": ["//src/java_tools/singlejar:SingleJar_deploy.jar"],

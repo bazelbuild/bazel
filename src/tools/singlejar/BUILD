@@ -22,6 +22,10 @@ cc_binary(
     srcs = [
         "singlejar_main.cc",
     ],
+    linkopts = select({
+        "//src:freebsd": ["-lm"],
+        "//conditions:default": [],
+    }),
     linkstatic = 1,
     deps = [
         "options",
