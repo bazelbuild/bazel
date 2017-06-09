@@ -89,7 +89,7 @@ function get_release_notes() {
 # candidate in this release.
 function get_release_branch() {
   local branch_name=$(git_get_branch)
-  if [ -z "$(get_release_name)" -o -z "$(get_release_candidate)" ]; then
+  if [ -z "$(get_release_name)" ] || [ -z "$(get_release_candidate)" ]; then
     echo "Not a release branch: ${branch_name}." >&2
     exit 1
   fi
