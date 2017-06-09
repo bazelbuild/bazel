@@ -83,16 +83,29 @@ class HeaderClassLoader extends ClassLoader {
   private static class NonPrimitiveFieldCollector extends ClassVisitor {
 
     final ImmutableList.Builder<FieldInfo> declaredNonPrimitiveFields = ImmutableList.builder();
+    private String internalName;
 
     public NonPrimitiveFieldCollector() {
       super(Opcodes.ASM5);
     }
 
     @Override
+    public void visit(
+        int version,
+        int access,
+        String name,
+        String signature,
+        String superName,
+        String[] interfaces) {
+      super.visit(version, access, name, signature, superName, interfaces);
+      this.internalName = name;
+    }
+
+    @Override
     public FieldVisitor visitField(
         int access, String name, String desc, String signature, Object value) {
       if (isNonPrimitiveType(desc)) {
-        declaredNonPrimitiveFields.add(new FieldInfo(name, desc));
+        declaredNonPrimitiveFields.add(FieldInfo.create(internalName, name, desc));
       }
       return null;
     }
@@ -103,15 +116,6 @@ class HeaderClassLoader extends ClassLoader {
     }
   }
 
-  private static final class FieldInfo {
-    final String name;
-    final String desc;
-
-    private FieldInfo(String name, String desc) {
-      this.name = name;
-      this.desc = desc;
-    }
-  }
 
   /**
    * Class visitor that stubs in missing code attributes, and erases the body of the static
@@ -169,14 +173,12 @@ class HeaderClassLoader extends ClassLoader {
   private static class InterfaceInitializerEraser extends MethodVisitor {
 
     private final MethodVisitor dest;
-    private final String internalName;
     private final ImmutableList<FieldInfo> interfaceFields;
 
     public InterfaceInitializerEraser(
         MethodVisitor mv, String internalName, ImmutableList<FieldInfo> interfaceFields) {
       super(Opcodes.ASM5);
       dest = mv;
-      this.internalName = internalName;
       this.interfaceFields = interfaceFields;
     }
 
@@ -189,7 +191,8 @@ class HeaderClassLoader extends ClassLoader {
     public void visitEnd() {
       for (FieldInfo fieldInfo : interfaceFields) {
         dest.visitInsn(Opcodes.ACONST_NULL);
-        dest.visitFieldInsn(Opcodes.PUTSTATIC, internalName, fieldInfo.name, fieldInfo.desc);
+        dest.visitFieldInsn(
+            Opcodes.PUTSTATIC, fieldInfo.owner(), fieldInfo.name(), fieldInfo.desc());
       }
       dest.visitInsn(Opcodes.RETURN);
       dest.visitMaxs(0, 0);
