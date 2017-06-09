@@ -504,8 +504,8 @@ public class WindowsFileSystem extends JavaIoFileSystem {
       try {
         process = Runtime.getRuntime().exec("cmd.exe /C " + bash + " -c \"/usr/bin/cygpath -m /\"");
 
-        // Wait 3 seconds max, that should be enough to run this command.
-        process.waitFor(3, TimeUnit.SECONDS);
+        // Wait 13 seconds max, that should be enough to run this command.
+        process.waitFor(13, TimeUnit.SECONDS);
 
         if (process.exitValue() == 0) {
           path = readAll(process.getInputStream());
