@@ -157,7 +157,7 @@ public final class TargetCompleteEvent
     for (ArtifactsInOutputGroup group : outputs) {
       if (group.areImportant()) {
         for (Artifact artifact : group.getArtifacts()) {
-          String name = artifact.getFilename();
+          String name = artifact.getPath().relativeTo(artifact.getRoot().getPath()).getPathString();
           String uri = converters.pathConverter().apply(artifact.getPath());
           builder.addImportantOutput(File.newBuilder().setName(name).setUri(uri).build());
         }
