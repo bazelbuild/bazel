@@ -138,7 +138,7 @@ public class LoadingOptions extends OptionsBase {
   @Option(
     name = "experimental_skyframe_target_pattern_evaluator",
     defaultValue = "false",
-    optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     help =
         "Use the Skyframe-based target pattern evaluator; implies "
             + "--experimental_interleave_loading_and_analysis."
