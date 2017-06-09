@@ -123,7 +123,7 @@ function create_revision_information() {
     local subject="$(git_commit_subject $hash)"
     local lines=$(echo "$subject" | wrap_text 65)  # 5 leading spaces.
     echo "   + $hash:"
-    echo "$lines" | sed 's/^/     /'
+    echo "${lines//^/     }"
     shift
   done
 }
