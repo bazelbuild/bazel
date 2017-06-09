@@ -136,7 +136,7 @@ if [[ "$COVERAGE_LEGACY_MODE" ]]; then
   exit $TEST_STATUS
 fi
 
-export LCOV_MERGER_CMD="java -jar ${LCOV_MERGER} --coverage_dir=${COVERAGE_DIR} \
+export LCOV_MERGER_CMD="${LCOV_MERGER} --coverage_dir=${COVERAGE_DIR} \
 --output_file=${COVERAGE_OUTPUT_FILE}"
 
 
@@ -146,4 +146,7 @@ if [[ $DISPLAY_LCOV_CMD ]] ; then
   echo "-----------------"
 fi
 
-exec $LCOV_MERGER_CMD
+# JAVA_RUNFILES is set to the runfiles of the test, which does not necessarily
+# contain a JVM (it does only if the test has a Java binary somewhere). So let
+# the LCOV merger discover where its own runfiles tree is.
+JAVA_RUNFILES= exec $LCOV_MERGER_CMD
