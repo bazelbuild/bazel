@@ -34,6 +34,11 @@ FILES = [
     deps = [":" + s + "_proto"],
 ) for s in FILES]
 
+[py_proto_library(
+    name = s + "_py_proto",
+    deps = [":" + s + "_proto"],
+) for s in FILES]
+
 [java_library_srcs(
     name = s + "_java_proto_srcs",
     deps = [":" + s + "_java_proto"],
