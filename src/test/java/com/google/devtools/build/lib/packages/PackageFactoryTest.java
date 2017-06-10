@@ -808,9 +808,8 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   }
 
   @Test
-  public void testBadCharactersInGlob() throws Exception {
+  public void testBadCharacterInGlob() throws Exception {
     events.setFailFast(false);
-    assertGlobFails("glob(['{'])", "illegal character");
     assertGlobFails("glob(['?'])", "illegal character");
   }
 
