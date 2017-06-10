@@ -13,18 +13,23 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.LocationExpander;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -48,10 +53,22 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
     final String encoding = ruleContext.attributes().get("encoding", Type.STRING);
     final List<String> xlint = ruleContext.attributes().get("xlint", Type.STRING_LIST);
     final List<String> misc = ruleContext.getTokenizedStringListAttr("misc");
-    final List<String> jvmOpts = ruleContext.attributes().get("jvm_opts", Type.STRING_LIST);
     final boolean javacSupportsWorkers =
         ruleContext.attributes().get("javac_supports_workers", Type.BOOLEAN);
-    Artifact javac = getArtifact("javac", ruleContext);
+    TransitiveInfoCollection javacDep = ruleContext.getPrerequisite("javac", Mode.HOST);
+    Artifact javac = null;
+    NestedSet<Artifact> javacJars = javacDep.getProvider(FileProvider.class).getFilesToBuild();
+    if (Iterables.size(javacJars) == 1) {
+      javac = Iterables.getOnlyElement(javacJars);
+    } else {
+      ruleContext.attributeError("javac", javacDep.getLabel() + " expected a single artifact");
+      return null;
+    }
+    final List<String> jvmOpts =
+        getJvmOpts(
+            ruleContext,
+            ImmutableMap.<Label, ImmutableCollection<Artifact>>of(
+                javacDep.getLabel(), ImmutableList.of(javac)));
     Artifact javabuilder = getArtifact("javabuilder", ruleContext);
     Artifact headerCompiler = getArtifact("header_compiler", ruleContext);
     boolean forciblyDisableHeaderCompilation =
@@ -139,5 +156,18 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
       return null;
     }
     return prerequisite.getProvider(FileProvider.class).getFilesToBuild();
+  }
+
+  private static ImmutableList<String> getJvmOpts(
+      RuleContext ruleContext, ImmutableMap<Label, ImmutableCollection<Artifact>> locations) {
+    // LocationExpander is used directly instead of e.g. getExpandedStringListAttr because the
+    // latter hard-codes list of attributes that can provide prerequisites.
+    LocationExpander expander =
+        new LocationExpander(ruleContext, locations, /*allowDataAttributeEntriesInLabel=*/ false);
+    ImmutableList.Builder<String> result = ImmutableList.builder();
+    for (String option : ruleContext.attributes().get("jvm_opts", Type.STRING_LIST)) {
+      result.add(expander.expand(option));
+    }
+    return result.build();
   }
 }
