@@ -274,6 +274,10 @@ toolchain {
         key: "TMP"
         value: "%{msvc_env_tmp}"
       }
+      env_entry {
+        key: "TEMP"
+        value: "%{msvc_env_tmp}"
+      }
     }
   }
 
