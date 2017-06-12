@@ -94,6 +94,11 @@ filegroup(
     srcs = ["//tools/jdk:VanillaJavaBuilder_deploy.jar"],
 )
 
+filegroup(
+    name = "testrunner",
+    srcs = ["//tools/jdk:TestRunner_deploy.jar"],
+)
+
 BOOTCLASS_JARS = [
     "rt.jar",
     "resources.jar",
