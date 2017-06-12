@@ -176,14 +176,11 @@ final class QueryParser {
 
   /**
    * primary ::= WORD
+   *           | WORD '(' arg ( ',' arg ) * ')'
    *           | LET WORD = expr IN expr
    *           | '(' expr ')'
-   *           | WORD '(' expr ( ',' expr ) * ')'
-   *           | DEPS '(' expr ')'
-   *           | DEPS '(' expr ',' WORD ')'
-   *           | RDEPS '(' expr ',' expr ')'
-   *           | RDEPS '(' expr ',' expr ',' WORD ')'
    *           | SET '(' WORD * ')'
+   * arg ::= expr | WORD | INT
    */
   private QueryExpression parsePrimary() throws QueryException {
     switch (token.kind) {
