@@ -16,12 +16,77 @@
 # Filetype to restrict inputs
 tar_filetype = [".tar", ".tar.gz", ".tgz", ".tar.xz", ".tar.bz2"]
 deb_filetype = [".deb", ".udeb"]
-load(":path.bzl", "dest_path", "compute_data_path")
+load("@bazel_tools//tools/build_defs/pkg:path.bzl", "dest_path", "compute_data_path")
+
+def _runfiles_from_middleman(middleman):
+    """Unmangle runfiles path from middleman path"""
+    path = middleman.short_path
+    # NOTE(trainman419): replacements are done in a specific order
+    path = path.replace("_S", "/")
+    path = path.replace("_U", "_")
+    path = path.replace("-", ".")
+
+    mm = "_middlemen/"
+    if path.startswith(mm):
+        path = path[len(mm):]
+    return path
 
 def _pkg_tar_impl(ctx):
   """Implementation of the pkg_tar rule."""
   # Compute the relative path
   data_path = compute_data_path(ctx.outputs.out, ctx.attr.strip_prefix)
+
+  runfiles = set()
+  runfiles_symlinks = {}
+  for file in ctx.attr.files:
+    if hasattr(file, 'data_runfiles'):
+        target_runfiles = set()
+        # NOTE(trainman419): there may be more than one middleman in the
+        # runfiles for a single dep
+        middlemen = set()
+        # separate out middlemen from actual runfiles
+        for r in file.data_runfiles.files:
+          if r.short_path.startswith('_middlemen'):
+              middlemen += set([r])
+          else:
+              target_runfiles += set([r])
+
+        # add runfiles for this target to the overall runfiles group
+        runfiles += target_runfiles
+
+        # for each middleman, make the corresponding runfiles tree;
+        # we only use symlinks at the leaf nodes because symlinking to a
+        # directory further up the path can create symlink loops, and some
+        # of our tools get lost forever in those loops
+        # TODO(trainman419): fix all of these generated paths so that they
+        # respect the strip_prefix
+        for mm in middlemen:
+            runfiles_path = _runfiles_from_middleman(mm).split("/")
+            for r in target_runfiles:
+              short_path = r.short_path.split("/")
+              path = list(short_path)
+              # resolve top-level directory name
+              if path[0] == "..":
+                path = path[1:]
+              else:
+                path = [ ctx.workspace_name ] + path
+
+              # path to symlink within runfiles tree
+              symlink_path = runfiles_path + path
+
+              # relative path from symlink to actual file location
+              path_len = len(symlink_path) - 1
+              relpath = [".." for i in range(path_len)] + short_path
+
+              # add symlink
+              runfiles_symlinks["/".join(symlink_path)] = "/".join(relpath)
+
+  files = list(set(ctx.files.files) + runfiles)
+
+  for f in files:
+    dest = dest_path(f, data_path)
+    if dest.startswith('..'):
+        print(f, f.path, f.short_path, dest)
 
   build_tar = ctx.executable.build_tar
   args = [
@@ -32,7 +97,7 @@ def _pkg_tar_impl(ctx):
       "--owner_name=" + ctx.attr.ownername,
       ]
   args += ["--file=%s=%s" % (f.path, dest_path(f, data_path))
-           for f in ctx.files.files]
+           for f in files]
   if ctx.attr.modes:
     args += ["--modes=%s=%s" % (key, ctx.attr.modes[key]) for key in ctx.attr.modes]
   if ctx.attr.owners:
@@ -48,12 +113,16 @@ def _pkg_tar_impl(ctx):
   args += ["--tar=" + f.path for f in ctx.files.deps]
   args += ["--link=%s:%s" % (k, ctx.attr.symlinks[k])
            for k in ctx.attr.symlinks]
+  # symlinks for runfiles
+  args += ["--link=%s:%s" % (k, runfiles_symlinks[k])
+           for k in runfiles_symlinks]
+
   arg_file = ctx.new_file(ctx.label.name + ".args")
   ctx.file_action(arg_file, "\n".join(args))
 
   ctx.action(
       command = "%s --flagfile=%s" % (build_tar.path, arg_file.path),
-      inputs = ctx.files.files + ctx.files.deps + [arg_file, build_tar],
+      inputs = files + ctx.files.deps + [arg_file, build_tar],
       outputs = [ctx.outputs.out],
       mnemonic="PackageTar",
       use_default_shell_env = True,
