@@ -315,8 +315,8 @@ public class BuildFileAST extends ASTNode {
    *
    * @return a new AST (or the same), with the containsErrors flag updated.
    */
-  public BuildFileAST validate(ValidationEnvironment validationEnv, EventHandler eventHandler) {
-    boolean valid = validationEnv.validateAst(stmts, eventHandler);
+  public BuildFileAST validate(Environment env, EventHandler eventHandler) {
+    boolean valid = ValidationEnvironment.validateAst(env, stmts, eventHandler);
     if (valid || containsErrors) {
       return this;
     }
@@ -384,8 +384,7 @@ public class BuildFileAST extends ASTNode {
   public static BuildFileAST parseAndValidateSkylarkString(Environment env, String[] input)
       throws EvalException {
     BuildFileAST ast = parseSkylarkString(env.getEventHandler(), input);
-    ValidationEnvironment valid = new ValidationEnvironment(env);
-    valid.validateAst(ast.getStatements());
+    ValidationEnvironment.validateAst(env, ast.getStatements());
     return ast;
   }
 

@@ -49,7 +49,7 @@ public class ParserTest extends EvaluationTestCase {
   /** Parses Skylark code */
   private List<Statement> parseFileForSkylark(String... input) {
     BuildFileAST ast = BuildFileAST.parseSkylarkString(getEventHandler(), input);
-    ast = ast.validate(new ValidationEnvironment(env), getEventHandler());
+    ast = ast.validate(env, getEventHandler());
     return ast.getStatements();
   }
 

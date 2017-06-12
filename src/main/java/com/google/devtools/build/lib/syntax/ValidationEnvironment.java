@@ -47,10 +47,8 @@ public final class ValidationEnvironment {
   // branches of if-else statements.
   private final Stack<Set<String>> futureReadOnlyVariables = new Stack<>();
 
-  /**
-   * Create a ValidationEnvironment for a given global Environment.
-   */
-  public ValidationEnvironment(Environment env) {
+  /** Create a ValidationEnvironment for a given global Environment. */
+  ValidationEnvironment(Environment env) {
     Preconditions.checkArgument(env.isGlobal());
     parent = null;
     Set<String> builtinVariables = env.getVariableNames();
@@ -59,27 +57,20 @@ public final class ValidationEnvironment {
     semantics = env.getSemantics();
   }
 
-  /**
-   * Creates a local ValidationEnvironment to validate user defined function bodies.
-   */
-  public ValidationEnvironment(ValidationEnvironment parent) {
+  /** Creates a local ValidationEnvironment to validate user defined function bodies. */
+  ValidationEnvironment(ValidationEnvironment parent) {
     // Don't copy readOnlyVariables: Variables may shadow global values.
     this.parent = parent;
     semantics = parent.semantics;
   }
 
-  /**
-   * Returns true if this ValidationEnvironment is top level i.e. has no parent.
-   */
-  public boolean isTopLevel() {
+  /** Returns true if this ValidationEnvironment is top level i.e. has no parent. */
+  boolean isTopLevel() {
     return parent == null;
   }
 
-  /**
-   * Declare a variable and add it to the environment.
-   */
-  public void declare(String varname, Location location)
-      throws EvalException {
+  /** Declare a variable and add it to the environment. */
+  void declare(String varname, Location location) throws EvalException {
     checkReadonly(varname, location);
     if (parent == null) {  // top-level values are immutable
       readOnlyVariables.add(varname);
@@ -101,16 +92,14 @@ public final class ValidationEnvironment {
     }
   }
 
-  /**
-   * Returns true if the symbol exists in the validation environment.
-   */
-  public boolean hasSymbolInEnvironment(String varname) {
+  /** Returns true if the symbol exists in the validation environment. */
+  boolean hasSymbolInEnvironment(String varname) {
     return variables.contains(varname)
         || (parent != null && topLevel().variables.contains(varname));
   }
 
   /** Returns the set of all accessible symbols (both local and global) */
-  public Set<String> getAllSymbols() {
+  Set<String> getAllSymbols() {
     Set<String> all = new HashSet<>();
     all.addAll(variables);
     if (parent != null) {
@@ -128,14 +117,12 @@ public final class ValidationEnvironment {
    * This is useful to validate control flows like if-else when we know that certain parts of the
    * code cannot both be executed.
    */
-  public void startTemporarilyDisableReadonlyCheckSession() {
+  void startTemporarilyDisableReadonlyCheckSession() {
     futureReadOnlyVariables.add(new HashSet<String>());
   }
 
-  /**
-   * Finishes the session with temporarily disabled readonly checking.
-   */
-  public void finishTemporarilyDisableReadonlyCheckSession() {
+  /** Finishes the session with temporarily disabled readonly checking. */
+  void finishTemporarilyDisableReadonlyCheckSession() {
     Set<String> variables = futureReadOnlyVariables.pop();
     readOnlyVariables.addAll(variables);
     if (!futureReadOnlyVariables.isEmpty()) {
@@ -143,15 +130,13 @@ public final class ValidationEnvironment {
     }
   }
 
-  /**
-   * Finishes a branch of temporarily disabled readonly checking.
-   */
-  public void finishTemporarilyDisableReadonlyCheckBranch() {
+  /** Finishes a branch of temporarily disabled readonly checking. */
+  void finishTemporarilyDisableReadonlyCheckBranch() {
     readOnlyVariables.removeAll(futureReadOnlyVariables.peek());
   }
 
   /** Throws EvalException if a load() appears after another kind of statement. */
-  private void checkLoadAfterStatement(List<Statement> statements) throws EvalException {
+  private static void checkLoadAfterStatement(List<Statement> statements) throws EvalException {
     Location firstStatement = null;
 
     for (Statement statement : statements) {
@@ -181,7 +166,7 @@ public final class ValidationEnvironment {
   }
 
   /** Throws EvalException if a `if` statement appears at the top level. */
-  private void checkToplevelIfStatement(List<Statement> statements) throws EvalException {
+  private static void checkToplevelIfStatement(List<Statement> statements) throws EvalException {
     for (Statement statement : statements) {
       if (statement instanceof IfStatement) {
         throw new EvalException(
@@ -194,10 +179,8 @@ public final class ValidationEnvironment {
     }
   }
 
-  /**
-   * Validates the AST and runs static checks.
-   */
-  public void validateAst(List<Statement> statements) throws EvalException {
+  /** Validates the AST and runs static checks. */
+  void validateAst(List<Statement> statements) throws EvalException {
     // Check that load() statements are on top.
     if (semantics.incompatibleBzlDisallowLoadAfterStatement) {
       checkLoadAfterStatement(statements);
@@ -223,9 +206,14 @@ public final class ValidationEnvironment {
     }
   }
 
-  public boolean validateAst(List<Statement> statements, EventHandler eventHandler) {
+  public static void validateAst(Environment env, List<Statement> statements) throws EvalException {
+    new ValidationEnvironment(env).validateAst(statements);
+  }
+
+  public static boolean validateAst(
+      Environment env, List<Statement> statements, EventHandler eventHandler) {
     try {
-      validateAst(statements);
+      validateAst(env, statements);
       return true;
     } catch (EvalException e) {
       if (!e.isDueToIncompleteAST()) {

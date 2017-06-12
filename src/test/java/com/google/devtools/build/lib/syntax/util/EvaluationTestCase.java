@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.syntax.Parser;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Statement;
-import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestMode;
 import java.util.LinkedList;
@@ -142,7 +141,7 @@ public class EvaluationTestCase {
 
   protected List<Statement> parseFile(String... input) {
     BuildFileAST ast = BuildFileAST.parseSkylarkString(getEventHandler(), input);
-    ast = ast.validate(new ValidationEnvironment(env), getEventHandler());
+    ast = ast.validate(env, getEventHandler());
     return ast.getStatements();
   }
 
