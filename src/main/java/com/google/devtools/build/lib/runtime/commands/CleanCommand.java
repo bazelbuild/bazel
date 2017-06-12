@@ -34,7 +34,10 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
+import java.io.FileDescriptor;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.logging.LogManager;
 import java.util.logging.Logger;
 
 /** Implements 'blaze clean'. */
@@ -227,6 +230,18 @@ public final class CleanCommand implements BlazeCommand {
     if (expunge) {
       LOG.info("Expunging...");
       env.getRuntime().prepareForAbruptShutdown();
+      // Close java.log.
+      LogManager.getLogManager().reset();
+      // Close the default stdout/stderr.
+      if (FileDescriptor.out.valid()) {
+        new FileOutputStream(FileDescriptor.out).close();
+      }
+      if (FileDescriptor.err.valid()) {
+        new FileOutputStream(FileDescriptor.err).close();
+      }
+      // Close the redirected stdout/stderr.
+      System.out.close();
+      System.err.close();
       // Delete the big subdirectories with the important content first--this
       // will take the most time. Then quickly delete the little locks, logs
       // and links right before we exit. Once the lock file is gone there will

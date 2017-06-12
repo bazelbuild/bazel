@@ -628,12 +628,7 @@ static HANDLE CreateJvmOutputFile(const wstring& path,
     HANDLE handle = ::CreateFileW(
         /* lpFileName */ path.c_str(),
         /* dwDesiredAccess */ GENERIC_READ | GENERIC_WRITE,
-        // Share for reading and also for deletion, so `bazel clean
-        // --expunge/--expunge_async` can delete this file while the JVM holds
-        // an open file descriptor to it (via stdout). Although subsequent
-        // writes would not recreate the file after it's deleted, this is fine
-        // because --expunge/--expunge_async shut down the Bazel server.
-        /* dwShareMode */ FILE_SHARE_READ | FILE_SHARE_DELETE,
+        /* dwShareMode */ FILE_SHARE_READ,
         /* lpSecurityAttributes */ sa,
         /* dwCreationDisposition */ CREATE_ALWAYS,
         /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
@@ -711,8 +706,8 @@ void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
   SECURITY_ATTRIBUTES sa;
   sa.nLength = sizeof(SECURITY_ATTRIBUTES);
   // We redirect stdin to the NUL device, and redirect stdout and stderr to
-  // `output_file` (opened below) by telling CreateProcess to use these file
-  // handles, so they must be inheritable.
+  // `stdout_file` and `stderr_file` (opened below) by telling CreateProcess to
+  // use these file handles, so they must be inheritable.
   sa.bInheritHandle = TRUE;
   sa.lpSecurityDescriptor = NULL;
 
@@ -724,19 +719,36 @@ void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
          "ExecuteDaemon: Could not open NUL device");
   }
 
-  windows_util::AutoHandle output_file(
+  windows_util::AutoHandle stdout_file(
       CreateJvmOutputFile(wdaemon_output.c_str(), &sa));
-  if (!output_file.IsValid()) {
+  if (!stdout_file.IsValid()) {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
          "ExecuteDaemon: CreateJvmOutputFile %ls", wdaemon_output.c_str());
   }
+  HANDLE stderr_handle;
+  // We must duplicate the handle to stdout, otherwise "bazel clean --expunge"
+  // won't work, because when it tries to close stdout then stderr, the former
+  // will succeed but the latter will appear to be valid yet still fail to
+  // close.
+  if (!DuplicateHandle(
+          /* hSourceProcessHandle */ GetCurrentProcess(),
+          /* hSourceHandle */ stdout_file,
+          /* hTargetProcessHandle */ GetCurrentProcess(),
+          /* lpTargetHandle */ &stderr_handle,
+          /* dwDesiredAccess */ 0,
+          /* bInheritHandle */ TRUE,
+          /* dwOptions */ DUPLICATE_SAME_ACCESS)) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "ExecuteDaemon: DuplicateHandle %ls", wdaemon_output.c_str());
+  }
+  windows_util::AutoHandle stderr_file(stderr_handle);
 
   PROCESS_INFORMATION processInfo = {0};
   STARTUPINFOA startupInfo = {0};
 
   startupInfo.hStdInput = devnull;
-  startupInfo.hStdError = output_file;
-  startupInfo.hStdOutput = output_file;
+  startupInfo.hStdError = stdout_file;
+  startupInfo.hStdOutput = stderr_handle;
   startupInfo.dwFlags |= STARTF_USESTDHANDLES;
   CmdLine cmdline;
   CreateCommandLine(&cmdline, exe, args_vector);
