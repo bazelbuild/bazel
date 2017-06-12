@@ -344,19 +344,20 @@ public class CppCompileAction extends AbstractAction
     this.useHeaderModules = useHeaderModules;
     this.discoversInputs = shouldScanIncludes || cppSemantics.needsDotdInputPruning();
     this.compileCommandLine =
-        new CompileCommandLine(
-            sourceFile,
-            outputFile,
-            sourceLabel,
-            copts,
-            coptsFilter,
-            features,
-            featureConfiguration,
-            cppConfiguration,
-            variables,
-            actionName,
-            dotdFile,
-            cppProvider);
+        CompileCommandLine.builder(
+                sourceFile,
+                outputFile,
+                sourceLabel,
+                copts,
+                coptsFilter,
+                features,
+                actionName,
+                cppConfiguration,
+                dotdFile,
+                cppProvider)
+            .setFeatureConfiguration(featureConfiguration)
+            .setVariables(variables)
+            .build();
     this.actionContext = actionContext;
     this.lipoScannables = lipoScannables;
     this.actionClassId = actionClassId;
@@ -1361,6 +1362,10 @@ public class CppCompileAction extends AbstractAction
     }
 
     return message.toString();
+  }
+
+  public CompileCommandLine getCompileCommandLine() {
+    return compileCommandLine;
   }
 
   /**
