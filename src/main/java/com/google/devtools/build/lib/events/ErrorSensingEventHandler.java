@@ -28,7 +28,9 @@ public final class ErrorSensingEventHandler extends DelegatingEventHandler {
 
   @Override
   public void handle(Event e) {
-    hasErrors |= e.getKind() == EventKind.ERROR;
+    if (e.getKind() == EventKind.ERROR) {
+      hasErrors = true;
+    }
     super.handle(e);
   }
 
