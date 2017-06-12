@@ -327,16 +327,18 @@ public final class BuildTool {
       }
       SupportedEnvironmentsProvider provider =
           Verify.verifyNotNull(asProvider.getProvider(SupportedEnvironmentsProvider.class));
-        Collection<Label> missingEnvironments = ConstraintSemantics.getUnsupportedEnvironments(
-            provider.getRefinedEnvironments(), expectedEnvironments);
-        if (!missingEnvironments.isEmpty()) {
-          throw new ViewCreationFailedException(
-              String.format("This is a restricted-environment build. %s does not support"
-                  + " required environment%s %s",
-                  topLevelTarget.getLabel(),
-                  missingEnvironments.size() == 1 ? "" : "s",
-                  Joiner.on(", ").join(missingEnvironments)));
-        }
+      Collection<Label> missingEnvironments =
+          ConstraintSemantics.getUnsupportedEnvironments(
+              provider.getRefinedEnvironments(), expectedEnvironments);
+      if (!missingEnvironments.isEmpty()) {
+        throw new ViewCreationFailedException(
+            String.format(
+                "This is a restricted-environment build. %s does not support"
+                    + " required environment%s %s",
+                topLevelTarget.getLabel(),
+                missingEnvironments.size() == 1 ? "" : "s",
+                Joiner.on(", ").join(missingEnvironments)));
+      }
     }
   }
 
