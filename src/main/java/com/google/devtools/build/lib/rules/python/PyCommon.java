@@ -175,8 +175,7 @@ public final class PyCommon {
             IS_USING_SHARED_LIBRARY,
             isUsingSharedLibrary,
             IMPORTS,
-            SkylarkNestedSet.of(String.class,
-                                makeImportStrings(imports ))
+            SkylarkNestedSet.of(String.class, makeImportStrings(imports))
             ),
         "No such attribute '%s'");
   }
