@@ -139,16 +139,30 @@ public class EvaluationTestCase {
     return env;
   }
 
+  protected BuildFileAST parseBuildFileASTWithoutValidation(String... input) {
+    return BuildFileAST.parseSkylarkString(getEventHandler(), input);
+  }
+
+  protected BuildFileAST parseBuildFileAST(String... input) {
+    BuildFileAST ast = parseBuildFileASTWithoutValidation(input);
+    return ast.validate(env, getEventHandler());
+  }
+
   protected List<Statement> parseFile(String... input) {
-    BuildFileAST ast = BuildFileAST.parseSkylarkString(getEventHandler(), input);
-    ast = ast.validate(env, getEventHandler());
-    return ast.getStatements();
+    return parseBuildFileAST(input).getStatements();
   }
 
   /** Parses an Expression from string without a supporting file */
   @VisibleForTesting
   public Expression parseExpression(String... input) {
     return Parser.parseExpression(
+        ParserInputSource.create(Joiner.on("\n").join(input), null), getEventHandler());
+  }
+
+  /** Same as {@link #parseExpression} but supports Skylark constructs. */
+  @VisibleForTesting
+  public Expression parseExpressionForSkylark(String... input) {
+    return Parser.parseExpressionForSkylark(
         ParserInputSource.create(Joiner.on("\n").join(input), null), getEventHandler());
   }
 

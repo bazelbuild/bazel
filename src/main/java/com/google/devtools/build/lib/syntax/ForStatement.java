@@ -30,8 +30,8 @@ public final class ForStatement extends Statement {
   /**
    * Constructs a for loop statement.
    */
-  ForStatement(Expression variable, Expression collection, List<Statement> block) {
-    this.variable = new LValue(Preconditions.checkNotNull(variable));
+  public ForStatement(LValue variable, Expression collection, List<Statement> block) {
+    this.variable = Preconditions.checkNotNull(variable);
     this.collection = Preconditions.checkNotNull(collection);
     this.block = ImmutableList.copyOf(block);
   }

@@ -24,11 +24,7 @@ import java.util.Objects;
 /**
  * Factory class for creating appropriate instances of {@link SkylarkImports}.
  */
-public class SkylarkImports {
-
-  private SkylarkImports() {
-    throw new IllegalStateException("This class should not be instantiated");
-  }
+public abstract class SkylarkImports {
 
   // Default implementation class for SkylarkImport.
   private abstract static class SkylarkImportImpl implements SkylarkImport {

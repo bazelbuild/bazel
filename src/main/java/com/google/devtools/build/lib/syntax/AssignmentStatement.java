@@ -27,8 +27,8 @@ public final class AssignmentStatement extends Statement {
   /**
    *  Constructs an assignment: "lvalue := value".
    */
-  AssignmentStatement(Expression lvalue, Expression expression) {
-    this.lvalue = new LValue(lvalue);
+  public AssignmentStatement(LValue lvalue, Expression expression) {
+    this.lvalue = lvalue;
     this.expression = expression;
   }
 
