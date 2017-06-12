@@ -282,7 +282,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   /**
    * Tests that if a given crosstool defines action configs for all link actions, that the link
    * action will be configured from the crosstool instead of from hard-coded action_configs in
-   * {@code CppLinkActionConfigs}.
+   * {@code CppActionConfigs}.
    */
   @Test
   public void testUsesCrosstoolIfLinkActionDefined() throws Exception {

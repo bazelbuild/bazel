@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -332,6 +333,24 @@ public abstract class MockCcSupport {
           + "artifact_name_pattern {"
           + "   category_name: 'static_library'"
           + "   pattern: 'foo%{bad_variable}bar'"
+          + "}";
+
+  /**
+   * An action_config for 'c++-module-codegen action using DUMMY_TOOL that doesn't imply any
+   * features.
+   */
+  public static final String INCOMPLETE_MODULE_CODEGEN_ACTION_CONFIG =
+      ""
+          + "action_config {"
+          + "   config_name: '"
+          + CppCompileAction.CPP_MODULE_CODEGEN
+          + "'"
+          + "   action_name: '"
+          + CppCompileAction.CPP_MODULE_CODEGEN
+          + "'"
+          + "   tool {"
+          + "      tool_path: 'DUMMY_TOOL'"
+          + "   }"
           + "}";
 
   public static final String INCOMPLETE_EXECUTABLE_ACTION_CONFIG =
