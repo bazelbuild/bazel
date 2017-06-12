@@ -133,6 +133,12 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   @Override
   public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
       OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
+    return createStreamCallback(out, options);
+  }
+
+  @VisibleForTesting
+  public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
+      OutputStream out, QueryOptions options) {
     return new SynchronizedDelegatingOutputFormatterCallback<>(
         createPostFactoStreamCallback(out, options));
   }

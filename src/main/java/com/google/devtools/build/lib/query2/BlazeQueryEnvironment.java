@@ -119,7 +119,6 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       QueryExpression expr,
       ThreadSafeOutputFormatterCallback<Target> callback)
           throws QueryException, InterruptedException, IOException {
-    eventHandler.resetErrors();
     resolvedTargetPatterns.clear();
     QueryEvalResult queryEvalResult = super.evaluateQuery(expr, callback);
     return new DigraphQueryEvalResult<>(

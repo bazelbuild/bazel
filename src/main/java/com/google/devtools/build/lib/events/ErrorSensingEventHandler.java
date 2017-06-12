@@ -40,11 +40,4 @@ public final class ErrorSensingEventHandler extends DelegatingEventHandler {
   public boolean hasErrors() {
     return hasErrors;
   }
-
-  /**
-   * Reset the error flag. Don't call this while other threads are accessing the same object.
-   */
-  public void resetErrors() {
-    hasErrors = false;
-  }
 }
