@@ -242,6 +242,15 @@ public final class Environment implements Freezable {
       bindings.put(varname, value);
     }
 
+    /**
+     * TODO(laurentlb): Remove this method when possible. It should probably not
+     * be part of the public interface.
+     */
+    void remove(Environment env, String varname) throws MutabilityException {
+      Mutability.checkMutable(this, env);
+      bindings.remove(varname);
+    }
+
     @Override
     public String toString() {
       return String.format("<Frame%s>", mutability());
@@ -696,6 +705,14 @@ public final class Environment implements Freezable {
     return this;
   }
 
+  /** Remove variable from local bindings. */
+  void removeLocalBinding(String varname) {
+    try {
+      currentFrame().remove(this, varname);
+    } catch (MutabilityException e) {
+      throw new AssertionError(e);
+    }
+  }
 
   /**
    * Modifies a binding in the current Frame of this Environment, as would an

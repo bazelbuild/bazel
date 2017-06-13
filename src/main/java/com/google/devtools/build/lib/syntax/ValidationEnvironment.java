@@ -69,6 +69,10 @@ public final class ValidationEnvironment {
     return parent == null;
   }
 
+  SkylarkSemanticsOptions getSemantics() {
+    return semantics;
+  }
+
   /** Declare a variable and add it to the environment. */
   void declare(String varname, Location location) throws EvalException {
     checkReadonly(varname, location);
@@ -92,10 +96,10 @@ public final class ValidationEnvironment {
     }
   }
 
-  /** Returns true if the symbol exists in the validation environment. */
+  /** Returns true if the symbol exists in the validation environment (or a parent). */
   boolean hasSymbolInEnvironment(String varname) {
     return variables.contains(varname)
-        || (parent != null && topLevel().variables.contains(varname));
+        || (parent != null && parent.hasSymbolInEnvironment(varname));
   }
 
   /** Returns the set of all accessible symbols (both local and global) */
@@ -106,10 +110,6 @@ public final class ValidationEnvironment {
       all.addAll(parent.getAllSymbols());
     }
     return all;
-  }
-
-  private ValidationEnvironment topLevel() {
-    return Preconditions.checkNotNull(parent == null ? this : parent);
   }
 
   /**

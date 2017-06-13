@@ -183,6 +183,43 @@ that global values cannot be redefined.
 *   Flag: `--incompatible_disallow_toplevel_if_statement`
 *   Default: `false`
 
+### Comprehensions variables
+
+This change makes list and dict comprehensions follow Python 3's semantics
+instead of Python 2's. That is, comprehensions have their own local scopes, and
+variables bound by comprehensions are not accessible in the outer scope.
+
+As a temporary measure to help detect breakage, this change also causes
+variables defined in the immediate outer scope to become inaccessible if they
+are shadowed by any variables in a comprehension. This disallows any uses of the
+variable's name where its meaning would differ under the Python 2 and Python 3
+semantics. Variables above the immediate outer scope are not affected.
+
+``` python
+def fct():
+  x = 10
+  y = [x for x in range(3)]
+  return x
+```
+
+The meaning of this program depends on the flag:
+
+ * Under Skylark without this flag: `x` is 10 before the
+   comprehension and 2 afterwards. (2 is the last value assigned to `x` while
+   evaluating the comprehension.)
+
+ * Under Skylark with this flag: `x` becomes inaccessible after the
+   comprehension, so that `return x` is an error. If we moved the `x = 10` to
+   above the function, so that `x` became a global variable, then no error would
+   be raised, and the returned number would be 10.
+
+In other words, please do not refer to a loop variable outside the list or dict
+comprehension.
+
+*   Flag: `--incompatible_comprehension_variables_do_not_leak`
+*   Default: `false`
+
+
 ## Upcoming changes
 
 The following items are upcoming changes.

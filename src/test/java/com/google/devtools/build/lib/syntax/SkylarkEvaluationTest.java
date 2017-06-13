@@ -1490,4 +1490,34 @@ public class SkylarkEvaluationTest extends EvaluationTest {
             // TODO(bazel-team): This should probably match the error above better.
             "struct has no method 'nonexistent_method'", "v = val.nonexistent_method()");
   }
+
+  @Test
+  public void testListComprehensionsDoNotLeakVariables() throws Exception {
+    env =
+        newEnvironmentWithSkylarkOptions("--incompatible_comprehension_variables_do_not_leak=true");
+    checkEvalErrorContains(
+        "name 'a' is not defined",
+        "def foo():",
+        "  a = 10",
+        "  b = [a for a in range(3)]",
+        "  return a",
+        "x = foo()");
+  }
+
+  @Test
+  public void testListComprehensionsShadowGlobalVariable() throws Exception {
+    env =
+        newEnvironmentWithSkylarkOptions("--incompatible_comprehension_variables_do_not_leak=true");
+    eval("a = 18", "def foo():", "  b = [a for a in range(3)]", "  return a", "x = foo()");
+    assertThat(lookup("x")).isEqualTo(18);
+  }
+
+  @Test
+  public void testListComprehensionsLeakVariables() throws Exception {
+    env =
+        newEnvironmentWithSkylarkOptions(
+            "--incompatible_comprehension_variables_do_not_leak=false");
+    eval("def foo():", "  a = 10", "  b = [a for a in range(3)]", "  return a", "x = foo()");
+    assertThat(lookup("x")).isEqualTo(2);
+  }
 }

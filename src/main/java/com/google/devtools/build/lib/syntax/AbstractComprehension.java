@@ -253,14 +253,40 @@ public abstract class AbstractComprehension extends Expression {
   Object doEval(Environment env) throws EvalException, InterruptedException {
     OutputCollector collector = createCollector(env);
     evalStep(env, collector, 0);
-    return collector.getResult(env);
+    Object result = collector.getResult(env);
+
+    if (!env.getSemantics().incompatibleComprehensionVariablesDoNotLeak) {
+      return result;
+    }
+
+    // Undefine loop variables (remove them from the environment).
+    // This code is useful for the transition, to make sure no one relies on the old behavior
+    // (where loop variables were leaking).
+    // TODO(laurentlb): Instead of removing variables, we should create them in a nested scope.
+    for (Clause clause : clauses) {
+      // Check if a loop variable conflicts with another local variable.
+      LValue lvalue = clause.getLValue();
+      if (lvalue != null) {
+        for (String name : lvalue.boundNames()) {
+          env.removeLocalBinding(name);
+        }
+      }
+    }
+    return result;
   }
 
   @Override
-  void validate(ValidationEnvironment env) throws EvalException {
+  void validate(ValidationEnvironment parentEnv) throws EvalException {
+    // Create a new scope so that loop variables do not leak outside the comprehension.
+    ValidationEnvironment env =
+        parentEnv.getSemantics().incompatibleComprehensionVariablesDoNotLeak
+            ? new ValidationEnvironment(parentEnv)
+            : parentEnv;
+
     for (Clause clause : clauses) {
       clause.validate(env, getLocation());
     }
+
     // Clauses have to be validated before expressions in order to introduce the variable names.
     for (Expression expr : outputExpressions) {
       expr.validate(env);
