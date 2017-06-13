@@ -577,7 +577,11 @@ public class FdoSupport {
     // If --fdo_optimize was not specified, we don't have any additional inputs.
     if (fdoProfile == null) {
       return ImmutableSet.of();
-    } else if (fdoMode == FdoMode.AUTO_FDO || fdoMode == FdoMode.LLVM_FDO) {
+    } else if (fdoMode == FdoMode.LLVM_FDO) {
+      ImmutableSet.Builder<Artifact> auxiliaryInputs = ImmutableSet.builder();
+      auxiliaryInputs.add(fdoSupportProvider.getProfileArtifact());
+      return auxiliaryInputs.build();
+    } else if (fdoMode == FdoMode.AUTO_FDO) {
       ImmutableSet.Builder<Artifact> auxiliaryInputs = ImmutableSet.builder();
       auxiliaryInputs.add(fdoSupportProvider.getProfileArtifact());
       if (lipoContextProvider != null) {

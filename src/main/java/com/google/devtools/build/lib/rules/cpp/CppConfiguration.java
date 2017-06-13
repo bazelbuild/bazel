@@ -1596,16 +1596,19 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     return cppOptions.isFdo();
   }
 
+  public boolean isLLVMCompiler() {
+    // TODO(tmsriram): Checking for "llvm" does not handle all the cases.  This
+    // is temporary until the crosstool configuration is modified to add fields that
+    // indicate which flavor of fdo is being used.
+    return toolchainIdentifier.contains("llvm");
+  }
+
   /** Returns true if LLVM FDO Optimization should be applied for this configuration. */
   public boolean isLLVMOptimizedFdo() {
-    return cppOptions.isFdo()
-        && cppOptions.getFdoOptimize() != null
+    return cppOptions.getFdoOptimize() != null
         && (CppFileTypes.LLVM_PROFILE.matches(cppOptions.getFdoOptimize())
             || CppFileTypes.LLVM_PROFILE_RAW.matches(cppOptions.getFdoOptimize())
-            // TODO(tmsriram): Checking for "llvm" does not handle all the cases.  This
-            // is temporary until the crosstool configuration is modified to add fields that
-            // indicate which flavor of fdo is being used.
-            || (getToolchainIdentifier().contains("llvm")
+            || (isLLVMCompiler()
                 && cppOptions.getFdoOptimize().endsWith(".zip")));
   }
 
@@ -1984,12 +1987,19 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     }
 
     if (cppOptions.lipoContextForBuild != null) {
-      if (cppOptions.getLipoMode() != LipoMode.BINARY || cppOptions.getFdoOptimize() == null) {
+      if (isLLVMCompiler()) {
+        reporter.handle(
+            Event.warn("LIPO options are not applicable with a LLVM compiler and will be "
+                + "converted to ThinLTO"));
+      } else if (cppOptions.getLipoMode() != LipoMode.BINARY
+          || cppOptions.getFdoOptimize() == null) {
         reporter.handle(Event.warn("The --lipo_context option can only be used together with "
             + "--fdo_optimize=<profile zip> and --lipo=binary. LIPO context will be ignored."));
       }
     } else {
-      if (cppOptions.getLipoMode() == LipoMode.BINARY && cppOptions.getFdoOptimize() != null) {
+      if (!isLLVMCompiler()
+          && cppOptions.getLipoMode() == LipoMode.BINARY
+          && cppOptions.getFdoOptimize() != null) {
         reporter.handle(Event.error("The --lipo_context option must be specified when using "
             + "--fdo_optimize=<profile zip> and --lipo=binary"));
       }
@@ -2129,7 +2139,12 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       requestedFeatures.add(CppRuleClasses.AUTOFDO);
     }
     if (isLipoOptimizationOrInstrumentation()) {
-      requestedFeatures.add(CppRuleClasses.LIPO);
+      // Map LIPO to ThinLTO for LLVM builds.
+      if (isLLVMCompiler() && cppOptions.getFdoOptimize() != null) {
+        requestedFeatures.add(CppRuleClasses.THIN_LTO);
+      } else {
+        requestedFeatures.add(CppRuleClasses.LIPO);
+      }
     }
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
       requestedFeatures.add(CppRuleClasses.COVERAGE);
