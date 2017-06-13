@@ -371,7 +371,7 @@ public class BazelCppRuleClasses {
           /*<!-- #BLAZE_RULE($cc_rule).ATTRIBUTE(linkstatic) -->
            For <a href="${link cc_binary}"><code>cc_binary</code></a> and
            <a href="${link cc_test}"><code>cc_test</code></a>: link the binary in mostly-static
-           mode. For <code>cc_library.link_static</code>: see below.
+           mode. For <code>cc_library.linkstatic</code>: see below.
            <p>
              By default this option is on for <code>cc_binary</code> and off for the rest.
            </p>
