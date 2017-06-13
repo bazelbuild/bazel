@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleFormatter;
+import com.google.devtools.build.lib.rules.ExternalPackageUtil;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -115,8 +116,8 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
     Rule rule;
     try {
-      rule = RepositoryFunction.getRule(repositoryName, null, env);
-    } catch (RepositoryFunction.RepositoryNotFoundException e) {
+      rule = ExternalPackageUtil.getRule(repositoryName, null, env);
+    } catch (ExternalPackageUtil.ExternalRuleNotFoundException e) {
       return RepositoryDirectoryValue.NO_SUCH_REPOSITORY_VALUE;
     }
     if (rule == null) {
