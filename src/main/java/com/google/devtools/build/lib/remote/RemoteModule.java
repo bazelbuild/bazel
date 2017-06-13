@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.remote;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
@@ -37,9 +38,15 @@ import java.io.IOException;
 
 /** RemoteModule provides distributed cache and remote execution for Bazel. */
 public final class RemoteModule extends BlazeModule {
-  private final class CasPathConverter implements PathConverter {
-    private CasPathConverter() {
-    }
+  @VisibleForTesting
+  static final class CasPathConverter implements PathConverter {
+    // Not final; unfortunately, the Bazel startup process requires us to create this object before
+    // we have the options available, so we have to create it first, and then set the options
+    // afterwards. At the time of this writing, I believe that we aren't using the PathConverter
+    // before the options are available, so this should be safe.
+    // TODO(ulfjack): Change the Bazel startup process to make the options available when we create
+    // the PathConverter.
+    RemoteOptions options;
 
     @Override
     public String apply(Path path) {
@@ -57,7 +64,7 @@ public final class RemoteModule extends BlazeModule {
                 digest.getHash(),
                 digest.getSizeBytes())
             : String.format(
-                "//%s/projects/%s/blobs/%s/%d",
+                "//%s/%s/blobs/%s/%d",
                 server,
                 remoteInstanceName,
                 digest.getHash(),
@@ -69,13 +76,13 @@ public final class RemoteModule extends BlazeModule {
     }
   }
 
-  private RemoteOptions options;
+  private final CasPathConverter converter = new CasPathConverter();
   private CommandEnvironment env;
 
   @Override
   public void serverInit(OptionsProvider startupOptions, ServerBuilder builder)
       throws AbruptExitException {
-    builder.addPathToUriConverter(new CasPathConverter());
+    builder.addPathToUriConverter(converter);
   }
 
   @Override
@@ -86,7 +93,7 @@ public final class RemoteModule extends BlazeModule {
 
   @Override
   public void handleOptions(OptionsProvider optionsProvider) {
-    this.options = optionsProvider.getOptions(RemoteOptions.class);
+    converter.options = optionsProvider.getOptions(RemoteOptions.class);
   }
 
   @Override
