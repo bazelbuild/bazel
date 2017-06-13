@@ -1158,12 +1158,15 @@ public class CppCompileAction extends AbstractAction
 
     Executor executor = actionExecutionContext.getExecutor();
     CppCompileActionContext.Reply reply;
-    ShowIncludesFilter showIncludesFilter = null;
+    ShowIncludesFilter showIncludesFilterForStdout = null;
+    ShowIncludesFilter showIncludesFilterForStderr = null;
     // If parse_showincludes feature is enabled, instead of parsing dotD file we parse the output of
     // cl.exe caused by /showIncludes option.
     if (featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES)) {
-      showIncludesFilter = new ShowIncludesFilter(getSourceFile().getFilename());
-      actionExecutionContext.getFileOutErr().setOutputFilter(showIncludesFilter);
+      showIncludesFilterForStdout = new ShowIncludesFilter(getSourceFile().getFilename());
+      showIncludesFilterForStderr = new ShowIncludesFilter(getSourceFile().getFilename());
+      actionExecutionContext.getFileOutErr().setOutputFilter(showIncludesFilterForStdout);
+      actionExecutionContext.getFileOutErr().setErrorFilter(showIncludesFilterForStderr);
     }
     try {
       reply = executor.getContext(actionContext).execWithReply(this, actionExecutionContext);
@@ -1178,10 +1181,13 @@ public class CppCompileAction extends AbstractAction
     Path execRoot = executor.getExecRoot();
 
     NestedSet<Artifact> discoveredInputs;
-    if (showIncludesFilter != null) {
+    if (featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES)) {
       discoveredInputs =
-          discoverInputsFromShowIncludesFilter(
-              execRoot, scanningContext.getArtifactResolver(), showIncludesFilter);
+          discoverInputsFromShowIncludesFilters(
+              execRoot,
+              scanningContext.getArtifactResolver(),
+              showIncludesFilterForStdout,
+              showIncludesFilterForStderr);
     } else {
       discoveredInputs =
           discoverInputsFromDotdFiles(execRoot, scanningContext.getArtifactResolver(), reply);
@@ -1204,18 +1210,24 @@ public class CppCompileAction extends AbstractAction
   }
 
   @VisibleForTesting
-  public NestedSet<Artifact> discoverInputsFromShowIncludesFilter(
-      Path execRoot, ArtifactResolver artifactResolver, ShowIncludesFilter showIncludesFilter)
+  public NestedSet<Artifact> discoverInputsFromShowIncludesFilters(
+      Path execRoot,
+      ArtifactResolver artifactResolver,
+      ShowIncludesFilter showIncludesFilterForStdout,
+      ShowIncludesFilter showIncludesFilterForStderr)
       throws ActionExecutionException {
     if (!cppSemantics.needsDotdInputPruning()) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
+    ImmutableList.Builder<Path> dependencies = new ImmutableList.Builder<>();
+    dependencies.addAll(showIncludesFilterForStdout.getDependencies(execRoot));
+    dependencies.addAll(showIncludesFilterForStderr.getDependencies(execRoot));
     HeaderDiscovery.Builder discoveryBuilder =
         new HeaderDiscovery.Builder()
             .setAction(this)
             .setSourceFile(getSourceFile())
             .setSpecialInputsHandler(specialInputsHandler)
-            .setDependencies(showIncludesFilter.getDependencies(execRoot))
+            .setDependencies(dependencies.build())
             .setPermittedSystemIncludePrefixes(getPermittedSystemIncludePrefixes(execRoot))
             .setAllowedDerivedinputsMap(getAllowedDerivedInputsMap());
 
