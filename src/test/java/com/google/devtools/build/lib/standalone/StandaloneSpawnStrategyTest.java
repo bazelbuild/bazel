@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.exec.BlazeExecutor;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.integration.util.IntegrationMock;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestFileOutErr;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -211,30 +210,5 @@ public class StandaloneSpawnStrategyTest {
     run(spawn);
     assertThat(err()).isEqualTo("Oops!\n");
     assertThat(out()).isEmpty();
-  }
-
-  // Test an action with environment variables set indicating an action running on a darwin host
-  // system. Such actions should fail given the fact that these tests run on a non darwin
-  // architecture.
-  @Test
-  public void testIOSEnvironmentOnNonDarwin() throws Exception {
-    if (OS.getCurrent() == OS.DARWIN) {
-      return;
-    }
-    Spawn spawn = new BaseSpawn.Local(
-        Arrays.asList("/bin/sh", "-c", "echo $SDKROOT"),
-        ImmutableMap.<String, String>of(AppleConfiguration.APPLE_SDK_VERSION_ENV_NAME, "8.4",
-            AppleConfiguration.APPLE_SDK_PLATFORM_ENV_NAME, "iPhoneSimulator"),
-        new ActionsTestUtil.NullAction(),
-        ResourceSet.ZERO);
-
-    try {
-      run(spawn);
-      fail("action should fail due to being unable to resolve SDKROOT");
-    } catch (ExecException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("Cannot locate iOS SDK on non-darwin operating system");
-    }
   }
 }

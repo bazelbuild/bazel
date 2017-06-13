@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.sandbox;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
@@ -27,17 +26,19 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
+import com.google.devtools.build.lib.exec.apple.XCodeLocalEnvProvider;
+import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
-import com.google.devtools.build.lib.standalone.StandaloneSpawnStrategy;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -60,6 +61,7 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
    * <p>We cache this, because creating it involves executing {@code getconf}, which is expensive.
    */
   private final ImmutableSet<Path> alwaysWritableDirs;
+  private final LocalEnvProvider localEnvProvider;
 
   private DarwinSandboxedStrategy(
       CommandEnvironment cmdEnv,
@@ -80,6 +82,7 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
     this.productName = productName;
     this.alwaysWritableDirs = alwaysWritableDirs;
     this.spawnInputExpander = new SpawnInputExpander(false);
+    this.localEnvProvider = new XCodeLocalEnvProvider();
   }
 
   public static DarwinSandboxedStrategy create(
@@ -169,8 +172,8 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
     Path sandboxPath = getSandboxRoot();
     Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
 
-    ImmutableMap<String, String> spawnEnvironment =
-        StandaloneSpawnStrategy.locallyDeterminedEnv(execRoot, productName, spawn.getEnvironment());
+    Map<String, String> spawnEnvironment =
+        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, productName);
 
     HashSet<Path> writableDirs = new HashSet<>(alwaysWritableDirs);
     ImmutableSet<Path> extraWritableDirs = getWritableDirs(sandboxExecRoot, spawnEnvironment);

@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2017 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,33 +11,75 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-package com.google.devtools.build.lib.rules.apple;
+package com.google.devtools.build.lib.exec.apple;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.shell.TerminationStatus;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 /**
- * Obtains information pertaining to Apple host machines required for using Apple toolkits in
- * local action execution.
+ * Adds to the given environment all variables that are dependent on system state of the host
+ * machine.
+ *
+ * <p>Admittedly, hermeticity is "best effort" in such cases; these environment values should be
+ * as tied to configuration parameters as possible.
+ *
+ * <p>For example, underlying iOS toolchains require that SDKROOT resolve to an absolute system
+ * path, but, when selecting which SDK to resolve, the version number comes from build
+ * configuration.
  */
-public class AppleHostInfo {
-
+public final class XCodeLocalEnvProvider implements LocalEnvProvider {
   private static final String XCRUN_CACHE_FILENAME = "__xcruncache";
   private static final String XCODE_LOCATOR_CACHE_FILENAME = "__xcodelocatorcache";
+
+  @Override
+  public Map<String, String> rewriteLocalEnv(
+      Map<String, String> env, Path execRoot, String productName) throws IOException {
+    boolean containsXcodeVersion = env.containsKey(AppleConfiguration.XCODE_VERSION_ENV_NAME);
+    boolean containsAppleSdkVersion =
+        env.containsKey(AppleConfiguration.APPLE_SDK_VERSION_ENV_NAME);
+    if (!containsXcodeVersion && !containsAppleSdkVersion) {
+      return env;
+    }
+
+    ImmutableMap.Builder<String, String> newEnvBuilder = ImmutableMap.builder();
+    newEnvBuilder.putAll(env);
+    // Empty developer dir indicates to use the system default.
+    // TODO(bazel-team): Bazel's view of the xcode version and developer dir should be explicitly
+    // set for build hermeticity.
+    String developerDir = "";
+    if (containsXcodeVersion) {
+      String version = env.get(AppleConfiguration.XCODE_VERSION_ENV_NAME);
+      developerDir = getDeveloperDir(execRoot, DottedVersion.fromString(version), productName);
+      newEnvBuilder.put("DEVELOPER_DIR", developerDir);
+    }
+    if (containsAppleSdkVersion) {
+      // The Apple platform is needed to select the appropriate SDK.
+      if (!env.containsKey(AppleConfiguration.APPLE_SDK_PLATFORM_ENV_NAME)) {
+        throw new IOException("Could not resolve apple platform for determining SDK");
+      }
+      String iosSdkVersion = env.get(AppleConfiguration.APPLE_SDK_VERSION_ENV_NAME);
+      String appleSdkPlatform = env.get(AppleConfiguration.APPLE_SDK_PLATFORM_ENV_NAME);
+      newEnvBuilder.put(
+          "SDKROOT",
+          getSdkRoot(execRoot, developerDir, iosSdkVersion, appleSdkPlatform, productName));
+    }
+    return newEnvBuilder.build();
+  }
 
   /**
    * Returns the absolute root path of the target Apple SDK on the host system for a given
@@ -51,12 +93,15 @@ public class AppleHostInfo {
    * @param sdkVersion the sdk version, for example, "9.1"
    * @param appleSdkPlatform the sdk platform, for example, "iPhoneOS"
    * @param productName the product name
-   * @throws UserExecException if there is an issue with obtaining the root from the spawned
+   * @throws IOException if there is an issue with obtaining the root from the spawned
    *     process, either because the SDK platform/version pair doesn't exist, or there was an
    *     unexpected issue finding or running the tool
    */
-  public static String getSdkRoot(Path execRoot, String developerDir,
-      String sdkVersion, String appleSdkPlatform, String productName) throws UserExecException {
+  private static String getSdkRoot(Path execRoot, String developerDir,
+      String sdkVersion, String appleSdkPlatform, String productName) throws IOException {
+    if (OS.getCurrent() != OS.DARWIN) {
+      throw new IOException("Cannot locate iOS SDK on non-darwin operating system");
+    }
     try {
       CacheManager cacheManager =
           new CacheManager(execRoot.getRelative(
@@ -84,7 +129,7 @@ public class AppleHostInfo {
       TerminationStatus terminationStatus = e.getResult().getTerminationStatus();
 
       if (terminationStatus.exited()) {
-        throw new UserExecException(
+        throw new IOException(
             String.format("xcrun failed with code %s.\n"
                 + "This most likely indicates that SDK version [%s] for platform [%s] is "
                 + "unsupported for the target version of xcode.\n"
@@ -98,9 +143,9 @@ public class AppleHostInfo {
       String message = String.format("xcrun failed.\n%s\n%s",
           e.getResult().getTerminationStatus(),
           new String(e.getResult().getStderr(), StandardCharsets.UTF_8));
-      throw new UserExecException(message, e);
-    } catch (CommandException | IOException e) {
-      throw new UserExecException(e);
+      throw new IOException(message, e);
+    } catch (CommandException e) {
+      throw new IOException(e);
     }
   }
 
@@ -113,15 +158,20 @@ public class AppleHostInfo {
    * @param execRoot the execution root path, used to locate the cache file
    * @param version the xcode version number to look up
    * @param productName the product name
-   * @throws UserExecException if there is an issue with obtaining the path from the spawned
+   * @throws IOException if there is an issue with obtaining the path from the spawned
    *     process, either because there is no installed xcode with the given version, or
    *     there was an unexpected issue finding or running the tool
    */
-  public static String getDeveloperDir(Path execRoot, DottedVersion version, String productName)
-      throws UserExecException {
+  private static String getDeveloperDir(Path execRoot, DottedVersion version, String productName)
+      throws IOException {
+    if (OS.getCurrent() != OS.DARWIN) {
+      throw new IOException(
+          "Cannot locate xcode developer directory on non-darwin operating system");
+    }
     try {
       CacheManager cacheManager =
-          new CacheManager(execRoot.getRelative(BlazeDirectories.getRelativeOutputPath(productName)),
+          new CacheManager(
+              execRoot.getRelative(BlazeDirectories.getRelativeOutputPath(productName)),
               XCODE_LOCATOR_CACHE_FILENAME);
 
       String cacheResult = cacheManager.getValue(version.toString());
@@ -157,9 +207,9 @@ public class AppleHostInfo {
             e.getResult().getTerminationStatus(),
             new String(e.getResult().getStderr(), StandardCharsets.UTF_8));
       }
-      throw new UserExecException(message, e);
-    } catch (CommandException | IOException e) {
-      throw new UserExecException(e);
+      throw new IOException(message, e);
+    } catch (CommandException e) {
+      throw new IOException(e);
     }
   }
 }
