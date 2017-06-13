@@ -1,6 +1,29 @@
+# Bazel - Google's Build System
+
 package(default_visibility = ["//scripts/release:__pkg__"])
 
 exports_files(["LICENSE"])
+
+filegroup(
+    name = "srcs",
+    srcs = glob(
+        ["*"],
+        exclude = [
+            "bazel-*",  # convenience symlinks
+            "out",  # IntelliJ with setup-intellij.sh
+            "output",  # output of compile.sh
+            ".*",  # mainly .git* files
+        ],
+    ) + [
+        "//examples:srcs",
+        "//scripts:srcs",
+        "//site:srcs",
+        "//src:srcs",
+        "//tools:srcs",
+        "//third_party:srcs",
+    ],
+    visibility = ["//visibility:private"],
+)
 
 filegroup(
     name = "git",
@@ -27,27 +50,6 @@ filegroup(
     visibility = [
         "//scripts/packages:__subpackages__",
     ],
-)
-
-filegroup(
-    name = "srcs",
-    srcs = glob(
-        ["*"],
-        exclude = [
-            "bazel-*",  # convenience symlinks
-            "out",  # IntelliJ with setup-intellij.sh
-            "output",  # output of compile.sh
-            ".*",  # mainly .git* files
-        ],
-    ) + [
-        "//examples:srcs",
-        "//scripts:srcs",
-        "//site:srcs",
-        "//src:srcs",
-        "//tools:srcs",
-        "//third_party:srcs",
-    ],
-    visibility = ["//visibility:private"],
 )
 
 filegroup(
