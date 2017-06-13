@@ -82,7 +82,7 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
   }
 
   @Override
-  public void beforeCommand(Command command, CommandEnvironment commandEnvironment)
+  public void beforeCommand(CommandEnvironment commandEnvironment)
       throws AbruptExitException {
     this.commandEnvironment = commandEnvironment;
     this.buildEventRecorder = new BuildEventRecorder();

@@ -85,6 +85,7 @@ public final class CommandEnvironment {
   private final Map<String, String> actionClientEnv = new TreeMap<>();
   private final TimestampGranularityMonitor timestampGranularityMonitor;
   private final Thread commandThread;
+  private final Command command;
 
   private String[] crashData;
 
@@ -94,7 +95,6 @@ public final class CommandEnvironment {
   private Path workingDirectory;
   private String workspaceName;
 
-  private String commandName;
   private OptionsProvider options;
 
   private AtomicReference<AbruptExitException> pendingException = new AtomicReference<>();
@@ -126,7 +126,8 @@ public final class CommandEnvironment {
    * commandThread passed is interrupted when a module requests an early exit.
    */
   CommandEnvironment(
-      BlazeRuntime runtime, BlazeWorkspace workspace, EventBus eventBus, Thread commandThread) {
+      BlazeRuntime runtime, BlazeWorkspace workspace, EventBus eventBus, Thread commandThread,
+      Command command) {
     this.runtime = runtime;
     this.workspace = workspace;
     this.directories = workspace.getDirectories();
@@ -134,6 +135,7 @@ public final class CommandEnvironment {
     this.reporter = new Reporter(eventBus);
     this.eventBus = eventBus;
     this.commandThread = commandThread;
+    this.command = command;
     this.blazeModuleEnvironment = new BlazeModuleEnvironment();
     this.timestampGranularityMonitor = new TimestampGranularityMonitor(runtime.getClock());
     // Record the command's starting time again, for use by
@@ -159,12 +161,10 @@ public final class CommandEnvironment {
   @VisibleForTesting
   CommandEnvironment(
       BlazeRuntime runtime, BlazeWorkspace workspace, EventBus eventBus, Thread commandThread,
-      String commandNameForTesting, OptionsProvider optionsForTesting) {
-    this(runtime, workspace, eventBus, commandThread);
-    // Both commandName and options are normally set by beforeCommand(); however this method is not
-    // called in tests (i.e. tests use BlazeRuntimeWrapper). These fields should only be set for
-    // testing.
-    this.commandName = commandNameForTesting;
+      Command command, OptionsProvider optionsForTesting) {
+    this(runtime, workspace, eventBus, commandThread, command);
+    // Options are normally set by beforeCommand(); however this method is not called in tests (i.e.
+    // tests use BlazeRuntimeWrapper). These fields should only be set for testing.
     this.options = optionsForTesting;
   }
 
@@ -203,8 +203,12 @@ public final class CommandEnvironment {
     return Collections.unmodifiableMap(clientEnv);
   }
 
+  public Command getCommand() {
+    return command;
+  }
+
   public String getCommandName() {
-    return commandName;
+    return command.name();
   }
 
   public OptionsProvider getOptions() {
@@ -553,7 +557,6 @@ public final class CommandEnvironment {
    * @throws AbruptExitException if this command is unsuitable to be run as specified
    */
   void beforeCommand(
-      Command command,
       OptionsParser optionsParser,
       CommonCommandOptions options,
       long execStartTimeNanos,
@@ -570,7 +573,6 @@ public final class CommandEnvironment {
         throw new IllegalStateException(e);
       }
     }
-    this.commandName = command.name();
     this.options = optionsParser;
 
     eventBus.post(

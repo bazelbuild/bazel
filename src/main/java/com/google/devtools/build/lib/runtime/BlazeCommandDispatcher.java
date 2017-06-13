@@ -348,14 +348,14 @@ public class BlazeCommandDispatcher {
     long execStartTimeNanos = runtime.getClock().nanoTime();
 
     // The initCommand call also records the start time for the timestamp granularity monitor.
-    CommandEnvironment env = runtime.getWorkspace().initCommand();
+    CommandEnvironment env = runtime.getWorkspace().initCommand(commandAnnotation);
     // Record the command's starting time for use by the commands themselves.
     env.recordCommandStartTime(firstContactTime);
 
     AbruptExitException exitCausingException = null;
     for (BlazeModule module : runtime.getBlazeModules()) {
       try {
-        module.beforeCommand(commandAnnotation, env);
+        module.beforeCommand(env);
       } catch (AbruptExitException e) {
         // Don't let one module's complaints prevent the other modules from doing necessary
         // setup. We promised to call beforeCommand exactly once per-module before each command
@@ -511,7 +511,6 @@ public class BlazeCommandDispatcher {
       try {
         // Notify the BlazeRuntime, so it can do some initial setup.
         env.beforeCommand(
-            commandAnnotation,
             optionsParser,
             commonOptions,
             execStartTimeNanos,

@@ -44,7 +44,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
   private boolean discardActions;
 
   @Override
-  public void beforeCommand(Command command, CommandEnvironment env) {
+  public void beforeCommand(CommandEnvironment env) {
     this.reporter = env.getReporter();
     this.eventBus = env.getEventBus();
     eventBus.register(this);
