@@ -2,8 +2,6 @@ DEFAULT_VISIBILITY = [
     "//src/java_tools/junitrunner:__subpackages__",
 ]
 
-licenses(["notice"])  # Apache 2.0
-
 # Libraries
 # =========================================================
 java_library(
@@ -46,6 +44,7 @@ java_binary(
 
 # Tests
 # =========================================================
+
 java_test(
     name = "AllTests",
     args = glob(["**/*Test.java"]),
