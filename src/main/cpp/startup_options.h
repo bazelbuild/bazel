@@ -230,6 +230,10 @@ class StartupOptions {
  private:
   std::string host_javabase;
   std::string default_host_javabase;
+
+#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+  static std::string WindowsUnixRoot(const std::string &bazel_sh);
+#endif
 };
 
 }  // namespace blaze

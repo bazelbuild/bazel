@@ -27,13 +27,11 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.attribute.DosFileAttributes;
 import java.util.Arrays;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
@@ -128,32 +126,25 @@ public class WindowsFileSystem extends JavaIoFileSystem {
         // this heuristic for the valid drives. It's possible that the user has a directory "/a"
         // but no "A:\" drive, so in that case we should prepend the MSYS root.
 
-        // TODO(laszlocsomor): get rid of this heuristic and translate paths using /etc/mtab.
-        // Figure out how to handle non-top-level mount points (e.g. "/usr/bin" is mounted to
-        // "/bin"), which is problematic because Paths are created segment by segment, so
-        // individual Path objects don't know they are parts of a mount point path.
-        // Another challenge is figuring out how and when to read /etc/mtab. A simple approach is
-        // to do it in determineUnixRoot, but then we won't pick up mount changes during the
-        // lifetime of the Bazel server process. A correct approach would be to establish a
-        // Skyframe FileValue-dependency on it, but it's unclear how this class could request or
-        // retrieve Skyframe-computed data.
-        //
-        // Or wait until https://github.com/bazelbuild/bazel/issues/2107 is fixed and forget about
-        // Unix paths altogether. :)
-
         if (WindowsPath.isWindowsVolumeName(child)) {
           child = WindowsPath.getDriveLetter((WindowsPath) parent, child) + ":";
         } else {
-          Preconditions.checkNotNull(
-              UNIX_ROOT,
-              "Could not determine Unix path root or it is not an absolute Windows path. Set the "
-                  + "\"%s\" JVM argument, or export the \"%s\" environment variable for the MSYS "
-                  + "bash and have /usr/bin/cygpath installed. Parent is \"%s\", name is \"%s\".",
-              WINDOWS_UNIX_ROOT_JVM_ARG,
-              BAZEL_SH_ENV_VAR,
-              parent,
-              child);
-          parent = parent.getRelative(UNIX_ROOT);
+          if (UNIX_ROOT.get() == null) {
+            String jvmFlag = "bazel.windows_unix_root";
+            PathFragment value = determineUnixRoot(jvmFlag);
+            if (value == null) {
+              throw new IllegalStateException(
+                  String.format(
+                      "\"%1$s\" JVM flag is not set. Use the --host_jvm_args flag or export the "
+                          + "BAZEL_SH environment variable. For example "
+                          + "\"--host_jvm_args=-D%1$s=c:/tools/msys64\" or "
+                          + "\"set BAZEL_SH=c:/tools/msys64/usr/bin/bash.exe\". "
+                          + "parent=(%2$s) name=(%3$s)",
+                      jvmFlag, parent, child));
+            }
+            UNIX_ROOT.set(value);
+          }
+          parent = parent.getRelative(UNIX_ROOT.get());
         }
       }
 
@@ -305,7 +296,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
 
     @VisibleForTesting
     @Override
-    protected void applyToChildren(Predicate<Path> function) {
+    protected synchronized void applyToChildren(Predicate<Path> function) {
       super.applyToChildren(function);
     }
   }
@@ -315,13 +306,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     return WindowsPathFactory.createForTesting(mockResolver);
   }
 
-  private static final String WINDOWS_UNIX_ROOT_JVM_ARG = "bazel.windows_unix_root";
-  private static final String BAZEL_SH_ENV_VAR = "BAZEL_SH";
-
-  // Absolute Windows path specifying the root of absolute Unix paths.
-  // This is typically the MSYS installation root, e.g. C:\\tools\\msys64
-  private static final PathFragment UNIX_ROOT =
-      determineUnixRoot(WINDOWS_UNIX_ROOT_JVM_ARG, BAZEL_SH_ENV_VAR);
+  private static final AtomicReference<PathFragment> UNIX_ROOT = new AtomicReference<>(null);
 
   public static final LinkOption[] NO_OPTIONS = new LinkOption[0];
   public static final LinkOption[] NO_FOLLOW = new LinkOption[] {LinkOption.NOFOLLOW_LINKS};
@@ -491,55 +476,21 @@ public class WindowsFileSystem extends JavaIoFileSystem {
         file.toPath(), DosFileAttributes.class, symlinkOpts(followSymlinks));
   }
 
-  private static PathFragment determineUnixRoot(String jvmArgName, String bazelShEnvVar) {
-    // Get the path from a JVM argument, if specified.
+  private static PathFragment determineUnixRoot(String jvmArgName) {
+    // Get the path from a JVM flag, if specified.
     String path = System.getProperty(jvmArgName);
-
-    if (path == null || path.isEmpty()) {
-      path = "";
-
-      // Fall back to executing cygpath.
-      String bash = System.getenv(bazelShEnvVar);
-      Process process = null;
-      try {
-        process = Runtime.getRuntime().exec("cmd.exe /C " + bash + " -c \"/usr/bin/cygpath -m /\"");
-
-        // Wait 3 seconds max, that should be enough to run this command.
-        process.waitFor(3, TimeUnit.SECONDS);
-
-        if (process.exitValue() == 0) {
-          path = readAll(process.getInputStream());
-        } else {
-          System.err.print(
-              String.format(
-                  "ERROR: %s (exit code: %d)%n",
-                  readAll(process.getErrorStream()), process.exitValue()));
-        }
-      } catch (InterruptedException | IOException e) {
-        // Silently ignore failure. Either MSYS is installed at a different location, or not
-        // installed at all, or some error occurred. We can't do anything anymore but throw an
-        // exception if someone tries to create a Path from an absolute Unix path.
-        return null;
-      }
+    if (path == null) {
+      return null;
     }
 
     path = path.trim();
-    PathFragment result = PathFragment.create(path);
-    if (path.isEmpty() || result.getDriveLetter() == '\0' || !result.isAbsolute()) {
+    if (path.isEmpty()) {
       return null;
-    } else {
-      return result;
     }
-  }
 
-  private static String readAll(InputStream s) throws IOException {
-    String result = "";
-    int len;
-    char[] buf = new char[4096];
-    try (InputStreamReader r = new InputStreamReader(s)) {
-      while ((len = r.read(buf)) > 0) {
-        result += new String(buf, 0, len);
-      }
+    PathFragment result = PathFragment.create(path);
+    if (result.getDriveLetter() == '\0' || !result.isAbsolute()) {
+      return null;
     }
     return result;
   }

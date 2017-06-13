@@ -117,7 +117,9 @@ class TestBase(unittest.TestCase):
     if not path:
       return
     abspath = self.Path(path)
-    if os.path.exists(abspath) and not os.path.isdir(abspath):
+    if os.path.exists(abspath):
+      if os.path.isdir(abspath):
+        return
       raise IOError('"%s" (%s) exists and is not a directory' % (path, abspath))
     os.makedirs(abspath)
 
@@ -145,11 +147,13 @@ class TestBase(unittest.TestCase):
           f.write(l)
           f.write('\n')
 
-  def RunBazel(self, args):
+  def RunBazel(self, args, env_remove=None):
     """Runs "bazel <args>", waits for it to exit.
 
     Args:
       args: [string]; flags to pass to bazel (e.g. ['--batch', 'build', '//x'])
+      env_remove: set(string); optional; environment variables to NOT pass to
+        Bazel
     Returns:
       (int, [string], [string]) tuple: exit code, stdout lines, stderr lines
     """
@@ -163,7 +167,7 @@ class TestBase(unittest.TestCase):
             stdout=stdout,
             stderr=stderr,
             cwd=self._tests_root,
-            env=self._BazelEnvMap())
+            env=self._BazelEnvMap(env_remove))
         exit_code = proc.wait()
 
     with open(self._stdout, 'r') as f:
@@ -172,7 +176,7 @@ class TestBase(unittest.TestCase):
       stderr = [l.strip() for l in f.readlines()]
     return exit_code, stdout, stderr
 
-  def _BazelEnvMap(self):
+  def _BazelEnvMap(self, env_remove=None):
     """Returns the environment variable map to run Bazel."""
     if TestBase.IsWindows():
       result = []
@@ -190,12 +194,13 @@ class TestBase(unittest.TestCase):
             names.pop()
 
         os.path.walk('c:\\program files\\java\\', _Visit, result)
+
       env = {
           'SYSTEMROOT': TestBase.GetEnv('SYSTEMROOT'),
           # TODO(laszlocsomor): Let Bazel pass BAZEL_SH and JAVA_HOME to tests
           # and use those here instead of hardcoding paths.
           'JAVA_HOME': 'c:\\program files\\java\\' + sorted(result)[-1],
-          'BAZEL_SH': 'c:\\tools\\msys64\\usr\\bin\\bash.exe'
+          'BAZEL_SH': 'c:\\tools\\msys64\\usr\\bin\\bash.exe',
       }
     else:
       env = {'HOME': os.path.join(self._temp, 'home')}
@@ -206,6 +211,9 @@ class TestBase(unittest.TestCase):
     # that by checking for TEST_TMPDIR.
     env['TEST_TMPDIR'] = TestBase.GetEnv('TEST_TMPDIR')
     env['TMP'] = self._temp
+    if env_remove:
+      for e in env_remove:
+        del env[e]
     return env
 
   @staticmethod
