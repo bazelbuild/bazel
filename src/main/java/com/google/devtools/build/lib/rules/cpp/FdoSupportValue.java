@@ -44,11 +44,13 @@ public class FdoSupportValue implements SkyValue {
     private final LipoMode lipoMode;
     private final Path fdoZip;
     private final PathFragment fdoInstrument;
+    private final boolean llvmFdo;
 
-    private Key(LipoMode lipoMode, Path fdoZip, PathFragment fdoInstrument) {
+    private Key(LipoMode lipoMode, Path fdoZip, PathFragment fdoInstrument, boolean llvmFdo) {
       this.lipoMode = lipoMode;
       this.fdoZip = fdoZip;
       this.fdoInstrument = fdoInstrument;
+      this.llvmFdo = llvmFdo;
     }
 
     public LipoMode getLipoMode() {
@@ -61,6 +63,10 @@ public class FdoSupportValue implements SkyValue {
 
     public PathFragment getFdoInstrument() {
       return fdoInstrument;
+    }
+
+    public boolean getLLVMFdo() {
+      return llvmFdo;
     }
 
     @Override
@@ -76,6 +82,7 @@ public class FdoSupportValue implements SkyValue {
       Key that = (Key) o;
       return Objects.equals(this.lipoMode, that.lipoMode)
           && Objects.equals(this.fdoZip, that.fdoZip)
+          && Objects.equals(this.llvmFdo, that.llvmFdo)
           && Objects.equals(this.fdoInstrument, that.fdoInstrument);
     }
 
@@ -95,7 +102,8 @@ public class FdoSupportValue implements SkyValue {
     return fdoSupport;
   }
 
-  public static SkyKey key(LipoMode lipoMode, Path fdoZip, PathFragment fdoInstrument) {
-    return LegacySkyKey.create(SKYFUNCTION, new Key(lipoMode, fdoZip, fdoInstrument));
+  public static SkyKey key(
+      LipoMode lipoMode, Path fdoZip, PathFragment fdoInstrument, boolean llvmFdo) {
+    return LegacySkyKey.create(SKYFUNCTION, new Key(lipoMode, fdoZip, fdoInstrument, llvmFdo));
   }
 }

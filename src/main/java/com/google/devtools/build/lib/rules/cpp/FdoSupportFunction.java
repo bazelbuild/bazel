@@ -23,9 +23,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.IOException;
-
 import javax.annotation.Nullable;
 
 /**
@@ -57,8 +55,14 @@ public class FdoSupportFunction implements SkyFunction {
     FdoSupportValue.Key key = (FdoSupportValue.Key) skyKey.argument();
     FdoSupport fdoSupport;
     try {
-      fdoSupport = FdoSupport.create(env,
-        key.getFdoInstrument(), key.getFdoZip(), key.getLipoMode(), execRoot);
+      fdoSupport =
+          FdoSupport.create(
+              env,
+              key.getFdoInstrument(),
+              key.getFdoZip(),
+              key.getLipoMode(),
+              key.getLLVMFdo(),
+              execRoot);
       if (env.valuesMissing()) {
         return null;
       }

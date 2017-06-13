@@ -45,9 +45,11 @@ class UnzipProcessor : public ZipExtractorProcessor {
   // into output_root if "extract" is set to true and will print the list of
   // files and their unix modes if "verbose" is set to true.
   UnzipProcessor(const char *output_root, char **files, bool verbose,
-                 bool extract) : output_root_(output_root),
-                                 verbose_(verbose),
-                                 extract_(extract) {
+                 bool extract, bool flatten)
+      : output_root_(output_root),
+        verbose_(verbose),
+        extract_(extract),
+        flatten_(flatten) {
     if (files != NULL) {
       for (int i = 0; files[i] != NULL; i++) {
         file_names.insert(std::string(files[i]));
@@ -73,6 +75,7 @@ class UnzipProcessor : public ZipExtractorProcessor {
   const char *output_root_;
   const bool verbose_;
   const bool extract_;
+  const bool flatten_;
   std::set<std::string> file_names;
 };
 
@@ -98,17 +101,29 @@ void UnzipProcessor::Process(const char* filename, const u4 attr,
                              const u1* data, const size_t size) {
   mode_t perm = zipattr_to_perm(attr);
   bool isdir = zipattr_is_dir(attr);
+  const char *output_file_name = filename;
   if (attr == 0) {
     // Fallback when the external attribute is not set.
     isdir = filename[strlen(filename)-1] == '/';
     perm = 0777;
   }
+
+  if (flatten_) {
+    if (isdir) {
+      return;
+    }
+    const char *p = strrchr(filename, '/');
+    if (p != NULL) {
+      output_file_name = p + 1;
+    }
+  }
+
   if (verbose_) {
-    printf("%c %o %s\n", isdir ? 'd' : 'f', perm, filename);
+    printf("%c %o %s\n", isdir ? 'd' : 'f', perm, output_file_name);
   }
   if (extract_) {
     char path[PATH_MAX];
-    concat_path(path, PATH_MAX, output_root_, filename);
+    concat_path(path, PATH_MAX, output_root_, output_file_name);
     if (!make_dirs(path, perm) ||
         (!isdir && !write_file(path, perm, data, size))) {
       abort();
@@ -130,8 +145,8 @@ void basename(const char *path, char *output, size_t output_size) {
 }
 
 // Execute the extraction (or just listing if just v is provided)
-int extract(char *zipfile, char* exdir, char **files, bool verbose,
-            bool extract) {
+int extract(char *zipfile, char *exdir, char **files, bool verbose,
+            bool extract, bool flatten) {
   std::string cwd = get_cwd();
   if (cwd.empty()) {
     return -1;
@@ -144,7 +159,7 @@ int extract(char *zipfile, char* exdir, char **files, bool verbose,
     strncpy(output_root, cwd.c_str(), PATH_MAX);
   }
 
-  UnzipProcessor processor(output_root, files, verbose, extract);
+  UnzipProcessor processor(output_root, files, verbose, extract, flatten);
   std::unique_ptr<ZipExtractor> extractor(ZipExtractor::Create(zipfile,
                                                                &processor));
   if (extractor.get() == NULL) {
@@ -346,7 +361,9 @@ static void usage(char *progname) {
           "    an optional directory relative to the current directory "
           "    specified through -d option\n");
   fprintf(stderr, "  c create  - add files to x.zip\n");
-  fprintf(stderr, "  f flatten - flatten files to use with create operation\n");
+  fprintf(stderr,
+          "  f flatten - flatten files to use with create or "
+          "extract operation\n");
   fprintf(stderr,
           "  C compress - compress files when using the create operation\n");
   fprintf(stderr, "x and c cannot be used in the same command-line.\n");
@@ -438,16 +455,13 @@ int main(int argc, char **argv) {
     // Create a zip
     return devtools_ijar::create(argv[2], filelist, flatten, verbose, compress);
   } else {
-    if (flatten) {
-      usage(argv[0]);
-    }
-
     char* exdir = NULL;
     if (argc > 3 && strcmp(argv[3], "-d") == 0) {
       exdir = argv[4];
     }
 
     // Extraction / list mode
-    return devtools_ijar::extract(argv[2], exdir, filelist, verbose, extract);
+    return devtools_ijar::extract(argv[2], exdir, filelist, verbose, extract,
+                                  flatten);
   }
 }

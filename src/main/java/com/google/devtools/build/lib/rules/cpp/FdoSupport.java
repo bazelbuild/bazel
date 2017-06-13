@@ -155,14 +155,6 @@ public class FdoSupport {
   }
 
   /**
-   * Returns true if the given fdoFile represents an LLVM profile.
-   */
-  public static final boolean isLLVMFdo(String fdoFile) {
-    return (CppFileTypes.LLVM_PROFILE.matches(fdoFile)
-        || CppFileTypes.LLVM_PROFILE_RAW.matches(fdoFile));
-  }
-
-  /**
    * Coverage information output directory passed to {@code --fdo_instrument},
    * or {@code null} if FDO instrumentation is disabled.
    */
@@ -262,12 +254,13 @@ public class FdoSupport {
       PathFragment fdoInstrument,
       Path fdoProfile,
       LipoMode lipoMode,
+      boolean llvmFdo,
       Path execRoot)
       throws IOException, FdoException, InterruptedException {
     FdoMode fdoMode;
     if (fdoProfile != null && isAutoFdo(fdoProfile.getBaseName())) {
       fdoMode = FdoMode.AUTO_FDO;
-    } else if (fdoProfile != null && isLLVMFdo(fdoProfile.getBaseName())) {
+    } else if (fdoProfile != null && llvmFdo) {
       fdoMode = FdoMode.LLVM_FDO;
     } else if (fdoProfile != null) {
       fdoMode = FdoMode.VANILLA;

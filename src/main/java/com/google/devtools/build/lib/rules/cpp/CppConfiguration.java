@@ -1601,7 +1601,12 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     return cppOptions.isFdo()
         && cppOptions.getFdoOptimize() != null
         && (CppFileTypes.LLVM_PROFILE.matches(cppOptions.getFdoOptimize())
-            || CppFileTypes.LLVM_PROFILE_RAW.matches(cppOptions.getFdoOptimize()));
+            || CppFileTypes.LLVM_PROFILE_RAW.matches(cppOptions.getFdoOptimize())
+            // TODO(tmsriram): Checking for "llvm" does not handle all the cases.  This
+            // is temporary until the crosstool configuration is modified to add fields that
+            // indicate which flavor of fdo is being used.
+            || (getToolchainIdentifier().contains("llvm")
+                && cppOptions.getFdoOptimize().endsWith(".zip")));
   }
 
   /**
