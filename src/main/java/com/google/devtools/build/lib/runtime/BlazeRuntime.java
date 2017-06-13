@@ -199,7 +199,7 @@ public final class BlazeRuntime {
     Preconditions.checkState(this.workspace == null);
     WorkspaceBuilder builder = new WorkspaceBuilder(directories, binTools);
     for (BlazeModule module : blazeModules) {
-      module.workspaceInit(directories, builder);
+      module.workspaceInit(this, directories, builder);
     }
     this.workspace = builder.build(
         this, packageFactory, ruleClassProvider, getProductName(), eventBusExceptionHandler);

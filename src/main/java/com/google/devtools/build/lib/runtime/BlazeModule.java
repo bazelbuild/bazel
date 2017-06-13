@@ -133,10 +133,12 @@ public abstract class BlazeModule {
    * and only if the server initialization was successful. Modules can override this method to
    * affect how the workspace is configured.
    *
+   * @param runtime the blaze runtime
    * @param directories the workspace directories
    * @param builder the workspace builder
    */
-  public void workspaceInit(BlazeDirectories directories, WorkspaceBuilder builder) {
+  public void workspaceInit(
+      BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
   }
 
   /**
