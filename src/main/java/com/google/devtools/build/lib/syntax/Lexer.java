@@ -584,7 +584,8 @@ public final class Lexer {
     while (pos < buffer.length) {
       char c = buffer[pos];
       switch (c) {
-        case 'X': case 'x':
+        case 'X': case 'x': // for hexadecimal prefix
+        case 'O': case 'o': // for octal prefix
         case 'a': case 'A':
         case 'b': case 'B':
         case 'c': case 'C':
@@ -625,6 +626,9 @@ public final class Lexer {
     final int radix;
     if (literal.startsWith("0x") || literal.startsWith("0X")) {
       radix = 16;
+      substring = literal.substring(2);
+    } else if (literal.startsWith("0o") || literal.startsWith("0O")) {
+      radix = 8;
       substring = literal.substring(2);
     } else if (literal.startsWith("0") && literal.length() > 1) {
       radix = 8;
