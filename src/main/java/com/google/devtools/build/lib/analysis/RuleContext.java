@@ -1761,6 +1761,12 @@ public final class RuleContext extends TargetContext
         if (attribute == null) {
           continue;
         }
+
+        if (attribute.isSingleArtifact() && entry.getValue().size() > 1) {
+          attributeError(attribute.getName(), "must contain a single dependency");
+          continue;
+        }
+
         if (attribute.isSilentRuleClassFilter()) {
           Predicate<RuleClass> filter = attribute.getAllowedRuleClassesPredicate();
           for (ConfiguredTarget configuredTarget : entry.getValue()) {
