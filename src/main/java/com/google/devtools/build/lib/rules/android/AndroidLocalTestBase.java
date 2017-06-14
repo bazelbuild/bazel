@@ -82,18 +82,6 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     // since they run on a JVM, not an android device.
     JavaTargetAttributes.Builder attributesBuilder = javaCommon.initCommon();
 
-    // Add reconciled R classes for all dependencies with resources to the classpath before the
-    // dependency jars. Must use a NestedSet to have it appear in the correct place on the
-    // classpath.
-    attributesBuilder.addRuntimeClassPathEntries(
-        RobolectricResourceSymbolsActionBuilder.create(
-                ResourceDependencies.fromRuleDeps(ruleContext, false))
-            .setSdk(AndroidSdkProvider.fromRuleContext(ruleContext))
-            .setJarOut(
-                ruleContext.getImplicitOutputArtifact(
-                    AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR))
-            .buildAsClassPathEntry(ruleContext));
-
     String testClass =
         getAndCheckTestClass(ruleContext, ImmutableList.copyOf(attributesBuilder.getSourceFiles()));
     getAndCheckTestSupport(ruleContext);
