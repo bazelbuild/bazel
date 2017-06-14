@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -426,6 +427,36 @@ public class LocalSpawnRunnerTest {
         .withExecutionInfo(ExecutionRequirements.DISABLE_LOCAL_PREFETCH, "").build();
     // This would throw if the runner called prefetchFiles().
     runner.exec(spawn, policy);
+  }
+
+  /**
+   * Regression test: the SpawnInputExpander can return null values for empty files, but the
+   * ActionInputPrefetcher expects no null values.
+   */
+  @SuppressWarnings("unchecked")
+  @Test
+  public void checkPrefetchCalledNonNull() throws Exception {
+    Subprocess.Factory factory = mock(Subprocess.Factory.class);
+    when(factory.create(any())).thenReturn(new FinishedSubprocess(0));
+    SubprocessBuilder.setSubprocessFactory(factory);
+    ActionInputPrefetcher mockPrefetcher = mock(ActionInputPrefetcher.class);
+    @SuppressWarnings("rawtypes")
+    ArgumentCaptor<Iterable> captor = ArgumentCaptor.forClass(Iterable.class);
+
+    LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
+    LocalSpawnRunner runner = new LocalSpawnRunner(
+        logger, execCount, fs.getPath("/execroot"), mockPrefetcher, options, resourceManager,
+        USE_WRAPPER, "product-name", LocalEnvProvider.UNMODIFIED);
+
+    policy.inputMapping.put(PathFragment.create("relative/path"), null);
+    policy.inputMapping.put(
+        PathFragment.create("another/relative/path"), ActionInputHelper.fromPath("/absolute/path"));
+    timeoutMillis = 123 * 1000L;
+    outErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
+    runner.exec(SIMPLE_SPAWN, policy);
+    verify(mockPrefetcher).prefetchFiles(captor.capture());
+    assertThat(captor.getValue()).doesNotContain(null);
+    assertThat(captor.getValue()).containsExactly(ActionInputHelper.fromPath("/absolute/path"));
   }
 
   @Test
