@@ -152,7 +152,7 @@ through its contents to get an idea for Bazel's output structure.
 
 Now test your freshly built binary:
 
-```shell
+```sh
 bazel-bin/main/hello-world
 ```
 

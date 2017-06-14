@@ -9,7 +9,7 @@ A list of all modules and globals that are available in Skylark:
 <h2>
 
 
-  <a href="{{ page.version_prefix }}/docs/skylark/lib/${global_name}.html">Global Functions & Constants</a>
+  <a href="/versions/{{ site.version }}/skylark/lib/${global_name}.html">Global Functions & Constants</a>
 
 
 </h2>
@@ -21,7 +21,7 @@ A list of all modules and globals that are available in Skylark:
     <li>
 
 
-      <a href="{{ page.version_prefix }}/docs/skylark/lib/${global_name}.html#${name}">${name}</a>
+      <a href="/versions/{{ site.version }}/skylark/lib/${global_name}.html#${name}">${name}</a>
 
 
     </li>
@@ -41,7 +41,7 @@ A list of all modules and globals that are available in Skylark:
     <li>
 
 
-      <a href="{{ page.version_prefix }}/docs/skylark/lib/${name}.html">${name}</a>
+      <a href="/versions/{{ site.version }}/skylark/lib/${name}.html">${name}</a>
 
 
     </li>
@@ -54,7 +54,7 @@ A list of all modules and globals that are available in Skylark:
 <h2>
 
 
-  <a href="{{ page.version_prefix }}/docs/skylark/lib/skylark-${entry.key.templateIdentifier}.html">${entry.key.title}</a>
+  <a href="/versions/{{ site.version }}/skylark/lib/skylark-${entry.key.templateIdentifier}.html">${entry.key.title}</a>
 
 
 </h2>
@@ -65,7 +65,7 @@ A list of all modules and globals that are available in Skylark:
     <li>
 
 
-      <a href="{{ page.version_prefix }}/docs/skylark/lib/${module.name}.html">${module.title}</a>
+      <a href="/versions/{{ site.version }}/skylark/lib/${module.name}.html">${module.title}</a>
 
 
     </li>
