@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.packages.License.DistributionType;
-import com.google.devtools.build.lib.packages.Preprocessor.AstAfterPreprocessing;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
@@ -1371,12 +1370,13 @@ public final class PackageFactory {
       String workspaceName,
       PackageIdentifier packageId,
       Path buildFile,
-      Preprocessor.AstAfterPreprocessing astAfterPreprocessing,
+      AstAfterPreprocessing astAfterPreprocessing,
       Map<String, Extension> imports,
       ImmutableList<Label> skylarkFileDependencies,
       RuleVisibility defaultVisibility,
       SkylarkSemanticsOptions skylarkSemantics,
-      Globber globber) throws InterruptedException {
+      Globber globber)
+      throws InterruptedException {
     MakeEnvironment.Builder makeEnv = new MakeEnvironment.Builder();
     if (platformSetRegexps != null) {
       makeEnv.setPlatformSetRegexps(platformSetRegexps);

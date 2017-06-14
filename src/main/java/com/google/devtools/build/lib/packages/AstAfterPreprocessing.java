@@ -18,18 +18,15 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 
-/** A Preprocessor is an interface to implement generic text-based preprocessing of BUILD files. */
-public interface Preprocessor {
-  /** The result of parsing a preprocessed BUILD file. */
-  static class AstAfterPreprocessing {
-    public final BuildFileAST ast;
-    public final Iterable<Event> allEvents;
-    public final Iterable<Postable> allPosts;
+/** The result of parsing a preprocessed BUILD file. */
+public class AstAfterPreprocessing {
+  public final BuildFileAST ast;
+  public final Iterable<Event> allEvents;
+  public final Iterable<Postable> allPosts;
 
-    public AstAfterPreprocessing(BuildFileAST ast, StoredEventHandler astParsingEventHandler) {
-      this.ast = ast;
-      this.allPosts = astParsingEventHandler.getPosts();
-      this.allEvents = astParsingEventHandler.getEvents();
-    }
+  public AstAfterPreprocessing(BuildFileAST ast, StoredEventHandler astParsingEventHandler) {
+    this.ast = ast;
+    this.allPosts = astParsingEventHandler.getPosts();
+    this.allEvents = astParsingEventHandler.getEvents();
   }
 }

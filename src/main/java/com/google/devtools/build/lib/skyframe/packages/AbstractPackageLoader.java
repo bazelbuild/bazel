@@ -25,6 +25,7 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.packages.AstAfterPreprocessing;
 import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
@@ -33,7 +34,6 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
-import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ASTFileLookupFunction;
@@ -319,7 +319,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         new AtomicReference<>(new TimestampGranularityMonitor(BlazeClock.instance()));
     Cache<PackageIdentifier, CacheEntryWithGlobDeps<Package.Builder>> packageFunctionCache =
         CacheBuilder.newBuilder().build();
-    Cache<PackageIdentifier, CacheEntryWithGlobDeps<Preprocessor.AstAfterPreprocessing>> astCache =
+    Cache<PackageIdentifier, CacheEntryWithGlobDeps<AstAfterPreprocessing>> astCache =
         CacheBuilder.newBuilder().build();
     PackageFactory pkgFactory = new PackageFactory(
         ruleClassProvider,
