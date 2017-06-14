@@ -139,7 +139,6 @@ public final class QueryCommand implements BlazeCommand {
           queryOptions.universeScope,
           queryOptions.loadingPhaseThreads,
           settings);
-    // 1. Parse and transform query:
     QueryExpression expr;
     try {
       expr = QueryExpression.parse(query, queryEnv);
@@ -154,8 +153,6 @@ public final class QueryCommand implements BlazeCommand {
     ThreadSafeOutputFormatterCallback<Target> callback;
     if (streamResults) {
       disableAnsiCharactersFiltering(env);
-
-      // 2. Evaluate expression:
       StreamedFormatter streamedFormatter = ((StreamedFormatter) formatter);
       streamedFormatter.setOptions(
           queryOptions,
@@ -205,8 +202,6 @@ public final class QueryCommand implements BlazeCommand {
     env.getEventBus().post(new NoBuildEvent());
     if (!streamResults) {
       disableAnsiCharactersFiltering(env);
-
-      // 3. Output results:
       try {
         Set<Target> targets = ((AggregateAllOutputFormatterCallback<Target>) callback).getResult();
         QueryOutputUtils.output(
