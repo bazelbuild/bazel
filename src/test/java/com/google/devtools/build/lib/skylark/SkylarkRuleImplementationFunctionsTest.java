@@ -279,6 +279,26 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testCreateActionWithDepsetInput() throws Exception {
+    // Same test as above, with depset as inputs.
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    evalRuleContextCode(
+        ruleContext,
+        "ruleContext.action(",
+        "  inputs = depset(ruleContext.files.srcs),",
+        "  outputs = ruleContext.files.srcs,",
+        "  arguments = ['--a','--b'],",
+        "  executable = ruleContext.files.tools[0])");
+    SpawnAction action =
+        (SpawnAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    assertArtifactFilenames(action.getInputs(), "a.txt", "b.img", "t.exe");
+    assertArtifactFilenames(action.getOutputs(), "a.txt", "b.img");
+    MoreAsserts.assertContainsSublist(action.getArguments(), "foo/t.exe", "--a", "--b");
+  }
+
+  @Test
   public void testCreateSpawnActionArgumentsBadExecutable() throws Exception {
     checkErrorContains(
         createRuleContext("//foo:foo"),
