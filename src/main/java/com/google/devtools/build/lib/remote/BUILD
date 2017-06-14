@@ -41,6 +41,9 @@ java_library(
         "@googleapis//:google_devtools_remoteexecution_v1test_remote_execution_java_proto",
         "@googleapis//:google_longrunning_operations_java_proto",
         "@googleapis//:google_rpc_error_details_java_proto",
+        "@googleapis//:google_rpc_status_java_proto",
+        "@googleapis//:google_watch_v1_java_grpc",
+        "@googleapis//:google_watch_v1_java_proto",
     ],
 )
 

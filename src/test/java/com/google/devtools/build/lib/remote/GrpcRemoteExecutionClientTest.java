@@ -60,6 +60,10 @@ import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 import com.google.rpc.Code;
 import com.google.rpc.Status;
+import com.google.watcher.v1.Change;
+import com.google.watcher.v1.ChangeBatch;
+import com.google.watcher.v1.Request;
+import com.google.watcher.v1.WatcherGrpc.WatcherImplBase;
 import io.grpc.Channel;
 import io.grpc.Server;
 import io.grpc.inprocess.InProcessChannelBuilder;
@@ -283,7 +287,6 @@ public class GrpcRemoteExecutionClientTest {
 
   @Test
   public void remotelyExecute() throws Exception {
-    // getActionResult mock returns null by default, meaning a cache miss.
     serviceRegistry.addService(
         new ActionCacheImplBase() {
           @Override
@@ -308,6 +311,122 @@ public class GrpcRemoteExecutionClientTest {
                     .setDone(true)
                     .setResponse(
                         Any.pack(ExecuteResponse.newBuilder().setResult(actionResult).build()))
+                    .build());
+            responseObserver.onCompleted();
+          }
+        });
+    final Command command =
+        Command.newBuilder()
+            .addAllArguments(ImmutableList.of("/bin/echo", "Hi!"))
+            .addEnvironmentVariables(
+                Command.EnvironmentVariable.newBuilder()
+                    .setName("VARIABLE")
+                    .setValue("value")
+                    .build())
+            .build();
+    final Digest cmdDigest = Digests.computeDigest(command);
+    serviceRegistry.addService(
+        new ContentAddressableStorageImplBase() {
+          @Override
+          public void findMissingBlobs(
+              FindMissingBlobsRequest request,
+              StreamObserver<FindMissingBlobsResponse> responseObserver) {
+            FindMissingBlobsResponse.Builder b = FindMissingBlobsResponse.newBuilder();
+            final Set<Digest> requested = ImmutableSet.copyOf(request.getBlobDigestsList());
+            if (requested.contains(cmdDigest)) {
+              b.addMissingBlobDigests(cmdDigest);
+            } else if (requested.contains(inputDigest)) {
+              b.addMissingBlobDigests(inputDigest);
+            } else {
+              fail("Unexpected call to findMissingBlobs: " + request);
+            }
+            responseObserver.onNext(b.build());
+            responseObserver.onCompleted();
+          }
+        });
+
+    ByteStreamImplBase mockByteStreamImpl = Mockito.mock(ByteStreamImplBase.class);
+    when(mockByteStreamImpl.write(Mockito.<StreamObserver<WriteResponse>>anyObject()))
+        .thenAnswer(blobWriteAnswer(command.toByteArray()))
+        .thenAnswer(blobWriteAnswer("xyz".getBytes(UTF_8)));
+    serviceRegistry.addService(mockByteStreamImpl);
+
+    SpawnResult result = client.exec(simpleSpawn, simplePolicy);
+    assertThat(result.setupSuccess()).isTrue();
+    assertThat(result.exitCode()).isEqualTo(0);
+    assertThat(outErr.outAsLatin1()).isEqualTo("stdout");
+    assertThat(outErr.errAsLatin1()).isEqualTo("stderr");
+  }
+
+  @Test
+  public void remotelyExecuteWithWatch() throws Exception {
+    serviceRegistry.addService(
+        new ActionCacheImplBase() {
+          @Override
+          public void getActionResult(
+              GetActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
+            responseObserver.onError(
+                StatusProto.toStatusRuntimeException(
+                    Status.newBuilder().setCode(Code.NOT_FOUND.getNumber()).build()));
+          }
+        });
+    final ActionResult actionResult =
+        ActionResult.newBuilder()
+            .setStdoutRaw(ByteString.copyFromUtf8("stdout"))
+            .setStderrRaw(ByteString.copyFromUtf8("stderr"))
+            .build();
+    final String opName = "operations/xyz";
+    serviceRegistry.addService(
+        new ExecutionImplBase() {
+          @Override
+          public void execute(ExecuteRequest request, StreamObserver<Operation> responseObserver) {
+            responseObserver.onNext(Operation.newBuilder().setName(opName).build());
+            responseObserver.onCompleted();
+          }
+        });
+    serviceRegistry.addService(
+        new WatcherImplBase() {
+          @Override
+          public void watch(Request request, StreamObserver<ChangeBatch> responseObserver) {
+            assertThat(request.getTarget()).isEqualTo(opName);
+            // Some optional initial state.
+            responseObserver.onNext(
+                ChangeBatch.newBuilder()
+                    .addChanges(
+                        Change.newBuilder().setState(Change.State.INITIAL_STATE_SKIPPED).build())
+                    .build());
+            // Still executing.
+            responseObserver.onNext(
+                ChangeBatch.newBuilder()
+                    .addChanges(
+                        Change.newBuilder()
+                            .setState(Change.State.EXISTS)
+                            .setData(Any.pack(Operation.newBuilder().setName(opName).build()))
+                            .build())
+                    .addChanges(
+                        Change.newBuilder()
+                            .setState(Change.State.EXISTS)
+                            .setData(Any.pack(Operation.newBuilder().setName(opName).build()))
+                            .build())
+                    .build());
+            // Finished executing.
+            responseObserver.onNext(
+                ChangeBatch.newBuilder()
+                    .addChanges(
+                        Change.newBuilder()
+                            .setState(Change.State.EXISTS)
+                            .setData(
+                                Any.pack(
+                                    Operation.newBuilder()
+                                        .setName(opName)
+                                        .setDone(true)
+                                        .setResponse(
+                                            Any.pack(
+                                                ExecuteResponse.newBuilder()
+                                                    .setResult(actionResult)
+                                                    .build()))
+                                        .build()))
+                            .build())
                     .build());
             responseObserver.onCompleted();
           }
