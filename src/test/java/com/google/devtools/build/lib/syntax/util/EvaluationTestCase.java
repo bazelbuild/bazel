@@ -21,8 +21,8 @@ import com.google.common.base.Joiner;
 import com.google.common.truth.Ordered;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.syntax.BazelLibrary;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
@@ -131,7 +131,7 @@ public class EvaluationTestCase {
     setMode(TestMode.BUILD, skylarkOptions);
   }
 
-  public EventHandler getEventHandler() {
+  public ExtendedEventHandler getEventHandler() {
     return eventCollectionApparatus.reporter();
   }
 

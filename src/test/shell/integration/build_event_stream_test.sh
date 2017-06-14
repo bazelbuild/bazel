@@ -405,6 +405,12 @@ function test_visibility_failure() {
          //visibility:cannotsee && fail "build failure expected") || true
   expect_log '^analysis_failed'
   expect_not_log '^aborted'
+
+  # The same should hold true, if the server has already analyzed the target
+  (bazel build --experimental_build_event_text_file=$TEST_log \
+         //visibility:cannotsee && fail "build failure expected") || true
+  expect_log '^analysis_failed'
+  expect_not_log '^aborted'
 }
 
 function test_loading_failure_keep_going() {

@@ -23,6 +23,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.BlazeClock;
@@ -1017,9 +1018,12 @@ public final class ParallelEvaluator implements Evaluator {
         if (reifiedBuilderException.getRootCauseSkyKey().equals(parent)) {
           error = ErrorInfo.fromException(reifiedBuilderException,
               /*isTransitivelyTransient=*/ false);
-          bubbleErrorInfo.put(errorKey,
-              ValueWithMetadata.error(ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)),
-                  env.buildEvents(parentEntry, /*missingChildren=*/true)));
+          bubbleErrorInfo.put(
+              errorKey,
+              ValueWithMetadata.error(
+                  ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)),
+                  env.buildEvents(parentEntry, /*missingChildren=*/ true),
+                  env.buildPosts(parentEntry)));
           continue;
         }
       } finally {
@@ -1027,9 +1031,12 @@ public final class ParallelEvaluator implements Evaluator {
         Thread.interrupted();
       }
       // Builder didn't throw an exception, so just propagate this one up.
-      bubbleErrorInfo.put(errorKey,
-          ValueWithMetadata.error(ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)),
-              env.buildEvents(parentEntry, /*missingChildren=*/true)));
+      bubbleErrorInfo.put(
+          errorKey,
+          ValueWithMetadata.error(
+              ErrorInfo.fromChildErrors(errorKey, ImmutableSet.of(error)),
+              env.buildEvents(parentEntry, /*missingChildren=*/ true),
+              env.buildPosts(parentEntry)));
     }
 
     // Reset the interrupt bit if there was an interrupt from outside this evaluator interrupt.
@@ -1080,6 +1087,9 @@ public final class ParallelEvaluator implements Evaluator {
         continue;
       }
       SkyValue value = valueWithMetadata.getValue();
+      for (Postable post : valueWithMetadata.getTransitivePostables()) {
+        evaluatorContext.getReporter().post(post);
+      }
       // TODO(bazel-team): Verify that message replay is fast and works in failure
       // modes [skyframe-core]
       // Note that replaying events here is only necessary on null builds, because otherwise we

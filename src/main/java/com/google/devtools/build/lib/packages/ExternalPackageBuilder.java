@@ -53,6 +53,7 @@ public class ExternalPackageBuilder {
             /*env=*/ null,
             new AttributeContainer(ruleClass));
     pkg.addEvents(eventHandler.getEvents());
+    pkg.addPosts(eventHandler.getPosts());
     overwriteRule(pkg, rule);
     for (Map.Entry<String, Label> entry :
         ruleClass.getExternalBindingsFunction().apply(rule).entrySet()) {

@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
@@ -447,6 +448,9 @@ public class PackageFunction implements SkyFunction {
 
     Package pkg = workspace.getPackage();
     Event.replayEventsOn(env.getListener(), pkg.getEvents());
+    for (Postable post : pkg.getPosts()) {
+      env.getListener().post(post);
+    }
 
     packageFactory.afterDoneLoadingPackage(pkg);
     return new PackageValue(pkg);
@@ -594,6 +598,9 @@ public class PackageFunction implements SkyFunction {
     }
 
     Event.replayEventsOn(env.getListener(), pkgBuilder.getEvents());
+    for (Postable post : pkgBuilder.getPosts()) {
+      env.getListener().post(post);
+    }
 
     if (packageShouldBeConsideredInError) {
       pkgBuilder.setContainsErrors();

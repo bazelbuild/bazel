@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
@@ -213,6 +214,18 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     return eventBuilder.build();
   }
 
+  NestedSet<Postable> buildPosts(NodeEntry entry) throws InterruptedException {
+    NestedSetBuilder<Postable> postBuilder = NestedSetBuilder.stableOrder();
+    postBuilder.addAll(eventHandler.getPosts());
+
+    GroupedList<SkyKey> depKeys = entry.getTemporaryDirectDeps();
+    Collection<SkyValue> deps = getDepValuesForDoneNodeMaybeFromError(depKeys);
+    for (SkyValue value : deps) {
+      postBuilder.addTransitive(ValueWithMetadata.getPosts(value));
+    }
+    return postBuilder.build();
+  }
+
   /**
    * If this node has an error, that is, if errorInfo is non-null, do nothing. Otherwise, set
    * errorInfo to the union of the child errors that were recorded earlier by getValueOrException,
@@ -396,6 +409,9 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         if (bubbleErrorInfo == null) {
           addDep(depKey);
         }
+        for (Postable post : ValueWithMetadata.getPosts(depValue)) {
+          evaluatorContext.getReporter().post(post);
+        }
         evaluatorContext
             .getReplayingNestedSetEventVisitor()
             .visit(ValueWithMetadata.getEvents(depValue));
@@ -524,10 +540,6 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
    */
   void commit(NodeEntry primaryEntry, EnqueueParentBehavior enqueueParents)
       throws InterruptedException {
-    for (ExtendedEventHandler.Postable post : eventHandler.getPosts()) {
-      evaluatorContext.getReporter().post(post);
-    }
-
     // Construct the definitive error info, if there is one.
     finalizeErrorInfo();
 
@@ -538,17 +550,22 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     // (2) value == null && enqueueParents happens for values that are found to have errors
     // during a --keep_going build.
 
+    NestedSet<Postable> posts = buildPosts(primaryEntry);
     NestedSet<TaggedEvents> events = buildEvents(primaryEntry, /*missingChildren=*/ false);
+    for (ExtendedEventHandler.Postable post : posts) {
+      evaluatorContext.getReporter().post(post);
+    }
+
     Version valueVersion;
     SkyValue valueWithMetadata;
     if (value == null) {
       Preconditions.checkNotNull(errorInfo, "%s %s", skyKey, primaryEntry);
-      valueWithMetadata = ValueWithMetadata.error(errorInfo, events);
+      valueWithMetadata = ValueWithMetadata.error(errorInfo, events, posts);
     } else {
       // We must be enqueueing parents if we have a value.
       Preconditions.checkState(
           enqueueParents == EnqueueParentBehavior.ENQUEUE, "%s %s", skyKey, primaryEntry);
-      valueWithMetadata = ValueWithMetadata.normal(value, errorInfo, events);
+      valueWithMetadata = ValueWithMetadata.normal(value, errorInfo, events, posts);
     }
     if (!oldDeps.isEmpty()) {
       // Remove the rdep on this entry for each of its old deps that is no longer a direct dep.
@@ -594,6 +611,9 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     evaluatorContext.signalValuesAndEnqueueIfReady(
         skyKey, reverseDeps, valueVersion, enqueueParents);
 
+    for (Postable post : posts) {
+      evaluatorContext.getReporter().post(post);
+    }
     evaluatorContext.getReplayingNestedSetEventVisitor().visit(events);
   }
 

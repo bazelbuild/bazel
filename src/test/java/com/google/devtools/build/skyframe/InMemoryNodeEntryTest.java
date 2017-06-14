@@ -24,6 +24,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
@@ -46,6 +47,8 @@ public class InMemoryNodeEntryTest {
   private static final SkyFunctionName NODE_TYPE = SkyFunctionName.create("Type");
   private static final NestedSet<TaggedEvents> NO_EVENTS =
       NestedSetBuilder.<TaggedEvents>emptySet(Order.STABLE_ORDER);
+  private static final NestedSet<Postable> NO_POSTS =
+      NestedSetBuilder.<Postable>emptySet(Order.STABLE_ORDER);
 
   private static SkyKey key(String name) {
     return LegacySkyKey.create(NODE_TYPE, name);
@@ -739,7 +742,8 @@ public class InMemoryNodeEntryTest {
       NodeEntry entry, SkyValue value, @Nullable ErrorInfo errorInfo, long graphVersion)
       throws InterruptedException {
     return entry.setValue(
-        ValueWithMetadata.normal(value, errorInfo, NO_EVENTS), IntVersion.of(graphVersion));
+        ValueWithMetadata.normal(value, errorInfo, NO_EVENTS, NO_POSTS),
+        IntVersion.of(graphVersion));
   }
 
   private static void addTemporaryDirectDep(NodeEntry entry, SkyKey key) {

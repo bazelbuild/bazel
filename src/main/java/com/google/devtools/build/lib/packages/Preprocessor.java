@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 
@@ -23,9 +24,11 @@ public interface Preprocessor {
   static class AstAfterPreprocessing {
     public final BuildFileAST ast;
     public final Iterable<Event> allEvents;
+    public final Iterable<Postable> allPosts;
 
     public AstAfterPreprocessing(BuildFileAST ast, StoredEventHandler astParsingEventHandler) {
       this.ast = ast;
+      this.allPosts = astParsingEventHandler.getPosts();
       this.allEvents = astParsingEventHandler.getEvents();
     }
   }

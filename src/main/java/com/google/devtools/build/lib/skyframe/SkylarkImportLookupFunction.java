@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.PackageFactory;
@@ -387,6 +388,9 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       execAndExport(ast, extensionLabel, eventHandler, extensionEnv);
 
       Event.replayEventsOn(env.getListener(), eventHandler.getEvents());
+      for (Postable post : eventHandler.getPosts()) {
+        env.getListener().post(post);
+      }
       if (eventHandler.hasErrors()) {
         throw SkylarkImportFailedException.errors(extensionFile);
       }

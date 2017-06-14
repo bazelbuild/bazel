@@ -26,7 +26,8 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -1354,8 +1355,11 @@ public final class PackageFactory {
         globber);
   }
 
-  public static BuildFileAST parseBuildFile(PackageIdentifier packageId, ParserInputSource in,
-      List<Statement> preludeStatements, EventHandler eventHandler) {
+  public static BuildFileAST parseBuildFile(
+      PackageIdentifier packageId,
+      ParserInputSource in,
+      List<Statement> preludeStatements,
+      ExtendedEventHandler eventHandler) {
     // Logged messages are used as a testability hook tracing the parsing progress
     LOG.fine("Starting to parse " + packageId);
     BuildFileAST buildFileAST = BuildFileAST.parseBuildFile(in, preludeStatements, eventHandler);
@@ -1396,6 +1400,7 @@ public final class PackageFactory {
           buildFile,
           globber,
           astAfterPreprocessing.allEvents,
+          astAfterPreprocessing.allPosts,
           defaultVisibility,
           skylarkSemantics,
           false /* containsError */,
@@ -1425,7 +1430,7 @@ public final class PackageFactory {
       PackageIdentifier packageId,
       Path buildFile,
       CachingPackageLocator locator,
-      EventHandler eventHandler)
+      ExtendedEventHandler eventHandler)
       throws NoSuchPackageException, InterruptedException {
     Package externalPkg = newExternalPackageBuilder(
         buildFile.getRelative("WORKSPACE"), "TESTING").build();
@@ -1433,8 +1438,8 @@ public final class PackageFactory {
   }
 
   /**
-   * Same as createPackage, but does the required validation of "packageName" first,
-   * throwing a {@link NoSuchPackageException} if the name is invalid.
+   * Same as createPackage, but does the required validation of "packageName" first, throwing a
+   * {@link NoSuchPackageException} if the name is invalid.
    */
   @VisibleForTesting
   public Package createPackageForTesting(
@@ -1442,7 +1447,7 @@ public final class PackageFactory {
       Package externalPkg,
       Path buildFile,
       CachingPackageLocator locator,
-      EventHandler eventHandler)
+      ExtendedEventHandler eventHandler)
       throws NoSuchPackageException, InterruptedException {
     String error =
         LabelValidator.validatePackageName(packageId.getPackageFragment().getPathString());
@@ -1473,6 +1478,9 @@ public final class PackageFactory {
                 Options.getDefaults(SkylarkSemanticsOptions.class),
                 globber)
             .build();
+    for (Postable post : result.getPosts()) {
+      eventHandler.post(post);
+    }
     Event.replayEventsOn(eventHandler, result.getEvents());
     return result;
   }
@@ -1518,7 +1526,7 @@ public final class PackageFactory {
   }
 
   @Nullable
-  private byte[] maybeGetBuildFileBytes(Path buildFile, EventHandler eventHandler) {
+  private byte[] maybeGetBuildFileBytes(Path buildFile, ExtendedEventHandler eventHandler) {
     try {
       return FileSystemUtils.readWithKnownFileSize(buildFile, buildFile.getFileSize());
     } catch (IOException e) {
@@ -1541,14 +1549,14 @@ public final class PackageFactory {
   public static class PackageContext {
     final Package.Builder pkgBuilder;
     final Globber globber;
-    final EventHandler eventHandler;
+    final ExtendedEventHandler eventHandler;
     private final Function<RuleClass, AttributeContainer> attributeContainerFactory;
 
     @VisibleForTesting
     public PackageContext(
         Package.Builder pkgBuilder,
         Globber globber,
-        EventHandler eventHandler,
+        ExtendedEventHandler eventHandler,
         Function<RuleClass, AttributeContainer> attributeContainerFactory) {
       this.pkgBuilder = pkgBuilder;
       this.eventHandler = eventHandler;
@@ -1673,20 +1681,17 @@ public final class PackageFactory {
   }
 
   /**
-   * Constructs a Package instance, evaluates the BUILD-file AST inside the
-   * build environment, and populates the package with Rule instances as it
-   * goes.  As with most programming languages, evaluation stops when an
-   * exception is encountered: no further rules after the point of failure will
-   * be constructed.  We assume that rules constructed before the point of
-   * failure are valid; this assumption is not entirely correct, since a
-   * "vardef" after a rule declaration can affect the behavior of that rule.
+   * Constructs a Package instance, evaluates the BUILD-file AST inside the build environment, and
+   * populates the package with Rule instances as it goes. As with most programming languages,
+   * evaluation stops when an exception is encountered: no further rules after the point of failure
+   * will be constructed. We assume that rules constructed before the point of failure are valid;
+   * this assumption is not entirely correct, since a "vardef" after a rule declaration can affect
+   * the behavior of that rule.
    *
-   * <p>Rule attribute checking is performed during evaluation. Each attribute
-   * must conform to the type specified for that <i>(rule class, attribute
-   * name)</i> pair.  Errors reported at this stage include: missing value for
-   * mandatory attribute, value of wrong type.  Such error cause Rule
-   * construction to be aborted, so the resulting package will have missing
-   * members.
+   * <p>Rule attribute checking is performed during evaluation. Each attribute must conform to the
+   * type specified for that <i>(rule class, attribute name)</i> pair. Errors reported at this stage
+   * include: missing value for mandatory attribute, value of wrong type. Such error cause Rule
+   * construction to be aborted, so the resulting package will have missing members.
    *
    * @see PackageFactory#PackageFactory
    */
@@ -1698,6 +1703,7 @@ public final class PackageFactory {
       Path buildFilePath,
       Globber globber,
       Iterable<Event> pastEvents,
+      Iterable<Postable> pastPosts,
       RuleVisibility defaultVisibility,
       SkylarkSemanticsOptions skylarkSemantics,
       boolean containsError,
@@ -1730,6 +1736,9 @@ public final class PackageFactory {
           .setWorkspaceName(workspaceName);
 
       Event.replayEventsOn(eventHandler, pastEvents);
+      for (Postable post : pastPosts) {
+        eventHandler.post(post);
+      }
 
       // Stuff that closes over the package context:
       PackageContext context =
@@ -1762,6 +1771,7 @@ public final class PackageFactory {
       }
     }
 
+    pkgBuilder.addPosts(eventHandler.getPosts());
     pkgBuilder.addEvents(eventHandler.getEvents());
     return pkgBuilder;
   }
@@ -1825,21 +1835,18 @@ public final class PackageFactory {
     }
   }
 
-
   /**
-   * Tests a build AST to ensure that it contains no assignment statements that
-   * redefine built-in build rules.
+   * Tests a build AST to ensure that it contains no assignment statements that redefine built-in
+   * build rules.
    *
-   * @param pkgEnv a package environment initialized with all of the built-in
-   *        build rules
+   * @param pkgEnv a package environment initialized with all of the built-in build rules
    * @param ast the build file AST to be tested
    * @param eventHandler a eventHandler where any errors should be logged
-   * @return true if the build file contains no redefinitions of built-in
-   *         functions
+   * @return true if the build file contains no redefinitions of built-in functions
    */
   // TODO(bazel-team): Remove this check. It should be moved to LValue.assign
   private static boolean validateAssignmentStatements(
-      Environment pkgEnv, BuildFileAST ast, EventHandler eventHandler) {
+      Environment pkgEnv, BuildFileAST ast, ExtendedEventHandler eventHandler) {
     for (Statement stmt : ast.getStatements()) {
       if (stmt instanceof AssignmentStatement) {
         Expression lvalue = ((AssignmentStatement) stmt).getLValue().getExpression();
@@ -1858,8 +1865,8 @@ public final class PackageFactory {
   }
 
   // Reports an error and returns false iff package identifier was illegal.
-  private static boolean validatePackageIdentifier(PackageIdentifier packageId, Location location,
-      EventHandler eventHandler) {
+  private static boolean validatePackageIdentifier(
+      PackageIdentifier packageId, Location location, ExtendedEventHandler eventHandler) {
     String error = LabelValidator.validatePackageName(packageId.getPackageFragment().toString());
     if (error != null) {
       eventHandler.handle(Event.error(location, error));

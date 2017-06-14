@@ -224,6 +224,7 @@ public class WorkspaceFactory {
     }
     variableBindings = bindingsBuilder.build();
 
+    builder.addPosts(localReporter.getPosts());
     builder.addEvents(localReporter.getEvents());
     if (localReporter.hasErrors()) {
       builder.setContainsErrors();
@@ -255,6 +256,7 @@ public class WorkspaceFactory {
     this.parentImportMap = importMap;
     builder.setWorkspaceName(aPackage.getWorkspaceName());
     // Transmit the content of the parent package to the new package builder.
+    builder.addPosts(aPackage.getPosts());
     builder.addEvents(aPackage.getEvents());
     if (aPackage.containsErrors()) {
       builder.setContainsErrors();
