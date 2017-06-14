@@ -88,6 +88,16 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   public boolean incompatibleBzlDisallowLoadAfterStatement;
 
   @Option(
+    name = "incompatible_load_argument_is_label",
+    defaultValue = "false",
+    category = "incompatible changes",
+    help =
+        "If set to true, the first argument of 'load' statements is a label (not a path). "
+            + "It must start with '//' or ':'."
+  )
+  public boolean incompatibleLoadArgumentIsLabel;
+
+  @Option(
     name = "incompatible_disallow_toplevel_if_statement",
     defaultValue = "false",
     category = "incompatible changes",

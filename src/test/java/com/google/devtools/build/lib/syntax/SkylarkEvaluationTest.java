@@ -1520,4 +1520,20 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     eval("def foo():", "  a = 10", "  b = [a for a in range(3)]", "  return a", "x = foo()");
     assertThat(lookup("x")).isEqualTo(2);
   }
+
+  @Test
+  public void testLoadStatementWithAbsolutePath() throws Exception {
+    env = newEnvironmentWithSkylarkOptions("--incompatible_load_argument_is_label");
+    checkEvalErrorContains(
+        "First argument of 'load' must be a label and start with either '//' or ':'",
+        "load('/tmp/foo', 'arg')");
+  }
+
+  @Test
+  public void testLoadStatementWithRelativePath() throws Exception {
+    env = newEnvironmentWithSkylarkOptions("--incompatible_load_argument_is_label");
+    checkEvalErrorContains(
+        "First argument of 'load' must be a label and start with either '//' or ':'",
+        "load('foo', 'arg')");
+  }
 }

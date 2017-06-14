@@ -173,6 +173,20 @@ with Python. A possible workaround is to use the `.update` method instead.
 *   Flag: `--incompatible_disallow_dict_plus`
 *   Default: `false`
 
+### Load argument is a label
+
+Historically, the first argument of `load` could be a path with an implicit
+`.bzl` suffix. We are going to require that all `load` statements use the label
+syntax.
+
+``` python
+load("/path/foo", "var")  # deprecated
+load("//path:foo.bzl", "var")  # recommended
+```
+
+*   Flag: `--incompatible_load_argument_is_label`
+*   Default: `false`
+
 ### Top level `if` statements
 
 This change forbids `if` statements at the top level of `.bzl` files (they are
