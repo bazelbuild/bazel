@@ -90,3 +90,9 @@ filegroup(
     srcs = glob(["**"]) + ["//third_party/ijar/test:srcs"],
     visibility = ["//third_party:__pkg__"],
 )
+
+filegroup(
+    name = "embedded_tools",
+    srcs = glob(["**"]),
+    visibility = ["//visibility:public"],
+)
