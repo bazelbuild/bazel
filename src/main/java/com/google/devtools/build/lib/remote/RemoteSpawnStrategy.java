@@ -317,7 +317,6 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
           ExecuteRequest.newBuilder()
               .setInstanceName(remoteOptions.remoteInstanceName)
               .setAction(action)
-              .setWaitForCompletion(true)
               .setTotalInputFileCount(inputMap.size())
               .setSkipCacheLookup(!acceptCachedResult);
       ExecuteResponse reply = workExecutor.executeRemotely(request.build());

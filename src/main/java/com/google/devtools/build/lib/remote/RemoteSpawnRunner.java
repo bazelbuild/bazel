@@ -115,7 +115,6 @@ final class RemoteSpawnRunner implements SpawnRunner {
             ExecuteRequest.newBuilder()
                 .setInstanceName(options.remoteInstanceName)
                 .setAction(action)
-                .setWaitForCompletion(true)
                 .setTotalInputFileCount(inputMap.size())
                 .setSkipCacheLookup(!options.remoteAcceptCached);
         result = executor.executeRemotely(request.build()).getResult();
