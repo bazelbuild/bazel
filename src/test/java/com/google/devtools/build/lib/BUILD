@@ -42,6 +42,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/rules/platform:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/repository:srcs",
         "//src/test/java/com/google/devtools/build/lib/bazel/repository:srcs",
+        "//src/test/java/com/google/devtools/build/lib/buildeventservice:srcs",
         "//src/test/java/com/google/devtools/build/lib/buildeventstream/transports:srcs",
         "//src/test/java/com/google/devtools/build/lib/buildtool:srcs",
     ],

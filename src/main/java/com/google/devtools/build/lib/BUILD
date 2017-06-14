@@ -359,6 +359,7 @@ java_library(
         "//visibility:public",
     ],
     deps = [
+        ":vfs",
         "//src/main/java/com/google/devtools/build/lib:auth_and_tls_options",
         "//src/main/java/com/google/devtools/build/lib:buildeventstream",
         "//src/main/java/com/google/devtools/build/lib:events",
@@ -367,6 +368,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/transports",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
         "//third_party:joda_time",
@@ -387,6 +389,8 @@ java_library(
     visibility = [
         "//src/main/java/com/google/devtools/build/lib/remote:__pkg__",
         "//src/test/java/com/google/devtools/build/lib:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/buildeventservice:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/remote:__pkg__",
         "//src/tools/remote_worker/src/main/java/com/google/devtools/build/remote:__pkg__",
     ],
     deps = [
@@ -1165,7 +1169,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
-        "//src/main/java/com/google/devtools/build/lib/buildeventstream/transports",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/query2",
         "//src/main/java/com/google/devtools/build/lib/query2:query-engine",

@@ -9,6 +9,7 @@ java_library(
     srcs = glob(["*.java"]),
     visibility = [
         "//src/main/java/com/google/devtools/build/lib:__pkg__",
+        "//src/test/java/com/google/devtools/build/lib/buildeventservice:__pkg__",
     ],
     runtime_deps = [
         # This is required for client TLS.

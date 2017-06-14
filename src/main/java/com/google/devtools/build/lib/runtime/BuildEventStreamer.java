@@ -399,7 +399,7 @@ public class BuildEventStreamer implements EventHandler {
   }
 
   @VisibleForTesting
-  ImmutableSet<BuildEventTransport> getTransports() {
+  public ImmutableSet<BuildEventTransport> getTransports() {
     return ImmutableSet.copyOf(transports);
   }
 
