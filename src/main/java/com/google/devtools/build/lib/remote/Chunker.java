@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
@@ -27,7 +28,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
@@ -38,16 +38,16 @@ import java.util.Set;
 /** An iterator-type object that transforms byte sources into a stream of Chunks. */
 public final class Chunker {
   // This is effectively final, should be changed only in unit-tests!
-  private static int DEFAULT_CHUNK_SIZE = 1024 * 16;
-  private static byte[] EMPTY_BLOB = new byte[0];
+  private static int defaultChunkSize = 1024 * 16;
+  private static final byte[] EMPTY_BLOB = new byte[0];
 
   @VisibleForTesting
   static void setDefaultChunkSizeForTesting(int value) {
-    DEFAULT_CHUNK_SIZE = value;
+    defaultChunkSize = value;
   }
 
   public static int getDefaultChunkSize() {
-    return DEFAULT_CHUNK_SIZE;
+    return defaultChunkSize;
   }
 
   /** A piece of a byte[] blob. */
@@ -59,7 +59,7 @@ public final class Chunker {
     private final byte[] data;
 
     @VisibleForTesting
-    public Chunk(Digest digest, byte[] data, long offset) {
+    Chunk(Digest digest, byte[] data, long offset) {
       this.digest = digest;
       this.data = data;
       this.offset = offset;
@@ -123,7 +123,7 @@ public final class Chunker {
   }
 
   public void advanceInput() throws IOException {
-    if (inputIterator != null && inputIterator.hasNext()) {
+    if (inputIterator.hasNext()) {
       Item input = inputIterator.next();
       digest = input.getDigest();
       currentStream = input.getInputStream();
@@ -135,7 +135,7 @@ public final class Chunker {
     }
   }
 
-  /** True if the object has more Chunk elements. */
+  /** True if the object has more {@link Chunk} elements. */
   public boolean hasNext() {
     return currentStream != null;
   }
@@ -145,14 +145,14 @@ public final class Chunker {
     if (!hasNext()) {
       throw new NoSuchElementException();
     }
-    final long offset = digest.getSizeBytes() - bytesLeft;
+    long offset = digest.getSizeBytes() - bytesLeft;
     byte[] blob = EMPTY_BLOB;
     if (bytesLeft > 0) {
       blob = new byte[(int) Math.min(bytesLeft, chunkSize)];
       currentStream.read(blob);
       bytesLeft -= blob.length;
     }
-    final Chunk result = new Chunk(digest, blob, offset);
+    Chunk result = new Chunk(digest, blob, offset);
     if (bytesLeft == 0) {
       currentStream.close();
       advanceInput(); // Sets the current stream to null, if it was the last.
@@ -160,7 +160,7 @@ public final class Chunker {
     return result;
   }
 
-  static Item toItem(final byte[] blob) {
+  private static Item toItem(final byte[] blob) {
     return new Item() {
       Digest digest = null;
 
@@ -179,7 +179,7 @@ public final class Chunker {
     };
   }
 
-  static Item toItem(final Path file) {
+  private static Item toItem(final Path file) {
     return new Item() {
       Digest digest = null;
 
@@ -198,7 +198,7 @@ public final class Chunker {
     };
   }
 
-  static Item toItem(
+  private static Item toItem(
       final ActionInput input, final ActionInputFileCache inputCache, final Path execRoot) {
     if (input instanceof VirtualActionInput) {
       return toItem((VirtualActionInput) input);
@@ -216,7 +216,7 @@ public final class Chunker {
     };
   }
 
-  static Item toItem(final VirtualActionInput input) {
+  private static Item toItem(final VirtualActionInput input) {
     return new Item() {
       Digest digest = null;
 
@@ -276,7 +276,7 @@ public final class Chunker {
     return from(file, getDefaultChunkSize());
   }
 
-  static class MemberOf implements Predicate<Item> {
+  private static class MemberOf implements Predicate<Item> {
     private final Set<Digest> digests;
 
     public MemberOf(Set<Digest> digests) {
@@ -298,15 +298,15 @@ public final class Chunker {
    * will be the same order they will be chunked by.
    */
   public static final class Builder {
-    private final ArrayList<Item> items = new ArrayList<>();
+    private final ImmutableList.Builder<Item> items = ImmutableList.builder();
     private Set<Digest> digests = null;
     private int chunkSize = getDefaultChunkSize();
 
     public Chunker build() throws IOException {
       return new Chunker(
           digests == null
-              ? items.iterator()
-              : Iterators.filter(items.iterator(), new MemberOf(digests)),
+              ? items.build().iterator()
+              : Iterators.filter(items.build().iterator(), new MemberOf(digests)),
           chunkSize);
     }
 
