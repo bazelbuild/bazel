@@ -429,6 +429,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
     checkEmptyAction(ruleContext, "mnemonic = 'test'");
     checkEmptyAction(ruleContext, "mnemonic = 'test', inputs = ruleContext.files.srcs");
+    checkEmptyAction(ruleContext, "mnemonic = 'test', inputs = depset(ruleContext.files.srcs)");
 
     checkErrorContains(
         ruleContext,
