@@ -222,7 +222,7 @@ public class JavaSkylarkCommon {
             : hostJavabaseProvider.getMiddlemanArtifact();
     JavaToolchainProvider javaToolchainProvider =
         checkNotNull(javaToolchain.getProvider(JavaToolchainProvider.class));
-    JavaCompilationArtifacts artifacts =
+    JavaCompilationArgs artifacts =
         helper.build(
             javaSemantics,
             javaToolchainProvider,
