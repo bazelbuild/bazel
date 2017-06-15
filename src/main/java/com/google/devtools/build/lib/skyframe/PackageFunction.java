@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Throwables;
 import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
@@ -633,6 +634,16 @@ public class PackageFunction implements SkyFunction {
     return buildFileValue;
   }
 
+  private static BuildFileContainsErrorsException propagateSkylarkImportFailedException(
+      PackageIdentifier packageId, SkylarkImportFailedException e)
+          throws BuildFileContainsErrorsException {
+    Throwable rootCause = Throwables.getRootCause(e);
+    throw (rootCause instanceof IOException)
+        ? new BuildFileContainsErrorsException(
+            packageId, e.getMessage(), (IOException) rootCause)
+        : new BuildFileContainsErrorsException(packageId, e.getMessage());
+  }
+
   /**
    * Fetch the skylark loads for this BUILD file. If any of them haven't been computed yet,
    * returns null.
@@ -667,7 +678,7 @@ public class PackageFunction implements SkyFunction {
         return null;
       }
     } catch (SkylarkImportFailedException e) {
-      throw new BuildFileContainsErrorsException(packageId, e.getMessage());
+      throw propagateSkylarkImportFailedException(packageId, e);
     }
 
     // Look up and load the imports.
@@ -721,7 +732,7 @@ public class PackageFunction implements SkyFunction {
 
       }
     } catch (SkylarkImportFailedException e) {
-      throw new BuildFileContainsErrorsException(packageId, e.getMessage());
+      throw propagateSkylarkImportFailedException(packageId, e);
     } catch (InconsistentFilesystemException e) {
       throw new NoSuchPackageException(packageId, e.getMessage(), e);
     }

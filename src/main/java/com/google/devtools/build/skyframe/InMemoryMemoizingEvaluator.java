@@ -176,6 +176,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
               eventHandler,
               emittedEventState,
               DEFAULT_STORED_EVENT_FILTER,
+              ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
               keepGoing,
               numThreads,
               progressReceiver);

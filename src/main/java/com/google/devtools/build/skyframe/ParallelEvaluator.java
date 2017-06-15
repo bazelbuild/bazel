@@ -105,6 +105,7 @@ public final class ParallelEvaluator implements Evaluator {
       final ExtendedEventHandler reporter,
       EmittedEventState emittedEventState,
       EventFilter storedEventFilter,
+      ErrorInfoManager errorInfoManager,
       boolean keepGoing,
       int threadCount,
       DirtyTrackingProgressReceiver progressReceiver) {
@@ -117,9 +118,9 @@ public final class ParallelEvaluator implements Evaluator {
             reporter,
             emittedEventState,
             keepGoing,
-            /*storeErrorsAlongsideValues=*/ true,
             progressReceiver,
             storedEventFilter,
+            errorInfoManager,
             createEvaluateRunnable(),
             threadCount);
     cycleDetector = new SimpleCycleDetector();
@@ -132,14 +133,13 @@ public final class ParallelEvaluator implements Evaluator {
       final ExtendedEventHandler reporter,
       EmittedEventState emittedEventState,
       EventFilter storedEventFilter,
+      ErrorInfoManager errorInfoManager,
       boolean keepGoing,
-      boolean storeErrorsAlongsideValues,
       DirtyTrackingProgressReceiver progressReceiver,
       ForkJoinPool forkJoinPool,
       CycleDetector cycleDetector) {
     this.graph = graph;
     this.cycleDetector = cycleDetector;
-    Preconditions.checkState(storeErrorsAlongsideValues || keepGoing);
     evaluatorContext =
         new ParallelEvaluatorContext(
             graph,
@@ -148,9 +148,9 @@ public final class ParallelEvaluator implements Evaluator {
             reporter,
             emittedEventState,
             keepGoing,
-            storeErrorsAlongsideValues,
             progressReceiver,
             storedEventFilter,
+            errorInfoManager,
             createEvaluateRunnable(),
             Preconditions.checkNotNull(forkJoinPool));
   }
@@ -449,15 +449,16 @@ public final class ParallelEvaluator implements Evaluator {
               }
               ErrorInfo depError = depEntry.getErrorInfo();
               if (depError != null) {
-                isTransitivelyTransient |= depError.isTransient();
+                isTransitivelyTransient |= depError.isTransitivelyTransient();
               }
             }
-            ErrorInfo errorInfo =
-                ErrorInfo.fromException(reifiedBuilderException, isTransitivelyTransient);
+            ErrorInfo errorInfo = evaluatorContext.getErrorInfoManager().fromException(
+                skyKey,
+                reifiedBuilderException,
+                isTransitivelyTransient);
             registerNewlyDiscoveredDepsForDoneEntry(
                 skyKey, state, newlyRequestedDeps, oldDeps, env);
-            env.setError(
-                state, errorInfo, /*isDirectlyTransient=*/ reifiedBuilderException.isTransient());
+            env.setError(state, errorInfo);
             env.commit(
                 state,
                 evaluatorContext.keepGoing()

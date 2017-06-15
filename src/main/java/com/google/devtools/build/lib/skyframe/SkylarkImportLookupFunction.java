@@ -133,7 +133,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       astLookupValue = (ASTFileLookupValue) env.getValueOrThrow(astLookupKey,
           ErrorReadingSkylarkExtensionException.class, InconsistentFilesystemException.class);
     } catch (ErrorReadingSkylarkExtensionException e) {
-      throw SkylarkImportFailedException.errorReadingFile(filePath, e.getMessage());
+      throw SkylarkImportFailedException.errorReadingFile(filePath, e);
     }
     if (astLookupValue == null) {
       return null;
@@ -441,16 +441,20 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       super(errorMessage);
     }
 
+    private SkylarkImportFailedException(String errorMessage, Exception cause) {
+      super(errorMessage, cause);
+    }
+
     private SkylarkImportFailedException(InconsistentFilesystemException e) {
-      super(e.getMessage());
+      this(e.getMessage(), e);
     }
 
     private SkylarkImportFailedException(BuildFileNotFoundException e) {
-      super(e.getMessage());
+      this(e.getMessage(), e);
     }
 
     private SkylarkImportFailedException(LabelSyntaxException e) {
-      super(e.getMessage());
+      this(e.getMessage(), e);
     }
 
     static SkylarkImportFailedException errors(PathFragment file) {
@@ -458,9 +462,14 @@ public class SkylarkImportLookupFunction implements SkyFunction {
           String.format("Extension file '%s' has errors", file));
     }
 
-    static SkylarkImportFailedException errorReadingFile(PathFragment file, String error) {
+    static SkylarkImportFailedException errorReadingFile(
+        PathFragment file, ErrorReadingSkylarkExtensionException cause) {
       return new SkylarkImportFailedException(
-          String.format("Encountered error while reading extension file '%s': %s", file, error));
+          String.format(
+              "Encountered error while reading extension file '%s': %s",
+              file,
+              cause.getMessage()),
+          cause);
     }
 
     static SkylarkImportFailedException noFile(String reason) {

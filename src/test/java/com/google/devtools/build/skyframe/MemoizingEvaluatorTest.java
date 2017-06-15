@@ -1200,7 +1200,7 @@ public class MemoizingEvaluatorTest {
     if (errorsStoredAlongsideValues) {
       // The parent should be transitively transient, since it transitively depends on a transient
       // error.
-      assertThat(errorInfo.isTransient()).isTrue();
+      assertThat(errorInfo.isTransitivelyTransient()).isTrue();
       assertThat(errorInfo.getException()).hasMessage(NODE_TYPE.getName() + ":errorKey");
       assertThat(errorInfo.getRootCauseOfException()).isEqualTo(errorKey);
     } else {

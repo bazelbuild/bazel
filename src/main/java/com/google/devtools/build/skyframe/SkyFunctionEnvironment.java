@@ -226,27 +226,6 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     return postBuilder.build();
   }
 
-  /**
-   * If this node has an error, that is, if errorInfo is non-null, do nothing. Otherwise, set
-   * errorInfo to the union of the child errors that were recorded earlier by getValueOrException,
-   * if there are any.
-   *
-   * <p>Child errors are remembered, if there are any and yet the parent recovered without error, so
-   * that subsequent noKeepGoing evaluations can stop as soon as they encounter a node whose
-   * (transitive) children had experienced an error, even if that (transitive) parent node had been
-   * able to recover from it during a keepGoing build. This behavior can be suppressed by setting
-   * {@link ParallelEvaluatorContext#storeErrorsAlongsideValues} to false, which will cause nodes
-   * with values to have no stored error info. This may be useful if this graph will only ever be
-   * used for keepGoing builds, since in that case storing errors from recovered nodes is pointless.
-   */
-  private void finalizeErrorInfo() {
-    if (errorInfo == null
-        && (evaluatorContext.storeErrorsAlongsideValues() || value == null)
-        && !childErrorInfos.isEmpty()) {
-      errorInfo = ErrorInfo.fromChildErrors(skyKey, childErrorInfos);
-    }
-  }
-
   void setValue(SkyValue newValue) {
     Preconditions.checkState(
         errorInfo == null && bubbleErrorInfo == null,
@@ -264,12 +243,11 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
    * dependencies of this node <i>must</i> already have been registered, since this method may
    * register a dependence on the error transience node, which should always be the last dep.
    */
-  void setError(NodeEntry state, ErrorInfo errorInfo, boolean isDirectlyTransient)
-      throws InterruptedException {
+  void setError(NodeEntry state, ErrorInfo errorInfo)  throws InterruptedException {
     Preconditions.checkState(value == null, "%s %s %s", skyKey, value, errorInfo);
     Preconditions.checkState(this.errorInfo == null, "%s %s %s", skyKey, this.errorInfo, errorInfo);
 
-    if (isDirectlyTransient) {
+    if (errorInfo.isDirectlyTransient()) {
       NodeEntry errorTransienceNode =
           Preconditions.checkNotNull(
               evaluatorContext
@@ -541,7 +519,10 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   void commit(NodeEntry primaryEntry, EnqueueParentBehavior enqueueParents)
       throws InterruptedException {
     // Construct the definitive error info, if there is one.
-    finalizeErrorInfo();
+    if (errorInfo == null) {
+      errorInfo = evaluatorContext.getErrorInfoManager().getErrorInfoToUse(
+          skyKey, value != null, childErrorInfos);
+    }
 
     // We have the following implications:
     // errorInfo == null => value != null => enqueueParents.

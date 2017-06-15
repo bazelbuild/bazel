@@ -47,9 +47,10 @@ class ParallelEvaluatorContext {
   private final ExtendedEventHandler reporter;
   private final NestedSetVisitor<TaggedEvents> replayingNestedSetEventVisitor;
   private final boolean keepGoing;
-  private final boolean storeErrorsAlongsideValues;
   private final DirtyTrackingProgressReceiver progressReceiver;
   private final EventFilter storedEventFilter;
+  private final ErrorInfoManager errorInfoManager;
+
   /**
    * The visitor managing the thread pool. Used to enqueue parents when an entry is finished, and,
    * during testing, to block until an exception is thrown if a node builder requests that.
@@ -65,9 +66,9 @@ class ParallelEvaluatorContext {
       ExtendedEventHandler reporter,
       EmittedEventState emittedEventState,
       boolean keepGoing,
-      boolean storeErrorsAlongsideValues,
       final DirtyTrackingProgressReceiver progressReceiver,
       EventFilter storedEventFilter,
+      ErrorInfoManager errorInfoManager,
       final Function<SkyKey, Runnable> runnableMaker,
       final int threadCount) {
     this.graph = graph;
@@ -77,9 +78,9 @@ class ParallelEvaluatorContext {
     this.replayingNestedSetEventVisitor =
         new NestedSetVisitor<>(new NestedSetEventReceiver(reporter), emittedEventState);
     this.keepGoing = keepGoing;
-    this.storeErrorsAlongsideValues = storeErrorsAlongsideValues;
     this.progressReceiver = Preconditions.checkNotNull(progressReceiver);
     this.storedEventFilter = storedEventFilter;
+    this.errorInfoManager = errorInfoManager;
     visitorSupplier =
         Suppliers.memoize(
             new Supplier<NodeEntryVisitor>() {
@@ -98,9 +99,9 @@ class ParallelEvaluatorContext {
       ExtendedEventHandler reporter,
       EmittedEventState emittedEventState,
       boolean keepGoing,
-      boolean storeErrorsAlongsideValues,
       final DirtyTrackingProgressReceiver progressReceiver,
       EventFilter storedEventFilter,
+      ErrorInfoManager errorInfoManager,
       final Function<SkyKey, Runnable> runnableMaker,
       final ForkJoinPool forkJoinPool) {
     this.graph = graph;
@@ -110,9 +111,9 @@ class ParallelEvaluatorContext {
     this.replayingNestedSetEventVisitor =
         new NestedSetVisitor<>(new NestedSetEventReceiver(reporter), emittedEventState);
     this.keepGoing = keepGoing;
-    this.storeErrorsAlongsideValues = storeErrorsAlongsideValues;
     this.progressReceiver = Preconditions.checkNotNull(progressReceiver);
     this.storedEventFilter = storedEventFilter;
+    this.errorInfoManager = errorInfoManager;
     visitorSupplier =
         Suppliers.memoize(
             new Supplier<NodeEntryVisitor>() {
@@ -203,8 +204,8 @@ class ParallelEvaluatorContext {
     return storedEventFilter;
   }
 
-  boolean storeErrorsAlongsideValues() {
-    return storeErrorsAlongsideValues;
+  ErrorInfoManager getErrorInfoManager() {
+    return errorInfoManager;
   }
 
   /** Receives the events from the NestedSet and delegates to the reporter. */

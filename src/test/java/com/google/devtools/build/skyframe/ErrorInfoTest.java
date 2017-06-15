@@ -59,7 +59,9 @@ public class ErrorInfoTest {
     assertThat(errorInfo.getException()).isSameAs(exception);
     assertThat(errorInfo.getRootCauseOfException()).isSameAs(causeOfException);
     assertThat(errorInfo.getCycleInfo()).isEmpty();
-    assertThat(errorInfo.isTransient()).isEqualTo(isDirectlyTransient || isTransitivelyTransient);
+    assertThat(errorInfo.isDirectlyTransient()).isEqualTo(isDirectlyTransient);
+    assertThat(errorInfo.isTransitivelyTransient()).isEqualTo(
+        isDirectlyTransient || isTransitivelyTransient);
     assertThat(errorInfo.isCatastrophic()).isFalse();
   }
 
@@ -95,7 +97,7 @@ public class ErrorInfoTest {
     assertThat(errorInfo.getRootCauses()).isEmpty();
     assertThat(errorInfo.getException()).isNull();
     assertThat(errorInfo.getRootCauseOfException()).isNull();
-    assertThat(errorInfo.isTransient()).isFalse();
+    assertThat(errorInfo.isTransitivelyTransient()).isFalse();
     assertThat(errorInfo.isCatastrophic()).isFalse();
   }
 
@@ -141,7 +143,7 @@ public class ErrorInfoTest {
         new CycleInfo(
             ImmutableList.of(currentKey, Iterables.getOnlyElement(cycle.getPathToCycle())),
             cycle.getCycle()));
-    assertThat(errorInfo.isTransient()).isTrue();
+    assertThat(errorInfo.isTransitivelyTransient()).isTrue();
     assertThat(errorInfo.isCatastrophic()).isTrue();
   }
 
@@ -153,6 +155,7 @@ public class ErrorInfoTest {
           /*exception=*/ null,
           /*rootCauseOfException=*/ null,
           ImmutableList.<CycleInfo>of(),
+          false,
           false,
           false);
     } catch (IllegalStateException e) {
@@ -170,6 +173,7 @@ public class ErrorInfoTest {
           new IOException("foo"),
           /*rootCauseOfException=*/ null,
           ImmutableList.<CycleInfo>of(),
+          false,
           false,
           false);
     } catch (IllegalStateException e) {

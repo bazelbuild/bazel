@@ -681,6 +681,24 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertThat(errorInfo.getException()).hasCauseThat().isSameAs(exn);
   }
 
+  @Test
+  public void testPackageLoadingErrorOnIOExceptionReadingBzlFile() throws Exception {
+    scratch.file("foo/BUILD", "load('//foo:bzl.bzl', 'x')");
+    Path fooBzlFilePath = scratch.file("foo/bzl.bzl");
+    IOException exn = new IOException("nope");
+    fs.throwExceptionOnGetInputStream(fooBzlFilePath, exn);
+
+    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
+    EvaluationResult<PackageValue> result = SkyframeExecutorTestUtils.evaluate(
+        getSkyframeExecutor(), skyKey, /*keepGoing=*/false, reporter);
+    assertThat(result.hasError()).isTrue();
+    ErrorInfo errorInfo = result.getError(skyKey);
+    String errorMessage = errorInfo.getException().getMessage();
+    assertThat(errorMessage).contains("nope");
+    assertThat(errorInfo.getException()).isInstanceOf(NoSuchPackageException.class);
+    assertThat(errorInfo.getException()).hasCauseThat().isSameAs(exn);
+  }
+
   private static class CustomInMemoryFs extends InMemoryFileSystem {
     private abstract static class FileStatusOrException {
       abstract FileStatus get() throws IOException;

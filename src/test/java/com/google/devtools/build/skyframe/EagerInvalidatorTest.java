@@ -140,6 +140,7 @@ public class EagerInvalidatorTest {
             reporter,
             new MemoizingEvaluator.EmittedEventState(),
             InMemoryMemoizingEvaluator.DEFAULT_STORED_EVENT_FILTER,
+            ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
             keepGoing,
             200,
             new DirtyTrackingProgressReceiver(null));

@@ -85,7 +85,10 @@ public class ASTFileLookupFunction implements SkyFunction {
     try {
       fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class,
           FileSymlinkException.class, InconsistentFilesystemException.class);
-    } catch (IOException | FileSymlinkException e) {
+    } catch (IOException e) {
+      throw new ASTLookupFunctionException(new ErrorReadingSkylarkExtensionException(e),
+          Transience.PERSISTENT);
+    } catch (FileSymlinkException e) {
       throw new ASTLookupFunctionException(new ErrorReadingSkylarkExtensionException(e),
           Transience.PERSISTENT);
     } catch (InconsistentFilesystemException e) {
