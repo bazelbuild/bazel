@@ -388,7 +388,8 @@ and/or upcoming changes.
 
 *   Depset contents should be retrieved using `to_list()`, not by iterating over
     the depset itself. Direct iteration over depsets is deprecated and will be
-    removed.
+    removed. I.e., don't use `list(...)`, `sorted(...)`, or other functions
+    expecting an iterable, on depsets.
 
 *   Depset elements currently must have the same type, e.g. all ints or all
     strings. This restriction will be lifted.
