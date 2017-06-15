@@ -24,8 +24,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.ArrayList;
@@ -142,8 +140,10 @@ public final class JavaLibraryHelper {
     return this;
   }
 
-  /** Creates the compile actions. */
-  public JavaCompilationArtifacts build(
+  /**
+   * Creates the compile actions.
+   */
+  public JavaCompilationArgs build(
       JavaSemantics semantics,
       JavaToolchainProvider javaToolchainProvider,
       NestedSet<Artifact> hostJavabase,
@@ -184,7 +184,7 @@ public final class JavaLibraryHelper {
     helper.createCompileTimeJarAction(output, artifactsBuilder);
     artifactsBuilder.addRuntimeJar(output);
 
-    return artifactsBuilder.build();
+    return JavaCompilationArgs.builder().merge(artifactsBuilder.build()).build();
   }
 
   /**
@@ -199,8 +199,7 @@ public final class JavaLibraryHelper {
    *     compilation. Contrast this with {@link #setCompilationStrictDepsMode}.
    */
   public JavaCompilationArgsProvider buildCompilationArgsProvider(
-      JavaCompilationArtifacts artifacts, boolean isReportedAsStrict) {
-    JavaCompilationArgs directArgs = JavaCompilationArgs.builder().merge(artifacts).build();
+      JavaCompilationArgs directArgs, boolean isReportedAsStrict) {
     JavaCompilationArgs transitiveArgs =
         JavaCompilationArgs.builder()
             .addTransitiveArgs(directArgs, BOTH)
@@ -208,10 +207,7 @@ public final class JavaLibraryHelper {
             .build();
 
     return JavaCompilationArgsProvider.create(
-        isReportedAsStrict ? directArgs : transitiveArgs,
-        transitiveArgs,
-        NestedSetBuilder.create(Order.STABLE_ORDER, artifacts.getCompileTimeDependencyArtifact()),
-        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
+        isReportedAsStrict ? directArgs : transitiveArgs, transitiveArgs);
   }
 
   private void addDepsToAttributes(JavaTargetAttributes.Builder attributes) {
