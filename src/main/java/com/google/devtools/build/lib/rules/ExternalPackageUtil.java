@@ -14,6 +14,10 @@
 
 package com.google.devtools.build.lib.rules;
 
+import com.google.common.base.Function;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -33,16 +37,25 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /** Utility class to centralize looking up rules from the external package. */
 public class ExternalPackageUtil {
 
-  /** Uses a rule name to fetch the corresponding Rule from the external package. */
+  /**
+   * Loads the external package and then calls the selector to find matching rules.
+   *
+   * @param env the environment to use for lookups
+   * @param returnFirst whether to return only the first rule found
+   * @param selector the function to call to load rules
+   */
   @Nullable
-  public static Rule getRule(String ruleName, Environment env)
+  private static Set<Rule> getRules(
+      Environment env, boolean returnFirst, Function<Package, Iterable<Rule>> selector)
       throws ExternalPackageException, InterruptedException {
-
     SkyKey packageLookupKey = PackageLookupValue.key(Label.EXTERNAL_PACKAGE_IDENTIFIER);
     PackageLookupValue packageLookupValue = (PackageLookupValue) env.getValue(packageLookupKey);
     if (packageLookupValue == null) {
@@ -50,6 +63,7 @@ public class ExternalPackageUtil {
     }
     RootedPath workspacePath = packageLookupValue.getRootedPath(Label.EXTERNAL_PACKAGE_IDENTIFIER);
 
+    Set<Rule> rules = new HashSet<>();
     SkyKey workspaceKey = WorkspaceFileValue.key(workspacePath);
     do {
       WorkspaceFileValue value = (WorkspaceFileValue) env.getValue(workspaceKey);
@@ -64,20 +78,77 @@ public class ExternalPackageUtil {
                 Label.EXTERNAL_PACKAGE_IDENTIFIER, "Could not load //external package"),
             Transience.PERSISTENT);
       }
-      Rule rule = externalPackage.getRule(ruleName);
-      if (rule != null) {
-        return rule;
+      Iterable<Rule> results = selector.apply(externalPackage);
+      if (results != null) {
+        Iterables.addAll(rules, results);
+        if (returnFirst && !rules.isEmpty()) {
+          return ImmutableSet.of(Iterables.getFirst(results, null));
+        }
       }
       workspaceKey = value.next();
     } while (workspaceKey != null);
-    throw new ExternalRuleNotFoundException(ruleName);
+
+    return rules;
+  }
+
+  /** Uses a rule name to fetch the corresponding Rule from the external package. */
+  @Nullable
+  public static List<Rule> getRuleByRuleClass(final String ruleClassName, Environment env)
+      throws ExternalPackageException, InterruptedException {
+
+    Set<Rule> rules =
+        getRules(
+            env,
+            false,
+            new Function<Package, Iterable<Rule>>() {
+              @Nullable
+              @Override
+              public Iterable<Rule> apply(Package externalPackage) {
+                return externalPackage.getRulesMatchingRuleClass(ruleClassName);
+              }
+            });
+
+    if (env.valuesMissing()) {
+      return null;
+    }
+    return ImmutableList.copyOf(rules);
+  }
+
+  /** Uses a rule name to fetch the corresponding Rule from the external package. */
+  @Nullable
+  public static Rule getRuleByName(final String ruleName, Environment env)
+      throws ExternalPackageException, InterruptedException {
+
+    Set<Rule> rules =
+        getRules(
+            env,
+            true,
+            new Function<Package, Iterable<Rule>>() {
+              @Nullable
+              @Override
+              public Iterable<Rule> apply(Package externalPackage) {
+                Rule rule = externalPackage.getRule(ruleName);
+                if (rule == null) {
+                  return null;
+                }
+                return ImmutableList.of(rule);
+              }
+            });
+
+    if (env.valuesMissing()) {
+      return null;
+    }
+    if (rules == null || rules.isEmpty()) {
+      throw new ExternalRuleNotFoundException(ruleName);
+    }
+    return Iterables.getFirst(rules, null);
   }
 
   @Nullable
   public static Rule getRule(String ruleName, @Nullable String ruleClassName, Environment env)
       throws ExternalPackageException, InterruptedException {
     try {
-      return getRule(RepositoryName.create("@" + ruleName), ruleClassName, env);
+      return getRepository(RepositoryName.create("@" + ruleName), ruleClassName, env);
     } catch (LabelSyntaxException e) {
       throw new ExternalPackageException(
           new IOException("Invalid rule name " + ruleName), Transience.PERSISTENT);
@@ -91,10 +162,10 @@ public class ExternalPackageUtil {
    * name.
    */
   @Nullable
-  public static Rule getRule(
+  public static Rule getRepository(
       RepositoryName repositoryName, @Nullable String ruleClassName, Environment env)
       throws ExternalPackageException, InterruptedException {
-    Rule rule = getRule(repositoryName.strippedName(), env);
+    Rule rule = getRuleByName(repositoryName.strippedName(), env);
     Preconditions.checkState(
         rule == null || ruleClassName == null || rule.getRuleClass().equals(ruleClassName),
         "Got %s, was expecting a %s",

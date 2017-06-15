@@ -394,9 +394,10 @@ public abstract class RepositoryFunction {
 
     try {
       // Add a dependency to the repository rule. RepositoryDirectoryValue does add this
-      // dependency already but we want to catch RepositoryNotFoundException, so invoke #getRule
+      // dependency already but we want to catch RepositoryNotFoundException, so invoke
+      // #getRuleByName
       // first.
-      Rule rule = ExternalPackageUtil.getRule(repositoryName, env);
+      Rule rule = ExternalPackageUtil.getRuleByName(repositoryName, env);
       if (rule == null) {
         return;
       }
@@ -421,7 +422,8 @@ public abstract class RepositoryFunction {
       }
     } catch (ExternalPackageUtil.ExternalRuleNotFoundException ex) {
       // The repository we are looking for does not exist so we should depend on the whole
-      // WORKSPACE file. In that case, the call to RepositoryFunction#getRule(String, Environment)
+      // WORKSPACE file. In that case, the call to RepositoryFunction#getRuleByName(String,
+      // Environment)
       // already requested all repository functions from the WORKSPACE file from Skyframe as part
       // of the resolution. Therefore we are safe to ignore that Exception.
       return;

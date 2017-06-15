@@ -116,7 +116,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
     Rule rule;
     try {
-      rule = ExternalPackageUtil.getRule(repositoryName, null, env);
+      rule = ExternalPackageUtil.getRepository(repositoryName, null, env);
     } catch (ExternalPackageUtil.ExternalRuleNotFoundException e) {
       return RepositoryDirectoryValue.NO_SUCH_REPOSITORY_VALUE;
     }

@@ -67,7 +67,7 @@ public class MavenServerFunction implements SkyFunction {
     String repository = (String) skyKey.argument();
     Rule repositoryRule = null;
     try {
-      repositoryRule = ExternalPackageUtil.getRule(repository, env);
+      repositoryRule = ExternalPackageUtil.getRuleByName(repository, env);
     } catch (ExternalPackageUtil.ExternalRuleNotFoundException ex) {
       // Ignored. We throw a new one below.
     }

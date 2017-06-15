@@ -1223,6 +1223,30 @@ java_test(
     ],
 )
 
+java_test(
+    name = "rules-tests",
+    srcs = glob(["rules/*.java"]),
+    test_class = "com.google.devtools.build.lib.AllTests",
+    deps = [
+        ":actions_testutil",
+        ":analysis_testutil",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:collect",
+        "//src/main/java/com/google/devtools/build/lib:events",
+        "//src/main/java/com/google/devtools/build/lib:io",
+        "//src/main/java/com/google/devtools/build/lib:packages-internal",
+        "//src/main/java/com/google/devtools/build/lib:proto-rules",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:auto_value",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
 java_binary(
     name = "MockSubprocess",
     srcs = ["windows/MockSubprocess.java"],
