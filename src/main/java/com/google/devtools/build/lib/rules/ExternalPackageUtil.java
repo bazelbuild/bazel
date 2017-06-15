@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -37,9 +36,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /** Utility class to centralize looking up rules from the external package. */
@@ -53,7 +50,7 @@ public class ExternalPackageUtil {
    * @param selector the function to call to load rules
    */
   @Nullable
-  private static Set<Rule> getRules(
+  private static List<Rule> getRules(
       Environment env, boolean returnFirst, Function<Package, Iterable<Rule>> selector)
       throws ExternalPackageException, InterruptedException {
     SkyKey packageLookupKey = PackageLookupValue.key(Label.EXTERNAL_PACKAGE_IDENTIFIER);
@@ -63,7 +60,7 @@ public class ExternalPackageUtil {
     }
     RootedPath workspacePath = packageLookupValue.getRootedPath(Label.EXTERNAL_PACKAGE_IDENTIFIER);
 
-    Set<Rule> rules = new HashSet<>();
+    List<Rule> rules = ImmutableList.of();
     SkyKey workspaceKey = WorkspaceFileValue.key(workspacePath);
     do {
       WorkspaceFileValue value = (WorkspaceFileValue) env.getValue(workspaceKey);
@@ -80,9 +77,9 @@ public class ExternalPackageUtil {
       }
       Iterable<Rule> results = selector.apply(externalPackage);
       if (results != null) {
-        Iterables.addAll(rules, results);
+        rules = ImmutableList.copyOf(results);
         if (returnFirst && !rules.isEmpty()) {
-          return ImmutableSet.of(Iterables.getFirst(results, null));
+          return ImmutableList.of(Iterables.getFirst(results, null));
         }
       }
       workspaceKey = value.next();
@@ -96,7 +93,7 @@ public class ExternalPackageUtil {
   public static List<Rule> getRuleByRuleClass(final String ruleClassName, Environment env)
       throws ExternalPackageException, InterruptedException {
 
-    Set<Rule> rules =
+    List<Rule> rules =
         getRules(
             env,
             false,
@@ -119,7 +116,7 @@ public class ExternalPackageUtil {
   public static Rule getRuleByName(final String ruleName, Environment env)
       throws ExternalPackageException, InterruptedException {
 
-    Set<Rule> rules =
+    List<Rule> rules =
         getRules(
             env,
             true,
