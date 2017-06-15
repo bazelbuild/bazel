@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.java.JavaUtil;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -129,8 +130,8 @@ public abstract class ResourceContainer {
    * Returns a copy of this container with filtered resources, or the original if no resources
    * should be filtered. The original container is unchanged.
    */
-  public ResourceContainer filter(RuleContext ruleContext, ResourceFilter filter) {
-    ImmutableList<Artifact> filteredResources = filter.filter(ruleContext, getResources());
+  public ResourceContainer filter(RuleErrorConsumer ruleErrorConsumer, ResourceFilter filter) {
+    ImmutableList<Artifact> filteredResources = filter.filter(ruleErrorConsumer, getResources());
 
     if (filteredResources.size() == getResources().size()) {
       // No filtering was done; return this container

@@ -18,6 +18,7 @@ import com.android.ide.common.resources.configuration.FolderConfiguration;
 import com.android.ide.common.resources.configuration.VersionQualifier;
 import com.android.resources.Density;
 import com.android.resources.ResourceFolderType;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -46,7 +48,8 @@ public class ResourceFilter {
   public static final String RESOURCE_CONFIGURATION_FILTERS_NAME = "resource_configuration_filters";
   public static final String DENSITIES_NAME = "densities";
 
-  private static enum FilterBehavior {
+  @VisibleForTesting
+  static enum FilterBehavior {
     /**
      * Resources will be filtered in execution. This class will just pass the filtering parameters
      * to the appropriate resource processing actions.
@@ -98,7 +101,8 @@ public class ResourceFilter {
    * @param densities the density filters, as a list of strings.
    * @param filterBehavior the behavior of this filter.
    */
-  private ResourceFilter(
+  @VisibleForTesting
+  ResourceFilter(
       ImmutableList<String> configFilters,
       ImmutableList<String> densities,
       FilterBehavior filterBehavior) {
@@ -120,13 +124,13 @@ public class ResourceFilter {
   }
 
   /**
-   * Extracts filters from the current RuleContext, as a list of strings.
+   * Extracts filters from an AttributeMap, as a list of strings.
    *
    * <p>In BUILD files, string lists can be represented as a list of strings, a single
    * comma-separated string, or a combination of both. This method outputs a single list of
    * individual string values, which can then be passed directly to resource processing actions.
    *
-   * @return the values of this attribute contained in the {@link RuleContext}, as a list.
+   * @return the values of this attribute contained in the {@link AttributeMap}, as a list.
    */
   private static ImmutableList<String> extractFilters(AttributeMap attrs, String attrName) {
     if (!hasAttr(attrs, attrName)) {
@@ -193,14 +197,15 @@ public class ResourceFilter {
         filterBehavior);
   }
 
-  private ImmutableList<FolderConfiguration> getConfigurationFilters(RuleContext ruleContext) {
+  private ImmutableList<FolderConfiguration> getConfigurationFilters(
+      RuleErrorConsumer ruleErrorConsumer) {
     ImmutableList.Builder<FolderConfiguration> filterBuilder = ImmutableList.builder();
     for (String filter : configFilters) {
       addIfNotNull(
           getFolderConfiguration(filter),
           filter,
           filterBuilder,
-          ruleContext,
+          ruleErrorConsumer,
           RESOURCE_CONFIGURATION_FILTERS_NAME);
     }
 
@@ -228,10 +233,11 @@ public class ResourceFilter {
     return FolderConfiguration.getConfigForQualifierString(fixedFilter);
   }
 
-  private ImmutableList<Density> getDensities(RuleContext ruleContext) {
+  private ImmutableList<Density> getDensities(RuleErrorConsumer ruleErrorConsumer) {
     ImmutableList.Builder<Density> densityBuilder = ImmutableList.builder();
     for (String density : densities) {
-      addIfNotNull(Density.getEnum(density), density, densityBuilder, ruleContext, DENSITIES_NAME);
+      addIfNotNull(
+          Density.getEnum(density), density, densityBuilder, ruleErrorConsumer, DENSITIES_NAME);
     }
 
     return densityBuilder.build();
@@ -242,10 +248,10 @@ public class ResourceFilter {
       T item,
       String itemString,
       ImmutableList.Builder<T> builder,
-      RuleContext ruleContext,
+      RuleErrorConsumer ruleErrorConsumer,
       String attrName) {
     if (item == null) {
-      ruleContext.attributeError(
+      ruleErrorConsumer.attributeError(
           attrName, "String '" + itemString + "' is not a valid value for " + attrName);
     } else {
       builder.add(item);
@@ -266,7 +272,7 @@ public class ResourceFilter {
    * may be a no-op if this filter is empty or if resource prefiltering is disabled.
    */
   NestedSet<ResourceContainer> filterDependencies(
-      RuleContext ruleContext, NestedSet<ResourceContainer> resources) {
+      RuleErrorConsumer ruleErrorConsumer, NestedSet<ResourceContainer> resources) {
     if (!isPrefiltering()) {
       /*
        * If the filter is empty or resource prefiltering is disabled, just return the original,
@@ -287,13 +293,14 @@ public class ResourceFilter {
     NestedSetBuilder<ResourceContainer> builder = new NestedSetBuilder<>(resources.getOrder());
 
     for (ResourceContainer resource : resources) {
-      builder.add(resource.filter(ruleContext, this));
+      builder.add(resource.filter(ruleErrorConsumer, this));
     }
 
     return builder.build();
   }
 
-  ImmutableList<Artifact> filter(RuleContext ruleContext, ImmutableList<Artifact> artifacts) {
+  ImmutableList<Artifact> filter(
+      RuleErrorConsumer ruleErrorConsumer, ImmutableList<Artifact> artifacts) {
     if (!isPrefiltering()) {
       return artifacts;
     }
@@ -305,15 +312,19 @@ public class ResourceFilter {
     ImmutableSet.Builder<Artifact> builder = ImmutableSet.builder();
 
     List<BestArtifactsForDensity> bestArtifactsForAllDensities = new ArrayList<>();
-    for (Density density : getDensities(ruleContext)) {
-      bestArtifactsForAllDensities.add(new BestArtifactsForDensity(ruleContext, density));
+    for (Density density : getDensities(ruleErrorConsumer)) {
+      bestArtifactsForAllDensities.add(new BestArtifactsForDensity(ruleErrorConsumer, density));
     }
 
-    ImmutableList<FolderConfiguration> folderConfigs = getConfigurationFilters(ruleContext);
+    ImmutableList<FolderConfiguration> folderConfigs = getConfigurationFilters(ruleErrorConsumer);
 
     for (Artifact artifact : artifacts) {
-      if (!matchesConfigurationFilters(
-          folderConfigs, getConfigForArtifact(ruleContext, artifact))) {
+      FolderConfiguration config = getConfigForArtifact(ruleErrorConsumer, artifact);
+
+      // aapt explicitly ignores the version qualifier; duplicate this behavior here.
+      config.setVersionQualifier(VersionQualifier.getQualifier(""));
+
+      if (!matchesConfigurationFilters(folderConfigs, config)) {
         continue;
       }
 
@@ -341,6 +352,8 @@ public class ResourceFilter {
       filteredResources.add(parentDir + "/" + artifact.getFilename());
     }
 
+    // TODO(asteinb): We should only build a new list if some artifacts were filtered out. If
+    // nothing was filtered, we can be more efficient by returning the original list instead.
     return keptArtifacts.asList();
   }
 
@@ -349,14 +362,14 @@ public class ResourceFilter {
    * qualifiers.
    */
   private static class BestArtifactsForDensity {
-    private final RuleContext ruleContext;
+    private final RuleErrorConsumer ruleErrorConsumer;
     private final Density desiredDensity;
 
     // Use a LinkedHashMap to preserve determinism.
     private final Map<String, Artifact> nameAndConfigurationToBestArtifact = new LinkedHashMap<>();
 
-    public BestArtifactsForDensity(RuleContext ruleContext, Density density) {
-      this.ruleContext = ruleContext;
+    public BestArtifactsForDensity(RuleErrorConsumer ruleErrorConsumer, Density density) {
+      this.ruleErrorConsumer = ruleErrorConsumer;
       desiredDensity = density;
     }
 
@@ -365,7 +378,7 @@ public class ResourceFilter {
      *     other artifacts with the same name and non-density configuration, adds it to this object.
      */
     public void maybeAddArtifact(Artifact artifact) {
-      FolderConfiguration config = getConfigForArtifact(ruleContext, artifact);
+      FolderConfiguration config = getConfigForArtifact(ruleErrorConsumer, artifact);
 
       // We want to find a single best artifact for each combination of non-density qualifiers and
       // filename. Combine those two values to create a single unique key.
@@ -415,7 +428,7 @@ public class ResourceFilter {
      */
     private double computeAffinity(Artifact artifact) {
       DensityQualifier resourceQualifier =
-          getConfigForArtifact(ruleContext, artifact).getDensityQualifier();
+          getConfigForArtifact(ruleErrorConsumer, artifact).getDensityQualifier();
       if (resourceQualifier == null) {
         return Double.MAX_VALUE;
       }
@@ -449,19 +462,16 @@ public class ResourceFilter {
   }
 
   private static FolderConfiguration getConfigForArtifact(
-      RuleContext ruleContext, Artifact artifact) {
+      RuleErrorConsumer ruleErrorConsumer, Artifact artifact) {
     String containingFolder = getContainingFolder(artifact);
     FolderConfiguration config = FolderConfiguration.getConfigForFolder(containingFolder);
 
     if (config == null) {
-      ruleContext.ruleError(
+      ruleErrorConsumer.ruleError(
           "Resource folder '" + containingFolder + "' has invalid resource qualifiers");
 
       return FolderConfiguration.getConfigForQualifierString("");
     }
-
-    // aapt explicitly ignores the version qualifier; duplicate this behavior here.
-    config.setVersionQualifier(VersionQualifier.getQualifier(""));
 
     return config;
   }
