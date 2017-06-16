@@ -291,7 +291,7 @@ For each [label attribute](lib/attr.html#label), you can decide whether the
 dependency should be built in the same configuration, or transition to the host
 configuration (using `cfg`). If a label attribute has the flag
 `executable=True`, the configuration must be set explicitly.
-[See example](cookbook.html#execute-a-binary)
+[See example](cookbook.md#execute-a-binary)
 
 In general, sources, dependent libraries, and executables that will be needed at
 runtime can use the same configuration.
