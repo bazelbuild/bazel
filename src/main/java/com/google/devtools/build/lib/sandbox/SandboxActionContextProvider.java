@@ -28,8 +28,6 @@ import java.io.IOException;
  * Provides the sandboxed spawn strategy.
  */
 final class SandboxActionContextProvider extends ActionContextProvider {
-
-  @SuppressWarnings("unchecked")
   private final ImmutableList<ActionContext> contexts;
 
   private SandboxActionContextProvider(ImmutableList<ActionContext> contexts) {
@@ -72,7 +70,7 @@ final class SandboxActionContextProvider extends ActionContextProvider {
   }
 
   @Override
-  public Iterable<ActionContext> getActionContexts() {
+  public Iterable<? extends ActionContext> getActionContexts() {
     return contexts;
   }
 }

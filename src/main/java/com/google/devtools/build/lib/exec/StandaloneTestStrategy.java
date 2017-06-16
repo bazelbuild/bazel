@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData.Builder;
-import com.google.devtools.common.options.OptionsClassProvider;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.HashMap;
@@ -80,10 +79,8 @@ public class StandaloneTestStrategy extends TestStrategy {
   protected final Path tmpDirRoot;
 
   public StandaloneTestStrategy(
-      OptionsClassProvider requestOptions,
-      BinTools binTools,
-      Path tmpDirRoot) {
-    super(requestOptions, binTools);
+      ExecutionOptions executionOptions, BinTools binTools, Path tmpDirRoot) {
+    super(executionOptions, binTools);
     this.tmpDirRoot = tmpDirRoot;
   }
 

@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.remote.Digests.ActionKey;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.rules.fileset.FilesetActionContext;
-import com.google.devtools.build.lib.standalone.StandaloneSpawnStrategy;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
@@ -54,7 +53,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeSet;
 
@@ -68,7 +66,7 @@ import java.util.TreeSet;
 )
 final class RemoteSpawnStrategy implements SpawnActionContext {
   private final Path execRoot;
-  private final StandaloneSpawnStrategy standaloneStrategy;
+  private final SpawnActionContext fallbackStrategy;
   private final boolean verboseFailures;
   private final RemoteOptions remoteOptions;
   // TODO(olaola): This will be set on a per-action basis instead.
@@ -77,14 +75,13 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
   private final SpawnInputExpander spawnInputExpander = new SpawnInputExpander(/*strict=*/ false);
 
   RemoteSpawnStrategy(
-      Map<String, String> clientEnv,
       Path execRoot,
       RemoteOptions remoteOptions,
       AuthAndTLSOptions authTlsOptions,
       boolean verboseFailures,
-      String productName) {
+      SpawnActionContext fallbackStrategy) {
     this.execRoot = execRoot;
-    this.standaloneStrategy = new StandaloneSpawnStrategy(execRoot, verboseFailures, productName);
+    this.fallbackStrategy = fallbackStrategy;
     this.verboseFailures = verboseFailures;
     this.remoteOptions = remoteOptions;
     channelOptions = ChannelOptions.create(authTlsOptions);
@@ -144,7 +141,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
       RemoteActionCache remoteCache,
       ActionKey actionKey)
       throws ExecException, InterruptedException {
-    standaloneStrategy.exec(spawn, actionExecutionContext);
+    fallbackStrategy.exec(spawn, actionExecutionContext);
     if (remoteOptions.remoteUploadLocalResults && remoteCache != null && actionKey != null) {
       ArrayList<Path> outputFiles = new ArrayList<>();
       for (ActionInput output : spawn.getOutputFiles()) {
@@ -253,7 +250,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
       }
     }
     if (!spawn.isRemotable() || remoteCache == null) {
-      standaloneStrategy.exec(spawn, actionExecutionContext);
+      fallbackStrategy.exec(spawn, actionExecutionContext);
       return;
     }
     if (executor.reportsSubcommands()) {

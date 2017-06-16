@@ -13,20 +13,23 @@
 // limitations under the License.
 package com.google.devtools.build.lib.standalone;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
-import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.exec.ActionContextProvider;
+import com.google.devtools.build.lib.exec.ActionInputPrefetcher;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.FileWriteStrategy;
 import com.google.devtools.build.lib.exec.StandaloneTestStrategy;
 import com.google.devtools.build.lib.exec.TestStrategy;
+import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanningContext;
 import com.google.devtools.build.lib.rules.cpp.SpawnGccStrategy;
 import com.google.devtools.build.lib.rules.test.ExclusiveTestStrategy;
@@ -64,39 +67,46 @@ public class StandaloneActionContextProvider extends ActionContextProvider {
   }
 
   private final CommandEnvironment env;
-  private final ImmutableList<ActionContext> strategies;
+  private ActionInputPrefetcher actionInputPrefetcher;
 
-  public StandaloneActionContextProvider(CommandEnvironment env, BuildRequest buildRequest) {
+  public StandaloneActionContextProvider(CommandEnvironment env) {
     this.env = env;
-    ExecutionOptions options = buildRequest.getOptions(ExecutionOptions.class);
-    boolean verboseFailures = options.verboseFailures;
+  }
 
-    Path testTmpRoot = TestStrategy.getTmpRoot(env.getWorkspace(), env.getExecRoot(), options);
+  @Override
+  public void init(
+      ActionInputFileCache actionInputFileCache, ActionInputPrefetcher actionInputPrefetcher) {
+    this.actionInputPrefetcher = Preconditions.checkNotNull(actionInputPrefetcher);
+  }
+
+  @Override
+  public Iterable<? extends ActionContext> getActionContexts() {
+    ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);
+    LocalExecutionOptions localExecutionOptions =
+        env.getOptions().getOptions(LocalExecutionOptions.class);
+    Path testTmpRoot =
+        TestStrategy.getTmpRoot(env.getWorkspace(), env.getExecRoot(), executionOptions);
+
     TestActionContext testStrategy =
         new StandaloneTestStrategy(
-            buildRequest, env.getBlazeWorkspace().getBinTools(), testTmpRoot);
-
-    Builder<ActionContext> strategiesBuilder = ImmutableList.builder();
-
+            executionOptions,
+            env.getBlazeWorkspace().getBinTools(),
+            testTmpRoot);
     // Order of strategies passed to builder is significant - when there are many strategies that
     // could potentially be used and a spawnActionContext doesn't specify which one it wants, the
     // last one from strategies list will be used
-    strategiesBuilder.add(
+    return ImmutableList.of(
         new StandaloneSpawnStrategy(
             env.getExecRoot(),
-            verboseFailures,
-            env.getRuntime().getProductName()),
+            actionInputPrefetcher,
+            localExecutionOptions,
+            executionOptions.verboseFailures,
+            env.getRuntime().getProductName(),
+            ResourceManager.instance()),
         new DummyIncludeScanningContext(),
         new SpawnGccStrategy(),
         testStrategy,
         new ExclusiveTestStrategy(testStrategy),
         new FileWriteStrategy());
-
-    this.strategies = strategiesBuilder.build();
-  }
-
-  @Override
-  public Iterable<ActionContext> getActionContexts() {
-    return strategies;
   }
 }

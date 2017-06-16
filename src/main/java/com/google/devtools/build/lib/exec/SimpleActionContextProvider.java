@@ -28,7 +28,7 @@ final class SimpleActionContextProvider extends ActionContextProvider {
   }
 
   @Override
-  public Iterable<ActionContext> getActionContexts() {
+  public Iterable<? extends ActionContext> getActionContexts() {
     return actionContexts;
   }
 }

@@ -198,7 +198,10 @@ public class SpawnInputExpander {
       FilesetActionContext filesetContext)
           throws IOException {
     return getInputMapping(
-        spawn, artifactExpander, actionInputFileCache, filesetContext.getWorkspaceName());
+        spawn,
+        artifactExpander,
+        actionInputFileCache,
+        filesetContext == null ? null : filesetContext.getWorkspaceName());
   }
 
   /**

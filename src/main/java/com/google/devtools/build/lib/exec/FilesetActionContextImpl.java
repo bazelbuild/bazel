@@ -57,8 +57,8 @@ public final class FilesetActionContextImpl implements FilesetActionContext {
     }
 
     @Override
-    public Iterable<ActionContext> getActionContexts() {
-      return ImmutableList.<ActionContext>of(impl);
+    public Iterable<? extends ActionContext> getActionContexts() {
+      return ImmutableList.of(impl);
     }
 
     @Override

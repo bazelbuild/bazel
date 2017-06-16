@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.StandaloneTestStrategy;
 import com.google.devtools.build.lib.rules.test.TestActionContext;
 import com.google.devtools.build.lib.rules.test.TestRunnerAction;
@@ -67,7 +68,7 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
       WorkerPool workerPool,
       Multimap<String, String> extraFlags) {
     super(
-        requestOptions,
+        requestOptions.getOptions(ExecutionOptions.class),
         env.getBlazeWorkspace().getBinTools(),
         env.getWorkspace());
     this.workerPool = workerPool;

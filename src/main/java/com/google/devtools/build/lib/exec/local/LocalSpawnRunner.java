@@ -36,6 +36,8 @@ import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.util.NetUtil;
+import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
@@ -87,19 +89,43 @@ public final class LocalSpawnRunner implements SpawnRunner {
       LocalExecutionOptions localExecutionOptions,
       ResourceManager resourceManager,
       boolean useProcessWrapper,
+      OS localOs,
       String productName,
       LocalEnvProvider localEnvProvider) {
     this.logger = logger;
     this.execRoot = execRoot;
     this.actionInputPrefetcher = Preconditions.checkNotNull(actionInputPrefetcher);
-    this.processWrapper = execRoot.getRelative("_bin/process-wrapper").getPathString();
-    this.localExecutionOptions = localExecutionOptions;
+    this.processWrapper =
+        execRoot
+            .getRelative("_bin/process-wrapper" + OsUtils.executableExtension(localOs))
+            .getPathString();
+    this.localExecutionOptions = Preconditions.checkNotNull(localExecutionOptions);
     this.hostName = NetUtil.findShortHostName();
     this.execCount = execCount;
     this.resourceManager = resourceManager;
     this.useProcessWrapper = useProcessWrapper;
     this.productName = productName;
     this.localEnvProvider = localEnvProvider;
+  }
+
+  public LocalSpawnRunner(
+      Path execRoot,
+      ActionInputPrefetcher actionInputPrefetcher,
+      LocalExecutionOptions localExecutionOptions,
+      ResourceManager resourceManager,
+      String productName,
+      LocalEnvProvider localEnvProvider) {
+    this(
+        Logger.getLogger(LocalSpawnRunner.class.getName()),
+        new AtomicInteger(),
+        execRoot,
+        actionInputPrefetcher,
+        localExecutionOptions,
+        resourceManager,
+        /*useProcessWrapper=*/OS.getCurrent() != OS.WINDOWS,
+        OS.getCurrent(),
+        productName,
+        localEnvProvider);
   }
 
   @Override
