@@ -227,6 +227,7 @@ public final class CleanCommand implements BlazeCommand {
     if (env.getOutputService() != null) {
       env.getOutputService().clean();
     }
+    env.getBlazeWorkspace().clearCaches();
     if (expunge) {
       LOG.info("Expunging...");
       env.getRuntime().prepareForAbruptShutdown();
@@ -255,7 +256,7 @@ public final class CleanCommand implements BlazeCommand {
       asyncClean(env, outputBase, "Output base");
     } else {
       LOG.info("Output cleaning...");
-      env.getBlazeWorkspace().clearCaches();
+      env.getBlazeWorkspace().resetEvaluator();
       // In order to be sure that we delete everything, delete the workspace directory both for
       // --deep_execroot and for --nodeep_execroot.
       for (String directory : new String[] {workspaceDirectory, "execroot"}) {

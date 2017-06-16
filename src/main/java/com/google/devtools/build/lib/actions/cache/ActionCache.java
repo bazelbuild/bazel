@@ -187,6 +187,9 @@ public interface ActionCache {
    */
   long save() throws IOException;
 
+  /** Clear the action cache, closing all opened file handle. */
+  void clear();
+
   /**
    * Dumps action cache content into the given PrintStream.
    */
