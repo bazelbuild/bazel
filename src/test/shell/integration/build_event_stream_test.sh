@@ -346,6 +346,19 @@ function test_build_only() {
   expect_log 'SUCCESS'
 }
 
+function test_query() {
+  # Verify that at least a minimally meaningful event stream is generated
+  # for non-build. In particular, we expect bazel not to crash.
+  bazel version --experimental_build_event_text_file=$TEST_log \
+    || fail "bazel version failed"
+  expect_log '^started'
+  bazel query --experimental_build_event_text_file=$TEST_log 'tests(//...)' \
+    || fail "bazel query failed"
+  expect_log '^started'
+  expect_log 'command: "query"'
+  expect_log 'args: "--experimental_build_event_text_file='
+}
+
 function test_multiple_transports() {
   # Verifies usage of multiple build event transports at the same time
     outdir=$(mktemp -d ${TEST_TMPDIR}/bazel.XXXXXXXX)

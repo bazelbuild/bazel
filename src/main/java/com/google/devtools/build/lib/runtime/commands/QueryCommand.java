@@ -199,7 +199,7 @@ public final class QueryCommand implements BlazeCommand {
       }
     }
 
-    env.getEventBus().post(new NoBuildEvent());
+    env.getEventBus().post(new NoBuildEvent(env.getCommandName(), env.getCommandStartTime()));
     if (!streamResults) {
       disableAnsiCharactersFiltering(env);
       try {
