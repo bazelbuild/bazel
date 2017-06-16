@@ -526,6 +526,16 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     )
     public boolean exportsManifestDefault;
 
+    @Option(
+      name = "experimental_android_generate_robolectric_r_class",
+      defaultValue = "false",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      help =
+          "If passed, R classes will be generated for Robolectric tests. Otherwise, only inherited"
+              + " R classes will be used."
+    )
+    public boolean generateRobolectricRClass;
+
     @Override
     public void addAllLabels(Multimap<String, Label> labelMap) {
       if (androidCrosstoolTop != null) {
@@ -611,6 +621,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean includeLibraryResourceJars;
   private final boolean useNocompressExtensionsOnApk;
   private final boolean exportsManifestDefault;
+  private final boolean generateRobolectricRClass;
 
   AndroidConfiguration(Options options, Label androidSdk) throws InvalidConfigurationException {
     this.sdk = androidSdk;
@@ -643,6 +654,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.includeLibraryResourceJars = options.includeLibraryResourceJars;
     this.useNocompressExtensionsOnApk = options.useNocompressExtensionsOnApk;
     this.exportsManifestDefault = options.exportsManifestDefault;
+    this.generateRobolectricRClass = options.generateRobolectricRClass;
 
     if (!dexoptsSupportedInIncrementalDexing.contains("--no-locals")) {
       // TODO(bazel-team): Still needed? See DexArchiveAspect
@@ -757,6 +769,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   boolean getExportsManifestDefault(RuleContext ruleContext) {
     return exportsManifestDefault;
+  }
+
+  boolean generateRobolectricRClass() {
+    return generateRobolectricRClass;
   }
 
   @Override
