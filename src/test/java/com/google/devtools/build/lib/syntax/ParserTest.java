@@ -689,6 +689,10 @@ public class ParserTest extends EvaluationTestCase {
     parseExpression("[x for x for y in ['a']]");
     assertContainsError("syntax error at 'for'");
     clearEvents();
+
+    parseExpression("[x for x for y in 1, 2]");
+    assertContainsError("syntax error at 'for'");
+    clearEvents();
   }
 
   @Test

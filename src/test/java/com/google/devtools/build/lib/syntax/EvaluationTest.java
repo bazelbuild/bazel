@@ -370,7 +370,7 @@ public class EvaluationTest extends EvaluationTestCase {
         .testExactOrder("['foo/%s.java' % x for x in []]")
         .testExactOrder("['foo/%s.java' % y for y in ['bar', 'wiz', 'quux']]", "foo/bar.java",
             "foo/wiz.java", "foo/quux.java")
-        .testExactOrder("['%s/%s.java' % (z, t) " + "for z in ['foo', 'bar'] "
+        .testExactOrder("['%s/%s.java' % (z, t) for z in ['foo', 'bar'] "
             + "for t in ['baz', 'wiz', 'quux']]",
             "foo/baz.java",
             "foo/wiz.java",
@@ -378,7 +378,7 @@ public class EvaluationTest extends EvaluationTestCase {
             "bar/baz.java",
             "bar/wiz.java",
             "bar/quux.java")
-        .testExactOrder("['%s/%s.java' % (b, b) " + "for a in ['foo', 'bar'] "
+        .testExactOrder("['%s/%s.java' % (b, b) for a in ['foo', 'bar'] "
             + "for b in ['baz', 'wiz', 'quux']]",
             "baz/baz.java",
             "wiz/wiz.java",
@@ -386,8 +386,8 @@ public class EvaluationTest extends EvaluationTestCase {
             "baz/baz.java",
             "wiz/wiz.java",
             "quux/quux.java")
-        .testExactOrder("['%s/%s.%s' % (c, d, e) " + "for c in ['foo', 'bar'] "
-            + "for d in ['baz', 'wiz', 'quux'] " + "for e in ['java', 'cc']]",
+        .testExactOrder("['%s/%s.%s' % (c, d, e) for c in ['foo', 'bar'] "
+            + "for d in ['baz', 'wiz', 'quux'] for e in ['java', 'cc']]",
             "foo/baz.java",
             "foo/baz.cc",
             "foo/wiz.java",
@@ -399,7 +399,9 @@ public class EvaluationTest extends EvaluationTestCase {
             "bar/wiz.java",
             "bar/wiz.cc",
             "bar/quux.java",
-            "bar/quux.cc");
+            "bar/quux.cc")
+        .testExactOrder("[i for i in (1, 2)]", 1, 2)
+        .testExactOrder("[i for i in [2, 3] or [1, 2]]", 2, 3);
   }
 
   @Test

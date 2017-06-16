@@ -817,7 +817,9 @@ public class Parser {
         comprehensionBuilder.addFor(loopVar, listExpression);
       } else if (token.kind == TokenKind.IF) {
         nextToken();
-        comprehensionBuilder.addIf(parseExpression());
+        // [x for x in li if 1, 2]  # parse error
+        // [x for x in li if (1, 2)]  # ok
+        comprehensionBuilder.addIf(parseNonTupleExpression(0));
       } else if (token.kind == closingBracket) {
         nextToken();
         return comprehensionBuilder.build();
