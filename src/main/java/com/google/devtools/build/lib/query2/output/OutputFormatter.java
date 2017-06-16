@@ -33,8 +33,16 @@ import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TriState;
+import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.engine.BuildFilesFunction;
+import com.google.devtools.build.lib.query2.engine.FunctionExpression;
+import com.google.devtools.build.lib.query2.engine.LoadFilesFunction;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
+import com.google.devtools.build.lib.query2.engine.QueryException;
+import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QueryExpressionMapper;
 import com.google.devtools.build.lib.query2.engine.SynchronizedDelegatingOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.output.QueryOptions.OrderOutput;
@@ -55,6 +63,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
 /**
@@ -154,6 +163,10 @@ public abstract class OutputFormatter implements Serializable {
         queryOptions.includeImplicitDeps
             ? DependencyFilter.ALL_DEPS
             : DependencyFilter.NO_IMPLICIT_DEPS);
+  }
+
+  public void verifyCompatible(QueryEnvironment<?> env, QueryExpression expr)
+      throws QueryException {
   }
 
   /**
@@ -367,6 +380,32 @@ public abstract class OutputFormatter implements Serializable {
     @Override
     public String getName() {
       return "location";
+    }
+
+    @Override
+    public void verifyCompatible(QueryEnvironment<?> env, QueryExpression expr)
+        throws QueryException {
+      if (!(env instanceof AbstractBlazeQueryEnvironment)) {
+        return;
+      }
+      final AtomicBoolean found = new AtomicBoolean(false);
+      QueryExpressionMapper noteBuildFilesAndLoadLilesMapper = new QueryExpressionMapper() {
+        @Override
+        public QueryExpression map(FunctionExpression functionExpression) {
+          QueryFunction queryFunction = functionExpression.getFunction();
+          if (queryFunction instanceof LoadFilesFunction
+              || queryFunction instanceof BuildFilesFunction) {
+            found.set(true);
+          }
+          return super.map(functionExpression);
+        }
+      };
+      expr.getMapped(noteBuildFilesAndLoadLilesMapper);
+      if (found.get()) {
+        throw new QueryException(
+            "Query expressions involving 'buildfiles' or 'loadfiles' cannot be used with "
+            + "--output=location");
+      }
     }
 
     @Override

@@ -28,7 +28,7 @@ import java.util.Set;
  *
  * <pre>expr ::= LOADFILES '(' expr ')'</pre>
  */
-class LoadFilesFunction implements QueryEnvironment.QueryFunction {
+public class LoadFilesFunction implements QueryEnvironment.QueryFunction {
   LoadFilesFunction() {}
 
   @Override
