@@ -51,7 +51,7 @@ cd "$(git rev-parse --show-toplevel)"
 files=()
 for file in $(git diff --name-only ${COMMIT_RANGE} ); do
   IFS=$'\n' read -r -a files <<< "$(bazel query $file)"
-  echo $(bazel query $file)
+  bazel query $file
 done
 
 # Query for the associated buildables
