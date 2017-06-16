@@ -454,7 +454,7 @@ function tear_down() {
 # Simples assert to make the tests more readable
 #
 function assert_build() {
-  bazel build -s --verbose_failures $* || fail "Failed to build $*"
+  bazel build -s --verbose_failures "$@" || fail "Failed to build $*"
 }
 
 function assert_build_output() {
