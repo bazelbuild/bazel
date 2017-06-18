@@ -1040,9 +1040,6 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
         }
         skylarkFields.put(
             key.getSkylarkKeyName(),
-            ObjcProviderSkylarkConverters.convertToSkylark(key, nonPropagated.get(key)));
-        skylarkFields.put(
-            key.getSkylarkKeyName(),
             ObjcProviderSkylarkConverters.convertToSkylark(key, union.build()));
       }
 
