@@ -20,9 +20,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.vfs.Path;
-
 import java.io.IOException;
-import java.util.List;
 
 /**
  * A Path object to be used into Skylark remote repository.
@@ -34,7 +32,7 @@ import java.util.List;
 @SkylarkModule(
   name = "path",
   category = SkylarkModuleCategory.NONE,
-  doc = "A structure representing a file to be used inside a repository"
+  doc = "A structure representing a file to be used inside a repository."
 )
 final class SkylarkPath {
   private final Path path;
@@ -71,7 +69,7 @@ final class SkylarkPath {
       structField = false,
       doc = "The list of entries in the directory denoted by this path."
   )
-  public List<SkylarkPath> readdir() throws IOException {
+  public ImmutableList<SkylarkPath> readdir() throws IOException {
     ImmutableList.Builder<SkylarkPath> builder = ImmutableList.builder();
     for (Path p : path.getDirectoryEntries()) {
       builder.add(new SkylarkPath(p));

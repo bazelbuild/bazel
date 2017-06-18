@@ -125,7 +125,7 @@ class RetryingInputStream extends InputStream {
       } else {
         connection =
             reconnector.connect(
-                cause, ImmutableMap.of("Range", String.format("bytes %d-", amountRead)));
+                cause, ImmutableMap.of("Range", String.format("bytes=%d-", amountRead)));
         if (!Strings.nullToEmpty(connection.getHeaderField("Content-Range"))
                 .startsWith(String.format("bytes %d-", amountRead))) {
           throw new IOException(String.format(

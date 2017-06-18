@@ -45,7 +45,7 @@ abstract public class TransferResult<A extends AbstractValue<A>, S extends Store
     }
 
     /**
-     * @return the abstract value produced by the transfer function
+     * @return The abstract value produced by the transfer function.
      */
     public A getResultValue() {
         return resultValue;
@@ -56,25 +56,25 @@ abstract public class TransferResult<A extends AbstractValue<A>, S extends Store
     }
 
     /**
-     * @return the regular result store produced if no exception is thrown by
+     * @return The regular result store produced if no exception is thrown by
      *         the {@link org.checkerframework.dataflow.cfg.node.Node} corresponding to this transfer function result.
      */
     abstract public S getRegularStore();
 
     /**
-     * @return the result store produced if the {@link org.checkerframework.dataflow.cfg.node.Node} this result belongs
+     * @return The result store produced if the {@link org.checkerframework.dataflow.cfg.node.Node} this result belongs
      *         to evaluates to {@code true}.
      */
     abstract public S getThenStore();
 
     /**
-     * @return the result store produced if the {@link org.checkerframework.dataflow.cfg.node.Node} this result belongs
+     * @return The result store produced if the {@link org.checkerframework.dataflow.cfg.node.Node} this result belongs
      *         to evaluates to {@code false}.
      */
     abstract public S getElseStore();
 
     /**
-     * @return the store that flows along the outgoing exceptional edge labeled
+     * @return The store that flows along the outgoing exceptional edge labeled
      *         with {@code exception} (or {@code null} if no special handling is
      *         required for exceptional edges).
      */
@@ -87,7 +87,7 @@ abstract public class TransferResult<A extends AbstractValue<A>, S extends Store
     }
 
     /**
-     * @return a Map of {@link TypeMirror} to {@link Store}.
+     * @return Returns a Map of {@link TypeMirror} to {@link Store}.
      *
      * @see TransferResult#getExceptionalStore(TypeMirror)
      */

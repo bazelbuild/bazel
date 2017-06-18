@@ -14,12 +14,12 @@
 
 package com.google.devtools.build.lib.exec;
 
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase.Type;
 import com.google.protobuf.UninitializedMessageException;
 import java.io.InputStream;
-import java.util.Collection;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
@@ -31,7 +31,7 @@ import javax.xml.stream.XMLStreamReader;
  */
 final class TestXmlOutputParser {
   // jUnit can use either "testsuites" or "testsuite".
-  private static final Collection<String> TOPLEVEL_ELEMENT_NAMES =
+  private static final ImmutableCollection<String> TOPLEVEL_ELEMENT_NAMES =
       ImmutableSet.of("testsuites", "testsuite");
 
   public TestCase parseXmlIntoTestResult(InputStream xmlStream)

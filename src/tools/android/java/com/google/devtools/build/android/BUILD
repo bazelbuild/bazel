@@ -7,6 +7,8 @@ filegroup(
     srcs = [
         "BUILD.tools",
         "classes_deploy.jar",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar:embedded_tools",
+        "//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:embedded_tools",
         "//src/tools/android/java/com/google/devtools/build/android/proto:srcs",
     ],
 )
@@ -17,65 +19,10 @@ java_binary(
     runtime_deps = [":android_builder_lib"],
 )
 
+# Used by //src/test/shell/bazel/android:android_integration_test
 java_binary(
-    name = "AarGeneratorAction",
-    main_class = "com.google.devtools.build.android.AarGeneratorAction",
-    runtime_deps = [
-        ":android_builder_lib",
-    ],
-)
-
-java_binary(
-    name = "AndroidResourceMergingAction",
-    main_class = "com.google.devtools.build.android.AndroidResourceMergingAction",
-    runtime_deps = [
-        ":android_builder_lib",
-    ],
-)
-
-java_binary(
-    name = "AndroidResourceParsingAction",
-    main_class = "com.google.devtools.build.android.AndroidResourceParsingAction",
-    runtime_deps = [
-        ":android_builder_lib",
-    ],
-)
-
-java_binary(
-    name = "AndroidResourceProcessingAction",
-    main_class = "com.google.devtools.build.android.AndroidResourceProcessingAction",
-    runtime_deps = [
-        ":android_builder_lib",
-    ],
-)
-
-java_binary(
-    name = "AndroidResourceValidatorAction",
-    main_class = "com.google.devtools.build.android.AndroidResourceValidatorAction",
-    runtime_deps = [
-        ":android_builder_lib",
-    ],
-)
-
-java_binary(
-    name = "ManifestMergerAction",
-    main_class = "com.google.devtools.build.android.ManifestMergerAction",
-    runtime_deps = [
-        ":android_builder_lib",
-    ],
-)
-
-java_binary(
-    name = "RClassGeneratorAction",
-    main_class = "com.google.devtools.build.android.RClassGeneratorAction",
-    runtime_deps = [
-        ":android_builder_lib",
-    ],
-)
-
-java_binary(
-    name = "ResourceShrinkerAction",
-    main_class = "com.google.devtools.build.android.ResourceShinkerAction",
+    name = "ResourceProcessorBusyBox",
+    main_class = "com.google.devtools.build.android.ResourceProcessorBusyBox",
     runtime_deps = [
         ":android_builder_lib",
     ],
@@ -98,13 +45,14 @@ java_library(
         "//third_party:jsr305",
         "//third_party/java/android_databinding:exec",
         "//third_party/java/aosp_gradle_core",
-        "//third_party/protobuf",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
+        "//src/tools/android/java/com/google/devtools/build/android/desugar:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/dexer:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/ideinfo:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/idlclass:srcs",

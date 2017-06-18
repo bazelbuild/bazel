@@ -17,6 +17,7 @@ import static com.google.devtools.build.lib.actions.util.ActionCacheTestHelper.A
 
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -32,6 +33,8 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
+import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.Executor;
@@ -53,6 +56,8 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
+import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
+import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -71,6 +76,7 @@ import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -97,10 +103,10 @@ import org.junit.Before;
  * The common code that's shared between various builder tests.
  */
 public abstract class TimestampBuilderTestCase extends FoundationTestCase {
-
-  private static final SkyKey OWNER_KEY = SkyKey.create(SkyFunctions.ACTION_LOOKUP, "OWNER");
   protected static final ActionLookupValue.ActionLookupKey ALL_OWNER =
       new SingletonActionLookupKey();
+  protected static final SkyKey OWNER_KEY =
+      LegacySkyKey.create(SkyFunctions.ACTION_LOOKUP, ALL_OWNER);
   protected static final Predicate<Action> ALWAYS_EXECUTE_FILTER = Predicates.alwaysTrue();
   protected static final String CYCLE_MSG = "Yarrrr, there be a cycle up in here";
 
@@ -117,7 +123,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     tsgm = new TimestampGranularityMonitor(clock);
     ResourceManager.instance().setAvailableResources(ResourceSet.createWithRamCpuIo(100, 1, 1));
     actions = new HashSet<>();
-    actionTemplateExpansionFunction = new ActionTemplateExpansionFunction();
+    actionTemplateExpansionFunction =
+        new ActionTemplateExpansionFunction(Suppliers.ofInstance(false));
   }
 
   protected void clearActions() {
@@ -161,8 +168,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     ActionExecutionStatusReporter statusReporter =
         ActionExecutionStatusReporter.create(new StoredEventHandler());
     final SkyframeActionExecutor skyframeActionExecutor =
-        new SkyframeActionExecutor(
-            ResourceManager.instance(), eventBusRef, new AtomicReference<>(statusReporter));
+        new SkyframeActionExecutor(eventBusRef, new AtomicReference<>(statusReporter));
 
     Path actionOutputBase = scratch.dir("/usr/local/google/_blaze_jrluser/FAKEMD5/action_out/");
     skyframeActionExecutor.setActionLogBufferPathGenerator(
@@ -199,7 +205,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                     SkyFunctions.WORKSPACE_FILE,
                     new WorkspaceFileFunction(
                         TestRuleClassProvider.getRuleClassProvider(),
-                        TestConstants.PACKAGE_FACTORY_FACTORY_FOR_TESTING.create(
+                        TestConstants.PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING.builder().build(
                             TestRuleClassProvider.getRuleClassProvider(), scratch.getFileSystem()),
                         directories))
                 .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())
@@ -211,14 +217,15 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             evaluationProgressReceiver);
     final SequentialBuildDriver driver = new SequentialBuildDriver(evaluator);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
-    PrecomputedValue.CLIENT_ENV.set(differencer, ImmutableMap.<String, String>of());
+    PrecomputedValue.ACTION_ENV.set(differencer, ImmutableMap.<String, String>of());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
 
     return new Builder() {
       private void setGeneratingActions() {
         if (evaluator.getExistingValueForTesting(OWNER_KEY) == null) {
           differencer.inject(
-              ImmutableMap.of(OWNER_KEY, new ActionLookupValue(ImmutableList.copyOf(actions))));
+              ImmutableMap.of(
+                  OWNER_KEY, new ActionLookupValue(ImmutableList.copyOf(actions), false)));
         }
       }
 
@@ -242,8 +249,10 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             executor,
             keepGoing, /*explain=*/
             false,
-            new ActionCacheChecker(actionCache, null, ALWAYS_EXECUTE_FILTER, false),
+            new ActionCacheChecker(actionCache, null, ALWAYS_EXECUTE_FILTER, null),
             null);
+        skyframeActionExecutor.setActionExecutionProgressReportingObjects(
+            EMPTY_PROGRESS_SUPPLIER, EMPTY_COMPLETION_RECEIVER);
 
         List<SkyKey> keys = new ArrayList<>();
         for (Artifact artifact : artifacts) {
@@ -302,7 +311,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
   Artifact createSourceArtifact(FileSystem fs, String name) {
     Path root = fs.getPath(TestUtils.tmpDir());
-    return new Artifact(new PathFragment(name), Root.asSourceRoot(root));
+    return new Artifact(PathFragment.create(name), Root.asSourceRoot(root));
   }
 
   protected Artifact createDerivedArtifact(String name) {
@@ -311,7 +320,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
   Artifact createDerivedArtifact(FileSystem fs, String name) {
     Path execRoot = fs.getPath(TestUtils.tmpDir());
-    PathFragment execPath = new PathFragment("out").getRelative(name);
+    PathFragment execPath = PathFragment.create("out").getRelative(name);
     Path path = execRoot.getRelative(execPath);
     return new Artifact(
         path, Root.asDerivedRoot(execRoot, execRoot.getRelative("out")), execPath, ALL_OWNER);
@@ -441,12 +450,12 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
   private static class SingletonActionLookupKey extends ActionLookupValue.ActionLookupKey {
     @Override
-    SkyKey getSkyKey() {
+    protected SkyKey getSkyKeyInternal() {
       return OWNER_KEY;
     }
 
     @Override
-    SkyFunctionName getType() {
+    protected SkyFunctionName getType() {
       throw new UnsupportedOperationException();
     }
   }
@@ -463,4 +472,21 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
       return actionTemplateExpansionFunction.extractTag(skyKey);
     }
   }
+
+  private static final ProgressSupplier EMPTY_PROGRESS_SUPPLIER =
+      new ProgressSupplier() {
+        @Override
+        public String getProgressString() {
+          return "";
+        }
+      };
+
+  private static final ActionCompletedReceiver EMPTY_COMPLETION_RECEIVER =
+      new ActionCompletedReceiver() {
+        @Override
+        public void actionCompleted(ActionLookupData actionLookupData) {}
+
+        @Override
+        public void noteActionEvaluationStarted(ActionLookupData actionLookupData, Action action) {}
+      };
 }

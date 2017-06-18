@@ -16,7 +16,8 @@ public class ConstantPropagationPlayground {
 
         /* Configuration: change as appropriate */
         String inputFile = "cfg-input.java"; // input file name and path
-        String outputDir = "cfg"; // output directory
+        String outputFileName = "cfg"; // output file name and path (without
+                                       // extension)
         String method = "test"; // name of the method to analyze
         String clazz = "Test"; // name of the class to consider
 
@@ -25,7 +26,7 @@ public class ConstantPropagationPlayground {
         // TODO: correct processing environment
         Analysis<Constant, ConstantPropagationStore, ConstantPropagationTransfer> analysis = new Analysis<>(
                 null, transfer);
-        JavaSource2CFGDOT.generateDOTofCFG(inputFile, outputDir, method,
+        JavaSource2CFGDOT.generateDOTofCFG(inputFile, outputFileName, method,
                 clazz, true, analysis);
     }
 

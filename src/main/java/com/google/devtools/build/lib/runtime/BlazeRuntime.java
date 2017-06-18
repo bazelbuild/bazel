@@ -30,9 +30,9 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
+import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.OutputFilter;
-import com.google.devtools.build.lib.flags.CommandNameCache;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.server.signal.InterruptSignalHandler;
 import com.google.devtools.build.lib.shell.JavaSubprocessFactory;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
+import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.Clock;
@@ -62,17 +63,18 @@ import com.google.devtools.build.lib.util.CustomExitCodePublisher;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.util.ThreadUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.UnixFileSystem;
-import com.google.devtools.build.lib.vfs.WindowsFileSystem;
+import com.google.devtools.build.lib.windows.WindowsFileSystem;
 import com.google.devtools.build.lib.windows.WindowsSubprocessFactory;
+import com.google.devtools.common.options.CommandNameCache;
+import com.google.devtools.common.options.InvocationPolicyParser;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionPriority;
 import com.google.devtools.common.options.OptionsBase;
@@ -120,6 +122,7 @@ public final class BlazeRuntime {
   private final Iterable<BlazeModule> blazeModules;
   private final Map<String, BlazeCommand> commandMap = new LinkedHashMap<>();
   private final Clock clock;
+  private final Runnable abruptShutdownHandler;
 
   private final PackageFactory packageFactory;
   private final ConfigurationFactory configurationFactory;
@@ -137,11 +140,11 @@ public final class BlazeRuntime {
   private final OptionsProvider startupOptionsProvider;
 
   private final ProjectFile.Provider projectFileProvider;
-  @Nullable
-  private final InvocationPolicy invocationPolicy;
+  @Nullable private final InvocationPolicy moduleInvocationPolicy;
   private final String defaultsPackageContent;
   private final SubscriberExceptionHandler eventBusExceptionHandler;
   private final String productName;
+  private final PathConverter pathToUriConverter;
 
   // Workspace state (currently exactly one workspace per server)
   private BlazeWorkspace workspace;
@@ -155,25 +158,28 @@ public final class BlazeRuntime {
       ConfigurationFactory configurationFactory,
       ImmutableMap<String, InfoItem> infoItems,
       Clock clock,
+      Runnable abruptShutdownHandler,
       OptionsProvider startupOptionsProvider,
       Iterable<BlazeModule> blazeModules,
       SubscriberExceptionHandler eventBusExceptionHandler,
       ProjectFile.Provider projectFileProvider,
-      InvocationPolicy invocationPolicy,
+      InvocationPolicy moduleInvocationPolicy,
       Iterable<BlazeCommand> commands,
-      String productName) {
+      String productName,
+      PathConverter pathToUriConverter) {
     // Server state
     this.blazeModules = blazeModules;
     overrideCommands(commands);
 
     this.packageFactory = pkgFactory;
     this.projectFileProvider = projectFileProvider;
-    this.invocationPolicy = invocationPolicy;
+    this.moduleInvocationPolicy = moduleInvocationPolicy;
 
     this.ruleClassProvider = ruleClassProvider;
     this.configurationFactory = configurationFactory;
     this.infoItems = infoItems;
     this.clock = clock;
+    this.abruptShutdownHandler = abruptShutdownHandler;
     this.startupOptionsProvider = startupOptionsProvider;
     this.queryEnvironmentFactory = queryEnvironmentFactory;
     this.queryFunctions = queryFunctions;
@@ -181,21 +187,23 @@ public final class BlazeRuntime {
     this.eventBusExceptionHandler = eventBusExceptionHandler;
 
     this.defaultsPackageContent =
-        ruleClassProvider.getDefaultsPackageContent(getInvocationPolicy());
+        ruleClassProvider.getDefaultsPackageContent(getModuleInvocationPolicy());
     CommandNameCache.CommandNameCacheInstance.INSTANCE.setCommandNameCache(
         new CommandNameCacheImpl(getCommandMap()));
     this.productName = productName;
+    this.pathToUriConverter = pathToUriConverter;
   }
 
-  public void initWorkspace(BlazeDirectories directories, BinTools binTools)
+  public BlazeWorkspace initWorkspace(BlazeDirectories directories, BinTools binTools)
       throws AbruptExitException {
     Preconditions.checkState(this.workspace == null);
     WorkspaceBuilder builder = new WorkspaceBuilder(directories, binTools);
     for (BlazeModule module : blazeModules) {
-      module.workspaceInit(directories, builder);
+      module.workspaceInit(this, directories, builder);
     }
     this.workspace = builder.build(
         this, packageFactory, ruleClassProvider, getProductName(), eventBusExceptionHandler);
+    return workspace;
   }
 
   @Nullable public CoverageReportActionFactory getCoverageReportActionFactory(
@@ -232,19 +240,9 @@ public final class BlazeRuntime {
     }
   }
 
-  /**
-   * Initializes a CommandEnvironment to execute a command in this server.
-   *
-   * <p>This method should be called from the "main" thread on which the command will execute;
-   * that thread will receive interruptions if a module requests an early exit.
-   */
-  public CommandEnvironment initCommand() {
-    return workspace.initCommand();
-  }
-
   @Nullable
-  public InvocationPolicy getInvocationPolicy() {
-    return invocationPolicy;
+  public InvocationPolicy getModuleInvocationPolicy() {
+    return moduleInvocationPolicy;
   }
 
   /**
@@ -435,6 +433,7 @@ public final class BlazeRuntime {
     } catch (IOException e) {
       env.getReporter().handle(Event.error("Error while writing profile file: " + e.getMessage()));
     }
+    env.getReporter().clearEventBus();
   }
 
   // Make sure we keep a strong reference to this logger, so that the
@@ -478,6 +477,12 @@ public final class BlazeRuntime {
   public void shutdown() {
     for (BlazeModule module : blazeModules) {
       module.blazeShutdown();
+    }
+  }
+
+  public void prepareForAbruptShutdown() {
+    if (abruptShutdownHandler != null) {
+      abruptShutdownHandler.run();
     }
   }
 
@@ -546,7 +551,11 @@ public final class BlazeRuntime {
       // Run Blaze in batch mode.
       System.exit(batchMain(modules, args));
     }
-    LOG.info("Starting Blaze server with args " + Arrays.toString(args));
+    LOG.info(
+        "Starting Blaze server with pid "
+            + maybeGetPidString()
+            + " and args "
+            + Arrays.toString(args));
     try {
       // Run Blaze in server mode.
       System.exit(serverMain(modules, OutErr.SYSTEM_OUT_ERR, args));
@@ -698,7 +707,7 @@ public final class BlazeRuntime {
 
     new InterruptSignalHandler() {
       @Override
-      protected void onSignal() {
+      public void run() {
         LOG.info("User interrupt");
         OutErr.SYSTEM_OUT_ERR.printErrLn("Blaze received an interrupt");
         mainThread.interrupt();
@@ -723,17 +732,24 @@ public final class BlazeRuntime {
   private static int batchMain(Iterable<BlazeModule> modules, String[] args) {
     captureSigint();
     CommandLineOptions commandLineOptions = splitStartupOptions(modules, args);
-    LOG.info("Running Blaze in batch mode with startup args "
-        + commandLineOptions.getStartupArgs());
+    LOG.info(
+        "Running Blaze in batch mode with "
+            + maybeGetPidString()
+            + "startup args "
+            + commandLineOptions.getStartupArgs());
 
     BlazeRuntime runtime;
+    InvocationPolicy policy;
     try {
-      runtime = newRuntime(modules, commandLineOptions.getStartupArgs());
+      runtime = newRuntime(modules, commandLineOptions.getStartupArgs(), null);
+      policy = InvocationPolicyParser.parsePolicy(
+          runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class)
+              .invocationPolicy);
     } catch (OptionsParsingException e) {
-      OutErr.SYSTEM_OUT_ERR.printErr(e.getMessage());
+      OutErr.SYSTEM_OUT_ERR.printErrLn(e.getMessage());
       return ExitCode.COMMAND_LINE_ERROR.getNumericExitCode();
     } catch (AbruptExitException e) {
-      OutErr.SYSTEM_OUT_ERR.printErr(e.getMessage());
+      OutErr.SYSTEM_OUT_ERR.printErrLn(e.getMessage());
       return e.getExitCode().getNumericExitCode();
     }
 
@@ -741,7 +757,7 @@ public final class BlazeRuntime {
 
     try {
       LOG.info(getRequestLogString(commandLineOptions.getOtherArgs()));
-      return dispatcher.exec(commandLineOptions.getOtherArgs(), OutErr.SYSTEM_OUT_ERR,
+      return dispatcher.exec(policy, commandLineOptions.getOtherArgs(), OutErr.SYSTEM_OUT_ERR,
           LockingMode.ERROR_OUT, "batch client", runtime.getClock().currentTimeMillis());
     } catch (BlazeCommandDispatcher.ShutdownBlazeServerException e) {
       return e.getExitStatus();
@@ -764,13 +780,14 @@ public final class BlazeRuntime {
       final RPCServer blazeServer = createBlazeRPCServer(modules, Arrays.asList(args));
 
       // Register the signal handler.
-       sigintHandler = new InterruptSignalHandler() {
-        @Override
-        protected void onSignal() {
-          LOG.severe("User interrupt");
-          blazeServer.interrupt();
-        }
-      };
+      sigintHandler =
+          new InterruptSignalHandler() {
+            @Override
+            public void run() {
+              LOG.severe("User interrupt");
+              blazeServer.interrupt();
+            }
+          };
 
       blazeServer.serve();
       return ExitCode.SUCCESS.getNumericExitCode();
@@ -813,7 +830,15 @@ public final class BlazeRuntime {
   private static RPCServer createBlazeRPCServer(
       Iterable<BlazeModule> modules, List<String> args)
       throws IOException, OptionsParsingException, AbruptExitException {
-    BlazeRuntime runtime = newRuntime(modules, args);
+    final RPCServer[] rpcServer = new RPCServer[1];
+    Runnable prepareForAbruptShutdown = new Runnable() {
+      @Override
+      public void run() {
+        rpcServer[0].prepareForAbruptShutdown();
+      }
+    };
+
+    BlazeRuntime runtime = newRuntime(modules, args, prepareForAbruptShutdown);
     BlazeCommandDispatcher dispatcher = new BlazeCommandDispatcher(runtime);
     CommandExecutor commandExecutor = new CommandExecutor(runtime, dispatcher);
 
@@ -824,13 +849,17 @@ public final class BlazeRuntime {
       // gRPC server is not compiled in so that we don't need gRPC for bootstrapping.
       Class<?> factoryClass = Class.forName(
           "com.google.devtools.build.lib.server.GrpcServerImpl$Factory");
-    RPCServer.Factory factory = (RPCServer.Factory) factoryClass.getConstructor().newInstance();
-    return factory.create(commandExecutor, runtime.getClock(),
-        startupOptions.commandPort, runtime.getServerDirectory(),
-        startupOptions.maxIdleSeconds);
+      RPCServer.Factory factory = (RPCServer.Factory) factoryClass.getConstructor().newInstance();
+      rpcServer[0] = factory.create(commandExecutor, runtime.getClock(),
+          startupOptions.commandPort,
+          runtime.getWorkspace().getWorkspace(),
+          runtime.getServerDirectory(),
+          startupOptions.maxIdleSeconds);
+      return rpcServer[0];
     } catch (ReflectiveOperationException | IllegalArgumentException e) {
       throw new AbruptExitException("gRPC server not compiled in", ExitCode.BLAZE_INTERNAL_ERROR);
     }
+
   }
 
   private static Function<String, String> sourceFunctionForMap(final Map<String, String> map) {
@@ -889,7 +918,8 @@ public final class BlazeRuntime {
    *         an error string that, if not null, describes a fatal initialization failure that makes
    *         this runtime unsuitable for real commands
    */
-  private static BlazeRuntime newRuntime(Iterable<BlazeModule> blazeModules, List<String> args)
+  private static BlazeRuntime newRuntime(Iterable<BlazeModule> blazeModules, List<String> args,
+      Runnable abruptShutdownHandler)
       throws AbruptExitException, OptionsParsingException {
     OptionsProvider options = parseOptions(blazeModules, args);
     for (BlazeModule module : blazeModules) {
@@ -902,14 +932,11 @@ public final class BlazeRuntime {
     if (startupOptions.oomMoreEagerlyThreshold != 100) {
       new RetainedHeapLimiter(startupOptions.oomMoreEagerlyThreshold).install();
     }
-    if (startupOptions.oomMoreEagerly) {
-      new OomSignalHandler();
-    }
     PathFragment workspaceDirectory = startupOptions.workspaceDirectory;
     PathFragment installBase = startupOptions.installBase;
     PathFragment outputBase = startupOptions.outputBase;
 
-    OsUtils.maybeForceJNI(installBase);  // Must be before first use of JNI.
+    maybeForceJNIByGettingPid(installBase); // Must be before first use of JNI.
 
     // From the point of view of the Java program --install_base and --output_base
     // are mandatory options, despite the comment in their declarations.
@@ -953,6 +980,7 @@ public final class BlazeRuntime {
         .setServerDirectories(serverDirectories)
         .setStartupOptionsProvider(options)
         .setClock(clock)
+        .setAbruptShutdownHandler(abruptShutdownHandler)
         // TODO(bazel-team): Make BugReportingExceptionHandler the default.
         // See bug "Make exceptions in EventBus subscribers fatal"
         .setEventBusExceptionHandler(
@@ -984,12 +1012,45 @@ public final class BlazeRuntime {
           ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
     }
     runtime.initWorkspace(directories, binTools);
-    if (startupOptions.useCustomExitCodeOnAbruptExit) {
-      CustomExitCodePublisher.setAbruptExitStatusFileDir(serverDirectories.getOutputBase());
-    }
+    CustomExitCodePublisher.setAbruptExitStatusFileDir(serverDirectories.getOutputBase());
+
     AutoProfiler.setClock(runtime.getClock());
     BugReport.setRuntime(runtime);
     return runtime;
+  }
+
+  private static String maybeGetPidString() {
+    Integer pid = maybeForceJNIByGettingPid(null);
+    return pid == null ? "" : "pid " + pid + " and ";
+  }
+
+  /** Loads JNI libraries, if necessary under the current platform. */
+  @Nullable
+  private static Integer maybeForceJNIByGettingPid(@Nullable PathFragment installBase) {
+    return jniLibsAvailable() ? getPidUsingJNI(installBase) : null;
+  }
+
+  private static boolean jniLibsAvailable() {
+    return !"0".equals(System.getProperty("io.bazel.EnableJni"));
+  }
+
+  // Force JNI linking at a moment when we have 'installBase' handy, and print
+  // an informative error if it fails.
+  private static int getPidUsingJNI(@Nullable PathFragment installBase) {
+    try {
+      return ProcessUtils.getpid(); // force JNI initialization
+    } catch (UnsatisfiedLinkError t) {
+      System.err.println(
+          "JNI initialization failed: "
+              + t.getMessage()
+              + ".  "
+              + "Possibly your installation has been corrupted"
+              + (installBase == null
+                  ? ""
+                  : "; if this problem persists, try 'rm -fr " + installBase + "'")
+              + ".");
+      throw t;
+    }
   }
 
   /**
@@ -1048,6 +1109,10 @@ public final class BlazeRuntime {
     return productName;
   }
 
+  public PathConverter getPathToUriConverter() {
+    return pathToUriConverter;
+  }
+
   /**
    * A builder for {@link BlazeRuntime} objects. The only required fields are the {@link
    * BlazeDirectories}, and the {@link RuleClassProvider} (except for testing). All other fields
@@ -1060,6 +1125,7 @@ public final class BlazeRuntime {
   public static class Builder {
     private ServerDirectories serverDirectories;
     private Clock clock;
+    private Runnable abruptShutdownHandler;
     private OptionsProvider startupOptionsProvider;
     private final List<BlazeModule> blazeModules = new ArrayList<>();
     private SubscriberExceptionHandler eventBusExceptionHandler = new RemoteExceptionHandler();
@@ -1140,13 +1206,15 @@ public final class BlazeRuntime {
           configurationFactory,
           serverBuilder.getInfoItems(),
           clock,
+          abruptShutdownHandler,
           startupOptionsProvider,
           ImmutableList.copyOf(blazeModules),
           eventBusExceptionHandler,
           projectFileProvider,
           serverBuilder.getInvocationPolicy(),
           serverBuilder.getCommands(),
-          productName);
+          productName,
+          serverBuilder.getPathToUriConverter());
     }
 
     public Builder setProductName(String productName) {
@@ -1161,6 +1229,11 @@ public final class BlazeRuntime {
 
     public Builder setClock(Clock clock) {
       this.clock = clock;
+      return this;
+    }
+
+    public Builder setAbruptShutdownHandler(Runnable handler) {
+      this.abruptShutdownHandler = handler;
       return this;
     }
 

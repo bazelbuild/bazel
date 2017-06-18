@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.skyframe;
 
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.common.options.OptionsClassProvider;
 import javax.annotation.Nullable;
@@ -22,11 +22,11 @@ import javax.annotation.Nullable;
 /** A BuildDriver wraps a MemoizingEvaluator, passing along the proper Version. */
 public interface BuildDriver {
   /**
-   * See {@link MemoizingEvaluator#evaluate}, which has the same semantics except for the
-   * inclusion of a {@link Version} value.
+   * See {@link MemoizingEvaluator#evaluate}, which has the same semantics except for the inclusion
+   * of a {@link Version} value.
    */
   <T extends SkyValue> EvaluationResult<T> evaluate(
-      Iterable<SkyKey> roots, boolean keepGoing, int numThreads, EventHandler reporter)
+      Iterable<SkyKey> roots, boolean keepGoing, int numThreads, ExtendedEventHandler reporter)
       throws InterruptedException;
 
   /**

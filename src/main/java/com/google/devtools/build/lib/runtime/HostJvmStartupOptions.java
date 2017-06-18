@@ -28,6 +28,13 @@ import java.util.List;
  */
 public class HostJvmStartupOptions extends OptionsBase {
 
+  @Option(name = "host_javabase",
+          defaultValue = "", // NOTE: purely decorative! See BlazeServerStartupOptions.
+          category = "host jvm startup",
+          valueHelp = "<jvm path>",
+          help = "Path to the JVM used to execute Blaze itself.")
+  public String hostJavabase;
+
   @Option(name = "host_jvm_args",
           defaultValue = "", // NOTE: purely decorative!  See BlazeServerStartupOptions.
           category = "host jvm startup",

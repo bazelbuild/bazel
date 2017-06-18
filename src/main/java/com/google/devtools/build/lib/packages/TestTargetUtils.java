@@ -20,11 +20,10 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Pair;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -76,8 +75,8 @@ public final class TestTargetUtils {
    * the specified languages. The reporter and the list of rule names are only used to warn about
    * unknown languages.
    */
-  public static Predicate<Target> testLangFilter(List<String> langFilterList,
-      EventHandler reporter, Set<String> allRuleNames) {
+  public static Predicate<Target> testLangFilter(
+      List<String> langFilterList, ExtendedEventHandler reporter, Set<String> allRuleNames) {
     final Set<String> requiredLangs = new HashSet<>();
     final Set<String> excludedLangs = new HashSet<>();
 
@@ -178,19 +177,22 @@ public final class TestTargetUtils {
    * Returns the (new, mutable) set of test rules, expanding all 'test_suite' rules into the
    * individual tests they group together and preserving other test target instances.
    *
-   * Method assumes that passed collection contains only *_test and test_suite rules. While, at this
-   * point it will successfully preserve non-test rules as well, there is no guarantee that this
-   * behavior will be kept in the future.
+   * <p>Method assumes that passed collection contains only *_test and test_suite rules. While, at
+   * this point it will successfully preserve non-test rules as well, there is no guarantee that
+   * this behavior will be kept in the future.
    *
    * @param targetProvider a target provider
    * @param eventHandler a failure eventHandler to report loading failures to
    * @param targets Collection of the *_test and test_suite configured targets
    * @return a duplicate-free iterable of the tests under the specified targets
    */
-  public static ResolvedTargets<Target> expandTestSuites(TargetProvider targetProvider,
-      EventHandler eventHandler, Iterable<? extends Target> targets, boolean strict,
+  public static ResolvedTargets<Target> expandTestSuites(
+      TargetProvider targetProvider,
+      ExtendedEventHandler eventHandler,
+      Iterable<? extends Target> targets,
+      boolean strict,
       boolean keepGoing)
-          throws TargetParsingException {
+      throws TargetParsingException {
     Closure closure = new Closure(targetProvider, eventHandler, strict, keepGoing);
     ResolvedTargets.Builder<Target> result = ResolvedTargets.builder();
     for (Target target : targets) {
@@ -213,7 +215,7 @@ public final class TestTargetUtils {
   private static final class Closure {
     private final TargetProvider targetProvider;
 
-    private final EventHandler eventHandler;
+    private final ExtendedEventHandler eventHandler;
 
     private final boolean keepGoing;
 
@@ -223,7 +225,10 @@ public final class TestTargetUtils {
 
     private boolean hasError;
 
-    public Closure(TargetProvider targetProvider, EventHandler eventHandler, boolean strict,
+    public Closure(
+        TargetProvider targetProvider,
+        ExtendedEventHandler eventHandler,
+        boolean strict,
         boolean keepGoing) {
       this.targetProvider = targetProvider;
       this.eventHandler = eventHandler;

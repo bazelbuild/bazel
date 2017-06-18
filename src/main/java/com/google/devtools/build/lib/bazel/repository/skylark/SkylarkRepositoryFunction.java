@@ -23,8 +23,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
-import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
@@ -33,11 +31,8 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
-import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.IOException;
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
 /**
@@ -71,32 +66,25 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
     return new SkylarkRepositoryMissingDependencyException();
   }
 
-  private CommandEnvironment commandEnvironment = null;
-
-  public void setCommandEnvironment(CommandEnvironment commandEnvironment) {
-    this.commandEnvironment = commandEnvironment;
-  }
-
-  private Map<String, String> getClientEnvironment() {
-    return commandEnvironment != null
-        ? commandEnvironment.getClientEnv()
-        : ImmutableMap.<String, String>of();
-  }
-
   @Nullable
   @Override
-  public SkyValue fetch(
-      Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env)
+  public RepositoryDirectoryValue.Builder fetch(Rule rule, Path outputDirectory,
+      BlazeDirectories directories, Environment env, Map<String, String> markerData)
       throws RepositoryFunctionException, InterruptedException {
     BaseFunction function = rule.getRuleClassObject().getConfiguredTargetFunction();
+    if (declareEnvironmentDependencies(markerData, env, getEnviron(rule)) == null) {
+      return null;
+    }
     try (Mutability mutability = Mutability.create("skylark repository")) {
+      // This Skylark environment ignores command line flags.
       com.google.devtools.build.lib.syntax.Environment buildEnv =
           com.google.devtools.build.lib.syntax.Environment.builder(mutability)
               .setGlobals(rule.getRuleClassObject().getRuleDefinitionEnvironment().getGlobals())
               .setEventHandler(env.getListener())
               .build();
-      SkylarkRepositoryContext skylarkRepositoryContext = new SkylarkRepositoryContext(
-          rule, outputDirectory, env, getClientEnvironment(), httpDownloader);
+      SkylarkRepositoryContext skylarkRepositoryContext =
+          new SkylarkRepositoryContext(
+              rule, outputDirectory, env, clientEnvironment, httpDownloader, markerData);
 
       // This has side-effect, we don't care about the output.
       // Also we do a lot of stuff in there, maybe blocking operations and we should certainly make
@@ -132,14 +120,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
 
-    FileValue repositoryValue = getRepositoryDirectory(outputDirectory, env);
-    if (repositoryValue == null) {
-      // TODO(bazel-team): If this returns null, we unnecessarily recreate the symlink above on the
-      // second execution.
-      return null;
-    }
-
-    if (!repositoryValue.isDirectory()) {
+    if (!outputDirectory.isDirectory()) {
       throw new RepositoryFunctionException(
           new IOException(rule + " must create a directory"), Transience.TRANSIENT);
     }
@@ -148,7 +129,21 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
       createWorkspaceFile(outputDirectory, rule.getTargetKind(), rule.getName());
     }
 
-    return RepositoryDirectoryValue.create(outputDirectory);
+    return RepositoryDirectoryValue.builder().setPath(outputDirectory);
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Iterable<String> getEnviron(Rule rule) {
+    return (Iterable<String>) rule.getAttributeContainer().getAttr("$environ");
+  }
+
+  @Override
+  public boolean verifyMarkerData(Rule rule, Map<String, String> markerData, Environment env)
+      throws InterruptedException {
+    if (verifyEnvironMarkerData(markerData, env, getEnviron(rule))) {
+      return SkylarkRepositoryContext.verifyMarkerDataForFiles(markerData, env);
+    }
+    return false;
   }
 
   @Override

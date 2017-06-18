@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor.SkyframePackageLo
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.skyframe.CyclesReporter;
-
 import java.io.PrintStream;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -68,20 +67,15 @@ class SkyframePackageManager implements PackageManager {
 
   @ThreadSafe
   @Override
-  public Package getPackage(EventHandler eventHandler, PackageIdentifier packageIdentifier)
+  public Package getPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageIdentifier)
       throws NoSuchPackageException, InterruptedException {
     return packageLoader.getPackage(eventHandler, packageIdentifier);
   }
 
   @Override
-  public Target getTarget(EventHandler eventHandler, Label label)
+  public Target getTarget(ExtendedEventHandler eventHandler, Label label)
       throws NoSuchPackageException, NoSuchTargetException, InterruptedException {
     return getPackage(eventHandler, label.getPackageIdentifier()).getTarget(label.getName());
-  }
-
-  @Override
-  public void partiallyClear() {
-    packageLoader.partiallyClear();
   }
 
   @Override
@@ -91,21 +85,11 @@ class SkyframePackageManager implements PackageManager {
       public int getPackagesLoaded() {
         return numPackagesLoaded.get();
       }
-
-      @Override
-      public int getPackagesLookedUp() {
-        return -1;
-      }
-
-      @Override
-      public int getCacheSize() {
-        return -1;
-      }
     };
   }
 
   @Override
-  public boolean isPackage(EventHandler eventHandler, PackageIdentifier packageName) {
+  public boolean isPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageName) {
     return getBuildFileForPackage(packageName) != null;
   }
 

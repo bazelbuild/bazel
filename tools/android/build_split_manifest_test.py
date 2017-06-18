@@ -29,6 +29,13 @@ MAIN_MANIFEST = """
 </manifest>
 """
 
+NO_VERSION_MANIFEST = """
+<manifest
+  xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.google.package" >
+</manifest>
+"""
+
 
 class BuildSplitManifestTest(unittest.TestCase):
 
@@ -48,6 +55,12 @@ class BuildSplitManifestTest(unittest.TestCase):
     split = BuildSplitManifest(MAIN_MANIFEST, None, "my.little.splony", False)
     manifest = ElementTree.fromstring(split)
     self.assertEqual("my.little.splony", manifest.get("split"))
+
+  def testManifestWithNoVersion(self):
+    split = BuildSplitManifest(NO_VERSION_MANIFEST, None, "split", False)
+    manifest = ElementTree.fromstring(split)
+    self.assertEqual(None, manifest.get("android:versionCode"))
+    self.assertEqual(None, manifest.get("android:versionName"))
 
 
 if __name__ == "__main__":

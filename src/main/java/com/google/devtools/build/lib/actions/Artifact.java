@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -40,16 +41,17 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
  * An Artifact represents a file used by the build system, whether it's a source
  * file or a derived (output) file. Not all Artifacts have a corresponding
- * FileTarget object in the <code>build.packages</code> API: for example,
+ * FileTarget object in the <code>build.lib.packages</code> API: for example,
  * low-level intermediaries internal to a given rule, such as a Java class files
  * or C++ object files. However all FileTargets have a corresponding Artifact.
  *
- * <p>In any given call to Builder#buildArtifacts(), no two Artifacts in the
+ * <p>In any given call to SkyframeExecutor#buildArtifacts(), no two Artifacts in the
  * action graph may refer to the same path.
  *
  * <p>Artifacts generally fall into two classifications, source and derived, but
@@ -134,7 +136,7 @@ public class Artifact
     if (o instanceof Artifact) {
       return EXEC_PATH_COMPARATOR.compare(this, (Artifact) o);
     }
-    return EvalUtils.compareByClass(this, o);
+    throw new ComparisonException("Cannot compare artifact with " + EvalUtils.getDataTypeName(o));
   }
 
 
@@ -191,10 +193,10 @@ public class Artifact
    * </pre>
    *
    * <p>In a derived Artifact, the execPath will overlap with part of the root, which in turn will
-   * be below of the execRoot.
+   * be below the execRoot.
    * <pre>
    *  [path] == [/root][pathTail] == [/execRoot][execPath] == [/execRoot][rootPrefix][pathTail]
-   * <pre>
+   * </pre>
    */
   @VisibleForTesting
   public Artifact(Path path, Root root, PathFragment execPath, ArtifactOwner owner) {
@@ -342,6 +344,7 @@ public class Artifact
     return root;
   }
 
+  @Override
   public final PathFragment getExecPath() {
     return execPath;
   }
@@ -357,12 +360,15 @@ public class Artifact
   }
 
   /**
-   * Returns true iff this is a source Artifact as determined by its path and
-   * root relationships. Note that this will report all Artifacts in the output
-   * tree, including in the include symlink tree, as non-source.
+   * Returns true iff this is a source Artifact as determined by its path and root relationships.
+   * Note that this will report all Artifacts in the output tree, including in the include symlink
+   * tree, as non-source.
    */
-  @SkylarkCallable(name = "is_source", structField =  true,
-      doc = "Returns true if this is a source file, i.e. it is not generated")
+  @SkylarkCallable(
+    name = "is_source",
+    structField = true,
+    doc = "Returns true if this is a source file, i.e. it is not generated."
+  )
   public final boolean isSourceArtifact() {
     return execPath == rootRelativePath;
   }
@@ -404,7 +410,7 @@ public class Artifact
    * @see SpecialArtifact
    */
   @VisibleForTesting
-  public static enum SpecialArtifactType {
+  public enum SpecialArtifactType {
     FILESET,
     TREE,
     CONSTANT_METADATA,
@@ -504,6 +510,10 @@ public class Artifact
           "The parent of TreeFileArtifact (parent-relative path: %s) is not a TreeArtifact: %s",
           parentRelativePath,
           parent);
+      Preconditions.checkState(
+          parentRelativePath.isNormalized() && !parentRelativePath.isAbsolute(),
+          "%s is not a proper normalized relative path",
+          parentRelativePath);
       this.parentTreeArtifact = parent;
       this.parentRelativePath = parentRelativePath;
     }
@@ -533,11 +543,10 @@ public class Artifact
    */
   public final PathFragment getRunfilesPath() {
     PathFragment relativePath = rootRelativePath;
-    if (relativePath.segmentCount() > 1
-        && relativePath.getSegment(0).equals(Label.EXTERNAL_PATH_PREFIX)) {
+    if (relativePath.startsWith(Label.EXTERNAL_PATH_PREFIX)) {
       // Turn external/repo/foo into ../repo/foo.
       relativePath = relativePath.relativeTo(Label.EXTERNAL_PATH_PREFIX);
-      relativePath = new PathFragment("..").getRelative(relativePath);
+      relativePath = PathFragment.create("..").getRelative(relativePath);
     }
     return relativePath;
   }
@@ -601,7 +610,7 @@ public class Artifact
     // We don't bother to check root in the equivalence relation, because we
     // assume that no root is an ancestor of another one.
     Artifact that = (Artifact) other;
-    return this.path.equals(that.path);
+    return Objects.equals(this.path, that.path);
   }
 
   @Override
@@ -614,7 +623,7 @@ public class Artifact
 
   @Override
   public final String toString() {
-    return "Artifact:" + toDetailString();
+    return "File:" + toDetailString();
   }
 
   /**

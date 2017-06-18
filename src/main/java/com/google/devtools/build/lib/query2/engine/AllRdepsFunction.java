@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -20,10 +21,9 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
-
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ForkJoinPool;
 
 /**
  * An "allrdeps" query expression, which computes the reverse dependencies of the argument within
@@ -52,30 +52,34 @@ public class AllRdepsFunction implements QueryFunction {
   }
 
   @Override
-  public <T> void eval(
+  public <T> QueryTaskFuture<Void> eval(
       QueryEnvironment<T> env,
       VariableContext<T> context,
       QueryExpression expression,
       List<Argument> args,
-      Callback<T> callback) throws QueryException, InterruptedException {
-    eval(env, context, args, callback, Predicates.<T>alwaysTrue());
+      Callback<T> callback) {
+    return eval(env, context, args, callback, Optional.<Predicate<T>>absent());
   }
 
-  protected <T> void eval(
+  protected <T> QueryTaskFuture<Void> eval(
       final QueryEnvironment<T> env,
       VariableContext<T> context,
       final List<Argument> args,
       final Callback<T> callback,
-      final Predicate<T> universe)
-      throws QueryException, InterruptedException {
-
+      Optional<Predicate<T>> universeMaybe) {
     final int depth = args.size() > 1 ? args.get(1).getInteger() : Integer.MAX_VALUE;
+    final Predicate<T> universe = universeMaybe.isPresent()
+        ? universeMaybe.get()
+        : Predicates.<T>alwaysTrue();
     if (env instanceof StreamableQueryEnvironment<?>) {
-      ((StreamableQueryEnvironment<T>) env)
-          .getAllRdeps(args.get(0).getExpression(), universe, context, callback, depth);
+      StreamableQueryEnvironment<T> streamableEnv = ((StreamableQueryEnvironment<T>) env);
+      return depth == Integer.MAX_VALUE && !universeMaybe.isPresent()
+        ? streamableEnv.getAllRdepsUnboundedParallel(args.get(0).getExpression(), context, callback)
+        : streamableEnv.getAllRdeps(
+            args.get(0).getExpression(), universe, context, callback, depth);
     } else {
-      final Uniquifier<T> uniquifier = env.createUniquifier();
-      env.eval(
+      final MinDepthUniquifier<T> minDepthUniquifier = env.createMinDepthUniquifier();
+      return env.eval(
           args.get(0).getExpression(),
           context,
           new Callback<T>() {
@@ -91,7 +95,8 @@ public class AllRdepsFunction implements QueryFunction {
                 // Filter already visited nodes: if we see a node in a later round, then we don't
                 // need to visit it again, because the depth at which we see it must be greater
                 // than or equal to the last visit.
-                next.addAll(env.getReverseDeps(uniquifier.unique(currentInUniverse)));
+                next.addAll(env.getReverseDeps(
+                    minDepthUniquifier.uniqueAtDepthLessThanOrEqualTo(currentInUniverse, i)));
                 callback.process(currentInUniverse);
                 if (next.isEmpty()) {
                   // Exit when there are no more nodes to visit.
@@ -101,23 +106,6 @@ public class AllRdepsFunction implements QueryFunction {
               }
             }
           });
-    }
-  }
-
-  @Override
-  public <T> void parEval(
-      QueryEnvironment<T> env,
-      VariableContext<T> context,
-      QueryExpression expression,
-      List<Argument> args,
-      ThreadSafeCallback<T> callback,
-      ForkJoinPool forkJoinPool) throws QueryException, InterruptedException {
-    boolean unbounded = args.size() == 1;
-    if (unbounded && env instanceof StreamableQueryEnvironment<?>) {
-      ((StreamableQueryEnvironment<T>) env).getAllRdepsUnboundedParallel(
-          args.get(0).getExpression(), context, callback, forkJoinPool);
-    } else {
-      eval(env, context, expression, args, callback);
     }
   }
 }

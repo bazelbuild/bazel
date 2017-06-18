@@ -25,8 +25,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -82,14 +82,15 @@ public final class AnalysisUtils {
    * Returns the list of declared providers (native and Skylark) of the specified Skylark key from a
    * set of transitive info collections.
    */
-  public static Iterable<SkylarkClassObject> getProviders(
+  public static <T extends SkylarkClassObject>  Iterable<T> getProviders(
       Iterable<? extends TransitiveInfoCollection> prerequisites,
-      final SkylarkClassObjectConstructor.Key skylarkKey) {
-    ImmutableList.Builder<SkylarkClassObject> result = ImmutableList.builder();
+      final ClassObjectConstructor.Key skylarkKey,
+      Class<T> resultClass) {
+    ImmutableList.Builder<T> result = ImmutableList.builder();
     for (TransitiveInfoCollection prerequisite : prerequisites) {
       SkylarkClassObject prerequisiteProvider = prerequisite.get(skylarkKey);
       if (prerequisiteProvider != null) {
-        result.add(prerequisiteProvider);
+        result.add(resultClass.cast(prerequisiteProvider));
       }
     }
     return result.build();
@@ -119,11 +120,11 @@ public final class AnalysisUtils {
   }
 
   /**
-   * Returns the middleman artifact on the specified attribute of the specified rule, or an empty
-   * set if it does not exist.
+   * Returns the middleman artifact on the specified attribute of the specified rule for the
+   * specified mode, or an empty set if it does not exist.
    */
-  public static NestedSet<Artifact> getMiddlemanFor(RuleContext rule, String attribute) {
-    TransitiveInfoCollection prereq = rule.getPrerequisite(attribute, Mode.HOST);
+  public static NestedSet<Artifact> getMiddlemanFor(RuleContext rule, String attribute, Mode mode) {
+    TransitiveInfoCollection prereq = rule.getPrerequisite(attribute, mode);
     if (prereq == null) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }

@@ -22,9 +22,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -86,7 +84,8 @@ public class AspectAwareAttributeMapperTest extends BuildViewTestCase {
       mapper.get("fromaspect", BuildType.LABEL_LIST);
       fail("Expected failure on wrong-typed attribute");
     } catch (IllegalArgumentException e) {
-      assertThat(e.getMessage())
+      assertThat(e)
+          .hasMessageThat()
           .isEqualTo("attribute fromaspect has type label, not expected type list(label)");
     }
   }
@@ -97,15 +96,16 @@ public class AspectAwareAttributeMapperTest extends BuildViewTestCase {
       mapper.get("noexist", BuildType.LABEL);
       fail("Expected failure on non-existent attribute");
     } catch (IllegalArgumentException e) {
-      assertThat(e.getMessage())
+      assertThat(e)
+          .hasMessageThat()
           .isEqualTo("no attribute 'noexist' in either //foo:myrule or its aspects");
     }
   }
 
   @Test
   public void isConfigurable() throws Exception {
-    assertThat(mapper.isConfigurable("linkstatic", Type.BOOLEAN)).isTrue();
-    assertThat(mapper.isConfigurable("fromaspect", BuildType.LABEL_LIST)).isFalse();
+    assertThat(mapper.isConfigurable("linkstatic")).isTrue();
+    assertThat(mapper.isConfigurable("fromaspect")).isFalse();
   }
 
   @Test
@@ -128,8 +128,8 @@ public class AspectAwareAttributeMapperTest extends BuildViewTestCase {
 
   @Test
   public void has() throws Exception {
-    assertThat(mapper.has("srcs", BuildType.LABEL_LIST)).isTrue();
-    assertThat(mapper.has("fromaspect", BuildType.LABEL)).isTrue();
+    assertThat(mapper.has("srcs")).isTrue();
+    assertThat(mapper.has("fromaspect")).isTrue();
   }
 }
 

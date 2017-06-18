@@ -150,15 +150,6 @@ public final class BlazeWorkspace {
   }
 
   /**
-   * Returns the execution root directory associated with this Blaze server
-   * process. This is where all input and output files visible to the actual
-   * build reside.
-   */
-  public Path getExecRoot() {
-    return directories.getExecRoot();
-  }
-
-  /**
    * Returns path to the cache directory. Path must be inside output base to
    * ensure that users can run concurrent instances of blaze in different
    * clients without attempting to concurrently write to the same action cache
@@ -190,9 +181,22 @@ public final class BlazeWorkspace {
    * <p>This method should be called from the "main" thread on which the command will execute;
    * that thread will receive interruptions if a module requests an early exit.
    */
-  public CommandEnvironment initCommand() {
+  public CommandEnvironment initCommand(Command command) {
     CommandEnvironment env = new CommandEnvironment(
-        runtime, this, new EventBus(eventBusExceptionHandler), Thread.currentThread());
+        runtime, this, new EventBus(eventBusExceptionHandler), Thread.currentThread(), command);
+    skyframeExecutor.setClientEnv(env.getClientEnv());
+    return env;
+  }
+
+  /**
+   * Same as {@code #initCommand()} but setting the command name and the options manually since
+   * those values are set by {@code CommandEnvironment#beforeCommand()} which is not called for
+   * testing. Use ONLY for testing purposes.
+   */
+  public CommandEnvironment initCommandForTesting(Command command, OptionsProvider options) {
+    CommandEnvironment env = new CommandEnvironment(
+        runtime, this, new EventBus(eventBusExceptionHandler), Thread.currentThread(),
+        command, options);
     skyframeExecutor.setClientEnv(env.getClientEnv());
     return env;
   }

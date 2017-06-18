@@ -24,7 +24,6 @@ import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.Dirent.Type;
 import com.google.devtools.build.lib.vfs.Path.PathFactory;
-import com.google.devtools.build.lib.vfs.Path.PathFactory.TranslatedPath;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.io.FileNotFoundException;
@@ -66,10 +65,10 @@ public abstract class FileSystem {
   }
 
   // This is effectively final, should be changed only in unit-tests!
-  private static HashFunction DIGEST_FUNCTION;
+  private static HashFunction digestFunction;
   static {
     try {
-      DIGEST_FUNCTION = new HashFunction.Converter().convert(
+      digestFunction = new HashFunction.Converter().convert(
           System.getProperty("bazel.DigestFunction", "MD5"));
     } catch (OptionsParsingException e) {
       throw new IllegalStateException(e);
@@ -78,11 +77,11 @@ public abstract class FileSystem {
 
   @VisibleForTesting
   public static void setDigestFunctionForTesting(HashFunction value) {
-    DIGEST_FUNCTION = value;
+    digestFunction = value;
   }
 
   public static HashFunction getDigestFunction() {
-    return DIGEST_FUNCTION;
+    return digestFunction;
   }
 
   private enum UnixPathFactory implements PathFactory {
@@ -98,8 +97,8 @@ public abstract class FileSystem {
       }
 
       @Override
-      public TranslatedPath translatePath(Path parent, String child) {
-        return new TranslatedPath(parent, child);
+      public Path getCachedChildPathInternal(Path path, String childName) {
+        return Path.getCachedChildPathInternal(path, childName, /*cacheable=*/ true);
       }
     };
   }
@@ -132,7 +131,7 @@ public abstract class FileSystem {
    * file system.
    */
   public Path getPath(String pathName) {
-    return getPath(new PathFragment(pathName));
+    return getPath(PathFragment.create(pathName));
   }
 
   /**
@@ -321,14 +320,14 @@ public abstract class FileSystem {
    * file.
    */
   protected final byte[] getFastDigest(Path path) throws IOException {
-    return getFastDigest(path, DIGEST_FUNCTION);
+    return getFastDigest(path, digestFunction);
   }
 
   /**
    * Returns whether the given digest is a valid digest for the default digest function.
    */
   public boolean isValidDigest(byte[] digest) {
-    return DIGEST_FUNCTION.isValidDigest(digest);
+    return digestFunction.isValidDigest(digest);
   }
 
   /**
@@ -356,7 +355,7 @@ public abstract class FileSystem {
    * @throws IOException if the digest could not be computed for any reason
    */
   protected byte[] getDigest(final Path path) throws IOException {
-    return getDigest(path, DIGEST_FUNCTION);
+    return getDigest(path, digestFunction);
   }
 
   /**

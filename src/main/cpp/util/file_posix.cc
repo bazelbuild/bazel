@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "src/main/cpp/util/file_platform.h"
 
 #include <errno.h>
 #include <dirent.h>  // DIR, dirent, opendir, closedir
@@ -22,6 +21,7 @@
 #include <unistd.h>  // access, open, close, fsync
 #include <utime.h>   // utime
 
+#include <string>
 #include <vector>
 
 #include "src/main/cpp/util/errors.h"
@@ -119,11 +119,6 @@ static bool MakeDirectories(const string &path, mode_t mode, bool childmost) {
   return stat_succeeded;
 }
 
-// TODO(bazel-team): implement all functions in file_windows.cc, use them from
-// MSYS, remove file_posix.cc from the `srcs` of
-// //src/main/cpp/util:file when building for MSYS, and remove all
-// #ifndef __CYGWIN__ directives.
-#ifndef __CYGWIN__
 class PosixPipe : public IPipe {
  public:
   PosixPipe(int recv_socket, int send_socket)
@@ -140,8 +135,20 @@ class PosixPipe : public IPipe {
     return size >= 0 && write(_send_socket, buffer, size) == size;
   }
 
-  int Receive(void* buffer, int size) override {
-    return size < 0 ? -1 : read(_recv_socket, buffer, size);
+  int Receive(void *buffer, int size, int *error) override {
+    if (size < 0) {
+      if (error != nullptr) {
+        *error = IPipe::OTHER_ERROR;
+      }
+      return -1;
+    }
+    int result = read(_recv_socket, buffer, size);
+    if (error != nullptr) {
+      *error = result >= 0 ? IPipe::SUCCESS
+                           : ((errno == EINTR) ? IPipe::INTERRUPTED
+                                               : IPipe::OTHER_ERROR);
+    }
+    return result;
   }
 
  private:
@@ -180,33 +187,80 @@ pair<string, string> SplitPath(const string &path) {
   return std::make_pair(string(path, 0, pos), string(path, pos + 1));
 }
 
+int ReadFromHandle(file_handle_type fd, void *data, size_t size, int *error) {
+  int result = read(fd, data, size);
+  if (error != nullptr) {
+    if (result >= 0) {
+      *error = ReadFileResult::SUCCESS;
+    } else {
+      if (errno == EINTR) {
+        *error = ReadFileResult::INTERRUPTED;
+      } else if (errno == EAGAIN) {
+        *error = ReadFileResult::AGAIN;
+      } else {
+        *error = ReadFileResult::OTHER_ERROR;
+      }
+    }
+  }
+  return result;
+}
+
 bool ReadFile(const string &filename, string *content, int max_size) {
   int fd = open(filename.c_str(), O_RDONLY);
   if (fd == -1) return false;
-  bool result =
-      ReadFrom([fd](void *buf, int len) { return read(fd, buf, len); }, content,
-               max_size);
+  bool result = ReadFrom(fd, content, max_size);
   close(fd);
   return result;
 }
-#endif  // not __CYGWIN__
 
-bool WriteFile(const void *data, size_t size, const string &filename) {
+bool ReadFile(const string &filename, void *data, size_t size) {
+  int fd = open(filename.c_str(), O_RDONLY);
+  if (fd == -1) return false;
+  bool result = ReadFrom(fd, data, size);
+  close(fd);
+  return result;
+}
+
+bool WriteFile(const void *data, size_t size, const string &filename,
+               unsigned int perm) {
   UnlinkPath(filename);  // We don't care about the success of this.
-  int fd =
-      open(filename.c_str(), O_CREAT | O_WRONLY | O_TRUNC, 0755);  // chmod +x
+  int fd = open(filename.c_str(), O_CREAT | O_WRONLY | O_TRUNC, perm);
   if (fd == -1) {
     return false;
   }
-  bool result = WriteTo(
-      [fd](const void *buf, size_t bufsize) { return write(fd, buf, bufsize); },
-      data, size);
-  int saved_errno = errno;
+  int result = write(fd, data, size);
   if (close(fd)) {
     return false;  // Can fail on NFS.
   }
-  errno = saved_errno;  // Caller should see errno from write().
-  return result;
+  return result == static_cast<int>(size);
+}
+
+int WriteToStdOutErr(const void *data, size_t size, bool to_stdout) {
+  size_t r = fwrite(data, 1, size, to_stdout ? stdout : stderr);
+  return (r == size) ? WriteResult::SUCCESS
+                     : ((errno == EPIPE) ? WriteResult::BROKEN_PIPE
+                                         : WriteResult::OTHER_ERROR);
+}
+
+int RenameDirectory(const std::string &old_name, const std::string &new_name) {
+  if (rename(old_name.c_str(), new_name.c_str()) == 0) {
+    return kRenameDirectorySuccess;
+  } else {
+    return errno == ENOTEMPTY ? kRenameDirectoryFailureNotEmpty
+                              : kRenameDirectoryFailureOtherError;
+  }
+}
+
+bool ReadDirectorySymlink(const string &name, string *result) {
+  char buf[PATH_MAX + 1];
+  int len = readlink(name.c_str(), buf, PATH_MAX);
+  if (len < 0) {
+    return false;
+  }
+
+  buf[len] = 0;
+  *result = buf;
+  return true;
 }
 
 bool UnlinkPath(const string &file_path) {
@@ -228,7 +282,7 @@ string MakeCanonical(const char *path) {
   }
 }
 
-bool CanAccess(const string& path, bool read, bool write, bool exec) {
+static bool CanAccess(const string &path, bool read, bool write, bool exec) {
   int mode = 0;
   if (read) {
     mode |= R_OK;
@@ -242,12 +296,23 @@ bool CanAccess(const string& path, bool read, bool write, bool exec) {
   return access(path.c_str(), mode) == 0;
 }
 
+bool CanReadFile(const std::string &path) {
+  return !IsDirectory(path) && CanAccess(path, true, false, false);
+}
+
+bool CanExecuteFile(const std::string &path) {
+  return !IsDirectory(path) && CanAccess(path, false, false, true);
+}
+
+bool CanAccessDirectory(const std::string &path) {
+  return IsDirectory(path) && CanAccess(path, true, true, true);
+}
+
 bool IsDirectory(const string& path) {
   struct stat buf;
   return stat(path.c_str(), &buf) == 0 && S_ISDIR(buf.st_mode);
 }
 
-#ifndef __CYGWIN__
 bool IsRootDirectory(const string &path) {
   return path.size() == 1 && path[0] == '/';
 }
@@ -267,21 +332,69 @@ void SyncFile(const string& path) {
   }
   close(fd);
 }
-#endif  // not __CYGWIN__
 
-time_t GetMtimeMillisec(const string& path) {
+class PosixFileMtime : public IFileMtime {
+ public:
+  PosixFileMtime()
+      : near_future_(GetFuture(9)),
+        distant_future_({GetFuture(10), GetFuture(10)}) {}
+
+  bool GetIfInDistantFuture(const string &path, bool *result) override;
+  bool SetToNow(const string &path) override;
+  bool SetToDistantFuture(const string &path) override;
+
+ private:
+  // 9 years in the future.
+  const time_t near_future_;
+  // 10 years in the future.
+  const struct utimbuf distant_future_;
+
+  static bool Set(const string &path, const struct utimbuf &mtime);
+  static time_t GetNow();
+  static time_t GetFuture(unsigned int years);
+};
+
+bool PosixFileMtime::GetIfInDistantFuture(const string &path, bool *result) {
   struct stat buf;
   if (stat(path.c_str(), &buf)) {
-    return -1;
-  } else {
-    return buf.st_mtime;
+    return false;
   }
+  // Compare the mtime with `near_future_`, not with `GetNow()` or
+  // `distant_future_`.
+  // This way we don't need to call GetNow() every time we want to compare and
+  // we also don't need to worry about potentially unreliable time equality
+  // check (in case it uses floats or something crazy).
+  *result = (buf.st_mtime > near_future_);
+  return true;
 }
 
-bool SetMtimeMillisec(const string& path, time_t mtime) {
-  struct utimbuf times = {mtime, mtime};
-  return utime(path.c_str(), &times) == 0;
+bool PosixFileMtime::SetToNow(const string &path) {
+  time_t now(GetNow());
+  struct utimbuf times = {now, now};
+  return Set(path, times);
 }
+
+bool PosixFileMtime::SetToDistantFuture(const string &path) {
+  return Set(path, distant_future_);
+}
+
+bool PosixFileMtime::Set(const string &path, const struct utimbuf &mtime) {
+  return utime(path.c_str(), &mtime) == 0;
+}
+
+time_t PosixFileMtime::GetNow() {
+  time_t result = time(NULL);
+  if (result == -1) {
+    pdie(blaze_exit_code::INTERNAL_ERROR, "time(NULL) failed");
+  }
+  return result;
+}
+
+time_t PosixFileMtime::GetFuture(unsigned int years) {
+  return GetNow() + 3600 * 24 * 365 * years;
+}
+
+IFileMtime *CreateFileMtime() { return new PosixFileMtime(); }
 
 // mkdir -p path. Returns true if the path was created or already exists and
 // could

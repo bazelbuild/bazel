@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.syntax.Parser.ParseResult;
 import com.google.devtools.build.lib.syntax.SkylarkImports.SkylarkImportSyntaxException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -32,6 +33,9 @@ import javax.annotation.Nullable;
 /**
  * Abstract syntax node for an entire BUILD file.
  */
+// TODO(bazel-team): Consider breaking this up into two classes: One that extends ASTNode and does
+// not include import info; and one that wraps that object with additional import info but that
+// does not itself extend ASTNode. This would help keep the AST minimalistic.
 public class BuildFileAST extends ASTNode {
 
   private final ImmutableList<Statement> stmts;
@@ -193,25 +197,50 @@ public class BuildFileAST extends ASTNode {
   public boolean exec(Environment env, EventHandler eventHandler) throws InterruptedException {
     boolean ok = true;
     for (Statement stmt : stmts) {
-      try {
-        stmt.exec(env);
-      } catch (EvalException e) {
+      if (!execTopLevelStatement(stmt, env, eventHandler)) {
         ok = false;
-        // Do not report errors caused by a previous parsing error, as it has already been
-        // reported.
-        if (e.isDueToIncompleteAST()) {
-          continue;
-        }
-        // When the exception is raised from another file, report first the location in the
-        // BUILD file (as it is the most probable cause for the error).
-        Location exnLoc = e.getLocation();
-        Location nodeLoc = stmt.getLocation();
-        eventHandler.handle(Event.error(
-            (exnLoc == null || !nodeLoc.getPath().equals(exnLoc.getPath())) ? nodeLoc : exnLoc,
-            e.getMessage()));
       }
     }
     return ok;
+  }
+
+  /**
+   * Executes tol-level statement of this build file in a given Environment.
+   *
+   * <p>If, for any reason, execution of a statement cannot be completed, an {@link EvalException}
+   * is thrown by {@link Statement#exec(Environment)}. This exception is caught here and reported
+   * through reporter. In effect, there is a
+   * "try/except" block around every top level statement. Such exceptions are not ignored, though:
+   * they are visible via the return value. Rules declared in a package containing any error
+   * (including loading-phase semantical errors that cannot be checked here) must also be considered
+   * "in error".
+   *
+   * <p>Note that this method will not affect the value of {@link #containsErrors()}; that refers
+   * only to lexer/parser errors.
+   *
+   * @return true if no error occurred during execution.
+   */
+
+  public boolean execTopLevelStatement(Statement stmt, Environment env,
+      EventHandler eventHandler) throws InterruptedException {
+    try {
+      stmt.exec(env);
+      return true;
+    } catch (EvalException e) {
+      // Do not report errors caused by a previous parsing error, as it has already been
+      // reported.
+      if (e.isDueToIncompleteAST()) {
+        return false;
+      }
+      // When the exception is raised from another file, report first the location in the
+      // BUILD file (as it is the most probable cause for the error).
+      Location exnLoc = e.getLocation();
+      Location nodeLoc = stmt.getLocation();
+      eventHandler.handle(Event.error(
+          (exnLoc == null || !nodeLoc.getPath().equals(exnLoc.getPath())) ? nodeLoc : exnLoc,
+          e.getMessage()));
+      return false;
+    }
   }
 
   @Override
@@ -266,22 +295,20 @@ public class BuildFileAST extends ASTNode {
    *
    * <p>This method should not be used in Bazel code, since it doesn't validate that the imports are
    * syntactically valid.
-   *
-   * @throws IOException if the file cannot not be read.
    */
   public static BuildFileAST parseSkylarkFileWithoutImports(
-      ParserInputSource input, EventHandler eventHandler) throws IOException {
+      ParserInputSource input, EventHandler eventHandler) {
     ParseResult result = Parser.parseFileForSkylark(input, eventHandler);
     return new BuildFileAST(
         ImmutableList.<Statement>builder()
             .addAll(ImmutableList.<Statement>of())
             .addAll(result.statements)
             .build(),
-        result.containsErrors, /*contentHashCode=*/
-        null,
+        result.containsErrors,
+        /*contentHashCode=*/null,
         result.location,
-        ImmutableList.copyOf(result.comments), /*imports=*/
-        null);
+        ImmutableList.copyOf(result.comments),
+        /*imports=*/null);
   }
 
   /**
@@ -289,8 +316,8 @@ public class BuildFileAST extends ASTNode {
    *
    * @return a new AST (or the same), with the containsErrors flag updated.
    */
-  public BuildFileAST validate(ValidationEnvironment validationEnv, EventHandler eventHandler) {
-    boolean valid = validationEnv.validateAst(stmts, eventHandler);
+  public BuildFileAST validate(Environment env, EventHandler eventHandler) {
+    boolean valid = ValidationEnvironment.validateAst(env, stmts, eventHandler);
     if (valid || containsErrors) {
       return this;
     }
@@ -299,7 +326,7 @@ public class BuildFileAST extends ASTNode {
 
   public static BuildFileAST parseBuildString(EventHandler eventHandler, String... content) {
     String str = Joiner.on("\n").join(content);
-    ParserInputSource input = ParserInputSource.create(str, null);
+    ParserInputSource input = ParserInputSource.create(str, PathFragment.EMPTY_FRAGMENT);
     Parser.ParseResult result = Parser.parseFile(input, eventHandler);
     return create(ImmutableList.<Statement>of(), result, null, eventHandler);
   }
@@ -307,7 +334,7 @@ public class BuildFileAST extends ASTNode {
   // TODO(laurentlb): Merge parseSkylarkString and parseBuildString.
   public static BuildFileAST parseSkylarkString(EventHandler eventHandler, String... content) {
     String str = Joiner.on("\n").join(content);
-    ParserInputSource input = ParserInputSource.create(str, null);
+    ParserInputSource input = ParserInputSource.create(str, PathFragment.EMPTY_FRAGMENT);
     Parser.ParseResult result = Parser.parseFileForSkylark(input, eventHandler);
     return create(ImmutableList.<Statement>of(), result, null, eventHandler);
   }
@@ -339,12 +366,27 @@ public class BuildFileAST extends ASTNode {
     return last;
   }
 
+  /**
+   * Evaluates the lines from input and return the value of the last statement if it's an
+   * Expression or else null. In case of error (either during validation or evaluation), it
+   * throws an EvalException.
+   */
+  @Nullable
   public static Object eval(Environment env, String... input)
       throws EvalException, InterruptedException {
-    BuildFileAST ast = parseSkylarkString(env.getEventHandler(), input);
-    ValidationEnvironment valid = new ValidationEnvironment(env);
-    valid.validateAst(ast.getStatements(), env.getEventHandler());
+    BuildFileAST ast = parseAndValidateSkylarkString(env, input);
     return ast.eval(env);
+  }
+
+  /**
+   * Parses and validates the lines from input and return the the AST
+   * In case of error during validation, it throws an EvalException.
+   */
+  public static BuildFileAST parseAndValidateSkylarkString(Environment env, String[] input)
+      throws EvalException {
+    BuildFileAST ast = parseSkylarkString(env.getEventHandler(), input);
+    ValidationEnvironment.validateAst(env, ast.getStatements());
+    return ast;
   }
 
   /**

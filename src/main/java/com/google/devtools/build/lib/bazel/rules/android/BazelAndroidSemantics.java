@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.android.AndroidCommon;
+import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider;
 import com.google.devtools.build.lib.rules.android.AndroidSemantics;
 import com.google.devtools.build.lib.rules.android.ApplicationManifest;
@@ -50,8 +51,7 @@ public class BazelAndroidSemantics implements AndroidSemantics {
       RuleConfiguredTargetBuilder builder,
       RuleContext ruleContext,
       JavaCommon javaCommon,
-      AndroidCommon androidCommon,
-      Artifact jarWithAllClasses) {}
+      AndroidCommon androidCommon) {}
 
   @Override
   public ApplicationManifest getManifestForRule(RuleContext ruleContext) throws RuleErrorException {
@@ -71,18 +71,18 @@ public class BazelAndroidSemantics implements AndroidSemantics {
 
   @Override
   public ImmutableList<String> getJavacArguments(RuleContext ruleContext) {
-    return ImmutableList.of(
-        "-source", "7",
-        "-target", "7");
+    ImmutableList.Builder<String> javacArgs = new ImmutableList.Builder<>();
+
+    if (!ruleContext.getFragment(AndroidConfiguration.class).desugarJava8()) {
+      javacArgs.add("-source", "7", "-target", "7");
+    }
+
+    return javacArgs.build();
   }
 
   @Override
-  public ImmutableList<String> getDxJvmArguments() {
-    return ImmutableList.of();
-  }
-
-  @Override
-  public void addMainDexListActionArguments(RuleContext ruleContext, SpawnAction.Builder builder) {
+  public void addMainDexListActionArguments(
+      RuleContext ruleContext, SpawnAction.Builder builder, Artifact proguardMap) {
   }
 
   @Override

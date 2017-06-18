@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -44,7 +45,7 @@ import java.util.Set;
 @Immutable
 public final class ExtraActionSpec implements TransitiveInfoProvider {
   private final ImmutableList<Artifact> resolvedTools;
-  private final ImmutableMap<PathFragment, Artifact> manifests;
+  private final RunfilesSupplier runfilesSupplier;
   private final ImmutableList<Artifact> resolvedData;
   private final ImmutableList<String> outputTemplates;
   private final ImmutableMap<String, String> executionInfo;
@@ -54,7 +55,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
 
   ExtraActionSpec(
       Iterable<Artifact> resolvedTools,
-      Map<PathFragment, Artifact> manifests,
+      RunfilesSupplier runfilesSupplier,
       Iterable<Artifact> resolvedData,
       Iterable<String> outputTemplates,
       String command,
@@ -62,7 +63,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
       Map<String, String> executionInfo,
       boolean requiresActionOutput) {
     this.resolvedTools = ImmutableList.copyOf(resolvedTools);
-    this.manifests = ImmutableMap.copyOf(manifests);
+    this.runfilesSupplier = runfilesSupplier;
     this.resolvedData = ImmutableList.copyOf(resolvedData);
     this.outputTemplates = ImmutableList.copyOf(outputTemplates);
     this.command = command;
@@ -84,9 +85,10 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
     NestedSetBuilder<Artifact> extraActionInputs = NestedSetBuilder.stableOrder();
 
     Label ownerLabel = owningRule.getLabel();
-    if (requiresActionOutput) {
+    if (requiresActionOutput || actionToShadow.discoversInputs()) {
       extraActionInputs.addAll(actionToShadow.getOutputs());
     }
+
     extraActionInputs.addAll(resolvedTools);
     extraActionInputs.addAll(resolvedData);
 
@@ -138,11 +140,11 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
     owningRule.registerAction(
         new ExtraAction(
             ImmutableSet.copyOf(extraActionInputs.build()),
-            manifests,
+            runfilesSupplier,
             extraActionOutputs,
             actionToShadow,
             createDummyOutput,
-            CommandLine.of(argv, false),
+            CommandLine.of(argv),
             env,
             clientEnvVars,
             executionInfo,
@@ -202,7 +204,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
   private Artifact getRootRelativePath(String template, RuleContext ruleContext) {
     PathFragment extraActionPackageFragment = label.getPackageIdentifier().getSourceRoot();
     PathFragment extraActionPrefix = extraActionPackageFragment.getRelative(label.getName());
-    PathFragment rootRelativePath = new PathFragment("extra_actions")
+    PathFragment rootRelativePath = PathFragment.create("extra_actions")
         .getRelative(extraActionPrefix)
         .getRelative(ruleContext.getPackageDirectory())
         .getRelative(template);

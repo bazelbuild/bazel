@@ -15,12 +15,14 @@
 package com.google.devtools.build.lib.exec;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closeables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.analysis.config.BinTools;
@@ -31,15 +33,14 @@ import com.google.devtools.build.lib.rules.test.TestActionContext;
 import com.google.devtools.build.lib.rules.test.TestResult;
 import com.google.devtools.build.lib.rules.test.TestRunnerAction;
 import com.google.devtools.build.lib.rules.test.TestTargetExecutionSettings;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.util.io.FileWatcher;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.SearchPath;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
 import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.EnumConverter;
@@ -49,7 +50,6 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -58,14 +58,7 @@ import javax.annotation.Nullable;
 
 /** A strategy for executing a {@link TestRunnerAction}. */
 public abstract class TestStrategy implements TestActionContext {
-  public static final PathFragment COVERAGE_TMP_ROOT = new PathFragment("_coverage");
-
   public static final String TEST_SETUP_BASENAME = "test-setup.sh";
-
-  /** Returns true if coverage data should be gathered. */
-  protected static boolean isCoverageMode(TestRunnerAction action) {
-    return action.getCoverageData() != null;
-  }
 
   /**
    * Ensures that all directories used to run test are in the correct state and their content will
@@ -74,7 +67,7 @@ public abstract class TestStrategy implements TestActionContext {
   protected void prepareFileSystem(
       TestRunnerAction testAction, Path tmpDir, Path coverageDir, Path workingDirectory)
       throws IOException {
-    if (isCoverageMode(testAction)) {
+    if (testAction.isCoverageMode()) {
       recreateDirectory(coverageDir);
     }
     recreateDirectory(tmpDir);
@@ -136,156 +129,84 @@ public abstract class TestStrategy implements TestActionContext {
     }
   }
 
-  public static final PathFragment TEST_TMP_ROOT = new PathFragment("_tmp");
-
-  // Used for selecting subset of testcase / testmethods.
-  private static final String TEST_BRIDGE_TEST_FILTER_ENV = "TESTBRIDGE_TEST_ONLY";
+  public static final PathFragment TEST_TMP_ROOT = PathFragment.create("_tmp");
 
   // Used for generating unique temporary directory names. Contains the next numeric index for every
   // executable base name.
   private final Map<String, Integer> tmpIndex = new HashMap<>();
-  protected final ImmutableMap<String, String> clientEnv;
   protected final ExecutionOptions executionOptions;
   protected final BinTools binTools;
 
-  public TestStrategy(
-      OptionsClassProvider requestOptionsProvider,
-      BinTools binTools,
-      Map<String, String> clientEnv) {
+  public TestStrategy(OptionsClassProvider requestOptionsProvider, BinTools binTools) {
     this.executionOptions = requestOptionsProvider.getOptions(ExecutionOptions.class);
     this.binTools = binTools;
-    this.clientEnv = ImmutableMap.copyOf(clientEnv);
   }
 
   @Override
   public abstract void exec(TestRunnerAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException;
 
-  /** Returns true if coverage data should be gathered. */
-  protected static boolean isMicroCoverageMode(TestRunnerAction action) {
-    return action.getMicroCoverageData() != null;
-  }
-
-  /**
-   * Returns directory to store coverage results for the given action relative to the execution
-   * root. This directory is used to store all coverage results related to the test execution with
-   * exception of the locally generated *.gcda files. Those are stored separately using relative
-   * path within coverage directory.
-   *
-   * <p>Coverage directory name for the given test runner action is constructed as: {@code $(blaze
-   * info execution_root)/_coverage/target_path/test_log_name} where {@code test_log_name} is
-   * usually a target name but potentially can include extra suffix, such as a shard number (if test
-   * execution was sharded).
-   */
-  protected static PathFragment getCoverageDirectory(TestRunnerAction action) {
-    return COVERAGE_TMP_ROOT.getRelative(
-        FileSystemUtils.removeExtension(action.getTestLog().getRootRelativePath()));
-  }
-
-  /**
-   * Returns mutable map of default testing shell environment. By itself it is incomplete and is
-   * modified further by the specific test strategy implementations (mostly due to the fact that
-   * environments used locally and remotely are different).
-   */
-  protected Map<String, String> getDefaultTestEnvironment(TestRunnerAction action) {
-    Map<String, String> env = new HashMap<>();
-
-    env.putAll(action.getConfiguration().getLocalShellEnvironment());
-    env.remove("LANG");
-    env.put("TZ", "UTC");
-    env.put("TEST_SIZE", action.getTestProperties().getSize().toString());
-    env.put("TEST_TIMEOUT", Integer.toString(getTimeout(action)));
-
-    if (action.isSharded()) {
-      env.put("TEST_SHARD_INDEX", Integer.toString(action.getShardNum()));
-      env.put(
-          "TEST_TOTAL_SHARDS", Integer.toString(action.getExecutionSettings().getTotalShards()));
-    }
-
-    // When we run test multiple times, set different TEST_RANDOM_SEED values for each run.
-    if (action.getConfiguration().getRunsPerTestForLabel(action.getOwner().getLabel()) > 1) {
-      env.put("TEST_RANDOM_SEED", Integer.toString(action.getRunNumber() + 1));
-    }
-
-    String testFilter = action.getExecutionSettings().getTestFilter();
-    if (testFilter != null) {
-      env.put(TEST_BRIDGE_TEST_FILTER_ENV, testFilter);
-    }
-
-    if (isCoverageMode(action)) {
-      env.put(
-          "COVERAGE_MANIFEST",
-          action.getExecutionSettings().getInstrumentedFileManifest().getExecPathString());
-      // Instruct remote-runtest.sh/local-runtest.sh not to cd into the runfiles directory.
-      env.put("RUNTEST_PRESERVE_CWD", "1");
-      env.put("MICROCOVERAGE_REQUESTED", isMicroCoverageMode(action) ? "true" : "false");
-    }
-
-    return env;
-  }
-
   /**
    * Generates a command line to run for the test action, taking into account coverage and {@code
    * --run_under} settings.
    *
-   * @param testScript the setup script that invokes the test
    * @param coverageScript a script interjected between setup script and rest of command line to
    *     collect coverage data. If this is an empty string, it is ignored.
    * @param testAction The test action.
    * @return the command line as string list.
+   * @throws ExecException 
    */
-  protected List<String> getArgs(
-      String testScript, String coverageScript, TestRunnerAction testAction) {
+  protected ImmutableList<String> getArgs(String coverageScript, TestRunnerAction testAction)
+      throws ExecException {
     List<String> args = Lists.newArrayList();
+    // TODO(ulfjack): This is incorrect for remote execution, where we need to consider the target
+    // configuration, not the machine Bazel happens to run on. Change this to something like:
+    // testAction.getConfiguration().getTargetOS() == OS.WINDOWS
     if (OS.getCurrent() == OS.WINDOWS) {
       args.add(testAction.getShExecutable().getPathString());
       args.add("-c");
       args.add("$0 $*");
     }
-    args.add(testScript);
+
+    Artifact testSetup = testAction.getRuntimeArtifact(TEST_SETUP_BASENAME);
+    args.add(testSetup.getExecPath().getCallablePathString());
+
+    if (testAction.isCoverageMode()) {
+      args.add(coverageScript);
+    }
+
     TestTargetExecutionSettings execSettings = testAction.getExecutionSettings();
 
-    List<String> execArgs = new ArrayList<>();
-    if (!coverageScript.isEmpty() && isCoverageMode(testAction)) {
-      execArgs.add(coverageScript);
+    // Insert the command prefix specified by the "--run_under=<command-prefix>" option, if any.
+    if (execSettings.getRunUnder() != null) {
+      addRunUnderArgs(testAction, args);
     }
 
-    // Execute the test using the alias in the runfiles tree, as mandated by
-    // the Test Encyclopedia.
-    execArgs.add(execSettings.getExecutable().getRootRelativePath().getPathString());
-    execArgs.addAll(execSettings.getArgs());
+    // Execute the test using the alias in the runfiles tree, as mandated by the Test Encyclopedia.
+    args.add(execSettings.getExecutable().getRootRelativePath().getCallablePathString());
+    Iterables.addAll(args, execSettings.getArgs().arguments());
+    return ImmutableList.copyOf(args);
+  }
 
-    // Insert the command prefix specified by the "--run_under=<command-prefix>" option,
-    // if any.
-    if (execSettings.getRunUnder() == null) {
-      args.addAll(execArgs);
-    } else if (execSettings.getRunUnderExecutable() != null) {
-      args.add(execSettings.getRunUnderExecutable().getRootRelativePath().getPathString());
-      args.addAll(execSettings.getRunUnder().getOptions());
-      args.addAll(execArgs);
+  private static void addRunUnderArgs(TestRunnerAction testAction, List<String> args) {
+    TestTargetExecutionSettings execSettings = testAction.getExecutionSettings();
+    if (execSettings.getRunUnderExecutable() != null) {
+      args.add(execSettings.getRunUnderExecutable().getRootRelativePath().getCallablePathString());
     } else {
-      args.add(testAction.getConfiguration().getShellExecutable().getPathString());
-      args.add("-c");
-
-      String runUnderCommand = ShellEscaper.escapeString(execSettings.getRunUnder().getCommand());
-
-      Path fullySpecified =
-          SearchPath.which(
-              SearchPath.parse(
-                  testAction.getTestLog().getPath().getFileSystem(), clientEnv.get("PATH")),
-              runUnderCommand);
-
-      if (fullySpecified != null) {
-        runUnderCommand = fullySpecified.toString();
+      String command = execSettings.getRunUnder().getCommand();
+      // --run_under commands that do not contain '/' are either shell built-ins or need to be
+      // located on the PATH env, so we wrap them in a shell invocation. Note that we shell tokenize
+      // the --run_under parameter and getCommand only returns the first such token.
+      boolean needsShell = !command.contains("/");
+      if (needsShell) {
+        args.add(testAction.getConfiguration().getShellExecutable().getPathString());
+        args.add("-c");
+        args.add("\"$@\"");
+        args.add("/bin/sh"); // Sets $0.
       }
-
-      args.add(
-          runUnderCommand
-              + ' '
-              + ShellEscaper.escapeJoinAll(
-                  Iterables.concat(execSettings.getRunUnder().getOptions(), execArgs)));
+      args.add(command);
     }
-    return args;
+    args.addAll(testAction.getExecutionSettings().getRunUnder().getOptions());
   }
 
   /**
@@ -312,16 +233,6 @@ public abstract class TestStrategy implements TestActionContext {
     return executionOptions.testTimeout.get(testAction.getTestProperties().getTimeout());
   }
 
-  /**
-   * Returns a subset of the environment from the current shell.
-   *
-   * <p>Warning: Since these variables are not part of the configuration's fingerprint, they MUST
-   * NOT be used by any rule or action in such a way as to affect the semantics of that build step.
-   */
-  public Map<String, String> getAdmissibleShellEnvironment(Iterable<String> variables) {
-    return getMapping(variables, clientEnv);
-  }
-
   /*
    * Finalize test run: persist the result, and post on the event bus.
    */
@@ -346,6 +257,14 @@ public abstract class TestStrategy implements TestActionContext {
       tmpIndex.put(basename, index + 1);
       return basename + "_" + index;
     }
+  }
+
+  protected String getTmpDirName(PathFragment execPath, int shard, int run) {
+    Fingerprint digest = new Fingerprint();
+    digest.addPath(execPath);
+    digest.addInt(shard);
+    digest.addInt(run);
+    return digest.hexDigestAndReset();
   }
 
   /** Parse a test result XML file into a {@link TestCase}. */
@@ -405,18 +324,14 @@ public abstract class TestStrategy implements TestActionContext {
       boolean enableRunfiles)
       throws ExecException, InterruptedException {
     TestTargetExecutionSettings execSettings = testAction.getExecutionSettings();
+    Path runfilesDir = execSettings.getRunfilesDir();
 
     // If the symlink farm is already created then return the existing directory. If not we
     // need to explicitly build it. This can happen when --nobuild_runfile_links is supplied
     // as a flag to the build.
     if (execSettings.getRunfilesSymlinksCreated()) {
-      return execSettings.getRunfilesDir();
+      return runfilesDir;
     }
-
-    // TODO(bazel-team): Should we be using TestTargetExecutionSettings#getRunfilesDir() here over
-    // generating the directory ourselves?
-    Path program = execSettings.getExecutable().getPath();
-    Path runfilesDir = program.getParentDirectory().getChild(program.getBaseName() + ".runfiles");
 
     // Synchronize runfiles tree generation on the runfiles manifest artifact.
     // This is necessary, because we might end up with multiple test runner actions
@@ -454,12 +369,15 @@ public abstract class TestStrategy implements TestActionContext {
     Executor executor = actionExecutionContext.getExecutor();
 
     TestTargetExecutionSettings execSettings = testAction.getExecutionSettings();
+    Path outputManifest = runfilesDir.getRelative("MANIFEST");
     try {
       // Avoid rebuilding the runfiles directory if the manifest in it matches the input manifest,
-      // implying the symlinks exist and are already up to date.
-      if (Arrays.equals(
-          runfilesDir.getRelative("MANIFEST").getDigest(),
-          execSettings.getInputManifest().getPath().getDigest())) {
+      // implying the symlinks exist and are already up to date. If the output manifest is a
+      // symbolic link, it is likely a symbolic link to the input manifest, so we cannot trust it as
+      // an up-to-date check.
+      if (!outputManifest.isSymbolicLink()
+          && Arrays.equals(
+              outputManifest.getDigest(), execSettings.getInputManifest().getPath().getDigest())) {
         return;
       }
     } catch (IOException e1) {

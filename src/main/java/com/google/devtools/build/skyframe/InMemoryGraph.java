@@ -44,4 +44,6 @@ interface InMemoryGraph extends ProcessableGraph {
 
   // Only for use by MemoizingEvaluator#delete
   Map<SkyKey, ? extends NodeEntry> getAllValues();
+
+  Map<SkyKey, ? extends NodeEntry> getAllValuesMutable();
 }

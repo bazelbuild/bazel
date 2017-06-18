@@ -1,3 +1,478 @@
+## Release 0.5.1 (2017-06-06)
+
+```
+Baseline: f3ae88ee043846e7acdffd645137075a4e72c573
+
+Cherry picks:
+   + c58ba098526b748f9c73e6229cafd74748205aa1:
+     Release to GCS: put the final release in its own directory
+   + 0acead4ea3631240659836ce6ecd6d7f67fd352b:
+     Update protobuf to latest master at a64497c and apply
+     @laszlocsomor's latest changes from
+     https://github.com/google/protobuf/pull/2969 on top of it.
+   + d0242ce4a87929f2528f4602d0fb09d1ccfcea94:
+     Make symlinks consistent
+   + d953ca8b87a46decbce385cebb446ae0dd390881:
+     Clean VanillaJavaBuilder output directories
+   + 755669fb5de1f4e762f27c19776cac9f410fcb94:
+     Pass all the environment variable to Bazel during bootstrapping
+   + 6f041661ca159903691fcb443d86dc7b6454253d:
+     Do not mark the JDK7 installer -without-jdk-installer
+   + 720561113bfa702acfc2ca24ce3cc3fd7ee9c115:
+     Fix #2958: Installer should not overwrite bazelrc
+   + 511c35b46cead500d4e76706e0a709e50995ceba:
+     Bootstrap: move the fail function to the top
+   + 8470be1122825aae8ad0903dd1e1e2a90cce47d2:
+     Clean up javac and Error Prone targets
+   + 4a404de2c6c38735167e17ab41be45ef6fc4713a:
+     Update javac version to 9-dev-r4023-2
+   + 36ce4b433e19498a78c34540d5a166d4e0006b22:
+     Update javac version to 9-dev-r4023-2
+   + 38949b8526bdb3e6db22f3846aac87162c28c33f:
+     Migrate off versioned javac and Error Prone targets
+   + 1a57d298f8aa6ea8136d93223902104f2479cd2a:
+     Re-enabling passing -sourcepath via javacopts.
+   + eb565f408e03125e92d42b00756e519795be6593:
+     Make make sure that msys build actually builds msys version
+   + 39f328cf392056618d1a3ead4835a138b189a06d:
+     Fix typo. Also do not override host_cpu for msvc.
+   + 624802893f4fe72118f00a78452605d41a2e1c6f:
+     Select correct JDK for windows_msys
+   + c4f271d1a68366b6fa5ff38ea7d951b6a22af044:
+     Automated g4 rollback of commit
+     3e5edafa2a04a71cd3596e929e83222da725f3f9.
+   + 926180997a0f296a5a009326aead887279ce0a90:
+     Remove process-tools.cc which I forgot to delete during the last
+     rollback.
+   + baca6e4cb023649920871b74810927d304729e59:
+     Fix #2982: Bazel installer should not check for installed JDK if
+     using a bundled JDK.
+   + 866ecc8c3d5e0b899e3f0c9c6b2265f16daae842:
+     Disable msys path conversion on Windows.
+   + cc21998c299b4d1f97df37b961552ff8168da17f:
+     Rollforward #2 of: Basic open-source crosstool to support
+     targeting apple platform types.
+   + 0f0ccc4fc8229c1860a9c9b58089d6cfb2ee971f:
+     Escape % in strings that will appear in Crosstool
+   + 3b08f774e7938928e3a240a47a0a7554cdc8d50b:
+     Adding feature for linking C Run-Time library on Windows
+   + 3566474202d1978acfdcb7e5ff73ee03ea6f3df9:
+     Do not use sed -E in bootstrap/compile.sh
+   + c3cf7d917afd02d71de3800cd46ad8d14f1ddf55:
+     Reverts non-xcode-available darwin crosstool generation.
+```
+
+Important changes:
+
+  - Fixes regression in 0.5.0 requiring Xcode to build C++ on OSX.
+
+## Release 0.5.0 (2017-05-26)
+
+```
+Baseline: f3ae88ee043846e7acdffd645137075a4e72c573
+
+Cherry picks:
+   + c58ba098526b748f9c73e6229cafd74748205aa1:
+     Release to GCS: put the final release in its own directory
+   + 0acead4ea3631240659836ce6ecd6d7f67fd352b:
+     Update protobuf to latest master at a64497c and apply
+     @laszlocsomor's latest changes from
+     https://github.com/google/protobuf/pull/2969 on top of it.
+   + d0242ce4a87929f2528f4602d0fb09d1ccfcea94:
+     Make symlinks consistent
+   + d953ca8b87a46decbce385cebb446ae0dd390881:
+     Clean VanillaJavaBuilder output directories
+   + 755669fb5de1f4e762f27c19776cac9f410fcb94:
+     Pass all the environment variable to Bazel during bootstrapping
+   + 6f041661ca159903691fcb443d86dc7b6454253d:
+     Do not mark the JDK7 installer -without-jdk-installer
+   + 720561113bfa702acfc2ca24ce3cc3fd7ee9c115:
+     Fix #2958: Installer should not overwrite bazelrc
+   + 511c35b46cead500d4e76706e0a709e50995ceba:
+     Bootstrap: move the fail function to the top
+   + 8470be1122825aae8ad0903dd1e1e2a90cce47d2:
+     Clean up javac and Error Prone targets
+   + 4a404de2c6c38735167e17ab41be45ef6fc4713a:
+     Update javac version to 9-dev-r4023-2
+   + 36ce4b433e19498a78c34540d5a166d4e0006b22:
+     Update javac version to 9-dev-r4023-2
+   + 38949b8526bdb3e6db22f3846aac87162c28c33f:
+     Migrate off versioned javac and Error Prone targets
+   + 1a57d298f8aa6ea8136d93223902104f2479cd2a:
+     Re-enabling passing -sourcepath via javacopts.
+   + eb565f408e03125e92d42b00756e519795be6593:
+     Make make sure that msys build actually builds msys version
+   + 39f328cf392056618d1a3ead4835a138b189a06d:
+     Fix typo. Also do not override host_cpu for msvc.
+   + 624802893f4fe72118f00a78452605d41a2e1c6f:
+     Select correct JDK for windows_msys
+   + c4f271d1a68366b6fa5ff38ea7d951b6a22af044:
+     Automated g4 rollback of commit
+     3e5edafa2a04a71cd3596e929e83222da725f3f9.
+   + 926180997a0f296a5a009326aead887279ce0a90:
+     Remove process-tools.cc which I forgot to delete during the last
+     rollback.
+   + baca6e4cb023649920871b74810927d304729e59:
+     Fix #2982: Bazel installer should not check for installed JDK if
+     using a bundled JDK.
+   + 866ecc8c3d5e0b899e3f0c9c6b2265f16daae842:
+     Disable msys path conversion on Windows.
+   + cc21998c299b4d1f97df37b961552ff8168da17f:
+     Rollforward #2 of: Basic open-source crosstool to support
+     targeting apple platform types.
+   + 0f0ccc4fc8229c1860a9c9b58089d6cfb2ee971f:
+     Escape % in strings that will appear in Crosstool
+   + 3b08f774e7938928e3a240a47a0a7554cdc8d50b:
+     Adding feature for linking C Run-Time library on Windows
+```
+
+Incompatible changes:
+
+  - Bazel's Linux sandbox no longer mounts an empty tmpfs on /tmp,
+    instead the existing /tmp is mounted read-write. If you prefer
+    to have a tmpfs on /tmp for sandboxed actions for increased
+    hermeticity, please use the flag --sandbox_tmpfs_path=/tmp.
+  - Converting artifacts to strings and printing them now return
+    "File" instead of "Artifact" to be consistent with the type name.
+  - The return type of depset.to_list() is now a list rather than a
+    frozen list. (Modifying the list has no effect on the depset.)
+  - Bazel now prints logs in single lines to java.log
+  - --use_dash, --dash_url and --dash_secret are removed.
+  - Remote repositories must define any remote repositories they
+    themselves use (e.g., if @x//:foo depends on @y//:bar, @y must be
+    defined
+    in @x's WORKSPACE file).
+  - Remote repositories must define any remote repositories they
+    themselves use (e.g., if @x//:foo depends on @y//:bar, @y must be
+    defined
+    in @x's WORKSPACE file).
+  - objc_xcodeproj has been removed, use tulsi.bazel.build instead.
+
+New features:
+
+  - If grte_top is a label, it can now follow non-configurable
+    redirects.
+  - Optional coverage_files attribute to cc_toolchain
+  - "query --output=build" now includes select()s
+  - Raw LLVM profiles are now supported.
+
+Important changes:
+
+  - Automatically generate Proguard mapping when resource shrinking
+    and Proguard are enabled.
+  - New rules in Bazel: proto_library, java_lite_proto_library,
+    java_proto_library and cc_proto_library
+  - Activate the "dead_strip" feature if objc binary stripping is
+    enabled.
+  - More stable naming scheme for lambda classes in desugared android
+    code
+  - Convert --use_action_cache to a regular option
+  - Per-architecture dSYM binaries are now propagated by
+    apple_binary's AppleDebugOutputsProvider.
+  - Avoid factory methods when desugaring stateless lambdas for
+    Android
+  - desugar calls to Objects.requireNonNull(Object o) with
+    o.getClass() for android
+  - Add an --copy_bridges_from_classpath argument to android
+    desugaring tool
+  - Change how desugar finds desugared classes to have it working on
+    Windows
+  - Evaluation of commands on TargetsBelowDirectory patterns
+    (e.g. //foo/...) matching packages that fail to load now report
+    more
+    detailed error messages in keep_going mode.
+  - Allow to have several inputs and outputs
+  - Repository context's execute() function can print stdout/stderr
+    while running. To enable, pass quiet=False.
+  - Bazel can now be built with a bundled version of the OpenJDK.
+    This makes it possible to use Bazel on systems without a JDK, or
+    where
+    the installed JDK is too old.
+  - The --jobs flag now defaults to "auto", which causes Bazel to
+    use a reasonable degree of parallelism based on the local
+    machine's
+    capacity.
+  - Bazel benchmark (perf.bazel.build) supports Java and Cpp targets.
+  - no factory methods generated for lambda expressions on android
+  - The Linux sandbox no longer changes the user to 'nobody' by
+    default, instead the current user is used as is. The old behavior
+    can be
+    restored via the --sandbox_fake_username flag.
+  - /tmp and /dev/shm are now writable by default inside the
+    Linux sandbox.
+  - Bazel can now use the process-wrapper + symlink tree based
+    sandbox implementation in FreeBSD.
+  - turn on --experimental_incremental_dexing_error_on_missed_jars by
+    default.
+  - All android_binarys are now signed with both Apk Signature V1 and
+    V2. See https://source.android.com/security/apksigning/v2.html
+    for more details.
+  - Windows MSVC wrappers: Not filtering warning messages anymore,
+    use --copt=-w and --host_copt=-w to suppress them.
+  - A downloader bug was fixed that prevented RFC 7233 Range
+    connection resumes from working with certain HTTP servers
+  - Introduces experimental android_device rule for configuring and
+    launching Android emulators.
+  - For boolean flags, setting them to false using --no_<flag_name>
+    is deprecated. Use --no<flag_name> without the underscore, or
+    --<flag_name>=false instead.
+  - Add --experimental_android_compress_java_resources flag to store
+    java
+    resources as compressed inside the APK.
+  - Removed --experimental_use_jack_for_dexing and libname.jack
+    output of
+    android_library.
+  - blaze canonicalize-flags now takes a --show_warnings flag
+  - Changing --invocation_policy will no longer force a server
+    restart.
+  - Bazel now supports Android NDK14.
+  - android_binary multidex should now work without additional flags.
+  - Use action_config in crosstool for static library archiving,
+    remove ar_flag.
+  - new option for bazel canonicalize-flags, --canonicalize_policy
+  - Use action_config in crosstool for static library archiving,
+    remove ar_flag.
+  - android_library exports_manifest now defaults to True.
+  - Fix select condition intersections.
+  - Adds a --override_repository option that takes a repository
+    name and path. This forces Bazel to use the directory at that path
+    for the repository. Example usage:
+    `--override_repository=foo=/home/user/gitroot/foo`.
+  - fix idempotency issue with desugaring lambdas in interface
+    initializers for android
+  - --experimental_android_use_singlejar_for_multidex is now a no-op
+    and will eventually be removed.
+  - Every local_repository now requires a WORKSPACE file.
+  - Remove jack and jill attributes of the android_sdk rule.
+  - Add Skylark stubs needed to remove sysroot from CppConfiguration.
+  - Desugar try-with-resources so that this language feature is
+    available
+    to deveces with API level under 19.
+  - The flag --worker_max_retries was removed. The
+    WorkerSpawnStrategy no longer retries execution of failed Spawns,
+    the reason being that this just masks compiler bugs and isn't
+    done for any other execution strategy either.
+  - Bazel will no longer gracefully restart workers that crashed /
+    quit, instead this triggers a build failure.
+  - All java resources are now compressed in android_binary APKs by
+    default.
+  - All java resources are now compressed in android_binary APKs by
+    default.
+  - android_ndk_repository now creates a cc_library
+    (@androidndk//:cpufeatures) for the cpufeatures library that is
+    bundled in the Android NDK. See
+    https://developer.android.com/ndk/guides/cpu-features.html for
+    more details.
+  - 'output_groups' and 'instrumented_files' cannot be specified in
+    DefaultInfo.
+  - You can increase the CPU reservation for tests by adding a
+    "cpu:<n>" (e.g. "cpu:4" for four cores) tag to their rule in a
+    BUILD file. This can be used if tests would otherwise overwhelm
+    your system if there's too much parallelism.
+  - Deprecate use_singlejar_for_proguard_libraryjars and force
+    behavior to always on.
+
+## Release 0.4.5 (2017-03-16)
+
+```
+Baseline: 2e689c29d5fc8a747216563235e905b1b62d63b0
+
+Cherry picks:
+   + a28b54033227d930672ec7f2714de52e5e0a67eb:
+     Fix Cpp action caching
+   + 6d1d424b4c0da724e20e14235de8012f05c470f8:
+     Fix paths of binaries in .deb packages.
+   + 0785cbb672357d950e0c045770c4567df9fbdc43:
+     Update to guava 21.0 and Error Prone version 2.0.18-20160224
+   + 30490512eb0e48a3774cc4e4ef78680e77dd4e47:
+     Update to latest javac and Error Prone
+   + 867d16eab3bfabae070567ecd878c291978ff338:
+     Allow ' ', '(', ')' and '$' in labels
+   + 7b295d34f3a4f42c13aafc1cc8afba3cb4aa2985:
+     Pass through -sourcepath to the JavaBuilder
+   + 14e4755ce554cdfc685fc9cc2bfb5b699a3b48f4:
+     PathFragment comparisons are now platform-aware
+   + ed7795234ca7ccd2567007f2c502f853cd947e50:
+     Flag to import external repositories in python import path
+   + 81ae08bbc13f5f4a04f18caae339ca77ae2699c1:
+     Suppress error for non-exhaustive switches
+   + e8d1177eef9a9798d2b971630b8cea59471eec33:
+     Correctly returns null if an environment variables is missing
+   + 869d52f145c077e3499b88df752cebc60af51d66:
+     Fix NPE in Android{S,N}dkRepositoryFunction.
+   + d72bc57b60b26245e64f5ccafe023a5ede81cc7f:
+     Select the good guava jars for JDK7 build
+   + 92ecbaeaf6fa11dff161254df38d743d48be8c61:
+     Windows: Assist JNI builds with a target for jni_md.h.
+   + 36958806f2cd38dc51e64cd7bcc557bd143bbdb6:
+     Add java_common.create_provider to allow creating a
+     java_common.provider
+   + 8c00f398d7be863c4f502bde3f5d282b1e18f504:
+     Improve handling of unknown NDK revisions in
+     android_ndk_repository.
+   + b6ea0d33d3ab72922c8fb3ec1ff0e437af09584d:
+     Add the appropriate cxx_builtin_include_directory entries for
+     clang to the Android NDK crosstool created by
+     android_ndk_repository.
+```
+
+Incompatible changes:
+
+  - Depsets (former sets) are converted to strings as "depset(...)"
+    instead of
+    "set(...)".
+  - Using --symlink_prefix is now applied to the output
+    symlink (e.g. bazel-out) and the exec root symlink (e.g.
+    bazel-workspace).
+  - Bazel now uses the test's PATH for commands specified as
+        --run_under; this can affect users who explicitly set PATH to
+    a more
+        restrictive value than the default, which is to forward the
+    local PATH
+  - It's not allowed anymore to compare objects of different types
+    (i.e. a string to an integer) and objects for which comparison
+    rules are not
+    defined (i.e. a dict to another dict) using order operators.
+
+New features:
+
+  - environ parameter to the repository_rule function let
+    defines a list of environment variables for which a change of
+    value
+    will trigger a repository refetching.
+
+Important changes:
+
+  - android_ndk_repository now supports Android NDK R13.
+  - Android resource shrinking is now available for android_binary
+    rules. To enable, set the attribute 'shrink_resources = 1'. See
+    https://bazel.build/versions/master/docs/be/android.html#android_b
+    inary.shrink_resources.
+  - resolve_command/action's input_manifest return/parameter is now
+    list
+  - For increased compatibility with environments where UTS
+    namespaces are not available, the Linux sandbox no longer hides
+    the hostname of the local machine by default. Use
+    --sandbox_fake_hostname to re-enable this feature.
+  - proto_library: alias libraries produce empty files for descriptor
+    sets.
+  - Adds pkg_rpm rule for generating RPM packages.
+  - Allow CROSSTOOL files to have linker flags specific to static
+    shared libraries.
+  - Make it mandatory for Java test suites in bazel codebase, to
+    contain at least one test.
+  - Support for Java 8 lambdas, method references, type annotations
+    and repeated annotations in Android builds with
+    --experimental_desugar_for_android.
+  - Removed .xcodeproj automatic output from objc rules. It can still
+    be generated by requesting it explicitly on the command line.
+  - Flips --explicit_jre_deps flag on by default.
+  - Activate the "dbg", "fastbuild", and "opt" features in the objc
+    CROSSTOOL.
+  - Remove support for configuring JDKs with filegroups; use
+    java_runtime and java_runtime_suite instead
+  - android_ndk_repository api_level attribute is now optional. If not
+    specified, the highest api level in the ndk/platforms directory
+    is used.
+
+## Release 0.4.4 (2017-02-01)
+
+```
+Baseline: 4bf8cc30a
+
+Cherry picks:
+   + ef1c6fd33: msvc_tools.py.tpl: Change default runtime library to
+              static
+```
+
+Incompatible changes:
+
+  - Only targets with public visibility can be bound to something in
+    //external: .
+  - The deprecated -x startup option has been removed.
+  - docker_build: change the repository names embedded by
+    docker_build. You can revert to the old behavior by setting
+    legacy_repository_naming=True.
+  - The string methods strip(), lstrip(), and rstrip() now
+    by default remove the same whitespace characters as Python 3
+    does, and accept
+    None as an argument.
+  - Deprecated globals HOST_CFG and DATA_CFG are removed. Use strings
+    "host" and "data" instead.
+  - repository_ctx environment is now affected by --action_env flag
+    (value from the
+    client environment will be replaced by value given on the command
+    line through --action_env).
+  - All executable labels must also have a cfg parameter specified.
+  - Removed the cmd_helper.template function.
+      The function was equivalent to:
+        def template(items, template):
+          return [template.format(path = i.path, short_path =
+    i.short_path)
+                    for i in items]
+  - Tuples that end with a trailing comma must now be inside parens,
+      e.g. (1,) instead of 1,
+  - The traversal orders for depsets have been renamed. The old names
+    are deprecated and will be removed in the future. New names:
+    "stable" -> "default", "compile" -> "postorder", "link" ->
+    "topological", "naive_link" -> "preorder".
+
+New features:
+
+  - Skylark: you can now multiply a list by an integer to get the
+    concatenation of N copies of this list, e.g. [a,b] * 3 =
+    [a,b,a,b,a,b]
+  - Allow Android aidl tool to add a jar to the program's classpath,
+    such as if needed to support generated sources.
+  - Add transitive proguard_specs when android_sdk.aidl_lib is
+    specified
+  - Windows: "/dev/null" is now a supported path, e.g.
+    --bazelrc=/dev/null now works
+
+Important changes:
+
+  - Bazel Android builds use the apksigner tool from the Android SDK
+    build-tools. Bazel Android builds now require build-tools version
+    24.0.3 or
+    later.
+  - Android SDK external bindings for support libraries, e.g.
+    //external:android/appcompat_v4, are removed because the support
+    library JARs that they referenced no longer ship with the Android
+    SDK.
+  - aar_import rule is now documented.
+  - An IE bug was fixed in repository_ctx.download_and_extract
+  - Update "-I" to "-isystem" in documentation to reflect current
+    behavior.
+  - android_sdk_repository build_tools_version is now optional. The
+    highest installed build-tools will be used if none is specified.
+  - New flag --sandbox_add_mount_pair to specify customized
+    source:target path pairs to bind mount inside the sandbox.
+  - expose proto_library descriptor set to skylark via
+    <dep>.proto.descriptor_set
+  - The `set` constructor is deprecated in favor of `depset`
+  - Autodetect gold linker in cc_configure.bzl
+  - Remove build flag --experimental_j2objc_annotation_processing. It
+    is on by default now.
+  - Set clang's -mwatchos-version-min correctly using the value of
+    --watchos_minimum_os, not --watchos_sdk_version.
+  - singlejar can now create jar files larger than 4GB.
+  - android_sdk_repository and android_ndk_repository now read
+    $ANDROID_HOME and $ANDROID_NDK_HOME if the path attribute is not
+    set.
+  - Removed broken api levels 3, 4 and 5 from Android NDK 12.
+  - Default --android_dynamic_mode to off.
+  - android_sdk_repository no longer requires api_level. If one is
+    not specified, the highest android platform installed will be
+    used. Furthermore, android_sdk's are created for all android
+    platforms installed and can be specified with the --android_sdk
+    flag.
+  - To iterate over or test for membership in a set, prefer using the
+    new to_list() method. E.g., "for x in myset.to_list():", or
+    "print(x in myset.to_list())". Iteration/membership-test on the
+    raw set itself is deprecated.
+  - Remove support for --javawarn; use e.g. --javacopt=-Xlint:all
+    instead
+
 ## Release 0.4.3 (2016-12-22)
 
 ```
@@ -893,3 +1368,7 @@ Baseline: a0881e8
 ```
 
 Initial release.
+
+
+
+

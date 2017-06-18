@@ -20,20 +20,20 @@ import com.google.devtools.common.options.OptionsBase;
 /** Options for remote execution and distributed caching. */
 public final class RemoteOptions extends OptionsBase {
   @Option(
-    name = "rest_cache_url",
+    name = "remote_rest_cache",
     defaultValue = "null",
     category = "remote",
     help =
         "A base URL for a RESTful cache server for storing build artifacts."
             + "It has to support PUT, GET, and HEAD requests."
   )
-  public String restCacheUrl;
+  public String remoteRestCache;
 
   @Option(
     name = "hazelcast_node",
     defaultValue = "null",
     category = "remote",
-    help = "A comma separated list of hostnames of hazelcast nodes. For client mode only."
+    help = "A comma separated list of hostnames of hazelcast nodes."
   )
   public String hazelcastNode;
 
@@ -41,7 +41,7 @@ public final class RemoteOptions extends OptionsBase {
     name = "hazelcast_client_config",
     defaultValue = "null",
     category = "remote",
-    help = "A file path to a hazelcast client config XML file. For client mode only."
+    help = "A file path to a hazelcast client config XML file."
   )
   public String hazelcastClientConfig;
 
@@ -56,70 +56,66 @@ public final class RemoteOptions extends OptionsBase {
   public int hazelcastStandaloneListenPort;
 
   @Option(
-    name = "remote_worker",
+    name = "remote_executor",
     defaultValue = "null",
     category = "remote",
-    help =
-        "Hostname and port number of remote worker in the form of host:port. "
-            + "For client mode only."
+    help = "HOST or HOST:PORT of a remote execution endpoint."
   )
-  public String remoteWorker;
+  public String remoteExecutor;
 
   @Option(
     name = "remote_cache",
     defaultValue = "null",
     category = "remote",
-    help =
-        "Hostname and port number of remote gRPC cache in the form of host:port. "
-            + "For client mode only."
+    help = "HOST or HOST:PORT of a remote caching endpoint."
   )
   public String remoteCache;
 
   @Option(
-    name = "grpc_max_chunk_size_bytes",
-    defaultValue = "400000", // <4MB. Bounded by the gRPC size limit on the overall message.
+    name = "remote_timeout",
+    defaultValue = "60",
     category = "remote",
-    help = "The maximal number of bytes to be sent in a single message. For client mode only."
+    help = "The maximum number of seconds to wait for remote execution and cache calls."
   )
-  public int grpcMaxChunkSizeBytes;
+  public int remoteTimeout;
 
   @Option(
-    name = "grpc_max_batch_inputs",
-    defaultValue = "100",
+    name = "remote_accept_cached",
+    defaultValue = "true",
     category = "remote",
-    help = "The maximal number of input file to be sent in a single batch. For client mode only."
+    help = "Whether to accept remotely cached action results."
   )
-  public int grpcMaxBatchInputs;
-
-  @Option(
-    name = "grpc_max_batch_size_bytes",
-    defaultValue = "10485760", // 10MB
-    category = "remote",
-    help = "The maximal number of input bytes to be sent in a single batch. For client mode only."
-  )
-  public int grpcMaxBatchSizeBytes;
-
-  @Option(
-      name = "grpc_timeout_seconds",
-      defaultValue = "60",
-      category = "remote",
-      help = "The maximal number of seconds to wait for remote calls. For client mode only."
-    )
-  public int grpcTimeoutSeconds;
-
-  @Option(
-      name = "remote_accept_cached",
-      defaultValue = "true",
-      category = "remote",
-      help = "Whether to accept remotely cached action results."
-    )
   public boolean remoteAcceptCached;
 
   @Option(
-      name = "remote_allow_local_fallback",
-      defaultValue = "true",
-      category = "remote",
-      help = "Whether to fall back to standalone strategy if remote fails."
-    )
-  public boolean remoteAllowLocalFallback;
+    name = "remote_local_fallback",
+    defaultValue = "false",
+    category = "remote",
+    help = "Whether to fall back to standalone local execution strategy if remote execution fails."
+  )
+  public boolean remoteLocalFallback;
+
+  @Option(
+    name = "remote_upload_local_results",
+    defaultValue = "true",
+    category = "remote",
+    help = "Whether to upload locally executed action results to the remote cache."
+  )
+  public boolean remoteUploadLocalResults;
+
+  @Option(
+    name = "experimental_remote_platform_override",
+    defaultValue = "null",
+    category = "remote",
+    help = "Temporary, for testing only. Manually set a Platform to pass to remote execution."
+  )
+  public String experimentalRemotePlatformOverride;
+
+  @Option(
+    name = "remote_instance_name",
+    defaultValue = "",
+    category = "remote",
+    help = "Value to pass as instance_name in the remote execution API."
+  )
+  public String remoteInstanceName;
 }

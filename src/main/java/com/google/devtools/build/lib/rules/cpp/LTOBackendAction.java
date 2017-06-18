@@ -22,10 +22,8 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactResolver;
-import com.google.devtools.build.lib.actions.PackageRootResolutionException;
-import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -39,7 +37,6 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
 
 /**
  * Action used by LTOBackendArtifacts to create an LTOBackendAction. Similar to {@link SpawnAction},
@@ -56,10 +53,6 @@ import javax.annotation.concurrent.GuardedBy;
  * http://blog.llvm.org/2016/06/thinlto-scalable-and-incremental-lto.html.
  */
 public final class LTOBackendAction extends SpawnAction {
-  // This can be read/written from multiple threads, and so accesses should be synchronized.
-  @GuardedBy("this")
-  private boolean inputsKnown;
-
   private Collection<Artifact> mandatoryInputs;
   private Map<PathFragment, Artifact> bitcodeFiles;
   private Artifact imports;
@@ -73,11 +66,12 @@ public final class LTOBackendAction extends SpawnAction {
       Collection<Artifact> outputs,
       ActionOwner owner,
       CommandLine argv,
+      boolean isShellCommand,
       Map<String, String> environment,
       Set<String> clientEnvironmentVariables,
       Map<String, String> executionInfo,
       String progressMessage,
-      ImmutableMap<PathFragment, Artifact> inputManifests,
+      RunfilesSupplier runfilesSupplier,
       String mnemonic) {
     super(
         owner,
@@ -86,16 +80,15 @@ public final class LTOBackendAction extends SpawnAction {
         outputs,
         AbstractAction.DEFAULT_RESOURCE_SET,
         argv,
+        isShellCommand,
         ImmutableMap.copyOf(environment),
         ImmutableSet.copyOf(clientEnvironmentVariables),
         ImmutableMap.copyOf(executionInfo),
         progressMessage,
-        ImmutableMap.copyOf(inputManifests),
+        runfilesSupplier,
         mnemonic,
         false,
         null);
-
-    inputsKnown = false;
     mandatoryInputs = inputs;
     bitcodeFiles = allBitcodeFiles;
     imports = importsFile;
@@ -126,14 +119,14 @@ public final class LTOBackendAction extends SpawnAction {
     try {
       for (String line : FileSystemUtils.iterateLinesAsLatin1(imports.getPath())) {
         if (!line.isEmpty()) {
-          PathFragment execPath = new PathFragment(line);
+          PathFragment execPath = PathFragment.create(line);
           if (execPath.isAbsolute()) {
             throw new ActionExecutionException(
                 "Absolute paths not allowed in imports file " + imports.getPath() + ": " + execPath,
                 this,
                 false);
           }
-          importSet.add(new PathFragment(line));
+          importSet.add(PathFragment.create(line));
         }
       }
     } catch (IOException e) {
@@ -152,11 +145,6 @@ public final class LTOBackendAction extends SpawnAction {
   }
 
   @Override
-  public synchronized boolean inputsKnown() {
-    return inputsKnown;
-  }
-
-  @Override
   public Collection<Artifact> getMandatoryInputs() {
     return mandatoryInputs;
   }
@@ -169,42 +157,26 @@ public final class LTOBackendAction extends SpawnAction {
   }
 
   @Override
-  public synchronized void updateInputs(Iterable<Artifact> discoveredInputs) {
-    setInputs(discoveredInputs);
-    inputsKnown = true;
-  }
-
-  @Nullable
-  @Override
-  public Iterable<Artifact> resolveInputsFromCache(
-      ArtifactResolver artifactResolver,
-      PackageRootResolver resolver,
-      Collection<PathFragment> inputPaths)
-      throws PackageRootResolutionException {
-    Set<Artifact> bitcodeInputSet = computeBitcodeInputs(inputPaths);
-    return createInputs(bitcodeInputSet, getMandatoryInputs());
+  public Iterable<Artifact> getAllowedDerivedInputs() {
+    return bitcodeFiles.values();
   }
 
   @Override
   public void execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     super.execute(actionExecutionContext);
-
-    synchronized (this) {
-      inputsKnown = true;
-    }
   }
 
   @Override
   protected String computeKey() {
     Fingerprint f = new Fingerprint();
     f.addString(GUID);
-    f.addStrings(argv.arguments());
+    f.addStrings(getArguments());
     f.addString(getMnemonic());
-    f.addInt(inputManifests.size());
-    for (Map.Entry<PathFragment, Artifact> input : inputManifests.entrySet()) {
-      f.addString(input.getKey().getPathString() + "/");
-      f.addPath(input.getValue().getExecPath());
+    f.addPaths(getRunfilesSupplier().getRunfilesDirs());
+    ImmutableList<Artifact> runfilesManifests = getRunfilesSupplier().getManifests();
+    for (Artifact runfilesManifest : runfilesManifests) {
+      f.addPath(runfilesManifest.getExecPath());
     }
     for (Artifact input : getMandatoryInputs()) {
       f.addPath(input.getExecPath());
@@ -238,11 +210,12 @@ public final class LTOBackendAction extends SpawnAction {
         ImmutableList<Artifact> outputs,
         ResourceSet resourceSet,
         CommandLine actualCommandLine,
+        boolean isShellCommand,
         ImmutableMap<String, String> env,
         ImmutableSet<String> clientEnvironmentVariables,
         ImmutableMap<String, String> executionInfo,
         String progressMessage,
-        ImmutableMap<PathFragment, Artifact> inputAndToolManifests,
+        RunfilesSupplier runfilesSupplier,
         String mnemonic) {
       return new LTOBackendAction(
           inputsAndTools.toCollection(),
@@ -251,11 +224,12 @@ public final class LTOBackendAction extends SpawnAction {
           outputs,
           owner,
           actualCommandLine,
+          isShellCommand,
           env,
           clientEnvironmentVariables,
           executionInfo,
           progressMessage,
-          inputAndToolManifests,
+          runfilesSupplier,
           mnemonic);
     }
   }

@@ -54,7 +54,7 @@ XML_OUTPUT_FILE=${TEST_TMPDIR}/dummy.xml
 source ${DIR}/unittest.bash
 
 function test_thing() {
-  fail "I'm a failure"
+  fail "I'm a failure with <>&\" escaped symbols"
 }
 
 run_suite "thing tests"
@@ -62,7 +62,8 @@ EOF
   chmod +x thing.sh
   ./thing.sh &> $TEST_log && fail "thing.sh should fail"
   expect_not_log "__fail: No such file or directory"
-  assert_contains "I'm a failure." ${TEST_TMPDIR}/dummy.xml
+  assert_contains "message=\"I'm a failure with &lt;&gt;&amp;&quot; escaped symbols\"" ${TEST_TMPDIR}/dummy.xml
+  assert_contains "I'm a failure with <>&\" escaped symbols" ${TEST_TMPDIR}/dummy.xml
   assert_contains 'errors="1"' ${TEST_TMPDIR}/dummy.xml
 }
 

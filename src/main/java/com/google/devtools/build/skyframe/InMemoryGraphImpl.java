@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.MapMaker;
 import com.google.common.collect.Maps;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -88,6 +89,11 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   }
 
   @Override
+  public DepsReport analyzeDepsDoneness(SkyKey parent, Collection<SkyKey> deps) {
+    return DepsReport.NO_INFORMATION;
+  }
+
+  @Override
   public Map<SkyKey, SkyValue> getValues() {
     return Collections.unmodifiableMap(
         Maps.transformValues(
@@ -118,6 +124,11 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   @Override
   public Map<SkyKey, InMemoryNodeEntry> getAllValues() {
     return Collections.unmodifiableMap(nodeMap);
+  }
+
+  @Override
+  public Map<SkyKey, ? extends NodeEntry> getAllValuesMutable() {
+    return nodeMap;
   }
 
   @VisibleForTesting

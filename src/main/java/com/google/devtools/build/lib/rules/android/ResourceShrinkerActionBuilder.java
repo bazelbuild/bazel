@@ -22,8 +22,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
-import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
-
 import java.util.Collections;
 import java.util.List;
 
@@ -46,7 +44,7 @@ public class ResourceShrinkerActionBuilder {
 
   private List<String> uncompressedExtensions = Collections.emptyList();
   private List<String> assetsToIgnore = Collections.emptyList();
-  private List<String> resourceConfigs = Collections.emptyList();
+  private ResourceFilter resourceFilter;
 
   /**
    * @param ruleContext The RuleContext of the owning rule.
@@ -55,6 +53,7 @@ public class ResourceShrinkerActionBuilder {
     this.ruleContext = ruleContext;
     this.spawnActionBuilder = new SpawnAction.Builder();
     this.sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
+    this.resourceFilter = ResourceFilter.empty(ruleContext);
   }
 
   public ResourceShrinkerActionBuilder setUncompressedExtensions(
@@ -68,8 +67,9 @@ public class ResourceShrinkerActionBuilder {
     return this;
   }
 
-  public ResourceShrinkerActionBuilder setConfigurationFilters(List<String> resourceConfigs) {
-    this.resourceConfigs = resourceConfigs;
+  /** @param resourceFilter The filters to apply to the resources. */
+  public ResourceShrinkerActionBuilder setResourceFilter(ResourceFilter resourceFilter) {
+    this.resourceFilter = resourceFilter;
     return this;
   }
 
@@ -147,9 +147,14 @@ public class ResourceShrinkerActionBuilder {
 
     CustomCommandLine.Builder commandLine = new CustomCommandLine.Builder();
 
-    inputs.addAll(ruleContext.getExecutablePrerequisite("$android_resource_shrinker", Mode.HOST)
-        .getRunfilesSupport()
-        .getRunfilesArtifactsWithoutMiddlemen());
+    // Set the busybox tool.
+    commandLine.add("--tool").add("SHRINK").add("--");
+
+    inputs.addAll(
+        ruleContext
+            .getExecutablePrerequisite("$android_resources_busybox", Mode.HOST)
+            .getRunfilesSupport()
+            .getRunfilesArtifactsWithoutMiddlemen());
 
     commandLine.addExecPath("--aapt", sdk.getAapt().getExecutable());
 
@@ -168,13 +173,16 @@ public class ResourceShrinkerActionBuilder {
     if (ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT) {
       commandLine.add("--debug");
     }
-    if (!resourceConfigs.isEmpty()) {
-      commandLine.addJoinStrings("--resourceConfigs", ",", resourceConfigs);
+    if (resourceFilter.hasConfigurationFilters()) {
+      commandLine.add("--resourceConfigs").add(resourceFilter.getConfigurationFilterString());
     }
 
     checkNotNull(resourceFilesZip);
     checkNotNull(shrunkJar);
+    checkNotNull(proguardMapping);
     checkNotNull(primaryResources);
+    checkNotNull(primaryResources.getRTxt());
+    checkNotNull(primaryResources.getManifest());
     checkNotNull(resourceApkOut);
 
     commandLine.addExecPath("--resources", resourceFilesZip);
@@ -183,10 +191,8 @@ public class ResourceShrinkerActionBuilder {
     commandLine.addExecPath("--shrunkJar", shrunkJar);
     inputs.add(shrunkJar);
 
-    if (proguardMapping != null) {
-      commandLine.addExecPath("--proguardMapping", proguardMapping);
-      inputs.add(proguardMapping);
-    }
+    commandLine.addExecPath("--proguardMapping", proguardMapping);
+    inputs.add(proguardMapping);
 
     commandLine.addExecPath("--rTxt", primaryResources.getRTxt());
     inputs.add(primaryResources.getRTxt());
@@ -195,7 +201,10 @@ public class ResourceShrinkerActionBuilder {
     inputs.add(primaryResources.getManifest());
 
     List<Artifact> dependencyManifests = getManifests(dependencyResources);
-    commandLine.addJoinExecPaths("--dependencyManifests", ":", dependencyManifests);
+    commandLine.addJoinExecPaths(
+        "--dependencyManifests",
+        ruleContext.getConfiguration().getHostPathSeparator(),
+        dependencyManifests);
     inputs.addAll(dependencyManifests);
 
     List<String> resourcePackages = getResourcePackages(primaryResources, dependencyResources);
@@ -210,16 +219,17 @@ public class ResourceShrinkerActionBuilder {
     commandLine.addExecPath("--log", logOut);
     outputs.add(logOut);
 
-    ruleContext.registerAction(spawnActionBuilder
-        .addTool(sdk.getAapt())
-        .addInputs(inputs.build())
-        .addOutputs(outputs.build())
-        .setCommandLine(commandLine.build())
-        .setExecutable(ruleContext.getExecutablePrerequisite(
-            "$android_resource_shrinker", Mode.HOST))
-        .setProgressMessage("Shrinking resources for " + ruleContext.getLabel())
-        .setMnemonic("ResourceShrinker")
-        .build(ruleContext));
+    ruleContext.registerAction(
+        spawnActionBuilder
+            .addTool(sdk.getAapt())
+            .addInputs(inputs.build())
+            .addOutputs(outputs.build())
+            .setCommandLine(commandLine.build())
+            .setExecutable(
+                ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
+            .setProgressMessage("Shrinking resources for " + ruleContext.getLabel())
+            .setMnemonic("ResourceShrinker")
+            .build(ruleContext));
 
     return resourceApkOut;
   }

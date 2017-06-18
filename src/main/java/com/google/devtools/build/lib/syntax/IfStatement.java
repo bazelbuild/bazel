@@ -13,22 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import static com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils.append;
-
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils;
-import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
-import com.google.devtools.build.lib.syntax.compiler.Jump;
-import com.google.devtools.build.lib.syntax.compiler.Jump.PrimitiveComparison;
-import com.google.devtools.build.lib.syntax.compiler.LabelAdder;
-import com.google.devtools.build.lib.syntax.compiler.LoopLabels;
-import com.google.devtools.build.lib.syntax.compiler.VariableScope;
 import com.google.devtools.build.lib.util.Preconditions;
-
-import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
-
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -39,7 +25,7 @@ public final class IfStatement extends Statement {
   /**
    * Syntax node for an [el]if statement.
    */
-  static final class ConditionalStatements extends Statement {
+  public static final class ConditionalStatements extends Statement {
 
     private final Expression condition;
     private final ImmutableList<Statement> stmts;
@@ -66,11 +52,11 @@ public final class IfStatement extends Statement {
       visitor.visit(this);
     }
 
-    Expression getCondition() {
+    public Expression getCondition() {
       return condition;
     }
 
-    ImmutableList<Statement> getStmts() {
+    public ImmutableList<Statement> getStmts() {
       return stmts;
     }
 
@@ -78,17 +64,6 @@ public final class IfStatement extends Statement {
     void validate(ValidationEnvironment env) throws EvalException {
       condition.validate(env);
       validateStmts(env, stmts);
-    }
-
-    @Override
-    ByteCodeAppender compile(
-        VariableScope scope, Optional<LoopLabels> loopLabels, DebugInfo debugInfo)
-        throws EvalException {
-      List<ByteCodeAppender> code = new ArrayList<>();
-      for (Statement statement : stmts) {
-        code.add(statement.compile(scope, loopLabels, debugInfo));
-      }
-      return ByteCodeUtils.compoundAppender(code);
     }
   }
 
@@ -99,7 +74,7 @@ public final class IfStatement extends Statement {
    * Constructs a if-elif-else statement. The else part is mandatory, but the list may be empty.
    * ThenBlocks has to have at least one element.
    */
-  IfStatement(List<ConditionalStatements> thenBlocks, List<Statement> elseBlock) {
+  public IfStatement(List<ConditionalStatements> thenBlocks, List<Statement> elseBlock) {
     Preconditions.checkArgument(!thenBlocks.isEmpty());
     this.thenBlocks = ImmutableList.copyOf(thenBlocks);
     this.elseBlock = ImmutableList.copyOf(elseBlock);
@@ -155,35 +130,5 @@ public final class IfStatement extends Statement {
       stmt.validate(env);
     }
     env.finishTemporarilyDisableReadonlyCheckBranch();
-  }
-
-  @Override
-  ByteCodeAppender compile(
-      VariableScope scope, Optional<LoopLabels> loopLabels, DebugInfo debugInfo)
-      throws EvalException {
-    List<ByteCodeAppender> code = new ArrayList<>();
-    LabelAdder after = new LabelAdder();
-    LabelAdder nextConditionalOrElse;
-    for (ConditionalStatements statement : thenBlocks) {
-      nextConditionalOrElse = new LabelAdder();
-      // compile condition and convert to boolean
-      code.add(statement.getCondition().compile(scope, debugInfo));
-      append(
-          code,
-          EvalUtils.toBoolean,
-          // jump to next conditional/else block if false
-          Jump.ifIntOperandToZero(PrimitiveComparison.EQUAL).to(nextConditionalOrElse));
-      // otherwise execute the body and jump to end
-      code.add(statement.compile(scope, loopLabels, debugInfo));
-      append(code, Jump.to(after));
-      // add label for next conditional or the else block (which may be empty, but no matter)
-      append(code, nextConditionalOrElse);
-    }
-    for (Statement statement : elseBlock) {
-      code.add(statement.compile(scope, loopLabels, debugInfo));
-    }
-    append(code, after);
-
-    return ByteCodeUtils.compoundAppender(code);
   }
 }

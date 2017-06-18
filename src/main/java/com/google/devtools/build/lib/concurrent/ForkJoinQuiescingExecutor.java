@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.concurrent;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
+import java.util.concurrent.Future;
 
 /** A {@link QuiescingExecutor} implementation that wraps a {@link ForkJoinPool}. */
 // TODO(bazel-team): This extends AQV to ensure that they share the same semantics for interrupt
@@ -27,7 +28,6 @@ public class ForkJoinQuiescingExecutor extends AbstractQueueVisitor {
   private ForkJoinQuiescingExecutor(
       ForkJoinPool forkJoinPool, ErrorClassifier errorClassifier, boolean shutdownOnCompletion) {
     super(
-        /*concurrent=*/ true,
         forkJoinPool,
         shutdownOnCompletion,
         /*failFastOnException=*/ true,
@@ -94,7 +94,8 @@ public class ForkJoinQuiescingExecutor extends AbstractQueueVisitor {
   @Override
   protected void executeRunnable(Runnable runnable) {
     if (ForkJoinTask.inForkJoinPool()) {
-      ForkJoinTask.adapt(runnable).fork();
+      @SuppressWarnings("unused") 
+      Future<?> possiblyIgnoredError = ForkJoinTask.adapt(runnable).fork();
     } else {
       super.executeRunnable(runnable);
     }

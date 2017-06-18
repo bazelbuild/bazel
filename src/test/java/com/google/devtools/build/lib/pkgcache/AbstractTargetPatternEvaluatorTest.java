@@ -20,20 +20,18 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.DelegatingEventHandler;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.util.Pair;
-
-import org.junit.Before;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
+import org.junit.Before;
 
 /**
  * Abstract framework for target pattern evaluation tests. The {@link TargetPatternEvaluatorTest}
@@ -45,17 +43,22 @@ public abstract class AbstractTargetPatternEvaluatorTest extends PackageLoadingT
   protected RecordingParsingListener parsingListener;
 
   protected static ResolvedTargets<Target> parseTargetPatternList(
-      TargetPatternEvaluator parser, EventHandler eventHandler,
-      List<String> targetPatterns, boolean keepGoing)
-          throws TargetParsingException, InterruptedException {
+      TargetPatternEvaluator parser,
+      ExtendedEventHandler eventHandler,
+      List<String> targetPatterns,
+      boolean keepGoing)
+      throws TargetParsingException, InterruptedException {
     return parseTargetPatternList(
         parser, eventHandler, targetPatterns, FilteringPolicies.NO_FILTER, keepGoing);
   }
 
   protected static ResolvedTargets<Target> parseTargetPatternList(
-      TargetPatternEvaluator parser, EventHandler eventHandler,
-      List<String> targetPatterns, FilteringPolicy policy,
-      boolean keepGoing) throws TargetParsingException, InterruptedException {
+      TargetPatternEvaluator parser,
+      ExtendedEventHandler eventHandler,
+      List<String> targetPatterns,
+      FilteringPolicy policy,
+      boolean keepGoing)
+      throws TargetParsingException, InterruptedException {
     return parser.parseTargetPatternList(eventHandler, targetPatterns, policy, keepGoing);
   }
 
@@ -98,7 +101,7 @@ public abstract class AbstractTargetPatternEvaluatorTest extends PackageLoadingT
       implements ParseFailureListener {
     protected final List<Pair<String, String>> events = new ArrayList<>();
 
-    private RecordingParsingListener(EventHandler delegate) {
+    private RecordingParsingListener(ExtendedEventHandler delegate) {
       super(delegate);
     }
 

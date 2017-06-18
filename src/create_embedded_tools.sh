@@ -30,25 +30,20 @@ trap "rm -fr \"${PACKAGE_DIR}\"" EXIT
 
 for i in $*; do
 
-  # Xcode tools should come from src/tools/xcode/.  Exclude scripts in
-  # tools/objc to avoid conflict.
-  if  [ "$i" = "tools/objc/xcrunwrapper.sh" ] \
-    || [ "$i" = "tools/objc/libtool.sh" ] \
-    || [ "$i" = "tools/objc/make_hashed_objlist.py" ]
-  then
-    continue
-  fi
-
   case "$i" in
     *tools/jdk/BUILD*) OUTPUT_PATH=tools/jdk/BUILD ;;
-    *JavaBuilder*_deploy.jar) OUTPUT_PATH=tools/jdk/JavaBuilder_deploy.jar ;;
+    *tools/platforms/platforms.BUILD) OUTPUT_PATH=platforms/BUILD ;;
+    *tools/platforms/*) OUTPUT_PATH=platforms/${i##*/} ;;
+    *JavaBuilder*_deploy.jar) OUTPUT_PATH=tools/jdk/${i##*/} ;;
     *JacocoCoverage*_deploy.jar) OUTPUT_PATH=tools/jdk/JacocoCoverage_deploy.jar ;;
     *turbine_deploy.jar) OUTPUT_PATH=tools/jdk/turbine_deploy.jar ;;
-    *javac-9-dev-r3297-1.jar) OUTPUT_PATH=third_party/java/jdk/langtools/javac-9-dev-r3297-1.jar ;;
+    *javac-9-dev-r4023-2.jar) OUTPUT_PATH=third_party/java/jdk/langtools/javac-9-dev-r4023-2.jar ;;
     *javac7.jar) OUTPUT_PATH=third_party/java/jdk/langtools/javac7.jar ;;
-    *SingleJar_deploy.jar) OUTPUT_PATH=tools/jdk/SingleJar_deploy.jar ;;
+    *SingleJar_deploy.jar) OUTPUT_PATH=tools/jdk/singlejar/SingleJar_deploy.jar ;;
     *GenClass_deploy.jar) OUTPUT_PATH=tools/jdk/GenClass_deploy.jar ;;
+    *ExperimentalRunner_deploy.jar) OUTPUT_PATH=tools/jdk/ExperimentalTestRunner_deploy.jar ;;
     *Runner_deploy.jar) OUTPUT_PATH=tools/jdk/TestRunner_deploy.jar ;;
+    *singlejar) OUTPUT_PATH=tools/jdk/singlejar/singlejar ;;
     *ijar.exe) OUTPUT_PATH=tools/jdk/ijar/ijar.exe ;;
     *ijar) OUTPUT_PATH=tools/jdk/ijar/ijar ;;
     *zipper.exe) OUTPUT_PATH=tools/zip/zipper/zipper.exe ;;
@@ -60,6 +55,8 @@ for i in $*; do
     *xcode*xcode-locator) OUTPUT_PATH=tools/objc/xcode-locator ;;
     *src/tools/xcode/*.sh) OUTPUT_PATH=tools/objc/${i##*/} ;;
     *src/tools/xcode/*) OUTPUT_PATH=tools/objc/${i##*/}.sh ;;
+    *external/openjdk_*/file/*.tar.gz) OUTPUT_PATH=jdk.tar.gz ;;
+    *external/openjdk_*/file/*.zip) OUTPUT_PATH=jdk.zip ;;
     *) OUTPUT_PATH=$(echo $i | sed 's_^.*bazel-out/[^/]*/bin/__') ;;
   esac
 
@@ -68,9 +65,21 @@ for i in $*; do
   chmod u+w "${PACKAGE_DIR}/${OUTPUT_PATH}"
 done
 
-if [ ! -f ${PACKAGE_DIR}/third_party/java/jdk/langtools/javac-9-dev-r3297-1.jar ]; then
+if [ -f ${PACKAGE_DIR}/jdk.tar.gz ]; then
+  tar xz -C ${PACKAGE_DIR} -f ${PACKAGE_DIR}/jdk.tar.gz
+  rm ${PACKAGE_DIR}/jdk.tar.gz
+  mv ${PACKAGE_DIR}/zulu* ${PACKAGE_DIR}/jdk
+fi
+
+if [ -f ${PACKAGE_DIR}/jdk.zip ]; then
+  unzip -d ${PACKAGE_DIR} ${PACKAGE_DIR}/jdk.zip > /dev/null
+  rm ${PACKAGE_DIR}/jdk.zip
+  mv ${PACKAGE_DIR}/zulu* ${PACKAGE_DIR}/jdk
+fi
+
+if [ ! -f ${PACKAGE_DIR}/third_party/java/jdk/langtools/javac-9-dev-r4023-2.jar ]; then
   cp ${PACKAGE_DIR}/third_party/java/jdk/langtools/javac7.jar \
-      ${PACKAGE_DIR}/third_party/java/jdk/langtools/javac-9-dev-r3297-1.jar
+      ${PACKAGE_DIR}/third_party/java/jdk/langtools/javac-9-dev-r4023-2.jar
 fi
 
 cat > "${PACKAGE_DIR}/WORKSPACE" <<EOF

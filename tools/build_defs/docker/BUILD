@@ -48,6 +48,8 @@ TEST_DATA = [
     "//tools/build_defs/docker/testdata:root_data_path_image.tar",
     "//tools/build_defs/docker/testdata:dummy_repository.tar",
     "//tools/build_defs/docker/testdata:extras_with_deb.tar",
+    "//tools/build_defs/docker/testdata:bundle_test.tar",
+    "//tools/build_defs/docker/testdata:pause_based.tar",
 ]
 
 sh_test(
@@ -110,12 +112,6 @@ py_test(
     deps = [
         ":create_image_config",
     ],
-)
-
-py_binary(
-    name = "sha256",
-    srcs = ["sha256.py"],
-    visibility = ["//visibility:public"],
 )
 
 py_binary(

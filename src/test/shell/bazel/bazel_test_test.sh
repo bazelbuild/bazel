@@ -192,14 +192,19 @@ echo "hello script!!!" "\$@"
 EOF
   chmod u+x scripts/hello
 
+  # We don't just use the local PATH, but use the test's PATH, which is more restrictive.
   PATH=$PATH:$PWD/scripts bazel test //testing:t1 -s --run_under=hello \
-    --test_output=all >& $TEST_log || fail "Expected success"
+    --test_output=all >& $TEST_log && fail "Expected failure"
+
+  # We need to forward the PATH to make it work.
+  PATH=$PATH:$PWD/scripts bazel test //testing:t1 -s --run_under=hello \
+    --test_env=PATH --test_output=all >& $TEST_log || fail "Expected success"
   expect_log 'hello script!!! testing/t1'
 
   # Make sure it still works if --run_under includes an arg.
   PATH=$PATH:$PWD/scripts bazel test //testing:t1 \
     -s --run_under='hello "some_arg   with"          space' \
-    --test_output=all >& $TEST_log || fail "Expected success"
+    --test_env=PATH --test_output=all >& $TEST_log || fail "Expected success"
   expect_log 'hello script!!! some_arg   with space testing/t1'
 
   # Make sure absolute path works also
@@ -231,7 +236,7 @@ EOF
 
   bazel test --test_timeout=2 //dir:test &> $TEST_log && fail "should have timed out"
   expect_log "TIMEOUT"
-  bazel test --test_timeout=20 //dir:test || fail "expected success"
+  bazel test --test_timeout=20 //dir:test &> $TEST_log || fail "expected success"
 }
 
 # Makes sure that runs_per_test_detects_flakes detects FLAKY if any of the 5
@@ -411,8 +416,10 @@ EOF
   expect_log_once "FAIL: //:flaky (.*/flaky/test_attempts/attempt_1.log)"
   expect_log_once "PASS: //:flaky"
   expect_log_once "FLAKY"
+  cat bazel-testlogs/flaky/test_attempts/attempt_1.log &> $TEST_log
   assert_equals "fail" "$(tail -1 bazel-testlogs/flaky/test_attempts/attempt_1.log)"
   assert_equals 1 $(ls bazel-testlogs/flaky/test_attempts/*.log | wc -l)
+  cat bazel-testlogs/flaky/test.log &> $TEST_log
   assert_equals "pass" "$(tail -1 bazel-testlogs/flaky/test.log)"
 
   bazel test //:pass &> $TEST_log \
@@ -421,6 +428,7 @@ EOF
   expect_log_once PASSED
   [ ! -d bazel-test_logs/pass/test_attempts ] \
     || fail "Got test attempts while expected non for non-flaky tests"
+  cat bazel-testlogs/flaky/test.log &> $TEST_log
   assert_equals "pass" "$(tail -1 bazel-testlogs/flaky/test.log)"
 
   bazel test //:fail &> $TEST_log \
@@ -429,9 +437,11 @@ EOF
   expect_log_n "FAIL: //:fail (.*/fail/test_attempts/attempt_..log)" 2
   expect_log_once "FAIL: //:fail (.*/fail/test.log)"
   expect_log_once "FAILED"
-  assert_equals "fail" "$(tail -1 bazel-testlogs/fail/test_attempts/attempt_1.log)"
+  cat bazel-testlogs/fail/test_attempts/attempt_1.log &> $TEST_log
+  assert_equals "fail" "$(sed -n '3p' < bazel-testlogs/fail/test_attempts/attempt_1.log)"
   assert_equals 2 $(ls bazel-testlogs/fail/test_attempts/*.log | wc -l)
-  assert_equals "fail" "$(tail -1 bazel-testlogs/fail/test.log)"
+  cat bazel-testlogs/fail/test.log &> $TEST_log
+  assert_equals "fail" "$(sed -n '3p' < bazel-testlogs/fail/test.log)"
 }
 
-run_suite "test tests"
+run_suite "bazel test tests"

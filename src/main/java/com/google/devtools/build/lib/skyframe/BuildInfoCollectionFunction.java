@@ -21,7 +21,9 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoContext;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoType;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue.BuildInfoKeyAndConfig;
+import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -36,9 +38,12 @@ import java.util.Map;
 public class BuildInfoCollectionFunction implements SkyFunction {
   // Supplier only because the artifact factory has not yet been created at constructor time.
   private final Supplier<ArtifactFactory> artifactFactory;
+  private final Supplier<Boolean> removeActionsAfterEvaluation;
 
-  BuildInfoCollectionFunction(Supplier<ArtifactFactory> artifactFactory) {
+  BuildInfoCollectionFunction(
+      Supplier<ArtifactFactory> artifactFactory, Supplier<Boolean> removeActionsAfterEvaluation) {
     this.artifactFactory = artifactFactory;
+    this.removeActionsAfterEvaluation = Preconditions.checkNotNull(removeActionsAfterEvaluation);
   }
 
   @Override
@@ -54,6 +59,13 @@ public class BuildInfoCollectionFunction implements SkyFunction {
     if (buildInfoFactories == null) {
       return null;
     }
+    WorkspaceNameValue nameValue = (WorkspaceNameValue) env.getValue(WorkspaceNameValue.key());
+    if (nameValue == null) {
+      return null;
+    }
+    RepositoryName repositoryName = RepositoryName.createFromValidStrippedName(
+        nameValue.getName());
+
     final ArtifactFactory factory = artifactFactory.get();
     BuildInfoContext context = new BuildInfoContext() {
       @Override
@@ -65,9 +77,16 @@ public class BuildInfoCollectionFunction implements SkyFunction {
       }
     };
 
-    return new BuildInfoCollectionValue(buildInfoFactories.get(
-        keyAndConfig.getInfoKey()).create(context, keyAndConfig.getConfig(),
-            infoArtifactValue.getStableArtifact(), infoArtifactValue.getVolatileArtifact()));
+    return new BuildInfoCollectionValue(
+        buildInfoFactories
+            .get(keyAndConfig.getInfoKey())
+            .create(
+                context,
+                keyAndConfig.getConfig(),
+                infoArtifactValue.getStableArtifact(),
+                infoArtifactValue.getVolatileArtifact(),
+                repositoryName),
+        removeActionsAfterEvaluation.get());
   }
 
   @Override

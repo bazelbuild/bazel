@@ -15,11 +15,16 @@
 package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
 
@@ -27,6 +32,9 @@ import java.io.IOException;
  * This module provides the Sandbox spawn strategy.
  */
 public final class SandboxModule extends BlazeModule {
+  private Path sandboxBase;
+  private boolean shouldCleanupSandboxBase;
+
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
     return "build".equals(command.name())
@@ -35,12 +43,48 @@ public final class SandboxModule extends BlazeModule {
   }
 
   @Override
-  public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
+  public void executorInit(
+      CommandEnvironment cmdEnv, BuildRequest request, ExecutorBuilder builder) {
+    BlazeDirectories blazeDirs = cmdEnv.getDirectories();
+    String productName = cmdEnv.getRuntime().getProductName();
+    SandboxOptions sandboxOptions = request.getOptions(SandboxOptions.class);
+    FileSystem fs = blazeDirs.getFileSystem();
+
+    if (sandboxOptions.sandboxBase.isEmpty()) {
+      sandboxBase = blazeDirs.getOutputBase().getRelative(productName + "-sandbox");
+    } else {
+      String dirName =
+          productName + "-sandbox." + Fingerprint.md5Digest(blazeDirs.getOutputBase().toString());
+      sandboxBase = fs.getPath(sandboxOptions.sandboxBase).getRelative(dirName);
+    }
+
+    // Do not remove the sandbox base when --sandbox_debug was specified so that people can check
+    // out the contents of the generated sandbox directories.
+    shouldCleanupSandboxBase = !sandboxOptions.sandboxDebug;
+
     try {
-      builder.addActionContextProvider(SandboxActionContextProvider.create(env, request));
+      FileSystemUtils.createDirectoryAndParents(sandboxBase);
+      builder.addActionContextProvider(
+          SandboxActionContextProvider.create(cmdEnv, request, sandboxBase));
     } catch (IOException e) {
       throw new IllegalStateException(e);
     }
-    builder.addActionContextConsumer(new SandboxActionContextConsumer(env));
+    builder.addActionContextConsumer(new SandboxActionContextConsumer(cmdEnv));
+  }
+
+  @Override
+  public void afterCommand() {
+    super.afterCommand();
+
+    if (sandboxBase != null) {
+      if (shouldCleanupSandboxBase) {
+        try {
+          FileSystemUtils.deleteTree(sandboxBase);
+        } catch (IOException e) {
+          // Nothing we can do at this point.
+        }
+      }
+      sandboxBase = null;
+    }
   }
 }

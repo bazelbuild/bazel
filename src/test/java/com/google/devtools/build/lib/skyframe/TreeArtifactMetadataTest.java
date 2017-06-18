@@ -26,6 +26,8 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
@@ -122,7 +124,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
   public void testEqualTreeArtifacts() throws Exception {
     Artifact treeArtifact = createTreeArtifact("out");
     ImmutableList<PathFragment> children =
-        ImmutableList.of(new PathFragment("one"), new PathFragment("two"));
+        ImmutableList.of(PathFragment.create("one"), PathFragment.create("two"));
     TreeArtifactValue valueOne = evaluateTreeArtifact(treeArtifact, children);
     MemoizingEvaluator evaluator = driver.getGraphForTesting();
     evaluator.delete(new Predicate<SkyKey>() {
@@ -140,18 +142,18 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
   @Test
   public void testTreeArtifactsWithDigests() throws Exception {
     fastDigest = true;
-    doTestTreeArtifacts(ImmutableList.of(new PathFragment("one")));
+    doTestTreeArtifacts(ImmutableList.of(PathFragment.create("one")));
   }
 
   @Test
   public void testTreeArtifactsWithoutDigests() throws Exception {
     fastDigest = false;
-    doTestTreeArtifacts(ImmutableList.of(new PathFragment("one")));
+    doTestTreeArtifacts(ImmutableList.of(PathFragment.create("one")));
   }
 
   @Test
   public void testTreeArtifactMultipleDigests() throws Exception {
-    doTestTreeArtifacts(ImmutableList.of(new PathFragment("one"), new PathFragment("two")));
+    doTestTreeArtifacts(ImmutableList.of(PathFragment.create("one"), PathFragment.create("two")));
   }
 
   @Test
@@ -160,7 +162,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     Artifact one = createTreeArtifact("outOne");
     Artifact two = createTreeArtifact("outTwo");
     ImmutableList<PathFragment> children =
-        ImmutableList.of(new PathFragment("one"), new PathFragment("two"));
+        ImmutableList.of(PathFragment.create("one"), PathFragment.create("two"));
     TreeArtifactValue valueOne = evaluateTreeArtifact(one, children);
     TreeArtifactValue valueTwo = evaluateTreeArtifact(two, children);
     assertThat(valueOne.getDigest()).isEqualTo(valueTwo.getDigest());
@@ -186,10 +188,10 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     try {
       Artifact artifact = createTreeArtifact("outOne");
       TreeArtifactValue value = evaluateTreeArtifact(artifact,
-          ImmutableList.of(new PathFragment("one")));
+          ImmutableList.of(PathFragment.create("one")));
       fail("MissingInputFileException expected, got " + value);
     } catch (Exception e) {
-      assertThat(Throwables.getRootCause(e).getMessage()).contains(exception.getMessage());
+      assertThat(Throwables.getRootCause(e)).hasMessageThat().contains(exception.getMessage());
     }
   }
 
@@ -199,7 +201,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
   }
 
   private Artifact createTreeArtifact(String path) throws IOException {
-    PathFragment execPath = new PathFragment("out").getRelative(path);
+    PathFragment execPath = PathFragment.create("out").getRelative(path);
     Path fullPath = root.getRelative(execPath);
     Artifact output =
         new SpecialArtifact(
@@ -221,9 +223,10 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
 
   private void setGeneratingActions() {
     if (evaluator.getExistingValueForTesting(OWNER_KEY) == null) {
-      differencer.inject(ImmutableMap.of(
-          OWNER_KEY,
-          new ActionLookupValue(ImmutableList.<ActionAnalysisMetadata>copyOf(actions))));
+      differencer.inject(
+          ImmutableMap.of(
+              OWNER_KEY,
+              new ActionLookupValue(ImmutableList.<ActionAnalysisMetadata>copyOf(actions), false)));
     }
   }
 
@@ -239,10 +242,14 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
 
   private class TreeArtifactExecutionFunction implements SkyFunction {
     @Override
-    public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
+    public SkyValue compute(SkyKey skyKey, Environment env)
+        throws SkyFunctionException, InterruptedException {
       Map<Artifact, FileValue> fileData = new HashMap<>();
       Map<TreeFileArtifact, FileArtifactValue> treeArtifactData = new HashMap<>();
-      Action action = (Action) skyKey.argument();
+      ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
+      ActionLookupValue actionLookupValue =
+          (ActionLookupValue) env.getValue(actionLookupData.getActionLookupNode());
+      Action action = actionLookupValue.getAction(actionLookupData.getActionIndex());
       Artifact output = Iterables.getOnlyElement(action.getOutputs());
       for (PathFragment subpath : testTreeArtifactContents) {
         try {

@@ -41,7 +41,13 @@ import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.syntax.Type;
 
-/** Implementation for {@code apple_watch2_extension}. */
+/**
+ * Implementation for {@code apple_watch2_extension}.
+ *
+ * @deprecated The native bundling rules have been deprecated. This class will be removed in the
+ *     future.
+ */
+@Deprecated
 public class AppleWatch2Extension implements RuleConfiguredTargetFactory {
 
   /** Template for the containing application folder. */
@@ -50,6 +56,10 @@ public class AppleWatch2Extension implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
+    ruleContext.ruleWarning(
+        "This rule is deprecated. Please use the new Apple build rules "
+            + "(https://github.com/bazelbuild/rules_apple) to build Apple targets.");
+
     validateAttributesAndConfiguration(ruleContext);
 
     ObjcProvider.Builder exposedObjcProviderBuilder = new ObjcProvider.Builder();

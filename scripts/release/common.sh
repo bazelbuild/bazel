@@ -50,8 +50,8 @@ function get_release_name() {
 }
 
 # Get the short hash of a commit
-function git_commit_shorthash() {
-  git rev-parse --short "${1}"
+function git_commit_hash() {
+  git rev-parse "${1}"
 }
 
 # Get the subject (first line of the commit message) of a commit
@@ -111,7 +111,7 @@ function wrap_text() {
 #                    message will be wrapped into 70 columns.
 #    + CHERRY_PICK2: commit message summary of the CHERRY_PICK2.
 function create_revision_information() {
-  echo "Baseline: $(git_commit_shorthash "${1}")"
+  echo "Baseline: $(git_commit_hash "${1}")"
   local first=1
   shift
   while [ -n "${1-}" ]; do
@@ -119,11 +119,11 @@ function create_revision_information() {
       echo -e "\nCherry picks:"
       first=0
     fi
-    local hash="$(git_commit_shorthash "${1}")"
+    local hash="$(git_commit_hash "${1}")"
     local subject="$(git_commit_subject $hash)"
-    local lines=$(echo "$subject" | wrap_text 56)  # 14 leading spaces.
-    echo "   + $hash: $lines" | head -1
-    echo "$lines" | tail -n +2 | sed 's/^/              /'
+    local lines=$(echo "$subject" | wrap_text 65)  # 5 leading spaces.
+    echo "   + $hash:"
+    echo "$lines" | sed 's/^/     /'
     shift
   done
 }
@@ -140,6 +140,25 @@ function get_release_baseline() {
   git merge-base $(get_master_ref) "${1:-HEAD}"
 }
 
+# Returns the list of (commit hash, patch-id) from $1..$2
+# Args:
+#   $1: the first commit in the list (excluded)
+#   $2: the last commit in the list
+function get_patch_ids() {
+  git_log_hash "$1" "$2" | xargs git show | git patch-id
+}
+
+# Returns the original commit a commit was cherry-picked from master
+# Args:
+#   $1: the commit to find
+#   $2: the baseline from which to look for (up to master)
+#   $3: master ref (optional, default master)
+#   $4: The list of master changes as returned by get_patch_ids (optional)
+function get_cherrypick_origin() {
+  local master=${3:-$(get_master_ref)}
+  local master_changes="${4-$(get_patch_ids "${2}" "${master}")}"
+}
+
 # Get the list of cherry-picks since master
 # Args:
 #   $1: branch, default to HEAD
@@ -154,10 +173,19 @@ function get_cherrypicks() {
   local master_changes="$(git_log_hash "${baseline}" "${master}" | xargs git show | git patch-id)"
   # Now for each changes on the release branch
   for i in ${changes}; do
-    # Find the change with the same patch-id on the master branch
-    echo "${master_changes}" \
-      | grep "^$(git show "$i" | git patch-id | cut -d " " -f 1)" \
-      | cut -d " " -f 2
+    local hash=$(git notes --ref=cherrypick show "$i" 2>/dev/null || true)
+    if [ -z "${hash}" ]; then
+      # Find the change with the same patch-id on the master branch if the note is not present
+      hash=$(echo "${master_changes}" \
+          | grep "^$(git show "$i" | git patch-id | cut -d " " -f 1)" \
+          | cut -d " " -f 2)
+    fi
+    if [ -z "${hash}" ]; then
+     # We don't know which cherry-pick it is coming from, fall back to the new commit hash.
+     echo "$i"
+    else
+     echo "${hash}"
+    fi
   done
 }
 
@@ -168,19 +196,30 @@ function get_release_title() {
 
 # Generate the release message to be added to the changelog
 # from the release notes for release $1
+# Args:
+#   $1: release name
+#   $2: release ref (default HEAD)
+#   $3: delimiter around the revision information (default none)
 function generate_release_message() {
   local release_name="$1"
   local branch="${2:-HEAD}"
+  local delimiter="${3-}"
   local baseline="$(get_release_baseline "${branch}")"
   local cherrypicks="$(get_cherrypicks "${branch}" "${baseline}")"
 
-cat <<EOF
-$(get_release_title "$release_name")
+  get_release_title "$release_name"
+  echo
 
-$(create_revision_information $baseline $cherrypicks)
+  if [ -n "${delimiter}" ]; then
+    echo "${delimiter}"
+  fi
+  create_revision_information $baseline $cherrypicks
+  if [ -n "${delimiter}" ]; then
+    echo "${delimiter}"
+  fi
 
-$(get_release_notes "${branch}")
-EOF
+  echo
+  get_release_notes "${branch}"
 }
 
 # Returns the release notes for the CHANGELOG.md taken from either from

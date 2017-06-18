@@ -13,8 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.shell;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import org.junit.After;
 import org.junit.Before;
@@ -56,7 +55,7 @@ public class InterruptibleTest {
   @Before
   public final void startInterrupter() throws Exception  {
     Thread.interrupted(); // side effect: clear interrupted status
-    assertFalse("Unexpected interruption!", mainThread.isInterrupted());
+    assertWithMessage("Unexpected interruption!").that(mainThread.isInterrupted()).isFalse();
 
     // We interrupt after 1 sec, so this gives us plenty of time for the library to notice the
     // subprocess exit.
@@ -81,11 +80,11 @@ public class InterruptibleTest {
     command.execute();
 
     // The interrupter thread should have exited about 1000ms ago.
-    assertFalse("Interrupter thread is still alive!",
-                interrupter.isAlive());
+    assertWithMessage("Interrupter thread is still alive!").that(interrupter.isAlive()).isFalse();
 
     // The interrupter thread should have set the main thread's interrupt flag.
-    assertTrue("Main thread was not interrupted during command execution!",
-               mainThread.isInterrupted());
+    assertWithMessage("Main thread was not interrupted during command execution!")
+        .that(mainThread.isInterrupted())
+        .isTrue();
   }
 }

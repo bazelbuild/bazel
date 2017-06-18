@@ -35,7 +35,7 @@ public class OutputFileConfiguredTarget extends FileConfiguredTarget
       TransitiveInfoCollection generatingRule, Artifact outputArtifact) {
     super(targetContext, outputArtifact);
     Preconditions.checkArgument(targetContext.getTarget() == outputFile);
-    this.generatingRule = generatingRule;
+    this.generatingRule = Preconditions.checkNotNull(generatingRule);
   }
 
   @Override
@@ -52,6 +52,19 @@ public class OutputFileConfiguredTarget extends FileConfiguredTarget
     return getProvider(LicensesProvider.class, LicensesProviderImpl.EMPTY)
         .getTransitiveLicenses();
   }
+
+  @Override
+  public TargetLicense getOutputLicenses() {
+    return getProvider(LicensesProvider.class, LicensesProviderImpl.EMPTY)
+        .getOutputLicenses();
+  }
+
+  @Override
+  public boolean hasOutputLicenses() {
+    return getProvider(LicensesProvider.class, LicensesProviderImpl.EMPTY)
+        .hasOutputLicenses();
+  }
+
 
   @Override
   public NestedSet<Artifact> getInstrumentedFiles() {

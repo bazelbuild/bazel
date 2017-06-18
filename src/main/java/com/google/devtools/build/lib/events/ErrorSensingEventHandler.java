@@ -22,13 +22,15 @@ public final class ErrorSensingEventHandler extends DelegatingEventHandler {
 
   private volatile boolean hasErrors;
 
-  public ErrorSensingEventHandler(EventHandler eventHandler) {
+  public ErrorSensingEventHandler(ExtendedEventHandler eventHandler) {
     super(eventHandler);
   }
 
   @Override
   public void handle(Event e) {
-    hasErrors |= e.getKind() == EventKind.ERROR;
+    if (e.getKind() == EventKind.ERROR) {
+      hasErrors = true;
+    }
     super.handle(e);
   }
 
@@ -37,12 +39,5 @@ public final class ErrorSensingEventHandler extends DelegatingEventHandler {
    */
   public boolean hasErrors() {
     return hasErrors;
-  }
-
-  /**
-   * Reset the error flag. Don't call this while other threads are accessing the same object.
-   */
-  public void resetErrors() {
-    hasErrors = false;
   }
 }

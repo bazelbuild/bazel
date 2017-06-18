@@ -183,7 +183,8 @@ string GetDefaultHostJavabase() {
   return javabase.substr(0, javabase.length()-1);
 }
 
-void WriteSystemSpecificProcessIdentifier(const string& server_dir) {
+void WriteSystemSpecificProcessIdentifier(
+    const string& server_dir, pid_t server_pid) {
 }
 
 bool VerifyServerProcess(

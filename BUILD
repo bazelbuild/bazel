@@ -1,4 +1,29 @@
+# Bazel - Google's Build System
+
 package(default_visibility = ["//scripts/release:__pkg__"])
+
+exports_files(["LICENSE"])
+
+filegroup(
+    name = "srcs",
+    srcs = glob(
+        ["*"],
+        exclude = [
+            "bazel-*",  # convenience symlinks
+            "out",  # IntelliJ with setup-intellij.sh
+            "output",  # output of compile.sh
+            ".*",  # mainly .git* files
+        ],
+    ) + [
+        "//examples:srcs",
+        "//scripts:srcs",
+        "//site:srcs",
+        "//src:srcs",
+        "//tools:srcs",
+        "//third_party:srcs",
+    ],
+    visibility = ["//visibility:private"],
+)
 
 filegroup(
     name = "git",
@@ -23,30 +48,14 @@ filegroup(
     name = "changelog-file",
     srcs = [":CHANGELOG.md"],
     visibility = [
-        "//scripts/packages:__pkg__",
+        "//scripts/packages:__subpackages__",
     ],
 )
 
 filegroup(
-    name = "srcs",
-    srcs = glob(
-        ["*"],
-        exclude = [
-            "bazel-*",  # convenience symlinks
-            "out",  # IntelliJ with setup-intellij.sh
-            "output",  # output of compile.sh
-            "WORKSPACE.user.bzl",  # generated workspace file
-            ".*",  # mainly .git* files
-        ],
-    ) + [
-        "//examples:srcs",
-        "//scripts:srcs",
-        "//site:srcs",
-        "//src:srcs",
-        "//tools:srcs",
-        "//third_party:srcs",
-    ],
-    visibility = ["//visibility:private"],
+    name = "bootstrap-derived-java-srcs",
+    srcs = glob(["derived/**/*.java"]),
+    visibility = ["//:__subpackages__"],
 )
 
 load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar")

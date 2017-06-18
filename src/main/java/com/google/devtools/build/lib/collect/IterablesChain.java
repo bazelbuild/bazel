@@ -18,7 +18,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -77,7 +77,11 @@ public final class IterablesChain<T> implements Iterable<T> {
      */
     public Builder<T> add(Iterable<? extends T> iterable) {
       CollectionUtils.checkImmutable(iterable);
-      if (!Iterables.isEmpty(iterable)) {
+      // Avoid unnecessarily expanding a NestedSet.
+      boolean isEmpty = iterable instanceof NestedSet
+          ? ((NestedSet<?>) iterable).isEmpty()
+          : Iterables.isEmpty(iterable);
+      if (!isEmpty) {
         iterables.add(iterable);
       }
       return this;

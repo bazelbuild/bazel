@@ -2,6 +2,15 @@
 #   singlejar C++ implementation.
 package(default_visibility = ["//src:__subpackages__"])
 
+JAR_TOOL_PATH_COPT_TPL = "-DJAR_TOOL_PATH=\\\"external/local_jdk/bin/jar%s\\\""
+
+JAR_TOOL_PATH_COPTS = select({
+    "//src:windows": [JAR_TOOL_PATH_COPT_TPL % ".exe"],
+    "//src:windows_msvc": [JAR_TOOL_PATH_COPT_TPL % ".exe"],
+    "//src:windows_msys": [JAR_TOOL_PATH_COPT_TPL % ".exe"],
+    "//conditions:default": [JAR_TOOL_PATH_COPT_TPL % ""],
+})
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -13,6 +22,10 @@ cc_binary(
     srcs = [
         "singlejar_main.cc",
     ],
+    linkopts = select({
+        "//src:freebsd": ["-lm"],
+        "//conditions:default": [],
+    }),
     linkstatic = 1,
     deps = [
         "options",
@@ -76,10 +89,10 @@ cc_test(
         "input_jar_scan_entries_test.h",
         "input_jar_scan_jartool_test.cc",
     ],
-    copts = ["-DJAR_TOOL_PATH=\\\"external/local_jdk/bin/jar\\\""],
+    copts = JAR_TOOL_PATH_COPTS,
     data = [
-        "//external:jar",
-        "//external:jdk-default",
+        "@local_jdk//:jar",
+        "@local_jdk//:jdk",
     ],
     # Timing out, see https://github.com/bazelbuild/bazel/issues/1555
     tags = ["manual"],
@@ -151,15 +164,15 @@ cc_test(
     srcs = [
         "output_jar_simple_test.cc",
     ],
-    copts = ["-DJAR_TOOL_PATH=\\\"external/local_jdk/bin/jar\\\""],
+    copts = JAR_TOOL_PATH_COPTS,
     data = [
         ":data1",
         ":data2",
         ":stored_jar",
         ":test1",
         ":test2",
-        "//external:jar",
-        "//external:jdk-default",
+        "@local_jdk//:jar",
+        "@local_jdk//:jdk-default",
     ],
     deps = [
         ":input_jar",
@@ -230,12 +243,12 @@ sh_test(
     args = [
         "src/test/shell",
         "$(location :singlejar)",
-        "$(location //external:jar)",
+        "$(location @local_jdk//:jar)",
     ],
     data = [
         ":singlejar",
-        "//external:jar",
         "//tools/defaults:jdk",
+        "@local_jdk//:jar",
     ],
     deps = ["//src/test/shell:bashunit"],
 )
@@ -375,6 +388,6 @@ genrule(
         "//tools/defaults:jdk",
     ],
     outs = ["stored.jar"],
-    cmd = "$(location //external:jar) -0cf \"$@\" $(location :output_jar.cc)",
-    tools = ["//external:jar"],
+    cmd = "$(location @local_jdk//:jar) -0cf \"$@\" $(location :output_jar.cc)",
+    tools = ["@local_jdk//:jar"],
 )

@@ -15,16 +15,16 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.Serializable;
 import java.util.Objects;
-
 import javax.annotation.Nullable;
 
 /**
@@ -47,6 +47,7 @@ import javax.annotation.Nullable;
     category = SkylarkModuleCategory.BUILTIN,
     doc = "A root for files. The roots are the directories containing files, and they are mapped "
         + "together into a single directory tree to form the execution environment.")
+@Immutable
 public final class Root implements Comparable<Root>, Serializable {
 
   /**
@@ -55,6 +56,20 @@ public final class Root implements Comparable<Root>, Serializable {
   // TODO(kchodorow): remove once roots don't need to know if they're in the main repo.
   public static Root asSourceRoot(Path path, boolean isMainRepo) {
     return new Root(null, path, false, isMainRepo);
+  }
+
+  // This must always be consistent with Package.getSourceRoot; otherwise computing source roots
+  // from exec paths does not work, which can break the action cache for input-discovering actions.
+  public static Root computeSourceRoot(Path packageRoot, RepositoryName repository) {
+    if (repository.isMain()) {
+      return Root.asSourceRoot(packageRoot, true);
+    } else {
+      Path actualRoot = packageRoot;
+      for (int i = 0; i < repository.getSourceRoot().segmentCount(); i++) {
+        actualRoot = actualRoot.getParentDirectory();
+      }
+      return Root.asSourceRoot(actualRoot, false);
+    }
   }
 
   /**
@@ -127,6 +142,7 @@ public final class Root implements Comparable<Root>, Serializable {
   private final boolean isMainRepo;
   private final PathFragment execPath;
 
+
   private Root(@Nullable Path execRoot, Path path, boolean isMiddlemanRoot, boolean isMainRepo) {
     this.execRoot = execRoot;
     this.path = Preconditions.checkNotNull(path);
@@ -181,7 +197,7 @@ public final class Root implements Comparable<Root>, Serializable {
 
   @Override
   public int hashCode() {
-    return Objects.hash(execRoot, path.hashCode());
+    return Objects.hash(execRoot, path.hashCode(), isMainRepo);
   }
 
   @Override
@@ -193,7 +209,8 @@ public final class Root implements Comparable<Root>, Serializable {
       return false;
     }
     Root r = (Root) o;
-    return path.equals(r.path) && Objects.equals(execRoot, r.execRoot);
+    return path.equals(r.path) && Objects.equals(execRoot, r.execRoot)
+        && Objects.equals(isMainRepo, r.isMainRepo);
   }
 
   @Override

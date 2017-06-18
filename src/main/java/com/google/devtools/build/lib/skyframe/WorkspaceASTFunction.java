@@ -56,7 +56,7 @@ public class WorkspaceASTFunction implements SkyFunction {
     try {
       BuildFileAST ast = BuildFileAST.parseBuildFile(
           ParserInputSource.create(ruleClassProvider.getDefaultWorkspacePrefix(),
-              new PathFragment("/DEFAULT.WORKSPACE")),
+              PathFragment.create("/DEFAULT.WORKSPACE")),
           env.getListener());
       if (ast.containsErrors()) {
         throw new WorkspaceASTFunctionException(
@@ -76,7 +76,7 @@ public class WorkspaceASTFunction implements SkyFunction {
       }
       ast = BuildFileAST.parseBuildFile(
           ParserInputSource.create(ruleClassProvider.getDefaultWorkspaceSuffix(),
-              new PathFragment("/DEFAULT.WORKSPACE.SUFFIX")),
+              PathFragment.create("/DEFAULT.WORKSPACE.SUFFIX")),
           ast.getStatements(),
           env.getListener());
       if (ast.containsErrors()) {
@@ -119,7 +119,10 @@ public class WorkspaceASTFunction implements SkyFunction {
   }
 
   private static final class WorkspaceASTFunctionException extends SkyFunctionException {
-    public WorkspaceASTFunctionException(Exception e, Transience transience) {
+    WorkspaceASTFunctionException(BuildFileContainsErrorsException e, Transience transience) {
+      super(e, transience);
+    }
+    WorkspaceASTFunctionException(IOException e, Transience transience) {
       super(e, transience);
     }
   }

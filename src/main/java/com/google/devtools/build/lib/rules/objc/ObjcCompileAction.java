@@ -21,21 +21,24 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.PackageRootResolutionException;
-import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -44,25 +47,25 @@ import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery;
-import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery.DotdPruningMode;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanningContext;
 import com.google.devtools.build.lib.util.DependencySet;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
-import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.Nullable;
 
 /**
  * An action that compiles objc or objc++ source.
  *
  * <p>We don't use a plain SpawnAction here because we implement .d input pruning, which requires
  * post-execution filtering of input artifacts.
+ *
+ * <p>Additionally the header thinning feature is implemented here which, like .d input pruning,
+ * reduces the action inputs to just the required set of headers for improved performance. Unlike
+ * dotd it does so via the discoverInputs mechanism before execution.
  *
  * <p>We don't use a CppCompileAction because the ObjcCompileAction uses custom logic instead of the
  * CROSSTOOL to construct its command line.
@@ -74,30 +77,33 @@ public class ObjcCompileAction extends SpawnAction {
    * re-introduced into action inputs.
    */
   public class ObjcCompileActionSpawn extends ActionSpawn {
-    
+
     public ObjcCompileActionSpawn(Map<String, String> clientEnv) {
       super(clientEnv);
     }
 
     @Override
     public Iterable<? extends ActionInput> getInputFiles() {
-      return ImmutableList.<ActionInput>builder()
-          .addAll(super.getInputFiles())
-          .addAll(filterHeaderFiles())
-          .build();      
+      ImmutableList.Builder<ActionInput> listBuilder =
+          ImmutableList.<ActionInput>builder().addAll(super.getInputFiles());
+      // Normally discoveredInputs should not be null when this is called, however that may occur if
+      // the extra action feature is used
+      if (discoveredInputs != null) {
+        listBuilder.addAll(discoveredInputs);
+      }
+      return listBuilder.build();
     }
   }
-  
+
   private final DotdFile dotdFile;
   private final Artifact sourceFile;
   private final NestedSet<Artifact> mandatoryInputs;
   private final HeaderDiscovery.DotdPruningMode dotdPruningPlan;
   private final NestedSet<Artifact> headers;
+  private final Artifact headersListFile;
 
-  // This can be read/written from multiple threads, so accesses must be synchronized.
-  @GuardedBy("this")
-  private boolean inputsKnown = false;
-  
+  private Iterable<Artifact> discoveredInputs;
+
   private static final String GUID = "a00d5bac-a72c-4f0f-99a7-d5fdc6072137";
 
   private ObjcCompileAction(
@@ -107,10 +113,11 @@ public class ObjcCompileAction extends SpawnAction {
       Iterable<Artifact> outputs,
       ResourceSet resourceSet,
       CommandLine argv,
+      boolean isShellCommand,
       ImmutableMap<String, String> environment,
       ImmutableMap<String, String> executionInfo,
       String progressMessage,
-      ImmutableMap<PathFragment, Artifact> inputManifests,
+      RunfilesSupplier runfilesSupplier,
       String mnemonic,
       boolean executeUnconditionally,
       ExtraActionInfoSupplier<?> extraActionInfoSupplier,
@@ -118,19 +125,21 @@ public class ObjcCompileAction extends SpawnAction {
       Artifact sourceFile,
       NestedSet<Artifact> mandatoryInputs,
       HeaderDiscovery.DotdPruningMode dotdPruningPlan,
-      NestedSet<Artifact> headers) {
+      NestedSet<Artifact> headers,
+      @Nullable Artifact headersListFile) {
     super(
         owner,
         tools,
-        inputs,
+        headersListFile == null ? inputs : mandatoryInputs,
         outputs,
         resourceSet,
         argv,
+        isShellCommand,
         environment,
         ImmutableSet.<String>of(),
         executionInfo,
         progressMessage,
-        inputManifests,
+        runfilesSupplier,
         mnemonic,
         executeUnconditionally,
         extraActionInfoSupplier);
@@ -139,19 +148,21 @@ public class ObjcCompileAction extends SpawnAction {
     this.sourceFile = sourceFile;
     this.mandatoryInputs = mandatoryInputs;
     this.dotdPruningPlan = dotdPruningPlan;
-    this.inputsKnown = (dotdPruningPlan == DotdPruningMode.DO_NOT_USE);
     this.headers = headers;
+    this.headersListFile = headersListFile;
   }
 
   private Iterable<Artifact> filterHeaderFiles() {
     ImmutableList.Builder<Artifact> inputs = ImmutableList.<Artifact>builder();
 
     for (Artifact headerArtifact : headers) {
-      if (CppFileTypes.OBJC_HEADER.matches(headerArtifact.getFilename())) {
+      if (CppFileTypes.OBJC_HEADER.matches(headerArtifact.getFilename())
+          // C++ headers can be extensionless
+          || (!headerArtifact.isFileset() && headerArtifact.getExtension().isEmpty())) {
           inputs.add(headerArtifact);
-        }
+      }
     }
-    return inputs.build();    
+    return inputs.build();
   }
 
   /** Returns the DotdPruningPlan for this compile */
@@ -161,81 +172,36 @@ public class ObjcCompileAction extends SpawnAction {
   }
 
   @Override
-  public synchronized boolean inputsKnown() {
-    return inputsKnown;
-  }
-  
-  @Override
   public final Spawn getSpawn(Map<String, String> clientEnv) {
     return new ObjcCompileActionSpawn(clientEnv);
   }
-  
+
   @Override
   public boolean discoversInputs() {
     return true;
   }
 
   @Override
-  public Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext) {
-    return null;
-  }
-
-  @Override
-  public Iterable<Artifact> getInputsWhenSkippingInputDiscovery() {
-    return filterHeaderFiles();
-  }
- 
-  // Keep in sync with {@link CppCompileAction#resolveInputsFromCache}
-  @Override
-  public Iterable<Artifact> resolveInputsFromCache(
-      ArtifactResolver artifactResolver,
-      PackageRootResolver resolver,
-      Collection<PathFragment> inputPaths)
-      throws PackageRootResolutionException, InterruptedException {
-    // Note that this method may trigger a violation of the desirable invariant that getInputs()
-    // is a superset of getMandatoryInputs().
-    Map<PathFragment, Artifact> allowedDerivedInputsMap = getAllowedDerivedInputsMap();
-    List<Artifact> inputs = new ArrayList<>();
-    List<PathFragment> unresolvedPaths = new ArrayList<>();
-    for (PathFragment execPath : inputPaths) {
-      Artifact artifact = allowedDerivedInputsMap.get(execPath);
-      if (artifact != null) {
-        inputs.add(artifact);
-      } else {
-        // Remember this execPath, we will try to resolve it as a source artifact.
-        unresolvedPaths.add(execPath);
+  public synchronized Iterable<Artifact> discoverInputs(
+      ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException, InterruptedException {
+    if (headersListFile != null) {
+      try {
+        discoveredInputs =
+            HeaderThinning.findRequiredHeaderInputs(
+                sourceFile, headersListFile, getAllowedDerivedInputsMap(false));
+      } catch (ExecException e) {
+        throw e.toActionExecutionException(
+            "Header thinning of rule '" + getOwner().getLabel() + "'",
+            actionExecutionContext.getExecutor().getVerboseFailures(),
+            this);
       }
+    } else {
+      discoveredInputs = filterHeaderFiles();
     }
-
-    Map<PathFragment, Artifact> resolvedArtifacts =
-        artifactResolver.resolveSourceArtifacts(unresolvedPaths, resolver);
-    if (resolvedArtifacts == null) {
-      // We are missing some dependencies. We need to rerun this update later.
-      return null;
-    }
-
-    for (PathFragment execPath : unresolvedPaths) {
-      Artifact artifact = resolvedArtifacts.get(execPath);
-      // If PathFragment cannot be resolved into the artifact - ignore it. This could happen if
-      // rule definition has changed and action no longer depends on, e.g., additional source file
-      // in the separate package and that package is no longer referenced anywhere else.
-      // It is safe to ignore such paths because dependency checker would identify change in inputs
-      // (ignored path was used before) and will force action execution.
-      if (artifact != null) {
-        inputs.add(artifact);
-      }
-    }
-    return inputs;    
+    return discoveredInputs;
   }
-  
-  @Override
-  public synchronized void updateInputs(Iterable<Artifact> inputs) {
-    inputsKnown = true;
-    synchronized (this) {
-      setInputs(inputs);
-    }
-  }  
-  
+
   @Override
   public ImmutableSet<Artifact> getMandatoryOutputs() {
     return ImmutableSet.of(dotdFile.artifact());
@@ -254,6 +220,12 @@ public class ObjcCompileAction extends SpawnAction {
               executor.getExecRoot(), scanningContext.getArtifactResolver());
 
       updateActionInputs(discoveredInputs);
+    } else {
+      // TODO(lberki): This is awkward, but necessary since updateInputs() must be called when
+      // input discovery is in effect. I *think* it's possible to avoid setting discoversInputs()
+      // to true if the header list file is null and then we'd not need to have this here, but I
+      // haven't quite managed to get that right yet.
+      updateActionInputs(getInputs());
     }
   }
 
@@ -261,17 +233,16 @@ public class ObjcCompileAction extends SpawnAction {
   public NestedSet<Artifact> discoverInputsFromDotdFiles(
       Path execRoot, ArtifactResolver artifactResolver) throws ActionExecutionException {
     if (dotdFile == null) {
-      return NestedSetBuilder.<Artifact>stableOrder().build();
+      return NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
     }
     return new HeaderDiscovery.Builder()
         .setAction(this)
         .setSourceFile(sourceFile)
-        .setDotdFile(dotdFile)
-        .setDependencySet(processDepset(execRoot))
+        .setDependencies(processDepset(execRoot).getDependencies())
         .setPermittedSystemIncludePrefixes(ImmutableList.<Path>of())
-        .setAllowedDerivedinputsMap(getAllowedDerivedInputsMap())
+        .setAllowedDerivedinputsMap(getAllowedDerivedInputsMap(true))
         .build()
-        .discoverInputsFromDotdFiles(execRoot, artifactResolver);
+        .discoverInputsFromDependencies(execRoot, artifactResolver);
   }
 
   private DependencySet processDepset(Path execRoot) throws ActionExecutionException {
@@ -284,20 +255,27 @@ public class ObjcCompileAction extends SpawnAction {
     }
   }
 
-  /** Utility function that adds artifacts to an input map, but only if they are sources. */
-  private void addToMapIfSource(Map<PathFragment, Artifact> map, Iterable<Artifact> artifacts) {
-    for (Artifact artifact : artifacts) {
-      if (!artifact.isSourceArtifact()) {
-        map.put(artifact.getExecPath(), artifact);
+  /**
+   * Returns a map of input and header artifacts for this action.
+   *
+   * @param excludeSourceArtifacts If true artifacts where {@link Artifact#isSourceArtifact()} is
+   *     true are excluded from the map
+   */
+  private Map<PathFragment, Artifact> getAllowedDerivedInputsMap(boolean excludeSourceArtifacts) {
+    // LinkedHashMap required here as it is not guaranteed that entries are unique and to preserve
+    // insertion order
+    Map<PathFragment, Artifact> allowedDerivedInputMap = new LinkedHashMap<>();
+    for (Artifact artifact : Iterables.concat(mandatoryInputs, headers)) {
+      if (!excludeSourceArtifacts || !artifact.isSourceArtifact()) {
+        allowedDerivedInputMap.put(artifact.getExecPath(), artifact);
       }
     }
+    return allowedDerivedInputMap;
   }
 
-  private Map<PathFragment, Artifact> getAllowedDerivedInputsMap() {
-    Map<PathFragment, Artifact> allowedDerivedInputMap = new HashMap<>();
-    addToMapIfSource(allowedDerivedInputMap, getInputs());
-    allowedDerivedInputMap.put(sourceFile.getExecPath(), sourceFile);
-    return allowedDerivedInputMap;
+  @Override
+  public Iterable<Artifact> getAllowedDerivedInputs() {
+    return getAllowedDerivedInputsMap(true).values();
   }
 
   /**
@@ -305,21 +283,30 @@ public class ObjcCompileAction extends SpawnAction {
    *
    * @throws ActionExecutionException iff any errors happen during update.
    */
-  @VisibleForTesting
+  @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
   @ThreadCompatible
-  public final synchronized void updateActionInputs(NestedSet<Artifact> discoveredInputs)
+  final void updateActionInputs(Iterable<Artifact> discoveredInputs)
       throws ActionExecutionException {
-    inputsKnown = false;
-    NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
     Profiler.instance().startTask(ProfilerTask.ACTION_UPDATE, this);
     try {
-      inputs.addTransitive(mandatoryInputs);
-      inputs.addTransitive(discoveredInputs);
-      inputsKnown = true;
+      updateInputs(Iterables.concat(mandatoryInputs, discoveredInputs));
     } finally {
       Profiler.instance().completeTask(ProfilerTask.ACTION_UPDATE);
-      setInputs(inputs.build());
     }
+  }
+
+  @Override
+  protected SpawnInfo getExtraActionSpawnInfo() {
+    SpawnInfo.Builder info = SpawnInfo.newBuilder(super.getExtraActionSpawnInfo());
+    if (!inputsDiscovered()) {
+      for (Artifact headerArtifact : filterHeaderFiles()) {
+        // As in SpawnAction#getExtraActionSpawnInfo explicitly ignore middleman artifacts here.
+        if (!headerArtifact.isMiddlemanArtifact()) {
+          info.addInputFile(headerArtifact.getExecPathString());
+        }
+      }
+    }
+    return info.build();
   }
 
   @Override
@@ -327,9 +314,12 @@ public class ObjcCompileAction extends SpawnAction {
     Fingerprint f = new Fingerprint();
     f.addString(GUID);
     f.addString(super.computeKey());
-    f.addBoolean(dotdFile.artifact() == null);
+    f.addBoolean(dotdFile == null || dotdFile.artifact() == null);
     f.addBoolean(dotdPruningPlan == HeaderDiscovery.DotdPruningMode.USE);
-    f.addPath(dotdFile.getSafeExecPath());
+    f.addBoolean(headersListFile == null);
+    if (dotdFile != null) {
+      f.addPath(dotdFile.getSafeExecPath());
+    }
     return f.hexDigestAndReset();
   }
 
@@ -338,6 +328,7 @@ public class ObjcCompileAction extends SpawnAction {
 
     private DotdFile dotdFile;
     private Artifact sourceFile;
+    private Artifact headersListFile;
     private final NestedSetBuilder<Artifact> mandatoryInputs = new NestedSetBuilder<>(STABLE_ORDER);
     private HeaderDiscovery.DotdPruningMode dotdPruningPlan;
     private final NestedSetBuilder<Artifact> headers = NestedSetBuilder.stableOrder();
@@ -362,10 +353,28 @@ public class ObjcCompileAction extends SpawnAction {
       return this;
     }
 
+    @Override
+    public Builder addTransitiveTools(NestedSet<Artifact> artifacts) {
+      super.addTransitiveTools(artifacts);
+      mandatoryInputs.addTransitive(artifacts);
+      return this;
+    }
+
     /** Sets a .d file that will used to prune input headers */
     public Builder setDotdFile(DotdFile dotdFile) {
       Preconditions.checkNotNull(dotdFile);
       this.dotdFile = dotdFile;
+      return this;
+    }
+
+    /**
+     * Sets a .headers_list file that is generated for the header thinning feature. File is used to
+     * discover required inputs to compile action and update action inputs.
+     */
+    public Builder setHeadersListFile(Artifact headersListFile) {
+      Preconditions.checkNotNull(headersListFile);
+      this.headersListFile = headersListFile;
+      this.addMandatoryInput(headersListFile);
       return this;
     }
 
@@ -408,7 +417,7 @@ public class ObjcCompileAction extends SpawnAction {
       this.dotdPruningPlan = dotdPruningPlan;
       return this;
     }
-    
+
     /** Adds to the set of all possible headers that could be required by this compile action. */
     public Builder addTransitiveHeaders(NestedSet<Artifact> headers) {
       this.headers.addTransitive(Preconditions.checkNotNull(headers));
@@ -431,11 +440,12 @@ public class ObjcCompileAction extends SpawnAction {
         ImmutableList<Artifact> outputs,
         ResourceSet resourceSet,
         CommandLine actualCommandLine,
+        boolean isShellCommand,
         ImmutableMap<String, String> env,
         ImmutableSet<String> clientEnvironmentVariables,
         ImmutableMap<String, String> executionInfo,
         String progressMessage,
-        ImmutableMap<PathFragment, Artifact> inputAndToolManifests,
+        RunfilesSupplier runfilesSupplier,
         String mnemonic) {
       return new ObjcCompileAction(
           owner,
@@ -444,10 +454,11 @@ public class ObjcCompileAction extends SpawnAction {
           outputs,
           resourceSet,
           actualCommandLine,
+          isShellCommand,
           env,
           executionInfo,
           progressMessage,
-          inputAndToolManifests,
+          runfilesSupplier,
           mnemonic,
           executeUnconditionally,
           extraActionInfoSupplier,
@@ -455,7 +466,8 @@ public class ObjcCompileAction extends SpawnAction {
           sourceFile,
           mandatoryInputs.build(),
           dotdPruningPlan,
-          headers.build());
+          headers.build(),
+          headersListFile);
     }
   }
 }

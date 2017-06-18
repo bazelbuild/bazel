@@ -35,6 +35,15 @@ shift 2
 TEMPDIR=$(mktemp -d "${TMPDIR:-/tmp}/ibtoolZippingOutput.XXXXXX")
 trap "rm -rf \"$TEMPDIR\"" EXIT
 
+# Create the directory used to expand compiled storyboards for linking if that
+# options is present on the command line.
+for i in "$@"; do
+  if [[ "$i" == "--link" ]]; then
+    LINKDIR=$(mktemp -d "${TMPDIR:-/tmp}/ibtoolLinkingRoot.XXXXXX")
+    trap "rm -rf \"$LINKDIR\"" EXIT
+  fi
+done
+
 FULLPATH="$TEMPDIR/$ARCHIVEROOT"
 PARENTDIR=$(dirname "$FULLPATH")
 mkdir -p "$PARENTDIR"
@@ -44,14 +53,31 @@ FULLPATH=$("${REALPATH}" "$FULLPATH")
 # on all arguments seeing if we can expand them.
 # Radar 21045660 ibtool has difficulty dealing with relative paths.
 TOOLARGS=()
+# By default, have ibtool compile storyboards (to stay compatible with the
+# native rules). If the command line includes "--link", we use it instead.
+ACTION=--compile
 for i in $@; do
   if [ -e "$i" ]; then
-    ARG=$("${REALPATH}" "$i")
-    TOOLARGS+=("$ARG")
+    if [[ "$i" == *.zip ]]; then
+      unzip -qq "$i" -d "$LINKDIR"
+    else
+      ARG=$("${REALPATH}" "$i")
+      TOOLARGS+=("$ARG")
+    fi
   else
-    TOOLARGS+=("$i")
+    if [[ "$i" == --link ]]; then
+      ACTION="$i"
+    else
+      TOOLARGS+=("$i")
+    fi
   fi
 done
+
+# Collect all the .storyboardc directories that were extracted earlier for
+# the linking action.
+if [[ "$ACTION" == --link ]]; then
+  TOOLARGS+=($(find "$LINKDIR" -name "*.storyboardc" -exec "$REALPATH" {} \;))
+fi
 
 # If we are running into problems figuring out ibtool issues, there are a couple
 # of env variables that may help. Both of the following must be set to work.
@@ -62,7 +88,7 @@ done
 # helps.
 "${WRAPPER}" ibtool --errors --warnings --notices \
     --auto-activate-custom-fonts --output-format human-readable-text \
-    --compile "$FULLPATH" "${TOOLARGS[@]}"
+    "$ACTION" "$FULLPATH" "${TOOLARGS[@]}"
 
 # Need to push/pop tempdir so it isn't the current working directory
 # when we remove it via the EXIT trap.

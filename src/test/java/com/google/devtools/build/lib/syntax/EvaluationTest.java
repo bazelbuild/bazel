@@ -14,9 +14,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
@@ -322,6 +319,20 @@ public class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testFloorDivision() throws Exception {
+    newTest()
+        .testStatement("6 // 2", 3)
+        .testStatement("6 // 4", 1)
+        .testStatement("3 // 6", 0)
+        .testStatement("7 // -2", -4)
+        .testStatement("-7 // 2", -4)
+        .testStatement("-7 // -2", 3)
+        .testStatement("2147483647 // 2", 1073741823)
+        .testIfErrorContains("unsupported operand type(s) for /: 'string' and 'int'", "'str' / 2")
+        .testIfExactError("integer division by zero", "5 // 0");
+  }
+
+  @Test
   public void testOperatorPrecedence() throws Exception {
     newTest()
         .testStatement("2 + 3 * 4", 14)
@@ -341,13 +352,13 @@ public class EvaluationTest extends EvaluationTestCase {
     // list
     Object x = eval("[1,2] + [3,4]");
     assertThat((Iterable<Object>) x).containsExactly(1, 2, 3, 4).inOrder();
-    assertEquals(MutableList.of(env, 1, 2, 3, 4), x);
-    assertFalse(EvalUtils.isImmutable(x));
+    assertThat(x).isEqualTo(MutableList.of(env, 1, 2, 3, 4));
+    assertThat(EvalUtils.isImmutable(x)).isFalse();
 
     // tuple
     x = eval("(1,2) + (3,4)");
-    assertEquals(Tuple.of(1, 2, 3, 4), x);
-    assertTrue(EvalUtils.isImmutable(x));
+    assertThat(x).isEqualTo(Tuple.of(1, 2, 3, 4));
+    assertThat(EvalUtils.isImmutable(x)).isTrue();
 
     checkEvalError("unsupported operand type(s) for +: 'tuple' and 'list'",
         "(1,2) + [3,4]"); // list + tuple
@@ -451,7 +462,7 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testSingleTuple() throws Exception {
-    newTest().setUp("a, = [1]").testLookup("a", 1);
+    newTest().setUp("(a,) = [1]").testLookup("a", 1);
   }
 
   @Test
@@ -477,8 +488,9 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testListComprehensionModifiesGlobalEnv() throws Exception {
-    new SkylarkTest().update("x", 42).testIfErrorContains("ERROR 1:1: Variable x is read only",
-        "[x + 1 for x in [1,2,3]]");
+    new SkylarkTest()
+        .update("x", 42)
+        .testIfErrorContains("Variable x is read only", "[x + 1 for x in [1,2,3]]");
     new BuildTest().update("x", 42).setUp("y =[x + 1 for x in [1,2,3]]")
         .testExactOrder("y", 2, 3, 4).testLookup("x", 3); // (x is global)
   }
@@ -518,10 +530,10 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testDictComprehensions_ToString() throws Exception {
-    assertEquals("{x: x for x in [1, 2]}",
-        parseExpression("{x : x for x in [1, 2]}").toString());
-    assertEquals("{x + 'a': x for x in [1, 2]}",
-        parseExpression("{x + 'a' : x for x in [1, 2]}").toString());
+    assertThat(parseExpression("{x : x for x in [1, 2]}").toString())
+        .isEqualTo("{x: x for x in [1, 2]}");
+    assertThat(parseExpression("{x + 'a' : x for x in [1, 2]}").toString())
+        .isEqualTo("{x + \"a\": x for x in [1, 2]}");
   }
 
   @Test
@@ -538,7 +550,11 @@ public class EvaluationTest extends EvaluationTestCase {
   @Test
   public void testListMultiply() throws Exception {
     newTest()
+        .testStatement("[1, 2, 3] * 1", MutableList.of(env, 1, 2, 3))
         .testStatement("[1, 2] * 2", MutableList.of(env, 1, 2, 1, 2))
+        .testStatement("[1, 2] * 3", MutableList.of(env, 1, 2, 1, 2, 1, 2))
+        .testStatement("[1, 2] * 4", MutableList.of(env, 1, 2, 1, 2, 1, 2, 1, 2))
+        .testStatement("[8] * 5", MutableList.of(env, 8, 8, 8, 8, 8))
         .testStatement("[    ] * 10", MutableList.EMPTY)
         .testStatement("[1, 2] * 0", MutableList.EMPTY)
         .testStatement("[1, 2] * -4", MutableList.EMPTY)
@@ -554,7 +570,7 @@ public class EvaluationTest extends EvaluationTestCase {
     // TODO(fwe): cannot be handled by current testing suite
     SelectorList x = (SelectorList) eval("select({'foo': ['FOO'], 'bar': ['BAR']}) + []");
     List<Object> elements = x.getElements();
-    assertThat(elements.size()).isEqualTo(2);
+    assertThat(elements).hasSize(2);
     assertThat(elements.get(0)).isInstanceOf(SelectorValue.class);
     assertThat((Iterable<Object>) elements.get(1)).isEmpty();
   }
@@ -668,10 +684,9 @@ public class EvaluationTest extends EvaluationTestCase {
   @Test
   public void testInFail() throws Exception {
     newTest()
-        .testIfExactError(
-            "in operator only works on strings if the left operand is also a string", "1 in '123'")
-        .testIfExactError(
-            "in operator only works on lists, tuples, sets, dicts and strings", "'a' in 1");
+        .testIfErrorContains(
+            "'in <string>' requires string as left operand, not 'int'", "1 in '123'")
+        .testIfErrorContains("'int' is not iterable. in operator only works on ", "'a' in 1");
   }
 
   @Test

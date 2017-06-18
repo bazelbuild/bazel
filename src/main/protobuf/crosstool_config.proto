@@ -101,9 +101,19 @@ message CToolchain {
 
     repeated string expand_if_all_available = 4;
 
-    optional string expand_if_true = 5;
+    repeated string expand_if_none_available = 5;
 
-    optional string expand_if_false = 6;
+    optional string expand_if_true = 6;
+
+    optional string expand_if_false = 7;
+
+    optional VariableWithValue expand_if_equal = 8;
+  }
+
+  message VariableWithValue {
+    required string variable = 1;
+
+    required string value = 2;
   }
 
   // A key/value pair to be added as an environment variable. The value of
@@ -168,13 +178,18 @@ message CToolchain {
   }
 
   // Contains all flag specifications for one feature.
-  // Next ID: 7
+  // Next ID: 8
   message Feature {
     // The feature's name. Feature names are generally defined by Bazel; it is
     // possible to introduce a feature without a change to Bazel by adding a
     // 'feature' section to the toolchain and adding the corresponding string as
     // feature in the BUILD file.
     optional string name = 1;
+
+    // If 'true', this feature is enabled unless a rule type explicitly marks it
+    // as unssupported. Such features cannot be turned of from with in a BUILD
+    // file or the command line.
+    optional bool enabled = 7;
 
     // If the given feature is enabled, the flag sets will be applied for the
     // actions in the modes that they are specified for.
@@ -369,6 +384,7 @@ message CToolchain {
   repeated string ld_embed_flag = 23;
   // Ar flags for combining object files into archives. If this is not set, it
   // defaults to "rcsD".
+  // TODO(b/37271982): Remove after blaze with ar action_config release
   repeated string ar_flag = 47;
   // Legacy field, ignored by Bazel.
   repeated string ar_thin_archives_flag = 48;
@@ -439,7 +455,10 @@ message CToolchain {
   // why they are recorded here.
   repeated string debian_extra_requires = 33;
 
-  // Next free id: 55
+  // Unused, for compatibility with things internal to Google.
+  optional string cc_target_os = 55;
+
+  // Next free id: 56
 }
 
 message ToolPath {
@@ -467,6 +486,7 @@ enum LinkingMode {
   FULLY_STATIC = 1;
   MOSTLY_STATIC = 2;
   DYNAMIC = 3;
+  MOSTLY_STATIC_LIBRARIES = 4;
 }
 
 message LinkingModeFlags {

@@ -15,14 +15,26 @@
 #define WINVER 0x0601
 #define _WIN32_WINNT 0x0601
 
+#include <ctype.h>
 #include <jni.h>
+#include <stdlib.h>
 #include <string.h>
+#include <wchar.h>
 #include <windows.h>
 
 #include <atomic>
+#include <functional>
+#include <memory>
 #include <string>
+#include <type_traits>  // static_assert
 
+#include "src/main/native/windows_file_operations.h"
 #include "src/main/native/windows_util.h"
+
+// Ensure we can safely cast (const) jchar* to (const) WCHAR* and LP(C)WSTR.
+// This is true with MSVC but not always with GCC.
+static_assert(sizeof(jchar) == sizeof(WCHAR),
+              "jchar and WCHAR should be the same size");
 
 extern "C" JNIEXPORT jint JNICALL
 Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeGetpid(
@@ -69,6 +81,34 @@ struct NativeProcess {
         error_("") {}
 };
 
+class JavaByteArray {
+ public:
+  JavaByteArray(JNIEnv* env, jbyteArray java_array)
+      : env_(env),
+        array_(java_array),
+        size_(java_array != nullptr ? env->GetArrayLength(java_array) : 0),
+        ptr_(java_array != nullptr ? env->GetByteArrayElements(java_array, NULL)
+                                   : nullptr) {}
+
+  ~JavaByteArray() {
+    if (array_ != nullptr) {
+      env_->ReleaseByteArrayElements(array_, ptr_, 0);
+      array_ = nullptr;
+      size_ = 0;
+      ptr_ = nullptr;
+    }
+  }
+
+  jsize size() { return size_; }
+  jbyte* ptr() { return ptr_; }
+
+ private:
+  JNIEnv* env_;
+  jbyteArray array_;
+  jsize size_;
+  jbyte* ptr_;
+};
+
 static bool NestedJobsSupported() {
   OSVERSIONINFOEX version_info;
   version_info.dwOSVersionInfoSize = sizeof(version_info);
@@ -80,124 +120,190 @@ static bool NestedJobsSupported() {
     version_info.dwMajorVersion == 6 && version_info.dwMinorVersion >= 2;
 }
 
+static void MaybeReportLastError(const std::string& reason, JNIEnv* env,
+                                 jobjectArray error_msg_holder) {
+  if (error_msg_holder != nullptr &&
+      env->GetArrayLength(error_msg_holder) > 0) {
+    std::string error_str = windows_util::GetLastErrorString(reason);
+    jstring error_msg = env->NewStringUTF(error_str.c_str());
+    env->SetObjectArrayElement(error_msg_holder, 0, error_msg);
+  }
+}
+
+static std::string GetJavaUTFString(JNIEnv* env, jstring str) {
+  std::string result;
+  if (str != nullptr) {
+    const char* jstr = env->GetStringUTFChars(str, nullptr);
+    result.assign(jstr);
+    env->ReleaseStringUTFChars(str, jstr);
+  }
+  return result;
+}
+
+static std::wstring GetJavaWstring(JNIEnv* env, jstring str) {
+  std::wstring result;
+  if (str != nullptr) {
+    const jchar* jstr = env->GetStringChars(str, nullptr);
+    // We can safely reinterpret_cast because of the static_assert checking that
+    // sizeof(jchar) = sizeof(WCHAR).
+    result.assign(reinterpret_cast<const WCHAR*>(jstr));
+    env->ReleaseStringChars(str, jstr);
+  }
+  return result;
+}
+
+static std::wstring AddUncPrefixMaybe(const std::wstring& path) {
+  return (path.size() >= MAX_PATH) ? (std::wstring(L"\\\\?\\") + path) : path;
+}
+
+static jlong PtrAsJlong(void* p) { return reinterpret_cast<jlong>(p); }
+
+static std::string AsExecutableForCreateProcess(JNIEnv* env, jstring path,
+                                                std::string* result) {
+  return windows_util::AsExecutablePathForCreateProcess(
+      GetJavaUTFString(env, path),
+      [env, path]() { return GetJavaWstring(env, path); }, result);
+}
+
 extern "C" JNIEXPORT jlong JNICALL
 Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
-  JNIEnv *env, jclass clazz, jstring java_commandline, jbyteArray java_env,
-  jstring java_cwd, jstring java_stdout_redirect,
-  jstring java_stderr_redirect) {
-  const char* commandline = env->GetStringUTFChars(java_commandline, NULL);
-  const char* stdout_redirect = NULL;
-  const char* stderr_redirect = NULL;
-  const char* cwd = NULL;
-
-  if (java_stdout_redirect != NULL) {
-    stdout_redirect = env->GetStringUTFChars(java_stdout_redirect, NULL);
-  }
-
-  if (java_stderr_redirect != NULL) {
-    stderr_redirect = env->GetStringUTFChars(java_stderr_redirect, NULL);
-  }
-
-  if (java_cwd != NULL) {
-    cwd = env->GetStringUTFChars(java_cwd, NULL);
-  }
-
-  jsize env_size = -1;
-  jbyte* env_bytes = NULL;
-
-
-  char* mutable_commandline = new char[strlen(commandline) + 1];
-  strncpy(mutable_commandline, commandline, strlen(commandline) + 1);
-
+    JNIEnv* env, jclass clazz, jstring java_argv0, jstring java_argv_rest,
+    jbyteArray java_env, jstring java_cwd, jstring java_stdout_redirect,
+    jstring java_stderr_redirect) {
   NativeProcess* result = new NativeProcess();
+
+  std::string argv0;
+  std::string error_msg(AsExecutableForCreateProcess(env, java_argv0, &argv0));
+  if (!error_msg.empty()) {
+    result->error_ = error_msg;
+    return PtrAsJlong(result);
+  }
+
+  std::string commandline = argv0 + " " + GetJavaUTFString(env, java_argv_rest);
+  std::wstring stdout_redirect =
+      AddUncPrefixMaybe(GetJavaWstring(env, java_stdout_redirect));
+  std::wstring stderr_redirect =
+      AddUncPrefixMaybe(GetJavaWstring(env, java_stderr_redirect));
+  std::string cwd;
+  error_msg = windows_util::AsShortPath(
+      GetJavaUTFString(env, java_cwd),
+      [env, java_cwd]() { return GetJavaWstring(env, java_cwd); },
+      &cwd);
+  if (!error_msg.empty()) {
+    result->error_ = error_msg;
+    return PtrAsJlong(result);
+  }
+
+  std::unique_ptr<char[]> mutable_commandline(new char[commandline.size() + 1]);
+  strncpy(mutable_commandline.get(), commandline.c_str(),
+          commandline.size() + 1);
 
   SECURITY_ATTRIBUTES sa = {0};
   sa.nLength = sizeof(SECURITY_ATTRIBUTES);
   sa.bInheritHandle = TRUE;
 
-  HANDLE stdin_process = INVALID_HANDLE_VALUE;
-  HANDLE stdout_process = INVALID_HANDLE_VALUE;
-  HANDLE stderr_process = INVALID_HANDLE_VALUE;
-  HANDLE thread = INVALID_HANDLE_VALUE;
-  HANDLE event = INVALID_HANDLE_VALUE;
+  // Standard file handles are closed even if the process was successfully
+  // created. If this was not so, operations on these file handles would not
+  // return immediately if the process is terminated.
+  // Therefore we make these handles auto-closing (by using AutoHandle).
+  windows_util::AutoHandle stdin_process;
+  windows_util::AutoHandle stdout_process;
+  windows_util::AutoHandle stderr_process;
+  windows_util::AutoHandle thread;
   PROCESS_INFORMATION process_info = {0};
   STARTUPINFOA startup_info = {0};
   JOBOBJECT_EXTENDED_LIMIT_INFORMATION job_info = {0};
 
-  if (java_env != NULL) {
-    env_size = env->GetArrayLength(java_env);
-    env_bytes = env->GetByteArrayElements(java_env, NULL);
-
-    if (env_size < 2) {
+  JavaByteArray env_map(env, java_env);
+  if (env_map.ptr() != nullptr) {
+    if (env_map.size() < 2) {
       result->error_ = "The environment must be at least two bytes long";
-      goto cleanup;
-    } else if (env_bytes[env_size - 1] != 0 || env_bytes[env_size - 2] != 0) {
+      return PtrAsJlong(result);
+    } else if (env_map.ptr()[env_map.size() - 1] != 0 ||
+               env_map.ptr()[env_map.size() - 2] != 0) {
       result->error_ = "Environment array must end with two null bytes";
-      goto cleanup;
+      return PtrAsJlong(result);
     }
   }
 
-  if (!CreatePipe(&stdin_process, &result->stdin_, &sa, 0)) {
+  if (!CreatePipe(&stdin_process.handle, &result->stdin_, &sa, 0)) {
     result->error_ = windows_util::GetLastErrorString("CreatePipe(stdin)");
-    goto cleanup;
+    return PtrAsJlong(result);
   }
 
-  if (stdout_redirect != NULL) {
+  if (!stdout_redirect.empty()) {
     result->stdout_.close();
 
-    stdout_process = CreateFileA(
-        stdout_redirect,
-        FILE_APPEND_DATA,
-        0,
-        &sa,
-        OPEN_ALWAYS,
-        FILE_ATTRIBUTE_NORMAL,
-        NULL);
+    stdout_process.handle = CreateFileW(
+        /* lpFileName */ stdout_redirect.c_str(),
+        /* dwDesiredAccess */ FILE_APPEND_DATA,
+        /* dwShareMode */ 0,
+        /* lpSecurityAttributes */ &sa,
+        /* dwCreationDisposition */ OPEN_ALWAYS,
+        /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
+        /* hTemplateFile */ NULL);
 
-    if (stdout_process == INVALID_HANDLE_VALUE) {
+    if (!stdout_process.IsValid()) {
       result->error_ = windows_util::GetLastErrorString("CreateFile(stdout)");
-      goto cleanup;
+      return PtrAsJlong(result);
     }
   } else {
-    if (!CreatePipe(&result->stdout_.handle_, &stdout_process, &sa, 0)) {
+    if (!CreatePipe(&result->stdout_.handle_, &stdout_process.handle, &sa, 0)) {
       result->error_ = windows_util::GetLastErrorString("CreatePipe(stdout)");
-      goto cleanup;
+      return PtrAsJlong(result);
     }
   }
 
-  if (stderr_redirect != NULL) {
-    result->stderr_.close();
-    if (!strcmp(stdout_redirect, stderr_redirect)) {
-      stderr_process = stdout_process;
-    } else {
-      stderr_process = CreateFileA(
-          stderr_redirect,
-          FILE_APPEND_DATA,
-          0,
-          &sa,
-          OPEN_ALWAYS,
-          FILE_ATTRIBUTE_NORMAL,
-          NULL);
+  // The value of the stderr HANDLE.
+  // If stdout and stderr are redirected to the same file, this will be equal to
+  // stdout_process.handle and stderr_process.handle will be
+  // INVALID_HANDLE_VALUE, so the two AutoHandle objects' d'tors will not
+  // attempt to close stdout's handle twice.
+  // If stdout != stderr, then stderr_handle = stderr_process.handle, and these
+  // are distinct from stdout_process.handle, so again the d'tors will do the
+  // right thing, closing the handles.
+  // In both cases, we DO NOT close stderr_handle, since it's either
+  // stdout_process's or stderr_process's d'tor doing so.
+  HANDLE stderr_handle = INVALID_HANDLE_VALUE;
 
-      if (stderr_process == INVALID_HANDLE_VALUE) {
+  if (!stderr_redirect.empty()) {
+    result->stderr_.close();
+    if (stdout_redirect == stderr_redirect) {
+      stderr_handle = stdout_process.handle;
+      // do not set stderr_process.handle; it equals stdout_process.handle and
+      // the AutoHandle d'tor would attempt to close it again
+    } else {
+      stderr_handle = CreateFileW(
+          /* lpFileName */ stderr_redirect.c_str(),
+          /* dwDesiredAccess */ FILE_APPEND_DATA,
+          /* dwShareMode */ 0,
+          /* lpSecurityAttributes */ &sa,
+          /* dwCreationDisposition */ OPEN_ALWAYS,
+          /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
+          /* hTemplateFile */ NULL);
+
+      if (stderr_handle == INVALID_HANDLE_VALUE) {
         result->error_ = windows_util::GetLastErrorString("CreateFile(stderr)");
-        goto cleanup;
+        return PtrAsJlong(result);
       }
+      // stderr_process != stdout_process, so set its handle, so the AutoHandle
+      // d'tor will close it
+      stderr_process.handle = stderr_handle;
     }
   } else {
-    if (!CreatePipe(&result->stderr_.handle_, &stderr_process, &sa, 0)) {
+    if (!CreatePipe(&result->stderr_.handle_, &stderr_handle, &sa, 0)) {
       result->error_ = windows_util::GetLastErrorString("CreatePipe(stderr)");
-      goto cleanup;
+      return PtrAsJlong(result);
     }
+    stderr_process.handle = stderr_handle;
   }
-
 
   // MDSN says that the default for job objects is that breakaway is not
   // allowed. Thus, we don't need to do any more setup here.
   HANDLE job = CreateJobObject(NULL, NULL);
   if (job == NULL) {
     result->error_ = windows_util::GetLastErrorString("CreateJobObject()");
-    goto cleanup;
+    return PtrAsJlong(result);
   }
 
   result->job_ = job;
@@ -211,36 +317,36 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
       sizeof(job_info))) {
     result->error_ =
         windows_util::GetLastErrorString("SetInformationJobObject()");
-    goto cleanup;
+    return PtrAsJlong(result);
   }
 
-  startup_info.hStdInput = stdin_process;
-  startup_info.hStdOutput = stdout_process;
-  startup_info.hStdError = stderr_process;
+  startup_info.hStdInput = stdin_process.handle;
+  startup_info.hStdOutput = stdout_process.handle;
+  startup_info.hStdError = stderr_handle;
   startup_info.dwFlags |= STARTF_USESTDHANDLES;
 
   BOOL ok = CreateProcessA(
-      NULL,
-      mutable_commandline,
-      NULL,
-      NULL,
-      TRUE,
-      CREATE_NO_WINDOW  // Don't create a console window
-          | CREATE_NEW_PROCESS_GROUP   // So that Ctrl-Break is not propagated
+      /* lpApplicationName */ NULL,
+      /* lpCommandLine */ mutable_commandline.get(),
+      /* lpProcessAttributes */ NULL,
+      /* lpThreadAttributes */ NULL,
+      /* bInheritHandles */ TRUE,
+      /* dwCreationFlags */ CREATE_NO_WINDOW  // Don't create a console window
+          | CREATE_NEW_PROCESS_GROUP  // So that Ctrl-Break is not propagated
           | CREATE_SUSPENDED,  // So that it doesn't start a new job itself
-      env_bytes,
-      cwd,
-      &startup_info,
-      &process_info);
+      /* lpEnvironment */ env_map.ptr(),
+      /* lpCurrentDirectory */ cwd.empty() ? nullptr : cwd.c_str(),
+      /* lpStartupInfo */ &startup_info,
+      /* lpProcessInformation */ &process_info);
 
   if (!ok) {
     result->error_ = windows_util::GetLastErrorString("CreateProcess()");
-    goto cleanup;
+    return PtrAsJlong(result);
   }
 
   result->pid_ = process_info.dwProcessId;
   result->process_ = process_info.hProcess;
-  thread = process_info.hThread;
+  thread.handle = process_info.hThread;
 
   if (!AssignProcessToJobObject(result->job_, result->process_)) {
     BOOL is_in_job = false;
@@ -256,58 +362,18 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
     } else {
       result->error_ =
           windows_util::GetLastErrorString("AssignProcessToJobObject()");
-      goto cleanup;
+      return PtrAsJlong(result);
     }
   }
 
   // Now that we put the process in a new job object, we can start executing it
   if (ResumeThread(thread) == -1) {
     result->error_ = windows_util::GetLastErrorString("ResumeThread()");
-    goto cleanup;
+    return PtrAsJlong(result);
   }
 
   result->error_ = "";
-
-cleanup:
-  // Standard file handles are closed even if the process was successfully
-  // created. If this was not so, operations on these file handles would not
-  // return immediately if the process is terminated.
-  if (stdin_process != INVALID_HANDLE_VALUE) {
-    CloseHandle(stdin_process);
-  }
-
-  if (stdout_process != INVALID_HANDLE_VALUE) {
-    CloseHandle(stdout_process);
-  }
-
-  if (stderr_process != INVALID_HANDLE_VALUE
-      && stderr_process != stdout_process) {
-    CloseHandle(stderr_process);
-  }
-
-  if (thread != INVALID_HANDLE_VALUE) {
-    CloseHandle(thread);
-  }
-
-  delete[] mutable_commandline;
-  if (env_bytes != NULL) {
-    env->ReleaseByteArrayElements(java_env, env_bytes, 0);
-  }
-  env->ReleaseStringUTFChars(java_commandline, commandline);
-
-  if (stdout_redirect != NULL) {
-    env->ReleaseStringUTFChars(java_stdout_redirect, stdout_redirect);
-  }
-
-  if (stderr_redirect != NULL) {
-    env->ReleaseStringUTFChars(java_stderr_redirect, stderr_redirect);
-  }
-
-  if (cwd != NULL) {
-    env->ReleaseStringUTFChars(java_cwd, cwd);
-  }
-
-  return reinterpret_cast<jlong>(result);
+  return PtrAsJlong(result);
 }
 
 extern "C" JNIEXPORT jint JNICALL
@@ -316,22 +382,20 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeWriteStdin(
     jint offset, jint length) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
 
-  jsize array_size = env->GetArrayLength(java_bytes);
-  if (offset < 0 || length <= 0 || offset > array_size - length) {
+  JavaByteArray bytes(env, java_bytes);
+  if (offset < 0 || length <= 0 || offset > bytes.size() - length) {
     process->error_ = "Array index out of bounds";
     return -1;
   }
 
-  jbyte* bytes = env->GetByteArrayElements(java_bytes, NULL);
   DWORD bytes_written;
 
-  if (!::WriteFile(process->stdin_, bytes + offset, length, &bytes_written,
-                   NULL)) {
+  if (!::WriteFile(process->stdin_, bytes.ptr() + offset, length,
+                   &bytes_written, NULL)) {
     process->error_ = windows_util::GetLastErrorString("WriteFile()");
     bytes_written = -1;
   }
 
-  env->ReleaseByteArrayElements(java_bytes, bytes, 0);
   process->error_ = "";
   return bytes_written;
 }
@@ -340,14 +404,14 @@ extern "C" JNIEXPORT jlong JNICALL
 Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeGetStdout(
     JNIEnv* env, jclass clazz, jlong process_long) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
-  return reinterpret_cast<jlong>(&process->stdout_);
+  return PtrAsJlong(&process->stdout_);
 }
 
 extern "C" JNIEXPORT jlong JNICALL
 Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeGetStderr(
     JNIEnv* env, jclass clazz, jlong process_long) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
-  return reinterpret_cast<jlong>(&process->stderr_);
+  return PtrAsJlong(&process->stderr_);
 }
 
 extern "C" JNIEXPORT jint JNICALL
@@ -357,8 +421,8 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeReadStream(
   NativeOutputStream* stream =
       reinterpret_cast<NativeOutputStream*>(stream_long);
 
-  jsize array_size = env->GetArrayLength(java_bytes);
-  if (offset < 0 || length <= 0 || offset > array_size - length) {
+  JavaByteArray bytes(env, java_bytes);
+  if (offset < 0 || length <= 0 || offset > bytes.size() - length) {
     stream->error_ = "Array index out of bounds";
     return -1;
   }
@@ -368,9 +432,9 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeReadStream(
     return 0;
   }
 
-  jbyte* bytes = env->GetByteArrayElements(java_bytes, NULL);
   DWORD bytes_read;
-  if (!::ReadFile(stream->handle_, bytes + offset, length, &bytes_read, NULL)) {
+  if (!::ReadFile(stream->handle_, bytes.ptr() + offset, length, &bytes_read,
+                  NULL)) {
     // Check if either the other end closed the pipe or we did it with
     // NativeOutputStream.close() . In the latter case, we'll get a "system
     // call interrupted" error.
@@ -386,7 +450,6 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeReadStream(
     stream->error_ = "";
   }
 
-  env->ReleaseByteArrayElements(java_bytes, bytes, 0);
   return bytes_read;
 }
 
@@ -467,18 +530,17 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeGetProcessPid(
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeTerminate(
     JNIEnv *env, jclass clazz, jlong process_long) {
+  static const UINT exit_code = 130;  // 128 + SIGINT, like on Linux
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
 
   if (process->job_ != INVALID_HANDLE_VALUE) {
-    // In theory, CloseHandle() on process->job_ would work, too, since we set
-    // KILL_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, but this is a little more explicit.
-    if (!TerminateJobObject(process->job_, 0)) {
+    if (!TerminateJobObject(process->job_, exit_code)) {
       process->error_ =
           windows_util::GetLastErrorString("TerminateJobObject()");
       return JNI_FALSE;
     }
   } else if (process->process_ != INVALID_HANDLE_VALUE) {
-    if (!TerminateProcess(process->process_, 1)) {
+    if (!TerminateProcess(process->process_, exit_code)) {
       process->error_ = windows_util::GetLastErrorString("TerminateProcess()");
       return JNI_FALSE;
     }
@@ -536,4 +598,50 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeStreamGetLastE
   jstring result = env->NewStringUTF(stream->error_.c_str());
   stream->error_ = "";
   return result;
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_google_devtools_build_lib_windows_WindowsFileOperations_nativeIsJunction(
+    JNIEnv* env, jclass clazz, jstring path, jobjectArray error_msg_holder) {
+  int result = windows_util::IsJunctionOrDirectorySymlink(
+      GetJavaWstring(env, path).c_str());
+  if (result == windows_util::IS_JUNCTION_ERROR) {
+    MaybeReportLastError(
+        std::string("GetFileAttributes(") + GetJavaUTFString(env, path) + ")",
+        env, error_msg_holder);
+  }
+  return result;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_google_devtools_build_lib_windows_WindowsFileOperations_nativeGetLongPath(
+    JNIEnv* env, jclass clazz, jstring path, jobjectArray result_holder,
+    jobjectArray error_msg_holder) {
+  std::unique_ptr<WCHAR[]> result;
+  bool success =
+      windows_util::GetLongPath(GetJavaWstring(env, path).c_str(), &result);
+  if (!success) {
+    MaybeReportLastError(
+        std::string("GetLongPathName(") + GetJavaUTFString(env, path) + ")",
+        env, error_msg_holder);
+    return JNI_FALSE;
+  }
+  env->SetObjectArrayElement(
+      result_holder, 0,
+      env->NewString(reinterpret_cast<const jchar*>(result.get()),
+                     wcslen(result.get())));
+  return JNI_TRUE;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_google_devtools_build_lib_windows_WindowsFileOperations_nativeCreateJunction(
+    JNIEnv* env, jclass clazz, jstring name, jstring target,
+    jobjectArray error_msg_holder) {
+  std::string error = windows_util::CreateJunction(GetJavaWstring(env, name),
+                                                   GetJavaWstring(env, target));
+  if (!error.empty()) {
+    MaybeReportLastError(error, env, error_msg_holder);
+    return JNI_FALSE;
+  }
+  return JNI_TRUE;
 }

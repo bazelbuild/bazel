@@ -29,6 +29,7 @@ import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
@@ -99,6 +100,7 @@ public class AndroidResourceValidatorAction {
     final Stopwatch timer = Stopwatch.createStarted();
     OptionsParser optionsParser =
         OptionsParser.newOptionsParser(Options.class, AaptConfigOptions.class);
+    optionsParser.enableParamsFileSupport(FileSystems.getDefault());
     optionsParser.parseAndExitUponError(args);
     AaptConfigOptions aaptConfigOptions = optionsParser.getOptions(AaptConfigOptions.class);
     Options options = optionsParser.getOptions(Options.class);
@@ -143,10 +145,10 @@ public class AndroidResourceValidatorAction {
           null /* publicResourcesOut */);
       logger.fine(String.format("aapt finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
-      resourceProcessor.copyRToOutput(
+      AndroidResourceOutputs.copyRToOutput(
           generatedSources, options.rOutput, VariantType.LIBRARY == packageType);
 
-      resourceProcessor.createSrcJar(
+      AndroidResourceOutputs.createSrcJar(
           generatedSources, options.srcJarOutput, VariantType.LIBRARY == packageType);
     } catch (Exception e) {
       logger.log(java.util.logging.Level.SEVERE, "Unexpected", e);

@@ -13,11 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.Location.LineAndColumn;
@@ -56,17 +52,17 @@ public class AttributeContainerTest {
     Object someValue2 = new Object();
     container.setAttributeValueByName(attribute1.getName(), someValue1);
     container.setAttributeValueByName(attribute2.getName(), someValue2);
-    assertEquals(someValue1, container.getAttr(attribute1.getName()));
-    assertEquals(someValue2, container.getAttr(attribute2.getName()));
-    assertNull(container.getAttr("nomatch"));
+    assertThat(container.getAttr(attribute1.getName())).isEqualTo(someValue1);
+    assertThat(container.getAttr(attribute2.getName())).isEqualTo(someValue2);
+    assertThat(container.getAttr("nomatch")).isNull();
   }
 
   @Test
   public void testExplicitSpecificationsByName() throws Exception {
     // Name-based setters are automatically considered explicit.
     container.setAttributeValueByName(attribute1.getName(), new Object());
-    assertTrue(container.isAttributeValueExplicitlySpecified(attribute1));
-    assertFalse(container.isAttributeValueExplicitlySpecified("nomatch"));
+    assertThat(container.isAttributeValueExplicitlySpecified(attribute1)).isTrue();
+    assertThat(container.isAttributeValueExplicitlySpecified("nomatch")).isFalse();
   }
 
   @Test
@@ -74,8 +70,8 @@ public class AttributeContainerTest {
     Object someValue = new Object();
     container.setAttributeValue(attribute1, someValue, true);
     container.setAttributeValue(attribute2, someValue, false);
-    assertTrue(container.isAttributeValueExplicitlySpecified(attribute1));
-    assertFalse(container.isAttributeValueExplicitlySpecified(attribute2));
+    assertThat(container.isAttributeValueExplicitlySpecified(attribute1)).isTrue();
+    assertThat(container.isAttributeValueExplicitlySpecified(attribute2)).isFalse();
   }
 
   private static Location newLocation() {
@@ -88,9 +84,9 @@ public class AttributeContainerTest {
     Location location2 = newLocation();
     container.setAttributeLocation(attribute1, location1);
     container.setAttributeLocation(attribute2, location2);
-    assertEquals(location1, container.getAttributeLocation(attribute1.getName()));
-    assertEquals(location2, container.getAttributeLocation(attribute2.getName()));
-    assertNull(container.getAttributeLocation("nomatch"));
+    assertThat(container.getAttributeLocation(attribute1.getName())).isEqualTo(location1);
+    assertThat(container.getAttributeLocation(attribute2.getName())).isEqualTo(location2);
+    assertThat(container.getAttributeLocation("nomatch")).isNull();
   }
 
   @Test
@@ -108,7 +104,8 @@ public class AttributeContainerTest {
     for (int i = 0; i < N; ++i) {
       locations[i] = newLocation();
     }
-    assertTrue(locations[0] != locations[1]);  // test relies on checking reference inequality
+    assertThat(locations[0] != locations[1])
+        .isTrue(); // test relies on checking reference inequality
     for (int explicitCount = 0; explicitCount <= N; ++explicitCount) {
       for (int locationCount = 0; locationCount <= N; ++locationCount) {
         AttributeContainer container = new AttributeContainer(ruleClass);
@@ -132,11 +129,12 @@ public class AttributeContainerTest {
         }
         for (int i = 0; i < N; ++i) {
           boolean expected = i < explicitCount;
-          assertEquals(expected, container.isAttributeValueExplicitlySpecified(attributes[i]));
+          assertThat(container.isAttributeValueExplicitlySpecified(attributes[i]))
+              .isEqualTo(expected);
         }
         for (int i = 0; i < N; ++i) {
           Location expected = i < locationCount ? locations[i] : null;
-          assertSame(expected, container.getAttributeLocation(attributes[i].getName()));
+          assertThat(container.getAttributeLocation(attributes[i].getName())).isSameAs(expected);
         }
       }
     }

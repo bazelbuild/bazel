@@ -38,7 +38,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-
 /**
  * Recursive descent parser for LL(2) BUILD language.
  * Loosely based on Python 2 grammar.
@@ -159,6 +158,7 @@ public class Parser {
           .put(TokenKind.OR, Operator.OR)
           .put(TokenKind.PERCENT, Operator.PERCENT)
           .put(TokenKind.SLASH, Operator.DIVIDE)
+          .put(TokenKind.SLASH_SLASH, Operator.FLOOR_DIVIDE)
           .put(TokenKind.PLUS, Operator.PLUS)
           .put(TokenKind.PIPE, Operator.PIPE)
           .put(TokenKind.STAR, Operator.MULT)
@@ -171,6 +171,7 @@ public class Parser {
           .put(TokenKind.MINUS_EQUALS, Operator.MINUS)
           .put(TokenKind.STAR_EQUALS, Operator.MULT)
           .put(TokenKind.SLASH_EQUALS, Operator.DIVIDE)
+          .put(TokenKind.SLASH_SLASH_EQUALS, Operator.FLOOR_DIVIDE)
           .put(TokenKind.PERCENT_EQUALS, Operator.PERCENT)
           .build();
 
@@ -185,7 +186,7 @@ public class Parser {
           Operator.GREATER, Operator.GREATER_EQUALS, Operator.IN, Operator.NOT_IN),
       EnumSet.of(Operator.PIPE),
       EnumSet.of(Operator.MINUS, Operator.PLUS),
-      EnumSet.of(Operator.DIVIDE, Operator.MULT, Operator.PERCENT));
+      EnumSet.of(Operator.DIVIDE, Operator.FLOOR_DIVIDE, Operator.MULT, Operator.PERCENT));
 
   private final Iterator<Token> tokens;
   private int errorsCount;
@@ -211,26 +212,17 @@ public class Parser {
   }
 
   /**
-   * Entry-point to parser that parses a build file with comments. All errors encountered during
-   * parsing are reported via "reporter".
+   * Entry-point for parsing a file with comments.
+   *
+   * @param input the input to parse
+   * @param eventHandler a reporter for parsing errors
+   * @param parsingMode if set to {@link ParsingMode#BUILD}, restricts the parser to just the
+   *     features present in the Build language
    */
-  public static ParseResult parseFile(ParserInputSource input, EventHandler eventHandler) {
+  public static ParseResult parseFile(
+      ParserInputSource input, EventHandler eventHandler, ParsingMode parsingMode) {
     Lexer lexer = new Lexer(input, eventHandler);
-    Parser parser = new Parser(lexer, eventHandler, BUILD);
-    List<Statement> statements = parser.parseFileInput();
-    return new ParseResult(statements, parser.comments, locationFromStatements(lexer, statements),
-        parser.errorsCount > 0 || lexer.containsErrors());
-  }
-
-  /**
-   * Entry-point to parser that parses a build file with comments. All errors encountered during
-   * parsing are reported via "reporter". Enable Skylark extensions that are not part of the core
-   * BUILD language.
-   */
-  public static ParseResult parseFileForSkylark(
-      ParserInputSource input, EventHandler eventHandler) {
-    Lexer lexer = new Lexer(input, eventHandler);
-    Parser parser = new Parser(lexer, eventHandler, SKYLARK);
+    Parser parser = new Parser(lexer, eventHandler, parsingMode);
     List<Statement> statements = parser.parseFileInput();
     return new ParseResult(
         statements,
@@ -239,21 +231,49 @@ public class Parser {
         parser.errorsCount > 0 || lexer.containsErrors());
   }
 
+  /** Convenience method for {@code parseFile} with the Build language. */
+  public static ParseResult parseFile(ParserInputSource input, EventHandler eventHandler) {
+    return parseFile(input, eventHandler, BUILD);
+  }
+
+  /** Convenience method for {@code parseFile} with Skylark. */
+  public static ParseResult parseFileForSkylark(
+      ParserInputSource input, EventHandler eventHandler) {
+    return parseFile(input, eventHandler, SKYLARK);
+  }
+
   /**
-   * Entry-point to parser that parses an expression.  All errors encountered
-   * during parsing are reported via "reporter".  The expression may be followed
-   * by newline tokens.
+   * Entry-point for parsing an expression. The expression may be followed by newline tokens.
+   *
+   * @param input the input to parse
+   * @param eventHandler a reporter for parsing errors
+   * @param parsingMode if set to {@link ParsingMode#BUILD}, restricts the parser to just the
+   *     features present in the Build language
    */
   @VisibleForTesting
-  public static Expression parseExpression(ParserInputSource input, EventHandler eventHandler) {
+  public static Expression parseExpression(
+      ParserInputSource input, EventHandler eventHandler, ParsingMode parsingMode) {
     Lexer lexer = new Lexer(input, eventHandler);
-    Parser parser = new Parser(lexer, eventHandler, null);
+    Parser parser = new Parser(lexer, eventHandler, parsingMode);
     Expression result = parser.parseExpression();
     while (parser.token.kind == TokenKind.NEWLINE) {
       parser.nextToken();
     }
     parser.expect(TokenKind.EOF);
     return result;
+  }
+
+  /** Convenience method for {@code parseExpression} with the Build language. */
+  @VisibleForTesting
+  public static Expression parseExpression(ParserInputSource input, EventHandler eventHandler) {
+    return parseExpression(input, eventHandler, BUILD);
+  }
+
+  /** Convenience method for {@code parseExpression} with Skylark. */
+  @VisibleForTesting
+  public static Expression parseExpressionForSkylark(
+      ParserInputSource input, EventHandler eventHandler) {
+    return parseExpression(input, eventHandler, SKYLARK);
   }
 
   private void reportError(Location location, String message) {
@@ -558,12 +578,17 @@ public class Parser {
   // first expression was already parsed, so it starts with a comma.
   // It is used to parse tuples and list elements.
   // expr_list ::= ( ',' expr )* ','?
-  private List<Expression> parseExprList() {
+  private List<Expression> parseExprList(boolean trailingColonAllowed) {
     List<Expression> list = new ArrayList<>();
     //  terminating tokens for an expression list
     while (token.kind == TokenKind.COMMA) {
       expect(TokenKind.COMMA);
       if (EXPR_LIST_TERMINATOR_SET.contains(token.kind)) {
+        if (!trailingColonAllowed) {
+          reportError(
+              lexer.createLocation(token.left, token.right),
+              "Trailing comma is allowed only in parenthesized tuples.");
+        }
         break;
       }
       list.add(parseNonTupleExpression());
@@ -601,9 +626,8 @@ public class Parser {
   private StringLiteral parseStringLiteral() {
     Preconditions.checkState(token.kind == TokenKind.STRING);
     int end = token.right;
-    char quoteChar = lexer.charAt(token.left);
     StringLiteral literal =
-        setLocation(new StringLiteral((String) token.value, quoteChar), token.left, end);
+        setLocation(new StringLiteral((String) token.value), token.left, end);
 
     nextToken();
     if (token.kind == TokenKind.STRING) {
@@ -627,64 +651,63 @@ public class Parser {
   private Expression parsePrimary() {
     int start = token.left;
     switch (token.kind) {
-      case INT: {
-        IntegerLiteral literal = new IntegerLiteral((Integer) token.value);
-        setLocation(literal, start, token.right);
-        nextToken();
-        return literal;
-      }
-      case STRING: {
-        return parseStringLiteral();
-      }
-      case IDENTIFIER: {
-        Identifier ident = parseIdent();
-        if (token.kind == TokenKind.LPAREN) { // it's a function application
-          return parseFuncallSuffix(start, null, ident);
-        } else {
-          return ident;
-        }
-      }
-      case LBRACKET: { // it's a list
-        return parseListMaker();
-      }
-      case LBRACE: { // it's a dictionary
-        return parseDictExpression();
-      }
-      case LPAREN: {
-        nextToken();
-        // check for the empty tuple literal
-        if (token.kind == TokenKind.RPAREN) {
-          ListLiteral literal =
-              ListLiteral.makeTuple(Collections.<Expression>emptyList());
+      case INT:
+        {
+          IntegerLiteral literal = new IntegerLiteral((Integer) token.value);
           setLocation(literal, start, token.right);
           nextToken();
           return literal;
         }
-        // parse the first expression
-        Expression expression = parseExpression();
-        setLocation(expression, start, token.right);
-        if (token.kind == TokenKind.RPAREN) {
-          nextToken();
-          return expression;
+      case STRING:
+        return parseStringLiteral();
+      case IDENTIFIER:
+        {
+          Identifier ident = parseIdent();
+          if (token.kind == TokenKind.LPAREN) { // it's a function application
+            return parseFuncallSuffix(start, null, ident);
+          } else {
+            return ident;
+          }
         }
-        expect(TokenKind.RPAREN);
-        int end = syncTo(EXPR_TERMINATOR_SET);
-        return makeErrorExpression(start, end);
-      }
-      case MINUS: {
-        nextToken();
-
-        List<Argument.Passed> args = new ArrayList<>();
-        Expression expr = parsePrimaryWithSuffix();
-        args.add(setLocation(new Argument.Positional(expr), start, expr));
-        return makeFuncallExpression(null, new Identifier("-"), args,
-                                     start, token.right);
-      }
-      default: {
-        syntaxError(token, "expected expression");
-        int end = syncTo(EXPR_TERMINATOR_SET);
-        return makeErrorExpression(start, end);
-      }
+      case LBRACKET: // it's a list
+        return parseListMaker();
+      case LBRACE: // it's a dictionary
+        return parseDictExpression();
+      case LPAREN:
+        {
+          nextToken();
+          // check for the empty tuple literal
+          if (token.kind == TokenKind.RPAREN) {
+            ListLiteral literal = ListLiteral.makeTuple(Collections.<Expression>emptyList());
+            setLocation(literal, start, token.right);
+            nextToken();
+            return literal;
+          }
+          // parse the first expression
+          Expression expression = parseExpression(true);
+          setLocation(expression, start, token.right);
+          if (token.kind == TokenKind.RPAREN) {
+            nextToken();
+            return expression;
+          }
+          expect(TokenKind.RPAREN);
+          int end = syncTo(EXPR_TERMINATOR_SET);
+          return makeErrorExpression(start, end);
+        }
+      case MINUS:
+        {
+          nextToken();
+          List<Argument.Passed> args = new ArrayList<>();
+          Expression expr = parsePrimaryWithSuffix();
+          args.add(setLocation(new Argument.Positional(expr), start, expr));
+          return makeFuncallExpression(null, new Identifier("-"), args, start, token.right);
+        }
+      default:
+        {
+          syntaxError(token, "expected expression");
+          int end = syncTo(EXPR_TERMINATOR_SET);
+          return makeErrorExpression(start, end);
+        }
     }
   }
 
@@ -782,7 +805,7 @@ public class Parser {
   //                        | 'IF' expr comprehension_suffix
   //                        | ']'
   private Expression parseComprehensionSuffix(
-      AbstractComprehension comprehension, TokenKind closingBracket) {
+      AbstractComprehension.AbstractBuilder comprehensionBuilder, TokenKind closingBracket) {
     while (true) {
       if (token.kind == TokenKind.FOR) {
         nextToken();
@@ -791,13 +814,13 @@ public class Parser {
         // The expression cannot be a ternary expression ('x if y else z') due to
         // conflicts in Python grammar ('if' is used by the comprehension).
         Expression listExpression = parseNonTupleExpression(0);
-        comprehension.addFor(loopVar, listExpression);
+        comprehensionBuilder.addFor(loopVar, listExpression);
       } else if (token.kind == TokenKind.IF) {
         nextToken();
-        comprehension.addIf(parseExpression());
+        comprehensionBuilder.addIf(parseExpression());
       } else if (token.kind == closingBracket) {
         nextToken();
-        return comprehension;
+        return comprehensionBuilder.build();
       } else {
         syntaxError(token, "expected '" + closingBracket.getPrettyName() + "', 'for' or 'if'");
         syncPast(LIST_TERMINATOR_SET);
@@ -823,38 +846,46 @@ public class Parser {
     Preconditions.checkNotNull(expression,
         "null element in list in AST at %s:%s", token.left, token.right);
     switch (token.kind) {
-      case RBRACKET: { // singleton List
-        ListLiteral literal = ListLiteral.makeList(Collections.singletonList(expression));
-        setLocation(literal, start, token.right);
-        nextToken();
-        return literal;
-      }
-      case FOR:
-        { // list comprehension
-          Expression result =
-              parseComprehensionSuffix(new ListComprehension(expression), TokenKind.RBRACKET);
-          return setLocation(result, start, token.right);
-        }
-      case COMMA: {
-        List<Expression> list = parseExprList();
-        Preconditions.checkState(!list.contains(null),
-            "null element in list in AST at %s:%s", token.left, token.right);
-        list.add(0, expression);
-        if (token.kind == TokenKind.RBRACKET) {
-          ListLiteral literal = ListLiteral.makeList(list);
+      case RBRACKET: // singleton List
+        {
+          ListLiteral literal = ListLiteral.makeList(Collections.singletonList(expression));
           setLocation(literal, start, token.right);
           nextToken();
           return literal;
         }
-        expect(TokenKind.RBRACKET);
-        int end = syncPast(LIST_TERMINATOR_SET);
-        return makeErrorExpression(start, end);
-      }
-      default: {
-        syntaxError(token, "expected ',', 'for' or ']'");
-        int end = syncPast(LIST_TERMINATOR_SET);
-        return makeErrorExpression(start, end);
-      }
+      case FOR:
+        { // list comprehension
+          Expression result =
+              parseComprehensionSuffix(
+                  new ListComprehension.Builder().setOutputExpression(expression),
+                  TokenKind.RBRACKET);
+          return setLocation(result, start, token.right);
+        }
+      case COMMA:
+        {
+          List<Expression> list = parseExprList(true);
+          Preconditions.checkState(
+              !list.contains(null),
+              "null element in list in AST at %s:%s",
+              token.left,
+              token.right);
+          list.add(0, expression);
+          if (token.kind == TokenKind.RBRACKET) {
+            ListLiteral literal = ListLiteral.makeList(list);
+            setLocation(literal, start, token.right);
+            nextToken();
+            return literal;
+          }
+          expect(TokenKind.RBRACKET);
+          int end = syncPast(LIST_TERMINATOR_SET);
+          return makeErrorExpression(start, end);
+        }
+      default:
+        {
+          syntaxError(token, "expected ',', 'for' or ']'");
+          int end = syncPast(LIST_TERMINATOR_SET);
+          return makeErrorExpression(start, end);
+        }
     }
   }
 
@@ -874,7 +905,10 @@ public class Parser {
     if (token.kind == TokenKind.FOR) {
       // Dict comprehension
       Expression result = parseComprehensionSuffix(
-          new DictComprehension(entry.getKey(), entry.getValue()), TokenKind.RBRACE);
+          new DictComprehension.Builder()
+              .setKeyExpression(entry.getKey())
+              .setValueExpression(entry.getValue()),
+          TokenKind.RBRACE);
       return setLocation(result, start, token.right);
     }
     List<DictionaryEntryLiteral> entries = new ArrayList<>();
@@ -947,19 +981,24 @@ public class Parser {
       if (expr instanceof StringLiteral && secondary instanceof StringLiteral) {
         StringLiteral left = (StringLiteral) expr;
         StringLiteral right = (StringLiteral) secondary;
-        if (left.getQuoteChar() == right.getQuoteChar()) {
-          return new StringLiteral(left.getValue() + right.getValue(), left.getQuoteChar());
-        }
+        return new StringLiteral(left.getValue() + right.getValue());
       }
     }
     return new BinaryOperatorExpression(operator, expr, secondary);
   }
 
-  // Equivalent to 'testlist' rule in Python grammar. It can parse every
-  // kind of expression.
-  // In many cases, we need to use parseNonTupleExpression to avoid ambiguity
-  // e.g.  fct(x, y)  vs  fct((x, y))
   private Expression parseExpression() {
+    return parseExpression(false);
+  }
+
+  // Equivalent to 'testlist' rule in Python grammar. It can parse every kind of
+  // expression. In many cases, we need to use parseNonTupleExpression to avoid ambiguity:
+  //   e.g. fct(x, y)  vs  fct((x, y))
+  //
+  // Tuples can have a trailing comma only when insideParens is true. This prevents bugs
+  // where a one-element tuple is surprisingly created:
+  //   e.g.  foo = f(x),
+  private Expression parseExpression(boolean insideParens) {
     int start = token.left;
     Expression expression = parseNonTupleExpression();
     if (token.kind != TokenKind.COMMA) {
@@ -967,7 +1006,7 @@ public class Parser {
     }
 
     // It's a tuple
-    List<Expression> tuple = parseExprList();
+    List<Expression> tuple = parseExprList(insideParens);
     tuple.add(0, expression);  // add the first expression to the front of the tuple
     return setLocation(ListLiteral.makeTuple(tuple), start, token.right);
   }
@@ -1179,14 +1218,17 @@ public class Parser {
     if (token.kind == TokenKind.EQUALS) {
       nextToken();
       Expression rvalue = parseExpression();
-      return setLocation(new AssignmentStatement(expression, rvalue), start, rvalue);
+      return setLocation(
+          new AssignmentStatement(new LValue(expression), rvalue),
+          start, rvalue);
     } else if (augmentedAssignmentMethods.containsKey(token.kind)) {
       Operator operator = augmentedAssignmentMethods.get(token.kind);
       nextToken();
       Expression operand = parseExpression();
       int end = operand.getLocation().getEndOffset();
       return setLocation(
-          new AugmentedAssignmentStatement(operator, expression, operand), start, end);
+          new AugmentedAssignmentStatement(operator, new LValue(expression), operand),
+          start, end);
     } else {
       return setLocation(new ExpressionStatement(expression), start, expression);
     }
@@ -1233,7 +1275,7 @@ public class Parser {
     enterLoop();
     try {
       List<Statement> block = parseSuite();
-      Statement stmt = new ForStatement(loopVar, collection, block);
+      Statement stmt = new ForStatement(new LValue(loopVar), collection, block);
       list.add(setLocation(stmt, start, token.right));
     } finally {
       exitLoop();

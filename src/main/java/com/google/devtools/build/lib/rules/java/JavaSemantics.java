@@ -15,8 +15,10 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -37,6 +39,8 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression;
+import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaOptimizationMode;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -80,6 +84,9 @@ public interface JavaSemantics {
 
   SafeImplicitOutputsFunction JAVA_BINARY_DEPLOY_SOURCE_JAR =
       fromTemplates("%{name}_deploy-src.jar");
+
+  SafeImplicitOutputsFunction JAVA_TEST_CLASSPATHS_FILE =
+      fromTemplates("%{name}_classpaths_file");
 
   FileType JAVA_SOURCE = FileType.of(".java");
   FileType JAR = FileType.of(".jar");
@@ -199,6 +206,29 @@ public interface JavaSemantics {
         }
       };
 
+  LateBoundLabelList<BuildConfiguration> BYTECODE_OPTIMIZERS =
+      new LateBoundLabelList<BuildConfiguration>(JavaConfiguration.class) {
+        @Override
+        public List<Label> resolve(
+            Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+          // Use a modicum of smarts to avoid implicit dependencies where we don't need them.
+          JavaOptimizationMode optMode =
+              configuration.getFragment(JavaConfiguration.class).getJavaOptimizationMode();
+          boolean hasProguardSpecs = attributes.has("proguard_specs")
+              && !attributes.get("proguard_specs", LABEL_LIST).isEmpty();
+          if (optMode == JavaOptimizationMode.NOOP
+              || (optMode == JavaOptimizationMode.LEGACY && !hasProguardSpecs)) {
+            return ImmutableList.<Label>of();
+          }
+          return ImmutableList.copyOf(
+              Optional.presentInstances(
+                  configuration
+                      .getFragment(JavaConfiguration.class)
+                      .getBytecodeOptimizers()
+                      .values()));
+        }
+      };
+
   String IJAR_LABEL = "//tools/defaults:ijar";
 
   /**
@@ -215,6 +245,8 @@ public interface JavaSemantics {
    */
   void checkForProtoLibraryAndJavaProtoLibraryOnSameProto(
       RuleContext ruleContext, JavaCommon javaCommon);
+
+  void checkProtoDeps(RuleContext ruleContext, Collection<? extends TransitiveInfoCollection> deps);
 
   /**
    * Returns the main class of a Java binary.
@@ -251,7 +283,7 @@ public interface JavaSemantics {
    * be used when creating both the {@code RunfilesProvider} and the {@code RunfilesSupport}. If
    * they are different, the new value should be used when creating the {@code RunfilesProvider} (so
    * it will be the stub script executed by "bazel run" for example), and the old value should be
-   * used when creasting the {@code RunfilesSupport} (so the runfiles directory will be named after
+   * used when creating the {@code RunfilesSupport} (so the runfiles directory will be named after
    * it).
    *
    * <p>For example on Windows we use a double dispatch approach: the launcher is a batch file (and
@@ -260,11 +292,18 @@ public interface JavaSemantics {
    */
   Artifact createStubAction(
       RuleContext ruleContext,
-      final JavaCommon javaCommon,
+      JavaCommon javaCommon,
       List<String> jvmFlags,
       Artifact executable,
       String javaStartClass,
       String javaExecutable);
+
+  /**
+   * Optionally creates a file containing the relative classpaths within the runfiles tree. If
+   * {@link Optional#isPresent()}, then the caller should ensure the file appears in the runfiles.
+   */
+  Optional<Artifact> createClasspathsFile(RuleContext ruleContext, JavaCommon javaCommon)
+      throws InterruptedException;
 
   /**
    * Adds extra runfiles for a {@code java_binary} rule.
@@ -286,7 +325,9 @@ public interface JavaSemantics {
    * Add additional targets to be treated as direct dependencies.
    */
   void collectTargetsTreatedAsDeps(
-      RuleContext ruleContext, ImmutableList.Builder<TransitiveInfoCollection> builder);
+      RuleContext ruleContext,
+      ImmutableList.Builder<TransitiveInfoCollection> builder,
+      ClasspathType type);
 
   /**
    * Enables coverage support for the java target - adds instrumented jar to the classpath and

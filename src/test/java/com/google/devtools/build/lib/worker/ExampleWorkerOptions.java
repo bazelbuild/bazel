@@ -78,4 +78,11 @@ public class ExampleWorkerOptions extends OptionsBase {
             + "corrupt response instead of a response protobuf from then on (default: disabled)."
   )
   public int poisonAfter;
+
+  @Option(
+    name = "hard_poison",
+    defaultValue = "false",
+    help = "Instead of writing an error message to stdout, write it to stderr and terminate."
+  )
+  public boolean hardPoison;
 }

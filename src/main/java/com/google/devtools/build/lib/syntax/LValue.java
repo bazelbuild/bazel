@@ -14,22 +14,10 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import static com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils.append;
-
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils;
-import com.google.devtools.build.lib.syntax.compiler.DebugInfo.AstAccessors;
-import com.google.devtools.build.lib.syntax.compiler.Variable.InternalVariable;
-import com.google.devtools.build.lib.syntax.compiler.VariableScope;
 import com.google.devtools.build.lib.util.Preconditions;
-import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Iterator;
-import java.util.List;
-import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
-import net.bytebuddy.implementation.bytecode.Removal;
-import net.bytebuddy.implementation.bytecode.constant.IntegerConstant;
 
 /**
  * Class representing an LValue.
@@ -39,11 +27,12 @@ import net.bytebuddy.implementation.bytecode.constant.IntegerConstant;
  *    for lvalue in exp: pass
  * An LValue can be a simple variable or something more complex like a tuple.
  */
-public class LValue implements Serializable {
+public class LValue extends ASTNode {
   private final Expression expr;
 
   public LValue(Expression expr) {
     this.expr = expr;
+    setLocation(expr.getLocation());
   }
 
   public Expression getExpression() {
@@ -55,18 +44,77 @@ public class LValue implements Serializable {
    */
   public void assign(Environment env, Location loc, Object result)
       throws EvalException, InterruptedException {
-    assign(env, loc, expr, result);
+    doAssign(env, loc, expr, result);
   }
 
-  private static void assign(Environment env, Location loc, Expression lvalue, Object result)
+  /**
+   * Evaluate a rhs using a lhs and the operator, then assign to the lhs.
+   */
+  public void assign(Environment env, Location loc, Expression rhs, Operator operator)
       throws EvalException, InterruptedException {
-    if (lvalue instanceof Identifier) {
-      assign(env, loc, (Identifier) lvalue, result);
+    if (expr instanceof Identifier) {
+      Object result =
+          BinaryOperatorExpression.evaluate(operator, expr.eval(env), rhs, env, loc, true);
+      assign(env, loc, (Identifier) expr, result);
       return;
     }
 
-    if (lvalue instanceof ListLiteral) {
-      ListLiteral variables = (ListLiteral) lvalue;
+    if (expr instanceof IndexExpression) {
+      IndexExpression indexExpression = (IndexExpression) expr;
+      // This object should be evaluated only once
+      Object evaluatedLhsObject = indexExpression.getObject().eval(env);
+      Object evaluatedLhs = indexExpression.eval(env, evaluatedLhsObject);
+      Object key = indexExpression.getKey().eval(env);
+      Object result =
+          BinaryOperatorExpression.evaluate(operator, evaluatedLhs, rhs, env, loc, true);
+      assignItem(env, loc, evaluatedLhsObject, key, result);
+      return;
+    }
+
+    if (expr instanceof ListLiteral) {
+      throw new EvalException(loc, "Cannot perform augment assignment on a list literal");
+    }
+  }
+
+  /**
+   *  Returns all names bound by this LValue.
+   *
+   *  Examples:
+   *  <ul>
+   *  <li><{@code x = ...} binds x.</li>
+   *  <li><{@code x, [y,z] = ..} binds x, y, z.</li>
+   *  <li><{@code x[5] = ..} does not bind any names.</li>
+   *  </ul>
+   */
+  public ImmutableSet<String> boundNames() {
+    ImmutableSet.Builder<String> result = ImmutableSet.builder();
+    collectBoundNames(expr, result);
+    return result.build();
+  }
+
+  private static void collectBoundNames(Expression lhs, ImmutableSet.Builder<String> result) {
+    if (lhs instanceof Identifier) {
+      result.add(((Identifier) lhs).getName());
+      return;
+    }
+    if (lhs instanceof ListLiteral) {
+      ListLiteral variables = (ListLiteral) lhs;
+      for (Expression expression : variables.getElements()) {
+        collectBoundNames(expression, result);
+      }
+    }
+  }
+
+  private static void doAssign(
+      Environment env, Location loc, Expression lhs, Object result)
+      throws EvalException, InterruptedException {
+    if (lhs instanceof Identifier) {
+      assign(env, loc, (Identifier) lhs, result);
+      return;
+    }
+
+    if (lhs instanceof ListLiteral) {
+      ListLiteral variables = (ListLiteral) lhs;
       Collection<?> rvalue = EvalUtils.toCollection(result, loc);
       int len = variables.getElements().size();
       if (len != rvalue.size()) {
@@ -75,7 +123,7 @@ public class LValue implements Serializable {
       }
       int i = 0;
       for (Object o : rvalue) {
-        assign(env, loc, variables.getElements().get(i), o);
+        doAssign(env, loc, variables.getElements().get(i), o);
         i++;
       }
       return;
@@ -83,15 +131,14 @@ public class LValue implements Serializable {
 
     // Support syntax for setting an element in an array, e.g. a[5] = 2
     // TODO: We currently do not allow slices (e.g. a[2:6] = [3]).
-    if (lvalue instanceof IndexExpression) {
-      IndexExpression expression = (IndexExpression) lvalue;
+    if (lhs instanceof IndexExpression) {
+      IndexExpression expression = (IndexExpression) lhs;
       Object key = expression.getKey().eval(env);
       Object evaluatedObject = expression.getObject().eval(env);
       assignItem(env, loc, evaluatedObject, key, result);
       return;
     }
-    throw new EvalException(loc,
-        "cannot assign to '" + lvalue + "'");
+    throw new EvalException(loc, "cannot assign to '" + lhs + "'");
   }
 
   @SuppressWarnings("unchecked")
@@ -133,6 +180,11 @@ public class LValue implements Serializable {
     env.update(ident.getName(), result);
   }
 
+  @Override
+  public void accept(SyntaxTreeVisitor visitor) {
+    visitor.visit(this);
+  }
+
   void validate(ValidationEnvironment env, Location loc) throws EvalException {
     validate(env, loc, expr);
   }
@@ -161,104 +213,5 @@ public class LValue implements Serializable {
   @Override
   public String toString() {
     return expr.toString();
-  }
-
-  /**
-   * Compile an assignment within the given ASTNode to these l-values.
-   *
-   * <p>The value to possibly destructure and assign must already be on the stack.
-   */
-  public ByteCodeAppender compileAssignment(
-      ASTNode node, AstAccessors debugAccessors, VariableScope scope) throws EvalException {
-    List<ByteCodeAppender> code = new ArrayList<>();
-    compileAssignment(node, debugAccessors, expr, scope, code);
-    return ByteCodeUtils.compoundAppender(code);
-  }
-
-  /**
-   * Called recursively to compile the tree of l-values we might have.
-   */
-  private static void compileAssignment(
-      ASTNode node,
-      AstAccessors debugAccessors,
-      Expression leftValue,
-      VariableScope scope,
-      List<ByteCodeAppender> code)
-      throws EvalException {
-    if (leftValue instanceof Identifier) {
-      code.add(compileAssignment(scope, (Identifier) leftValue));
-    } else if (leftValue instanceof ListLiteral) {
-      List<Expression> lValueExpressions = ((ListLiteral) leftValue).getElements();
-      compileAssignment(node, debugAccessors, scope, lValueExpressions, code);
-    } else {
-      String message =
-          String.format(
-              "Can't assign to expression '%s', only to variables or nested tuples of variables",
-              leftValue);
-      throw new EvalExceptionWithStackTrace(new EvalException(node.getLocation(), message), node);
-    }
-  }
-
-  /**
-   * Assumes a collection of values on the top of the stack and assigns them to the l-value
-   * expressions given.
-   */
-  private static void compileAssignment(
-      ASTNode node,
-      AstAccessors debugAccessors,
-      VariableScope scope,
-      List<Expression> lValueExpressions,
-      List<ByteCodeAppender> code)
-      throws EvalException {
-    InternalVariable objects = scope.freshVariable(Collection.class);
-    InternalVariable iterator = scope.freshVariable(Iterator.class);
-    // convert the object on the stack into a collection and store it to a variable for loading
-    // multiple times below below
-    code.add(new ByteCodeAppender.Simple(debugAccessors.loadLocation, EvalUtils.toCollection));
-    code.add(objects.store());
-    append(
-        code,
-        // check that we got exactly the amount of objects in the collection that we need
-        IntegerConstant.forValue(lValueExpressions.size()),
-        objects.load(),
-        debugAccessors.loadLocation, // TODO(bazel-team) load better location within tuple
-        ByteCodeUtils.invoke(
-            LValue.class, "checkSize", int.class, Collection.class, Location.class),
-        // get an iterator to assign the objects
-        objects.load(),
-        ByteCodeUtils.invoke(Collection.class, "iterator"));
-    code.add(iterator.store());
-    // assign each object to the corresponding l-value
-    for (Expression lValue : lValueExpressions) {
-      code.add(
-          new ByteCodeAppender.Simple(
-              iterator.load(), ByteCodeUtils.invoke(Iterator.class, "next")));
-      compileAssignment(node, debugAccessors, lValue, scope, code);
-    }
-  }
-
-  /**
-   * Compile assignment to a single identifier.
-   */
-  private static ByteCodeAppender compileAssignment(VariableScope scope, Identifier identifier) {
-    // don't store to/create the _ "variable" the value is not needed, just remove it
-    if (identifier.getName().equals("_")) {
-      return new ByteCodeAppender.Simple(Removal.SINGLE);
-    }
-    return scope.getVariable(identifier).store();
-  }
-
-  /**
-   * Checks that the size of a collection at runtime conforms to the amount of l-value expressions
-   * we have to assign to.
-   */
-  public static void checkSize(int expected, Collection<?> collection, Location location)
-      throws EvalException {
-    int actual = collection.size();
-    if (expected != actual) {
-      throw new EvalException(
-          location,
-          String.format("lvalue has length %d, but rvalue has has length %d", expected, actual));
-    }
   }
 }

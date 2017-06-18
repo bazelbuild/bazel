@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
@@ -52,18 +50,24 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   RuleConfiguredTarget(
       RuleContext ruleContext,
       TransitiveInfoProviderMap providers,
-      SkylarkProviders skylarkProviders1) {
+      ImmutableMap<String, Object> legacySkylarkProviders,
+      ImmutableMap<SkylarkClassObjectConstructor.Key, SkylarkClassObject> skylarkProviders) {
     super(ruleContext);
     // We don't use ImmutableMap.Builder here to allow augmenting the initial list of 'default'
     // providers by passing them in.
-    TransitiveInfoProviderMap.Builder providerBuilder = providers.toBuilder();
+    TransitiveInfoProviderMapBuilder providerBuilder =
+        new TransitiveInfoProviderMapBuilder().addAll(providers);
     Preconditions.checkState(providerBuilder.contains(RunfilesProvider.class));
     Preconditions.checkState(providerBuilder.contains(FileProvider.class));
     Preconditions.checkState(providerBuilder.contains(FilesToRunProvider.class));
 
     // Initialize every SkylarkApiProvider
-    skylarkProviders1.init(this);
-    providerBuilder.add(skylarkProviders1);
+    if (!legacySkylarkProviders.isEmpty() || !skylarkProviders.isEmpty()) {
+      SkylarkProviders allSkylarkProviders = new SkylarkProviders(legacySkylarkProviders,
+          skylarkProviders);
+      allSkylarkProviders.init(this);
+      providerBuilder.add(allSkylarkProviders);
+    }
 
     this.providers = providerBuilder.build();
     this.configConditions = ruleContext.getConfigConditions();
@@ -102,23 +106,6 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     return providers.getProvider(providerClass);
   }
 
-  /**
-   * Returns a value provided by this target. Only meant to use from Skylark.
-   */
-  @Override
-  public Object get(String providerKey) {
-    return getProvider(SkylarkProviders.class).getValue(providerKey);
-  }
-
-  /**
-   * Returns a declared provider provided by this target. Only meant to use from Skylark.
-   */
-  @Override
-  public SkylarkClassObject get(SkylarkClassObjectConstructor.Key providerKey) {
-    return getProvider(SkylarkProviders.class).getDeclaredProvider(providerKey);
-  }
-
-
   @Override
   public final Rule getTarget() {
     return (Rule) super.getTarget();
@@ -128,11 +115,5 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   public String errorMessage(String name) {
     return String.format("target (rule class of '%s') doesn't have provider '%s'.",
         getTarget().getRuleClass(), name);
-  }
-
-  @Override
-  public ImmutableCollection<String> getKeys() {
-    return ImmutableList.<String>builder().addAll(super.getKeys())
-        .addAll(getProvider(SkylarkProviders.class).getKeys()).build();
   }
 }

@@ -18,6 +18,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Verify;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 
@@ -30,6 +31,9 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 @AutoValue
 @Immutable
 public abstract class GeneratedExtensionRegistryProvider implements TransitiveInfoProvider {
+
+  /** @return the rule label for which this registry was built. */
+  public abstract Label getGeneratingRuleLabel();
 
   /** @return if this registry was generated for lite or full runtime. */
   public abstract boolean isLite();
@@ -50,6 +54,10 @@ public abstract class GeneratedExtensionRegistryProvider implements TransitiveIn
   /** A builder for {@link GeneratedExtensionRegistryProvider}. */
   @AutoValue.Builder
   public abstract static class Builder {
+
+    /** Sets the rule label for which this registry was built. */
+    public abstract Builder setGeneratingRuleLabel(Label label);
+
     /** Indicates this registry was built for lite runtime if <tt>true</tt>, full otherwise. */
     public abstract Builder setLite(boolean lite);
 

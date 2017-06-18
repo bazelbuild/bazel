@@ -22,6 +22,11 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.ClassObjectConstructor;
+import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
+import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -31,8 +36,18 @@ import javax.annotation.Nullable;
 /**
  * Information about a C++ compiler used by the <code>cc_*</code> rules.
  */
+@SkylarkModule(
+    name = "CcToolchainInfo",
+    doc = "Information about the C++ compiler being used."
+)
 @Immutable
-public final class CcToolchainProvider implements TransitiveInfoProvider {
+public final class CcToolchainProvider
+    extends SkylarkClassObject implements TransitiveInfoProvider {
+  public static final String SKYLARK_NAME = "CcToolchainInfo";
+
+  public static final ClassObjectConstructor SKYLARK_CONSTRUCTOR =
+      new NativeClassObjectConstructor(SKYLARK_NAME) {};
+
   /** An empty toolchain to be returned in the error case (instead of null). */
   public static final CcToolchainProvider EMPTY_TOOLCHAIN_IS_ERROR =
       new CcToolchainProvider(
@@ -42,6 +57,8 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+          null,
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
@@ -57,7 +74,9 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
           ImmutableList.<Artifact>of(),
           NestedSetBuilder.<Pair<String, String>>emptySet(Order.COMPILE_ORDER),
           null,
-          ImmutableMap.<String, String>of());
+          ImmutableMap.<String, String>of(),
+          ImmutableList.<PathFragment>of(),
+          null);
 
   @Nullable private final CppConfiguration cppConfiguration;
   private final NestedSet<Artifact> crosstool;
@@ -66,7 +85,9 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
   private final NestedSet<Artifact> strip;
   private final NestedSet<Artifact> objCopy;
   private final NestedSet<Artifact> link;
+  private final Artifact interfaceSoBuilder;
   private final NestedSet<Artifact> dwp;
+  private final NestedSet<Artifact> coverage;
   private final NestedSet<Artifact> libcLink;
   private final NestedSet<Artifact> staticRuntimeLinkInputs;
   @Nullable private final Artifact staticRuntimeLinkMiddleman;
@@ -81,6 +102,8 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
   private final NestedSet<Pair<String, String>> coverageEnvironment;
   @Nullable private final Artifact linkDynamicLibraryTool;
   private final ImmutableMap<String, String> environment;
+  private final ImmutableList<PathFragment> builtInIncludeDirectories;
+  @Nullable private final PathFragment sysroot;
 
   public CcToolchainProvider(
       @Nullable CppConfiguration cppConfiguration,
@@ -90,7 +113,9 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
       NestedSet<Artifact> strip,
       NestedSet<Artifact> objCopy,
       NestedSet<Artifact> link,
+      Artifact interfaceSoBuilder,
       NestedSet<Artifact> dwp,
+      NestedSet<Artifact> coverage,
       NestedSet<Artifact> libcLink,
       NestedSet<Artifact> staticRuntimeLinkInputs,
       @Nullable Artifact staticRuntimeLinkMiddleman,
@@ -104,7 +129,10 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
       ImmutableList<Artifact> builtinIncludeFiles,
       NestedSet<Pair<String, String>> coverageEnvironment,
       Artifact linkDynamicLibraryTool,
-      ImmutableMap<String, String> environment) {
+      ImmutableMap<String, String> environment,
+      ImmutableList<PathFragment> builtInIncludeDirectories,
+      @Nullable PathFragment sysroot) {
+    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of());
     this.cppConfiguration = cppConfiguration;
     this.crosstool = Preconditions.checkNotNull(crosstool);
     this.crosstoolMiddleman = Preconditions.checkNotNull(crosstoolMiddleman);
@@ -112,7 +140,9 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
     this.strip = Preconditions.checkNotNull(strip);
     this.objCopy = Preconditions.checkNotNull(objCopy);
     this.link = Preconditions.checkNotNull(link);
+    this.interfaceSoBuilder = interfaceSoBuilder;
     this.dwp = Preconditions.checkNotNull(dwp);
+    this.coverage = Preconditions.checkNotNull(coverage);
     this.libcLink = Preconditions.checkNotNull(libcLink);
     this.staticRuntimeLinkInputs = Preconditions.checkNotNull(staticRuntimeLinkInputs);
     this.staticRuntimeLinkMiddleman = staticRuntimeLinkMiddleman;
@@ -127,6 +157,17 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
     this.coverageEnvironment = coverageEnvironment;
     this.linkDynamicLibraryTool = linkDynamicLibraryTool;
     this.environment = environment;
+    this.builtInIncludeDirectories = builtInIncludeDirectories;
+    this.sysroot = sysroot;
+  }
+
+  @SkylarkCallable(
+      name = "built_in_include_directories",
+      doc = "Returns the list of built-in directories of the compiler.",
+      structField = true
+  )
+  public ImmutableList<PathFragment> getBuiltInIncludeDirectories() {
+    return builtInIncludeDirectories;
   }
 
   /**
@@ -173,6 +214,13 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
 
   public NestedSet<Artifact> getDwp() {
     return dwp;
+  }
+
+  /**
+   * Returns the files necessary for capturing code coverage.
+   */
+  public NestedSet<Artifact> getCoverage() {
+    return coverage;
   }
 
   public NestedSet<Artifact> getLibcLink() {
@@ -290,5 +338,45 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
    */
   public Artifact getLinkDynamicLibraryTool() {
     return linkDynamicLibraryTool;
+  }
+
+  /**
+   * Returns the tool that builds interface libraries from dynamic libraries.
+   */
+  public Artifact getInterfaceSoBuilder() {
+    return interfaceSoBuilder;
+  }
+
+  @SkylarkCallable(
+    name = "sysroot",
+    structField = true,
+    doc =
+        "Returns the sysroot to be used. If the toolchain compiler does not support "
+            + "different sysroots, or the sysroot is the same as the default sysroot, then "
+            + "this method returns <code>None</code>."
+  )
+  public PathFragment getSysroot() {
+    return sysroot;
+  }
+
+  @SkylarkCallable(
+    name = "unfiltered_compiler_options_do_not_use",
+    doc =
+        "Returns the default list of options which cannot be filtered by BUILD "
+            + "rules. These should be appended to the command line after filtering."
+  )
+  public ImmutableList<String> getUnfilteredCompilerOptions(Iterable<String> features) {
+    return cppConfiguration.getUnfilteredCompilerOptions(features, sysroot);
+  }
+
+  @SkylarkCallable(
+    name = "link_options_do_not_use",
+    structField = true,
+    doc =
+        "Returns the set of command-line linker options, including any flags "
+            + "inferred from the command-line options."
+  )
+  public ImmutableList<String> getLinkOptions() {
+    return cppConfiguration.getLinkOptions(sysroot);
   }
 }

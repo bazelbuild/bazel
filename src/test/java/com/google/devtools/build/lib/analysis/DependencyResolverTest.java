@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertNotNull;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -61,6 +61,7 @@ public class DependencyResolverTest extends AnalysisTestCase {
   @Before
   public final void createResolver() throws Exception {
     dependencyResolver = new DependencyResolver() {
+
       @Override
       protected void invalidVisibilityReferenceHook(TargetAndConfiguration node, Label label) {
         throw new IllegalStateException();
@@ -125,7 +126,7 @@ public class DependencyResolverTest extends AnalysisTestCase {
       }
     }
 
-    assertNotNull("Attribute '" + attrName + "' not found", attr);
+    assertWithMessage("Attribute '" + attrName + "' not found").that(attr).isNotNull();
     Dependency dependency = null;
     for (Dependency candidate : dependentNodeMap.get(attr)) {
       if (candidate.getLabel().toString().equals(dep)) {
@@ -134,8 +135,10 @@ public class DependencyResolverTest extends AnalysisTestCase {
       }
     }
 
-    assertNotNull("Dependency '" + dep + "' on attribute '" + attrName + "' not found", dependency);
-    assertThat(dependency.getAspects()).containsExactly((Object[]) aspects);
+    assertWithMessage("Dependency '" + dep + "' on attribute '" + attrName + "' not found")
+        .that(dependency)
+        .isNotNull();
+    assertThat(dependency.getAspects().getAllAspects()).containsExactly((Object[]) aspects);
     return dependency;
   }
 

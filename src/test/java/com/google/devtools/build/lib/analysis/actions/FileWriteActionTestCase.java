@@ -15,12 +15,9 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -42,7 +39,7 @@ public abstract class FileWriteActionTestCase extends BuildViewTestCase {
   private Artifact outputArtifact;
   private Path output;
   private Executor executor;
-  private ActionExecutionContext context;
+  protected ActionExecutionContext context;
 
   @Before
   public final void createAction() throws Exception {
@@ -64,20 +61,20 @@ public abstract class FileWriteActionTestCase extends BuildViewTestCase {
 
   protected void checkNoInputsByDefault() {
     assertThat(action.getInputs()).isEmpty();
-    assertNull(action.getPrimaryInput());
+    assertThat(action.getPrimaryInput()).isNull();
   }
 
   protected void checkDestinationArtifactIsOutput() {
     Collection<Artifact> outputs = action.getOutputs();
-    assertEquals(Sets.newHashSet(outputArtifact), Sets.newHashSet(outputs));
-    assertEquals(outputArtifact, action.getPrimaryOutput());
+    assertThat(Sets.newHashSet(outputs)).isEqualTo(Sets.newHashSet(outputArtifact));
+    assertThat(action.getPrimaryOutput()).isEqualTo(outputArtifact);
   }
 
   protected void checkCanWriteNonExecutableFile() throws Exception {
     action.execute(context);
     String content = new String(FileSystemUtils.readContentAsLatin1(output));
-    assertEquals("Hello World", content);
-    assertFalse(output.isExecutable());
+    assertThat(content).isEqualTo("Hello World");
+    assertThat(output.isExecutable()).isFalse();
   }
 
   protected void checkCanWriteExecutableFile() throws Exception {
@@ -86,18 +83,27 @@ public abstract class FileWriteActionTestCase extends BuildViewTestCase {
     Action action = createAction(NULL_ACTION_OWNER, outputArtifact, "echo 'Hello World'", true);
     action.execute(context);
     String content = new String(FileSystemUtils.readContentAsLatin1(output));
-    assertEquals("echo 'Hello World'", content);
-    assertTrue(output.isExecutable());
+    assertThat(content).isEqualTo("echo 'Hello World'");
+    assertThat(output.isExecutable()).isTrue();
+  }
+
+  private enum KeyAttributes {
+    DATA,
+    MAKE_EXECUTABLE
   }
 
   protected void checkComputesConsistentKeys() throws Exception {
-    ActionTester.runTest(4, new ActionTester.ActionCombinationFactory() {
-      @Override
-      public Action generate(int i) {
-        return createAction(NULL_ACTION_OWNER, outputArtifact,
-            (i & 1) == 0 ? "0" : "1",
-            (i & 2) == 0);
-      }
-    });
+    ActionTester.runTest(
+        KeyAttributes.class,
+        new ActionTester.ActionCombinationFactory<KeyAttributes>() {
+          @Override
+          public Action generate(ImmutableSet<KeyAttributes> attributesToFlip) {
+            return createAction(
+                NULL_ACTION_OWNER,
+                outputArtifact,
+                attributesToFlip.contains(KeyAttributes.DATA) ? "0" : "1",
+                attributesToFlip.contains(KeyAttributes.MAKE_EXECUTABLE));
+          }
+        });
   }
 }

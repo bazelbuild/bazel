@@ -63,11 +63,7 @@ public final class BazelJavaTestRule implements RuleDefinition {
         // Input files for test actions collecting code coverage
         .add(
             attr("$lcov_merger", LABEL)
-                .value(env.getLabel("@bazel_tools//tools/test:LcovMerger_deploy.jar")))
-        // Used in the one-per-build coverage report generation action.
-        .add(
-            attr("$jacoco_runtime", LABEL)
-                .value(env.getLabel("@bazel_tools//tools/jdk:jacoco-blaze-agent")))
+                .value(env.getLabel("@bazel_tools//tools/test:LcovMerger")))
         .add(
             attr("$jacocorunner", LABEL)
                 .value(

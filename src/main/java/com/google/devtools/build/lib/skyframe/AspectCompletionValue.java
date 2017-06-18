@@ -18,9 +18,9 @@ import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.util.Collection;
 
 /**
@@ -44,7 +44,7 @@ public class AspectCompletionValue implements SkyValue {
         new Function<AspectValue, SkyKey>() {
           @Override
           public SkyKey apply(AspectValue aspectValue) {
-            return SkyKey.create(
+            return LegacySkyKey.create(
                 SkyFunctions.ASPECT_COMPLETION,
                 AspectCompletionKey.create(aspectValue.getKey(), ctx));
           }

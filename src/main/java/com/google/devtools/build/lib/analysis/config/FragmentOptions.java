@@ -77,6 +77,18 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable, 
     return ImmutableList.of();
   }
 
+  /**
+   * Returns true if actions should be enabled for this configuration. If <b>any</b> fragment
+   * sets this to false, <i>all</i> actions are disabled for the configuration.
+   *
+   * <p>Disabling actions is unusual behavior that should only be triggered under exceptionally
+   * special circumstances. In practice this only exists to support LIPO in C++. Don't override
+   * this method for any other purpose.
+   */
+  public boolean enableActions() {
+    return true;
+  }
+
   @Override
   public FragmentOptions clone() {
     try {

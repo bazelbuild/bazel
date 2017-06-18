@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.buildeventstream;
 
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.TextFormat;
 import java.io.Serializable;
 import java.util.List;
@@ -84,19 +85,84 @@ public final class BuildEventId implements Serializable {
         BuildEventStreamProtos.BuildEventId.newBuilder().setStarted(startedId).build());
   }
 
-  public static BuildEventId targetPatternExpanded(List<String> targetPattern) {
+  public static BuildEventId commandlineId() {
+    BuildEventStreamProtos.BuildEventId.CommandLineId commandLineId =
+        BuildEventStreamProtos.BuildEventId.CommandLineId.getDefaultInstance();
+    return new BuildEventId(
+        BuildEventStreamProtos.BuildEventId.newBuilder().setCommandLine(commandLineId).build());
+  }
+
+  public static BuildEventId optionsParsedId() {
+    BuildEventStreamProtos.BuildEventId.OptionsParsedId optionsParsedId =
+        BuildEventStreamProtos.BuildEventId.OptionsParsedId.getDefaultInstance();
+    return new BuildEventId(
+        BuildEventStreamProtos.BuildEventId.newBuilder().setOptionsParsed(optionsParsedId).build());
+  }
+
+  public static BuildEventId workspaceStatusId() {
+    return new BuildEventId(
+        BuildEventStreamProtos.BuildEventId.newBuilder()
+            .setWorkspaceStatus(
+                BuildEventStreamProtos.BuildEventId.WorkspaceStatusId.getDefaultInstance())
+            .build());
+  }
+
+  public static BuildEventId configurationId(String id) {
+    BuildEventStreamProtos.BuildEventId.ConfigurationId configurationId =
+        BuildEventStreamProtos.BuildEventId.ConfigurationId.newBuilder().setId(id).build();
+    return new BuildEventId(
+        BuildEventStreamProtos.BuildEventId.newBuilder().setConfiguration(configurationId).build());
+  }
+
+  private static BuildEventId targetPatternExpanded(List<String> targetPattern, boolean skipped) {
     BuildEventStreamProtos.BuildEventId.PatternExpandedId patternId =
         BuildEventStreamProtos.BuildEventId.PatternExpandedId.newBuilder()
             .addAllPattern(targetPattern)
             .build();
-    return new BuildEventId(
-        BuildEventStreamProtos.BuildEventId.newBuilder().setPattern(patternId).build());
+    BuildEventStreamProtos.BuildEventId.Builder builder =
+        BuildEventStreamProtos.BuildEventId.newBuilder();
+    if (skipped) {
+      builder.setPatternSkipped(patternId);
+    } else {
+      builder.setPattern(patternId);
+    }
+    return new BuildEventId(builder.build());
   }
 
-  public static BuildEventId targetCompleted(Label target) {
+  public static BuildEventId targetPatternExpanded(List<String> targetPattern) {
+    return targetPatternExpanded(targetPattern, false);
+  }
+
+  public static BuildEventId targetPatternSkipped(List<String> targetPattern) {
+    return targetPatternExpanded(targetPattern, true);
+  }
+
+  public static BuildEventId targetConfigured(Label label) {
+    BuildEventStreamProtos.BuildEventId.TargetConfiguredId configuredId =
+        BuildEventStreamProtos.BuildEventId.TargetConfiguredId.newBuilder()
+            .setLabel(label.toString())
+            .build();
+    return new BuildEventId(
+        BuildEventStreamProtos.BuildEventId.newBuilder().setTargetConfigured(configuredId).build());
+  }
+
+  public static BuildEventId targetCompleted(Label target, BuildEventId configuration) {
+    BuildEventStreamProtos.BuildEventId.ConfigurationId configId =
+        configuration.protoid.getConfiguration();
     BuildEventStreamProtos.BuildEventId.TargetCompletedId targetId =
         BuildEventStreamProtos.BuildEventId.TargetCompletedId.newBuilder()
             .setLabel(target.toString())
+            .setConfiguration(configId)
+            .build();
+    return new BuildEventId(
+        BuildEventStreamProtos.BuildEventId.newBuilder().setTargetCompleted(targetId).build());
+  }
+
+  public static BuildEventId aspectCompleted(Label target, String aspect) {
+    BuildEventStreamProtos.BuildEventId.TargetCompletedId targetId =
+        BuildEventStreamProtos.BuildEventId.TargetCompletedId.newBuilder()
+            .setLabel(target.toString())
+            .setAspect(aspect)
             .build();
     return new BuildEventId(
         BuildEventStreamProtos.BuildEventId.newBuilder().setTargetCompleted(targetId).build());
@@ -106,12 +172,60 @@ public final class BuildEventId implements Serializable {
     return new BuildEventId(cause.getIdProto());
   }
 
-  public static BuildEventId testSummary(Label target) {
+  public static BuildEventId actionCompleted(Path path) {
+    return new BuildEventId(
+        BuildEventStreamProtos.BuildEventId.newBuilder()
+            .setActionCompleted(
+                BuildEventStreamProtos.BuildEventId.ActionCompletedId.newBuilder()
+                    .setPrimaryOutput(path.toString())
+                    .build())
+            .build());
+  }
+
+  public static BuildEventId fromArtifactGroupName(String name) {
+    BuildEventStreamProtos.BuildEventId.NamedSetOfFilesId namedSetId =
+        BuildEventStreamProtos.BuildEventId.NamedSetOfFilesId.newBuilder().setId(name).build();
+    return new BuildEventId(
+        BuildEventStreamProtos.BuildEventId.newBuilder().setNamedSet(namedSetId).build());
+  }
+
+  public static BuildEventId testResult(
+      Label target, Integer run, Integer shard, Integer attempt, BuildEventId configuration) {
+    BuildEventStreamProtos.BuildEventId.ConfigurationId configId =
+        configuration.protoid.getConfiguration();
+    BuildEventStreamProtos.BuildEventId.TestResultId resultId =
+        BuildEventStreamProtos.BuildEventId.TestResultId.newBuilder()
+            .setLabel(target.toString())
+            .setConfiguration(configId)
+            .setRun(run + 1)
+            .setShard(shard + 1)
+            .setAttempt(attempt)
+            .build();
+    return new BuildEventId(
+        BuildEventStreamProtos.BuildEventId.newBuilder().setTestResult(resultId).build());
+  }
+
+  public static BuildEventId testResult(
+      Label target, Integer run, Integer shard, BuildEventId configuration) {
+    return testResult(target, run, shard, 1, configuration);
+  }
+
+  public static BuildEventId testSummary(Label target, BuildEventId configuration) {
+    BuildEventStreamProtos.BuildEventId.ConfigurationId configId =
+        configuration.protoid.getConfiguration();
     BuildEventStreamProtos.BuildEventId.TestSummaryId summaryId =
         BuildEventStreamProtos.BuildEventId.TestSummaryId.newBuilder()
             .setLabel(target.toString())
+            .setConfiguration(configId)
             .build();
     return new BuildEventId(
         BuildEventStreamProtos.BuildEventId.newBuilder().setTestSummary(summaryId).build());
+  }
+
+  public static BuildEventId buildFinished() {
+    BuildEventStreamProtos.BuildEventId.BuildFinishedId finishedId =
+        BuildEventStreamProtos.BuildEventId.BuildFinishedId.getDefaultInstance();
+    return new BuildEventId(
+        BuildEventStreamProtos.BuildEventId.newBuilder().setBuildFinished(finishedId).build());
   }
 }

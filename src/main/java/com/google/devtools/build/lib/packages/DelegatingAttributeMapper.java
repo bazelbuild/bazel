@@ -46,8 +46,8 @@ public class DelegatingAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public <T> boolean isConfigurable(String attributeName, Type<T> type) {
-    return delegate.isConfigurable(attributeName, type);
+  public boolean isConfigurable(String attributeName) {
+    return delegate.isConfigurable(attributeName);
   }
 
   @Override
@@ -98,7 +98,12 @@ public class DelegatingAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public boolean has(String attrName, Type<?> type) {
+  public boolean has(String attrName) {
+    return delegate.has(attrName);
+  }
+
+  @Override
+  public <T> boolean has(String attrName, Type<T> type) {
     return delegate.has(attrName, type);
   }
 }

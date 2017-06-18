@@ -15,8 +15,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -32,10 +31,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
-import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.LocalHostCapacity;
-import com.google.devtools.build.lib.actions.ResourceManager;
-import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.events.Event;
@@ -87,10 +82,6 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
   @Before
   public final void setUp() throws Exception {
     this.cache = new InMemoryActionCache();
-    ResourceManager.instance().setAvailableResources(LocalHostCapacity.getLocalHostCapacity());
-    ResourceManager.instance().setRamUtilizationPercentage(
-        ResourceManager.DEFAULT_RAM_UTILIZATION_PERCENTAGE);
-    ResourceManager.instance().resetResourceUsage();
   }
 
   @SafeVarargs
@@ -202,7 +193,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
 
     buildArtifacts(createBuilder(DEFAULT_NUM_JOBS, true), pear);
     assertThat(recorder.actionExecutedEvents).hasSize(1);
-    assertEquals(action, recorder.actionExecutedEvents.get(0).getAction());
+    assertThat(recorder.actionExecutedEvents.get(0).getAction()).isEqualTo(action);
   }
 
   @Test
@@ -488,7 +479,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
         BuildKind kind) {
       // Check that we really did build all the targets.
       for (Artifact file : targets) {
-        assertTrue(file.getPath().exists());
+        assertThat(file.getPath().exists()).isTrue();
       }
       // Check that each action was executed the right number of times
       for (Counter counter : counters) {
@@ -562,85 +553,15 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
       buildArtifacts(foo, bar);
       fail();
     } catch (BuildFailedException e) {
-      assertThat(e.getMessage()).contains("TestAction failed due to exception: foo action failed");
+      assertThat(e)
+          .hasMessageThat()
+          .contains("TestAction failed due to exception: foo action failed");
       assertContainsEvent("TestAction failed due to exception: foo action failed");
     }
 
-    assertTrue("bar action not finished, yet buildArtifacts has completed.",
-               finished[0]);
-  }
-
-  @Test
-  public void testSchedulingOfMemoryResources() throws Exception {
-    // The action graph consists of 100 independent actions, but execution is
-    // memory limited: only 6 TestActions can run concurrently:
-    ResourceManager.instance().setRamUtilizationPercentage(50);
-    ResourceManager.instance().setAvailableResources(
-        ResourceSet.createWithRamCpuIo(/*memoryMb=*/12.8, /*cpu=*/Integer.MAX_VALUE, /*io=*/0.0));
-    ResourceManager.instance().resetResourceUsage();
-
-    class Counter {
-      int currentlyRunning = 0;
-      int maxConcurrent = 0;
-      synchronized void increment() {
-        ++currentlyRunning;
-        if (currentlyRunning > maxConcurrent) {
-          maxConcurrent = currentlyRunning;
-        }
-      }
-      synchronized void decrement() {
-        currentlyRunning--;
-      }
-    }
-    final Counter counter = new Counter();
-
-    Artifact[] outputs = new Artifact[100];
-    for (int ii = 0; ii < outputs.length; ++ii) {
-      Artifact artifact = createDerivedArtifact("file" + ii);
-      Callable<Void> callable = new Callable<Void>() {
-          @Override
-          public Void call() throws Exception{
-            counter.increment();
-            Thread.sleep(100); // 100ms
-            counter.decrement();
-            return null;
-          }
-        };
-      registerAction(new TestAction(callable, Artifact.NO_ARTIFACTS, ImmutableList.of(artifact)));
-      outputs[ii] = artifact;
-    }
-
-    buildArtifacts(outputs);
-
-    assertEquals(0, counter.currentlyRunning);
-    assertEquals(6, counter.maxConcurrent);
-  }
-
-  @Test
-  public void testEstimateExceedsAvailableRam() throws Exception {
-    // Pretend that the machine has only 1MB of RAM available,
-    // then test running an action that we estimate requires 2MB of RAM.
-
-    ResourceManager.instance().setAvailableResources(
-        ResourceSet.createWithRamCpuIo(/*memoryMb=*/1.0, /*cpuUsage=*/4, /*ioUsage=*/0));
-    ResourceManager.instance().resetResourceUsage();
-
-    final boolean[] finished = { false };
-    Artifact foo = createDerivedArtifact("foo");
-    Runnable makeFoo = new Runnable() {
-        @Override
-        public void run() {
-          finished[0] = true;
-        }
-      };
-    registerAction(new TestAction(makeFoo, emptySet, asSet(foo)) {
-        @Override
-        public ResourceSet estimateResourceConsumption(Executor executor) {
-          return ResourceSet.createWithRamCpuIo(/*memoryMb=*/2.0, /*cpuUsage=*/1, /*ioUsage=*/0);
-        }
-      });
-    buildArtifacts(foo);
-    assertTrue(finished[0]);
+    assertWithMessage("bar action not finished, yet buildArtifacts has completed.")
+        .that(finished[0])
+        .isTrue();
   }
 
   @Test
@@ -658,7 +579,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
       buildArtifacts(foo);
       fail("Builder failed to detect cyclic action graph");
     } catch (BuildFailedException e) {
-      assertEquals(e.getMessage(), CYCLE_MSG);
+      assertThat(e).hasMessageThat().isEqualTo(CYCLE_MSG);
     }
   }
 
@@ -671,7 +592,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
       buildArtifacts(foo);
       fail("Builder failed to detect cyclic action graph");
     } catch (BuildFailedException e) {
-      assertEquals(e.getMessage(), CYCLE_MSG);
+      assertThat(e).hasMessageThat().isEqualTo(CYCLE_MSG);
     }
   }
 
@@ -693,7 +614,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
       buildArtifacts(foo1, foo2);
       fail("Builder failed to detect cyclic action graph");
     } catch (BuildFailedException e) {
-      assertEquals(e.getMessage(), CYCLE_MSG);
+      assertThat(e).hasMessageThat().isEqualTo(CYCLE_MSG);
     }
   }
 
@@ -715,7 +636,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
       buildArtifacts(foo);
       fail("Builder failed to detect cyclic action graph");
     } catch (BuildFailedException e) {
-      assertEquals(e.getMessage(), CYCLE_MSG);
+      assertThat(e).hasMessageThat().isEqualTo(CYCLE_MSG);
     }
   }
 
@@ -856,12 +777,12 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
     buildArtifacts(baz);
     // Check that the percentages increase non-linearly, because foo has 10 input files
     List<String> expectedMessages = Lists.newArrayList(
-        "Test foo START",
-        "Test foo FINISH",
-        "Test bar START",
-        "Test bar FINISH",
-        "Test baz START",
-        "Test baz FINISH");
+        " Test foo START",
+        " Test foo FINISH",
+        " Test bar START",
+        " Test bar FINISH",
+        " Test baz START",
+        " Test baz FINISH");
     assertThat(messages).containsAllIn(expectedMessages);
 
     // Now do an incremental rebuild of bar and baz,
@@ -873,10 +794,10 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
     // (in-memory) file system, rather than using cached entries.
     buildArtifacts(baz);
     expectedMessages = Lists.newArrayList(
-        "Test bar START",
-        "Test bar FINISH",
-        "Test baz START",
-        "Test baz FINISH");
+        " Test bar START",
+        " Test bar FINISH",
+        " Test baz START",
+        " Test baz FINISH");
     assertThat(messages).containsAllIn(expectedMessages);
   }
 }

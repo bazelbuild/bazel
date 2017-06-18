@@ -36,6 +36,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * Immutable store of information needed for C++ compilation that is aggregated
@@ -57,21 +58,19 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
    */
   private final NestedSet<Artifact> directModuleMaps;
 
+  /** Non-code mandatory compilation inputs. */
+  private final NestedSet<Artifact> nonCodeInputs;
+
   private final NestedSet<Pair<Artifact, Artifact>> pregreppedHdrs;
   
   private final ModuleInfo moduleInfo;
   private final ModuleInfo picModuleInfo;
 
-  /**
-   * The module maps from all targets the current target depends on transitively.
-   */
-  private final NestedSet<Artifact> transitiveModuleMaps;
-
   private final CppModuleMap cppModuleMap;
-  
-  // True if this context is for a compilation that needs transitive module maps.
-  private final boolean provideTransitiveModuleMaps;
-  
+  private final CppModuleMap verificationModuleMap;
+
+  private final boolean propagateModuleMapAsActionInput;
+
   // Derived from depsContexts.
   private final ImmutableSet<Artifact> compilationPrerequisites;
 
@@ -82,12 +81,13 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
       NestedSet<PathFragment> declaredIncludeWarnDirs,
       NestedSet<Artifact> declaredIncludeSrcs,
       NestedSet<Pair<Artifact, Artifact>> pregreppedHdrs,
+      NestedSet<Artifact> nonCodeInputs,
       ModuleInfo moduleInfo,
       ModuleInfo picModuleInfo,
-      NestedSet<Artifact> transitiveModuleMaps,
       NestedSet<Artifact> directModuleMaps,
       CppModuleMap cppModuleMap,
-      boolean provideTransitiveModuleMaps) {
+      @Nullable CppModuleMap verificationModuleMap,
+      boolean propagateModuleMapAsActionInput) {
     Preconditions.checkNotNull(commandLineContext);
     this.commandLineContext = commandLineContext;
     this.declaredIncludeDirs = declaredIncludeDirs;
@@ -97,10 +97,11 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
     this.pregreppedHdrs = pregreppedHdrs;
     this.moduleInfo = moduleInfo;
     this.picModuleInfo = picModuleInfo;
-    this.transitiveModuleMaps = transitiveModuleMaps;
     this.cppModuleMap = cppModuleMap;
-    this.provideTransitiveModuleMaps = provideTransitiveModuleMaps;
+    this.nonCodeInputs = nonCodeInputs;
+    this.verificationModuleMap = verificationModuleMap;
     this.compilationPrerequisites = compilationPrerequisites;
+    this.propagateModuleMapAsActionInput = propagateModuleMapAsActionInput;
   }
 
   /**
@@ -226,10 +227,8 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
   public NestedSet<Artifact> getAdditionalInputs() {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     builder.addTransitive(directModuleMaps);
-    if (provideTransitiveModuleMaps) {
-      builder.addTransitive(transitiveModuleMaps);
-    }
-    if (cppModuleMap != null) {
+    builder.addTransitive(nonCodeInputs);
+    if (cppModuleMap != null && propagateModuleMapAsActionInput) {
       builder.add(cppModuleMap.getArtifact());
     }
     return builder.build();
@@ -240,13 +239,6 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
    */
   public NestedSet<Artifact> getDirectModuleMaps() {
     return directModuleMaps;
-  }
-
-  /**
-   * @return modules maps in the transitive closure that are not from direct dependencies.
-   */
-  private NestedSet<Artifact> getTransitiveModuleMaps() {
-    return transitiveModuleMaps;
   }
 
   /**
@@ -281,12 +273,13 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
         NestedSetBuilder.<PathFragment>emptySet(Order.STABLE_ORDER),
         context.declaredIncludeSrcs,
         context.pregreppedHdrs,
+        context.nonCodeInputs,
         context.moduleInfo,
         context.picModuleInfo,
-        context.transitiveModuleMaps,
         context.directModuleMaps,
         context.cppModuleMap,
-        context.provideTransitiveModuleMaps);
+        context.verificationModuleMap,
+        context.propagateModuleMapAsActionInput);
   }
 
   /**
@@ -332,14 +325,15 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
         mergeSets(ownerContext.declaredIncludeWarnDirs, libContext.declaredIncludeWarnDirs),
         mergeSets(ownerContext.declaredIncludeSrcs, libContext.declaredIncludeSrcs),
         mergeSets(ownerContext.pregreppedHdrs, libContext.pregreppedHdrs),
+        mergeSets(ownerContext.nonCodeInputs, libContext.nonCodeInputs),
         moduleInfo.build(),
         picModuleInfo.build(),
-        mergeSets(ownerContext.transitiveModuleMaps, libContext.transitiveModuleMaps),
         mergeSets(ownerContext.directModuleMaps, libContext.directModuleMaps),
         libContext.cppModuleMap,
-        libContext.provideTransitiveModuleMaps);
+        libContext.verificationModuleMap,
+        libContext.propagateModuleMapAsActionInput);
   }
-  
+
   /**
    * Return a nested set containing all elements from {@code s1} and {@code s2}.
    */
@@ -353,6 +347,11 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
   /** @return the C++ module map of the owner. */
   public CppModuleMap getCppModuleMap() {
     return cppModuleMap;
+  }
+
+  /** @return the C++ module map of the owner. */
+  public CppModuleMap getVerificationModuleMap() {
+    return verificationModuleMap;
   }
 
   /**
@@ -394,13 +393,14 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
         NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Pair<Artifact, Artifact>> pregreppedHdrs =
         NestedSetBuilder.stableOrder();
+    private final NestedSetBuilder<Artifact> nonCodeInputs = NestedSetBuilder.stableOrder();
     private final ModuleInfo.Builder moduleInfo = new ModuleInfo.Builder();
     private final ModuleInfo.Builder picModuleInfo = new ModuleInfo.Builder();
-    private final NestedSetBuilder<Artifact> transitiveModuleMaps = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> directModuleMaps = NestedSetBuilder.stableOrder();
     private final Set<String> defines = new LinkedHashSet<>();
     private CppModuleMap cppModuleMap;
-    private boolean provideTransitiveModuleMaps = false;
+    private CppModuleMap verificationModuleMap;
+    private boolean propagateModuleMapAsActionInput = true;
 
     /** The rule that owns the context */
     private final RuleContext ruleContext;
@@ -409,17 +409,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
      * Creates a new builder for a {@link CppCompilationContext} instance.
      */
     public Builder(RuleContext ruleContext) {
-      this(ruleContext, /*forInterface=*/ false);
-    }
-
-    /**
-     * Creates a new builder for a {@link CppCompilationContext} instance.
-     *
-     * @param forInterface if true, this context is designated for the compilation of an interface.
-     */
-    public Builder(RuleContext ruleContext, boolean forInterface) {
       this.ruleContext = ruleContext;
-      this.purpose = forInterface ? "cpp_interface_prerequisites" : "cpp_compilation_prerequisites";
     }
 
     /**
@@ -458,15 +448,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
       pregreppedHdrs.addTransitive(otherContext.getPregreppedHeaders());
       moduleInfo.addTransitive(otherContext.moduleInfo);
       picModuleInfo.addTransitive(otherContext.picModuleInfo);
-
-      NestedSet<Artifact> othersTransitiveModuleMaps = otherContext.getTransitiveModuleMaps();
-      NestedSet<Artifact> othersDirectModuleMaps = otherContext.getDirectModuleMaps();
-
-      // Forward transitive information.
-      // The other target's transitive module maps do not include its direct module maps, so we
-      // add both.
-      transitiveModuleMaps.addTransitive(othersTransitiveModuleMaps);
-      transitiveModuleMaps.addTransitive(othersDirectModuleMaps);
+      nonCodeInputs.addTransitive(otherContext.nonCodeInputs);
 
       // All module maps of direct dependencies are inputs to the current compile independently of
       // the build type.
@@ -576,20 +558,28 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
     /**
      * Adds a header that has been declared in the {@code src} or {@code headers attribute}. The
      * header will also be added to the compilation prerequisites.
+     *
+     * <p>Filters out fileset directory artifacts, which are not valid inputs.
      */
     public Builder addDeclaredIncludeSrc(Artifact header) {
-      declaredIncludeSrcs.add(header);
-      compilationPrerequisites.add(header);
+      if (!header.isFileset()) {
+        declaredIncludeSrcs.add(header);
+        compilationPrerequisites.add(header);
+      }
       return this;
     }
 
     /**
      * Adds multiple headers that have been declared in the {@code src} or {@code headers
      * attribute}. The headers will also be added to the compilation prerequisites.
+     *
+     * <p>Filters out fileset directory artifacts, which are not valid inputs.
      */
     public Builder addDeclaredIncludeSrcs(Collection<Artifact> declaredIncludeSrcs) {
-      this.declaredIncludeSrcs.addAll(declaredIncludeSrcs);
-      return addCompilationPrerequisites(declaredIncludeSrcs);
+      for (Artifact source : declaredIncludeSrcs) {
+        addDeclaredIncludeSrc(source);
+      }
+      return this;
     }
 
     public Builder addModularHdrs(Collection<Artifact> headers) {
@@ -616,6 +606,12 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
       return this;
     }
 
+    /** Add a set of required non-code compilation input. */
+    public Builder addNonCodeInputs(Iterable<Artifact> inputs) {
+      nonCodeInputs.addAll(inputs);
+      return this;
+    }
+
     /**
      * Adds a single define.
      */
@@ -632,16 +628,29 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
       return this;
     }
 
-    /**
-     * Sets the C++ module map.
-     */
+    /** Sets the C++ module map. */
     public Builder setCppModuleMap(CppModuleMap cppModuleMap) {
       this.cppModuleMap = cppModuleMap;
       return this;
     }
 
+    /** Sets the C++ module map used to verify that headers are modules compatible. */
+    public Builder setVerificationModuleMap(CppModuleMap verificationModuleMap) {
+      this.verificationModuleMap = verificationModuleMap;
+      return this;
+    }
+
+    /**
+     * Causes the module map to be passed as an action input to dependant compilations.
+     */
+    public Builder setPropagateCppModuleMapAsActionInput(boolean propagateModuleMap) {
+      this.propagateModuleMapAsActionInput = propagateModuleMap;
+      return this;
+    }
+
     /**
      * Sets the C++ header module in non-pic mode.
+     *
      * @param headerModule The .pcm file generated for this library.
      */
     public Builder setHeaderModule(Artifact headerModule) {
@@ -655,14 +664,6 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
      */
     public Builder setPicHeaderModule(Artifact picHeaderModule) {
       this.picModuleInfo.setHeaderModule(picHeaderModule);
-      return this;
-    }
-
-    /**
-     * Sets that the context will be used by a compilation that needs transitive module maps.
-     */
-    public Builder setProvideTransitiveModuleMaps(boolean provideTransitiveModuleMaps) {
-      this.provideTransitiveModuleMaps = provideTransitiveModuleMaps;
       return this;
     }
 
@@ -697,12 +698,13 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
           declaredIncludeWarnDirs.build(),
           declaredIncludeSrcs.build(),
           pregreppedHdrs.build(),
+          nonCodeInputs.build(),
           moduleInfo.build(),
           picModuleInfo.build(),
-          transitiveModuleMaps.build(),
           directModuleMaps.build(),
           cppModuleMap,
-          provideTransitiveModuleMaps);
+          verificationModuleMap,
+          propagateModuleMapAsActionInput);
     }
 
     /**

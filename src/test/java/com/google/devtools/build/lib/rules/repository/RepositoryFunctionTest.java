@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.repository;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -27,13 +26,11 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
-import com.google.devtools.build.skyframe.SkyValue;
-
+import java.util.Map;
+import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import javax.annotation.Nullable;
 
 /**
  * Tests for @{link RepositoryFunction}
@@ -48,9 +45,9 @@ public class RepositoryFunctionTest extends BuildViewTestCase {
   static class TestingRepositoryFunction extends RepositoryFunction {
     @Nullable
     @Override
-    public SkyValue fetch(
-        Rule rule, Path outputDirectory, BlazeDirectories directories, SkyFunction.Environment env)
-            throws SkyFunctionException, InterruptedException {
+    public RepositoryDirectoryValue.Builder fetch(Rule rule, Path outputDirectory,
+        BlazeDirectories directories, SkyFunction.Environment env, Map<String, String> markerData)
+        throws SkyFunctionException, InterruptedException {
       return null;
     }
 
@@ -71,8 +68,8 @@ public class RepositoryFunctionTest extends BuildViewTestCase {
             "    name = 'z',",
             "    path = 'a/b/c',",
             ")");
-    assertEquals(rootDirectory.getRelative("a/b/c").asFragment(),
-        TestingRepositoryFunction.getTargetPath(rule, rootDirectory));
+    assertThat(TestingRepositoryFunction.getTargetPath(rule, rootDirectory))
+        .isEqualTo(rootDirectory.getRelative("a/b/c").asFragment());
   }
 
   @Test
@@ -81,8 +78,8 @@ public class RepositoryFunctionTest extends BuildViewTestCase {
         "    name = 'w',",
         "    path = '/a/b/c',",
         ")");
-    assertEquals(new PathFragment("/a/b/c"),
-        TestingRepositoryFunction.getTargetPath(rule, rootDirectory));
+    assertThat(TestingRepositoryFunction.getTargetPath(rule, rootDirectory))
+        .isEqualTo(PathFragment.create("/a/b/c"));
   }
 
   @Test
@@ -95,5 +92,24 @@ public class RepositoryFunctionTest extends BuildViewTestCase {
     String workspaceContent = new String(
         FileSystemUtils.readContentAsLatin1(rootDirectory.getRelative("WORKSPACE")));
     assertThat(workspaceContent).contains("workspace(name = \"abc\")");
+  }
+
+  private static void assertMarkerFileEscaping(String testCase) {
+    String escaped = RepositoryDelegatorFunction.escape(testCase);
+    assertThat(RepositoryDelegatorFunction.unescape(escaped)).isEqualTo(testCase);
+  }
+
+  @Test
+  public void testMarkerFileEscaping() throws Exception {
+    assertMarkerFileEscaping(null);
+    assertMarkerFileEscaping("\\0");
+    assertMarkerFileEscaping("a\\0");
+    assertMarkerFileEscaping("a b");
+    assertMarkerFileEscaping("a b c");
+    assertMarkerFileEscaping("a \\b");
+    assertMarkerFileEscaping("a \\nb");
+    assertMarkerFileEscaping("a \\\\nb");
+    assertMarkerFileEscaping("a \\\nb");
+    assertMarkerFileEscaping("a \nb");
   }
 }

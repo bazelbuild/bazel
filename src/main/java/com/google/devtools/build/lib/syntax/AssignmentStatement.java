@@ -14,12 +14,6 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.base.Optional;
-import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
-import com.google.devtools.build.lib.syntax.compiler.LoopLabels;
-import com.google.devtools.build.lib.syntax.compiler.VariableScope;
-
-import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
 
 /**
  * Syntax node for an assignment statement.
@@ -33,8 +27,8 @@ public final class AssignmentStatement extends Statement {
   /**
    *  Constructs an assignment: "lvalue := value".
    */
-  AssignmentStatement(Expression lvalue, Expression expression) {
-    this.lvalue = new LValue(lvalue);
+  public AssignmentStatement(LValue lvalue, Expression expression) {
+    this.lvalue = lvalue;
     this.expression = expression;
   }
 
@@ -72,14 +66,5 @@ public final class AssignmentStatement extends Statement {
   void validate(ValidationEnvironment env) throws EvalException {
     expression.validate(env);
     lvalue.validate(env, getLocation());
-  }
-
-  @Override
-  ByteCodeAppender compile(
-      VariableScope scope, Optional<LoopLabels> loopLabels, DebugInfo debugInfo)
-      throws EvalException {
-    return new ByteCodeAppender.Compound(
-        expression.compile(scope, debugInfo),
-        lvalue.compileAssignment(this, debugInfo.add(this), scope));
   }
 }

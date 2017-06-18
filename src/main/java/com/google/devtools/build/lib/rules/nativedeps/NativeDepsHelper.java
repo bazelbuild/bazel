@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder;
+import com.google.devtools.build.lib.rules.cpp.FdoSupportProvider;
 import com.google.devtools.build.lib.rules.cpp.Link;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
@@ -106,7 +107,7 @@ public abstract class NativeDepsHelper {
       return null;
     }
 
-    PathFragment labelName = new PathFragment(ruleContext.getLabel().getName());
+    PathFragment labelName = PathFragment.create(ruleContext.getLabel().getName());
     String libraryIdentifier = ruleContext.getUniqueDirectory(ANDROID_UNIQUE_DIR)
         .getRelative(labelName.replaceName("lib" + labelName.getBaseName()))
         .getPathString();
@@ -197,8 +198,10 @@ public abstract class NativeDepsHelper {
     } else {
       sharedLibrary = nativeDeps;
     }
+    FdoSupportProvider fdoSupport =
+        CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext);
     CppLinkActionBuilder builder =
-        new CppLinkActionBuilder(ruleContext, sharedLibrary, configuration, toolchain);
+        new CppLinkActionBuilder(ruleContext, sharedLibrary, configuration, toolchain, fdoSupport);
     if (useDynamicRuntime) {
       builder.setRuntimeInputs(ArtifactCategory.DYNAMIC_LIBRARY,
           toolchain.getDynamicRuntimeLinkMiddleman(), toolchain.getDynamicRuntimeLinkInputs());
@@ -258,11 +261,11 @@ public abstract class NativeDepsHelper {
    * symlink for the native library for the specified rule.
    */
   private static PathFragment getRuntimeLibraryPath(RuleContext ruleContext, Artifact lib) {
-    PathFragment relativePath = new PathFragment(ruleContext.getLabel().getName());
+    PathFragment relativePath = PathFragment.create(ruleContext.getLabel().getName());
     PathFragment libParentDir =
         relativePath.replaceName(lib.getExecPath().getParentDirectory().getBaseName());
     String libName = lib.getExecPath().getBaseName();
-    return new PathFragment(libParentDir, new PathFragment(libName));
+    return PathFragment.create(libParentDir, PathFragment.create(libName));
   }
 
   /**
@@ -303,6 +306,6 @@ public abstract class NativeDepsHelper {
     for (String feature : features) {
       fp.addString(feature);
     }
-    return new PathFragment("_nativedeps/" + fp.hexDigestAndReset());
+    return PathFragment.create("_nativedeps/" + fp.hexDigestAndReset());
   }
 }

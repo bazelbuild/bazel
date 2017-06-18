@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
-import static com.google.devtools.build.lib.rules.cpp.Link.LINK_LIBRARY_FILETYPES;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.ASSET_CATALOG;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_IMPORT_DIR;
@@ -26,7 +25,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FLAG;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_FOR_XCODEGEN;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.GENERAL_RESOURCE_DIR;
@@ -35,6 +33,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE_SYSTEM;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IQUOTE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.J2OBJC_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKED_BINARY;
@@ -50,6 +49,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STORYBOARD;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STRINGS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.TOP_LEVEL_MODULE_MAP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.TOP_LEVEL_MODULE_NAME;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.UMBRELLA_HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCDATAMODEL;
@@ -75,11 +75,11 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
-import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
+
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -93,6 +93,18 @@ import java.util.Set;
 // classes. Make sure to distinguish rule output (providers, runfiles, ...) from intermediate,
 // rule-internal information. Any provider created by a rule should not be read, only published.
 public final class ObjcCommon {
+
+  /** Filters fileset artifacts out of a group of artifacts. */
+  public static Iterable<Artifact> filterFileset(Iterable<Artifact> artifacts) {
+    ImmutableList.Builder<Artifact> inputs = ImmutableList.<Artifact>builder();
+    for (Artifact artifact : artifacts) {
+      if (!artifact.isFileset()) {
+        inputs.add(artifact);
+      }
+    }
+    return inputs.build();
+  }
+
   /**
    * Provides a way to access attributes that are common to all resources rules.
    */
@@ -149,8 +161,8 @@ public final class ObjcCommon {
     private Iterable<ObjcProvider> directDepObjcProviders = ImmutableList.of();
     private Iterable<ObjcProvider> runtimeDepObjcProviders = ImmutableList.of();
     private Iterable<String> defines = ImmutableList.of();
-    private Iterable<PathFragment> userHeaderSearchPaths = ImmutableList.of();
-    private Iterable<PathFragment> directDependencyHeaderSearchPaths = ImmutableList.of();
+    private Iterable<PathFragment> includes = ImmutableList.of();
+    private Iterable<PathFragment> directDependencyIncludes = ImmutableList.of();
     private IntermediateArtifacts intermediateArtifacts;
     private boolean alwayslink;
     private boolean hasModuleMap;
@@ -309,20 +321,16 @@ public final class ObjcCommon {
       return this;
     }
 
-    public Builder addUserHeaderSearchPaths(Iterable<PathFragment> userHeaderSearchPaths) {
-      this.userHeaderSearchPaths =
-          Iterables.concat(this.userHeaderSearchPaths, userHeaderSearchPaths);
+    /** Adds includes to be passed into compile actions with {@code -I}. */
+    public Builder addIncludes(Iterable<PathFragment> includes) {
+      this.includes = Iterables.concat(this.includes, includes);
       return this;
     }
 
-    /**
-     * Adds header search paths that will only be visible by strict dependents of the provider.
-     */
-    public Builder addDirectDependencyHeaderSearchPaths(
-        Iterable<PathFragment> directDependencyHeaderSearchPaths) {
-      this.directDependencyHeaderSearchPaths =
-          Iterables.concat(
-              this.directDependencyHeaderSearchPaths, directDependencyHeaderSearchPaths);
+    /** Adds header search paths that will only be visible by strict dependents of the provider. */
+    public Builder addDirectDependencyIncludes(Iterable<PathFragment> directDependencyIncludes) {
+      this.directDependencyIncludes =
+          Iterables.concat(this.directDependencyIncludes, directDependencyIncludes);
       return this;
     }
 
@@ -385,6 +393,7 @@ public final class ObjcCommon {
     }
 
     ObjcCommon build() {
+
       Iterable<BundleableFile> bundleImports = BundleableFile.bundleImportsFromRule(context);
 
       ObjcProvider.Builder objcProvider =
@@ -400,12 +409,15 @@ public final class ObjcCommon {
               .addAll(SDK_DYLIB, extraSdkDylibs)
               .addAll(STATIC_FRAMEWORK_FILE, staticFrameworkImports)
               .addAll(DYNAMIC_FRAMEWORK_FILE, dynamicFrameworkImports)
-              .addAll(STATIC_FRAMEWORK_DIR,
+              .addAll(
+                  STATIC_FRAMEWORK_DIR,
                   uniqueContainers(staticFrameworkImports, FRAMEWORK_CONTAINER_TYPE))
-              .addAll(DYNAMIC_FRAMEWORK_DIR,
+              .addAll(
+                  DYNAMIC_FRAMEWORK_DIR,
                   uniqueContainers(dynamicFrameworkImports, FRAMEWORK_CONTAINER_TYPE))
-              .addAll(INCLUDE, userHeaderSearchPaths)
-              .addAllForDirectDependents(INCLUDE, directDependencyHeaderSearchPaths)
+              .addAll(INCLUDE, includes)
+              .add(IQUOTE, buildConfiguration.getGenfilesFragment())
+              .addAllForDirectDependents(INCLUDE, directDependencyIncludes)
               .addAll(DEFINE, defines)
               .addTransitiveAndPropagate(depObjcProviders)
               .addTransitiveWithoutPropagating(directDepObjcProviders);
@@ -419,7 +431,7 @@ public final class ObjcCommon {
       }
 
       for (CppCompilationContext headerProvider : depCcHeaderProviders) {
-        objcProvider.addTransitiveAndPropagate(HEADER, headerProvider.getDeclaredIncludeSrcs());
+        objcProvider.addAll(HEADER, filterFileset(headerProvider.getDeclaredIncludeSrcs()));
         objcProvider.addAll(INCLUDE, headerProvider.getIncludeDirs());
         // TODO(bazel-team): This pulls in stl via CppHelper.mergeToolchainDependentContext but
         // probably shouldn't.
@@ -446,15 +458,6 @@ public final class ObjcCommon {
             .addAll(SDK_FRAMEWORK, frameworkLinkOpts.build())
             .addAll(LINKOPT, nonFrameworkLinkOpts.build())
             .addTransitiveAndPropagate(CC_LIBRARY, params.getLibraries());
-
-        for (LinkerInputs.LibraryToLink library : params.getLibraries()) {
-          Artifact artifact = library.getArtifact();
-          if (LINK_LIBRARY_FILETYPES.matches(artifact.getFilename())) {
-            objcProvider.add(
-                FORCE_LOAD_FOR_XCODEGEN,
-                "$(WORKSPACE_ROOT)/" + artifact.getExecPath().getSafePathString());
-          }
-        }
       }
 
       if (compilationAttributes.isPresent()) {
@@ -466,8 +469,8 @@ public final class ObjcCommon {
                     PathFragment.safePathStrings(attributes.sdkIncludes())),
                 TO_PATH_FRAGMENT);
         objcProvider
-            .addAll(HEADER, attributes.hdrs())
-            .addAll(HEADER, attributes.textualHdrs())
+            .addAll(HEADER, filterFileset(attributes.hdrs()))
+            .addAll(HEADER, filterFileset(attributes.textualHdrs()))
             .addAll(INCLUDE, attributes.headerSearchPaths(buildConfiguration.getGenfilesFragment()))
             .addAll(INCLUDE, sdkIncludes)
             .addAll(SDK_FRAMEWORK, attributes.sdkFrameworks())
@@ -515,7 +518,7 @@ public final class ObjcCommon {
         // TODO(bazel-team): Add private headers to the provider when we have module maps to enforce
         // them.
         objcProvider
-            .addAll(HEADER, artifacts.getAdditionalHdrs())
+            .addAll(HEADER, filterFileset(artifacts.getAdditionalHdrs()))
             .addAll(LIBRARY, artifacts.getArchive().asSet())
             .addAll(SOURCE, allSources);
 
@@ -539,18 +542,10 @@ public final class ObjcCommon {
         for (CompilationArtifacts artifacts : compilationArtifacts.asSet()) {
           for (Artifact archive : artifacts.getArchive().asSet()) {
             objcProvider.add(FORCE_LOAD_LIBRARY, archive);
-            objcProvider.add(
-                FORCE_LOAD_FOR_XCODEGEN,
-                String.format(
-                    "$(BUILT_PRODUCTS_DIR)/lib%s.a",
-                    XcodeProvider.xcodeTargetName(context.getLabel())));
           }
         }
         for (Artifact archive : extraImportLibraries) {
           objcProvider.add(FORCE_LOAD_LIBRARY, archive);
-          objcProvider.add(
-              FORCE_LOAD_FOR_XCODEGEN,
-              "$(WORKSPACE_ROOT)/" + archive.getExecPath().getSafePathString());
         }
       }
 
@@ -560,6 +555,10 @@ public final class ObjcCommon {
 
         objcProvider.add(MODULE_MAP, moduleMapArtifact);
 
+        Optional<Artifact> umbrellaHeader = moduleMap.getUmbrellaHeader();
+        if (umbrellaHeader.isPresent()) {
+          objcProvider.add(UMBRELLA_HEADER, umbrellaHeader.get());
+        }
         objcProvider.addAllNonPropagable(TOP_LEVEL_MODULE_MAP, Collections.singleton(moduleMapArtifact));
         objcProvider.addAllNonPropagable(TOP_LEVEL_MODULE_NAME, Collections.singleton(moduleMap.getName()));
       }
@@ -591,7 +590,7 @@ public final class ObjcCommon {
         return false;
       }
     }
-    
+
     /**
      * Returns {@code true} if the given rule context has a launch storyboard set.
      */
@@ -688,8 +687,42 @@ public final class ObjcCommon {
             .replace(":", "_");
   }
 
-  static ImmutableList<PathFragment> userHeaderSearchPaths(BuildConfiguration configuration) {
-    return ImmutableList.of(new PathFragment("."), configuration.getGenfilesFragment());
+  /**
+   * Determines clang module name for a rule. The default is the fully qualified label with
+   * underscores replacing reserved characters.
+   *
+   * It can be overridden with the "module_name" attribute of objc_library.
+   *
+   * User-defined module names are not validated since it is legal in the clang modulemap language
+   * to use an arbitrary string literal, however it is not possible to use {@code @import} syntax
+   * for modules names that contain symbols, spaces, etc.
+   */
+  static String getClangModuleName(RuleContext ruleContext) {
+    if (ruleContext.attributes().has("module_name", Type.STRING)) {
+      String moduleName = ruleContext.attributes().get("module_name", Type.STRING);
+      if (!Strings.isNullOrEmpty(moduleName)) {
+        return moduleName;
+      }
+    }
+
+    // Otherwise, just use target name, it doesn't matter.
+    return
+        ruleContext
+            .getLabel()
+            .toString()
+            .replace("//", "")
+            .replace("@", "")
+            .replace("/", "_")
+            .replace(":", "_");
+  }
+
+  static ImmutableSet<PathFragment> userHeaderSearchPaths(
+      ObjcProvider provider, BuildConfiguration config) {
+    return ImmutableSet.<PathFragment>builder()
+        .add(PathFragment.create("."))
+        .add(config.getGenfilesFragment())
+        .addAll(provider.get(IQUOTE))
+        .build();
   }
 
   /**
@@ -750,7 +783,8 @@ public final class ObjcCommon {
   static Iterable<PathFragment> xcodeStructuredResourceDirs(Iterable<Artifact> artifacts) {
     ImmutableSet.Builder<PathFragment> containers = new ImmutableSet.Builder<>();
     for (Artifact artifact : artifacts) {
-      PathFragment ownerRuleDirectory = artifact.getArtifactOwner().getLabel().getPackageFragment();
+      PathFragment ownerRuleDirectory =
+          artifact.getArtifactOwner().getLabel().getPackageIdentifier().getSourceRoot();
       String containerName =
           artifact.getRootRelativePath().relativeTo(ownerRuleDirectory).getSegment(0);
       PathFragment rootExecPath = artifact.getRoot().getExecPath();

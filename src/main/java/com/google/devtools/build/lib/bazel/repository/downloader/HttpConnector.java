@@ -106,7 +106,7 @@ class HttpConnector {
         // The read timeout is always large because it stays in effect after this method.
         connection.setReadTimeout(READ_TIMEOUT_MS);
         // Java tries to abstract HTTP error responses for us. We don't want that. So we're going
-        // to try and undo any IOException that doesn't appepar to be a legitimate I/O exception.
+        // to try and undo any IOException that doesn't appear to be a legitimate I/O exception.
         int code;
         try {
           connection.connect();
@@ -121,6 +121,12 @@ class HttpConnector {
           // This will happen if the user does something like specify a port greater than 2^16-1.
           throw new UnrecoverableHttpException(e.getMessage());
         } catch (IOException e) {
+          // I'm not sure in what cases this happens, but IOException can be thrown with a null
+          // message.
+          if (e.getMessage() == null) {
+            throw new UnrecoverableHttpException(
+                "Failed to even get an error message from " + url);
+          }
           if (!e.getMessage().startsWith("Server returned")) {
             throw e;
           }

@@ -14,16 +14,21 @@
 package com.google.devtools.build.lib.bazel.rules.android;
 
 import com.android.repository.Revision;
+import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Maps.EntryTransformer;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
-import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
+import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.skyframe.Dirents;
 import com.google.devtools.build.lib.skyframe.FileSymlinkException;
@@ -42,7 +47,9 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.ValueOrException;
 import java.io.IOException;
+import java.util.Map;
 import java.util.Properties;
 import javax.annotation.Nullable;
 
@@ -50,8 +57,17 @@ import javax.annotation.Nullable;
  * Implementation of the {@code android_sdk_repository} rule.
  */
 public class AndroidSdkRepositoryFunction extends RepositoryFunction {
-  private static final String BUILD_TOOLS_DIR_NAME = "build-tools";
+  private static final PathFragment BUILD_TOOLS_DIR = PathFragment.create("build-tools");
+  private static final PathFragment PLATFORMS_DIR = PathFragment.create("platforms");
+  private static final PathFragment SYSTEM_IMAGES_DIR = PathFragment.create("system-images");
   private static final Revision MIN_BUILD_TOOLS_REVISION = new Revision(24, 0, 3);
+  private static final String PATH_ENV_VAR = "ANDROID_HOME";
+  private static final ImmutableList<String> PATH_ENV_VAR_AS_LIST = ImmutableList.of(PATH_ENV_VAR);
+  private static final ImmutableList<String> LOCAL_MAVEN_REPOSITORIES =
+      ImmutableList.of(
+          "extras/android/m2repository",
+          "extras/google/m2repository",
+          "extras/m2repository");
 
   @Override
   public boolean isLocal(Rule rule) {
@@ -59,29 +75,103 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
   }
 
   @Override
-  public SkyValue fetch(
-      Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env)
+  public boolean verifyMarkerData(Rule rule, Map<String, String> markerData, Environment env)
+      throws InterruptedException {
+    WorkspaceAttributeMapper attributes = WorkspaceAttributeMapper.of(rule);
+    if (attributes.isAttributeValueExplicitlySpecified("path")) {
+      return true;
+    }
+    return super.verifyEnvironMarkerData(markerData, env, PATH_ENV_VAR_AS_LIST);
+  }
+
+  @Override
+  public RepositoryDirectoryValue.Builder fetch(Rule rule, final Path outputDirectory,
+      BlazeDirectories directories, Environment env, Map<String, String> markerData)
       throws SkyFunctionException, InterruptedException {
-
+    Map<String, String> environ =
+        declareEnvironmentDependencies(markerData, env, PATH_ENV_VAR_AS_LIST);
+    if (environ == null) {
+      return null;
+    }
     prepareLocalRepositorySymlinkTree(rule, outputDirectory);
-    PathFragment pathFragment = getTargetPath(rule, directories.getWorkspace());
+    WorkspaceAttributeMapper attributes = WorkspaceAttributeMapper.of(rule);
+    FileSystem fs = directories.getOutputBase().getFileSystem();
+    Path androidSdkPath;
+    if (attributes.isAttributeValueExplicitlySpecified("path")) {
+      androidSdkPath = fs.getPath(getTargetPath(rule, directories.getWorkspace()));
+    } else if (environ.get(PATH_ENV_VAR) != null) {
+      androidSdkPath =
+          fs.getPath(getAndroidHomeEnvironmentVar(directories.getWorkspace(), environ));
+    } else {
+      throw new RepositoryFunctionException(
+          new EvalException(
+              rule.getLocation(),
+              "Either the path attribute of android_sdk_repository or the ANDROID_HOME environment "
+                  + " variable must be set."),
+          Transience.PERSISTENT);
+    }
 
-    if (!symlinkLocalRepositoryContents(
-        outputDirectory, directories.getOutputBase().getFileSystem().getPath(pathFragment))) {
+    if (!symlinkLocalRepositoryContents(outputDirectory, androidSdkPath)) {
       return null;
     }
 
-    AttributeMap attributes = NonconfigurableAttributeMapper.of(rule);
-    Integer apiLevel = attributes.get("api_level", Type.INTEGER);
+    DirectoryListingValue platformsDirectoryValue =
+        AndroidRepositoryUtils.getDirectoryListing(androidSdkPath, PLATFORMS_DIR, env);
+    if (platformsDirectoryValue == null) {
+      return null;
+    }
+
+    ImmutableSortedSet<Integer> apiLevels =
+        AndroidRepositoryUtils.getApiLevels(platformsDirectoryValue.getDirents());
+    if (apiLevels.isEmpty()) {
+      throw new RepositoryFunctionException(
+          new EvalException(
+              rule.getLocation(),
+              "android_sdk_repository requires that at least one Android SDK Platform is installed "
+                  + "in the Android SDK. Please install an Android SDK Platform through the "
+                  + "Android SDK manager."),
+          Transience.PERSISTENT);
+    }
+
+    Integer defaultApiLevel;
+    if (attributes.isAttributeValueExplicitlySpecified("api_level")) {
+      try {
+        defaultApiLevel = attributes.get("api_level", Type.INTEGER);
+      } catch (EvalException e) {
+        throw new RepositoryFunctionException(e, Transience.PERSISTENT);
+      }
+      if (!apiLevels.contains(defaultApiLevel)) {
+        throw new RepositoryFunctionException(
+            new EvalException(
+                rule.getLocation(),
+                String.format(
+                    "Android SDK api level %s was requested but it is not installed in the Android "
+                        + "SDK at %s. The api levels found were %s. Please choose an available api "
+                        + "level or install api level %s from the Android SDK Manager.",
+                    defaultApiLevel,
+                    androidSdkPath,
+                    apiLevels.toString(),
+                    defaultApiLevel)),
+            Transience.PERSISTENT);
+      }
+    } else {
+      // If the api_level attribute is not explicitly set, we select the highest api level that is
+      // available in the SDK.
+      defaultApiLevel = apiLevels.first();
+    }
+
     String buildToolsDirectory;
     if (attributes.isAttributeValueExplicitlySpecified("build_tools_version")) {
-      buildToolsDirectory = attributes.get("build_tools_version", Type.STRING);
+      try {
+        buildToolsDirectory = attributes.get("build_tools_version", Type.STRING);
+      } catch (EvalException e) {
+        throw new RepositoryFunctionException(e, Transience.PERSISTENT);
+      }
     } else {
       // If the build_tools_version attribute is not explicitly set, we select the highest version
       // installed in the SDK.
       DirectoryListingValue directoryValue =
-          getBuildToolsDirectoryListing(
-              directories.getOutputBase().getFileSystem(), pathFragment, env);
+          AndroidRepositoryUtils.getDirectoryListing(androidSdkPath, BUILD_TOOLS_DIR, env);
       if (directoryValue == null) {
         return null;
       }
@@ -114,19 +204,38 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
       throw new RepositoryFunctionException(e, Transience.PERSISTENT);
     }
 
+    ImmutableSortedSet<PathFragment> androidDeviceSystemImageDirs =
+        getAndroidDeviceSystemImageDirs(androidSdkPath, env);
+    if (androidDeviceSystemImageDirs == null) {
+      return null;
+    }
+
+    StringBuilder systemImageDirsList = new StringBuilder();
+    for (PathFragment systemImageDir : androidDeviceSystemImageDirs) {
+      systemImageDirsList.append(String.format("        \"%s\",\n", systemImageDir));
+    }
+
     String template = getStringResource("android_sdk_repository_template.txt");
 
     String buildFile = template
-        .replaceAll("%repository_name%", rule.getName())
-        .replaceAll("%build_tools_version%", buildToolsVersion)
-        .replaceAll("%build_tools_directory%", buildToolsDirectory)
-        .replaceAll("%api_level%", apiLevel.toString());
+        .replace("%repository_name%", rule.getName())
+        .replace("%build_tools_version%", buildToolsVersion)
+        .replace("%build_tools_directory%", buildToolsDirectory)
+        .replace("%api_levels%", Iterables.toString(apiLevels))
+        .replace("%default_api_level%", String.valueOf(defaultApiLevel))
+        .replace("%system_image_dirs%", systemImageDirsList);
 
     // All local maven repositories that are shipped in the Android SDK.
     // TODO(ajmichael): Create SkyKeys so that if the SDK changes, this function will get rerun.
-    Iterable<Path> localMavenRepositories = ImmutableList.of(
-        outputDirectory.getRelative("extras/android/m2repository"),
-        outputDirectory.getRelative("extras/google/m2repository"));
+    Iterable<Path> localMavenRepositories =
+        Lists.transform(
+            LOCAL_MAVEN_REPOSITORIES,
+            new Function<String, Path>() {
+              @Override
+              public Path apply(String pathFragment) {
+                return outputDirectory.getRelative(pathFragment);
+              }
+            });
     try {
       SdkMavenRepository sdkExtrasRepository =
           SdkMavenRepository.create(Iterables.filter(localMavenRepositories, new Predicate<Path>() {
@@ -136,19 +245,24 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
             }
           }));
       sdkExtrasRepository.writeBuildFiles(outputDirectory);
-      buildFile = buildFile.replaceAll(
+      buildFile = buildFile.replace(
           "%exported_files%", sdkExtrasRepository.getExportsFiles(outputDirectory));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
 
     writeBuildFile(outputDirectory, buildFile);
-    return RepositoryDirectoryValue.create(outputDirectory);
+    return RepositoryDirectoryValue.builder().setPath(outputDirectory);
   }
 
   @Override
   public Class<? extends RuleDefinition> getRuleDefinition() {
     return AndroidSdkRepositoryRule.class;
+  }
+
+  private static PathFragment getAndroidHomeEnvironmentVar(
+      Path workspace, Map<String, String> env) {
+    return workspace.getRelative(PathFragment.create(env.get(PATH_ENV_VAR))).asFragment();
   }
 
   private static String getStringResource(String name) {
@@ -157,26 +271,6 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
           AndroidSdkRepositoryFunction.class, name);
     } catch (IOException e) {
       throw new IllegalStateException(e);
-    }
-  }
-
-  /**
-   * Gets a DirectoryListingValue for the build-tools directory under the sdkRepoPathFragment
-   * or returns null.
-   */
-  private static DirectoryListingValue getBuildToolsDirectoryListing(
-      FileSystem fs, PathFragment sdkRepoPathFragment, Environment env)
-      throws RepositoryFunctionException, InterruptedException {
-    try {
-      return (DirectoryListingValue)
-          env.getValueOrThrow(
-              DirectoryListingValue.key(
-                  RootedPath.toRootedPath(
-                      fs.getRootDirectory(),
-                      fs.getPath(sdkRepoPathFragment).getChild(BUILD_TOOLS_DIR_NAME))),
-              InconsistentFilesystemException.class);
-    } catch (InconsistentFilesystemException e) {
-      throw new RepositoryFunctionException(new IOException(e), Transience.PERSISTENT);
     }
   }
 
@@ -265,5 +359,100 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
               buildToolsVersion),
           e);
     }
+  }
+
+  /**
+   * Gets PathFragments for /sdk/system-images/*&#47;*&#47;*, which are the directories in the
+   * SDK that contain system images needed for android_device.
+   *
+   * If the sdk/system-images directory does not exist, an empty set is returned.
+   */
+  private static ImmutableSortedSet<PathFragment> getAndroidDeviceSystemImageDirs(
+      Path androidSdkPath, Environment env)
+      throws RepositoryFunctionException, InterruptedException {
+    if (!androidSdkPath.getRelative(SYSTEM_IMAGES_DIR).exists()) {
+      return ImmutableSortedSet.of();
+    }
+    DirectoryListingValue systemImagesDirectoryValue =
+        AndroidRepositoryUtils.getDirectoryListing(androidSdkPath, SYSTEM_IMAGES_DIR, env);
+    if (systemImagesDirectoryValue == null) {
+      return null;
+    }
+    ImmutableMap<PathFragment, DirectoryListingValue> apiLevelSystemImageDirs =
+        getSubdirectoryListingValues(
+            androidSdkPath, SYSTEM_IMAGES_DIR, systemImagesDirectoryValue, env);
+    if (apiLevelSystemImageDirs == null) {
+      return null;
+    }
+
+    ImmutableSortedSet.Builder<PathFragment> pathFragments = ImmutableSortedSet.naturalOrder();
+    for (PathFragment apiLevelDir : apiLevelSystemImageDirs.keySet()) {
+      ImmutableMap<PathFragment, DirectoryListingValue> apiTypeSystemImageDirs =
+          getSubdirectoryListingValues(
+              androidSdkPath, apiLevelDir, apiLevelSystemImageDirs.get(apiLevelDir), env);
+      if (apiTypeSystemImageDirs == null) {
+        return null;
+      }
+      for (PathFragment apiTypeDir : apiTypeSystemImageDirs.keySet()) {
+        for (Dirent architectureSystemImageDir :
+            apiTypeSystemImageDirs.get(apiTypeDir).getDirents()) {
+          pathFragments.add(apiTypeDir.getRelative(architectureSystemImageDir.getName()));
+        }
+      }
+    }
+    return pathFragments.build();
+  }
+
+  /**
+   * Gets DirectoryListingValues for subdirectories of the directory or returns null.
+   *
+   * Ignores all non-directory files.
+   */
+  private static ImmutableMap<PathFragment, DirectoryListingValue> getSubdirectoryListingValues(
+      final Path root, final PathFragment path, DirectoryListingValue directory, Environment env)
+      throws RepositoryFunctionException, InterruptedException {
+    Map<PathFragment, SkyKey> skyKeysForSubdirectoryLookups =
+        Maps.transformEntries(
+            Maps.uniqueIndex(
+                Iterables.filter(
+                    directory.getDirents(),
+                    new Predicate<Dirent>() {
+                      @Override
+                      public boolean apply(Dirent dirent) {
+                        return dirent.getType().equals(Dirent.Type.DIRECTORY);
+                      }
+                    }),
+                new Function<Dirent, PathFragment>() {
+                  @Override
+                  public PathFragment apply(Dirent input) {
+                    return path.getRelative(input.getName());
+                  }
+                }),
+            new EntryTransformer<PathFragment, Dirent, SkyKey>() {
+              @Override
+              public SkyKey transformEntry(PathFragment key, Dirent value) {
+                return DirectoryListingValue.key(
+                    RootedPath.toRootedPath(root, root.getRelative(key)));
+              }
+            });
+
+    Map<SkyKey, ValueOrException<InconsistentFilesystemException>> values =
+        env.getValuesOrThrow(
+            skyKeysForSubdirectoryLookups.values(), InconsistentFilesystemException.class);
+
+    ImmutableMap.Builder<PathFragment, DirectoryListingValue> directoryListingValues =
+        new ImmutableMap.Builder<>();
+    for (PathFragment pathFragment : skyKeysForSubdirectoryLookups.keySet()) {
+      try {
+        SkyValue skyValue = values.get(skyKeysForSubdirectoryLookups.get(pathFragment)).get();
+        if (skyValue == null) {
+          return null;
+        }
+        directoryListingValues.put(pathFragment, (DirectoryListingValue) skyValue);
+      } catch (InconsistentFilesystemException e) {
+        throw new RepositoryFunctionException(new IOException(e), Transience.PERSISTENT);
+      }
+    }
+    return directoryListingValues.build();
   }
 }

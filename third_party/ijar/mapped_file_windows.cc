@@ -12,34 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <malloc.h>  // malloc, free
 #include <stdio.h>
 #include <windows.h>
 
-#ifdef COMPILER_MSVC
-#include <stdlib.h>  // exit
-#else  // not COMPILER_MSVC
-#include <sys/cygwin.h>  // cygwin_create_path, CCP_POSIX_TO_WIN_A
-#endif  // COMPILER_MSVC
+#include <string>
 
+#include "src/main/cpp/util/errors.h"
+#include "src/main/cpp/util/file_platform.h"
 #include "third_party/ijar/mapped_file.h"
 
 #define MAX_ERROR 2048
 
 namespace devtools_ijar {
 
+using std::wstring;
+
 static char errmsg[MAX_ERROR] = "";
-
-class WindowsPath {
- public:
-  WindowsPath(const char* path);
-  ~WindowsPath();
-  const char* GetWindowsPath() const { return _win_path; }
-
- private:
-  char* _win_path;
-};
-
 
 void PrintLastError(const char* op) {
   char *message;
@@ -53,15 +41,6 @@ void PrintLastError(const char* op) {
       0, NULL);
   snprintf(errmsg, MAX_ERROR, "%s: %s", op, message);
   LocalFree(message);
-}
-
-char* ToUnicodePath(const char* path) {
-  // Add \\?\ as prefix to enable unicode path which allows path length longer
-  // than 260
-  int length = strlen(path) + 5;
-  char* unicode_path = reinterpret_cast<char*>(malloc(length));
-  snprintf(unicode_path, length, "\\\\?\\%s", path);
-  return unicode_path;
 }
 
 struct MappedInputFileImpl {
@@ -79,11 +58,13 @@ MappedInputFile::MappedInputFile(const char* name) {
   opened_ = false;
   errmsg_ = errmsg;
 
-  WindowsPath path(name);
-  char* unicode_path = ToUnicodePath(path.GetWindowsPath());
-  HANDLE file = CreateFile(unicode_path, GENERIC_READ, FILE_SHARE_READ, NULL,
-                           OPEN_EXISTING, 0, NULL);
-  free(unicode_path);
+  wstring wname;
+  if (!blaze_util::AsWindowsPathWithUncPrefix(name, &wname)) {
+    blaze_util::die(
+        255, "MappedInputFile(%s): AsWindowsPathWithUncPrefix failed", name);
+  }
+  HANDLE file = CreateFileW(wname.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL,
+                            OPEN_EXISTING, 0, NULL);
   if (file == INVALID_HANDLE_VALUE) {
     PrintLastError("CreateFile()");
     return;
@@ -98,7 +79,7 @@ MappedInputFile::MappedInputFile(const char* name) {
 
   HANDLE mapping = CreateFileMapping(file, NULL, PAGE_READONLY,
       size.HighPart, size.LowPart, NULL);
-  if (mapping == NULL) {
+  if (mapping == NULL || mapping == INVALID_HANDLE_VALUE) {
     PrintLastError("CreateFileMapping()");
     CloseHandle(file);
     return;
@@ -162,11 +143,13 @@ MappedOutputFile::MappedOutputFile(const char* name, u8 estimated_size) {
   opened_ = false;
   errmsg_ = errmsg;
 
-  WindowsPath path(name);
-  char* unicode_path = ToUnicodePath(path.GetWindowsPath());
-  HANDLE file = CreateFile(unicode_path, GENERIC_READ | GENERIC_WRITE, 0, NULL,
-                           CREATE_ALWAYS, 0, NULL);
-  free(unicode_path);
+  wstring wname;
+  if (!blaze_util::AsWindowsPathWithUncPrefix(name, &wname)) {
+    blaze_util::die(
+        255, "MappedOutputFile(%s): AsWindowsPathWithUncPrefix failed", name);
+  }
+  HANDLE file = CreateFileW(wname.c_str(), GENERIC_READ | GENERIC_WRITE, 0,
+                            NULL, CREATE_ALWAYS, 0, NULL);
   if (file == INVALID_HANDLE_VALUE) {
     PrintLastError("CreateFile()");
     return;
@@ -174,7 +157,7 @@ MappedOutputFile::MappedOutputFile(const char* name, u8 estimated_size) {
 
   HANDLE mapping = CreateFileMapping(file, NULL, PAGE_READWRITE,
       estimated_size >> 32, estimated_size & 0xffffffffUL, NULL);
-  if (mapping == NULL) {
+  if (mapping == NULL || mapping == INVALID_HANDLE_VALUE) {
     PrintLastError("CreateFileMapping()");
     CloseHandle(file);
     return;
@@ -225,38 +208,5 @@ int MappedOutputFile::Close(int size) {
 
   return 0;
 }
-
-#ifdef COMPILER_MSVC
-
-  WindowsPath::WindowsPath(const char* path)
-      : _win_path(const_cast<char*>(path)) {
-    // Input path should already be Windows-style, but let's do a sanity check
-    // nevertheless. Not using assert(2) because we need this even in non-debug
-    // builds.
-    if (path[0] == '/') {
-      fprintf(
-          stderr,
-          "ERROR: Illegal state; '%s' is assumed to be a Windows path. This" \
-          " is a programming error, fix" \
-          " third_party/ijar/mapped_file_windows.cc\n",
-          path);
-      exit(1);
-    }
-  }
-
-  WindowsPath::~WindowsPath() {}
-
-#else  // not COMPILER_MSVC
-
-  WindowsPath::WindowsPath(const char* path) {
-    this->_win_path =
-        reinterpret_cast<char*>(cygwin_create_path(CCP_POSIX_TO_WIN_A, path));
-  }
-
-  WindowsPath::~WindowsPath() {
-    free(this->_win_path);
-  }
-
-#endif  // COMPILER_MSVC
 
 }  // namespace devtools_ijar

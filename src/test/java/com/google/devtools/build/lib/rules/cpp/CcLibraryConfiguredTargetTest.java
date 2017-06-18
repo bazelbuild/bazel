@@ -17,17 +17,11 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FailAction;
@@ -58,8 +52,8 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
-  private static final PathFragment STL_CPPMAP = new PathFragment("stl.cppmap");
-  private static final PathFragment CROSSTOOL_CPPMAP = new PathFragment("crosstool.cppmap");
+  private static final PathFragment STL_CPPMAP = PathFragment.create("stl.cppmap");
+  private static final PathFragment CROSSTOOL_CPPMAP = PathFragment.create("crosstool.cppmap");
 
   @Before
   public final void createFiles() throws Exception {
@@ -94,7 +88,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   private void assertNoCppModuleMapAction(String label) throws Exception {
     ConfiguredTarget target = getConfiguredTarget(label);
-    assertNull(target.getProvider(CppCompilationContext.class).getCppModuleMap());
+    assertThat(target.getProvider(CppCompilationContext.class).getCppModuleMap()).isNull();
   }
 
 
@@ -139,6 +133,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "    cpu = 'k8',",
         "    compiler_files = ':empty',",
         "    dwp_files = ':empty',",
+        "    coverage_files = ':empty',",
         "    linker_files = ':empty',",
         "    strip_files = ':empty',",
         "    objcopy_files = ':empty',",
@@ -180,8 +175,13 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void testEmptyLinkopts() throws Exception {
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
-    assertTrue(hello.getProvider(CcLinkParamsProvider.class)
-        .getCcLinkParams(false, false).getLinkopts().isEmpty());
+    assertThat(
+            hello
+                .getProvider(CcLinkParamsProvider.class)
+                .getCcLinkParams(false, false)
+                .getLinkopts()
+                .isEmpty())
+        .isTrue();
   }
 
   @Test
@@ -218,20 +218,21 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
     ExtraActionInfo.Builder builder = action.getExtraActionInfo();
     ExtraActionInfo info = builder.build();
-    assertEquals("CppLink", info.getMnemonic());
+    assertThat(info.getMnemonic()).isEqualTo("CppLink");
 
     CppLinkInfo cppLinkInfo = info.getExtension(CppLinkInfo.cppLinkInfo);
-    assertNotNull(cppLinkInfo);
+    assertThat(cppLinkInfo).isNotNull();
 
     Iterable<String> inputs = Artifact.asExecPaths(
         LinkerInputs.toLibraryArtifacts(action.getLinkCommandLine().getLinkerInputs()));
     assertThat(cppLinkInfo.getInputFileList()).containsExactlyElementsIn(inputs);
-    assertEquals(action.getPrimaryOutput().getExecPathString(), cppLinkInfo.getOutputFile());
-    assertFalse(cppLinkInfo.hasInterfaceOutputFile());
-    assertEquals(action.getLinkCommandLine().getLinkTargetType().name(),
-        cppLinkInfo.getLinkTargetType());
-    assertEquals(action.getLinkCommandLine().getLinkStaticness().name(),
-        cppLinkInfo.getLinkStaticness());
+    assertThat(cppLinkInfo.getOutputFile())
+        .isEqualTo(action.getPrimaryOutput().getExecPathString());
+    assertThat(cppLinkInfo.hasInterfaceOutputFile()).isFalse();
+    assertThat(cppLinkInfo.getLinkTargetType())
+        .isEqualTo(action.getLinkCommandLine().getLinkTargetType().name());
+    assertThat(cppLinkInfo.getLinkStaticness())
+        .isEqualTo(action.getLinkCommandLine().getLinkStaticness().name());
     Iterable<String> linkstamps = Artifact.asExecPaths(
         action.getLinkCommandLine().getLinkstamps().values());
     assertThat(cppLinkInfo.getLinkStampList()).containsExactlyElementsIn(linkstamps);
@@ -247,25 +248,26 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   public void testCppLinkActionExtraActionInfoWithSharedLibraries() throws Exception {
     useConfiguration("--cpu=k8");
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
-    Artifact sharedObject  =
+    Artifact sharedObject =
         FileType.filter(getFilesToBuild(hello), CppFileTypes.SHARED_LIBRARY).iterator().next();
     CppLinkAction action = (CppLinkAction) getGeneratingAction(sharedObject);
 
     ExtraActionInfo.Builder builder = action.getExtraActionInfo();
     ExtraActionInfo info = builder.build();
-    assertEquals("CppLink", info.getMnemonic());
+    assertThat(info.getMnemonic()).isEqualTo("CppLink");
 
     CppLinkInfo cppLinkInfo = info.getExtension(CppLinkInfo.cppLinkInfo);
-    assertNotNull(cppLinkInfo);
+    assertThat(cppLinkInfo).isNotNull();
 
     Iterable<String> inputs = Artifact.asExecPaths(
         LinkerInputs.toLibraryArtifacts(action.getLinkCommandLine().getLinkerInputs()));
     assertThat(cppLinkInfo.getInputFileList()).containsExactlyElementsIn(inputs);
-    assertEquals(action.getPrimaryOutput().getExecPathString(), cppLinkInfo.getOutputFile());
-    assertEquals(action.getLinkCommandLine().getLinkTargetType().name(),
-        cppLinkInfo.getLinkTargetType());
-    assertEquals(action.getLinkCommandLine().getLinkStaticness().name(),
-        cppLinkInfo.getLinkStaticness());
+    assertThat(cppLinkInfo.getOutputFile())
+        .isEqualTo(action.getPrimaryOutput().getExecPathString());
+    assertThat(cppLinkInfo.getLinkTargetType())
+        .isEqualTo(action.getLinkCommandLine().getLinkTargetType().name());
+    assertThat(cppLinkInfo.getLinkStaticness())
+        .isEqualTo(action.getLinkCommandLine().getLinkStaticness().name());
     Iterable<String> linkstamps = Artifact.asExecPaths(
         action.getLinkCommandLine().getLinkstamps().values());
     assertThat(cppLinkInfo.getLinkStampList()).containsExactlyElementsIn(linkstamps);
@@ -280,7 +282,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   /**
    * Tests that if a given crosstool defines action configs for all link actions, that the link
    * action will be configured from the crosstool instead of from hard-coded action_configs in
-   * {@code CppLinkActionConfigs}.
+   * {@code CppActionConfigs}.
    */
   @Test
   public void testUsesCrosstoolIfLinkActionDefined() throws Exception {
@@ -365,7 +367,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
       getConfiguredTarget("//hello:hello");
       fail("Should fail");
     } catch (AssertionError e) {
-      assertThat(e.getMessage())
+      assertThat(e)
+          .hasMessageThat()
           .contains("Invalid toolchain configuration: Cannot find variable named 'bad_variable'");
     }
   }
@@ -375,15 +378,17 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration("--cpu=k8");
     // ArtifactsToAlwaysBuild should apply both for static libraries.
     ConfiguredTarget helloStatic = getConfiguredTarget("//hello:hello_static");
-    assertEquals(ImmutableSet.of("bin hello/_objs/hello_static/hello/hello.pic.o"),
-        artifactsToStrings(getOutputGroup(helloStatic, OutputGroupProvider.HIDDEN_TOP_LEVEL)));
+    assertThat(
+        artifactsToStrings(getOutputGroup(helloStatic, OutputGroupProvider.HIDDEN_TOP_LEVEL)))
+        .containsExactly("bin hello/_objs/hello_static/hello/hello.pic.o");
     Artifact implSharedObject = getBinArtifact("libhello_static.so", helloStatic);
     assertThat(getFilesToBuild(helloStatic)).doesNotContain(implSharedObject);
 
     // And for shared libraries.
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
-    assertEquals(ImmutableSet.of("bin hello/_objs/hello_static/hello/hello.pic.o"),
-        artifactsToStrings(getOutputGroup(helloStatic, OutputGroupProvider.HIDDEN_TOP_LEVEL)));
+    assertThat(
+        artifactsToStrings(getOutputGroup(helloStatic, OutputGroupProvider.HIDDEN_TOP_LEVEL)))
+        .containsExactly("bin hello/_objs/hello_static/hello/hello.pic.o");
     implSharedObject = getBinArtifact("libhello.so", hello);
     assertThat(getFilesToBuild(hello)).contains(implSharedObject);
   }
@@ -396,12 +401,11 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "cc_library(name = 'x', srcs = ['x.cc'], deps = [':y'], linkstatic = 1)",
         "cc_library(name = 'y', srcs = ['y.cc'], deps = [':z'])",
         "cc_library(name = 'z', srcs = ['z.cc'])");
-    assertEquals(
-        ImmutableSet.of(
-          "bin foo/_objs/x/foo/x.pic.o",
-          "bin foo/_objs/y/foo/y.pic.o",
-          "bin foo/_objs/z/foo/z.pic.o"),
-        artifactsToStrings(getOutputGroup(x, OutputGroupProvider.HIDDEN_TOP_LEVEL)));
+    assertThat(artifactsToStrings(getOutputGroup(x, OutputGroupProvider.HIDDEN_TOP_LEVEL)))
+        .containsExactly(
+            "bin foo/_objs/x/foo/x.pic.o",
+            "bin foo/_objs/y/foo/y.pic.o",
+            "bin foo/_objs/z/foo/z.pic.o");
   }
 
   @Test
@@ -500,7 +504,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     List<String> names = new ArrayList<>();
     for (String flag : input) {
       if (CppFileTypes.CPP_MODULE.matches(flag)) {
-        names.add(new PathFragment(flag).getBaseName());
+        names.add(PathFragment.create(flag).getBaseName());
       }
     }
     return names;
@@ -693,54 +697,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCompileUsingHeaderModulesTransitivelyWithTranstiveModuleMaps() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig,
-            MockCcSupport.HEADER_MODULES_FEATURE_CONFIGURATION
-                + "feature { name: 'transitive_module_maps' }");
-    useConfiguration("--cpu=k8", "--features=transitive_module_maps");
-    setupPackagesForModuleTests(/*useHeaderModules=*/true);
-
-    getConfiguredTarget("//nomodule:f");
-    Artifact fObjectArtifact = getBinArtifact("_objs/f/nomodule/f.pic.o", "//nomodule:f");
-    CppCompileAction fObjectAction = (CppCompileAction) getGeneratingAction(fObjectArtifact);
-    // Only the module map of f itself itself and the direct dependencies are needed.
-    assertThat(getNonSystemModuleMaps(fObjectAction.getInputs())).containsExactly(
-        getGenfilesArtifact("y.cppmap", "//nomodule:y"),
-        getGenfilesArtifact("z.cppmap", "//nomodule:z"),
-        getGenfilesArtifact("a.cppmap", "//nomodule:a"),
-        getGenfilesArtifact("f.cppmap", "//nomodule:f"),
-        getGenfilesArtifact("e.cppmap", "//nomodule:e"));
-
-    getConfiguredTarget("//nomodule:c");
-    Artifact cObjectArtifact = getBinArtifact("_objs/c/nomodule/c.pic.o", "//nomodule:c");
-    CppCompileAction cObjectAction = (CppCompileAction) getGeneratingAction(cObjectArtifact);
-    assertThat(getNonSystemModuleMaps(cObjectAction.getInputs())).containsExactly(
-        getGenfilesArtifact("y.cppmap", "//nomodule:y"),
-        getGenfilesArtifact("z.cppmap", "//nomodule:z"),
-        getGenfilesArtifact("a.cppmap", "//nomodule:a"),
-        getGenfilesArtifact("b.cppmap", "//module:b"),
-        getGenfilesArtifact("c.cppmap", "//nomodule:e"));
-    assertThat(getHeaderModules(cObjectAction.getContext().getTransitiveModules(true)))
-        .containsExactly(getBinArtifact("_objs/b/module/b.pic.pcm", "//module:b"));
-
-    getConfiguredTarget("//nomodule:d");
-    Artifact dObjectArtifact = getBinArtifact("_objs/d/nomodule/d.pic.o", "//nomodule:d");
-    CppCompileAction dObjectAction = (CppCompileAction) getGeneratingAction(dObjectArtifact);
-    assertThat(getNonSystemModuleMaps(dObjectAction.getInputs())).containsExactly(
-        getGenfilesArtifact("y.cppmap", "//nomodule:y"),
-        getGenfilesArtifact("z.cppmap", "//nomodule:z"),
-        getGenfilesArtifact("a.cppmap", "//nomodule:a"),
-        getGenfilesArtifact("b.cppmap", "//module:b"),
-        getGenfilesArtifact("c.cppmap", "//nomodule:c"),
-        getGenfilesArtifact("d.cppmap", "//nomodule:d"));
-    assertThat(getHeaderModules(dObjectAction.getContext().getTransitiveModules(true)))
-        .containsExactly(getBinArtifact("_objs/b/module/b.pic.pcm", "//module:b"));
-  }
-
-  @Test
   public void testCompileUsingHeaderModulesTransitively() throws Exception {
     AnalysisMock.get()
         .ccSupport()
@@ -835,8 +791,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(ActionsTestUtil.baseArtifactNames(action.getDependencyArtifacts())).containsExactly(
         "stl.cppmap",
         "crosstool.cppmap");
-    assertEquals(ImmutableSet.of("src module/a.h"),
-        artifactsToStrings(action.getPrivateHeaders()));
+    assertThat(artifactsToStrings(action.getPrivateHeaders()))
+        .containsExactly("src module/a.h");
     assertThat(action.getPublicHeaders()).isEmpty();
   }
 
@@ -1219,5 +1175,16 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     useConfiguration("--features=parse_headers", "-c", "opt");
     // Should not crash
     scratchConfiguredTarget("a", "a", "cc_library(name='a', hdrs=['a.h'])");
+  }
+
+  @Test
+  public void testStlWithAlias() throws Exception {
+    scratch.file("a/BUILD",
+        "cc_library(name='a')",
+        "alias(name='stl', actual=':realstl')",
+        "cc_library(name='realstl')");
+
+    useConfiguration("--experimental_stl=//a:stl");
+    getConfiguredTarget("//a:a");
   }
 }

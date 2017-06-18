@@ -14,15 +14,20 @@
 
 package com.google.devtools.build.lib.rules.test;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.buildeventstream.TestFileNameConstants;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.rules.test.TestRunnerAction.ResolvedPaths;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
+import java.util.Collection;
+import javax.annotation.Nullable;
 
 /**
  * This is the event passed from the various test strategies to the {@code RecordingTestListener}
@@ -35,6 +40,7 @@ public class TestResult {
   private final TestRunnerAction testAction;
   private final TestResultData data;
   private final boolean cached;
+  @Nullable protected final Path execRoot;
 
   /**
    * Construct the TestResult for the given test / status.
@@ -42,11 +48,19 @@ public class TestResult {
    * @param testAction The test that was run.
    * @param data test result protobuffer.
    * @param cached true if this is a locally cached test result.
+   * @param execRoot The execution root in which the action was carried out; can be null, in which
+   *     case everything depending on the execution root is ignored.
    */
-  public TestResult(TestRunnerAction testAction, TestResultData data, boolean cached) {
+  public TestResult(
+      TestRunnerAction testAction, TestResultData data, boolean cached, @Nullable Path execRoot) {
     this.testAction = Preconditions.checkNotNull(testAction);
     this.data = data;
     this.cached = cached;
+    this.execRoot = execRoot;
+  }
+
+  public TestResult(TestRunnerAction testAction, TestResultData data, boolean cached) {
+    this(testAction, data, cached, null);
   }
 
   public static boolean isBlazeTestStatusPassed(BlazeTestStatus status) {
@@ -79,9 +93,9 @@ public class TestResult {
   /**
    * @return Coverage data artifact, if available and null otherwise.
    */
-  public PathFragment getCoverageData() {
+  public Path getCoverageData() {
     if (data.getHasCoverage()) {
-      return testAction.getCoverageData().getExecPath();
+      return testAction.getCoverageData().getPath();
     }
     return null;
   }
@@ -129,5 +143,49 @@ public class TestResult {
 
   public TestResultData getData() {
     return data;
+  }
+
+  /**
+   * @return Collection of files created by the test, tagged by their name indicating usage (e.g.,
+   *     "test.log").
+   */
+  public Collection<Pair<String, Path>> getFiles() {
+    ImmutableList.Builder<Pair<String, Path>> builder = new ImmutableList.Builder<>();
+    if (testAction.getTestLog().getPath().exists()) {
+      builder.add(Pair.of(TestFileNameConstants.TEST_LOG, testAction.getTestLog().getPath()));
+    }
+    if (execRoot != null) {
+      ResolvedPaths resolvedPaths = testAction.resolve(execRoot);
+      if (resolvedPaths.getXmlOutputPath().exists()) {
+        builder.add(Pair.of(TestFileNameConstants.TEST_XML, resolvedPaths.getXmlOutputPath()));
+      }
+      if (resolvedPaths.getSplitLogsPath().exists()) {
+        builder.add(Pair.of(TestFileNameConstants.SPLIT_LOGS, resolvedPaths.getSplitLogsPath()));
+      }
+      if (resolvedPaths.getTestWarningsPath().exists()) {
+        builder.add(Pair.of(TestFileNameConstants.TEST_WARNINGS, resolvedPaths.getSplitLogsPath()));
+      }
+      if (resolvedPaths.getUndeclaredOutputsZipPath().exists()) {
+        builder.add(Pair.of(TestFileNameConstants.UNDECLARED_OUTPUTS_ZIP,
+            resolvedPaths.getUndeclaredOutputsZipPath()));
+      }
+      if (resolvedPaths.getUndeclaredOutputsManifestPath().exists()) {
+        builder.add(Pair.of(TestFileNameConstants.UNDECLARED_OUTPUTS_MANIFEST,
+            resolvedPaths.getUndeclaredOutputsManifestPath()));
+      }
+      if (resolvedPaths.getUndeclaredOutputsAnnotationsPath().exists()) {
+        builder.add(Pair.of(TestFileNameConstants.UNDECLARED_OUTPUTS_ANNOTATIONS,
+            resolvedPaths.getUndeclaredOutputsManifestPath()));
+      }
+      if (resolvedPaths.getUnusedRunfilesLogPath().exists()) {
+        builder.add(Pair.of(TestFileNameConstants.UNUSED_RUNFILES_LOG,
+            resolvedPaths.getUnusedRunfilesLogPath()));
+      }
+      if (resolvedPaths.getInfrastructureFailureFile().exists()) {
+        builder.add(Pair.of(TestFileNameConstants.TEST_INFRASTRUCTURE_FAILURE,
+            resolvedPaths.getInfrastructureFailureFile()));
+      }
+    }
+    return builder.build();
   }
 }

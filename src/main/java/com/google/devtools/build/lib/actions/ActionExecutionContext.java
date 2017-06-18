@@ -21,13 +21,15 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
+import java.io.Closeable;
+import java.io.IOException;
 import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
  * A class that groups services in the scope of the action. Like the FileOutErr object.
  */
-public class ActionExecutionContext {
+public class ActionExecutionContext implements Closeable {
 
   private final Executor executor;
   private final ActionInputFileCache actionInputFileCache;
@@ -133,6 +135,11 @@ public class ActionExecutionContext {
    */
   public Environment getEnvironmentForDiscoveringInputs() {
     return Preconditions.checkNotNull(env);
+  }
+
+  @Override
+  public void close() throws IOException {
+    fileOutErr.close();
   }
 
   /**

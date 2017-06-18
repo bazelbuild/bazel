@@ -31,10 +31,24 @@ class StartupOptions;
 
 // The reason for a blaze server restart.
 // Keep in sync with logging.proto.
-enum RestartReason { NO_RESTART = 0, NO_DAEMON, NEW_VERSION, NEW_OPTIONS };
+enum RestartReason {
+  NO_RESTART = 0,
+  NO_DAEMON,
+  NEW_VERSION,
+  NEW_OPTIONS,
+  PID_FILE_BUT_NO_SERVER,
+  SERVER_VANISHED,
+  SERVER_UNRESPONSIVE
+};
 
 struct GlobalVariables {
   GlobalVariables(OptionProcessor *option_processor);
+
+  std::string ServerJarPath() const {
+    // The server jar is called "A-server.jar" so it's the first binary we
+    // extracted.
+    return extracted_binaries.empty() ? "" : extracted_binaries[0];
+  }
 
   // Used to make concurrent invocations of this program safe.
   std::string lockfile;  // = <output_base>/lock

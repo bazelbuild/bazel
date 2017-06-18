@@ -9,7 +9,7 @@ java_binary(
         ":bundlemerge_lib",
         "//src/main/protobuf:bundlemerge_java_proto",
         "//src/objc_tools/plmerge:plmerge_lib",
-        "//third_party/protobuf",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -26,7 +26,7 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/java/dd_plist",
-        "//third_party/protobuf",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 

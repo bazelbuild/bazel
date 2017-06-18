@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import static org.junit.Assert.assertFalse;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -83,12 +83,12 @@ public class PackageGroupStaticInitializationTest {
     producingThread.start();
     producingThread.join(3000);
     consumingThread.join(3000);
-    assertFalse(producingThread.isAlive());
-    assertFalse(consumingThread.isAlive());
+    assertThat(producingThread.isAlive()).isFalse();
+    assertThat(consumingThread.isAlive()).isFalse();
   }
 
   private Package getPackage(String packageName) throws Exception {
-    PathFragment buildFileFragment = new PathFragment(packageName).getRelative("BUILD");
+    PathFragment buildFileFragment = PathFragment.create(packageName).getRelative("BUILD");
     Path buildFile = scratch.resolve(buildFileFragment.getPathString());
     return packages.createPackage(packageName, buildFile);
   }

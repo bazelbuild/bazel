@@ -124,7 +124,7 @@ public class ZipDecompressor implements Decompressor {
       // For symlinks, the "compressed data" is actually the target name.
       int read = reader.getInputStream(entry).read(buffer);
       Preconditions.checkState(read == buffer.length);
-      PathFragment target = new PathFragment(new String(buffer, Charset.defaultCharset()))
+      PathFragment target = PathFragment.create(new String(buffer, Charset.defaultCharset()))
           .normalize();
       if (!target.isNormalized()) {
         throw new IOException("Zip entries cannot refer to files outside of their directory: "

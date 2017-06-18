@@ -15,9 +15,6 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.Iterables;
@@ -28,18 +25,14 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
-
+import java.io.IOException;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.io.IOException;
-import java.util.List;
-
-/**
- * Unit tests for the {@link CompilationHelper} class.
- */
+/** Unit tests for the {@link CompilationHelper} class. */
 @RunWith(JUnit4.class)
 public class CompilationHelperTest extends BuildViewTestCase {
   private AnalysisTestUtil.CollectingAnalysisEnvironment analysisEnvironment;
@@ -79,7 +72,7 @@ public class CompilationHelperTest extends BuildViewTestCase {
     assertThat(middleman1).hasSize(1);
     List<Artifact> middleman2 = getAggregatingMiddleman(rule, false);
     assertThat(middleman2).hasSize(1);
-    assertEquals(middleman1.get(0), middleman2.get(0));
+    assertThat(middleman2.get(0)).isEqualTo(middleman1.get(0));
   }
 
   /**
@@ -97,7 +90,7 @@ public class CompilationHelperTest extends BuildViewTestCase {
     assertThat(middleman).hasSize(1);
     List<Artifact> middlemanWithSymlinks = getAggregatingMiddleman(rule, true);
     assertThat(middlemanWithSymlinks).hasSize(1);
-    assertNotSame(middleman.get(0), middlemanWithSymlinks.get(0));
+    assertThat(middlemanWithSymlinks.get(0)).isNotSameAs(middleman.get(0));
   }
 
   /**
@@ -131,9 +124,8 @@ public class CompilationHelperTest extends BuildViewTestCase {
 
 
     List<Artifact> middleman2 = getAggregatingMiddleman(pyRuleB, true);
-    assertEquals(
-        Iterables.getOnlyElement(middleman1).getExecPathString(),
-        Iterables.getOnlyElement(middleman2).getExecPathString());
+    assertThat(Iterables.getOnlyElement(middleman2).getExecPathString())
+        .isEqualTo(Iterables.getOnlyElement(middleman1).getExecPathString());
   }
 
   /**
@@ -164,10 +156,11 @@ public class CompilationHelperTest extends BuildViewTestCase {
     ConfiguredTarget javaRuleB = getDirectPrerequisite(
         getConfiguredTarget("//foo:d"), "//foo:libb.so");
     List<Artifact> middleman2 = getAggregatingMiddleman(javaRuleB, false);
-    assertFalse(
-        Iterables.getOnlyElement(middleman1)
-            .getExecPathString()
-            .equals(Iterables.getOnlyElement(middleman2).getExecPathString()));
+    assertThat(
+            Iterables.getOnlyElement(middleman1)
+                .getExecPathString()
+                .equals(Iterables.getOnlyElement(middleman2).getExecPathString()))
+        .isFalse();
   }
 
   private void setupJavaPythonCcConfigurationFiles() throws IOException {

@@ -42,7 +42,7 @@ source $(dirname ${SCRIPT_DIR})/release/common.sh
 : ${BOOTSTRAP_BAZEL:=bazel}
 
 PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
-if [[ ${PLATFORM} == "darwin" ]]; then
+if [[ ${PLATFORM} == "darwin" ]] || [[ ${PLATFORM} == "freebsd" ]] ; then
   function checksum() {
     (cd "$(dirname "$1")" && shasum -a 256 "$(basename "$1")")
   }
@@ -51,17 +51,6 @@ else
     (cd "$(dirname "$1")" && sha256sum "$(basename "$1")")
   }
 fi
-
-# Returns the full release name in the form NAME(rcRC)?
-function get_full_release_name() {
-  local rc=$(get_release_candidate)
-  local name=$(get_release_name)
-  if [ -n "${rc}" ]; then
-    echo "${name}rc${rc}"
-  else
-    echo "${name}"
-  fi
-}
 
 function setup_android_repositories() {
   if [ ! -f WORKSPACE.bak ] && [ -n "${ANDROID_SDK_PATH-}" ]; then
@@ -75,26 +64,14 @@ function setup_android_repositories() {
 android_sdk_repository(
     name = "androidsdk",
     path = "${ANDROID_SDK_PATH}",
-    build_tools_version = "${ANDROID_SDK_BUILD_TOOLS_VERSION:-22.0.1}",
-    api_level = ${ANDROID_SDK_API_LEVEL:-21},
 )
 
-bind(
-    name = "android_sdk_for_testing",
-    actual = "@androidsdk//:files",
-)
 EOF
     if [ -n "${ANDROID_NDK_PATH-}" ]; then
       cat >>WORKSPACE <<EOF
 android_ndk_repository(
     name = "androidndk",
     path = "${ANDROID_NDK_PATH}",
-    api_level = ${ANDROID_NDK_API_LEVEL:-21},
-)
-
-bind(
-    name = "android_ndk_for_testing",
-    actual = "@androidndk//:files",
 )
 EOF
     fi
@@ -126,27 +103,39 @@ function bazel_build() {
       xcodebuild -showsdks 2> /dev/null | grep -q '\-sdk iphonesimulator'; then
     ARGS="--define IPHONE_SDK=1"
   fi
+  local OPTIONAL_TARGETS="//site:jekyll-tree //scripts/packages //src/tools/benchmark/webapp:site"
+  if [[ $PLATFORM =~ "freebsd" ]] ; then
+      OPTIONAL_TARGETS=
+  fi
   ${BOOTSTRAP_BAZEL} --bazelrc=${BAZELRC:-/dev/null} --nomaster_bazelrc build \
       --embed_label=${release_label} --stamp \
       --workspace_status_command=scripts/ci/build_status_command.sh \
       --define JAVA_VERSION=${JAVA_VERSION} \
       ${ARGS} \
       //src:bazel \
-      //site:jekyll-tree \
-      //scripts/packages || exit $?
+      ${OPTIONAL_TARGETS} || exit $?
 
   if [ -n "${1-}" ]; then
     # Copy the results to the output directory
     mkdir -p $1/packages
     cp bazel-bin/src/bazel $1/bazel
-    cp bazel-bin/scripts/packages/install.sh $1/bazel-${release_label}-installer.sh
-    if [ "$PLATFORM" = "linux" ]; then
-      cp bazel-bin/scripts/packages/bazel-debian.deb $1/bazel_${release_label}.deb
-      cp -f bazel-genfiles/scripts/packages/bazel.dsc $1/bazel.dsc
-      cp -f bazel-genfiles/scripts/packages/bazel.tar.gz $1/bazel.tar.gz
-      cp bazel-genfiles/bazel-distfile.zip $1/bazel-${release_label}-dist.zip
+    # The version with a bundled JDK may not exist on all platforms.
+    if [ "${JAVA_VERSION}" = "1.8" -a -e "bazel-bin/scripts/packages/with-jdk/install.sh" ]; then
+      cp bazel-bin/scripts/packages/with-jdk/install.sh $1/bazel-${release_label}-installer.sh
+      cp bazel-bin/scripts/packages/without-jdk/install.sh $1/bazel-${release_label}-without-jdk-installer.sh
+    else
+      cp bazel-bin/scripts/packages/without-jdk/install.sh $1/bazel-${release_label}-installer.sh
     fi
-    cp bazel-genfiles/site/jekyll-tree.tar $1/www.bazel.build.tar
+    if [ "$PLATFORM" = "linux" ]; then
+      cp bazel-bin/scripts/packages/debian/bazel-debian.deb $1/bazel_${release_label}.deb
+      cp -f bazel-genfiles/scripts/packages/debian/bazel.dsc $1/bazel.dsc
+      cp -f bazel-genfiles/scripts/packages/debian/bazel.tar.gz $1/bazel.tar.gz
+      if [ "${JAVA_VERSION}" = "1.8" ]; then
+        cp bazel-genfiles/bazel-distfile.zip $1/bazel-${release_label}-dist.zip
+      fi
+    fi
+    cp bazel-genfiles/site/jekyll-tree.tar $1/docs.bazel.build.tar
+    cp bazel-bin/src/tools/benchmark/webapp/site.tar $1/perf.bazel.build.tar.nobuild
     cp bazel-genfiles/scripts/packages/README.md $1/README.md
   fi
 }
@@ -210,6 +199,13 @@ function release_to_github() {
 _Notice_: Bazel installers contain binaries licensed under the GPLv2 with
 Classpath exception. Those installers should always be redistributed along with
 the source code.
+
+Some versions of Bazel contain a bundled version of OpenJDK. The license of the
+bundled OpenJDK and other open-source components can be displayed by running
+the command `bazel license`. The vendor and version information of the bundled
+OpenJDK can be displayed by running the command `bazel info java-runtime`.
+The binaries and source-code of the bundled OpenJDK can be
+[downloaded from our mirror server](https://bazel-mirror.storage.googleapis.com/openjdk/index.html).
 
 _Security_: All our binaries are signed with our
 [public key](https://bazel.build/bazel-release.pub.gpg) 48457EE0.
@@ -287,16 +283,20 @@ function release_to_gcs() {
     echo "Please set GCS_BUCKET to the name of your Google Cloud Storage bucket." >&2
     return 1
   fi
-  if [ -n "${release_name}" ] && [ -n "${rc}" ]; then
+  if [ -n "${release_name}" ]; then
+    local release_path="${release_name}/release"
+    if [ -n "${rc}" ]; then
+      release_path="${release_name}/rc${rc}"
+    fi
     # Make a temporary folder with the desired structure
     local dir="$(mktemp -d ${TMPDIR:-/tmp}/tmp.XXXXXXXX)"
     local prev_dir="$PWD"
     trap "{ cd ${prev_dir}; rm -fr ${dir}; }" EXIT
-    mkdir -p "${dir}/${release_name}/rc${rc}"
-    cp "${@}" "${dir}/${release_name}/rc${rc}"
+    mkdir -p "${dir}/${release_path}"
+    cp "${@}" "${dir}/${release_path}"
     # Add a index.html file:
-    create_index_html "${dir}/${release_name}/rc${rc}" \
-        >"${dir}/${release_name}/rc${rc}"/index.html
+    create_index_html "${dir}/${release_path}" \
+        >"${dir}/${release_path}"/index.html
     cd ${dir}
     "${gs}" -m cp -a public-read -r . "gs://${GCS_BUCKET}"
     cd "${prev_dir}"
@@ -418,12 +418,19 @@ function deploy_release() {
   local github_args=()
   # Filters out README.md for github releases
   for i in "$@"; do
-    if ! ( [[ "$i" =~ README.md$ ]] || [[ "$i" =~ bazel.dsc ]] || [[ "$i" =~ bazel.tar.gz ]] ) ; then
+    if ! ( [[ "$i" =~ README.md$ ]] || [[ "$i" =~ bazel.dsc ]] || [[ "$i" =~ bazel.tar.gz ]] || [[ "$i" =~ .nobuild$ ]] ) ; then
       github_args+=("$i")
     fi
   done
+  local gcs_args=()
+  # Filters out perf.bazel.*.nobuild
+  for i in "$@"; do
+    if ! [[ "$i" =~ .nobuild$ ]] ; then
+      gcs_args+=("$i")
+    fi
+  done
   release_to_github "${github_args[@]}"
-  release_to_gcs "$@"
+  release_to_gcs "${gcs_args[@]}"
   release_to_apt
 }
 
@@ -483,6 +490,7 @@ function bazel_release() {
 # Use jekyll build to build the site and then gsutil to copy it to GCS
 # Input: $1 tarball to the jekyll site
 #        $2 name of the bucket to deploy the site to
+#        $3 "nobuild" if only publish without build
 # It requires to have gsutil installed. You can force the path to gsutil
 # by setting the GSUTIL environment variable
 function build_and_publish_site() {
@@ -491,17 +499,52 @@ function build_and_publish_site() {
   local gs="$(get_gsutil)"
   local site="$1"
   local bucket="$2"
+  local nobuild="$3"
 
   if [ ! -f "${site}" ] || [ -z "${bucket}" ]; then
     echo "Usage: build_and_publish_site <site-tarball> <bucket>" >&2
     return 1
   fi
+  local prod_dir="${tmpdir}"
   tar xf "${site}" --exclude=CNAME -C "${tmpdir}"
-  jekyll build -s "${tmpdir}" -d "${tmpdir}/production"
+  if [ "$nobuild" != "nobuild" ]; then
+    jekyll build -s "${tmpdir}" -d "${tmpdir}/production"
+    prod_dir="${tmpdir}/production"
+  fi
+
   # Rsync:
   #   -r: recursive
   #   -c: compute checksum even though the input is from the filesystem
-  "${gs}" rsync -r -c "${tmpdir}/production" "gs://${bucket}"
+  "${gs}" rsync -r -c "${prod_dir}" "gs://${bucket}"
   "${gs}" web set -m index.html -e 404.html "gs://${bucket}"
+  "${gs}" -m acl ch -R -u AllUsers:R "gs://${bucket}"
+}
+
+# Push json file to perf site, also add to file_list
+# Input: $1 json file to push
+#        $2 name of the bucket to deploy the site to
+function push_benchmark_output_to_site() {
+  tmpdir=$(mktemp -d ${TMPDIR:-/tmp}/tmp.XXXXXXXX)
+  trap 'rm -fr ${tmpdir}' EXIT
+  local gs="$(get_gsutil)"
+  local output_file="$1"
+  local output_file_basename="$(basename ${output_file})"
+  local bucket="$2"
+
+  if [ ! -f "${output_file}" ] || [ -z "${bucket}" ]; then
+    echo "Usage: push_benchmark_output_to_site <json-file-name> <bucket>" >&2
+    return 1
+  fi
+
+  # Upload json file
+  "${gs}" cp "${output_file}" "gs://${bucket}/data/${output_file_basename}"
+
+  # Download file_list (it might not exist)
+  "${gs}" cp "gs://${bucket}/file_list" "${tmpdir}" || true
+  # Update file_list
+  local list_file="${tmpdir}/file_list"
+  echo "${output_file_basename}" >> "${list_file}"
+  "${gs}" cp "${list_file}" "gs://${bucket}/file_list"
+
   "${gs}" -m acl ch -R -u AllUsers:R "gs://${bucket}"
 }

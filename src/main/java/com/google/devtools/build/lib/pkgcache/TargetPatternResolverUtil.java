@@ -41,7 +41,7 @@ public final class TargetPatternResolverUtil {
   public static ResolvedTargets<Target> resolvePackageTargets(Package pkg,
                                                               FilteringPolicy policy) {
     ResolvedTargets.Builder<Target> builder = ResolvedTargets.builder();
-    for (Target target : pkg.getTargets()) {
+    for (Target target : pkg.getTargets().values()) {
       if (policy.shouldRetain(target, false)) {
         builder.add(target);
       }
@@ -69,7 +69,7 @@ public final class TargetPatternResolverUtil {
   }
 
   public static PathFragment getPathFragment(String pathPrefix) throws TargetParsingException {
-    PathFragment directory = new PathFragment(pathPrefix);
+    PathFragment directory = PathFragment.create(pathPrefix);
     if (directory.containsUplevelReferences()) {
       throw new TargetParsingException("up-level references are not permitted: '"
           + directory.getPathString() + "'");

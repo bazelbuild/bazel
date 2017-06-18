@@ -20,17 +20,14 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_SW
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBundlingRule.APP_ICON_ATTR;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBundlingRule.DEBUG_ENTITLEMENTS_ATTR;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBundlingRule.EXTRA_ENTITLEMENTS_ATTR;
-import static com.google.devtools.build.lib.rules.objc.TargetDeviceFamily.UI_DEVICE_FAMILY_VALUES;
 
 import com.dd.plist.NSArray;
 import com.dd.plist.NSDictionary;
 import com.dd.plist.NSObject;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.BuildInfo;
@@ -63,7 +60,6 @@ import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.objc.BundleSupport.ExtraActoolArgs;
 import com.google.devtools.build.lib.rules.objc.Bundling.Builder;
 import com.google.devtools.build.lib.shell.ShellUtils;
-import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 import java.util.List;
 import java.util.Map.Entry;
 import javax.annotation.Nullable;
@@ -76,7 +72,11 @@ import javax.annotation.Nullable;
  * <p>Contains actions, validation logic and provider value generation.
  *
  * <p>Methods on this class can be called in any order without impacting the result.
+ *
+ * @deprecated The native bundling rules have been deprecated. This class will be removed in the
+ *     future.
  */
+@Deprecated
 public final class ReleaseBundlingSupport {
 
   /**
@@ -177,7 +177,10 @@ public final class ReleaseBundlingSupport {
     this.intermediateArtifacts = releaseBundling.getIntermediateArtifacts();
     this.bundling = bundling(ruleContext, objcProvider, bundleDirFormat, bundleName,
         bundleMinimumOsVersion);
-    bundleSupport = new BundleSupport(ruleContext, bundling, extraActoolArgs());
+    // TODO(cparsons): Take the rule configuration as a param instead of inferring.
+    bundleSupport = new BundleSupport(ruleContext,
+        ruleContext.getFragment(AppleConfiguration.class), platform,
+        bundling, extraActoolArgs());
   }
 
   /**
@@ -278,7 +281,9 @@ public final class ReleaseBundlingSupport {
    * @return this release bundling support
    */
   ReleaseBundlingSupport validateResources() {
-    bundleSupport.validate(objcProvider);
+    bundleSupport
+        .validatePlatform()
+        .validateResources(objcProvider);
     return this;
   }
 
@@ -377,7 +382,7 @@ public final class ReleaseBundlingSupport {
             platform.getLowerCaseNameInPlist(),
             configuration.getSdkVersionForPlatform(platform));
     ruleContext.registerAction(
-        ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext)
+        ObjcRuleClasses.spawnAppleEnvActionBuilder(configuration, platform)
             .setMnemonic("EnvironmentPlist")
             .setExecutable(attributes.environmentPlist())
             .addArguments("--platform", platformWithVersion)
@@ -603,20 +608,6 @@ public final class ReleaseBundlingSupport {
   }
 
   /**
-   * Adds bundle- and application-related settings to the given Xcode provider builder.
-   *
-   * @return this application support
-   */
-  ReleaseBundlingSupport addXcodeSettings(XcodeProvider.Builder xcodeProviderBuilder) {
-    bundleSupport.addXcodeSettings(xcodeProviderBuilder);
-    // Add application-related Xcode build settings to the main target only. The companion library
-    // target does not need them.
-    xcodeProviderBuilder.addMainTargetXcodeprojBuildSettings(buildSettings());
-
-    return this;
-  }
-
-  /**
    * Adds any files to the given nested set builder that should be built if this application is the
    * top level target in a blaze invocation.
    *
@@ -836,47 +827,6 @@ public final class ReleaseBundlingSupport {
     return linkedBinariesBuilder.build();
   }
 
-  /** Returns this target's Xcode build settings. */
-  private Iterable<XcodeprojBuildSetting> buildSettings() {
-    ImmutableList.Builder<XcodeprojBuildSetting> buildSettings = new ImmutableList.Builder<>();
-    if (releaseBundling.getAppIcon() != null) {
-      buildSettings.add(XcodeprojBuildSetting.newBuilder()
-          .setName("ASSETCATALOG_COMPILER_APPICON_NAME")
-          .setValue(releaseBundling.getAppIcon())
-          .build());
-    }
-    if (releaseBundling.getLaunchImage() != null) {
-      buildSettings.add(XcodeprojBuildSetting.newBuilder()
-          .setName("ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME")
-          .setValue(releaseBundling.getLaunchImage())
-          .build());
-    }
-
-    // Convert names to a sequence containing "1" and/or "2" for iPhone and iPad, respectively.
-    ImmutableSet<TargetDeviceFamily> families;
-    if (bundleSupport.isBuildingForWatch()) {
-      families = ImmutableSet.of(TargetDeviceFamily.WATCH);
-    } else {
-      families = bundleSupport.targetDeviceFamilies();
-    }
-    Iterable<Integer> familyIndexes =
-        families.isEmpty() ? ImmutableList.<Integer>of() : UI_DEVICE_FAMILY_VALUES.get(families);
-    buildSettings.add(XcodeprojBuildSetting.newBuilder()
-        .setName("TARGETED_DEVICE_FAMILY")
-        .setValue(Joiner.on(',').join(familyIndexes))
-        .build());
-
-    Artifact entitlements = releaseBundling.getEntitlements();
-    if (entitlements != null) {
-      buildSettings.add(XcodeprojBuildSetting.newBuilder()
-          .setName("CODE_SIGN_ENTITLEMENTS")
-          .setValue("$(WORKSPACE_ROOT)/" + entitlements.getExecPathString())
-          .build());
-    }
-
-    return buildSettings.build();
-  }
-
   private void registerBundleMergeActions() {
     Artifact bundleMergeControlArtifact = ObjcRuleClasses.artifactByAppendingToBaseName(ruleContext,
         artifactName(".ipa-control"));
@@ -1082,7 +1032,7 @@ public final class ReleaseBundlingSupport {
         .addExecPath("--scan-executable", combinedArchBinary);
 
     ruleContext.registerAction(
-        ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext, platform)
+        ObjcRuleClasses.spawnAppleEnvActionBuilder(appleConfiguration, platform)
             .setMnemonic("SwiftStdlibCopy")
             .setExecutable(attributes.swiftStdlibToolWrapper())
             .setCommandLine(commandLine.build())
@@ -1114,7 +1064,7 @@ public final class ReleaseBundlingSupport {
         .addExecPath("--scan-executable", combinedArchBinary);
 
     ruleContext.registerAction(
-        ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext, platform)
+        ObjcRuleClasses.spawnAppleEnvActionBuilder(configuration, platform)
             .setMnemonic("SwiftCopySwiftSupport")
             .setExecutable(attributes.swiftStdlibToolWrapper())
             .setCommandLine(commandLine.build())

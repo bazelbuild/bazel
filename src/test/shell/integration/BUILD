@@ -31,6 +31,13 @@ sh_test(
 )
 
 sh_test(
+    name = "python_test",
+    size = "medium",
+    srcs = ["python_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "loading_phase_tests",
     size = "large",
     srcs = ["loading_phase_tests.sh"],
@@ -39,11 +46,18 @@ sh_test(
 )
 
 sh_test(
+    name = "execution_phase_tests",
+    size = "large",
+    srcs = ["execution_phase_tests.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "experimental_ui_test",
     size = "large",
     srcs = ["experimental_ui_test.sh"],
     data = [":test-deps"],
-    shard_count = 6,
+    shard_count = 11,
 )
 
 sh_test(
@@ -142,21 +156,10 @@ sh_test(
 )
 
 sh_test(
-    name = "ide_info_generation_native",
-    size = "large",
-    srcs = ["ide_info_generation.sh"],
-    args = [
-        "AndroidStudioInfoAspect",
-        "ide-info",
-        "aswb-build",
-        "ide-info-text",
-        "aswb-build.txt",
-        "ide-resolve",
-    ],
-    data = [
-        ":test-deps",
-        "//src/tools/android/java/com/google/devtools/build/android/ideinfo:PackageParser",
-    ],
+    name = "incompatible_changes_conflict_test",
+    size = "small",
+    srcs = ["incompatible_changes_conflict_test.sh"],
+    data = [":test-deps"],
 )
 
 sh_test(
@@ -178,6 +181,15 @@ sh_test(
 )
 
 sh_test(
+    name = "skylark_flag_test",
+    size = "small",
+    srcs = ["skylark_flag_test.sh"],
+    data = [":test-deps"],
+    # TODO(brandjon): Fix GitHub issue #3072 and remove the "manual" tag.
+    tags = ["manual"],
+)
+
+sh_test(
     name = "ui_test",
     size = "medium",
     srcs = ["ui_test.sh"],
@@ -188,6 +200,13 @@ sh_test(
     name = "rc_options_test",
     size = "medium",
     srcs = ["rc_options_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
+    name = "cpp_test",
+    size = "large",
+    srcs = ["cpp_test.sh"],
     data = [":test-deps"],
 )
 
@@ -211,6 +230,7 @@ sh_test(
     size = "medium",
     srcs = ["build_event_stream_test.sh"],
     data = [":test-deps"],
+    shard_count = 2,
 )
 
 sh_test(
@@ -241,8 +261,23 @@ sh_test(
         ":test-deps",
         "//src/test/java/com/google/devtools/build/lib:ExampleWorker_deploy.jar",
     ],
+    # TODO(b/34450149): remove when no longer flaky
+    flaky = 1,
     shard_count = 3,
     tags = ["jdk8"],
+)
+
+sh_test(
+    name = "logging_test",
+    size = "medium",
+    srcs = ["logging_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
+    name = "test_test",
+    srcs = ["test_test.sh"],
+    data = [":test-deps"],
 )
 
 test_suite(

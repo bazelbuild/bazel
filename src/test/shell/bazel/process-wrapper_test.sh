@@ -105,7 +105,7 @@ function test_execvp_error_message() {
   local code=0
   $process_wrapper -1 0 $OUT $ERR /bin/notexisting &> $TEST_log || code=$?
   assert_equals 1 "$code"
-  assert_contains "execvp(\"/bin/notexisting\", ...): No such file or directory" "$ERR"
+  assert_contains "\"execvp(/bin/notexisting, ...)\": No such file or directory" "$ERR"
 }
 
 run_suite "process-wrapper"

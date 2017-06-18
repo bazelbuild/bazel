@@ -21,6 +21,9 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.skyframe.KeyToConsolidate.Op;
+import com.google.devtools.build.skyframe.KeyToConsolidate.OpToStoreBare;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -36,12 +39,33 @@ import javax.annotation.Nullable;
  * say b depends on a. If a completes first, it's done. If it completes second, it needs to signal
  * b, and potentially re-schedule it. If b completes first, it must exit, because it will be
  * signaled (and re-scheduled) by a. If it completes second, it must signal (and re-schedule)
- * itself. However, if the Evaluator supported re-entrancy for a node, then this wouldn't have to
- * be so strict, because duplicate scheduling would be less problematic.
+ * itself. However, if the Evaluator supported re-entrancy for a node, then this wouldn't have to be
+ * so strict, because duplicate scheduling would be less problematic.
  *
- * <p>The transient state of an {@code InMemoryNodeEntry} is kept in a {@link BuildingState} object.
- * Many of the methods of {@code InMemoryNodeEntry} are just wrappers around the corresponding
- * {@link BuildingState} methods.
+ * <p>During its life, a node can go through states as follows:
+ *
+ * <ol>
+ *   <li>Non-existent
+ *   <li>Just created ({@link #isEvaluating} is false)
+ *   <li>Evaluating ({@link #isEvaluating} is true)
+ *   <li>Done ({@link #isDone} is true)
+ *   <li>Just created (when it is dirtied: {@link #dirtyBuildingState} is not null)
+ *   <li>Reset (just before it is re-evaluated: {@link #dirtyBuildingState#getDirtyState} returns
+ *       {@link DirtyState#NEEDS_REBUILDING})
+ *   <li>Evaluating
+ *   <li>Done
+ * </ol>
+ *
+ * <p>The "just created" state is there to allow the {@link EvaluableGraph#createIfAbsentBatch} and
+ * {@link NodeEntry#addReverseDepAndCheckIfDone} methods to be separate. All callers have to call
+ * both methods in that order if they want to create a node. The second method transitions the
+ * current node to the "evaluating" state and returns true only the first time it was called. A
+ * caller that gets "true" back from that call must start the evaluation of this node, while any
+ * subsequent callers must not.
+ *
+ * <p>An entry is set to "evaluating" as soon as it is scheduled for evaluation. Thus, even a node
+ * that is never actually built (for instance, a dirty node that is verified as clean) is in the
+ * "evaluating" state until it is done.
  *
  * <p>This class is public only for the benefit of alternative graph implementations outside of the
  * package.
@@ -84,49 +108,65 @@ public class InMemoryNodeEntry implements NodeEntry {
    *
    * <p>In case of a single object we store the object unwrapped, without the list, for
    * memory-efficiency.
+   *
+   * <p>When an entry is being re-evaluated, this object stores the reverse deps from the previous
+   * evaluation. At the end of evaluation, the changed reverse dep operations from {@link
+   * #reverseDepsDataToConsolidate} are merged in here.
    */
   protected Object reverseDeps = ImmutableList.of();
 
   /**
-   * When reverse deps are removed, checked for presence, or possibly added, we store them in this
-   * object instead of directly doing the operation. That is because removals/checks in reverseDeps
-   * are O(N). Originally reverseDeps was a HashSet, but because of memory consumption we switched
-   * to a list.
+   * This list stores objects returned by {@link KeyToConsolidate#create}. Morally they are {@link
+   * KeyToConsolidate} objects, but since some operations are stored bare, we can only declare that
+   * this list holds {@link Object} references. Created lazily to save memory.
    *
-   * <p>Internally, ReverseDepsUtilImpl consolidates this data periodically, and when the set of
-   * reverse deps is requested. While this operation is not free, it can be done more effectively
+   * <p>This list serves double duty. For a done node, when a reverse dep is removed, checked for
+   * presence, or possibly added, we store the mutation in this object instead of immediately doing
+   * the operation. That is because removals/checks in reverseDeps are O(N). Originally reverseDeps
+   * was a HashSet, but because of memory consumption we switched to a list.
+   *
+   * <p>Internally, {@link ReverseDepsUtility} consolidates this data periodically, and when the set
+   * of reverse deps is requested. While this operation is not free, it can be done more effectively
    * than trying to remove/check each dirty reverse dependency individually (O(N) each time).
+   *
+   * <p>When the node entry is evaluating, this list serves to declare the reverse dep operations
+   * that have taken place on it during this evaluation. When evaluation finishes, this list will be
+   * merged into the existing reverse deps if any, but furthermore, this list will also be used to
+   * calculate the set of reverse deps to signal when this entry finishes evaluation. That is done
+   * by {@link ReverseDepsUtility#consolidateDataAndReturnNewElements}.
    */
   private List<Object> reverseDepsDataToConsolidate = null;
 
-  private static final ReverseDepsUtil<InMemoryNodeEntry> REVERSE_DEPS_UTIL =
-      new ReverseDepsUtilImpl<InMemoryNodeEntry>() {
-        @Override
-        void setReverseDepsObject(InMemoryNodeEntry container, Object object) {
-          container.reverseDeps = object;
-        }
+  /**
+   * Object encapsulating dirty state of the object between when it is marked dirty and
+   * re-evaluated.
+   */
+  @VisibleForTesting @Nullable protected volatile DirtyBuildingState dirtyBuildingState = null;
 
-        @Override
-        void setDataToConsolidate(InMemoryNodeEntry container, List<Object> dataToConsolidate) {
-          container.reverseDepsDataToConsolidate = dataToConsolidate;
-        }
-
-        @Override
-        Object getReverseDepsObject(InMemoryNodeEntry container) {
-          return container.reverseDeps;
-        }
-
-        @Override
-        List<Object> getDataToConsolidate(InMemoryNodeEntry container) {
-          return container.reverseDepsDataToConsolidate;
-        }
-      };
+  private static final int NOT_EVALUATING_SENTINEL = -1;
 
   /**
-   * The transient state of this entry, after it has been created but before it is done. It allows
-   * us to keep the current state of the entry across invalidation and successive evaluations.
+   * The number of dependencies that are known to be done in a {@link NodeEntry} if it is already
+   * evaluating, and a sentinel (-1) indicating that it has not yet started evaluating otherwise.
+   * There is a potential check-then-act race here during evaluation, so we need to make sure that
+   * when this is increased, we always check if the new value is equal to the number of required
+   * dependencies, and if so, we must re-schedule the node for evaluation.
+   *
+   * <p>There are two potential pitfalls here: 1) If multiple dependencies signal this node in close
+   * succession, this node should be scheduled exactly once. 2) If a thread is still working on this
+   * node, it should not be scheduled.
+   *
+   * <p>The first problem is solved by the {@link #signalDep} method, which also returns if the node
+   * needs to be re-scheduled, and ensures that only one thread gets a true return value.
+   *
+   * <p>The second problem is solved by first adding the newly discovered deps to a node's {@link
+   * #directDeps}, and then looping through the direct deps and registering this node as a reverse
+   * dependency. This ensures that the signaledDeps counter can only reach {@link
+   * #directDeps#numElements} on the very last iteration of the loop, i.e., the thread is not
+   * working on the node anymore. Note that this requires that there is no code after the loop in
+   * {@code ParallelEvaluator.Evaluate#run}.
    */
-  @VisibleForTesting @Nullable protected BuildingState buildingState = new BuildingState();
+  private int signaledDeps = NOT_EVALUATING_SENTINEL;
 
   /**
    * Construct a InMemoryNodeEntry. Use ONLY in Skyframe evaluation and graph implementations.
@@ -140,8 +180,8 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
-  public synchronized boolean isDone() {
-    return buildingState == null;
+  public boolean isDone() {
+    return value != null && !isEvaluating();
   }
 
   @Override
@@ -197,7 +237,7 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   private DirtyBuildingState getDirtyBuildingState() {
-    return (DirtyBuildingState) Preconditions.checkNotNull(buildingState, this);
+    return Preconditions.checkNotNull(dirtyBuildingState, "Didn't have state: %s", this);
   }
 
   /**
@@ -205,15 +245,13 @@ public class InMemoryNodeEntry implements NodeEntry {
    * need to override the other.
    */
   protected void markDone() {
-    buildingState = null;
+    dirtyBuildingState = null;
+    signaledDeps = NOT_EVALUATING_SENTINEL;
   }
 
   protected synchronized Set<SkyKey> setStateFinishedAndReturnReverseDepsToSignal() {
-    // Get reverse deps that need to be signaled.
-    ImmutableSet<SkyKey> reverseDepsToSignal = buildingState.getReverseDepsToSignal();
-    getReverseDepsUtil().addReverseDeps(this, reverseDepsToSignal);
-    // Force consistency check and consolidate rdeps changes.
-    getReverseDepsUtil().consolidateReverseDeps(this);
+    Set<SkyKey> reverseDepsToSignal =
+        ReverseDepsUtility.consolidateDataAndReturnNewElements(this, getOpToStoreBare());
     this.directDeps = getTemporaryDirectDeps().compress();
 
     markDone();
@@ -228,7 +266,7 @@ public class InMemoryNodeEntry implements NodeEntry {
   @Override
   public synchronized Set<SkyKey> getInProgressReverseDeps() {
     Preconditions.checkState(!isDone(), this);
-    return buildingState.getReverseDepsToSignal();
+    return ReverseDepsUtility.returnNewElements(this, getOpToStoreBare());
   }
 
   @Override
@@ -256,41 +294,73 @@ public class InMemoryNodeEntry implements NodeEntry {
     return setStateFinishedAndReturnReverseDepsToSignal();
   }
 
-  protected ReverseDepsUtil<InMemoryNodeEntry> getReverseDepsUtil() {
-    return REVERSE_DEPS_UTIL;
-  }
-
   @Override
   public synchronized DependencyState addReverseDepAndCheckIfDone(SkyKey reverseDep) {
     if (reverseDep != null) {
-      if (keepEdges()) {
-        getReverseDepsUtil().maybeCheckReverseDepNotPresent(this, reverseDep);
-      }
       if (isDone()) {
         if (keepEdges()) {
-          getReverseDepsUtil().addReverseDeps(this, ImmutableList.of(reverseDep));
+          ReverseDepsUtility.addReverseDeps(this, ImmutableList.of(reverseDep));
         }
       } else {
-        // Parent should never register itself twice in the same build.
-        buildingState.addReverseDepToSignal(reverseDep);
+        appendToReverseDepOperations(reverseDep, Op.ADD);
       }
     }
     if (isDone()) {
       return DependencyState.DONE;
     }
-    return buildingState.startEvaluating() ? DependencyState.NEEDS_SCHEDULING
-                                           : DependencyState.ALREADY_EVALUATING;
+    boolean result = !isEvaluating();
+    if (result) {
+      signaledDeps = 0;
+    }
+    return result ? DependencyState.NEEDS_SCHEDULING : DependencyState.ALREADY_EVALUATING;
+  }
+
+  /** Sets {@link #reverseDeps}. Does not alter {@link #reverseDepsDataToConsolidate}. */
+  synchronized void setSingleReverseDepForReverseDepsUtil(SkyKey reverseDep) {
+    this.reverseDeps = reverseDep;
+  }
+
+  /** Sets {@link #reverseDeps}. Does not alter {@link #reverseDepsDataToConsolidate}. */
+  synchronized void setReverseDepsForReverseDepsUtil(List<SkyKey> reverseDeps) {
+    this.reverseDeps = reverseDeps;
+  }
+
+  /** Sets {@link #reverseDepsDataToConsolidate}. Does not alter {@link #reverseDeps}. */
+  synchronized void setReverseDepsDataToConsolidateForReverseDepsUtil(
+      List<Object> dataToConsolidate) {
+    this.reverseDepsDataToConsolidate = dataToConsolidate;
+  }
+
+  synchronized Object getReverseDepsRawForReverseDepsUtil() {
+    return this.reverseDeps;
+  }
+
+  synchronized List<Object> getReverseDepsDataToConsolidateForReverseDepsUtil() {
+    return this.reverseDepsDataToConsolidate;
+  }
+
+  private synchronized void appendToReverseDepOperations(SkyKey reverseDep, Op op) {
+    Preconditions.checkState(!isDone(), "Don't append to done %s %s %s", this, reverseDep, op);
+    if (reverseDepsDataToConsolidate == null) {
+      reverseDepsDataToConsolidate = new ArrayList<>();
+    }
+    Preconditions.checkState(
+        isDirty() || op != Op.CHECK, "Not dirty check %s %s", this, reverseDep);
+    reverseDepsDataToConsolidate.add(KeyToConsolidate.create(reverseDep, op, getOpToStoreBare()));
+  }
+
+  private OpToStoreBare getOpToStoreBare() {
+    return isDirty() ? OpToStoreBare.CHECK : OpToStoreBare.ADD;
   }
 
   @Override
   public synchronized DependencyState checkIfDoneForDirtyReverseDep(SkyKey reverseDep) {
     Preconditions.checkNotNull(reverseDep, this);
     Preconditions.checkState(keepEdges(), "%s %s", reverseDep, this);
-    if (!isDone()) {
-      getReverseDepsUtil().removeReverseDep(this, reverseDep);
-      buildingState.addReverseDepToSignal(reverseDep);
+    if (isDone()) {
+      ReverseDepsUtility.checkReverseDep(this, reverseDep);
     } else {
-      getReverseDepsUtil().checkReverseDep(this, reverseDep);
+      appendToReverseDepOperations(reverseDep, Op.CHECK);
     }
     return addReverseDepAndCheckIfDone(null);
   }
@@ -300,23 +370,36 @@ public class InMemoryNodeEntry implements NodeEntry {
     if (!keepEdges()) {
       return;
     }
-    getReverseDepsUtil().removeReverseDep(this, reverseDep);
+    if (isDone()) {
+      ReverseDepsUtility.removeReverseDep(this, reverseDep);
+    } else {
+      // Removing a reverse dep from an in-flight node is rare -- it should only happen when this
+      // node is about to be cleaned from the graph.
+      appendToReverseDepOperations(reverseDep, Op.REMOVE_OLD);
+    }
   }
 
   @Override
   public synchronized void removeInProgressReverseDep(SkyKey reverseDep) {
-    buildingState.removeReverseDepToSignal(reverseDep);
+    appendToReverseDepOperations(reverseDep, Op.REMOVE);
   }
 
   @Override
-  public synchronized Iterable<SkyKey> getReverseDeps() {
+  public synchronized Iterable<SkyKey> getReverseDepsForDoneEntry() {
     assertKeepEdges();
-    Iterable<SkyKey> reverseDeps = getReverseDepsUtil().getReverseDeps(this);
-    if (isDone()) {
-      return reverseDeps;
-    } else {
-      return Iterables.concat(reverseDeps, buildingState.getReverseDepsToSignal());
+    Preconditions.checkState(isDone(), "Called on not done %s", this);
+    return ReverseDepsUtility.getReverseDeps(this);
+  }
+
+  @Override
+  public synchronized Iterable<SkyKey> getAllReverseDepsForNodeBeingDeleted() {
+    assertKeepEdges();
+    if (!isDone()) {
+      // This consolidation loses information about pending reverse deps to signal, but that is
+      // unimportant since this node is being deleted.
+      ReverseDepsUtility.consolidateDataAndReturnNewElements(this, getOpToStoreBare());
     }
+    return ReverseDepsUtility.getReverseDeps(this);
   }
 
   @Override
@@ -327,19 +410,22 @@ public class InMemoryNodeEntry implements NodeEntry {
   @Override
   public synchronized boolean signalDep(Version childVersion) {
     Preconditions.checkState(!isDone(), "Value must not be done in signalDep %s", this);
-    return buildingState.signalDep(
-        /*childChanged=*/ !childVersion.atMost(lastEvaluatedVersion),
-        getTemporaryDirectDeps().numElements());
+    Preconditions.checkState(isEvaluating(), this);
+    signaledDeps++;
+    if (isDirty()) {
+      dirtyBuildingState.signalDepInternal(!childVersion.atMost(lastEvaluatedVersion), isReady());
+    }
+    return isReady();
   }
 
   @Override
   public synchronized boolean isDirty() {
-    return !isDone() && buildingState.isDirty();
+    return !isDone() && dirtyBuildingState != null;
   }
 
   @Override
   public synchronized boolean isChanged() {
-    return !isDone() && buildingState.isChanged();
+    return !isDone() && dirtyBuildingState != null && dirtyBuildingState.isChanged();
   }
 
   /** Checks that a caller is not trying to access not-stored graph edges. */
@@ -351,11 +437,11 @@ public class InMemoryNodeEntry implements NodeEntry {
   public synchronized MarkedDirtyResult markDirty(boolean isChanged) {
     assertKeepEdges();
     if (isDone()) {
-      buildingState =
+      dirtyBuildingState =
           DirtyBuildingState.create(isChanged, GroupedList.<SkyKey>create(directDeps), value);
       value = null;
       directDeps = null;
-      return new MarkedDirtyResult(getReverseDepsUtil().getReverseDeps(this));
+      return new MarkedDirtyResult(ReverseDepsUtility.getReverseDeps(this));
     }
     // The caller may be simultaneously trying to mark this node dirty and changed, and the dirty
     // thread may have lost the race, but it is the caller's responsibility not to try to mark
@@ -381,14 +467,13 @@ public class InMemoryNodeEntry implements NodeEntry {
         "Direct deps must be the same as those found last build for node to be marked clean: %s",
         this);
     Preconditions.checkState(isDirty(), this);
-    Preconditions.checkState(!buildingState.isChanged(), "shouldn't be changed: %s", this);
+    Preconditions.checkState(!dirtyBuildingState.isChanged(), "shouldn't be changed: %s", this);
     return setStateFinishedAndReturnReverseDepsToSignal();
   }
 
   @Override
   public synchronized void forceRebuild() {
-    Preconditions.checkState(
-        getTemporaryDirectDeps().numElements() == getDirtyBuildingState().getSignaledDeps(), this);
+    Preconditions.checkState(getTemporaryDirectDeps().numElements() == signaledDeps, this);
     getDirtyBuildingState().forceChanged();
   }
 
@@ -397,21 +482,23 @@ public class InMemoryNodeEntry implements NodeEntry {
     return lastChangedVersion;
   }
 
-  /** @see DirtyBuildingState#getDirtyState() */
   @Override
   public synchronized NodeEntry.DirtyState getDirtyState() {
+    Preconditions.checkState(isEvaluating(), "Not evaluating for dirty state? %s", this);
     return getDirtyBuildingState().getDirtyState();
   }
 
   /** @see DirtyBuildingState#getNextDirtyDirectDeps() */
   @Override
-  public synchronized Collection<SkyKey> getNextDirtyDirectDeps() {
+  public synchronized Collection<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
     Preconditions.checkState(isReady(), this);
+    Preconditions.checkState(isEvaluating(), "Not evaluating during getNextDirty? %s", this);
     return getDirtyBuildingState().getNextDirtyDirectDeps();
   }
 
   @Override
-  public synchronized Iterable<SkyKey> getAllDirectDepsForIncompleteNode() {
+  public synchronized Iterable<SkyKey> getAllDirectDepsForIncompleteNode()
+      throws InterruptedException {
     Preconditions.checkState(!isDone(), this);
     if (!isDirty()) {
       return Iterables.concat(getTemporaryDirectDeps());
@@ -428,13 +515,13 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
-  public synchronized Set<SkyKey> getAllRemainingDirtyDirectDeps() {
+  public synchronized Set<SkyKey> getAllRemainingDirtyDirectDeps() throws InterruptedException {
+    Preconditions.checkState(isEvaluating(), "Not evaluating for remaining dirty? %s", this);
     if (isDirty()) {
       Preconditions.checkState(
           getDirtyBuildingState().getDirtyState() == DirtyState.REBUILDING, this);
       return getDirtyBuildingState().getAllRemainingDirtyDirectDeps(/*preservePosition=*/ true);
     } else {
-      Preconditions.checkState(buildingState.isEvaluating(), this);
       return ImmutableSet.of();
     }
   }
@@ -487,7 +574,17 @@ public class InMemoryNodeEntry implements NodeEntry {
   @Override
   public synchronized boolean isReady() {
     Preconditions.checkState(!isDone(), "can't be ready if done: %s", this);
-    return buildingState.isReady(getTemporaryDirectDeps().numElements());
+    return isReady(getTemporaryDirectDeps().numElements());
+  }
+
+  /** Returns whether all known children of this node have signaled that they are done. */
+  private boolean isReady(int numDirectDeps) {
+    Preconditions.checkState(signaledDeps <= numDirectDeps, "%s %s", numDirectDeps, this);
+    return signaledDeps == numDirectDeps;
+  }
+
+  private boolean isEvaluating() {
+    return signaledDeps > NOT_EVALUATING_SENTINEL;
   }
 
   @Override
@@ -498,8 +595,9 @@ public class InMemoryNodeEntry implements NodeEntry {
         .add("lastChangedVersion", lastChangedVersion)
         .add("lastEvaluatedVersion", lastEvaluatedVersion)
         .add("directDeps", isDone() ? GroupedList.create(directDeps) : directDeps)
-        .add("reverseDeps", getReverseDepsUtil().toString(this))
-        .add("buildingState", buildingState)
+        .add("signaledDeps", signaledDeps)
+        .add("reverseDeps", ReverseDepsUtility.toString(this))
+        .add("dirtyBuildingState", dirtyBuildingState)
         .toString();
   }
 
@@ -515,9 +613,9 @@ public class InMemoryNodeEntry implements NodeEntry {
     nodeEntry.value = value;
     nodeEntry.lastChangedVersion = this.lastChangedVersion;
     nodeEntry.lastEvaluatedVersion = this.lastEvaluatedVersion;
-    getReverseDepsUtil().addReverseDeps(nodeEntry, getReverseDepsUtil().getReverseDeps(this));
+    ReverseDepsUtility.addReverseDeps(nodeEntry, ReverseDepsUtility.getReverseDeps(this));
     nodeEntry.directDeps = directDeps;
-    nodeEntry.buildingState = null;
+    nodeEntry.dirtyBuildingState = null;
     return nodeEntry;
   }
 }

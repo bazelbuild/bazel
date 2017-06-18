@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.exec.ActionInputPrefetcher;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.OutputService;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -28,8 +27,10 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.rules.test.CoverageReportActionFactory;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.Clock;
+import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
@@ -132,17 +133,32 @@ public abstract class BlazeModule {
    * and only if the server initialization was successful. Modules can override this method to
    * affect how the workspace is configured.
    *
+   * @param runtime the blaze runtime
    * @param directories the workspace directories
    * @param builder the workspace builder
    */
-  public void workspaceInit(BlazeDirectories directories, WorkspaceBuilder builder) {
+  public void workspaceInit(
+      BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
   }
 
   /**
-   * Called before each command.
+   * Called to notify modules that the given command is about to be executed. This allows capturing
+   * the {@link com.google.common.eventbus.EventBus}, {@link Command}, or {@link OptionsProvider}.
+   *
+   * @param env the command
+   * @throws AbruptExitException modules can throw this exception to abort the command
+   */
+  public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
+  }
+
+  /**
+   * Returns additional listeners to the console output stream. Called at the beginning of each
+   * command (after #beforeCommand).
    */
   @SuppressWarnings("unused")
-  public void beforeCommand(Command command, CommandEnvironment env) throws AbruptExitException {
+  @Nullable
+  public OutErr getOutputListener() {
+    return null;
   }
 
   /**
@@ -153,16 +169,6 @@ public abstract class BlazeModule {
    */
   @SuppressWarnings("unused")
   public OutputService getOutputService() throws AbruptExitException {
-    return null;
-  }
-
-  /**
-   * Returns an implementation of {@link ActionInputPrefetcher}.
-   *
-   * <p>This method will be called at the beginning of each command (after #beforeCommand).
-   */
-  @SuppressWarnings("unused")
-  public ActionInputPrefetcher getPrefetcher() throws AbruptExitException {
     return null;
   }
 
@@ -300,5 +306,9 @@ public abstract class BlazeModule {
      * Exits Blaze as early as possible by sending an interrupt to the command's main thread.
      */
     void exit(AbruptExitException exception);
+  }
+
+  public ImmutableList<PrecomputedValue.Injected> getPrecomputedValues() {
+    return ImmutableList.of();
   }
 }

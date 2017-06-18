@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
-
 import javax.annotation.Nullable;
 
 /**
@@ -103,14 +101,14 @@ public final class ResourceApk {
 
   /**
    * Creates an provider from the resources in the ResourceApk.
-   * 
+   *
    * <p>If the ResourceApk was created from transitive resources, the provider will effectively
    * contain the "forwarded" resources: The merged transitive and merged direct dependencies of this
    * library.
-   * 
+   *
    * <p>If the ResourceApk was generated from a "resources" attribute, it will contain the
    * "resources" container in the direct dependencies and the rest as transitive.
-   * 
+   *
    * <p>If the ResourceApk was generated from local resources, that will be the direct dependencies and
    * the rest will be transitive.
    */

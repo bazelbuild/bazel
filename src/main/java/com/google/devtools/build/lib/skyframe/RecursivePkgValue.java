@@ -23,9 +23,9 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.Serializable;
 import java.util.Objects;
 
@@ -58,7 +58,7 @@ public class RecursivePkgValue implements SkyValue {
   @ThreadSafe
   public static SkyKey key(RepositoryName repositoryName, RootedPath rootedPath,
       ImmutableSet<PathFragment> excludedPaths) {
-    return SkyKey.create(
+    return LegacySkyKey.create(
         SkyFunctions.RECURSIVE_PKG, new RecursivePkgKey(repositoryName, rootedPath, excludedPaths));
   }
 

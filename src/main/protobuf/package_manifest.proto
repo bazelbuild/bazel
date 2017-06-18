@@ -25,8 +25,16 @@ message ArtifactLocation {
   string relative_path = 2;
   bool is_source = 3;
 
-  // set for derived artifacts (isSource = false)
+  // path from the execution root to the actual root:
+  // exec_root + root_execution_path_fragment + relative_path = absolute_path
   string root_execution_path_fragment = 4;
+  // whether this artifact comes from an external repository (bazel only)
+  bool is_external = 5;
+
+  // The contents of relative_path and root_execution_path_fragment have changed
+  // for external workspaces. This is a temporary field to distinguish between
+  // the two versions.
+  bool is_new_external_version = 6;
 }
 
 message JavaSourcePackage {

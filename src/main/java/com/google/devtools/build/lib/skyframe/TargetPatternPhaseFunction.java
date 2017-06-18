@@ -189,7 +189,11 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       Environment env, TargetPatternList options) throws InterruptedException {
     List<SkyKey> patternSkyKeys = new ArrayList<>();
     for (TargetPatternSkyKeyOrException keyOrException :
-        TargetPatternValue.keys(options.getTargetPatterns(), FilteringPolicies.FILTER_MANUAL,
+        TargetPatternValue.keys(
+            options.getTargetPatterns(),
+            options.getBuildManualTests()
+                ? FilteringPolicies.NO_FILTER
+                : FilteringPolicies.FILTER_MANUAL,
             options.getOffset())) {
       try {
         patternSkyKeys.add(keyOrException.getSkyKey());

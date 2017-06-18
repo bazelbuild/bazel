@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
+
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -69,8 +68,9 @@ public class MiddlemanActionTest extends BuildViewTestCase {
   @Test
   public void testActionIsAMiddleman() {
     Action middleman = getGeneratingAction(middle);
-    assertTrue("Encountered instance of " + middleman.getClass(),
-        middleman.getActionType().isMiddleman());
+    assertWithMessage("Encountered instance of " + middleman.getClass())
+        .that(middleman.getActionType().isMiddleman())
+        .isTrue();
   }
 
   @Test
@@ -87,18 +87,24 @@ public class MiddlemanActionTest extends BuildViewTestCase {
 
   @Test
   public void testMiddlemanIsNullForEmptyInputs() throws Exception {
-    assertNull(middlemanFactory.createAggregatingMiddleman(NULL_ACTION_OWNER,
-        "middleman_test", new ArrayList<Artifact>(),
-        targetConfig.getMiddlemanDirectory(RepositoryName.MAIN)));
+    assertThat(
+            middlemanFactory.createAggregatingMiddleman(
+                NULL_ACTION_OWNER,
+                "middleman_test",
+                new ArrayList<Artifact>(),
+                targetConfig.getMiddlemanDirectory(RepositoryName.MAIN)))
+        .isNull();
   }
 
   @Test
   public void testMiddlemanIsIdentityForLonelyInput() throws Exception {
-    assertEquals(a,
-        middlemanFactory.createAggregatingMiddleman(
-            NULL_ACTION_OWNER, "middleman_test",
-            Lists.newArrayList(a),
-            targetConfig.getMiddlemanDirectory(RepositoryName.MAIN)));
+    assertThat(
+            middlemanFactory.createAggregatingMiddleman(
+                NULL_ACTION_OWNER,
+                "middleman_test",
+                Lists.newArrayList(a),
+                targetConfig.getMiddlemanDirectory(RepositoryName.MAIN)))
+        .isEqualTo(a);
   }
 
   @Test

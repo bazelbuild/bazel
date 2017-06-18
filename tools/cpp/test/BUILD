@@ -64,6 +64,7 @@ pkg_tar(
     for flavour in FLAVOURS
 ]
 
+# TODO(#2418): reactivate debian-stretch opt (flaky)
 [
     [py_test(
         name = "test_cc_configure-%s-%s" % (flavour, mode),
@@ -90,6 +91,7 @@ pkg_tar(
         "fastbuild",
     ]]
     for flavour in FLAVOURS
+    if flavour != "debian-stretch"
 ]
 
 filegroup(

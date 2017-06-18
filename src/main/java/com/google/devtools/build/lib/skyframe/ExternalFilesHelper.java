@@ -24,13 +24,19 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.logging.Logger;
 
 /** Common utilities for dealing with paths outside the package roots. */
 public class ExternalFilesHelper {
+  private static final Logger LOG = Logger.getLogger(ExternalFilesHelper.class.getName());
+  private static final int MAX_NUM_EXTERNAL_FILES_TO_LOG = 100;
+
   private final AtomicReference<PathPackageLocator> pkgLocator;
   private final ExternalFileAction externalFileAction;
   private final BlazeDirectories directories;
+  private final AtomicInteger numExternalFilesLogged = new AtomicInteger(0);
 
   // These variables are set to true from multiple threads, but only read in the main thread.
   // So volatility or an AtomicBoolean is not needed.
@@ -178,6 +184,10 @@ public class ExternalFilesHelper {
       if (externalFileAction
           == ExternalFileAction.ASSUME_NON_EXISTENT_AND_IMMUTABLE_FOR_EXTERNAL_PATHS) {
         throw new NonexistentImmutableExternalFileException();
+      }
+      if (fileType == FileType.EXTERNAL
+          && numExternalFilesLogged.incrementAndGet() < MAX_NUM_EXTERNAL_FILES_TO_LOG) {
+        LOG.info("Encountered an external path " + rootedPath);
       }
       return;
     }

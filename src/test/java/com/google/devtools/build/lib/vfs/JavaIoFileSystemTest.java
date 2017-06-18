@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.testutil.ManualClock;
 import java.io.IOException;
@@ -54,13 +54,13 @@ public class JavaIoFileSystemTest extends SymlinkAwareFileSystemTest {
     FileSystemUtils.createEmptyFile(file);
 
     file.setLastModifiedTime(1000L);
-    assertEquals(1000L, file.getLastModifiedTime());
+    assertThat(file.getLastModifiedTime()).isEqualTo(1000L);
     file.setLastModifiedTime(0L);
-    assertEquals(0L, file.getLastModifiedTime());
+    assertThat(file.getLastModifiedTime()).isEqualTo(0L);
 
     clock.advanceMillis(42000L);
     file.setLastModifiedTime(-1L);
-    assertEquals(42000L, file.getLastModifiedTime());
+    assertThat(file.getLastModifiedTime()).isEqualTo(42000L);
   }
 
   @Override

@@ -53,37 +53,37 @@ public class RecursivePkgKeyTest extends BuildViewTestCase {
   public void testValidRecursivePkgKeys() throws Exception {
     buildRecursivePkgKey(
         RepositoryName.MAIN,
-        new PathFragment(""),
+        PathFragment.create(""),
         ImmutableSet.<PathFragment>of());
     buildRecursivePkgKey(
         RepositoryName.MAIN,
-        new PathFragment(""),
-        ImmutableSet.of(new PathFragment("a")));
+        PathFragment.create(""),
+        ImmutableSet.of(PathFragment.create("a")));
 
     buildRecursivePkgKey(
         RepositoryName.MAIN,
-        new PathFragment("a"),
+        PathFragment.create("a"),
         ImmutableSet.<PathFragment>of());
     buildRecursivePkgKey(
         RepositoryName.MAIN,
-        new PathFragment("a"),
-        ImmutableSet.of(new PathFragment("a/b")));
+        PathFragment.create("a"),
+        ImmutableSet.of(PathFragment.create("a/b")));
 
     buildRecursivePkgKey(
         RepositoryName.MAIN,
-        new PathFragment("a/b"),
+        PathFragment.create("a/b"),
         ImmutableSet.<PathFragment>of());
     buildRecursivePkgKey(
         RepositoryName.MAIN,
-        new PathFragment("a/b"),
-        ImmutableSet.of(new PathFragment("a/b/c")));
+        PathFragment.create("a/b"),
+        ImmutableSet.of(PathFragment.create("a/b/c")));
   }
 
   @Test
   public void testInvalidRecursivePkgKeys() throws Exception {
-    invalidHelper(new PathFragment(""), ImmutableSet.of(new PathFragment("")));
-    invalidHelper(new PathFragment("a"), ImmutableSet.of(new PathFragment("a")));
-    invalidHelper(new PathFragment("a"), ImmutableSet.of(new PathFragment("b")));
-    invalidHelper(new PathFragment("a/b"), ImmutableSet.of(new PathFragment("a")));
+    invalidHelper(PathFragment.create(""), ImmutableSet.of(PathFragment.create("")));
+    invalidHelper(PathFragment.create("a"), ImmutableSet.of(PathFragment.create("a")));
+    invalidHelper(PathFragment.create("a"), ImmutableSet.of(PathFragment.create("b")));
+    invalidHelper(PathFragment.create("a/b"), ImmutableSet.of(PathFragment.create("a")));
   }
 }

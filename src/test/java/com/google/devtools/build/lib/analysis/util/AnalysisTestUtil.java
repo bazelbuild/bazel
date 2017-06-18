@@ -28,11 +28,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
-import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
@@ -47,7 +45,8 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -109,7 +108,7 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public EventHandler getEventHandler() {
+    public ExtendedEventHandler getEventHandler() {
       return original.getEventHandler();
     }
 
@@ -139,11 +138,6 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public Artifact getEmbeddedToolArtifact(String embeddedPath) {
-      return original.getEmbeddedToolArtifact(embeddedPath);
-    }
-
-    @Override
     public MiddlemanFactory getMiddlemanFactory() {
       return original.getMiddlemanFactory();
     }
@@ -154,13 +148,18 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public Iterable<ActionAnalysisMetadata> getRegisteredActions() {
+    public List<ActionAnalysisMetadata> getRegisteredActions() {
       return original.getRegisteredActions();
     }
 
     @Override
     public SkyFunction.Environment getSkyframeEnv() {
       return null;
+    }
+
+    @Override
+    public SkylarkSemanticsOptions getSkylarkSemantics() throws InterruptedException {
+      return original.getSkylarkSemantics();
     }
 
     @Override
@@ -225,11 +224,6 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public ResourceSet estimateResourceConsumption(Executor executor) {
-      return ResourceSet.ZERO;
-    }
-
-    @Override
     public String computeKey() {
       return "";
     }
@@ -252,6 +246,11 @@ public final class AnalysisTestUtil {
 
       DummyWorkspaceStatusAction that = (DummyWorkspaceStatusAction) o;
       return that.key.equals(this.key);
+    }
+
+    @Override
+    public int hashCode() {
+      return key.hashCode();
     }
   }
 
@@ -289,10 +288,10 @@ public final class AnalysisTestUtil {
         ArtifactFactory artifactFactory, ArtifactOwner artifactOwner, Supplier<UUID> buildId,
         String workspaceName) {
       Artifact stableStatus = artifactFactory.getDerivedArtifact(
-          new PathFragment("build-info.txt"),
+          PathFragment.create("build-info.txt"),
           directories.getBuildDataDirectory(workspaceName), artifactOwner);
       Artifact volatileStatus = artifactFactory.getConstantMetadataArtifact(
-          new PathFragment("build-changelist.txt"),
+          PathFragment.create("build-changelist.txt"),
           directories.getBuildDataDirectory(workspaceName), artifactOwner);
       return new DummyWorkspaceStatusAction(key, stableStatus, volatileStatus);
     }
@@ -316,11 +315,6 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public Artifact getEmbeddedToolArtifact(String embeddedPath) {
-      return null;
-    }
-
-    @Override
     public Artifact getConstantMetadataArtifact(PathFragment rootRelativePath, Root root) {
       return null;
     }
@@ -331,7 +325,7 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public EventHandler getEventHandler() {
+    public ExtendedEventHandler getEventHandler() {
       return null;
     }
 
@@ -346,12 +340,17 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public Iterable<ActionAnalysisMetadata> getRegisteredActions() {
+    public List<ActionAnalysisMetadata> getRegisteredActions() {
       return ImmutableList.of();
     }
 
     @Override
     public SkyFunction.Environment getSkyframeEnv() {
+      return null;
+    }
+
+    @Override
+    public SkylarkSemanticsOptions getSkylarkSemantics() throws InterruptedException {
       return null;
     }
 

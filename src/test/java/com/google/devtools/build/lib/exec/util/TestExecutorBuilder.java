@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.FileWriteStrategy;
 import com.google.devtools.build.lib.exec.SymlinkTreeStrategy;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
@@ -42,11 +43,11 @@ import java.util.TreeMap;
  * Builder for the test instance of the {@link BlazeExecutor} class.
  */
 public class TestExecutorBuilder {
-  public static final List<Class<? extends OptionsBase>> DEFAULT_OPTIONS = ImmutableList.of(
-      ExecutionOptions.class, CommonCommandOptions.class);
+  public static final ImmutableList<Class<? extends OptionsBase>> DEFAULT_OPTIONS =
+      ImmutableList.of(ExecutionOptions.class, CommonCommandOptions.class);
   private final BlazeDirectories directories;
-  private Reporter reporter = new Reporter();
   private EventBus bus = new EventBus();
+  private Reporter reporter = new Reporter(bus);
   private OptionsParser optionsParser = OptionsParser.newOptionsParser(DEFAULT_OPTIONS);
   private List<ActionContext> strategies = new ArrayList<>();
   private Map<String, SpawnActionContext> spawnStrategyMap =
@@ -95,11 +96,14 @@ public class TestExecutorBuilder {
   }
 
   public BlazeExecutor build() throws ExecutorInitException {
-    return new BlazeExecutor(directories.getExecRoot(), reporter, bus,
-        BlazeClock.instance(), optionsParser,
-        optionsParser.getOptions(ExecutionOptions.class).verboseFailures,
-        optionsParser.getOptions(ExecutionOptions.class).showSubcommands,
+    return new BlazeExecutor(
+        directories.getExecRoot(TestConstants.WORKSPACE_NAME),
+        reporter,
+        bus,
+        BlazeClock.instance(),
+        optionsParser,
         strategies,
-        ImmutableMap.copyOf(spawnStrategyMap), ImmutableList.<ActionContextProvider>of());
+        ImmutableMap.copyOf(spawnStrategyMap),
+        ImmutableList.<ActionContextProvider>of());
   }
 }

@@ -161,6 +161,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
     Fingerprint f = new Fingerprint();
     f.addString(GUID);
     f.addString(String.valueOf(makeExecutable));
+    f.addString(type.toString());
     f.addStrings(commandLine.arguments());
     return f.hexDigestAndReset();
   }

@@ -17,34 +17,65 @@ package com.google.devtools.common.options;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.common.options.OptionsParser.newOptionsParser;
 import static java.util.Arrays.asList;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
+import com.google.devtools.common.options.OptionsParser.ConstructionException;
+import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.OptionsParser.OptionValueDescription;
 import com.google.devtools.common.options.OptionsParser.UnparsedOptionValueDescription;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests {@link OptionsParser}.
  */
 @RunWith(JUnit4.class)
 public class OptionsParserTest {
+
+  /** Dummy comment (linter suppression) */
+  public static class BadOptions extends OptionsBase {
+    @Option(
+      name = "foo",
+      defaultValue = "false"
+    )
+    public boolean foo1;
+
+    @Option(
+      name = "foo",
+      defaultValue = "false"
+    )
+    public boolean foo2;
+  }
+
+  @Test
+  public void errorsDuringConstructionAreWrapped() {
+    try {
+      newOptionsParser(BadOptions.class);
+      fail();
+    } catch (OptionsParser.ConstructionException e) {
+      assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
+    }
+  }
 
   public static class ExampleFoo extends OptionsBase {
 
@@ -71,10 +102,12 @@ public class OptionsParserTest {
             allowMultiple = true)
     public List<String> bang;
 
-    @Option(name = "nodoc",
-        category = "undocumented",
-        defaultValue = "",
-        allowMultiple = false)
+    @Option(
+      name = "nodoc",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      defaultValue = "",
+      allowMultiple = false
+    )
     public String nodoc;
   }
 
@@ -105,6 +138,32 @@ public class OptionsParserTest {
     public String boom;
   }
 
+  /**
+   * Example with internal options
+   */
+  public static class ExampleInternalOptions extends OptionsBase {
+    @Option(
+      name = "internal_boolean",
+      optionUsageRestrictions = OptionUsageRestrictions.INTERNAL,
+      defaultValue = "true"
+    )
+    public boolean privateBoolean;
+
+    @Option(
+      name = "internal_string",
+      optionUsageRestrictions = OptionUsageRestrictions.INTERNAL,
+      defaultValue = "super secret"
+    )
+    public String privateString;
+
+    @Option(
+      name = "public string",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      defaultValue = "not a secret"
+    )
+    public String publicString;
+  }
+
   public static class StringConverter implements Converter<String> {
     @Override
     public String convert(String input) {
@@ -132,10 +191,277 @@ public class OptionsParserTest {
     OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
     parser.parse("--baz=oops", "--bar", "17");
     ExampleFoo foo = parser.getOptions(ExampleFoo.class);
-    assertEquals("defaultFoo", foo.foo);
-    assertEquals(17, foo.bar);
+    assertThat(foo.foo).isEqualTo("defaultFoo");
+    assertThat(foo.bar).isEqualTo(17);
     ExampleBaz baz = parser.getOptions(ExampleBaz.class);
-    assertEquals("oops", baz.baz);
+    assertThat(baz.baz).isEqualTo("oops");
+  }
+
+  @Test
+  public void parseWithParamsFile() throws OptionsParsingException, IOException {
+    // TODO(bazel-team): Switch to an in memory file system, here and below.
+    Path params = Files.createTempDirectory("foo").resolve("params");
+    Files.write(
+        params,
+        ImmutableList.of("--baz=oops --bar 17"),
+        StandardCharsets.UTF_8,
+        StandardOpenOption.CREATE);
+
+    OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
+    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.parse("@" + params);
+    ExampleFoo foo = parser.getOptions(ExampleFoo.class);
+    assertThat(foo.foo).isEqualTo("defaultFoo");
+    assertThat(foo.bar).isEqualTo(17);
+    ExampleBaz baz = parser.getOptions(ExampleBaz.class);
+    assertThat(baz.baz).isEqualTo("oops");
+  }
+
+  @Test
+  public void parseWithEmptyParamsFile() throws OptionsParsingException, IOException {
+    // TODO(bazel-team): Switch to an in memory file system, here and below.
+    Path params = Files.createTempDirectory("foo").resolve("params");
+    Files.write(
+        params,
+        ImmutableList.of(""),
+        StandardCharsets.UTF_8,
+        StandardOpenOption.CREATE);
+
+    OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
+    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.parse("@" + params);
+    ExampleFoo foo = parser.getOptions(ExampleFoo.class);
+    assertThat(foo.foo).isEqualTo("defaultFoo");
+    assertThat(foo.bar).isEqualTo(42);
+    ExampleBaz baz = parser.getOptions(ExampleBaz.class);
+    assertThat(baz.baz).isEqualTo("defaultBaz");
+  }
+
+  @Test
+  public void parseWithParamsFileWithEmptyStringValues() throws Exception {
+    Path params = Files.createTempDirectory("foo").resolve("params");
+    Files.write(
+        params,
+        ImmutableList.of("--baz", "", "--foo", ""),
+        StandardCharsets.UTF_8,
+        StandardOpenOption.CREATE);
+
+    OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
+    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.parse("@" + params);
+    ExampleFoo foo = parser.getOptions(ExampleFoo.class);
+    assertThat(foo.foo).isEmpty();
+    ExampleBaz baz = parser.getOptions(ExampleBaz.class);
+    assertThat(baz.baz).isEmpty();
+  }
+
+  @Test
+  public void parseWithParamsFileWithEmptyString() throws OptionsParsingException, IOException {
+    // TODO(bazel-team): Switch to an in memory file system, here and below.
+    Path params = Files.createTempDirectory("foo").resolve("params");
+    Files.write(
+        params,
+        ImmutableList.of("--baz  --bar 17"),
+        StandardCharsets.UTF_8,
+        StandardOpenOption.CREATE);
+
+    OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
+    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.parse("@" + params);
+    ExampleFoo foo = parser.getOptions(ExampleFoo.class);
+    assertThat(foo.foo).isEqualTo("defaultFoo");
+    assertThat(foo.bar).isEqualTo(17);
+    ExampleBaz baz = parser.getOptions(ExampleBaz.class);
+    assertThat(baz.baz).isEmpty();
+  }
+
+  @Test
+  public void parseWithParamsFileWithEmptyStringAtEnd()
+      throws OptionsParsingException, IOException {
+    // TODO(bazel-team): Switch to an in memory file system, here and below.
+    Path params = Files.createTempDirectory("foo").resolve("params");
+    Files.write(
+        params,
+        ImmutableList.of("--bar",
+            "17",
+            " --baz",
+            ""),
+        StandardCharsets.UTF_8,
+        StandardOpenOption.CREATE);
+
+    OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
+    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.parse("@" + params);
+    ExampleFoo foo = parser.getOptions(ExampleFoo.class);
+    assertThat(foo.foo).isEqualTo("defaultFoo");
+    assertThat(foo.bar).isEqualTo(17);
+    ExampleBaz baz = parser.getOptions(ExampleBaz.class);
+    assertThat(baz.baz).isEmpty();
+  }
+
+  @Test
+  public void parseWithParamsFileWithQuotedSpaces() throws OptionsParsingException, IOException {
+    Path params = Files.createTempDirectory("foo").resolve("params");
+    Files.write(
+        params,
+        ImmutableList.of("--foo=\"fuzzy\nfoo\" --bar 17"),
+        StandardCharsets.UTF_8,
+        StandardOpenOption.CREATE);
+
+    OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
+    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.parse("@" + params);
+    ExampleFoo foo = parser.getOptions(ExampleFoo.class);
+    assertThat(foo.foo).isEqualTo("\"fuzzy\nfoo\"");
+    assertThat(foo.bar).isEqualTo(17);
+    ExampleBaz baz = parser.getOptions(ExampleBaz.class);
+    assertThat(baz.baz).isEqualTo("defaultBaz");
+  }
+
+  @Test
+  public void parseWithParamsFileWithEscapedSpaces() throws OptionsParsingException, IOException {
+    Path params = Files.createTempDirectory("foo").resolve("params");
+    Files.write(
+        params,
+        ImmutableList.of("--foo=fuzzy\\ foo --bar 17"),
+        StandardCharsets.UTF_8,
+        StandardOpenOption.CREATE);
+
+    OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
+    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.parse("@" + params);
+    ExampleFoo foo = parser.getOptions(ExampleFoo.class);
+    assertThat(foo.foo).isEqualTo("fuzzy\\ foo");
+    assertThat(foo.bar).isEqualTo(17);
+    ExampleBaz baz = parser.getOptions(ExampleBaz.class);
+    assertThat(baz.baz).isEqualTo("defaultBaz");
+  }
+
+  @Test
+  public void parseWithParamsFileWithEscapedQuotes() throws OptionsParsingException, IOException {
+    Path params = Files.createTempDirectory("foo").resolve("params");
+    Files.write(
+        params,
+        ImmutableList.of("--foo=\"fuzzy\\\"foo\" --bar 17"),
+        StandardCharsets.UTF_8,
+        StandardOpenOption.CREATE);
+
+    OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
+    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.parse("@" + params);
+    ExampleFoo foo = parser.getOptions(ExampleFoo.class);
+    assertThat(foo.foo).isEqualTo("\"fuzzy\\\"foo\"");
+    assertThat(foo.bar).isEqualTo(17);
+    ExampleBaz baz = parser.getOptions(ExampleBaz.class);
+    assertThat(baz.baz).isEqualTo("defaultBaz");
+  }
+
+  @Test
+  public void parseWithParamsFileUnmatchedQuote() throws IOException {
+    Path params = Files.createTempDirectory("foo").resolve("params");
+    Files.write(
+        params,
+        ImmutableList.of("--foo=\"fuzzy foo --bar 17"),
+        StandardCharsets.UTF_8,
+        StandardOpenOption.CREATE);
+
+    OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
+    parser.enableParamsFileSupport(FileSystems.getDefault());
+    try {
+      parser.parse("@" + params);
+      fail();
+    } catch (OptionsParsingException e) {
+      assertThat(e)
+          .hasMessageThat()
+          .isEqualTo(
+              String.format(
+                  ParamsFilePreProcessor.ERROR_MESSAGE_FORMAT,
+                  params,
+                  String.format(ParamsFilePreProcessor.UNFINISHED_QUOTE_MESSAGE_FORMAT, "\"", 6)));
+    }
+  }
+
+  @Test
+  public void parseWithParamsFileWithMultilineStringValues() throws Exception {
+    Path params = Files.createTempDirectory("foo").resolve("params");
+    Files.write(
+        params,
+        ImmutableList.of(
+            "--baz",
+            "'hello\nworld'",
+            "--foo",
+            "hello\\",
+            "world",
+            "--nodoc",
+            "\"hello",
+            "world\""),
+        StandardCharsets.UTF_8,
+        StandardOpenOption.CREATE);
+
+    OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
+    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.parse("@" + params);
+    ExampleFoo foo = parser.getOptions(ExampleFoo.class);
+    assertThat(foo.foo).isEqualTo("hello\\\nworld");
+    assertThat(foo.nodoc).isEqualTo("\"hello\nworld\"");
+    ExampleBaz baz = parser.getOptions(ExampleBaz.class);
+    assertThat(baz.baz).isEqualTo("'hello\nworld'");
+  }
+
+  @Test
+  public void parseWithParamsFileWithMultilineStringValuesCRLF() throws Exception {
+    Path params = Files.createTempDirectory("foo").resolve("params");
+    Files.write(
+        params,
+        ImmutableList.of(
+            "--baz\r\n'hello\nworld'\r\n--foo\r\nhello\\\r\nworld\r\n\r\n"
+            + "--nodoc\r\n\"hello\r\nworld\""),
+        StandardCharsets.UTF_8,
+        StandardOpenOption.CREATE);
+
+    OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
+    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.parse("@" + params);
+    ExampleBaz baz = parser.getOptions(ExampleBaz.class);
+    assertThat(baz.baz).isEqualTo("'hello\nworld'");
+    ExampleFoo foo = parser.getOptions(ExampleFoo.class);
+    assertThat(foo.foo).isEqualTo("hello\\\nworld");
+    assertThat(foo.nodoc).isEqualTo("\"hello\nworld\"");
+  }
+
+  @Test
+  public void parseWithParamsFileMultiline() throws OptionsParsingException, IOException {
+    // TODO(bazel-team): Switch to an in memory file system.
+    Path params = Files.createTempDirectory("foo").resolve("params");
+    Files.write(
+        params,
+        ImmutableList.of("--baz", "oops", "--bar", "17"),
+        StandardCharsets.UTF_8,
+        StandardOpenOption.CREATE);
+
+    OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
+    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.parse("@" + params);
+    ExampleFoo foo = parser.getOptions(ExampleFoo.class);
+    assertThat(foo.foo).isEqualTo("defaultFoo");
+    assertThat(foo.bar).isEqualTo(17);
+    ExampleBaz baz = parser.getOptions(ExampleBaz.class);
+    assertThat(baz.baz).isEqualTo("oops");
+  }
+
+  @Test
+  public void parsingFailsWithMissingParamsFile() {
+    OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
+    parser.enableParamsFileSupport(FileSystems.getDefault());
+    List<String> unknownOpts = asList("@does/not/exist");
+    try {
+      parser.parse(unknownOpts);
+      fail();
+    } catch (OptionsParsingException e) {
+      assertThat(e.getInvalidArgument()).isEqualTo("@does/not/exist");
+      assertThat(parser.getOptions(ExampleFoo.class)).isNotNull();
+      assertThat(parser.getOptions(ExampleBaz.class)).isNotNull();
+    }
   }
 
   @Test
@@ -158,10 +484,10 @@ public class OptionsParserTest {
       parser.parse("--unknown", "option");
       fail();
     } catch (OptionsParsingException e) {
-      assertEquals("--unknown", e.getInvalidArgument());
-      assertEquals("Unrecognized option: --unknown", e.getMessage());
+      assertThat(e.getInvalidArgument()).isEqualTo("--unknown");
+      assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --unknown");
     }
-    assertEquals(Collections.<String>emptyList(), parser.getResidue());
+    assertThat(parser.getResidue()).isEmpty();
   }
 
   @Test
@@ -176,10 +502,10 @@ public class OptionsParserTest {
     parser.setAllowSingleDashLongOptions(true);
     parser.parse("-baz=oops", "-bar", "17");
     ExampleFoo foo = parser.getOptions(ExampleFoo.class);
-    assertEquals("defaultFoo", foo.foo);
-    assertEquals(17, foo.bar);
+    assertThat(foo.foo).isEqualTo("defaultFoo");
+    assertThat(foo.bar).isEqualTo(17);
     ExampleBaz baz = parser.getOptions(ExampleBaz.class);
-    assertEquals("oops", baz.baz);
+    assertThat(baz.baz).isEqualTo("oops");
   }
 
   @Test
@@ -190,10 +516,75 @@ public class OptionsParserTest {
       parser.parse(unknownOpts);
       fail();
     } catch (OptionsParsingException e) {
-      assertEquals("--unknown", e.getInvalidArgument());
-      assertEquals("Unrecognized option: --unknown", e.getMessage());
-      assertNotNull(parser.getOptions(ExampleFoo.class));
-      assertNotNull(parser.getOptions(ExampleBaz.class));
+      assertThat(e.getInvalidArgument()).isEqualTo("--unknown");
+      assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --unknown");
+      assertThat(parser.getOptions(ExampleFoo.class)).isNotNull();
+      assertThat(parser.getOptions(ExampleBaz.class)).isNotNull();
+    }
+  }
+
+  @Test
+  public void parsingFailsWithInternalBooleanOptionAsIfUnknown() {
+    OptionsParser parser = newOptionsParser(ExampleInternalOptions.class);
+    List<String> internalOpts = asList("--internal_boolean");
+    try {
+      parser.parse(internalOpts);
+      fail();
+    } catch (OptionsParsingException e) {
+      assertThat(e.getInvalidArgument()).isEqualTo("--internal_boolean");
+      assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --internal_boolean");
+      assertThat(parser.getOptions(ExampleInternalOptions.class)).isNotNull();
+    }
+  }
+
+  @Test
+  public void parsingFailsWithNegatedInternalBooleanOptionAsIfUnknown() {
+    OptionsParser parser = newOptionsParser(ExampleInternalOptions.class);
+    List<String> internalOpts = asList("--nointernal_boolean");
+    try {
+      parser.parse(internalOpts);
+      fail();
+    } catch (OptionsParsingException e) {
+      assertThat(e.getInvalidArgument()).isEqualTo("--nointernal_boolean");
+      assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --nointernal_boolean");
+      assertThat(parser.getOptions(ExampleInternalOptions.class)).isNotNull();
+    }
+  }
+
+  @Test
+  public void parsingSucceedsWithSpacesInFlagName() throws OptionsParsingException {
+    OptionsParser parser = newOptionsParser(ExampleInternalOptions.class);
+    List<String> spacedOpts = asList("--public string=value with spaces");
+    parser.parse(spacedOpts);
+    assertThat(parser.getOptions(ExampleInternalOptions.class).publicString)
+        .isEqualTo("value with spaces");
+  }
+
+  @Test
+  public void parsingFailsForInternalOptionWithValueInSameArgAsIfUnknown() {
+    OptionsParser parser = newOptionsParser(ExampleInternalOptions.class);
+    List<String> internalOpts = asList("--internal_string=any_value");
+    try {
+      parser.parse(internalOpts);
+      fail("parsing should have failed for including a private option");
+    } catch (OptionsParsingException e) {
+      assertThat(e.getInvalidArgument()).isEqualTo("--internal_string=any_value");
+      assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --internal_string=any_value");
+      assertThat(parser.getOptions(ExampleInternalOptions.class)).isNotNull();
+    }
+  }
+
+  @Test
+  public void parsingFailsForInternalOptionWithValueInSeparateArgAsIfUnknown() {
+    OptionsParser parser = newOptionsParser(ExampleInternalOptions.class);
+    List<String> internalOpts = asList("--internal_string", "any_value");
+    try {
+      parser.parse(internalOpts);
+      fail("parsing should have failed for including a private option");
+    } catch (OptionsParsingException e) {
+      assertThat(e.getInvalidArgument()).isEqualTo("--internal_string");
+      assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --internal_string");
+      assertThat(parser.getOptions(ExampleInternalOptions.class)).isNotNull();
     }
   }
 
@@ -205,10 +596,10 @@ public class OptionsParserTest {
       parser.parse(opts);
       fail();
     } catch (OptionsParsingException e) {
-      assertEquals("--unknown", e.getInvalidArgument());
-      assertEquals("Unrecognized option: --unknown", e.getMessage());
-      assertNotNull(parser.getOptions(ExampleFoo.class));
-      assertNotNull(parser.getOptions(ExampleBaz.class));
+      assertThat(e.getInvalidArgument()).isEqualTo("--unknown");
+      assertThat(e).hasMessageThat().isEqualTo("Unrecognized option: --unknown");
+      assertThat(parser.getOptions(ExampleFoo.class)).isNotNull();
+      assertThat(parser.getOptions(ExampleBaz.class)).isNotNull();
     }
   }
 
@@ -220,13 +611,16 @@ public class OptionsParserTest {
     parser.parse("--boom=");
     ExampleBoom boom = parser.getOptions(ExampleBoom.class);
     // The converted value is intentionally null since boom uses the EmptyToNullStringConverter
-    assertNull(boom.boom);
+    assertThat(boom.boom).isNull();
   }
 
   public static class CategoryTest extends OptionsBase {
-    @Option(name = "swiss_bank_account_number",
-            category = "undocumented", // Not printed in usage messages!
-            defaultValue = "123456789")
+    @Option(
+      name = "swiss_bank_account_number",
+      optionUsageRestrictions =
+          OptionUsageRestrictions.UNDOCUMENTED, // Not printed in usage messages!
+      defaultValue = "123456789"
+    )
     public int swissBankAccountNumber;
 
     @Option(name = "student_bank_account_number",
@@ -239,22 +633,20 @@ public class OptionsParserTest {
   public void getOptionsAndGetResidueWithNoCallToParse() {
     // With no call to parse(), all options are at default values, and there's
     // no reside.
-    assertEquals("defaultFoo",
-                 newOptionsParser(ExampleFoo.class).
-                 getOptions(ExampleFoo.class).foo);
-    assertEquals(Collections.<String>emptyList(),
-                 newOptionsParser(ExampleFoo.class).getResidue());
+    assertThat(newOptionsParser(ExampleFoo.class).getOptions(ExampleFoo.class).foo)
+        .isEqualTo("defaultFoo");
+    assertThat(newOptionsParser(ExampleFoo.class).getResidue()).isEmpty();
   }
 
   @Test
   public void parserCanBeCalledRepeatedly() throws OptionsParsingException {
     OptionsParser parser = newOptionsParser(ExampleFoo.class);
     parser.parse("--foo", "foo1");
-    assertEquals("foo1", parser.getOptions(ExampleFoo.class).foo);
+    assertThat(parser.getOptions(ExampleFoo.class).foo).isEqualTo("foo1");
     parser.parse();
-    assertEquals("foo1", parser.getOptions(ExampleFoo.class).foo); // no change
+    assertThat(parser.getOptions(ExampleFoo.class).foo).isEqualTo("foo1"); // no change
     parser.parse("--foo", "foo2");
-    assertEquals("foo2", parser.getOptions(ExampleFoo.class).foo); // updated
+    assertThat(parser.getOptions(ExampleFoo.class).foo).isEqualTo("foo2"); // updated
   }
 
   @Test
@@ -280,10 +672,10 @@ public class OptionsParserTest {
     parser.parse("--foo", "well", "--baz", "here", "--", "--bar", "ignore");
     ExampleFoo foo = parser.getOptions(ExampleFoo.class);
     ExampleBaz baz = parser.getOptions(ExampleBaz.class);
-    assertEquals("well", foo.foo);
-    assertEquals("here", baz.baz);
-    assertEquals(42, foo.bar); // the default!
-    assertEquals(asList("--bar", "ignore"), parser.getResidue());
+    assertThat(foo.foo).isEqualTo("well");
+    assertThat(baz.baz).isEqualTo("here");
+    assertThat(foo.bar).isEqualTo(42); // the default!
+    assertThat(parser.getResidue()).containsExactly("--bar", "ignore").inOrder();
   }
 
   @Test
@@ -294,7 +686,7 @@ public class OptionsParserTest {
       parser.parse("residue", "is", "not", "OK");
       fail();
     } catch (OptionsParsingException e) {
-      assertEquals("Unrecognized arguments: residue is not OK", e.getMessage());
+      assertThat(e).hasMessageThat().isEqualTo("Unrecognized arguments: residue is not OK");
     }
   }
 
@@ -305,9 +697,9 @@ public class OptionsParserTest {
     parser.parse("--foo", "one", "--bar", "43", "unknown1");
     parser.parse("--foo", "two", "unknown2");
     ExampleFoo foo = parser.getOptions(ExampleFoo.class);
-    assertEquals("two", foo.foo); // second call takes precedence
-    assertEquals(43, foo.bar);
-    assertEquals(Arrays.asList("unknown1", "unknown2"), parser.getResidue());
+    assertThat(foo.foo).isEqualTo("two"); // second call takes precedence
+    assertThat(foo.bar).isEqualTo(43);
+    assertThat(parser.getResidue()).containsExactly("unknown1", "unknown2").inOrder();
   }
 
   // Regression test for a subtle bug!  The toString of each options interface
@@ -343,8 +735,8 @@ public class OptionsParserTest {
   public void toStringIsIndependentOfExplicitCommandLineOptions() throws Exception {
     ExampleFoo foo1 = Options.parse(ExampleFoo.class).getOptions();
     ExampleFoo foo2 = Options.parse(ExampleFoo.class, "--bar", "42").getOptions();
-    assertEquals(foo1, foo2);
-    assertEquals(foo1.toString(), foo2.toString());
+    assertThat(foo2).isEqualTo(foo1);
+    assertThat(foo2.toString()).isEqualTo(foo1.toString());
 
     Map<String, Object> expectedMap = new ImmutableMap.Builder<String, Object>().
         put("bing", Collections.emptyList()).
@@ -353,8 +745,8 @@ public class OptionsParserTest {
         put("bang", Collections.emptyList()).
         put("foo", "defaultFoo").build();
 
-    assertEquals(expectedMap, foo1.asMap());
-    assertEquals(expectedMap, foo2.asMap());
+    assertThat(foo1.asMap()).isEqualTo(expectedMap);
+    assertThat(foo2.asMap()).isEqualTo(expectedMap);
   }
 
   // Regression test for yet another subtle bug!  The inherited options weren't
@@ -388,10 +780,11 @@ public class OptionsParserTest {
     public String multipartName;
   }
 
+  @Test
   public void assertDefaultStringsForCustomOptions() throws OptionsParsingException {
     CustomOptions options = Options.parse(CustomOptions.class).getOptions();
-    assertEquals("simple default", options.simple);
-    assertEquals("multipart default", options.multipartName);
+    assertThat(options.simple).isEqualTo("simple default");
+    assertThat(options.multipartName).isEqualTo("multipart default");
   }
 
   public static class NullTestOptions extends OptionsBase {
@@ -403,7 +796,7 @@ public class OptionsParserTest {
   @Test
   public void defaultNullStringGivesNull() throws Exception {
     NullTestOptions options = Options.parse(NullTestOptions.class).getOptions();
-    assertNull(options.simple);
+    assertThat(options.simple).isNull();
   }
 
   public static class ImplicitDependencyOptions extends OptionsBase {
@@ -426,9 +819,9 @@ public class OptionsParserTest {
   public void implicitDependencyHasImplicitDependency() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(ImplicitDependencyOptions.class);
     parser.parse(OptionPriority.COMMAND_LINE, null, Arrays.asList("--first=first"));
-    assertEquals("first", parser.getOptions(ImplicitDependencyOptions.class).first);
-    assertEquals("second", parser.getOptions(ImplicitDependencyOptions.class).second);
-    assertEquals("third", parser.getOptions(ImplicitDependencyOptions.class).third);
+    assertThat(parser.getOptions(ImplicitDependencyOptions.class).first).isEqualTo("first");
+    assertThat(parser.getOptions(ImplicitDependencyOptions.class).second).isEqualTo("second");
+    assertThat(parser.getOptions(ImplicitDependencyOptions.class).third).isEqualTo("third");
   }
 
   public static class BadImplicitDependencyOptions extends OptionsBase {
@@ -469,50 +862,136 @@ public class OptionsParserTest {
     fail();
   }
 
-  public static class ExpansionOptions extends OptionsBase {
-    @Option(name = "first",
-            expansion = { "--second=first" },
-            defaultValue = "null")
-    public Void first;
+  /** ConflictingExpansionOptions */
+  public static class ConflictingExpansionsOptions extends OptionsBase {
 
-    @Option(name = "second",
-            defaultValue = "null")
-    public String second;
+    /** ExpFunc */
+    public static class ExpFunc implements ExpansionFunction {
+      @Override
+      public ImmutableList<String> getExpansion(IsolatedOptionsData optionsData) {
+        return ImmutableList.of("--yyy");
+      }
+    }
+
+    @Option(
+      name = "badness",
+      expansion = {"--xxx"},
+      expansionFunction = ExpFunc.class,
+      defaultValue = "null"
+    )
+    public Void badness;
+  }
+
+  @Test
+  public void conflictingExpansions() throws Exception {
+    try {
+      newOptionsParser(ConflictingExpansionsOptions.class);
+      fail("Should have failed due to specifying both expansion and expansionFunction");
+    } catch (AssertionError e) {
+      assertThat(e)
+          .hasMessageThat()
+          .contains("Cannot set both expansion and expansionFunction for " + "option --badness");
+    }
+  }
+
+  /** NullExpansionOptions */
+  public static class NullExpansionsOptions extends OptionsBase {
+
+    /** ExpFunc */
+    public static class ExpFunc implements ExpansionFunction {
+      @Override
+      public ImmutableList<String> getExpansion(IsolatedOptionsData optionsData) {
+        return null;
+      }
+    }
+
+    @Option(name = "badness", expansionFunction = ExpFunc.class, defaultValue = "null")
+    public Void badness;
+  }
+
+  @Test
+  public void nullExpansions() throws Exception {
+    // Ensure that we get the NPE at the time of parser construction, not later when actually
+    // parsing.
+    try {
+      newOptionsParser(NullExpansionsOptions.class);
+      fail("Should have failed due to null expansion function result");
+    } catch (OptionsParser.ConstructionException e) {
+      assertThat(e).hasCauseThat().isInstanceOf(NullPointerException.class);
+      assertThat(e).hasCauseThat().hasMessageThat().contains("null value in entry");
+    }
+  }
+
+  /** ExpansionOptions */
+  public static class ExpansionOptions extends OptionsBase {
+    @Option(name = "underlying", defaultValue = "null")
+    public String underlying;
+
+    @Option(
+      name = "expands",
+      expansion = {"--underlying=from_expansion"},
+      defaultValue = "null"
+    )
+    public Void expands;
+
+    /** ExpFunc */
+    public static class ExpFunc implements ExpansionFunction {
+      @Override
+      public ImmutableList<String> getExpansion(IsolatedOptionsData optionsData) {
+        return ImmutableList.of("--expands");
+      }
+    }
+
+    @Option(name = "expands_by_function", defaultValue = "null", expansionFunction = ExpFunc.class)
+    public Void expandsByFunction;
+  }
+
+  @Test
+  public void describeOptionsWithExpansion() throws Exception {
+    // We have to test this here rather than in OptionsTest because expansion functions require
+    // that an options parser be constructed.
+    OptionsParser parser = OptionsParser.newOptionsParser(ExpansionOptions.class);
+    String usage =
+        parser.describeOptions(ImmutableMap.<String, String>of(), OptionsParser.HelpVerbosity.LONG);
+    assertThat(usage).contains("  --expands\n    Expands to: --underlying=from_expansion");
+    assertThat(usage).contains("  --expands_by_function\n    Expands to: --expands");
   }
 
   @Test
   public void overrideExpansionWithExplicit() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(ExpansionOptions.class);
-    parser.parse(OptionPriority.COMMAND_LINE, null, Arrays.asList("--first", "--second=second"));
+    parser.parse(
+        OptionPriority.COMMAND_LINE, null, Arrays.asList("--expands", "--underlying=direct_value"));
     ExpansionOptions options = parser.getOptions(ExpansionOptions.class);
-    assertEquals("second", options.second);
-    assertEquals(0, parser.getWarnings().size());
+    assertThat(options.underlying).isEqualTo("direct_value");
+    assertThat(parser.getWarnings()).isEmpty();
   }
 
   @Test
   public void overrideExplicitWithExpansion() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(ExpansionOptions.class);
-    parser.parse(OptionPriority.COMMAND_LINE, null, Arrays.asList("--second=second", "--first"));
+    parser.parse(
+        OptionPriority.COMMAND_LINE, null, Arrays.asList("--underlying=direct_value", "--expands"));
     ExpansionOptions options = parser.getOptions(ExpansionOptions.class);
-    assertEquals("first", options.second);
+    assertThat(options.underlying).isEqualTo("from_expansion");
   }
 
   @Test
   public void overrideWithHigherPriority() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(NullTestOptions.class);
     parser.parse(OptionPriority.RC_FILE, null, Arrays.asList("--simple=a"));
-    assertEquals("a", parser.getOptions(NullTestOptions.class).simple);
+    assertThat(parser.getOptions(NullTestOptions.class).simple).isEqualTo("a");
     parser.parse(OptionPriority.COMMAND_LINE, null, Arrays.asList("--simple=b"));
-    assertEquals("b", parser.getOptions(NullTestOptions.class).simple);
+    assertThat(parser.getOptions(NullTestOptions.class).simple).isEqualTo("b");
   }
 
   @Test
   public void overrideWithLowerPriority() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(NullTestOptions.class);
     parser.parse(OptionPriority.COMMAND_LINE, null, Arrays.asList("--simple=a"));
-    assertEquals("a", parser.getOptions(NullTestOptions.class).simple);
+    assertThat(parser.getOptions(NullTestOptions.class).simple).isEqualTo("a");
     parser.parse(OptionPriority.RC_FILE, null, Arrays.asList("--simple=b"));
-    assertEquals("a", parser.getOptions(NullTestOptions.class).simple);
+    assertThat(parser.getOptions(NullTestOptions.class).simple).isEqualTo("a");
   }
 
   @Test
@@ -529,7 +1008,7 @@ public class OptionsParserTest {
   @Test
   public void getOptionValueDescriptionWithoutValue() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(NullTestOptions.class);
-    assertNull(parser.getOptionValueDescription("simple"));
+    assertThat(parser.getOptionValueDescription("simple")).isNull();
   }
 
   @Test
@@ -538,15 +1017,15 @@ public class OptionsParserTest {
     parser.parse(OptionPriority.COMMAND_LINE, "my description",
         Arrays.asList("--simple=abc"));
     OptionValueDescription result = parser.getOptionValueDescription("simple");
-    assertNotNull(result);
-    assertEquals("simple", result.getName());
-    assertEquals("abc", result.getValue());
-    assertEquals(OptionPriority.COMMAND_LINE, result.getPriority());
-    assertEquals("my description", result.getSource());
-    assertNull(result.getImplicitDependant());
-    assertFalse(result.isImplicitDependency());
-    assertNull(result.getExpansionParent());
-    assertFalse(result.isExpansion());
+    assertThat(result).isNotNull();
+    assertThat(result.getName()).isEqualTo("simple");
+    assertThat(result.getValue()).isEqualTo("abc");
+    assertThat(result.getPriority()).isEqualTo(OptionPriority.COMMAND_LINE);
+    assertThat(result.getSource()).isEqualTo("my description");
+    assertThat(result.getImplicitDependant()).isNull();
+    assertThat(result.isImplicitDependency()).isFalse();
+    assertThat(result.getExpansionParent()).isNull();
+    assertThat(result.isExpansion()).isFalse();
   }
 
   public static class ImplicitDependencyWarningOptions extends OptionsBase {
@@ -633,30 +1112,30 @@ public class OptionsParserTest {
   public void deprecationWarning() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(WarningOptions.class);
     parser.parse(OptionPriority.COMMAND_LINE, null, Arrays.asList("--first"));
-    assertEquals(Arrays.asList("Option 'first' is deprecated"), parser.getWarnings());
+    assertThat(parser.getWarnings()).isEqualTo(Arrays.asList("Option 'first' is deprecated"));
   }
 
   @Test
   public void deprecationWarningForListOption() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(WarningOptions.class);
     parser.parse(OptionPriority.COMMAND_LINE, null, Arrays.asList("--second=a"));
-    assertEquals(Arrays.asList("Option 'second' is deprecated"), parser.getWarnings());
+    assertThat(parser.getWarnings()).isEqualTo(Arrays.asList("Option 'second' is deprecated"));
   }
 
   @Test
   public void deprecationWarningForExpansionOption() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(WarningOptions.class);
     parser.parse(OptionPriority.COMMAND_LINE, null, Arrays.asList("--third"));
-    assertEquals(Arrays.asList("Option 'third' is deprecated"), parser.getWarnings());
-    assertTrue(parser.getOptions(WarningOptions.class).fourth);
+    assertThat(parser.getWarnings()).isEqualTo(Arrays.asList("Option 'third' is deprecated"));
+    assertThat(parser.getOptions(WarningOptions.class).fourth).isTrue();
   }
 
   @Test
   public void deprecationWarningForAbbreviatedExpansionOption() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(WarningOptions.class);
     parser.parse(OptionPriority.COMMAND_LINE, null, Arrays.asList("-t"));
-    assertEquals(Arrays.asList("Option 'third' is deprecated"), parser.getWarnings());
-    assertTrue(parser.getOptions(WarningOptions.class).fourth);
+    assertThat(parser.getWarnings()).isEqualTo(Arrays.asList("Option 'third' is deprecated"));
+    assertThat(parser.getOptions(WarningOptions.class).fourth).isTrue();
   }
 
   public static class NewWarningOptions extends OptionsBase {
@@ -686,81 +1165,64 @@ public class OptionsParserTest {
   public void newDeprecationWarning() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(NewWarningOptions.class);
     parser.parse(OptionPriority.COMMAND_LINE, null, Arrays.asList("--first"));
-    assertEquals(Arrays.asList("Option 'first' is deprecated: it's gone"), parser.getWarnings());
+    assertThat(parser.getWarnings())
+        .isEqualTo(Arrays.asList("Option 'first' is deprecated: it's gone"));
   }
 
   @Test
   public void newDeprecationWarningForListOption() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(NewWarningOptions.class);
     parser.parse(OptionPriority.COMMAND_LINE, null, Arrays.asList("--second=a"));
-    assertEquals(Arrays.asList("Option 'second' is deprecated: sorry, no replacement"),
-        parser.getWarnings());
+    assertThat(parser.getWarnings())
+        .isEqualTo(Arrays.asList("Option 'second' is deprecated: sorry, no replacement"));
   }
 
   @Test
   public void newDeprecationWarningForExpansionOption() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(NewWarningOptions.class);
     parser.parse(OptionPriority.COMMAND_LINE, null, Arrays.asList("--third"));
-    assertEquals(Arrays.asList("Option 'third' is deprecated: use --forth instead"),
-        parser.getWarnings());
-    assertTrue(parser.getOptions(NewWarningOptions.class).fourth);
+    assertThat(parser.getWarnings())
+        .isEqualTo(Arrays.asList("Option 'third' is deprecated: use --forth instead"));
+    assertThat(parser.getOptions(NewWarningOptions.class).fourth).isTrue();
   }
 
   public static class ExpansionWarningOptions extends OptionsBase {
-    @Option(name = "first",
-            expansion = "--second=other",
-            defaultValue = "null")
+    @Option(
+      name = "first",
+      expansion = "--underlying=other",
+      defaultValue = "null"
+    )
     public Void first;
 
-    @Option(name = "second",
-            defaultValue = "null")
-    public String second;
+    @Option(
+      name = "second",
+      expansion = "--underlying=other",
+      defaultValue = "null"
+    )
+    public Void second;
+
+    @Option(
+      name = "underlying",
+      defaultValue = "null"
+    )
+    public String underlying;
   }
 
   @Test
   public void warningForExpansionOverridingExplicitOption() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(ExpansionWarningOptions.class);
-    parser.parse("--second=second", "--first");
-    assertThat(parser.getWarnings())
-        .containsExactly("The option 'first' was expanded and now overrides a "
-                         + "previous explicitly specified option 'second'");
-  }
-
-  public static class InvalidOptionConverter extends OptionsBase {
-    @Option(name = "foo",
-            converter = StringConverter.class,
-            defaultValue = "1")
-    public Integer foo;
+    parser.parse("--underlying=underlying", "--first");
+    assertThat(parser.getWarnings()).containsExactly(
+        "The option 'first' was expanded and now overrides a "
+        + "previous explicitly specified option 'underlying'");
   }
 
   @Test
-  public void errorForInvalidOptionConverter() throws Exception {
-    try {
-      OptionsParser.newOptionsParser(InvalidOptionConverter.class);
-    } catch (AssertionError e) {
-      // Expected exception
-      return;
-    }
-    fail();
-  }
-
-  public static class InvalidListOptionConverter extends OptionsBase {
-    @Option(name = "foo",
-            converter = StringConverter.class,
-            defaultValue = "1",
-            allowMultiple = true)
-    public List<Integer> foo;
-  }
-
-  @Test
-  public void errorForInvalidListOptionConverter() throws Exception {
-    try {
-      OptionsParser.newOptionsParser(InvalidListOptionConverter.class);
-    } catch (AssertionError e) {
-      // Expected exception
-      return;
-    }
-    fail();
+  public void warningForTwoConflictingExpansionOptions() throws Exception {
+    OptionsParser parser = OptionsParser.newOptionsParser(ExpansionWarningOptions.class);
+    parser.parse("--first", "--second");
+    assertThat(parser.getWarnings()).containsExactly(
+        "The option 'underlying' was expanded to from both options 'first' " + "and 'second'");
   }
 
   // This test is here to make sure that nobody accidentally changes the
@@ -768,7 +1230,7 @@ public class OptionsParserTest {
   // in the code.
   @Test
   public void optionPrioritiesAreCorrectlyOrdered() throws Exception {
-    assertEquals(6, OptionPriority.values().length);
+    assertThat(OptionPriority.values()).hasLength(6);
     assertThat(OptionPriority.DEFAULT).isLessThan(OptionPriority.COMPUTED_DEFAULT);
     assertThat(OptionPriority.COMPUTED_DEFAULT).isLessThan(OptionPriority.RC_FILE);
     assertThat(OptionPriority.RC_FILE).isLessThan(OptionPriority.COMMAND_LINE);
@@ -787,19 +1249,25 @@ public class OptionsParserTest {
             defaultValue = "beta")
     public String beta;
 
-    @Option(name = "gamma",
-        category = "undocumented",
-        defaultValue = "gamma")
+    @Option(
+      name = "gamma",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      defaultValue = "gamma"
+    )
     public String gamma;
 
-    @Option(name = "delta",
-        category = "undocumented",
-        defaultValue = "delta")
+    @Option(
+      name = "delta",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      defaultValue = "delta"
+    )
     public String delta;
 
-    @Option(name = "echo",
-        category = "hidden",
-        defaultValue = "echo")
+    @Option(
+      name = "echo",
+      optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+      defaultValue = "echo"
+    )
     public String echo;
   }
 
@@ -809,29 +1277,29 @@ public class OptionsParserTest {
     parser.parse(OptionPriority.COMMAND_LINE, "source",
         Arrays.asList("--alpha=one", "--gamma=two", "--echo=three"));
     List<UnparsedOptionValueDescription> result = parser.asListOfUnparsedOptions();
-    assertNotNull(result);
-    assertEquals(3, result.size());
+    assertThat(result).isNotNull();
+    assertThat(result).hasSize(3);
 
-    assertEquals("alpha", result.get(0).getName());
-    assertEquals(true, result.get(0).isDocumented());
-    assertEquals(false, result.get(0).isHidden());
-    assertEquals("one", result.get(0).getUnparsedValue());
-    assertEquals("source", result.get(0).getSource());
-    assertEquals(OptionPriority.COMMAND_LINE, result.get(0).getPriority());
+    assertThat(result.get(0).getName()).isEqualTo("alpha");
+    assertThat(result.get(0).isDocumented()).isTrue();
+    assertThat(result.get(0).isHidden()).isFalse();
+    assertThat(result.get(0).getUnparsedValue()).isEqualTo("one");
+    assertThat(result.get(0).getSource()).isEqualTo("source");
+    assertThat(result.get(0).getPriority()).isEqualTo(OptionPriority.COMMAND_LINE);
 
-    assertEquals("gamma", result.get(1).getName());
-    assertEquals(false, result.get(1).isDocumented());
-    assertEquals(false, result.get(1).isHidden());
-    assertEquals("two", result.get(1).getUnparsedValue());
-    assertEquals("source", result.get(1).getSource());
-    assertEquals(OptionPriority.COMMAND_LINE, result.get(1).getPriority());
+    assertThat(result.get(1).getName()).isEqualTo("gamma");
+    assertThat(result.get(1).isDocumented()).isFalse();
+    assertThat(result.get(1).isHidden()).isFalse();
+    assertThat(result.get(1).getUnparsedValue()).isEqualTo("two");
+    assertThat(result.get(1).getSource()).isEqualTo("source");
+    assertThat(result.get(1).getPriority()).isEqualTo(OptionPriority.COMMAND_LINE);
 
-    assertEquals("echo", result.get(2).getName());
-    assertEquals(false, result.get(2).isDocumented());
-    assertEquals(true, result.get(2).isHidden());
-    assertEquals("three", result.get(2).getUnparsedValue());
-    assertEquals("source", result.get(2).getSource());
-    assertEquals(OptionPriority.COMMAND_LINE, result.get(2).getPriority());
+    assertThat(result.get(2).getName()).isEqualTo("echo");
+    assertThat(result.get(2).isDocumented()).isFalse();
+    assertThat(result.get(2).isHidden()).isTrue();
+    assertThat(result.get(2).getUnparsedValue()).isEqualTo("three");
+    assertThat(result.get(2).getSource()).isEqualTo("source");
+    assertThat(result.get(2).getPriority()).isEqualTo(OptionPriority.COMMAND_LINE);
   }
 
   @Test
@@ -840,30 +1308,30 @@ public class OptionsParserTest {
     parser.parse(OptionPriority.COMMAND_LINE, "source",
         Arrays.asList("--alpha=one", "--gamma=two"));
     List<UnparsedOptionValueDescription> result = parser.asListOfExplicitOptions();
-    assertNotNull(result);
-    assertEquals(2, result.size());
+    assertThat(result).isNotNull();
+    assertThat(result).hasSize(2);
 
-    assertEquals("alpha", result.get(0).getName());
-    assertEquals(true, result.get(0).isDocumented());
-    assertEquals("one", result.get(0).getUnparsedValue());
-    assertEquals("source", result.get(0).getSource());
-    assertEquals(OptionPriority.COMMAND_LINE, result.get(0).getPriority());
+    assertThat(result.get(0).getName()).isEqualTo("alpha");
+    assertThat(result.get(0).isDocumented()).isTrue();
+    assertThat(result.get(0).getUnparsedValue()).isEqualTo("one");
+    assertThat(result.get(0).getSource()).isEqualTo("source");
+    assertThat(result.get(0).getPriority()).isEqualTo(OptionPriority.COMMAND_LINE);
 
-    assertEquals("gamma", result.get(1).getName());
-    assertEquals(false, result.get(1).isDocumented());
-    assertEquals("two", result.get(1).getUnparsedValue());
-    assertEquals("source", result.get(1).getSource());
-    assertEquals(OptionPriority.COMMAND_LINE, result.get(1).getPriority());
+    assertThat(result.get(1).getName()).isEqualTo("gamma");
+    assertThat(result.get(1).isDocumented()).isFalse();
+    assertThat(result.get(1).getUnparsedValue()).isEqualTo("two");
+    assertThat(result.get(1).getSource()).isEqualTo("source");
+    assertThat(result.get(1).getPriority()).isEqualTo(OptionPriority.COMMAND_LINE);
   }
 
   private void assertOptionValue(String expectedName, Object expectedValue,
       OptionPriority expectedPriority, String expectedSource,
       OptionValueDescription actual) {
-    assertNotNull(actual);
-    assertEquals(expectedName, actual.getName());
-    assertEquals(expectedValue, actual.getValue());
-    assertEquals(expectedPriority, actual.getPriority());
-    assertEquals(expectedSource, actual.getSource());
+    assertThat(actual).isNotNull();
+    assertThat(actual.getName()).isEqualTo(expectedName);
+    assertThat(actual.getValue()).isEqualTo(expectedValue);
+    assertThat(actual.getPriority()).isEqualTo(expectedPriority);
+    assertThat(actual.getSource()).isEqualTo(expectedSource);
   }
 
   @Test
@@ -872,8 +1340,8 @@ public class OptionsParserTest {
     parser.parse(OptionPriority.COMMAND_LINE, "source",
         Arrays.asList("--alpha=one", "--gamma=two"));
     List<OptionValueDescription> result = parser.asListOfEffectiveOptions();
-    assertNotNull(result);
-    assertEquals(5, result.size());
+    assertThat(result).isNotNull();
+    assertThat(result).hasSize(5);
     HashMap<String,OptionValueDescription> map = new HashMap<String,OptionValueDescription>();
     for (OptionValueDescription description : result) {
       map.put(description.getName(), description);
@@ -906,7 +1374,7 @@ public class OptionsParserTest {
     OptionsParser parser = OptionsParser.newOptionsParser(ListExample.class);
     parser.parse(OptionPriority.COMMAND_LINE, "a", Arrays.asList("--alpha=two"));
     parser.parse(OptionPriority.RC_FILE, "b", Arrays.asList("--alpha=one"));
-    assertEquals(Arrays.asList("one", "two"), parser.getOptions(ListExample.class).alpha);
+    assertThat(parser.getOptions(ListExample.class).alpha).isEqualTo(Arrays.asList("one", "two"));
   }
 
   public static class CommaSeparatedOptionsExample extends OptionsBase {
@@ -922,8 +1390,8 @@ public class OptionsParserTest {
     OptionsParser parser = OptionsParser.newOptionsParser(CommaSeparatedOptionsExample.class);
     parser.parse(OptionPriority.COMMAND_LINE, "a", Arrays.asList("--alpha=one",
         "--alpha=two,three"));
-    assertEquals(Arrays.asList("one", "two", "three"),
-        parser.getOptions(CommaSeparatedOptionsExample.class).alpha);
+    assertThat(parser.getOptions(CommaSeparatedOptionsExample.class).alpha)
+        .isEqualTo(Arrays.asList("one", "two", "three"));
   }
 
   public static class IllegalListTypeExample extends OptionsBase {
@@ -938,7 +1406,7 @@ public class OptionsParserTest {
   public void illegalListType() throws Exception {
     try {
       OptionsParser.newOptionsParser(IllegalListTypeExample.class);
-    } catch (AssertionError e) {
+    } catch (ConstructionException e) {
       // Expected exception
       return;
     }
@@ -993,60 +1461,61 @@ public class OptionsParserTest {
 
   @Test
   public void canonicalizeEasy() throws Exception {
-    assertEquals(Arrays.asList("--a=x"), canonicalize(Yesterday.class, "--a=x"));
+    assertThat(canonicalize(Yesterday.class, "--a=x")).containsExactly("--a=x");
   }
 
   @Test
   public void canonicalizeSkipDuplicate() throws Exception {
-    assertEquals(Arrays.asList("--a=x"), canonicalize(Yesterday.class, "--a=y", "--a=x"));
+    assertThat(canonicalize(Yesterday.class, "--a=y", "--a=x")).containsExactly("--a=x");
   }
 
   @Test
   public void canonicalizeExpands() throws Exception {
-    assertEquals(Arrays.asList("--a=0"), canonicalize(Yesterday.class, "--c"));
+    assertThat(canonicalize(Yesterday.class, "--c")).containsExactly("--a=0");
   }
 
   @Test
   public void canonicalizeExpansionOverridesExplicit() throws Exception {
-    assertEquals(Arrays.asList("--a=0"), canonicalize(Yesterday.class, "--a=x", "--c"));
+    assertThat(canonicalize(Yesterday.class, "--a=x", "--c")).containsExactly("--a=0");
   }
 
   @Test
   public void canonicalizeExplicitOverridesExpansion() throws Exception {
-    assertEquals(Arrays.asList("--a=x"), canonicalize(Yesterday.class, "--c", "--a=x"));
+    assertThat(canonicalize(Yesterday.class, "--c", "--a=x")).containsExactly("--a=x");
   }
 
   @Test
   public void canonicalizeSorts() throws Exception {
-    assertEquals(Arrays.asList("--a=x", "--b=y"), canonicalize(Yesterday.class, "--b=y", "--a=x"));
+    assertThat(canonicalize(Yesterday.class, "--b=y", "--a=x"))
+        .containsExactly("--a=x", "--b=y").inOrder();
   }
 
   @Test
   public void canonicalizeImplicitDepsAtEnd() throws Exception {
-    assertEquals(Arrays.asList("--a=x", "--e=y"), canonicalize(Yesterday.class, "--e=y", "--a=x"));
+    assertThat(canonicalize(Yesterday.class, "--e=y", "--a=x"))
+        .isEqualTo(Arrays.asList("--a=x", "--e=y"));
   }
 
   @Test
   public void canonicalizeImplicitDepsSkipsDuplicate() throws Exception {
-    assertEquals(Arrays.asList("--e=y"), canonicalize(Yesterday.class, "--e=x", "--e=y"));
+    assertThat(canonicalize(Yesterday.class, "--e=x", "--e=y")).containsExactly("--e=y");
   }
 
   @Test
   public void canonicalizeDoesNotSortImplicitDeps() throws Exception {
-    assertEquals(Arrays.asList("--a=x", "--f=z", "--e=y"),
-        canonicalize(Yesterday.class, "--f=z", "--e=y", "--a=x"));
+    assertThat(canonicalize(Yesterday.class, "--f=z", "--e=y", "--a=x"))
+        .containsExactly("--a=x", "--f=z", "--e=y").inOrder();
   }
 
   @Test
   public void canonicalizeDoesNotSkipAllowMultiple() throws Exception {
-    assertEquals(Arrays.asList("--d=a", "--d=b"),
-        canonicalize(Yesterday.class, "--d=a", "--d=b"));
+    assertThat(canonicalize(Yesterday.class, "--d=a", "--d=b"))
+        .containsExactly("--d=a", "--d=b").inOrder();
   }
 
   @Test
   public void canonicalizeReplacesAbbrevWithName() throws Exception {
-    assertEquals(Arrays.asList("--g=1"),
-        canonicalize(Yesterday.class, "-h"));
+    assertThat(canonicalize(Yesterday.class, "-h")).containsExactly("--g=1");
   }
 
   public static class LongValueExample extends OptionsBase {
@@ -1064,12 +1533,12 @@ public class OptionsParserTest {
     OptionsParser parser = newOptionsParser(LongValueExample.class);
     parser.parse("");
     LongValueExample result = parser.getOptions(LongValueExample.class);
-    assertEquals(2147483648L, result.longval);
-    assertEquals(2147483647, result.intval);
+    assertThat(result.longval).isEqualTo(2147483648L);
+    assertThat(result.intval).isEqualTo(2147483647);
 
     parser.parse("--longval", Long.toString(Long.MIN_VALUE));
     result = parser.getOptions(LongValueExample.class);
-    assertEquals(Long.MIN_VALUE, result.longval);
+    assertThat(result.longval).isEqualTo(Long.MIN_VALUE);
 
     try {
       parser.parse("--intval=2147483648");
@@ -1079,7 +1548,7 @@ public class OptionsParserTest {
 
     parser.parse("--longval", "100");
     result = parser.getOptions(LongValueExample.class);
-    assertEquals(100, result.longval);
+    assertThat(result.longval).isEqualTo(100);
   }
 
   public static class OldNameExample extends OptionsBase {
@@ -1094,41 +1563,37 @@ public class OptionsParserTest {
     OptionsParser parser = newOptionsParser(OldNameExample.class);
     parser.parse("--old_name=foo");
     OldNameExample result = parser.getOptions(OldNameExample.class);
-    assertEquals("foo", result.flag);
+    assertThat(result.flag).isEqualTo("foo");
 
     // Should also work by its new name.
     parser = newOptionsParser(OldNameExample.class);
     parser.parse("--new_name=foo");
     result = parser.getOptions(OldNameExample.class);
-    assertEquals("foo", result.flag);
+    assertThat(result.flag).isEqualTo("foo");
     // Should be no warnings if the new name is used.
     assertThat(parser.getWarnings()).isEmpty();
   }
 
   @Test
   public void testOldNameCanonicalization() throws Exception {
-    assertEquals(
-        Arrays.asList("--new_name=foo"), canonicalize(OldNameExample.class, "--old_name=foo"));
+    assertThat(canonicalize(OldNameExample.class, "--old_name=foo"))
+        .containsExactly("--new_name=foo");
   }
 
-  public static class OldNameConflictExample extends OptionsBase {
-    @Option(name = "new_name",
-            oldName = "old_name",
-            defaultValue = "defaultValue")
-    public String flag1;
-
-    @Option(name = "old_name",
-            defaultValue = "defaultValue")
-    public String flag2;
+  public static class ExampleBooleanFooOptions extends OptionsBase {
+    @Option(name = "foo", defaultValue = "false")
+    public boolean foo;
   }
 
   @Test
-  public void testOldNameConflict() {
+  public void testBooleanUnderscorePrefixError() {
     try {
-      newOptionsParser(OldNameConflictExample.class);
-      fail("old_name should conflict with the flag already named old_name");
-    } catch (DuplicateOptionDeclarationException e) {
-      // expected
+      OptionsParser parser = newOptionsParser(ExampleBooleanFooOptions.class);
+      parser.parse("--no_foo");
+
+      fail("--no_foo should fail to parse.");
+    } catch (OptionsParsingException e) {
+      assertThat(e).hasMessageThat().contains("Unrecognized option: --no_foo");
     }
   }
 
@@ -1153,9 +1618,9 @@ public class OptionsParserTest {
     OptionsParser parser = newOptionsParser(WrapperOptionExample.class);
     parser.parse("--wrapper=--flag1=true", "--wrapper=--flag2=87", "--wrapper=--flag3=bar");
     WrapperOptionExample result = parser.getOptions(WrapperOptionExample.class);
-    assertEquals(true, result.flag1);
-    assertEquals(87, result.flag2);
-    assertEquals("bar", result.flag3);
+    assertThat(result.flag1).isTrue();
+    assertThat(result.flag2).isEqualTo(87);
+    assertThat(result.flag3).isEqualTo("bar");
   }
 
   @Test
@@ -1166,7 +1631,7 @@ public class OptionsParserTest {
       fail();
     } catch (OptionsParsingException e) {
       // Check that the message looks like it's suggesting the correct format.
-      assertThat(e.getMessage()).contains("--foo");
+      assertThat(e).hasMessageThat().contains("--foo");
     }
   }
 
@@ -1174,6 +1639,146 @@ public class OptionsParserTest {
   public void testWrapperCanonicalization() throws OptionsParsingException {
     List<String> canonicalized = canonicalize(WrapperOptionExample.class,
         "--wrapper=--flag1=true", "--wrapper=--flag2=87", "--wrapper=--flag3=bar");
-    assertEquals(Arrays.asList("--flag1=true", "--flag2=87", "--flag3=bar"), canonicalized);
+    assertThat(canonicalized).isEqualTo(Arrays.asList("--flag1=true", "--flag2=87", "--flag3=bar"));
+  }
+
+  /** Dummy options that declares it uses only core types. */
+  @UsesOnlyCoreTypes
+  public static class CoreTypesOptions extends OptionsBase implements Serializable {
+    @Option(name = "foo", defaultValue = "false")
+    public boolean foo;
+
+    @Option(name = "bar", defaultValue = "abc")
+    public String bar;
+  }
+
+  /** Dummy options that does not declare using only core types. */
+  public static class NonCoreTypesOptions extends OptionsBase {
+    @Option(name = "foo", defaultValue = "false")
+    public boolean foo;
+  }
+
+  /** Dummy options that incorrectly claims to use only core types. */
+  @UsesOnlyCoreTypes
+  public static class BadCoreTypesOptions extends OptionsBase {
+    /** Dummy unsafe type. */
+    public static class Foo {
+      public int i = 0;
+    }
+
+    /** Converter for Foo. */
+    public static class FooConverter implements Converter<Foo> {
+      @Override
+      public Foo convert(String input) throws OptionsParsingException {
+        Foo foo = new Foo();
+        foo.i = Integer.parseInt(input);
+        return foo;
+      }
+
+      @Override
+      public String getTypeDescription() {
+        return "a foo";
+      }
+    }
+
+    @Option(name = "foo", defaultValue = "null", converter = FooConverter.class)
+    public Foo foo;
+  }
+
+  /** Dummy options that is unsafe for @UsesOnlyCoreTypes but doesn't use the annotation. */
+  public static class SuperBadCoreTypesOptions extends OptionsBase {
+    @Option(name = "foo", defaultValue = "null", converter = BadCoreTypesOptions.FooConverter.class)
+    public BadCoreTypesOptions.Foo foo;
+  }
+
+  /**
+   * Dummy options that illegally advertises @UsesOnlyCoreTypes, when its direct fields are fine but
+   * its inherited fields are not.
+   */
+  @UsesOnlyCoreTypes
+  public static class InheritedBadCoreTypesOptions extends SuperBadCoreTypesOptions {
+    @Option(name = "bar", defaultValue = "false")
+    public boolean bar;
+  }
+
+  @Test
+  public void testUsesOnlyCoreTypes() {
+    assertThat(OptionsParser.getUsesOnlyCoreTypes(CoreTypesOptions.class)).isTrue();
+    assertThat(OptionsParser.getUsesOnlyCoreTypes(NonCoreTypesOptions.class)).isFalse();
+  }
+
+  @Test
+  public void testValidationOfUsesOnlyCoreTypes() {
+    try {
+      OptionsParser.getUsesOnlyCoreTypes(BadCoreTypesOptions.class);
+      fail("Should have detected illegal use of @UsesOnlyCoreTypes");
+    } catch (OptionsParser.ConstructionException expected) {
+      assertThat(expected)
+          .hasMessageThat()
+          .matches(
+              "Options class '.*BadCoreTypesOptions' is marked as @UsesOnlyCoreTypes, but field "
+                  + "'foo' has type '.*Foo'");
+    }
+  }
+
+  @Test
+  public void testValidationOfUsesOnlyCoreTypes_Inherited() {
+    try {
+      OptionsParser.getUsesOnlyCoreTypes(InheritedBadCoreTypesOptions.class);
+      fail("Should have detected illegal use of @UsesOnlyCoreTypes "
+          + "(due to inheritance from bad superclass)");
+    } catch (OptionsParser.ConstructionException expected) {
+      assertThat(expected)
+          .hasMessageThat()
+          .matches(
+              "Options class '.*InheritedBadCoreTypesOptions' is marked as @UsesOnlyCoreTypes, but "
+                  + "field 'foo' has type '.*Foo'");
+    }
+  }
+
+  @Test
+  public void serializable() throws Exception {
+    OptionsParser parser = OptionsParser.newOptionsParser(CoreTypesOptions.class);
+    parser.parse("--foo=true", "--bar=xyz");
+    CoreTypesOptions options = parser.getOptions(CoreTypesOptions.class);
+
+    ByteArrayOutputStream bos = new ByteArrayOutputStream();
+    ObjectOutputStream objOut = new ObjectOutputStream(bos);
+    objOut.writeObject(options);
+    objOut.flush();
+    ByteArrayInputStream bis = new ByteArrayInputStream(bos.toByteArray());
+    ObjectInputStream objIn = new ObjectInputStream(bis);
+    Object obj = objIn.readObject();
+
+    assertThat(obj).isEqualTo(options);
+  }
+
+  @Test
+  public void stableSerialization() throws Exception {
+    // Construct options two different ways to get the same result, and confirm that the serialized
+    // representation is identical.
+    OptionsParser parser1 = OptionsParser.newOptionsParser(CoreTypesOptions.class);
+    parser1.parse("--foo=true", "--bar=xyz");
+    CoreTypesOptions options1 = parser1.getOptions(CoreTypesOptions.class);
+    OptionsParser parser2 = OptionsParser.newOptionsParser(CoreTypesOptions.class);
+    parser2.parse("--bar=abc", "--foo=1");
+    CoreTypesOptions options2 = parser2.getOptions(CoreTypesOptions.class);
+    options2.bar = "xyz";
+
+    // We use two different pairs of streams because ObjectOutputStream#reset does not actually
+    // wipe all the internal state. (The first time it's used, there's an additional header that
+    // does not reappear afterwards.)
+    ByteArrayOutputStream bos1 = new ByteArrayOutputStream();
+    ObjectOutputStream objOut1 = new ObjectOutputStream(bos1);
+    objOut1.writeObject(options1);
+    objOut1.flush();
+    byte[] data1 = bos1.toByteArray();
+    ByteArrayOutputStream bos2 = new ByteArrayOutputStream();
+    ObjectOutputStream objOut2 = new ObjectOutputStream(bos2);
+    objOut2.writeObject(options2);
+    objOut2.flush();
+    byte[] data2 = bos2.toByteArray();
+
+    assertThat(data1).isEqualTo(data2);
   }
 }

@@ -1,0 +1,26 @@
+                                       --------
+                                       Download
+                                       --------
+
+    Releases of JOpt Simple are synced to the central Maven repository.  Declare a
+    dependency element in your POM like so:
+
++---------------------------------------------
+...
+<dependencies>
+  ...
+  <dependency>
+    <groupId>net.sf.jopt-simple</groupId>
+    <artifactId>jopt-simple</artifactId>
+    <version>${project.version}</version>
+  </dependency>
+  ...
+</dependencies>
+...
++---------------------------------------------
+
+    If you're not using Maven, you can still download the newer releases from the Maven
+    repository manually, {{{http://repo1.maven.org/maven2/net/sf/jopt-simple/jopt-simple} here}}.
+
+    You can find older releases at
+    {{{http://sourceforge.net/project/showfiles.php?group_id=125731} SourceForge}}.

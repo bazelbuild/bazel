@@ -73,6 +73,7 @@ message DataValueXml {
     SIMPLE = 5;
     STYLEABLE = 6;
     STYLE = 7;
+    RESOURCES_ATTRIBUTE = 8;
   }
 
   optional XmlType type = 1;

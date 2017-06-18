@@ -24,12 +24,12 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.StringSequenceBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariablesExtension;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.util.Set;
 
 /** Build variable extensions for templating a toolchain for objc builds. */
@@ -37,7 +37,6 @@ class ObjcVariablesExtension implements VariablesExtension {
 
   static final String PCH_FILE_VARIABLE_NAME = "pch_file";
   static final String FRAMEWORKS_VARIABLE_NAME = "framework_paths";
-  static final String VERSION_MIN_VARIABLE_NAME = "version_min";
   static final String MODULES_MAPS_DIR_NAME = "module_maps_dir";
   static final String OBJC_MODULE_CACHE_DIR_NAME = "_objc_module_cache";
   static final String OBJC_MODULE_CACHE_KEY = "modules_cache_path";
@@ -47,6 +46,8 @@ class ObjcVariablesExtension implements VariablesExtension {
   static final String OBJC_LIBRARY_EXEC_PATHS_VARIABLE_NAME = "objc_library_exec_paths";
   static final String CC_LIBRARY_EXEC_PATHS_VARIABLE_NAME = "cc_library_exec_paths";
   static final String IMPORTED_LIBRARY_EXEC_PATHS_VARIABLE_NAME = "imported_library_exec_paths";
+  static final String LINKMAP_EXEC_PATH = "linkmap_exec_path";
+  static final String BITCODE_SYMBOL_MAP_PATH_VARAIBLE_NAME = "bitcode_symbol_map_path";
 
   // executable linking variables
   static final String FRAMEWORK_NAMES_VARIABLE_NAME = "framework_names";
@@ -57,7 +58,11 @@ class ObjcVariablesExtension implements VariablesExtension {
   static final String FORCE_LOAD_EXEC_PATHS_VARIABLE_NAME = "force_load_exec_paths";
   static final String DEP_LINKOPTS_VARIABLE_NAME = "dep_linkopts";
   static final String ATTR_LINKOPTS_VARIABLE_NAME = "attr_linkopts";
-  
+
+  // dsym variables
+  static final String DSYM_PATH_VARIABLE_NAME = "dsym_path";
+  static final String DSYM_BUNDLE_ZIP_VARIABLE_NAME = "dsym_bundle_zip";
+
   private final RuleContext ruleContext;
   private final ObjcProvider objcProvider;
   private final CompilationArtifacts compilationArtifacts;
@@ -68,8 +73,11 @@ class ObjcVariablesExtension implements VariablesExtension {
   private final Set<String> frameworkNames;
   private final ImmutableList<String> libraryNames;
   private final ImmutableSet<Artifact> forceLoadArtifacts;
-  private final NestedSet<String> attributeLinkopts;
+  private final ImmutableList<String> attributeLinkopts;
   private final ImmutableSet<VariableCategory> activeVariableCategories;
+  private final Artifact dsymBundleZip;
+  private final Artifact linkmap;
+  private final Artifact bitcodeSymbolMap;
 
   private ObjcVariablesExtension(
       RuleContext ruleContext,
@@ -81,8 +89,11 @@ class ObjcVariablesExtension implements VariablesExtension {
       Set<String> frameworkNames,
       ImmutableList<String> libraryNames,
       ImmutableSet<Artifact> forceLoadArtifacts,
-      NestedSet<String> attributeLinkopts,
-      ImmutableSet<VariableCategory> activeVariableCategories) {
+      ImmutableList<String> attributeLinkopts,
+      ImmutableSet<VariableCategory> activeVariableCategories,
+      Artifact dsymBundleZip,
+      Artifact linkmap,
+      Artifact bitcodeSymbolMap) {
     this.ruleContext = ruleContext;
     this.objcProvider = objcProvider;
     this.compilationArtifacts = compilationArtifacts;
@@ -95,18 +106,25 @@ class ObjcVariablesExtension implements VariablesExtension {
     this.forceLoadArtifacts = forceLoadArtifacts;
     this.attributeLinkopts = attributeLinkopts;
     this.activeVariableCategories = activeVariableCategories;
+    this.dsymBundleZip = dsymBundleZip;
+    this.linkmap = linkmap;
+    this.bitcodeSymbolMap = bitcodeSymbolMap;
   }
 
   /** Type of build variable that can optionally exported by this extension. */
   public enum VariableCategory {
-    ARCHIVE_VARIABLES, FULLY_LINK_VARIABLES, EXECUTABLE_LINKING_VARIABLES;
+    ARCHIVE_VARIABLES,
+    FULLY_LINK_VARIABLES,
+    EXECUTABLE_LINKING_VARIABLES,
+    DSYM_VARIABLES,
+    LINKMAP_VARIABLES,
+    BITCODE_VARIABLES;
   }
 
   @Override
   public void addVariables(CcToolchainFeatures.Variables.Builder builder) {
     addPchVariables(builder);
     addFrameworkVariables(builder);
-    addArchVariables(builder);
     addModuleMapVariables(builder);
     if (activeVariableCategories.contains(VariableCategory.ARCHIVE_VARIABLES)) {
       addArchiveVariables(builder);
@@ -117,10 +135,20 @@ class ObjcVariablesExtension implements VariablesExtension {
     if (activeVariableCategories.contains(VariableCategory.EXECUTABLE_LINKING_VARIABLES)) {
       addExecutableLinkVariables(builder);
     }
+    if (activeVariableCategories.contains(VariableCategory.DSYM_VARIABLES)) {
+      addDsymVariables(builder);
+    }
+    if (activeVariableCategories.contains(VariableCategory.LINKMAP_VARIABLES)) {
+      addLinkmapVariables(builder);
+    }
+    if (activeVariableCategories.contains(VariableCategory.BITCODE_VARIABLES)) {
+      addBitcodeVariables(builder);
+    }
   }
 
   private void addPchVariables(CcToolchainFeatures.Variables.Builder builder) {
-    if (ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET) != null) {
+    if (ruleContext.attributes().has("pch", BuildType.LABEL)
+        && ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET) != null) {
       builder.addStringVariable(
           PCH_FILE_VARIABLE_NAME,
           ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET).getExecPathString());
@@ -150,17 +178,10 @@ class ObjcVariablesExtension implements VariablesExtension {
         buildConfiguration.getGenfilesFragment() + "/" + OBJC_MODULE_CACHE_DIR_NAME);
   }
 
-  private void addArchVariables(CcToolchainFeatures.Variables.Builder builder) {
-    Platform platform = appleConfiguration.getSingleArchPlatform();
-    builder.addStringVariable(
-        VERSION_MIN_VARIABLE_NAME,
-        appleConfiguration.getMinimumOsForPlatformType(platform.getType()).toString());
-  }
-
   private void addArchiveVariables(CcToolchainFeatures.Variables.Builder builder) {
     builder.addStringVariable(
         OBJ_LIST_PATH_VARIABLE_NAME,
-        ObjcRuleClasses.intermediateArtifacts(ruleContext).archiveObjList().getExecPathString());
+        intermediateArtifacts.archiveObjList().getExecPathString());
     builder.addStringVariable(
         ARCHIVE_PATH_VARIABLE_NAME, compilationArtifacts.getArchive().get().getExecPathString());
   }
@@ -201,6 +222,23 @@ class ObjcVariablesExtension implements VariablesExtension {
     builder.addStringSequenceVariable(ATTR_LINKOPTS_VARIABLE_NAME, attributeLinkopts);
   }
 
+  private void addDsymVariables(CcToolchainFeatures.Variables.Builder builder) {
+    builder.addStringVariable(
+        DSYM_BUNDLE_ZIP_VARIABLE_NAME, dsymBundleZip.getShellEscapedExecPathString());
+    builder.addStringVariable(
+        DSYM_PATH_VARIABLE_NAME,
+        FileSystemUtils.removeExtension(dsymBundleZip.getExecPath()).getPathString());
+  }
+
+  private void addLinkmapVariables(CcToolchainFeatures.Variables.Builder builder) {
+    builder.addStringVariable(LINKMAP_EXEC_PATH, linkmap.getExecPathString());
+  }
+
+  private void addBitcodeVariables(CcToolchainFeatures.Variables.Builder builder) {
+    builder.addStringVariable(
+        BITCODE_SYMBOL_MAP_PATH_VARAIBLE_NAME, bitcodeSymbolMap.getExecPathString());
+  }
+
   /** A Builder for {@link ObjcVariablesExtension}. */
   static class Builder {
     private RuleContext ruleContext;
@@ -212,7 +250,10 @@ class ObjcVariablesExtension implements VariablesExtension {
     private Set<String> frameworkNames;
     private ImmutableSet<Artifact> forceLoadArtifacts;
     private ImmutableList<String> libraryNames;
-    private NestedSet<String> attributeLinkopts;
+    private ImmutableList<String> attributeLinkopts;
+    private Artifact dsymBundleZip;
+    private Artifact linkmap;
+    private Artifact bitcodeSymbolMap;
     
     private final ImmutableSet.Builder<VariableCategory> activeVariableCategoriesBuilder =
         ImmutableSet.builder();
@@ -272,7 +313,7 @@ class ObjcVariablesExtension implements VariablesExtension {
     }
     
     /** Sets linkopts arising from rule attributes. */
-    public Builder setAttributeLinkopts(NestedSet<String> attributeLinkopts) {
+    public Builder setAttributeLinkopts(ImmutableList<String> attributeLinkopts) {
       this.attributeLinkopts = Preconditions.checkNotNull(attributeLinkopts);
       return this;
     }
@@ -280,6 +321,24 @@ class ObjcVariablesExtension implements VariablesExtension {
     /** Sets the given {@link VariableCategory} as active for this extension. */
     public Builder addVariableCategory(VariableCategory variableCategory) {
       this.activeVariableCategoriesBuilder.add(Preconditions.checkNotNull(variableCategory));
+      return this;
+    }
+
+    /** Sets the Artifact for the zipped dsym bundle. */
+    public Builder setDsymBundleZip(Artifact dsymBundleZip) {
+      this.dsymBundleZip = dsymBundleZip;
+      return this;
+    }
+
+    /** Sets the Artifact for the linkmap. */
+    public Builder setLinkmap(Artifact linkmap) {
+      this.linkmap = linkmap;
+      return this;
+    }
+
+    /** Sets the Artifact for the bitcode symbol map. */
+    public Builder setBitcodeSymbolMap(Artifact bitcodeSymbolMap) {
+      this.bitcodeSymbolMap = bitcodeSymbolMap;
       return this;
     }
 
@@ -304,7 +363,16 @@ class ObjcVariablesExtension implements VariablesExtension {
         Preconditions.checkNotNull(forceLoadArtifacts, "missing force-load artifacts");
         Preconditions.checkNotNull(attributeLinkopts, "missing attribute linkopts");
       }
-      
+      if (activeVariableCategories.contains(VariableCategory.DSYM_VARIABLES)) {
+        Preconditions.checkNotNull(dsymBundleZip, "missing dsym bundle zip artifact");
+      }
+      if (activeVariableCategories.contains(VariableCategory.LINKMAP_VARIABLES)) {
+        Preconditions.checkNotNull(linkmap, "missing linkmap artifact");
+      }
+      if (activeVariableCategories.contains(VariableCategory.BITCODE_VARIABLES)) {
+        Preconditions.checkNotNull(bitcodeSymbolMap, "missing bitcode symbol map artifact");
+      }
+
       return new ObjcVariablesExtension(
           ruleContext,
           objcProvider,
@@ -316,7 +384,10 @@ class ObjcVariablesExtension implements VariablesExtension {
           libraryNames,
           forceLoadArtifacts,
           attributeLinkopts,
-          activeVariableCategories);
+          activeVariableCategories,
+          dsymBundleZip,
+          linkmap,
+          bitcodeSymbolMap);
     }
   }
 }

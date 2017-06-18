@@ -28,16 +28,22 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.CommandAction;
+import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
+import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
@@ -67,6 +73,7 @@ import javax.annotation.Nullable;
 /** An Action representing an arbitrary subprocess to be forked and exec'd. */
 public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifier, CommandAction {
 
+
   /** Sets extensions on ExtraActionInfo **/
   protected static class ExtraActionInfoSupplier<T> {
     private final GeneratedExtension<ExtraActionInfo, T> extension;
@@ -84,13 +91,12 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
 
   private static final String GUID = "ebd6fce3-093e-45ee-adb6-bf513b602f0d";
 
-  protected final CommandLine argv;
+  private final CommandLine argv;
 
   private final boolean executeUnconditionally;
+  private final boolean isShellCommand;
   private final String progressMessage;
   private final String mnemonic;
-  // entries are (directory for remote execution, Artifact)
-  protected final ImmutableMap<PathFragment, Artifact> inputManifests;
 
   private final ResourceSet resourceSet;
   private final ImmutableMap<String, String> environment;
@@ -116,6 +122,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
    * @param argv the command line to execute. This is merely a list of options to the executable,
    *     and is uninterpreted by the build tool for the purposes of dependency checking; typically
    *     it may include the names of input and output files, but this is not necessary.
+   * @param isShellCommand Whether the command line represents a shell command with the given shell
+   *     executable. This is used to give better error messages.
    * @param progressMessage the message printed during the progression of the build
    * @param mnemonic the mnemonic that is reported in the master log.
    */
@@ -126,6 +134,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       Iterable<Artifact> outputs,
       ResourceSet resourceSet,
       CommandLine argv,
+      boolean isShellCommand,
       Map<String, String> environment,
       Set<String> clientEnvironmentVariables,
       String progressMessage,
@@ -137,11 +146,12 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
         outputs,
         resourceSet,
         argv,
+        isShellCommand,
         ImmutableMap.copyOf(environment),
         ImmutableSet.copyOf(clientEnvironmentVariables),
         ImmutableMap.<String, String>of(),
         progressMessage,
-        ImmutableMap.<PathFragment, Artifact>of(),
+        EmptyRunfilesSupplier.INSTANCE,
         mnemonic,
         false,
         null);
@@ -167,9 +177,10 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
    *     options to the executable, and is uninterpreted by the build tool for the purposes of
    *     dependency checking; typically it may include the names of input and output files, but this
    *     is not necessary.
+   * @param isShellCommand Whether the command line represents a shell command with the given shell
+   *     executable. This is used to give better error messages.
    * @param progressMessage the message printed during the progression of the build
-   * @param inputManifests entries in inputs that are symlink manifest files. These are passed to
-   *     remote execution in the environment rather than as inputs.
+   * @param runfilesSupplier {@link RunfilesSupplier}s describing the runfiles for the action
    * @param mnemonic the mnemonic that is reported in the master log.
    */
   public SpawnAction(
@@ -179,22 +190,23 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       Iterable<Artifact> outputs,
       ResourceSet resourceSet,
       CommandLine argv,
+      boolean isShellCommand,
       ImmutableMap<String, String> environment,
       ImmutableSet<String> clientEnvironmentVariables,
       ImmutableMap<String, String> executionInfo,
       String progressMessage,
-      ImmutableMap<PathFragment, Artifact> inputManifests,
+      RunfilesSupplier runfilesSupplier,
       String mnemonic,
       boolean executeUnconditionally,
       ExtraActionInfoSupplier<?> extraActionInfoSupplier) {
-    super(owner, tools, inputs, outputs);
+    super(owner, tools, inputs, runfilesSupplier, outputs);
     this.resourceSet = resourceSet;
     this.executionInfo = executionInfo;
     this.environment = environment;
     this.clientEnvironmentVariables = clientEnvironmentVariables;
     this.argv = argv;
+    this.isShellCommand = isShellCommand;
     this.progressMessage = progressMessage;
-    this.inputManifests = inputManifests;
     this.mnemonic = mnemonic;
     this.executeUnconditionally = executeUnconditionally;
     this.extraActionInfoSupplier = extraActionInfoSupplier;
@@ -209,18 +221,6 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   @Override
   public SkylarkList<String> getSkylarkArgv() {
     return SkylarkList.createImmutable(getArguments());
-  }
-
-  /**
-   * Returns the list of options written to the parameter file. Don't use this method outside tests.
-   * The list is often huge, resulting in significant garbage collection overhead.
-   */
-  @VisibleForTesting
-  public List<String> getArgumentsFromParamFile() {
-    if (argv.parameterFileWriteAction() != null) {
-      return ImmutableList.copyOf(argv.parameterFileWriteAction().getContents());
-    }
-    return ImmutableList.of();
   }
 
   /** Returns command argument, argv[0]. */
@@ -240,7 +240,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
 
   @VisibleForTesting
   public boolean isShellCommand() {
-    return argv.isShellCommand();
+    return isShellCommand;
   }
 
   @Override
@@ -287,10 +287,6 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     }
   }
 
-  public ImmutableMap<PathFragment, Artifact> getInputManifests() {
-    return inputManifests;
-  }
-
   /**
    * Returns s, truncated to no more than maxLen characters, appending an
    * ellipsis if truncation occurred.
@@ -307,7 +303,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
    *
    * This method is final, as it is merely a shorthand use of the generic way to obtain a spawn,
    * which also depends on the client environment. Subclasses that which to override the way to get
-   * a spawn should override {@link getSpawn(Map<String, String>)} instead.
+   * a spawn should override {@link #getSpawn(Map)} instead.
    */
   public final Spawn getSpawn() {
     return getSpawn(null);
@@ -330,10 +326,11 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     // We don't need the toolManifests here, because they are a subset of the inputManifests by
     // definition and the output of an action shouldn't change whether something is considered a
     // tool or not.
-    f.addInt(inputManifests.size());
-    for (Map.Entry<PathFragment, Artifact> input : inputManifests.entrySet()) {
-      f.addString(input.getKey().getPathString() + "/");
-      f.addPath(input.getValue().getExecPath());
+    f.addPaths(getRunfilesSupplier().getRunfilesDirs());
+    ImmutableList<Artifact> runfilesManifests = getRunfilesSupplier().getManifests();
+    f.addInt(runfilesManifests.size());
+    for (Artifact runfilesManifest : runfilesManifests) {
+      f.addPath(runfilesManifest.getExecPath());
     }
     f.addStringMap(getEnvironment());
     f.addStrings(getClientEnvironmentVariables());
@@ -383,15 +380,40 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   public ExtraActionInfo.Builder getExtraActionInfo() {
     ExtraActionInfo.Builder builder = super.getExtraActionInfo();
     if (extraActionInfoSupplier == null) {
-      Spawn spawn = getSpawn();
-      SpawnInfo spawnInfo = spawn.getExtraActionInfo();
-
+      SpawnInfo spawnInfo = getExtraActionSpawnInfo();
       return builder
           .setExtension(SpawnInfo.spawnInfo, spawnInfo);
     } else {
       extraActionInfoSupplier.extend(builder);
       return builder;
     }
+  }
+
+  /**
+   * Returns information about this spawn action for use by the extra action mechanism.
+   *
+   * <p>Subclasses of SpawnAction may override this in order to provide action-specific behaviour.
+   * This can be necessary, for example, when the action discovers inputs.
+   */
+  protected SpawnInfo getExtraActionSpawnInfo() {
+    SpawnInfo.Builder info = SpawnInfo.newBuilder();
+    Spawn spawn = getSpawn();
+    info.addAllArgument(spawn.getArguments());
+    for (Map.Entry<String, String> variable : spawn.getEnvironment().entrySet()) {
+      info.addVariable(
+          EnvironmentVariable.newBuilder()
+              .setName(variable.getKey())
+              .setValue(variable.getValue())
+              .build());
+    }
+    for (ActionInput input : spawn.getInputFiles()) {
+      // Explicitly ignore middleman artifacts here.
+      if (!(input instanceof Artifact) || !((Artifact) input).isMiddlemanArtifact()) {
+        info.addInputFile(input.getExecPathString());
+      }
+    }
+    info.addAllOutputFile(ActionInputHelper.toExecPaths(spawn.getOutputFiles()));
+    return info.build();
   }
 
   @Override
@@ -416,15 +438,6 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     return executor.getSpawnActionContext(getMnemonic());
   }
 
-  @Override
-  public ResourceSet estimateResourceConsumption(Executor executor) {
-    SpawnActionContext context = getContext(executor);
-    if (context.willExecuteRemotely(!executionInfo.containsKey("local"))) {
-      return ResourceSet.ZERO;
-    }
-    return resourceSet;
-  }
-
   /**
    * A spawn instance that is tied to a specific SpawnAction.
    */
@@ -436,15 +449,15 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
 
     /**
      * Creates an ActionSpawn with the given environment variables.
-     * 
+     *
      * <p>Subclasses of ActionSpawn may subclass in order to provide action-specific values for
      * environment variables or action inputs.
      */
-    public ActionSpawn(Map<String, String> clientEnv) {
+    protected ActionSpawn(Map<String, String> clientEnv) {
       super(ImmutableList.copyOf(argv.arguments()),
           ImmutableMap.<String, String>of(),
           executionInfo,
-          inputManifests,
+          SpawnAction.this.getRunfilesSupplier(),
           SpawnAction.this,
           resourceSet);
       for (Artifact input : getInputs()) {
@@ -466,13 +479,6 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       effectiveEnvironment = ImmutableMap.copyOf(env);
     }
 
-    /**
-     * Creates an ActionSpawn with no environment variables.
-     */
-    public ActionSpawn() {
-      this(null);
-    }
-
     @Override
     public ImmutableMap<String, String> getEnvironment() {
       return effectiveEnvironment;
@@ -489,7 +495,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       // included as manifests in getEnvironment().
       List<Artifact> inputs = Lists.newArrayList(getInputs());
       inputs.removeAll(filesets);
-      inputs.removeAll(inputManifests.values());
+      inputs.removeAll(this.getRunfilesSupplier().getManifests());
       return inputs;
     }
   }
@@ -502,8 +508,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     private final NestedSetBuilder<Artifact> toolsBuilder = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Artifact> inputsBuilder = NestedSetBuilder.stableOrder();
     private final List<Artifact> outputs = new ArrayList<>();
-    private final Map<PathFragment, Artifact> toolManifests = new LinkedHashMap<>();
-    private final Map<PathFragment, Artifact> inputManifests = new LinkedHashMap<>();
+    private final List<RunfilesSupplier> inputRunfilesSuppliers = new ArrayList<>();
+    private final List<RunfilesSupplier> toolRunfilesSuppliers = new ArrayList<>();
     private ResourceSet resourceSet = AbstractAction.DEFAULT_RESOURCE_SET;
     private ImmutableMap<String, String> environment = ImmutableMap.of();
     private ImmutableSet<String> clientEnvironmentVariables = ImmutableSet.of();
@@ -535,8 +541,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       this.toolsBuilder.addTransitive(other.toolsBuilder.build());
       this.inputsBuilder.addTransitive(other.inputsBuilder.build());
       this.outputs.addAll(other.outputs);
-      this.toolManifests.putAll(other.toolManifests);
-      this.inputManifests.putAll(other.inputManifests);
+      this.inputRunfilesSuppliers.addAll(other.inputRunfilesSuppliers);
+      this.toolRunfilesSuppliers.addAll(other.toolRunfilesSuppliers);
       this.resourceSet = other.resourceSet;
       this.environment = other.environment;
       this.clientEnvironmentVariables = other.clientEnvironmentVariables;
@@ -606,8 +612,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
               configuration.getLocalShellEnvironment(),
               configuration.getVariableShellEnvironment(),
               configuration.getShellExecutable(),
-              paramsFile,
-              paramFileWriteAction));
+              paramsFile));
       if (paramFileWriteAction != null) {
         actions.add(paramFileWriteAction);
       }
@@ -639,19 +644,15 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
         @Nullable Map<String, String> defaultShellEnvironment,
         @Nullable Set<String> variableShellEnvironment,
         @Nullable PathFragment defaultShellExecutable,
-        @Nullable Artifact paramsFile,
-        @Nullable ParameterFileWriteAction paramFileWriteAction) {
+        @Nullable Artifact paramsFile) {
       List<String> argv = buildExecutableArgs(defaultShellExecutable);
       Iterable<String> arguments = argumentsBuilder.build();
       CommandLine actualCommandLine;
       if (paramsFile != null) {
         inputsBuilder.add(paramsFile);
-        actualCommandLine =
-            ParamFileHelper.createWithParamsFile(
-                argv, isShellCommand, paramFileInfo, paramsFile, paramFileWriteAction);
+        actualCommandLine = ParamFileHelper.createWithParamsFile(argv, paramFileInfo, paramsFile);
       } else {
-        actualCommandLine = ParamFileHelper.createWithoutParamsFile(argv, arguments, commandLine,
-            isShellCommand);
+        actualCommandLine = ParamFileHelper.createWithoutParamsFile(argv, arguments, commandLine);
       }
 
       NestedSet<Artifact> tools = toolsBuilder.build();
@@ -662,10 +663,6 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
               .addTransitive(inputsBuilder.build())
               .addTransitive(tools)
               .build();
-
-      LinkedHashMap<PathFragment, Artifact> inputAndToolManifests =
-          new LinkedHashMap<>(inputManifests);
-      inputAndToolManifests.putAll(toolManifests);
 
       Map<String, String> env;
       Set<String> clientEnv;
@@ -691,11 +688,13 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           ImmutableList.copyOf(outputs),
           resourceSet,
           actualCommandLine,
+          isShellCommand,
           ImmutableMap.copyOf(env),
           ImmutableSet.copyOf(clientEnv),
           ImmutableMap.copyOf(executionInfo),
           progressMessage,
-          ImmutableMap.copyOf(inputAndToolManifests),
+          new CompositeRunfilesSupplier(
+              Iterables.concat(this.inputRunfilesSuppliers, this.toolRunfilesSuppliers)),
           mnemonic);
     }
 
@@ -707,11 +706,12 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
         ImmutableList<Artifact> outputs,
         ResourceSet resourceSet,
         CommandLine actualCommandLine,
+        boolean isShellCommand,
         ImmutableMap<String, String> env,
         ImmutableSet<String> clientEnvironmentVariables,
         ImmutableMap<String, String> executionInfo,
         String progressMessage,
-        ImmutableMap<PathFragment, Artifact> inputAndToolManifests,
+        RunfilesSupplier runfilesSupplier,
         String mnemonic) {
       return new SpawnAction(
           owner,
@@ -720,11 +720,12 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           outputs,
           resourceSet,
           actualCommandLine,
+          isShellCommand,
           env,
           clientEnvironmentVariables,
           executionInfo,
           progressMessage,
-          inputAndToolManifests,
+          runfilesSupplier,
           mnemonic,
           executeUnconditionally,
           extraActionInfoSupplier);
@@ -771,6 +772,12 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       return this;
     }
 
+    /** Adds tools to this action. */
+    public Builder addTransitiveTools(NestedSet<Artifact> artifacts) {
+      toolsBuilder.addTransitive(artifacts);
+      return this;
+    }
+
     /**
      * Adds inputs to this action.
      */
@@ -796,13 +803,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       return this;
     }
 
-    private Builder addToolManifest(Artifact artifact, PathFragment remote) {
-      toolManifests.put(remote, artifact);
-      return this;
-    }
-
-    public Builder addInputManifest(Artifact artifact, PathFragment remote) {
-      inputManifests.put(remote, artifact);
+    public Builder addRunfilesSupplier(RunfilesSupplier supplier) {
+      inputRunfilesSuppliers.add(supplier);
       return this;
     }
 
@@ -999,7 +1001,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
      * commands to be executed.
      */
     public Builder setShellCommand(Iterable<String> command) {
-      this.executable = new PathFragment(Iterables.getFirst(command, null));
+      this.executable = PathFragment.create(Iterables.getFirst(command, null));
       // The first item of the commands is the shell executable that should be used.
       this.executableArgs = ImmutableList.copyOf(Iterables.skip(command, 1));
       this.isShellCommand = true;
@@ -1012,12 +1014,8 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
      * source code).
      */
     public Builder addTool(FilesToRunProvider tool) {
-      addTools(tool.getFilesToRun());
-      if (tool.getRunfilesManifest() != null) {
-        addToolManifest(
-            tool.getRunfilesManifest(),
-            BaseSpawn.runfilesForFragment(tool.getExecutable().getExecPath()));
-      }
+      addTransitiveTools(tool.getFilesToRun());
+      toolRunfilesSuppliers.add(tool.getRunfilesSupplier());
       return this;
     }
 
@@ -1131,7 +1129,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
 
     public <T> Builder setExtraActionInfo(
         GeneratedExtension<ExtraActionInfo, T> extension, T value) {
-      this.extraActionInfoSupplier = new ExtraActionInfoSupplier<T>(extension, value);
+      this.extraActionInfoSupplier = new ExtraActionInfoSupplier<>(extension, value);
       return this;
     }
 

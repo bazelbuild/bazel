@@ -19,8 +19,9 @@ cc_toolchain_suite(
     toolchains = {
         "armeabi-v7a|compiler": ":cc-compiler-armeabi-v7a",
         "freebsd|compiler": ":cc-compiler-freebsd",
-        "x64_windows|windows_msys64": ":cc-compiler-x64_windows",
-        "x64_windows_msvc|cl": ":cc-compiler-x64_windows_msvc",
+        "x64_windows|cl": ":cc-compiler-x64_windows",
+        "x64_windows_msvc|cl": ":cc-compiler-x64_windows",
+        "x64_windows_msys|windows_msys64": ":cc-compiler-x64_windows_msys",
         "ios_x86_64|compiler": ":cc-compiler-ios_x86_64",
     },
 )
@@ -54,7 +55,7 @@ cc_toolchain(
 )
 
 cc_toolchain(
-    name = "cc-compiler-x64_windows",
+    name = "cc-compiler-x64_windows_msys",
     all_files = ":empty",
     compiler_files = ":empty",
     cpu = "local",
@@ -68,7 +69,7 @@ cc_toolchain(
 )
 
 cc_toolchain(
-    name = "cc-compiler-x64_windows_msvc",
+    name = "cc-compiler-x64_windows",
     all_files = ":every-file-x64_windows",
     compiler_files = ":compile-x64_windows",
     cpu = "x64_windows",

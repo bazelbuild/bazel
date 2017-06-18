@@ -15,11 +15,10 @@
 package com.google.devtools.build.lib.rules.proto;
 
 import static com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode.TARGET;
-import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
+import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -31,7 +30,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
@@ -45,30 +43,29 @@ public class ProtoCommon {
   }
 
   /**
-   * Gets the direct sources of a proto library. If protoSources is not empty,
-   * the value is just protoSources. Otherwise, it's the combined sources of all direct dependencies
-   * of the given RuleContext.
+   * Gets the direct sources of a proto library. If protoSources is not empty, the value is just
+   * protoSources. Otherwise, it's the combined sources of all direct dependencies of the given
+   * RuleContext.
+   *
    * @param ruleContext the proto library rule context.
    * @param protoSources the direct proto sources.
    * @return the direct sources of a proto library.
    */
-  // TODO(bazel-team): Proto sources should probably be a NestedSet.
-  public static ImmutableList<Artifact> getCheckDepsProtoSources(
+  public static NestedSet<Artifact> getCheckDepsProtoSources(
       RuleContext ruleContext, ImmutableList<Artifact> protoSources) {
 
     if (protoSources.isEmpty()) {
       /* a proxy/alias library, return the sources of the direct deps */
-      ImmutableList.Builder<Artifact> builder = new ImmutableList.Builder<>();
-      for (TransitiveInfoCollection provider : ruleContext
-          .getPrerequisites("deps", Mode.TARGET)) {
+      NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
+      for (TransitiveInfoCollection provider : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
         ProtoSourcesProvider sources = provider.getProvider(ProtoSourcesProvider.class);
         if (sources != null) {
-          builder.addAll(sources.getCheckDepsProtoSources());
+          builder.addTransitive(sources.getCheckDepsProtoSources());
         }
       }
       return builder.build();
     } else {
-      return protoSources;
+      return NestedSetBuilder.wrap(STABLE_ORDER, protoSources);
     }
   }
 
@@ -89,6 +86,16 @@ public class ProtoCommon {
     }
 
     return importsBuilder.build();
+  }
+
+  public static NestedSet<Artifact> collectDependenciesDescriptorSets(RuleContext ruleContext) {
+    NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
+
+    for (ProtoSourcesProvider provider :
+        ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoSourcesProvider.class)) {
+      result.addTransitive(provider.transitiveDescriptorSets());
+    }
+    return result.build();
   }
 
   /**
@@ -181,7 +188,7 @@ public class ProtoCommon {
     } else {
       for (ProtoSourcesProvider provider :
           ruleContext.getPrerequisites("deps", TARGET, ProtoSourcesProvider.class)) {
-        result.addAll(provider.getCheckDepsProtoSources());
+        result.addTransitive(provider.getCheckDepsProtoSources());
       }
       result.addAll(srcs);
     }
@@ -204,23 +211,6 @@ public class ProtoCommon {
         || flagValue == BuildConfiguration.StrictDepsMode.WARN) {
       return true;
     }
-
-    TriState attrValue = ruleContext.attributes().get("strict_proto_deps", TRISTATE);
-    if (attrValue == TriState.NO) {
-      return false;
-    }
-    if (attrValue == TriState.YES) {
-      return true;
-    }
-
-    ImmutableSet<String> pkgFeatures = ruleContext.getRule().getPackage().getFeatures();
-    if (pkgFeatures.contains("disable_strict_proto_deps_NO")) {
-      return false;
-    }
-    if (pkgFeatures.contains("disable_strict_proto_deps_YES")) {
-      return true;
-    }
-
-    return false;
+    return (flagValue == BuildConfiguration.StrictDepsMode.STRICT);
   }
 }

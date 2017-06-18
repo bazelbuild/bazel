@@ -34,10 +34,8 @@ import java.util.Iterator;
  */
 public abstract class Link {
 
-  /**
-   * Categories of link action that must be defined with action_configs in any toolchain. 
-   */
-  static final Iterable<LinkTargetType> MANDATORY_LINK_TARGET_TYPES =
+  /** Categories of link action that must be defined with action_configs in any toolchain. */
+  static final ImmutableList<LinkTargetType> MANDATORY_LINK_TARGET_TYPES =
       ImmutableList.of(
           LinkTargetType.STATIC_LIBRARY,
           LinkTargetType.PIC_STATIC_LIBRARY,
@@ -146,7 +144,7 @@ public abstract class Link {
     /** An objc executable. */
     OBJC_EXECUTABLE(
         "",
-        Staticness.STATIC,
+        Staticness.DYNAMIC,
         "objc-executable",
         Picness.NOPIC,
         ArtifactCategory.EXECUTABLE,
@@ -155,7 +153,7 @@ public abstract class Link {
     /** An objc executable that includes objc++/c++ source. */
     OBJCPP_EXECUTABLE(
         "",
-        Staticness.STATIC,
+        Staticness.DYNAMIC,
         "objc++-executable",
         Picness.NOPIC,
         ArtifactCategory.EXECUTABLE,

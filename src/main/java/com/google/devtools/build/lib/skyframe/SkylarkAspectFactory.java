@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalExceptionWithStackTrace;
+import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import java.util.Map;
@@ -50,22 +52,24 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
   public ConfiguredAspect create(
       ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters)
       throws InterruptedException {
+    SkylarkRuleContext skylarkRuleContext = null;
     try (Mutability mutability = Mutability.create("aspect")) {
       AspectDescriptor aspectDescriptor = new AspectDescriptor(
           skylarkAspect.getAspectClass(), parameters);
-      SkylarkRuleContext skylarkRuleContext;
       try {
         skylarkRuleContext = new SkylarkRuleContext(ruleContext, aspectDescriptor);
       } catch (EvalException e) {
         ruleContext.ruleError(e.getMessage());
         return null;
       }
+      AnalysisEnvironment analysisEnv = ruleContext.getAnalysisEnvironment();
       Environment env =
           Environment.builder(mutability)
               .setGlobals(skylarkAspect.getFuncallEnv().getGlobals())
-              .setEventHandler(ruleContext.getAnalysisEnvironment().getEventHandler())
+              .setSemantics(analysisEnv.getSkylarkSemantics())
+              .setEventHandler(analysisEnv.getEventHandler())
               .build(); // NB: loading phase functions are not available: this is analysis already,
-                        // so we do *not* setLoadingPhase().
+      // so we do *not* setLoadingPhase().
       Object aspectSkylarkObject;
       try {
         aspectSkylarkObject =
@@ -79,31 +83,76 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
 
         if (ruleContext.hasErrors()) {
           return null;
-        } else if (!(aspectSkylarkObject instanceof SkylarkClassObject)) {
-          ruleContext.ruleError("Aspect implementation doesn't return a struct");
+        } else if (!(aspectSkylarkObject instanceof SkylarkClassObject)
+            && !(aspectSkylarkObject instanceof Iterable)) {
+          ruleContext.ruleError(
+              String.format(
+                  "Aspect implementation should return a struct or a list, but got %s",
+                  SkylarkType.typeOf(aspectSkylarkObject)));
           return null;
         }
-
-        ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(
-            aspectDescriptor, ruleContext);
-
-        SkylarkClassObject struct = (SkylarkClassObject) aspectSkylarkObject;
-        Location loc = struct.getCreationLoc();
-        for (String key : struct.getKeys()) {
-          if (key.equals("output_groups")) {
-            addOutputGroups(struct.getValue(key), loc, builder);
-          } else {
-            builder.addSkylarkTransitiveInfo(key, struct.getValue(key), loc);
-          }
-        }
-        ConfiguredAspect configuredAspect = builder.build();
-        SkylarkProviderValidationUtil.checkOrphanArtifacts(ruleContext);
-        return configuredAspect;
+        return createAspect(aspectSkylarkObject, aspectDescriptor, ruleContext);
       } catch (EvalException e) {
         addAspectToStackTrace(base, e);
         ruleContext.ruleError("\n" + e.print());
         return null;
       }
+    } finally {
+       if (skylarkRuleContext != null) {
+         skylarkRuleContext.nullify();
+       }
+    }
+  }
+
+  private ConfiguredAspect createAspect(
+      Object aspectSkylarkObject, AspectDescriptor aspectDescriptor, RuleContext ruleContext)
+      throws EvalException {
+
+    ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(aspectDescriptor, ruleContext);
+
+    if (aspectSkylarkObject instanceof Iterable) {
+      addDeclaredProviders(builder, (Iterable) aspectSkylarkObject);
+    } else {
+      SkylarkClassObject struct = (SkylarkClassObject) aspectSkylarkObject;
+      Location loc = struct.getCreationLoc();
+      for (String key : struct.getKeys()) {
+        if (key.equals("output_groups")) {
+          addOutputGroups(struct.getValue(key), loc, builder);
+        } else if (key.equals("providers")) {
+          Object value = struct.getValue(key);
+          Iterable providers =
+              SkylarkType.cast(
+                  value,
+                  Iterable.class,
+                  loc,
+                  "The value for \"providers\" should be a list of declared providers, "
+                      + "got %s instead",
+                  EvalUtils.getDataTypeName(value, false));
+          addDeclaredProviders(builder, providers);
+        } else {
+          builder.addSkylarkTransitiveInfo(key, struct.getValue(key), loc);
+        }
+      }
+    }
+
+    ConfiguredAspect configuredAspect = builder.build();
+    SkylarkProviderValidationUtil.checkOrphanArtifacts(ruleContext);
+    return configuredAspect;
+  }
+
+  private void addDeclaredProviders(ConfiguredAspect.Builder builder, Iterable aspectSkylarkObject)
+      throws EvalException {
+    for (Object o : aspectSkylarkObject) {
+      Location loc = skylarkAspect.getImplementation().getLocation();
+      SkylarkClassObject declaredProvider =
+          SkylarkType.cast(
+              o,
+              SkylarkClassObject.class,
+              loc,
+              "A return value of an aspect implementation function should be "
+                  + "a sequence of declared providers");
+      Location creationLoc = declaredProvider.getCreationLocOrNull();
+      builder.addSkylarkDeclaredProvider(declaredProvider, creationLoc != null ? creationLoc : loc);
     }
   }
 

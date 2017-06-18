@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -44,6 +45,7 @@ public abstract class MockCcSupport {
           String pathString = artifact.getExecPathString();
           return !pathString.startsWith("third_party/crosstool/")
               && !pathString.startsWith("tools/cpp/link_dynamic_library")
+              && !pathString.startsWith("tools/cpp/build_interface_so")
               && !(pathString.contains("/internal/_middlemen") && basename.contains("crosstool"))
               && !pathString.startsWith("_bin/build_interface_so")
               && !pathString.endsWith(".cppmap");
@@ -93,15 +95,33 @@ public abstract class MockCcSupport {
           + "  }"
           + "}";
 
-  /**
-   * A feature configuration snippet useful for testing header modules.
-   */
+  /** A feature configuration snippet useful for testing header modules. */
   public static final String HEADER_MODULES_FEATURE_CONFIGURATION =
       ""
           + "feature {"
           + "  name: 'header_modules'"
-          + "  implies: 'module_maps'"
           + "  implies: 'use_header_modules'"
+          + "  implies: 'header_module_compile'"
+          + "}"
+          + "feature {"
+          + "  name: 'header_module_compile'"
+          + "  implies: 'module_maps'"
+          + "  flag_set {"
+          + "    action: 'c++-module-compile'"
+          + "    flag_group {"
+          + "      flag: '--woohoo_modules'"
+          + "    }"
+          + "  }"
+          + "  flag_set {"
+          + "    action: 'c++-module-codegen'"
+          + "    flag_group {"
+          + "      flag: '--this_is_modules_codegen'"
+          + "    }"
+          + "  }"
+          + "}"
+          + "feature {"
+          + "  name: 'header_module_codegen'"
+          + "  implies: 'header_modules'"
           + "}"
           + "feature {"
           + "  name: 'module_maps'"
@@ -199,17 +219,37 @@ public abstract class MockCcSupport {
           + "  name: 'thin_lto'"
           + "  requires { feature: 'nonhost' }"
           + "  flag_set {"
+          + "    expand_if_all_available: 'thinlto_param_file'"
+          + "    action: 'c++-link-executable'"
+          + "    action: 'c++-link-dynamic-library'"
+          + "    action: 'c++-link-static-library'"
+          + "    action: 'c++-link-alwayslink-static-library'"
+          + "    action: 'c++-link-pic-static-library'"
+          + "    action: 'c++-link-alwayslink-pic-static-library'"
+          + "    flag_group {"
+          + "      flag: 'thinlto_param_file=%{thinlto_param_file}'"
+          + "    }"
+          + "  }"
+          + "  flag_set {"
           + "    action: 'c-compile'"
           + "    action: 'c++-compile'"
           + "    flag_group {"
           + "      flag: '-flto=thin'"
           + "    }"
+          + "    flag_group {"
+          + "      expand_if_all_available: 'lto_indexing_bitcode_file'"
+          + "      flag: 'lto_indexing_bitcode=%{lto_indexing_bitcode_file}'"
+          + "    }"
           + "  }"
           + "  flag_set {"
           + "    action: 'lto-indexing'"
           + "    flag_group {"
-          + "      flag: 'params_file=%{thinlto_optional_params_file}'"
+          + "      flag: 'param_file=%{thinlto_indexing_param_file}'"
           + "      flag: 'prefix_replace=%{thinlto_prefix_replace}'"
+          + "    }"
+          + "    flag_group {"
+          + "      expand_if_all_available: 'thinlto_object_suffix_replace'"
+          + "      flag: 'object_suffix_replace=%{thinlto_object_suffix_replace}'"
           + "    }"
           + "  }"
           + "  flag_set {"
@@ -218,6 +258,23 @@ public abstract class MockCcSupport {
           + "      flag: 'thinlto_index=%{thinlto_index}'"
           + "      flag: 'thinlto_output_object_file=%{thinlto_output_object_file}'"
           + "      flag: 'thinlto_input_bitcode_file=%{thinlto_input_bitcode_file}'"
+          + "    }"
+          + "  }"
+          + "}";
+
+  public static final String AUTO_FDO_CONFIGURATION =
+      ""
+          + "feature {"
+          + "  name: 'autofdo'"
+          + "  provides: 'profile'"
+          + "  flag_set {"
+          + "    action: 'c-compile'"
+          + "    action: 'c++-compile'"
+          + "    action: 'lto-backend'"
+          + "    expand_if_all_available: 'fdo_profile_path'"
+          + "    flag_group {"
+          + "      flag: '-fauto-profile=%{fdo_profile_path}'"
+          + "      flag: '-fprofile-correction'"
           + "    }"
           + "  }"
           + "}";
@@ -236,6 +293,23 @@ public abstract class MockCcSupport {
           + "    flag_group {"
           + "      flag: 'fdo_instrument_option'"
           + "      flag: 'path=%{fdo_instrument_path}'"
+          + "    }"
+          + "  }"
+          + "}";
+
+  public static final String PER_OBJECT_DEBUG_INFO_CONFIGURATION =
+      ""
+          + "feature { "
+          + "  name: 'per_object_debug_info'"
+          + "  flag_set {"
+          + "    action: 'c-compile'"
+          + "    action: 'c++-compile'"
+          + "    action: 'assemble'"
+          + "    action: 'preprocess-assemble'"
+          + "    action: 'lto-backend'"
+          + "    expand_if_all_available: 'per_object_debug_info_file'"
+          + "    flag_group {"
+          + "      flag: 'per_object_debug_info_option'"
           + "    }"
           + "  }"
           + "}";
@@ -259,6 +333,24 @@ public abstract class MockCcSupport {
           + "artifact_name_pattern {"
           + "   category_name: 'static_library'"
           + "   pattern: 'foo%{bad_variable}bar'"
+          + "}";
+
+  /**
+   * An action_config for 'c++-module-codegen action using DUMMY_TOOL that doesn't imply any
+   * features.
+   */
+  public static final String INCOMPLETE_MODULE_CODEGEN_ACTION_CONFIG =
+      ""
+          + "action_config {"
+          + "   config_name: '"
+          + CppCompileAction.CPP_MODULE_CODEGEN
+          + "'"
+          + "   action_name: '"
+          + CppCompileAction.CPP_MODULE_CODEGEN
+          + "'"
+          + "   tool {"
+          + "      tool_path: 'DUMMY_TOOL'"
+          + "   }"
           + "}";
 
   public static final String INCOMPLETE_EXECUTABLE_ACTION_CONFIG =
@@ -498,18 +590,24 @@ public abstract class MockCcSupport {
     config.create(
         "tools/cpp/BUILD",
         "package(default_visibility = ['//visibility:public'])",
-        "toolchain_lookup(name = 'lookup')",
+        "toolchain_type(name = 'toolchain_type')",
         "cc_library(name = 'stl')",
         "alias(name='toolchain', actual='//third_party/crosstool')",
         "cc_library(name = 'malloc')",
+        "filegroup(",
+        "    name = 'interface_library_builder',",
+        "    srcs = ['build_interface_so'],",
+        ")",
         "filegroup(",
         "    name = 'link_dynamic_library',",
         "    srcs = ['link_dynamic_library.sh'],",
         ")");
     if (config.isRealFileSystem()) {
       config.linkTool("tools/cpp/link_dynamic_library.sh");
+      config.linkTool("tools/cpp/build_interface_so");
     } else {
       config.create("tools/cpp/link_dynamic_library.sh", "");
+      config.create("tools/cpp/build_interface_so", "");
     }
   }
 
@@ -532,7 +630,7 @@ public abstract class MockCcSupport {
     try {
       return PackageIdentifier.create(
           RepositoryName.create(TestConstants.TOOLS_REPOSITORY),
-          new PathFragment(TestConstants.TOOLS_REPOSITORY_PATH));
+          PathFragment.create(TestConstants.TOOLS_REPOSITORY_PATH));
     } catch (LabelSyntaxException e) {
       Verify.verify(false);
       throw new AssertionError();

@@ -37,6 +37,7 @@ import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -44,7 +45,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TriState;
+import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
@@ -75,28 +76,15 @@ public class BazelCppRuleClasses {
       new RuleClass.Configurator<BuildConfiguration, Rule>() {
         @Override
         public BuildConfiguration apply(Rule rule, BuildConfiguration configuration) {
-          if (configuration.useDynamicConfigurations()) {
-            // Dynamic configurations don't currently work with LIPO. partially because of lack of
-            // support for TARGET_CONFIG_FOR_LIPO. We can't check for LIPO here because we have
-            // to apply TARGET_CONFIG_FOR_LIPO to determine it, So we just assume LIPO is disabled.
-            // This is safe because Bazel errors out if the two options are combined.
-            return configuration;
-          }
+          Preconditions.checkState(!configuration.useDynamicConfigurations(),
+              "Dynamic configurations don't use rule class configurators for LIPO");
           BuildConfiguration toplevelConfig =
               configuration.getConfiguration(LipoTransition.TARGET_CONFIG_FOR_LIPO);
-          // If LIPO is enabled, override the default configuration.
+          CppConfiguration cppConfig = configuration.getFragment(CppConfiguration.class);
           if (toplevelConfig != null
-              && toplevelConfig.getFragment(CppConfiguration.class).isLipoOptimization()
-              && !configuration.isHostConfiguration()
-              && !configuration.getFragment(CppConfiguration.class).isLipoContextCollector()) {
-            // Switch back to data when the cc_binary is not the LIPO context.
-            return (rule.getLabel()
-                    .equals(
-                        toplevelConfig.getFragment(CppConfiguration.class).getLipoContextLabel()))
-                ? toplevelConfig
-                : configuration
-                    .getTransitions()
-                    .getStaticConfiguration(ConfigurationTransition.DATA);
+              && cppConfig.isDataConfigurationForLipoOptimization()
+              && rule.getLabel().equals(cppConfig.getLipoContextForBuild())) {
+            return toplevelConfig;
           }
           return configuration;
         }
@@ -104,28 +92,6 @@ public class BazelCppRuleClasses {
         @Override
         public String getCategory() {
           return "lipo";
-        }
-      };
-
-  /**
-   * Label of a pseudo-filegroup that contains all crosstool and libcfiles for
-   * all configurations, as specified on the command-line.
-   */
-  public static final String CROSSTOOL_LABEL = "//tools/defaults:crosstool";
-
-  public static final LateBoundLabel<BuildConfiguration> DEFAULT_MALLOC =
-      new LateBoundLabel<BuildConfiguration>() {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          return configuration.getFragment(CppConfiguration.class).customMalloc();
-        }
-      };
-
-  public static final LateBoundLabel<BuildConfiguration> CC_TOOLCHAIN =
-      new LateBoundLabel<BuildConfiguration>(CROSSTOOL_LABEL) {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          return configuration.getFragment(CppConfiguration.class).getCcToolchainRuleLabel();
         }
       };
 
@@ -194,7 +160,9 @@ public class BazelCppRuleClasses {
     @SuppressWarnings("unchecked")
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .add(attr(":cc_toolchain", LABEL).value(CC_TOOLCHAIN))
+          .add(
+              attr(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL)
+                  .value(CppRuleClasses.CC_TOOLCHAIN))
           .setPreferredDependencyPredicate(Predicates.<String>or(CPP_SOURCE, C_SOURCE, CPP_HEADER))
           .build();
     }
@@ -403,7 +371,7 @@ public class BazelCppRuleClasses {
           /*<!-- #BLAZE_RULE($cc_rule).ATTRIBUTE(linkstatic) -->
            For <a href="${link cc_binary}"><code>cc_binary</code></a> and
            <a href="${link cc_test}"><code>cc_test</code></a>: link the binary in mostly-static
-           mode. For <code>cc_library.link_static</code>: see below.
+           mode. For <code>cc_library.linkstatic</code>: see below.
            <p>
              By default this option is on for <code>cc_binary</code> and off for the rest.
            </p>
@@ -563,7 +531,7 @@ public class BazelCppRuleClasses {
                   .value(env.getToolsLabel("//tools/cpp:malloc"))
                   .allowedFileTypes()
                   .allowedRuleClasses("cc_library"))
-          .add(attr(":default_malloc", LABEL).value(DEFAULT_MALLOC))
+          .add(attr(":default_malloc", LABEL).value(CppRuleClasses.DEFAULT_MALLOC))
           /*<!-- #BLAZE_RULE($cc_binary_base).ATTRIBUTE(stamp) -->
           Enable link stamping.
           Whether to encode build information into the binary. Possible values:

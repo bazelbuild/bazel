@@ -24,6 +24,8 @@ public final class SkyFunctions {
   public static final SkyFunctionName PRECOMPUTED = SkyFunctionName.create("PRECOMPUTED");
   public static final SkyFunctionName CLIENT_ENVIRONMENT_VARIABLE =
       SkyFunctionName.create("CLIENT_ENVIRONMENT_VARIABLE");
+  public static final SkyFunctionName ACTION_ENVIRONMENT_VARIABLE =
+      SkyFunctionName.create("ACTION_ENVIRONMENT_VARIABLE");
   public static final SkyFunctionName FILE_STATE = SkyFunctionName.create("FILE_STATE");
   public static final SkyFunctionName DIRECTORY_LISTING_STATE =
       SkyFunctionName.create("DIRECTORY_LISTING_STATE");
@@ -65,8 +67,6 @@ public final class SkyFunctions {
   public static final SkyFunctionName RECURSIVE_PKG = SkyFunctionName.create("RECURSIVE_PKG");
   public static final SkyFunctionName TRANSITIVE_TARGET =
       SkyFunctionName.create("TRANSITIVE_TARGET");
-  public static final SkyFunctionName TRANSITIVE_TRAVERSAL =
-      SkyFunctionName.create("TRANSITIVE_TRAVERSAL");
   public static final SkyFunctionName CONFIGURED_TARGET =
       SkyFunctionName.create("CONFIGURED_TARGET");
   public static final SkyFunctionName POST_CONFIGURED_TARGET =
@@ -95,6 +95,7 @@ public final class SkyFunctions {
   public static final SkyFunctionName BUILD_INFO_COLLECTION =
       SkyFunctionName.create("BUILD_INFO_COLLECTION");
   public static final SkyFunctionName BUILD_INFO = SkyFunctionName.create("BUILD_INFO");
+  public static final SkyFunctionName WORKSPACE_NAME = SkyFunctionName.create("WORKSPACE_NAME");
   public static final SkyFunctionName WORKSPACE_FILE = SkyFunctionName.create("WORKSPACE_FILE");
   public static final SkyFunctionName COVERAGE_REPORT = SkyFunctionName.create("COVERAGE_REPORT");
   public static final SkyFunctionName REPOSITORY = SkyFunctionName.create("REPOSITORY");

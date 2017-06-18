@@ -135,11 +135,10 @@ genrule(
   srcs = [ "a.txt" ],
   outs = [ "breaks2.txt" ],
   # The point of this test is to attempt to read something from the filesystem
-  # that resides outside the sandbox by using an absolute path to that file.
+  # that is blocked via --sandbox_block_path= and thus should't be accessible.
   #
-  # /var/log is an arbitrary choice of directory (we don't mount it in the
-  # sandbox and it should exist on every linux) which could be changed in
-  # case it turns out it's necessary to put it in sandbox.
+  # /var/log is an arbitrary choice of directory that should exist on all Linux
+  # systems.
   #
   cmd = "ls /var/log &> $@",
 )
@@ -157,6 +156,11 @@ genrule(
   cmd = "ls -l $$(dirname \"$$(pwd)\") &> $@",
 )
 
+genrule(
+  name = "check_proc_works",
+  outs = [ "check_proc_works.txt" ],
+  cmd = "sh -c 'cd /proc/self && echo $$$$ && exec cat stat | sed \"s/\\([^ ]*\\) .*/\\1/g\"' > $@",
+)
 EOF
   cat << 'EOF' >> examples/genrule/datafile
 this is a datafile
@@ -377,6 +381,70 @@ EOF
   kill_nc
 }
 
+function test_sandbox_can_resolve_own_hostname() {
+  setup_javatest_support
+  mkdir -p src/test/java/com/example
+  cat > src/test/java/com/example/HostNameTest.java <<'EOF'
+package com.example;
+
+import static org.junit.Assert.*;
+
+import org.junit.Test;
+import java.net.*;
+import java.io.*;
+
+public class HostNameTest {
+  @Test
+  public void testGetHostName() throws Exception {
+    // This will throw an exception, if the local hostname cannot be resolved via DNS.
+    assertNotNull(InetAddress.getLocalHost().getHostName());
+  }
+}
+EOF
+  cat > src/test/java/com/example/BUILD <<'EOF'
+java_test(
+  name = "HostNameTest",
+  srcs = ["HostNameTest.java"],
+  deps = ['//third_party:junit4'],
+)
+EOF
+
+  bazel test --test_output=streamed src/test/java/com/example:HostNameTest &> $TEST_log \
+    || fail "test should have passed"
+}
+
+function test_hostname_inside_sandbox_is_localhost_when_using_sandbox_fake_hostname_flag() {
+  setup_javatest_support
+  mkdir -p src/test/java/com/example
+  cat > src/test/java/com/example/HostNameIsLocalhostTest.java <<'EOF'
+package com.example;
+
+import static org.junit.Assert.*;
+
+import org.junit.Test;
+import java.net.*;
+import java.io.*;
+
+public class HostNameIsLocalhostTest {
+  @Test
+  public void testHostNameIsLocalhost() throws Exception {
+    // This will throw an exception, if the local hostname cannot be resolved via DNS.
+    assertEquals(InetAddress.getLocalHost().getHostName(), "localhost");
+  }
+}
+EOF
+  cat > src/test/java/com/example/BUILD <<'EOF'
+java_test(
+  name = "HostNameIsLocalhostTest",
+  srcs = ["HostNameIsLocalhostTest.java"],
+  deps = ['//third_party:junit4'],
+)
+EOF
+
+  bazel test --sandbox_fake_hostname --test_output=streamed src/test/java/com/example:HostNameIsLocalhostTest &> $TEST_log \
+    || fail "test should have passed"
+}
+
 # TODO(philwo) - this doesn't work on Ubuntu 14.04 due to "unshare" being too
 # old and not understanding the --user flag.
 function DISABLED_test_sandbox_different_nobody_uid() {
@@ -390,6 +458,20 @@ set -u
 mount --bind ${TEST_TMPDIR}/passwd /etc/passwd
 bazel build examples/genrule:works &> ${TEST_log}
 EOF
+}
+
+# Tests that /proc/self == /proc/$$. This should always be true unless the PID namespace is active without /proc being remounted correctly.
+function test_sandbox_proc_self() {
+  bazel build examples/genrule:check_proc_works >& $TEST_log || fail "build should have succeeded"
+
+  (
+    # Catch the head and tail commands failing.
+    set -e
+    if [[ "$(head -n1 "${BAZEL_GENFILES_DIR}/examples/genrule/check_proc_works.txt")" \
+          != "$(tail -n1 "${BAZEL_GENFILES_DIR}/examples/genrule/check_proc_works.txt")" ]] ; then
+      fail "Reading PID from /proc/self/stat should have worked, instead have these: $(cat "${BAZEL_GENFILES_DIR}/examples/genrule/check_proc_works.txt")"
+    fi
+  )
 }
 
 function test_succeeding_action_with_ioexception_while_copying_outputs_throws_correct_exception() {
@@ -442,10 +524,11 @@ EOF
   expect_log "ERROR: I/O exception while extracting output artifacts from sandboxed execution.*(Permission denied)"
 
   # This is the UserExecException telling us that the build failed.
-  expect_log "Executing genrule //:test failed: linux-sandbox failed: error executing command"
+  expect_log "Executing genrule //:test failed:"
 }
 
-function test_sandbox_mount_customized_path () {
+# TODO(xingao) Disabled due to https://github.com/bazelbuild/bazel/issues/2760
+function DISABLED_test_sandbox_mount_customized_path () {
   # Create BUILD file
   cat > BUILD <<'EOF'
 package(default_visibility = ["//visibility:public"])
@@ -472,10 +555,6 @@ local_repository(
   path = './downloaded_toolchain',
 )
 EOF
-
-  # Prepare the sandbox root
-  SANDBOX_ROOT="${TEST_TMPDIR}/sandbox.root"
-  mkdir -p ${SANDBOX_ROOT}
 
   # Define the mount source and target.
   source="${TEST_TMPDIR}/workspace/downloaded_toolchain/x86_64-unknown-linux-gnu/sysroot/lib64/ld-2.19.so"
@@ -518,7 +597,7 @@ EOF
   # Use linux_sandbox binary to run bazel-bin/hello-world binary in the sandbox environment
   # First, no path mounting. The execution should fail.
   echo "Run the binary bazel-bin/hello-world without mounting the path"
-  $linux_sandbox -D -S ${SANDBOX_ROOT} -- bazel-bin/hello-world &> $TEST_log || code=$?
+  $linux_sandbox -D -- bazel-bin/hello-world &> $TEST_log || code=$?
   expect_log "child exited normally with exitcode 1"
 
   # Second, with path mounting. The execution should succeed.
@@ -526,12 +605,13 @@ EOF
   # Create the mount target manually as sandbox binary does not create target paths
   mkdir -p ${target_folder}
   touch ${target}
-  $linux_sandbox -D -S ${SANDBOX_ROOT} \
+  $linux_sandbox -D \
   -M ${source} \
   -m ${target} \
   -- bazel-bin/hello-world &> $TEST_log || code=$?
   expect_log "Hello, world!"
   expect_log "child exited normally with exitcode 0"
+
   # Remove the mount target folder as sandbox binary does not do the cleanup
   rm -rf ${target_root}/x86_64-unknown-linux-gnu
 }

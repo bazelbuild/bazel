@@ -23,7 +23,6 @@ import com.google.devtools.build.buildjar.jarhelper.JarCreator;
 import com.google.devtools.build.buildjar.proto.JavaCompilation.CompilationUnit;
 import com.google.devtools.build.buildjar.proto.JavaCompilation.Manifest;
 import com.google.devtools.common.options.OptionsParser;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;

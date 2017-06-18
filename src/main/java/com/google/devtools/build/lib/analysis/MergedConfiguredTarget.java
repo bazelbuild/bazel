@@ -14,15 +14,9 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.packages.AspectDescriptor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor.Key;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import javax.annotation.Nullable;
 
 /**
  * A single dependency with its configured target and aspects merged together.
@@ -32,7 +26,6 @@ import javax.annotation.Nullable;
  */
 public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   private final ConfiguredTarget base;
-  private final ImmutableList<AspectDescriptor> aspects;
   private final TransitiveInfoProviderMap providers;
 
   /**
@@ -46,25 +39,10 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
     }
   }
 
-  private MergedConfiguredTarget(ConfiguredTarget base,
-      ImmutableList<AspectDescriptor> aspects,
-      TransitiveInfoProviderMap providers) {
+  private MergedConfiguredTarget(ConfiguredTarget base, TransitiveInfoProviderMap providers) {
     super(base.getTarget(), base.getConfiguration());
     this.base = base;
-    this.aspects = aspects;
     this.providers = providers;
-  }
-
-  /** Returns a value provided by this target. Only meant to use from Skylark. */
-  @Override
-  public Object get(String providerKey) {
-    return getProvider(SkylarkProviders.class).getValue(providerKey);
-  }
-
-  @Nullable
-  @Override
-  public SkylarkClassObject get(Key providerKey) {
-    return getProvider(SkylarkProviders.class).getDeclaredProvider(providerKey);
   }
 
   @Override
@@ -79,25 +57,6 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
     return provider;
   }
 
-  /**
-   * List of aspects applied to the target.
-   */
-  public ImmutableList<AspectDescriptor> getAspects() {
-    return aspects;
-  }
-
-  @Override
-  public Object getValue(String name) {
-    if (ASPECTS_FIELD.equals(name)) {
-      ImmutableList.Builder<String> builder = ImmutableList.builder();
-      for (AspectDescriptor aspect : aspects) {
-        builder.add(aspect.getDescription());
-      }
-      return builder.build();
-    }
-    return super.getValue(name);
-  }
-
   /** Creates an instance based on a configured target and a set of aspects. */
   public static ConfiguredTarget of(ConfiguredTarget base, Iterable<ConfiguredAspect> aspects)
       throws DuplicateException {
@@ -108,24 +67,17 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
 
     // Merge output group providers.
     OutputGroupProvider mergedOutputGroupProvider =
-        OutputGroupProvider.merge(getAllProviders(base, aspects, OutputGroupProvider.class));
+        OutputGroupProvider.merge(getAllOutputGroupProviders(base, aspects));
 
     // Merge Skylark providers.
-    ImmutableMap<String, Object> premergedProviders =
-        mergedOutputGroupProvider == null
-        ? ImmutableMap.<String, Object>of()
-        : ImmutableMap.<String, Object>of(
-            OutputGroupProvider.SKYLARK_NAME, mergedOutputGroupProvider);
     SkylarkProviders mergedSkylarkProviders =
-        SkylarkProviders.merge(
-            premergedProviders,
-            getAllProviders(base, aspects, SkylarkProviders.class));
+        SkylarkProviders.merge(getAllProviders(base, aspects, SkylarkProviders.class));
 
     // Merge extra-actions provider.
     ExtraActionArtifactsProvider mergedExtraActionProviders = ExtraActionArtifactsProvider.merge(
         getAllProviders(base, aspects, ExtraActionArtifactsProvider.class));
 
-    TransitiveInfoProviderMap.Builder aspectProviders = TransitiveInfoProviderMap.builder();
+    TransitiveInfoProviderMapBuilder aspectProviders = new TransitiveInfoProviderMapBuilder();
     if (mergedOutputGroupProvider != null) {
       aspectProviders.add(mergedOutputGroupProvider);
     }
@@ -136,12 +88,10 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
       aspectProviders.add(mergedExtraActionProviders);
     }
 
-    ImmutableList.Builder<AspectDescriptor> aspectDescriptors = ImmutableList.builder();
-
     for (ConfiguredAspect aspect : aspects) {
-      for (Map.Entry<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> entry :
-          aspect.getProviders().entrySet()) {
-        Class<? extends TransitiveInfoProvider> providerClass = entry.getKey();
+      TransitiveInfoProviderMap providers = aspect.getProviders();
+      for (int i = 0; i < providers.getProviderCount(); ++i) {
+        Class<? extends TransitiveInfoProvider> providerClass = providers.getProviderClassAt(i);
         if (OutputGroupProvider.class.equals(providerClass)
             || SkylarkProviders.class.equals(providerClass)
             || ExtraActionArtifactsProvider.class.equals(providerClass)) {
@@ -152,11 +102,28 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
           throw new IllegalStateException("Provider " + providerClass + " provided twice");
         }
 
-        aspectProviders.add(entry.getValue());
+        aspectProviders.add(providers.getProviderAt(i));
       }
-      aspectDescriptors.add(aspect.getDescriptor());
     }
-    return new MergedConfiguredTarget(base, aspectDescriptors.build(), aspectProviders.build());
+    return new MergedConfiguredTarget(base, aspectProviders.build());
+  }
+
+  private static ImmutableList<OutputGroupProvider> getAllOutputGroupProviders(
+      ConfiguredTarget base, Iterable<ConfiguredAspect> aspects) {
+    OutputGroupProvider baseProvider = OutputGroupProvider.get(base);
+    ImmutableList.Builder<OutputGroupProvider> providers = ImmutableList.builder();
+    if (baseProvider != null) {
+      providers.add(baseProvider);
+    }
+
+    for (ConfiguredAspect configuredAspect : aspects) {
+      OutputGroupProvider aspectProvider = OutputGroupProvider.get(configuredAspect);;
+      if (aspectProvider == null) {
+        continue;
+      }
+      providers.add(aspectProvider);
+    }
+    return providers.build();
   }
 
   private static <T extends TransitiveInfoProvider> List<T> getAllProviders(

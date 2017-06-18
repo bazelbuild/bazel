@@ -15,13 +15,14 @@ package com.google.devtools.build.lib.query2;
 
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -30,25 +31,21 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.pkgcache.TargetEdgeObserver;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.DigraphQueryEvalResult;
-import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
+import com.google.devtools.build.lib.query2.engine.MinDepthUniquifier;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
-import com.google.devtools.build.lib.query2.engine.QueryExpressionEvalListener;
-import com.google.devtools.build.lib.query2.engine.QueryUtil;
-import com.google.devtools.build.lib.query2.engine.QueryUtil.AbstractUniquifier;
-import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllCallback;
+import com.google.devtools.build.lib.query2.engine.QueryUtil.MinDepthUniquifierImpl;
+import com.google.devtools.build.lib.query2.engine.QueryUtil.UniquifierImpl;
 import com.google.devtools.build.lib.query2.engine.SkyframeRestartQueryException;
-import com.google.devtools.build.lib.query2.engine.ThreadSafeCallback;
+import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
-import com.google.devtools.build.lib.query2.engine.VariableContext;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -61,12 +58,17 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ForkJoinPool;
 
 /**
  * The environment of a Blaze query. Not thread-safe.
  */
 public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
+  private static final Function<Target, Label> TO_LABEL = new Function<Target, Label>() {
+    @Override
+    public Label apply(Target input) {
+      return input.getLabel();
+    }
+  };
 
   private static final int MAX_DEPTH_FULL_SCAN_LIMIT = 20;
   private final Map<String, Set<Target>> resolvedTargetPatterns = new HashMap<>();
@@ -83,41 +85,40 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   /**
    * Note that the correct operation of this class critically depends on the Reporter being a
    * singleton object, shared by all cooperating classes contributing to Query.
+   *
    * @param strictScope if true, fail the whole query if a label goes out of scope.
-   * @param loadingPhaseThreads the number of threads to use during loading
-   *     the packages for the query.
-   * @param labelFilter a predicate that determines if a specific label is
-   *     allowed to be visited during query execution. If it returns false,
-   *     the query execution is stopped with an error message.
+   * @param loadingPhaseThreads the number of threads to use during loading the packages for the
+   *     query.
+   * @param labelFilter a predicate that determines if a specific label is allowed to be visited
+   *     during query execution. If it returns false, the query execution is stopped with an error
+   *     message.
    * @param settings a set of enabled settings
    */
-  BlazeQueryEnvironment(TransitivePackageLoader transitivePackageLoader,
-      PackageProvider packageProvider,
+  BlazeQueryEnvironment(
+      TransitivePackageLoader transitivePackageLoader,
+      TargetProvider targetProvider,
       TargetPatternEvaluator targetPatternEvaluator,
       boolean keepGoing,
       boolean strictScope,
       int loadingPhaseThreads,
       Predicate<Label> labelFilter,
-      EventHandler eventHandler,
+      ExtendedEventHandler eventHandler,
       Set<Setting> settings,
-      Iterable<QueryFunction> extraFunctions,
-      QueryExpressionEvalListener<Target> evalListener) {
-    super(
-        keepGoing, strictScope, labelFilter, eventHandler, settings, extraFunctions, evalListener);
+      Iterable<QueryFunction> extraFunctions) {
+    super(keepGoing, strictScope, labelFilter, eventHandler, settings, extraFunctions);
     this.targetPatternEvaluator = targetPatternEvaluator;
     this.transitivePackageLoader = transitivePackageLoader;
-    this.targetProvider = packageProvider;
+    this.targetProvider = targetProvider;
     this.errorObserver = new ErrorPrintingTargetEdgeErrorObserver(this.eventHandler);
     this.loadingPhaseThreads = loadingPhaseThreads;
-    this.labelVisitor = new LabelVisitor(packageProvider, dependencyFilter);
+    this.labelVisitor = new LabelVisitor(targetProvider, dependencyFilter);
   }
 
   @Override
   public DigraphQueryEvalResult<Target> evaluateQuery(
       QueryExpression expr,
-      final OutputFormatterCallback<Target> callback)
+      ThreadSafeOutputFormatterCallback<Target> callback)
           throws QueryException, InterruptedException, IOException {
-    eventHandler.resetErrors();
     resolvedTargetPatterns.clear();
     QueryEvalResult queryEvalResult = super.evaluateQuery(expr, callback);
     return new DigraphQueryEvalResult<>(
@@ -125,8 +126,19 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   @Override
-  public void getTargetsMatchingPattern(
-      QueryExpression caller, String pattern, Callback<Target> callback)
+  public QueryTaskFuture<Void> getTargetsMatchingPattern(
+      QueryExpression owner, String pattern, Callback<Target> callback) {
+    try {
+      getTargetsMatchingPatternImpl(pattern, callback);
+      return immediateSuccessfulFuture(null);
+    } catch (QueryException e) {
+      return immediateFailedFuture(e);
+    } catch (InterruptedException e) {
+      return immediateCancelledFuture();
+    }
+  }
+
+  private void getTargetsMatchingPatternImpl(String pattern, Callback<Target> callback)
       throws QueryException, InterruptedException {
     // We can safely ignore the boolean error flag. The evaluateQuery() method above wraps the
     // entire query computation in an error sensor.
@@ -181,15 +193,6 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       }
     }
     callback.process(result);
-  }
-
-  @Override
-  public void getTargetsMatchingPatternPar(
-      QueryExpression caller,
-      String pattern,
-      ThreadSafeCallback<Target> callback,
-      ForkJoinPool forkJoinPool) throws QueryException, InterruptedException {
-    getTargetsMatchingPattern(caller, pattern, callback);
   }
 
   @Override
@@ -285,30 +288,22 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   @Override
-  public void eval(QueryExpression expr, VariableContext<Target> context, Callback<Target> callback)
-      throws QueryException, InterruptedException {
-    AggregateAllCallback<Target> aggregator = QueryUtil.newAggregateAllCallback();
-    expr.eval(this, context, aggregator);
-    callback.process(aggregator.getResult());
+  public Uniquifier<Target> createUniquifier() {
+    return new UniquifierImpl<>(TargetKeyExtractor.INSTANCE);
   }
 
   @Override
-  public Uniquifier<Target> createUniquifier() {
-    return new AbstractUniquifier<Target, Label>() {
-      @Override
-      protected Label extractKey(Target target) {
-        return target.getLabel();
-      }
-    };
+  public MinDepthUniquifier<Target> createMinDepthUniquifier() {
+    return new MinDepthUniquifierImpl<>(TargetKeyExtractor.INSTANCE, /*concurrencyLevel=*/ 1);
   }
 
   private void preloadTransitiveClosure(Set<Target> targets, int maxDepth)
-      throws QueryException, InterruptedException {
+      throws InterruptedException {
     if (maxDepth >= MAX_DEPTH_FULL_SCAN_LIMIT && transitivePackageLoader != null) {
       // Only do the full visitation if "maxDepth" is large enough. Otherwise, the benefits of
       // preloading will be outweighed by the cost of doing more work than necessary.
-      transitivePackageLoader.sync(
-          eventHandler, targets, ImmutableSet.<Label>of(), keepGoing, loadingPhaseThreads, -1);
+      Set<Label> labels = ImmutableSet.copyOf(Collections2.transform(targets, TO_LABEL));
+      transitivePackageLoader.sync(eventHandler, labels, keepGoing, loadingPhaseThreads);
     }
   }
 

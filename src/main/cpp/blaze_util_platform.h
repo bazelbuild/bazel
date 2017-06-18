@@ -56,6 +56,10 @@ std::string GetSelfPath();
 // Returns the directory Bazel can use to store output.
 std::string GetOutputRoot();
 
+// Returns the current user's home directory, or the empty string if unknown.
+// On Linux/macOS, this is $HOME. On Windows this is %USERPROFILE%.
+std::string GetHomeDir();
+
 // Returns the location of the global bazelrc file if it exists, otherwise "".
 std::string FindSystemWideBlazerc();
 
@@ -82,6 +86,9 @@ bool IsSharedLibrary(const std::string& filename);
 // Return the default path to the JDK used to run Blaze itself
 // (must be an absolute directory).
 std::string GetDefaultHostJavabase();
+
+// Return the path to the JVM binary relative to a javabase, e.g. "bin/java".
+std::string GetJavaBinaryUnderJavabase();
 
 // Replace the current process with the given program in the current working
 // directory, using the given argument vector.
@@ -124,18 +131,17 @@ std::string ConvertPath(const std::string& path);
 // is Windows path list.
 std::string ConvertPathList(const std::string& path_list);
 
-// Return a string used to separate paths in a list.
-std::string ListSeparator();
+// Converts `path` to a string that's safe to pass as path in a JVM flag.
+// See https://github.com/bazelbuild/bazel/issues/2576
+std::string PathAsJvmFlag(const std::string& path);
+
+// A character used to separate paths in a list.
+extern const char kListSeparator;
 
 // Create a symlink to directory ``target`` at location ``link``.
 // Returns true on success, false on failure. The target must be absolute.
 // Implemented via junctions on Windows.
 bool SymlinkDirectories(const std::string& target, const std::string& link);
-
-// Reads which directory a symlink points to. Puts the target of the symlink
-// in ``result`` and returns if the operation was successful. Will not work on
-// symlinks that don't point to directories on Windows.
-bool ReadDirectorySymlink(const std::string& symlink, std::string* result);
 
 // Compares two absolute paths. Necessary because the same path can have
 // multiple different names under msys2: "C:\foo\bar" or "C:/foo/bar"
@@ -144,7 +150,11 @@ bool ReadDirectorySymlink(const std::string& symlink, std::string* result);
 bool CompareAbsolutePaths(const std::string& a, const std::string& b);
 
 struct BlazeLock {
+#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+  /* HANDLE */ void* handle;
+#else
   int lockfd;
+#endif
 };
 
 // Acquires a lock on the output base. Exits if the lock cannot be acquired.

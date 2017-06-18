@@ -24,8 +24,11 @@ import java.util.Set;
 
 /**
  *  A node in the build dependency graph, identified by a Label.
+ *
+ * This SkylarkModule does not contain any documentation since Skylark's Target type refers to
+ * TransitiveInfoCollection.class, which contains the appropriate documentation.
  */
-@SkylarkModule(name = "target", doc = "A BUILD target.")
+@SkylarkModule(name = "target", doc = "", documented = false)
 public interface Target {
 
   /**

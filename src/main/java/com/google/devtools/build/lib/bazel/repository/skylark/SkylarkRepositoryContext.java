@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.repository.skylark;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.repository.DecompressorDescriptor;
@@ -26,9 +27,10 @@ import com.google.devtools.build.lib.bazel.repository.downloader.HttpUtils;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.skyframe.FileSymlinkException;
@@ -62,6 +64,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /** Skylark API for the repository_rule's context. */
 @SkylarkModule(
@@ -81,47 +84,35 @@ public class SkylarkRepositoryContext {
   private final SkylarkOS osObject;
   private final Environment env;
   private final HttpDownloader httpDownloader;
-
-  /**
-   * Convert attribute name from native naming convention to Skylark naming convention.
-   *
-   * <p>In native code, private values start with $ or :. In Skylark, private values start
-   * with _, because of the grammar.
-   */
-  private String attributeToSkylark(String oldName) {
-    if (!oldName.isEmpty() && (oldName.charAt(0) == '$' || oldName.charAt(0) == ':')) {
-      return "_" + oldName.substring(1);
-    }
-    return oldName;
-  }
+  private final Map<String, String> markerData;
 
   /**
    * Create a new context (repository_ctx) object for a skylark repository rule ({@code rule}
    * argument).
    */
-  SkylarkRepositoryContext(
-      Rule rule, Path outputDirectory, Environment environment,
-      Map<String, String> env, HttpDownloader httpDownloader)
+  SkylarkRepositoryContext(Rule rule, Path outputDirectory, Environment environment,
+      Map<String, String> env, HttpDownloader httpDownloader, Map<String, String> markerData)
       throws EvalException {
     this.rule = rule;
     this.outputDirectory = outputDirectory;
     this.env = environment;
     this.osObject = new SkylarkOS(env);
     this.httpDownloader = httpDownloader;
+    this.markerData = markerData;
     WorkspaceAttributeMapper attrs = WorkspaceAttributeMapper.of(rule);
     ImmutableMap.Builder<String, Object> attrBuilder = new ImmutableMap.Builder<>();
     for (String name : attrs.getAttributeNames()) {
       if (!name.equals("$local")) {
         Object val = attrs.getObject(name);
         attrBuilder.put(
-            attributeToSkylark(name),
+            Attribute.getSkylarkName(name),
             val == null
                 ? Runtime.NONE
                 // Attribute values should be type safe
                 : SkylarkType.convertToSkylark(val, null));
       }
     }
-    attrObject = SkylarkClassObjectConstructor.STRUCT.create(
+    attrObject = NativeClassObjectConstructor.STRUCT.create(
         attrBuilder.build(), "No such attribute '%s'");
   }
 
@@ -161,16 +152,12 @@ public class SkylarkRepositoryContext {
   private SkylarkPath getPath(String method, Object path)
       throws EvalException, InterruptedException {
     if (path instanceof String) {
-      PathFragment pathFragment = new PathFragment(path.toString());
+      PathFragment pathFragment = PathFragment.create(path.toString());
       return new SkylarkPath(pathFragment.isAbsolute()
           ? outputDirectory.getFileSystem().getPath(path.toString())
           : outputDirectory.getRelative(pathFragment));
     } else if (path instanceof Label) {
-      SkylarkPath result = getPathFromLabel((Label) path);
-      if (result == null) {
-        throw SkylarkRepositoryFunction.restart();
-      }
-      return result;
+      return getPathFromLabel((Label) path);
     } else if (path instanceof SkylarkPath) {
       return (SkylarkPath) path;
     } else {
@@ -356,7 +343,7 @@ public class SkylarkRepositoryContext {
   @SkylarkCallable(
     name = "os",
     structField = true,
-    doc = "A struct to access information from the system "
+    doc = "A struct to access information from the system."
   )
   public SkylarkOS getOS() {
     return osObject;
@@ -374,39 +361,47 @@ public class SkylarkRepositoryContext {
   }
 
   @SkylarkCallable(
-    name = "execute",
-    doc =
-        "Executes the command given by the list of arguments. The execution time of the command"
-            + " is limited by <code>timeout</code> (in seconds, default 600 seconds). This method"
-            + " returns an <code>exec_result</code> structure containing the output of the"
-            + " command. The <code>environment</code> map can be used to override some environment"
-            + " variables to be passed to the process.",
-    parameters = {
-      @Param(
-        name = "arguments",
-        type = SkylarkList.class,
-        doc =
-            "List of arguments, the first element should be the path to the program to "
-                + "execute."
-      ),
-      @Param(
-        name = "timeout",
-        type = Integer.class,
-        named = true,
-        defaultValue = "600",
-        doc = "maximum duration of the command in seconds (default is 600 seconds)."
-      ),
-      @Param(
-        name = "environment",
-        type = SkylarkDict.class,
-        defaultValue = "{}",
-        named = true,
-        doc = "force some environment variables to be set to be passed to the process."
-      ),
-    }
+      name = "execute",
+      doc =
+          "Executes the command given by the list of arguments. The execution time of the command"
+              + " is limited by <code>timeout</code> (in seconds, default 600 seconds). This method"
+              + " returns an <code>exec_result</code> structure containing the output of the"
+              + " command. The <code>environment</code> map can be used to override some"
+              + " environment variables to be passed to the process.",
+      parameters = {
+          @Param(
+              name = "arguments",
+              type = SkylarkList.class,
+              doc =
+                  "List of arguments, the first element should be the path to the program to "
+                      + "execute."
+          ),
+          @Param(
+              name = "timeout",
+              type = Integer.class,
+              named = true,
+              defaultValue = "600",
+              doc = "maximum duration of the command in seconds (default is 600 seconds)."
+          ),
+          @Param(
+              name = "environment",
+              type = SkylarkDict.class,
+              defaultValue = "{}",
+              named = true,
+              doc = "force some environment variables to be set to be passed to the process."
+          ),
+          @Param(
+              name = "quiet",
+              type = Boolean.class,
+              defaultValue = "True",
+              named = true,
+              doc = "If stdout and stderr should be printed to the terminal."
+          ),
+      }
   )
   public SkylarkExecutionResult execute(
-      SkylarkList<Object> arguments, Integer timeout, SkylarkDict<String, String> environment)
+      SkylarkList<Object> arguments, Integer timeout, SkylarkDict<String, String> environment,
+      boolean quiet)
       throws EvalException, RepositoryFunctionException {
     createDirectory(outputDirectory);
     return SkylarkExecutionResult.builder(osObject.getEnvironmentVariables())
@@ -414,6 +409,7 @@ public class SkylarkRepositoryContext {
         .setDirectory(outputDirectory.getPathFile())
         .addEnvironmentVariables(environment)
         .setTimeout(timeout.longValue() * 1000)
+        .setQuiet(quiet)
         .execute();
   }
 
@@ -421,16 +417,17 @@ public class SkylarkRepositoryContext {
     name = "which",
     doc =
         "Returns the path of the corresponding program or None "
-            + "if there is no such program in the path"
+            + "if there is no such program in the path",
+    allowReturnNones = true
   )
-  public Object which(String program) throws EvalException {
+  public SkylarkPath which(String program) throws EvalException {
     if (program.contains("/") || program.contains("\\")) {
       throw new EvalException(
           Location.BUILTIN,
           "Program argument of which() may not contains a / or a \\ ('" + program + "' given)");
     }
     for (String p : getPathEnvironment()) {
-      PathFragment fragment = new PathFragment(p);
+      PathFragment fragment = PathFragment.create(p);
       if (fragment.isAbsolute()) {
         // We ignore relative path as they don't mean much here (relative to where? the workspace
         // root?).
@@ -445,7 +442,7 @@ public class SkylarkRepositoryContext {
         }
       }
     }
-    return Runtime.NONE;
+    return null;
   }
 
   @SkylarkCallable(
@@ -691,52 +688,90 @@ public class SkylarkRepositoryContext {
     return "repository_ctx[" + rule.getLabel() + "]";
   }
 
-  // Resolve the label given by value into a file path.
-  private SkylarkPath getPathFromLabel(Label label) throws EvalException, InterruptedException {
+  private static RootedPath getRootedPathFromLabel(Label label, Environment env)
+      throws InterruptedException, EvalException {
     // Look for package.
     if (label.getPackageIdentifier().getRepository().isDefault()) {
       try {
-        label = Label.create(label.getPackageIdentifier().makeAbsolute(),
-            label.getName());
+        label = Label.create(label.getPackageIdentifier().makeAbsolute(), label.getName());
       } catch (LabelSyntaxException e) {
-        throw new AssertionError(e);  // Can't happen because the input label is valid
+        throw new AssertionError(e); // Can't happen because the input label is valid
       }
     }
     SkyKey pkgSkyKey = PackageLookupValue.key(label.getPackageIdentifier());
     PackageLookupValue pkgLookupValue = (PackageLookupValue) env.getValue(pkgSkyKey);
     if (pkgLookupValue == null) {
-      return null;
+      throw SkylarkRepositoryFunction.restart();
     }
     if (!pkgLookupValue.packageExists()) {
-      throw new EvalException(
-          Location.BUILTIN, "Unable to load package for " + label + ": not found.");
+      throw new EvalException(Location.BUILTIN,
+          "Unable to load package for " + label + ": not found.");
     }
 
     // And now for the file
     Path packageRoot = pkgLookupValue.getRoot();
-    RootedPath rootedPath = RootedPath.toRootedPath(packageRoot, label.toPathFragment());
+    return RootedPath.toRootedPath(packageRoot, label.toPathFragment());
+  }
+
+  // Resolve the label given by value into a file path.
+  private SkylarkPath getPathFromLabel(Label label) throws EvalException, InterruptedException {
+    RootedPath rootedPath = getRootedPathFromLabel(label, env);
     SkyKey fileSkyKey = FileValue.key(rootedPath);
     FileValue fileValue = null;
     try {
-      fileValue =
-          (FileValue)
-              env.getValueOrThrow(
-                  fileSkyKey,
-                  IOException.class,
-                  FileSymlinkException.class,
-                  InconsistentFilesystemException.class);
+      fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class,
+          FileSymlinkException.class, InconsistentFilesystemException.class);
     } catch (IOException | FileSymlinkException | InconsistentFilesystemException e) {
       throw new EvalException(Location.BUILTIN, e);
     }
 
     if (fileValue == null) {
-      return null;
+      throw SkylarkRepositoryFunction.restart();
     }
     if (!fileValue.isFile()) {
-      throw new EvalException(
-          Location.BUILTIN, "Not a file: " + rootedPath.asPath().getPathString());
+      throw new EvalException(Location.BUILTIN,
+          "Not a file: " + rootedPath.asPath().getPathString());
     }
 
+    // A label do not contains space so it safe to use as a key.
+    markerData.put("FILE:" + label, Integer.toString(fileValue.realFileStateValue().hashCode()));
     return new SkylarkPath(rootedPath.asPath());
+  }
+
+  private static boolean verifyLabelMarkerData(String key, String value, Environment env)
+      throws InterruptedException {
+    Preconditions.checkArgument(key.startsWith("FILE:"));
+    try {
+      Label label = Label.parseAbsolute(key.substring(5));
+      RootedPath rootedPath = getRootedPathFromLabel(label, env);
+      SkyKey fileSkyKey = FileValue.key(rootedPath);
+      FileValue fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class,
+          FileSymlinkException.class, InconsistentFilesystemException.class);
+
+      if (fileValue == null || !fileValue.isFile()) {
+        return false;
+      }
+
+      return Objects.equals(value, Integer.toString(fileValue.realFileStateValue().hashCode()));
+    } catch (LabelSyntaxException e) {
+      throw new IllegalStateException(
+          "Key " + key + " is not a correct file key (should be in form FILE:label)", e);
+    } catch (IOException | FileSymlinkException | InconsistentFilesystemException
+        | EvalException e) {
+      // Consider those exception to be a cause for invalidation
+      return false;
+    }
+  }
+
+  static boolean verifyMarkerDataForFiles(Map<String, String> markerData, Environment env)
+      throws InterruptedException {
+    for (Map.Entry<String, String> entry : markerData.entrySet()) {
+      if (entry.getKey().startsWith("FILE:")) {
+        if (!verifyLabelMarkerData(entry.getKey(), entry.getValue(), env)) {
+          return false;
+        }
+      }
+    }
+    return true;
   }
 }

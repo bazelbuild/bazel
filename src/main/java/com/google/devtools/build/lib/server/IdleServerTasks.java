@@ -15,19 +15,18 @@
 package com.google.devtools.build.lib.server;
 
 import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.unix.ProcMeminfoParser;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Preconditions;
-import com.google.devtools.build.lib.util.ProcMeminfoParser;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
-
 import java.io.IOException;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
 import javax.annotation.Nullable;
 
 /**
@@ -58,13 +57,19 @@ class IdleServerTasks {
     Preconditions.checkState(!executor.isShutdown());
 
     // Do a GC cycle while the server is idle.
-    executor.schedule(new Runnable() {
-        @Override public void run() {
-          try (AutoProfiler p = AutoProfiler.logged("Idle GC", LOG)) {
-            System.gc();
-          }
-        }
-      }, 10, TimeUnit.SECONDS);
+    @SuppressWarnings("unused") 
+    Future<?> possiblyIgnoredError =
+        executor.schedule(
+            new Runnable() {
+              @Override
+              public void run() {
+                try (AutoProfiler p = AutoProfiler.logged("Idle GC", LOG)) {
+                  System.gc();
+                }
+              }
+            },
+            10,
+            TimeUnit.SECONDS);
   }
 
   /**

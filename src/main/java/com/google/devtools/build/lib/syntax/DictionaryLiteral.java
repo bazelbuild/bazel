@@ -13,27 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import static com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils.append;
-
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.syntax.compiler.ByteCodeMethodCalls;
-import com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils;
-import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
-import com.google.devtools.build.lib.syntax.compiler.VariableScope;
-
-import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
-import net.bytebuddy.implementation.bytecode.Duplication;
-
-import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Syntax node for dictionary literals.
  */
-public class DictionaryLiteral extends Expression {
+public final class DictionaryLiteral extends Expression {
 
-  static final class DictionaryEntryLiteral extends ASTNode {
+  /** Node for an individual key-value pair in a dictionary literal. */
+  public static final class DictionaryEntryLiteral extends ASTNode {
 
     private final Expression key;
     private final Expression value;
@@ -43,11 +33,11 @@ public class DictionaryLiteral extends Expression {
       this.value = value;
     }
 
-    Expression getKey() {
+    public Expression getKey() {
       return key;
     }
 
-    Expression getValue() {
+    public Expression getValue() {
       return value;
     }
 
@@ -121,23 +111,5 @@ public class DictionaryLiteral extends Expression {
       entry.key.validate(env);
       entry.value.validate(env);
     }
-  }
-
-  @Override
-  ByteCodeAppender compile(VariableScope scope, DebugInfo debugInfo) throws EvalException {
-    List<ByteCodeAppender> code = new ArrayList<>();
-    append(code, scope.loadEnvironment());
-    append(code, ByteCodeMethodCalls.BCSkylarkDict.of);
-    for (DictionaryEntryLiteral entry : entries) {
-      append(code, Duplication.SINGLE); // duplicate the dict
-      code.add(entry.key.compile(scope, debugInfo));
-      append(code, Duplication.SINGLE, EvalUtils.checkValidDictKey);
-      code.add(entry.value.compile(scope, debugInfo));
-      append(code,
-          debugInfo.add(this).loadLocation,
-          scope.loadEnvironment(),
-          ByteCodeMethodCalls.BCSkylarkDict.put);
-    }
-    return ByteCodeUtils.compoundAppender(code);
   }
 }

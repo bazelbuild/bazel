@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.util.Preconditions;
-
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -56,7 +56,7 @@ public class FakeSubincludeTarget implements Target {
 
   @Override
   public String getTargetKind() {
-    return "source file";
+    return targetKind();
   }
 
   @Override
@@ -87,5 +87,29 @@ public class FakeSubincludeTarget implements Target {
   @Override
   public boolean isConfigurable() {
     return true;
+  }
+
+  @Override
+  public String toString() {
+    return label.toString();
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(label, pkg);
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (!(obj instanceof FakeSubincludeTarget)) {
+      return false;
+    }
+    FakeSubincludeTarget other = (FakeSubincludeTarget) obj;
+    return label.equals(other.label) && pkg.equals(other.pkg);
+  }
+
+  /** Returns the target kind for all fake sub-include targets. */
+  public static String targetKind() {
+    return "source file";
   }
 }

@@ -13,10 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
-import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.ShutdownMethod;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.ServerCommand;
 import com.google.devtools.build.lib.util.io.OutErr;
-
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.List;
@@ -30,23 +29,29 @@ import java.util.logging.Logger;
 public class CommandExecutor implements ServerCommand {
   private static final Logger LOG = Logger.getLogger(CommandExecutor.class.getName());
 
-  private ShutdownMethod shutdown;
+  private boolean shutdown;
   private final BlazeRuntime runtime;
   private final BlazeCommandDispatcher dispatcher;
 
   CommandExecutor(BlazeRuntime runtime, BlazeCommandDispatcher dispatcher) {
-    this.shutdown = ShutdownMethod.NONE;
+    this.shutdown = false;
     this.runtime = runtime;
     this.dispatcher = dispatcher;
   }
 
   @Override
-  public int exec(List<String> args, OutErr outErr, BlazeCommandDispatcher.LockingMode lockingMode,
-      String clientDescription, long firstContactTime) throws InterruptedException {
+  public int exec(
+      InvocationPolicy invocationPolicy,
+      List<String> args,
+      OutErr outErr,
+      BlazeCommandDispatcher.LockingMode lockingMode,
+      String clientDescription,
+      long firstContactTime) throws InterruptedException {
     LOG.info(BlazeRuntime.getRequestLogString(args));
 
     try {
-      return dispatcher.exec(args, outErr, lockingMode, clientDescription, firstContactTime);
+      return dispatcher.exec(invocationPolicy, args, outErr, lockingMode, clientDescription,
+          firstContactTime);
     } catch (BlazeCommandDispatcher.ShutdownBlazeServerException e) {
       if (e.getCause() != null) {
         StringWriter message = new StringWriter();
@@ -56,7 +61,7 @@ public class CommandExecutor implements ServerCommand {
         writer.flush();
         LOG.severe(message.toString());
       }
-      shutdown = e.getMethod();
+      shutdown = true;
       runtime.shutdown();
       dispatcher.shutdown();
       return e.getExitStatus();
@@ -64,7 +69,7 @@ public class CommandExecutor implements ServerCommand {
   }
 
   @Override
-  public ShutdownMethod shutdown() {
+  public boolean shutdown() {
     return shutdown;
   }
 }

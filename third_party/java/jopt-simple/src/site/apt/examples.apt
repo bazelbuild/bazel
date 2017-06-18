@@ -1,0 +1,462 @@
+                                   -----------------
+                                   Examples of Usage
+                                   -----------------
+
+Preamble
+
+    The simplicity in JOpt "Simple" arises from two guiding principles:
+
+    * Stick as often as possible to supporting conventional Unix option syntaxes.
+
+    * Keep the surface area of the published API as small and simple as possible.
+
+    []
+
+    To the first principle: You will not see support in JOpt Simple for option "groups",
+    alternative option prefixes (<<<+>>>, <<</>>>), enforced multiplicity of option
+    arguments, etc.  JOpt Simple believes you can create a useful and understandable CLI
+    without all that stuff.  If you feel as though you need any of those features, there
+    are lots of other choices out there.  The author of JOpt Simple believes you'll want
+    to leverage its easy configuration, parsing, and option interrogation APIs instead of
+    using more feature-laden, but perhaps more confusing libraries.
+
+    To the second principle: JOpt Simple will make every attempt to keep the API free
+    of clutter.  The API is well factored, making it intuitive to use, and the entire
+    library is well tested, making it more reliable and predictable.  If you cannot look
+    at the Javadoc and quickly get a sense of what you need to do to use JOpt Simple,
+    then JOpt Simple has failed.  So by all means, let the author know what needs
+    improved.
+
+    With that said, let's take a tour through JOpt Simple's features.
+
+Options
+
+    JOpt Simple supports short options and long options, using a syntax that attempts to
+    take from the best of POSIX <<<getopt()>>> and GNU <<<getopt_long()>>>.
+
+* Short Options
+
+    Short options begin with a single hyphen (<<<->>>) followed by a single letter or
+    digit, or question mark (<<<?>>>), or dot (<<<.>>>).
+
++----------------------------------------------------------------------------------------
+@SHORT_OPTIONS_EXAMPLE@
++----------------------------------------------------------------------------------------
+
+    When you construct an <<<OptionParser>>> with a string of short option characters,
+    you configure that parser to recognize the options with those characters.
+
+** Arguments of Options
+
+    Short options can accept single arguments.  The argument can be made required or
+    optional.  When you construct an <<<OptionParser>>> with a string of short option
+    characters, append a single colon (<<<:>>>) to an option character to configure
+    that option to require an argument.  Append two colons (<<<::>>>) to an option
+    character to configure that option to accept an optional argument. Append an
+    asterisk (<<<*>>>) to an option character, but before any "argument" indicators,
+    to configure that option as a "help" option.
+
+    The syntax of the option specification string given to the <<<OptionParser>>>
+    constructor should look familiar to you if you have used GNU's <<<getopt()>>>
+    before.
+
++----------------------------------------------------------------------------------------
+@SHORT_OPTIONS_WITH_ARGUMENTS_EXAMPLE@
++----------------------------------------------------------------------------------------
+
+*** Specifying Arguments for a Short Option on the Command Line
+
+    A short option's argument can occur:
+
+    * in the position on the command line after the option
+
+    * right up against the option
+
+    * right up against the option separated by an equals sign (<<<=>>>)
+
+    []
+
++----------------------------------------------------------------------------------------
+@SHORT_OPTIONS_WITH_ARGUMENT_POSITIONING_EXAMPLE@
++----------------------------------------------------------------------------------------
+
+*** Multiple Arguments for a Single Option
+
+    To specify <n> arguments for a single option, specify the option <n> times on the
+    command line, once for each argument.  JOpt Simple reports the arguments given to the
+    option in the order in which they were encountered on the command line.
+
++----------------------------------------------------------------------------------------
+@SHORT_OPTIONS_WITH_MULTIPLE_ARGUMENTS_FOR_SINGLE_OPTION_EXAMPLE@
++----------------------------------------------------------------------------------------
+
+** Clustering Short Options
+
+    Short options can be <clustered> in a single argument.
+
++----------------------------------------------------------------------------------------
+@SHORT_OPTIONS_CLUSTERING_EXAMPLE@
++----------------------------------------------------------------------------------------
+
+    If one of the short options can accept an argument, the remaining characters are interpreted
+    as the argument for that option.
+
++----------------------------------------------------------------------------------------
+@SHORT_OPTIONS_CLUSTERING_WITH_ARGUMENT_EXAMPLE@
++----------------------------------------------------------------------------------------
+
+* Long Options/Fluent Interface
+
+    Long options begin with two hyphens (<<<-->>>), followed by multiple letters,
+    digits, hyphens, question marks, or dots.  A hyphen cannot be the first character of
+    a long option specification when configuring the parser.
+
+    Whereas short options can be configured using a constructor argument to
+    <<<OptionParser>>>, both long and short options can be configured using a "fluent
+    interface" API, that enables some very descriptive and powerful features.
+
++----------------------------------------------------------------------------------------
+@LONG_OPTIONS_EXAMPLE@
++----------------------------------------------------------------------------------------
+
+** Arguments of Options
+
+    Like short options, long options can accept single arguments.  The argument can be
+    made required or optional.  Use the methods <<<withRequiredArg()>>> and
+    <<<withOptionalArg()>>> on the return value of <<<OptionParser.accepts()>>> to signal
+    that an option takes a required or optional argument.
+
++----------------------------------------------------------------------------------------
+@LONG_OPTIONS_WITH_ARGUMENTS_EXAMPLE@
++----------------------------------------------------------------------------------------
+
+** Abbreviating Long Options
+
+    Notice in the example above that the command line uses abbreviations of command line
+    options.  You can abbreviate options so long as the abbreviation is unambiguous.
+    Even though you can abbreviate the options on the command line, you cannot address
+    the <<<OptionSet>>> using those abbreviations. You can use a special constructor
+    for the <<<OptionParser>>> that turns off abbreviation matching.
+
+** Using Single Hyphen on Long Options
+
+    As demonstrated in the example above, you can use a single hyphen instead of a
+    double hyphen to specify a long option -- but be careful that doing so doesn't
+    introduce ambiguity.
+
+*** Specifying Arguments for a Long Option on the Command Line
+
+    A long option's argument can occur:
+
+    * in the position on the command line after the option
+
+    * right up against the option separated by an equals sign (<<<=>>>)
+
+    []
+
++----------------------------------------------------------------------------------------
+@LONG_OPTIONS_WITH_ARGUMENT_POSITIONING_EXAMPLE@
++----------------------------------------------------------------------------------------
+
+*** Multiple Arguments for a Single Option
+
+    Specify multiple arguments for a long option in the same manner as for short options
+    (see above).
+
+** Alternative Form of Long Options
+
+    The option <<<-W>>> is reserved. If you tell the parser to recognize alternative
+    long options, then it will treat, for example, <<<-W foo=bar>>> as the long option
+    <<<foo>>> with argument bar, as though you had written <<<--foo=bar>>>.
+
+    You can specify <<<-W>>> as a valid short option, or use it as an abbreviation for a
+    long option, but recognizing alternative long options will always supersede this
+    behavior.
+
+    To recognize alternative long options, either construct an <<<OptionParser>>> with a
+    string of short option characters containing the sequence <<<W;>>> (a capital W
+    followed by a semicolon), or call the method
+    <<<OptionParser.recognizeAlternativeLongOptions()>>>.
+
++----------------------------------------------------------------------------------------
+@ALTERNATIVE_LONG_OPTIONS_EXAMPLE@
++----------------------------------------------------------------------------------------
+
+* Other Features
+
+** Converting Option Arguments to Other Types
+
+    Without action other than the <<<with*Arg()>>> methods, arguments of options are
+    returned as <<<String>>>s.  For backwards compatibility,
+    <<<OptionSet.valueOf(String)>>> and <<<OptionSet.valuesOf(String)>>> return
+    <<<Object>>> and <<<List<?>>>>, respectively, so to get the values out as
+    <<<String>>>s, you will need to downcast the results of those methods.
+
+    You can tell JOpt Simple to convert the arguments of options to different Java types
+    via the <<<ofType()>>> method on the return value of <<<with*Arg()>>>.  The
+    <<<Class>>> argument of <<<ofType()>>> must represent a Java class that has either:
+
+    * a <<<public static>>> method called <<<valueOf()>>> which accepts a single
+    <<<String>>> argument and whose return type is the type itself, or
+
+    * a <<<public>>> constructor which takes a single <<<String>>> argument.
+
+    []
+
+    If the class has both, the <<<valueOf()>>> method is used.
+
+    Note that <<<enum>>>s have a <<<valueOf()>>> method.
+
++----------------------------------------------------------------------------------------
+@OPTION_ARGUMENT_VALUE_TYPE_EXAMPLE@
++----------------------------------------------------------------------------------------
+
+    Another way to convert arguments of options is to specify a converter object via
+    <<<withValuesConvertedBy()>>>.  This is useful when the desired type for the arguments
+    does not meet the requirements that <<<ofType()>>> sets forth.  Such objects may not
+    perform any "conversion" at all, but rather can validate that arguments conform to
+    certain restrictions before passing through as-is.
+
+    You can also do this for the non-option arguments of your command line, if you desire
+    to treat them all as a single type.
+
++----------------------------------------------------------------------------------------
+@OPTION_ARGUMENT_CONVERTER_EXAMPLE@
++----------------------------------------------------------------------------------------
+
+** Retrieving Arguments of Options in a Type-Safe Manner
+
+    In the previous examples, we have been discarding the return values of the methods
+    of JOpt Simple's fluent interface.  If instead you retain them in variables of type
+    <<<OptionSpec>>>, you can use them to retrieve arguments of options in a type-safe
+    manner.
+
+    You can also do this for the non-option arguments of your command line, if you desire
+    to treat them all as a single type.
+
++----------------------------------------------------------------------------------------
+@TYPESAFE_OPTION_ARGUMENT_RETRIEVAL_EXAMPLE@
++----------------------------------------------------------------------------------------
+
+** Exporting Options and Arguments to other Code
+
+    As an integration aid for other libraries, you can use <<<OptionSet.asMap()>>> to
+    obtain a mapping of <<<OptionSpec>>> to option values, for example to create a
+    properties map of options.
+
+    Here is sample code to create properties whose keys have a common prefix.  The key is
+    choosen as the first non-short option:
+
++----------------------------------------------------------------------------------------
+@EXPORTING_OPTIONS_AND_ARGUMENTS_EXAMPLE@
++----------------------------------------------------------------------------------------
+
+** Default Values for Option Arguments
+
+    Often it is convenient to specify default values for the arguments of certain
+    command line options.  To do this, call the <<<defaultsTo()>>> method.
+
++----------------------------------------------------------------------------------------
+@DEFAULT_VALUES_FOR_OPTION_ARGUMENTS_EXAMPLE@
++----------------------------------------------------------------------------------------
+
+    You can see that <<<defaultsTo()>>> should relieve you of the burden of having to
+    check <<<has()>>> and/or <<<hasArgument()>>> on an <<<OptionSet>>> for a given option,
+    and has no bearing on the return values of those methods.  Specifying a default value
+    for an option with a required argument does not mean that you can elide an argument for
+    the option on the command line.
+
+    The type of values <<<defaultsTo()>>> expects is dictated by the class given by a
+    previous call to <<<ofType()>>> or <<<withValuesConvertedBy()>>>; if no such call has
+    been made, the type is <<<String>>>.
+
+** "Required" Options
+
+    You can indicate that a given option must be present on the command line via the
+    <<<required()>>> method.  Only options that accept arguments can be made "required".
+
+    An option designated as a "help" option via <<<forHelp()>>>, when present on the
+    command line, causes missing "required" options not to reject the command line.
+
++----------------------------------------------------------------------------------------
+@REQUIRED_OPTIONS_EXAMPLE@
++----------------------------------------------------------------------------------------
+
+** "Required" Dependent Options
+
+    You can indicate that a given option must be present on the command line if some
+    other option is present on the command line via the <<<requiredIf()>>> method.
+    Any option can be made "required if".
+
+    An option designated as a "help" option via <<<forHelp()>>>, when present on the
+    command line, causes missing "required if" options not to reject the command line.
+
++----------------------------------------------------------------------------------------
+@REQUIRED_IF_OPTIONS_EXAMPLE@
++----------------------------------------------------------------------------------------
+
+    You can also indicate that a given option must be present on the command line if some
+    other option is NOT present on the command line via the <<<requiredUnless()>>> method.
+    Any option can be made "required unless", but, to avoid potential conflicts, it should
+    not be "required if" at the same time.
+
++----------------------------------------------------------------------------------------
+@REQUIRED_UNLESS_OPTIONS_EXAMPLE@
++----------------------------------------------------------------------------------------
+
+** "Available" Dependent Options
+
+    Similarly to <<<requiredIf()>>> and <<<requiredUnless()>>>, you can indicate that a
+    given option can be present on the command line only if/unless some other option is
+    present on the command line, via the <<<availableIf()>>> and <<<availableUnless()>>>
+    methods.
+
+
+** Synonyms of Options
+
+    Sometimes it is useful to allow many different options to share the same meaning in
+    the program that uses them.  To specify that options are to be treated as synonymous,
+    use the <<<acceptsAll()>>> method of <<<OptionParser>>>.
+
++----------------------------------------------------------------------------------------
+@OPTION_SYNONYM_EXAMPLE@
++----------------------------------------------------------------------------------------
+
+** Concise Specification of Multiple Arguments for an Option
+
+    Another way to specify multiple arguments for an option is to tell the parser to
+    treat a single argument containing multiple delimited values as multiple arguments
+    for the option using the <<<withValuesSeparatedBy()>>> method.
+
++----------------------------------------------------------------------------------------
+@MULTIPLE_DELIMITED_ARGUMENTS_EXAMPLE@
++----------------------------------------------------------------------------------------
+
+** Signalling End of Options
+
+    An argument consisting only of two hyphens (<<<-->>>) signals that the remaining
+    arguments are to be treated as non-options.
+
+    An argument consisting only of a single hyphen is considered a non-option argument
+    (though it can be an argument of an option).  Many Unix programs treat single hyphens
+    as stand-ins for the standard input or standard output stream.
+
+*** Non-Option Arguments
+
+    Any arguments which are not options or arguments of options can be retrieved via
+    method <<<nonOptionArguments()>>> on <<<OptionSet>>>.  If the double hyphen is an
+    argument, it is ignored and is not a non-option argument.
+
++----------------------------------------------------------------------------------------
+@SIGNALLING_END_OF_OPTIONS_EXAMPLE@
++----------------------------------------------------------------------------------------
+
+** "POSIX-ly Correct"-ness
+
+    By default, as with GNU <<<getopt()>>>, JOpt Simple allows intermixing of options and
+    non-options.  If, however, the parser has been created to be "POSIX-ly correct", then
+    the first argument that does not look lexically like an option, and is not a required
+    argument of a preceding option, signals the end of options.  You can still bind
+    optional arguments to their options using the abutting (for short options) or
+    <<<=>>> syntax.
+
+    Unlike GNU <<<getopt()>>>, JOptSimple does not honor the environment variable
+    <<<POSIXLY_CORRECT>>>. "POSIX-ly correct" parsers are configured by either:
+
+    * using the method <<<OptionParser.posixlyCorrect()>>>
+
+    * using the <<<OptionParser>>> constructor with an argument whose first character is
+    a plus sign (<<<+>>>)
+
+    []
+
++----------------------------------------------------------------------------------------
+@POSIXLY_CORRECT_EXAMPLE@
++----------------------------------------------------------------------------------------
+
+** Special Optional Argument Handling
+
+    If the parser detects an option whose argument is optional, and the next argument
+    "looks like" an option, that argument is not treated as the argument to the option,
+    but as a potentially valid option.  If, on the other hand, the optional argument is
+    typed as a derivative of <<<Number>>>, then that argument is treated as the negative
+    number argument of the option, even if the parser recognizes the corresponding numeric
+    option.
+
++----------------------------------------------------------------------------------------
+@SPECIAL_OPTIONAL_ARGUMENT_HANDLING_EXAMPLE@
++----------------------------------------------------------------------------------------
+
+Generating Command Line Help
+
+    When you call method <<<OptionParser.printHelpOn()>>>, JOpt Simple will write a
+    help screen (80-column width) describing all the options it is configured with,
+    along with types of option arguments, whether the option is required (in angle
+    brackets) or optional (in square brackets), etc.  To give an option a description,
+    use <<<OptionParser.accepts*()>>> with a description argument.  To give an option
+    argument a description, use <<<describedAs()>>> on the return value of
+    <<<with*Arg()>>>.
+
++----------------------------------------------------------------------------------------
+@HELP_SCREEN_EXAMPLE@
++----------------------------------------------------------------------------------------
+
+    Here is what the help screen looks like for the example above:
+
++----------------------------------------------------------------------------------------
+@HELP_SCREEN_EXAMPLE_HELP@
++----------------------------------------------------------------------------------------
+
+    If you want to create your own help screen, give method
+    <<<OptionParser.formatHelpWith()>>> a <<<HelpFormatter>>> that builds the help screen
+    as a String. When you call <<<OptionParser.printHelpOn()>>>, JOpt Simple will use
+    your <<<HelpFormatter>>> to produce the help and write it to the given stream.
+
+    For example, this program:
+
++----------------------------------------------------------------------------------------
+@HELP_FORMATTER_EXAMPLE@
++----------------------------------------------------------------------------------------
+
+    yields the following output:
+
++----------------------------------------------------------------------------------------
+@HELP_FORMATTER_EXAMPLE_OUTPUT@
++----------------------------------------------------------------------------------------
+
+Handling Exceptions
+
+    JOpt Simple's classes raise some derivative of <<<OptionException>>> if they encounter
+    problems during parsing.  These exceptions are unchecked, so you don't have to do
+    anything with such an exception if you don't want to.  The rationale behind this
+    decision is that you will most likely be invoking JOpt Simple's functionality from a
+    <<<main()>>> method or very near to it, where a failure such as unrecognized arguments
+    can just stop down the JVM and yield a stack trace without much user or programmer
+    inconvenience.  So, without any exception handling at all, a user would see something
+    like this:
+
++----------------------------------------------------------------------------------------
+@EXAMPLE_STACK_TRACE@
++----------------------------------------------------------------------------------------
+
+    If you want to handle the exception yourself, you can catch <<<OptionException>>> in
+    your code, and do whatever you please with the contents of the exception, perhaps
+    using the help generation facility.
+
+* Suppressing <<<UnrecognizedOptionException>>>
+
+    Sometimes you want to ignore unrecognized options on the command line.
+
+    For example, you might be interested in handling only a part of the arguments given.
+    Or you might want to pass on options to another program and not bother the user with
+    providing two hyphens (<<<-->>>) to indicate the end of known options. Or maybe
+    you want to provide future forwards/backwards compatibility when you foresee passing
+    in new options to old code (or old code invoking new code with "old" arguments).
+
+    You can achieve this by using the method <<<OptionParser.allowsUnrecognizedOptions()>>>.
+    When you call this method, then any unrecognized options handed to <<<parse()>>> are
+    treated as non-option arguments, rather than causing an exception to be raised.
+
++----------------------------------------------------------------------------------------
+@UNRECOGNIZED_OPTIONS_ALLOWED_EXAMPLE@
++----------------------------------------------------------------------------------------

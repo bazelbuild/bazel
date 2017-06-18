@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles.Builder;
+import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
@@ -55,7 +56,7 @@ public class BazelPythonSemantics implements PythonSemantics {
       FileTypeSet.of(BazelPyRuleClasses.PYTHON_SOURCE),
       "srcs", "deps", "data");
 
-  public static final PathFragment ZIP_RUNFILES_DIRECTORY_NAME = new PathFragment("runfiles");
+  public static final PathFragment ZIP_RUNFILES_DIRECTORY_NAME = PathFragment.create("runfiles");
 
   @Override
   public void validate(RuleContext ruleContext, PyCommon common) {
@@ -67,6 +68,11 @@ public class BazelPythonSemantics implements PythonSemantics {
 
   @Override
   public void collectDefaultRunfilesForBinary(RuleContext ruleContext, Builder builder) {
+  }
+
+  @Override
+  public void collectDefaultRunfiles(RuleContext ruleContext, Builder builder) {
+    builder.addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
   }
 
   @Override
@@ -86,7 +92,7 @@ public class BazelPythonSemantics implements PythonSemantics {
     PathFragment packageFragment = ruleContext.getLabel().getPackageIdentifier().getRunfilesPath();
     // Python scripts start with x.runfiles/ as the module space, so everything must be manually
     // adjusted to be relative to the workspace name.
-    packageFragment = new PathFragment(ruleContext.getWorkspaceName())
+    packageFragment = PathFragment.create(ruleContext.getWorkspaceName())
         .getRelative(packageFragment);
     for (String importsAttr : ruleContext.attributes().get("imports", Type.STRING_LIST)) {
       importsAttr = ruleContext.expandMakeVariables("includes", importsAttr);
@@ -144,7 +150,9 @@ public class BazelPythonSemantics implements PythonSemantics {
                   Substitution.of("%python_binary%", pythonBinary),
                   Substitution.of("%imports%", Joiner.on(":").join(imports)),
                   Substitution.of("%workspace_name%", ruleContext.getWorkspaceName()),
-                  Substitution.of("%is_zipfile%", "False")),
+                  Substitution.of("%is_zipfile%", "False"),
+                  Substitution.of("%import_all%",
+                      config.getImportAllRepositories() ? "True" : "False")),
               true));
     } else {
       Artifact zipFile = getPythonZipArtifact(ruleContext, executable);
@@ -160,7 +168,9 @@ public class BazelPythonSemantics implements PythonSemantics {
                   Substitution.of("%python_binary%", pythonBinary),
                   Substitution.of("%imports%", Joiner.on(":").join(imports)),
                   Substitution.of("%workspace_name%", ruleContext.getWorkspaceName()),
-                  Substitution.of("%is_zipfile%", "True")),
+                  Substitution.of("%is_zipfile%", "True"),
+                  Substitution.of("%import_all%",
+                      config.getImportAllRepositories() ? "True" : "False")),
               true));
 
       ruleContext.registerAction(
@@ -197,7 +207,7 @@ public class BazelPythonSemantics implements PythonSemantics {
   }
 
   private static boolean isUnderWorkspace(PathFragment path) {
-    return !path.startsWith(Label.EXTERNAL_PACKAGE_NAME);
+    return !path.startsWith(Label.EXTERNAL_PATH_PREFIX);
   }
 
   private static String getZipRunfilesPath(PathFragment path, PathFragment workspaceName) {
@@ -207,7 +217,7 @@ public class BazelPythonSemantics implements PythonSemantics {
       zipRunfilesPath = workspaceName.getRelative(path).normalize().toString();
     } else {
       // If the file is in external package, strip "external"
-      zipRunfilesPath = path.relativeTo(Label.EXTERNAL_PACKAGE_NAME).normalize().toString();
+      zipRunfilesPath = path.relativeTo(Label.EXTERNAL_PATH_PREFIX).normalize().toString();
     }
     // We put the whole runfiles tree under the ZIP_RUNFILES_DIRECTORY_NAME directory, by doing this
     // , we avoid the conflict between default workspace name "__main__" and __main__.py file.
@@ -216,7 +226,7 @@ public class BazelPythonSemantics implements PythonSemantics {
   }
 
   private static String getZipRunfilesPath(String path, PathFragment workspaceName) {
-    return getZipRunfilesPath(new PathFragment(path), workspaceName);
+    return getZipRunfilesPath(PathFragment.create(path), workspaceName);
   }
 
   private static void createPythonZipAction(
@@ -242,7 +252,7 @@ public class BazelPythonSemantics implements PythonSemantics {
 
     // Read each runfile from execute path, add them into zip file at the right runfiles path.
     // Filter the executable file, cause we are building it.
-    for (Artifact artifact : runfilesSupport.getRunfiles().getArtifacts()) {
+    for (Artifact artifact : runfilesSupport.getRunfilesArtifactsWithoutMiddlemen()) {
       if (!artifact.equals(executable)) {
         argv.add(
             getZipRunfilesPath(artifact.getRunfilesPath(), workspaceName)

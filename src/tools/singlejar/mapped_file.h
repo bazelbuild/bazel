@@ -35,7 +35,8 @@
  *
  * The implementation is 64-bit Linux or OSX specific.
  */
-#if !((defined(__linux__) || defined(__APPLE__)) && __SIZEOF_POINTER__ == 8)
+#if !((defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__)) && \
+      __SIZEOF_POINTER__ == 8)
 #error This code for 64 bit Unix.
 #endif
 
@@ -59,7 +60,11 @@ class MappedFile {
         (mapped_start_ = static_cast<unsigned char *>(
              mmap(nullptr, st.st_size ? st.st_size : 1, PROT_READ, MAP_PRIVATE,
                   fd_, 0))) == MAP_FAILED) {
-      diag_warn("%s:%d: mmap %s:", __FILE__, __LINE__, path.c_str());
+      if (S_ISDIR(st.st_mode)) {
+        diag_warn("%s:%d: %s is a directory", __FILE__, __LINE__, path.c_str());
+      } else {
+        diag_warn("%s:%d: mmap %s:", __FILE__, __LINE__, path.c_str());
+      }
       close(fd_);
       fd_ = -1;
       return false;

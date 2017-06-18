@@ -19,10 +19,10 @@ import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryFunction;
+import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
-import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
-import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.util.LoadingMock;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
@@ -32,11 +32,12 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunctio
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryLoaderFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.skyframe.packages.PackageFactoryBuilderWithSkyframeForTesting;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-
+import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.Collection;
@@ -66,8 +67,8 @@ public abstract class AnalysisMock extends LoadingMock {
   }
 
   @Override
-  public PackageFactory.FactoryForTesting getPackageFactoryForTesting() {
-    return TestConstants.PACKAGE_FACTORY_FACTORY_FOR_TESTING;
+  public PackageFactoryBuilderWithSkyframeForTesting getPackageFactoryBuilderForTesting() {
+    return super.getPackageFactoryBuilderForTesting().setExtraSkyFunctions(getSkyFunctions());
   }
 
   @Override
@@ -86,6 +87,11 @@ public abstract class AnalysisMock extends LoadingMock {
    * configuration.
    */
   public abstract void setupMockClient(MockToolsConfig mockToolsConfig) throws IOException;
+
+  /**
+   * Returns the contents of WORKSPACE.
+   */
+  public abstract List<String> getWorkspaceContents(MockToolsConfig config);
 
   /**
    * This is called from test setup to create any necessary mock workspace files in the
@@ -118,7 +124,8 @@ public abstract class AnalysisMock extends LoadingMock {
     RepositoryFunction localRepositoryFunction = new LocalRepositoryFunction();
     ImmutableMap<String, RepositoryFunction> repositoryHandlers = ImmutableMap.of(
         LocalRepositoryRule.NAME, localRepositoryFunction,
-        AndroidSdkRepositoryRule.NAME, new AndroidSdkRepositoryFunction());
+        AndroidSdkRepositoryRule.NAME, new AndroidSdkRepositoryFunction(),
+        AndroidNdkRepositoryRule.NAME, new AndroidNdkRepositoryFunction());
 
     return ImmutableMap.of(
         SkyFunctions.REPOSITORY_DIRECTORY,
@@ -138,6 +145,11 @@ public abstract class AnalysisMock extends LoadingMock {
     @Override
     public void setupMockClient(MockToolsConfig mockToolsConfig) throws IOException {
       delegate.setupMockClient(mockToolsConfig);
+    }
+
+    @Override
+    public List<String> getWorkspaceContents(MockToolsConfig mockToolsConfig) {
+      return delegate.getWorkspaceContents(mockToolsConfig);
     }
 
     @Override

@@ -120,7 +120,7 @@ public class JavaSubprocessFactory implements Subprocess.Factory {
    * Returns a {@link ProcessBuilder.Redirect} appropriate for the parameters. If a file redirected
    * to exists, deletes the file before redirecting to it.
    */
-  private Redirect getRedirect(StreamAction action, File file) throws IOException {
+  private Redirect getRedirect(StreamAction action, File file) {
     switch (action) {
       case DISCARD:
         return Redirect.to(new File("/dev/null"));

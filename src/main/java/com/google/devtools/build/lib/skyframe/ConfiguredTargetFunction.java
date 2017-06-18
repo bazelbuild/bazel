@@ -16,25 +16,29 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.base.Predicate;
+import com.google.common.base.Supplier;
 import com.google.common.base.Verify;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Actions;
-import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.AspectCollection;
+import com.google.devtools.build.lib.analysis.AspectCollection.AspectDeps;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.Dependency;
+import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
 import com.google.devtools.build.lib.analysis.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.MergedConfiguredTarget.DuplicateException;
@@ -54,7 +58,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
-import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -64,6 +67,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.AspectFunction.AspectCreationException;
@@ -82,12 +86,12 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Semaphore;
@@ -119,6 +123,10 @@ final class ConfiguredTargetFunction implements SkyFunction {
       super(cause);
     }
 
+    public DependencyEvaluationException(InconsistentAspectOrderException cause) {
+      super(cause);
+    }
+
     @Override
     public synchronized Exception getCause() {
       return (Exception) super.getCause();
@@ -136,14 +144,17 @@ final class ConfiguredTargetFunction implements SkyFunction {
   private final BuildViewProvider buildViewProvider;
   private final RuleClassProvider ruleClassProvider;
   private final Semaphore cpuBoundSemaphore;
+  private final Supplier<Boolean> removeActionsAfterEvaluation;
 
   ConfiguredTargetFunction(
       BuildViewProvider buildViewProvider,
       RuleClassProvider ruleClassProvider,
-      Semaphore cpuBoundSemaphore) {
+      Semaphore cpuBoundSemaphore,
+      Supplier<Boolean> removeActionsAfterEvaluation) {
     this.buildViewProvider = buildViewProvider;
     this.ruleClassProvider = ruleClassProvider;
     this.cpuBoundSemaphore = cpuBoundSemaphore;
+    this.removeActionsAfterEvaluation = Preconditions.checkNotNull(removeActionsAfterEvaluation);
   }
 
   private static boolean useDynamicConfigurations(BuildConfiguration config) {
@@ -255,6 +266,10 @@ final class ConfiguredTargetFunction implements SkyFunction {
       if (e.getCause() instanceof ConfiguredValueCreationException) {
         throw new ConfiguredTargetFunctionException(
             (ConfiguredValueCreationException) e.getCause());
+      } else if (e.getCause() instanceof InconsistentAspectOrderException) {
+        InconsistentAspectOrderException cause = (InconsistentAspectOrderException) e.getCause();
+        throw new ConfiguredTargetFunctionException(
+            new ConfiguredValueCreationException(cause.getMessage(), target.getLabel()));
       } else {
         // Cast to InvalidConfigurationException as a consistency check. If you add any
         // DependencyEvaluationException constructors, you may need to change this code, too.
@@ -316,6 +331,9 @@ final class ConfiguredTargetFunction implements SkyFunction {
       throw new DependencyEvaluationException(
           new ConfiguredValueCreationException(e.print(), ctgValue.getLabel()));
     } catch (InvalidConfigurationException e) {
+      throw new DependencyEvaluationException(e);
+    } catch (InconsistentAspectOrderException e) {
+      env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
       throw new DependencyEvaluationException(e);
     }
 
@@ -849,32 +867,29 @@ final class ConfiguredTargetFunction implements SkyFunction {
       NestedSetBuilder<Package> transitivePackages)
       throws AspectCreationException, InterruptedException {
     OrderedSetMultimap<SkyKey, ConfiguredAspect> result = OrderedSetMultimap.create();
-    Set<SkyKey> aspectKeys = new HashSet<>();
+    OrderedSetMultimap<SkyKey, SkyKey> processedAspects = OrderedSetMultimap.create();
+    Set<SkyKey> allAspectKeys = new HashSet<>();
     for (Dependency dep : deps) {
-      AspectKey key = null;
-      for (Entry<AspectDescriptor, BuildConfiguration> depAspect
-          : dep.getAspectConfigurations().entrySet()) {
-        key = getNextAspectKey(key, dep, depAspect);
-        aspectKeys.add(key.getSkyKey());
-      }
+      allAspectKeys.addAll(getAspectKeys(dep).values());
     }
 
     Map<SkyKey, ValueOrException2<AspectCreationException, NoSuchThingException>> depAspects =
-        env.getValuesOrThrow(aspectKeys, AspectCreationException.class, NoSuchThingException.class);
+        env.getValuesOrThrow(allAspectKeys,
+            AspectCreationException.class, NoSuchThingException.class);
 
     for (Dependency dep : deps) {
       SkyKey depKey = TO_KEYS.apply(dep);
-      // If the same target was declared in different attributes of rule, we should not process it
-      // twice.
-      if (result.containsKey(depKey)) {
-        continue;
-      }
-      AspectKey key = null;
+      Map<AspectDescriptor, SkyKey> aspectToKeys = getAspectKeys(dep);
+
       ConfiguredTarget depConfiguredTarget = configuredTargetMap.get(depKey);
-      for (Entry<AspectDescriptor, BuildConfiguration> depAspect
-          : dep.getAspectConfigurations().entrySet()) {
-        key = getNextAspectKey(key, dep, depAspect);
-        SkyKey aspectKey = key.getSkyKey();
+      for (AspectDeps depAspect : dep.getAspects().getVisibleAspects()) {
+        SkyKey aspectKey = aspectToKeys.get(depAspect.getAspect());
+        // Skip if the aspect was already applied to the target (perhaps through different
+        // attributes).
+        if (!processedAspects.put(depKey, aspectKey)) {
+          continue;
+        }
+
         AspectValue aspectValue;
         try {
           // TODO(ulfjack): Catch all thrown AspectCreationException and NoSuchThingException
@@ -884,7 +899,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
           throw new AspectCreationException(
               String.format(
                   "Evaluation of aspect %s on %s failed: %s",
-                  depAspect.getKey().getAspectClass().getName(),
+                  depAspect.getAspect().getAspectClass().getName(),
                   dep.getLabel(),
                   e.toString()));
         }
@@ -904,36 +919,52 @@ final class ConfiguredTargetFunction implements SkyFunction {
     return result;
   }
 
-  private static AspectKey getNextAspectKey(AspectKey key, Dependency dep,
-      Entry<AspectDescriptor, BuildConfiguration> depAspect) {
-    if (key == null) {
-      key = AspectValue.createAspectKey(dep.getLabel(),
-          dep.getConfiguration(), depAspect.getKey(), depAspect.getValue()
-      );
-    } else {
-      key = AspectValue.createAspectKey(key, depAspect.getKey(), depAspect.getValue());
+  private static Map<AspectDescriptor, SkyKey> getAspectKeys(Dependency dep) {
+    HashMap<AspectDescriptor, SkyKey> result = new HashMap<>();
+    AspectCollection aspects = dep.getAspects();
+    for (AspectDeps aspectDeps : aspects.getVisibleAspects()) {
+      buildAspectKey(aspectDeps, result, dep);
     }
-    return key;
+    return result;
   }
 
-  private static boolean aspectMatchesConfiguredTarget(ConfiguredTarget dep, Aspect aspect) {
-    AspectDefinition aspectDefinition = aspect.getDefinition();
-    ImmutableList<ImmutableSet<Class<?>>> providersList = aspectDefinition.getRequiredProviders();
-
-    for (ImmutableSet<Class<?>> providers : providersList) {
-      boolean matched = true;
-      for (Class<?> provider : providers) {
-        if (dep.getProvider(provider.asSubclass(TransitiveInfoProvider.class)) == null) {
-          matched = false;
-          break;
-        }
-      }
-
-      if (matched) {
-        return true;
-      }
+  private static AspectKey buildAspectKey(AspectDeps aspectDeps,
+      HashMap<AspectDescriptor, SkyKey> result, Dependency dep) {
+    if (result.containsKey(aspectDeps.getAspect())) {
+      return (AspectKey) result.get(aspectDeps.getAspect()).argument();
     }
-    return false;
+
+    ImmutableList.Builder<AspectKey> dependentAspects = ImmutableList.builder();
+    for (AspectDeps path : aspectDeps.getDependentAspects()) {
+      dependentAspects.add(buildAspectKey(path, result, dep));
+    }
+    AspectKey aspectKey = AspectValue.createAspectKey(
+        dep.getLabel(), dep.getConfiguration(),
+        dependentAspects.build(),
+        aspectDeps.getAspect(),
+        dep.getAspectConfiguration(aspectDeps.getAspect()));
+    result.put(aspectKey.getAspectDescriptor(), aspectKey.getSkyKey());
+    return aspectKey;
+  }
+
+  static boolean aspectMatchesConfiguredTarget(final ConfiguredTarget dep, Aspect aspect) {
+    if (!aspect.getDefinition().applyToFiles() && !(dep.getTarget() instanceof Rule)) {
+      return false;
+    }
+    return aspect.getDefinition().getRequiredProviders().isSatisfiedBy(
+        new Predicate<Class<?>>() {
+          @Override
+          public boolean apply(Class<?> provider) {
+            return dep.getProvider(provider.asSubclass(TransitiveInfoProvider.class)) != null;
+          }
+        },
+        new Predicate<SkylarkProviderIdentifier>() {
+          @Override
+          public boolean apply(SkylarkProviderIdentifier skylarkProviderIdentifier) {
+            return dep.get(skylarkProviderIdentifier) != null;
+          }
+        }
+    );
   }
 
   /**
@@ -974,8 +1005,13 @@ final class ConfiguredTargetFunction implements SkyFunction {
 
     // Collect the corresponding Skyframe configured target values. Abort early if they haven't
     // been computed yet.
-    Collection<Dependency> configValueNames = resolver.resolveRuleLabels(
-        ctgValue, configLabelMap, transitiveLoadingRootCauses);
+    Collection<Dependency> configValueNames = null;
+    try {
+      configValueNames = resolver.resolveRuleLabels(
+          ctgValue, configLabelMap, transitiveLoadingRootCauses);
+    } catch (InconsistentAspectOrderException e) {
+      throw new DependencyEvaluationException(e);
+    }
     if (env.valuesMissing()) {
       return null;
     }
@@ -1038,7 +1074,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
     boolean failed = false;
     Iterable<SkyKey> depKeys = Iterables.transform(deps, TO_KEYS);
     Map<SkyKey, ValueOrException<ConfiguredValueCreationException>> depValuesOrExceptions =
-        env.getValuesOrThrow(depKeys, ConfiguredValueCreationException.class);
+            env.getValuesOrThrow(depKeys, ConfiguredValueCreationException.class);
     Map<SkyKey, ConfiguredTarget> result =
         Maps.newHashMapWithExpectedSize(depValuesOrExceptions.size());
     for (Map.Entry<SkyKey, ValueOrException<ConfiguredValueCreationException>> entry
@@ -1084,8 +1120,11 @@ final class ConfiguredTargetFunction implements SkyFunction {
       NestedSetBuilder<Package> transitivePackages)
       throws ConfiguredTargetFunctionException, InterruptedException {
     StoredEventHandler events = new StoredEventHandler();
-    BuildConfiguration ownerConfig = (configuration == null)
-        ? null : configuration.getArtifactOwnerConfiguration();
+    BuildConfiguration ownerConfig =
+        ConfiguredTargetFactory.getArtifactOwnerConfiguration(env, configuration);
+    if (env.valuesMissing()) {
+      return null;
+    }
     CachingAnalysisEnvironment analysisEnvironment = view.createAnalysisEnvironment(
         new ConfiguredTargetKey(target.getLabel(), ownerConfig), false,
         events, env, configuration);
@@ -1113,7 +1152,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
     analysisEnvironment.disable(target);
     Preconditions.checkNotNull(configuredTarget, target);
 
-    ImmutableMap<Artifact, ActionAnalysisMetadata> generatingActions;
+    GeneratingActions generatingActions;
     // Check for conflicting actions within this configured target (that indicates a bug in the
     // rule implementation).
     try {
@@ -1123,7 +1162,10 @@ final class ConfiguredTargetFunction implements SkyFunction {
       throw new ConfiguredTargetFunctionException(e);
     }
     return new ConfiguredTargetValue(
-        configuredTarget, generatingActions, transitivePackages.build());
+        configuredTarget,
+        generatingActions,
+        transitivePackages.build(),
+        removeActionsAfterEvaluation.get());
   }
 
   /**

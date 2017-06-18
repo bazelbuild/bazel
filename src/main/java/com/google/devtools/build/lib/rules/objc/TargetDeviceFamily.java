@@ -19,10 +19,8 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -55,14 +53,16 @@ public enum TargetDeviceFamily {
    * Contains the values of the UIDeviceFamily plist info setting for each valid set of
    * TargetDeviceFamilies.
    */
-  public static final Map<Set<TargetDeviceFamily>, List<Integer>> UI_DEVICE_FAMILY_VALUES =
+  public static final ImmutableMap<Set<TargetDeviceFamily>, List<Integer>> UI_DEVICE_FAMILY_VALUES =
       ImmutableMap.<Set<TargetDeviceFamily>, List<Integer>>builder()
           .put(ImmutableSet.of(TargetDeviceFamily.IPHONE), ImmutableList.of(1))
           .put(ImmutableSet.of(TargetDeviceFamily.IPAD), ImmutableList.of(2))
           .put(ImmutableSet.of(TargetDeviceFamily.WATCH), ImmutableList.of(4))
-          .put(ImmutableSet.of(TargetDeviceFamily.IPHONE, TargetDeviceFamily.IPAD),
+          .put(
+              ImmutableSet.of(TargetDeviceFamily.IPHONE, TargetDeviceFamily.IPAD),
               ImmutableList.of(1, 2))
-          .put(ImmutableSet.of(TargetDeviceFamily.IPHONE, TargetDeviceFamily.WATCH),
+          .put(
+              ImmutableSet.of(TargetDeviceFamily.IPHONE, TargetDeviceFamily.WATCH),
               ImmutableList.of(1, 4))
           .build();
 

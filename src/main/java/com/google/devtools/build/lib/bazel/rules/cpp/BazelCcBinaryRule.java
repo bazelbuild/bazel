@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CcBinar
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 
 /** Rule definition for cc_binary rules. */
 public final class BazelCcBinaryRule implements RuleDefinition {
@@ -72,7 +73,8 @@ public final class BazelCcBinaryRule implements RuleDefinition {
             attr("linkshared", BOOLEAN)
                 .value(false)
                 .nonconfigurable("used to *determine* the rule's configuration"))
-        .cfg(BazelCppRuleClasses.LIPO_ON_DEMAND)
+        .cfg(BazelCppRuleClasses.LIPO_ON_DEMAND) // static configuration version
+        .cfg(CppRuleClasses.LIPO_ON_DEMAND) // dynamic configuration version
         .build();
   }
 

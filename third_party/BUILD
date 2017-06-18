@@ -16,6 +16,8 @@ filegroup(
         "//third_party/java/j2objc:srcs",
         "//third_party/java/jacoco:srcs",
         "//third_party/java/jarjar:srcs",
+        "//third_party/java/javapoet:srcs",
+        "//third_party/java/jopt-simple:srcs",
         "//third_party/java/jdk/langtools:srcs",
         "//third_party/java/jdk/javabuilder:srcs",
         "//third_party/javascript/bootstrap:srcs",
@@ -29,6 +31,7 @@ filegroup(
         "//third_party/py/six:srcs",
         "//third_party/zlib:srcs",
         "//third_party/nanopb:srcs",
+        "//third_party/googleapis:srcs",
     ],
 )
 
@@ -127,12 +130,13 @@ java_import(
 
 java_import(
     name = "apache_httpclient",
-    jars = ["apache_httpclient/httpclient-4.2.5.jar"],
+    jars = ["apache_httpclient/httpclient-4.5.3.jar"],
+    deps = [":apache_commons_logging"],
 )
 
 java_import(
     name = "apache_httpcore",
-    jars = ["apache_httpcore/httpcore-4.2.4.jar"],
+    jars = ["apache_httpcore/httpcore-4.4.6.jar"],
 )
 
 java_import(
@@ -145,32 +149,57 @@ java_import(
 )
 
 java_import(
+    name = "api_client",
+    jars = [
+        "api_client/google-api-client-1.22.0.jar",
+        "api_client/google-api-client-jackson2-1.22.0.jar",
+        "api_client/google-http-client-1.22.0.jar",
+        "api_client/google-http-client-jackson2-1.22.0.jar",
+    ],
+    runtime_deps = [
+        ":jackson2",
+    ],
+)
+
+java_import(
     name = "asm",
-    jars = ["asm/asm-5.0.4.jar"],
+    jars = ["asm/asm-5.1.jar"],
 )
 
 java_import(
     name = "asm-analysis",
-    jars = ["asm/asm-analysis-5.0.4.jar"],
+    jars = ["asm/asm-analysis-5.1.jar"],
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-commons",
-    jars = ["asm/asm-commons-5.0.4.jar"],
+    jars = ["asm/asm-commons-5.1.jar"],
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-tree",
-    jars = ["asm/asm-tree-5.0.4.jar"],
+    jars = ["asm/asm-tree-5.1.jar"],
     runtime_deps = [":asm"],
 )
 
 java_import(
     name = "asm-util",
-    jars = ["asm/asm-util-5.0.4.jar"],
+    jars = ["asm/asm-util-5.1.jar"],
     runtime_deps = [":asm-tree"],
+)
+
+java_import(
+    name = "auth",
+    jars = [
+        "auth/google-auth-library-oauth2-http-0.6.0.jar",
+        "auth/google-auth-library-credentials-0.6.0.jar",
+    ],
+    runtime_deps = [
+        ":api_client",
+        ":guava",
+    ],
 )
 
 java_plugin(
@@ -238,13 +267,13 @@ java_library(
 
 java_import(
     name = "auto_value_value",
-    jars = ["auto/auto-value-1.2.jar"],
+    jars = ["auto/auto-value-1.4.jar"],
 )
 
 # For bootstrapping JavaBuilder
 filegroup(
     name = "auto_value-jars",
-    srcs = ["auto/auto-value-1.2.jar"],
+    srcs = ["auto/auto-value-1.4.jar"],
 )
 
 java_library(
@@ -309,17 +338,26 @@ java_import(
 java_import(
     name = "error_prone",
     jars = [
-        "error_prone/error_prone_core-2.0.13.jar",
-        "error_prone/error_prone_annotations-2.0.13.jar",
-        "error_prone/error_prone_annotation-2.0.13.jar",
+        "error_prone/error_prone_check_api-2.0.20-SNAPSHOT.jar",
+        "error_prone/error_prone_core-2.0.20-SNAPSHOT.jar",
+        "error_prone/error_prone_annotations-2.0.20-SNAPSHOT.jar",
+        "error_prone/error_prone_annotation-2.0.20-SNAPSHOT.jar",
     ],
     exports = [
+        ":auto_common",
         ":guava",
         ":jcip_annotations",
         ":jsr305",
         ":pcollections",
         "//third_party/checker_framework_dataflow",
         "//third_party/jformatstring",
+    ],
+)
+
+java_import(
+    name = "jackson2",
+    jars = [
+        "jackson2/jackson-core-2.8.6.jar",
     ],
 )
 
@@ -337,37 +375,16 @@ java_import(
     ],
 )
 
-filegroup(
-    name = "guava_and_error_prone-jars",
-    srcs = [
-        "guava/guava-21.0-20161101.jar",
-        "error_prone/error_prone_annotation-2.0.13.jar",
-        "error_prone/error_prone_annotations-2.0.13.jar",
-        # error_prone_core contains a copy of an earlier version of guava, so
-        # it's very important that it occur *after* the guava jar in the
-        # -classpath arg for both 'javac' and 'java'. The latter is especially
-        # important when dealing with pre-built jars that themselves assume
-        # they'll be provided guava classes at runtime via -classpath (e.g.
-        # guava-testlib uses stuff from guava).
-        "error_prone/error_prone_core-2.0.13.jar",
-        "jcip_annotations/jcip-annotations-1.0-1.jar",
-        "jsr305/jsr-305.jar",
-        "pcollections/pcollections-2.1.2.jar",
-        "//third_party/checker_framework_dataflow",
-        "//third_party/jformatstring",
-    ],
-)
-
 # For bootstrapping JavaBuilder
 filegroup(
     name = "bootstrap_guava_and_error_prone-jars",
     srcs = [
-        "guava/guava-21.0-20161101.jar",
-        "error_prone/error_prone_annotation-2.0.13.jar",
-        "error_prone/error_prone_annotations-2.0.13.jar",
-        # See the comment about error_prone_core in 'guava_and_error_prone-jars'
-        # above.
-        "error_prone/error_prone_core-2.0.13.jar",
+        "auto/auto-common-0.3.jar",
+        "error_prone/error_prone_annotation-2.0.20-SNAPSHOT.jar",
+        "error_prone/error_prone_annotations-2.0.20-SNAPSHOT.jar",
+        "error_prone/error_prone_check_api-2.0.20-SNAPSHOT.jar",
+        "error_prone/error_prone_core-2.0.20-SNAPSHOT.jar",
+        "guava/guava-21.0.jar",
         "jcip_annotations/jcip-annotations-1.0-1.jar",
         "jsr305/jsr-305.jar",
         "pcollections/pcollections-2.1.2.jar",
@@ -384,13 +401,27 @@ filegroup(
 # jars.
 java_import(
     name = "guava",
-    jars = [":guava_and_error_prone-jars"],
+    jars = [
+        "error_prone/error_prone_annotations-2.0.19.jar",
+        "jcip_annotations/jcip-annotations-1.0-1.jar",
+        "jsr305/jsr-305.jar",
+    ] + select({
+        "//tools/jdk:jdk7": ["guava/guava-21.0-20161101.jar"],
+        "//conditions:default": ["guava/guava-21.0.jar"],
+    }),
+)
+
+java_import(
+    name = "instrumentation",
+    jars = [
+        "instrumentation/instrumentation-api-0.3.0.jar",
+    ],
 )
 
 # For bootstrapping JavaBuilder
 filegroup(
     name = "guava-jars",
-    srcs = ["guava/guava-21.0-20161101.jar"],
+    srcs = ["guava/guava-21.0.jar"],
 )
 
 java_import(
@@ -400,7 +431,7 @@ java_import(
 
 java_import(
     name = "jimfs",
-    jars = ["jimfs/jimfs-1.1-rc1.jar"],
+    jars = ["jimfs/jimfs-1.1.jar"],
 )
 
 java_import(
@@ -446,7 +477,12 @@ java_import(
 
 java_import(
     name = "netty",
-    jars = ["netty/netty-all-4.1.0.CR6.jar"],
+    jars = ["netty/netty-all-4.1.8.Final.jar"],
+)
+
+java_import(
+    name = "netty_tcnative",
+    jars = ["netty_tcnative/netty-tcnative-boringssl-static-1.1.33.Fork26.jar"],
 )
 
 java_import(
@@ -481,7 +517,10 @@ java_import(
 
 java_import(
     name = "guava-testlib",
-    jars = ["guava/guava-testlib-21.0-20161101.jar"],
+    jars = select({
+        "//tools/jdk:jdk7": ["guava/guava-testlib-21.0-20161101.jar"],
+        "//conditions:default": ["guava/guava-testlib-21.0.jar"],
+    }),
 )
 
 java_import(
@@ -498,8 +537,13 @@ java_import(
 )
 
 java_import(
+    name = "turbine",
+    jars = ["turbine/turbine-0.1-20170503.jar"],
+)
+
+java_import(
     name = "truth",
-    jars = ["truth/truth-0.28.jar"],
+    jars = ["truth/truth-0.32.jar"],
 )
 
 java_import(

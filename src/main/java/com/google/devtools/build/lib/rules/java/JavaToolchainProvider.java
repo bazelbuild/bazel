@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import java.util.List;
@@ -39,6 +40,7 @@ public abstract class JavaToolchainProvider implements TransitiveInfoProvider {
   }
 
   public static JavaToolchainProvider create(
+      Label label,
       JavaToolchainData data,
       NestedSet<Artifact> bootclasspath,
       NestedSet<Artifact> extclasspath,
@@ -46,11 +48,17 @@ public abstract class JavaToolchainProvider implements TransitiveInfoProvider {
       Artifact javac,
       Artifact javaBuilder,
       @Nullable Artifact headerCompiler,
+      boolean forciblyDisableHeaderCompilation,
       Artifact singleJar,
+      Artifact oneVersion,
+      Artifact oneVersionWhitelist,
       Artifact genClass,
+      @Nullable Artifact resourceJarBuilder,
+      @Nullable Artifact timezoneData,
       FilesToRunProvider ijar,
       ImmutableListMultimap<String, String> compatibleJavacOptions) {
     return new AutoValue_JavaToolchainProvider(
+        label,
         data.getSourceVersion(),
         data.getTargetVersion(),
         bootclasspath,
@@ -59,8 +67,13 @@ public abstract class JavaToolchainProvider implements TransitiveInfoProvider {
         javac,
         javaBuilder,
         headerCompiler,
+        forciblyDisableHeaderCompilation,
         singleJar,
+        oneVersion,
+        oneVersionWhitelist,
         genClass,
+        resourceJarBuilder,
+        timezoneData,
         ijar,
         compatibleJavacOptions,
         // merges the defaultJavacFlags from
@@ -72,6 +85,9 @@ public abstract class JavaToolchainProvider implements TransitiveInfoProvider {
         data.getJvmOptions(),
         data.getJavacSupportsWorkers());
   }
+
+  /** Returns the label for this {@code java_toolchain}. */
+  public abstract Label getToolchainLabel();
 
   /** @return the input Java language level */
   public abstract String getSourceVersion();
@@ -97,11 +113,38 @@ public abstract class JavaToolchainProvider implements TransitiveInfoProvider {
   /** @return the {@link Artifact} of the Header Compiler deploy jar */
   @Nullable public abstract Artifact getHeaderCompiler();
 
+  /**
+   * Returns true if header compilation should be forcibly disabled, overriding
+   * --java_header_compilation.
+   */
+  public abstract boolean getForciblyDisableHeaderCompilation();
+
   /** Returns the {@link Artifact} of the SingleJar deploy jar */
   public abstract Artifact getSingleJar();
 
+  /**
+   * Return the {@link Artifact} of the binary that enforces one-version compliance of java
+   * binaries.
+   */
+  @Nullable
+  public abstract Artifact getOneVersionBinary();
+
+  /** Return the {@link Artifact} of the whitelist used by the one-version compliance checker. */
+  @Nullable
+  public abstract Artifact getOneVersionWhitelist();
+
   /** Returns the {@link Artifact} of the GenClass deploy jar */
   public abstract Artifact getGenClass();
+
+  @Nullable
+  public abstract Artifact getResourceJarBuilder();
+
+  /**
+   * Returns the {@link Artifact} of the latest timezone data resource jar that can be loaded by
+   * Java 8 binaries.
+   */
+  @Nullable
+  public abstract Artifact getTimezoneData();
 
   /** Returns the ijar executable */
   public abstract FilesToRunProvider getIjar();

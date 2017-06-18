@@ -23,14 +23,13 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
 
 /**
  * Represents a container for the {@link ResourceContainer}s for a given library. This is
  * abstraction simplifies the process of managing and exporting the direct and transitive resource
  * dependencies of an android rule, as well as providing type safety.
  *
- * <p>The transitive and direct dependencies are not guaranteed to be disjoint. If a 
+ * <p>The transitive and direct dependencies are not guaranteed to be disjoint. If a
  * library is included in both the transitive and direct dependencies, it will appear twice. This
  * requires consumers to manage duplicated resources gracefully.
  */
@@ -43,7 +42,7 @@ public final class ResourceDependencies {
   private final NestedSet<ResourceContainer> transitiveResources;
   /**
    * Contains all the direct dependencies of the current target. Since a given direct dependency can
-   * act as a "forwarding" library, collecting all the direct resource from it's dependencies 
+   * act as a "forwarding" library, collecting all the direct resource from it's dependencies
    * and providing them as "direct" dependencies to maintain merge order, this uses a NestedSet to
    * properly maintain ordering and ease of merging.
    */
@@ -151,6 +150,14 @@ public final class ResourceDependencies {
     this.neverlink = neverlink;
     this.transitiveResources = transitiveResources;
     this.directResources = directResources;
+  }
+
+  /** Returns a copy of this instance with filtered resources. The original object is unchanged. */
+  public ResourceDependencies filter(RuleContext ruleContext, ResourceFilter filter) {
+    return new ResourceDependencies(
+        neverlink,
+        filter.filterDependencies(ruleContext, transitiveResources),
+        filter.filterDependencies(ruleContext, directResources));
   }
 
   /**

@@ -358,89 +358,10 @@ EOF
   expect_log "Hello"
 }
 
-# Creates an indirect dependency on X from A and make sure the error message
-# refers to the correct label, both in an external repository and not.
-function test_indirect_dep_message() {
-  local external_dir=$TEST_TMPDIR/ext-dir
-  mkdir -p a b $external_dir/x
-  cat > a/A.java <<EOF
-package a;
-
-import x.X;
-
-public class A {
-  public static void main(String args[]) {
-    X.print();
-  }
-}
-EOF
-  cat > a/BUILD <<EOF
-java_binary(
-    name = "a",
-    main_class = "a.A",
-    srcs = ["A.java"],
-    deps = ["//b"],
-)
-EOF
-
-
-  cat > b/B.java <<EOF
-package b;
-
-public class B {
-  public static void print() {
-     System.out.println("B");
-  }
-}
-EOF
-  cat > b/BUILD <<EOF
-java_library(
-    name = "b",
-    srcs = ["B.java"],
-    deps = ["@x_repo//x"],
-    visibility = ["//visibility:public"],
-)
-EOF
-
-  cp -r a b $external_dir
-
-  touch $external_dir/WORKSPACE
-  cat > $external_dir/x/X.java <<EOF
-package x;
-
-public class X {
-  public static void print() {
-    System.out.println("X");
-  }
-}
-EOF
-  cat > $external_dir/x/BUILD <<EOF
-java_library(
-    name = "x",
-    srcs = ["X.java"],
-    visibility = ["//visibility:public"],
-)
-EOF
-
-  cat > WORKSPACE <<EOF
-local_repository(
-    name = "x_repo",
-    path = "$external_dir",
-)
-EOF
-
-  bazel build //a:a >& $TEST_log && fail "Building //a:a should error out"
-  expect_log "** Please add the following dependencies:"
-  expect_log "@x_repo//x  to //a"
-
-  bazel build //a >& $TEST_log && fail "Building //a should error out"
-  expect_log "** Please add the following dependencies:"
-  expect_log "@x_repo//x  to //a"
-}
-
 function test_external_includes() {
   clib=$TEST_TMPDIR/clib
   mkdir -p $clib/include
+  touch $clib/WORKSPACE
   cat > $clib/include/clib.h <<EOF
 int x();
 EOF
@@ -504,6 +425,17 @@ EOF
   bazel fetch //external:my_repo || fail "Fetch failed"
   bazel query 'deps(//external:my_repo)' >& $TEST_log || fail "query failed"
   expect_log "//external:my_repo"
+}
+
+function test_repository_package_query() {
+  mkdir a b b/b
+  echo "local_repository(name='b', path='b')" > WORKSPACE
+  echo "sh_library(name='a', deps=['@b//b'])" > a/BUILD
+  touch b/WORKSPACE
+  echo "sh_library(name='b')" > b/b/BUILD
+  bazel query --output package "deps(//a)" >& $TEST_log || fail "query failed"
+  expect_log "a"
+  expect_log "@b//b"
 }
 
 function test_warning() {
@@ -592,6 +524,7 @@ function test_external_deps_in_remote_repo() {
   local r=$TEST_TMPDIR/r
   rm -fr $r
   mkdir -p $r
+  touch $r/WORKSPACE
   cat > WORKSPACE <<EOF
 local_repository(
     name = "r",
@@ -629,12 +562,7 @@ function test_local_deps() {
   local r=$TEST_TMPDIR/r
   rm -fr $r
   mkdir -p $r
-  cat > WORKSPACE <<EOF
-local_repository(
-    name = "r",
-    path = "$r",
-)
-EOF
+  touch $r/WORKSPACE
 
   mkdir -p $r/a
   cat > $r/a/BUILD <<'EOF'
@@ -657,6 +585,13 @@ genrule(
 )
 EOF
 
+  cat > WORKSPACE <<EOF
+local_repository(
+    name = "r",
+    path = "$r",
+)
+EOF
+
   bazel build @r//a || fail "build failed"
 }
 
@@ -664,13 +599,7 @@ function test_globs() {
   local r=$TEST_TMPDIR/r
   rm -fr $r
   mkdir -p $r
-  cat > WORKSPACE <<EOF
-local_repository(
-    name = "r",
-    path = "$r",
-)
-
-EOF
+  touch $r/WORKSPACE
 
   cat > $r/BUILD <<EOF
 filegroup(
@@ -682,6 +611,14 @@ EOF
   touch $r/a
   mkdir -p $r/b
   touch $r/b/{BUILD,b}
+
+  cat > WORKSPACE <<EOF
+local_repository(
+    name = "r",
+    path = "$r",
+)
+
+EOF
 
   bazel build @r//:fg || fail "build failed"
 }
@@ -790,6 +727,7 @@ function test_visibility_through_bind() {
   rm -fr $r
   mkdir $r
 
+  touch $r/WORKSPACE
   cat > $r/BUILD <<EOF
 genrule(
     name = "public",
@@ -849,6 +787,7 @@ function test_load_in_remote_repository() {
   local r=$TEST_TMPDIR/r
   rm -fr $r
   mkdir -p $r
+  touch $r/WORKSPACE
   cat > $r/BUILD <<EOF
 package(default_visibility=["//visibility:public"])
 load("r", "r_filegroup")
@@ -877,6 +816,7 @@ function test_python_in_remote_repository() {
   local r=$TEST_TMPDIR/r
   rm -fr $r
   mkdir -p $r/bin
+  touch $r/WORKSPACE
   cat > $r/bin/BUILD <<EOF
 package(default_visibility=["//visibility:public"])
 py_binary(name="bin", srcs=["bin.py"], deps=["//lib:lib"])
@@ -913,6 +853,7 @@ function test_package_wildcard_in_remote_repository() {
   local r=$TEST_TMPDIR/r
   rm -fr $r
   mkdir -p $r/a
+  touch $r/WORKSPACE
   touch $r/{x,y,a/g,a/h}
   cat > $r/BUILD <<EOF
 exports_files(["x", "y"])
@@ -937,6 +878,7 @@ function test_recursive_wildcard_in_remote_repository() {
   local r=$TEST_TMPDIR/r
   rm -fr $r
   mkdir -p $r/a/{x,y/z}
+  touch $r/WORKSPACE
   touch $r/a/{x,y/z}/{m,n}
 
   echo 'exports_files(["m", "n"])' > $r/a/x/BUILD
@@ -960,6 +902,7 @@ function test_package_name_constants() {
   local r=$TEST_TMPDIR/r
   rm -fr $r
   mkdir -p $r/a
+  touch $r/WORKSPACE
   cat > $r/a/BUILD <<'EOF'
 genrule(
   name = 'b',
@@ -1118,6 +1061,52 @@ EOF
   bazel build :* || fail "build failed"
 }
 
+function test_local_repository_path_does_not_exist() {
+  rm -rf $TEST_TMPDIR/r
+  cat > WORKSPACE <<EOF
+local_repository(
+    name = "r",
+    path = "$TEST_TMPDIR/r",
+)
+EOF
+  bazel build @r//... &> $TEST_log && fail "Build succeeded unexpectedly"
+  expect_log "must be an existing directory"
+}
+
+# Regression test for #2841.
+function test_local_repository_missing_workspace_file() {
+  local r=$TEST_TMPDIR/r
+  rm -rf $r
+  mkdir -p $r
+  cat > $r/BUILD <<'EOF'
+genrule(
+    name = "orig",
+    cmd = "echo foo > $@",
+    outs = ["orig.out"],
+)
+EOF
+
+  cat > WORKSPACE <<EOF
+local_repository(
+    name = "r",
+    path = "$TEST_TMPDIR/r",
+)
+EOF
+
+  bazel build @r//... &> $TEST_log && fail "Build succeeded unexpectedly"
+  expect_log "No WORKSPACE file found"
+
+  # Create the workspace and verify it now succeeds.
+  touch $r/WORKSPACE
+  bazel build @r//... &> $TEST_log || fail "Build failed unexpectedly"
+  expect_not_log "No WORKSPACE file found"
+
+  # Remove again and verify it fails again.
+  rm -f $r/WORKSPACE
+  bazel build @r//... &> $TEST_log && fail "Build succeeded unexpectedly"
+  expect_log "No WORKSPACE file found"
+}
+
 # Regression test for #1697.
 function test_overwrite_build_file() {
   local r=$TEST_TMPDIR/r
@@ -1126,7 +1115,7 @@ function test_overwrite_build_file() {
   touch $r/WORKSPACE
   cat > $r/BUILD <<'EOF'
 genrule(
-    name = "orig"
+    name = "orig",
     cmd = "echo foo > $@",
     outs = ["orig.out"],
 )

@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.bazel.rules;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -25,6 +24,8 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * Bazel-specific configuration fragment.
@@ -60,26 +61,26 @@ public class BazelConfiguration extends Fragment {
     if (OS.getCurrent() == OS.WINDOWS) {
       String path = System.getenv("BAZEL_SH");
       if (path != null) {
-        return new PathFragment(path);
+        return PathFragment.create(path);
       } else {
-        return new PathFragment("c:/tools/msys64/usr/bin/bash.exe");
+        return PathFragment.create("c:/tools/msys64/usr/bin/bash.exe");
       }
     }
     if (OS.getCurrent() == OS.FREEBSD) {
       String path = System.getenv("BAZEL_SH");
       if (path != null) {
-        return  new PathFragment(path);
+        return  PathFragment.create(path);
       } else {
-        return new PathFragment("/usr/local/bin/bash");
+        return PathFragment.create("/usr/local/bin/bash");
       }
     }
-    return new PathFragment("/bin/bash");
+    return PathFragment.create("/bin/bash");
   }
 
   @Override
-  public void setupShellEnvironment(ImmutableMap.Builder<String, String> builder) {
-    String path = System.getenv("PATH");
-    builder.put("PATH", path == null ? "/bin:/usr/bin" : path);
+  public void setupActionEnvironment(Map<String, String> builder) {
+    // TODO(ulfjack): Avoid using System.getenv; it's the wrong environment!
+    builder.put("PATH", pathOrDefault(System.getenv("PATH"), getShellExecutable()));
 
     String ldLibraryPath = System.getenv("LD_LIBRARY_PATH");
     if (ldLibraryPath != null) {
@@ -90,5 +91,30 @@ public class BazelConfiguration extends Fragment {
     if (tmpdir != null) {
       builder.put("TMPDIR", tmpdir);
     }
+  }
+
+  private static String pathOrDefault(@Nullable String path, @Nullable PathFragment sh) {
+    if (OS.getCurrent() != OS.WINDOWS) {
+      return path == null ? "/bin:/usr/bin" : path;
+    }
+
+    // Attempt to compute the MSYS root (the real Windows path of "/") from `sh`.
+    String newPath = "";
+    if (sh != null && sh.getParentDirectory() != null) {
+      newPath = sh.getParentDirectory().getPathString();
+      if (sh.getParentDirectory().endsWith(PathFragment.create("usr/bin"))) {
+        newPath +=
+            ";" + sh.getParentDirectory().getParentDirectory().replaceName("bin").getPathString();
+      } else if (sh.getParentDirectory().endsWith(PathFragment.create("bin"))) {
+        newPath +=
+            ";" + sh.getParentDirectory().replaceName("usr").getRelative("bin").getPathString();
+      }
+      newPath = newPath.replace('/', '\\');
+
+      if (path != null) {
+        newPath += ";" + path;
+      }
+    }
+    return newPath;
   }
 }

@@ -36,14 +36,14 @@ import javax.tools.StandardJavaFileManager;
 import javax.tools.StandardLocation;
 
 /**
- * Provides a {@link JavaCompiler} that has behavior as similar as possible
- * to the java compiler provided by default by Bazel.
- * Replace calls to {@link javax.tools.ToolProvider#getSystemJavaCompiler}
- * with calls to {@link BazelJavaCompiler#newInstance}.
+ * Provides a {@link JavaCompiler} that has behavior as similar as possible to the java compiler
+ * provided by default by Bazel. Replace calls to {@link
+ * javax.tools.ToolProvider#getSystemJavaCompiler} with calls to {@link
+ * BazelJavaCompiler#newInstance}.
  *
- * <p>This class is typically used only from a host build tool or in tests.
- * When using this in production, langtools.jar and the bootclasspath jars
- * are deployed as separate jar files within the runfiles directory.
+ * <p>This class is typically used only from a host build tool or in tests. When using this in
+ * production, langtools.jar and the bootclasspath jars are deployed as separate jar files within
+ * the runfiles directory.
  */
 public class BazelJavaCompiler {
 
@@ -66,7 +66,8 @@ public class BazelJavaCompiler {
   private static class LangtoolsClassLoader extends URLClassLoader {
 
     public LangtoolsClassLoader() throws MalformedURLException {
-      super(new URL[] { getLangtoolsJar().toURI().toURL() },
+      super(
+          new URL[] {getLangtoolsJar().toURI().toURL()},
           // We use the bootstrap classloader (null) as the parent classloader
           // instead of the default "system" class loader; we intentionally do
           // not consult the classpath. This way the class path is not
@@ -93,9 +94,7 @@ public class BazelJavaCompiler {
         .asSubclass(JavaCompiler.class);
   }
 
-  /**
-   * Returns the langtools jar.
-   */
+  /** Returns the langtools jar. */
   public static File getLangtoolsJar() {
     return JavaLangtools.file();
   }
@@ -106,36 +105,31 @@ public class BazelJavaCompiler {
   }
 
   /**
-   * Returns a new {@link JavaCompiler} that has behavior as similar as
-   * possible to the java compiler provided by default by the bazel build
-   * system, independent of the user-specified {@code JAVABASE}.
+   * Returns a new {@link JavaCompiler} that has behavior as similar as possible to the java
+   * compiler provided by default by the bazel build system, independent of the user-specified
+   * {@code JAVABASE}.
    *
    * <p>More precisely, this method works analogously to {@link
-   * javax.tools.ToolProvider#getSystemJavaCompiler}, but returns a {@code
-   * JavaCompiler} that differs in these details:
+   * javax.tools.ToolProvider#getSystemJavaCompiler}, but returns a {@code JavaCompiler} that
+   * differs in these details:
    *
    * <ul>
-   *
-   * <li> uses the blessed javac implementation: {@code //tools/defaults:java_langtools},
-   * as defined by bazel's --java_langtools flag.
-   *
-   * <li> uses the blessed boot class path: {@code //tools/defaults:javac_bootclasspath},
-   * as defined by bazel's --javac_bootclasspath flag.
-   *
-   * <li> uses the blessed default values for javac options such as {@code -source}
-   *
+   *   <li> uses the blessed javac implementation: {@code //tools/defaults:java_langtools}, as
+   *       defined by bazel's --java_langtools flag.
+   *   <li> uses the blessed boot class path: {@code //tools/defaults:javac_bootclasspath}, as
+   *       defined by bazel's --javac_bootclasspath flag.
+   *   <li> uses the blessed default values for javac options such as {@code -source}
    * </ul>
    *
-   * <p>This class ensures that (by default) the {@code -source}, {@code
-   * -target} and {@code -bootclasspath} flags all agree and specify the same
-   * (blessed) JDK version, for language and API compatibility.
+   * <p>This class ensures that (by default) the {@code -source}, {@code -target} and {@code
+   * -bootclasspath} flags all agree and specify the same (blessed) JDK version, for language and
+   * API compatibility.
    *
-   * <p>This method finds the javac implementation using a custom classloader
-   * that does not consult the user's classpath.  This works well, unless the
-   * return value is cast to a javac-implementation class like {@code
-   * JavacTask}, in which case the dreaded classloader error "can't cast
-   * JavacTaskImpl to JavacTask" raises its ugly head, in which case you should
-   * use {@link #newInstance(ClassLoader)} instead.
+   * <p>This method finds the javac implementation using a custom classloader that does not consult
+   * the user's classpath. This works well, unless the return value is cast to a
+   * javac-implementation class like {@code JavacTask}, in which case the dreaded classloader error
+   * "can't cast JavacTaskImpl to JavacTask" raises its ugly head, in which case you should use
+   * {@link #newInstance(ClassLoader)} instead.
    */
   public static JavaCompiler newInstance() {
     try {
@@ -146,22 +140,20 @@ public class BazelJavaCompiler {
   }
 
   /**
-   * Returns a new {@link JavaCompiler} that has behavior as similar as
-   * possible to the java compiler provided by default by bazel,
-   * independent of the user-specified {@code JAVABASE}.
+   * Returns a new {@link JavaCompiler} that has behavior as similar as possible to the java
+   * compiler provided by default by bazel, independent of the user-specified {@code JAVABASE}.
    *
-   * <p>This method has effect identical to {@link #newInstance()} (and that
-   * method is generally preferred to this one), except that the javac
-   * implementation is found via the provided classloader instead of defining a
-   * custom classloader that knows the standard location of the blessed javac
-   * implementation.
+   * <p>This method has effect identical to {@link #newInstance()} (and that method is generally
+   * preferred to this one), except that the javac implementation is found via the provided
+   * classloader instead of defining a custom classloader that knows the standard location of the
+   * blessed javac implementation.
    *
-   * <p>This method is needed when the return value is cast to a
-   * javac-implementation class like {@code JavacTask}, to avoid the dreaded
-   * multiple classloader error "can't cast JavacTaskImpl to JavacTask".
+   * <p>This method is needed when the return value is cast to a javac-implementation class like
+   * {@code JavacTask}, to avoid the dreaded multiple classloader error "can't cast JavacTaskImpl to
+   * JavacTask".
    *
-   * <p>Typically, users should pass {@code ClassLoader.getSystemClassLoader()}
-   * as the argument to this method.
+   * <p>Typically, users should pass {@code ClassLoader.getSystemClassLoader()} as the argument to
+   * this method.
    */
   public static JavaCompiler newInstance(ClassLoader cl) {
     try {

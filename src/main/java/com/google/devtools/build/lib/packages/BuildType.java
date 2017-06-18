@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -22,12 +23,16 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.License.LicenseParsingException;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SelectorValue;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.Type.DictType;
+import com.google.devtools.build.lib.syntax.Type.LabelClass;
 import com.google.devtools.build.lib.syntax.Type.ListType;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -47,12 +52,17 @@ public final class BuildType {
    * attributes that it's worth treating them specially (and providing support
    * for resolution of relative-labels in the <code>convert()</code> method).
    */
-  public static final Type<Label> LABEL = new LabelType();
+  public static final Type<Label> LABEL = new LabelType(LabelClass.DEPENDENCY);
   /**
    * The type of a dictionary of {@linkplain #LABEL labels}.
    */
   public static final DictType<String, Label> LABEL_DICT_UNARY = DictType.create(
       Type.STRING, LABEL);
+  /**
+   * The type of a dictionary keyed by {@linkplain #LABEL labels} with string values.
+   */
+  public static final DictType<Label, String> LABEL_KEYED_STRING_DICT =
+      LabelKeyedDictType.create(Type.STRING);
   /**
    *  The type of a list of {@linkplain #LABEL labels}.
    */
@@ -62,7 +72,7 @@ public final class BuildType {
    * certain rules want to verify the type of a target referenced by one of their attributes, but
    * if there was a dependency edge there, it would be a circular dependency.
    */
-  public static final Type<Label> NODEP_LABEL = new LabelType();
+  public static final Type<Label> NODEP_LABEL = new LabelType(LabelClass.NONDEP_REFERENCE);
   /**
    *  The type of a list of {@linkplain #NODEP_LABEL labels} that do not cause
    *  dependencies.
@@ -94,7 +104,7 @@ public final class BuildType {
     }
 
     @Override
-    public void visitLabels(LabelVisitor visitor, Object value) {
+    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
     }
 
     @Override
@@ -136,8 +146,7 @@ public final class BuildType {
    * Returns whether the specified type is a label type or not.
    */
   public static boolean isLabelType(Type<?> type) {
-    return type == LABEL || type == LABEL_LIST || type == LABEL_DICT_UNARY
-        || type == NODEP_LABEL || type == NODEP_LABEL_LIST || type == FILESET_ENTRY_LIST;
+    return type.getLabelClass() != LabelClass.NONE;
   }
 
   /**
@@ -182,19 +191,31 @@ public final class BuildType {
     }
 
     @Override
+    public LabelClass getLabelClass() {
+      return LabelClass.FILESET_ENTRY;
+    }
+
+    @Override
     public FilesetEntry getDefaultValue() {
       return null;
     }
 
     @Override
-    public void visitLabels(LabelVisitor visitor, Object value) throws InterruptedException {
+    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context)
+        throws InterruptedException {
       for (Label label : cast(value).getLabels()) {
-        visitor.visit(label);
+        visitor.visit(label, context);
       }
     }
   }
 
   private static class LabelType extends Type<Label> {
+    private final LabelClass labelClass;
+
+    LabelType(LabelClass labelClass) {
+      this.labelClass = labelClass;
+    }
+
     @Override
     public Label cast(Object value) {
       return (Label) value;
@@ -206,13 +227,19 @@ public final class BuildType {
     }
 
     @Override
-    public void visitLabels(LabelVisitor visitor, Object value) throws InterruptedException {
-      visitor.visit(cast(value));
+    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context)
+        throws InterruptedException {
+      visitor.visit(cast(value), context);
     }
 
     @Override
     public String toString() {
       return "label";
+    }
+
+    @Override
+    public LabelClass getLabelClass() {
+      return labelClass;
     }
 
     @Override
@@ -227,6 +254,70 @@ public final class BuildType {
         throw new ConversionException("invalid label '" + x + "' in "
             + what + ": " + e.getMessage());
       }
+    }
+  }
+
+  /**
+   * Dictionary type specialized for label keys, which is able to detect collisions caused by the
+   * fact that labels have multiple equivalent representations in Skylark code.
+   */
+  private static class LabelKeyedDictType<ValueT> extends DictType<Label, ValueT> {
+    private LabelKeyedDictType(Type<ValueT> valueType) {
+      super(LABEL, valueType, LabelClass.DEPENDENCY);
+    }
+
+    public static <ValueT> LabelKeyedDictType<ValueT> create(Type<ValueT> valueType) {
+      Preconditions.checkArgument(
+          valueType.getLabelClass() == LabelClass.NONE
+          || valueType.getLabelClass() == LabelClass.DEPENDENCY,
+          "Values associated with label keys must not be labels themselves.");
+      return new LabelKeyedDictType<>(valueType);
+    }
+
+    @Override
+    public Map<Label, ValueT> convert(Object x, Object what, Object context)
+        throws ConversionException {
+      Map<Label, ValueT> result = super.convert(x, what, context);
+      // The input is known to be a map because super.convert succeded; otherwise, a
+      // ConversionException would have been thrown.
+      Map<?, ?> input = (Map<?, ?>) x;
+
+      if (input.size() == result.size()) {
+        // No collisions found. Exit early.
+        return result;
+      }
+      // Look for collisions in order to produce a nicer error message.
+      Map<Label, List<Object>> convertedFrom = new LinkedHashMap<>();
+      for (Object original : input.keySet()) {
+        Label label = LABEL.convert(original, what, context);
+        if (!convertedFrom.containsKey(label)) {
+          convertedFrom.put(label, new ArrayList<Object>());
+        }
+        convertedFrom.get(label).add(original);
+      }
+      StringBuilder errorMessage = new StringBuilder();
+      errorMessage.append("duplicate labels");
+      if (what != null) {
+        errorMessage.append(" in ").append(what);
+      }
+      errorMessage.append(':');
+      boolean isFirstEntry = true;
+      for (Map.Entry<Label, List<Object>> entry : convertedFrom.entrySet()) {
+        if (entry.getValue().size() == 1) {
+          continue;
+        }
+        if (isFirstEntry) {
+          isFirstEntry = false;
+        } else {
+          errorMessage.append(',');
+        }
+        errorMessage.append(' ');
+        errorMessage.append(entry.getKey());
+        errorMessage.append(" (as ");
+        Printer.write(errorMessage, entry.getValue());
+        errorMessage.append(')');
+      }
+      throw new ConversionException(errorMessage.toString());
     }
   }
 
@@ -257,7 +348,7 @@ public final class BuildType {
     }
 
     @Override
-    public void visitLabels(LabelVisitor visitor, Object value) {
+    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
     }
 
     @Override
@@ -296,7 +387,7 @@ public final class BuildType {
     }
 
     @Override
-    public void visitLabels(LabelVisitor visitor, Object value) {
+    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
     }
 
     @Override
@@ -322,8 +413,14 @@ public final class BuildType {
     }
 
     @Override
-    public void visitLabels(LabelVisitor visitor, Object value) throws InterruptedException {
-      visitor.visit(cast(value));
+    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context)
+        throws InterruptedException {
+      visitor.visit(cast(value), context);
+    }
+
+    @Override
+    public LabelClass getLabelClass() {
+      return LabelClass.OUTPUT;
     }
 
     @Override
@@ -422,6 +519,21 @@ public final class BuildType {
          }
       }
       return keys.build();
+    }
+
+    @Override
+    public String toString() {
+      // Convert to a lib.syntax.SelectorList to guarantee consistency with callers that serialize
+      // directly on that type.
+      List<SelectorValue> selectorValueList = new ArrayList<>();
+      for (Selector<T> element : elements) {
+        selectorValueList.add(new SelectorValue(element.getEntries(), element.getNoMatchError()));
+      }
+      try {
+        return com.google.devtools.build.lib.syntax.SelectorList.of(selectorValueList).toString();
+      } catch (EvalException e) {
+        throw new IllegalStateException("this list should have been validated on creation");
+      }
     }
   }
 
@@ -583,7 +695,7 @@ public final class BuildType {
     }
 
     @Override
-    public void visitLabels(LabelVisitor visitor, Object value) {
+    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
     }
 
     @Override

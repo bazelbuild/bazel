@@ -20,12 +20,10 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.OsUtils;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.File;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -36,56 +34,44 @@ import java.util.Set;
  * handles sandbox output, performs cleanup and changes invocation if necessary.
  */
 final class LinuxSandboxRunner extends SandboxRunner {
-  protected static final String LINUX_SANDBOX = "linux-sandbox" + OsUtils.executableExtension();
+  private static final String LINUX_SANDBOX = "linux-sandbox" + OsUtils.executableExtension();
 
-  private final Path execRoot;
   private final Path sandboxExecRoot;
-  private final Path sandboxTempDir;
-  private final Path argumentsFilePath;
   private final Set<Path> writableDirs;
-  private final Set<Path> inaccessiblePaths;
   private final Set<Path> tmpfsPaths;
   // a <target, source> mapping of paths to bind mount
   private final Map<Path, Path> bindMounts;
   private final boolean sandboxDebug;
 
   LinuxSandboxRunner(
-      Path execRoot,
-      Path sandboxPath,
       Path sandboxExecRoot,
-      Path sandboxTempDir,
       Set<Path> writableDirs,
-      Set<Path> inaccessiblePaths,
       Set<Path> tmpfsPaths,
       Map<Path, Path> bindMounts,
       boolean verboseFailures,
       boolean sandboxDebug) {
-    super(sandboxExecRoot, verboseFailures);
-    this.execRoot = execRoot;
+    super(verboseFailures);
     this.sandboxExecRoot = sandboxExecRoot;
-    this.sandboxTempDir = sandboxTempDir;
-    this.argumentsFilePath = sandboxPath.getRelative("linux-sandbox.params");
     this.writableDirs = writableDirs;
-    this.inaccessiblePaths = inaccessiblePaths;
     this.tmpfsPaths = tmpfsPaths;
     this.bindMounts = bindMounts;
     this.sandboxDebug = sandboxDebug;
   }
 
-  static boolean isSupported(CommandEnvironment commandEnv) {
-    Path execRoot = commandEnv.getExecRoot();
-
-    PathFragment embeddedTool =
-        commandEnv.getBlazeWorkspace().getBinTools().getExecPath(LINUX_SANDBOX);
+  static boolean isSupported(CommandEnvironment cmdEnv) {
+    Path embeddedTool = getLinuxSandbox(cmdEnv);
     if (embeddedTool == null) {
       // The embedded tool does not exist, meaning that we don't support sandboxing (e.g., while
       // bootstrapping).
       return false;
     }
 
+    Path execRoot = cmdEnv.getExecRoot();
+
     List<String> args = new ArrayList<>();
-    args.add(execRoot.getRelative(embeddedTool).getPathString());
-    args.add("-C");
+    args.add(embeddedTool.getPathString());
+    args.add("--");
+    args.add("/bin/true");
 
     ImmutableMap<String, String> env = ImmutableMap.of();
     File cwd = execRoot.getPathFile();
@@ -105,73 +91,74 @@ final class LinuxSandboxRunner extends SandboxRunner {
     return true;
   }
 
-  @Override
-  protected Command getCommand(
-      List<String> spawnArguments, Map<String, String> env, int timeout, boolean allowNetwork)
-      throws IOException {
-    writeConfig(timeout, allowNetwork);
-
-    List<String> commandLineArgs = new ArrayList<>(3 + spawnArguments.size());
-    commandLineArgs.add(execRoot.getRelative("_bin/linux-sandbox").getPathString());
-    commandLineArgs.add("@" + argumentsFilePath.getPathString());
-    commandLineArgs.add("--");
-    commandLineArgs.addAll(spawnArguments);
-    return new Command(commandLineArgs.toArray(new String[0]), env, sandboxExecRoot.getPathFile());
+  private static Path getLinuxSandbox(CommandEnvironment cmdEnv) {
+    PathFragment execPath = cmdEnv.getBlazeWorkspace().getBinTools().getExecPath(LINUX_SANDBOX);
+    return execPath != null ? cmdEnv.getExecRoot().getRelative(execPath) : null;
   }
 
-  private void writeConfig(int timeout, boolean allowNetwork) throws IOException {
-    List<String> fileArgs = new ArrayList<>();
+  @Override
+  protected Command getCommand(
+      CommandEnvironment cmdEnv,
+      List<String> spawnArguments,
+      Map<String, String> env,
+      int timeout,
+      boolean allowNetwork,
+      boolean useFakeHostname,
+      boolean useFakeUsername)
+      throws IOException {
+    List<String> commandLineArgs = new ArrayList<>();
+    commandLineArgs.add(getLinuxSandbox(cmdEnv).getPathString());
 
     if (sandboxDebug) {
-      fileArgs.add("-D");
+      commandLineArgs.add("-D");
     }
-
-    // Temporary directory of the sandbox.
-    fileArgs.add("-S");
-    fileArgs.add(sandboxTempDir.toString());
-
-    // Working directory of the spawn.
-    fileArgs.add("-W");
-    fileArgs.add(sandboxExecRoot.toString());
 
     // Kill the process after a timeout.
     if (timeout != -1) {
-      fileArgs.add("-T");
-      fileArgs.add(Integer.toString(timeout));
+      commandLineArgs.add("-T");
+      commandLineArgs.add(Integer.toString(timeout));
     }
 
     // Create all needed directories.
     for (Path writablePath : writableDirs) {
-      fileArgs.add("-w");
-      fileArgs.add(writablePath.getPathString());
-    }
-
-    for (Path inaccessiblePath : inaccessiblePaths) {
-      fileArgs.add("-i");
-      fileArgs.add(inaccessiblePath.getPathString());
+      commandLineArgs.add("-w");
+      commandLineArgs.add(writablePath.getPathString());
     }
 
     for (Path tmpfsPath : tmpfsPaths) {
-      fileArgs.add("-e");
-      fileArgs.add(tmpfsPath.getPathString());
+      commandLineArgs.add("-e");
+      commandLineArgs.add(tmpfsPath.getPathString());
     }
 
     for (ImmutableMap.Entry<Path, Path> bindMount : bindMounts.entrySet()) {
-      fileArgs.add("-M");
-      fileArgs.add(bindMount.getValue().getPathString());
+      commandLineArgs.add("-M");
+      commandLineArgs.add(bindMount.getValue().getPathString());
 
       // The file is mounted in a custom location inside the sandbox.
       if (!bindMount.getKey().equals(bindMount.getValue())) {
-        fileArgs.add("-m");
-        fileArgs.add(bindMount.getKey().getPathString());
+        commandLineArgs.add("-m");
+        commandLineArgs.add(bindMount.getKey().getPathString());
       }
     }
 
     if (!allowNetwork) {
       // Block network access out of the namespace.
-      fileArgs.add("-N");
+      commandLineArgs.add("-N");
     }
 
-    FileSystemUtils.writeLinesAs(argumentsFilePath, StandardCharsets.ISO_8859_1, fileArgs);
+    if (useFakeHostname) {
+      // Use a fake hostname ("localhost") inside the sandbox.
+      commandLineArgs.add("-H");
+    }
+
+    if (useFakeUsername) {
+      // Use a fake username ("nobody") inside the sandbox.
+      commandLineArgs.add("-U");
+    }
+
+    commandLineArgs.add("--");
+    commandLineArgs.addAll(spawnArguments);
+    return new Command(commandLineArgs.toArray(new String[0]), env, sandboxExecRoot.getPathFile());
   }
+
 }

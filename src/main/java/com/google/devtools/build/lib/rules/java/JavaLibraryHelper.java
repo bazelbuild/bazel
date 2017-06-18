@@ -43,13 +43,15 @@ public final class JavaLibraryHelper {
 
   private Artifact output;
   private final List<Artifact> sourceJars = new ArrayList<>();
+  private final List<Artifact> sourceFiles = new ArrayList<>();
+  private final List<Artifact> resources = new ArrayList<>();
 
   /**
    * Contains all the dependencies; these are treated as both compile-time and runtime dependencies.
    */
   private final List<JavaCompilationArgsProvider> deps = new ArrayList<>();
   private ImmutableList<String> javacOpts = ImmutableList.of();
-
+  private ImmutableList<Artifact> sourcePathEntries = ImmutableList.of();
   private StrictDepsMode strictDepsMode = StrictDepsMode.OFF;
   private JavaClasspathMode classpathMode = JavaClasspathMode.OFF;
 
@@ -84,9 +86,22 @@ public final class JavaLibraryHelper {
     return this.addSourceJars(Arrays.asList(sourceJars));
   }
 
+  public JavaLibraryHelper addResources(Iterable<Artifact> resources) {
+    Iterables.addAll(this.resources, resources);
+    return this;
+  }
+
   public JavaLibraryHelper addDep(JavaCompilationArgsProvider provider) {
     checkNotNull(provider);
     this.deps.add(provider);
+    return this;
+  }
+
+  /**
+   * Adds the given source files to be compiled.
+   */
+  public JavaLibraryHelper addSourceFiles(Iterable<Artifact> sourceFiles) {
+    Iterables.addAll(this.sourceFiles, sourceFiles);
     return this;
   }
 
@@ -101,6 +116,11 @@ public final class JavaLibraryHelper {
    */
   public JavaLibraryHelper setJavacOpts(Iterable<String> javacOpts) {
     this.javacOpts = ImmutableList.copyOf(javacOpts);
+    return this;
+  }
+
+  public JavaLibraryHelper setSourcePathEntries(List<Artifact> sourcepathEntries) {
+    this.sourcePathEntries = ImmutableList.copyOf(sourcepathEntries);
     return this;
   }
 
@@ -131,10 +151,17 @@ public final class JavaLibraryHelper {
     Preconditions.checkState(output != null, "must have an output file; use setOutput()");
     JavaTargetAttributes.Builder attributes = new JavaTargetAttributes.Builder(semantics);
     attributes.addSourceJars(sourceJars);
+    attributes.addSourceFiles(sourceFiles);
     addDepsToAttributes(attributes);
     attributes.setStrictJavaDeps(strictDepsMode);
     attributes.setRuleKind(ruleContext.getRule().getRuleClass());
     attributes.setTargetLabel(ruleContext.getLabel());
+    attributes.setSourcePath(sourcePathEntries);
+
+    for (Artifact resource : resources) {
+      attributes.addResource(
+          JavaHelper.getJavaResourcePath(semantics, ruleContext, resource), resource);
+    }
 
     if (isStrict() && classpathMode != JavaClasspathMode.OFF) {
       JavaCompilationHelper.addDependencyArtifactsToAttributes(

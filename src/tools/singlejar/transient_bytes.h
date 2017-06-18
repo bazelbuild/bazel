@@ -14,6 +14,8 @@
 #ifndef SRC_TOOLS_SINGLEJAR_TRANSIENT_BYTES_H_
 #define SRC_TOOLS_SINGLEJAR_TRANSIENT_BYTES_H_
 
+#define __STDC_FORMAT_MACROS 1
+
 #include <inttypes.h>
 #include <algorithm>
 #include <ostream>

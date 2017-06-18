@@ -97,6 +97,13 @@ public @interface SkylarkSignature {
    */
   Class<?> returnType() default Object.class;
 
+  /**
+   * Fake return type of the function. Used by the documentation generator for documenting
+   * deprecated functions (documentation for this type is generated, even if it's not the real
+   * return type).
+   */
+  Class<?> documentationReturnType() default Object.class;
+
   // TODO(bazel-team): determine this way whether to accept mutable Lists
   // boolean mutableLists() default false;
 

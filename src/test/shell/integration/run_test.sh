@@ -173,10 +173,11 @@ function test_consistent_command_line_encoding {
 
 function test_interrupt_kills_child() {
   mkdir -p foo || fail "mkdir foo failed"
-  rm -f /tmp/sleep-minute-pipe
-  mkfifo /tmp/sleep-minute-pipe || fail "make pipe failed"
+  pipe_file="${TEST_TMPDIR}/sleep-minute-pipe"
+  rm -f "$pipe_file"
+  mkfifo "$pipe_file" || fail "make pipe failed"
   echo 'sh_binary(name = "sleep-minute", srcs = ["sleep-minute.sh"])' > foo/BUILD
-  echo -e "#!/bin/bash\n"'echo $$ >/tmp/sleep-minute-pipe'"\n"'sleep 60' > foo/sleep-minute.sh
+  echo -e "#!/bin/bash\n"'echo $$ >'"${pipe_file}\n"'sleep 60' > foo/sleep-minute.sh
   chmod +x foo/sleep-minute.sh
   # Note that if bazel info is not executed before the actual bazel run, this script would have to
   # be run in "monitor mode" (with the command set -m) for bazel or the server to receive SIGINT.
@@ -186,7 +187,7 @@ function test_interrupt_kills_child() {
   fi
   (bazel run //foo:sleep-minute || true) &
   local sleeppid
-  read sleeppid </tmp/sleep-minute-pipe
+  read sleeppid <"$pipe_file"
   if [ -z $sleeppid ]; then
     fail "${PRODUCT_NAME} run did not invoke shell script"
   fi

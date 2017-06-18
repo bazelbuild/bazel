@@ -17,10 +17,17 @@
 # Script for building bazel from scratch without bazel
 
 PROTO_FILES=$(ls src/main/protobuf/*.proto src/main/java/com/google/devtools/build/lib/buildeventstream/proto/*.proto)
-LIBRARY_JARS=$(find third_party -name '*.jar' | grep -Fv /javac-9-dev-r3297-1.jar | grep -Fv /javac7.jar | grep -Fv JavaBuilder | grep -ve third_party/grpc/grpc.*jar | tr "\n" " ")
-GRPC_JAVA_VERSION=0.15.0
+LIBRARY_JARS=$(find third_party -name '*.jar' | grep -Fv /javac-9-dev-r3297-4.jar | grep -Fv /javac-9-dev-4023-2.jar | grep -Fv /javac7.jar | grep -Fv JavaBuilder | grep -Fv third_party/guava | grep -Fv third_party/guava | grep -ve third_party/grpc/grpc.*jar | tr "\n" " ")
+GRPC_JAVA_VERSION=1.3.0
 GRPC_LIBRARY_JARS=$(find third_party/grpc -name '*.jar' | grep -e .*${GRPC_JAVA_VERSION}.*jar | tr "\n" " ")
-LIBRARY_JARS="${LIBRARY_JARS} ${GRPC_LIBRARY_JARS}"
+# Guava jars are different for JDK 7 build and JDK 8 build, we select the good
+# one based on the name (21.0-{date} for JDK7).
+if [ "${JAVA_VERSION}" = "1.7" ]; then
+  GUAVA_JARS=third_party/guava/guava-*21.0-*.jar
+else
+  GUAVA_JARS=third_party/guava/guava-*21.0.jar
+fi
+LIBRARY_JARS="${LIBRARY_JARS} ${GRPC_LIBRARY_JARS} ${GUAVA_JARS}"
 
 # tl;dr - error_prone_core contains a copy of an older version of guava, so we
 # need to make sure the newer version of guava always appears first on the
@@ -30,8 +37,8 @@ LIBRARY_JARS="${LIBRARY_JARS} ${GRPC_LIBRARY_JARS}"
 LIBRARY_JARS_ARRAY=($LIBRARY_JARS)
 for i in $(seq 0 $((${#LIBRARY_JARS_ARRAY[@]} - 1)))
 do
-  [ "${LIBRARY_JARS_ARRAY[$i]}" = "third_party/error_prone/error_prone_core-2.0.13.jar" ] && ERROR_PRONE_INDEX=$i
-  [ "${LIBRARY_JARS_ARRAY[$i]}" = "third_party/guava/guava-21.0-20161101.jar" ] && GUAVA_INDEX=$i
+  [[ "${LIBRARY_JARS_ARRAY[$i]}" =~ ^"third_party/error_prone/error_prone_core-".*\.jar$ ]] && ERROR_PRONE_INDEX=$i
+  [[ "${LIBRARY_JARS_ARRAY[$i]}" =~ ^"third_party/guava/guava-".*\.jar$ ]] && GUAVA_INDEX=$i
 done
 [ "${ERROR_PRONE_INDEX:+present}" = "present" ] || { echo "no error prone jar"; echo "${LIBRARY_JARS_ARRAY[@]}"; exit 1; }
 [ "${GUAVA_INDEX:+present}" = "present" ] || { echo "no guava jar"; exit 1; }
@@ -45,8 +52,8 @@ fi
 DIRS=$(echo src/{java_tools/singlejar/java/com/google/devtools/build/zip,main/java,tools/xcode-common/java/com/google/devtools/build/xcode/{common,util}} third_party/java/dd_plist/java ${OUTPUT_DIR}/src)
 EXCLUDE_FILES=src/main/java/com/google/devtools/build/lib/server/GrpcServerImpl.java
 
-mkdir -p ${OUTPUT_DIR}/classes
-mkdir -p ${OUTPUT_DIR}/src
+mkdir -p "${OUTPUT_DIR}/classes"
+mkdir -p "${OUTPUT_DIR}/src"
 
 # May be passed in from outside.
 ZIPOPTS="$ZIPOPTS"
@@ -57,38 +64,16 @@ unset _JAVA_OPTIONS
 LDFLAGS=${LDFLAGS:-""}
 
 MSYS_DLLS=""
-PATHSEP=":"
 
-case "${PLATFORM}" in
-linux)
-  # JAVA_HOME must point to a Java installation.
-  JAVA_HOME="${JAVA_HOME:-$(readlink -f $(which javac) | sed 's_/bin/javac__')}"
-  ;;
-
-freebsd)
-  # JAVA_HOME must point to a Java installation.
-  JAVA_HOME="${JAVA_HOME:-/usr/local/openjdk8}"
-  ;;
-
-darwin)
-  if [[ -z "$JAVA_HOME" ]]; then
-    JAVA_HOME="$(/usr/libexec/java_home -v ${JAVA_VERSION}+ 2> /dev/null)" \
-      || fail "Could not find JAVA_HOME, please ensure a JDK (version ${JAVA_VERSION}+) is installed."
-  fi
-  ;;
-
-msys*|mingw*)
-  # Use a simplified platform string.
-  PLATFORM="mingw"
-  PATHSEP=";"
-  # Find the latest available version of the SDK.
-  JAVA_HOME="${JAVA_HOME:-$(ls -d /c/Program\ Files/Java/jdk* | sort | tail -n 1)}"
-esac
-
+function get_minor_java_version() {
+  get_java_version
+  java_minor_version=$(echo $JAVA_VERSION | sed 's/[^.][^.]*\.//' | sed 's/\..*$//')
+  javac_minor_version=$(echo $JAVAC_VERSION | sed 's/[^.][^.]*\.//' | sed 's/\..*$//')
+}
 
 # Check that javac -version returns a upper version than $JAVA_VERSION.
-get_java_version
-[ ${JAVA_VERSION#*.} -le ${JAVAC_VERSION#*.} ] || \
+get_minor_java_version
+[ ${java_minor_version} -le ${javac_minor_version} ] || \
   fail "JDK version (${JAVAC_VERSION}) is lower than ${JAVA_VERSION}, please set \$JAVA_HOME."
 
 JAR="${JAVA_HOME}/bin/jar"
@@ -179,7 +164,7 @@ the protoc compiler (as we prefer not to version generated files).
   compile.sh on the unpacked archive.
 
 The full install instructions to install a release version of bazel can be found
-at https://bazel.build/versions/master/docs/install.html#compiling-from-source
+at https://docs.bazel.build/install-compile-source.html
 For a rationale, why the bootstrap process is organized in this way, see
 https://bazel.build/designs/2016/10/11/distribution-artifact.html
 --------------------------------------------------------------------------------
@@ -287,8 +272,7 @@ chmod 0755 ${ARCHIVE_DIR}/_embedded_binaries/process-wrapper${EXE_EXT}
 function build_jni() {
   local -r output_dir=$1
 
-  case "${PLATFORM}" in
-  msys*|mingw*)
+  if [ "${PLATFORM}" = "windows" ]; then
     # We need JNI on Windows because some filesystem operations are not (and
     # cannot be) implemented in native Java.
     log "Building Windows JNI library..."
@@ -312,18 +296,39 @@ function build_jni() {
     chmod 0555 "$output"
 
     JNI_FLAGS="-Dio.bazel.EnableJni=1 -Djava.library.path=${output_dir}"
-    ;;
-
-  *)
+  else
     # We don't need JNI on other platforms.
     JNI_FLAGS="-Dio.bazel.EnableJni=0"
-    ;;
-  esac
+  fi
+}
+
+# Computes the value of the bazel.windows_unix_root JVM flag.
+# Prints the JVM flag verbatim on Windows, ready to be passed to the JVM.
+# Prints an empty string on other platforms.
+function windows_unix_root_jvm_flag() {
+  if [ "${PLATFORM}" != "windows" ]; then
+    echo ""
+    return
+  fi
+  [ -n "${BAZEL_SH}" ] || fail "\$BAZEL_SH is not defined"
+  if [ "$(basename "$BAZEL_SH")" = "bash.exe" ]; then
+    local result="$(dirname "$BAZEL_SH")"
+    if [ "$(basename "$result")" = "bin" ]; then
+      result="$(dirname "$result")"
+      if [ "$(basename "$result")" = "usr" ]; then
+        result="$(dirname "$result")"
+      fi
+      # Print the JVM flag. Replace backslashes with forward slashes so the JVM
+      # and the shell won't believe that backslashes are escaping characters.
+      echo "-Dbazel.windows_unix_root=${result//\\//}"
+      return
+    fi
+  fi
+  fail "\$BAZEL_SH=${BAZEL_SH}, must end with \"bin\\bash.exe\" or \"usr\\bin\\bash.exe\""
 }
 
 build_jni "${ARCHIVE_DIR}/_embedded_binaries"
 
-cp src/main/tools/build_interface_so ${ARCHIVE_DIR}/_embedded_binaries/build_interface_so
 cp src/main/tools/jdk.BUILD ${ARCHIVE_DIR}/_embedded_binaries/jdk.BUILD
 cp $OUTPUT_DIR/libblaze.jar ${ARCHIVE_DIR}
 
@@ -335,12 +340,33 @@ else
   cp tools/osx/xcode_locator_stub.sh ${ARCHIVE_DIR}/_embedded_binaries/xcode-locator
 fi
 
+function get_cwd() {
+  local result=${PWD}
+  [ "$PLATFORM" = "windows" ] && result="$(cygpath -m "$result")"
+  echo "$result"
+}
+
 function run_bazel_jar() {
   local command=$1
   shift
+  local client_env=()
+  # Propagate all environment variables to bootstrapped Bazel.
+  # See https://stackoverflow.com/questions/41898503/loop-over-environment-variables-in-posix-sh
+  local env_vars="$(awk 'END { for (name in ENVIRON) { if(name != "_" && name ~ /^[A-Za-z0-9_]*$/) print name; } }' </dev/null)"
+  for varname in $env_vars; do
+    eval value=\$$varname
+    if [ "${PLATFORM}" = "windows" ] && echo "$varname" | grep -q -i "^\(path\|tmp\|temp\|tempdir\|systemroot\)$" ; then
+      varname="$(echo "$varname" | tr [:lower:] [:upper:])"
+    fi
+    if [ "${value}" ]; then
+      client_env=("${client_env[@]}" --client_env="${varname}=${value}")
+    fi
+  done
+
   "${JAVA_HOME}/bin/java" \
       -XX:+HeapDumpOnOutOfMemoryError -Xverify:none -Dfile.encoding=ISO-8859-1 \
       -XX:HeapDumpPath=${OUTPUT_DIR} \
+      $(windows_unix_root_jvm_flag) \
       -Djava.util.logging.config.file=${OUTPUT_DIR}/javalog.properties \
       ${JNI_FLAGS} \
       -jar ${ARCHIVE_DIR}/libblaze.jar \
@@ -348,7 +374,7 @@ function run_bazel_jar() {
       --install_base=${ARCHIVE_DIR} \
       --output_base=${OUTPUT_DIR}/out \
       --install_md5= \
-      --workspace_directory=${PWD} \
+      --workspace_directory="$(get_cwd)" \
       --nofatal_event_bus_exceptions \
       ${BAZEL_DIR_STARTUP_OPTIONS} \
       ${BAZEL_BOOTSTRAP_STARTUP_OPTIONS:-} \
@@ -356,7 +382,7 @@ function run_bazel_jar() {
       --ignore_unsupported_sandboxing \
       --startup_time=329 --extract_data_time=523 \
       --rc_source=/dev/null --isatty=1 \
-      --ignore_client_env \
-      --client_cwd=${PWD} \
+      "${client_env[@]}" \
+      --client_cwd="$(get_cwd)" \
       "${@}"
 }

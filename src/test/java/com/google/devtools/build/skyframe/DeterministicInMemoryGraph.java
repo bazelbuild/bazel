@@ -72,4 +72,9 @@ class DeterministicInMemoryGraph extends DeterministicHelper.DeterministicProces
   public Map<SkyKey, ? extends NodeEntry> getAllValues() {
     return ((InMemoryGraph) delegate).getAllValues();
   }
+
+  @Override
+  public Map<SkyKey, ? extends NodeEntry> getAllValuesMutable() {
+    return ((InMemoryGraph) delegate).getAllValuesMutable();
+  }
 }

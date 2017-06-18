@@ -19,6 +19,7 @@ import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -44,7 +45,6 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.Before;
@@ -105,11 +105,6 @@ public class PopulateTreeArtifactActionTest extends BuildViewTestCase {
     @Override
     public boolean artifactOmitted(Artifact artifact) {
       throw new UnsupportedOperationException(artifact.prettyPrint());
-    }
-
-    @Override
-    public boolean isInjected(Artifact file) throws IOException {
-      throw new UnsupportedOperationException(file.prettyPrint());
     }
 
     @Override
@@ -256,6 +251,13 @@ public class PopulateTreeArtifactActionTest extends BuildViewTestCase {
     }
   }
 
+  private enum KeyAttributes {
+    ARCHIVE,
+    TREE_ARTIFACT,
+    ARCHIVE_MANIFEST,
+    ZIPPER
+  }
+
   @Test
   public void testComputeKey() throws Exception {
     final Artifact archiveA = getSourceArtifact("myArchiveA.zip");
@@ -269,23 +271,32 @@ public class PopulateTreeArtifactActionTest extends BuildViewTestCase {
     final FilesToRunProvider zipperB = FilesToRunProvider.fromSingleExecutableArtifact(
         getSourceArtifact("unzipBinaryB"));
 
-    ActionTester.runTest(16, new ActionCombinationFactory() {
-      @Override
-      public Action generate(int i) {
-        Artifact archive = (i & 1) == 0 ? archiveA : archiveB;
-        Artifact treeArtifactToPopulate = (i & 2) == 0
-            ? treeArtifactToPopulateA : treeArtifactToPopulateB;
-        Artifact archiveManifest = (i & 4) == 0 ? archiveManifestA : archiveManifestB;
-        FilesToRunProvider zipper = (i & 8) == 0 ? zipperA : zipperB;
+    ActionTester.runTest(
+        KeyAttributes.class,
+        new ActionCombinationFactory<KeyAttributes>() {
+          @Override
+          public Action generate(ImmutableSet<KeyAttributes> attributesToFlip) {
+            Artifact archive =
+                attributesToFlip.contains(KeyAttributes.ARCHIVE) ? archiveA : archiveB;
+            Artifact treeArtifactToPopulate =
+                attributesToFlip.contains(KeyAttributes.TREE_ARTIFACT)
+                    ? treeArtifactToPopulateA
+                    : treeArtifactToPopulateB;
+            Artifact archiveManifest =
+                attributesToFlip.contains(KeyAttributes.ARCHIVE_MANIFEST)
+                    ? archiveManifestA
+                    : archiveManifestB;
+            FilesToRunProvider zipper =
+                attributesToFlip.contains(KeyAttributes.ZIPPER) ? zipperA : zipperB;
 
-        return new PopulateTreeArtifactAction(
-            ActionsTestUtil.NULL_ACTION_OWNER,
-            archive,
-            archiveManifest,
-            treeArtifactToPopulate,
-            zipper);
-      }
-    });
+            return new PopulateTreeArtifactAction(
+                ActionsTestUtil.NULL_ACTION_OWNER,
+                archive,
+                archiveManifest,
+                treeArtifactToPopulate,
+                zipper);
+          }
+        });
   }
 
   private PopulateTreeArtifactAction createPopulateTreeArtifactAction() throws Exception {
@@ -325,7 +336,7 @@ public class PopulateTreeArtifactActionTest extends BuildViewTestCase {
   }
 
   private Artifact createTreeArtifact(String rootRelativePath) {
-    PathFragment relpath = new PathFragment(rootRelativePath);
+    PathFragment relpath = PathFragment.create(rootRelativePath);
     return new SpecialArtifact(
         root.getPath().getRelative(relpath),
         root,

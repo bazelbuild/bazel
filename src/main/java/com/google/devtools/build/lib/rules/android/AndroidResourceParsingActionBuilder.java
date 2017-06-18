@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
@@ -31,10 +32,8 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Builder for creating $android_resource_parser action.
- */
-class AndroidResourceParsingActionBuilder {
+/** Builder for creating $android_resource_parser action. */
+public class AndroidResourceParsingActionBuilder {
 
   private static final ResourceContainerToArtifacts RESOURCE_CONTAINER_TO_ARTIFACTS =
       new ResourceContainerToArtifacts();
@@ -45,6 +44,8 @@ class AndroidResourceParsingActionBuilder {
   private final RuleContext ruleContext;
   private LocalResourceContainer primary;
   private Artifact output;
+
+  private ResourceContainer resourceContainer;
 
   /**
    * @param ruleContext The RuleContext that was used to create the SpawnAction.Builder.
@@ -66,6 +67,12 @@ class AndroidResourceParsingActionBuilder {
    */
   public AndroidResourceParsingActionBuilder setOutput(Artifact output) {
     this.output = output;
+    return this;
+  }
+
+  /** Set the primary resources. */
+  public AndroidResourceParsingActionBuilder withPrimary(ResourceContainer resourceContainer) {
+    this.resourceContainer = resourceContainer;
     return this;
   }
 
@@ -103,13 +110,18 @@ class AndroidResourceParsingActionBuilder {
     return Joiner.on("#").join(Iterables.transform(roots, Functions.toStringFunction()));
   }
 
-  public Artifact build(ActionConstructionContext context) {
+  public ResourceContainer build(ActionConstructionContext context) {
     CustomCommandLine.Builder builder = new CustomCommandLine.Builder();
+    
+    // Set the busybox tool.
+    builder.add("--tool").add("PARSE").add("--");
 
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.naiveLinkOrder();
-    inputs.addAll(ruleContext.getExecutablePrerequisite("$android_resource_parser", Mode.HOST)
-        .getRunfilesSupport()
-        .getRunfilesArtifactsWithoutMiddlemen());
+    inputs.addAll(
+        ruleContext
+            .getExecutablePrerequisite("$android_resources_busybox", Mode.HOST)
+            .getRunfilesSupport()
+            .getRunfilesArtifactsWithoutMiddlemen());
 
     Preconditions.checkNotNull(primary);
     builder.add("--primaryData").add(RESOURCE_CONTAINER_TO_ARG.apply(primary));
@@ -124,14 +136,16 @@ class AndroidResourceParsingActionBuilder {
     // Create the spawn action.
     ruleContext.registerAction(
         spawnActionBuilder
+            .useParameterFile(ParameterFileType.UNQUOTED)
             .addTransitiveInputs(inputs.build())
             .addOutputs(ImmutableList.copyOf(outs))
             .setCommandLine(builder.build())
             .setExecutable(
-                ruleContext.getExecutablePrerequisite("$android_resource_parser", Mode.HOST))
+                ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
             .setProgressMessage("Parsing Android resources for " + ruleContext.getLabel())
             .setMnemonic("AndroidResourceParser")
             .build(context));
-    return output;
+    
+    return resourceContainer.toBuilder().setSymbols(output).build();
   }
 }

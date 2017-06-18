@@ -107,6 +107,11 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
     this.runfiles = runfiles;
   }
 
+  /** The {@link Runfiles} for which this action creates the symlink tree. */
+  public Runfiles getGeneratedRunfiles() {
+    return runfiles;
+  }
+
   @VisibleForTesting
   public void writeOutputFile(OutputStream out, EventHandler eventHandler)
       throws IOException {

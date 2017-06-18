@@ -159,6 +159,9 @@ function create_artifact() {
   local artifact_id=$2
   local version=$3
   local packaging=${4:-jar}
+  # TODO(davido): This is unused for now.
+  # Finalize the implementation once the underlying tests are fixed.
+  local classifier=${5:-jar}
   if [ $packaging == "aar" ]; then
     make_test_aar
     local artifact=$test_aar

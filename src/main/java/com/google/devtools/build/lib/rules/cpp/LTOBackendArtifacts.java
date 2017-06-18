@@ -106,13 +106,18 @@ public final class LTOBackendArtifacts {
   }
 
   public void scheduleLTOBackendAction(
-      RuleContext ruleContext, FeatureConfiguration featureConfiguration, boolean usePic) {
+      RuleContext ruleContext,
+      FeatureConfiguration featureConfiguration,
+      CcToolchainProvider ccToolchain,
+      FdoSupportProvider fdoSupport,
+      boolean usePic,
+      boolean generateDwo) {
     LTOBackendAction.Builder builder = new LTOBackendAction.Builder();
     builder.addImportsInfo(bitcodeFiles, imports);
 
     builder.addInput(bitcodeFile);
     builder.addInput(index);
-    builder.addTransitiveInputs(CppHelper.getToolchain(ruleContext).getCompile());
+    builder.addTransitiveInputs(ccToolchain.getCompile());
 
     builder.addOutput(objectFile);
 
@@ -134,13 +139,30 @@ public final class LTOBackendArtifacts {
     // The input to the LTO backend step is the bitcode file.
     buildVariablesBuilder.addStringVariable(
         "thinlto_input_bitcode_file", bitcodeFile.getExecPath().toString());
+    Artifact autoFdoProfile = fdoSupport.getFdoSupport().buildProfileForLtoBackend(
+        fdoSupport, featureConfiguration, buildVariablesBuilder, ruleContext);
+    if (autoFdoProfile != null) {
+      builder.addInput(autoFdoProfile);
+    }
+
+    if (generateDwo) {
+      Artifact dwoFile = ruleContext.getRelatedArtifact(objectFile.getRootRelativePath(), ".dwo");
+      builder.addOutput(dwoFile);
+      buildVariablesBuilder.addStringVariable(
+          "per_object_debug_info_file", dwoFile.getExecPathString());
+    }
+
     Variables buildVariables = buildVariablesBuilder.build();
     List<String> execArgs = new ArrayList<>();
     execArgs.addAll(featureConfiguration.getCommandLine("lto-backend", buildVariables));
+    execArgs.addAll(commandLine);
+    // If this is a PIC compile (set based on the CppConfiguration), the PIC
+    // option should be added after the rest of the command line so that it
+    // cannot be overridden. This is consistent with the ordering in the
+    // CppCompileAction's compiler options.
     if (usePic) {
       execArgs.add("-fPIC");
     }
-    execArgs.addAll(commandLine);
     builder.addExecutableArguments(execArgs);
 
     ruleContext.registerAction(builder.build(ruleContext));

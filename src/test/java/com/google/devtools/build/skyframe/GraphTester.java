@@ -15,6 +15,7 @@ package com.google.devtools.build.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -23,13 +24,11 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
-
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -158,7 +157,7 @@ public class GraphTester {
   }
 
   public static SkyKey skyKey(String key) {
-    return SkyKey.create(NODE_TYPE, key);
+    return LegacySkyKey.create(NODE_TYPE, key);
   }
 
   /**
@@ -263,16 +262,16 @@ public class GraphTester {
 
   }
 
-  public static SkyKey[] toSkyKeys(String... names) {
-    SkyKey[] result = new SkyKey[names.length];
+  public static ImmutableList<SkyKey> toSkyKeys(String... names) {
+    ImmutableList.Builder<SkyKey> result = ImmutableList.builder();
     for (int i = 0; i < names.length; i++) {
-      result[i] = SkyKey.create(GraphTester.NODE_TYPE, names[i]);
+      result.add(LegacySkyKey.create(GraphTester.NODE_TYPE, names[i]));
     }
-    return result;
+    return result.build();
   }
 
   public static SkyKey toSkyKey(String name) {
-    return toSkyKeys(name)[0];
+    return toSkyKeys(name).get(0);
   }
 
   private class DelegatingFunction implements SkyFunction {

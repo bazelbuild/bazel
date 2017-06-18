@@ -13,9 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -111,25 +109,26 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
   @Test
   public void testNoContainingPackage() throws Exception {
     ContainingPackageLookupValue value = lookupContainingPackage("a/b");
-    assertFalse(value.hasContainingPackage());
+    assertThat(value.hasContainingPackage()).isFalse();
   }
 
   @Test
   public void testContainingPackageIsParent() throws Exception {
     scratch.file("a/BUILD");
     ContainingPackageLookupValue value = lookupContainingPackage("a/b");
-    assertTrue(value.hasContainingPackage());
-    assertEquals(PackageIdentifier.createInMainRepo("a"), value.getContainingPackageName());
-    assertEquals(rootDirectory, value.getContainingPackageRoot());
+    assertThat(value.hasContainingPackage()).isTrue();
+    assertThat(value.getContainingPackageName()).isEqualTo(PackageIdentifier.createInMainRepo("a"));
+    assertThat(value.getContainingPackageRoot()).isEqualTo(rootDirectory);
   }
 
   @Test
   public void testContainingPackageIsSelf() throws Exception {
     scratch.file("a/b/BUILD");
     ContainingPackageLookupValue value = lookupContainingPackage("a/b");
-    assertTrue(value.hasContainingPackage());
-    assertEquals(PackageIdentifier.createInMainRepo("a/b"), value.getContainingPackageName());
-    assertEquals(rootDirectory, value.getContainingPackageRoot());
+    assertThat(value.hasContainingPackage()).isTrue();
+    assertThat(value.getContainingPackageName())
+        .isEqualTo(PackageIdentifier.createInMainRepo("a/b"));
+    assertThat(value.getContainingPackageRoot()).isEqualTo(rootDirectory);
   }
 
   @Test

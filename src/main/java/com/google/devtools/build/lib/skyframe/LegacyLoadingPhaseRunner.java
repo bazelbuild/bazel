@@ -16,13 +16,12 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.DelegatingEventHandler;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -74,19 +73,22 @@ import javax.annotation.Nullable;
 public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
 
   private static final class ParseFailureListenerImpl extends DelegatingEventHandler
-      implements ParseFailureListener {
-    private final EventBus eventBus;
+      implements ParseFailureListener, ExtendedEventHandler {
+    private final ExtendedEventHandler eventHandler;
 
-    private ParseFailureListenerImpl(EventHandler delegate, EventBus eventBus) {
+    private ParseFailureListenerImpl(ExtendedEventHandler delegate) {
       super(delegate);
-      this.eventBus = eventBus;
+      this.eventHandler = delegate;
     }
 
     @Override
     public void parsingError(String targetPattern, String message) {
-      if (eventBus != null) {
-        eventBus.post(new ParsingFailedEvent(targetPattern, message));
-      }
+      eventHandler.post(new ParsingFailedEvent(targetPattern, message));
+    }
+
+    @Override
+    public void post(ExtendedEventHandler.Postable obj) {
+      eventHandler.post(obj);
     }
   }
 
@@ -109,8 +111,7 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
    */
   @Override
   public LoadingResult execute(
-      EventHandler eventHandler,
-      EventBus eventBus,
+      ExtendedEventHandler eventHandler,
       List<String> targetPatterns,
       PathFragment relativeWorkingDirectory,
       LoadingOptions options,
@@ -127,12 +128,13 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
     }
 
     targetPatternEvaluator.updateOffset(relativeWorkingDirectory);
-    EventHandler parseFailureListener = new ParseFailureListenerImpl(eventHandler, eventBus);
+    ExtendedEventHandler parseFailureListener =
+        new ParseFailureListenerImpl(eventHandler);
     // Determine targets to build:
     ResolvedTargets<Target> targets =
         getTargetsToBuild(
             parseFailureListener, targetPatterns, options.compileOneDependency,
-            options.buildTagFilterList, keepGoing);
+            options.buildTagFilterList, options.buildManualTests, keepGoing);
 
     ImmutableSet<Target> filteredTargets = targets.getFilteredTargets();
 
@@ -226,7 +228,7 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
             getWorkspaceName(eventHandler));
 
     // This is the same code as SkyframeLoadingPhaseRunner.
-    eventBus.post(
+    eventHandler.post(
         new TargetParsingCompleteEvent(
             patternParsingValue.getOriginalTargets(),
             patternParsingValue.getFilteredTargets(),
@@ -237,7 +239,7 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
     if (callback != null) {
       callback.notifyTargets(patternParsingValue.getTargets());
     }
-    eventBus.post(
+    eventHandler.post(
         new LoadingPhaseCompleteEvent(
             patternParsingValue.getTargets(),
             patternParsingValue.getTestSuiteTargets(),
@@ -248,7 +250,7 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
   }
 
   private ResolvedTargets<Target> expandTestSuites(
-      EventHandler eventHandler, ImmutableSet<Target> targets, boolean keepGoing)
+      ExtendedEventHandler eventHandler, ImmutableSet<Target> targets, boolean keepGoing)
       throws LoadingFailedException, TargetParsingException {
     // We use strict test_suite expansion here to match the analysis-time checks.
     ResolvedTargets<Target> expandedResult =
@@ -266,18 +268,20 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
    * @param targetPatterns the list of command-line target patterns specified by the user
    * @param compileOneDependency if true, enables alternative interpretation of targetPatterns; see
    *     {@link LoadingOptions#compileOneDependency}
+   * @param buildManualTests
    * @throws TargetParsingException if parsing failed and !keepGoing
    */
   private ResolvedTargets<Target> getTargetsToBuild(
-      EventHandler eventHandler,
+      ExtendedEventHandler eventHandler,
       List<String> targetPatterns,
       boolean compileOneDependency,
       List<String> buildTagFilterList,
-      boolean keepGoing)
-          throws TargetParsingException, InterruptedException {
+      boolean buildManualTests, boolean keepGoing)
+      throws TargetParsingException, InterruptedException {
     ResolvedTargets<Target> evaluated =
         targetPatternEvaluator.parseTargetPatternList(eventHandler, targetPatterns,
-            FilteringPolicies.FILTER_MANUAL, keepGoing);
+            buildManualTests ? FilteringPolicies.NO_FILTER : FilteringPolicies.FILTER_MANUAL,
+            keepGoing);
 
     ResolvedTargets<Target> result = ResolvedTargets.<Target>builder()
         .merge(evaluated)
@@ -302,7 +306,7 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
    * @param keepGoing value of the --keep_going flag
    */
   private ResolvedTargets<Target> determineTests(
-      EventHandler eventHandler,
+      ExtendedEventHandler eventHandler,
       List<String> targetPatterns,
       LoadingOptions options,
       boolean keepGoing)
@@ -318,7 +322,7 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
     return finalBuilder.build();
   }
 
-  private String getWorkspaceName(EventHandler eventHandler)
+  private String getWorkspaceName(ExtendedEventHandler eventHandler)
       throws InterruptedException, LoadingFailedException {
     try {
       return packageManager

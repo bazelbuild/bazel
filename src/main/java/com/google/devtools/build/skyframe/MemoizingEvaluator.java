@@ -18,7 +18,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import java.io.PrintStream;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -49,8 +49,8 @@ public interface MemoizingEvaluator {
       Version version,
       boolean keepGoing,
       int numThreads,
-      EventHandler reporter)
-          throws InterruptedException;
+      ExtendedEventHandler reporter)
+      throws InterruptedException;
 
   /**
    * Ensures that after the next completed {@link #evaluate} call the current values of any value
@@ -89,6 +89,13 @@ public interface MemoizingEvaluator {
   // and getExistingErrorForTesting with usages of WalkableGraph. Changing the getValues usages
   // require some care because getValues gives access to the previous value for changed/dirty nodes.
   Map<SkyKey, SkyValue> getValues();
+
+  /**
+   * Returns the node entries in the graph. Should only be called between evaluations. The returned
+   * map is mutable, but do not mutate it unless you know what you are doing! Naively deleting an
+   * entry will break graph invariants and cause a crash.
+   */
+  Map<SkyKey, ? extends NodeEntry> getGraphMap();
 
   /**
    * Returns the done (without error) values in the graph.

@@ -19,10 +19,9 @@ package com.google.devtools.build.lib.packages;
  * of a rule.
  *
  * <p>When a class or a method needs only this functionality but not the whole
- * {@code RuleConfiguredTarget}, it can use this thin interface instead.
+ * {@code RuleContext}, it can use this thin interface instead.
  *
- * <p>This interface should only be implemented by {@code RuleConfiguredTarget}
- * and its subclasses.
+ * <p>This interface should only be implemented by {@code RuleContext}.
  */
 public interface RuleErrorConsumer {
   /**

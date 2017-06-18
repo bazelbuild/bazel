@@ -4,6 +4,13 @@ package(
     default_visibility = ["//visibility:public"],
 )
 
+WIN_LINK_OPTS = [
+    "-Wl,advapi32.lib",  # GetUserNameW
+    "-Wl,ole32.lib",  # CoTaskMemFree
+    "-Wl,shell32.lib",  # SHGetKnownFolderPath
+    "-Wl,ws2_32.lib",  # grpc
+]
+
 cc_library(
     name = "blaze_util",
     srcs = [
@@ -24,6 +31,9 @@ cc_library(
             "blaze_util_posix.cc",
         ],
         "//src:windows": [
+            "blaze_util_windows.cc",
+        ],
+        "//src:windows_msys": [
             "blaze_util_windows.cc",
         ],
         "//src:windows_msvc": [
@@ -47,10 +57,8 @@ cc_library(
         ],
         "//src:freebsd": [
         ],
-        "//src:windows_msvc": [
-            "-Wl,advapi32.lib",  # GetUserNameW
-            "-Wl,ws2_32.lib",  # grpc
-        ],
+        "//src:windows": WIN_LINK_OPTS,
+        "//src:windows_msvc": WIN_LINK_OPTS,
         "//conditions:default": [
             "-lrt",
         ],
@@ -58,7 +66,12 @@ cc_library(
     deps = [
         "//src/main/cpp/util",
         "//src/main/cpp/util:blaze_exit_code",
-    ],
+    ] + select({
+        "//src:windows": ["//src/main/native:windows_jni_lib"],
+        "//src:windows_msys": ["//src/main/native:windows_jni_lib"],
+        "//src:windows_msvc": ["//src/main/native:windows_jni_lib"],
+        "//conditions:default": [],
+    }),
 )
 
 cc_binary(
@@ -99,6 +112,7 @@ cc_binary(
     deps = [
         ":blaze_util",
         "//src/main/cpp/util",
+        "//src/main/cpp/util:errors",
         "//src/main/cpp/util:logging",
         "//src/main/cpp/util:strings",
         "//src/main/protobuf:command_server_cc_proto",

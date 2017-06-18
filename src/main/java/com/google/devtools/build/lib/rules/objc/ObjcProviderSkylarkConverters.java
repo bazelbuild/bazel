@@ -24,8 +24,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -94,7 +94,7 @@ public class ObjcProviderSkylarkConverters {
     @Override
     public Iterable<?> valueForJava(Key<?> javaKey, Object skylarkValue) {
       validateTypes(skylarkValue, javaKey.getType(), javaKey.getSkylarkKeyName());
-      return (SkylarkNestedSet) skylarkValue;
+      return ((SkylarkNestedSet) skylarkValue).toCollection();
     }
   }
 
@@ -118,8 +118,8 @@ public class ObjcProviderSkylarkConverters {
     public Iterable<?> valueForJava(Key<?> javaKey, Object skylarkValue) {
       validateTypes(skylarkValue, String.class, javaKey.getSkylarkKeyName());
       NestedSetBuilder<PathFragment> result = NestedSetBuilder.stableOrder();
-      for (String path : (Iterable<String>) skylarkValue) {
-        result.add(new PathFragment(path));
+      for (String path : ((SkylarkNestedSet) skylarkValue).toCollection(String.class)) {
+        result.add(PathFragment.create(path));
       }
       return result.build();
     }
@@ -145,7 +145,7 @@ public class ObjcProviderSkylarkConverters {
     public Iterable<?> valueForJava(Key<?> javaKey, Object skylarkValue) {
       validateTypes(skylarkValue, String.class, javaKey.getSkylarkKeyName());
       NestedSetBuilder<SdkFramework> result = NestedSetBuilder.stableOrder();
-      for (String path : (Iterable<String>) skylarkValue) {
+      for (String path : ((SkylarkNestedSet) skylarkValue).toCollection(String.class)) {
         result.add(new SdkFramework(path));
       }
       return result.build();
@@ -162,7 +162,7 @@ public class ObjcProviderSkylarkConverters {
     public Object valueForSkylark(Key<?> javaKey, NestedSet<?> javaValue) {
       NestedSetBuilder<SkylarkClassObject> result = NestedSetBuilder.stableOrder();
       for (BundleableFile bundleableFile : (Iterable<BundleableFile>) javaValue) {
-        result.add(SkylarkClassObjectConstructor.STRUCT.create(
+        result.add(NativeClassObjectConstructor.STRUCT.create(
             ImmutableMap.<String, Object>of(
                 BUNDLED_FIELD, bundleableFile.getBundled(),
                 BUNDLE_PATH_FIELD, bundleableFile.getBundlePath()
@@ -178,7 +178,8 @@ public class ObjcProviderSkylarkConverters {
     public Iterable<?> valueForJava(Key<?> javaKey, Object skylarkValue) {
       validateTypes(skylarkValue, SkylarkClassObject.class, javaKey.getSkylarkKeyName());
       NestedSetBuilder<BundleableFile> result = NestedSetBuilder.stableOrder();
-      for (SkylarkClassObject struct : (Iterable<SkylarkClassObject>) skylarkValue) {
+      for (SkylarkClassObject struct :
+          ((SkylarkNestedSet) skylarkValue).toCollection(SkylarkClassObject.class)) {
         Artifact artifact;
         String path;
         try {

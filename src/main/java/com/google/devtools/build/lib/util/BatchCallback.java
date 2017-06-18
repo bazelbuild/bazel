@@ -13,11 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+
 /**
  * Callback to be invoked when part of a result has been computed. Allows a client interested in
  * the result to process it as it is computed, for instance by streaming it, if it is too big to
  * fit in memory.
  */
+@ThreadSafe
 public interface BatchCallback<T, E extends Exception> {
   /**
    * Called when part of a result has been computed.

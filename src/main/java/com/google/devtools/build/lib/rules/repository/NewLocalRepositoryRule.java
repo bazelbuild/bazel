@@ -54,6 +54,22 @@ public class NewLocalRepositoryRule implements RuleDefinition {
         <p>Either build_file or build_file_content must be specified.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("build_file_content", STRING))
+        /* <!-- #BLAZE_RULE(new_http_archive).ATTRIBUTE(workspace_file) -->
+        The file to use as the WORKSPACE file for this repository.
+
+         <p>Either workspace_file or workspace_file_content can be specified, but not both.</p>
+
+         <p>This attribute is a label relative to the main workspace. The file does not need to be
+        named WORKSPACE, but can be (something like WORKSPACE.new-repo-name may work well for
+        distinguishing it from the repository's actual WORKSPACE files.</p>
+         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("workspace_file", STRING))
+        /* <!-- #BLAZE_RULE(new_http_archive).ATTRIBUTE(workspace_file_content) -->
+        The content for the WORKSPACE file for this repository.
+
+         <p>Either workspace_file or workspace_file_content can be specified, but not both.</p>
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("workspace_file_content", STRING))
         .setWorkspaceOnly()
         .build();
   }

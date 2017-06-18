@@ -14,14 +14,26 @@
 #ifndef BAZEL_SRC_MAIN_CPP_UTIL_FILE_H_
 #define BAZEL_SRC_MAIN_CPP_UTIL_FILE_H_
 
-#include <functional>
 #include <string>
 #include <vector>
+
+#include "src/main/cpp/util/file_platform.h"
 
 namespace blaze_util {
 
 class IPipe {
  public:
+  // Error modes of the pipe.
+  //
+  // This is a platform-independent abstraction of `errno`. If you need to
+  // handle an errno value, add an entry here and update the platform-specific
+  // pipe implementations accordingly.
+  enum Errors {
+    SUCCESS = 0,
+    OTHER_ERROR = 1,
+    INTERRUPTED = 2,  // EINTR
+  };
+
   virtual ~IPipe() {}
 
   // Sends `size` bytes from `buffer` through the pipe.
@@ -29,35 +41,27 @@ class IPipe {
   virtual bool Send(const void *buffer, int size) = 0;
 
   // Receives at most `size` bytes into `buffer` from the pipe.
-  // Returns the number of bytes received; sets `errno` upon error.
-  // If `size` is negative, returns -1.
-  virtual int Receive(void *buffer, int size) = 0;
+  // Returns the number of bytes received.
+  // If `size` is negative or if there's an error, then returns -1, and if
+  // `error` isn't NULL then sets its value to one of the `Errors`.
+  virtual int Receive(void *buffer, int size, int *error) = 0;
 };
 
-// Returns a normalized form of the input `path`.
-// Normalization means removing "." references, resolving ".." references, and
-// deduplicating "/" characters.
-// For example if `path` is "foo/../bar/.//qux", the result is "bar/qux".
-// Uplevel references that cannot go any higher in the directory tree are simply
-// ignored, e.g. "/.." is normalized to "/" and "../../foo" is normalized to
-// "foo".
-std::string NormalizePath(const std::string &path);
-
-// Replaces 'content' with data read from a source using `read_func`.
+// Replaces 'content' with data read from a source using `ReadFromHandle`.
 // If `max_size` is positive, the method reads at most that many bytes;
 // otherwise the method reads everything.
 // Returns false on error. Can be called from a signal handler.
-bool ReadFrom(const std::function<int(void *, int)> &read_func,
-              std::string *content, int max_size = 0);
+bool ReadFrom(file_handle_type handle, std::string *content, int max_size = 0);
 
-// Writes `size` bytes from `data` into file 'filename' and makes it executable.
-// Returns false on failure, sets errno.
-bool WriteFile(const void *data, size_t size, const std::string &filename);
+// Reads up to `size` bytes using `ReadFromHandle` into `data`.
+// There must be enough memory allocated at `data`.
+// Returns true on success, false on error.
+bool ReadFrom(file_handle_type handle, void *data, size_t size);
 
-// Writes `size` bytes from `data` into a destination using `write_func`.
-// Returns false on failure, sets errno.
-bool WriteTo(const std::function<int(const void *, size_t)> &write_func,
-             const void *data, size_t size);
+// Writes `content` into file `filename`, and chmods it to `perm`.
+// Returns false on failure.
+bool WriteFile(const std::string &content, const std::string &filename,
+               unsigned int perm = 0755);
 
 // Returns the part of the path before the final "/".  If there is a single
 // leading "/" in the path, the result will be the leading "/".  If there is
@@ -75,7 +79,8 @@ std::string JoinPath(const std::string &path1, const std::string &path2);
 // Does not follow symlinks / junctions.
 //
 // Populates `result` with the full paths of the files. Every entry will have
-// `path` as its prefix. If `path` is a file, `result` contains just this file.
+// `path` as its prefix. If `path` is a file, `result` contains just this
+// file.
 void GetAllFilesUnder(const std::string &path,
                       std::vector<std::string> *result);
 

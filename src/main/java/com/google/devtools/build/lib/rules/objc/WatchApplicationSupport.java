@@ -43,24 +43,24 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
 import com.google.devtools.build.lib.rules.objc.WatchUtils.WatchOSVersion;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 import javax.annotation.Nullable;
 
 /**
  * Contains support methods to build watch application bundle - does normal bundle processing -
  * resources, plists and creates a final (signed if necessary) bundle.
+ *
+ * @deprecated The native bundling rules have been deprecated. This class will be removed in the
+ *     future.
  */
+@Deprecated
 final class WatchApplicationSupport {
 
   private final RuleContext ruleContext;
@@ -117,56 +117,6 @@ final class WatchApplicationSupport {
 
     ObjcProvider objcProvider = objcProvider(innerBundleZips);
 
-    createBundle(
-        Optional.<XcodeProvider.Builder>absent(),
-        objcProvider,
-        filesToBuild);
-  }
-
-  /**
-   * Registers actions to create a watch application bundle and xcode project.
-   *
-   * @param xcodeProviderBuilder provider builder which xcode project generation information is
-   *     added to (for later consumption by depending rules)
-   * @param innerBundleZips any zip files to be unzipped and merged into the application bundle
-   * @param filesToBuild files to build for the rule; the watchOS application .ipa is added to this
-   *     set
-   */
-  void createBundleAndXcodeproj(
-      XcodeProvider.Builder xcodeProviderBuilder,
-      Iterable<Artifact> innerBundleZips,
-      NestedSetBuilder<Artifact> filesToBuild)
-      throws InterruptedException {
-    ObjcProvider objcProvider = objcProvider(innerBundleZips);
-
-    createBundle(
-        Optional.of(xcodeProviderBuilder), objcProvider, filesToBuild);
-
-    // Add common watch settings.
-    WatchUtils.addXcodeSettings(ruleContext, xcodeProviderBuilder);
-
-    // Add watch application specific xcode settings.
-    addXcodeSettings(xcodeProviderBuilder);
-
-    XcodeSupport xcodeSupport =
-        new XcodeSupport(ruleContext, intermediateArtifacts, labelForWatchApplication())
-            .addXcodeSettings(
-                xcodeProviderBuilder,
-                objcProvider,
-                watchOSVersion.getApplicationXcodeProductType(),
-                ruleContext.getFragment(AppleConfiguration.class).getIosCpu(),
-                ConfigurationDistinguisher.WATCH_OS1_EXTENSION);
-
-    for (Attribute attribute : dependencyAttributes) {
-      xcodeSupport.addDependencies(xcodeProviderBuilder, attribute);
-    }
-  }
-
-  private void createBundle(
-      Optional<XcodeProvider.Builder> xcodeProviderBuilder,
-      ObjcProvider depsObjcProvider,
-      NestedSetBuilder<Artifact> filesToBuild)
-      throws InterruptedException {
     registerActions();
 
     ReleaseBundling.Builder releaseBundling = new ReleaseBundling.Builder()
@@ -199,7 +149,7 @@ final class WatchApplicationSupport {
     ReleaseBundlingSupport releaseBundlingSupport =
         new ReleaseBundlingSupport(
                 ruleContext,
-                depsObjcProvider,
+                objcProvider,
                 LinkedBinary.DEPENDENCIES_ONLY,
                 watchOSVersion.getApplicationBundleDirFormat(),
                 bundleName,
@@ -207,10 +157,6 @@ final class WatchApplicationSupport {
                 releaseBundling.build(),
                 appleConfiguration.getMultiArchPlatform(appPlatformType))
             .registerActions(DsymOutputType.APP);
-
-    if (xcodeProviderBuilder.isPresent()) {
-      releaseBundlingSupport.addXcodeSettings(xcodeProviderBuilder.get());
-    }
 
     releaseBundlingSupport
         .addFilesToBuild(filesToBuild, Optional.<DsymOutputType>absent())
@@ -235,19 +181,6 @@ final class WatchApplicationSupport {
     } else {
       return ImmutableSet.of(TargetDeviceFamily.IPHONE, TargetDeviceFamily.WATCH);
     }
-  }
-
-  /**
-   * Adds watch application specific xcode settings - TARGETED_DEVICE_FAMILY is set to "1, 4"
-   * for enabling building for simulator.
-   */
-  private void addXcodeSettings(XcodeProvider.Builder xcodeProviderBuilder) {
-    xcodeProviderBuilder.addMainTargetXcodeprojBuildSettings(ImmutableList.of(
-        XcodeprojBuildSetting.newBuilder()
-        .setName("TARGETED_DEVICE_FAMILY[sdk=iphonesimulator*]")
-        .setValue(Joiner.on(',').join(TargetDeviceFamily.UI_DEVICE_FAMILY_VALUES.get(
-            families())))
-        .build()));
   }
 
   /**
@@ -282,12 +215,11 @@ final class WatchApplicationSupport {
             watchKitStubZip.getFilename(),
             Joiner.on(" ").join(ImmutableList.of("_WatchKitStub", bundleName))));
 
+    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
     ruleContext.registerAction(
         ObjcRuleClasses.spawnAppleEnvActionBuilder(
-                ruleContext,
-                ruleContext
-                    .getFragment(AppleConfiguration.class)
-                    .getMultiArchPlatform(PlatformType.WATCHOS))
+                appleConfiguration,
+                appleConfiguration.getMultiArchPlatform(PlatformType.WATCHOS))
             .setProgressMessage(
                 "Copying WatchKit binary and stub resource: " + ruleContext.getLabel())
             .setShellCommand(ImmutableList.of("/bin/bash", "-c", Joiner.on(" ").join(command)))
@@ -342,16 +274,6 @@ final class WatchApplicationSupport {
       .addAll(STORYBOARD, attributes.storyboards());
 
     return objcProviderBuilder.build();
-  }
-
-  private Label labelForWatchApplication()
-      throws InterruptedException {
-    try {
-      return Label.create(ruleContext.getLabel().getPackageName(), bundleName);
-    } catch (LabelSyntaxException labelSyntaxException) {
-        throw new InterruptedException("Exception while creating target label for watch "
-            + "appplication " + labelSyntaxException);
-    }
   }
 
   /**

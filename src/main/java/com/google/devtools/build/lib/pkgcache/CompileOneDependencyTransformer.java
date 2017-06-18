@@ -18,7 +18,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.FileTarget;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -50,7 +50,7 @@ public final class CompileOneDependencyTransformer {
    * input file as a source.
    */
   public ResolvedTargets<Target> transformCompileOneDependency(
-      EventHandler eventHandler, ResolvedTargets<Target> original)
+      ExtendedEventHandler eventHandler, ResolvedTargets<Target> original)
       throws TargetParsingException, InterruptedException {
     if (original.hasError()) {
       return original;
@@ -89,7 +89,7 @@ public final class CompileOneDependencyTransformer {
    * filegroups.
    */
   private boolean listContainsFile(
-      EventHandler eventHandler,
+      ExtendedEventHandler eventHandler,
       Collection<Label> srcLabels,
       Label source,
       Set<Label> visitedRuleLabels)
@@ -131,7 +131,7 @@ public final class CompileOneDependencyTransformer {
     return false;
   }
 
-  private Target transformCompileOneDependency(EventHandler eventHandler, Target target)
+  private Target transformCompileOneDependency(ExtendedEventHandler eventHandler, Target target)
       throws TargetParsingException, InterruptedException {
     if (!(target instanceof FileTarget)) {
       throw new TargetParsingException(
@@ -168,8 +168,8 @@ public final class CompileOneDependencyTransformer {
     for (Rule rule : orderedRuleList) {
       RawAttributeMapper attributes = RawAttributeMapper.of(rule);
       // We don't know which path to follow for configurable attributes, so skip them.
-      if (attributes.isConfigurable("deps", BuildType.LABEL_LIST)
-          || attributes.isConfigurable("srcs", BuildType.LABEL_LIST)) {
+      if (attributes.isConfigurable("deps")
+          || attributes.isConfigurable("srcs")) {
         continue;
       }
       RuleClass ruleClass = rule.getRuleClassObject();

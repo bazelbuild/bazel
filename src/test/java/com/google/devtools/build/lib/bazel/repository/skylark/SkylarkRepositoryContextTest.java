@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.syntax.Argument.Passed;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Identifier;
-import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
@@ -40,6 +39,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
@@ -95,7 +95,7 @@ public class SkylarkRepositoryContextTest {
             outputDirectory,
             Mockito.mock(SkyFunction.Environment.class),
             ImmutableMap.of("FOO", "BAR"),
-            downloader);
+            downloader, new HashMap<String, String>());
   }
 
   protected void setUpContexForRule(String name) throws Exception {
@@ -123,9 +123,9 @@ public class SkylarkRepositoryContextTest {
     scratch.file("/path/bin/def").setExecutable(true);
     scratch.file("/bin/undef");
 
-    assertThat(context.which("anything")).isEqualTo(Runtime.NONE);
-    assertThat(context.which("def")).isEqualTo(Runtime.NONE);
-    assertThat(context.which("undef")).isEqualTo(Runtime.NONE);
+    assertThat(context.which("anything")).isNull();
+    assertThat(context.which("def")).isNull();
+    assertThat(context.which("undef")).isNull();
     assertThat(context.which("true").toString()).isEqualTo("/bin/true");
     assertThat(context.which("false").toString()).isEqualTo("/path/sbin/false");
   }
@@ -145,21 +145,27 @@ public class SkylarkRepositoryContextTest {
       context.createFile(context.path("/absolute"), "", true);
       fail("Expected error on creating path outside of the repository directory");
     } catch (RepositoryFunctionException ex) {
-      assertThat(ex.getCause().getMessage())
+      assertThat(ex)
+          .hasCauseThat()
+          .hasMessageThat()
           .isEqualTo("Cannot write outside of the repository directory for path /absolute");
     }
     try {
       context.createFile(context.path("../somepath"), "", true);
       fail("Expected error on creating path outside of the repository directory");
     } catch (RepositoryFunctionException ex) {
-      assertThat(ex.getCause().getMessage())
+      assertThat(ex)
+          .hasCauseThat()
+          .hasMessageThat()
           .isEqualTo("Cannot write outside of the repository directory for path /somepath");
     }
     try {
       context.createFile(context.path("foo/../../somepath"), "", true);
       fail("Expected error on creating path outside of the repository directory");
     } catch (RepositoryFunctionException ex) {
-      assertThat(ex.getCause().getMessage())
+      assertThat(ex)
+          .hasCauseThat()
+          .hasMessageThat()
           .isEqualTo("Cannot write outside of the repository directory for path /somepath");
     }
   }

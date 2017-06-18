@@ -43,9 +43,6 @@ class WorkspaceLayout {
   // Returns if workspace is a valid build workspace.
   virtual bool InWorkspace(const std::string& workspace) const;
 
-  // Returns the basename for the rc file.
-  virtual std::string RcBasename() const;
-
   // Returns the candidate pathnames for the RC files.
   virtual void FindCandidateBlazercPaths(
       const std::string& workspace,

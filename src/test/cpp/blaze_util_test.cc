@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <errno.h>
 #include <fcntl.h>
 #include <stddef.h>
 #include <stdlib.h>
@@ -23,7 +22,6 @@
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/file.h"
-#include "src/main/cpp/util/file_platform.h"
 #include "gtest/gtest.h"
 
 namespace blaze {
@@ -80,8 +78,7 @@ class BlazeUtilTest : public ::testing::Test {
       FAIL() << "Unable to create a pipe!";
     } else {
       string result;
-      bool success = blaze_util::ReadFrom(
-          [fd](void* buf, int size) { return read(fd, buf, size); }, &result);
+      bool success = blaze_util::ReadFrom(fd, &result);
       close(fd);
       if (!success) {
         perror("ReadFrom");
@@ -193,6 +190,16 @@ TEST_F(BlazeUtilTest, TestSearchNullaryCommandOption) {
                                   "--flag"));
 }
 
+TEST_F(BlazeUtilTest, TestSearchNullarySkipsAfterDashDash) {
+  ASSERT_FALSE(SearchNullaryOption(
+      {"bazel", "build", ":target", "--", "--flag"}, "--flag"));
+}
+
+TEST_F(BlazeUtilTest, TestSearchNullarySucceedsWithEqualsAndDashDash) {
+  ASSERT_FALSE(SearchNullaryOption(
+      {"bazel", "build", ":target", "--", "--flag=value"}, "--flag"));
+}
+
 TEST_F(BlazeUtilTest, TestSearchUnaryForEmpty) {
   ASSERT_STREQ(nullptr, SearchUnaryOption({"bazel", "build", ":target"}, ""));
 }
@@ -224,6 +231,20 @@ TEST_F(BlazeUtilTest, TestSearchUnaryCommandOptionWithoutEquals) {
   ASSERT_STREQ("value",
                SearchUnaryOption(
                    {"bazel", "build", ":target", "--flag=value"}, "--flag"));
+}
+
+TEST_F(BlazeUtilTest, TestSearchUnarySkipsAfterDashDashWithEquals) {
+  ASSERT_STREQ(nullptr,
+               SearchUnaryOption(
+                   {"bazel", "build", ":target", "--", "--flag", "value"},
+                   "--flag"));
+}
+
+TEST_F(BlazeUtilTest, TestSearchUnarySkipsAfterDashDashWithoutEquals) {
+  ASSERT_STREQ(nullptr,
+               SearchUnaryOption(
+                   {"bazel", "build", ":target", "--", "--flag=value"},
+                   "--flag"));
 }
 
 }  // namespace blaze

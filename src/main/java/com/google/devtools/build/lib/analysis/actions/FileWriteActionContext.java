@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.actions;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
-import com.google.devtools.build.lib.actions.ResourceSet;
 
 /**
  * The action context for {@link AbstractFileWriteAction} instances (technically instances of
@@ -29,10 +28,4 @@ public interface FileWriteActionContext extends ActionContext {
    */
   void exec(AbstractFileWriteAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException;
-
-  /**
-   * Returns the estimated resource consumption of the action.
-   */
-  ResourceSet estimateResourceConsumption(AbstractFileWriteAction action);
-
 }

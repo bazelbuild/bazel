@@ -21,7 +21,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.Differencer.Diff;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DeletingInvalidationState;
@@ -136,8 +136,12 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
   }
 
   @Override
-  public <T extends SkyValue> EvaluationResult<T> evaluate(Iterable<SkyKey> roots, Version version,
-          boolean keepGoing, int numThreads, EventHandler eventHandler)
+  public <T extends SkyValue> EvaluationResult<T> evaluate(
+      Iterable<SkyKey> roots,
+      Version version,
+      boolean keepGoing,
+      int numThreads,
+      ExtendedEventHandler eventHandler)
       throws InterruptedException {
     // NOTE: Performance critical code. See bug "Null build performance parity".
     IntVersion intVersion = (IntVersion) version;
@@ -172,6 +176,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
               eventHandler,
               emittedEventState,
               DEFAULT_STORED_EVENT_FILTER,
+              ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
               keepGoing,
               numThreads,
               progressReceiver);
@@ -251,6 +256,11 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
   @Override
   public Map<SkyKey, SkyValue> getValues() {
     return graph.getValues();
+  }
+
+  @Override
+  public Map<SkyKey, ? extends NodeEntry> getGraphMap() {
+    return graph.getAllValuesMutable();
   }
 
   @Override

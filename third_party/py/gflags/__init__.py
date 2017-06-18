@@ -386,6 +386,7 @@ a list of values, separated by a special token).
 
 This module requires at least python 2.2.1 to run.
 """
+from __future__ import print_function
 
 import cgi
 import getopt
@@ -1088,7 +1089,7 @@ class FlagValues:
         validators, key=lambda validator: validator.insertion_index):
       try:
         validator.Verify(self)
-      except gflags_validators.Error, e:
+      except gflags_validators.Error as e:
         message = validator.PrintFlagsWithValues(self)
         raise IllegalFlagValue('%s: %s' % (message, str(e)))
 
@@ -1267,7 +1268,7 @@ class FlagValues:
         else:
           optlist, unparsed_args = getopt.getopt(args, shortopts, longopts)
         break
-      except getopt.GetoptError, e:
+      except getopt.GetoptError as e:
         if not e.opt or e.opt in fl:
           # Not an unrecognized option, re-raise the exception as a FlagsError
           raise FlagsError(e)
@@ -1570,7 +1571,7 @@ class FlagValues:
     flag_line_list = []  # Subset of lines w/o comments, blanks, flagfile= tags.
     try:
       file_obj = open(filename, 'r')
-    except IOError, e_msg:
+    except IOError as e_msg:
       raise CantOpenFlagFileError('ERROR:: Unable to open flagfile: %s' % e_msg)
 
     line_list = file_obj.readlines()
@@ -1883,7 +1884,7 @@ class Flag:
   def Parse(self, argument):
     try:
       self.value = self.parser.Parse(argument)
-    except ValueError, e:  # recast ValueError as IllegalFlagValue
+    except ValueError as e:  # recast ValueError as IllegalFlagValue
       raise IllegalFlagValue("flag --%s=%s: %s" % (self.name, argument, e))
     self.present += 1
 
@@ -2396,10 +2397,10 @@ class HelpFlag(BooleanFlag):
     if arg:
       doc = sys.modules["__main__"].__doc__
       flags = str(FLAGS)
-      print doc or ("\nUSAGE: %s [flags]\n" % sys.argv[0])
+      print(doc or ("\nUSAGE: %s [flags]\n" % sys.argv[0]))
       if flags:
-        print "flags:"
-        print flags
+        print("flags:")
+        print(flags)
       sys.exit(1)
 class HelpXMLFlag(BooleanFlag):
   """Similar to HelpFlag, but generates output in XML format."""
@@ -2426,10 +2427,10 @@ class HelpshortFlag(BooleanFlag):
     if arg:
       doc = sys.modules["__main__"].__doc__
       flags = FLAGS.MainModuleHelp()
-      print doc or ("\nUSAGE: %s [flags]\n" % sys.argv[0])
+      print(doc or ("\nUSAGE: %s [flags]\n" % sys.argv[0]))
       if flags:
-        print "flags:"
-        print flags
+        print("flags:")
+        print(flags)
       sys.exit(1)
 
 #

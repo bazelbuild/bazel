@@ -47,9 +47,8 @@ public class HashCodeUtils {
 
     /** Add an object to a given hash. */
     public static int hash(int hash, Object item) {
-        if (item == null) {
+        if (item == null)
             return hash * prime;
-        }
         return hash * prime + item.hashCode();
     }
 
@@ -86,9 +85,8 @@ public class HashCodeUtils {
 
     /** Hash an object. */
     public static int hash(Object item) {
-        if (item == null) {
+        if (item == null)
             return 0;
-        }
         return item.hashCode();
     }
 

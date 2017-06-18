@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CompilationMode;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CompilationModeFlags;
-
 import java.util.List;
 
 /**
@@ -62,7 +61,9 @@ class MipsCrosstools {
             "mips64el-linux-android-4.9", "mips64el-linux-android",
             // mips64 toolchain doesn't have the dwp tool.
             CppConfiguration.Tool.DWP))
-
+        .addAllCxxBuiltinIncludeDirectory(
+            ndkPaths.createGccToolchainBuiltinIncludeDirectories(
+                "mips64el-linux-android-4.9", "mips64el-linux-android", "4.9"))
         .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("mips64")));
 
     // The flags for mips64 clang 3.5 and 3.6 are the same, they differ only in the LLVM version
@@ -82,8 +83,6 @@ class MipsCrosstools {
     }
 
     List<CToolchain.Builder> toolchains = toolchainsListBuilder.build();
-    ndkPaths.addToolchainIncludePaths(
-        toolchains, "mips64el-linux-android-4.9", "mips64el-linux-android", "4.9");
     stlImpl.addStlImpl(toolchains, "4.9");
     return toolchains;
   }
@@ -115,8 +114,6 @@ class MipsCrosstools {
     
           .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("mips"));
 
-      ndkPaths.addToolchainIncludePaths(
-          mipsClang, "mipsel-linux-android-4.8", "mipsel-linux-android", "4.8");
       stlImpl.addStlImpl(mipsClang, "4.8");
       toolchainsListBuilder.add(mipsClang);
     }
@@ -136,11 +133,11 @@ class MipsCrosstools {
         .addAllToolPath(ndkPaths.createToolpaths(
             "mipsel-linux-android-" + gccVersion, "mipsel-linux-android",
             excludedTools))
-    
+        .addAllCxxBuiltinIncludeDirectory(
+            ndkPaths.createGccToolchainBuiltinIncludeDirectories(
+                "mipsel-linux-android-" + gccVersion, "mipsel-linux-android", gccVersion))
         .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("mips"));
 
-    ndkPaths.addToolchainIncludePaths(
-        toolchain, "mipsel-linux-android-" + gccVersion, "mipsel-linux-android", gccVersion);
     stlImpl.addStlImpl(toolchain, gccVersion);
     return toolchain;
   }

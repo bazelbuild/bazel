@@ -25,7 +25,7 @@ public enum StdoutStreamFactory implements Factory<PrintStream> {
 
   @Override
   public PrintStream get() {
-    PrintStream printStream = BazelTestRunner.BazelTestRunnerModule.stdoutStream();
+    PrintStream printStream = BazelTestRunnerModule.stdoutStream();
     assert printStream != null;
     return printStream;
   }

@@ -9,6 +9,7 @@ filegroup(
         ":darwin": ["//src/main/native:libunix.dylib"],
         ":darwin_x86_64": ["//src/main/native:libunix.dylib"],
         ":windows": ["//src/main/native:windows_jni.dll"],
+        ":windows_msys": ["//src/main/native:windows_jni.dll"],
         ":windows_msvc": ["//src/main/native:windows_jni.dll"],
         "//conditions:default": ["//src/main/native:libunix.so"],
     }),
@@ -28,7 +29,6 @@ filegroup(
         "//src/main/tools:build-runfiles",
         "//src/main/tools:process-wrapper",
         "//src/main/tools:linux-sandbox",
-        "//src/main/tools:build_interface_so",
         "//tools/osx:xcode-locator",
     ] + embedded_tools,
     outs = ["install_base_key" + suffix],
@@ -40,6 +40,7 @@ filegroup(
     }),
 ) for suffix, embedded_tools in {
     "": [":embedded_tools"],
+    "_with_jdk": [":embedded_tools_with_jdk"],
     "_notools": [],
 }.items()]
 
@@ -75,12 +76,9 @@ genrule(
 OSX_DUMMY_TARGETS = [
     "src/tools/xcode/actoolwrapper/actoolwrapper",
     "src/tools/xcode/ibtoolwrapper/ibtoolwrapper",
-    "src/tools/xcode/libtool/libtool",
-    "src/tools/xcode/libtool/make_hashed_objlist.py",
     "src/tools/xcode/momcwrapper/momcwrapper",
     "src/tools/xcode/swiftstdlibtoolwrapper/swiftstdlibtoolwrapper",
     "src/tools/xcode/environment/environment_plist",
-    "src/tools/xcode/xcrunwrapper/xcrunwrapper",
     "src/objc_tools/bundlemerge/bundlemerge_deploy.jar",
     "src/objc_tools/plmerge/plmerge_deploy.jar",
     "src/objc_tools/xcodegen/xcodegen_deploy.jar",
@@ -103,11 +101,9 @@ filegroup(
     srcs = [
         "//src/tools/xcode/actoolwrapper:actoolwrapper",
         "//src/tools/xcode/ibtoolwrapper:ibtoolwrapper",
-        "//src/tools/xcode/libtool:libtool_srcs",
         "//src/tools/xcode/momcwrapper:momcwrapper",
         "//src/tools/xcode/swiftstdlibtoolwrapper:swiftstdlibtoolwrapper",
         "//src/tools/xcode/environment:environment_plist",
-        "//src/tools/xcode/xcrunwrapper:xcrunwrapper",
         "//src/objc_tools/bundlemerge:bundlemerge_deploy.jar",
         "//src/objc_tools/plmerge:plmerge_deploy.jar",
         "//src/objc_tools/xcodegen:xcodegen_deploy.jar",
@@ -127,13 +123,14 @@ filegroup(
     ],
 )
 
-genrule(
-    name = "embedded_tools",
+[genrule(
+    name = "embedded_tools" + suffix,
     srcs = [
         ":create_embedded_tools.sh",
         "//tools:embedded_tools_srcs",
         "//third_party:gpl-srcs",
-        "//third_party/java/jarjar:srcs",
+        "//third_party/java/j2objc:embedded_tools_srcs",
+        "//third_party/java/jarjar:embedded_tools_srcs",
         "//third_party/java/jdk/langtools:test-srcs",
         "//third_party/py/concurrent:srcs",
         "//third_party/py/gflags:srcs",
@@ -141,17 +138,16 @@ genrule(
         "//src/tools/android/java/com/google/devtools/build/android:embedded_tools",
         "//src/tools/android/java/com/google/devtools/build/android/ideinfo:embedded_tools",
         "//src/tools/android/java/com/google/devtools/build/android/idlclass:embedded_tools",
-        "//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/dexer:embedded_tools",
         "//src/tools/android/java/com/google/devtools/build/android/ziputils:embedded_tools",
         "//src/main/protobuf:srcs",
         "//src/java_tools/buildjar:JavaBuilderDeploy",
-        "//src/java_tools/singlejar:SingleJar_deploy.jar",
+        "//src/java_tools/buildjar:VanillaJavaBuilder_deploy.jar",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:ExperimentalRunner_deploy.jar",
         "//src/java_tools/junitrunner/java/com/google/testing/coverage:embedded_tools",
         "//third_party/ijar",
-        "//third_party/java/apkbuilder:embedded_tools",
         "//third_party/java/jacoco:srcs",
     ] + select({
         ":darwin": [
@@ -167,18 +163,52 @@ genrule(
             "//third_party/ijar:zipper",
         ],
     }) + select({
+        # TODO(bazel-team): Once https://github.com/bazelbuild/bazel/issues/2241
+        # is resolved, use cc implementation of singlejar on windows
+        ":windows": [
+            "//src/java_tools/singlejar:SingleJar_deploy.jar",
+        ],
+        ":windows_msys": [
+            "//src/java_tools/singlejar:SingleJar_deploy.jar",
+        ],
+        ":windows_msvc": [
+            "//src/java_tools/singlejar:SingleJar_deploy.jar",
+        ],
+        "//conditions:default": [
+            "//src/tools/singlejar:singlejar",
+        ],
+    }) + select({
         "//tools/jdk:jdk7": [],
         "//conditions:default": [
             "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_deploy.jar",
         ],
-    }),
-    outs = ["embedded_tools.zip"],
+    }) + (select({
+        ":darwin": [
+            "@openjdk_macos//file",
+        ],
+        ":darwin_x86_64": [
+            "@openjdk_macos//file",
+        ],
+        ":windows_msys": [
+            "@openjdk_win//file",
+        ],
+        ":windows_msvc": [
+            "@openjdk_win//file",
+        ],
+        "//conditions:default": [
+            "@openjdk_linux//file",
+        ],
+    }) if (suffix == "_with_jdk") else []),
+    outs = ["embedded_tools" + suffix + ".zip"],
     cmd = "$(location :create_embedded_tools.sh) $@ $(SRCS)",
-)
+) for suffix in [
+    "",
+    "_with_jdk",
+]]
 
 [genrule(
     name = "package-zip" + suffix,
-    srcs = ([":embedded_tools.zip"] if embed else []) + [
+    srcs = ([":embedded_tools" + suffix + ".zip"] if embed else []) + [
         # The script assumes that the embedded tools zip (if exists) is the
         # first item here, the deploy jar the second and install base key is the
         # third
@@ -190,7 +220,6 @@ genrule(
         "//src/main/tools:process-wrapper",
         "//src/main/tools:jdk-support",
         "//src/main/tools:linux-sandbox",
-        "//src/main/tools:build_interface_so",
         "//tools/osx:xcode-locator",
         ":java-version",
     ],
@@ -200,6 +229,7 @@ genrule(
 ) for suffix, embed in [
     ("", True),
     ("_notools", False),
+    ("_with_jdk", True),
 ]]
 
 [genrule(
@@ -224,6 +254,7 @@ genrule(
 ) for suffix in [
     "",
     "_notools",
+    "_with_jdk",
 ]]
 
 # Build an executable named `bazel.exe`.
@@ -244,7 +275,14 @@ genrule(
 ) for suffix in [
     "",
     "_notools",
+    "_with_jdk",
 ]]
+
+config_setting(
+    name = "linux_x86_64",
+    values = {"cpu": "k8"},
+    visibility = ["//visibility:public"],
+)
 
 config_setting(
     name = "darwin",
@@ -282,6 +320,12 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
+config_setting(
+    name = "windows_msys",
+    values = {"cpu": "x64_windows_msys"},
+    visibility = ["//visibility:public"],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
@@ -296,6 +340,8 @@ filegroup(
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding/api:srcs",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding/testing:srcs",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/util:srcs",
+        "//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner:srcs",
+        "//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner/testbed:srcs",
         "//src/java_tools/singlejar:srcs",
         "//src/main/cpp:srcs",
         "//src/main/java/com/google/devtools/build/docgen:srcs",
@@ -311,24 +357,26 @@ filegroup(
         "//src/objc_tools/plmerge:srcs",
         "//src/objc_tools/xcodegen:srcs",
         "//src/test/cpp:srcs",
+        "//src/test/gen:srcs",
+        "//src/test/native:srcs",
         "//src/test/java/com/google/devtools/build/android:srcs",
         "//src/test/java/com/google/devtools/build/docgen:srcs",
         "//src/test/java/com/google/devtools/build/lib:srcs",
         "//src/test/java/com/google/devtools/build/skyframe:srcs",
         "//src/test/java/com/google/devtools/common/options:srcs",
+        "//src/test/py/bazel:srcs",
         "//src/test/shell:srcs",
         "//src/tools/android/java/com/google/devtools/build/android:srcs",
+        "//src/tools/benchmark:srcs",
         "//src/tools/generate_workspace:srcs",
         "//src/tools/xcode/actoolwrapper:srcs",
         "//src/tools/xcode/environment:srcs",
         "//src/tools/xcode/ibtoolwrapper:srcs",
-        "//src/tools/xcode/libtool:srcs",
         "//src/tools/xcode/momcwrapper:srcs",
         "//src/tools/xcode/realpath:srcs",
         "//src/tools/singlejar:srcs",
         "//src/tools/xcode/stdredirect:srcs",
         "//src/tools/xcode/swiftstdlibtoolwrapper:srcs",
-        "//src/tools/xcode/xcrunwrapper:srcs",
         "//src/tools/xcode-common:srcs",
         "//src/tools/remote_worker:srcs",
         "//tools/osx:srcs",
@@ -341,6 +389,7 @@ genrule(
     srcs = [
         "//src/main/protobuf:dist_jars",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:dist_jars",
+        "@googleapis//:dist_jars",
     ],
     outs = ["derived_java_srcs.zip"],
     cmd = "$(location :combine_derived_java_srcs.sh) $@ $(SRCS)",

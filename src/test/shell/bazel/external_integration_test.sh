@@ -24,7 +24,7 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 source "${CURRENT_DIR}/remote_helpers.sh" \
   || { echo "remote_helpers.sh not found!" >&2; exit 1; }
 
-function set_up() {
+set_up() {
   bazel clean --expunge >& $TEST_log
   mkdir -p zoo
   cat > zoo/BUILD <<EOF
@@ -45,6 +45,10 @@ public class BallPit {
     }
 }
 EOF
+}
+
+tear_down() {
+  shutdown_server
 }
 
 function zip_up() {
@@ -295,9 +299,16 @@ EOF
 
 function test_cached_across_server_restart() {
   http_archive_helper zip_up
+  local marker_file=$(bazel info output_base)/external/\@endangered.marker
+  echo "<MARKER>"
+  cat "${marker_file}"
+  echo "</MARKER>"
   bazel shutdown >& $TEST_log || fail "Couldn't shut down"
   bazel run //zoo:breeding-program >& $TEST_log --show_progress_rate_limit=0 \
     || echo "Expected build/run to succeed"
+  echo "<MARKER>"
+  cat "${marker_file}"
+  echo "</MARKER>"
   expect_log $what_does_the_fox_say
   expect_not_log "Downloading from"
 }
@@ -503,6 +514,14 @@ function test_new_remote_repo_with_build_file_content() {
   do_new_remote_repo_test "build_file_content"
 }
 
+function test_new_remote_repo_with_workspace_file() {
+  do_new_remote_repo_test "workspace_file"
+}
+
+function test_new_remote_repo_with_workspace_file_content() {
+  do_new_remote_repo_test "workspace_file_content"
+}
+
 function do_new_remote_repo_test() {
   # Create a zipped-up repository HTTP response.
   local repo2=$TEST_TMPDIR/repo2
@@ -519,38 +538,43 @@ function do_new_remote_repo_test() {
 
   cd ${WORKSPACE_DIR}
 
-  if [ "$1" = "build_file" ] ; then
-    cat > fox.BUILD <<EOF
-filegroup(
-    name = "fox",
-    srcs = ["fox/male"],
-    visibility = ["//visibility:public"],
-)
-EOF
+  # Create the build file for the http archive based on the requested attr style.
+  local build_file_attr=""
+  local workspace_file_attr=""
 
-    cat > WORKSPACE <<EOF
-new_http_archive(
-    name = 'endangered',
-    url = 'http://localhost:$nc_port/repo.zip',
-    sha256 = '$sha256',
-    build_file = 'fox.BUILD'
-)
-EOF
-  else
-    cat > WORKSPACE <<EOF
-new_http_archive(
-    name = 'endangered',
-    url = 'http://localhost:$nc_port/repo.zip',
-    sha256 = '$sha256',
-    build_file_content = """
+  local build_file_content="
 filegroup(
-    name = "fox",
-    srcs = ["fox/male"],
-    visibility = ["//visibility:public"],
-)"""
+    name = \"fox\",
+    srcs = [\"fox/male\"],
+    visibility = [\"//visibility:public\"],
+)
+  "
+
+  if [ "$1" = "build_file" ] ; then
+    echo ${build_file_content} > fox.BUILD
+    build_file_attr="build_file = 'fox.BUILD'"
+  else
+    build_file_attr="build_file_content=\"\"\"${build_file_content}\"\"\""
+  fi
+
+  if [ "$1" = "workspace_file" ]; then
+    cat > fox.WORKSPACE <<EOF
+workspace(name="endangered-fox")
+EOF
+    workspace_file_attr="workspace_file = 'fox.WORKSPACE'"
+  elif [ "$1" = "workspace_file_content" ]; then
+    workspace_file_attr="workspace_file_content = 'workspace(name=\"endangered-fox\")'"
+  fi
+
+  cat > WORKSPACE <<EOF
+new_http_archive(
+    name = 'endangered',
+    url = 'http://localhost:$nc_port/repo.zip',
+    sha256 = '$sha256',
+    ${build_file_attr},
+    ${workspace_file_attr}
 )
 EOF
-  fi
 
   mkdir -p zoo
   cat > zoo/BUILD <<EOF

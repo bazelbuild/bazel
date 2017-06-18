@@ -14,7 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.util.Preconditions;
 
 /**
@@ -33,17 +33,20 @@ public class CyclesReporter {
   public interface SingleCycleReporter {
 
     /**
-     * Reports the given cycle and returns {@code true}, or return {@code false} if this
-     * {@link SingleCycleReporter} doesn't know how to report the cycle.
+     * Reports the given cycle and returns {@code true}, or return {@code false} if this {@link
+     * SingleCycleReporter} doesn't know how to report the cycle.
      *
      * @param topLevelKey the top level key that transitively depended on the cycle
      * @param cycleInfo the cycle
-     * @param alreadyReported whether the cycle has already been reported to the
-     *        {@link CyclesReporter}.
+     * @param alreadyReported whether the cycle has already been reported to the {@link
+     *     CyclesReporter}.
      * @param eventHandler the eventHandler to which to report the error
      */
-    boolean maybeReportCycle(SkyKey topLevelKey, CycleInfo cycleInfo, boolean alreadyReported,
-        EventHandler eventHandler);
+    boolean maybeReportCycle(
+        SkyKey topLevelKey,
+        CycleInfo cycleInfo,
+        boolean alreadyReported,
+        ExtendedEventHandler eventHandler);
   }
 
   private final ImmutableList<SingleCycleReporter> cycleReporters;
@@ -64,8 +67,8 @@ public class CyclesReporter {
    * @param topLevelKey This key represents the top level value key that returned cycle errors.
    * @param eventHandler the eventHandler to which to report the error
    */
-  public void reportCycles(Iterable<CycleInfo> cycles, SkyKey topLevelKey,
-      EventHandler eventHandler) {
+  public void reportCycles(
+      Iterable<CycleInfo> cycles, SkyKey topLevelKey, ExtendedEventHandler eventHandler) {
     Preconditions.checkNotNull(eventHandler);
     for (CycleInfo cycleInfo : cycles) {
       boolean alreadyReported = false;

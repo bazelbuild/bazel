@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.escape.Escaper;
@@ -23,14 +24,13 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
-
 import javax.annotation.Nullable;
 
 /**
@@ -85,12 +85,12 @@ public final class Actions {
    * artifact. Shared actions are tolerated. See {@link #canBeShared} for details.
    *
    * @param actions a list of actions to check for action conflicts
-   * @return a map between generated artifacts and their associated generating actions. If there is
-   *     more than one action generating the same output artifact, only one action is chosen.
+   * @return a structure giving the mapping between artifacts and generating actions, with a level
+   *     of indirection.
    * @throws ActionConflictException iff there are two actions generate the same output
    */
-  public static ImmutableMap<Artifact, ActionAnalysisMetadata> findAndThrowActionConflict(
-      Iterable<ActionAnalysisMetadata> actions) throws ActionConflictException {
+  public static GeneratingActions findAndThrowActionConflict(List<ActionAnalysisMetadata> actions)
+      throws ActionConflictException {
     return Actions.maybeFilterSharedActionsAndThrowIfConflict(
         actions, /*allowSharedAction=*/ false);
   }
@@ -100,34 +100,34 @@ public final class Actions {
    * artifact. Shared actions are tolerated. See {@link #canBeShared} for details.
    *
    * @param actions a list of actions to check for action conflicts
-   * @return a map between generated artifacts and their associated generating actions. If there is
-   *     more than one action generating the same output artifact, only one action is chosen.
+   * @return a structure giving the mapping between artifacts and generating actions, with a level
+   *     of indirection.
    * @throws ActionConflictException iff there are two unshareable actions generating the same
    *     output
    */
-  public static ImmutableMap<Artifact, ActionAnalysisMetadata>
-      filterSharedActionsAndThrowActionConflict(
-      Iterable<? extends ActionAnalysisMetadata> actions) throws ActionConflictException {
+  public static GeneratingActions filterSharedActionsAndThrowActionConflict(
+      List<ActionAnalysisMetadata> actions) throws ActionConflictException {
     return Actions.maybeFilterSharedActionsAndThrowIfConflict(
         actions, /*allowSharedAction=*/ true);
   }
 
-  private static ImmutableMap<Artifact, ActionAnalysisMetadata>
-      maybeFilterSharedActionsAndThrowIfConflict(
-      Iterable<? extends ActionAnalysisMetadata> actions, boolean allowSharedAction)
+  private static GeneratingActions maybeFilterSharedActionsAndThrowIfConflict(
+      List<ActionAnalysisMetadata> actions, boolean allowSharedAction)
       throws ActionConflictException {
-    Map<Artifact, ActionAnalysisMetadata> generatingActions = new HashMap<>();
+    Map<Artifact, Integer> generatingActions = new HashMap<>();
+    int actionIndex = 0;
     for (ActionAnalysisMetadata action : actions) {
       for (Artifact artifact : action.getOutputs()) {
-        ActionAnalysisMetadata previousAction = generatingActions.put(artifact, action);
-        if (previousAction != null && previousAction != action) {
-          if (!allowSharedAction || !Actions.canBeShared(previousAction, action)) {
-            throw new ActionConflictException(artifact, previousAction, action);
+        Integer previousIndex = generatingActions.put(artifact, actionIndex);
+        if (previousIndex != null && previousIndex != actionIndex) {
+          if (!allowSharedAction || !Actions.canBeShared(actions.get(previousIndex), action)) {
+            throw new ActionConflictException(artifact, actions.get(previousIndex), action);
           }
         }
       }
+      actionIndex++;
     }
-    return ImmutableMap.copyOf(generatingActions);
+    return new GeneratingActions(actions, ImmutableMap.copyOf(generatingActions));
   }
 
   /**
@@ -250,6 +250,29 @@ public final class Actions {
     @Nullable
     public ActionAnalysisMetadata getGeneratingAction(Artifact artifact) {
       return generatingActions.get(artifact);
+    }
+  }
+
+  /** Container class for actions and the artifacts they generate. */
+  @VisibleForTesting
+  public static class GeneratingActions {
+    private final List<ActionAnalysisMetadata> actions;
+    private final ImmutableMap<Artifact, Integer> generatingActionIndex;
+
+    @VisibleForTesting
+    public GeneratingActions(
+        List<ActionAnalysisMetadata> actions,
+        ImmutableMap<Artifact, Integer> generatingActionIndex) {
+      this.actions = actions;
+      this.generatingActionIndex = generatingActionIndex;
+    }
+
+    public ImmutableMap<Artifact, Integer> getGeneratingActionIndex() {
+      return generatingActionIndex;
+    }
+
+    public List<ActionAnalysisMetadata> getActions() {
+      return actions;
     }
   }
 }

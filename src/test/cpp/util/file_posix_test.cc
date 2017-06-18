@@ -19,6 +19,7 @@
 
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
+#include "src/test/cpp/util/test_util.h"
 #include "gtest/gtest.h"
 
 namespace blaze_util {
@@ -45,7 +46,7 @@ static bool CreateEmptyFile(const string& path) {
   return close(fd) == 0;
 }
 
-TEST(FileTest, TestDirname) {
+TEST(FilePosixTest, TestDirname) {
   // The Posix version of SplitPath (thus Dirname too, which is implemented on
   // top of it) is not aware of Windows paths.
   ASSERT_EQ("", Dirname(""));
@@ -68,7 +69,7 @@ TEST(FileTest, TestDirname) {
   ASSERT_EQ("", Dirname("\\\\?\\c:\\foo"));
 }
 
-TEST(FileTest, TestBasename) {
+TEST(FilePosixTest, TestBasename) {
   // The Posix version of SplitPath (thus Basename too, which is implemented on
   // top of it) is not aware of Windows paths.
   ASSERT_EQ("", Basename(""));
@@ -92,7 +93,7 @@ TEST(FileTest, TestBasename) {
   ASSERT_EQ("\\\\?\\c:\\foo", Basename("\\\\?\\c:\\foo"));
 }
 
-TEST(FileTest, JoinPath) {
+TEST(FilePosixTest, JoinPath) {
   std::string path = JoinPath("", "");
   ASSERT_EQ("", path);
 
@@ -132,17 +133,18 @@ void MockDirectoryListingFunction(const string& path,
   }
 }
 
-TEST(FileTest, GetAllFilesUnder) {
+TEST(FilePosixTest, GetAllFilesUnder) {
   vector<string> result;
   _GetAllFilesUnder("root", &result, &MockDirectoryListingFunction);
   std::sort(result.begin(), result.end());
 
   vector<string> expected({"root/dir1/dir3/file4", "root/dir1/dir3/file5",
-                           "root/dir1/file2", "root/dir2/file3", "root/file1"});
+                           "root/dir1/file2", "root/dir2/file3",
+                           "root/file1"});
   ASSERT_EQ(expected, result);
 }
 
-TEST(FileTest, MakeDirectories) {
+TEST(FilePosixTest, MakeDirectories) {
   const char* tmp_dir = getenv("TEST_TMPDIR");
   ASSERT_STRNE(tmp_dir, NULL);
   const char* test_src_dir = getenv("TEST_SRCDIR");
@@ -203,7 +205,7 @@ TEST(FileTest, MakeDirectories) {
   ASSERT_EQ(EACCES, errno);
 }
 
-TEST(FileTest, HammerMakeDirectories) {
+TEST(FilePosixTest, HammerMakeDirectories) {
   const char* tmp_dir = getenv("TEST_TMPDIR");
   ASSERT_STRNE(tmp_dir, NULL);
 
@@ -226,41 +228,48 @@ TEST(FilePosixTest, PathExists) {
 }
 
 TEST(FilePosixTest, CanAccess) {
-  for (int i = 0; i < 8; ++i) {
-    ASSERT_FALSE(CanAccess("/this/should/not/exist/mkay", i & 1, i & 2, i & 4));
-    ASSERT_FALSE(CanAccess("non.existent", i & 1, i & 2, i & 4));
-  }
+  ASSERT_FALSE(CanReadFile("/this/should/not/exist/mkay"));
+  ASSERT_FALSE(CanExecuteFile("/this/should/not/exist/mkay"));
+  ASSERT_FALSE(CanAccessDirectory("/this/should/not/exist/mkay"));
 
-  for (int i = 0; i < 4; ++i) {
-    // /usr/bin/yes exists on Linux, Darwin, and MSYS
-    ASSERT_TRUE(CanAccess("/", i & 1, false, i & 2));
-    ASSERT_TRUE(CanAccess("/usr", i & 1, false, i & 2));
-    ASSERT_TRUE(CanAccess("/usr/", i & 1, false, i & 2));
-    ASSERT_TRUE(CanAccess("/usr/bin/yes", i & 1, false, i & 2));
-  }
+  ASSERT_FALSE(CanReadFile("non.existent"));
+  ASSERT_FALSE(CanExecuteFile("non.existent"));
+  ASSERT_FALSE(CanAccessDirectory("non.existent"));
 
-  char* tmpdir_cstr = getenv("TEST_TMPDIR");
-  ASSERT_FALSE(tmpdir_cstr == NULL);
+  const char* tmpdir = getenv("TEST_TMPDIR");
+  ASSERT_NE(nullptr, tmpdir);
+  ASSERT_NE(0, *tmpdir);
 
-  string tmpdir(tmpdir_cstr);
-  ASSERT_NE("", tmpdir);
+  string dir(JoinPath(tmpdir, "canaccesstest"));
+  ASSERT_EQ(0, mkdir(dir.c_str(), 0700));
 
-  string mock_file = tmpdir + (tmpdir.back() == '/' ? "" : "/") +
-                     "FilePosixTest.CanAccess.mock_file";
-  int fd = open(mock_file.c_str(), O_CREAT, 0500);
-  ASSERT_GT(fd, 0);
-  close(fd);
+  ASSERT_FALSE(CanReadFile(dir));
+  ASSERT_FALSE(CanExecuteFile(dir));
+  ASSERT_TRUE(CanAccessDirectory(dir));
 
-  // Sanity check: assert that we successfully created the file with the given
-  // permissions.
-  ASSERT_EQ(0, access(mock_file.c_str(), R_OK | X_OK));
-  ASSERT_NE(0, access(mock_file.c_str(), R_OK | W_OK | X_OK));
+  string file(JoinPath(dir, "foo.txt"));
+  AutoFileStream fh(fopen(file.c_str(), "wt"));
+  EXPECT_TRUE(fh.IsOpen());
+  ASSERT_LT(0, fprintf(fh, "hello"));
+  fh.Close();
 
-  // Actual assertion
-  for (int i = 0; i < 4; ++i) {
-    ASSERT_TRUE(CanAccess(mock_file, i & 1, false, i & 2));
-    ASSERT_FALSE(CanAccess(mock_file, i & 1, true, i & 2));
-  }
+  ASSERT_TRUE(CanReadFile(file));
+  ASSERT_FALSE(CanExecuteFile(file));
+  ASSERT_FALSE(CanAccessDirectory(file));
+
+  ASSERT_EQ(0, chmod(file.c_str(), 0100));
+  ASSERT_FALSE(CanReadFile(file));
+  ASSERT_TRUE(CanExecuteFile(file));
+  ASSERT_FALSE(CanAccessDirectory(file));
+
+  ASSERT_EQ(0, chmod(dir.c_str(), 0500));
+  ASSERT_FALSE(CanReadFile(dir));
+  ASSERT_FALSE(CanExecuteFile(dir));
+  ASSERT_FALSE(CanAccessDirectory(dir));
+  ASSERT_EQ(0, chmod(dir.c_str(), 0700));
+
+  ASSERT_EQ(0, unlink(file.c_str()));
+  ASSERT_EQ(0, rmdir(dir.c_str()));
 }
 
 TEST(FilePosixTest, GetCwd) {
@@ -301,7 +310,7 @@ TEST(FilePosixTest, ChangeDirectory) {
 
 class MockDirectoryEntryConsumer : public DirectoryEntryConsumer {
  public:
-  void Consume(const std::string &name, bool is_directory) override {
+  void Consume(const std::string& name, bool is_directory) override {
     entries.push_back(pair<string, bool>(name, is_directory));
   }
 
@@ -331,18 +340,18 @@ TEST(FilePosixTest, ForEachDirectoryEntry) {
   string subfile_through_sym = dir_sym + "/subfile";
 
   // Create mock directory, file, and symlinks.
-  int fd = open(file.c_str(), O_CREAT, 0700);
-  ASSERT_GT(fd, 0);
-  close(fd);
+  AutoFd fd(open(file.c_str(), O_CREAT, 0700));
+  ASSERT_TRUE(fd.IsOpen());
+  fd.Close();
   ASSERT_EQ(0, mkdir(dir.c_str(), 0700));
   ASSERT_EQ(0, symlink("dir", dir_sym.c_str()));
   ASSERT_EQ(0, symlink("file", file_sym.c_str()));
   fd = open(subfile.c_str(), O_CREAT, 0700);
-  ASSERT_GT(fd, 0);
-  close(fd);
+  ASSERT_TRUE(fd.IsOpen());
+  fd.Close();
 
-  // Assert that stat'ing the symlinks (with following them) point to the right
-  // filesystem entry types.
+  // Assert that stat'ing the symlinks (with following them) point to the
+  // right filesystem entry types.
   struct stat stat_buf;
   ASSERT_EQ(0, stat(dir_sym.c_str(), &stat_buf));
   ASSERT_TRUE(S_ISDIR(stat_buf.st_mode));
@@ -356,7 +365,8 @@ TEST(FilePosixTest, ForEachDirectoryEntry) {
 
   // Sort the collected directory entries.
   struct {
-    bool operator()(const pair<string, bool> &a, const pair<string, bool> &b) {
+    bool operator()(const pair<string, bool>& a,
+                    const pair<string, bool>& b) {
       return a.first < b.first;
     }
   } sort_pairs;
@@ -395,7 +405,7 @@ TEST(FilePosixTest, ForEachDirectoryEntry) {
   rmdir(root.c_str());
 }
 
-TEST(FileTest, IsAbsolute) {
+TEST(FilePosixTest, IsAbsolute) {
   ASSERT_FALSE(IsAbsolute(""));
   ASSERT_TRUE(IsAbsolute("/"));
   ASSERT_TRUE(IsAbsolute("/foo"));
@@ -409,7 +419,7 @@ TEST(FileTest, IsAbsolute) {
   ASSERT_FALSE(IsAbsolute("\\\\?\\c:\\foo"));
 }
 
-TEST(FileTest, IsRootDirectory) {
+TEST(FilePosixTest, IsRootDirectory) {
   ASSERT_FALSE(IsRootDirectory(""));
   ASSERT_TRUE(IsRootDirectory("/"));
   ASSERT_FALSE(IsRootDirectory("/foo"));

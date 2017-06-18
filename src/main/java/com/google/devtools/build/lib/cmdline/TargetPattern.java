@@ -19,6 +19,9 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
 import com.google.devtools.build.lib.cmdline.LabelValidator.PackageAndTarget;
 import com.google.devtools.build.lib.util.BatchCallback;
@@ -26,15 +29,12 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.util.ThreadSafeBatchCallback;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.ForkJoinPool;
 import java.util.regex.Pattern;
-
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -157,47 +157,108 @@ public abstract class TargetPattern implements Serializable {
       throws TargetParsingException, E, InterruptedException;
 
   /**
-   * Same as {@link #eval}, but optionally making use of the given {@link ForkJoinPool} to achieve
-   * parallelism.
+   * Evaluates this {@link TargetPattern} synchronously, feeding the result to the given
+   * {@code callback}, and then returns an appropriate immediate {@link ListenableFuture}.
+   *
+   * <p>If the returned {@link ListenableFuture}'s {@link ListenableFuture#get} throws an
+   * {@link ExecutionException}, the cause will be an instance of either
+   * {@link TargetParsingException} or the given {@code exceptionClass}.
    */
-  public <T, E extends Exception> void parEval(
+  public final <T, E extends Exception> ListenableFuture<Void> evalAdaptedForAsync(
+      TargetPatternResolver<T> resolver,
+      ImmutableSet<PathFragment> excludedSubdirectories,
+      ThreadSafeBatchCallback<T, E> callback,
+      Class<E> exceptionClass) {
+    try {
+      eval(resolver, excludedSubdirectories, callback, exceptionClass);
+      return Futures.immediateFuture(null);
+    } catch (TargetParsingException e) {
+      return Futures.immediateFailedFuture(e);
+    } catch (InterruptedException e) {
+      return Futures.immediateCancelledFuture();
+    } catch (Exception e) {
+      if (exceptionClass.isInstance(e)) {
+        return Futures.immediateFailedFuture(exceptionClass.cast(e));
+      }
+      throw new IllegalStateException(e);
+    }
+  }
+
+  /**
+   * Returns a {@link ListenableFuture} representing the asynchronous evaluation of this
+   * {@link TargetPattern} that feeds the results to the given {@code callback}.
+   *
+   * <p>If the returned {@link ListenableFuture}'s {@link ListenableFuture#get} throws an
+   * {@link ExecutionException}, the cause will be an instance of either
+   * {@link TargetParsingException} or the given {@code exceptionClass}.
+   */
+  public <T, E extends Exception> ListenableFuture<Void> evalAsync(
       TargetPatternResolver<T> resolver,
       ImmutableSet<PathFragment> excludedSubdirectories,
       ThreadSafeBatchCallback<T, E> callback,
       Class<E> exceptionClass,
-      ForkJoinPool forkJoinPool)
-      throws TargetParsingException, E, InterruptedException {
-    eval(resolver, excludedSubdirectories, callback, exceptionClass);
+      ListeningExecutorService executor) {
+    return evalAdaptedForAsync(resolver, excludedSubdirectories, callback, exceptionClass);
   }
 
   /**
    * Returns {@code true} iff this pattern has type {@code Type.TARGETS_BELOW_DIRECTORY} and
-   * {@code directory} is contained by or equals this pattern's directory. For example,
-   * returns {@code true} for {@code this = TargetPattern ("//...")} and {@code directory
-   * = "foo")}.
+   * {@code directory} is contained by or equals this pattern's directory.
+   *
+   * <p>For example, returns {@code true} for {@code this = TargetPattern ("//...")} and
+   * {@code directory = "foo")}.
    */
-  public abstract boolean containsBelowDirectory(PackageIdentifier directory);
+  public abstract boolean containsAllTransitiveSubdirectoriesForTBD(PackageIdentifier directory);
 
   /**
-   * Shorthand for {@code containsBelowDirectory(containedPattern.getDirectory())}.
+   * Returns {@code true} iff both this pattern and {@code containedPattern} have type
+   * {@code Type.TARGETS_BELOW_DIRECTORY} and the directory in question for {@code containedPattern}
+   * is underneath the directory in question for this pattern.
+   *
+   * <p>That is, when this method returns {@code true} it means every target matched by
+   * {@code containedPattern} is also matched by this pattern.
    */
-  public boolean containsBelowDirectory(TargetPattern containedPattern) {
-    return containsBelowDirectory(containedPattern.getDirectory());
+  public boolean containsDirectoryOfTBDForTBD(TargetPattern containedPattern) {
+    return containedPattern.getType() != Type.TARGETS_BELOW_DIRECTORY
+      ? false
+      : containsAllTransitiveSubdirectoriesForTBD(
+          containedPattern.getDirectoryForTargetsUnderDirectory());
   }
 
   /**
-   * Returns a {@link PackageIdentifier} identifying the most specific containing directory of the
-   * patterns that could be matched by this pattern.
+   * For patterns of type {@link Type#TARGETS_BELOW_DIRECTORY}, returns a {@link PackageIdentifier}
+   * identifying the most specific containing directory of the patterns that could be matched by
+   * this pattern.
    *
    * <p>Note that we are using the {@link PackageIdentifier} type as a convenience; there may not
    * actually be a package corresponding to this directory!
    *
-   * <p>For patterns of type {@code Type.TARGETS_BELOW_DIRECTORY}, this returns a
-   * {@link PackageIdentifier} that identifies the referred-to directory. For example, for a
-   * {@code Type.TARGETS_BELOW_DIRECTORY} corresponding to "//foo/bar/...", this method returns a
-   * {@link PackageIdentifier} for "foo/bar".
+   * <p>This returns a {@link PackageIdentifier} that identifies the referred-to directory. For
+   * example, for a {@link Type#TARGETS_BELOW_DIRECTORY} corresponding to "//foo/bar/...", this
+   * method returns a {@link PackageIdentifier} for "foo/bar".
    */
-  public abstract PackageIdentifier getDirectory();
+  public PackageIdentifier getDirectoryForTargetsUnderDirectory() {
+    throw new IllegalStateException();
+  }
+
+  /**
+   * For patterns of type {@link Type#PATH_AS_TARGET}, returns the path in question.
+   *
+   * <p>The interpretation of this path, of course, depends on the existence of packages.
+   * See {@link InterpretPathAsTarget#eval}.
+   */
+  public String getPathForPathAsTarget() {
+    throw new IllegalStateException();
+  }
+
+  /**
+   * For patterns of type {@link Type#SINGLE_TARGET} and {@link Type#TARGETS_IN_PACKAGE}, returns
+   * the {@link PackageIdentifier} corresponding to the package that would contain the target(s)
+   * matched by this {@link TargetPattern}.
+   */
+  public PackageIdentifier getDirectoryForTargetOrTargetsInPackage() {
+    throw new IllegalStateException();
+  }
 
   /**
    * Returns {@code true} iff this pattern has type {@code Type.TARGETS_BELOW_DIRECTORY} or
@@ -222,8 +283,8 @@ public abstract class TargetPattern implements Serializable {
     public <T, E extends Exception> void eval(
         TargetPatternResolver<T> resolver,
         ImmutableSet<PathFragment> excludedSubdirectories,
-        BatchCallback<T, E> callback, Class<E> exceptionClass)
-        throws TargetParsingException, E, InterruptedException {
+        BatchCallback<T, E> callback,
+        Class<E> exceptionClass) throws TargetParsingException, E, InterruptedException {
       Preconditions.checkArgument(excludedSubdirectories.isEmpty(),
           "Target pattern \"%s\" of type %s cannot be evaluated with excluded subdirectories: %s.",
           getOriginalPattern(), getType(), excludedSubdirectories);
@@ -231,12 +292,12 @@ public abstract class TargetPattern implements Serializable {
     }
 
     @Override
-    public boolean containsBelowDirectory(PackageIdentifier directory) {
+    public boolean containsAllTransitiveSubdirectoriesForTBD(PackageIdentifier directory) {
       return false;
     }
 
     @Override
-    public PackageIdentifier getDirectory() {
+    public PackageIdentifier getDirectoryForTargetOrTargetsInPackage() {
       return directory;
     }
 
@@ -307,16 +368,13 @@ public abstract class TargetPattern implements Serializable {
     }
 
     @Override
-    public boolean containsBelowDirectory(PackageIdentifier directory) {
+    public boolean containsAllTransitiveSubdirectoriesForTBD(PackageIdentifier directory) {
       return false;
     }
 
     @Override
-    public PackageIdentifier getDirectory() {
-      int lastSlashIndex = path.lastIndexOf('/');
-      // The package name cannot be illegal because we verified it during target parsing
-      return PackageIdentifier.createInMainRepo(
-          lastSlashIndex < 0 ? "" : path.substring(0, lastSlashIndex));
+    public String getPathForPathAsTarget() {
+      return path;
     }
 
     @Override
@@ -386,12 +444,12 @@ public abstract class TargetPattern implements Serializable {
     }
 
     @Override
-    public boolean containsBelowDirectory(PackageIdentifier directory) {
+    public boolean containsAllTransitiveSubdirectoriesForTBD(PackageIdentifier directory) {
       return false;
     }
 
     @Override
-    public PackageIdentifier getDirectory() {
+    public PackageIdentifier getDirectoryForTargetOrTargetsInPackage() {
       return packageIdentifier;
     }
 
@@ -491,14 +549,13 @@ public abstract class TargetPattern implements Serializable {
     }
 
     @Override
-    public <T, E extends Exception> void parEval(
+    public <T, E extends Exception> ListenableFuture<Void> evalAsync(
         TargetPatternResolver<T> resolver,
         ImmutableSet<PathFragment> excludedSubdirectories,
         ThreadSafeBatchCallback<T, E> callback,
         Class<E> exceptionClass,
-        ForkJoinPool forkJoinPool)
-        throws TargetParsingException, E, InterruptedException {
-      resolver.findTargetsBeneathDirectoryPar(
+        ListeningExecutorService executor) {
+      return resolver.findTargetsBeneathDirectoryAsync(
           directory.getRepository(),
           getOriginalPattern(),
           directory.getPackageFragment().getPathString(),
@@ -506,11 +563,11 @@ public abstract class TargetPattern implements Serializable {
           excludedSubdirectories,
           callback,
           exceptionClass,
-          forkJoinPool);
+          executor);
     }
 
     @Override
-    public boolean containsBelowDirectory(PackageIdentifier containedDirectory) {
+    public boolean containsAllTransitiveSubdirectoriesForTBD(PackageIdentifier containedDirectory) {
       // Note that merely checking to see if the directory startsWith the TargetsBelowDirectory's
       // directory is insufficient. "food" begins with "foo", but "//foo/..." does not contain
       // "//food/...".
@@ -519,7 +576,7 @@ public abstract class TargetPattern implements Serializable {
     }
 
     @Override
-    public PackageIdentifier getDirectory() {
+    public PackageIdentifier getDirectoryForTargetsUnderDirectory() {
       return directory;
     }
 
@@ -559,16 +616,14 @@ public abstract class TargetPattern implements Serializable {
      * The set of target-pattern suffixes which indicate wildcards over all <em>rules</em> in a
      * single package.
      */
-    private static final List<String> ALL_RULES_IN_SUFFIXES = ImmutableList.of(
-        "all");
+    private static final ImmutableList<String> ALL_RULES_IN_SUFFIXES = ImmutableList.of("all");
 
     /**
      * The set of target-pattern suffixes which indicate wildcards over all <em>targets</em> in a
      * single package.
      */
-    private static final List<String> ALL_TARGETS_IN_SUFFIXES = ImmutableList.of(
-        "*",
-        "all-targets");
+    private static final ImmutableList<String> ALL_TARGETS_IN_SUFFIXES =
+        ImmutableList.of("*", "all-targets");
 
     private static final List<String> SUFFIXES;
 
@@ -724,7 +779,7 @@ public abstract class TargetPattern implements Serializable {
         try {
           PackageAndTarget packageAndTarget = LabelValidator.validateAbsoluteLabel(fullLabel);
           packageIdentifier = PackageIdentifier.create(repository,
-              new PathFragment(packageAndTarget.getPackageName()));
+              PathFragment.create(packageAndTarget.getPackageName()));
         } catch (BadLabelException e) {
           String error = "invalid target format '" + originalPattern + "': " + e.getMessage();
           throw new TargetParsingException(error);

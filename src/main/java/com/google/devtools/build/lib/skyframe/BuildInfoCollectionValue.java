@@ -13,13 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoCollection;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-
 import java.util.Objects;
 
 /**
@@ -29,8 +29,8 @@ import java.util.Objects;
 public class BuildInfoCollectionValue extends ActionLookupValue {
   private final BuildInfoCollection collection;
 
-  BuildInfoCollectionValue(BuildInfoCollection collection) {
-    super(collection.getActions());
+  BuildInfoCollectionValue(BuildInfoCollection collection, boolean removeActionsAfterEvaluation) {
+    super(collection.getActions(), removeActionsAfterEvaluation);
     this.collection = collection;
   }
 
@@ -40,9 +40,7 @@ public class BuildInfoCollectionValue extends ActionLookupValue {
 
   @Override
   public String toString() {
-    return com.google.common.base.MoreObjects.toStringHelper(getClass())
-        .add("collection", collection)
-        .add("generatingActionMap", generatingActionMap).toString();
+    return getStringHelper().add("collection", collection).toString();
   }
 
   /** Key for BuildInfoCollectionValues. */
@@ -56,7 +54,7 @@ public class BuildInfoCollectionValue extends ActionLookupValue {
     }
 
     @Override
-    SkyFunctionName getType() {
+    protected SkyFunctionName getType() {
       return SkyFunctions.BUILD_INFO_COLLECTION;
     }
 

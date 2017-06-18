@@ -13,10 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
+
 /**
  * This event is fired at the beginning of the loading phase.
  */
-public final class LoadingPhaseStartedEvent {
+public final class LoadingPhaseStartedEvent implements ExtendedEventHandler.Postable {
 
   final PackageProgressReceiver packageProgress;
 

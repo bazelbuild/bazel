@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.Collection;
 
 /**
  * Allow tests to easily manage scratch files in a FileSystem.
@@ -135,6 +136,14 @@ public final class Scratch {
     return new String(
         ByteStreams.toByteArray(resolve(pathName).getInputStream()),
         DEFAULT_CHARSET);
+  }
+
+  /**
+   * Like {@code scratch.file}, but the file is first deleted if it already
+   * exists.
+   */
+  public Path overwriteFile(String pathName, Collection<String> lines)  throws IOException {
+    return overwriteFile(pathName, lines.toArray(new String[lines.size()]));
   }
 
   /**

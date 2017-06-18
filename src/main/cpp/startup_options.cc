@@ -14,17 +14,15 @@
 #include "src/main/cpp/startup_options.h"
 
 #include <assert.h>
-#include <errno.h>  // errno, ENOENT
-#include <string.h>  // strerror
 
 #include <cstdio>
 #include <cstdlib>
 
-#include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/blaze_util.h"
+#include "src/main/cpp/blaze_util_platform.h"
+#include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
-#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/workspace_layout.h"
@@ -38,7 +36,7 @@ StartupOptions::StartupOptions(const WorkspaceLayout* workspace_layout)
     : StartupOptions("Bazel", workspace_layout) {}
 
 StartupOptions::StartupOptions(const string &product_name,
-                               const WorkspaceLayout* workspace_layout)
+                               const WorkspaceLayout *workspace_layout)
     : product_name(product_name),
       deep_execroot(true),
       block_for_lock(true),
@@ -56,13 +54,22 @@ StartupOptions::StartupOptions(const string &product_name,
       connect_timeout_secs(10),
       invocation_policy(NULL),
       client_debug(false),
-      use_custom_exit_code_on_abrupt_exit(true) {
+      java_logging_formatter(
+          "com.google.devtools.build.lib.util.SingleLineFormatter") {
   bool testing = !blaze::GetEnv("TEST_TMPDIR").empty();
   if (testing) {
     output_root = MakeAbsolute(blaze::GetEnv("TEST_TMPDIR"));
   } else {
     output_root = workspace_layout->GetOutputRoot();
   }
+
+#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+  string windows_unix_root = WindowsUnixRoot(blaze::GetEnv("BAZEL_SH"));
+  if (!windows_unix_root.empty()) {
+    host_jvm_args.push_back(string("-Dbazel.windows_unix_root=") +
+                            windows_unix_root);
+  }
+#endif  // defined(COMPILER_MSVC) || defined(__CYGWIN__)
 
   const string product_name_lower = GetLowercaseProductName();
   output_user_root = blaze_util::JoinPath(
@@ -81,8 +88,7 @@ StartupOptions::StartupOptions(const string &product_name,
                      "experimental_oom_more_eagerly",
                      "write_command_log",
                      "watchfs",
-                     "client_debug",
-                     "use_custom_exit_code_on_abrupt_exit"};
+                     "client_debug"};
   unary_options = {"output_base", "install_base",
       "output_user_root", "host_jvm_profile", "host_javabase",
       "host_jvm_args", "bazelrc", "blazerc", "io_nice_level",
@@ -276,12 +282,6 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
   } else if (GetNullaryOption(arg, "--noclient_debug")) {
     client_debug = false;
     option_sources["client_debug"] = rcfile;
-  } else if (GetNullaryOption(arg, "--use_custom_exit_code_on_abrupt_exit")) {
-    use_custom_exit_code_on_abrupt_exit = true;
-    option_sources["use_custom_exit_code_on_abrupt_exit"] = rcfile;
-  } else if (GetNullaryOption(arg, "--nouse_custom_exit_code_on_abrupt_exit")) {
-    use_custom_exit_code_on_abrupt_exit = false;
-    option_sources["use_custom_exit_code_on_abrupt_exit"] = rcfile;
   } else if ((value = GetUnaryOption(
       arg, next_arg, "--connect_timeout_secs")) != NULL) {
     if (!blaze_util::safe_strto32(value, &connect_timeout_secs) ||
@@ -347,20 +347,40 @@ string StartupOptions::GetDefaultHostJavabase() const {
 }
 
 string StartupOptions::GetHostJavabase() {
+  // 1) Allow overriding the host_javabase via --host_javabase.
   if (host_javabase.empty()) {
-    host_javabase = GetDefaultHostJavabase();
+    if (default_host_javabase.empty()) {
+      string bundled_jre_path = blaze_util::JoinPath(
+          install_base, "_embedded_binaries/embedded_tools/jdk");
+      if (blaze_util::CanExecuteFile(blaze_util::JoinPath(
+              bundled_jre_path, GetJavaBinaryUnderJavabase()))) {
+        // 2) Use a bundled JVM if we have one.
+        default_host_javabase = bundled_jre_path;
+      } else {
+        // 3) Otherwise fall back to using the default system JVM.
+        default_host_javabase = GetDefaultHostJavabase();
+      }
+    }
+
+    return default_host_javabase;
+  } else {
+    return host_javabase;
   }
+}
+
+string StartupOptions::GetExplicitHostJavabase() const {
   return host_javabase;
 }
 
 string StartupOptions::GetJvm() {
-  string java_program = blaze_util::JoinPath(GetHostJavabase(), "bin/java");
-  if (!blaze_util::CanAccess(java_program, false, false, true)) {
+  string java_program =
+      blaze_util::JoinPath(GetHostJavabase(), GetJavaBinaryUnderJavabase());
+  if (!blaze_util::CanExecuteFile(java_program)) {
     if (!blaze_util::PathExists(java_program)) {
       fprintf(stderr, "Couldn't find java at '%s'.\n", java_program.c_str());
     } else {
-      fprintf(stderr, "Couldn't access %s: %s\n", java_program.c_str(),
-          strerror(errno));
+      fprintf(stderr, "Java at '%s' exists but is not executable: %s\n",
+              java_program.c_str(), blaze_util::GetLastErrorString().c_str());
     }
     exit(1);
   }
@@ -368,8 +388,8 @@ string StartupOptions::GetJvm() {
   string jdk_rt_jar = blaze_util::JoinPath(GetHostJavabase(), "jre/lib/rt.jar");
   // If just the JRE is installed
   string jre_rt_jar = blaze_util::JoinPath(GetHostJavabase(), "lib/rt.jar");
-  if (blaze_util::CanAccess(jdk_rt_jar, true, false, false)
-      || blaze_util::CanAccess(jre_rt_jar, true, false, false)) {
+  if (blaze_util::CanReadFile(jdk_rt_jar) ||
+      blaze_util::CanReadFile(jre_rt_jar)) {
     return java_program;
   }
   fprintf(stderr, "Problem with java installation: "
@@ -389,8 +409,8 @@ void StartupOptions::AddJVMArgumentSuffix(const string &real_install_dir,
                                           const string &jar_path,
     std::vector<string> *result) const {
   result->push_back("-jar");
-  result->push_back(blaze::ConvertPath(
-      blaze_util::JoinPath(real_install_dir, jar_path)));
+  result->push_back(
+      blaze::PathAsJvmFlag(blaze_util::JoinPath(real_install_dir, jar_path)));
 }
 
 blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(
@@ -399,16 +419,18 @@ blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(
   // Configure logging
   const string propFile =
       blaze_util::JoinPath(output_base, "javalog.properties");
+  string java_log(
+      blaze::PathAsJvmFlag(blaze_util::JoinPath(output_base, "java.log")));
   if (!blaze_util::WriteFile("handlers=java.util.logging.FileHandler\n"
                              ".level=INFO\n"
                              "java.util.logging.FileHandler.level=INFO\n"
                              "java.util.logging.FileHandler.pattern=" +
-                                 blaze_util::JoinPath(output_base, "java.log") +
+                                 java_log +
                                  "\n"
-                                 "java.util.logging.FileHandler.limit=50000\n"
+                                 "java.util.logging.FileHandler.limit=1024000\n"
                                  "java.util.logging.FileHandler.count=1\n"
-                                 "java.util.logging.FileHandler.formatter="
-                                 "java.util.logging.SimpleFormatter\n",
+                                 "java.util.logging.FileHandler.formatter=" +
+                                 java_logging_formatter + "\n",
                              propFile)) {
     perror(("Couldn't write logging file " + propFile).c_str());
   } else {
@@ -416,5 +438,33 @@ blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(
   }
   return blaze_exit_code::SUCCESS;
 }
+
+#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+// Extract the Windows path of "/" from $BAZEL_SH.
+// $BAZEL_SH usually has the form `<prefix>/usr/bin/bash.exe` or
+// `<prefix>/bin/bash.exe`, and this method returns that `<prefix>` part.
+// If $BAZEL_SH doesn't end with "usr/bin/bash.exe" or "bin/bash.exe" then this
+// method returns an empty string.
+string StartupOptions::WindowsUnixRoot(const string &bazel_sh) {
+  if (bazel_sh.empty()) {
+    return string();
+  }
+  std::pair<string, string> split = blaze_util::SplitPath(bazel_sh);
+  if (blaze_util::AsLower(split.second) != "bash.exe") {
+    return string();
+  }
+  split = blaze_util::SplitPath(split.first);
+  if (blaze_util::AsLower(split.second) != "bin") {
+    return string();
+  }
+
+  std::pair<string, string> split2 = blaze_util::SplitPath(split.first);
+  if (blaze_util::AsLower(split2.second) == "usr") {
+    return split2.first;
+  } else {
+    return split.first;
+  }
+}
+#endif  // defined(COMPILER_MSVC) || defined(__CYGWIN__)
 
 }  // namespace blaze

@@ -53,6 +53,10 @@ public abstract class BugReport {
     runtime = newRuntime;
   }
 
+  private static String getProductName() {
+    return runtime != null ? runtime.getProductName() : "<unknown>";
+  }
+
   /**
    * Logs the unhandled exception with a special prefix signifying that this was a crash.
    *
@@ -70,9 +74,10 @@ public abstract class BugReport {
   }
 
   private static void logCrash(Throwable throwable, String... args) {
+    LOG.severe("Crash: " + Throwables.getStackTraceAsString(throwable));
     BugReport.sendBugReport(throwable, Arrays.asList(args));
     BugReport.printBug(OutErr.SYSTEM_OUT_ERR, throwable);
-    System.err.println(runtime.getProductName() + " crash in async thread:");
+    System.err.println(getProductName() + " crash in async thread:");
     throwable.printStackTrace();
   }
 
@@ -110,9 +115,9 @@ public abstract class BugReport {
     } catch (Throwable t) {
       System.err.println(
           "An crash occurred while "
-              + runtime.getProductName()
+              + getProductName()
               + " was trying to handle a crash! Please file a bug against "
-              + runtime.getProductName()
+              + getProductName()
               + " and include the information below.");
 
       System.err.println("Original uncaught exception:");
@@ -136,7 +141,7 @@ public abstract class BugReport {
     PrintStream err = new PrintStream(outErr.getErrorStream());
     e.printStackTrace(err);
     err.flush();
-    LOG.log(Level.SEVERE, runtime.getProductName() + " crashed", e);
+    LOG.log(Level.SEVERE, getProductName() + " crashed", e);
   }
 
   /**
@@ -148,7 +153,7 @@ public abstract class BugReport {
   public static void printBug(OutErr outErr, Throwable e) {
     if (e instanceof OutOfMemoryError) {
       outErr.printErr(
-          e.getMessage() + "\n\n" + runtime.getProductName() + " ran out of memory and crashed.\n");
+          e.getMessage() + "\n\n" + getProductName() + " ran out of memory and crashed.\n");
     } else {
       printThrowableTo(outErr, e);
     }
@@ -177,9 +182,10 @@ public abstract class BugReport {
   // Log the exception.  Because this method is only called in a blaze release,
   // this will result in a report being sent to a remote logging service.
   private static void logException(Throwable exception, List<String> args, String... values) {
+    LOG.severe("Exception: " + Throwables.getStackTraceAsString(exception));
     // The preamble is used in the crash watcher, so don't change it
     // unless you know what you're doing.
-    String preamble = runtime.getProductName()
+    String preamble = getProductName()
         + (exception instanceof OutOfMemoryError ? " OOMError: " : " crashed with args: ");
 
     LoggingUtil.logToRemote(Level.SEVERE, preamble + Joiner.on(' ').join(args), exception,

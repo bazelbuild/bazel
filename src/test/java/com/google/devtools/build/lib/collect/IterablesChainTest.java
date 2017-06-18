@@ -13,21 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.util.Arrays;
-
-/**
- * A test for {@link IterablesChain}.
- */
+/** A test for {@link IterablesChain}. */
 @RunWith(JUnit4.class)
 public class IterablesChainTest {
 
@@ -36,25 +29,25 @@ public class IterablesChainTest {
     IterablesChain.Builder<String> builder = IterablesChain.builder();
     builder.addElement("a");
     builder.addElement("b");
-    assertEquals(Arrays.asList("a", "b"), ImmutableList.copyOf(builder.build()));
+    assertThat(builder.build()).containsExactly("a", "b").inOrder();
   }
 
   @Test
   public void add() {
     IterablesChain.Builder<String> builder = IterablesChain.builder();
     builder.add(ImmutableList.of("a", "b"));
-    assertEquals(Arrays.asList("a", "b"), ImmutableList.copyOf(builder.build()));
+    assertThat(builder.build()).containsExactly("a", "b").inOrder();
   }
 
   @Test
   public void isEmpty() {
     IterablesChain.Builder<String> builder = IterablesChain.builder();
-    assertTrue(builder.isEmpty());
+    assertThat(builder.isEmpty()).isTrue();
     builder.addElement("a");
-    assertFalse(builder.isEmpty());
+    assertThat(builder.isEmpty()).isFalse();
     builder = IterablesChain.builder();
-    assertTrue(builder.isEmpty());
+    assertThat(builder.isEmpty()).isTrue();
     builder.add(ImmutableList.of("a"));
-    assertFalse(builder.isEmpty());
+    assertThat(builder.isEmpty()).isFalse();
   }
 }

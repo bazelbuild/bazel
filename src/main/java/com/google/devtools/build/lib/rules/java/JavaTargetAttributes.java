@@ -58,7 +58,6 @@ public class JavaTargetAttributes {
     // but is not sorted according to a property of the elements. Thus we are
     // stuck with Set.
     private final Set<Artifact> sourceFiles = new LinkedHashSet<>();
-    private final Set<Artifact> compileTimeJarFiles = new LinkedHashSet<>();
 
     private final NestedSetBuilder<Artifact> runtimeClassPath =
         NestedSetBuilder.naiveLinkOrder();
@@ -67,18 +66,21 @@ public class JavaTargetAttributes {
         NestedSetBuilder.naiveLinkOrder();
 
     private final List<Artifact> bootClassPath = new ArrayList<>();
+    private final List<Artifact> sourcePath = new ArrayList<>();
     private final List<Artifact> nativeLibraries = new ArrayList<>();
 
-    private final Set<Artifact> processorPath = new LinkedHashSet<>();
+    private final NestedSetBuilder<Artifact> processorPath = NestedSetBuilder.naiveLinkOrder();
     // Classpath directories can't be represented as artifacts (TreeArtifact isn't appropriate
     // here since all we need is a path string to apply to the command line).
-    private final Set<PathFragment> processorPathDirs = new LinkedHashSet<>();
     private final Set<String> processorNames = new LinkedHashSet<>();
+    private final Set<String> processorFlags = new LinkedHashSet<>();
 
-    private final Set<Artifact> apiGeneratingProcessorPath = new LinkedHashSet<>();
+    private final NestedSetBuilder<Artifact> apiGeneratingProcessorPath =
+        NestedSetBuilder.naiveLinkOrder();
     private final Set<String> apiGeneratingProcessorNames = new LinkedHashSet<>();
 
     private final Map<PathFragment, Artifact> resources = new LinkedHashMap<>();
+    private final NestedSetBuilder<Artifact> resourceJars = NestedSetBuilder.stableOrder();
     private final List<Artifact> messages = new ArrayList<>();
     private final List<Artifact> instrumentationMetadata = new ArrayList<>();
     private final List<Artifact> sourceJars = new ArrayList<>();
@@ -90,7 +92,8 @@ public class JavaTargetAttributes {
     private BuildConfiguration.StrictDepsMode strictJavaDeps =
         BuildConfiguration.StrictDepsMode.OFF;
     private final NestedSetBuilder<Artifact> directJars = NestedSetBuilder.naiveLinkOrder();
-    private final List<Artifact> compileTimeDependencyArtifacts = new ArrayList<>();
+    private final NestedSetBuilder<Artifact> compileTimeDependencyArtifacts =
+        NestedSetBuilder.stableOrder();
     private String ruleKind;
     private Label targetLabel;
 
@@ -155,12 +158,6 @@ public class JavaTargetAttributes {
       return this;
     }
 
-    public Builder addCompileTimeJarFiles(Iterable<Artifact> jars) {
-      Preconditions.checkArgument(!built);
-      Iterables.addAll(compileTimeJarFiles, jars);
-      return this;
-    }
-
     public Builder addRuntimeClassPathEntry(Artifact classPathEntry) {
       Preconditions.checkArgument(!built);
       checkJar(classPathEntry);
@@ -206,6 +203,16 @@ public class JavaTargetAttributes {
       return this;
     }
 
+    /**
+     * Sets the sourcepath to be passed to the Java compiler.
+     */
+    public Builder setSourcePath(List<Artifact> artifacts) {
+      Preconditions.checkArgument(!built);
+      Preconditions.checkArgument(sourcePath.isEmpty());
+      sourcePath.addAll(artifacts);
+      return this;
+    }
+
     public Builder addExcludedArtifacts(NestedSet<Artifact> toExclude) {
       Preconditions.checkArgument(!built);
       excludedArtifacts.addTransitive(toExclude);
@@ -243,9 +250,9 @@ public class JavaTargetAttributes {
       return this;
     }
 
-    public Builder addCompileTimeDependencyArtifacts(Iterable<Artifact> dependencyArtifacts) {
+    public Builder addCompileTimeDependencyArtifacts(NestedSet<Artifact> dependencyArtifacts) {
       Preconditions.checkArgument(!built);
-      Iterables.addAll(this.compileTimeDependencyArtifacts, dependencyArtifacts);
+      compileTimeDependencyArtifacts.addTransitive(dependencyArtifacts);
       return this;
     }
 
@@ -295,21 +302,27 @@ public class JavaTargetAttributes {
       return this;
     }
 
+    public Builder addResourceJars(NestedSet<Artifact> resourceJars) {
+      Preconditions.checkArgument(!built);
+      this.resourceJars.addTransitive(resourceJars);
+      return this;
+    }
+
     public Builder addProcessorName(String processor) {
       Preconditions.checkArgument(!built);
       processorNames.add(processor);
       return this;
     }
 
-    public Builder addProcessorPath(Iterable<Artifact> jars) {
+    public Builder addProcessorFlag(String processorFlag) {
       Preconditions.checkArgument(!built);
-      Iterables.addAll(processorPath, jars);
+      processorFlags.add(processorFlag);
       return this;
     }
 
-    public Builder addProcessorPathDir(PathFragment dir) {
+    public Builder addProcessorPath(NestedSet<Artifact> jars) {
       Preconditions.checkArgument(!built);
-      processorPathDirs.add(dir);
+      processorPath.addTransitive(jars);
       return this;
     }
 
@@ -319,9 +332,9 @@ public class JavaTargetAttributes {
       return this;
     }
 
-    public Builder addApiGeneratingProcessorPath(Iterable<Artifact> jars) {
+    public Builder addApiGeneratingProcessorPath(NestedSet<Artifact> jars) {
       Preconditions.checkArgument(!built);
-      Iterables.addAll(apiGeneratingProcessorPath, jars);
+      apiGeneratingProcessorPath.addTransitive(jars);
       return this;
     }
 
@@ -350,45 +363,58 @@ public class JavaTargetAttributes {
       built = true;
       return new JavaTargetAttributes(
           sourceFiles,
-          compileTimeJarFiles,
           runtimeClassPath,
           compileTimeClassPath,
           bootClassPath,
+          sourcePath,
           nativeLibraries,
-          processorPath,
-          processorPathDirs,
+          processorPath.build(),
           processorNames,
-          apiGeneratingProcessorPath,
+          processorFlags,
+          apiGeneratingProcessorPath.build(),
           apiGeneratingProcessorNames,
           resources,
+          resourceJars.build(),
           messages,
           sourceJars,
           classPathResources,
           additionalOutputs,
           directJars.build(),
-          compileTimeDependencyArtifacts,
+          compileTimeDependencyArtifacts.build(),
           ruleKind,
           targetLabel,
           excludedArtifacts,
           strictJavaDeps);
     }
 
-    // TODO(bazel-team): Remove these 5 methods.
+    // TODO(bazel-team): delete the following methods - users should use the built
+    // JavaTargetAttributes instead of accessing mutable state in the Builder.
+
+    /** @deprecated prefer {@link JavaTargetAttributes#getSourceFiles} */
     @Deprecated
     public Set<Artifact> getSourceFiles() {
       return sourceFiles;
     }
 
+    /** @deprecated prefer {@link JavaTargetAttributes#hasSources} */
+    @Deprecated
+    public boolean hasSources() {
+      return !sourceFiles.isEmpty() || !sourceJars.isEmpty();
+    }
+
+    /** @deprecated prefer {@link JavaTargetAttributes#hasSourceFiles} */
     @Deprecated
     public boolean hasSourceFiles() {
       return !sourceFiles.isEmpty();
     }
 
+    /** @deprecated prefer {@link JavaTargetAttributes#getInstrumentationMetadata} */
     @Deprecated
     public List<Artifact> getInstrumentationMetadata() {
       return instrumentationMetadata;
     }
 
+    /** @deprecated prefer {@link JavaTargetAttributes#hasSourceJars} */
     @Deprecated
     public boolean hasSourceJars() {
       return !sourceJars.isEmpty();
@@ -400,22 +426,24 @@ public class JavaTargetAttributes {
   //
 
   private final ImmutableSet<Artifact> sourceFiles;
-  private final ImmutableSet<Artifact> compileTimeJarFiles;
 
   private final NestedSet<Artifact> runtimeClassPath;
   private final NestedSet<Artifact> compileTimeClassPath;
 
   private final ImmutableList<Artifact> bootClassPath;
+  private final ImmutableList<Artifact> sourcePath;
   private final ImmutableList<Artifact> nativeLibraries;
 
-  private final ImmutableSet<Artifact> processorPath;
-  private final ImmutableSet<PathFragment> processorPathDirs;
+  private final NestedSet<Artifact> processorPath;
   private final ImmutableSet<String> processorNames;
+  private final ImmutableSet<String> processorFlags;
 
-  private final ImmutableSet<Artifact> apiGeneratingProcessorPath;
+  private final NestedSet<Artifact> apiGeneratingProcessorPath;
   private final ImmutableSet<String> apiGeneratingProcessorNames;
 
   private final ImmutableMap<PathFragment, Artifact> resources;
+  private final NestedSet<Artifact> resourceJars;
+
   private final ImmutableList<Artifact> messages;
   private final ImmutableList<Artifact> sourceJars;
 
@@ -424,7 +452,7 @@ public class JavaTargetAttributes {
   private final ImmutableSet<Artifact> additionalOutputs;
 
   private final NestedSet<Artifact> directJars;
-  private final ImmutableList<Artifact> compileTimeDependencyArtifacts;
+  private final NestedSet<Artifact> compileTimeDependencyArtifacts;
   private final String ruleKind;
   private final Label targetLabel;
 
@@ -434,29 +462,29 @@ public class JavaTargetAttributes {
   /** Constructor of JavaTargetAttributes. */
   private JavaTargetAttributes(
       Set<Artifact> sourceFiles,
-      Set<Artifact> compileTimeJarFiles,
       NestedSetBuilder<Artifact> runtimeClassPath,
       NestedSetBuilder<Artifact> compileTimeClassPath,
       List<Artifact> bootClassPath,
+      List<Artifact> sourcePath,
       List<Artifact> nativeLibraries,
-      Set<Artifact> processorPath,
-      Set<PathFragment> processorPathDirs,
+      NestedSet<Artifact> processorPath,
       Set<String> processorNames,
-      Set<Artifact> apiGeneratingProcessorPath,
+      Set<String> processorFlags,
+      NestedSet<Artifact> apiGeneratingProcessorPath,
       Set<String> apiGeneratingProcessorNames,
       Map<PathFragment, Artifact> resources,
+      NestedSet<Artifact> resourceJars,
       List<Artifact> messages,
       List<Artifact> sourceJars,
       List<Artifact> classPathResources,
       Set<Artifact> additionalOutputs,
       NestedSet<Artifact> directJars,
-      List<Artifact> compileTimeDependencyArtifacts,
+      NestedSet<Artifact> compileTimeDependencyArtifacts,
       String ruleKind,
       Label targetLabel,
       NestedSetBuilder<Artifact> excludedArtifacts,
       BuildConfiguration.StrictDepsMode strictJavaDeps) {
     this.sourceFiles = ImmutableSet.copyOf(sourceFiles);
-    this.compileTimeJarFiles = ImmutableSet.copyOf(compileTimeJarFiles);
     this.runtimeClassPath = runtimeClassPath.build();
     this.directJars = directJars;
     this.compileTimeClassPath =
@@ -465,18 +493,20 @@ public class JavaTargetAttributes {
             .addTransitive(compileTimeClassPath.build())
             .build();
     this.bootClassPath = ImmutableList.copyOf(bootClassPath);
+    this.sourcePath = ImmutableList.copyOf(sourcePath);
     this.nativeLibraries = ImmutableList.copyOf(nativeLibraries);
-    this.processorPath = ImmutableSet.copyOf(processorPath);
-    this.processorPathDirs = ImmutableSet.copyOf(processorPathDirs);
+    this.processorPath = processorPath;
     this.processorNames = ImmutableSet.copyOf(processorNames);
-    this.apiGeneratingProcessorPath = ImmutableSet.copyOf(apiGeneratingProcessorPath);
+    this.processorFlags = ImmutableSet.copyOf(processorFlags);
+    this.apiGeneratingProcessorPath = apiGeneratingProcessorPath;
     this.apiGeneratingProcessorNames = ImmutableSet.copyOf(apiGeneratingProcessorNames);
     this.resources = ImmutableMap.copyOf(resources);
+    this.resourceJars = resourceJars;
     this.messages = ImmutableList.copyOf(messages);
     this.sourceJars = ImmutableList.copyOf(sourceJars);
     this.classPathResources = ImmutableList.copyOf(classPathResources);
     this.additionalOutputs = ImmutableSet.copyOf(additionalOutputs);
-    this.compileTimeDependencyArtifacts = ImmutableList.copyOf(compileTimeDependencyArtifacts);
+    this.compileTimeDependencyArtifacts = compileTimeDependencyArtifacts;
     this.ruleKind = ruleKind;
     this.targetLabel = targetLabel;
     this.excludedArtifacts = excludedArtifacts.build();
@@ -487,7 +517,7 @@ public class JavaTargetAttributes {
     return directJars;
   }
 
-  public List<Artifact> getCompileTimeDependencyArtifacts() {
+  public NestedSet<Artifact> getCompileTimeDependencyArtifacts() {
     return compileTimeDependencyArtifacts;
   }
 
@@ -497,6 +527,10 @@ public class JavaTargetAttributes {
 
   public Map<PathFragment, Artifact> getResources() {
     return resources;
+  }
+
+  public NestedSet<Artifact> getResourceJars() {
+    return resourceJars;
   }
 
   public List<Artifact> getMessages() {
@@ -549,15 +583,15 @@ public class JavaTargetAttributes {
     return bootClassPath;
   }
 
-  public ImmutableSet<Artifact> getProcessorPath() {
+  public ImmutableList<Artifact> getSourcePath() {
+    return sourcePath;
+  }
+
+  public NestedSet<Artifact> getProcessorPath() {
     return processorPath;
   }
 
-  public ImmutableSet<PathFragment> getProcessorPathDirs() {
-    return processorPathDirs;
-  }
-
-  public Collection<Artifact> getApiGeneratingProcessorPath() {
+  public NestedSet<Artifact> getApiGeneratingProcessorPath() {
     return apiGeneratingProcessorPath;
   }
 
@@ -565,12 +599,8 @@ public class JavaTargetAttributes {
     return apiGeneratingProcessorNames;
   }
 
-  public Set<Artifact> getSourceFiles() {
+  public ImmutableSet<Artifact> getSourceFiles() {
     return sourceFiles;
-  }
-
-  public Set<Artifact> getCompileTimeJarFiles() {
-    return compileTimeJarFiles;
   }
 
   public List<Artifact> getNativeLibraries() {
@@ -581,24 +611,23 @@ public class JavaTargetAttributes {
     return processorNames;
   }
 
-  public boolean hasSourceFiles() {
-    return !sourceFiles.isEmpty();
+  public Collection<String> getProcessorFlags() {
+    return processorFlags;
   }
 
-  public boolean hasSourceJars() {
-    return !sourceJars.isEmpty();
+  public boolean hasSources() {
+    return !sourceFiles.isEmpty() || !sourceJars.isEmpty();
   }
 
   public boolean hasResources() {
-    return !resources.isEmpty();
+    return !resources.isEmpty()
+        || !messages.isEmpty()
+        || !classPathResources.isEmpty()
+        || !resourceJars.isEmpty();
   }
 
   public boolean hasMessages() {
     return !messages.isEmpty();
-  }
-
-  public boolean hasClassPathResources() {
-    return !classPathResources.isEmpty();
   }
 
   public String getRuleKind() {

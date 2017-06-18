@@ -43,7 +43,8 @@ public final class JavaRunfilesProvider implements TransitiveInfoProvider {
       new Function<TransitiveInfoCollection, Runfiles>() {
         @Override
         public Runfiles apply(TransitiveInfoCollection input) {
-          JavaRunfilesProvider provider = input.getProvider(JavaRunfilesProvider.class);
+          JavaRunfilesProvider provider =
+              JavaProvider.getProvider(JavaRunfilesProvider.class, input);
           return provider == null
               ? Runfiles.EMPTY
               : provider.getRunfiles();

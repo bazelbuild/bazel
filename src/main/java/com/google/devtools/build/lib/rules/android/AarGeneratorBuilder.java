@@ -25,9 +25,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
-import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceType;
-
+import com.google.devtools.build.lib.rules.android.ResourceContainer.ResourceType;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -85,6 +83,12 @@ public class AarGeneratorBuilder {
     List<Artifact> outs = new ArrayList<>();
     List<Artifact> ins = new ArrayList<>();
     List<String> args = new ArrayList<>();
+    
+    // Set the busybox tool
+    args.add("--tool");
+    args.add("GENERATE_AAR");
+    // Deliminate between the tool and the tool arguments.
+    args.add("--");
 
     args.add("--mainData");
     addPrimaryResourceContainer(ins, args, primary);
@@ -111,15 +115,16 @@ public class AarGeneratorBuilder {
     args.add(aarOut.getExecPathString());
     outs.add(aarOut);
 
-    ruleContext.registerAction(this.builder
-        .addInputs(ImmutableList.<Artifact>copyOf(ins))
-        .addOutputs(ImmutableList.<Artifact>copyOf(outs))
-        .setCommandLine(CommandLine.of(args, false))
-        .setExecutable(
-            ruleContext.getExecutablePrerequisite("$android_aar_generator", Mode.HOST))
-        .setProgressMessage("Building AAR package for " + ruleContext.getLabel())
-        .setMnemonic("AARGenerator")
-        .build(context));
+    ruleContext.registerAction(
+        this.builder
+            .addInputs(ImmutableList.<Artifact>copyOf(ins))
+            .addOutputs(ImmutableList.<Artifact>copyOf(outs))
+            .setCommandLine(CommandLine.of(args))
+            .setExecutable(
+                ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
+            .setProgressMessage("Building AAR package for " + ruleContext.getLabel())
+            .setMnemonic("AARGenerator")
+            .build(context));
   }
 
   private void addPrimaryResourceContainer(List<Artifact> inputs, List<String> args,

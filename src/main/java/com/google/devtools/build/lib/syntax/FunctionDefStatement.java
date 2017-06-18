@@ -13,21 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
-import com.google.devtools.build.lib.syntax.compiler.LoopLabels;
-import com.google.devtools.build.lib.syntax.compiler.VariableScope;
-
-import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
-
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Syntax node for a function definition.
  */
-public class FunctionDefStatement extends Statement {
+public final class FunctionDefStatement extends Statement {
 
   private final Identifier ident;
   private final FunctionSignature.WithValues<Expression, Expression> signature;
@@ -39,9 +32,9 @@ public class FunctionDefStatement extends Statement {
       FunctionSignature.WithValues<Expression, Expression> signature,
       Iterable<Statement> statements) {
     this.ident = ident;
+    this.parameters = ImmutableList.copyOf(parameters);
     this.signature = signature;
     this.statements = ImmutableList.copyOf(statements);
-    this.parameters = ImmutableList.copyOf(parameters);
   }
 
   @Override
@@ -56,12 +49,21 @@ public class FunctionDefStatement extends Statement {
         defaultValues.add(expr.eval(env));
       }
     }
+
+    FunctionSignature sig = signature.getSignature();
+    if (env.getSemantics().incompatibleDisallowKeywordOnlyArgs
+        && sig.getShape().getMandatoryNamedOnly() > 0) {
+      throw new EvalException(
+          getLocation(),
+          "Keyword-only argument is forbidden. You can temporarily disable this "
+              + "error using the flag --incompatible_disallow_keyword_only_args=false");
+    }
+
     env.update(
         ident.getName(),
         new UserDefinedFunction(
             ident,
-            FunctionSignature.WithValues.<Object, SkylarkType>create(
-                signature.getSignature(), defaultValues, types),
+            FunctionSignature.WithValues.<Object, SkylarkType>create(sig, defaultValues, types),
             statements,
             env.getGlobals()));
   }
@@ -122,13 +124,5 @@ public class FunctionDefStatement extends Statement {
     for (Statement stmts : statements) {
       stmts.validate(localEnv);
     }
-  }
-
-  @Override
-  ByteCodeAppender compile(
-      VariableScope scope, Optional<LoopLabels> loopLabels, DebugInfo debugInfo) {
-    throw new UnsupportedOperationException(
-        "Skylark does not support nested function definitions"
-            + " and the current entry point for the compiler is UserDefinedFunction.");
   }
 }

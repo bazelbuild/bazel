@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -59,6 +60,7 @@ import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy;
 import com.google.devtools.build.lib.packages.FileTarget;
 import com.google.devtools.build.lib.packages.FilesetEntry;
@@ -72,15 +74,17 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.AliasProvider;
+import com.google.devtools.build.lib.rules.MakeVariableProvider;
 import com.google.devtools.build.lib.rules.fileset.FilesetProvider;
 import com.google.devtools.build.lib.shell.ShellUtils;
+import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.syntax.Type.LabelClass;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -89,6 +93,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -164,6 +169,7 @@ public final class RuleContext extends TargetContext
   private final ErrorReporter reporter;
   private final ImmutableBiMap<String, Class<? extends TransitiveInfoProvider>>
       skylarkProviderRegistry;
+  @Nullable private final ToolchainContext toolchainContext;
 
   private ActionOwner actionOwner;
 
@@ -178,7 +184,8 @@ public final class RuleContext extends TargetContext
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       Class<? extends BuildConfiguration.Fragment> universalFragment,
       String ruleClassNameForLogging,
-      ImmutableMap<String, Attribute> aspectAttributes) {
+      ImmutableMap<String, Attribute> aspectAttributes,
+      @Nullable ToolchainContext toolchainContext) {
     super(builder.env, builder.rule, builder.configuration, builder.prerequisiteMap.get(null),
         builder.visibility);
     this.rule = builder.rule;
@@ -194,6 +201,7 @@ public final class RuleContext extends TargetContext
     this.skylarkProviderRegistry = builder.skylarkProviderRegistry;
     this.hostConfiguration = builder.hostConfiguration;
     reporter = builder.reporter;
+    this.toolchainContext = toolchainContext;
   }
 
   private ImmutableSet<String> getEnabledFeatures() {
@@ -251,7 +259,7 @@ public final class RuleContext extends TargetContext
    * Returns the workspace name for the rule.
    */
   public String getWorkspaceName() {
-    return rule.getPackage().getWorkspaceName();
+    return rule.getRepository().strippedName();
   }
 
   /**
@@ -273,6 +281,13 @@ public final class RuleContext extends TargetContext
    */
   public ImmutableMap<String, Attribute> getAspectAttributes() {
     return attributes.getAspectAttributes();
+  }
+
+  /**
+   * All aspects applied to the rule.
+   */
+  public ImmutableList<AspectDescriptor> getAspectDescriptors() {
+    return aspectDescriptors;
   }
 
   /**
@@ -545,7 +560,7 @@ public final class RuleContext extends TargetContext
    * thus guaranteeing that it never clashes with artifacts created by rules in other packages.
    */
   public Artifact getPackageRelativeArtifact(String relative, Root root) {
-    return getPackageRelativeArtifact(new PathFragment(relative), root);
+    return getPackageRelativeArtifact(PathFragment.create(relative), root);
   }
 
   /**
@@ -553,7 +568,7 @@ public final class RuleContext extends TargetContext
    * guaranteeing that it never clashes with artifacts created by rules in other packages.
    */
   public Artifact getBinArtifact(String relative) {
-    return getBinArtifact(new PathFragment(relative));
+    return getBinArtifact(PathFragment.create(relative));
   }
 
   public Artifact getBinArtifact(PathFragment relative) {
@@ -566,7 +581,7 @@ public final class RuleContext extends TargetContext
    * guaranteeing that it never clashes with artifacts created by rules in other packages.
    */
   public Artifact getGenfilesArtifact(String relative) {
-    return getGenfilesArtifact(new PathFragment(relative));
+    return getGenfilesArtifact(PathFragment.create(relative));
   }
 
   public Artifact getGenfilesArtifact(PathFragment relative) {
@@ -642,12 +657,20 @@ public final class RuleContext extends TargetContext
   }
 
   /**
+   * Creates a tree artifact in a directory that is unique to the package that contains the rule,
+   * thus guaranteeing that it never clashes with artifacts created by rules in other packages.
+   */
+  public Artifact getPackageRelativeTreeArtifact(PathFragment relative, Root root) {
+    return getTreeArtifact(getPackageDirectory().getRelative(relative), root);
+  }
+
+  /**
    * Creates an artifact in a directory that is unique to the rule, thus guaranteeing that it never
    * clashes with artifacts created by other rules.
    */
   public Artifact getUniqueDirectoryArtifact(
       String uniqueDirectory, String relative, Root root) {
-    return getUniqueDirectoryArtifact(uniqueDirectory, new PathFragment(relative), root);
+    return getUniqueDirectoryArtifact(uniqueDirectory, PathFragment.create(relative), root);
   }
 
   /**
@@ -839,9 +862,11 @@ public final class RuleContext extends TargetContext
    * Returns all the declared providers (native and Skylark) for the specified constructor under the
    * specified attribute of this target in the BUILD file.
    */
-  public Iterable<SkylarkClassObject> getPrerequisites(
-      String attributeName, Mode mode, final SkylarkClassObjectConstructor.Key skylarkKey) {
-    return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), skylarkKey);
+  public <T extends SkylarkClassObject> Iterable<T> getPrerequisites(
+      String attributeName, Mode mode,
+      final ClassObjectConstructor.Key skylarkKey,
+      Class<T> result) {
+    return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), skylarkKey, result);
   }
 
   /**
@@ -851,7 +876,7 @@ public final class RuleContext extends TargetContext
    */
   @Nullable
   public SkylarkClassObject getPrerequisite(
-      String attributeName, Mode mode, final SkylarkClassObjectConstructor.Key skylarkKey) {
+      String attributeName, Mode mode, final ClassObjectConstructor.Key skylarkKey) {
     TransitiveInfoCollection prerequisite = getPrerequisite(attributeName, mode);
     return prerequisite == null ? null : prerequisite.get(skylarkKey);
   }
@@ -919,17 +944,46 @@ public final class RuleContext extends TargetContext
    * @return a list of strings containing the expanded and tokenized values for the attribute
    */
   public ImmutableList<String> getTokenizedStringListAttr(String attributeName) {
-    return getExpandedStringListAttr(attributeName, Tokenize.YES);
+    return getExpandedStringListAttr(attributeName, Tokenize.YES, Collections.EMPTY_LIST);
   }
 
   /**
-   * Gets an attribute of type STRING_LIST expanding Make variables and $(location) tags,
-   * and optionally tokenizes the result.
+   * Gets an attribute of type STRING_LIST expanding Make variables, $(location) tags into the
+   * dependency location (see {@link LocationExpander} for details) and tokenizes the result.
+   *
+   * @param attributeName the name of the attribute to process
+   * @param makeVariableSuppliers to be used with {@link ConfigurationMakeVariableContext}
+   * @return a list of strings containing the expanded and tokenized values for the attribute
+   */
+  public ImmutableList<String> getTokenizedStringListAttr(
+      String attributeName, Iterable<? extends MakeVariableSupplier> makeVariableSuppliers) {
+    return getExpandedStringListAttr(attributeName, Tokenize.YES, makeVariableSuppliers);
+  }
+
+  /**
+   * Gets an attribute of type STRING_LIST expanding Make variables and $(location) tags, and
+   * optionally tokenizes the result. Doesn't register any {@link MakeVariableSupplier}.
    *
    * @param attributeName the name of the attribute to process
    * @return a list of strings containing the processed values for the attribute
    */
   public ImmutableList<String> getExpandedStringListAttr(String attributeName, Tokenize tokenize) {
+    return getExpandedStringListAttr(
+        attributeName, tokenize, ImmutableList.<MakeVariableSupplier>of());
+  }
+
+  /**
+   * Gets an attribute of type STRING_LIST expanding Make variables and $(location) tags, and
+   * optionally tokenizes the result.
+   *
+   * @param attributeName the name of the attribute to process
+   * @param makeVariableSuppliers to be used with {@link ConfigurationMakeVariableContext}
+   * @return a list of strings containing the processed values for the attribute
+   */
+  public ImmutableList<String> getExpandedStringListAttr(
+      String attributeName,
+      Tokenize tokenize,
+      Iterable<? extends MakeVariableSupplier> makeVariableSuppliers) {
     if (!getRule().isAttrDefined(attributeName, Type.STRING_LIST)) {
       // TODO(bazel-team): This should be an error.
       return ImmutableList.of();
@@ -943,7 +997,7 @@ public final class RuleContext extends TargetContext
         new LocationExpander(this, LocationExpander.Options.ALLOW_DATA);
 
     for (String token : original) {
-      expandValue(tokens, attributeName, token, locationExpander, tokenize);
+      expandValue(tokens, attributeName, token, locationExpander, tokenize, makeVariableSuppliers);
     }
     return ImmutableList.copyOf(tokens);
   }
@@ -951,42 +1005,53 @@ public final class RuleContext extends TargetContext
   /**
    * Expands make variables in value and tokenizes the result into tokens.
    *
-   * <p>This methods should be called only during initialization.
-   */
-  public void tokenizeAndExpandMakeVars(List<String> tokens, String attributeName, String value) {
-    LocationExpander locationExpander =
-        new LocationExpander(this, Options.ALLOW_DATA, Options.EXEC_PATHS);
-    tokenizeAndExpandMakeVars(tokens, attributeName, value, locationExpander);
-  }
-
-  /**
-   * Expands make variables and $(location) tags in value and tokenizes the result into tokens.
-   *
-   * <p>This methods should be called only during initialization.
+   * @param makeVariableSuppliers to be used with {@link ConfigurationMakeVariableContext}
+   *     <p>This methods should be called only during initialization.
    */
   public void tokenizeAndExpandMakeVars(
       List<String> tokens,
       String attributeName,
       String value,
-      @Nullable LocationExpander locationExpander) {
-    expandValue(tokens, attributeName, value, locationExpander, Tokenize.YES);
+      Iterable<? extends MakeVariableSupplier> makeVariableSuppliers) {
+    LocationExpander locationExpander =
+        new LocationExpander(this, Options.ALLOW_DATA, Options.EXEC_PATHS);
+    tokenizeAndExpandMakeVars(
+        tokens, attributeName, value, locationExpander, makeVariableSuppliers);
+  }
+
+  /**
+   * Expands make variables and $(location) tags in value and tokenizes the result into tokens.
+   *
+   * @param makeVariableSuppliers to be used with {@link ConfigurationMakeVariableContext}
+   *     <p>This methods should be called only during initialization.
+   */
+  public void tokenizeAndExpandMakeVars(
+      List<String> tokens,
+      String attributeName,
+      String value,
+      @Nullable LocationExpander locationExpander,
+      Iterable<? extends MakeVariableSupplier> makeVariableSuppliers) {
+    expandValue(
+        tokens, attributeName, value, locationExpander, Tokenize.YES, makeVariableSuppliers);
   }
 
   /**
    * Expands make variables and $(location) tags in value, and optionally tokenizes the result.
    *
-   * <p>This methods should be called only during initialization.
+   * @param makeVariableSuppliers to be used with {@link ConfigurationMakeVariableContext}
+   *     <p>This methods should be called only during initialization.
    */
   public void expandValue(
       List<String> tokens,
       String attributeName,
       String value,
       @Nullable LocationExpander locationExpander,
-      Tokenize tokenize) {
+      Tokenize tokenize,
+      Iterable<? extends MakeVariableSupplier> makeVariableSuppliers) {
     if (locationExpander != null) {
       value = locationExpander.expandAttribute(attributeName, value);
     }
-    value = expandMakeVariables(attributeName, value);
+    value = expandMakeVariables(attributeName, value, makeVariableSuppliers);
     if (tokenize == Tokenize.YES) {
       try {
         ShellUtils.tokenize(tokens, value);
@@ -998,31 +1063,89 @@ public final class RuleContext extends TargetContext
     }
   }
 
+  public ImmutableMap<String, String> getMakeVariables(Iterable<String> attributeNames) {
+    // Using an ImmutableBuilder to complain about duplicate keys. This traversal order of
+    // getPrerequisites isn't well-defined, so this makes sure providers don't seceretly stomp on
+    // each other.
+    ImmutableMap.Builder<String, String> makeVariableBuilder = ImmutableMap.builder();
+    ImmutableSet.Builder<MakeVariableProvider> makeVariableProvidersBuilder =
+        ImmutableSet.builder();
+
+    for (String attributeName : attributeNames) {
+      // TODO(b/37567440): Remove this continue statement.
+      if (!attributes().has(attributeName)) {
+        continue;
+      }
+      makeVariableProvidersBuilder.addAll(
+          getPrerequisites(attributeName, Mode.TARGET, MakeVariableProvider.class));
+    }
+
+    for (MakeVariableProvider makeVariableProvider : makeVariableProvidersBuilder.build()) {
+      makeVariableBuilder.putAll(makeVariableProvider.getMakeVariables());
+    }
+
+    return makeVariableBuilder.build();
+  }
+
   /**
-   * Return a context that maps Make variable names (string) to values (string).
+   * Returns a (cached! read on) context that maps Make variable names (string) to values (string)
+   * without any extra {@link MakeVariableSupplier}.
+   *
+   * <p>Beware!!! {@link ConfigurationMakeVariableContext} instance is cached, so if you call it
+   * first with some list of {@link MakeVariableSupplier} and then with other list, you will always
+   * get the first instance back. TODO(hlopko): Extract Make variable expansion from RuleContext and
+   * fix all the callers
    *
    * @return a ConfigurationMakeVariableContext.
-   **/
+   */
   public ConfigurationMakeVariableContext getConfigurationMakeVariableContext() {
+    return getConfigurationMakeVariableContext(ImmutableList.<MakeVariableSupplier>of());
+  }
+
+  /**
+   * Returns a (cached! read on) context that maps Make variable names (string) to values (string).
+   *
+   * @see #getConfigurationMakeVariableContext() to understand how the instance is cached!
+   * @param makeVariableSuppliers to be used with {@link ConfigurationMakeVariableContext}
+   * @return a ConfigurationMakeVariableContext.
+   */
+  public ConfigurationMakeVariableContext getConfigurationMakeVariableContext(
+      Iterable<? extends MakeVariableSupplier> makeVariableSuppliers) {
     if (configurationMakeVariableContext == null) {
-      configurationMakeVariableContext = new ConfigurationMakeVariableContext(
-          getRule().getPackage(), getConfiguration());
+      configurationMakeVariableContext =
+          new ConfigurationMakeVariableContext(
+              this, getRule().getPackage(), getConfiguration(), makeVariableSuppliers);
     }
     return configurationMakeVariableContext;
   }
 
   /**
-   * Returns the string "expression" after expanding all embedded references to
-   * "Make" variables.  If any errors are encountered, they are reported, and
-   * "expression" is returned unchanged.
+   * Return a context that maps Make variable names (string) to values (string).
    *
-   * @param attributeName the name of the attribute from which "expression" comes;
-   *     used for error reporting.
-   * @param expression the string to expand.
-   * @return the expansion of "expression".
+   * <p>Uses {@NoopExpansionInterceptor}.
+   *
+   * @return a ConfigurationMakeVariableContext.
    */
   public String expandMakeVariables(String attributeName, String expression) {
-    return expandMakeVariables(attributeName, expression, getConfigurationMakeVariableContext());
+    return expandMakeVariables(attributeName, expression, ImmutableList.<MakeVariableSupplier>of());
+  }
+
+  /**
+   * Returns the string "expression" after expanding all embedded references to "Make" variables. If
+   * any errors are encountered, they are reported, and "expression" is returned unchanged.
+   *
+   * @param attributeName the name of the attribute from which "expression" comes; used for error
+   *     reporting.
+   * @param expression the string to expand.
+   * @param makeVariableSuppliers to be used with {@link ConfigurationMakeVariableContext}
+   * @return the expansion of "expression".
+   */
+  public String expandMakeVariables(
+      String attributeName,
+      String expression,
+      Iterable<? extends MakeVariableSupplier> makeVariableSuppliers) {
+    return expandMakeVariables(
+        attributeName, expression, getConfigurationMakeVariableContext(makeVariableSuppliers));
   }
 
   /**
@@ -1053,28 +1176,38 @@ public final class RuleContext extends TargetContext
   public List<String> expandedMakeVariablesList(String attrName) {
     List<String> variables = new ArrayList<>();
     for (String variable : attributes().get(attrName, Type.STRING_LIST)) {
-      variables.add(expandMakeVariables(attrName, variable));
+      variables.add(
+          expandMakeVariables(attrName, variable, ImmutableList.<MakeVariableSupplier>of()));
     }
     return variables;
   }
 
   /**
-   * If the string consists of a single variable, returns the expansion of
-   * that variable. Otherwise, returns null. Syntax errors are reported.
+   * If the string consists of a single variable, returns the expansion of that variable. Otherwise,
+   * returns null. Syntax errors are reported.
    *
-   * @param attrName the name of the attribute from which "expression" comes;
-   *     used for error reporting.
+   * @param attrName the name of the attribute from which "expression" comes; used for error
+   *     reporting.
    * @param expression the string to expand.
+   * @param makeVariableSuppliers to be used with {@link ConfigurationMakeVariableContext}
    * @return the expansion of "expression", or null.
    */
-  public String expandSingleMakeVariable(String attrName, String expression) {
+  public String expandSingleMakeVariable(
+      String attrName,
+      String expression,
+      ImmutableList<? extends MakeVariableSupplier> makeVariableSuppliers) {
     try {
-      return MakeVariableExpander.expandSingleVariable(expression,
-          new ConfigurationMakeVariableContext(getRule().getPackage(), getConfiguration()));
+      return MakeVariableExpander.expandSingleVariable(
+          expression, getConfigurationMakeVariableContext(makeVariableSuppliers));
     } catch (MakeVariableExpander.ExpansionException e) {
       attributeError(attrName, e.getMessage());
       return expression;
     }
+  }
+
+  @Nullable
+  public ToolchainContext getToolchainContext() {
+    return toolchainContext;
   }
 
   private void checkAttribute(String attributeName, Mode mode) {
@@ -1083,8 +1216,7 @@ public final class RuleContext extends TargetContext
       throw new IllegalStateException(getRule().getLocation() + ": " + getRuleClassNameForLogging()
         + " attribute " + attributeName + " is not defined");
     }
-    if (!(attributeDefinition.getType() == BuildType.LABEL
-        || attributeDefinition.getType() == BuildType.LABEL_LIST)) {
+    if (attributeDefinition.getType().getLabelClass() != LabelClass.DEPENDENCY) {
       throw new IllegalStateException(getRuleClassNameForLogging() + " attribute " + attributeName
         + " is not a label type attribute");
     }
@@ -1125,8 +1257,7 @@ public final class RuleContext extends TargetContext
       throw new IllegalStateException(getRule().getLocation() + ": " + getRuleClassNameForLogging()
         + " attribute " + attributeName + " is not defined");
     }
-    if (!(attributeDefinition.getType() == BuildType.LABEL
-        || attributeDefinition.getType() == BuildType.LABEL_LIST)) {
+    if (attributeDefinition.getType().getLabelClass() != LabelClass.DEPENDENCY) {
       throw new IllegalStateException(getRuleClassNameForLogging() + " attribute " + attributeName
         + " is not a label type attribute");
     }
@@ -1220,7 +1351,18 @@ public final class RuleContext extends TargetContext
    * <p>For example "pkg/dir/name" -> "pkg/&lt;fragment>/rule/dir/name.
    */
   public final PathFragment getUniqueDirectory(String fragment) {
-    return AnalysisUtils.getUniqueDirectory(getLabel(), new PathFragment(fragment));
+    return getUniqueDirectory(PathFragment.create(fragment));
+  }
+
+  /**
+   * Returns a path fragment qualified by the rule name and unique fragment to
+   * disambiguate artifacts produced from the source file appearing in
+   * multiple rules.
+   *
+   * <p>For example "pkg/dir/name" -> "pkg/&lt;fragment>/rule/dir/name.
+   */
+  public final PathFragment getUniqueDirectory(PathFragment fragment) {
+    return AnalysisUtils.getUniqueDirectory(getLabel(), fragment);
   }
 
   /**
@@ -1437,6 +1579,7 @@ public final class RuleContext extends TargetContext
     private ImmutableMap<String, Attribute> aspectAttributes;
     private ImmutableBiMap<String, Class<? extends TransitiveInfoProvider>> skylarkProviderRegistry;
     private ImmutableList<AspectDescriptor> aspectDescriptors;
+    private ToolchainContext toolchainContext;
 
     Builder(
         AnalysisEnvironment env,
@@ -1473,7 +1616,8 @@ public final class RuleContext extends TargetContext
           configConditions,
           universalFragment,
           getRuleClassNameForLogging(),
-          aspectAttributes != null ? aspectAttributes : ImmutableMap.<String, Attribute>of());
+          aspectAttributes != null ? aspectAttributes : ImmutableMap.<String, Attribute>of(),
+          toolchainContext);
     }
 
     private void validateAttributes(AttributeMap attributes) {
@@ -1530,6 +1674,12 @@ public final class RuleContext extends TargetContext
     Builder setSkylarkProvidersRegistry(
         ImmutableBiMap<String, Class<? extends TransitiveInfoProvider>> skylarkProviderRegistry) {
       this.skylarkProviderRegistry = skylarkProviderRegistry;
+      return this;
+    }
+
+    /** Sets the {@link ToolchainContext} used to access toolchains used by this rule. */
+    Builder setToolchainContext(ToolchainContext toolchainContext) {
+      this.toolchainContext = toolchainContext;
       return this;
     }
 
@@ -1611,6 +1761,12 @@ public final class RuleContext extends TargetContext
         if (attribute == null) {
           continue;
         }
+
+        if (attribute.isSingleArtifact() && entry.getValue().size() > 1) {
+          attributeError(attribute.getName(), "must contain a single dependency");
+          continue;
+        }
+
         if (attribute.isSilentRuleClassFilter()) {
           Predicate<RuleClass> filter = attribute.getAllowedRuleClassesPredicate();
           for (ConfiguredTarget configuredTarget : entry.getValue()) {
@@ -1629,6 +1785,10 @@ public final class RuleContext extends TargetContext
         }
       }
       return mapBuilder.build();
+    }
+
+    public void post(Postable event) {
+      reporter.post(event);
     }
 
     public void reportError(Location location, String message) {
@@ -1812,7 +1972,11 @@ public final class RuleContext extends TargetContext
       for (ImmutableSet<SkylarkProviderIdentifier> providers : mandatoryProvidersList) {
         List<String> missing = new ArrayList<>();
         for (SkylarkProviderIdentifier provider : providers) {
-          if (prerequisite.get(provider) == null) {
+          // A rule may require a built-in provider that is always implicitly provided, e.g. "files"
+          ImmutableSet<String> availableKeys =
+              ImmutableSet.copyOf(((ClassObject) prerequisite).getKeys());
+          if ((prerequisite.get(provider) == null)
+              && !(provider.isLegacy() && availableKeys.contains(provider.getLegacyId()))) {
             missing.add(provider.toString());
           }
         }
@@ -1972,6 +2136,10 @@ public final class RuleContext extends TargetContext
 
     public void reportError(Location location, String message) {
       env.getEventHandler().handle(Event.error(location, message));
+    }
+
+    public void post(Postable event) {
+      env.getEventHandler().post(event);
     }
 
     @Override

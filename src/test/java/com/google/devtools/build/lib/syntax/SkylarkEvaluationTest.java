@@ -14,8 +14,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
@@ -26,10 +24,14 @@ import com.google.devtools.build.lib.analysis.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
+import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.testutil.TestMode;
 import org.junit.Before;
@@ -57,6 +59,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     return new SkylarkTest();
   }
 
+  @Immutable
   static class Bad {
     Bad () {
     }
@@ -98,11 +101,11 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     }
     @SuppressWarnings("unused")
     @SkylarkCallable(name = "nullfunc_failing", doc = "", allowReturnNones = false)
-    public Object nullfuncFailing(String p1, Integer p2) {
+    public SkylarkValue nullfuncFailing(String p1, Integer p2) {
       return null;
     }
     @SkylarkCallable(name = "nullfunc_working", doc = "", allowReturnNones = true)
-    public Object nullfuncWorking() {
+    public SkylarkValue nullfuncWorking() {
       return null;
     }
     @SkylarkCallable(name = "voidfunc", doc = "")
@@ -211,8 +214,8 @@ public class SkylarkEvaluationTest extends EvaluationTest {
       switch (name) {
         case "field": return "a";
         case "nset": return NestedSetBuilder.stableOrder().build();
+        default: return null;
       }
-      throw new IllegalStateException();
     }
 
     @Override
@@ -421,7 +424,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         "      xs.append(4)",
         "  return ys"
         // No file name in message, due to how test is set up.
-        ).testIfErrorContains("Object locked at the following location(s): 4:3, 5:5", "foo()");
+        ).testIfErrorContains("Object locked at the following location(s): :4:3, :5:5", "foo()");
   }
 
   @Test
@@ -691,28 +694,28 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   public void testJavaCallsNotSkylarkCallable() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
-        .testIfExactError("Type Mock has no function value()", "mock.value()");
+        .testIfExactError("type 'Mock' has no method value()", "mock.value()");
   }
 
   @Test
   public void testNoOperatorIndex() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
-        .testIfExactError("Type Mock has no operator [](int)", "mock[2]");
+        .testIfExactError("type 'Mock' has no operator [](int)", "mock[2]");
   }
 
   @Test
   public void testJavaCallsNoMethod() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
-        .testIfExactError("Type Mock has no function bad()", "mock.bad()");
+        .testIfExactError("type 'Mock' has no method bad()", "mock.bad()");
   }
 
   @Test
   public void testJavaCallsNoMethodErrorMsg() throws Exception {
     new SkylarkTest()
         .testIfExactError(
-            "Type int has no function bad(string, string, string)", "s = 3.bad('a', 'b', 'c')");
+            "type 'int' has no method bad(string, string, string)", "s = 3.bad('a', 'b', 'c')");
   }
 
   @Test
@@ -720,7 +723,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest()
         .update("mock", new MockMultipleMethodClass())
         .testIfExactError(
-            "Type MockMultipleMethodClass has multiple matches for function method(string)",
+            "type 'MockMultipleMethodClass' has multiple matches for function method(string)",
             "s = mock.method('string')");
   }
 
@@ -729,7 +732,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest()
         .update("mock", new Mock())
         .testIfExactError(
-            "Type Mock has no function isEmpty(string str)", "mock.isEmpty(str='abc')");
+            "type 'Mock' has no method isEmpty(string str)", "mock.isEmpty(str='abc')");
   }
 
 
@@ -743,14 +746,14 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "Parameter 'named' has no default value (in function with_params(int, bool) of Mock).",
+            "parameter 'named' has no default value, in method with_params(int, bool) of 'Mock'",
             "mock.with_params(1, True)");
     new SkylarkTest()
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "Parameter 'named' has no default value (in function with_params(int, bool, bool) "
-                + "of Mock).",
+            "parameter 'named' has no default value, in method with_params(int, bool, bool) "
+                + "of 'Mock'",
             "mock.with_params(1, True, True)");
     new SkylarkTest()
         .update("mock", new Mock())
@@ -768,21 +771,21 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "Too many arguments (in function with_params(int, bool, bool named, "
-                + "bool posOrNamed, int n) of Mock).",
+            "too many arguments, in method with_params(int, bool, bool named, "
+                + "bool posOrNamed, int n) of 'Mock'",
             "mock.with_params(1, True, named=True, posOrNamed=True, n=2)");
     new SkylarkTest()
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "Parameter 'nonNoneable' cannot be None (in function with_params(int, bool, bool, "
-                + "bool named, bool optionalNamed, NoneType nonNoneable) of Mock).",
+            "parameter 'nonNoneable' cannot be None, in method with_params(int, bool, bool, "
+                + "bool named, bool optionalNamed, NoneType nonNoneable) of 'Mock'",
             "mock.with_params(1, True, True, named=True, optionalNamed=False, nonNoneable=None)");
   }
 
   @Test
   public void testNoJavaCallsWithoutSkylark() throws Exception {
-    new SkylarkTest().testIfExactError("Type int has no function to_string()", "s = 3.to_string()");
+    new SkylarkTest().testIfExactError("type 'int' has no method to_string()", "s = 3.to_string()");
   }
 
   @Test
@@ -790,7 +793,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest()
         .update("mock", new MockSubClass())
         .testIfExactError(
-            "Type Mock has no function is_empty_class_not_annotated(string)",
+            "type 'Mock' has no method is_empty_class_not_annotated(string)",
             "b = mock.is_empty_class_not_annotated('a')");
   }
 
@@ -822,7 +825,16 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   public void testStructAccessOfMethod() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
-        .testIfExactError("Object of type 'Mock' has no field \"function\"", "v = mock.function");
+        .testIfExactError("object of type 'Mock' has no field 'function'", "v = mock.function");
+  }
+
+  @Test
+  public void testStructAccessTypo() throws Exception {
+    new SkylarkTest()
+        .update("mock", new MockClassObject())
+        .testIfExactError(
+            "object of type 'MockClassObject' has no field 'fild' (did you mean 'field'?)",
+            "mock.fild");
   }
 
   @Test
@@ -830,17 +842,16 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest()
         .update("mock", new Mock())
         .testIfExactError(
-            "Method 'return_bad' returns an object of invalid type Bad",
-            "mock.return_bad()");
+            "method 'return_bad' returns an object of invalid type Bad", "mock.return_bad()");
   }
 
   @Test
   public void testJavaFunctionReturnsNullFails() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
-        .testIfExactError(
-            "Method invocation returned None,"
-            + " please contact Skylark developers: nullfunc_failing(\"abc\", 1)",
+        .testIfErrorContains(
+            "method invocation returned None,"
+                + " please file a bug report: nullfunc_failing(\"abc\", 1)",
             "mock.nullfunc_failing('abc', 1)");
   }
 
@@ -863,8 +874,8 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   @Test
   public void testUnionSet() throws Exception {
     new SkylarkTest()
-        .testStatement("str(depset([1, 3]) | depset([1, 2]))", "set([1, 2, 3])")
-        .testStatement("str(depset([1, 2]) | [1, 3])", "set([1, 2, 3])")
+        .testStatement("str(depset([1, 3]) | depset([1, 2]))", "depset([1, 2, 3])")
+        .testStatement("str(depset([1, 2]) | [1, 3])", "depset([1, 2, 3])")
         .testIfExactError("unsupported operand type(s) for |: 'int' and 'int'", "2 | 4");
   }
 
@@ -872,7 +883,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   public void testClassObjectCannotAccessNestedSet() throws Exception {
     new SkylarkTest()
         .update("mock", new MockClassObject())
-        .testIfExactError("Type is not allowed in Skylark: NestedSet", "v = mock.nset");
+        .testIfErrorContains("internal error: type 'NestedSet' is not allowed", "v = mock.nset");
   }
 
   @Test
@@ -901,6 +912,49 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
+  public void testAugmentedAssignmentHasNoSideEffects() throws Exception {
+    new SkylarkTest().setUp(
+        "counter = [0]",
+        "value = [1, 2]",
+        "",
+        "def f():",
+        "  counter[0] = counter[0] + 1",
+        "  return value",
+        "",
+        "f()[1] += 1")  // `f()` should be called only once here
+        .testLookup("counter", MutableList.of(env, 1));
+  }
+
+  @Test
+  public void testAugmentedAssignmentNotAllowedForListLiterals() throws Exception {
+    new SkylarkTest().testIfErrorContains("Cannot perform augment assignment on a list literal",
+        "def f(a, b):",
+        "  [a, b] += []",
+        "f(1, 2)");
+  }
+
+  @Test
+  public void testAssignmentEvaluationOrder() throws Exception {
+    new SkylarkTest().setUp(
+        "ordinary = []",
+        "augmented = []",
+        "value = [1, 2]",
+        "",
+        "def f(record):",
+        "  record.append('f')",
+        "  return value",
+        "",
+        "def g(record):",
+        "  record.append('g')",
+        "  return value",
+        "",
+        "f(ordinary)[0] = g(ordinary)[1]",
+        "f(augmented)[0] += g(augmented)[1]")
+        .testLookup("ordinary", MutableList.of(env, "g", "f"))    // This order is consistent
+        .testLookup("augmented", MutableList.of(env, "f", "g"));  // with Python
+  }
+
+  @Test
   public void testStaticDirectJavaCall() throws Exception {
     new SkylarkTest().update("Mock", Mock.class).setUp("val = Mock.value_of('8')")
         .testLookup("val", 8);
@@ -908,8 +962,9 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testStaticDirectJavaCallMethodIsNonStatic() throws Exception {
-    new SkylarkTest().update("Mock", Mock.class).testIfExactError("Method 'is_empty' is not static",
-        "val = Mock.is_empty('a')");
+    new SkylarkTest()
+        .update("Mock", Mock.class)
+        .testIfExactError("method 'is_empty' is not static", "val = Mock.is_empty('a')");
   }
 
   @Test
@@ -925,8 +980,76 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testDotExpressionOnNonStructObject() throws Exception {
-    new SkylarkTest().testIfExactError("Object of type 'string' has no field \"field\"",
-        "x = 'a'.field");
+    new SkylarkTest()
+        .testIfExactError("object of type 'string' has no field 'field'", "x = 'a'.field");
+  }
+
+  @Test
+  public void testPlusEqualsOnListCopying() throws Exception {
+    new SkylarkTest("--incompatible_list_plus_equals_inplace=false")
+        .setUp(
+            "def func():",
+            "  l1 = [1, 2]",
+            "  l2 = l1",
+            "  l2 += [3, 4]",
+            "  return l1, l2",
+            "lists = str(func())")
+        .testLookup("lists", "([1, 2], [1, 2, 3, 4])");
+  }
+
+  @Test
+  public void testPlusEqualsOnListMutating() throws Exception {
+    new SkylarkTest("--incompatible_list_plus_equals_inplace=true")
+        .setUp(
+            "def func():",
+            "  l1 = [1, 2]",
+            "  l2 = l1",
+            "  l2 += [3, 4]",
+            "  return l1, l2",
+            "lists = str(func())")
+        .testLookup("lists", "([1, 2, 3, 4], [1, 2, 3, 4])");
+
+    // The same but with += after an IndexExpression
+    new SkylarkTest("--incompatible_list_plus_equals_inplace=true")
+        .setUp(
+            "def func():",
+            "  l = [1, 2]",
+            "  d = {0: l}",
+            "  d[0] += [3, 4]",
+            "  return l, d[0]",
+            "lists = str(func())")
+        .testLookup("lists", "([1, 2, 3, 4], [1, 2, 3, 4])");
+  }
+
+  @Test
+  public void testPlusEqualsOnTuple() throws Exception {
+    new SkylarkTest("--incompatible_list_plus_equals_inplace=false")
+        .setUp(
+            "def func():",
+            "  t1 = (1, 2)",
+            "  t2 = t1",
+            "  t2 += (3, 4)",
+            "  return t1, t2",
+            "tuples = func()")
+        .testLookup("tuples", SkylarkList.Tuple.of(
+            SkylarkList.Tuple.of(1, 2),
+            SkylarkList.Tuple.of(1, 2, 3, 4)
+        ));
+
+    // This behavior should remain the same regardless of the
+    // --incompatible_list_plus_equals_inplace flag
+    new SkylarkTest("--incompatible_list_plus_equals_inplace=true")
+        .setUp(
+            "def func():",
+            "  t1 = (1, 2)",
+            "  t2 = t1",
+            "  t2 += (3, 4)",
+            "  return t1, t2",
+            "tuples = func()")
+        .testLookup("tuples", SkylarkList.Tuple.of(
+            SkylarkList.Tuple.of(1, 2),
+            SkylarkList.Tuple.of(1, 2, 3, 4)
+        ));
   }
 
   @Test
@@ -937,6 +1060,20 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         "  return d",
         "d = func()")
         .testLookup("d", ImmutableMap.of("a", 1, "b", 2));
+  }
+
+  @Test
+  public void testPlusOnDictDeprecated() throws Exception {
+    new SkylarkTest("--incompatible_disallow_dict_plus=true")
+        .testIfErrorContains(
+            "The `+` operator for dicts is deprecated and no longer supported.", "{1: 2} + {3: 4}");
+    new SkylarkTest("--incompatible_disallow_dict_plus=true")
+        .testIfErrorContains(
+            "The `+` operator for dicts is deprecated and no longer supported.",
+            "def func():",
+            "  d = {1: 2}",
+            "  d += {3: 4}",
+            "func()");
   }
 
   @Test
@@ -1044,6 +1181,15 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
+  public void testTypo() throws Exception {
+    new SkylarkTest()
+        .testIfErrorContains(
+            "name 'my_variable' is not defined (did you mean 'myVariable'?)",
+            "myVariable = 2",
+            "x = my_variable + 1");
+  }
+
+  @Test
   public void testNoneTrueFalseInSkylark() throws Exception {
     new SkylarkTest().setUp("a = None",
       "b = True",
@@ -1145,11 +1291,11 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testSkylarkTypes() {
-    assertEquals(TransitiveInfoCollection.class,
-        EvalUtils.getSkylarkType(FileConfiguredTarget.class));
-    assertEquals(TransitiveInfoCollection.class,
-        EvalUtils.getSkylarkType(RuleConfiguredTarget.class));
-    assertEquals(Artifact.class, EvalUtils.getSkylarkType(SpecialArtifact.class));
+    assertThat(EvalUtils.getSkylarkType(FileConfiguredTarget.class))
+        .isEqualTo(TransitiveInfoCollection.class);
+    assertThat(EvalUtils.getSkylarkType(RuleConfiguredTarget.class))
+        .isEqualTo(TransitiveInfoCollection.class);
+    assertThat(EvalUtils.getSkylarkType(SpecialArtifact.class)).isEqualTo(Artifact.class);
   }
 
   // Override tests in EvaluationTest incompatible with Skylark
@@ -1169,25 +1315,16 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     // tuple
     x = eval("(1,2)");
     assertThat((Iterable<Object>) x).containsExactly(1, 2).inOrder();
-    assertTrue(((SkylarkList) x).isTuple());
+    assertThat(((SkylarkList) x).isTuple()).isTrue();
 
     x = eval("(1,2) + (3,4)");
     assertThat((Iterable<Object>) x).containsExactly(1, 2, 3, 4).inOrder();
-    assertTrue(((SkylarkList) x).isTuple());
+    assertThat(((SkylarkList) x).isTuple()).isTrue();
   }
 
   @Override
   @Test
   public void testListConcatenation() throws Exception {}
-
-  @Override
-  @Test
-  public void testInFail() throws Exception {
-    new SkylarkTest().testIfExactError(
-        "in operator only works on strings if the left operand is also a string", "1 in '123'");
-    new SkylarkTest().testIfExactError(
-        "in operator only works on lists, tuples, sets, dicts and strings", "'a' in 1");
-  }
 
   @Override
   @Test
@@ -1212,9 +1349,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     // can't reuse the same local variable twice(!)
     new SkylarkTest()
         .testIfErrorContains(
-            "ERROR 2:1: Variable x is read only",
-            "[x + y for x, y in (1, 2)]",
-            "[x + y for x, y in (1, 2)]");
+            "Variable x is read only", "[x + y for x, y in (1, 2)]", "[x + y for x, y in (1, 2)]");
 
     new SkylarkTest()
         .testIfErrorContains("type 'int' is not a collection", "[x2 + y2 for x2, y2 in (1, 2)]");
@@ -1237,5 +1372,168 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   public void testConditionalExpressionInFunction() throws Exception {
     new SkylarkTest().setUp("def foo(a, b, c): return a+b if c else a-b\n").testStatement(
         "foo(23, 5, 0)", 18);
+  }
+
+  @SkylarkModule(name = "SkylarkClassObjectWithSkylarkCallables", doc = "")
+  static final class SkylarkClassObjectWithSkylarkCallables extends SkylarkClassObject {
+    private static final NativeClassObjectConstructor CONSTRUCTOR =
+        new NativeClassObjectConstructor("struct_with_skylark_callables") {};
+
+    SkylarkClassObjectWithSkylarkCallables() {
+      super(
+          CONSTRUCTOR,
+          ImmutableMap.of(
+              "values_only_field",
+              "fromValues",
+              "values_only_method",
+              new BuiltinFunction("values_only_method", FunctionSignature.of()) {
+                public String invoke() {
+                  return "fromValues";
+                }
+              },
+              "collision_field",
+              "fromValues",
+              "collision_method",
+              new BuiltinFunction("collision_method", FunctionSignature.of()) {
+                public String invoke() {
+                  return "fromValues";
+                }
+              }));
+    }
+
+    @SkylarkCallable(name = "callable_only_field", doc = "", structField = true)
+    public String getCallableOnlyField() {
+      return "fromSkylarkCallable";
+    }
+
+    @SkylarkCallable(name = "callable_only_method", doc = "", structField = false)
+    public String getCallableOnlyMethod() {
+      return "fromSkylarkCallable";
+    }
+
+    @SkylarkCallable(name = "collision_field", doc = "", structField = true)
+    public String getCollisionField() {
+      return "fromSkylarkCallable";
+    }
+
+    @SkylarkCallable(name = "collision_method", doc = "", structField = false)
+    public String getCollisionMethod() {
+      return "fromSkylarkCallable";
+    }
+  }
+
+  @Test
+  public void testStructFieldDefinedOnlyInValues() throws Exception {
+    new SkylarkTest()
+        .update("val", new SkylarkClassObjectWithSkylarkCallables())
+        .setUp("v = val.values_only_field")
+        .testLookup("v", "fromValues");
+  }
+
+  @Test
+  public void testStructMethodDefinedOnlyInValues() throws Exception {
+    new SkylarkTest()
+        .update("val", new SkylarkClassObjectWithSkylarkCallables())
+        .setUp("v = val.values_only_method()")
+        .testLookup("v", "fromValues");
+  }
+
+  @Test
+  public void testStructFieldDefinedOnlyInSkylarkCallable() throws Exception {
+    new SkylarkTest()
+        .update("val", new SkylarkClassObjectWithSkylarkCallables())
+        .setUp("v = val.callable_only_field")
+        .testLookup("v", "fromSkylarkCallable");
+  }
+
+  @Test
+  public void testStructMethodDefinedOnlyInSkylarkCallable() throws Exception {
+    new SkylarkTest()
+        .update("val", new SkylarkClassObjectWithSkylarkCallables())
+        .setUp("v = val.callable_only_method()")
+        .testLookup("v", "fromSkylarkCallable");
+  }
+
+  @Test
+  public void testStructFieldDefinedInValuesAndSkylarkCallable() throws Exception {
+    new SkylarkTest()
+        .update("val", new SkylarkClassObjectWithSkylarkCallables())
+        .setUp("v = val.collision_field")
+        .testLookup("v", "fromValues");
+  }
+
+  @Test
+  public void testStructMethodDefinedInValuesAndSkylarkCallable() throws Exception {
+    new SkylarkTest()
+        .update("val", new SkylarkClassObjectWithSkylarkCallables())
+        .setUp("v = val.collision_method()")
+        .testLookup("v", "fromValues");
+  }
+
+  @Test
+  public void testStructFieldNotDefined() throws Exception {
+    new SkylarkTest()
+        .update("val", new SkylarkClassObjectWithSkylarkCallables())
+        .testIfExactError(
+            // TODO(bazel-team): This should probably list callable_only_field/method as well.
+            "'struct_with_skylark_callables' object has no attribute 'nonexistent_field'\n"
+                + "Available attributes: collision_field, collision_method, values_only_field, "
+                + "values_only_method",
+            "v = val.nonexistent_field");
+  }
+
+  @Test
+  public void testStructMethodNotDefined() throws Exception {
+    new SkylarkTest()
+        .update("val", new SkylarkClassObjectWithSkylarkCallables())
+        .testIfExactError(
+            // TODO(bazel-team): This should probably match the error above better.
+            "struct has no method 'nonexistent_method'", "v = val.nonexistent_method()");
+  }
+
+  @Test
+  public void testListComprehensionsDoNotLeakVariables() throws Exception {
+    env =
+        newEnvironmentWithSkylarkOptions("--incompatible_comprehension_variables_do_not_leak=true");
+    checkEvalErrorContains(
+        "name 'a' is not defined",
+        "def foo():",
+        "  a = 10",
+        "  b = [a for a in range(3)]",
+        "  return a",
+        "x = foo()");
+  }
+
+  @Test
+  public void testListComprehensionsShadowGlobalVariable() throws Exception {
+    env =
+        newEnvironmentWithSkylarkOptions("--incompatible_comprehension_variables_do_not_leak=true");
+    eval("a = 18", "def foo():", "  b = [a for a in range(3)]", "  return a", "x = foo()");
+    assertThat(lookup("x")).isEqualTo(18);
+  }
+
+  @Test
+  public void testListComprehensionsLeakVariables() throws Exception {
+    env =
+        newEnvironmentWithSkylarkOptions(
+            "--incompatible_comprehension_variables_do_not_leak=false");
+    eval("def foo():", "  a = 10", "  b = [a for a in range(3)]", "  return a", "x = foo()");
+    assertThat(lookup("x")).isEqualTo(2);
+  }
+
+  @Test
+  public void testLoadStatementWithAbsolutePath() throws Exception {
+    env = newEnvironmentWithSkylarkOptions("--incompatible_load_argument_is_label");
+    checkEvalErrorContains(
+        "First argument of 'load' must be a label and start with either '//' or ':'",
+        "load('/tmp/foo', 'arg')");
+  }
+
+  @Test
+  public void testLoadStatementWithRelativePath() throws Exception {
+    env = newEnvironmentWithSkylarkOptions("--incompatible_load_argument_is_label");
+    checkEvalErrorContains(
+        "First argument of 'load' must be a label and start with either '//' or ':'",
+        "load('foo', 'arg')");
   }
 }

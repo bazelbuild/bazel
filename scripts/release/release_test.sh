@@ -191,13 +191,22 @@ Test replacement.
 function test_release_workflow() {
   export EDITOR=true
   # Initial release
-  create v0 965c392
+  create v0 965c392ab1d68d5bc23fdef3d86d635ec9d2da8e
   expect_log "Release v0rc1"
   expect_log "Initial release"
   # Push the release branch
   push v0
   # Do the initial release
   release v0
+
+  CHANGELOG='## Release v0 ('$(date +%Y-%m-%d)')
+
+```
+Baseline: 965c392ab1d68d5bc23fdef3d86d635ec9d2da8e
+```
+
+Initial release.'
+  assert_equals "${CHANGELOG}" "$(<CHANGELOG.md)"
 
   # Second release.
 
@@ -242,14 +251,16 @@ fi
 cat ${TEST_TMPDIR}/replacement.log >\$1
 EOF
   chmod +x ${EDITOR}
-  create v1 1170dc6 0540fde
+  create v1 1170dc6055ed0d669275efb1ab1906d2715ad1c3 \
+    0540fdefe2c27605516a772c2a224d579db0a74d
   local header='Release v1rc1 ('$(date +%Y-%m-%d)')
 
-Baseline: 1170dc6
+Baseline: 1170dc6055ed0d669275efb1ab1906d2715ad1c3
 
 Cherry picks:
-   + 0540fde: Extract version numbers that look like "..._1.2.3_..."
-              from BUILD_EMBED_LABEL into Info.plist.
+   + 0540fdefe2c27605516a772c2a224d579db0a74d:
+     Extract version numbers that look like "..._1.2.3_..." from
+     BUILD_EMBED_LABEL into Info.plist.
 
 '
   assert_equals "${header}Test replacement" "$(cat ${TEST_log})"
@@ -279,18 +290,24 @@ Test replacement
 EOF
   echo "${RELNOTES}" >${TEST_TMPDIR}/replacement.log
 
-  create v1 1170dc6 0540fde cef25c4
-  header='Release v1rc2 ('$(date +%Y-%m-%d)')
-
-Baseline: 1170dc6
+  create v1 1170dc6055ed0d669275efb1ab1906d2715ad1c3 \
+    0540fdefe2c27605516a772c2a224d579db0a74d \
+    cef25c44bc6c2ae8e5bd649228a9a9c39f057576
+  title='Release v1rc2 ('$(date +%Y-%m-%d)')'
+  revision_info='Baseline: 1170dc6055ed0d669275efb1ab1906d2715ad1c3
 
 Cherry picks:
-   + 0540fde: Extract version numbers that look like "..._1.2.3_..."
-              from BUILD_EMBED_LABEL into Info.plist.
-   + cef25c4: RELNOTES: Attribute error messages related to Android
-              resources are easier to understand now.
+   + 0540fdefe2c27605516a772c2a224d579db0a74d:
+     Extract version numbers that look like "..._1.2.3_..." from
+     BUILD_EMBED_LABEL into Info.plist.
+   + cef25c44bc6c2ae8e5bd649228a9a9c39f057576:
+     RELNOTES: Attribute error messages related to Android resources
+     are easier to understand now.'
+  header="${title}
 
-'
+${revision_info}
+
+"
   assert_equals "${header}${RELNOTES}" "$(cat ${TEST_log})"
   assert_equals "${RELNOTES}" "$(get_release_notes release-v1)"
   assert_equals 2 "$(get_release_candidate release-v1)"
@@ -298,6 +315,17 @@ Cherry picks:
   # Push the release
   push v1
   release v1
+  title='Release v1 ('$(date +%Y-%m-%d)')'
+  CHANGELOG='## '"${title}"'
+
+```
+'"${revision_info}"'
+```
+
+'"${RELNOTES}"'
+
+'"${CHANGELOG}"
+  assert_equals "${CHANGELOG}" "$(<CHANGELOG.md)"
 
   # Third release to test abandon
   cat >${EDITOR} <<EOF
@@ -355,7 +383,7 @@ function generate_rc() {
 function test_git_release_workflow() {
   export EDITOR=true
   # Initial release
-  generate_rc v0 965c392
+  generate_rc v0 965c392ab1d68d5bc23fdef3d86d635ec9d2da8e
 
   expect_log "Release v0rc1"
   expect_log "Initial release"
@@ -407,14 +435,16 @@ fi
 cat ${TEST_TMPDIR}/replacement.log >\$1
 EOF
   chmod +x ${EDITOR}
-  generate_rc v1 1170dc6 0540fde
+  generate_rc v1 1170dc6055ed0d669275efb1ab1906d2715ad1c3 \
+    0540fdefe2c27605516a772c2a224d579db0a74d
   local header='Release v1rc1 ('$(date +%Y-%m-%d)')
 
-Baseline: 1170dc6
+Baseline: 1170dc6055ed0d669275efb1ab1906d2715ad1c3
 
 Cherry picks:
-   + 0540fde: Extract version numbers that look like "..._1.2.3_..."
-              from BUILD_EMBED_LABEL into Info.plist.
+   + 0540fdefe2c27605516a772c2a224d579db0a74d:
+     Extract version numbers that look like "..._1.2.3_..." from
+     BUILD_EMBED_LABEL into Info.plist.
 
 '
   assert_equals "${header}Test replacement" "$(cat ${TEST_log})"
@@ -444,16 +474,18 @@ Test replacement
 EOF
   echo "${RELNOTES}" >${TEST_TMPDIR}/replacement.log
 
-  generate_rc v1 cef25c4
+  generate_rc v1 cef25c44bc6c2ae8e5bd649228a9a9c39f057576
   header='Release v1rc2 ('$(date +%Y-%m-%d)')
 
-Baseline: 1170dc6
+Baseline: 1170dc6055ed0d669275efb1ab1906d2715ad1c3
 
 Cherry picks:
-   + 0540fde: Extract version numbers that look like "..._1.2.3_..."
-              from BUILD_EMBED_LABEL into Info.plist.
-   + cef25c4: RELNOTES: Attribute error messages related to Android
-              resources are easier to understand now.
+   + 0540fdefe2c27605516a772c2a224d579db0a74d:
+     Extract version numbers that look like "..._1.2.3_..." from
+     BUILD_EMBED_LABEL into Info.plist.
+   + cef25c44bc6c2ae8e5bd649228a9a9c39f057576:
+     RELNOTES: Attribute error messages related to Android resources
+     are easier to understand now.
 
 '
   assert_equals "${header}${RELNOTES}" "$(cat ${TEST_log})"

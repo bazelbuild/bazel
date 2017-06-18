@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CompilationMode;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CompilationModeFlags;
-
 import java.util.List;
 
 /**
@@ -94,7 +93,9 @@ class ArmCrosstools {
         .setCompiler("gcc-4.9")
 
         .addAllToolPath(ndkPaths.createToolpaths(toolchainName, targetPlatform))
-
+        .addAllCxxBuiltinIncludeDirectory(
+            ndkPaths.createGccToolchainBuiltinIncludeDirectories(
+                toolchainName, targetPlatform, "4.9"))
         .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("arm64"))
 
         // Compiler flags
@@ -127,7 +128,6 @@ class ArmCrosstools {
             .addCompilerFlag("-fno-omit-frame-pointer")
             .addCompilerFlag("-fno-strict-aliasing"));
 
-    ndkPaths.addToolchainIncludePaths(toolchain, toolchainName, targetPlatform, "4.9");
     stlImpl.addStlImpl(toolchain, "4.9");
     return toolchain;
   }
@@ -187,7 +187,6 @@ class ArmCrosstools {
             .addCompilerFlag("-fno-omit-frame-pointer")
             .addCompilerFlag("-fno-strict-aliasing"));
 
-    ndkPaths.addToolchainIncludePaths(toolchain, toolchainName, targetPlatform, "4.9");
     stlImpl.addStlImpl(toolchain, "4.9");
     return toolchain;
   }
@@ -254,6 +253,9 @@ class ArmCrosstools {
         .setCompiler("gcc-" + gccVersion)
 
         .addAllToolPath(ndkPaths.createToolpaths(toolchainName, targetPlatform, excludedTools))
+        .addAllCxxBuiltinIncludeDirectory(
+            ndkPaths.createGccToolchainBuiltinIncludeDirectories(
+                toolchainName, targetPlatform, gccVersion))
         .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("arm"))
 
         .addCompilerFlag(stackProtectorFlag)
@@ -310,7 +312,6 @@ class ArmCrosstools {
           .addCompilerFlag("-fno-strict-aliasing"));
     }
 
-    ndkPaths.addToolchainIncludePaths(toolchain, toolchainName, targetPlatform, gccVersion);
     return toolchain;
   }
 
@@ -443,7 +444,6 @@ class ArmCrosstools {
           .addCompilerFlag("-fno-strict-aliasing"));
     }
 
-    ndkPaths.addToolchainIncludePaths(toolchain, toolchainName, targetPlatform, "4.8");
     return toolchain;
   }
 

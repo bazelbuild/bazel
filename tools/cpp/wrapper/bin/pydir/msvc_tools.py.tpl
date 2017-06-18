@@ -20,18 +20,14 @@ import ntpath
 import os
 import re
 import subprocess
+import sys
 
 MAX_PATH = 260  # The maximum number of characters in a Windows path.
 MAX_OPTION_LENGTH = 10  # The maximum length of a compiler/linker option.
 MAX_DRIVE_LENGTH = 3  # The maximum length of a drive.
+MAX_PATH_ADJUSTED = MAX_PATH - MAX_OPTION_LENGTH - MAX_DRIVE_LENGTH
 ASSEMBLY_AS_C_SOURCE = '/Tc'
 LIB_SUFFIX = '.lib'
-
-TMP_PATH = '%{tmp}'
-
-PATH = "%{path}"
-INCLUDE = "%{include}"
-LIB = "%{lib}"
 LIB_TOOL = "%{lib_tool}"
 supported_cuda_compute_capabilities = [ %{cuda_compute_capabilities} ]
 
@@ -63,6 +59,7 @@ class ArgParser(object):
     self.global_whole_archive = None
     self.is_cuda_compilation = None
     self.cuda_log = False
+    self.enforce_debug_rt = False
     self._ParseArgs(argv)
 
   def ReplaceLibrary(self, arg):
@@ -261,15 +258,12 @@ class ArgParser(object):
     matched = []
     unmatched = []
     files = []
-    enforce_debug_rt = False
     while i < len(argv):
       num_matched, action, groups = self._MatchOneArg(argv[i:])
       arg = argv[i]
       if arg.startswith('/Fo') or arg.startswith('/Fa') or arg.startswith(
           '/Fi'):
         self.output_file = arg[3:]
-        self.options.append(
-            '/Fd%s.pdb' % self.NormPath(os.path.splitext(self.output_file)[0]))
       if num_matched == 0:
         # Strip out any .a's that have 0 size, they are header or intermediate
         # dependency libraries and don't contain any code. 0-length files are
@@ -315,7 +309,7 @@ class ArgParser(object):
           continue
 
         if entry == '$DEBUG_RT':
-          enforce_debug_rt = True
+          self.enforce_debug_rt = True
           continue
 
         if not groups:
@@ -345,11 +339,6 @@ class ArgParser(object):
                 exit(-1)
               continue
 
-            if entry == ('$GENERATE_DEPS%d' % g):
-              self.options.append('/showIncludes')
-              self.deps_file = value
-              continue
-
             # Regular substitution.
             patterns = {
                 '$%d' % g: value,
@@ -363,38 +352,20 @@ class ArgParser(object):
       i += num_matched
     self.leftover = unmatched
 
-    # Select runtime option
-    # Find the last runtime option passed
-    rt = None
-    rt_idx = -1
-    for i, opt in enumerate(reversed(self.options)):
-      if opt in ['/MT', '/MTd', '/MD', '/MDd']:
-        if opt[-1] == 'd':
-          enforce_debug_rt = True
-        rt = opt[:3]
-        rt_idx = len(self.options) - i - 1
-        break
-    rt = rt or '/MD'  # Default to dynamic runtime
-    # Add debug if necessary
-    if enforce_debug_rt:
-      rt += 'd'
-    # Include runtime option
-    if rt_idx >= 0:
-      self.options[rt_idx] = rt
-    else:
-      self.options.append(rt)
-
     # Add in any parsed files
     self.options += files
 
-    if '/w' in self.options:
-      self.options = [option for option in self.options if option not in ['/W2', '/W3', '/W4']]
+    # Suppress all warning messages if /w is specified
+    is_warning_off = '/w' in self.options
+    if is_warning_off:
+      self.options = [option for option in self.options
+                      if option not in ['/W2', '/W3', '/W4', '/Wall']]
 
     self.is_cuda_compilation = self.IsCudaCompilation()
     if self.is_cuda_compilation:
       self.GetOptionsForCudaCompilation()
 
-    if self.leftover:
+    if self.leftover and not is_warning_off:
       print('Warning: Unmatched arguments: ' + ' '.join(self.leftover))
 
   def NormPath(self, path):
@@ -421,9 +392,9 @@ class WindowsRunner(object):
   """Base class that encapsulates the details of running a binary."""
 
   def NormPath(self, path):
-    """Normalizes an input unix style path to a < 260 char Windows format.
+    """Normalizes an input unix style path to a < MAX_PATH char Windows format.
 
-    Windows paths cannot be greater than 260 characters.
+    Windows paths cannot be greater than MAX_PATH characters.
 
     Args:
       path: A path in unix format.
@@ -438,73 +409,33 @@ class WindowsRunner(object):
     abspath = os.path.abspath(path)
     # We must allow for the drive letter as well, which is three characters, and
     # the length of any compiler option ahead of the path,
-
-    if len(abspath) + MAX_DRIVE_LENGTH + MAX_OPTION_LENGTH > MAX_PATH:
-      print('Warning: path "' + abspath + '" is > than 260 characters (' +
-            str(len(abspath)) + '); programs may crash with long arguments')
+    if len(abspath) >= MAX_PATH_ADJUSTED:
+      print(
+          'Warning: path "%s" is >= %d characters (%d); programs may crash '
+          'with long arguments'
+          % (str(abspath), MAX_PATH_ADJUSTED, len(abspath)))
     return abspath
 
-  def SetupEnvironment(self):
-    """Setup proper path for running.
-
-    Returns:
-      An environment suitable for running on Windows.
-    """
-
-    build_env = os.environ.copy()
-    build_env['PATH'] = PATH
-    build_env['INCLUDE'] = INCLUDE
-    build_env['LIB'] = LIB
-    build_env['TEMP'] = TMP_PATH
-    build_env['TMP'] = TMP_PATH
-    return build_env
-
-  def RunBinary(self, binary, args, build_arch, parser):
+  def RunBinary(self, binary, args, parser):
     """Runs binary on Windows with the passed args.
 
     Args:
       binary: The binary to run.
       args: The arguments to pass to binary.
-      build_arch: Either 'x64' or 'x86', which binary architecture to build for.
       parser: An ArgParser that contains parsed arguments.
 
     Returns:
       The return code from executing binary.
     """
-    # Filter out some not-so-useful cl windows messages.
-    filters = [
-        '.*warning LNK4006: __NULL_IMPORT_DESCRIPTOR already defined.*\n',
-        '.*warning LNK4044: unrecognized option \'/MT\'; ignored.*\n',
-        '.*warning LNK4044: unrecognized option \'/link\'; ignored.*\n',
-        '.*warning LNK4221: This object file does not define any '
-        'previously.*\n',
-        # Comment the following line if you want to see warning messages
-        '.*warning C.*\n',
-        '\r\n',
-        '\n\r',
-    ]
 
-    # Check again the arguments are within MAX_PATH.
-    for arg in args:
-      if os.path.splitext(arg)[1].lower() in ['.c', '.cc', '.cpp', '.s']:
-        # cl.exe prints out the file name it is compiling; add that to the
-        # filter.
-        name = arg.rpartition(ntpath.sep)[2]
-        filters.append(name)
-
-    # Setup the Windows paths and the build environment.
-    build_env = self.SetupEnvironment()
-
-    # Construct a large regular expression for all filters.
-    output_filter = re.compile('(' + ')|('.join(filters) + ')')
-    includes_filter = re.compile(r'Note: including file:\s+(.*)')
     # Run the command.
     if parser.params_file:
       try:
         # Using parameter file as input when linking static libraries.
         params_file = open(parser.params_file, 'w')
         for arg in args:
-          params_file.write(arg + '\n')
+          params_file.write(('"%s"' % arg) if os.path.isfile(arg) else arg)
+          params_file.write('\n')
         params_file.close()
       except (IOError, e):
         print('Could not open', parser.params_file, 'for writing:', str(e))
@@ -516,32 +447,9 @@ class WindowsRunner(object):
     # Unconmment the following line to see what exact command is executed.
     # print("Running: " + " ".join(cmd))
     proc = subprocess.Popen(cmd,
-                            env=build_env,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT,
+                            stdout=sys.stdout,
+                            stderr=sys.stderr,
+                            env=os.environ.copy(),
                             shell=True)
-    deps = []
-    for line in proc.stdout:
-      line = line.decode('utf-8')
-      if not output_filter.match(line):
-        includes = includes_filter.match(line)
-        if includes:
-          filename = includes.group(1).rstrip()
-          deps += [filename]
-        else:
-          print(line.rstrip())
     proc.wait()
-
-    # Generate deps file if requested.
-    if parser.deps_file:
-      with open(parser.deps_file, 'w') as deps_file:
-        # Start with the name of the output file.
-        deps_file.write(parser.output_file + ': \\\n')
-        for i, dep in enumerate(deps):
-          dep = dep.replace('\\', '/').replace(' ', '\\ ')
-          deps_file.write('  ' + dep)
-          if i < len(deps) - 1:
-            deps_file.write(' \\')
-          deps_file.write('\n')
-
     return proc.returncode

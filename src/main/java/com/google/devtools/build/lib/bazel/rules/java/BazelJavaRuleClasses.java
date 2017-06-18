@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import java.util.Set;
 
 /**
  * Rule class definitions for Java rules.
@@ -60,6 +59,8 @@ public class BazelJavaRuleClasses {
       PackageNameConstraint.ANY_SEGMENT, "java", "javatests");
 
   protected static final String JUNIT_TESTRUNNER = "//tools/jdk:TestRunner_deploy.jar";
+  protected static final String EXPERIMENTAL_TESTRUNNER =
+      "//tools/jdk:ExperimentalTestRunner_deploy.jar";
 
   public static final ImplicitOutputsFunction JAVA_BINARY_IMPLICIT_OUTPUTS =
       fromFunctions(
@@ -74,6 +75,26 @@ public class BazelJavaRuleClasses {
           JavaSemantics.JAVA_LIBRARY_SOURCE_JAR);
 
   /**
+   * Meant to be an element of {@code mandatoryProvidersLists} in order to accept rules providing
+   * a {@link JavaProvider} through an attribute. Other providers can be included in
+   * {@code mandatoryProvidersLists} as well.
+   */
+  public static final ImmutableList<SkylarkProviderIdentifier> CONTAINS_JAVA_PROVIDER =
+      ImmutableList.of(SkylarkProviderIdentifier.forKey(JavaProvider.JAVA_PROVIDER.getKey()));
+
+  public static final ImmutableList<SkylarkProviderIdentifier> CONTAINS_CC_LINK_PARAMS =
+      ImmutableList.of(
+          SkylarkProviderIdentifier.forKey(CcLinkParamsProvider.CC_LINK_PARAMS.getKey()));
+
+  /**
+   * Meant to be the value of {@code mandatoryProvidersLists} in order for the rule to provide only
+   * a {@link JavaProvider} through an attribute.
+   */
+  public static final ImmutableList<ImmutableList<SkylarkProviderIdentifier>>
+      MANDATORY_JAVA_PROVIDER_ONLY = ImmutableList.of(CONTAINS_JAVA_PROVIDER);
+
+
+  /**
    * Common attributes for rules that depend on ijar.
    */
   public static final class IjarBaseRule implements RuleDefinition {
@@ -82,6 +103,7 @@ public class BazelJavaRuleClasses {
       return builder
           .add(
               attr(":java_toolchain", LABEL)
+                  .useOutputLicenses()
                   .mandatoryNativeProviders(
                       ImmutableList.<Class<? extends TransitiveInfoProvider>>of(
                           JavaToolchainProvider.class))
@@ -107,7 +129,7 @@ public class BazelJavaRuleClasses {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .add(attr(":jvm", LABEL).cfg(HOST).value(JavaSemantics.JVM))
+          .add(attr(":jvm", LABEL).value(JavaSemantics.JVM).useOutputLicenses())
           .add(attr(":host_jdk", LABEL).cfg(HOST).value(JavaSemantics.HOST_JDK))
           .add(attr("$jacoco_instrumentation", LABEL).cfg(HOST))
           .build();
@@ -123,7 +145,7 @@ public class BazelJavaRuleClasses {
     }
   }
 
-  static final Set<String> ALLOWED_RULES_IN_DEPS =
+  static final ImmutableSet<String> ALLOWED_RULES_IN_DEPS =
       ImmutableSet.of(
           "cc_binary", // NB: linkshared=1
           "cc_library",
@@ -156,13 +178,7 @@ public class BazelJavaRuleClasses {
                   .allowedFileTypes(JavaSemantics.JAR)
                   .allowedRuleClasses(ALLOWED_RULES_IN_DEPS)
                   .mandatoryProvidersList(
-                      ImmutableList.of(
-                          ImmutableList.of(
-                              SkylarkProviderIdentifier.forKey(
-                                  CcLinkParamsProvider.CC_LINK_PARAMS.getKey())),
-                          ImmutableList.of(
-                              SkylarkProviderIdentifier.forKey(
-                                  JavaProvider.JAVA_PROVIDER.getKey()))))
+                      ImmutableList.of(CONTAINS_CC_LINK_PARAMS, CONTAINS_JAVA_PROVIDER))
                   .skipAnalysisTimeFileTypeCheck())
           /* <!-- #BLAZE_RULE($java_rule).ATTRIBUTE(runtime_deps) -->
           Libraries to make available to the final binary or test at runtime only.
@@ -175,6 +191,7 @@ public class BazelJavaRuleClasses {
               attr("runtime_deps", LABEL_LIST)
                   .allowedFileTypes(JavaSemantics.JAR)
                   .allowedRuleClasses(ALLOWED_RULES_IN_DEPS)
+                  .mandatoryProvidersList(MANDATORY_JAVA_PROVIDER_ONLY)
                   .skipAnalysisTimeFileTypeCheck())
 
           /* <!-- #BLAZE_RULE($java_rule).ATTRIBUTE(srcs) -->
@@ -246,6 +263,16 @@ public class BazelJavaRuleClasses {
           </p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("resource_strip_prefix", STRING))
+          /* <!-- #BLAZE_RULE($java_rule).ATTRIBUTE(resource_jars) -->
+          Set of archives containing Java resources.
+          <p>
+            If specified, the contents of these jars are merged into the output jar.
+          </p>
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(
+              attr("resource_jars", LABEL_LIST)
+                  .orderIndependent()
+                  .allowedFileTypes(JavaSemantics.JAR))
           /* <!-- #BLAZE_RULE($java_rule).ATTRIBUTE(plugins) -->
           Java compiler plugins to run at compile-time.
           Every <code>java_plugin</code> specified in this attribute will be run whenever this rule
@@ -372,6 +399,17 @@ public class BazelJavaRuleClasses {
                         public Object getDefault(AttributeMap rule) {
                           return rule.get("use_testrunner", Type.BOOLEAN)
                               ? env.getToolsLabel(JUNIT_TESTRUNNER)
+                              : null;
+                        }
+                      }))
+          .add(
+              attr("$experimental_testsupport", LABEL)
+                  .value(
+                      new Attribute.ComputedDefault("use_testrunner") {
+                        @Override
+                        public Object getDefault(AttributeMap rule) {
+                          return rule.get("use_testrunner", Type.BOOLEAN)
+                              ? env.getToolsLabel(EXPERIMENTAL_TESTRUNNER)
                               : null;
                         }
                       }))

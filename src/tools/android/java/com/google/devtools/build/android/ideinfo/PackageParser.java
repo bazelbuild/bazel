@@ -80,8 +80,8 @@ public class PackageParser {
 
   private static final Logger logger = Logger.getLogger(PackageParser.class.getName());
 
-  private static final Pattern JAVA_PACKAGE_PATTERN =
-      Pattern.compile("^\\s*package\\s+([\\w\\.]+);");
+  private static final Pattern PACKAGE_PATTERN =
+      Pattern.compile("^\\s*package\\s+([\\w\\.]+)");
 
   public static void main(String[] args) throws Exception {
     PackageParserOptions options = parseArgs(args);
@@ -194,7 +194,7 @@ public class PackageParser {
   public static String parseDeclaredPackage(@Nonnull BufferedReader reader) throws IOException {
     String line;
     while ((line = reader.readLine()) != null) {
-      Matcher packageMatch = JAVA_PACKAGE_PATTERN.matcher(line);
+      Matcher packageMatch = PACKAGE_PATTERN.matcher(line);
       if (packageMatch.find()) {
         return packageMatch.group(1);
       }

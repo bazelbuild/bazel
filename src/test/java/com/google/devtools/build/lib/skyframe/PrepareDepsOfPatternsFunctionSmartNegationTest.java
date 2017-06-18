@@ -14,25 +14,24 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static com.google.devtools.build.skyframe.WalkableGraphUtils.exists;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
-
+import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.io.IOException;
 
 /** Tests for {@link PrepareDepsOfPatternsFunction}. */
 @RunWith(JUnit4.class)
@@ -60,11 +59,13 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends BuildViewTes
             patternSequence, /*successExpected=*/ true, /*keepGoing=*/ true);
 
     // Then the graph contains package values for "@//foo" and "@//foo/foo",
-    assertTrue(walkableGraph.exists(PackageValue.key(PackageIdentifier.parse("@//foo"))));
-    assertTrue(walkableGraph.exists(PackageValue.key(PackageIdentifier.parse("@//foo/foo"))));
+    assertThat(exists(PackageValue.key(PackageIdentifier.parse("@//foo")), walkableGraph)).isTrue();
+    assertThat(exists(PackageValue.key(PackageIdentifier.parse("@//foo/foo")), walkableGraph))
+        .isTrue();
 
     // But the graph does not contain a value for the target "@//foo/foo:foofoo".
-    assertFalse(walkableGraph.exists(getKeyForLabel(Label.create("@//foo/foo", "foofoo"))));
+    assertThat(exists(getKeyForLabel(Label.create("@//foo/foo", "foofoo")), walkableGraph))
+        .isFalse();
   }
 
   @Test
@@ -89,7 +90,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends BuildViewTes
 
     // and a blacklist for the malformed package,
     getSkyframeExecutor().setBlacklistedPackagePrefixesFile(
-        new PathFragment("config/blacklist.txt"));
+        PathFragment.create("config/blacklist.txt"));
     scratch.file("config/blacklist.txt", "foo/foo");
 
     assertSkipsFoo(patternSequence);
@@ -104,14 +105,15 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends BuildViewTes
             patternSequence, /*successExpected=*/ true, /*keepGoing=*/ true);
 
     // Then the graph contains a package value for "@//foo",
-    assertTrue(walkableGraph.exists(PackageValue.key(PackageIdentifier.parse("@//foo"))));
+    assertThat(exists(PackageValue.key(PackageIdentifier.parse("@//foo")), walkableGraph)).isTrue();
 
     // But no package value for "@//foo/foo",
-    assertFalse(walkableGraph.exists(PackageValue.key(PackageIdentifier.parse("@//foo/foo"))));
+    assertThat(exists(PackageValue.key(PackageIdentifier.parse("@//foo/foo")), walkableGraph))
+        .isFalse();
 
     // And the graph does not contain a value for the target "@//foo/foo:foofoo".
     Label label = Label.create("@//foo/foo", "foofoo");
-    assertFalse(walkableGraph.exists(getKeyForLabel(label)));
+    assertThat(exists(getKeyForLabel(label), walkableGraph)).isFalse();
   }
 
   @Test
@@ -140,7 +142,11 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends BuildViewTes
     EvaluationResult<SkyValue> evaluationResult =
         getSkyframeExecutor()
             .getDriverForTesting()
-            .evaluate(singletonTargetPattern, keepGoing, LOADING_PHASE_THREADS, eventCollector);
+            .evaluate(
+                singletonTargetPattern,
+                keepGoing,
+                LOADING_PHASE_THREADS,
+                new Reporter(new EventBus(), eventCollector));
     // The evaluation has no errors if success was expected.
     assertThat(evaluationResult.hasError()).isNotEqualTo(successExpected);
     return Preconditions.checkNotNull(evaluationResult.getWalkableGraph());

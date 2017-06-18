@@ -21,7 +21,6 @@ import com.google.devtools.build.android.Converters.ExistingPathListConverter;
 import com.google.devtools.build.android.Converters.ExistingPathStringDictionaryConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.Converters.PathListConverter;
-import com.google.devtools.build.android.Converters.PathStringDictionaryConverter;
 import com.google.devtools.build.android.Converters.StringDictionaryConverter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.io.File;
@@ -153,13 +152,6 @@ public final class ConvertersTest {
     StringDictionaryConverter converter = new StringDictionaryConverter();
     Map<String, String> result = converter.convert("foo:bar,baz:messy\\:stri\\,ng");
     assertThat(result).containsExactly("foo", "bar", "baz", "messy:stri,ng");
-  }
-
-  @Test
-  public void testPathStringDictionaryConverter() throws Exception {
-    PathStringDictionaryConverter converter = new PathStringDictionaryConverter();
-    Map<Path, String> result = converter.convert("test_file:string");
-    assertThat(result).containsExactly(Paths.get("test_file"), "string");
   }
 
   @Test

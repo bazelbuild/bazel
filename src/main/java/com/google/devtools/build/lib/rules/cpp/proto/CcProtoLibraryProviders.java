@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp.proto;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -28,9 +29,13 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety;
 final class CcProtoLibraryProviders implements TransitiveInfoProvider {
   final NestedSet<Artifact> filesBuilder;
   final TransitiveInfoProviderMap providerMap;
+  final OutputGroupProvider outputGroupProvider;
 
-  CcProtoLibraryProviders(NestedSet<Artifact> filesBuilder, TransitiveInfoProviderMap providerMap) {
+  CcProtoLibraryProviders(NestedSet<Artifact> filesBuilder,
+      TransitiveInfoProviderMap providerMap,
+      OutputGroupProvider outputGroupProvider) {
     this.filesBuilder = filesBuilder;
     this.providerMap = providerMap;
+    this.outputGroupProvider = outputGroupProvider;
   }
 }

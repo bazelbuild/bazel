@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPattern.Type;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -77,31 +77,29 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
   }
 
   @Override
-  public Package getPackage(EventHandler eventHandler, PackageIdentifier packageName)
+  public Package getPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageName)
       throws NoSuchPackageException, InterruptedException {
     SkyKey pkgKey = PackageValue.key(packageName);
 
-    PackageValue pkgValue;
-    if (graph.exists(pkgKey)) {
-      pkgValue = (PackageValue) graph.getValue(pkgKey);
-      if (pkgValue == null) {
-        NoSuchPackageException nspe = (NoSuchPackageException) graph.getException(pkgKey);
-        if (nspe != null) {
-          throw nspe;
-        }
-        throw new NoSuchPackageException(packageName, "Package depends on a cycle");
-      }
+    PackageValue pkgValue = (PackageValue) graph.getValue(pkgKey);
+    if (pkgValue != null) {
+      return pkgValue.getPackage();
+    }
+    NoSuchPackageException nspe = (NoSuchPackageException) graph.getException(pkgKey);
+    if (nspe != null) {
+      throw nspe;
+    }
+    if (graph.isCycle(pkgKey)) {
+      throw new NoSuchPackageException(packageName, "Package depends on a cycle");
     } else {
       // If the package key does not exist in the graph, then it must not correspond to any package,
       // because the SkyQuery environment has already loaded the universe.
       throw new BuildFileNotFoundException(packageName, "BUILD file not found on package path");
     }
-    return pkgValue.getPackage();
   }
 
   @Override
-  public Map<PackageIdentifier, Package> bulkGetPackages(
-      EventHandler eventHandler, Iterable<PackageIdentifier> pkgIds)
+  public Map<PackageIdentifier, Package> bulkGetPackages(Iterable<PackageIdentifier> pkgIds)
       throws NoSuchPackageException, InterruptedException {
     Set<SkyKey> pkgKeys = ImmutableSet.copyOf(PackageValue.keys(pkgIds));
 
@@ -136,25 +134,28 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
 
 
   @Override
-  public boolean isPackage(EventHandler eventHandler, PackageIdentifier packageName)
+  public boolean isPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageName)
       throws InterruptedException {
     SkyKey packageLookupKey = PackageLookupValue.key(packageName);
-    if (!graph.exists(packageLookupKey)) {
-      // If the package lookup key does not exist in the graph, then it must not correspond to any
-      // package, because the SkyQuery environment has already loaded the universe.
-      return false;
-    }
     PackageLookupValue packageLookupValue = (PackageLookupValue) graph.getValue(packageLookupKey);
     if (packageLookupValue == null) {
-      Exception exception = Preconditions.checkNotNull(graph.getException(packageLookupKey),
-          "During package lookup for '%s', got null for exception", packageName);
-      if (exception instanceof NoSuchPackageException
-          || exception instanceof InconsistentFilesystemException) {
-        eventHandler.handle(Event.error(exception.getMessage()));
+      // Package lookups can't depend on Skyframe cycles.
+      Preconditions.checkState(!graph.isCycle(packageLookupKey), packageLookupKey);
+      Exception exception = graph.getException(packageLookupKey);
+      if (exception == null) {
+        // If the package lookup key does not exist in the graph, then it must not correspond to any
+        // package, because the SkyQuery environment has already loaded the universe.
         return false;
       } else {
-        throw new IllegalStateException("During package lookup for '" + packageName
-            + "', got unexpected exception type", exception);
+        if (exception instanceof NoSuchPackageException
+            || exception instanceof InconsistentFilesystemException) {
+          eventHandler.handle(Event.error(exception.getMessage()));
+          return false;
+        } else {
+          throw new IllegalStateException(
+              "During package lookup for '" + packageName + "', got unexpected exception type",
+              exception);
+        }
       }
     }
     return packageLookupValue.packageExists();
@@ -162,6 +163,7 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
 
   @Override
   public Iterable<PathFragment> getPackagesUnderDirectory(
+      ExtendedEventHandler eventHandler,
       RepositoryName repository,
       PathFragment directory,
       ImmutableSet<PathFragment> excludedSubdirectories)
@@ -173,9 +175,8 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
     for (TargetPatternKey patternKey : universeTargetPatternKeys) {
       TargetPattern pattern = patternKey.getParsedPattern();
       boolean isTBD = pattern.getType().equals(Type.TARGETS_BELOW_DIRECTORY);
-      PackageIdentifier packageIdentifier = PackageIdentifier.create(
-          repository, directory);
-      if (isTBD && pattern.containsBelowDirectory(packageIdentifier)) {
+      PackageIdentifier packageIdentifier = PackageIdentifier.create(repository, directory);
+      if (isTBD && pattern.containsAllTransitiveSubdirectoriesForTBD(packageIdentifier)) {
         inUniverse = true;
         break;
       }
@@ -190,8 +191,8 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
       roots.addAll(pkgPath.getPathEntries());
     } else {
       RepositoryDirectoryValue repositoryValue =
-            (RepositoryDirectoryValue) graph.getValue(RepositoryDirectoryValue.key(repository));
-      if (repositoryValue == null) {
+          (RepositoryDirectoryValue) graph.getValue(RepositoryDirectoryValue.key(repository));
+      if (repositoryValue == null || !repositoryValue.repositoryExists()) {
         // If this key doesn't exist, the repository is outside the universe, so we return
         // "nothing".
         return ImmutableList.of();
@@ -206,12 +207,13 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
     for (Path root : roots) {
       RootedPath rootedDir = RootedPath.toRootedPath(root, directory);
       TraversalInfo info = new TraversalInfo(rootedDir, excludedSubdirectories);
-      collectPackagesUnder(repository, ImmutableSet.of(info), builder);
+      collectPackagesUnder(eventHandler, repository, ImmutableSet.of(info), builder);
     }
     return builder.build();
   }
 
   private void collectPackagesUnder(
+      ExtendedEventHandler eventHandler,
       final RepositoryName repository,
       Set<TraversalInfo> traversals,
       ImmutableList.Builder<PathFragment> builder)
@@ -240,8 +242,12 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
           builder.add(info.rootedDir.getRelativePath());
         }
 
+        if (collectPackagesValue.getErrorMessage() != null) {
+          eventHandler.handle(Event.error(collectPackagesValue.getErrorMessage()));
+        }
+
         ImmutableMap<RootedPath, Boolean> subdirectoryTransitivelyContainsPackages =
-            collectPackagesValue.getSubdirectoryTransitivelyContainsPackages();
+            collectPackagesValue.getSubdirectoryTransitivelyContainsPackagesOrErrors();
         for (RootedPath subdirectory : subdirectoryTransitivelyContainsPackages.keySet()) {
           if (subdirectoryTransitivelyContainsPackages.get(subdirectory)) {
             PathFragment subdirectoryRelativePath = subdirectory.getRelativePath();
@@ -257,12 +263,12 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
 
     ImmutableSet<TraversalInfo> subdirTraversals = subdirTraversalBuilder.build();
     if (!subdirTraversals.isEmpty()) {
-      collectPackagesUnder(repository, subdirTraversals, builder);
+      collectPackagesUnder(eventHandler, repository, subdirTraversals, builder);
     }
   }
 
   @Override
-  public Target getTarget(EventHandler eventHandler, Label label)
+  public Target getTarget(ExtendedEventHandler eventHandler, Label label)
       throws NoSuchPackageException, NoSuchTargetException, InterruptedException {
     return getPackage(eventHandler, label.getPackageIdentifier()).getTarget(label.getName());
   }

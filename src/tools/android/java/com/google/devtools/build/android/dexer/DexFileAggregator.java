@@ -15,18 +15,15 @@ package com.google.devtools.build.android.dexer;
 
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.auto.value.AutoValue;
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
-
 import com.android.dex.Dex;
 import com.android.dex.DexFormat;
 import com.android.dex.FieldId;
 import com.android.dex.MethodId;
-import com.android.dx.dex.file.DexFile;
 import com.android.dx.merge.CollisionPolicy;
 import com.android.dx.merge.DexMerger;
-
+import com.google.auto.value.AutoValue;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.BufferOverflowException;
@@ -110,28 +107,6 @@ class DexFileAggregator implements Closeable {
     for (int methodIndex = 0; methodIndex < methodCount; ++methodIndex) {
       methodsInCurrentShard.add(MethodDescriptor.fromDex(dexFile, methodIndex));
     }
-  }
-
-  public DexFileAggregator add(DexFile dexFile) throws IOException {
-    if (multidex == MultidexStrategy.BEST_EFFORT) {
-      addSeparate(dexFile);
-    } else {
-      // Could be smarter here and e.g. check whether dexFile will fit into current shard first
-      // and, with a hint as to whether this is a "full" file (e.g., from rotating in MergingDexer),
-      // write the current shard and then the given file separately.  The following is slower but
-      // guarantees that in the MINIMAL case, classes are written in the order in which we saw them
-      // as best as possible.  Since practically we aim for this method to never or almost never
-      // be called it shouldn't matter much.  (This method is called when we had to convert .class
-      // files on the fly, while add(Dex) is in particular called for pre-dexed .class.dex files.)
-      add(DexFiles.toDex(dexFile));
-    }
-    return this;
-  }
-
-  private DexFileAggregator addSeparate(DexFile dexFile) throws IOException {
-    checkState(multidex.isMultidexAllowed());
-    dest.addFile(nextArchiveEntry(), dexFile);
-    return this;
   }
 
   @Override

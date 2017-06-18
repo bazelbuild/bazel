@@ -67,6 +67,11 @@ public class TestSuiteModel {
     return rootNode.getChildren();
   }
 
+  // VisibleForTesting
+  Description getTopLevelDescription() {
+    return rootNode.getDescription();
+  }
+
   /**
    * Gets the sharding filter to use; {@link Filter#ALL} if not sharding.
    */
@@ -83,18 +88,50 @@ public class TestSuiteModel {
    * listener!
    */
   private TestCaseNode getTestCase(Description description) {
-    // TODO(cpovirk): Is it legitimate to pass null here?
+    // The description shouldn't be null, but in the test runner code we avoid throwing exceptions.
     return description == null ? null : testCaseMap.get(description);
   }
 
   private TestNode getTest(Description description) {
-    // TODO(cpovirk): Is it legitimate to pass null here?
+    // The description shouldn't be null, but in the test runner code we avoid throwing exceptions.
     return description == null ? null : testsMap.get(description);
   }
 
   // VisibleForTesting
   public int getNumTestCases() {
     return testCaseMap.size();
+  }
+
+  /**
+   * Indicate that the test run has started. This should be called after all
+   * filtering has been completed.
+   *
+   * @param topLevelDescription the root {@link Description} node.
+   */
+  public void testRunStarted(Description topLevelDescription) {
+    markChildrenAsPending(topLevelDescription);
+  }
+
+  private void markChildrenAsPending(Description node) {
+    if (node.isTest()) {
+      testPending(node);
+    } else {
+      for (Description child : node.getChildren()) {
+        markChildrenAsPending(child);
+      }
+    }
+  }
+
+  /**
+   * Indicate that the test case with the given key is scheduled to start.
+   *
+   * @param description key for a test case
+   */
+  private void testPending(Description description) {
+    TestCaseNode testCase = getTestCase(description);
+    if (testCase != null) {
+      testCase.pending();
+    }
   }
 
   /**
@@ -266,6 +303,10 @@ public class TestSuiteModel {
       this.xmlResultWriter = xmlResultWriter;
     }
 
+    /**
+     * Build a model with the given name, including the given suites. This method
+     * should be called before any command line filters are applied.
+     */
     public TestSuiteModel build(String suiteName, Description... topLevelSuites) {
       if (buildWasCalled) {
         throw new IllegalStateException("Builder.build() was already called");
@@ -277,6 +318,7 @@ public class TestSuiteModel {
       rootNode = new TestSuiteNode(Description.createSuiteDescription(suiteName));
       for (Description topLevelSuite : topLevelSuites) {
         addTestSuite(rootNode, topLevelSuite);
+        rootNode.getDescription().addChild(topLevelSuite);
       }
       return new TestSuiteModel(this);
     }

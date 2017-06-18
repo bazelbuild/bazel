@@ -25,7 +25,6 @@
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/file.h"
-#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/workspace_layout.h"
@@ -121,7 +120,8 @@ blaze_exit_code::ExitCode OptionProcessor::RcFile::Parse(
               && !workspace_layout->WorkspaceRelativizeRcFilePath(
                   workspace, &words[1]))) {
         blaze_util::StringPrintf(error,
-            "Invalid import declaration in .blazerc file '%s': '%s'",
+            "Invalid import declaration in .blazerc file '%s': '%s'"
+            " (are you in your source checkout/WORKSPACE?)",
             filename.c_str(), lines[line].c_str());
         return blaze_exit_code::BAD_ARGV;
       }
@@ -259,15 +259,18 @@ std::unique_ptr<CommandLine> OptionProcessor::SplitCommandLine(
 // If no readable .blazerc file is found, return the empty string.
 blaze_exit_code::ExitCode OptionProcessor::FindUserBlazerc(
     const char* cmdLineRcFile,
-    const string& rc_basename,
     const string& workspace,
     string* blaze_rc_file,
     string* error) {
+  const string rc_basename =
+      "." + parsed_startup_options_->GetLowercaseProductName() + "rc";
+
   if (cmdLineRcFile != NULL) {
     string rcFile = MakeAbsolute(cmdLineRcFile);
-    if (!blaze_util::CanAccess(rcFile, true, false, false)) {
+    if (!blaze_util::CanReadFile(rcFile)) {
       blaze_util::StringPrintf(error,
-          "Error: Unable to read .blazerc file '%s'.", rcFile.c_str());
+          "Error: Unable to read %s file '%s'.", rc_basename.c_str(),
+          rcFile.c_str());
       return blaze_exit_code::BAD_ARGV;
     }
     *blaze_rc_file = rcFile;
@@ -275,19 +278,19 @@ blaze_exit_code::ExitCode OptionProcessor::FindUserBlazerc(
   }
 
   string workspaceRcFile = blaze_util::JoinPath(workspace, rc_basename);
-  if (blaze_util::CanAccess(workspaceRcFile, true, false, false)) {
+  if (blaze_util::CanReadFile(workspaceRcFile)) {
     *blaze_rc_file = workspaceRcFile;
     return blaze_exit_code::SUCCESS;
   }
 
-  string home = blaze::GetEnv("HOME");
+  string home = blaze::GetHomeDir();
   if (home.empty()) {
     *blaze_rc_file = "";
     return blaze_exit_code::SUCCESS;
   }
 
   string userRcFile = blaze_util::JoinPath(home, rc_basename);
-  if (blaze_util::CanAccess(userRcFile, true, false, false)) {
+  if (blaze_util::CanReadFile(userRcFile)) {
     *blaze_rc_file = userRcFile;
     return blaze_exit_code::SUCCESS;
   }
@@ -295,6 +298,26 @@ blaze_exit_code::ExitCode OptionProcessor::FindUserBlazerc(
   return blaze_exit_code::SUCCESS;
 }
 
+namespace internal {
+vector<string> DedupeBlazercPaths(const vector<string>& paths) {
+  set<string> canonical_paths;
+  vector<string> result;
+  for (const string& path : paths) {
+    const string canonical_path = blaze_util::MakeCanonical(path.c_str());
+    if (canonical_path.empty()) {
+      // MakeCanonical returns an empty string when it fails. We ignore this
+      // failure since blazerc paths may point to invalid locations.
+    } else if (canonical_paths.find(canonical_path) == canonical_paths.end()) {
+      result.push_back(path);
+      canonical_paths.insert(canonical_path);
+    }
+  }
+  return result;
+}
+}  // namespace internal
+
+// Parses the arguments provided in args using the workspace path and the
+// current working directory (cwd) and stores the results.
 blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
     const vector<string>& args,
     const string& workspace,
@@ -304,7 +327,6 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
   initialized_ = true;
 
   args_ = args;
-  // Check if there is a blazerc related option given
   std::unique_ptr<CommandLine> cmdLine = SplitCommandLine(args, error);
   if (cmdLine == nullptr) {
     return blaze_exit_code::BAD_ARGV;
@@ -321,7 +343,9 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
     use_master_blazerc = false;
   }
 
-  // Parse depot and user blazerc files.
+  // Use the workspace path, the current working directory, the path to the
+  // blaze binary and the startup args to determine the list of possible
+  // paths to the rc files. This list may contain duplicates.
   vector<string> candidate_blazerc_paths;
   if (use_master_blazerc) {
     workspace_layout_->FindCandidateBlazercPaths(
@@ -331,22 +355,21 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
 
   string user_blazerc_path;
   blaze_exit_code::ExitCode find_blazerc_exit_code = FindUserBlazerc(
-      blazerc, workspace_layout_->RcBasename(), workspace, &user_blazerc_path,
-      error);
+      blazerc, workspace, &user_blazerc_path, error);
   if (find_blazerc_exit_code != blaze_exit_code::SUCCESS) {
     return find_blazerc_exit_code;
   }
-  candidate_blazerc_paths.push_back(user_blazerc_path);
 
-  // Throw away missing files, dedupe candidate blazerc paths, and parse the
-  // blazercs, all while preserving order. Duplicates can arise if e.g. the
-  // binary's path *is* the depot path.
-  set<string> blazerc_paths;
-  for (const auto& candidate_blazerc_path : candidate_blazerc_paths) {
-    if (!candidate_blazerc_path.empty()
-        && (blazerc_paths.insert(candidate_blazerc_path).second)) {
-      blazercs_.push_back(
-          new RcFile(candidate_blazerc_path, blazercs_.size()));
+  vector<string> deduped_blazerc_paths =
+      internal::DedupeBlazercPaths(candidate_blazerc_paths);
+  // TODO(b/37731193): Decide whether the user blazerc should be included in
+  // the deduplication process. If so then we need to handle all cases
+  // (e.g. user rc coming from process substitution).
+  deduped_blazerc_paths.push_back(user_blazerc_path);
+
+  for (const auto& blazerc_path : deduped_blazerc_paths) {
+    if (!blazerc_path.empty()) {
+      blazercs_.push_back(new RcFile(blazerc_path, blazercs_.size()));
       blaze_exit_code::ExitCode parse_exit_code =
           blazercs_.back()->Parse(workspace, workspace_layout_, &blazercs_,
                                   &rcoptions_, error);
@@ -362,15 +385,16 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
     return parse_startup_options_exit_code;
   }
 
-  // Determine command
+  // Once we're done with startup options the next arg is the command.
   if (startup_args_ + 1 >= args.size()) {
     command_ = "";
     return blaze_exit_code::SUCCESS;
   }
-
   command_ = args[startup_args_ + 1];
 
-  AddRcfileArgsAndOptions(parsed_startup_options_->batch, cwd);
+  AddRcfileArgsAndOptions(cwd);
+
+  // The rest of the args are the command options.
   for (unsigned int cmd_arg = startup_args_ + 2;
        cmd_arg < args.size(); cmd_arg++) {
     command_arguments_.push_back(args[cmd_arg]);
@@ -457,11 +481,61 @@ blaze_exit_code::ExitCode OptionProcessor::ParseStartupOptions(string *error) {
   return blaze_exit_code::SUCCESS;
 }
 
+static bool IsValidEnvName(const char* p) {
+#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+  for (; *p && *p != '='; ++p) {
+    if (!((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') ||
+          (*p >= '0' && *p <= '9') || *p == '_')) {
+      return false;
+    }
+  }
+#endif
+  return true;
+}
+
+#if defined(COMPILER_MSVC)
+static void PreprocessEnvString(string* env_str) {
+  static std::set<string> vars_to_uppercase = {"PATH", "TMP", "TEMP", "TEMPDIR",
+                                               "SYSTEMROOT"};
+
+  int pos = env_str->find_first_of('=');
+  if (pos == string::npos) return;
+
+  string name = env_str->substr(0, pos);
+  // We do not care about locale. All variable names are ASCII.
+  std::transform(name.begin(), name.end(), name.begin(), ::toupper);
+  if (vars_to_uppercase.find(name) != vars_to_uppercase.end()) {
+    env_str->assign(name + "=" + env_str->substr(pos + 1));
+  }
+}
+
+#elif defined(__CYGWIN__)  // not defined(COMPILER_MSVC)
+
+static void PreprocessEnvString(string* env_str) {
+  int pos = env_str->find_first_of('=');
+  if (pos == string::npos) return;
+  string name = env_str->substr(0, pos);
+  if (name == "PATH") {
+    env_str->assign("PATH=" + ConvertPathList(env_str->substr(pos + 1)));
+  } else if (name == "TMP") {
+    // A valid Windows path "c:/foo" is also a valid Unix path list of
+    // ["c", "/foo"] so must use ConvertPath here. See GitHub issue #1684.
+    env_str->assign("TMP=" + ConvertPath(env_str->substr(pos + 1)));
+  }
+}
+
+#else  // Non-Windows platforms.
+
+static void PreprocessEnvString(const string* env_str) {
+  // do nothing.
+}
+#endif  // defined(COMPILER_MSVC)
+
 // Appends the command and arguments from argc/argv to the end of arg_vector,
 // and also splices in some additional terminal and environment options between
 // the command and the arguments. NB: Keep the options added here in sync with
 // BlazeCommandDispatcher.INTERNAL_COMMAND_OPTIONS!
-void OptionProcessor::AddRcfileArgsAndOptions(bool batch, const string& cwd) {
+void OptionProcessor::AddRcfileArgsAndOptions(const string& cwd) {
   // Provide terminal options as coming from the least important rc file.
   command_arguments_.push_back("--rc_source=client");
   command_arguments_.push_back("--default_override=0:common=--isatty=" +
@@ -493,23 +567,11 @@ void OptionProcessor::AddRcfileArgsAndOptions(bool batch, const string& cwd) {
     }
   }
 
-  // Pass the client environment to the server in server mode.
-  if (batch) {
-    command_arguments_.push_back("--ignore_client_env");
-  } else {
-    for (char** env = environ; *env != NULL; env++) {
-      string env_str(*env);
-      int pos = env_str.find("=");
-      if (pos != string::npos) {
-        string name = env_str.substr(0, pos);
-        if (name == "PATH") {
-          env_str = "PATH=" + ConvertPathList(env_str.substr(pos + 1));
-        } else if (name == "TMP") {
-          // A valid Windows path "c:/foo" is also a valid Unix path list of
-          // ["c", "/foo"] so must use ConvertPath here. See GitHub issue #1684.
-          env_str = "TMP=" + ConvertPath(env_str.substr(pos + 1));
-        }
-      }
+  // Pass the client environment to the server.
+  for (char** env = environ; *env != NULL; env++) {
+    string env_str(*env);
+    if (IsValidEnvName(*env)) {
+      PreprocessEnvString(&env_str);
       command_arguments_.push_back("--client_env=" + env_str);
     }
   }

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
@@ -110,19 +111,19 @@ public class TargetParsingCompleteEvent implements BuildEvent {
 
   @Override
   public Collection<BuildEventId> getChildrenEvents() {
-    ImmutableList.Builder childrenBuilder = ImmutableList.builder();
+    ImmutableList.Builder<BuildEventId> childrenBuilder = ImmutableList.builder();
     for (Target target : expandedTargets) {
-      // Test suits won't produce a target-complete event, so do not anounce their
-      // completion as children.
+      // Test suits won't produce target configuration and  target-complete events, so do not
+      // announce here completion as children.
       if (!TargetUtils.isTestSuiteRule(target)) {
-        childrenBuilder.add(BuildEventId.targetCompleted(target.getLabel()));
+        childrenBuilder.add(BuildEventId.targetConfigured(target.getLabel()));
       }
     }
     return childrenBuilder.build();
   }
 
   @Override
-  public BuildEventStreamProtos.BuildEvent asStreamProto() {
+  public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
     return GenericBuildEvent.protoChaining(this)
         .setExpanded(BuildEventStreamProtos.PatternExpanded.newBuilder().build())
         .build();

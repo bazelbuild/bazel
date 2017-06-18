@@ -36,8 +36,9 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build.RuleDefinition
 import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.OsUtils;
+import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.util.StringUtilities;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintWriter;
@@ -45,6 +46,7 @@ import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
+import java.nio.charset.Charset;
 import java.util.Collection;
 import java.util.Map;
 
@@ -179,7 +181,7 @@ public abstract class InfoItem {
     public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
         throws AbruptExitException {
       checkNotNull(env);
-      return print(env.getRuntime().getWorkspace().getExecRoot());
+      return print(env.getDirectories().getExecRoot());
     }
   }
 
@@ -334,7 +336,7 @@ public abstract class InfoItem {
     @Override
     public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
         throws AbruptExitException {
-      return print(OsUtils.getpid());
+      return print(ProcessUtils.getpid());
     }
   }
 
@@ -460,9 +462,82 @@ public abstract class InfoItem {
     }
   }
 
-  /**
-   * Info item for the gc-time
-   */
+  /** Info item for the name and version of the Java runtime environment. */
+  public static final class JavaRuntimeInfoItem extends InfoItem {
+    public JavaRuntimeInfoItem() {
+      super("java-runtime", "Name and version of the current Java runtime environment.", false);
+    }
+
+    @Override
+    public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
+        throws AbruptExitException {
+      return print(
+          String.format(
+              "%s (build %s) by %s",
+              System.getProperty("java.runtime.name", "Unknown runtime"),
+              System.getProperty("java.runtime.version", "unknown"),
+              System.getProperty("java.vendor", "unknown")));
+    }
+  }
+
+  /** Info item for the name and version of the Java VM. */
+  public static final class JavaVirtualMachineInfoItem extends InfoItem {
+    public JavaVirtualMachineInfoItem() {
+      super("java-vm", "Name and version of the current Java virtual machine.", false);
+    }
+
+    @Override
+    public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
+        throws AbruptExitException {
+      return print(
+          String.format(
+              "%s (build %s, %s) by %s",
+              System.getProperty("java.vm.name", "Unknown VM"),
+              System.getProperty("java.vm.version", "unknown"),
+              System.getProperty("java.vm.info", "unknown"),
+              System.getProperty("java.vm.vendor", "unknown")));
+    }
+  }
+
+  /** Info item for the location of the Java runtime. */
+  public static final class JavaHomeInfoItem extends InfoItem {
+    public JavaHomeInfoItem() {
+      super("java-home", "Location of the current Java runtime.", false);
+    }
+
+    @Override
+    public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
+        throws AbruptExitException {
+      String javaHome = System.getProperty("java.home");
+      if (javaHome == null) {
+        return print("unknown");
+      }
+      // Tunnel through a Path object in order to normalize the representation of the path.
+      Path javaHomePath = env.getDirectories().getFileSystem().getPath(javaHome);
+      return print(javaHomePath.getPathString());
+    }
+  }
+
+  /** Info item for the current character encoding settings. */
+  public static final class CharacterEncodingInfoItem extends InfoItem {
+    public CharacterEncodingInfoItem() {
+      super(
+          "character-encoding",
+          "Information about the character encoding used by the running JVM.",
+          false);
+    }
+
+    @Override
+    public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
+        throws AbruptExitException {
+      return print(
+          String.format(
+              "file.encoding = %s, defaultCharset = %s",
+              System.getProperty("file.encoding", "unknown"), Charset.defaultCharset().name()));
+    }
+  }
+
+  /** Info item for the gc-time */
   public static final class GcTimeInfoItem extends InfoItem {
     public GcTimeInfoItem() {
       super("gc-time",
@@ -497,10 +572,15 @@ public abstract class InfoItem {
     public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
         throws AbruptExitException {
       String result = "";
-      for (Map.Entry<String, String> entry : env.getWhitelistedClientEnv().entrySet()) {
+      for (Map.Entry<String, String> entry : env.getWhitelistedActionEnv().entrySet()) {
         // TODO(bazel-team): as the syntax of our rc-files does not support to express new-lines in
         // values, we produce syntax errors if the value of the entry contains a newline character.
         result += "build --action_env=" + entry.getKey() + "=" + entry.getValue() + "\n";
+      }
+      for (Map.Entry<String, String> entry : env.getWhitelistedTestEnv().entrySet()) {
+        // TODO(bazel-team): as the syntax of our rc-files does not support to express new-lines in
+        // values, we produce syntax errors if the value of the entry contains a newline character.
+        result += "build --test_env=" + entry.getKey() + "=" + entry.getValue() + "\n";
       }
       return print(result);
     }

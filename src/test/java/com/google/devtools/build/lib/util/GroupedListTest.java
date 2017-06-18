@@ -14,9 +14,7 @@
 package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -60,7 +58,7 @@ public class GroupedListTest {
       list.add("test" + i);
     }
     Object compressedList = createAndCompress(list);
-    assertTrue(Iterables.elementsEqual(iterable(compressedList), list));
+    assertThat(Iterables.elementsEqual(iterable(compressedList), list)).isTrue();
     assertElementsEqual(compressedList, list);
   }
 
@@ -70,7 +68,7 @@ public class GroupedListTest {
     Object compressedList = createAndCompress(list);
     ArrayList<String> reversed = new ArrayList<>(list);
     Collections.reverse(reversed);
-    assertFalse(elementsEqual(compressedList, reversed));
+    assertThat(elementsEqual(compressedList, reversed)).isFalse();
   }
 
   @Test
@@ -86,8 +84,10 @@ public class GroupedListTest {
         for (int i = 0; i < size2; i++) {
           secondList.add("test" + i);
         }
-        assertEquals(GroupedList.create(array) + ", " + secondList + ", " + size1 + ", " + size2,
-            size1 == size2, elementsEqual(array, secondList));
+        assertWithMessage(
+                GroupedList.create(array) + ", " + secondList + ", " + size1 + ", " + size2)
+            .that(elementsEqual(array, secondList))
+            .isEqualTo(size1 == size2);
       }
     }
   }
@@ -122,7 +122,7 @@ public class GroupedListTest {
   @Test
   public void group() {
     GroupedList<String> groupedList = new GroupedList<>();
-    assertTrue(groupedList.isEmpty());
+    assertThat(groupedList.isEmpty()).isTrue();
     GroupedListHelper<String> helper = new GroupedListHelper<>();
     List<ImmutableList<String>> elements = ImmutableList.of(
         ImmutableList.of("1"),
@@ -146,8 +146,8 @@ public class GroupedListTest {
       allElts.addAll(group);
     }
     groupedList.append(helper);
-    assertEquals(allElts.size(), groupedList.numElements());
-    assertFalse(groupedList.isEmpty());
+    assertThat(groupedList.numElements()).isEqualTo(allElts.size());
+    assertThat(groupedList.isEmpty()).isFalse();
     Object compressed = groupedList.compress();
     assertElementsEqual(compressed, allElts);
     assertElementsEqualInGroups(GroupedList.<String>create(compressed), elements);
@@ -157,7 +157,7 @@ public class GroupedListTest {
   @Test
   public void singletonAndEmptyGroups() {
     GroupedList<String> groupedList = new GroupedList<>();
-    assertTrue(groupedList.isEmpty());
+    assertThat(groupedList.isEmpty()).isTrue();
     GroupedListHelper<String> helper = new GroupedListHelper<>();
     @SuppressWarnings("unchecked") // varargs
     List<ImmutableList<String>> elements = Lists.newArrayList(
@@ -176,8 +176,8 @@ public class GroupedListTest {
       allElts.addAll(group);
     }
     groupedList.append(helper);
-    assertEquals(allElts.size(), groupedList.numElements());
-    assertFalse(groupedList.isEmpty());
+    assertThat(groupedList.numElements()).isEqualTo(allElts.size());
+    assertThat(groupedList.isEmpty()).isFalse();
     Object compressed = groupedList.compress();
     assertElementsEqual(compressed, allElts);
     // Get rid of empty list -- it was not stored in groupedList.
@@ -205,7 +205,7 @@ public class GroupedListTest {
   @Test
   public void removeMakesEmpty() {
     GroupedList<String> groupedList = new GroupedList<>();
-    assertTrue(groupedList.isEmpty());
+    assertThat(groupedList.isEmpty()).isTrue();
     GroupedListHelper<String> helper = new GroupedListHelper<>();
     @SuppressWarnings("unchecked") // varargs
     List<List<String>> elements = Lists.newArrayList(
@@ -242,7 +242,7 @@ public class GroupedListTest {
   @Test
   public void removeGroupFromSmallList() {
     GroupedList<String> groupedList = new GroupedList<>();
-    assertTrue(groupedList.isEmpty());
+    assertThat(groupedList.isEmpty()).isTrue();
     GroupedListHelper<String> helper = new GroupedListHelper<>();
     List<List<String>> elements = new ArrayList<>();
     List<String> group = Lists.newArrayList("1a", "1b", "1c", "1d");

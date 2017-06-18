@@ -417,22 +417,6 @@ public final class Converters {
    * may contain colons and commas as long as they are escaped with a backslash. The key type is
    * Path and the value type is String.
    */
-  public static class PathStringDictionaryConverter extends DictionaryConverter<Path, String> {
-    public PathStringDictionaryConverter() {
-      super(new PathConverter(), IDENTITY_CONVERTER);
-    }
-    // The way {@link OptionsData} checks for generic types requires convert to have literal type
-    // parameters and not argument type parameters.
-    @Override public Map<Path, String> convert(String input) throws OptionsParsingException {
-      return super.convert(input);
-    }
-  }
-
-  /**
-   * A converter for dictionary arguments of the format key:value[,key:value]*. The keys and values
-   * may contain colons and commas as long as they are escaped with a backslash. The key type is
-   * Path and the value type is String.
-   */
   public static class ExistingPathStringDictionaryConverter
       extends DictionaryConverter<Path, String> {
     public ExistingPathStringDictionaryConverter() {

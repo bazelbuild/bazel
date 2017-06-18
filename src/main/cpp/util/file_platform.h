@@ -26,8 +26,61 @@ class IPipe;
 
 IPipe* CreatePipe();
 
+// Class to query/manipulate the last modification time (mtime) of files.
+class IFileMtime {
+ public:
+  virtual ~IFileMtime() {}
+
+  // Queries the mtime of `path` to see whether it's in the distant future.
+  // Returns true if querying succeeded and stores the result in `result`.
+  // Returns false if querying failed.
+  virtual bool GetIfInDistantFuture(const std::string &path, bool *result) = 0;
+
+  // Sets the mtime of file under `path` to the current time.
+  // Returns true if the mtime was changed successfully.
+  virtual bool SetToNow(const std::string &path) = 0;
+
+  // Sets the mtime of file under `path` to the distant future.
+  // "Distant future" should be on the order of some years into the future, like
+  // a decade.
+  // Returns true if the mtime was changed successfully.
+  virtual bool SetToDistantFuture(const std::string &path) = 0;
+};
+
+// Creates a platform-specific implementation of `IFileMtime`.
+IFileMtime *CreateFileMtime();
+
 // Split a path to dirname and basename parts.
 std::pair<std::string, std::string> SplitPath(const std::string &path);
+
+#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+// We cannot include <windows.h> because it #defines many symbols that conflict
+// with our function names, e.g. GetUserName, SendMessage.
+// Instead of typedef'ing HANDLE, let's use the actual type, void*. If that ever
+// changes in the future and HANDLE would no longer be compatible with void*
+// (very unlikely, given how fundamental this type is in Windows), then we'd get
+// a compilation error.
+typedef /* HANDLE */ void *file_handle_type;
+#else   // !(defined(COMPILER_MSVC) || defined(__CYGWIN__))
+typedef int file_handle_type;
+#endif  // defined(COMPILER_MSVC) || defined(__CYGWIN__)
+
+// Result of a `ReadFromHandle` operation.
+//
+// This is a platform-independent abstraction of `errno`. If you need to handle
+// an errno value, add an entry here and update the platform-specific
+// `ReadFromHandle` implementations accordingly.
+struct ReadFileResult {
+  enum Errors {
+    SUCCESS = 0,
+    OTHER_ERROR = 1,
+    INTERRUPTED = 2,
+    AGAIN = 3,
+  };
+};
+
+int ReadFromHandle(file_handle_type handle, void *data, size_t size,
+                   int *error);
 
 // Replaces 'content' with contents of file 'filename'.
 // If `max_size` is positive, the method reads at most that many bytes;
@@ -36,15 +89,57 @@ std::pair<std::string, std::string> SplitPath(const std::string &path);
 bool ReadFile(const std::string &filename, std::string *content,
               int max_size = 0);
 
-// Writes 'content' into file 'filename', and makes it executable.
+// Reads up to `size` bytes from the file `filename` into `data`.
+// There must be enough memory allocated at `data`.
+// Returns true on success, false on error.
+bool ReadFile(const std::string &filename, void *data, size_t size);
+
+// Writes `size` bytes from `data` into file `filename` and chmods it to `perm`.
 // Returns false on failure, sets errno.
-bool WriteFile(const std::string &content, const std::string &filename);
+bool WriteFile(const void *data, size_t size, const std::string &filename,
+               unsigned int perm = 0755);
+
+// Result of a `WriteToStdOutErr` operation.
+//
+// This is a platform-independent abstraction of `errno`. If you need to handle
+// an errno value, add an entry here and update the platform-specific
+// `WriteToStdOutErr` implementations accordingly.
+struct WriteResult {
+  enum Errors {
+    SUCCESS = 0,
+    OTHER_ERROR = 1,  // some uncategorized error occurred
+    BROKEN_PIPE = 2,  // EPIPE (reading end of the pipe is closed)
+  };
+};
+
+// Writes `size` bytes from `data` into stdout/stderr.
+// Writes to stdout if `to_stdout` is true, writes to stderr otherwise.
+// Returns one of `WriteResult::Errors`.
+//
+// This is a platform-independent abstraction of `fwrite` with `errno` checking
+// and awareness of pipes (i.e. in case stderr/stdout is connected to a pipe).
+int WriteToStdOutErr(const void *data, size_t size, bool to_stdout);
+
+enum RenameDirectoryResult {
+  kRenameDirectorySuccess = 0,
+  kRenameDirectoryFailureNotEmpty = 1,
+  kRenameDirectoryFailureOtherError = 2,
+};
+
+// Renames the directory at `old_name` to `new_name`.
+// Returns one of the RenameDirectoryResult enum values.
+int RenameDirectory(const std::string &old_name, const std::string &new_name);
+
+// Reads which directory a symlink points to. Puts the target of the symlink
+// in ``result`` and returns if the operation was successful. Will not work on
+// symlinks that don't point to directories on Windows.
+bool ReadDirectorySymlink(const std::string &symlink, std::string *result);
 
 // Unlinks the file given by 'file_path'.
 // Returns true on success. In case of failure sets errno.
 bool UnlinkPath(const std::string &file_path);
 
-// Returns true if this path exists.
+// Returns true if this path exists, following symlinks.
 bool PathExists(const std::string& path);
 
 // Returns the real, absolute path corresponding to `path`.
@@ -54,12 +149,18 @@ bool PathExists(const std::string& path);
 // This is a wrapper around realpath(3).
 std::string MakeCanonical(const char *path);
 
-// Returns true if the path exists and can be accessed to read/write as desired.
-//
-// If `exec` is true and the path refers to a file, it means the file must be
-// executable; if the path is a directory, it means the directory must be
-// openable.
-bool CanAccess(const std::string& path, bool read, bool write, bool exec);
+// Returns true if `path` exists, is a file or symlink to one, and is readable.
+// Follows symlinks.
+bool CanReadFile(const std::string &path);
+
+// Returns true if `path` exists, is a file or symlink to one, and is writable.
+// Follows symlinks.
+bool CanExecuteFile(const std::string &path);
+
+// Returns true if `path` exists, is a directory or symlink/junction to one, and
+// is both readable and writable.
+// Follows symlinks/junctions.
+bool CanAccessDirectory(const std::string &path);
 
 // Returns true if `path` refers to a directory or a symlink/junction to one.
 bool IsDirectory(const std::string& path);
@@ -73,15 +174,6 @@ bool IsAbsolute(const std::string &path);
 // Calls fsync() on the file (or directory) specified in 'file_path'.
 // pdie() if syncing fails.
 void SyncFile(const std::string& path);
-
-// Returns the last modification time of `path` in milliseconds since the Epoch.
-// Returns -1 upon failure.
-time_t GetMtimeMillisec(const std::string& path);
-
-// Sets the last modification time of `path` to the given value.
-// `mtime` must be milliseconds since the Epoch.
-// Returns true upon success.
-bool SetMtimeMillisec(const std::string& path, time_t mtime);
 
 // mkdir -p path. All newly created directories use the given mode.
 // `mode` should be an octal permission mask, e.g. 0755.
@@ -117,23 +209,15 @@ void ForEachDirectoryEntry(const std::string &path,
                            DirectoryEntryConsumer *consume);
 
 #if defined(COMPILER_MSVC) || defined(__CYGWIN__)
-// Converts a UTF8-encoded `path` to a widechar Windows path.
-//
-// Returns true if conversion succeeded and sets the contents of `result` to it.
-//
-// The `path` may be absolute or relative, and may be a Windows or MSYS path.
-// In every case, this method replaces forward slashes with backslashes if
-// necessary.
-//
-// Recognizes the drive letter in MSYS paths, so e.g. "/c/windows" becomes
-// "c:\windows". Prepends the MSYS root (computed from the BAZEL_SH envvar) to
-// absolute MSYS paths, so e.g. "/usr" becomes "c:\tools\msys64\usr".
-//
-// The result may be longer than MAX_PATH. It's the caller's responsibility to
-// prepend the long path prefix ("\\?\") in case they need to pass it to a
-// Windows API function (some require the prefix, some don't), or to quote the
-// path if necessary.
-bool AsWindowsPath(const std::string &path, std::wstring *result);
+// Like `AsWindowsPath` but the result is absolute and has UNC prefix if needed.
+bool AsWindowsPathWithUncPrefix(const std::string &path, std::wstring *wpath,
+                                size_t max_path = 260 /* MAX_PATH */);
+
+// Same as `AsWindowsPath`, but returns a lowercase 8dot3 style shortened path.
+// Result will never have a UNC prefix, nor a trailing "/" or "\".
+// Works also for non-existent paths; shortens as much of them as it can.
+// Also works for non-existent drives.
+bool AsShortWindowsPath(const std::string &path, std::string *result);
 #endif  // defined(COMPILER_MSVC) || defined(__CYGWIN__)
 
 }  // namespace blaze_util

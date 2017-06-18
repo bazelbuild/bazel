@@ -23,3 +23,5 @@ source "${TEST_SRCDIR}/io_bazel/src/test/shell/unittest.bash" || \
   { echo "Failed to source unittest.bash" >&2; exit 1; }
 
 readonly TEST_DATA_DIR="${TEST_SRCDIR}/io_bazel/tools/build_defs/docker/testdata"
+
+readonly TEST_DATA_TARGET_BASE="io_bazel/tools/build_defs/docker/testdata"

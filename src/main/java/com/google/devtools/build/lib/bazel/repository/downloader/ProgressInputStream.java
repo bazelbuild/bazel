@@ -18,7 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.util.Clock;
 import java.io.IOException;
 import java.io.InputStream;
@@ -42,9 +42,9 @@ final class ProgressInputStream extends InputStream {
   static class Factory {
     private final Locale locale;
     private final Clock clock;
-    private final EventHandler eventHandler;
+    private final ExtendedEventHandler eventHandler;
 
-    Factory(Locale locale, Clock clock, EventHandler eventHandler) {
+    Factory(Locale locale, Clock clock, ExtendedEventHandler eventHandler) {
       this.locale = locale;
       this.clock = clock;
       this.eventHandler = eventHandler;
@@ -58,7 +58,7 @@ final class ProgressInputStream extends InputStream {
 
   private final Locale locale;
   private final Clock clock;
-  private final EventHandler eventHandler;
+  private final ExtendedEventHandler eventHandler;
   private final InputStream delegate;
   private final long intervalMs;
   private final URL url;
@@ -69,7 +69,7 @@ final class ProgressInputStream extends InputStream {
   ProgressInputStream(
       Locale locale,
       Clock clock,
-      EventHandler eventHandler,
+      ExtendedEventHandler eventHandler,
       long intervalMs,
       InputStream delegate,
       URL url,
@@ -83,6 +83,7 @@ final class ProgressInputStream extends InputStream {
     this.url = url;
     this.originalUrl = originalUrl;
     this.nextEvent = new AtomicLong(clock.currentTimeMillis() + intervalMs);
+    eventHandler.post(new DownloadProgressEvent(originalUrl, url, 0, false));
   }
 
   @Override
@@ -111,6 +112,7 @@ final class ProgressInputStream extends InputStream {
   @Override
   public void close() throws IOException {
     delegate.close();
+    eventHandler.post(new DownloadProgressEvent(originalUrl, url, toto.get(), true));
   }
 
   private void reportProgress(long bytesRead) {
@@ -122,6 +124,7 @@ final class ProgressInputStream extends InputStream {
     if (!url.getHost().equals(originalUrl.getHost())) {
       via = " via " + url.getHost();
     }
+    eventHandler.post(new DownloadProgressEvent(originalUrl, url, bytesRead, false));
     eventHandler.handle(
         Event.progress(
             String.format(locale, "Downloading %s%s: %,d bytes", originalUrl, via, bytesRead)));

@@ -106,36 +106,20 @@ final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker
   @Override
   public boolean validateObject(WorkerKey key, PooledObject<Worker> p) {
     Worker worker = p.getObject();
-
     boolean hashMatches = key.getWorkerFilesHash().equals(worker.getWorkerFilesHash());
-    boolean workerIsAlive = worker.isAlive();
-    boolean workerIsStillValid = hashMatches && workerIsAlive;
 
-    if (reporter != null && !workerIsStillValid) {
-      StringBuilder msg = new StringBuilder();
-      msg.append(key.getMnemonic());
-      msg.append(" worker (id ");
-      msg.append(p.getObject().getWorkerId());
-      msg.append(") can no longer be used, because");
-
-      if (!workerIsAlive) {
-        msg.append(" its process terminated itself or got killed");
-      }
-
-      if (!hashMatches) {
-        if (!workerIsAlive) {
-          msg.append(" and");
-        }
-        msg.append(" its files have changed on disk [");
-        msg.append(worker.getWorkerFilesHash());
-        msg.append(" -> ");
-        msg.append(key.getWorkerFilesHash());
-        msg.append("]");
-      }
-
-      reporter.handle(Event.warn(msg.toString()));
+    if (reporter != null && !hashMatches) {
+      reporter.handle(
+          Event.warn(
+              String.format(
+                  "%s worker (id %d) can no longer be used, because its files have changed on"
+                      + " disk [%s -> %s]",
+                  key.getMnemonic(),
+                  worker.getWorkerId(),
+                  worker.getWorkerFilesHash(),
+                  key.getWorkerFilesHash())));
     }
 
-    return workerIsStillValid;
+    return hashMatches;
   }
 }

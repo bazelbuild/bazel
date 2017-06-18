@@ -18,7 +18,6 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.ideinfo.androidstudio.PackageManifestOuterClass.ArtifactLocation;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
-
 import java.util.Collections;
 import java.util.List;
 

@@ -4,7 +4,7 @@ default_target_cpu: "same_as_host"
 
 default_toolchain {
   cpu: "%{cpu}"
-  toolchain_identifier: "local"
+  toolchain_identifier: "%{default_toolchain_name}"
 }
 
 default_toolchain {
@@ -14,12 +14,17 @@ default_toolchain {
 
 default_toolchain {
   cpu: "x64_windows_msvc"
-  toolchain_identifier: "vc_14_0_x64"
+  toolchain_identifier: "msvc_x64"
+}
+
+default_toolchain {
+  cpu: "x64_windows_msys"
+  toolchain_identifier: "msys_x64"
 }
 
 default_toolchain {
   cpu: "s390x"
-  toolchain_identifier: "local"
+  toolchain_identifier: "%{toolchain_name}"
 }
 
 default_toolchain {
@@ -93,7 +98,7 @@ toolchain {
 }
 
 toolchain {
-  toolchain_identifier: "local"
+  toolchain_identifier: "%{toolchain_name}"
 %{content}
 
   compilation_mode_flags {
@@ -105,16 +110,18 @@ toolchain {
 %{opt_content}
   }
   linking_mode_flags { mode: DYNAMIC }
+
+%{coverage}
 }
 
 toolchain {
-  toolchain_identifier: "vc_14_0_x64"
+  toolchain_identifier: "msvc_x64"
   host_system_name: "local"
   target_system_name: "local"
 
   abi_version: "local"
   abi_libc_version: "local"
-  target_cpu: "x64_windows_msvc"
+  target_cpu: "x64_windows"
   compiler: "cl"
   target_libc: "msvcrt140"
   default_python_version: "python2.7"
@@ -123,15 +130,15 @@ toolchain {
 
   tool_path {
     name: "ar"
-    path: "wrapper/bin/msvc_link.bat"
+    path: "%{msvc_lib_path}"
   }
   tool_path {
     name: "cpp"
-    path: "wrapper/bin/msvc_cl.bat"
+    path: "%{msvc_cl_path}"
   }
   tool_path {
     name: "gcc"
-    path: "wrapper/bin/msvc_cl.bat"
+    path: "%{msvc_cl_path}"
   }
   tool_path {
     name: "gcov"
@@ -139,7 +146,7 @@ toolchain {
   }
   tool_path {
     name: "ld"
-    path: "wrapper/bin/msvc_link.bat"
+    path: "%{msvc_link_path}"
   }
   tool_path {
     name: "nm"
@@ -164,8 +171,6 @@ toolchain {
   supports_normalizing_ar: true
   needsPic: false
 
-  compiler_flag: "-m64"
-  compiler_flag: "/D__inline__=__inline"
   # TODO(pcloudy): Review those flags below, they should be defined by cl.exe
   compiler_flag: "/DOS_WINDOWS=OS_WINDOWS"
   compiler_flag: "/DCOMPILER_MSVC"
@@ -185,8 +190,6 @@ toolchain {
   compiler_flag: "/D_USE_MATH_DEFINES"
 
   # Useful options to have on for compilation.
-  # Suppress startup banner.
-  compiler_flag: "/nologo"
   # Increase the capacity of object files to 2^32 sections.
   compiler_flag: "/bigobj"
   # Allocate 500MB for precomputed headers.
@@ -197,8 +200,6 @@ toolchain {
   compiler_flag: "/Gy"
   # Use string pooling.
   compiler_flag: "/GF"
-  # Warning level 3 (could possibly go to 4 in the future).
-  compiler_flag: "/W3"
   # Catch both asynchronous (structured) and synchronous (C++) exceptions.
   compiler_flag: "/EHsc"
 
@@ -212,7 +213,85 @@ toolchain {
   # Don't warn about insecure functions (e.g. non _s functions).
   compiler_flag: "/wd4996"
 
-  linker_flag: "-m64"
+  linker_flag: "/MACHINE:X64"
+
+  linker_flag: "/SUBSYSTEM:CONSOLE"
+
+  # Suppress startup banner.
+  feature {
+    name: "nologo"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-static-library"
+      action: "c++-link-alwayslink-static-library"
+      action: "c++-link-pic-static-library"
+      action: "c++-link-alwayslink-pic-static-library"
+      flag_group {
+        flag: "/nologo"
+      }
+    }
+  }
+
+  feature {
+    name: "msvc_env"
+    env_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "c++-module-codegen"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-static-library"
+      action: "c++-link-alwayslink-static-library"
+      action: "c++-link-pic-static-library"
+      action: "c++-link-alwayslink-pic-static-library"
+      env_entry {
+        key: "PATH"
+        value: "%{msvc_env_path}"
+      }
+      env_entry {
+        key: "INCLUDE"
+        value: "%{msvc_env_include}"
+      }
+      env_entry {
+        key: "LIB"
+        value: "%{msvc_env_lib}"
+      }
+      env_entry {
+        key: "TMP"
+        value: "%{msvc_env_tmp}"
+      }
+      env_entry {
+        key: "TEMP"
+        value: "%{msvc_env_tmp}"
+      }
+    }
+  }
+
+  feature {
+    name: "use_linker"
+    env_set {
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      env_entry {
+        key: "USE_LINKER"
+        value: "1"
+      }
+    }
+  }
 
   feature {
     name: 'include_paths'
@@ -235,8 +314,15 @@ toolchain {
     }
   }
 
+  # Stop adding any flag for dotD file, Bazel knows how to parse the output of /showIncludes option
+  # TODO(bazel-team): Remove this empty feature. https://github.com/bazelbuild/bazel/issues/2868
   feature {
     name: 'dependency_file'
+  }
+
+  # Tell Bazel to parse the output of /showIncludes
+  feature {
+    name: 'parse_showincludes'
     flag_set {
       action: 'assemble'
       action: 'preprocess-assemble'
@@ -245,10 +331,8 @@ toolchain {
       action: 'c++-module-compile'
       action: 'c++-header-preprocessing'
       action: 'c++-header-parsing'
-      expand_if_all_available: 'dependency_file'
       flag_group {
-        flag: '/DEPENDENCY_FILE'
-        flag: '%{dependency_file}'
+        flag: "/showIncludes"
       }
     }
   }
@@ -267,7 +351,7 @@ toolchain {
     config_name: 'c-compile'
     action_name: 'c-compile'
     tool {
-      tool_path: 'wrapper/bin/msvc_cl.bat'
+      tool_path: '%{msvc_cl_path}'
     }
     flag_set {
       flag_group {
@@ -294,13 +378,16 @@ toolchain {
         flag: '/Fi%{output_preprocess_file}'
       }
     }
+    implies: 'nologo'
+    implies: 'msvc_env'
+    implies: 'parse_showincludes'
   }
 
   action_config {
     config_name: 'c++-compile'
     action_name: 'c++-compile'
     tool {
-      tool_path: 'wrapper/bin/msvc_cl.bat'
+      tool_path: '%{msvc_cl_path}'
     }
     flag_set {
       flag_group {
@@ -327,77 +414,117 @@ toolchain {
         flag: '/Fi%{output_preprocess_file}'
       }
     }
+    implies: 'nologo'
+    implies: 'msvc_env'
+    implies: 'parse_showincludes'
   }
 
   action_config {
-     config_name: 'c++-link-executable'
-     action_name: 'c++-link-executable'
-     tool {
-         tool_path: 'wrapper/bin/msvc_link.bat'
-     }
-     implies: 'linkstamps'
-     implies: 'output_execpath_flags'
-     implies: 'input_param_flags'
-     implies: 'legacy_link_flags'
+    config_name: 'c++-link-executable'
+    action_name: 'c++-link-executable'
+    tool {
+      tool_path: '%{msvc_link_path}'
+    }
+    implies: 'nologo'
+    implies: 'linkstamps'
+    implies: 'output_execpath_flags'
+    implies: 'input_param_flags'
+    implies: 'legacy_link_flags'
+    implies: 'linker_param_file'
+    implies: 'msvc_env'
+    implies: 'use_linker'
   }
 
   action_config {
-     config_name: 'c++-link-dynamic-library'
-     action_name: 'c++-link-dynamic-library'
-     tool {
-         tool_path: 'wrapper/bin/msvc_link.bat'
-     }
-     implies: 'shared_flag'
-     implies: 'linkstamps'
-     implies: 'output_execpath_flags'
-     implies: 'input_param_flags'
-     implies: 'has_configured_linker_path'
-     implies: 'legacy_link_flags'
+    config_name: 'c++-link-dynamic-library'
+    action_name: 'c++-link-dynamic-library'
+    tool {
+      tool_path: '%{msvc_link_path}'
+    }
+    implies: 'nologo'
+    implies: 'shared_flag'
+    implies: 'linkstamps'
+    implies: 'output_execpath_flags'
+    implies: 'input_param_flags'
+    implies: 'has_configured_linker_path'
+    implies: 'legacy_link_flags'
+    implies: 'linker_param_file'
+    implies: 'msvc_env'
+    implies: 'use_linker'
   }
 
   action_config {
-     config_name: 'c++-link-static-library'
-     action_name: 'c++-link-static-library'
-     tool {
-         tool_path: 'wrapper/bin/msvc_link.bat'
-     }
-     implies: 'input_param_flags'
+    config_name: 'c++-link-static-library'
+    action_name: 'c++-link-static-library'
+    tool {
+      tool_path: '%{msvc_lib_path}'
+    }
+    implies: 'nologo'
+    implies: 'archiver_flags'
+    implies: 'input_param_flags'
+    implies: 'linker_param_file'
+    implies: 'msvc_env'
   }
 
   action_config {
-     config_name: 'c++-link-alwayslink-static-library'
-     action_name: 'c++-link-alwayslink-static-library'
-     tool {
-         tool_path: 'wrapper/bin/msvc_link.bat'
-     }
-     implies: 'input_param_flags'
+    config_name: 'c++-link-alwayslink-static-library'
+    action_name: 'c++-link-alwayslink-static-library'
+    tool {
+      tool_path: '%{msvc_lib_path}'
+    }
+    implies: 'nologo'
+    implies: 'archiver_flags'
+    implies: 'input_param_flags'
+    implies: 'linker_param_file'
+    implies: 'msvc_env'
   }
 
   # TODO(pcloudy): The following action_config is listed in MANDATORY_LINK_TARGET_TYPES.
   # But do we really need them on Windows?
   action_config {
-     config_name: 'c++-link-pic-static-library'
-     action_name: 'c++-link-pic-static-library'
-     tool {
-         tool_path: 'wrapper/bin/msvc_link.bat'
-     }
-     implies: 'input_param_flags'
+    config_name: 'c++-link-pic-static-library'
+    action_name: 'c++-link-pic-static-library'
+    tool {
+      tool_path: '%{msvc_lib_path}'
+    }
+    implies: 'nologo'
+    implies: 'archiver_flags'
+    implies: 'input_param_flags'
+    implies: 'linker_param_file'
+    implies: 'msvc_env'
   }
 
   action_config {
-     config_name: 'c++-link-alwayslink-pic-static-library'
-     action_name: 'c++-link-alwayslink-pic-static-library'
-     tool {
-         tool_path: 'wrapper/bin/msvc_link.bat'
-     }
-     implies: 'input_param_flags'
+    config_name: 'c++-link-alwayslink-pic-static-library'
+    action_name: 'c++-link-alwayslink-pic-static-library'
+    tool {
+      tool_path: '%{msvc_lib_path}'
+    }
+    implies: 'nologo'
+    implies: 'archiver_flags'
+    implies: 'input_param_flags'
+    implies: 'linker_param_file'
+    implies: 'msvc_env'
   }
 
   action_config {
     config_name: 'c++-link-interface-dynamic-library'
     action_name: 'c++-link-interface-dynamic-library'
     tool {
-      tool_path: 'wrapper/bin/msvc_link.bat'
+      tool_path: '%{msvc_lib_path}'
+    }
+    implies: 'nologo'
+    implies: 'linker_param_file'
+    implies: 'msvc_env'
+  }
+
+  feature {
+    name: 'generate_pdb_file'
+    requires: {
+      feature: 'dbg'
+    }
+    requires: {
+      feature: 'fastbuild'
     }
   }
 
@@ -406,37 +533,51 @@ toolchain {
   }
 
   feature {
-     name: 'shared_flag'
-     flag_set {
-         action: 'c++-link-dynamic-library'
-         flag_group {
-             flag: '/DLL'
-         }
-     }
+    name: 'shared_flag'
+    flag_set {
+      action: 'c++-link-dynamic-library'
+      flag_group {
+        flag: '/DLL'
+      }
+    }
   }
 
   feature {
-     name: 'linkstamps'
-     flag_set {
-         action: 'c++-link-executable'
-         action: 'c++-link-dynamic-library'
-         expand_if_all_available: 'linkstamp_paths'
-         flag_group {
-             flag: '%{linkstamp_paths}'
-         }
-     }
+    name: 'linkstamps'
+    flag_set {
+      action: 'c++-link-executable'
+      action: 'c++-link-dynamic-library'
+      expand_if_all_available: 'linkstamp_paths'
+      flag_group {
+        flag: '%{linkstamp_paths}'
+      }
+    }
   }
 
   feature {
-     name: 'output_execpath_flags'
-     flag_set {
-         expand_if_all_available: 'output_execpath'
-         action: 'c++-link-executable'
-         action: 'c++-link-dynamic-library'
-         flag_group {
-             flag: '/OUT:%{output_execpath}'
-         }
-     }
+    name: 'output_execpath_flags'
+    flag_set {
+      expand_if_all_available: 'output_execpath'
+      action: 'c++-link-executable'
+      action: 'c++-link-dynamic-library'
+      flag_group {
+        flag: '/OUT:%{output_execpath}'
+      }
+    }
+  }
+
+  feature {
+    name: 'archiver_flags'
+    flag_set {
+      expand_if_all_available: 'output_execpath'
+      action: 'c++-link-static-library'
+      action: 'c++-link-alwayslink-static-library'
+      action: 'c++-link-pic-static-library'
+      action: 'c++-link-alwayslink-pic-static-library'
+      flag_group {
+        flag: '/OUT:%{output_execpath}'
+      }
+    }
   }
 
   feature {
@@ -445,10 +586,6 @@ toolchain {
       expand_if_all_available: 'library_search_directories'
       action: 'c++-link-executable'
       action: 'c++-link-dynamic-library'
-      action: 'c++-link-static-library'
-      action: 'c++-link-alwayslink-static-library'
-      action: 'c++-link-pic-static-library'
-      action: 'c++-link-alwayslink-pic-static-library'
       flag_group {
         iterate_over: 'library_search_directories'
         flag: "-L%{library_search_directories}"
@@ -458,12 +595,8 @@ toolchain {
       expand_if_all_available: 'libopts'
       action: 'c++-link-executable'
       action: 'c++-link-dynamic-library'
-      action: 'c++-link-static-library'
-      action: 'c++-link-alwayslink-static-library'
-      action: 'c++-link-pic-static-library'
-      action: 'c++-link-alwayslink-pic-static-library'
       flag_group {
-          flag: '%{libopts}'
+        flag: '%{libopts}'
       }
     }
     flag_set {
@@ -477,14 +610,79 @@ toolchain {
       flag_group {
         iterate_over: 'libraries_to_link'
         flag_group {
-          expand_if_true: 'libraries_to_link.is_whole_archive'
-          iterate_over: 'libraries_to_link.names'
-          flag: '/WHOLEARCHIVE:%{libraries_to_link.names}'
+          expand_if_equal: {
+            variable: 'libraries_to_link.type'
+            value: 'object_file_group'
+          }
+          iterate_over: 'libraries_to_link.object_files'
+          flag_group {
+            flag: '%{libraries_to_link.object_files}'
+          }
         }
         flag_group {
-          expand_if_false: 'libraries_to_link.is_whole_archive'
-          iterate_over: 'libraries_to_link.names'
-          flag: '%{libraries_to_link.names}'
+          expand_if_equal: {
+            variable: 'libraries_to_link.type'
+            value: 'object_file'
+          }
+          flag_group {
+            flag: '%{libraries_to_link.name}'
+          }
+        }
+        flag_group {
+          expand_if_equal: {
+            variable: 'libraries_to_link.type'
+            value: 'interface_library'
+          }
+          flag_group {
+            expand_if_false: 'libraries_to_link.is_whole_archive'
+            flag: '%{libraries_to_link.name}'
+          }
+          flag_group {
+            expand_if_true: 'libraries_to_link.is_whole_archive'
+            flag: '/WHOLEARCHIVE:%{libraries_to_link.name}'
+          }
+        }
+        flag_group {
+          expand_if_equal: {
+            variable: 'libraries_to_link.type'
+            value: 'static_library'
+          }
+          flag_group {
+            expand_if_false: 'libraries_to_link.is_whole_archive'
+            flag: '%{libraries_to_link.name}'
+          }
+          flag_group {
+            expand_if_true: 'libraries_to_link.is_whole_archive'
+            flag: '/WHOLEARCHIVE:%{libraries_to_link.name}'
+          }
+        }
+        flag_group {
+          expand_if_equal: {
+            variable: 'libraries_to_link.type'
+            value: 'dynamic_library'
+          }
+          flag_group {
+            expand_if_false: 'libraries_to_link.is_whole_archive'
+            flag: '%{libraries_to_link.name}'
+          }
+          flag_group {
+            expand_if_true: 'libraries_to_link.is_whole_archive'
+            flag: '/WHOLEARCHIVE:%{libraries_to_link.name}'
+          }
+        }
+        flag_group {
+          expand_if_equal: {
+            variable: 'libraries_to_link.type'
+            value: 'versioned_dynamic_library'
+          }
+          flag_group {
+            expand_if_false: 'libraries_to_link.is_whole_archive'
+            flag: '%{libraries_to_link.name}'
+          }
+          flag_group {
+            expand_if_true: 'libraries_to_link.is_whole_archive'
+            flag: '/WHOLEARCHIVE:%{libraries_to_link.name}'
+          }
         }
       }
     }
@@ -502,31 +700,126 @@ toolchain {
     }
   }
 
-  compilation_mode_flags {
-    mode: DBG
-    compiler_flag: "/DDEBUG=1"
-    # This will signal the wrapper that we are doing a debug build, which sets
-    # some internal state of the toolchain wrapper. It is intentionally a "-"
-    # flag to make this very obvious.
-    compiler_flag: "-g"
-    compiler_flag: "/Od"
-    compiler_flag: "-Xcompilation-mode=dbg"
-    linker_flag: "-Xcompilation-mode=dbg"
+  feature {
+    name: 'linker_param_file'
+    flag_set {
+      expand_if_all_available: 'linker_param_file'
+      action: 'c++-link-executable'
+      action: 'c++-link-dynamic-library'
+      action: 'c++-link-static-library'
+      action: 'c++-link-alwayslink-static-library'
+      action: 'c++-link-pic-static-library'
+      action: 'c++-link-alwayslink-pic-static-library'
+      flag_group {
+        flag: '@%{linker_param_file}'
+      }
+    }
   }
 
-  compilation_mode_flags {
-    mode: FASTBUILD
-    compiler_flag: "/DNDEBUG"
-    compiler_flag: "/Od"
-    compiler_flag: "-Xcompilation-mode=fastbuild"
-    linker_flag: "-Xcompilation-mode=fastbuild"
+  feature {
+    name: 'link_crt_library'
+    flag_set {
+      action: 'c-compile'
+      action: 'c++-compile'
+      flag_group {
+        # The flag is filled by cc_configure.
+        # The default option is /MT, set USE_DYNAMIC_CRT=1 to change it to /MD
+        flag: "%{crt_option}"
+      }
+    }
+    flag_set {
+      action: 'c++-link-executable'
+      action: 'c++-link-dynamic-library'
+      flag_group {
+      # The flag is filled by cc_configure.
+        # The default value is libcmt.lib, set USE_DYNAMIC_CRT=1 to change it to msvcrt.lib
+        flag: "/DEFAULTLIB:%{crt_library}"
+      }
+    }
   }
 
-  compilation_mode_flags {
-    mode: OPT
-    compiler_flag: "/DNDEBUG"
-    compiler_flag: "/O2"
-    compiler_flag: "-Xcompilation-mode=opt"
-    linker_flag: "-Xcompilation-mode=opt"
+  feature {
+    name: 'link_crt_debug_library'
+    flag_set {
+      action: 'c-compile'
+      action: 'c++-compile'
+      flag_group {
+        # The flag is filled by cc_configure.
+        # The default option is /MTd, set USE_DYNAMIC_CRT=1 to change it to /MDd
+        flag: "%{crt_debug_option}"
+      }
+    }
+    flag_set {
+      action: 'c++-link-executable'
+      action: 'c++-link-dynamic-library'
+      flag_group {
+        # The flag is filled by cc_configure.
+        # The default value is libcmtd.lib, set USE_DYNAMIC_CRT=1 to change it to msvcrtd.lib
+        flag: "/DEFAULTLIB:%{crt_debug_library}"
+      }
+    }
   }
+
+  feature {
+    name: 'dbg'
+    flag_set {
+      action: 'c-compile'
+      action: 'c++-compile'
+      flag_group {
+        flag: "/Od"
+        flag: "/Z7"
+        # This will signal the wrapper that we are doing a debug build, which sets
+        # some internal state of the toolchain wrapper. It is intentionally a "-"
+        # flag to make this very obvious.
+        flag: "-g"
+      }
+    }
+    flag_set {
+      action: 'c++-link-executable'
+      action: 'c++-link-dynamic-library'
+      flag_group {
+        flag: "/DEBUG:FULL"
+        flag: "/INCREMENTAL:NO"
+      }
+    }
+    implies: 'link_crt_debug_library'
+    implies: 'generate_pdb_file'
+  }
+
+  feature {
+    name: 'fastbuild'
+    flag_set {
+      action: 'c-compile'
+      action: 'c++-compile'
+      flag_group {
+        flag: "/Od"
+        flag: "/Z7"
+      }
+    }
+    flag_set {
+      action: 'c++-link-executable'
+      action: 'c++-link-dynamic-library'
+      flag_group {
+        flag: "/DEBUG:FASTLINK"
+        flag: "/INCREMENTAL:NO"
+      }
+    }
+    implies: 'link_crt_library'
+    implies: 'generate_pdb_file'
+  }
+
+  feature {
+    name: 'opt'
+    flag_set {
+      action: 'c-compile'
+      action: 'c++-compile'
+      flag_group {
+        flag: "/O2"
+      }
+    }
+    implies: 'link_crt_library'
+  }
+
+%{compilation_mode_content}
+
 }

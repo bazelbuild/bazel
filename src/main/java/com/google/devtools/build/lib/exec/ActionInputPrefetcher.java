@@ -20,15 +20,15 @@ public interface ActionInputPrefetcher {
   public static final ActionInputPrefetcher NONE =
       new ActionInputPrefetcher() {
         @Override
-        public void prefetchFile(ActionInput input) {
+        public void prefetchFiles(Iterable<? extends ActionInput> input) {
           // Do nothing.
         }
       };
 
   /**
-   * Initiates best-effort prefetching of the given input. This should not block.
+   * Initiates best-effort prefetching of all given inputs. This should not block.
    *
-   * <p>If the path is not under this prefetcher's control, the call should be a no-op.
+   * <p>For any path not under this prefetcher's control, the call should be a no-op.
    */
-  void prefetchFile(ActionInput input);
+  void prefetchFiles(Iterable<? extends ActionInput> input);
 }

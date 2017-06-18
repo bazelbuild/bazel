@@ -62,6 +62,23 @@ cc_binary(
     ],
 )
 
+cc_library(
+    name = "windows_jni_lib",
+    srcs = [
+        "windows_file_operations.cc",
+        "windows_util.cc",
+    ],
+    hdrs = [
+        "windows_file_operations.h",
+        "windows_util.h",
+    ],
+    visibility = [
+        "//src/main/cpp:__subpackages__",
+        "//src/test/cpp:__subpackages__",
+        "//src/test/native:__pkg__",
+    ],
+)
+
 genrule(
     name = "windows_jni",
     srcs = glob([

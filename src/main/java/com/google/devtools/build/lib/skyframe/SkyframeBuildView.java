@@ -24,6 +24,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
@@ -40,7 +41,6 @@ import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
-import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
@@ -48,7 +48,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -91,7 +91,6 @@ public final class SkyframeBuildView {
   private final ConfiguredTargetFactory factory;
   private final ArtifactFactory artifactFactory;
   private final SkyframeExecutor skyframeExecutor;
-  private final BinTools binTools;
   private boolean enableAnalysis = false;
 
   // This hack allows us to see when a configured target has been invalidated, and thus when the set
@@ -126,13 +125,11 @@ public final class SkyframeBuildView {
   private boolean skyframeAnalysisWasDiscarded;
 
   public SkyframeBuildView(BlazeDirectories directories,
-      SkyframeExecutor skyframeExecutor, BinTools binTools,
-      ConfiguredRuleClassProvider ruleClassProvider) {
+      SkyframeExecutor skyframeExecutor, ConfiguredRuleClassProvider ruleClassProvider) {
     this.factory = new ConfiguredTargetFactory(ruleClassProvider);
     this.artifactFactory = new ArtifactFactory(
         directories.getExecRoot().getParentDirectory(), directories.getRelativeOutputPath());
     this.skyframeExecutor = skyframeExecutor;
-    this.binTools = binTools;
     this.ruleClassProvider = ruleClassProvider;
   }
 
@@ -187,10 +184,11 @@ public final class SkyframeBuildView {
    *
    * @see com.google.devtools.build.lib.analysis.BuildView.Options#discardAnalysisCache
    */
-  public void clearAnalysisCache(Collection<ConfiguredTarget> topLevelTargets) {
+  public void clearAnalysisCache(
+      Collection<ConfiguredTarget> topLevelTargets, Collection<AspectValue> topLevelAspects) {
     // TODO(bazel-team): Consider clearing packages too to save more memory.
     skyframeAnalysisWasDiscarded = true;
-    skyframeExecutor.clearAnalysisCache(topLevelTargets);
+    skyframeExecutor.clearAnalysisCache(topLevelTargets, topLevelAspects);
   }
 
   /**
@@ -199,7 +197,7 @@ public final class SkyframeBuildView {
    * @return the configured targets that should be built along with a WalkableGraph of the analysis.
    */
   public SkyframeAnalysisResult configureTargets(
-      EventHandler eventHandler,
+      ExtendedEventHandler eventHandler,
       List<ConfiguredTargetKey> values,
       List<AspectValueKey> aspectKeys,
       EventBus eventBus,
@@ -457,7 +455,7 @@ public final class SkyframeBuildView {
   CachingAnalysisEnvironment createAnalysisEnvironment(
       ArtifactOwner owner,
       boolean isSystemEnv,
-      EventHandler eventHandler,
+      ExtendedEventHandler eventHandler,
       Environment env,
       BuildConfiguration config)
       throws InterruptedException {
@@ -468,7 +466,7 @@ public final class SkyframeBuildView {
     boolean allowRegisteringActions = config == null || config.isActionsEnabled();
     return new CachingAnalysisEnvironment(
         artifactFactory, owner, isSystemEnv, extendedSanityChecks, eventHandler, env,
-        allowRegisteringActions, binTools);
+        allowRegisteringActions);
   }
 
   /**
@@ -528,6 +526,16 @@ public final class SkyframeBuildView {
     if (hostConfig != null) {
       return hostConfig;
     }
+    // TODO(bazel-team): investigate getting the trimmed config from Skyframe instead of cloning.
+    // This is the only place we instantiate BuildConfigurations outside of Skyframe, This can
+    // produce surprising effects, such as requesting a configuration that's in the Skyframe cache
+    // but still produces a unique instance because we don't check that cache. It'd be nice to
+    // guarantee that *all* instantiations happen through Skyframe. That could, for example,
+    // guarantee that config1.equals(config2) implies config1 == config2, which is nice for
+    // verifying we don't accidentally create extra configurations. But unfortunately,
+    // hostConfigurationCache was specifically created because Skyframe is too slow for this use
+    // case. So further optimization is necessary to make that viable (proto_library in particular
+    // contributes to much of the difference).
     BuildConfiguration trimmedConfig =
         topLevelHostConfiguration.clone(fragmentClasses, ruleClassProvider);
     hostConfigurationCache.put(fragmentClasses, trimmedConfig);
@@ -595,7 +603,8 @@ public final class SkyframeBuildView {
     this.enableAnalysis = enable;
   }
 
-  private class ConfiguredTargetValueProgressReceiver implements EvaluationProgressReceiver {
+  private class ConfiguredTargetValueProgressReceiver
+      extends EvaluationProgressReceiver.NullEvaluationProgressReceiver {
     @Override
     public void invalidated(SkyKey skyKey, InvalidationState state) {
       if (skyKey.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
@@ -610,12 +619,6 @@ public final class SkyframeBuildView {
         }
       }
     }
-
-    @Override
-    public void enqueueing(SkyKey skyKey) {}
-
-    @Override
-    public void computed(SkyKey skyKey, long elapsedTimeNanos) {}
 
     @Override
     public void evaluated(SkyKey skyKey, Supplier<SkyValue> skyValueSupplier,

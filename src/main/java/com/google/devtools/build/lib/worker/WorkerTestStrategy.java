@@ -21,11 +21,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.TestExecException;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.StandaloneTestStrategy;
 import com.google.devtools.build.lib.rules.test.TestActionContext;
@@ -39,6 +40,7 @@ import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.devtools.common.options.OptionsClassProvider;
+import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -57,37 +59,51 @@ import java.util.Map;
 @ExecutionStrategy(contextType = TestActionContext.class, name = { "experimental_worker" })
 public class WorkerTestStrategy extends StandaloneTestStrategy {
   private final WorkerPool workerPool;
-  private final int maxRetries;
   private final Multimap<String, String> extraFlags;
 
   public WorkerTestStrategy(
       CommandEnvironment env,
       OptionsClassProvider requestOptions,
       WorkerPool workerPool,
-      int maxRetries,
       Multimap<String, String> extraFlags) {
     super(
         requestOptions,
         env.getBlazeWorkspace().getBinTools(),
-        env.getClientEnv(),
         env.getWorkspace());
     this.workerPool = workerPool;
-    this.maxRetries = maxRetries;
     this.extraFlags = extraFlags;
   }
 
   @Override
   protected TestResultData executeTest(
       TestRunnerAction action,
-      ActionExecutionContext actionExecutionContext,
-      Map<String, String> environment,
-      Path execRoot,
-      Path runfilesDir)
+      Spawn spawn,
+      ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException, IOException {
+    if (!action.getConfiguration().compatibleWithStrategy("experimental_worker")) {
+      throw new UserExecException(
+          "Build configuration not compatible with experimental_worker "
+              + "strategy. Make sure you set the explicit_java_test_deps and "
+              + "experimental_testrunner flags to true.");
+    }
+
+    if (!action.useTestRunner()) {
+      throw new UserExecException(
+          "Tests that do not use the experimental test runner are incompatible with the persistent"
+              + " worker test strategy. Please use another test strategy");
+    }
+    if (action.isCoverageMode()) {
+      throw new UserExecException("Coverage is currently incompatible"
+          + " with the persistent worker test strategy. Please use another test strategy");
+    }
     List<String> startupArgs = getStartUpArgs(action);
 
     return execInWorker(
-        action, actionExecutionContext, environment, startupArgs, execRoot, maxRetries);
+        action,
+        actionExecutionContext,
+        addPersistentRunnerVars(spawn.getEnvironment()),
+        startupArgs,
+        actionExecutionContext.getExecutor().getExecRoot());
   }
 
   private TestResultData execInWorker(
@@ -95,10 +111,17 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
       ActionExecutionContext actionExecutionContext,
       Map<String, String> environment,
       List<String> startupArgs,
-      Path execRoot,
-      int retriesLeft)
+      Path execRoot)
       throws ExecException, InterruptedException, IOException {
     Executor executor = actionExecutionContext.getExecutor();
+
+    // TODO(kush): Remove once we're out of the experimental phase.
+    executor
+        .getEventHandler()
+        .handle(
+            Event.warn(
+                "RUNNING TEST IN AN EXPERIMENTAL PERSISTENT WORKER. RESULTS MAY BE INACCURATE"));
+
     TestResultData.Builder builder = TestResultData.newBuilder();
 
     Path testLogPath = action.getTestLog().getPath();
@@ -124,7 +147,43 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
       request.writeDelimitedTo(worker.getOutputStream());
       worker.getOutputStream().flush();
 
-      WorkResponse response = WorkResponse.parseDelimitedFrom(worker.getInputStream());
+      RecordingInputStream recordingStream = new RecordingInputStream(worker.getInputStream());
+      recordingStream.startRecording(4096);
+      WorkResponse response;
+      try {
+        // response can be null when the worker has already closed stdout at this point and thus the
+        // InputStream is at EOF.
+        response = WorkResponse.parseDelimitedFrom(recordingStream);
+      } catch (InvalidProtocolBufferException e) {
+        // If protobuf couldn't parse the response, try to print whatever the failing worker wrote
+        // to stdout - it's probably a stack trace or some kind of error message that will help the
+        // user figure out why the compiler is failing.
+        recordingStream.readRemaining();
+        String data = recordingStream.getRecordedDataAsString();
+        ErrorMessage errorMessage =
+            ErrorMessage.builder()
+                .message("Worker process returned an unparseable WorkResponse:")
+                .exception(e)
+                .logText(data)
+                .build();
+        executor.getEventHandler().handle(Event.warn(errorMessage.toString()));
+        throw e;
+      }
+
+      worker.finishExecution(key);
+
+      if (response == null) {
+        throw new UserExecException(
+            ErrorMessage.builder()
+                .message(
+                    "Worker process did not return a WorkResponse. This is usually caused by a bug"
+                        + " in the worker, thus dumping its log file for debugging purposes:")
+                .logFile(worker.getLogFile())
+                .logSizeLimit(4096)
+                .build()
+                .toString());
+      }
+
       actionExecutionContext.getFileOutErr().getErrorStream().write(
           response.getOutputBytes().toByteArray());
 
@@ -151,31 +210,12 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
 
       return builder.build();
     } catch (IOException | InterruptedException e) {
-      if (e instanceof InterruptedException) {
-        // The user pressed Ctrl-C. Get out here quick.
-        retriesLeft = 0;
-      }
-
       if (worker != null) {
         workerPool.invalidateObject(key, worker);
         worker = null;
       }
-      if (retriesLeft > 0) {
-        // The worker process failed, but we still have some retries left. Let's retry with a fresh
-        // worker.
-        executor
-            .getEventHandler()
-            .handle(
-                Event.warn(
-                    key.getMnemonic()
-                        + " worker failed ("
-                        + e
-                        + "), invalidating and retrying with new worker..."));
-        return execInWorker(
-            action, actionExecutionContext, environment, startupArgs, execRoot, retriesLeft - 1);
-      } else {
-        throw new TestExecException(e.getMessage());
-      }
+
+      throw new TestExecException(e.getMessage());
     } finally {
       if (worker != null) {
         workerPool.returnObject(key, worker);
@@ -183,16 +223,26 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
     }
   }
 
+  private static Map<String, String> addPersistentRunnerVars(Map<String, String> originalEnv)
+      throws UserExecException {
+    if (originalEnv.containsKey("PERSISTENT_TEST_RUNNER")) {
+      throw new UserExecException(
+          "Found clashing environment variable with persistent_test_runner."
+              + " Please use another test strategy");
+    }
+    return ImmutableMap.<String, String>builder()
+        .putAll(originalEnv)
+        .put("PERSISTENT_TEST_RUNNER", "true")
+        .build();
+  }
+
   private List<String> getStartUpArgs(TestRunnerAction action) throws ExecException {
-    Artifact testSetup = action.getRuntimeArtifact(TEST_SETUP_BASENAME);
-    List<String> args = getArgs(testSetup.getExecPathString(), "", action);
+    List<String> args = getArgs(/*coverageScript=*/ "coverage-is-not-supported", action);
     ImmutableList.Builder<String> startupArgs = ImmutableList.builder();
     // Add test setup with no echo to prevent stdout corruption.
     startupArgs.add(args.get(0)).add("--no_echo");
     // Add remaining of the original args.
     startupArgs.addAll(args.subList(1, args.size()));
-    // Make the Test runner run persistently.
-    startupArgs.add("--persistent_test_runner");
     // Add additional flags requested for this invocation.
     startupArgs.addAll(MoreObjects.firstNonNull(
             extraFlags.get(action.getMnemonic()), ImmutableList.<String>of()));

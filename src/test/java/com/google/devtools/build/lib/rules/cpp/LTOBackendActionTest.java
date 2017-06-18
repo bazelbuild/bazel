@@ -14,15 +14,17 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
@@ -90,17 +92,19 @@ public class LTOBackendActionTest extends BuildViewTestCase {
             .build(ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
     collectingAnalysisEnvironment.registerAction(actions);
     LTOBackendAction action = (LTOBackendAction) actions[0];
-    assertEquals(ActionsTestUtil.NULL_ACTION_OWNER.getLabel(), action.getOwner().getLabel());
+    assertThat(action.getOwner().getLabel())
+        .isEqualTo(ActionsTestUtil.NULL_ACTION_OWNER.getLabel());
     assertThat(action.getInputs()).containsExactly(bitcode1Artifact, index1Artifact);
     assertThat(action.getOutputs()).containsExactly(destinationArtifact);
-    assertEquals(AbstractAction.DEFAULT_RESOURCE_SET, action.getSpawn().getLocalResources());
+    assertThat(action.getSpawn().getLocalResources())
+        .isEqualTo(AbstractAction.DEFAULT_RESOURCE_SET);
     assertThat(action.getArguments()).containsExactly("/bin/clang");
-    assertEquals("Test", action.getProgressMessage());
-    assertThat(action.inputsKnown()).isFalse();
+    assertThat(action.getProgressMessage()).isEqualTo("Test");
+    assertThat(action.inputsDiscovered()).isFalse();
 
     // Discover inputs, which should not add any inputs since bitcode1.imports is empty.
     action.discoverInputs(context);
-    assertThat(action.inputsKnown()).isTrue();
+    assertThat(action.inputsDiscovered()).isTrue();
     assertThat(action.getInputs()).containsExactly(bitcode1Artifact, index1Artifact);
   }
 
@@ -117,19 +121,30 @@ public class LTOBackendActionTest extends BuildViewTestCase {
             .build(ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
     collectingAnalysisEnvironment.registerAction(actions);
     LTOBackendAction action = (LTOBackendAction) actions[0];
-    assertEquals(ActionsTestUtil.NULL_ACTION_OWNER.getLabel(), action.getOwner().getLabel());
+    assertThat(action.getOwner().getLabel())
+        .isEqualTo(ActionsTestUtil.NULL_ACTION_OWNER.getLabel());
     assertThat(action.getInputs()).containsExactly(bitcode2Artifact, index2Artifact);
     assertThat(action.getOutputs()).containsExactly(destinationArtifact);
-    assertEquals(AbstractAction.DEFAULT_RESOURCE_SET, action.getSpawn().getLocalResources());
+    assertThat(action.getSpawn().getLocalResources())
+        .isEqualTo(AbstractAction.DEFAULT_RESOURCE_SET);
     assertThat(action.getArguments()).containsExactly("/bin/clang");
-    assertEquals("Test", action.getProgressMessage());
-    assertThat(action.inputsKnown()).isFalse();
+    assertThat(action.getProgressMessage()).isEqualTo("Test");
+    assertThat(action.inputsDiscovered()).isFalse();
 
     // Discover inputs, which should add bitcode1.o which is listed in bitcode2.imports.
     action.discoverInputs(context);
-    assertThat(action.inputsKnown()).isTrue();
+    assertThat(action.inputsDiscovered()).isTrue();
     assertThat(action.getInputs())
         .containsExactly(bitcode1Artifact, bitcode2Artifact, index2Artifact);
+  }
+
+  private enum KeyAttributes {
+    EXECUTABLE,
+    IMPORTS_INFO,
+    MNEMONIC,
+    RUNFILES_SUPPLIER,
+    INPUT,
+    ENVIRONMENT
   }
 
   @Test
@@ -140,39 +155,43 @@ public class LTOBackendActionTest extends BuildViewTestCase {
     final Artifact artifactBimports = getSourceArtifact("b.imports");
 
     ActionTester.runTest(
-        64,
-        new ActionCombinationFactory() {
+        KeyAttributes.class,
+        new ActionCombinationFactory<KeyAttributes>() {
           @Override
-          public Action generate(int i) {
+          public Action generate(ImmutableSet<KeyAttributes> attributesToFlip) {
             LTOBackendAction.Builder builder = new LTOBackendAction.Builder();
             builder.addOutput(destinationArtifact);
 
             PathFragment executable =
-                (i & 1) == 0 ? artifactA.getExecPath() : artifactB.getExecPath();
+                attributesToFlip.contains(KeyAttributes.EXECUTABLE)
+                    ? artifactA.getExecPath()
+                    : artifactB.getExecPath();
             builder.setExecutable(executable);
 
-            if ((i & 2) == 0) {
+            if (attributesToFlip.contains(KeyAttributes.IMPORTS_INFO)) {
               builder.addImportsInfo(new HashMap<PathFragment, Artifact>(), artifactAimports);
             } else {
               builder.addImportsInfo(new HashMap<PathFragment, Artifact>(), artifactBimports);
             }
 
-            builder.setMnemonic((i & 4) == 0 ? "a" : "b");
+            builder.setMnemonic(attributesToFlip.contains(KeyAttributes.MNEMONIC) ? "a" : "b");
 
-            if ((i & 8) == 0) {
-              builder.addInputManifest(artifactA, new PathFragment("a"));
+            if (attributesToFlip.contains(KeyAttributes.RUNFILES_SUPPLIER)) {
+              builder.addRunfilesSupplier(
+                  new RunfilesSupplierImpl(PathFragment.create("a"), Runfiles.EMPTY, artifactA));
             } else {
-              builder.addInputManifest(artifactB, new PathFragment("a"));
+              builder.addRunfilesSupplier(
+                  new RunfilesSupplierImpl(PathFragment.create("a"), Runfiles.EMPTY, artifactB));
             }
 
-            if ((i & 16) == 0) {
+            if (attributesToFlip.contains(KeyAttributes.INPUT)) {
               builder.addInput(artifactA);
             } else {
               builder.addInput(artifactB);
             }
 
             Map<String, String> env = new HashMap<>();
-            if ((i & 32) == 0) {
+            if (attributesToFlip.contains(KeyAttributes.ENVIRONMENT)) {
               env.put("foo", "bar");
             }
             builder.setEnvironment(env);

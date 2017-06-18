@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -23,12 +24,12 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
- *  A (Label, Configuration) pair. Note that this pair may be used to look up the generating action
+ * A (Label, Configuration) pair. Note that this pair may be used to look up the generating action
  * of an artifact. Callers may want to ensure that they have the correct configuration for this
  * purpose by passing in {@link BuildConfiguration#getArtifactOwnerConfiguration} in preference to
  * the raw configuration.
  */
-public class ConfiguredTargetKey extends ActionLookupValue.ActionLookupKey {
+public class ConfiguredTargetKey extends ActionLookupKey {
   private final Label label;
   @Nullable
   private final BuildConfiguration configuration;
@@ -48,7 +49,7 @@ public class ConfiguredTargetKey extends ActionLookupValue.ActionLookupKey {
   }
 
   @Override
-  SkyFunctionName getType() {
+  protected SkyFunctionName getType() {
     return SkyFunctions.CONFIGURED_TARGET;
   }
 

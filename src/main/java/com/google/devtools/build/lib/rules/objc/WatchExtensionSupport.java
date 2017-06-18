@@ -43,21 +43,23 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
 import com.google.devtools.build.lib.rules.objc.TargetDeviceFamily.InvalidFamilyNameException;
 import com.google.devtools.build.lib.rules.objc.TargetDeviceFamily.RepeatedFamilyNameException;
-import com.google.devtools.build.lib.rules.objc.WatchUtils.WatchOSVersion;
 import com.google.devtools.build.lib.syntax.Type;
 import java.util.List;
 import javax.annotation.Nullable;
 
 /**
  * Contains support methods to build WatchOS1 extension bundles - does normal bundle processing -
- * compiling and linking the binary, resources, plists and creates a final
- * (signed if necessary) bundle.
+ * compiling and linking the binary, resources, plists and creates a final (signed if necessary)
+ * bundle.
+ *
+ * @deprecated The native bundling rules have been deprecated. This class will be removed in the
+ *     future.
  */
+@Deprecated
 public class WatchExtensionSupport {
 
   private final RuleContext ruleContext;
@@ -67,8 +69,6 @@ public class WatchExtensionSupport {
   private final Artifact ipaArtifact;
   private final Artifact watchApplicationBundle;
   private final Attributes attributes;
-  private final XcodeProvider watchApplicationXcodeProvider;
-  private final ConfigurationDistinguisher configurationDistinguisher;
 
   WatchExtensionSupport(
       RuleContext ruleContext,
@@ -76,27 +76,21 @@ public class WatchExtensionSupport {
       IntermediateArtifacts intermediateArtifacts,
       String bundleName,
       Artifact ipaArtifact,
-      @Nullable Artifact watchApplicationBundle,
-      @Nullable XcodeProvider watchApplicationXcodeProvider,
-      ConfigurationDistinguisher configurationDistinguisher) {
+      @Nullable Artifact watchApplicationBundle) {
     this.ruleContext = ruleContext;
     this.dependencyAttributes = dependencyAttributes;
     this.intermediateArtifacts = intermediateArtifacts;
     this.bundleName = bundleName;
     this.ipaArtifact = ipaArtifact;
     this.attributes = new Attributes(ruleContext);
-    this.watchApplicationXcodeProvider = checkNotNull(watchApplicationXcodeProvider);
     this.watchApplicationBundle = checkNotNull(watchApplicationBundle);
-    this.configurationDistinguisher = configurationDistinguisher;
   }
 
-  void createBundle(NestedSetBuilder<Artifact> filesToBuild,
-      ObjcProvider.Builder exposedObjcProviderBuilder, XcodeProvider.Builder xcodeProviderBuilder)
-          throws InterruptedException {
+  void createBundle(
+      NestedSetBuilder<Artifact> filesToBuild, ObjcProvider.Builder exposedObjcProviderBuilder)
+      throws InterruptedException {
 
     ObjcProvider releaseBundlingObjcProvider = releaseBundlingObjcProvider();
-
-    WatchUtils.addXcodeSettings(ruleContext, xcodeProviderBuilder);
 
     registerWatchExtensionAutomaticPlistAction();
 
@@ -138,36 +132,12 @@ public class WatchExtensionSupport {
             appleConfiguration.getMultiArchPlatform(PlatformType.IOS));
 
     releaseBundlingSupport.registerActions(DsymOutputType.APP);
-    releaseBundlingSupport.addXcodeSettings(xcodeProviderBuilder);
 
     releaseBundlingSupport
         .addFilesToBuild(filesToBuild, Optional.of(DsymOutputType.APP))
         .validateResources()
         .validateAttributes()
         .addExportedDebugArtifacts(exposedObjcProviderBuilder, DsymOutputType.APP);
-
-    XcodeSupport xcodeSupport =
-        new XcodeSupport(ruleContext)
-            .addFilesToBuild(filesToBuild)
-            .addXcodeSettings(
-                xcodeProviderBuilder,
-                releaseBundlingObjcProvider,
-                WatchOSVersion.OS1.getExtensionXcodeProductType(),
-                ruleContext
-                    .getFragment(AppleConfiguration.class)
-                    .getDependencySingleArchitecture(),
-                configurationDistinguisher)
-            .addDummySource(xcodeProviderBuilder);
-
-    for (Attribute attribute : dependencyAttributes) {
-      xcodeSupport.addDependencies(xcodeProviderBuilder, attribute);
-    }
-
-    // Generate xcodeproj for watch OS 1 extension as the main target with watch application
-    // target as the dependency.
-    xcodeProviderBuilder.addPropagatedDependencies(
-        ImmutableList.of(watchApplicationXcodeProvider));
-    xcodeSupport.registerActions(xcodeProviderBuilder.build());
   }
 
   /**

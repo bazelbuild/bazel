@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.proto;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 import static com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.createCommandLineFromToolchains;
+import static com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.createStrictProtoDepsViolationErrorMessage;
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
 
@@ -30,10 +31,12 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ProtoCommandLineArgv;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ToolchainInvocation;
 import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -50,7 +53,7 @@ public class ProtoCompileActionBuilderTest {
   public void commandLine_basic() throws Exception {
     FilesToRunProvider plugin =
         new FilesToRunProvider(
-            ImmutableList.<Artifact>of(),
+            NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
             null /* runfilesSupport */,
             artifact("//:dont-care", "protoc-gen-javalite.exe"));
 
@@ -72,7 +75,7 @@ public class ProtoCompileActionBuilderTest {
         SupportData.create(
             Predicates.<TransitiveInfoCollection>alwaysFalse(),
             ImmutableList.of(artifact("//:dont-care", "source_file.proto")),
-            null /* protosInDirectDeps */,
+            NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER) /* protosInDirectDeps */,
             NestedSetBuilder.create(
                 STABLE_ORDER,
                 artifact("//:dont-care", "import1.proto"),
@@ -87,7 +90,7 @@ public class ProtoCompileActionBuilderTest {
                 new ToolchainInvocation("pluginName", toolchainWithPlugin, "bar.srcjar")),
             supportData.getDirectProtoSources(),
             supportData.getTransitiveImports(),
-            supportData.getProtosInDirectDeps(),
+            null /* protosInDirectDeps */,
             "//foo:bar",
             true /* allowServices */,
             ImmutableList.<String>of() /* protocOpts */);
@@ -139,8 +142,7 @@ public class ProtoCompileActionBuilderTest {
             "-Iimport1.proto=import1.proto",
             "-Iimport2.proto=import2.proto",
             "--direct_dependencies=import1.proto",
-            "--direct_dependencies_violation_msg=%s is imported, "
-                + "but //foo:bar doesn't directly depend on a proto_library that 'srcs' it.",
+            createStrictProtoDepsViolationErrorMessage("//foo:bar"),
             "source_file.proto")
         .inOrder();
   }
@@ -151,7 +153,7 @@ public class ProtoCompileActionBuilderTest {
         SupportData.create(
             Predicates.<TransitiveInfoCollection>alwaysFalse(),
             ImmutableList.<Artifact>of(),
-            null /* protosInDirectDeps */,
+            NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER) /* protosInDirectDeps */,
             NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
             true /* hasProtoSources */);
 
@@ -193,7 +195,7 @@ public class ProtoCompileActionBuilderTest {
         SupportData.create(
             Predicates.<TransitiveInfoCollection>alwaysFalse(),
             ImmutableList.<Artifact>of(),
-            null /* protosInDirectDeps */,
+            NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER) /* protosInDirectDeps */,
             NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
             true /* hasProtoSources */);
 
@@ -222,7 +224,7 @@ public class ProtoCompileActionBuilderTest {
         SupportData.create(
             Predicates.<TransitiveInfoCollection>alwaysFalse(),
             ImmutableList.<Artifact>of(),
-            null /* protosInDirectDeps */,
+            NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER) /* protosInDirectDeps */,
             NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
             true /* hasProtoSources */);
 
@@ -253,7 +255,8 @@ public class ProtoCompileActionBuilderTest {
           ImmutableList.<String>of() /* protocOpts */);
       fail("Expected an exception");
     } catch (IllegalStateException e) {
-      assertThat(e.getMessage())
+      assertThat(e)
+          .hasMessageThat()
           .isEqualTo(
               "Invocation name pluginName appears more than once. "
                   + "This could lead to incorrect proto-compiler behavior");
@@ -308,6 +311,16 @@ public class ProtoCompileActionBuilderTest {
                     ImmutableList.of(artifact("@bla//foo:bar", "external/bla/foo/bar.proto")))
                 .argv())
         .containsExactly("-Ifoo/bar.proto=external/bla/foo/bar.proto");
+  }
+
+  // TODO(b/34107586): Fix and enable test.
+  @Ignore
+  @Test
+  public void directDependenciesOnExternalFiles() throws Exception {
+    ImmutableList<Artifact> protos =
+        ImmutableList.of(artifact("@bla//foo:bar", "external/bla/foo/bar.proto"));
+    assertThat(new ProtoCommandLineArgv(protos, protos).argv())
+        .containsExactly("--direct_dependencies=foo/bar.proto");
   }
 
   private Artifact artifact(String ownerLabel, String path) {

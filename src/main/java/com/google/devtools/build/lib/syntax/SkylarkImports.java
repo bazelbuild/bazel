@@ -24,11 +24,7 @@ import java.util.Objects;
 /**
  * Factory class for creating appropriate instances of {@link SkylarkImports}.
  */
-public class SkylarkImports {
-
-  private SkylarkImports() {
-    throw new IllegalStateException("This class should not be instantiated");
-  }
+public abstract class SkylarkImports {
 
   // Default implementation class for SkylarkImport.
   private abstract static class SkylarkImportImpl implements SkylarkImport {
@@ -119,7 +115,7 @@ public class SkylarkImports {
 
     @Override
     public PathFragment asPathFragment() {
-      return new PathFragment(importFile);
+      return PathFragment.create(importFile);
     }
 
     @Override
@@ -128,7 +124,7 @@ public class SkylarkImports {
       // a subdirectory of the package that contains it. We need to construct a Label with
       // the imported file in the same subdirectory of the package.
       PathFragment containingDirInPkg =
-          (new PathFragment(containingFileLabel.getName())).getParentDirectory();
+          PathFragment.create(containingFileLabel.getName()).getParentDirectory();
       String targetNameForImport = containingDirInPkg.getRelative(importFile).toString();
       try {
         return containingFileLabel.getRelative(targetNameForImport);
@@ -151,7 +147,7 @@ public class SkylarkImports {
 
     @Override
     public PathFragment asPathFragment() {
-      return new PathFragment(PathFragment.ROOT_DIR).getRelative(importLabel.toPathFragment());
+      return PathFragment.create(PathFragment.ROOT_DIR).getRelative(importLabel.toPathFragment());
     }
 
     @Override
@@ -173,7 +169,7 @@ public class SkylarkImports {
 
     @Override
     public PathFragment asPathFragment() {
-      return new PathFragment(importTarget);
+      return PathFragment.create(importTarget);
     }
 
     @Override
@@ -253,7 +249,7 @@ public class SkylarkImports {
       if (importString.endsWith(".bzl")) {
         throw new SkylarkImportSyntaxException(INVALID_PATH_SYNTAX);
       }
-      PathFragment importPath = new PathFragment(importString + ".bzl");
+      PathFragment importPath = PathFragment.create(importString + ".bzl");
       return new AbsolutePathImport(importString, importPath);
     } else if (importString.startsWith(":")) {
       // Relative label. We require that relative labels use an explicit ':' prefix to distinguish

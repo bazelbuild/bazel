@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery;
+import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -35,7 +36,7 @@ import javax.annotation.Nullable;
 @SkylarkModule(
   name = "objc",
   category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT,
-  doc = "A configuration fragment for Objective-C"
+  doc = "A configuration fragment for Objective-C."
 )
 @Immutable
 public class ObjcConfiguration extends BuildConfiguration.Fragment {
@@ -75,10 +76,14 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final boolean debugWithGlibcxx;
   @Nullable private final Label extraEntitlements;
   private final boolean deviceDebugEntitlements;
-  private final boolean experimentalObjcLibrary;
-  private final boolean experimentalUseCrosstoolForBinary;
+  private final ObjcCrosstoolMode objcCrosstoolMode;
   private final boolean enableAppleBinaryNativeProtos;
   private final HeaderDiscovery.DotdPruningMode dotdPruningPlan;
+  private final boolean experimentalHeaderThinning;
+  private final int objcHeaderThinningPartitionSize;
+  private final Label objcHeaderScannerTool;
+  private final Label appleSdk;
+  private final boolean generateXcodeProject;
 
   ObjcConfiguration(ObjcCommandLineOptions objcOptions, BuildConfiguration.Options options,
       @Nullable BlazeDirectories directories) {
@@ -110,13 +115,17 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.debugWithGlibcxx = objcOptions.debugWithGlibcxx;
     this.extraEntitlements = objcOptions.extraEntitlements;
     this.deviceDebugEntitlements = objcOptions.deviceDebugEntitlements;
-    this.experimentalObjcLibrary = objcOptions.experimentalObjcLibrary;
-    this.experimentalUseCrosstoolForBinary = objcOptions.experimentalUseCrosstoolForBinary;
+    this.objcCrosstoolMode = objcOptions.objcCrosstoolMode;
     this.enableAppleBinaryNativeProtos = objcOptions.enableAppleBinaryNativeProtos;
     this.dotdPruningPlan =
         objcOptions.useDotdPruning
             ? HeaderDiscovery.DotdPruningMode.USE
             : HeaderDiscovery.DotdPruningMode.DO_NOT_USE;
+    this.experimentalHeaderThinning = objcOptions.experimentalObjcHeaderThinning;
+    this.objcHeaderThinningPartitionSize = objcOptions.objcHeaderThinningPartitionSize;
+    this.objcHeaderScannerTool = objcOptions.objcHeaderScannerTool;
+    this.appleSdk = objcOptions.appleSdk;
+    this.generateXcodeProject = objcOptions.generateXcodeProject;
   }
 
   /**
@@ -181,6 +190,13 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     return generateDsym;
   }
 
+  /**
+   * Returns whether linkmap generation is enabled.
+   */
+  @SkylarkCallable(
+      name = "generate_linkmap",
+      doc = "Whether to generate linkmap artifacts.",
+      structField = true)
   public boolean generateLinkmap() {
     return generateLinkmap;
   }
@@ -285,7 +301,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
    * certificate was specified.
    */
   @Nullable
-  @SkylarkCallable(name = "signing_certificate_name", structField = true,
+  @SkylarkCallable(name = "signing_certificate_name", structField = true, allowReturnNones = true,
       doc = "Returns the flag-supplied certificate name to be used in signing, or None if no such "
       + "certificate was specified.")
   public String getSigningCertName() {
@@ -322,16 +338,11 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Returns true if all objc_library targets should be configured as if they were
-   * experimental_objc_library targets.
+   * Returns an {@link ObjcCrosstoolMode} that specifies the circumstances under which a
+   * CROSSTOOL is used for objc in this configuration.
    */
-  public boolean useExperimentalObjcLibrary() {
-    return experimentalObjcLibrary;
-  }
-
-  /** Returns true if objc_binary targets should use the crosstool for compiling and archiving. */
-  public boolean useCrosstoolForBinary() {
-    return experimentalUseCrosstoolForBinary;
+  public ObjcCrosstoolMode getObjcCrosstoolMode() {
+    return objcCrosstoolMode;
   }
 
   /** Returns true if apple_binary targets should generate and link Objc protos. */
@@ -344,5 +355,32 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   /** Returns the DotdPruningPlan for compiles in this build. */
   public HeaderDiscovery.DotdPruningMode getDotdPruningPlan() {
     return dotdPruningPlan;
+  }
+
+  /** Returns true if header thinning of ObjcCompile actions is enabled to reduce action inputs. */
+  public boolean useExperimentalHeaderThinning() {
+    return experimentalHeaderThinning;
+  }
+
+  /** Returns the max number of source files to add to each header scanning action. */
+  public int objcHeaderThinningPartitionSize() {
+    return objcHeaderThinningPartitionSize;
+  }
+
+  /** Returns the label for the ObjC header scanner tool. */
+  public Label getObjcHeaderScannerTool() {
+    return objcHeaderScannerTool;
+  }
+
+  /** Returns the label for the Apple SDK for current build configuration. */
+  public Label getAppleSdk() {
+    return appleSdk;
+  }
+
+  /**
+   * Returns {@code true} if an xcodegen project should be added to a target's files to build.
+   */
+  public boolean generateXcodeProject() {
+    return this.generateXcodeProject;
   }
 }

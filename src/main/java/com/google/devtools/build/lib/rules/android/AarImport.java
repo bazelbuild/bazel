@@ -28,10 +28,14 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
+import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
+import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaHelper;
+import com.google.devtools.build.lib.rules.java.JavaProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeJarProvider;
+import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.rules.java.Jvm;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -49,9 +53,19 @@ public class AarImport implements RuleConfiguredTargetFactory {
   private static final String ANDROID_MANIFEST = "AndroidManifest.xml";
   private static final String MERGED_JAR = "classes_and_libs_merged.jar";
 
+  private final JavaSemantics javaSemantics;
+
+  protected AarImport(JavaSemantics javaSemantics) {
+    this.javaSemantics = javaSemantics;
+  }
+
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
+    if (!AndroidSdkProvider.verifyPresence(ruleContext)) {
+      return null;
+    }
+
     RuleConfiguredTargetBuilder ruleBuilder = new RuleConfiguredTargetBuilder(ruleContext);
     Artifact aar = ruleContext.getPrerequisiteArtifact("aar", Mode.TARGET);
 
@@ -85,17 +99,18 @@ public class AarImport implements RuleConfiguredTargetFactory {
     Artifact resourcesZip =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP);
 
-    ResourceApk resourceApk = androidManifest.packWithDataAndResources(
-        ruleContext,
-        new LocalResourceContainer.Builder(ruleContext)
-            .withResources(ImmutableList.of(resourcesProvider))
-            .build(),
-        ResourceDependencies.fromRuleDeps(ruleContext, JavaCommon.isNeverLink(ruleContext)),
-        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
-        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_SYMBOLS_TXT),
-        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST),
-        resourcesZip,
-        /* alwaysExportManifest = */ true);
+    ResourceApk resourceApk =
+        androidManifest.packWithDataAndResources(
+            ruleContext,
+            new LocalResourceContainer.Builder(ruleContext)
+                .withResources(ImmutableList.of(resourcesProvider))
+                .build(),
+            ResourceDependencies.fromRuleDeps(ruleContext, JavaCommon.isNeverLink(ruleContext)),
+            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
+            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LOCAL_SYMBOLS),
+            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST),
+            resourcesZip,
+            /* alwaysExportManifest = */ true);
 
     // There isn't really any use case for building an aar_import target on its own, so the files to
     // build could be empty. The resources zip and merged jars are added here as a sanity check for
@@ -108,13 +123,31 @@ public class AarImport implements RuleConfiguredTargetFactory {
     ruleContext.registerAction(createAarNativeLibsFilterActions(ruleContext, aar, nativeLibs));
 
     JavaRuleOutputJarsProvider.Builder jarProviderBuilder = new JavaRuleOutputJarsProvider.Builder()
-        .addOutputJar(mergedJar, null, null);
+        .addOutputJar(mergedJar, null, ImmutableList.<Artifact>of());
     for (TransitiveInfoCollection export : ruleContext.getPrerequisites("exports", Mode.TARGET)) {
-      for (OutputJar jar : export.getProvider(JavaRuleOutputJarsProvider.class).getOutputJars()) {
+      for (OutputJar jar :
+          JavaProvider.getProvider(JavaRuleOutputJarsProvider.class, export).getOutputJars()) {
         jarProviderBuilder.addOutputJar(jar);
         filesToBuildBuilder.add(jar.getClassJar());
       }
     }
+
+    ImmutableList<TransitiveInfoCollection> targets =
+        ImmutableList.<TransitiveInfoCollection>copyOf(
+            ruleContext.getPrerequisites("exports", Mode.TARGET));
+    JavaCommon common =
+        new JavaCommon(
+            ruleContext,
+            javaSemantics,
+            /* sources = */ ImmutableList.<Artifact>of(),
+            /* compileDeps = */ targets,
+            /* runtimeDeps = */ targets,
+            /* bothDeps = */ targets);
+    common.setJavaCompilationArtifacts(
+        new JavaCompilationArtifacts.Builder()
+            .addRuntimeJar(mergedJar)
+            .addCompileTimeJar(mergedJar)
+            .build());
 
     return ruleBuilder
         .setFilesToBuild(filesToBuildBuilder.build())
@@ -127,6 +160,17 @@ public class AarImport implements RuleConfiguredTargetFactory {
                 AndroidCommon.collectTransitiveNativeLibsZips(ruleContext).add(nativeLibs).build()))
         .addProvider(
             JavaRuntimeJarProvider.class, new JavaRuntimeJarProvider(ImmutableList.of(mergedJar)))
+        .addProvider(
+            JavaCompilationArgsProvider.class,
+            JavaCompilationArgsProvider.create(
+                common.collectJavaCompilationArgs(
+                    /* recursive = */ false,
+                    JavaCommon.isNeverLink(ruleContext),
+                    /* srcLessDepsExport = */ false),
+                common.collectJavaCompilationArgs(
+                    /* recursive = */ true,
+                    JavaCommon.isNeverLink(ruleContext),
+                    /* srcLessDepsExport = */ false)))
         .addProvider(JavaRuleOutputJarsProvider.class, jarProviderBuilder.build())
         .build();
   }

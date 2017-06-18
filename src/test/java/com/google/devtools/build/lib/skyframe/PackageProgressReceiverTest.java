@@ -13,12 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -38,9 +36,9 @@ public class PackageProgressReceiverTest {
     progress.startReadPackage(id);
     String activity = progress.progressState().getSecond();
 
-    assertTrue(
-        "Unfinished package '" + id + "' should be visible in activity: " + activity,
-        activity.contains(id.toString()));
+    assertWithMessage("Unfinished package '" + id + "' should be visible in activity: " + activity)
+        .that(activity.contains(id.toString()))
+        .isTrue();
   }
 
   @Test
@@ -54,11 +52,13 @@ public class PackageProgressReceiverTest {
     String state = progress.progressState().getFirst();
     String activity = progress.progressState().getSecond();
 
-    assertFalse(
-        "Finished package '" + id + "' should not be visible in activity: " + activity,
-        activity.contains(id.toString()));
-    assertTrue(
-        "Number of completed packages should be visible in state", state.contains("1 package"));
+    assertWithMessage(
+            "Finished package '" + id + "' should not be visible in activity: " + activity)
+        .that(activity.contains(id.toString()))
+        .isFalse();
+    assertWithMessage("Number of completed packages should be visible in state")
+        .that(state.contains("1 package"))
+        .isTrue();
   }
 
   @Test
@@ -71,7 +71,7 @@ public class PackageProgressReceiverTest {
     progress.startReadPackage(id);
     progress.doneReadPackage(id);
     progress.reset();
-    assertEquals(defaultState, progress.progressState().getFirst());
-    assertEquals(defaultActivity, progress.progressState().getSecond());
+    assertThat(progress.progressState().getFirst()).isEqualTo(defaultState);
+    assertThat(progress.progressState().getSecond()).isEqualTo(defaultActivity);
   }
 }

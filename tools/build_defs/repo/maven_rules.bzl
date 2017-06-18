@@ -24,7 +24,10 @@
 # 3) maven_dependency_plugin()
 #    This rule downloads the maven-dependency-plugin used internally
 #    for testing and the implementation for the fetching of artifacts.
-
+#
+# Maven coordinates are expected to be in this form:
+# groupId:artifactId:version[:packaging][:classifier]
+#
 # Installation requirements prior to using this rule:
 # 1) Maven binary: `mvn`
 # 2) Maven plugin: `maven-dependency-plugin:2.10`
@@ -78,9 +81,9 @@ def _create_coordinates(fully_qualified_name, packaging="jar"):
     # downloads the correct artifact.
     fully_qualified_name = "%s:%s" % (fully_qualified_name, packaging)
   elif len(parts) == 4:
-    group_id, artifact_id, packaging, version = parts
+    group_id, artifact_id, version, packaging = parts
   elif len(parts) == 5:
-    group_id, artifact_id, packaging, classifier, version = parts
+    group_id, artifact_id, version, packaging, classifier = parts
   else:
     fail("Invalid fully qualified name for artifact: %s" % fully_qualified_name)
 
@@ -102,9 +105,11 @@ def _create_paths(ctx, coordinates):
   """Creates a struct that contains the paths to create the cache WORKSPACE"""
 
   # e.g. guava-18.0.jar
-  artifact_filename = "%s-%s.%s" % (coordinates.artifact_id,
-                                    coordinates.version,
-                                    coordinates.packaging)
+  artifact_filename = "%s-%s" % (coordinates.artifact_id,
+                                 coordinates.version)
+  if coordinates.classifier:
+    artifact_filename += "-" + coordinates.classifier
+  artifact_filename += "." + coordinates.packaging
   sha1_filename = "%s.sha1" % artifact_filename
 
   # e.g. com/google/guava/guava/18.0

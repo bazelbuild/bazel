@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_STATIC;
-
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -86,7 +84,7 @@ final class ProtocolBuffers2Support {
             .addInputs(attributes.getOptionsFile().asSet())
             .addOutputs(getGeneratedProtoOutputs(getHeaderExtension()))
             .addOutputs(getGeneratedProtoOutputs(getSourceExtension()))
-            .setExecutable(new PathFragment("/usr/bin/python"))
+            .setExecutable(PathFragment.create("/usr/bin/python"))
             .setCommandLine(getGenerationCommandLine())
             .build(ruleContext));
     return this;
@@ -97,9 +95,10 @@ final class ProtocolBuffers2Support {
    */
   public ProtocolBuffers2Support registerCompilationActions()
       throws RuleErrorException, InterruptedException {
-    new LegacyCompilationSupport(ruleContext)
-        .registerCompileAndArchiveActions(getCommon())
-        .registerGenerateModuleMapAction(getCompilationArtifacts());
+    CompilationSupport compilationSupport =
+        new CompilationSupport.Builder().setRuleContext(ruleContext).doNotUseDeps().build();
+
+    compilationSupport.registerCompileAndArchiveActions(getCommon());
     return this;
   }
 
@@ -118,21 +117,6 @@ final class ProtocolBuffers2Support {
     return getCommon().getObjcProvider();
   }
 
-  /** Returns the XcodeProvider for this target. */
-  public XcodeProvider getXcodeProvider() {
-    XcodeProvider.Builder xcodeProviderBuilder =
-        new XcodeProvider.Builder()
-            .addUserHeaderSearchPaths(getUserHeaderSearchPaths())
-            .setCompilationArtifacts(getCompilationArtifacts());
-
-    new XcodeSupport(ruleContext)
-        .addXcodeSettings(xcodeProviderBuilder, getCommon().getObjcProvider(), LIBRARY_STATIC)
-        .addDependencies(
-            xcodeProviderBuilder, new Attribute(ObjcRuleClasses.PROTO_LIB_ATTR, Mode.TARGET));
-
-    return xcodeProviderBuilder.build();
-  }
-
   private String getHeaderExtension() {
     return ".pb" + (attributes.usesObjcHeaderNames() ? "objc.h" : ".h");
   }
@@ -146,7 +130,7 @@ final class ProtocolBuffers2Support {
         .setIntermediateArtifacts(new IntermediateArtifacts(ruleContext, ""))
         .setHasModuleMap()
         .setCompilationArtifacts(getCompilationArtifacts())
-        .addUserHeaderSearchPaths(getUserHeaderSearchPaths())
+        .addIncludes(getIncludes())
         .addDepObjcProviders(
             ruleContext.getPrerequisites(
                 ObjcRuleClasses.PROTO_LIB_ATTR, Mode.TARGET, ObjcProvider.class))
@@ -199,14 +183,13 @@ final class ProtocolBuffers2Support {
     return commandLineBuilder.build();
   }
 
-  public ImmutableSet<PathFragment> getUserHeaderSearchPaths() {
+  public ImmutableSet<PathFragment> getIncludes() {
     ImmutableSet.Builder<PathFragment> searchPathEntriesBuilder =
         new ImmutableSet.Builder<PathFragment>().add(getWorkspaceRelativeOutputDir());
 
     if (attributes.needsPerProtoIncludes()) {
-      PathFragment generatedProtoDir =
-          new PathFragment(
-              getWorkspaceRelativeOutputDir(), ruleContext.getLabel().getPackageFragment());
+      PathFragment generatedProtoDir = PathFragment.create(
+          getWorkspaceRelativeOutputDir(), ruleContext.getLabel().getPackageFragment());
 
       searchPathEntriesBuilder
           .add(generatedProtoDir)
@@ -224,7 +207,7 @@ final class ProtocolBuffers2Support {
     // of dependers.
     PathFragment rootRelativeOutputDir = ruleContext.getUniqueDirectory(UNIQUE_DIRECTORY_NAME);
 
-    return new PathFragment(
+    return PathFragment.create(
         ruleContext.getBinOrGenfilesDirectory().getExecPath(), rootRelativeOutputDir);
   }
 
@@ -234,10 +217,9 @@ final class ProtocolBuffers2Support {
       String protoFileName = FileSystemUtils.removeExtension(protoFile.getFilename());
       String generatedOutputName = attributes.getGeneratedProtoFilename(protoFileName, false);
 
-      PathFragment generatedFilePath =
-          new PathFragment(
-              protoFile.getRootRelativePath().getParentDirectory(),
-              new PathFragment(generatedOutputName));
+      PathFragment generatedFilePath = PathFragment.create(
+          protoFile.getRootRelativePath().getParentDirectory(),
+          PathFragment.create(generatedOutputName));
 
       PathFragment outputFile = FileSystemUtils.appendExtension(generatedFilePath, extension);
 

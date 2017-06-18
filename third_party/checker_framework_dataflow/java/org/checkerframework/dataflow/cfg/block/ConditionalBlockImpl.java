@@ -23,7 +23,7 @@ public class ConditionalBlockImpl extends BlockImpl implements ConditionalBlock 
      * stores of the else successor.
      */
     protected Store.FlowRule thenFlowRule = Store.FlowRule.THEN_TO_BOTH;
-
+    
     protected Store.FlowRule elseFlowRule = Store.FlowRule.ELSE_TO_BOTH;
 
     /**

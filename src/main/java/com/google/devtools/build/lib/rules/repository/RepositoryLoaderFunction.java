@@ -28,7 +28,6 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import javax.annotation.Nullable;
 
 /**
@@ -49,10 +48,13 @@ public class RepositoryLoaderFunction implements SkyFunction {
     if (repository == null) {
       return null;
     }
+    if (!repository.repositoryExists()) {
+      return RepositoryValue.notFound(nameFromRule);
+    }
 
     SkyKey workspaceKey =
         WorkspaceFileValue.key(
-            RootedPath.toRootedPath(repository.getPath(), new PathFragment("WORKSPACE")));
+            RootedPath.toRootedPath(repository.getPath(), PathFragment.create("WORKSPACE")));
     WorkspaceFileValue workspacePackage = (WorkspaceFileValue) env.getValue(workspaceKey);
     if (workspacePackage == null) {
       return null;
@@ -77,7 +79,7 @@ public class RepositoryLoaderFunction implements SkyFunction {
               + "cause a build error in future versions"));
     }
 
-    return new RepositoryValue(nameFromRule, repository);
+    return RepositoryValue.success(nameFromRule, repository);
   }
 
   @Nullable

@@ -28,41 +28,49 @@ import java.util.Map;
  * platforms and gives at least some isolation between running actions.
  */
 final class ProcessWrapperRunner extends SandboxRunner {
-  private final Path execRoot;
+  private static final String PROCESS_WRAPPER = "process-wrapper" + OsUtils.executableExtension();
+
   private final Path sandboxExecRoot;
 
-  ProcessWrapperRunner(
-      Path execRoot, Path sandboxPath, Path sandboxExecRoot, boolean verboseFailures) {
-    super(sandboxExecRoot, verboseFailures);
-    this.execRoot = execRoot;
+  ProcessWrapperRunner(Path sandboxExecRoot, boolean verboseFailures) {
+    super(verboseFailures);
     this.sandboxExecRoot = sandboxExecRoot;
   }
 
-  static boolean isSupported(CommandEnvironment commandEnv) {
-    PathFragment embeddedTool =
-        commandEnv
-            .getBlazeWorkspace()
-            .getBinTools()
-            .getExecPath("process-wrapper" + OsUtils.executableExtension());
-    if (embeddedTool == null) {
-      // The embedded tool does not exist, meaning that we don't support sandboxing (e.g., while
-      // bootstrapping).
-      return false;
-    }
-    return true;
+  static boolean isSupported(CommandEnvironment cmdEnv) {
+    // We can only use this runner, if the process-wrapper exists in the embedded tools.
+    // This might not always be the case, e.g. while bootstrapping.
+    return getProcessWrapper(cmdEnv) != null;
+  }
+
+  /** Returns the PathFragment of the process wrapper binary, or null if it doesn't exist. */
+  static Path getProcessWrapper(CommandEnvironment cmdEnv) {
+    PathFragment execPath = cmdEnv.getBlazeWorkspace().getBinTools().getExecPath(PROCESS_WRAPPER);
+    return execPath != null ? cmdEnv.getExecRoot().getRelative(execPath) : null;
   }
 
   @Override
   protected Command getCommand(
-      List<String> spawnArguments, Map<String, String> env, int timeout, boolean allowNetwork) {
+      CommandEnvironment cmdEnv,
+      List<String> spawnArguments,
+      Map<String, String> env,
+      int timeout,
+      boolean allowNetwork,
+      boolean useFakeHostname,
+      boolean useFakeUsername) {
+    List<String> commandLineArgs = getCommandLine(cmdEnv, spawnArguments, timeout);
+    return new Command(commandLineArgs.toArray(new String[0]), env, sandboxExecRoot.getPathFile());
+  }
+
+  static List<String> getCommandLine(
+      CommandEnvironment cmdEnv, List<String> spawnArguments, int timeout) {
     List<String> commandLineArgs = new ArrayList<>(5 + spawnArguments.size());
-    commandLineArgs.add(execRoot.getRelative("_bin/process-wrapper").getPathString());
+    commandLineArgs.add(getProcessWrapper(cmdEnv).getPathString());
     commandLineArgs.add(Integer.toString(timeout));
     commandLineArgs.add("5"); /* kill delay: give some time to print stacktraces and whatnot. */
     commandLineArgs.add("-"); /* stdout. */
     commandLineArgs.add("-"); /* stderr. */
     commandLineArgs.addAll(spawnArguments);
-
-    return new Command(commandLineArgs.toArray(new String[0]), env, sandboxExecRoot.getPathFile());
+    return commandLineArgs;
   }
 }

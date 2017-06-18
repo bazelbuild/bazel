@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.util.io.OutErr;
-
 import java.util.ArrayList;
 import java.util.Collection;
 
@@ -129,7 +128,7 @@ class BuildResultPrinter {
       // For failed compilation, it is still useful to examine temp artifacts,
       // (ie, preprocessed and assembler files).
       OutputGroupProvider topLevelProvider =
-          target.getProvider(OutputGroupProvider.class);
+          OutputGroupProvider.get(target);
       String productName = env.getRuntime().getProductName();
       if (topLevelProvider != null) {
         for (Artifact temp : topLevelProvider.getOutputGroup(OutputGroupProvider.TEMP_FILES)) {

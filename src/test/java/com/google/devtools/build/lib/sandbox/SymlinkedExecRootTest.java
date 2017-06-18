@@ -52,8 +52,8 @@ public class SymlinkedExecRootTest extends SandboxTestCase {
 
     SymlinkedExecRoot symlinkedExecRoot = new SymlinkedExecRoot(execRoot);
     symlinkedExecRoot.createFileSystem(
-        ImmutableMap.of(new PathFragment("such/input.txt"), helloTxt),
-        ImmutableSet.of(new PathFragment("very/output.txt")),
+        ImmutableMap.of(PathFragment.create("such/input.txt"), helloTxt),
+        ImmutableSet.of(PathFragment.create("very/output.txt")),
         ImmutableSet.of(execRoot.getRelative("wow/writable")));
 
     assertThat(execRoot.getRelative("such/input.txt").isSymbolicLink()).isTrue();
@@ -69,8 +69,8 @@ public class SymlinkedExecRootTest extends SandboxTestCase {
 
     SymlinkedExecRoot symlinkedExecRoot = new SymlinkedExecRoot(execRoot);
     symlinkedExecRoot.createFileSystem(
-        ImmutableMap.of(new PathFragment("such/input.txt"), helloTxt),
-        ImmutableSet.of(new PathFragment("very/output.txt")),
+        ImmutableMap.of(PathFragment.create("such/input.txt"), helloTxt),
+        ImmutableSet.of(PathFragment.create("very/output.txt")),
         ImmutableSet.of(execRoot.getRelative("wow/writable")));
 
     // Pretend to do some work inside the execRoot.
@@ -80,8 +80,8 @@ public class SymlinkedExecRootTest extends SandboxTestCase {
 
     // Reuse the same execRoot.
     symlinkedExecRoot.createFileSystem(
-        ImmutableMap.of(new PathFragment("such/input.txt"), helloTxt),
-        ImmutableSet.of(new PathFragment("very/output.txt")),
+        ImmutableMap.of(PathFragment.create("such/input.txt"), helloTxt),
+        ImmutableSet.of(PathFragment.create("very/output.txt")),
         ImmutableSet.of(execRoot.getRelative("wow/writable")));
 
     assertThat(execRoot.getRelative("such/input.txt").exists()).isTrue();
@@ -108,8 +108,8 @@ public class SymlinkedExecRootTest extends SandboxTestCase {
         ImmutableSet.<Path>of());
 
     FileSystemUtils.createEmptyFile(outputFile);
-    outputLink.createSymbolicLink(new PathFragment("output.txt"));
-    outputDangling.createSymbolicLink(new PathFragment("doesnotexist"));
+    outputLink.createSymbolicLink(PathFragment.create("output.txt"));
+    outputDangling.createSymbolicLink(PathFragment.create("doesnotexist"));
     outputDir.createDirectory();
     FileSystemUtils.createEmptyFile(outputDir.getRelative("test.txt"));
 

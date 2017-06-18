@@ -20,16 +20,16 @@ import java.lang.annotation.Target;
  *   System.exit(1);
  * }
  * </pre>
- * the Nullness Checker can determine that {@code x} is non-null.
- *
+ * the Nullness Checker can determine that <tt>x</tt> is non-null.
+ * 
  * <p>
  * The annotation is a <em>trusted</em> annotation, meaning that it is not
  * checked whether the annotated method really does terminate the program.
- *
+ * 
  * @checker_framework.manual #type-refinement Automatic type refinement (flow-sensitive type qualifier inference)
  *
  * @author Stefan Heule
- *
+ * 
  */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)

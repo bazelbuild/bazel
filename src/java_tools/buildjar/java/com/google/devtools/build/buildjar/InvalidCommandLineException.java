@@ -14,9 +14,7 @@
 
 package com.google.devtools.build.buildjar;
 
-/**
- * Exception to be thrown on command line parsing errors
- */
+/** Exception to be thrown on command line parsing errors */
 public class InvalidCommandLineException extends Exception {
 
   public InvalidCommandLineException(String message) {

@@ -14,9 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static com.google.devtools.build.skyframe.WalkableGraphUtils.exists;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -31,7 +29,6 @@ import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -92,8 +89,8 @@ public class RecursivePkgFunctionTest extends BuildViewTestCase {
   public void testStartingAtBuildFile() throws Exception {
     scratch.file("a/b/c/BUILD");
     RecursivePkgValue value =
-        buildRecursivePkgValue(rootDirectory, new PathFragment("a/b/c/BUILD"));
-    assertTrue(value.getPackages().isEmpty());
+        buildRecursivePkgValue(rootDirectory, PathFragment.create("a/b/c/BUILD"));
+    assertThat(value.getPackages().isEmpty()).isTrue();
   }
 
   @Test
@@ -106,13 +103,13 @@ public class RecursivePkgFunctionTest extends BuildViewTestCase {
     scratch.file(root2 + "/a/b/BUILD");
     setPackageCacheOptions("--package_path=" + "root1" + ":" + "root2");
 
-    RecursivePkgValue valueForRoot1 = buildRecursivePkgValue(root1, new PathFragment("a"));
+    RecursivePkgValue valueForRoot1 = buildRecursivePkgValue(root1, PathFragment.create("a"));
     String root1Pkg = Iterables.getOnlyElement(valueForRoot1.getPackages());
-    assertEquals(root1Pkg, "a");
+    assertThat(root1Pkg).isEqualTo("a");
 
-    RecursivePkgValue valueForRoot2 = buildRecursivePkgValue(root2, new PathFragment("a"));
+    RecursivePkgValue valueForRoot2 = buildRecursivePkgValue(root2, PathFragment.create("a"));
     String root2Pkg = Iterables.getOnlyElement(valueForRoot2.getPackages());
-    assertEquals(root2Pkg, "a/b");
+    assertThat(root2Pkg).isEqualTo("a/b");
   }
 
   @Test
@@ -123,10 +120,10 @@ public class RecursivePkgFunctionTest extends BuildViewTestCase {
     scratch.file("a/c/BUILD");
 
     // When the top package is evaluated for recursive package values, and "a/b" is excluded,
-    PathFragment excludedPathFragment = new PathFragment("a/b");
+    PathFragment excludedPathFragment = PathFragment.create("a/b");
     SkyKey key =
         buildRecursivePkgKey(
-            rootDirectory, new PathFragment("a"), ImmutableSet.of(excludedPathFragment));
+            rootDirectory, PathFragment.create("a"), ImmutableSet.of(excludedPathFragment));
     EvaluationResult<RecursivePkgValue> evaluationResult = getEvaluationResult(key);
     RecursivePkgValue value = evaluationResult.get(key);
 
@@ -139,17 +136,21 @@ public class RecursivePkgFunctionTest extends BuildViewTestCase {
 
     // Also, the computation graph does not contain a cached value for "a/b".
     WalkableGraph graph = Preconditions.checkNotNull(evaluationResult.getWalkableGraph());
-    assertFalse(
-        graph.exists(
-            buildRecursivePkgKey(
-                rootDirectory, excludedPathFragment, ImmutableSet.<PathFragment>of())));
+    assertThat(
+            exists(
+                buildRecursivePkgKey(
+                    rootDirectory, excludedPathFragment, ImmutableSet.<PathFragment>of()),
+                graph))
+        .isFalse();
 
     // And the computation graph does contain a cached value for "a/c" with the empty set excluded,
     // because that key was evaluated.
-    assertTrue(
-        graph.exists(
-            buildRecursivePkgKey(
-                rootDirectory, new PathFragment("a/c"), ImmutableSet.<PathFragment>of())));
+    assertThat(
+            exists(
+                buildRecursivePkgKey(
+                    rootDirectory, PathFragment.create("a/c"), ImmutableSet.<PathFragment>of()),
+                graph))
+        .isTrue();
   }
 
   @Test
@@ -160,8 +161,8 @@ public class RecursivePkgFunctionTest extends BuildViewTestCase {
     scratch.file("a/b/d/BUILD");
 
     // When the top package is evaluated for recursive package values, and "a/b/c" is excluded,
-    ImmutableSet<PathFragment> excludedPaths = ImmutableSet.of(new PathFragment("a/b/c"));
-    SkyKey key = buildRecursivePkgKey(rootDirectory, new PathFragment("a"), excludedPaths);
+    ImmutableSet<PathFragment> excludedPaths = ImmutableSet.of(PathFragment.create("a/b/c"));
+    SkyKey key = buildRecursivePkgKey(rootDirectory, PathFragment.create("a"), excludedPaths);
     EvaluationResult<RecursivePkgValue> evaluationResult = getEvaluationResult(key);
     RecursivePkgValue value = evaluationResult.get(key);
 
@@ -175,7 +176,10 @@ public class RecursivePkgFunctionTest extends BuildViewTestCase {
     // Also, the computation graph contains a cached value for "a/b" with "a/b/c" excluded, because
     // "a/b/c" does live underneath "a/b".
     WalkableGraph graph = Preconditions.checkNotNull(evaluationResult.getWalkableGraph());
-    assertTrue(
-        graph.exists(buildRecursivePkgKey(rootDirectory, new PathFragment("a/b"), excludedPaths)));
+    assertThat(
+            exists(
+                buildRecursivePkgKey(rootDirectory, PathFragment.create("a/b"), excludedPaths),
+                graph))
+        .isTrue();
   }
 }

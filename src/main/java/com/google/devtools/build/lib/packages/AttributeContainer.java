@@ -85,13 +85,18 @@ public class AttributeContainer {
   }
 
   /**
-   * Returns true iff the given attribute exists for this rule and its value
-   * is explicitly set in the BUILD file (as opposed to its default value).
+   * {@see #isAttributeValueExplicitlySpecified(String)}
    */
   public boolean isAttributeValueExplicitlySpecified(Attribute attribute) {
     return isAttributeValueExplicitlySpecified(attribute.getName());
   }
 
+  /**
+   * Returns true iff the value of the specified attribute is explicitly set in the BUILD file.
+   * This returns true also if the value explicity specified in the BUILD file is the same as the
+   * attribute's default value. In addition, this method return false if the rule has no attribute
+   * with the given name.
+   */
   public boolean isAttributeValueExplicitlySpecified(String attributeName) {
     Integer idx = ruleClass.getAttributeIndex(attributeName);
     return idx != null && getExplicit(idx);

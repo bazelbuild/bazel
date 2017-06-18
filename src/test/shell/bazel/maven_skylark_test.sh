@@ -102,6 +102,30 @@ EOF
   expect_log "Tra-la!"
 }
 
+function test_maven_jar_with_classifier_skylark() {
+  setup_zoo
+  version="1.21"
+  packaging = "jar"
+  classifier = "sources"
+  serve_artifact com.example.carnivore carnivore $version $packaging $classifier
+  setup_local_maven_settings_xml "http://localhost:$fileserver_port"
+
+  cat > WORKSPACE <<EOF
+load("@bazel_tools//tools/build_defs/repo:maven_rules.bzl", "maven_jar")
+maven_jar(
+    name = 'bar_sources',
+    artifact = "com.example.foo:bar:$version:jar:sources",
+    sha1 = '$sha1',
+    settings = '//:$local_maven_settings_xml',
+)
+
+bind(name = 'baz_sources', actual = '@bar_sources//jar')
+EOF
+
+  bazel run //zoo:ball-pit >& $TEST_log || fail "Expected run to succeed"
+  expect_log "Tra-la!"
+}
+
 function setup_android_binary() {
   mkdir -p java/com/app
   cat > java/com/app/BUILD <<EOF
@@ -125,7 +149,11 @@ EOF
 }
 
 function test_maven_aar_skylark() {
-  setup_android_support
+  setup_android_sdk_support
+  if [ -z "$ANDROID_NDK_API_LEVEL" ] || [ -z "$ANDROID_SDK_API_LEVEL" ]; then
+    fail "This test cannot run without Android repositories set up," \
+      "see the WORKSPACE file for instructions"
+  fi
   setup_android_binary
   serve_artifact com.example.carnivore herbivore 1.21 aar
   setup_local_maven_settings_xml "http://localhost:$fileserver_port"

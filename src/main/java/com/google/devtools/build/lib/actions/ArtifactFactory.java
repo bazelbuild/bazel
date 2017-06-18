@@ -127,7 +127,7 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
    */
   public ArtifactFactory(Path execRootParent, String derivedPathPrefix) {
     this.execRootParent = execRootParent;
-    this.derivedPathPrefix = new PathFragment(derivedPathPrefix);
+    this.derivedPathPrefix = PathFragment.create(derivedPathPrefix);
   }
 
   /**
@@ -288,7 +288,8 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
    * lives in a subpackage distinct from that of baseExecPath, and {@code baseRoot} otherwise.
    */
   public synchronized Artifact resolveSourceArtifactWithAncestor(
-      PathFragment relativePath, PathFragment baseExecPath, Root baseRoot) {
+      PathFragment relativePath, PathFragment baseExecPath, Root baseRoot,
+      RepositoryName repositoryName) {
     Preconditions.checkState(
         (baseExecPath == null) == (baseRoot == null),
         "%s %s %s",
@@ -304,16 +305,17 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
       // Source exec paths cannot escape the source root.
       return null;
     }
-    Artifact artifact = sourceArtifactCache.getArtifactIfValid(execPath);
-    if (artifact != null) {
-      return artifact;
-    }
     // Don't create an artifact if it's derived.
     if (isDerivedArtifact(execPath)) {
       return null;
     }
-
-    return createArtifactIfNotValid(findSourceRoot(execPath, baseExecPath, baseRoot), execPath);
+    Root sourceRoot = findSourceRoot(execPath, baseExecPath, baseRoot, repositoryName);
+    Artifact artifact = sourceArtifactCache.getArtifactIfValid(execPath);
+    if (artifact != null) {
+      Preconditions.checkState(sourceRoot == null || sourceRoot.equals(artifact.getRoot()));
+      return artifact;
+    }
+    return createArtifactIfNotValid(sourceRoot, execPath);
   }
 
   /**
@@ -322,22 +324,21 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
    */
   @Nullable
   private Root findSourceRoot(
-      PathFragment execPath, @Nullable PathFragment baseExecPath, @Nullable Root baseRoot) {
+      PathFragment execPath, @Nullable PathFragment baseExecPath, @Nullable Root baseRoot,
+      RepositoryName repositoryName) {
     PathFragment dir = execPath.getParentDirectory();
     if (dir == null) {
       return null;
     }
 
-    RepositoryName repoName = RepositoryName.MAIN;
-
     Pair<RepositoryName, PathFragment> repo = RepositoryName.fromPathFragment(dir);
     if (repo != null) {
-      repoName = repo.getFirst();
+      repositoryName = repo.getFirst();
       dir = repo.getSecond();
     }
 
     while (dir != null && !dir.equals(baseExecPath)) {
-      Root sourceRoot = packageRoots.get(PackageIdentifier.create(repoName, dir));
+      Root sourceRoot = packageRoots.get(PackageIdentifier.create(repositoryName, dir));
       if (sourceRoot != null) {
         return sourceRoot;
       }
@@ -350,13 +351,12 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
   @Override
   public Artifact resolveSourceArtifact(PathFragment execPath,
       @SuppressWarnings("unused") RepositoryName repositoryName) {
-    return resolveSourceArtifactWithAncestor(execPath, null, null);
+    return resolveSourceArtifactWithAncestor(execPath, null, null, repositoryName);
   }
 
   @Override
   public synchronized Map<PathFragment, Artifact> resolveSourceArtifacts(
-      Iterable<PathFragment> execPaths, PackageRootResolver resolver)
-      throws PackageRootResolutionException, InterruptedException {
+      Iterable<PathFragment> execPaths, PackageRootResolver resolver) throws InterruptedException {
     Map<PathFragment, Artifact> result = new HashMap<>();
     ArrayList<PathFragment> unresolvedPaths = new ArrayList<>();
 

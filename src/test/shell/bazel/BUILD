@@ -27,14 +27,9 @@ filegroup(
         "testing_server.py",
         ":langtools-copy",
         "//examples:srcs",
-        "//external:bootclasspath",
-        "//external:extdir",
-        "//external:jdk-default",
         "//src:bazel",
-        "//src/java_tools/buildjar:JavaBuilder_deploy.jar",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
-        "//src/java_tools/singlejar:SingleJar_deploy.jar",
         "//src/main/tools:linux-sandbox",
         "//src/main/tools:process-wrapper",
         "//src/test/shell:bashunit",
@@ -45,7 +40,18 @@ filegroup(
         "//third_party/ijar",
         "//third_party/java/jdk/langtools:test-srcs",
         "//tools:srcs",
-    ],
+        "@local_jdk//:bootclasspath",
+        # TODO(cushon): migrate to extclasspath and delete
+        "@local_jdk//:extdir",
+        "@local_jdk//:jdk",
+    ] + select({
+        # TODO(bazel-team): Once https://github.com/bazelbuild/bazel/issues/2241
+        # is resolved, use cc implementation of singlejar on windows
+        "//src:windows": ["//src/java_tools/singlejar:SingleJar_deploy.jar"],
+        "//src:windows_msys": ["//src/java_tools/singlejar:SingleJar_deploy.jar"],
+        "//src:windows_msvc": ["//src/java_tools/singlejar:SingleJar_deploy.jar"],
+        "//conditions:default": ["//src/tools/singlejar:singlejar"],
+    }),
     visibility = [
         "//src/test/shell:__subpackages__",
     ],
@@ -69,7 +75,6 @@ sh_test(
     data = [
         ":test-deps",
     ],
-    tags = ["manual"],
 )
 
 sh_test(
@@ -80,6 +85,14 @@ sh_test(
         ":test-deps",
         "//:workspace-file",
     ],
+)
+
+sh_test(
+    name = "bazel_random_characters_test",
+    size = "large",
+    srcs = ["bazel_random_characters_test.sh"],
+    data = [":test-deps"],
+    tags = ["nowindows"],
 )
 
 sh_test(
@@ -115,7 +128,10 @@ sh_test(
     name = "bazel_coverage_test",
     srcs = ["bazel_coverage_test.sh"],
     data = [":test-deps"],
-    tags = ["local"],
+    tags = [
+        "jdk8",  # TODO(elenairina): Re-enable for JDK7 once https://github.com/bazelbuild/bazel/issues/2890 is fixed.
+        "local",
+    ],
 )
 
 sh_test(
@@ -139,6 +155,7 @@ sh_test(
         "//src:darwin": [],
         "//src:darwin_x86_64": [],
         "//src:windows": [],
+        "//src:windows_msys": [],
         "//src:windows_msvc": [],
         "//conditions:default": ["//src/test/shell/bazel/testdata:bazel_toolchain_test_project_pkg"],
     }),
@@ -236,6 +253,7 @@ sh_test(
     size = "large",
     srcs = ["skylark_repository_test.sh"],
     data = [":test-deps"],
+    shard_count = 6,
 )
 
 sh_test(
@@ -311,9 +329,9 @@ sh_test(
 )
 
 sh_test(
-    name = "cc_inc_library_test",
+    name = "cc_integration_test",
     size = "medium",
-    srcs = ["cc_inc_library_test.sh"],
+    srcs = ["cc_integration_test.sh"],
     data = [":test-deps"],
 )
 
@@ -382,6 +400,16 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_with_jdk_test",
+    size = "medium",
+    srcs = ["bazel_with_jdk_test.sh"],
+    data = [
+        ":test-deps",
+        "//src:bazel_with_jdk",
+    ],
+)
+
+sh_test(
     name = "build_files_test",
     size = "medium",
     srcs = ["build_files_test.sh"],
@@ -390,14 +418,14 @@ sh_test(
 
 sh_test(
     name = "bazel_bootstrap_distfile_test",
-    size = "large",
+    timeout = "eternal",
     srcs = ["bazel_bootstrap_distfile_test.sh"],
     args = ["$(location //:bazel-distfile)"],
     data = [
         ":test-deps",
         "//:bazel-distfile",
     ],
-    tags = ["manual"],
+    tags = ["jdk8"],
 )
 
 sh_test(
@@ -406,6 +434,28 @@ sh_test(
     srcs = ["rule_test_test.sh"],
     data = [":test-deps"],
     shard_count = 2,
+)
+
+sh_test(
+    name = "help_test",
+    size = "small",
+    srcs = ["help_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
+    name = "toolchain_test",
+    size = "medium",
+    srcs = ["toolchain_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
+    name = "java_launcher_test",
+    size = "medium",
+    srcs = ["java_launcher_test.sh"],
+    args = ["$(JAVABASE)"],
+    data = [":test-deps"],
 )
 
 test_suite(

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
@@ -26,105 +27,120 @@ import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
-import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
+import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
-import java.util.UUID;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** Strategy that uses sandboxing to execute a process. */
 @ExecutionStrategy(
-  name = {"sandboxed"},
+  name = {"sandboxed", "linux-sandbox"},
   contextType = SpawnActionContext.class
 )
 public class LinuxSandboxedStrategy extends SandboxStrategy {
-  private static Boolean sandboxingSupported = null;
 
-  public static boolean isSupported(CommandEnvironment env) {
-    if (sandboxingSupported == null) {
-      sandboxingSupported =
-          ProcessWrapperRunner.isSupported(env) || LinuxSandboxRunner.isSupported(env);
-    }
-    return sandboxingSupported.booleanValue();
+  public static boolean isSupported(CommandEnvironment cmdEnv) {
+    return LinuxSandboxRunner.isSupported(cmdEnv);
   }
 
   private final SandboxOptions sandboxOptions;
   private final BlazeDirectories blazeDirs;
   private final Path execRoot;
   private final boolean verboseFailures;
-  private final String productName;
-  private final boolean fullySupported;
+  private final SpawnInputExpander spawnInputExpander;
+  private final Path inaccessibleHelperFile;
+  private final Path inaccessibleHelperDir;
 
-  private final UUID uuid = UUID.randomUUID();
-  private final AtomicInteger execCounter = new AtomicInteger();
-
-  LinuxSandboxedStrategy(
+  private LinuxSandboxedStrategy(
+      CommandEnvironment cmdEnv,
       BuildRequest buildRequest,
-      BlazeDirectories blazeDirs,
+      Path sandboxBase,
       boolean verboseFailures,
-      String productName,
-      boolean fullySupported) {
+      Path inaccessibleHelperFile,
+      Path inaccessibleHelperDir) {
     super(
+        cmdEnv,
         buildRequest,
-        blazeDirs,
+        sandboxBase,
         verboseFailures,
         buildRequest.getOptions(SandboxOptions.class));
     this.sandboxOptions = buildRequest.getOptions(SandboxOptions.class);
-    this.blazeDirs = blazeDirs;
-    this.execRoot = blazeDirs.getExecRoot();
+    this.blazeDirs = cmdEnv.getDirectories();
+    this.execRoot = cmdEnv.getExecRoot();
     this.verboseFailures = verboseFailures;
-    this.productName = productName;
-    this.fullySupported = fullySupported;
+    this.spawnInputExpander = new SpawnInputExpander(false);
+    this.inaccessibleHelperFile = inaccessibleHelperFile;
+    this.inaccessibleHelperDir = inaccessibleHelperDir;
   }
 
-  /** Executes the given {@code spawn}. */
-  @Override
-  public void exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
-      throws ExecException, InterruptedException {
-    exec(spawn, actionExecutionContext, null);
+  static LinuxSandboxedStrategy create(
+      CommandEnvironment cmdEnv,
+      BuildRequest buildRequest,
+      Path sandboxBase,
+      boolean verboseFailures)
+      throws IOException {
+    Path inaccessibleHelperFile = sandboxBase.getRelative("inaccessibleHelperFile");
+    FileSystemUtils.touchFile(inaccessibleHelperFile);
+    inaccessibleHelperFile.setReadable(false);
+    inaccessibleHelperFile.setWritable(false);
+    inaccessibleHelperFile.setExecutable(false);
+
+    Path inaccessibleHelperDir = sandboxBase.getRelative("inaccessibleHelperDir");
+    inaccessibleHelperDir.createDirectory();
+    inaccessibleHelperDir.setReadable(false);
+    inaccessibleHelperDir.setWritable(false);
+    inaccessibleHelperDir.setExecutable(false);
+
+    return new LinuxSandboxedStrategy(
+        cmdEnv,
+        buildRequest,
+        sandboxBase,
+        verboseFailures,
+        inaccessibleHelperFile,
+        inaccessibleHelperDir);
   }
 
   @Override
-  public void exec(
+  protected void actuallyExec(
       Spawn spawn,
       ActionExecutionContext actionExecutionContext,
       AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles)
-      throws ExecException, InterruptedException {
+      throws IOException, ExecException, InterruptedException {
     Executor executor = actionExecutionContext.getExecutor();
-
-    // Certain actions can't run remotely or in a sandbox - pass them on to the standalone strategy.
-    if (!spawn.isRemotable() || spawn.hasNoSandbox()) {
-      SandboxHelpers.fallbackToNonSandboxedExecution(spawn, actionExecutionContext, executor);
-      return;
-    }
-
+    executor
+        .getEventBus()
+        .post(ActionStatusMessage.runningStrategy(spawn.getResourceOwner(), "linux-sandbox"));
     SandboxHelpers.reportSubcommand(executor, spawn);
-    SandboxHelpers.postActionStatusMessage(executor, spawn);
 
     // Each invocation of "exec" gets its own sandbox.
-    Path sandboxPath = SandboxHelpers.getSandboxRoot(blazeDirs, productName, uuid, execCounter);
+    Path sandboxPath = getSandboxRoot();
     Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
-    Path sandboxTempDir = sandboxPath.getRelative("tmp");
 
     Set<Path> writableDirs = getWritableDirs(sandboxExecRoot, spawn.getEnvironment());
-
     SymlinkedExecRoot symlinkedExecRoot = new SymlinkedExecRoot(sandboxExecRoot);
     ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);
-    try {
-      symlinkedExecRoot.createFileSystem(
-          getMounts(spawn, actionExecutionContext), outputs, writableDirs);
-      sandboxTempDir.createDirectory();
-    } catch (IOException e) {
-      throw new UserExecException("I/O error during sandboxed execution", e);
-    }
+    symlinkedExecRoot.createFileSystem(
+        SandboxHelpers.getInputFiles(spawnInputExpander, execRoot, spawn, actionExecutionContext),
+        outputs,
+        writableDirs);
 
-    SandboxRunner runner = getSandboxRunner(spawn, sandboxPath, sandboxExecRoot, sandboxTempDir);
+    SandboxRunner runner =
+        new LinuxSandboxRunner(
+            sandboxExecRoot,
+            writableDirs,
+            getTmpfsPaths(),
+            getReadOnlyBindMounts(blazeDirs, sandboxExecRoot),
+            verboseFailures,
+            sandboxOptions.sandboxDebug);
+
     try {
       runSpawn(
           spawn,
@@ -139,36 +155,29 @@ public class LinuxSandboxedStrategy extends SandboxStrategy {
         try {
           FileSystemUtils.deleteTree(sandboxPath);
         } catch (IOException e) {
-          executor
-              .getEventHandler()
-              .handle(
-                  Event.warn(
-                      String.format(
-                          "Cannot delete sandbox directory after action execution: %s (%s)",
-                          sandboxPath.getPathString(), e)));
+          // This usually means that the Spawn itself exited, but still has children running that
+          // we couldn't wait for, which now block deletion of the sandbox directory. On Linux this
+          // should never happen, as we use PID namespaces and where they are not available the
+          // subreaper feature to make sure all children have been reliably killed before returning,
+          // but on other OS this might not always work. The SandboxModule will try to delete them
+          // again when the build is all done, at which point it hopefully works, so let's just go
+          // on here.
         }
       }
     }
   }
 
-  private SandboxRunner getSandboxRunner(
-      Spawn spawn, Path sandboxPath, Path sandboxExecRoot, Path sandboxTempDir)
-      throws UserExecException {
-    if (fullySupported) {
-      return new LinuxSandboxRunner(
-          execRoot,
-          sandboxPath,
-          sandboxExecRoot,
-          sandboxTempDir,
-          getWritableDirs(sandboxExecRoot, spawn.getEnvironment()),
-          getInaccessiblePaths(),
-          getTmpfsPaths(),
-          getReadOnlyBindMounts(blazeDirs, sandboxExecRoot),
-          verboseFailures,
-          sandboxOptions.sandboxDebug);
-    } else {
-      return new ProcessWrapperRunner(execRoot, sandboxPath, sandboxExecRoot, verboseFailures);
-    }
+  @Override
+  protected ImmutableSet<Path> getWritableDirs(Path sandboxExecRoot, Map<String, String> env)
+      throws IOException {
+    ImmutableSet.Builder<Path> writableDirs = ImmutableSet.builder();
+    writableDirs.addAll(super.getWritableDirs(sandboxExecRoot, env));
+
+    FileSystem fs = sandboxExecRoot.getFileSystem();
+    writableDirs.add(fs.getPath("/dev/shm").resolveSymbolicLinks());
+    writableDirs.add(fs.getPath("/tmp"));
+
+    return writableDirs.build();
   }
 
   private ImmutableSet<Path> getTmpfsPaths() {
@@ -200,6 +209,13 @@ public class LinuxSandboxedStrategy extends SandboxStrategy {
       } catch (IllegalArgumentException e) {
         throw new UserExecException(
             String.format("Error occurred when analyzing bind mount pairs. %s", e.getMessage()));
+      }
+    }
+    for (Path inaccessiblePath : getInaccessiblePaths()) {
+      if (inaccessiblePath.isDirectory(Symlinks.NOFOLLOW)) {
+        bindMounts.put(inaccessiblePath, inaccessibleHelperDir);
+      } else {
+        bindMounts.put(inaccessiblePath, inaccessibleHelperFile);
       }
     }
     validateBindMounts(bindMounts);

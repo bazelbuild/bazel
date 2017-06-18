@@ -21,8 +21,8 @@ import com.google.common.base.Joiner;
 import com.google.common.truth.Ordered;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.syntax.BazelLibrary;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.syntax.Parser;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Statement;
-import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestMode;
 import java.util.LinkedList;
@@ -92,40 +91,47 @@ public class EvaluationTestCase {
   }
 
   /**
-   * Creates a new Environment suitable for the test case. Subclasses may override it
-   * to fit their purpose and e.g. call newBuildEnvironment or newSkylarkEnvironment;
-   * or they may play with the testMode to run tests in either or both kinds of Environment.
-   * Note that all Environment-s may share the same Mutability, so don't close it.
+   * Creates a new Environment suitable for the test case. Subclasses may override it to fit their
+   * purpose and e.g. call newBuildEnvironment or newSkylarkEnvironment; or they may play with the
+   * testMode to run tests in either or both kinds of Environment. Note that all Environment-s may
+   * share the same Mutability, so don't close it.
+   *
    * @return a fresh Environment.
    */
   public Environment newEnvironment() throws Exception {
+    return newEnvironmentWithSkylarkOptions();
+  }
+
+  protected Environment newEnvironmentWithSkylarkOptions(String... skylarkOptions)
+      throws Exception {
     if (testMode == null) {
       throw new IllegalArgumentException(
           "TestMode is null. Please set a Testmode via setMode() or set the "
               + "Environment manually by overriding newEnvironment()");
     }
-    return testMode.createEnvironment(getEventHandler(), null);
+    return testMode.createEnvironment(getEventHandler(), skylarkOptions);
   }
 
   /**
    * Sets the specified {@code TestMode} and tries to create the appropriate {@code Environment}
+   *
    * @param testMode
    * @throws Exception
    */
-  protected void setMode(TestMode testMode) throws Exception {
+  protected void setMode(TestMode testMode, String... skylarkOptions) throws Exception {
     this.testMode = testMode;
-    env = newEnvironment();
+    env = newEnvironmentWithSkylarkOptions(skylarkOptions);
   }
 
-  protected void enableSkylarkMode() throws Exception {
-    setMode(TestMode.SKYLARK);
+  protected void enableSkylarkMode(String... skylarkOptions) throws Exception {
+    setMode(TestMode.SKYLARK, skylarkOptions);
   }
 
-  protected void enableBuildMode() throws Exception {
-    setMode(TestMode.BUILD);
+  protected void enableBuildMode(String... skylarkOptions) throws Exception {
+    setMode(TestMode.BUILD, skylarkOptions);
   }
 
-  protected EventHandler getEventHandler() {
+  public ExtendedEventHandler getEventHandler() {
     return eventCollectionApparatus.reporter();
   }
 
@@ -133,16 +139,30 @@ public class EvaluationTestCase {
     return env;
   }
 
+  protected BuildFileAST parseBuildFileASTWithoutValidation(String... input) {
+    return BuildFileAST.parseSkylarkString(getEventHandler(), input);
+  }
+
+  protected BuildFileAST parseBuildFileAST(String... input) {
+    BuildFileAST ast = parseBuildFileASTWithoutValidation(input);
+    return ast.validate(env, getEventHandler());
+  }
+
   protected List<Statement> parseFile(String... input) {
-    BuildFileAST ast = BuildFileAST.parseSkylarkString(getEventHandler(), input);
-    ast = ast.validate(new ValidationEnvironment(env), getEventHandler());
-    return ast.getStatements();
+    return parseBuildFileAST(input).getStatements();
   }
 
   /** Parses an Expression from string without a supporting file */
   @VisibleForTesting
   public Expression parseExpression(String... input) {
     return Parser.parseExpression(
+        ParserInputSource.create(Joiner.on("\n").join(input), null), getEventHandler());
+  }
+
+  /** Same as {@link #parseExpression} but supports Skylark constructs. */
+  @VisibleForTesting
+  public Expression parseExpressionForSkylark(String... input) {
+    return Parser.parseExpressionForSkylark(
         ParserInputSource.create(Joiner.on("\n").join(input), null), getEventHandler());
   }
 
@@ -177,7 +197,7 @@ public class EvaluationTestCase {
       eval(input);
       fail("Expected error containing '" + msg + "' but got no error");
     } catch (IllegalArgumentException | EvalException e) {
-      assertThat(e.getMessage()).contains(msg);
+      assertThat(e).hasMessageThat().contains(msg);
     }
   }
 
@@ -554,11 +574,15 @@ public class EvaluationTestCase {
    * A class that runs all tests in Skylark mode
    */
   protected class SkylarkTest extends ModalTestCase {
-    public SkylarkTest() {}
+    private final String[] skylarkOptions;
+
+    public SkylarkTest(String... skylarkOptions) {
+      this.skylarkOptions = skylarkOptions;
+    }
 
     @Override
     protected void run(Testable testable) throws Exception {
-      enableSkylarkMode();
+      enableSkylarkMode(skylarkOptions);
       testable.run();
     }
   }

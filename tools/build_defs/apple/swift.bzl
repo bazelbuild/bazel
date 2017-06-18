@@ -12,7 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Skylark rules for Swift."""
+"""Skylark rules for Swift.
+
+NOTE: This file is deprecated and will be removed soon. If you depend on it,
+please start using the version from the rules_apple repository
+(https://github.com/bazelbuild/rules_apple) instead.
+"""
 
 load("shared",
      "xcrun_action",
@@ -28,6 +33,11 @@ load(":modulemap.bzl",
 def _parent_dirs(dirs):
   """Returns a set of parent directories for each directory in dirs."""
   return set([f.rpartition("/")[0] for f in dirs])
+
+
+def _framework_names(dirs):
+  """Returns the framework name for each directory in dir."""
+  return set([f.rpartition("/")[2].partition(".")[0] for f in dirs])
 
 
 def _intersperse(separator, iterable):
@@ -54,15 +64,16 @@ def _swift_compilation_mode_flags(ctx):
   mode = ctx.var["COMPILATION_MODE"]
 
   flags = []
-  if mode == "dbg":
-    flags += ["-Onone", "-DDEBUG", "-enable-testing"]
-  elif mode == "fastbuild":
-    flags += ["-Onone", "-DDEBUG", "-enable-testing"]
+  if mode == "dbg" or mode == "fastbuild":
+    # TODO(dmishe): Find a way to test -serialize-debugging-options
+    flags += [
+        "-Onone", "-DDEBUG", "-enable-testing", "-Xfrontend",
+        "-serialize-debugging-options"
+    ]
   elif mode == "opt":
     flags += ["-O", "-DNDEBUG"]
 
-  if mode == "dbg" or (hasattr(ctx.fragments.objc, "generate_dsym") and
-                       getattr(ctx.fragments.objc, "generate_dsym")):
+  if mode == "dbg" or ctx.fragments.objc.generate_dsym:
     flags.append("-g")
 
   return flags
@@ -98,8 +109,6 @@ def swift_module_name(label):
 
 def _swift_lib_dir(ctx):
   """Returns the location of swift runtime directory to link against."""
-  # TODO(dmishe): Expose this template from native code.
-  developer_dir = "__BAZEL_XCODE_DEVELOPER_DIR__"
   platform_str = ctx.fragments.apple.single_arch_platform.name_in_plist.lower()
 
   toolchain_name = "XcodeDefault"
@@ -113,7 +122,7 @@ def _swift_lib_dir(ctx):
       toolchain_name = "Swift_2.3"
 
   return "{0}/Toolchains/{1}.xctoolchain/usr/lib/swift/{2}".format(
-      developer_dir, toolchain_name, platform_str)
+      apple_common.apple_toolchain().developer_dir(), toolchain_name, platform_str)
 
 
 def _swift_linkopts(ctx):
@@ -247,13 +256,14 @@ def swiftc_args(ctx):
   objc_includes = set()     # Everything that needs to be included with -I
   objc_module_maps = set()  # Module maps for dependent targets
   objc_defines = set()
+  static_frameworks = set()
   for objc in objc_providers:
     objc_includes += objc.include
     objc_module_maps += objc.module_map
 
+    static_frameworks += _framework_names(objc.framework_dir)
     framework_dirs += _parent_dirs(objc.framework_dir)
-    # TODO(cparsons): Remove getattr call once dynamic_framework_dir is stable.
-    framework_dirs += _parent_dirs(getattr(objc, "dynamic_framework_dir", []))
+    framework_dirs += _parent_dirs(objc.dynamic_framework_dir)
 
     # objc_library#copts is not propagated to its dependencies and so it is not
     # collected here. In theory this may lead to un-importable targets (since
@@ -271,6 +281,13 @@ def swiftc_args(ctx):
   include_args = ["-I%s" % d for d in include_dirs + objc_includes]
   framework_args = ["-F%s" % x for x in framework_dirs]
   define_args = ["-D%s" % x for x in swiftc_defines]
+
+  # Disable the LC_LINKER_OPTION load commands for static frameworks automatic
+  # linking. This is needed to correctly deduplicate static frameworks from also
+  # being linked into test binaries where it is also linked into the app binary.
+  autolink_args =_intersperse(
+      "-Xfrontend",
+      _intersperse("-disable-autolink-framework", static_frameworks))
 
   clang_args = _intersperse(
       "-Xcc",
@@ -308,6 +325,8 @@ def swiftc_args(ctx):
   args.extend(framework_args)
   args.extend(clang_args)
   args.extend(define_args)
+  args.extend(autolink_args)
+  args.extend(ctx.fragments.swift.copts())
   args.extend(ctx.attr.copts)
 
   return args
@@ -349,6 +368,9 @@ def _modulemap_info(
 
 def _swift_library_impl(ctx):
   """Implementation for swift_library Skylark rule."""
+  print("This file is deprecated and will be removed soon. Please start " +
+        "using the version from the rules_apple repository " +
+        "(https://github.com/bazelbuild/rules_apple) instead.")
 
   _validate_rule_and_deps(ctx)
 
@@ -508,7 +530,7 @@ SWIFT_LIBRARY_ATTRS = {
 swift_library = rule(
     _swift_library_impl,
     attrs = SWIFT_LIBRARY_ATTRS,
-    fragments = ["apple", "objc"],
+    fragments = ["apple", "objc", "swift"],
     output_to_genfiles=True,
 )
 """

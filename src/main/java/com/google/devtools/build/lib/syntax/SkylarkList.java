@@ -33,10 +33,10 @@ import javax.annotation.Nullable;
   name = "sequence",
   documented = false,
   category = SkylarkModuleCategory.BUILTIN,
-  doc = "common type of lists and tuples"
+  doc = "common type of lists and tuples."
 )
-public abstract class SkylarkList<E> extends MutableCollection<E> implements List<E>, RandomAccess,
-    SkylarkIndexable {
+public abstract class SkylarkList<E> extends MutableCollection<E>
+    implements List<E>, RandomAccess, SkylarkIndexable {
 
   /**
    * Returns an ImmutableList object with the current underlying contents of this SkylarkList.
@@ -421,18 +421,18 @@ public abstract class SkylarkList<E> extends MutableCollection<E> implements Lis
         return new MutableList<E>(ImmutableList.<E>of(), env);
       }
 
-      final int concatCount = times - 1;
       if (list.getGlobList() == null) {
         Iterable<? extends E> iterable = list;
-        for (int i = concatCount; i > 0; --i) {
-          iterable = Iterables.concat(iterable, iterable);
+        for (int i = 1; i < times; i++) {
+          iterable = Iterables.concat(iterable, list);
         }
         return new MutableList<E>(iterable, env);
       }
 
       List<? extends E> globs = list.getGlobListOrContentsUnsafe();
-      for (int i = concatCount; i > 0; --i) {
-        globs = GlobList.concat(globs, globs);
+      List<? extends E> original = globs;
+      for (int i = 1; i < times; i++) {
+        globs = GlobList.concat(globs, original);
       }
       return new MutableList<E>(globs, env);
     }

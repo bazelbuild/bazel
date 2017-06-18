@@ -19,11 +19,15 @@ import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs
 
 /**
  * Implementation for the "apple_watch_extension_binary" rule.
+ *
+ * @deprecated The native bundling rules have been deprecated. This class will be removed in the
+ *     future.
  */
+@Deprecated
 public class AppleWatchExtensionBinary extends BinaryLinkingTargetFactory {
 
   public AppleWatchExtensionBinary() {
-    super(HasReleaseBundlingSupport.NO, XcodeProductType.LIBRARY_STATIC, UsesCrosstool.NO);
+    super(HasReleaseBundlingSupport.NO);
   }
 
   @Override

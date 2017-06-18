@@ -18,9 +18,10 @@ import com.google.common.base.Charsets;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.shell.SubprocessBuilder.StreamAction;
-
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -38,22 +39,47 @@ public class WindowsSubprocessFactory implements Subprocess.Factory {
   public Subprocess create(SubprocessBuilder builder) throws IOException {
     WindowsJniLoader.loadJni();
 
-    String commandLine = WindowsProcesses.quoteCommandLine(builder.getArgv());
+    List<String> argv = builder.getArgv();
+
+    // DO NOT quote argv0, nativeCreateProcess will do it for us.
+    String argv0 = processArgv0(argv.get(0));
+    String argvRest =
+        argv.size() > 1 ? WindowsProcesses.quoteCommandLine(argv.subList(1, argv.size())) : "";
     byte[] env = builder.getEnv() == null ? null : convertEnvToNative(builder.getEnv());
 
     String stdoutPath = getRedirectPath(builder.getStdout(), builder.getStdoutFile());
     String stderrPath = getRedirectPath(builder.getStderr(), builder.getStderrFile());
 
-    long nativeProcess = WindowsProcesses.nativeCreateProcess(
-        commandLine, env, builder.getWorkingDirectory().getPath(), stdoutPath, stderrPath);
+    long nativeProcess =
+        WindowsProcesses.nativeCreateProcess(
+            argv0, argvRest, env, builder.getWorkingDirectory().getPath(), stdoutPath, stderrPath);
     String error = WindowsProcesses.nativeProcessGetLastError(nativeProcess);
     if (!error.isEmpty()) {
       WindowsProcesses.nativeDeleteProcess(nativeProcess);
       throw new IOException(error);
     }
 
-    return new WindowsSubprocess(nativeProcess, commandLine, stdoutPath != null,
-        stderrPath != null, builder.getTimeoutMillis());
+    return new WindowsSubprocess(
+        nativeProcess,
+        argv0 + " " + argvRest,
+        stdoutPath != null,
+        stderrPath != null,
+        builder.getTimeoutMillis());
+  }
+
+  public String processArgv0(String argv0) {
+    // Normalize the path and make it Windows-style.
+    // If argv0 is at least MAX_PATH (260 chars) long, createNativeProcess calls GetShortPathNameW
+    // to obtain a 8dot3 name for it (thereby support long paths in CreateProcessA), but then argv0
+    // must be prefixed with "\\?\" for GetShortPathNameW to work, so it also must be an absolute,
+    // normalized, Windows-style path.
+    // Therefore if it's absolute, then normalize it also.
+    // If it's not absolute, then it cannot be longer than MAX_PATH, since MAX_PATH also limits the
+    // length of file names.
+    PathFragment argv0fragment = PathFragment.create(argv0);
+    return (argv0fragment.isAbsolute())
+        ? argv0fragment.normalize().getPathString().replace('/', '\\')
+        : argv0;
   }
 
   private String getRedirectPath(StreamAction action, File file) {

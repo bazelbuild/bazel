@@ -89,7 +89,7 @@ public final class SliceExpression extends Expression {
     throw new EvalException(
         loc,
         Printer.format(
-            "Type %s has no operator [:](%s, %s, %s)",
+            "type '%s' has no operator [:](%s, %s, %s)",
             EvalUtils.getDataTypeName(objValue),
             EvalUtils.getDataTypeName(startValue),
             EvalUtils.getDataTypeName(endValue),

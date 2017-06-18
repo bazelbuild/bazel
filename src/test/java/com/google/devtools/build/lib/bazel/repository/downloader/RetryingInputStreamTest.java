@@ -110,7 +110,7 @@ public class RetryingInputStreamTest {
     when(connection.getHeaderField("Content-Range")).thenReturn("bytes 1-42/42");
     assertThat(stream.read()).isEqualTo(1);
     assertThat(stream.read()).isEqualTo(2);
-    verify(reconnector).connect(any(Throwable.class), eq(ImmutableMap.of("Range", "bytes 1-")));
+    verify(reconnector).connect(any(Throwable.class), eq(ImmutableMap.of("Range", "bytes=1-")));
     verify(delegate, times(2)).read();
     verify(delegate).close();
     verify(newDelegate).read();
@@ -165,7 +165,7 @@ public class RetryingInputStreamTest {
     } catch (SocketTimeoutException e) {
       assertThat(e.getSuppressed()).hasLength(3);
       verify(reconnector, times(3))
-          .connect(any(Throwable.class), eq(ImmutableMap.of("Range", "bytes 1-")));
+          .connect(any(Throwable.class), eq(ImmutableMap.of("Range", "bytes=1-")));
       verify(delegate, times(5)).read();
       verify(delegate, times(3)).close();
     }

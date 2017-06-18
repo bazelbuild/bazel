@@ -11,7 +11,7 @@ java_binary(
         "//src/main/protobuf:xcodegen_java_proto",
         "//third_party:guava",
         "//third_party/java/buck-ios-support",
-        "//third_party/protobuf",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -33,7 +33,7 @@ java_library(
         "//third_party:jsr305",
         "//third_party/java/buck-ios-support",
         "//third_party/java/dd_plist",
-        "//third_party/protobuf",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 

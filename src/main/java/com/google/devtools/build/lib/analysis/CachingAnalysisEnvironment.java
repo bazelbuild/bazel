@@ -26,14 +26,14 @@ import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoCollection;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
-import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.WorkspaceStatusValue;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -79,10 +79,9 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
 
   private boolean enabled = true;
   private MiddlemanFactory middlemanFactory;
-  private EventHandler errorEventListener;
+  private ExtendedEventHandler errorEventListener;
   private SkyFunction.Environment skyframeEnv;
   private Map<Artifact, String> artifacts;
-  private final BinTools binTools;
 
   /**
    * The list of actions registered by the configured target this analysis environment is
@@ -90,10 +89,14 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
    */
   final List<ActionAnalysisMetadata> actions = new ArrayList<>();
 
-  public CachingAnalysisEnvironment(ArtifactFactory artifactFactory,
-      ArtifactOwner owner, boolean isSystemEnv, boolean extendedSanityChecks,
-      EventHandler errorEventListener, SkyFunction.Environment env, boolean allowRegisteringActions,
-      BinTools binTools) {
+  public CachingAnalysisEnvironment(
+      ArtifactFactory artifactFactory,
+      ArtifactOwner owner,
+      boolean isSystemEnv,
+      boolean extendedSanityChecks,
+      ExtendedEventHandler errorEventListener,
+      SkyFunction.Environment env,
+      boolean allowRegisteringActions) {
     this.artifactFactory = artifactFactory;
     this.owner = Preconditions.checkNotNull(owner);
     this.isSystemEnv = isSystemEnv;
@@ -101,7 +104,6 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
     this.errorEventListener = errorEventListener;
     this.skyframeEnv = env;
     this.allowRegisteringActions = allowRegisteringActions;
-    this.binTools = Preconditions.checkNotNull(binTools);
     middlemanFactory = new MiddlemanFactory(artifactFactory, this);
     artifacts = new HashMap<>();
   }
@@ -184,7 +186,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   @Override
-  public EventHandler getEventHandler() {
+  public ExtendedEventHandler getEventHandler() {
     return errorEventListener;
   }
 
@@ -250,12 +252,6 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   @Override
-  public Artifact getEmbeddedToolArtifact(String embeddedPath) {
-    Preconditions.checkState(enabled);
-    return binTools.getEmbeddedArtifact(embeddedPath, artifactFactory);
-  }
-
-  @Override
   public void registerAction(ActionAnalysisMetadata... actions) {
     Preconditions.checkState(enabled);
     if (allowRegisteringActions) {
@@ -275,13 +271,18 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   @Override
-  public Collection<ActionAnalysisMetadata> getRegisteredActions() {
-    return Collections.unmodifiableCollection(actions);
+  public List<ActionAnalysisMetadata> getRegisteredActions() {
+    return Collections.unmodifiableList(actions);
   }
 
   @Override
   public SkyFunction.Environment getSkyframeEnv() {
     return skyframeEnv;
+  }
+
+  @Override
+  public SkylarkSemanticsOptions getSkylarkSemantics() throws InterruptedException {
+    return PrecomputedValue.SKYLARK_SEMANTICS.get(skyframeEnv);
   }
 
   @Override

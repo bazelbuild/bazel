@@ -1,0 +1,385 @@
+                                       ----------
+                                       Change Log
+                                       ----------
+
+Changes in version 5.0.3
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/issues/96} gh-96}} so that
+      options that take an argument but don't change the argument type from
+      <<<String>>> still show a <<<String>>> type indicator in the default
+      option help.
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/issues/104} gh-104}} so
+      that <<<EnumConverter>>> performs case-insensitive matching against arguments
+      of options. Thanks to Martin Paljak for this.
+
+Changes in version 5.0.2
+
+    * Made some package-private abstract classes become public classes
+      with package-private constructors. This makes it possible to call some methods
+      from Kotlin that were previously inaccessible. Thanks to Mirko Friedenhagen
+      for this.
+
+Changes in version 5.0.1
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/issues/92} gh-92}} so that
+      in the event that <<<printHelpOn()>>> is called more than once, the output
+      is not duplicated.
+
+Changes in version 5.0
+
+    * Abandoning JDKs prior to 7. All source is Java 7-compatible, and bytecode is compiled to 1.7
+      version.
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/issues/51} gh-51}} by adding
+      <<<OptionSpecBuilder.availableIf()>>> and <<<OptionSpecBuilder.availableUnless()>>>. Thanks
+      to Christian Ohr for this.
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/issues/70} gh-70}} by adding
+      <<<EnumConverter>>> and <<<PathConverter>>>. Thanks to Christian Ohr for this.
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/issues/88} gh-88}} by adding
+      an <<<OptionParser>>> constructor to allow suppression of option abbreviations.
+      Thanks to Louis Bergelson for this.
+
+Changes in version 4.10
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/issues/85} gh-85}}
+      by correcting the description column width consumption of the built-in
+      help formatter.
+
+Changes in version 4.9
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/issues/79} gh-79}}
+      by correcting the behavior of <<<OptionException.multipleOptionString>>>
+      when handling options with synonyms.
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/issues/72} gh-72}}
+      by externalizing some of the literal strings in <<<BuiltinHelpFormatter>>>
+      into resource bundles.
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/issues/76} gh-76}}
+      by modifying the behavior of <<<OptionalArgumentOptionSpec>>> so that if
+      the argument following the option does not "look like" an option but can
+      be converted to the option argument's type, treat the argument as the argument
+      of the option.
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/issues/68} gh-68}}
+      by modifying <<<BuiltinHelpFormatter>>> to be more extensible and documenting
+      the behavior of the newly accessible methods.
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/issues/73} gh-73}}
+      by correcting the behavior of <<<OptionSet.specs()>>> to remove all instances
+      of the non-option argument spec.
+
+Changes in version 4.8
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/issues/65} gh-65}}
+      by modifying the build file to create a JAR with OSGi metadata.
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/issues/63} gh-63}}
+      by externalizing exception messages into resource bundles.
+      Currently, we ship only with messages for locale "en_US".
+      Translations for other locales are more than welcome.
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/issues/58} gh-58}} by
+      rewriting exception messaging to clarify synonymous options.
+      Synonyms are be separated by slashes (/); lists of distinct options will
+      be separated by commas (,) in square brackets ([]).
+
+Changes in version 4.7
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/issues/57} gh-57}} by admitting
+      the underscore as a legal option character.
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/issues/53} gh-53}} by correcting
+      <<<OptionSet.hasOptions()>>> to answer correctly for no switches.
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/issues/56} gh-56}} by correcting
+      the default help formatting not to use a <<<Set>>> for rows of output,
+      but <<<List>>>.
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/issues/59} gh-59}} by relaxing
+      the return type of <<<ValueConverter.valueType()>>>.
+
+Changes in version 4.6
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/issues/31} gh-31}} by offering
+      <<<OptionSpecBuilder.requiredUnless()>>>. Thanks to Christian Ohr for this.
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/issues/38} gh-38}} by offering
+      <<<OptionParser.recognizedOptions()>>>. Thanks to Antoine Neveux for this.
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/issues/35} gh-35}} by offering
+      <<<OptionSet.asMap()>>>. Thanks to Brian Oxley for this.
+
+Changes in version 4.5
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/issues/17} gh-17}} by offering
+    <<<OptionParser.nonOptions()>>> and <<<NonOptionArgumentSpec>>>.
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/pull/27} gh-27}} by offering
+    <<<OptionParser.allowsUnrecognizedOptions()>>>. Thanks to Erik Broes for this.
+
+Changes in version 4.4
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/issues/16} gh-16}} by offering
+      <<<BuiltinHelpFormatter>>> that allows configuration of overall row width and
+      column separator width. Thanks to Ryan Breidenbach for contributing code to this.
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/issues/12} gh-12}} by offering
+      <<<OptionSpecBuilder.requiredIf()>>>.
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/issues/22} gh-22}}. Thanks to
+      El Kodus for this.
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/issues/19} gh-19}}. Thanks to
+      El Kodus for this.
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/issues/14} gh-14}} by offering
+      <<<AbstractOptionSpec.forHelp()>>>.
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/issues/13} gh-13}} by offering
+      <<<ArgumentAcceptingOptionSpec.withValuesSeparatedBy(String)>>>.
+
+    * Added <<<InetAddressValueConverter>>>. Thanks to Raymund F\u00FCl\u00F6p for this.
+
+Changes in version 4.3
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/issues/9} gh-9}} by offering
+      <<<OptionSet.specs()>>>, which gives a list of the specs corresponding to the
+      options detected on a parse, in the order in which the options occurred on the
+      command line.
+
+Changes in version 4.2
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/issues/8} gh-8}} by offering
+      <<<ArgumentAcceptingOptionSpec.defaultsTo(V[])>>> in addition to
+      <<<ArgumentAcceptingOptionSpec.defaultsTo(V, V...)>>>.
+
+    * Removing some internal unused classes and methods.
+
+Changes in version 4.1
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/issues/7} gh-7}} by allowing short option
+      clusters to contain options which can accept arguments. When such an option is encountered,
+      the remaining characters in the cluster are treated as the argument to the option. Thanks to
+      Alan van Dam for this.
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/issues/6} gh-6}} with general improvements
+      to the project's site. Thanks to Michael Osipov for this.
+
+Changes in version 4.0
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/issues/4} gh-4}} by adding method
+      <<<OptionParser.formatHelpWith(HelpFormatter)>>> to allow programmers to influence what
+      help is printed with <<<OptionParser.printHelpOn()>>>. A <<<HelpFormatter>>> is handed a
+      map, keyed by option text, whose values are <<<OptionDescriptor>>>s that describe the
+      options the parser has been configured with.
+
+    * Added method <<<OptionSet.hasOptions()>>>. Thanks to Michael Osipov for this.
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/pull/3} gh-3}} by using
+      <<<SimpleDateFormat.toPattern()>>> rather than <<<SimpleDateFormat.toLocalizedPattern()>>>
+      in <<<DateConverter>>>. Thanks to Michael Osipov for this.
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/issues/5} gh-5}} by allowing primitive
+      <<<Class>>> objects whose wrapper types are considered "value types" for purposes of
+      <<<ArgumentAcceptingOptionSpec.ofType()>>> in place of the wrapper classes. Thanks to
+      Daniel Yokomizo for suggesting this.
+
+Changes in version 3.3
+
+    * Resolved {{{https://github.com/pholser/jopt-simple/pull/1} gh-1}} by adding method
+      <<<required()>>> to class <<<ArgumentAcceptingOptionSpec>>>, to allow callers to indicate
+      that a given option must be present on the command line.  Thanks to Emils Solmanis for
+      adding this.
+
+Changes in version 3.2
+
+    * Added method <<<defaultsTo()>>> to class <<<ArgumentAcceptingOptionSpec>>>, to allow
+    callers to specify default values for arguments of options.  These influence the return
+    values of <<<OptionSpec.value(s)()>>> and <<<OptionSet.value(s)Of()>>>.  Default values
+    also show up in the help screen entries for their options.  This serves to resolve
+    {{{https://sourceforge.net/tracker/?func=detail&aid=2484524&group_id=125731&atid=703508} feature
+    request 2484524}}.
+
+    * Fixed a problem whereby the empty string, a string consisting solely of whitespace, or a
+    string with embedded whitespace weren't being properly recognized as arguments of options
+    when they should have.
+
+    * Resolved {{{https://sourceforge.net/tracker/?func=detail&aid=2793762&group_id=125731&atid=703508} feature
+    request 2793762}}, having to do with improving the behavior of embedded newlines in option
+    descriptions in help screens.
+
+Changes in version 3.1
+
+    * Added method <<<withValuesConvertedBy()>>> to class <<<ArgumentAcceptingOptionSpec>>>,
+    to allow callers to specify converters or validators that transform arguments of
+    options into instances of specific Java types.  This is useful for types which do not
+    meet the requirements of <<<ofType()>>>.
+
+    * Added classes <<<DateConverter>>> and <<<RegexMatcher>>> as examples of useful
+    argument converters.
+
+Changes in version 3.0.1
+
+    * Dependency on {{{http://ant.apache.org} Ant}} more appropriately test-scoped in the
+    {{{http://maven.apache.org} Maven}} POM.  That way, if you use JOpt Simple with Maven,
+    you don't download Ant unnecessarily.
+
+Changes in version 3.0
+
+    * Version 3.0 supports Java 5 and greater only.  If you need to use JOpt Simple in a
+    pre-Java-5 environment, use the latest 2.x release.
+
+    * Where appropriate, existing API calls have been updated to use Java generics.
+
+    * Extracted and surfaced interface <<<OptionSpec>>>.  <<<OptionSpec>>>s returned by
+    the fluent interface methods can be used to retrieve arguments of the options they
+    represent in a type-safe manner.
+
+    * Removed all previously deprecated methods.
+
+    * Added methods to <<<OptionSet>>> to allow detection of options and retrieval of
+    option arguments using instances of <<<OptionSpec>>>.
+
+    * Converted tests to JUnit 4.
+
+    * Switched to MIT License.
+
+    * Relaxing some <<<List>>> parameter types and return types of methods to
+    <<<Collection>>>.
+
+    * <<<OptionArgumentConversionException>>> no longer drops the original cause on the
+    floor; hence <<<OptionException>>> can now be created with a cause.
+
+    * {{{http://maven.apache.org} Maven}}-ized the project web site.
+
+    * Overhauled the examples page.
+
+Changes in version 2.4.1
+
+    * Fixed {{{https://sourceforge.net/tracker/index.php?func=detail&aid=2018262&group_id=125731&atid=703505} bug 2018262}}.
+
+Changes in version 2.4
+
+    * Added the <<<acceptsAll()>>> method to class <<<OptionParser>>>.  Options passed to
+    a given invocation of this method are treated as synonymous, so that each gives the
+    same answer when given as the argument to the methods <<<has()>>>, <<<valuesOf()>>>,
+    etc. on <<<OptionSet>>>.
+
+    * Surfaced the class <<<KeyValuePair>>>.  This class can be very handy as a value
+    type for arguments whose values take on the form <<<key=value>>>, such as the <<<-D>>>
+    arguments to JVMs.
+
+    * Fixed {{{https://sourceforge.net/tracker/index.php?func=detail&aid=1932577&group_id=125731&atid=703505} bug 1932577}}.
+
+    * Added method <<<withValuesSeparatedBy()>>> to class <<<ArgumentAcceptingOptionSpec>>>,
+    to allow callers to specify multiple values for an option as a single argument with
+    values separated by a given character.
+
+    * Method <<<ofType()>>> on class <<<ArgumentAcceptingOptionSpec>>> now returns self
+    rather than <<<void>>>.
+
+    * Deprecated another "get for get's sake": <<<OptionParser.setPosixlyCorrect()>>>
+    It is replaced with a less Java-beany-looking method.
+
+    * Cleaned up the help screens produced by <<<OptionParser.printHelpOn()>>> so they are
+    rendered as two 40-character columns, with long space-broken values split across lines
+    as needed.
+
+    * Fixed {{{https://sourceforge.net/tracker/index.php?func=detail&aid=1956418&group_id=125731&atid=703505} bug 1956418}}.
+
+Changes in version 2.3.6
+
+    * No changes to code; just getting {{{http://maven.apache.org} Maven}} to do releases
+    with its plugins.
+
+Changes in version 2.3.3
+
+    * Deprecated method <<<OptionSet.wasDetected()>>> in favor of <<<OptionSet.has()>>> --
+    the new name seems to read better.
+
+    * <<<OptionException>>>s now override <<<getMessage()>>> sensibly, so that if a caller
+    wants to handle the exception by catching it and displaying a message from the
+    exception, she can do so and get satisfactory results.
+
+    * {{{http://maven.apache.org} Maven}}-ized project's build.
+
+    * Minor internal changes.
+
+Changes in version 2.3.2
+
+    * Minor internal changes.
+
+Changes in version 2.3.1
+
+    * Fixed a bug with POSIX-ly correct parsers.  It was previously thought that POSIX-ly
+    correct parsers should signal end of options when they detect an argument that does
+    not lexically look like an option and could not be an argument of a previous option,
+    required or optional.  Such parsers now signal end of options when they detect an
+    argument that does not lexically look like an option, and is not an argument of a
+    previous option with a required argument.  If you want such an argument to be treated
+    as the argument of a preceding option whose argument is optional, you can still get
+    this behavior by appending the argument to the option, either with abutting syntax
+    (<<<-d/tmp>>>) or key-value syntax (<<<-d=/tmp>>>).
+
+Changes in version 2.3
+
+    * No feature changes in this release; but this release can now be used with JDK 1.3.
+    Previous releases could be used only with JDK 1.4 or newer.
+
+Changes in version 2.2
+
+    * Removed all previously deprecated methods.
+
+    * Re-clarified the contract of the one-arg <<<String>>> constructor of
+    <<<OptionParser>>>: the constructor now raises <<<NullPointerException>>> if its
+    argument is <<<null>>>.  This is the convention for Java library methods which receive
+    illegal <<<null>>> parameters.
+
+Changes in version 2.1
+
+    * Introduced a facility for <<<OptionParser>>>s to print a help screen, which
+    describes the options they accept.
+
+    * Added the ability to provide descriptions of options and their arguments when
+    configuring an <<<OptionParser>>>. These descriptions are printed in the
+    aforementioned help screens.
+
+    * Clarified the contract of the one-arg <<<String>>> constructor of <<<OptionParser>>>:
+    the constructor raises <<<IllegalArgumentException>>> if its argument is <<<null>>>.
+
+    * Deprecated <<<OptionParser.noArg()>>>, <<<OptionParser.requiredArg()>>>, and
+    <<<OptionParser.optionalArg()>>>.
+
+    * Deprecated some "gets for gets' sake": <<<OptionException.getOption()>>>,
+    <<<OptionSet.getNonOptionArguments()>>>.  They are replaced with less
+    Java-beany-looking methods.
+
+Changes in version 2.0
+
+    * Introduced a "fluent interface" API for specifying options for an <<<OptionParser>>>
+    to recognize.  The old methods for option specification still work--you need not
+    convert to the new methods.
+
+    * Added the ability to specify that option arguments should be converted to specific
+    types.  You can do this either with the old option specification methods or with the
+    new fluent interface API.
+
+    * Deprecated <<<OptionParser.requiresArg()>>> in favor of
+    <<<OptionParser.requiredArg()>>> -- the new name seems to read better.
+
+Version 1.0
+
+    * First major release.
+
+    * Includes concrete classes <<<OptionParser>>> and <<<OptionSet>>>.
+
+    * Supports POSIX <<<getopt()>>> and GNU <<<getopt_long()>>> command line syntax.
+
+    * No type conversion on option arguments, they are all treated as <<<String>>>s.
+
+    * Methods <<<noArg()>>>, <<<requiredArg()>>>, and <<<optionalArg()>>> tell an
+    <<<OptionParser>>> what options to recognize.

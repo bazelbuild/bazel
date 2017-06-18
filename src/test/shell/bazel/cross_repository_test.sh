@@ -228,9 +228,31 @@ EOF
 
   # These should now fail.
   bazel query @bar//:bar >& $TEST_log && fail "build should fail"
-  expect_log "no such package '@bar//':.*The repository named 'bar' could not be resolved"
+  expect_log "no such package '@bar//': The repository could not be resolved"
   bazel query @bar//subbar:subbar >& $TEST_log && fail "build should fail"
-  expect_log "no such package '@bar//subbar':.*The repository named 'bar' could not be resolved"
+  expect_log "no such package '@bar//subbar': The repository could not be resolved"
+}
+
+# Test for https://github.com/bazelbuild/bazel/issues/2580
+# This issue does not involve a local repository but it is triggered by the
+# local repository cross-reference check.
+function test_workspace_directory {
+  cat > WORKSPACE <<EOF
+load('//pkg/WORKSPACE:ext.bzl', 'VALUE')
+EOF
+
+  mkdir -p pkg/WORKSPACE
+
+  cat > pkg/WORKSPACE/BUILD <<EOF
+exports_files(['ext.bzl'])
+EOF
+
+  cat > pkg/WORKSPACE/ext.bzl <<EOF
+VALUE = 'a value'
+EOF
+
+  # These should succeed, they use the correct label.
+  bazel build //pkg/WORKSPACE:all || fail "build should succeed"
 }
 
 # TODO(katre): Add tests to verify incremental package reloads are necessary and correct.

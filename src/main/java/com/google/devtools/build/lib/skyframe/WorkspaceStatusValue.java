@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 
@@ -30,12 +32,15 @@ public class WorkspaceStatusValue extends ActionLookupValue {
   private final Artifact volatileArtifact;
 
   // There should only ever be one BuildInfo value in the graph.
-  public static final SkyKey SKY_KEY = SkyKey.create(SkyFunctions.BUILD_INFO, "BUILD_INFO");
   static final ArtifactOwner ARTIFACT_OWNER = new BuildInfoKey();
+  public static final SkyKey SKY_KEY = LegacySkyKey.create(SkyFunctions.BUILD_INFO, ARTIFACT_OWNER);
 
-  public WorkspaceStatusValue(Artifact stableArtifact, Artifact volatileArtifact,
-      WorkspaceStatusAction action) {
-    super(action);
+  WorkspaceStatusValue(
+      Artifact stableArtifact,
+      Artifact volatileArtifact,
+      WorkspaceStatusAction action,
+      boolean removeActionAfterEvaluation) {
+    super(action, removeActionAfterEvaluation);
     this.stableArtifact = stableArtifact;
     this.volatileArtifact = volatileArtifact;
   }
@@ -50,12 +55,12 @@ public class WorkspaceStatusValue extends ActionLookupValue {
 
   private static class BuildInfoKey extends ActionLookupKey {
     @Override
-    SkyFunctionName getType() {
+    protected SkyFunctionName getType() {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    SkyKey getSkyKey() {
+    protected SkyKey getSkyKeyInternal() {
       return SKY_KEY;
     }
   }

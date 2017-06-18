@@ -21,7 +21,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -30,8 +29,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -40,7 +37,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.ShellEscaper;
-import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -62,6 +58,7 @@ public class FakeCppCompileAction extends CppCompileAction {
 
   FakeCppCompileAction(
       ActionOwner owner,
+      NestedSet<Artifact> allInputs,
       ImmutableList<String> features,
       FeatureConfiguration featureConfiguration,
       CcToolchainFeatures.Variables variables,
@@ -72,19 +69,23 @@ public class FakeCppCompileAction extends CppCompileAction {
       boolean useHeaderModules,
       Label sourceLabel,
       NestedSet<Artifact> mandatoryInputs,
+      NestedSet<Artifact> prunableInputs,
       Artifact outputFile,
       PathFragment tempOutputFile,
       DotdFile dotdFile,
-      BuildConfiguration configuration,
+      ImmutableMap<String, String> localShellEnvironment,
       CppConfiguration cppConfiguration,
       CppCompilationContext context,
       Class<? extends CppCompileActionContext> actionContext,
       ImmutableList<String> copts,
       Predicate<String> nocopts,
-      RuleContext ruleContext,
-      CppSemantics cppSemantics) {
+      Iterable<IncludeScannable> lipoScannables,
+      CppSemantics cppSemantics,
+      CcToolchainProvider cppProvider,
+      ImmutableMap<String, String> executionInfo) {
     super(
         owner,
+        allInputs,
         features,
         featureConfiguration,
         variables,
@@ -95,13 +96,14 @@ public class FakeCppCompileAction extends CppCompileAction {
         useHeaderModules,
         sourceLabel,
         mandatoryInputs,
+        prunableInputs,
         outputFile,
         dotdFile,
         null,
         null,
         null,
-        configuration.getLocalShellEnvironment(),
-        configuration.isCodeCoverageEnabled(),
+        null,
+        localShellEnvironment,
         cppConfiguration,
         // We only allow inclusion of header files explicitly declared in
         // "srcs", so we only use declaredIncludeSrcs, not declaredIncludeDirs.
@@ -115,14 +117,14 @@ public class FakeCppCompileAction extends CppCompileAction {
         copts,
         nocopts,
         VOID_SPECIAL_INPUTS_HANDLER,
-        ImmutableList.<IncludeScannable>of(),
+        lipoScannables,
         ImmutableList.<Artifact>of(),
         GUID,
-        ImmutableSet.<String>of(),
+        executionInfo,
         ImmutableMap.<String, String>of(),
         CppCompileAction.CPP_COMPILE,
-        ruleContext,
-        cppSemantics);
+        cppSemantics,
+        cppProvider);
     this.tempOutputFile = Preconditions.checkNotNull(tempOutputFile);
   }
 
@@ -139,19 +141,10 @@ public class FakeCppCompileAction extends CppCompileAction {
     CppCompileActionContext context = executor.getContext(actionContext);
     CppCompileActionContext.Reply reply = null;
     try {
-      // We delegate stdout/stderr to nowhere, i.e. same as redirecting to /dev/null.
-      reply = context.execWithReply(
-          this, actionExecutionContext.withFileOutErr(new FileOutErr()));
+      reply = context.execWithReply(this, actionExecutionContext);
     } catch (ExecException e) {
-      // We ignore failures here (other than capturing the Distributor reply).
-      // The compilation may well fail (that's the whole point of negative compilation tests).
-      // We execute it here just for the side effect of generating the ".d" file.
-      reply = context.getReplyFromException(e, this);
-      if (reply == null) {
-        // This can only happen if the ExecException does not come from remote execution.
-        throw e.toActionExecutionException("Fake C++ Compilation of rule '"
-            + getOwner().getLabel() + "'", executor.getVerboseFailures(), this);
-      }
+      throw e.toActionExecutionException("C++ compilation of rule '" + getOwner().getLabel() + "'",
+          executor.getVerboseFailures(), this);
     }
     IncludeScanningContext scanningContext = executor.getContext(IncludeScanningContext.class);
     Path execRoot = executor.getExecRoot();
@@ -163,10 +156,9 @@ public class FakeCppCompileAction extends CppCompileAction {
       HeaderDiscovery.Builder discoveryBuilder =
           new HeaderDiscovery.Builder()
               .setAction(this)
-              .setDotdFile(getDotdFile())
               .setSourceFile(getSourceFile())
               .setSpecialInputsHandler(specialInputsHandler)
-              .setDependencySet(processDepset(execRoot, reply))
+              .setDependencies(processDepset(execRoot, reply).getDependencies())
               .setPermittedSystemIncludePrefixes(getPermittedSystemIncludePrefixes(execRoot))
               .setAllowedDerivedinputsMap(getAllowedDerivedInputsMap());
 
@@ -177,7 +169,7 @@ public class FakeCppCompileAction extends CppCompileAction {
       discoveredInputs =
           discoveryBuilder
               .build()
-              .discoverInputsFromDotdFiles(execRoot, scanningContext.getArtifactResolver());
+              .discoverInputsFromDependencies(execRoot, scanningContext.getArtifactResolver());
     }
      
     reply = null; // Clear in-memory .d files early.
@@ -247,9 +239,8 @@ public class FakeCppCompileAction extends CppCompileAction {
           + "mkdir -p " + outputPrefix + "$(dirname " + outputFile.getExecPath() + ")"
           + " && " + argv + "\n");
     } catch (IOException e) {
-      throw new ActionExecutionException("failed to create fake compile command for rule '" +
-                                         getOwner().getLabel() + ": " + e.getMessage(),
-                                         this, false);
+      throw new ActionExecutionException("failed to create fake compile command for rule '"
+          + getOwner().getLabel() + ": " + e.getMessage(), this, false);
     }
   }
 
@@ -259,15 +250,12 @@ public class FakeCppCompileAction extends CppCompileAction {
   }
 
   @Override
-  public String getMnemonic() { return "FakeCppCompile"; }
+  public String getMnemonic() {
+    return "FakeCppCompile";
+  }
 
   @Override
   public ResourceSet estimateResourceConsumptionLocal() {
     return ResourceSet.createWithRamCpuIo(/*memoryMb=*/1, /*cpuUsage=*/0.1, /*ioUsage=*/0.0);
-  }
-
-  @Override
-  public ResourceSet estimateResourceConsumption(Executor executor) {
-    return executor.getContext(actionContext).estimateResourceConsumption(this);
   }
 }

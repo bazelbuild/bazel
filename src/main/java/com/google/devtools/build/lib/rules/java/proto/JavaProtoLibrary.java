@@ -76,16 +76,25 @@ public class JavaProtoLibrary implements RuleConfiguredTargetFactory {
       filesToBuild.addTransitive(provider.getJars());
     }
 
+
+    JavaRuleOutputJarsProvider ruleOutputJarsProvider =
+        JavaRuleOutputJarsProvider.builder().build();
+    JavaSkylarkApiProvider.Builder skylarkApiProvider =
+        JavaSkylarkApiProvider.builder()
+            .setRuleOutputJarsProvider(ruleOutputJarsProvider)
+            .setSourceJarsProvider(sourceJarsProvider)
+            .setCompilationArgsProvider(dependencyArgsProviders);
+
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(filesToBuild.build())
+        .addSkylarkTransitiveInfo(JavaSkylarkApiProvider.NAME, skylarkApiProvider.build())
         .addProvider(RunfilesProvider.class, RunfilesProvider.withData(Runfiles.EMPTY, runfiles))
         .addOutputGroup(
             OutputGroupProvider.DEFAULT, NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
         .add(JavaCompilationArgsProvider.class, dependencyArgsProviders)
         .add(JavaSourceJarsProvider.class, sourceJarsProvider)
         .add(JavaRunfilesProvider.class, new JavaRunfilesProvider(runfiles))
-        .add(JavaRuleOutputJarsProvider.class, JavaRuleOutputJarsProvider.builder().build())
-        .addSkylarkTransitiveInfo(JavaSkylarkApiProvider.NAME, new JavaSkylarkApiProvider())
+        .add(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
         .build();
   }
 

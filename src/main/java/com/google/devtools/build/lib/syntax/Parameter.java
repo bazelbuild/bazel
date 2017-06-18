@@ -69,7 +69,7 @@ public abstract class Parameter<V, T> extends Argument {
   }
 
   /** mandatory parameter (positional or key-only depending on position): Ident */
-  public static class Mandatory<V, T> extends Parameter<V, T> {
+  public static final class Mandatory<V, T> extends Parameter<V, T> {
 
     public Mandatory(String name) {
       super(name);
@@ -90,7 +90,7 @@ public abstract class Parameter<V, T> extends Argument {
   }
 
   /** optional parameter (positional or key-only depending on position): Ident = Value */
-  public static class Optional<V, T> extends Parameter<V, T> {
+  public static final class Optional<V, T> extends Parameter<V, T> {
     public final V defaultValue;
 
     public Optional(String name, @Nullable V defaultValue) {
@@ -118,7 +118,7 @@ public abstract class Parameter<V, T> extends Argument {
   }
 
   /** extra positionals parameter (star): *identifier */
-  public static class Star<V, T> extends Parameter<V, T> {
+  public static final class Star<V, T> extends Parameter<V, T> {
     public Star(@Nullable String name, @Nullable T type) {
       super(name, type);
     }
@@ -146,7 +146,7 @@ public abstract class Parameter<V, T> extends Argument {
   }
 
   /** extra keywords parameter (star_star): **identifier */
-  public static class StarStar<V, T> extends Parameter<V, T> {
+  public static final class StarStar<V, T> extends Parameter<V, T> {
     public StarStar(String name, @Nullable T type) {
       super(name, type);
     }

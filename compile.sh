@@ -22,6 +22,26 @@
 
 set -o errexit
 
+# Correct PATH on Windows, to avoid using "FIND.EXE" instead of "/usr/bin/find"
+# etc, leading to confusing errors.
+export BAZEL_OLD_PATH=$PATH
+case "$(uname -s | tr [:upper:] [:lower:])" in
+msys*|mingw*|cygwin*)
+  # Check that the PATH is set up correctly by attempting to locate `[`.
+  # This ensures that `which` is installed correctly and can succeed, while
+  # also avoids accidentally locating a tool that exists in plain Windows too
+  # (like "find" for "FIND.EXE").
+  which [ >&/dev/null || export PATH="/bin:/usr/bin:$PATH"
+esac
+
+# Check that the bintools can be found, otherwise we would see very confusing
+# error messages.
+which [ >&/dev/null || {
+  echo >&2 "ERROR: cannot locate GNU bintools; check your PATH."
+  echo >&2 "       (You may need to run 'export PATH=/bin:/usr/bin:\$PATH)'"
+  exit 1
+}
+
 cd "$(dirname "$0")"
 
 # Set the default verbose mode in buildenv.sh so that we do not display command
@@ -93,6 +113,11 @@ if [[ $PLATFORM == "darwin" ]] && \
     xcodebuild -showsdks 2> /dev/null | grep -q '\-sdk iphonesimulator'; then
   EXTRA_BAZEL_ARGS="${EXTRA_BAZEL_ARGS-} --define IPHONE_SDK=1"
 fi
+
+if [[ $PLATFORM == "windows" ]]; then
+  EXTRA_BAZEL_ARGS="${EXTRA_BAZEL_ARGS-} --cpu=x64_windows_msys --host_cpu=x64_windows_msys"
+fi
+
 source scripts/bootstrap/bootstrap.sh
 
 if [ $DO_COMPILE ]; then
@@ -153,7 +178,7 @@ if [ $DO_SRCS_TEST ]; then
   # See file BUILD for the list of grep -v exceptions.
   # tools/defaults package is hidden by Bazel so cannot be put in the srcs.
   find . -type f | sed -e 's|./||' \
-    | grep -v '^bazel-' | grep -v '^WORKSPACE.user.bzl' \
+    | grep -v '^bazel-' \
     | grep -v '^\.' | grep -v '^out/' | grep -v '^output/' \
     | grep -v '^derived' \
     | grep -Ev "${SRCS_EXCLUDES}" \

@@ -14,16 +14,15 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.DottedVersionConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
+import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import java.util.List;
 
 /**
@@ -41,85 +40,105 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   )
   public DottedVersion iosSimulatorVersion;
 
-  @Option(name = "ios_simulator_device",
-      defaultValue = "iPhone 5s",
-      category = "run",
-      help = "The device to simulate when running an iOS application in the simulator, e.g. "
-          + "'iPhone 6'. You can get a list of devices by running 'xcrun simctl list devicetypes' "
-          + "on the machine the simulator will be run on.")
+  @Option(
+    name = "ios_simulator_device",
+    defaultValue = "iPhone 5s",
+    category = "run",
+    help =
+        "The device to simulate when running an iOS application in the simulator, e.g. "
+            + "'iPhone 6'. You can get a list of devices by running 'xcrun simctl list "
+            + "devicetypes' on the machine the simulator will be run on."
+  )
   public String iosSimulatorDevice;
 
   @Option(
-      name = "watchos_simulator_version",
-      defaultValue = "2.0",
-      category = "run",
-      converter = DottedVersionConverter.class,
-      help = "The version of watchOS to run on the simulator when running or testing."
+    name = "watchos_simulator_version",
+    defaultValue = "2.0",
+    category = "run",
+    converter = DottedVersionConverter.class,
+    help = "The version of watchOS to run on the simulator when running or testing."
   )
   public DottedVersion watchosSimulatorVersion;
 
-  @Option(name = "watchos_simulator_device",
-      defaultValue = "Apple Watch - 38mm",
-      category = "run",
-      help = "The device to simulate when running an watchOS application in the simulator, e.g. "
-          + "'Apple Watch - 38mm'. You can get a list of devices by running 'xcrun simctl list "
-          + "devicetypes' on the machine the simulator will be run on.")
+  @Option(
+    name = "watchos_simulator_device",
+    defaultValue = "Apple Watch - 38mm",
+    category = "run",
+    help =
+        "The device to simulate when running an watchOS application in the simulator, e.g. "
+            + "'Apple Watch - 38mm'. You can get a list of devices by running 'xcrun simctl list "
+            + "devicetypes' on the machine the simulator will be run on."
+  )
   public String watchosSimulatorDevice;
 
   @Option(
-      name = "tvos_simulator_version",
-      defaultValue = "9.0",
-      category = "run",
-      converter = DottedVersionConverter.class,
-      help = "The version of tvOS to run on the simulator when running or testing."
+    name = "tvos_simulator_version",
+    defaultValue = "9.0",
+    category = "run",
+    converter = DottedVersionConverter.class,
+    help = "The version of tvOS to run on the simulator when running or testing."
   )
   public DottedVersion tvosSimulatorVersion;
 
-  @Option(name = "tvos_simulator_device",
-      defaultValue = "Apple TV 1080p",
-      category = "run",
-      help = "The device to simulate when running an tvOS application in the simulator, e.g. "
-          + "'Apple TV 1080p'. You can get a list of devices by running 'xcrun simctl list "
-          + "devicetypes' on the machine the simulator will be run on.")
+  @Option(
+    name = "tvos_simulator_device",
+    defaultValue = "Apple TV 1080p",
+    category = "run",
+    help =
+        "The device to simulate when running an tvOS application in the simulator, e.g. "
+            + "'Apple TV 1080p'. You can get a list of devices by running 'xcrun simctl list "
+            + "devicetypes' on the machine the simulator will be run on."
+  )
   public String tvosSimulatorDevice;
 
-  @Option(name = "objc_generate_linkmap",
-      defaultValue = "false",
-      category = "flags",
-      help = "Specifies whether to generate a linkmap file.")
+  @Option(
+    name = "objc_generate_linkmap",
+    defaultValue = "false",
+    category = "flags",
+    help = "Specifies whether to generate a linkmap file."
+  )
   public boolean generateLinkmap;
 
-  @Option(name = "objccopt",
-      allowMultiple = true,
-      defaultValue = "",
-      category = "flags",
-      help = "Additional options to pass to Objective C compilation.")
+  @Option(
+    name = "objccopt",
+    allowMultiple = true,
+    defaultValue = "",
+    category = "flags",
+    help = "Additional options to pass to Objective C compilation."
+  )
   public List<String> copts;
 
-  @Option(name = "ios_memleaks",
-      defaultValue =  "false",
-      category = "misc",
-      help = "Enable checking for memory leaks in ios_test targets.")
+  @Option(
+    name = "ios_memleaks",
+    defaultValue = "false",
+    category = "misc",
+    help = "Enable checking for memory leaks in ios_test targets."
+  )
   public boolean runMemleaks;
 
-  @Option(name = "experimental_enable_objc_cc_deps",
-      defaultValue = "false",
-      category = "undocumented",
-      help = "Allows objc_* rules to depend on cc_library and causes any objc dependencies to be "
-          + "built with --cpu set to \"ios_<--ios_cpu>\" for any values in --ios_multi_cpu.")
+  @Option(
+    name = "experimental_enable_objc_cc_deps",
+    defaultValue = "true",
+    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+    help =
+        "Allows objc_* rules to depend on cc_library and causes any objc dependencies to be "
+            + "built with --cpu set to \"ios_<--ios_cpu>\" for any values in --ios_multi_cpu."
+  )
   public boolean enableCcDeps;
 
-  @Option(name = "experimental_objc_fastbuild_options",
-      defaultValue = "-O0,-DDEBUG=1",
-      category = "undocumented",
-      converter = CommaSeparatedOptionListConverter.class,
-      help = "Uses these strings as objc fastbuild compiler options.")
+  @Option(
+    name = "experimental_objc_fastbuild_options",
+    defaultValue = "-O0,-DDEBUG=1",
+    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+    converter = CommaSeparatedOptionListConverter.class,
+    help = "Uses these strings as objc fastbuild compiler options."
+  )
   public List<String> fastbuildOptions;
 
   @Option(
     name = "experimental_objc_enable_module_maps",
     defaultValue = "false",
-    category = "undocumented",
+    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     help = "Enables module map generation and interpretation."
   )
   public boolean enableModuleMaps;
@@ -157,7 +176,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   @Option(
     name = "experimental_use_absolute_paths_for_actions",
     defaultValue = "false",
-    category = "undocumented",
+    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     help = "If set, then all actions objc actions will be executed with absolute paths."
   )
   public boolean useAbsolutePathsForActions;
@@ -174,7 +193,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
 
   @Option(
     name = "objc_includes_prioritize_static_libs",
-    defaultValue = "false",
+    defaultValue = "true",
     category = "flags",
     help =
         "If set, the linker invocation will contain static library includes before frameworks"
@@ -185,10 +204,10 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   @Option(
     name = "objc_debug_with_GLIBCXX",
     defaultValue = "true",
-    category = "undocumented",
+    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     help =
-      "If set, and compilation mode is set to 'dbg', define GLIBCXX_DEBUG, "
-        + " GLIBCXX_DEBUG_PEDANTIC and GLIBCPP_CONCEPT_CHECKS."
+        "If set, and compilation mode is set to 'dbg', define GLIBCXX_DEBUG, "
+            + " GLIBCXX_DEBUG_PEDANTIC and GLIBCPP_CONCEPT_CHECKS."
   )
   public boolean debugWithGlibcxx;
 
@@ -214,22 +233,47 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public boolean deviceDebugEntitlements;
 
   @Option(
-    name = "experimental_objc_library",
+    name = "deprecated_generate_xcode_project",
     defaultValue = "false",
-    category = "undocumented"
+    category = "flags",
+    help =
+        "If set, will generate xcode project for targets that support this. Will be removed soon."
   )
-  public boolean experimentalObjcLibrary;
+  public boolean generateXcodeProject;
+
+  /** Specifies the circumstances under which a CROSSTOOL is used for objc in this configuration. */
+  public enum ObjcCrosstoolMode {
+    /** The CROSSTOOL is used for all objc compile, archive, and link actions. */
+    ALL,
+
+    /**
+     * The CROSSTOOL is used for all objc compile and archive actions originating from an
+     * objc_library target.
+     */
+    LIBRARY,
+
+    /** The CROSSTOOL is not used for any objc action. */
+    OFF
+  }
+
+  /** Converter for {@link ObjcCrosstoolMode}. */
+  public static class ObjcCrosstoolUsageConverter extends EnumConverter<ObjcCrosstoolMode> {
+    public ObjcCrosstoolUsageConverter() {
+      super(ObjcCrosstoolMode.class, "objc crosstool mode");
+    }
+  }
 
   @Option(
-    name = "experimental_objc_use_crosstool_for_binary",
-    defaultValue = "false",
-    category = "undocumented"
+    name = "experimental_objc_crosstool",
+    defaultValue = "off",
+    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+    converter = ObjcCrosstoolUsageConverter.class
   )
-  public boolean experimentalUseCrosstoolForBinary;
+  public ObjcCrosstoolMode objcCrosstoolMode;
 
   @Option(
     name = "objc_use_dotd_pruning",
-    defaultValue = "false",
+    defaultValue = "true",
     category = "flags",
     help =
         "If set, .d files emited by clang will be used to prune the set of inputs passed into objc "
@@ -241,19 +285,55 @@ public class ObjcCommandLineOptions extends FragmentOptions {
     name = "enable_apple_binary_native_protos",
     defaultValue = "true",
     category = "flags",
-    help =
-        "If set, apple_binary will generate and link objc protos into the output binary."
+    help = "If set, apple_binary will generate and link objc protos into the output binary."
   )
   public boolean enableAppleBinaryNativeProtos;
 
-  @SuppressWarnings("unchecked")
+  @Option(
+    name = "experimental_objc_header_thinning",
+    defaultValue = "false",
+    category = "flags",
+    help =
+        "If set then ObjcCompile actions will have their action inputs reduced by running a tool "
+            + "to detect which headers are actually required for compilation."
+  )
+  public boolean experimentalObjcHeaderThinning;
+
+  @Option(
+    name = "objc_header_thinning_partition_size",
+    defaultValue = "120",
+    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+    help = "The maximum number of source files to process within in each header scanning action."
+  )
+  public int objcHeaderThinningPartitionSize;
+
+  @Option(
+    name = "objc_header_scanner_tool",
+    defaultValue = "@bazel_tools//tools/objc:header_scanner",
+    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+    converter = LabelConverter.class,
+    help =
+        "Location of tool to scan Objective-C code for inclusions and output a .headers_list "
+            + "file."
+  )
+  public Label objcHeaderScannerTool;
+
+  @Option(
+    name = "apple_sdk",
+    defaultValue = "null",
+    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+    converter = LabelConverter.class,
+    help =
+        "Location of target that will provide the appropriate Apple SDK for the current build "
+            + "configuration."
+  )
+  public Label appleSdk;
+
   @Override
-  public List<SplitTransition<BuildOptions>> getPotentialSplitTransitions() {
-    return ImmutableList.<SplitTransition<BuildOptions>>builder().add(
-            IosApplication.SPLIT_ARCH_TRANSITION, IosExtension.MINIMUM_OS_AND_SPLIT_ARCH_TRANSITION,
-            AppleWatch1Extension.MINIMUM_OS_AND_SPLIT_ARCH_TRANSITION,
-            AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION)
-        .addAll(MultiArchSplitTransitionProvider.getPotentialSplitTransitions())
-        .build();
+  public FragmentOptions getHost(boolean fallback) {
+    ObjcCommandLineOptions host = (ObjcCommandLineOptions) super.getHost(fallback);
+    // This should have the same value in both target and host configurations
+    host.objcHeaderScannerTool = this.objcHeaderScannerTool;
+    return host;
   }
 }

@@ -22,7 +22,6 @@ import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -30,8 +29,12 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 
 /**
  * Rule definition for objc_binary.
+ *
+ * @deprecated The native bundling rules have been deprecated. This class will be removed in the
+ *     future.
  */
 // TODO(bazel-team): Remove bundling functionality (dependency on ApplicationRule, IPA output).
+@Deprecated
 public class ObjcBinaryRule implements RuleDefinition {
 
   @Override
@@ -46,12 +49,9 @@ public class ObjcBinaryRule implements RuleDefinition {
         <ul>
          <li><code><var>name</var>.ipa</code>: the application bundle as an <code>.ipa</code>
              file</li>
-         <li><code><var>name</var>.xcodeproj/project.pbxproj</code>: An Xcode project file which
-             can be used to develop or build on a Mac.</li>
         </ul>
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
-        .setImplicitOutputsFunction(
-            ImplicitOutputsFunction.fromFunctions(ReleaseBundlingSupport.IPA, XcodeSupport.PBXPROJ))
+        .setImplicitOutputsFunction(ReleaseBundlingSupport.IPA)
         // TODO(bazel-team): Remove these when this rule no longer produces a bundle.
         .add(
             attr("$runner_script_template", LABEL)
@@ -61,6 +61,7 @@ public class ObjcBinaryRule implements RuleDefinition {
             attr("$is_executable", BOOLEAN)
                 .value(true)
                 .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target"))
+        .cfg(AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION)
         .build();
   }
 
@@ -72,15 +73,17 @@ public class ObjcBinaryRule implements RuleDefinition {
         .ancestors(
             BaseRuleClasses.BaseRule.class,
             ObjcRuleClasses.LinkingRule.class,
-            ObjcRuleClasses.XcodegenRule.class,
             ObjcRuleClasses.ReleaseBundlingRule.class,
-            ObjcRuleClasses.SimulatorRule.class,
-            ObjcRuleClasses.CrosstoolRule.class)
+            ObjcRuleClasses.SimulatorRule.class)
         .build();
   }
 }
 
 /*<!-- #BLAZE_RULE (NAME = objc_binary, TYPE = BINARY, FAMILY = Objective-C) -->
+
+<p><strong>This rule is deprecated.</strong> Please use the new Apple build rules
+(<a href="https://github.com/bazelbuild/rules_apple">https://github.com/bazelbuild/rules_apple</a>)
+to build Apple targets.</p>
 
 <p>This rule produces one or more Objective-C libraries for bundling in an
 <code>ios_application</code>.</p>

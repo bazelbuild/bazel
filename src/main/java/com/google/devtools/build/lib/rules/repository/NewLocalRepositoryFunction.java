@@ -29,8 +29,8 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
+import java.util.Map;
 
 /**
  * Create a repository from a directory on the local filesystem.
@@ -43,13 +43,12 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
   }
 
   @Override
-  public SkyValue fetch(
-      Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env)
+  public RepositoryDirectoryValue.Builder fetch(Rule rule, Path outputDirectory,
+      BlazeDirectories directories, Environment env, Map<String, String> markerData)
       throws SkyFunctionException, InterruptedException {
 
-    NewRepositoryBuildFileHandler buildFileHandler =
-        new NewRepositoryBuildFileHandler(directories.getWorkspace());
-    if (!buildFileHandler.prepareBuildFile(rule, env)) {
+    NewRepositoryFileHandler fileHandler = new NewRepositoryFileHandler(directories.getWorkspace());
+    if (!fileHandler.prepareFile(rule, env)) {
       return null;
     }
 
@@ -118,21 +117,9 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
       return null;
     }
 
-    buildFileHandler.finishBuildFile(outputDirectory);
+    fileHandler.finishFile(outputDirectory);
 
-    // If someone specified *new*_local_repository, we can assume they didn't want the existing
-    // repository info.
-    Path workspaceFile = outputDirectory.getRelative("WORKSPACE");
-    if (workspaceFile.exists()) {
-      try {
-        workspaceFile.delete();
-      } catch (IOException e) {
-        throw new RepositoryFunctionException(e, Transience.TRANSIENT);
-      }
-    }
-    createWorkspaceFile(outputDirectory, rule.getTargetKind(), rule.getName());
-
-    return RepositoryDirectoryValue.createWithSourceDirectory(outputDirectory, directoryValue);
+    return RepositoryDirectoryValue.builder().setPath(outputDirectory).setSourceDir(directoryValue);
   }
 
   @Override

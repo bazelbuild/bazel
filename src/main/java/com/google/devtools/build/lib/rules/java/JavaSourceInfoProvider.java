@@ -17,10 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.Collection;
 import java.util.Map;
 
@@ -35,7 +37,7 @@ public final class JavaSourceInfoProvider implements TransitiveInfoProvider {
   private final Collection<Artifact> sourceJarsForJarFiles;
   private final Map<PathFragment, Artifact> resources;
   private final Collection<String> processorNames;
-  private final Collection<Artifact> processorPath;
+  private final NestedSet<Artifact> processorPath;
 
   private JavaSourceInfoProvider(
       Collection<Artifact> sourceFiles,
@@ -44,7 +46,7 @@ public final class JavaSourceInfoProvider implements TransitiveInfoProvider {
       Collection<Artifact> sourceJarsForJarFiles,
       Map<PathFragment, Artifact> resources,
       Collection<String> processorNames,
-      Collection<Artifact> processorPath) {
+      NestedSet<Artifact> processorPath) {
     this.sourceFiles = sourceFiles;
     this.sourceJars = sourceJars;
     this.jarFiles = jarFiles;
@@ -104,7 +106,7 @@ public final class JavaSourceInfoProvider implements TransitiveInfoProvider {
   }
 
   /** Gets the classpath for the annotation processors which operate on this rule's sources. */
-  public Collection<Artifact> getProcessorPath() {
+  public NestedSet<Artifact> getProcessorPath() {
     return processorPath;
   }
 
@@ -133,7 +135,7 @@ public final class JavaSourceInfoProvider implements TransitiveInfoProvider {
     private Collection<Artifact> sourceJarsForJarFiles = ImmutableList.<Artifact>of();
     private Map<PathFragment, Artifact> resources = ImmutableMap.<PathFragment, Artifact>of();
     private Collection<String> processorNames = ImmutableList.<String>of();
-    private Collection<Artifact> processorPath = ImmutableList.<Artifact>of();
+    private NestedSet<Artifact> processorPath = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
 
     /** Sets the source files included as part of the sources of this rule. */
     public Builder setSourceFiles(Collection<Artifact> sourceFiles) {
@@ -183,8 +185,9 @@ public final class JavaSourceInfoProvider implements TransitiveInfoProvider {
     }
 
     /** Sets the classpath used by this rule for annotation processing. */
-    public Builder setProcessorPath(Collection<Artifact> processorPath) {
-      this.processorPath = Preconditions.checkNotNull(processorPath);
+    public Builder setProcessorPath(NestedSet<Artifact> processorPath) {
+      Preconditions.checkNotNull(processorPath);
+      this.processorPath = processorPath;
       return this;
     }
 

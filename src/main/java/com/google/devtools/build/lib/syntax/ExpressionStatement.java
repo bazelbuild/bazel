@@ -14,12 +14,6 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.base.Optional;
-import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
-import com.google.devtools.build.lib.syntax.compiler.LoopLabels;
-import com.google.devtools.build.lib.syntax.compiler.VariableScope;
-
-import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
 
 /**
  * Syntax node for a function call statement. Used for build rules.
@@ -54,12 +48,5 @@ public final class ExpressionStatement extends Statement {
   @Override
   void validate(ValidationEnvironment env) throws EvalException {
     expr.validate(env);
-  }
-
-  @Override
-  ByteCodeAppender compile(
-      VariableScope scope, Optional<LoopLabels> loopLabels, DebugInfo debugInfo)
-      throws EvalException {
-    return expr.compile(scope, debugInfo);
   }
 }

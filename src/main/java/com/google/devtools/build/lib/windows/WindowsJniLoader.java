@@ -39,13 +39,4 @@ public class WindowsJniLoader {
     }
     jniLoaded = true;
   }
-
-  public static synchronized void loadJniForTesting(String jniDll) {
-    if (jniLoaded) {
-      return;
-    }
-
-    System.load(jniDll);
-    jniLoaded = true;
-  }
 }

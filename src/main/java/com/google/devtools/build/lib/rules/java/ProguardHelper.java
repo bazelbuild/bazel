@@ -14,24 +14,30 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction.Builder;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaOptimizationMode;
 import com.google.devtools.build.lib.syntax.Type;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -108,10 +114,13 @@ public abstract class ProguardHelper {
 
     /** Adds the output artifacts to the given set builder. */
     public void addAllToSet(NestedSetBuilder<Artifact> filesBuilder) {
+      addAllToSet(filesBuilder, null);
+    }
+
+    /** Adds the output artifacts to the given set builder. If the progaurd map was updated
+     * then add the updated map instead of the original proguard output map */
+    public void addAllToSet(NestedSetBuilder<Artifact> filesBuilder, Artifact finalProguardMap) {
       filesBuilder.add(outputJar);
-      if (mapping != null) {
-        filesBuilder.add(mapping);
-      }
       if (protoMapping != null) {
         filesBuilder.add(protoMapping);
       }
@@ -127,21 +136,27 @@ public abstract class ProguardHelper {
       if (config != null) {
         filesBuilder.add(config);
       }
+      if (finalProguardMap != null) {
+        filesBuilder.add(finalProguardMap);
+      } else if (mapping != null) {
+        filesBuilder.add(mapping);
+      }
     }
   }
 
   protected ProguardHelper() {}
 
   /**
-   * Creates an action to run Proguard to <i>output</i> the given {@code deployJar} artifact
-   * if --java_optimization_mode calls for it from an assumed input artifact
-   * {@link JavaSemantics#JAVA_BINARY_MERGED_JAR}.  Returns the artifacts that Proguard will
-   * generate or {@code null} if Proguard isn't used.
+   * Creates an action to run Proguard to <i>output</i> the given {@code deployJar} artifact if
+   * --java_optimization_mode calls for it from an assumed input artifact {@link
+   * JavaSemantics#JAVA_BINARY_MERGED_JAR}. Returns the artifacts that Proguard will generate or
+   * {@code null} if Proguard isn't used.
    *
-   * <p>If this method returns artifacts then {@link DeployArchiveBuilder} needs to write the
-   * assumed input artifact (instead of the conventional deploy.jar, which now Proguard writes).
-   * Do not use this method for binary rules that themselves declare {@link #PROGUARD_SPECS}
-   * attributes, which as of includes 1/2016 {@code android_binary} and {@code android_test}.
+   * <p>If this method returns artifacts then {@link
+   * com.google.devtools.build.lib.rules.java.DeployArchiveBuilder} needs to write the assumed input
+   * artifact (instead of the conventional deploy.jar, which now Proguard writes). Do not use this
+   * method for binary rules that themselves declare {@link #PROGUARD_SPECS} attributes, which as of
+   * includes 1/2016 {@code android_binary} and {@code android_test}.
    */
   @Nullable
   public ProguardOutput applyProguardIfRequested(
@@ -149,7 +164,8 @@ public abstract class ProguardHelper {
       Artifact deployJar,
       ImmutableList<Artifact> bootclasspath,
       String mainClassName,
-      JavaSemantics semantics) throws InterruptedException {
+      JavaSemantics semantics)
+      throws InterruptedException {
     JavaOptimizationMode optMode = getJavaOptimizationMode(ruleContext);
     if (optMode == JavaOptimizationMode.NOOP || optMode == JavaOptimizationMode.LEGACY) {
       // For simplicity do nothing in LEGACY mode
@@ -167,7 +183,15 @@ public abstract class ProguardHelper {
         collectProguardSpecs(ruleContext, bootclasspath, mainClassName);
     Artifact singleJar =
         ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_MERGED_JAR);
-    return createProguardAction(
+
+    // TODO(bazel-team): Verify that proguard spec files don't contain -printmapping directions
+    // which this -printmapping command line flag will override.
+    Artifact proguardOutputMap = null;
+    if (genProguardMapping(ruleContext.attributes()) || optMode.alwaysGenerateOutputMapping()) {
+      proguardOutputMap =
+          ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_MAP);
+    }
+    return createOptimizationActions(
         ruleContext,
         proguard,
         singleJar,
@@ -178,7 +202,8 @@ public abstract class ProguardHelper {
         bootclasspath,
         deployJar,
         semantics,
-        /* optimizationPases */ 3);
+        /* optimizationPases */ 3,
+        proguardOutputMap);
   }
 
   private ImmutableList<Artifact> collectProguardSpecs(
@@ -298,20 +323,18 @@ public abstract class ProguardHelper {
       @Nullable Artifact proguardSeeds,
       @Nullable Artifact proguardUsage,
       RuleContext ruleContext,
-      JavaSemantics semantics)
+      JavaSemantics semantics,
+      @Nullable Artifact proguardOutputMap)
       throws InterruptedException {
     JavaOptimizationMode optMode = getJavaOptimizationMode(ruleContext);
     boolean mappingRequested = genProguardMapping(ruleContext.attributes());
 
-    Artifact proguardOutputMap = null;
     Artifact proguardOutputProtoMap = null;
     Artifact proguardConstantStringMap = null;
 
     if (mappingRequested || optMode.alwaysGenerateOutputMapping()) {
-      // TODO(bazel-team): Verify that proguard spec files don't contain -printmapping directions
-      // which this -printmapping command line flag will override.
-      proguardOutputMap =
-          ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_MAP);
+      // TODO(bazel-team): if rex is enabled, the proguard map will change and then will no
+      // longer correspond to the proto map
       proguardOutputProtoMap = semantics.getProtoMapping(ruleContext);
     }
 
@@ -345,12 +368,11 @@ public abstract class ProguardHelper {
    * @param proguardSpecs Proguard specification files to pass to Proguard
    * @param proguardMapping optional mapping file for Proguard to apply
    * @param libraryJars any other Jar files that the {@code programJar} will run against
-   * @param mappingRequested whether to ask Proguard to output a mapping file (a mapping will be
-   *        produced anyway if --java_optimization_mode includes obfuscation)
    * @param optimizationPasses if not null specifies to break proguard up into multiple passes with
    *        the given number of optimization passes.
+   * @param proguardOutputMap mapping generated by Proguard if requested. could be null.
    */
-  public static ProguardOutput createProguardAction(RuleContext ruleContext,
+  public static ProguardOutput createOptimizationActions(RuleContext ruleContext,
       FilesToRunProvider proguard,
       Artifact programJar,
       ImmutableList<Artifact> proguardSpecs,
@@ -360,17 +382,33 @@ public abstract class ProguardHelper {
       Iterable<Artifact> libraryJars,
       Artifact proguardOutputJar,
       JavaSemantics semantics,
-      @Nullable Integer optimizationPasses) throws InterruptedException {
+      @Nullable Integer optimizationPasses,
+      @Nullable Artifact proguardOutputMap) throws InterruptedException {
     JavaOptimizationMode optMode = getJavaOptimizationMode(ruleContext);
     Preconditions.checkArgument(optMode != JavaOptimizationMode.NOOP);
     Preconditions.checkArgument(optMode != JavaOptimizationMode.LEGACY || !proguardSpecs.isEmpty());
 
     ProguardOutput output =
-        getProguardOutputs(proguardOutputJar, proguardSeeds, proguardUsage, ruleContext, semantics);
+        getProguardOutputs(proguardOutputJar, proguardSeeds, proguardUsage, ruleContext, semantics,
+            proguardOutputMap);
+
+
+    if (Iterables.size(libraryJars) > 1) {
+      JavaTargetAttributes attributes = new JavaTargetAttributes.Builder(semantics)
+          .build();
+      Artifact combinedLibraryJar = getProguardTempArtifact(ruleContext,
+          optMode.name().toLowerCase(), "combined_library_jars.jar");
+      new DeployArchiveBuilder(semantics, ruleContext)
+          .setOutputJar(combinedLibraryJar)
+          .setAttributes(attributes)
+          .addRuntimeJars(libraryJars)
+          .build();
+      libraryJars = ImmutableList.of(combinedLibraryJar);
+    }
 
     if (optimizationPasses == null) {
       // Run proguard as a single step.
-      Builder builder = makeBuilder(
+      SpawnAction.Builder builder = defaultAction(
           proguard,
           programJar,
           proguardSpecs,
@@ -392,7 +430,7 @@ public abstract class ProguardHelper {
       Artifact lastStageOutput = getProguardTempArtifact(
           ruleContext, optMode.name().toLowerCase(), "proguard_preoptimization.jar");
       ruleContext.registerAction(
-          makeBuilder(
+          defaultAction(
               proguard,
               programJar,
               proguardSpecs,
@@ -411,34 +449,55 @@ public abstract class ProguardHelper {
               .addOutputArgument(lastStageOutput)
               .build(ruleContext));
 
-      for (int i = 0; i < optimizationPasses; i++) {
-        Artifact optimizationOutput = getProguardTempArtifact(
-            ruleContext, optMode.name().toLowerCase(), "proguard_optimization_" + (i + 1) + ".jar");
-        ruleContext.registerAction(
-            makeBuilder(
-                proguard,
-                programJar,
-                proguardSpecs,
-                proguardMapping,
-                libraryJars,
-                output.getOutputJar(),
-                /* proguardOutputMap */ null,
-                /* proguardOutputProtoMap */ null,
-                /* proguardSeeds */ null,
-                /* proguardUsage */ null,
-                /* constantStringObfuscatedMapping */ null,
-                /* proguardConfigOutput */ null)
-                .setProgressMessage("Trimming binary with Proguard: Optimization Pass " + (i + 1))
-                .addArgument("-runtype OPTIMIZATION")
-                .addArgument("-laststageoutput")
-                .addInputArgument(lastStageOutput)
-                .addArgument("-nextstageoutput")
-                .addOutputArgument(optimizationOutput)
-                .build(ruleContext));
-        lastStageOutput = optimizationOutput;
+      for (int i = 1; i <= optimizationPasses; i++) {
+        // Run configured optimizers in order in each pass
+        for (Map.Entry<String, Optional<Label>> optimizer :
+            getBytecodeOptimizers(ruleContext).entrySet()) {
+          String mnemonic = optimizer.getKey();
+          Optional<Label> target = optimizer.getValue();
+          FilesToRunProvider executable = null;
+          if (target.isPresent()) {
+            for (TransitiveInfoCollection optimizerDep :
+                ruleContext.getPrerequisites(":bytecode_optimizers", Mode.HOST)) {
+              if (optimizerDep.getLabel().equals(target.get())) {
+                executable = optimizerDep.getProvider(FilesToRunProvider.class);
+                break;
+              }
+            }
+          } else {
+            checkState("Proguard".equals(mnemonic), "Need label to run %s", mnemonic);
+            executable = proguard;
+          }
+          Artifact optimizationOutput = getProguardTempArtifact(
+              ruleContext, optMode.name().toLowerCase(), mnemonic + "_optimization_" + i + ".jar");
+          ruleContext.registerAction(
+              defaultAction(
+                  checkNotNull(executable, "couldn't find optimizer %s", optimizer),
+                  programJar,
+                  proguardSpecs,
+                  proguardMapping,
+                  libraryJars,
+                  output.getOutputJar(),
+                  /* proguardOutputMap */ null,
+                  /* proguardOutputProtoMap */ null,
+                  /* proguardSeeds */ null,
+                  /* proguardUsage */ null,
+                  /* constantStringObfuscatedMapping */ null,
+                  /* proguardConfigOutput */ null)
+                  .setProgressMessage(
+                      "Trimming binary with " + mnemonic + ": Optimization Pass " + i)
+                  .setMnemonic(mnemonic)
+                  .addArgument("-runtype OPTIMIZATION")
+                  .addArgument("-laststageoutput")
+                  .addInputArgument(lastStageOutput)
+                  .addArgument("-nextstageoutput")
+                  .addOutputArgument(optimizationOutput)
+                  .build(ruleContext));
+          lastStageOutput = optimizationOutput;
+        }
       }
 
-      Builder builder = makeBuilder(
+      SpawnAction.Builder builder = defaultAction(
           proguard,
           programJar,
           proguardSpecs,
@@ -463,8 +522,8 @@ public abstract class ProguardHelper {
     return output;
   }
 
-  private static Builder makeBuilder(
-      FilesToRunProvider proguard,
+  private static SpawnAction.Builder defaultAction(
+      FilesToRunProvider executable,
       Artifact programJar,
       ImmutableList<Artifact> proguardSpecs,
       @Nullable Artifact proguardMapping,
@@ -480,7 +539,7 @@ public abstract class ProguardHelper {
     Builder builder = new SpawnAction.Builder()
         .addInputs(libraryJars)
         .addInputs(proguardSpecs)
-        .setExecutable(proguard)
+        .setExecutable(executable)
         .setMnemonic("Proguard")
         .addArgument("-forceprocessing")
         .addArgument("-injars")
@@ -571,5 +630,10 @@ public abstract class ProguardHelper {
   public static JavaOptimizationMode getJavaOptimizationMode(RuleContext ruleContext) {
     return ruleContext.getConfiguration().getFragment(JavaConfiguration.class)
         .getJavaOptimizationMode();
+  }
+
+  private static Map<String, Optional<Label>> getBytecodeOptimizers(RuleContext ruleContext) {
+    return ruleContext.getConfiguration().getFragment(JavaConfiguration.class)
+        .getBytecodeOptimizers();
   }
 }

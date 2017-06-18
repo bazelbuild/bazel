@@ -18,7 +18,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
-
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,9 +31,10 @@ public abstract class StlImpl {
   private enum RuntimeType {
     DYNAMIC("so"), STATIC("a");
 
-    private final String name, fileExtension;
+    private final String name;
+    private final String fileExtension;
 
-    private RuntimeType(String fileExtension) {
+    RuntimeType(String fileExtension) {
       this.name = name().toLowerCase();
       this.fileExtension = fileExtension;
     }    

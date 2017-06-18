@@ -73,7 +73,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
     ImmutableBiMap.Builder<Artifact, Artifact> compilationToRuntimeJarMapBuilder =
         ImmutableBiMap.builder();
     ImmutableList<Artifact> interfaceJars =
-        processWithIjar(jars, ruleContext, compilationToRuntimeJarMapBuilder);
+        processWithIjarIfNeeded(jars, ruleContext, compilationToRuntimeJarMapBuilder);
 
     JavaCompilationArtifacts javaArtifacts = collectJavaArtifacts(jars, interfaceJars);
     common.setJavaCompilationArtifacts(javaArtifacts);
@@ -141,38 +141,50 @@ public class JavaImport implements RuleConfiguredTargetFactory {
         .setSourceJarsForJarFiles(srcJars)
         .build();
 
-    JavaRuleOutputJarsProvider.Builder ruleOutputJarsProvider =
+    JavaRuleOutputJarsProvider.Builder ruleOutputJarsProviderBuilder =
         JavaRuleOutputJarsProvider.builder();
     for (Artifact jar : jars) {
-      ruleOutputJarsProvider.addOutputJar(
-          jar,
-          compilationToRuntimeJarMap.inverse().get(jar),
-          srcJar);
+      ruleOutputJarsProviderBuilder.addOutputJar(
+          jar, compilationToRuntimeJarMap.inverse().get(jar), srcJars);
     }
 
     NestedSet<Artifact> proguardSpecs = new ProguardLibrary(ruleContext).collectProguardSpecs();
 
-    common.addTransitiveInfoProviders(ruleBuilder, filesToBuild, null);
+    JavaRuleOutputJarsProvider ruleOutputJarsProvider = ruleOutputJarsProviderBuilder.build();
+    JavaSourceJarsProvider sourceJarsProvider =
+        JavaSourceJarsProvider.create(transitiveJavaSourceJars, srcJars);
+    JavaCompilationArgsProvider compilationArgsProvider =
+        JavaCompilationArgsProvider.create(javaCompilationArgs, recursiveJavaCompilationArgs);
+    JavaSkylarkApiProvider.Builder skylarkApiProvider =
+        JavaSkylarkApiProvider.builder()
+            .setRuleOutputJarsProvider(ruleOutputJarsProvider)
+            .setSourceJarsProvider(sourceJarsProvider)
+            .setCompilationArgsProvider(compilationArgsProvider);
+    common.addTransitiveInfoProviders(ruleBuilder, skylarkApiProvider, filesToBuild, null);
+    JavaProvider javaProvider = JavaProvider.Builder.create()
+        .addProvider(JavaCompilationArgsProvider.class, compilationArgsProvider)
+        .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
+        .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
+        .build();
     return ruleBuilder
         .setFilesToBuild(filesToBuild)
-        .add(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider.build())
+        .addSkylarkTransitiveInfo(JavaSkylarkApiProvider.NAME, skylarkApiProvider.build())
+        .addNativeDeclaredProvider(javaProvider)
+        .addProvider(JavaProvider.class, javaProvider)
+        .add(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
         .add(
             JavaRuntimeJarProvider.class,
             new JavaRuntimeJarProvider(javaArtifacts.getRuntimeJars()))
         .add(JavaNeverlinkInfoProvider.class, new JavaNeverlinkInfoProvider(neverLink))
         .add(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .add(CcLinkParamsProvider.class, new CcLinkParamsProvider(ccLinkParamsStore))
-        .add(
-            JavaCompilationArgsProvider.class,
-            JavaCompilationArgsProvider.create(javaCompilationArgs, recursiveJavaCompilationArgs))
+        .add(JavaCompilationArgsProvider.class, compilationArgsProvider)
         .add(
             JavaNativeLibraryProvider.class,
             new JavaNativeLibraryProvider(transitiveJavaNativeLibraries))
         .add(CppCompilationContext.class, transitiveCppDeps)
         .add(JavaSourceInfoProvider.class, javaSourceInfoProvider)
-        .add(
-            JavaSourceJarsProvider.class,
-            JavaSourceJarsProvider.create(transitiveJavaSourceJars, srcJars))
+        .add(JavaSourceJarsProvider.class, sourceJarsProvider)
         .add(ProguardSpecProvider.class, new ProguardSpecProvider(proguardSpecs))
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveJavaSourceJars)
         .addOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL, proguardSpecs)
@@ -186,8 +198,8 @@ public class JavaImport implements RuleConfiguredTargetFactory {
     if (srcJar != null) {
       transitiveJavaSourceJarBuilder.add(srcJar);
     }
-    for (JavaSourceJarsProvider other :
-        ruleContext.getPrerequisites("exports", Mode.TARGET, JavaSourceJarsProvider.class)) {
+    for (JavaSourceJarsProvider other : JavaProvider.getProvidersFromListOfTargets(
+        JavaSourceJarsProvider.class, ruleContext.getPrerequisites("exports", Mode.TARGET))) {
       transitiveJavaSourceJarBuilder.addTransitive(other.getTransitiveSourceJars());
     }
     return transitiveJavaSourceJarBuilder.build();
@@ -222,17 +234,21 @@ public class JavaImport implements RuleConfiguredTargetFactory {
     return ImmutableList.copyOf(jars);
   }
 
-  private ImmutableList<Artifact> processWithIjar(ImmutableList<Artifact> jars,
+  private ImmutableList<Artifact> processWithIjarIfNeeded(ImmutableList<Artifact> jars,
       RuleContext ruleContext,
       ImmutableMap.Builder<Artifact, Artifact> compilationToRuntimeJarMap) {
     ImmutableList.Builder<Artifact> interfaceJarsBuilder = ImmutableList.builder();
+    boolean useIjar = ruleContext.getFragment(JavaConfiguration.class).getUseIjars();
     for (Artifact jar : jars) {
-      Artifact ijar = JavaCompilationHelper.createIjarAction(
-          ruleContext,
-          JavaCompilationHelper.getJavaToolchainProvider(ruleContext),
-          jar, true);
-      interfaceJarsBuilder.add(ijar);
-      compilationToRuntimeJarMap.put(ijar, jar);
+      Artifact interfaceJar = useIjar
+          ? JavaCompilationHelper.createIjarAction(
+              ruleContext,
+              JavaCompilationHelper.getJavaToolchainProvider(ruleContext),
+              jar,
+              true)
+          : jar;
+      interfaceJarsBuilder.add(interfaceJar);
+      compilationToRuntimeJarMap.put(interfaceJar, jar);
     }
     return interfaceJarsBuilder.build();
   }

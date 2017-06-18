@@ -103,6 +103,14 @@ function disable_errexit() {
 # Enable errexit with pretty stack traces.
 enable_errexit
 
+cat_jvm_log () {
+  if [[ "$log_content" =~ "(error code:".*", error message: '".*"', log file: '"(.*)"')" ]]; then
+    echo >&2
+    echo "Content of ${BASH_REMATCH[1]}:" >&2
+    cat "${BASH_REMATCH[1]}" >&2
+  fi
+}
+
 # Print message in "$1" then exit with status "$2"
 die () {
     # second argument is optional, defaulting to 1
@@ -116,6 +124,7 @@ die () {
         fi
         if [ "$CAPTURED_STD_ERR" -ne 0 ]; then
             cat "${TEST_TMPDIR}/captured.err" 1>&2
+            cat_jvm_log "$(cat "${TEST_TMPDIR}/captured.err")"
             CAPTURED_STD_ERR=0
         fi
     fi
@@ -781,7 +790,9 @@ function run_suite() {
         # end marker in CDATA cannot be escaped, we need to split the CDATA sections
         log=$(cat $TEST_TMPDIR/__log | sed 's/]]>/]]>]]&gt;<![CDATA[/g')
         fail_msg=$(cat $TEST_TMPDIR/__fail 2> /dev/null || echo "No failure message")
-        testcase_tag="<testcase name=\"$TEST_name\" status=\"run\" time=\"$run_time\" classname=\"\"><error message=\"$fail_msg\"><![CDATA[$log]]></error></testcase>"
+        # Replacing '&' with '&amp;', '<' with '&lt;', '>' with '&gt;', and '"' with '&quot;'
+        escaped_fail_msg=$(echo $fail_msg | sed 's/&/\&amp;/g' | sed 's/</\&lt;/g' | sed 's/>/\&gt;/g' | sed 's/"/\&quot;/g')
+        testcase_tag="<testcase name=\"$TEST_name\" status=\"run\" time=\"$run_time\" classname=\"\"><error message=\"$escaped_fail_msg\"><![CDATA[$log]]></error></testcase>"
       fi
 
       if [[ "$TEST_verbose" == "true" ]]; then

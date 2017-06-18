@@ -29,6 +29,8 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
 import java.io.InvalidObjectException;
 import java.io.ObjectInputStream;
@@ -50,9 +52,9 @@ import javax.annotation.Nullable;
 )
 @Immutable
 @ThreadSafe
-public final class Label implements Comparable<Label>, Serializable, SkylarkPrintableValue {
-  public static final PathFragment EXTERNAL_PACKAGE_NAME = new PathFragment("external");
-  public static final PathFragment EXTERNAL_PACKAGE_FILE_NAME = new PathFragment("WORKSPACE");
+public final class Label implements Comparable<Label>, Serializable, SkylarkPrintableValue, SkyKey {
+  public static final PathFragment EXTERNAL_PACKAGE_NAME = PathFragment.create("external");
+  public static final PathFragment EXTERNAL_PACKAGE_FILE_NAME = PathFragment.create("WORKSPACE");
   public static final String DEFAULT_REPOSITORY_DIRECTORY = "__main__";
 
   /**
@@ -61,18 +63,20 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
    */
   public static final ImmutableSet<PathFragment> ABSOLUTE_PACKAGE_NAMES = ImmutableSet.of(
       // Used for select
-      new PathFragment("conditions"),
+      PathFragment.create("conditions"),
       // dependencies that are a function of the configuration
-      new PathFragment("tools/defaults"),
+      PathFragment.create("tools/defaults"),
       // Visibility is labels aren't actually targets
-      new PathFragment("visibility"),
+      PathFragment.create("visibility"),
       // There is only one //external package
       Label.EXTERNAL_PACKAGE_NAME);
 
   public static final PackageIdentifier EXTERNAL_PACKAGE_IDENTIFIER =
       PackageIdentifier.createInMainRepo(EXTERNAL_PACKAGE_NAME);
 
-  public static final String EXTERNAL_PATH_PREFIX = "external";
+  public static final PathFragment EXTERNAL_PATH_PREFIX = PathFragment.create("external");
+  public static final SkyFunctionName TRANSITIVE_TRAVERSAL =
+      SkyFunctionName.create("TRANSITIVE_TRAVERSAL");
 
   private static final Interner<Label> LABEL_INTERNER = BlazeInterners.newWeakInterner();
 
@@ -421,15 +425,16 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
    * All other labels have identical shorthand and canonical forms.
    */
   public String toShorthandString() {
+    if (!getPackageFragment().getBaseName().equals(name)) {
+      return toString();
+    }
     String repository;
     if (packageIdentifier.getRepository().isMain()) {
       repository = "";
     } else {
       repository = packageIdentifier.getRepository().getName();
     }
-    return repository + (getPackageFragment().getBaseName().equals(name)
-        ? "//" + getPackageFragment()
-        : toString());
+    return repository + "//" + getPackageFragment();
   }
 
   /**
@@ -510,6 +515,16 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
   }
 
   @Override
+  public SkyFunctionName functionName() {
+    return TRANSITIVE_TRAVERSAL;
+  }
+
+  @Override
+  public Label argument() {
+    return this;
+  }
+
+  @Override
   public int hashCode() {
     return hashCode;
   }
@@ -547,7 +562,7 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
    * Returns a suitable string for the user-friendly representation of the Label. Works even if the
    * argument is null.
    */
-  public static String print(Label label) {
+  public static String print(@Nullable Label label) {
     return label == null ? "(unknown)" : label.toString();
   }
 

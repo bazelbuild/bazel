@@ -25,6 +25,20 @@ function get_tar_listing() {
   tar tvf "${test_data}" | sed -e 's/^.*:00 //'
 }
 
+function get_tar_owner() {
+  local input=$1
+  local file=$2
+  local test_data="${TEST_DATA_DIR}/${input}"
+  tar tvf "${test_data}" | grep "00 $file\$" | cut -d " " -f 2
+}
+
+function get_numeric_tar_owner() {
+  local input=$1
+  local file=$2
+  local test_data="${TEST_DATA_DIR}/${input}"
+  tar --numeric-owner -tvf "${test_data}" | grep "00 $file\$" | cut -d " " -f 2
+}
+
 function get_tar_permission() {
   local input=$1
   local file=$2
@@ -82,6 +96,29 @@ function get_changes() {
   cat "${TEST_DATA_DIR}/${input}"
 }
 
+function assert_content() {
+  local listing="./
+./etc/
+./etc/nsswitch.conf
+./usr/
+./usr/titi
+./usr/bin/
+./usr/bin/java -> /path/to/bin/java"
+  check_eq "$listing" "$(get_tar_listing $1)"
+  check_eq "-rwxr-xr-x" "$(get_tar_permission $1 ./usr/titi)"
+  check_eq "-rw-r--r--" "$(get_tar_permission $1 ./etc/nsswitch.conf)"
+  check_eq "24/42" "$(get_numeric_tar_owner $1 ./etc/)"
+  check_eq "24/42" "$(get_numeric_tar_owner $1 ./etc/nsswitch.conf)"
+  check_eq "42/24" "$(get_numeric_tar_owner $1 ./usr/)"
+  check_eq "42/24" "$(get_numeric_tar_owner $1 ./usr/titi)"
+  if [ -z "${2-}" ]; then
+    check_eq "tata/titi" "$(get_tar_owner $1 ./etc/)"
+    check_eq "tata/titi" "$(get_tar_owner $1 ./etc/nsswitch.conf)"
+    check_eq "titi/tata" "$(get_tar_owner $1 ./usr/)"
+    check_eq "titi/tata" "$(get_tar_owner $1 ./usr/titi)"
+  fi
+}
+
 function test_tar() {
   local listing="./
 ./etc/
@@ -91,13 +128,11 @@ function test_tar() {
 ./usr/bin/
 ./usr/bin/java -> /path/to/bin/java"
   for i in "" ".gz" ".bz2" ".xz"; do
-    check_eq "$listing" "$(get_tar_listing test-tar-${i:1}.tar$i)"
-    check_eq "-rwxr-xr-x" "$(get_tar_permission test-tar-${i:1}.tar$i ./usr/titi)"
-    check_eq "-rw-r--r--" "$(get_tar_permission test-tar-${i:1}.tar$i ./etc/nsswitch.conf)"
+    assert_content "test-tar-${i:1}.tar$i"
     # Test merging tar files
-    check_eq "$listing" "$(get_tar_listing test-tar-inclusion-${i:1}.tar)"
-    check_eq "-rwxr-xr-x" "$(get_tar_permission test-tar-inclusion-${i:1}.tar ./usr/titi)"
-    check_eq "-rw-r--r--" "$(get_tar_permission test-tar-inclusion-${i:1}.tar ./etc/nsswitch.conf)"
+    # We pass a second argument to not test for user and group
+    # names because tar merging ask for numeric owners.
+    assert_content "test-tar-inclusion-${i:1}.tar" "true"
   done;
 
   check_eq "./

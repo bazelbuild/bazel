@@ -14,15 +14,11 @@
 
 package com.google.devtools.build.singlejar;
 
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 
 import com.google.devtools.build.singlejar.SingleJarTest.EntryMode;
-
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -54,9 +50,9 @@ public final class FakeZipFile {
 
   private static void assertSameByteArray(byte[] expected, byte[] actual) {
     if (expected == null) {
-      assertNull(actual);
+      assertThat(actual).isNull();
     } else {
-      assertArrayEquals(expected, actual);
+      assertThat(actual).isEqualTo(expected);
     }
   }
 
@@ -111,21 +107,21 @@ public final class FakeZipFile {
 
     public void assertNext(ZipInputStream zipInput) throws IOException {
       ZipEntry zipEntry = zipInput.getNextEntry();
-      assertNotNull(zipEntry);
+      assertThat(zipEntry).isNotNull();
       switch (mode) {
         case EXPECT_DEFLATE:
-          assertEquals(ZipEntry.DEFLATED, zipEntry.getMethod());
+          assertThat(zipEntry.getMethod()).isEqualTo(ZipEntry.DEFLATED);
           break;
         case EXPECT_STORED:
-          assertEquals(ZipEntry.STORED, zipEntry.getMethod());
+          assertThat(zipEntry.getMethod()).isEqualTo(ZipEntry.STORED);
           break;
         default:
           // we don't care.
           break;
       }
-      assertEquals(name, zipEntry.getName());
+      assertThat(zipEntry.getName()).isEqualTo(name);
       if (date != null) {
-        assertEquals(date.getTime(), zipEntry.getTime());
+        assertThat(zipEntry.getTime()).isEqualTo(date.getTime());
       }
       assertSameByteArray(extra, zipEntry.getExtra());
       content.validate(readZipEntryContent(zipInput));
@@ -210,20 +206,20 @@ public final class FakeZipFile {
       offset += preamble.length;
       length -= offset;
       byte[] maybePreamble = Arrays.copyOfRange(data, 0, offset);
-      assertTrue(Arrays.equals(preamble, maybePreamble));
+      assertThat(maybePreamble).isEqualTo(preamble);
     }
     ZipInputStream zipInput = new ZipInputStream(new ByteArrayInputStream(data, offset, length));
     for (FakeZipEntry entry : entries) {
       entry.assertNext(zipInput);
     }
-    assertNull(zipInput.getNextEntry());
+    assertThat(zipInput.getNextEntry()).isNull();
     // Verify that the end of central directory data is correct.
     // This assumes that the end of directory is at the end of input and that there is no zip file
     // comment.
     int count = getUnsignedShort(data, data.length-14);
-    assertEquals(entries.size(), count);
+    assertThat(count).isEqualTo(entries.size());
     count = getUnsignedShort(data, data.length-12);
-    assertEquals(entries.size(), count);
+    assertThat(count).isEqualTo(entries.size());
   }
 
   /**
@@ -244,22 +240,26 @@ public final class FakeZipFile {
     parseZipEntry(expectedZip, expectedFileList, expectedEntries, expectedEntryContents);
     parseZipEntry(actualZip, actualFileList, actualEntries, actualEntryContents);
     // Compare the ordered file list first.
-    assertEquals(expectedFileList.toString(), actualFileList.toString());
+    assertThat(actualFileList.toString()).isEqualTo(expectedFileList.toString());
 
     // Then compare each entry.
     for (String name : expectedEntries.keySet()) {
       ZipEntry expectedEntry = expectedEntries.get(name);
       ZipEntry actualEntry = actualEntries.get(name);
-      assertEquals("Time differs for " + name, expectedEntry.getTime(), actualEntry.getTime());
-      assertArrayEquals("Extraneous content differs for " + name,
-          expectedEntry.getExtra(), actualEntry.getExtra());
-      assertArrayEquals("Content differs for " + name,
-          expectedEntryContents.get(name), actualEntryContents.get(name));
+      assertWithMessage("Time differs for " + name)
+          .that(actualEntry.getTime())
+          .isEqualTo(expectedEntry.getTime());
+      assertWithMessage("Extraneous content differs for " + name)
+          .that(actualEntry.getExtra())
+          .isEqualTo(expectedEntry.getExtra());
+      assertWithMessage("Content differs for " + name)
+          .that(actualEntryContents.get(name))
+          .isEqualTo(expectedEntryContents.get(name));
     }
 
     // Finally do a binary array comparison to be sure that test fails if files are different in
     // some way we don't test.
-    assertArrayEquals(expected, actual);
+    assertThat(actual).isEqualTo(expected);
   }
 
   private static void parseZipEntry(ZipInputStream expectedZip, StringBuffer expectedFileList,

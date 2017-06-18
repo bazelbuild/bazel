@@ -44,11 +44,14 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CcLibraryHelper;
+import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
+import com.google.devtools.build.lib.rules.cpp.FeatureSpecification;
 import com.google.devtools.build.lib.rules.proto.ProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ToolchainInvocation;
@@ -108,7 +111,7 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
   public AspectDefinition getDefinition(AspectParameters aspectParameters) {
     AspectDefinition.Builder result =
         new AspectDefinition.Builder(this)
-            .attributeAspect("deps", this)
+            .propagateAlongAttribute("deps")
             .requiresConfigurationFragments(CppConfiguration.class, ProtoConfiguration.class)
             .requireProviders(ProtoSupportDataProvider.class)
             .add(
@@ -117,7 +120,9 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
                         ImmutableList.<Class<? extends TransitiveInfoProvider>>of(
                             ProtoLangToolchainProvider.class))
                     .value(PROTO_TOOLCHAIN_LABEL))
-            .add(attr(":cc_toolchain", LABEL).value(ccToolchainAttrValue))
+            .add(
+                attr(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL)
+                    .value(ccToolchainAttrValue))
             .add(
                 attr(":lipo_context_collector", LABEL)
                     .cfg(CppRuleClasses.LipoTransition.LIPO_COLLECTOR)
@@ -144,6 +149,7 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
       this.supportData = supportData;
       this.cppSemantics = cppSemantics;
       FeatureConfiguration featureConfiguration = getFeatureConfiguration(supportData);
+      ProtoConfiguration protoConfiguration = ruleContext.getFragment(ProtoConfiguration.class);
 
       CcLibraryHelper helper = initializeCcLibraryHelper(featureConfiguration);
       helper.addDeps(ruleContext.getPrerequisites("deps", TARGET));
@@ -154,8 +160,10 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
         registerBlacklistedSrcs(supportData, helper);
         headerProvider = null;
       } else if (supportData.hasProtoSources()) {
-        Collection<Artifact> headers = getHeaders(supportData);
-        Collection<Artifact> sources = getSources(supportData);
+        Collection<Artifact> headers =
+            getOutputFiles(supportData, protoConfiguration.ccProtoLibraryHeaderSuffixes());
+        Collection<Artifact> sources =
+            getOutputFiles(supportData, protoConfiguration.ccProtoLibrarySourceSuffixes());
         outputs.addAll(headers);
         outputs.addAll(sources);
 
@@ -164,7 +172,7 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
 
         NestedSetBuilder<Artifact> publicHeaderPaths = NestedSetBuilder.stableOrder();
         publicHeaderPaths.addAll(headers);
-        headerProvider = new ProtoCcHeaderProvider(publicHeaderPaths.build(), true);
+        headerProvider = new ProtoCcHeaderProvider(publicHeaderPaths.build());
       } else {
         // If this proto_library doesn't have sources, it provides the combined headers of all its
         // direct dependencies. Thus, if a direct dependency does have sources, the generated files
@@ -172,19 +180,13 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
         // do the same thing, so that effectively this library looks through all source-less
         // proto_libraries and provides all generated headers of the proto_libraries with sources
         // that it depends on.
-        //
-        // Similar, if a proto_library, does not have sources, it forwards the information whether
-        // its transitive dependencies generated .pb.h files. If one of them doesn't, this
-        // proto_library pretends to not generate them either.
-        boolean hasDepWithoutPbH = false;
         NestedSetBuilder<Artifact> transitiveHeaders = NestedSetBuilder.stableOrder();
         for (ProtoCcHeaderProvider provider :
             ruleContext.getPrerequisites("deps", TARGET, ProtoCcHeaderProvider.class)) {
           helper.addPublicTextualHeaders(provider.getHeaders());
           transitiveHeaders.addTransitive(provider.getHeaders());
-          hasDepWithoutPbH = hasDepWithoutPbH || !provider.getGeneratesPbH();
         }
-        headerProvider = new ProtoCcHeaderProvider(transitiveHeaders.build(), !hasDepWithoutPbH);
+        headerProvider = new ProtoCcHeaderProvider(transitiveHeaders.build());
       }
 
       filesBuilder = NestedSetBuilder.stableOrder();
@@ -216,16 +218,20 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
       FeatureConfiguration featureConfiguration =
           CcCommon.configureFeatures(
               ruleContext,
-              requestedFeatures.build(),
-              unsupportedFeatures.build(),
+              FeatureSpecification.create(requestedFeatures.build(), unsupportedFeatures.build()),
               CcLibraryHelper.SourceCategory.CC,
-              CppHelper.getToolchain(
-                  ruleContext, ruleContext.getPrerequisite(":cc_toolchain", TARGET)));
+              ccToolchain(ruleContext));
       return featureConfiguration;
     }
 
     private CcLibraryHelper initializeCcLibraryHelper(FeatureConfiguration featureConfiguration) {
-      CcLibraryHelper helper = new CcLibraryHelper(ruleContext, cppSemantics, featureConfiguration);
+      CcLibraryHelper helper =
+          new CcLibraryHelper(
+              ruleContext,
+              cppSemantics,
+              featureConfiguration,
+              ccToolchain(ruleContext),
+              CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext));
       helper.enableCcSpecificLinkParamsProvider();
       helper.enableCcNativeLibrariesProvider();
       // TODO(dougk): Configure output artifact with action_config
@@ -240,14 +246,21 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
       return helper;
     }
 
-    private Collection<Artifact> getHeaders(SupportData supportData) {
-      return ProtoCommon.getGeneratedOutputs(
-          ruleContext, supportData.getDirectProtoSources(), ".pb.h");
+    private static CcToolchainProvider ccToolchain(RuleContext ruleContext) {
+      return CppHelper.getToolchain(
+          ruleContext,
+          ruleContext.getPrerequisite(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, TARGET));
     }
 
-    private Collection<Artifact> getSources(SupportData supportData) {
-      return ProtoCommon.getGeneratedOutputs(
-          ruleContext, supportData.getDirectProtoSources(), ".pb.cc");
+    private ImmutableSet<Artifact> getOutputFiles(
+        SupportData supportData, Iterable<String> suffixes) {
+      ImmutableSet.Builder<Artifact> result = ImmutableSet.builder();
+      for (String suffix : suffixes) {
+        result.addAll(
+            ProtoCommon.getGeneratedOutputs(
+                ruleContext, supportData.getDirectProtoSources(), suffix));
+      }
+      return result.build();
     }
 
     private void registerBlacklistedSrcs(SupportData supportData, CcLibraryHelper helper) {
@@ -308,11 +321,12 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
     }
 
     public void addProviders(ConfiguredAspect.Builder builder) {
+      OutputGroupProvider outputGroupProvider = new OutputGroupProvider(outputGroups);
       builder.addProvider(
           new CcProtoLibraryProviders(
-              filesBuilder.build(),
-              ccLibraryProviders.toBuilder().add(new OutputGroupProvider(outputGroups)).build()));
+              filesBuilder.build(), ccLibraryProviders, outputGroupProvider));
       builder.addProviders(ccLibraryProviders);
+      builder.addNativeDeclaredProvider(outputGroupProvider);
       if (headerProvider != null) {
         builder.addProvider(headerProvider);
       }

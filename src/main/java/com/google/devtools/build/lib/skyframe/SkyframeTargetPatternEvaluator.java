@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
@@ -33,7 +33,6 @@ import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
-
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -50,15 +49,19 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
   }
 
   @Override
-  public ResolvedTargets<Target> parseTargetPatternList(EventHandler eventHandler,
-      List<String> targetPatterns, FilteringPolicy policy, boolean keepGoing)
+  public ResolvedTargets<Target> parseTargetPatternList(
+      ExtendedEventHandler eventHandler,
+      List<String> targetPatterns,
+      FilteringPolicy policy,
+      boolean keepGoing)
       throws TargetParsingException, InterruptedException {
     return parseTargetPatternList(offset, eventHandler, targetPatterns, policy, keepGoing);
   }
 
   @Override
-  public ResolvedTargets<Target> parseTargetPattern(EventHandler eventHandler,
-      String pattern, boolean keepGoing) throws TargetParsingException, InterruptedException {
+  public ResolvedTargets<Target> parseTargetPattern(
+      ExtendedEventHandler eventHandler, String pattern, boolean keepGoing)
+      throws TargetParsingException, InterruptedException {
     return parseTargetPatternList(eventHandler, ImmutableList.of(pattern),
         DEFAULT_FILTERING_POLICY, keepGoing);
   }
@@ -74,9 +77,9 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
   }
 
   @Override
-  public Map<String, ResolvedTargets<Target>> preloadTargetPatterns(EventHandler eventHandler,
-      Collection<String> patterns, boolean keepGoing)
-          throws TargetParsingException, InterruptedException {
+  public Map<String, ResolvedTargets<Target>> preloadTargetPatterns(
+      ExtendedEventHandler eventHandler, Collection<String> patterns, boolean keepGoing)
+      throws TargetParsingException, InterruptedException {
     // TODO(bazel-team): This is used only in "blaze query". There are plans to dramatically change
     // how query works on Skyframe, in which case this method is likely to go away.
     // We cannot use an ImmutableMap here because there may be null values.
@@ -92,8 +95,12 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
    * Loads a list of target patterns (eg, "foo/..."). When policy is set to FILTER_TESTS,
    * test_suites are going to be expanded.
    */
-  ResolvedTargets<Target> parseTargetPatternList(String offset, EventHandler eventHandler,
-      List<String> targetPatterns, FilteringPolicy policy, boolean keepGoing)
+  ResolvedTargets<Target> parseTargetPatternList(
+      String offset,
+      ExtendedEventHandler eventHandler,
+      List<String> targetPatterns,
+      FilteringPolicy policy,
+      boolean keepGoing)
       throws InterruptedException, TargetParsingException {
     Iterable<TargetPatternSkyKeyOrException> keysMaybe =
         TargetPatternValue.keys(targetPatterns, policy, offset);
@@ -114,20 +121,29 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
       }
     }
     ImmutableList<SkyKey> skyKeys = builder.build();
-    return parseTargetPatternKeys(skyKeys, SkyframeExecutor.DEFAULT_THREAD_COUNT, keepGoing,
-        eventHandler, createTargetPatternEvaluatorUtil(policy, eventHandler, keepGoing));
+    return parseTargetPatternKeys(
+        targetPatterns,
+        skyKeys,
+        SkyframeExecutor.DEFAULT_THREAD_COUNT,
+        keepGoing,
+        eventHandler,
+        createTargetPatternEvaluatorUtil(policy, eventHandler, keepGoing));
   }
 
-  private TargetPatternsResultBuilder createTargetPatternEvaluatorUtil(FilteringPolicy policy,
-      EventHandler eventHandler, boolean keepGoing) {
+  private TargetPatternsResultBuilder createTargetPatternEvaluatorUtil(
+      FilteringPolicy policy, ExtendedEventHandler eventHandler, boolean keepGoing) {
     return policy == FilteringPolicies.FILTER_TESTS
         ? new TestTargetPatternsResultBuilder(skyframeExecutor.getPackageManager(), eventHandler,
           keepGoing)
         : new BuildTargetPatternsResultBuilder();
   }
 
-  ResolvedTargets<Target> parseTargetPatternKeys(Iterable<SkyKey> patternSkyKeys, int numThreads,
-      boolean keepGoing, EventHandler eventHandler,
+  ResolvedTargets<Target> parseTargetPatternKeys(
+      List<String> targetPattern,
+      Iterable<SkyKey> patternSkyKeys,
+      int numThreads,
+      boolean keepGoing,
+      ExtendedEventHandler eventHandler,
       TargetPatternsResultBuilder finalTargetSetEvaluator)
       throws InterruptedException, TargetParsingException {
     EvaluationResult<TargetPatternValue> result =
@@ -168,6 +184,7 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
         }
         if (keepGoing) {
           eventHandler.handle(Event.error("Skipping '" + rawPattern + "': " + errorMessage));
+          eventHandler.post(PatternExpandingError.skipped(rawPattern, errorMessage));
         }
         finalTargetSetEvaluator.setError();
 
@@ -182,6 +199,7 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
       Preconditions.checkState(errorMessage != null, "unexpected errors: %s", result.errorMap());
       finalTargetSetEvaluator.setError();
       if (!keepGoing) {
+        eventHandler.post(PatternExpandingError.failed(targetPattern, errorMessage));
         throw new TargetParsingException(errorMessage);
       }
     }

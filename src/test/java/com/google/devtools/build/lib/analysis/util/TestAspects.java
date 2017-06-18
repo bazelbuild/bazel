@@ -23,11 +23,13 @@ import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.common.base.Function;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -41,6 +43,9 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -51,12 +56,17 @@ import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabelList;
+import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
+import com.google.devtools.build.lib.packages.Attribute.Transition;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
+import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
+import com.google.devtools.build.lib.packages.RuleTransitionFactory;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -92,6 +102,20 @@ public class TestAspects {
     public NestedSet<String> getData() {
       return data;
     }
+  }
+
+  /**
+   * A transitive info provider used as sentinel. Created by aspects.
+   */
+  @Immutable
+  public static final class FooProvider implements TransitiveInfoProvider {
+  }
+
+  /**
+   * A transitive info provider used as sentinel. Created by aspects.
+   */
+  @Immutable
+  public static final class BarProvider implements TransitiveInfoProvider {
   }
 
   /**
@@ -188,6 +212,37 @@ public class TestAspects {
   }
 
   /**
+   * A simple rule configured target factory that expects different providers added through
+   * different aspects.
+   */
+  public static class MultiAspectRuleFactory implements RuleConfiguredTargetFactory {
+    @Override
+    public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
+      TransitiveInfoCollection fooAttribute = ruleContext.getPrerequisite("foo", Mode.DONT_CHECK);
+      TransitiveInfoCollection barAttribute = ruleContext.getPrerequisite("bar", Mode.DONT_CHECK);
+
+      NestedSetBuilder<String> infoBuilder = NestedSetBuilder.<String>stableOrder();
+
+      if (fooAttribute.getProvider(FooProvider.class) != null) {
+        infoBuilder.add("foo");
+      }
+      if (barAttribute.getProvider(BarProvider.class) != null) {
+        infoBuilder.add("bar");
+      }
+
+      RuleConfiguredTargetBuilder builder =
+          new RuleConfiguredTargetBuilder(ruleContext)
+              .addProvider(
+                  new RuleInfo(infoBuilder.build()))
+              .setFilesToBuild(NestedSetBuilder.<Artifact>create(Order.STABLE_ORDER))
+              .setRunfilesSupport(null, null)
+              .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY));
+
+      return builder.build();
+    }
+  }
+
+  /**
    * A base class for mock aspects to reduce boilerplate.
    */
   public abstract static class BaseAspect extends NativeAspectClass
@@ -207,8 +262,16 @@ public class TestAspects {
   }
 
   public static final SimpleAspect SIMPLE_ASPECT = new SimpleAspect();
+  public static final FooProviderAspect FOO_PROVIDER_ASPECT = new FooProviderAspect();
+  public static final BarProviderAspect BAR_PROVIDER_ASPECT = new BarProviderAspect();
+
   private static final AspectDefinition SIMPLE_ASPECT_DEFINITION =
       new AspectDefinition.Builder(SIMPLE_ASPECT).build();
+
+  private static final AspectDefinition FOO_PROVIDER_ASPECT_DEFINITION =
+      new AspectDefinition.Builder(FOO_PROVIDER_ASPECT).build();
+  private static final AspectDefinition BAR_PROVIDER_ASPECT_DEFINITION =
+      new AspectDefinition.Builder(BAR_PROVIDER_ASPECT).build();
 
   /**
    * A very simple aspect.
@@ -217,6 +280,44 @@ public class TestAspects {
     @Override
     public AspectDefinition getDefinition(AspectParameters aspectParameters) {
       return SIMPLE_ASPECT_DEFINITION;
+    }
+  }
+
+  /**
+   * A simple aspect that propagates a FooProvider provider.
+   */
+  public static class FooProviderAspect extends NativeAspectClass
+      implements ConfiguredAspectFactory {
+    @Override
+    public AspectDefinition getDefinition(AspectParameters aspectParameters) {
+      return FOO_PROVIDER_ASPECT_DEFINITION;
+    }
+
+    @Override
+    public ConfiguredAspect create(
+        ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters) {
+      return new ConfiguredAspect.Builder(this, parameters, ruleContext)
+          .addProvider(new FooProvider())
+          .build();
+    }
+  }
+
+  /**
+   * A simple aspect that propagates a BarProvider provider.
+   */
+  public static class BarProviderAspect extends NativeAspectClass
+      implements ConfiguredAspectFactory{
+    @Override
+    public AspectDefinition getDefinition(AspectParameters aspectParameters) {
+      return BAR_PROVIDER_ASPECT_DEFINITION;
+    }
+
+    @Override
+    public ConfiguredAspect create(
+        ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters) {
+      return new ConfiguredAspect.Builder(this, parameters, ruleContext)
+          .addProvider(new BarProvider())
+          .build();
     }
   }
 
@@ -247,7 +348,7 @@ public class TestAspects {
   public static final AttributeAspect ATTRIBUTE_ASPECT = new AttributeAspect();
   private static final AspectDefinition ATTRIBUTE_ASPECT_DEFINITION =
       new AspectDefinition.Builder(ATTRIBUTE_ASPECT)
-      .attributeAspect("foo", ATTRIBUTE_ASPECT)
+      .propagateAlongAttribute("foo")
       .build();
 
   /**
@@ -263,7 +364,7 @@ public class TestAspects {
   public static final NativeAspectClass ALL_ATTRIBUTES_ASPECT = new AllAttributesAspect();
   private static final AspectDefinition ALL_ATTRIBUTES_ASPECT_DEFINITION =
       new AspectDefinition.Builder(ALL_ATTRIBUTES_ASPECT)
-          .allAttributesAspect(ALL_ATTRIBUTES_ASPECT)
+          .propagateAlongAllAttributes()
           .build();
 
   /** An aspect that propagates along all attributes and has a tool dependency. */
@@ -279,7 +380,7 @@ public class TestAspects {
       new AllAttributesWithToolAspect();
   private static final AspectDefinition ALL_ATTRIBUTES_WITH_TOOL_ASPECT_DEFINITION =
       new AspectDefinition.Builder(ALL_ATTRIBUTES_WITH_TOOL_ASPECT)
-          .allAttributesAspect(ALL_ATTRIBUTES_WITH_TOOL_ASPECT)
+          .propagateAlongAllAttributes()
           .add(
               attr("$tool", BuildType.LABEL)
                   .allowedFileTypes(FileTypeSet.ANY_FILE)
@@ -334,7 +435,7 @@ public class TestAspects {
     public AspectDefinition getDefinition(AspectParameters aspectParameters) {
       AspectDefinition.Builder builder =
           new AspectDefinition.Builder(PARAMETRIZED_DEFINITION_ASPECT)
-              .attributeAspect("foo", this);
+              .propagateAlongAttribute("foo");
       ImmutableCollection<String> baz = aspectParameters.getAttribute("baz");
       if (baz != null) {
         try {
@@ -378,6 +479,7 @@ public class TestAspects {
   private static final AspectDefinition ASPECT_REQUIRING_PROVIDER_DEFINITION =
       new AspectDefinition.Builder(ASPECT_REQUIRING_PROVIDER)
           .requireProviders(RequiredProvider.class)
+          .propagateAlongAttribute("foo")
           .build();
   private static final AspectDefinition ASPECT_REQUIRING_PROVIDER_SETS_DEFINITION =
       new AspectDefinition.Builder(ASPECT_REQUIRING_PROVIDER_SETS)
@@ -409,7 +511,7 @@ public class TestAspects {
   public static final WarningAspect WARNING_ASPECT = new WarningAspect();
   private static final AspectDefinition WARNING_ASPECT_DEFINITION =
       new AspectDefinition.Builder(WARNING_ASPECT)
-      .attributeAspect("bar", WARNING_ASPECT)
+      .propagateAlongAttribute("bar")
       .build();
 
   /**
@@ -434,8 +536,35 @@ public class TestAspects {
   public static final ErrorAspect ERROR_ASPECT = new ErrorAspect();
   private static final AspectDefinition ERROR_ASPECT_DEFINITION =
       new AspectDefinition.Builder(ERROR_ASPECT)
-      .attributeAspect("bar", ERROR_ASPECT)
+      .propagateAlongAttribute("bar")
       .build();
+
+  /**
+   * An aspect that advertises but fails to provide providers.
+   */
+  public static class FalseAdvertisementAspect extends NativeAspectClass
+    implements ConfiguredAspectFactory {
+
+    @Override
+    public AspectDefinition getDefinition(AspectParameters aspectParameters) {
+      return FALSE_ADVERTISEMENT_DEFINITION;
+    }
+
+    @Override
+    public ConfiguredAspect create(ConfiguredTarget base, RuleContext context,
+        AspectParameters parameters) throws InterruptedException {
+      return new ConfiguredAspect.Builder(this, parameters, context).build();
+    }
+  }
+  public static final FalseAdvertisementAspect FALSE_ADVERTISEMENT_ASPECT
+      = new FalseAdvertisementAspect();
+  private static final AspectDefinition FALSE_ADVERTISEMENT_DEFINITION =
+      new AspectDefinition.Builder(FALSE_ADVERTISEMENT_ASPECT)
+        .advertiseProvider(RequiredProvider.class)
+        .advertiseProvider(
+            ImmutableList.of(SkylarkProviderIdentifier.forLegacy("advertised_provider")))
+        .build();
+
 
   /**
    * A common base rule for mock rules in this class to reduce boilerplate.
@@ -465,6 +594,7 @@ public class TestAspects {
       return RuleDefinition.Metadata.builder()
           .name("base")
           .factoryClass(DummyRuleFactory.class)
+          .ancestors(BaseRuleClasses.RootRule.class)
           .build();
     }
   }
@@ -489,6 +619,33 @@ public class TestAspects {
       return RuleDefinition.Metadata.builder()
           .name("aspect")
           .factoryClass(DummyRuleFactory.class)
+          .ancestors(BaseRule.class)
+          .build();
+    }
+  }
+
+  /**
+   * A rule that defines different aspects on different attributes.
+   */
+  public static class MultiAspectRule implements RuleDefinition {
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+      return builder
+          .add(attr("foo", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE)
+              .mandatory()
+              .aspect(FOO_PROVIDER_ASPECT))
+          .add(attr("bar", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE)
+              .mandatory()
+              .aspect(BAR_PROVIDER_ASPECT))
+          .build();
+
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("multi_aspect")
+          .factoryClass(MultiAspectRuleFactory.class)
           .ancestors(BaseRule.class)
           .build();
     }
@@ -876,4 +1033,245 @@ public class TestAspects {
     }
   }
 
+  private static class SetsCpuPatchTransition implements PatchTransition {
+
+    @Override
+    public BuildOptions apply(BuildOptions options) {
+      BuildOptions result = options.clone();
+      result.get(Options.class).cpu = "SET BY PATCH";
+      return result;
+    }
+
+    @Override
+    public boolean defaultsToSelf() {
+      return true;
+    }
+  }
+
+  private static class SetsCpuSplitTransition implements SplitTransition<BuildOptions> {
+
+    @Override
+    public List<BuildOptions> split(BuildOptions buildOptions) {
+      BuildOptions result = buildOptions.clone();
+      result.get(Options.class).cpu = "SET BY SPLIT";
+      return ImmutableList.of(result);
+    }
+
+    @Override
+    public boolean defaultsToSelf() {
+      return true;
+    }
+  }
+
+  private static class SetsHostCpuSplitTransition implements SplitTransition<BuildOptions> {
+
+    @Override
+    public List<BuildOptions> split(BuildOptions buildOptions) {
+      BuildOptions result = buildOptions.clone();
+      result.get(Options.class).hostCpu = "SET BY SPLIT";
+      return ImmutableList.of(result);
+    }
+
+    @Override
+    public boolean defaultsToSelf() {
+      return true;
+    }
+  }
+
+  private static class EmptySplitTransition implements SplitTransition<BuildOptions> {
+
+    @Override
+    public List<BuildOptions> split(BuildOptions buildOptions) {
+      return ImmutableList.of();
+    }
+
+    @Override
+    public boolean defaultsToSelf() {
+      return true;
+    }
+  }
+
+  /**
+   * Rule with a split transition on an attribute.
+   */
+  public static class AttributeTransitionRule implements RuleDefinition {
+
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+      return builder
+          .add(attr("without_transition", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE))
+          .add(attr("with_cpu_transition", LABEL)
+              .allowedFileTypes(FileTypeSet.ANY_FILE)
+              .cfg(new SetsCpuSplitTransition()))
+          .add(attr("with_host_cpu_transition", LABEL)
+              .allowedFileTypes(FileTypeSet.ANY_FILE)
+              .cfg(new SetsHostCpuSplitTransition()))
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("attribute_transition")
+          .factoryClass(DummyRuleFactory.class)
+          .ancestors(BaseRule.class)
+          .build();
+    }
+  }
+
+  /**
+   * Rule with {@link FalseAdvertisementAspect}
+   */
+  public static final class FalseAdvertisementAspectRule implements RuleDefinition {
+
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+      return builder
+          .add(attr("deps", LABEL_LIST).allowedFileTypes().aspect(FALSE_ADVERTISEMENT_ASPECT))
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return  RuleDefinition.Metadata.builder()
+          .name("false_advertisement_aspect")
+          .factoryClass(DummyRuleFactory.class)
+          .ancestors(BaseRule.class)
+          .build();
+    }
+  }
+
+  /**
+   * Rule with rule class configuration transition.
+   */
+  public static class RuleClassTransitionRule implements RuleDefinition {
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+      return builder
+          .cfg(new SetsCpuPatchTransition())
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("rule_class_transition")
+          .factoryClass(DummyRuleFactory.class)
+          .ancestors(BaseRule.class)
+          .build();
+    }
+  }
+
+  private static class SetsTestFilterFromAttributePatchTransition implements PatchTransition {
+    private final String value;
+
+    public SetsTestFilterFromAttributePatchTransition(String value) {
+      this.value = value;
+    }
+
+    @Override
+    public BuildOptions apply(BuildOptions options) {
+      BuildOptions result = options.clone();
+      result.get(Options.class).testFilter = "SET BY PATCH FACTORY: " + value;
+      return result;
+    }
+
+    @Override
+    public boolean defaultsToSelf() {
+      return true;
+    }
+  }
+
+  private static class SetsTestFilterFromAttributeTransitionFactory
+      implements RuleTransitionFactory {
+    @Override
+    public Transition buildTransitionFor(Rule rule) {
+      NonconfigurableAttributeMapper attributes = NonconfigurableAttributeMapper.of(rule);
+      String value = attributes.get("sets_test_filter_to", STRING);
+      if (Strings.isNullOrEmpty(value)) {
+        return null;
+      } else {
+        return new SetsTestFilterFromAttributePatchTransition(value);
+      }
+    }
+  }
+
+  /**
+   * Rule with a RuleTransitionFactory which sets the --test_filter flag according to its attribute.
+   */
+  public static class UsesRuleTransitionFactoryRule implements RuleDefinition {
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+      return builder
+          .cfg(new SetsTestFilterFromAttributeTransitionFactory())
+          .add(
+              attr("sets_test_filter_to", STRING)
+                  .nonconfigurable("used in RuleTransitionFactory")
+                  .value(""))
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("uses_rule_transition_factory")
+          .factoryClass(DummyRuleFactory.class)
+          .ancestors(BaseRule.class)
+          .build();
+    }
+  }
+
+  /** A rule with an empty split transition on an attribute. */
+  public static class EmptySplitRule implements RuleDefinition {
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+      return builder
+          .add(
+              attr("with_empty_transition", LABEL)
+                  .allowedFileTypes(FileTypeSet.ANY_FILE)
+                  .cfg(new EmptySplitTransition()))
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("empty_split")
+          .factoryClass(DummyRuleFactory.class)
+          .ancestors(BaseRule.class)
+          .build();
+    }
+  }
+
+  /** Aspect that propagates over rule outputs. */
+  public static class AspectApplyingToFiles extends NativeAspectClass
+      implements ConfiguredAspectFactory {
+
+    /** Simple provider for testing */
+    @Immutable
+    public static final class Provider implements TransitiveInfoProvider {
+      private final Label label;
+
+      private Provider(Label label) {
+        this.label = label;
+      }
+
+      public Label getLabel() {
+        return label;
+      }
+    }
+
+    @Override
+    public AspectDefinition getDefinition(AspectParameters aspectParameters) {
+      return AspectDefinition.builder(this).applyToFiles(true).build();
+    }
+
+    @Override
+    public ConfiguredAspect create(ConfiguredTarget base, RuleContext context,
+        AspectParameters parameters) throws InterruptedException {
+      return ConfiguredAspect.builder(this, parameters, context)
+          .addProvider(Provider.class, new Provider(base.getLabel()))
+          .build();
+    }
+  }
 }

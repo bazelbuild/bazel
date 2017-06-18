@@ -17,8 +17,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -95,6 +97,19 @@ public final class SelectorList implements SkylarkValue {
               EvalUtils.getDataTypeName(value2, true)));
     }
     return new SelectorList(type1, builder.build());
+  }
+
+  /**
+   * Creates a list consisting of the given selects.
+   */
+  public static SelectorList of(List<SelectorValue> selectors) throws EvalException {
+    Preconditions.checkArgument(!selectors.isEmpty());
+    Iterator<SelectorValue> it = selectors.iterator();
+    SelectorList list = SelectorList.of(it.next());
+    while (it.hasNext()) {
+      list = SelectorList.concat(null, list, it.next());
+    }
+    return list;
   }
 
   // TODO(bazel-team): match on the List interface, not the actual implementation. For now,

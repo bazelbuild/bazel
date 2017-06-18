@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -34,12 +35,13 @@ import java.util.Map;
 public class AppleCcToolchain extends CcToolchain {
   private static final String XCODE_VERSION_KEY = "xcode_version";
   private static final String IOS_SDK_VERSION_KEY = "ios_sdk_version";
-  private static final String MACOSX_SDK_VERSION_KEY = "macosx_sdk_version";
-  private static final String TVOS_SDK_VERSION_KEY = "appletvos_sdk_version";
+  private static final String MACOS_SDK_VERSION_KEY = "macos_sdk_version";
+  private static final String TVOS_SDK_VERSION_KEY = "tvos_sdk_version";
   private static final String WATCHOS_SDK_VERSION_KEY = "watchos_sdk_version";
   public static final String SDK_DIR_KEY = "sdk_dir";
   public static final String SDK_FRAMEWORK_DIR_KEY = "sdk_framework_dir";
   public static final String PLATFORM_DEVELOPER_FRAMEWORK_DIR = "platform_developer_framework_dir";
+  public static final String VERSION_MIN_KEY = "version_min";
   
   @VisibleForTesting
   public static final String XCODE_VERISON_OVERRIDE_VALUE_KEY = "xcode_version_override_value";
@@ -52,17 +54,18 @@ public class AppleCcToolchain extends CcToolchain {
   public static final String APPLE_SDK_PLATFORM_VALUE_KEY = "apple_sdk_platform_value";
 
   @Override
-  protected Map<String, String> getBuildVariables(RuleContext ruleContext) {
+  protected Map<String, String> getBuildVariables(RuleContext ruleContext)
+      throws RuleErrorException {
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
-    
+
     if (appleConfiguration.getXcodeVersion() == null) {
-      ruleContext.ruleError("Xcode version must be specified to use an Apple CROSSTOOL");
+      ruleContext.throwWithRuleError("Xcode version must be specified to use an Apple CROSSTOOL");
     }
-    
+
     Platform platform = appleConfiguration.getSingleArchPlatform();
 
-    Map<String, String> appleEnv = getEnvironment(ruleContext);
-    
+    Map<String, String> appleEnv = getEnvironmentBuildVariables(ruleContext);
+
     return ImmutableMap.<String, String>builder()
         .put(
             XCODE_VERSION_KEY,
@@ -73,8 +76,8 @@ public class AppleCcToolchain extends CcToolchain {
             appleConfiguration.getSdkVersionForPlatform(Platform.IOS_SIMULATOR)
                 .toStringWithMinimumComponents(2))
         .put(
-            MACOSX_SDK_VERSION_KEY,
-            appleConfiguration.getSdkVersionForPlatform(Platform.MACOS_X)
+            MACOS_SDK_VERSION_KEY,
+            appleConfiguration.getSdkVersionForPlatform(Platform.MACOS)
                 .toStringWithMinimumComponents(2))
         .put(
             TVOS_SDK_VERSION_KEY,
@@ -98,6 +101,8 @@ public class AppleCcToolchain extends CcToolchain {
         .put(
             APPLE_SDK_PLATFORM_VALUE_KEY,
             appleEnv.getOrDefault(AppleConfiguration.APPLE_SDK_PLATFORM_ENV_NAME, ""))
+        .put(VERSION_MIN_KEY,
+            appleConfiguration.getMinimumOsForPlatformType(platform.getType()).toString())
         .build();
   }
 
@@ -106,12 +111,11 @@ public class AppleCcToolchain extends CcToolchain {
       RuleContext ruleContext, NestedSet<Artifact> link) {
     return NestedSetBuilder.<Artifact>stableOrder()
         .addTransitive(link)
-        .addTransitive(AnalysisUtils.getMiddlemanFor(ruleContext, ":libc_top"))
+        .addTransitive(AnalysisUtils.getMiddlemanFor(ruleContext, ":libc_top", Mode.TARGET))
         .build();
   }
 
-  @Override
-  public ImmutableMap<String, String> getEnvironment(RuleContext ruleContext) {
+  private ImmutableMap<String, String> getEnvironmentBuildVariables(RuleContext ruleContext) {
     Map<String, String> builder = new LinkedHashMap<>();
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);

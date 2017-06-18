@@ -81,8 +81,13 @@ public class TransitiveTraversalFunction
     }
   }
 
-  protected Collection<Label> getAspectLabels(Rule fromRule, Attribute attr, Label toLabel,
-      ValueOrException2<NoSuchPackageException, NoSuchTargetException> toVal, Environment env) {
+  @Override
+  protected Collection<Label> getAspectLabels(
+      Rule fromRule,
+      Attribute attr,
+      Label toLabel,
+      ValueOrException2<NoSuchPackageException, NoSuchTargetException> toVal,
+      Environment env) {
     try {
       if (toVal == null) {
         return ImmutableList.of();
@@ -94,7 +99,7 @@ public class TransitiveTraversalFunction
       // Retrieve the providers of the dep from the TransitiveTraversalValue, so we can avoid
       // issuing a dep on its defining Package.
       return AspectDefinition.visitAspectsIfRequired(fromRule, attr,
-          traversalVal.canHaveAnyProvider(), traversalVal.getProviders(),
+          traversalVal.getProviders(),
           DependencyFilter.ALL_DEPS).values();
     } catch (NoSuchThingException e) {
       // Do nothing. This error was handled when we computed the corresponding
@@ -110,7 +115,8 @@ public class TransitiveTraversalFunction
     String firstErrorMessage = accumulator.getFirstErrorMessage();
     return targetLoadedSuccessfully
         ? TransitiveTraversalValue.forTarget(targetAndErrorIfAny.getTarget(), firstErrorMessage)
-        : TransitiveTraversalValue.unsuccessfulTransitiveTraversal(firstErrorMessage);
+        : TransitiveTraversalValue.unsuccessfulTransitiveTraversal(
+            firstErrorMessage, targetAndErrorIfAny.getTarget());
   }
 
   @Override

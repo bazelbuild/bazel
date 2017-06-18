@@ -33,26 +33,21 @@ import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.VERSIONED_SHA
 import com.google.devtools.build.lib.analysis.LanguageDependentFragment.LibraryLanguage;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
 import com.google.devtools.build.lib.packages.Attribute.Transition;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleTransitionFactory;
+import com.google.devtools.build.lib.rules.cpp.transitions.EnableLipoTransition;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 
 /**
  * Rule class definitions for C++ rules.
  */
 public class CppRuleClasses {
-
-  /** Returns true if this rule should create a dynamic library. */
-  public static boolean shouldCreateDynamicLibrary(AttributeMap rule) {
-    return !rule.get("linkstatic", Type.BOOLEAN) && CcLibrary.appearsToHaveObjectFiles(rule);
-  }
-
   /**
    * Implementation for the :lipo_context_collector attribute.
    */
@@ -63,10 +58,7 @@ public class CppRuleClasses {
       // This attribute connects a target to the LIPO context target configured with the
       // lipo input collector configuration.
       CppConfiguration cppConfiguration = configuration.getFragment(CppConfiguration.class);
-      return !cppConfiguration.isLipoContextCollector()
-          && (cppConfiguration.getLipoMode() == LipoMode.BINARY)
-          ? cppConfiguration.getLipoContextLabel()
-          : null;
+      return cppConfiguration.isLipoOptimization() ? cppConfiguration.getLipoContextLabel() : null;
     }
   };
 
@@ -93,6 +85,42 @@ public class CppRuleClasses {
       return true;
     }
   }
+
+  /**
+   * Rule transition factory that enables LIPO on the LIPO context binary (i.e. applies a DATA ->
+   * TARGET transition).
+   *
+   * <p>This is how dynamic configurations enable LIPO on the LIPO context.
+   */
+  public static final RuleTransitionFactory LIPO_ON_DEMAND =
+      new RuleTransitionFactory() {
+        @Override
+        public Attribute.Transition buildTransitionFor(Rule rule) {
+          return new EnableLipoTransition(rule.getLabel());
+        }
+      };
+
+  /**
+   * Label of a pseudo-filegroup that contains all crosstool and libcfiles for all configurations,
+   * as specified on the command-line.
+   */
+  public static final String CROSSTOOL_LABEL = "//tools/defaults:crosstool";
+
+  public static final LateBoundLabel<BuildConfiguration> DEFAULT_MALLOC =
+      new LateBoundLabel<BuildConfiguration>() {
+        @Override
+        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+          return configuration.getFragment(CppConfiguration.class).customMalloc();
+        }
+      };
+
+  public static final LateBoundLabel<BuildConfiguration> CC_TOOLCHAIN =
+      new LateBoundLabel<BuildConfiguration>(CROSSTOOL_LABEL, CppConfiguration.class) {
+        @Override
+        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+          return configuration.getFragment(CppConfiguration.class).getCcToolchainRuleLabel();
+        }
+      };
 
   // Artifacts of these types are discarded from the 'hdrs' attribute in cc rules
   static final FileTypeSet DISALLOWED_HDRS_FILES = FileTypeSet.of(
@@ -130,11 +158,6 @@ public class CppRuleClasses {
   public static final SafeImplicitOutputsFunction CC_BINARY_DEBUG_PACKAGE =
       fromTemplates("%{name}.dwp");
 
-
-  /**
-   * Path of the build_interface_so script in the Blaze binary.
-   */
-  public static final String BUILD_INTERFACE_SO = "build_interface_so";
 
   /**
    * A string constant for the parse_headers feature.
@@ -192,10 +215,25 @@ public class CppRuleClasses {
    */
   public static final String LAYERING_CHECK = "layering_check";
 
-  /**
-   * A string constant for the header_modules feature.
-   */
+  /** A string constant for the header_modules feature. */
   public static final String HEADER_MODULES = "header_modules";
+
+  /** A string constant for the header_modules_compile feature. */
+  public static final String HEADER_MODULE_COMPILE = "header_module_compile";
+  
+  /** A string constant for the header_module_codegen feature. */
+  public static final String HEADER_MODULE_CODEGEN = "header_module_codegen";
+
+  /**
+   * A string constant for the compile_all_modules feature.
+   */
+  public static final String COMPILE_ALL_MODULES = "compile_all_modules";
+
+  /**
+   * A string constant for the exclude_private_headers_in_module_maps feature.
+   */
+  public static final String EXCLUDE_PRIVATE_HEADERS_IN_MODULE_MAPS =
+      "exclude_private_headers_in_module_maps";
 
   /**
    * A string constant for the use_header_modules feature.
@@ -216,12 +254,11 @@ public class CppRuleClasses {
   public static final String GENERATE_SUBMODULES = "generate_submodules";
 
   /**
-   * A string constant for the transitive_module_maps feature.
+   * A string constant for the only_doth_headers_in_module_maps.
    *
-   * <p>This feature is used temporarily to switch between adding transitive module maps to a
-   * modules enabled build or only adding module maps from direct dependencies.
+   * <p>This feature filters any headers without a ".h" suffix from generated module maps.
    */
-  public static final String TRANSITIVE_MODULE_MAPS = "transitive_module_maps";
+  public static final String ONLY_DOTH_HEADERS_IN_MODULE_MAPS = "only_doth_headers_in_module_maps";
 
   /**
    * A string constant for the no_legacy_features feature.
@@ -258,6 +295,15 @@ public class CppRuleClasses {
    * A string constant for the ThinLTO feature.
    */
   public static final String THIN_LTO = "thin_lto";
+
+  /**
+   * A string constant for the PDB file generation feature, should only be used for toolchains
+   * targeting Windows that include a linker producing PDB files
+   */
+  public static final String GENERATE_PDB_FILE = "generate_pdb_file";
+
+  /** A string constant for /showIncludes parsing feature, should only be used for MSVC toolchain */
+  public static final String PARSE_SHOWINCLUDES = "parse_showincludes";
 
   /*
    * A string constant for the fdo_instrument feature.

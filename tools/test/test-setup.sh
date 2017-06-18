@@ -27,24 +27,64 @@ else
   echo 'exec ${PAGER:-/usr/bin/less} "$0" || exit 1'
 fi
 
-# Bazel sets some environment vars to relative paths, but it's easier to deal
-# with absolute paths once we're actually running the test, so let's convert
-# them.
-if [[ "$TEST_SRCDIR" != /* ]]; then
-  export TEST_SRCDIR="$PWD/$TEST_SRCDIR"
+function is_absolute {
+  [[ "$1" = /* ]] || [[ "$1" =~ ^[a-zA-Z]:[/\\].* ]]
+}
+
+# Bazel sets some environment vars to relative paths to improve caching and
+# support remote execution, where the absolute path may not be known to Bazel.
+# Convert them to absolute paths here before running the actual test.
+is_absolute "$TEST_PREMATURE_EXIT_FILE" ||
+  TEST_PREMATURE_EXIT_FILE="$PWD/$TEST_PREMATURE_EXIT_FILE"
+is_absolute "$TEST_WARNINGS_OUTPUT_FILE" ||
+  TEST_WARNINGS_OUTPUT_FILE="$PWD/$TEST_WARNINGS_OUTPUT_FILE"
+is_absolute "$TEST_LOGSPLITTER_OUTPUT_FILE" ||
+  TEST_LOGSPLITTER_OUTPUT_FILE="$PWD/$TEST_LOGSPLITTER_OUTPUT_FILE"
+is_absolute "$TEST_INFRASTRUCTURE_FAILURE_FILE" ||
+  TEST_INFRASTRUCTURE_FAILURE_FILE="$PWD/$TEST_INFRASTRUCTURE_FAILURE_FILE"
+is_absolute "$TEST_UNUSED_RUNFILES_LOG_FILE" ||
+  TEST_UNUSED_RUNFILES_LOG_FILE="$PWD/$TEST_UNUSED_RUNFILES_LOG_FILE"
+is_absolute "$TEST_UNDECLARED_OUTPUTS_DIR" ||
+  TEST_UNDECLARED_OUTPUTS_DIR="$PWD/$TEST_UNDECLARED_OUTPUTS_DIR"
+is_absolute "$TEST_UNDECLARED_OUTPUTS_MANIFEST" ||
+  TEST_UNDECLARED_OUTPUTS_MANIFEST="$PWD/$TEST_UNDECLARED_OUTPUTS_MANIFEST"
+is_absolute "$TEST_UNDECLARED_OUTPUTS_ZIP" ||
+  TEST_UNDECLARED_OUTPUTS_ZIP="$PWD/$TEST_UNDECLARED_OUTPUTS_ZIP"
+is_absolute "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS" ||
+  TEST_UNDECLARED_OUTPUTS_ANNOTATIONS="$PWD/$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS"
+is_absolute "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR" ||
+  TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR="$PWD/$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR"
+
+is_absolute "$TEST_SRCDIR" || TEST_SRCDIR="$PWD/$TEST_SRCDIR"
+is_absolute "$TEST_TMPDIR" || TEST_TMPDIR="$PWD/$TEST_TMPDIR"
+is_absolute "$XML_OUTPUT_FILE" || XML_OUTPUT_FILE="$PWD/$XML_OUTPUT_FILE"
+
+# The test shard status file is only set for sharded tests.
+if [[ -n "$TEST_SHARD_STATUS_FILE" ]]; then
+  is_absolute "$TEST_SHARD_STATUS_FILE" || TEST_SHARD_STATUS_FILE="$PWD/$TEST_SHARD_STATUS_FILE"
+  mkdir -p "$(dirname "$TEST_SHARD_STATUS_FILE")"
 fi
-if [[ "$JAVA_RUNFILES" != /* ]]; then
-  export JAVA_RUNFILES="$PWD/$JAVA_RUNFILES"
-fi
-if [[ "$PYTHON_RUNFILES" != /* ]]; then
-  export PYTHON_RUNFILES="$PWD/$PYTHON_RUNFILES"
-fi
-if [[ "$TEST_TMPDIR" != /* ]]; then
-  export TEST_TMPDIR="$PWD/$TEST_TMPDIR"
-fi
-if [[ "$XML_OUTPUT_FILE" != /* ]]; then
-  export XML_OUTPUT_FILE="$PWD/$XML_OUTPUT_FILE"
-fi
+
+is_absolute "$RUNFILES_DIR" || RUNFILES_DIR="$PWD/$RUNFILES_DIR"
+
+# TODO(ulfjack): Standardize on RUNFILES_DIR and remove the {JAVA,PYTHON}_RUNFILES vars.
+is_absolute "$JAVA_RUNFILES" || JAVA_RUNFILES="$PWD/$JAVA_RUNFILES"
+is_absolute "$PYTHON_RUNFILES" || PYTHON_RUNFILES="$PWD/$PYTHON_RUNFILES"
+
+# Create directories for undeclared outputs and their annotations
+mkdir -p "$(dirname "$XML_OUTPUT_FILE")" \
+    "$TEST_UNDECLARED_OUTPUTS_DIR" \
+    "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR"
+
+# Create the test temp directory, which may not exist on the remote host when
+# doing a remote build.
+mkdir -p "$TEST_TMPDIR"
+
+# Unexport environment variables related to undeclared test outputs that are
+# only supposed to be used in this script.
+export -n TEST_UNDECLARED_OUTPUTS_MANIFEST
+export -n TEST_UNDECLARED_OUTPUTS_ZIP
+export -n TEST_UNDECLARED_OUTPUTS_ANNOTATIONS
 
 # Tell googletest about Bazel sharding.
 if [[ -n "${TEST_TOTAL_SHARDS+x}" ]] && ((TEST_TOTAL_SHARDS != 0)); then
@@ -53,11 +93,15 @@ if [[ -n "${TEST_TOTAL_SHARDS+x}" ]] && ((TEST_TOTAL_SHARDS != 0)); then
 fi
 export GTEST_TMP_DIR="${TEST_TMPDIR}"
 
+# TODO(ulfjack): Update Gunit to accept XML_OUTPUT_FILE and drop this env
+# variable.
+GUNIT_OUTPUT="xml:${XML_OUTPUT_FILE}"
+
 RUNFILES_MANIFEST_FILE="${TEST_SRCDIR}/MANIFEST"
 
 if [ -z "$RUNFILES_MANIFEST_ONLY" ]; then
   function rlocation() {
-    if [[ "$1" = /* ]]; then
+    if is_absolute "$1" ; then
       echo "$1"
     else
       echo "$(dirname $RUNFILES_MANIFEST_FILE)/$1"
@@ -65,7 +109,7 @@ if [ -z "$RUNFILES_MANIFEST_ONLY" ]; then
   }
 else
   function rlocation() {
-    if [[ "$1" = /* ]]; then
+    if is_absolute "$1" ; then
       echo "$1"
     else
       echo $(grep "^$1 " $RUNFILES_MANIFEST_FILE | awk '{ print $2 }')
@@ -74,6 +118,7 @@ else
 fi
 
 export -f rlocation
+export -f is_absolute
 export RUNFILES_MANIFEST_FILE
 
 DIR="$TEST_SRCDIR"
@@ -102,13 +147,13 @@ fi
 PATH=".:$PATH"
 
 if [ -z "$COVERAGE_DIR" ]; then
-  TEST_NAME=$1
+  TEST_NAME=${1#./}
   shift
 else
-  TEST_NAME=$2
+  TEST_NAME=${2#./}
 fi
 
-if [[ "$TEST_NAME" = /* ]]; then
+if is_absolute "$TEST_NAME" ; then
   TEST_PATH="${TEST_NAME}"
 else
   TEST_PATH="$(rlocation $TEST_WORKSPACE/$TEST_NAME)"

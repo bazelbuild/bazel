@@ -16,8 +16,7 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Splitter;
 import com.google.common.io.Files;
-import com.google.devtools.build.lib.util.ProcMeminfoParser;
-
+import com.google.devtools.build.lib.unix.ProcMeminfoParser;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;

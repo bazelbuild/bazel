@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import static com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils.append;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.cache.CacheBuilder;
@@ -31,20 +29,12 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException.EvalExceptionWithJavaCause;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
-import com.google.devtools.build.lib.syntax.compiler.ByteCodeMethodCalls;
-import com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils;
-import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
-import com.google.devtools.build.lib.syntax.compiler.DebugInfo.AstAccessors;
-import com.google.devtools.build.lib.syntax.compiler.NewObject;
-import com.google.devtools.build.lib.syntax.compiler.Variable.InternalVariable;
-import com.google.devtools.build.lib.syntax.compiler.VariableScope;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringUtilities;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -54,12 +44,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
-import net.bytebuddy.description.type.TypeDescription;
-import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
-import net.bytebuddy.implementation.bytecode.Removal;
-import net.bytebuddy.implementation.bytecode.StackManipulation;
-import net.bytebuddy.implementation.bytecode.assign.TypeCasting;
-import net.bytebuddy.implementation.bytecode.constant.TextConstant;
 
 /**
  * Syntax node for a function call expression.
@@ -265,10 +249,6 @@ public final class FuncallExpression extends Expression {
     return numPositionalArgs;
   }
 
-  private String functionName() {
-    return "function " + func.getName();
-  }
-
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
@@ -283,15 +263,14 @@ public final class FuncallExpression extends Expression {
   }
 
   /**
-   * Returns the list of Skylark callable Methods of objClass with the given name
-   * and argument number.
+   * Returns the list of Skylark callable Methods of objClass with the given name and argument
+   * number.
    */
-  public static List<MethodDescriptor> getMethods(Class<?> objClass, String methodName,
-      Location loc) throws EvalException {
+  public static List<MethodDescriptor> getMethods(Class<?> objClass, String methodName) {
     try {
       return methodCache.get(objClass).get(methodName);
     } catch (ExecutionException e) {
-      throw new EvalException(loc, "Method invocation failed: " + e);
+      throw new IllegalStateException("method invocation failed: " + e);
     }
   }
 
@@ -299,8 +278,12 @@ public final class FuncallExpression extends Expression {
    * Returns a set of the Skylark name of all Skylark callable methods for object of type {@code
    * objClass}.
    */
-  public static Set<String> getMethodNames(Class<?> objClass) throws ExecutionException {
-    return methodCache.get(objClass).keySet();
+  public static Set<String> getMethodNames(Class<?> objClass) {
+    try {
+      return methodCache.get(objClass).keySet();
+    } catch (ExecutionException e) {
+      throw new IllegalStateException("method invocation failed: " + e);
+    }
   }
 
   static Object callMethod(MethodDescriptor methodDescriptor, String methodName, Object obj,
@@ -308,7 +291,7 @@ public final class FuncallExpression extends Expression {
     try {
       Method method = methodDescriptor.getMethod();
       if (obj == null && !Modifier.isStatic(method.getModifiers())) {
-        throw new EvalException(loc, "Method '" + methodName + "' is not static");
+        throw new EvalException(loc, "method '" + methodName + "' is not static");
       }
       // This happens when the interface is public but the implementation classes
       // have reduced visibility.
@@ -321,16 +304,20 @@ public final class FuncallExpression extends Expression {
         if (methodDescriptor.getAnnotation().allowReturnNones()) {
           return Runtime.NONE;
         } else {
-          throw new EvalException(loc,
-              "Method invocation returned None, please contact Skylark developers: " + methodName
-              + Printer.listString(ImmutableList.copyOf(args), "(", ", ", ")", null));
+          throw new EvalException(
+              loc,
+              "method invocation returned None, please file a bug report: "
+                  + methodName
+                  + Printer.listString(ImmutableList.copyOf(args), "(", ", ", ")", null));
         }
       }
       // TODO(bazel-team): get rid of this, by having everyone use the Skylark data structures
       result = SkylarkType.convertToSkylark(result, method, env);
       if (result != null && !EvalUtils.isSkylarkAcceptable(result.getClass())) {
-        throw new EvalException(loc, Printer.format(
-            "Method '%s' returns an object of invalid type %r", methodName, result.getClass()));
+        throw new EvalException(
+            loc,
+            Printer.format(
+                "method '%s' returns an object of invalid type %r", methodName, result.getClass()));
       }
       return result;
     } catch (IllegalAccessException e) {
@@ -344,7 +331,7 @@ public final class FuncallExpression extends Expression {
         throw new EvalExceptionWithJavaCause(loc, e.getCause());
       } else {
         // This is unlikely to happen
-        throw new EvalException(loc, "Method invocation failed: " + e);
+        throw new EvalException(loc, "method invocation failed: " + e);
       }
     }
   }
@@ -357,7 +344,7 @@ public final class FuncallExpression extends Expression {
       Class<?> objClass, String methodName, List<Object> args, Map<String, Object> kwargs)
       throws EvalException {
     Pair<MethodDescriptor, List<Object>> matchingMethod = null;
-    List<MethodDescriptor> methods = getMethods(objClass, methodName, getLocation());
+    List<MethodDescriptor> methods = getMethods(objClass, methodName);
     ArgumentListConversionResult argumentListConversionResult = null;
     if (methods != null) {
       for (MethodDescriptor method : methods) {
@@ -374,7 +361,7 @@ public final class FuncallExpression extends Expression {
               throw new EvalException(
                   getLocation(),
                   String.format(
-                      "Type %s has multiple matches for %s",
+                      "type '%s' has multiple matches for function %s",
                       EvalUtils.getDataTypeNameFromClass(objClass), formatMethod(args, kwargs)));
             }
           }
@@ -383,16 +370,19 @@ public final class FuncallExpression extends Expression {
     }
     if (matchingMethod == null) {
       String errorMessage;
-      if (argumentListConversionResult == null || argumentListConversionResult.getError() == null) {
+      if (ClassObject.class.isAssignableFrom(objClass)) {
+        errorMessage = String.format("struct has no method '%s'", methodName);
+      } else if (argumentListConversionResult == null
+          || argumentListConversionResult.getError() == null) {
         errorMessage =
             String.format(
-                "Type %s has no %s",
+                "type '%s' has no method %s",
                 EvalUtils.getDataTypeNameFromClass(objClass), formatMethod(args, kwargs));
 
       } else {
         errorMessage =
             String.format(
-                "%s (in %s of %s).",
+                "%s, in method %s of '%s'",
                 argumentListConversionResult.getError(),
                 formatMethod(args, kwargs),
                 EvalUtils.getDataTypeNameFromClass(objClass));
@@ -429,7 +419,7 @@ public final class FuncallExpression extends Expression {
     }
     if (mandatoryPositionals > args.size()
         || args.size() > mandatoryPositionals + callable.parameters().length) {
-      return ArgumentListConversionResult.fromError("Too many arguments");
+      return ArgumentListConversionResult.fromError("too many arguments");
     }
     // First process the legacy positional parameters.
     int i = 0;
@@ -482,25 +472,25 @@ public final class FuncallExpression extends Expression {
         // Use default value
         if (param.defaultValue().isEmpty()) {
           return ArgumentListConversionResult.fromError(
-              String.format("Parameter '%s' has no default value", param.name()));
+              String.format("parameter '%s' has no default value", param.name()));
         }
         value = SkylarkSignatureProcessor.getDefaultValue(param, null);
       }
       builder.add(value);
       if (!param.noneable() && value instanceof NoneType) {
         return ArgumentListConversionResult.fromError(
-            String.format("Parameter '%s' cannot be None", param.name()));
+            String.format("parameter '%s' cannot be None", param.name()));
       }
     }
     if (i < args.size() || !keys.isEmpty()) {
-      return ArgumentListConversionResult.fromError("Too many arguments");
+      return ArgumentListConversionResult.fromError("too many arguments");
     }
     return ArgumentListConversionResult.fromArgumentList(builder.build());
   }
 
   private String formatMethod(List<Object> args, Map<String, Object> kwargs) {
     StringBuilder sb = new StringBuilder();
-    sb.append(functionName()).append("(");
+    sb.append(func.getName()).append("(");
     boolean first = true;
     for (Object obj : args) {
       if (!first) {
@@ -522,20 +512,6 @@ public final class FuncallExpression extends Expression {
   }
 
   /**
-   * A {@link StackManipulation} invoking addKeywordArg.
-   *
-   * <p>Kept close to the definition of the method to avoid reflection errors when changing it.
-   */
-  private static final StackManipulation addKeywordArg =
-      ByteCodeUtils.invoke(
-          FuncallExpression.class,
-          "addKeywordArg",
-          Map.class,
-          String.class,
-          Object.class,
-          ImmutableList.Builder.class);
-
-  /**
    * Add one argument to the keyword map, registering a duplicate in case of conflict.
    *
    * <p>public for reflection by the compiler and calls from compiled functions
@@ -551,19 +527,6 @@ public final class FuncallExpression extends Expression {
   }
 
   /**
-   * A {@link StackManipulation} invoking addKeywordArgs.
-   * <p>Kept close to the definition of the method to avoid reflection errors when changing it.
-   */
-  private static final StackManipulation addKeywordArgs =
-      ByteCodeUtils.invoke(
-          FuncallExpression.class,
-          "addKeywordArgs",
-          Map.class,
-          Object.class,
-          ImmutableList.Builder.class,
-          Location.class);
-
-  /**
    * Add multiple arguments to the keyword map (**kwargs), registering duplicates
    *
    * <p>public for reflection by the compiler and calls from compiled functions
@@ -577,23 +540,17 @@ public final class FuncallExpression extends Expression {
     if (!(items instanceof Map<?, ?>)) {
       throw new EvalException(
           location,
-          "Argument after ** must be a dictionary, not " + EvalUtils.getDataTypeName(items));
+          "argument after ** must be a dictionary, not '" + EvalUtils.getDataTypeName(items) + "'");
     }
     for (Map.Entry<?, ?> entry : ((Map<?, ?>) items).entrySet()) {
       if (!(entry.getKey() instanceof String)) {
         throw new EvalException(
-            location, "Keywords must be strings, not " + EvalUtils.getDataTypeName(entry.getKey()));
+            location,
+            "keywords must be strings, not '" + EvalUtils.getDataTypeName(entry.getKey()) + "'");
       }
       addKeywordArg(kwargs, (String) entry.getKey(), entry.getValue(), duplicates);
     }
   }
-
-  /**
-   * A {@link StackManipulation} invoking checkCallable.
-   * <p>Kept close to the definition of the method to avoid reflection errors when changing it.
-   */
-  private static final StackManipulation checkCallable =
-      ByteCodeUtils.invoke(FuncallExpression.class, "checkCallable", Object.class, Location.class);
 
   /**
    * Checks whether the given object is a {@link BaseFunction}.
@@ -611,18 +568,6 @@ public final class FuncallExpression extends Expression {
           location, "'" + EvalUtils.getDataTypeName(functionValue) + "' object is not callable");
     }
   }
-
-  /**
-   * A {@link StackManipulation} invoking checkDuplicates.
-   * <p>Kept close to the definition of the method to avoid reflection errors when changing it.
-   */
-  private static final StackManipulation checkDuplicates =
-      ByteCodeUtils.invoke(
-          FuncallExpression.class,
-          "checkDuplicates",
-          ImmutableList.Builder.class,
-          String.class,
-          Location.class);
 
   /**
    * Check the list from the builder and report an {@link EvalException} if not empty.
@@ -646,20 +591,6 @@ public final class FuncallExpression extends Expression {
   }
 
   /**
-   * A {@link StackManipulation} invoking invokeObjectMethod.
-   * <p>Kept close to the definition of the method to avoid reflection errors when changing it.
-   */
-  private static final StackManipulation invokeObjectMethod =
-      ByteCodeUtils.invoke(
-          FuncallExpression.class,
-          "invokeObjectMethod",
-          String.class,
-          ImmutableList.class,
-          ImmutableMap.class,
-          FuncallExpression.class,
-          Environment.class);
-
-  /**
    * Call a method depending on the type of an object it is called on.
    *
    * <p>Public for reflection by the compiler and access from generated byte code.
@@ -678,6 +609,8 @@ public final class FuncallExpression extends Expression {
     Object value = positionals.get(0);
     ImmutableList<Object> positionalArgs = positionals.subList(1, positionals.size());
     BaseFunction function = Runtime.getFunction(EvalUtils.getSkylarkType(value.getClass()), method);
+    Object fieldValue =
+        (value instanceof ClassObject) ? ((ClassObject) value).getValue(method) : null;
     if (function != null) {
       if (!isNamespace(value.getClass())) {
         // Use self as an implicit parameter in front.
@@ -685,11 +618,7 @@ public final class FuncallExpression extends Expression {
       }
       return function.call(
           positionalArgs, ImmutableMap.<String, Object>copyOf(keyWordArgs), call, env);
-    } else if (value instanceof ClassObject) {
-      Object fieldValue = ((ClassObject) value).getValue(method);
-      if (fieldValue == null) {
-        throw new EvalException(location, String.format("struct has no method '%s'", method));
-      }
+    } else if (fieldValue != null) {
       if (!(fieldValue instanceof BaseFunction)) {
         throw new EvalException(
             location, String.format("struct field '%s' is not a function", method));
@@ -717,7 +646,7 @@ public final class FuncallExpression extends Expression {
         try {
           return callFunction(javaMethod.first.getMethod().invoke(obj), env);
         } catch (IllegalAccessException e) {
-          throw new EvalException(getLocation(), "Method invocation failed: " + e);
+          throw new EvalException(getLocation(), "method invocation failed: " + e);
         } catch (InvocationTargetException e) {
           if (e.getCause() instanceof FuncallException) {
             throw new EvalException(getLocation(), e.getCause().getMessage());
@@ -725,7 +654,7 @@ public final class FuncallExpression extends Expression {
             throw new EvalExceptionWithJavaCause(getLocation(), e.getCause());
           } else {
             // This is unlikely to happen
-            throw new EvalException(getLocation(), "Method invocation failed: " + e);
+            throw new EvalException(getLocation(), "method invocation failed: " + e);
           }
         }
       }
@@ -747,9 +676,12 @@ public final class FuncallExpression extends Expression {
       if (arg.isPositional()) {
         posargs.add(value);
       } else if (arg.isStar()) {  // expand the starArg
-        if (value instanceof Iterable) {
-          posargs.addAll((Iterable<Object>) value);
+        if (!(value instanceof Iterable)) {
+          throw new EvalException(
+              getLocation(),
+              "argument after * must be an iterable, not " + EvalUtils.getDataTypeName(value));
         }
+        posargs.addAll((Iterable<Object>) value);
       } else if (arg.isStarStar()) {  // expand the kwargs
         addKeywordArgs(kwargs, value, duplicates, getLocation());
       } else {
@@ -832,135 +764,18 @@ public final class FuncallExpression extends Expression {
 
   @Override
   void validate(ValidationEnvironment env) throws EvalException {
-    for (Argument.Passed arg : args) {
-      arg.getValue().validate(env);
-    }
-
     if (obj != null) {
       obj.validate(env);
-    } else if (!env.hasSymbolInEnvironment(func.getName())) {
-      throw new EvalException(getLocation(),
-          String.format("function '%s' does not exist", func.getName()));
+    } else {
+      func.validate(env);
+    }
+    for (Argument.Passed arg : args) {
+      arg.getValue().validate(env);
     }
   }
 
   @Override
   protected boolean isNewScope() {
     return true;
-  }
-
-  @Override
-  ByteCodeAppender compile(VariableScope scope, DebugInfo debugInfo) throws EvalException {
-    AstAccessors debugAccessors = debugInfo.add(this);
-    List<ByteCodeAppender> code = new ArrayList<>();
-    if (obj != null) {
-      compileObjectMethodCall(scope, debugInfo, debugAccessors, code);
-    } else {
-      compileGlobalFunctionCall(scope, debugInfo, debugAccessors, code);
-    }
-    return ByteCodeUtils.compoundAppender(code);
-  }
-
-  /**
-   * Add code that compiles the argument expressions.
-   *
-   * <p>The byte code leaves the arguments on the stack in order of:
-   * positional arguments, key word arguments, this FuncallExpression, Environment
-   * This is the order required by {@link #invokeObjectMethod} and
-   *  {@link BaseFunction#call(List, Map, FuncallExpression, Environment)}.
-   */
-  private void compileArguments(
-      VariableScope scope,
-      DebugInfo debugInfo,
-      AstAccessors debugAccessors,
-      List<ByteCodeAppender> code)
-      throws EvalException {
-    InternalVariable positionalsBuilder = scope.freshVariable(ImmutableList.Builder.class);
-    append(code, ByteCodeMethodCalls.BCImmutableList.builder);
-    code.add(positionalsBuilder.store());
-
-    InternalVariable keyWordArgs = scope.freshVariable(Map.class);
-    append(code, NewObject.fromConstructor(HashMap.class).arguments());
-    code.add(keyWordArgs.store());
-
-    InternalVariable duplicatesBuilder =
-        scope.freshVariable(new TypeDescription.ForLoadedType(ImmutableList.Builder.class));
-    append(code, ByteCodeMethodCalls.BCImmutableList.builder);
-    code.add(duplicatesBuilder.store());
-
-    StackManipulation builderAdd =
-        new StackManipulation.Compound(
-            ByteCodeMethodCalls.BCImmutableList.Builder.add, Removal.SINGLE);
-
-    // add an object the function is called on first
-    if (obj != null) {
-      append(code, positionalsBuilder.load());
-      code.add(obj.compile(scope, debugInfo));
-      append(code, builderAdd);
-    }
-    // add all arguments to their respective builder/map
-    for (Argument.Passed arg : args) {
-      ByteCodeAppender value = arg.getValue().compile(scope, debugInfo);
-      if (arg.isPositional()) {
-        append(code, positionalsBuilder.load());
-        code.add(value);
-        append(code, builderAdd);
-      } else if (arg.isStar()) {
-        // expand the starArg by adding all it's elements to the builder
-        append(code, positionalsBuilder.load());
-        code.add(value);
-        append(
-            code,
-            TypeCasting.to(new TypeDescription.ForLoadedType(Iterable.class)),
-            ByteCodeMethodCalls.BCImmutableList.Builder.addAll,
-            Removal.SINGLE);
-      } else if (arg.isStarStar()) {
-        append(code, keyWordArgs.load());
-        code.add(value);
-        append(code, duplicatesBuilder.load(), debugAccessors.loadLocation, addKeywordArgs);
-      } else {
-        append(code, keyWordArgs.load(), new TextConstant(arg.getName()));
-        code.add(value);
-        append(code, duplicatesBuilder.load(), addKeywordArg);
-      }
-    }
-    append(
-        code,
-        // check for duplicates in the key word arguments
-        duplicatesBuilder.load(),
-        new TextConstant(func.getName()),
-        debugAccessors.loadLocation,
-        checkDuplicates,
-        // load the arguments in the correct order for invokeObjectMethod and BaseFunction.call
-        positionalsBuilder.load(),
-        ByteCodeMethodCalls.BCImmutableList.Builder.build,
-        keyWordArgs.load(),
-        ByteCodeMethodCalls.BCImmutableMap.copyOf,
-        debugAccessors.loadAstNode,
-        TypeCasting.to(new TypeDescription.ForLoadedType(FuncallExpression.class)),
-        scope.loadEnvironment());
-  }
-
-  private void compileObjectMethodCall(
-      VariableScope scope,
-      DebugInfo debugInfo,
-      AstAccessors debugAccessors,
-      List<ByteCodeAppender> code)
-      throws EvalException {
-    append(code, new TextConstant(func.getName()));
-    compileArguments(scope, debugInfo, debugAccessors, code);
-    append(code, invokeObjectMethod);
-  }
-
-  private void compileGlobalFunctionCall(
-      VariableScope scope,
-      DebugInfo debugInfo,
-      AstAccessors debugAccessors,
-      List<ByteCodeAppender> code)
-      throws EvalException {
-    code.add(func.compile(scope, debugInfo));
-    append(code, debugAccessors.loadLocation, checkCallable);
-    compileArguments(scope, debugInfo, debugAccessors, code);
-    append(code, BaseFunction.call);
   }
 }

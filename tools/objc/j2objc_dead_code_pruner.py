@@ -378,8 +378,15 @@ def PruneArchiveFile(input_archive, output_archive, dummy_archive,
         # Remove the unreachable objects from the archive
         unreachable_object_names = MatchObjectNamesInArchive(
             xcrunwrapper, input_archive, unreachable_object_names)
+        # We need to quote the object names because they may contains special
+        # shell characters.
+        quoted_unreachable_object_names = [
+            "'" + unreachable_object_name + "'"
+            for unreachable_object_name in unreachable_object_names]
         j2objc_cmd += '%s ar -d -s %s %s && ' % (
-            xcrunwrapper, output_archive, ' '.join(unreachable_object_names))
+            xcrunwrapper,
+            output_archive,
+            ' '.join(quoted_unreachable_object_names))
         # Update the table of content of the archive file
         j2objc_cmd += '%s ranlib %s' % (xcrunwrapper, output_archive)
     # There are no unreachable objects, we just copy over the original archive

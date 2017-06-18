@@ -15,12 +15,13 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.skyframe.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
@@ -28,12 +29,12 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
-import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequentialBuildDriver;
@@ -50,8 +51,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
 
 abstract class ArtifactFunctionTestCase {
-  protected static final SkyKey OWNER_KEY = SkyKey.create(SkyFunctions.ACTION_LOOKUP, "OWNER");
-  protected static final ActionLookupKey ALL_OWNER = new SingletonActionLookupKey();
+  static final ActionLookupKey ALL_OWNER = new SingletonActionLookupKey();
+  static final SkyKey OWNER_KEY = LegacySkyKey.create(SkyFunctions.ACTION_LOOKUP, ALL_OWNER);
 
   protected Predicate<PathFragment> allowedMissingInputsPredicate = Predicates.alwaysFalse();
 
@@ -61,6 +62,7 @@ abstract class ArtifactFunctionTestCase {
   protected SequentialBuildDriver driver;
   protected MemoizingEvaluator evaluator;
   protected Path root;
+  protected Path middlemanPath;
 
   /**
    * The test action execution function. The Skyframe evaluator's action execution function
@@ -106,11 +108,13 @@ abstract class ArtifactFunctionTestCase {
                     SkyFunctions.WORKSPACE_FILE,
                     new WorkspaceFileFunction(
                         TestRuleClassProvider.getRuleClassProvider(),
-                        TestConstants.PACKAGE_FACTORY_FACTORY_FOR_TESTING.create(
+                        TestConstants.PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING.builder().build(
                             TestRuleClassProvider.getRuleClassProvider(), root.getFileSystem()),
                         directories))
                 .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())
-                .put(SkyFunctions.ACTION_TEMPLATE_EXPANSION, new ActionTemplateExpansionFunction())
+                .put(
+                    SkyFunctions.ACTION_TEMPLATE_EXPANSION,
+                    new ActionTemplateExpansionFunction(Suppliers.ofInstance(false)))
                 .build(),
             differencer);
     driver = new SequentialBuildDriver(evaluator);
@@ -120,9 +124,12 @@ abstract class ArtifactFunctionTestCase {
   }
 
   protected void setupRoot(CustomInMemoryFs fs) throws IOException {
-    root = fs.getPath(TestUtils.tmpDir());
+    Path tmpDir = fs.getPath(TestUtils.tmpDir());
+    root = tmpDir.getChild("root");
     FileSystemUtils.createDirectoryAndParents(root);
     FileSystemUtils.createEmptyFile(root.getRelative("WORKSPACE"));
+    middlemanPath = tmpDir.getChild("middlemanRoot");
+    FileSystemUtils.createDirectoryAndParents(middlemanPath);
   }
 
   protected static void writeFile(Path path, String contents) throws IOException {
@@ -146,12 +153,12 @@ abstract class ArtifactFunctionTestCase {
 
   private static class SingletonActionLookupKey extends ActionLookupKey {
     @Override
-    SkyKey getSkyKey() {
+    protected SkyKey getSkyKeyInternal() {
       return OWNER_KEY;
     }
 
     @Override
-    SkyFunctionName getType() {
+    protected SkyFunctionName getType() {
       throw new UnsupportedOperationException();
     }
   }

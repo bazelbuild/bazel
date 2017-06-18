@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="JOpt Simple - a Java command line parsing library">
+   <bannerLeft>
+        <name>JOpt Simple</name>
+        <src>images/jopt-simple-logo.png</src>
+        <href>http://pholser.github.com/jopt-simple/</href>
+    </bannerLeft>
+    <body>
+        <menu name="JOpt Simple">
+            <item name="Overview" href="index.html"/>
+            <item name="Download" href="download.html"/>
+            <item name="Examples" href="examples.html"/>
+            <item name="Change Log" href="changes.html"/>
+            <item name="Javadoc" href="apidocs/index.html"/>
+            <item name="Developer Docs" href="developer.html"/>
+            <item name="Acknowledgements" href="acknowledgments.html"/>
+        </menu>
+        <menu ref="reports"/>
+    </body>
+</project>

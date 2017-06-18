@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.analysis.AspectCollection.AspectCycleOnPathException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
@@ -35,7 +36,6 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.InputFile;
-import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
@@ -92,7 +92,8 @@ public abstract class DependencyResolver {
       BuildConfiguration hostConfig,
       @Nullable Aspect aspect,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions)
-      throws EvalException, InvalidConfigurationException, InterruptedException {
+      throws EvalException, InvalidConfigurationException, InterruptedException,
+             InconsistentAspectOrderException {
     NestedSetBuilder<Label> rootCauses = NestedSetBuilder.<Label>stableOrder();
     OrderedSetMultimap<Attribute, Dependency> outgoingEdges = dependentNodeMap(
         node, hostConfig,
@@ -139,7 +140,8 @@ public abstract class DependencyResolver {
       Iterable<Aspect> aspects,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       NestedSetBuilder<Label> rootCauses)
-      throws EvalException, InvalidConfigurationException, InterruptedException {
+      throws EvalException, InvalidConfigurationException, InterruptedException,
+      InconsistentAspectOrderException {
     Target target = node.getTarget();
     BuildConfiguration config = node.getConfiguration();
     OrderedSetMultimap<Attribute, Dependency> outgoingEdges = OrderedSetMultimap.create();
@@ -159,6 +161,7 @@ public abstract class DependencyResolver {
     } else {
       throw new IllegalStateException(target.getLabel().toString());
     }
+
     return outgoingEdges;
   }
 
@@ -169,7 +172,8 @@ public abstract class DependencyResolver {
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       NestedSetBuilder<Label> rootCauses,
       OrderedSetMultimap<Attribute, Dependency> outgoingEdges)
-      throws EvalException, InvalidConfigurationException, InterruptedException {
+      throws EvalException, InvalidConfigurationException, InconsistentAspectOrderException,
+             InterruptedException{
     Preconditions.checkArgument(node.getTarget() instanceof Rule);
     BuildConfiguration ruleConfig = Preconditions.checkNotNull(node.getConfiguration());
     Rule rule = (Rule) node.getTarget();
@@ -189,7 +193,7 @@ public abstract class DependencyResolver {
    * (which require special processing: see {@link #resolveLateBoundAttributes}).
    */
   private void resolveEarlyBoundAttributes(RuleResolver depResolver)
-      throws EvalException, InterruptedException {
+      throws EvalException, InterruptedException, InconsistentAspectOrderException {
     Rule rule = depResolver.rule;
 
     resolveExplicitAttributes(depResolver);
@@ -232,7 +236,11 @@ public abstract class DependencyResolver {
   }
 
   private void resolveExplicitAttributes(final RuleResolver depResolver)
-      throws InterruptedException {
+      throws InterruptedException, InconsistentAspectOrderException {
+
+    // Record error that might happen during label visitation.
+    final InconsistentAspectOrderException[] exception = new InconsistentAspectOrderException[1];
+
     depResolver.attributeMap.visitLabels(
         new AttributeMap.AcceptsLabelAttribute() {
           @Override
@@ -243,13 +251,24 @@ public abstract class DependencyResolver {
                 || attribute.isLateBound()) {
               return;
             }
-            depResolver.resolveDep(new AttributeAndOwner(attribute), label);
+            try {
+              depResolver.resolveDep(new AttributeAndOwner(attribute), label);
+            } catch (InconsistentAspectOrderException e) {
+              if (exception[0] == null) {
+                exception[0] = e;
+              }
+            }
           }
         });
+
+    if (exception[0] != null) {
+      throw exception[0];
+    }
   }
 
   /** Resolves the dependencies for all implicit attributes in this rule. */
-  private void resolveImplicitAttributes(RuleResolver depResolver) throws InterruptedException {
+  private void resolveImplicitAttributes(RuleResolver depResolver)
+      throws InterruptedException, InconsistentAspectOrderException {
     // Since the attributes that come from aspects do not appear in attributeMap, we have to get
     // their values from somewhere else. This incidentally means that aspects attributes are not
     // configurable. It would be nice if that wasn't the case, but we'd have to revamp how
@@ -319,7 +338,8 @@ public abstract class DependencyResolver {
       RuleResolver depResolver,
       BuildConfiguration ruleConfig,
       BuildConfiguration hostConfig)
-      throws EvalException, InvalidConfigurationException, InterruptedException {
+      throws EvalException, InvalidConfigurationException, InconsistentAspectOrderException,
+             InterruptedException{
     ConfiguredAttributeMapper attributeMap = depResolver.attributeMap;
     for (AttributeAndOwner attributeAndOwner : depResolver.attributes) {
       Attribute attribute = attributeAndOwner.attribute;
@@ -333,15 +353,17 @@ public abstract class DependencyResolver {
 
       Collection<BuildOptions> splitOptions =
           getSplitOptions(depResolver.rule, attribute, ruleConfig);
-      if (!splitOptions.isEmpty()) {
+      if (!splitOptions.isEmpty() && !ruleConfig.isHostConfiguration()) {
         // Late-bound attribute with a split transition:
         // Since we want to get the same results as BuildConfiguration.evaluateTransition (but
         // skip it since we've already applied the split), we want to make sure this logic
         // doesn't do anything differently. evaluateTransition has additional logic
-        // for host configs and attributes with configurators. So we check here that neither of
-        // of those apply, in the name of keeping the fork as simple as possible.
+        // for host configs and attributes with configurators. To keep the fork as simple as
+        // possible, we don't support the configurator case. And when we're in the host
+        // configuration, we fall back to the non-split branch, which calls
+        // BuildConfiguration.evaluateTransition, which returns its "host mode" result without
+        // ever looking at the split.
         Verify.verify(attribute.getConfigurator() == null);
-        Verify.verify(!lateBoundDefault.useHostConfiguration());
 
         Iterable<BuildConfiguration> splitConfigs;
         if (!ruleConfig.useDynamicConfigurations()) {
@@ -354,8 +376,8 @@ public abstract class DependencyResolver {
           }
         }
         for (BuildConfiguration splitConfig : splitConfigs) {
-          for (Label dep : resolveLateBoundAttribute(
-              depResolver.rule, attribute, splitConfig, attributeMap)) {
+          for (Label dep : resolveLateBoundAttribute(depResolver.rule, attribute,
+              lateBoundDefault.useHostConfiguration() ? hostConfig : splitConfig, attributeMap)) {
             // Skip the normal config transition pipeline and directly feed the split config. This
             // is because the split already had to be applied to determine the attribute's value.
             // This makes the split logic in the normal pipeline redundant and potentially
@@ -460,7 +482,7 @@ public abstract class DependencyResolver {
    * @param labels the dependencies to add
    */
   private void addExplicitDeps(RuleResolver depResolver, String attrName, Iterable<Label> labels)
-      throws InterruptedException {
+      throws InterruptedException, InconsistentAspectOrderException {
     Rule rule = depResolver.rule;
     if (!rule.isAttrDefined(attrName, BuildType.LABEL_LIST)
         && !rule.isAttrDefined(attrName, BuildType.NODEP_LABEL_LIST)) {
@@ -482,7 +504,7 @@ public abstract class DependencyResolver {
       TargetAndConfiguration node,
       OrderedSetMultimap<Attribute, Label> depLabels,
       NestedSetBuilder<Label> rootCauses)
-      throws InterruptedException {
+      throws InterruptedException, InconsistentAspectOrderException {
     Preconditions.checkArgument(node.getTarget() instanceof Rule);
     Rule rule = (Rule) node.getTarget();
     OrderedSetMultimap<Attribute, Dependency> outgoingEdges = OrderedSetMultimap.create();
@@ -522,71 +544,86 @@ public abstract class DependencyResolver {
   }
 
 
-  private static ImmutableSet<AspectDescriptor> requiredAspects(
-      Iterable<Aspect> aspects,
+  private AspectCollection requiredAspects(
+      Iterable<Aspect> aspectPath,
       AttributeAndOwner attributeAndOwner,
       final Target target,
-      Rule originalRule) {
+      Rule originalRule) throws InconsistentAspectOrderException {
     if (!(target instanceof Rule)) {
-      return ImmutableSet.of();
+      return AspectCollection.EMPTY;
     }
 
     if (attributeAndOwner.ownerAspect != null) {
       // Do not propagate aspects along aspect attributes.
-      return ImmutableSet.of();
+      return AspectCollection.EMPTY;
     }
 
-    Iterable<Aspect> aspectCandidates =
-        extractAspectCandidates(aspects, attributeAndOwner.attribute, originalRule);
-    RuleClass ruleClass = ((Rule) target).getRuleClassObject();
-    ImmutableSet.Builder<AspectDescriptor> result = ImmutableSet.builder();
+    ImmutableList.Builder<Aspect> filteredAspectPath = ImmutableList.builder();
+    ImmutableSet.Builder<AspectDescriptor> visibleAspects = ImmutableSet.builder();
 
-    for (Aspect aspectCandidate : aspectCandidates) {
-      boolean requireAspect = ruleClass.canHaveAnyProvider();
+    Attribute attribute = attributeAndOwner.attribute;
+    collectOriginatingAspects(originalRule, attribute, (Rule) target,
+        filteredAspectPath, visibleAspects);
 
-      if (!requireAspect) {
-        ImmutableList<ImmutableSet<Class<?>>> providersList =
-            aspectCandidate.getDefinition().getRequiredProviders();
-        for (ImmutableSet<Class<?>> providers : providersList) {
-          if (Sets.difference(providers, ruleClass.getAdvertisedProviders()).isEmpty()) {
-            requireAspect = true;
-            break;
-          }
-        }
-      }
-
-      if (requireAspect) {
-        result.add(
-            new AspectDescriptor(
-                aspectCandidate.getAspectClass(),
-                aspectCandidate.getParameters()));
-      }
+    collectPropagatingAspects(aspectPath,
+        attribute,
+        (Rule) target, filteredAspectPath, visibleAspects);
+    try {
+      return AspectCollection.create(filteredAspectPath.build(), visibleAspects.build());
+    } catch (AspectCycleOnPathException e) {
+      throw  new InconsistentAspectOrderException(originalRule, attribute, target, e);
     }
-    return result.build();
   }
 
-  private static Iterable<Aspect> extractAspectCandidates(
-      Iterable<Aspect> aspects,
-      Attribute attribute, Rule originalRule) {
-    ImmutableList.Builder<Aspect> aspectCandidates = ImmutableList.builder();
-    aspectCandidates.addAll(attribute.getAspects(originalRule));
-    for (Aspect aspect : aspects) {
-      for (AspectClass aspectClass :
-          aspect.getDefinition().getAttributeAspects(attribute)) {
-        if (aspectClass.equals(aspect.getAspectClass())) {
-          aspectCandidates.add(aspect);
-        } else if (aspectClass instanceof NativeAspectClass) {
-          aspectCandidates.add(
-              Aspect.forNative((NativeAspectClass) aspectClass, aspect.getParameters()));
-        } else {
-          // If we ever want to support this specifying arbitrary aspects for Skylark aspects,
-          // we will need to do a Skyframe call here to load an up-to-date definition.
-          throw new IllegalStateException(
-              "Skylark aspect classes sending different aspects along attributes is not supported");
-        }
+  /**
+   * Collects into {@code filteredAspectPath}
+   * aspects from {@code aspectPath} that propagate along {@code attribute}
+   * and apply to a given {@code target}.
+   *
+   * The last aspect in {@code aspectPath} is (potentially) visible and recorded
+   * in {@code visibleAspects}.
+   */
+  private static void collectPropagatingAspects(Iterable<Aspect> aspectPath,
+      Attribute attribute, Rule target,
+      ImmutableList.Builder<Aspect> filteredAspectPath,
+      ImmutableSet.Builder<AspectDescriptor> visibleAspects) {
+
+    Aspect lastAspect = null;
+    for (Aspect aspect : aspectPath) {
+      lastAspect = aspect;
+      if (aspect.getDefinition().propagateAlong(attribute)
+          && aspect.getDefinition().getRequiredProviders()
+                  .isSatisfiedBy(target.getRuleClassObject().getAdvertisedProviders())) {
+        filteredAspectPath.add(aspect);
+      } else {
+        lastAspect = null;
       }
     }
-    return aspectCandidates.build();
+
+    if (lastAspect != null) {
+      visibleAspects.add(lastAspect.getDescriptor());
+    }
+  }
+
+  /**
+   * Collect all aspects that originate on {@code attribute} of {@code originalRule}
+   * and are applicable to a {@code target}
+   *
+   * They are appended to {@code filteredAspectPath} and registered in {@code visibleAspects} set.
+   */
+  private static void collectOriginatingAspects(
+      Rule originalRule, Attribute attribute, Rule target,
+      ImmutableList.Builder<Aspect> filteredAspectPath,
+      ImmutableSet.Builder<AspectDescriptor> visibleAspects) {
+    ImmutableList<Aspect> baseAspects = attribute.getAspects(originalRule);
+    RuleClass ruleClass = target.getRuleClassObject();
+    for (Aspect baseAspect : baseAspects) {
+      if (baseAspect.getDefinition().getRequiredProviders()
+          .isSatisfiedBy(ruleClass.getAdvertisedProviders())) {
+        filteredAspectPath.add(baseAspect);
+        visibleAspects.add(baseAspect.getDescriptor());
+      }
+    }
   }
 
   /**
@@ -673,7 +710,7 @@ public abstract class DependencyResolver {
      * apply to it.
      */
     void resolveDep(AttributeAndOwner attributeAndOwner, Label depLabel)
-        throws InterruptedException {
+        throws InterruptedException, InconsistentAspectOrderException {
       Target toTarget = getTarget(rule, depLabel, rootCauses);
       if (toTarget == null) {
         return; // Skip this round: we still need to Skyframe-evaluate the dep's target.
@@ -698,7 +735,7 @@ public abstract class DependencyResolver {
      * #resolveDep(AttributeAndOwner, Label)}.
      */
     void resolveDep(AttributeAndOwner attributeAndOwner, Label depLabel, BuildConfiguration config)
-        throws InterruptedException {
+        throws InterruptedException, InconsistentAspectOrderException {
       Target toTarget = getTarget(rule, depLabel, rootCauses);
       if (toTarget == null) {
         return; // Skip this round: this is either a loading error or unevaluated Skyframe dep.
@@ -710,7 +747,7 @@ public abstract class DependencyResolver {
         applyNullTransition = true;
       }
 
-      ImmutableSet<AspectDescriptor> aspects =
+      AspectCollection aspects =
           requiredAspects(this.aspects, attributeAndOwner, toTarget, rule);
       Dependency dep;
       if (config.useDynamicConfigurations() && !applyNullTransition) {
@@ -825,4 +862,27 @@ public abstract class DependencyResolver {
       Set<Class<? extends BuildConfiguration.Fragment>> fragments,
       Iterable<BuildOptions> buildOptions)
       throws InvalidConfigurationException, InterruptedException;
+
+  /**
+   * Signals an inconsistency on aspect path: an aspect occurs twice on the path and
+   * the second occurrence sees a different set of aspects.
+   *
+   * {@see AspectCycleOnPathException}
+   */
+  public class InconsistentAspectOrderException extends Exception {
+    private final Location location;
+    public InconsistentAspectOrderException(Rule originalRule, Attribute attribute, Target target,
+        AspectCycleOnPathException e) {
+      super(String.format("%s (when propagating from %s to %s via attribute %s)",
+          e.getMessage(),
+          originalRule.getLabel(),
+          target.getLabel(),
+          attribute.getName()));
+      this.location = originalRule.getLocation();
+    }
+
+    public Location getLocation() {
+      return location;
+    }
+  }
 }

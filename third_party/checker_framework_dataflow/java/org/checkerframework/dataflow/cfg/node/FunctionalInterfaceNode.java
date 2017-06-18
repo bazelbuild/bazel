@@ -1,14 +1,13 @@
 package org.checkerframework.dataflow.cfg.node;
 
+import com.sun.source.tree.LambdaExpressionTree;
+import com.sun.source.tree.MemberReferenceTree;
+import com.sun.source.tree.Tree;
 import org.checkerframework.javacutil.ErrorReporter;
 import org.checkerframework.javacutil.InternalUtils;
 
 import java.util.Collection;
 import java.util.LinkedList;
-
-import com.sun.source.tree.LambdaExpressionTree;
-import com.sun.source.tree.MemberReferenceTree;
-import com.sun.source.tree.Tree;
 
 /**
  * A node for member references and lambdas.
@@ -17,11 +16,11 @@ import com.sun.source.tree.Tree;
  * assignment context the member reference or lambda is used in.
  *
  * <pre>
- *   <em>FunctionalInterface func = param1, param2, ... &rarr; statement</em>
+ *   <em>FunctionalInterface func = param1, param2, ... -&gt; statement</em>
  * </pre>
  *
  * <pre>
- *   <em>FunctionalInterface func = param1, param2, ... &rarr; { ... }</em>
+ *   <em>FunctionalInterface func = param1, param2, ... -&gt; { ... }</em>
  * </pre>
  *
  * <pre>
@@ -57,7 +56,7 @@ public class FunctionalInterfaceNode extends Node {
 
     @Override
     public String toString() {
-        if (tree instanceof LambdaExpressionTree) {
+        if (tree instanceof LambdaExpressionTree){
             return "FunctionalInterfaceNode:" + ((LambdaExpressionTree) tree).getBodyKind();
         } else if (tree instanceof MemberReferenceTree) {
             return "FunctionalInterfaceNode:" + ((MemberReferenceTree) tree).getName();

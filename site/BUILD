@@ -2,15 +2,15 @@ load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
 exports_files(
     [
-        "versions/master/docs/bazel-user-manual.html",
+        "docs/bazel-user-manual.html",
         "command-line-reference-prefix.html",
         "command-line-reference-suffix.html",
     ],
 )
 
 DOT_GRAPH_HTML_FILES = [
-    "versions/master/docs/query.html",
-    "versions/master/docs/build-ref.html",
+    "docs/query.html",
+    "docs/build-ref.html",
 ]
 
 filegroup(
@@ -106,7 +106,11 @@ origdir=$$PWD
 tmpdir=$$(mktemp -d)
 for f in $(SRCS); do
     mkdir -p $$tmpdir/$$(dirname $$f)
-    $(location //scripts/docs:generate_dot_graphs) < $$f > $$tmpdir/$$f
+    if which dot > /dev/null; then
+      $(location //scripts/docs:generate_dot_graphs) < $$f > $$tmpdir/$$f
+    else
+      cp $$f $$tmpdir/$$f
+    fi
 done
 cd $$tmpdir/site
 tar cf $$origdir/$@ *

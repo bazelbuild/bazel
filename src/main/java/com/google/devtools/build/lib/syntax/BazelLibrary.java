@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
+import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import java.util.List;
 
 /**
@@ -48,12 +49,7 @@ public class BazelLibrary {
       new BuiltinFunction("type") {
         public String invoke(Object object) {
           // There is no 'type' type in Skylark, so we return a string with the type name.
-          String name = EvalUtils.getDataTypeName(object, false);
-          // TODO(bazel-team): Temporary change to avoid breaking existing code.
-          if (name.equals("depset")) {
-            return "set";
-          }
-          return name;
+          return EvalUtils.getDataTypeName(object, false);
         }
       };
 
@@ -61,29 +57,31 @@ public class BazelLibrary {
     name = "depset",
     returnType = SkylarkNestedSet.class,
     doc =
-        "Creates a <a href=\"depset.html\">depset</a> from the <code>items</code>. "
-            + "The depset supports nesting other depsets of the same element type in it. "
-            + "A desired <a href=\"depset.html\">iteration order</a> can also be specified.<br>"
-            + "Examples:<br><pre class=\"language-python\">depset([\"a\", \"b\"])\n"
-            + "depset([1, 2, 3], order=\"compile\")</pre>",
+        "Creates a <a href=\"depset.html\">depset</a>. In the case that <code>items</code> is an "
+            + "iterable, its contents become the direct elements of the depset, with their left-to-"
+            + "right order preserved, and the depset has no transitive elements. In the case that "
+            + "<code>items</code> is a depset, it is made the sole transitive element of the new "
+            + "depset, and no direct elements are added. In the second case the given depset's "
+            + "order must match the <code>order</code> param or else one of the two must be <code>"
+            + "\"default\"</code>. See the <a href=\"../depsets.md\">Depsets overview</a> for more "
+            + "information.",
     parameters = {
       @Param(
         name = "items",
         type = Object.class,
         defaultValue = "[]",
         doc =
-            "The items to initialize the depset with. May contain both standalone items "
-                + "and other depsets."
+            "An iterable whose items become the direct elements of the new depset, in left-to-"
+                + "right order; or alternatively, a depset that becomes the transitive element of "
+                + "the new depset."
       ),
       @Param(
         name = "order",
         type = String.class,
-        defaultValue = "\"stable\"",
+        defaultValue = "\"default\"",
         doc =
-            "The ordering strategy for the depset if it's nested, "
-                + "possible values are: <code>stable</code> (default), <code>compile</code>, "
-                + "<code>link</code> or <code>naive_link</code>. An explanation of the "
-                + "values can be found <a href=\"depset.html\">here</a>."
+            "The traversal strategy for the new depset. See <a href=\"depset.html\">here</a> for "
+                + "the possible values."
       )
     },
     useLocation = true
@@ -103,6 +101,7 @@ public class BazelLibrary {
   @SkylarkSignature(
     name = "set",
     returnType = SkylarkNestedSet.class,
+    documentationReturnType = SkylarkNestedSet.LegacySet.class,
     doc =
         "A temporary alias for <a href=\"#depset\">depset</a>. "
             + "Deprecated in favor of <code>depset</code>.",
@@ -116,16 +115,25 @@ public class BazelLibrary {
       @Param(
         name = "order",
         type = String.class,
-        defaultValue = "\"stable\"",
+        defaultValue = "\"default\"",
         doc = "Same as for <a href=\"#depset\">depset</a>."
       )
     },
-    useLocation = true
+    useLocation = true,
+    useEnvironment = true
   )
   private static final BuiltinFunction set =
       new BuiltinFunction("set") {
-        public SkylarkNestedSet invoke(Object items, String order, Location loc)
+        public SkylarkNestedSet invoke(Object items, String order, Location loc, Environment env)
             throws EvalException {
+          if (env.getSemantics().incompatibleDisallowSetConstructor) {
+            throw new EvalException(
+                loc,
+                "The `set` constructor for depsets is deprecated and will be removed. Please use "
+                    + "the `depset` constructor instead. You can temporarily enable the "
+                    + "deprecated `set` constructor by passing the flag "
+                    + "--incompatible_disallow_set_constructor=false");
+          }
           try {
             return new SkylarkNestedSet(Order.parse(order), items, loc);
           } catch (IllegalArgumentException ex) {
@@ -139,21 +147,46 @@ public class BazelLibrary {
     objectType = SkylarkNestedSet.class,
     returnType = SkylarkNestedSet.class,
     doc =
-        "Creates a new <a href=\"depset.html\">depset</a> that contains both "
-            + "the input depset as well as all additional elements.",
+        "<i>(Deprecated)</i> Returns a new <a href=\"depset.html\">depset</a> that is the merge "
+            + "of the given depset and <code>new_elements</code>. This is the same as the <code>+"
+            + "</code> operator.",
     parameters = {
-      @Param(name = "input", type = SkylarkNestedSet.class, doc = "The input depset"),
-      @Param(name = "new_elements", type = Iterable.class, doc = "The elements to be added")
+      @Param(name = "input", type = SkylarkNestedSet.class, doc = "The input depset."),
+      @Param(name = "new_elements", type = Object.class, doc = "The elements to be added.")
     },
     useLocation = true
   )
   private static final BuiltinFunction union =
       new BuiltinFunction("union") {
         @SuppressWarnings("unused")
-        public SkylarkNestedSet invoke(
-            SkylarkNestedSet input, Iterable<Object> newElements, Location loc)
+        public SkylarkNestedSet invoke(SkylarkNestedSet input, Object newElements, Location loc)
             throws EvalException {
+          // newElements' type is Object because of the polymorphism on unioning two
+          // SkylarkNestedSets versus a set and another kind of iterable.
+          // Can't use EvalUtils#toIterable since that would discard this information.
           return new SkylarkNestedSet(input, newElements, loc);
+        }
+      };
+
+  @SkylarkSignature(
+    name = "to_list",
+    objectType = SkylarkNestedSet.class,
+    returnType = MutableList.class,
+    doc =
+        "Returns a list of the elements, without duplicates, in the depset's traversal order. "
+            + "Note that order is unspecified (but deterministic) for elements that were added "
+            + "more than once to the depset. Order is also unspecified for <code>\"default\""
+            + "</code>-ordered depsets, and for elements of child depsets whose order differs "
+            + "from that of the parent depset. The list is a copy; modifying it has no effect "
+            + "on the depset and vice versa.",
+    parameters = {@Param(name = "input", type = SkylarkNestedSet.class, doc = "The input depset.")},
+    useEnvironment = true
+  )
+  private static final BuiltinFunction toList =
+      new BuiltinFunction("to_list") {
+        @SuppressWarnings("unused")
+        public MutableList<Object> invoke(SkylarkNestedSet input, Environment env) {
+          return new MutableList<>(input.toCollection(), env);
         }
       };
 
@@ -163,7 +196,7 @@ public class BazelLibrary {
    */
   @SkylarkSignature(
     name = "select",
-    doc = "Creates a SelectorValue from the dict parameter.",
+    doc = "Creates a select from the dict parameter, usable for setting configurable attributes.",
     parameters = {
       @Param(name = "x", type = SkylarkDict.class, doc = "The parameter to convert."),
       @Param(
@@ -172,11 +205,19 @@ public class BazelLibrary {
         defaultValue = "''",
         doc = "Optional custom error to report if no condition matches."
       )
-    }
+    },
+    useLocation = true
   )
   private static final BuiltinFunction select =
       new BuiltinFunction("select") {
-        public Object invoke(SkylarkDict<?, ?> dict, String noMatchError) throws EvalException {
+        public Object invoke(SkylarkDict<?, ?> dict, String noMatchError, Location loc)
+            throws EvalException {
+          for (Object key : dict.keySet()) {
+            if (!(key instanceof String)) {
+              throw new EvalException(
+                  loc, String.format("Invalid key: %s. select keys must be label references", key));
+            }
+          }
           return SelectorList.of(new SelectorValue(dict, noMatchError));
         }
       };

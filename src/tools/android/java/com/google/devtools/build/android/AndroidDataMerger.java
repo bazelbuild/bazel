@@ -13,15 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import com.android.ide.common.res2.MergingException;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Iterables;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.android.ParsedAndroidData.Builder;
-import com.google.devtools.build.android.ParsedAndroidData.ParsedAndroidDataBuildingPathWalker;
+import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
@@ -31,57 +29,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 /** Handles the Merging of ParsedAndroidData. */
-public class AndroidDataMerger {
+class AndroidDataMerger {
 
   private static final Logger logger = Logger.getLogger(AndroidDataMerger.class.getCanonicalName());
-
-  private static final class ParseDependencyDataTask implements Callable<Boolean> {
-
-    private final AndroidDataSerializer serializer;
-
-    private final SerializedAndroidData dependency;
-
-    private final Builder targetBuilder;
-
-    private ParseDependencyDataTask(
-        AndroidDataSerializer serializer, SerializedAndroidData dependency, Builder targetBuilder) {
-      this.serializer = serializer;
-      this.dependency = dependency;
-      this.targetBuilder = targetBuilder;
-    }
-
-    @Override
-    public Boolean call() throws Exception {
-      final Builder parsedDataBuilder = ParsedAndroidData.Builder.newBuilder();
-      try {
-        dependency.deserialize(serializer, parsedDataBuilder.consumers());
-      } catch (DeserializationException e) {
-        if (!e.isLegacy()) {
-          throw MergingException.wrapException(e).build();
-        }
-        logger.fine(
-            String.format(
-                "\u001B[31mDEPRECATION:\u001B[0m Legacy resources used for %s",
-                dependency.getLabel()));
-        // Legacy android resources -- treat them as direct dependencies.
-        dependency.walk(ParsedAndroidDataBuildingPathWalker.create(parsedDataBuilder));
-      }
-      // The builder isn't threadsafe, so synchronize the copyTo call.
-      synchronized (targetBuilder) {
-        // All the resources are sorted before writing, so they can be aggregated in
-        // whatever order here.
-        parsedDataBuilder.copyTo(targetBuilder);
-      }
-      // Had to return something?
-      return Boolean.TRUE;
-    }
-  }
 
   /** Interface for comparing paths. */
   interface SourceChecker {
@@ -141,32 +96,34 @@ public class AndroidDataMerger {
 
   private final SourceChecker deDuplicator;
   private final ListeningExecutorService executorService;
+  private final AndroidDataDeserializer deserializer;
 
   /** Creates a merger with no path deduplication and a default {@link ExecutorService}. */
-  public static AndroidDataMerger createWithDefaults() {
+  @VisibleForTesting
+  static AndroidDataMerger createWithDefaults() {
     return createWithDefaultThreadPool(NoopSourceChecker.create());
   }
 
   /** Creates a merger with a custom deduplicator and a default {@link ExecutorService}. */
-  public static AndroidDataMerger createWithDefaultThreadPool(SourceChecker deDuplicator) {
-    return new AndroidDataMerger(deDuplicator, MoreExecutors.newDirectExecutorService());
-  }
-
-  /** Creates a merger with a custom deduplicator and an {@link ExecutorService}. */
-  public static AndroidDataMerger create(
-      SourceChecker deDuplicator, ListeningExecutorService executorService) {
-    return new AndroidDataMerger(deDuplicator, executorService);
+  @VisibleForTesting
+  static AndroidDataMerger createWithDefaultThreadPool(SourceChecker deDuplicator) {
+    return new AndroidDataMerger(
+        deDuplicator, MoreExecutors.newDirectExecutorService(), AndroidDataDeserializer.create());
   }
 
   /** Creates a merger with a file contents hashing deduplicator. */
-  public static AndroidDataMerger createWithPathDeduplictor(
-      ListeningExecutorService executorService) {
-    return create(ContentComparingChecker.create(), executorService);
+  static AndroidDataMerger createWithPathDeduplictor(
+      ListeningExecutorService executorService, AndroidDataDeserializer deserializer) {
+    return new AndroidDataMerger(ContentComparingChecker.create(), executorService, deserializer);
   }
 
-  private AndroidDataMerger(SourceChecker deDuplicator, ListeningExecutorService executorService) {
+  private AndroidDataMerger(
+      SourceChecker deDuplicator,
+      ListeningExecutorService executorService,
+      AndroidDataDeserializer deserializer) {
     this.deDuplicator = deDuplicator;
     this.executorService = executorService;
+    this.deserializer = deserializer;
   }
 
   /**
@@ -185,31 +142,12 @@ public class AndroidDataMerger {
       throws MergingException {
     Stopwatch timer = Stopwatch.createStarted();
     try {
-      final ParsedAndroidData.Builder directBuilder = ParsedAndroidData.Builder.newBuilder();
-      final ParsedAndroidData.Builder transitiveBuilder = ParsedAndroidData.Builder.newBuilder();
-      final AndroidDataSerializer serializer = AndroidDataSerializer.create();
-      final List<ListenableFuture<Boolean>> tasks = new ArrayList<>();
-      for (final SerializedAndroidData dependency : direct) {
-        tasks.add(
-            executorService.submit(
-                new ParseDependencyDataTask(serializer, dependency, directBuilder)));
-      }
-      for (final SerializedAndroidData dependency : transitive) {
-        tasks.add(
-            executorService.submit(
-                new ParseDependencyDataTask(serializer, dependency, transitiveBuilder)));
-      }
-      // Wait for all the parsing to complete.
-      FailedFutureAggregator<MergingException> aggregator =
-          FailedFutureAggregator.createForMergingExceptionWithMessage(
-              "Failure(s) during dependency parsing");
-      aggregator.aggregateAndMaybeThrow(tasks);
       logger.fine(
           String.format("Merged dependencies read in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
       timer.reset().start();
       return doMerge(
-          transitiveBuilder.build(),
-          directBuilder.build(),
+          ParsedAndroidData.loadedFrom(transitive, executorService, deserializer),
+          ParsedAndroidData.loadedFrom(direct, executorService, deserializer),
           primary,
           primaryManifest,
           allowPrimaryOverrideAll);
@@ -295,7 +233,7 @@ public class AndroidDataMerger {
       return doMerge(
           transitive, direct, parsedPrimary, primaryData.getManifest(), allowPrimaryOverrideAll);
     } catch (IOException e) {
-      throw MergingException.wrapException(e).build();
+      throw MergingException.wrapException(e);
     }
   }
 
@@ -314,7 +252,7 @@ public class AndroidDataMerger {
       final KeyValueConsumers primaryConsumers = primaryBuilder.consumers();
 
       final Set<MergeConflict> conflicts = new HashSet<>();
-      
+
       // Find all internal conflicts.
       conflicts.addAll(parsedPrimary.conflicts());
       for (MergeConflict conflict : Iterables.concat(direct.conflicts(), transitive.conflicts())) {
@@ -436,7 +374,7 @@ public class AndroidDataMerger {
       return UnwrittenMergedAndroidData.of(
           primaryManifest, primaryBuilder.build(), transitiveBuilder.build());
     } catch (IOException e) {
-      throw MergingException.wrapException(e).build();
+      throw MergingException.wrapException(e);
     }
   }
 }

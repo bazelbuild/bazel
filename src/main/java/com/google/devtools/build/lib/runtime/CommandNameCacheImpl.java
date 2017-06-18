@@ -16,9 +16,8 @@ package com.google.devtools.build.lib.runtime;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.flags.CommandNameCache;
 import com.google.devtools.build.lib.util.Preconditions;
-
+import com.google.devtools.common.options.CommandNameCache;
 import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.HashSet;

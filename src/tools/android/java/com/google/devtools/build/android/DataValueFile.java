@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import com.android.ide.common.res2.MergingException;
 import com.google.common.base.MoreObjects;
+import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -43,9 +43,7 @@ public class DataValueFile implements DataResource, DataAsset {
     return new DataValueFile(source);
   }
 
-  /**
-   * Creates a {@link DataValueFile} from a {@link SerializeFormat.DataValue}.
-   */
+  /** Creates a {@link DataValueFile} from a {@link SerializeFormat#DataValue}. */
   public static DataValueFile from(Path source) {
     return of(source);
   }
@@ -82,7 +80,7 @@ public class DataValueFile implements DataResource, DataAsset {
 
   @Override
   public void writeResource(FullyQualifiedName key, AndroidDataWritingVisitor mergedDataWriter)
-      throws IOException, MergingException {
+      throws MergingException {
     mergedDataWriter.copyResource(source.getPath(), key.toPathString(source.getPath()));
   }
 
@@ -118,9 +116,17 @@ public class DataValueFile implements DataResource, DataAsset {
   }
 
   @Override
-  public void writeResourceToClass(FullyQualifiedName key,
-      AndroidResourceClassWriter resourceClassWriter) {
-    resourceClassWriter.writeSimpleResource(key.type(), key.name());
+  public void writeResourceToClass(FullyQualifiedName key, AndroidResourceSymbolSink sink) {
+    sink.acceptSimpleResource(key.type(), key.name());
   }
 
+  @Override
+  public DataValue update(DataSource source) {
+    return of(source);
+  }
+
+  @Override
+  public String asConflictString() {
+    return source.asConflictString();
+  }
 }

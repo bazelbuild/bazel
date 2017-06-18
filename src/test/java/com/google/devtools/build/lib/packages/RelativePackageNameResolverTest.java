@@ -13,11 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -112,11 +111,11 @@ public class RelativePackageNameResolverTest {
   }
 
   private void createResolver(String offset, boolean discardBuild) {
-    resolver = new RelativePackageNameResolver(new PathFragment(offset), discardBuild);
+    resolver = new RelativePackageNameResolver(PathFragment.create(offset), discardBuild);
   }
 
   private void assertResolvesTo(String relative, String expectedAbsolute) throws Exception {
     String result = resolver.resolve(relative);
-    assertEquals(expectedAbsolute, result);
+    assertThat(result).isEqualTo(expectedAbsolute);
   }
 }

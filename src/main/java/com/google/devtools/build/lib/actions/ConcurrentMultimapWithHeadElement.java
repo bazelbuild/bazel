@@ -18,11 +18,9 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
-
 import javax.annotation.Nullable;
 
 /**
@@ -145,7 +143,7 @@ final class ConcurrentMultimapWithHeadElement<K, V> {
      * the thread trying to add a new value to a set will fail, and knows to retrieve the entry anew
      * from the map and try again.
      */
-    private static final Set<Object> TOMBSTONE = ImmutableSet.of();
+    private static final ImmutableSet<Object> TOMBSTONE = ImmutableSet.of();
 
     /**
      * Return some value in the SmallSet.

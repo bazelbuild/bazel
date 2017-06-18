@@ -19,10 +19,10 @@ import com.android.ide.common.internal.LoggedErrorException;
 import com.android.ide.common.internal.PngCruncher;
 import com.android.ide.common.process.DefaultProcessExecutor;
 import com.android.ide.common.process.LoggedProcessOutputHandler;
-import com.android.ide.common.res2.MergingException;
 import com.android.utils.StdLogger;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.AndroidResourceProcessor.AaptConfigOptions;
 import com.google.devtools.build.android.AndroidResourceProcessor.FlagAaptOptions;
 import com.google.devtools.build.android.Converters.DependencyAndroidDataListConverter;
@@ -30,13 +30,16 @@ import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.Converters.UnvalidatedAndroidDataConverter;
 import com.google.devtools.build.android.Converters.VariantTypeConverter;
 import com.google.devtools.build.android.SplitConfigurationFilter.UnrecognizedSplitsException;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.TriState;
 import java.io.IOException;
+import java.nio.file.FileSystems;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
@@ -107,12 +110,13 @@ public class AndroidResourceProcessingAction {
         help = "Path to where the R.txt should be written.")
     public Path rOutput;
 
-    @Option(name = "symbolsTxtOut",
+    @Option(name = "symbolsOut",
+        oldName = "symbolsTxtOut",
         defaultValue = "null",
         converter = PathConverter.class,
         category = "output",
-        help = "Path to where the symbolsTxt should be written.")
-    public Path symbolsTxtOut;
+        help = "Path to where the symbols should be written.")
+    public Path symbolsOut;
 
     @Option(name = "dataBindingInfoOut",
         defaultValue = "null",
@@ -201,6 +205,13 @@ public class AndroidResourceProcessingAction {
         category = "config",
         help = "Version code to stamp into the packaged manifest.")
     public int versionCode;
+
+    @Option(name = "prefilteredResources",
+        defaultValue = "",
+        converter = Converters.CommaSeparatedOptionListConverter.class,
+        category = "config",
+        help = "A list of resources that were filtered out in analysis.")
+    public List<String> prefilteredResources;
   }
 
   private static AaptConfigOptions aaptConfigOptions;
@@ -210,6 +221,7 @@ public class AndroidResourceProcessingAction {
     final Stopwatch timer = Stopwatch.createStarted();
     OptionsParser optionsParser = OptionsParser.newOptionsParser(
         Options.class, AaptConfigOptions.class);
+    optionsParser.enableParamsFileSupport(FileSystems.getDefault());
     optionsParser.parseAndExitUponError(args);
     aaptConfigOptions = optionsParser.getOptions(AaptConfigOptions.class);
     options = optionsParser.getOptions(Options.class);
@@ -228,7 +240,7 @@ public class AndroidResourceProcessingAction {
       Path generatedSources = null;
       if (options.srcJarOutput != null
           || options.rOutput != null
-          || options.symbolsTxtOut != null) {
+          || options.symbolsOut != null) {
         generatedSources = tmp.resolve("generated_resources");
       }
 
@@ -242,7 +254,7 @@ public class AndroidResourceProcessingAction {
               .asList();
 
       final MergedAndroidData mergedData =
-          resourceProcessor.mergeData(
+          AndroidResourceMerger.mergeData(
               options.primaryData,
               options.directData,
               options.transitiveData,
@@ -250,14 +262,20 @@ public class AndroidResourceProcessingAction {
               mergedAssets,
               selectPngCruncher(),
               options.packageType,
-              options.symbolsTxtOut);
+              options.symbolsOut,
+              options.prefilteredResources);
 
       logger.fine(String.format("Merging finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
+
+      final List<String> densitiesToFilter =
+          options.prefilteredResources.isEmpty()
+              ? options.densities
+              : Collections.<String>emptyList();
 
       final DensityFilteredAndroidData filteredData =
           mergedData.filter(
               new DensitySpecificResourceFilter(
-                  options.densities, filteredResources, mergedResources),
+                  densitiesToFilter, filteredResources, mergedResources),
               new DensitySpecificManifestProcessor(options.densities, densityManifest));
 
       logger.fine(
@@ -265,18 +283,19 @@ public class AndroidResourceProcessingAction {
               "Density filtering finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
       MergedAndroidData processedData =
-          resourceProcessor.processManifest(
-              options.packageType,
-              options.packageForR,
-              options.applicationId,
-              options.versionCode,
-              options.versionName,
-              filteredData,
-              processedManifest);
+          AndroidManifestProcessor.with(STD_LOGGER)
+              .processManifest(
+                  options.packageType,
+                  options.packageForR,
+                  options.applicationId,
+                  options.versionCode,
+                  options.versionName,
+                  filteredData,
+                  processedManifest);
 
       // Write manifestOutput now before the dummy manifest is created.
       if (options.manifestOutput != null) {
-        resourceProcessor.copyManifestToOutput(processedData, options.manifestOutput);
+        AndroidResourceOutputs.copyManifestToOutput(processedData, options.manifestOutput);
       }
 
       if (options.packageType == VariantType.LIBRARY) {
@@ -310,19 +329,15 @@ public class AndroidResourceProcessingAction {
       logger.fine(String.format("aapt finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
       if (options.srcJarOutput != null) {
-        resourceProcessor.createSrcJar(
-            generatedSources,
-            options.srcJarOutput,
-            VariantType.LIBRARY == options.packageType);
+        AndroidResourceOutputs.createSrcJar(
+            generatedSources, options.srcJarOutput, VariantType.LIBRARY == options.packageType);
       }
       if (options.rOutput != null) {
-        resourceProcessor.copyRToOutput(
-            generatedSources,
-            options.rOutput,
-            VariantType.LIBRARY == options.packageType);
+        AndroidResourceOutputs.copyRToOutput(
+            generatedSources, options.rOutput, VariantType.LIBRARY == options.packageType);
       }
       if (options.resourcesOutput != null) {
-        resourceProcessor.createResourcesZip(
+        AndroidResourceOutputs.createResourcesZip(
             processedData.getResourceDir(),
             processedData.getAssetDir(),
             options.resourcesOutput,

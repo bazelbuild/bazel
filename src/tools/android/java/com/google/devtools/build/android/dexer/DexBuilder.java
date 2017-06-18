@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 
+import com.android.dx.command.DxConsole;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -31,10 +32,8 @@ import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.OptionsParsingException;
-
-import com.android.dx.command.DxConsole;
-
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -48,7 +47,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
-
 import javax.annotation.Nullable;
 
 /**
@@ -63,32 +61,40 @@ class DexBuilder {
    * Commandline options.
    */
   public static class Options extends OptionsBase {
-    @Option(name = "input_jar",
-        defaultValue = "null",
-        category = "input",
-        converter = ExistingPathConverter.class,
-        abbrev = 'i',
-        help = "Input file to read classes and jars from.")
+    @Option(
+      name = "input_jar",
+      defaultValue = "null",
+      category = "input",
+      converter = ExistingPathConverter.class,
+      abbrev = 'i',
+      help = "Input file to read classes and jars from."
+    )
     public Path inputJar;
 
-    @Option(name = "output_zip",
-        defaultValue = "null",
-        category = "output",
-        converter = PathConverter.class,
-        abbrev = 'o',
-        help = "Output file to write.")
+    @Option(
+      name = "output_zip",
+      defaultValue = "null",
+      category = "output",
+      converter = PathConverter.class,
+      abbrev = 'o',
+      help = "Output file to write."
+    )
     public Path outputZip;
 
-    @Option(name = "max_threads",
-        defaultValue = "8",
-        category = "misc",
-        help = "How many threads (besides the main thread) to use at most.")
+    @Option(
+      name = "max_threads",
+      defaultValue = "8",
+      category = "misc",
+      help = "How many threads (besides the main thread) to use at most."
+    )
     public int maxThreads;
 
-    @Option(name = "persistent_worker",
-        defaultValue = "false",
-        category = "hidden",
-        help = "Run as a Bazel persistent worker.")
+    @Option(
+      name = "persistent_worker",
+      defaultValue = "false",
+      optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+      help = "Run as a Bazel persistent worker."
+    )
     public boolean persistentWorker;
   }
 

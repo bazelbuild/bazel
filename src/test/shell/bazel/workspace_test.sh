@@ -173,4 +173,74 @@ EOF
   [ ! -L bazel-x ] || fail "bazel-x should have been removed"
 }
 
+function test_workspace_name() {
+  mkdir -p foo
+  mkdir -p bar
+  cat > foo/WORKSPACE <<EOF
+workspace(name = "foo")
+
+local_repository(
+    name = "bar",
+    path = "$PWD/bar",
+)
+EOF
+  cat > foo/BUILD <<EOF
+exports_files(glob(["*"]))
+EOF
+  touch foo/baz
+  cat > bar/WORKSPACE <<EOF
+workspace(name = "bar")
+EOF
+  cat > bar/BUILD <<EOF
+genrule(
+    name = "depend-on-foo",
+    srcs = ["@foo//:baz"],
+    cmd = "cat \$(SRCS) > \$@",
+    outs = ["baz.out"],
+)
+EOF
+  cd foo
+  bazel build @bar//:depend-on-foo || fail "Expected build to succeed"
+}
+
+function test_workspace_override() {
+  mkdir -p original
+  touch original/WORKSPACE
+  cat > original/BUILD <<'EOF'
+genrule(
+    name = "gen",
+    cmd = "echo 'original' > $@",
+    outs = ["gen.out"],
+)
+EOF
+
+  mkdir -p override
+  touch override/WORKSPACE
+  cat > override/BUILD <<'EOF'
+genrule(
+    name = "gen",
+    cmd = "echo 'override' > $@",
+    outs = ["gen.out"],
+)
+EOF
+
+  cat > WORKSPACE <<EOF
+local_repository(
+    name = "o",
+    path = "original",
+)
+EOF
+  bazel build --override_repository="o=$PWD/override" @o//:gen &> $TEST_log \
+    || fail "Expected build to succeed"
+  assert_contains "override" bazel-genfiles/external/o/gen.out
+
+  bazel build @o//:gen &> $TEST_log \
+    || fail "Expected build to succeed"
+  assert_contains "original" bazel-genfiles/external/o/gen.out
+
+  bazel build --override_repository="o=$PWD/override" @o//:gen &> $TEST_log \
+    || fail "Expected build to succeed"
+  assert_contains "override" bazel-genfiles/external/o/gen.out
+}
+
 run_suite "workspace tests"

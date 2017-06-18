@@ -83,6 +83,13 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
         help = "Whether to start the app after installing it.",
         expansion = {"--start=COLD"})
     public Void startApp;
+
+    @Option(name = "debug_app",
+        category = "mobile-install",
+        defaultValue = "null",
+        help = "Whether to wait for the debugger before starting the app.",
+        expansion = {"--start=DEBUG"})
+    public Void debugApp;
   }
 
   public WriteAdbArgsAction(ActionOwner owner, Artifact outputFile) {
@@ -163,7 +170,9 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
      * The app will save its state before installing, and be restored from that state after
      * installing.
      */
-    WARM
+    WARM,
+    /** The app will wait for debugger to attach before restarting from clean state after install */
+    DEBUG
   }
 
   /** Converter for the --start option. */

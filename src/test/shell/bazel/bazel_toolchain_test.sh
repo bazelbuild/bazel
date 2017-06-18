@@ -27,8 +27,14 @@ if ! [ "${PLATFORM-}" = "linux" -a "${MACHINE_TYPE}" = "x86_64" ]; then
   exit 0
 fi
 
+# Run in a temporary directory!
+mkdir -p "${TEST_TMPDIR}/TEMP_TEMP_TEMP"
+cd "${TEST_TMPDIR}/TEMP_TEMP_TEMP"
+
 # Copy the project package here
-cp -r ${testdata_path}/bazel_toolchain_test_data/* .
+# We must use -L here; the files may be symlinks into the source tree, which we
+# could inadvertantly modify below.
+cp -rL ${testdata_path}/bazel_toolchain_test_data/* .
 
 # Rename WORKSPACE.linaro file to WORKSPACE
 # (Did not include the file WORKSPACE in the test because source tree under

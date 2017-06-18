@@ -23,8 +23,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -79,15 +77,6 @@ public final class CreateIncSymlinkAction extends AbstractAction {
   @VisibleForTesting
   public SortedMap<Artifact, Artifact> getSymlinks() {
     return symlinks;
-  }
-
-  @Override
-  public ResourceSet estimateResourceConsumption(Executor executor) {
-    // We're mainly doing I/O, so CPU usage should be very low; most of the
-    // time we'll be blocked waiting for the OS.
-    // The only exception is the fingerprint digest calculation for the stamp
-    // file contents.
-    return ResourceSet.createWithRamCpuIo(/*memoryMb=*/0, /*cpuUsage=*/0.005, /*ioUsage=*/0.0);
   }
 
   @Override

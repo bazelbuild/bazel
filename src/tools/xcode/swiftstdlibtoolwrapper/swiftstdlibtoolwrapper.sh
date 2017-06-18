@@ -27,8 +27,6 @@ MY_LOCATION=${MY_LOCATION:-"$0.runfiles/bazel_tools/tools/objc"}
 REALPATH="${MY_LOCATION}/realpath"
 WRAPPER="${MY_LOCATION}/xcrunwrapper.sh"
 
-CMD_ARGS=("$@")
-
 TOOL_ARGS=()
 while [[ $# -gt 0 ]]; do
   ARG="$1"
@@ -67,7 +65,7 @@ if [ -n "${TOOLCHAIN:-}" ]; then
   XCRUN_ARGS+=(--toolchain "$TOOLCHAIN")
 fi
 
-XCRUN_ARGS+=(swift-stdlib-tool --copy --verbose )
+XCRUN_ARGS+=(swift-stdlib-tool --copy )
 XCRUN_ARGS+=(--destination "$FULLPATH")
 XCRUN_ARGS+=( "${TOOL_ARGS[@]}" )
 

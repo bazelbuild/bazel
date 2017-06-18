@@ -30,6 +30,35 @@ function is_windows() {
   fi
 }
 
+# Set some environment variables needed on Windows.
+if is_windows; then
+  # TODO(philwo) remove this once we have a Bazel release that includes the CL
+  # moving the Windows-specific TEST_TMPDIR into TestStrategy.
+  TEST_TMPDIR_BASENAME="$(basename "$TEST_TMPDIR")"
+  export TEST_TMPDIR="c:/temp/${TEST_TMPDIR_BASENAME}"
+
+  # Bazel (TMPDIR) and Windows (TEMP, TMP) have three envvars that specify the
+  # location of the temp directory...
+  export TMPDIR="$TEST_TMPDIR"
+  export TEMP="$TEST_TMPDIR"
+  export TMP="$TEST_TMPDIR"
+
+  export JAVA_HOME="$(ls -d C:/Program\ Files/Java/jdk* | sort | tail -n 1)"
+  export BAZEL_SH="c:/tools/msys64/usr/bin/bash.exe"
+  export BAZEL_VC="c:/Program Files (x86)/Microsoft Visual Studio/2017/Professional/VC"
+  if [ ! -d "$BAZEL_VC" ]; then
+    # OK, well, maybe Visual C++ 2015 then?
+    export BAZEL_VC="c:/Program Files (x86)/Microsoft Visual Studio 14.0/VC"
+  fi
+  if [ -x /c/Python27/python.exe ]; then
+    export BAZEL_PYTHON="C:/Python27/python.exe"
+    export PATH="/c/Python27:$PATH"
+  elif [ -x /c/python_27_amd64/files/python.exe ]; then
+    export BAZEL_PYTHON="C:/python_27_amd64/files/python.exe"
+    export PATH="/c/python_27_amd64/files:$PATH"
+  fi
+fi
+
 # Make the command "bazel" available for tests.
 PATH_TO_BAZEL_BIN=$(rlocation io_bazel/src/bazel)
 PATH_TO_BAZEL_WRAPPER="$(dirname $(rlocation io_bazel/src/test/shell/bin/bazel))"
@@ -137,6 +166,8 @@ function copy_tools_directory() {
   # tools/jdk/BUILD file for JDK 7 is generated.
   if [ -f tools/jdk/BUILD.* ]; then
     cp tools/jdk/BUILD.* tools/jdk/BUILD
+  fi
+  if [ -f tools/jdk/BUILD ]; then
     chmod +w tools/jdk/BUILD
   fi
   # To support custom langtools
@@ -258,43 +289,34 @@ ${EXTRA_BAZELRC:-}
 EOF
 }
 
-function setup_android_support() {
-  ANDROID_NDK=$PWD/android_ndk
+function setup_android_sdk_support() {
   ANDROID_SDK=$PWD/android_sdk
-
-  # TODO(bazel-team): This hard-codes the name of the Android repository in
-  # the WORKSPACE file of Bazel. Change this once external repositories have
-  # their own defined names under which they are mounted.
-  NDK_SRCDIR=$TEST_SRCDIR/androidndk/ndk
   SDK_SRCDIR=$TEST_SRCDIR/androidsdk
-
-  mkdir -p $ANDROID_NDK
   mkdir -p $ANDROID_SDK
+  for i in $SDK_SRCDIR/*; do
+    ln -s "$i" "$ANDROID_SDK/$(basename $i)"
+  done
+cat >> WORKSPACE <<EOF
+android_sdk_repository(
+    name = "androidsdk",
+    path = "$ANDROID_SDK",
+)
+EOF
+}
 
+function setup_android_ndk_support() {
+  ANDROID_NDK=$PWD/android_ndk
+  NDK_SRCDIR=$TEST_SRCDIR/androidndk/ndk
+  mkdir -p $ANDROID_NDK
   for i in $NDK_SRCDIR/*; do
     if [[ "$(basename $i)" != "BUILD" ]]; then
       ln -s "$i" "$ANDROID_NDK/$(basename $i)"
     fi
   done
-
-  for i in $SDK_SRCDIR/*; do
-    ln -s "$i" "$ANDROID_SDK/$(basename $i)"
-  done
-
-
-  local ANDROID_SDK_API_LEVEL=$(ls $SDK_SRCDIR/platforms | cut -d '-' -f 2 | sort -n | tail -1)
-  local ANDROID_NDK_API_LEVEL=$(ls $NDK_SRCDIR/platforms | cut -d '-' -f 2 | sort -n | tail -1)
   cat >> WORKSPACE <<EOF
 android_ndk_repository(
     name = "androidndk",
     path = "$ANDROID_NDK",
-    api_level = $ANDROID_NDK_API_LEVEL,
-)
-
-android_sdk_repository(
-    name = "androidsdk",
-    path = "$ANDROID_SDK",
-    api_level = $ANDROID_SDK_API_LEVEL,
 )
 EOF
 }
@@ -359,8 +381,8 @@ function create_new_workspace() {
 
   copy_tools_directory
 
-  [ -e third_party/java/jdk/langtools/javac-9-dev-r3297-1.jar ] \
-    || ln -s "${langtools_path}"  third_party/java/jdk/langtools/javac-9-dev-r3297-1.jar
+  [ -e third_party/java/jdk/langtools/javac-9-dev-r4023-2.jar ] \
+    || ln -s "${langtools_path}"  third_party/java/jdk/langtools/javac-9-dev-r4023-2.jar
 
   touch WORKSPACE
 }
@@ -407,7 +429,18 @@ function cleanup_workspace() {
 # Clean-up the bazel install base
 function cleanup() {
   if [ -d "${BAZEL_INSTALL_BASE:-__does_not_exists__}" ]; then
-    rm -fr "${BAZEL_INSTALL_BASE}"
+    # Windows takes its time to shut down Bazel and we can't delete A-server.jar
+    # until then, so just give it time and keep trying for 2 minutes.
+    for i in {1..120}; do
+      if rm -fr "${BAZEL_INSTALL_BASE}" ; then
+        break
+      fi
+      if (( $i == 10 )) || (( $i == 30 )) || (( $i == 60 )) ; then
+        echo "Test cleanup: couldn't delete ${BAZEL_INSTALL_BASE} \ after $i seconds"
+        echo "(Timeout in $((120-$i)) seconds.)"
+        sleep 1
+      fi
+    done
   fi
 }
 

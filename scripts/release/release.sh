@@ -89,8 +89,13 @@ function release_note_editor() {
 
 # Create the release commit by changing the CHANGELOG file
 function create_release_commit() {
-  local infos=$(generate_release_message "${1}")
+  local infos=$(generate_release_message "${1}" HEAD '```')
   local changelog_path="$PWD/CHANGELOG.md"
+  local master=$(get_master_ref)
+
+  # Get the changelog from master to avoid missing release notes
+  # from release that were in-between
+  git checkout -q ${master} CHANGELOG.md || true
 
   # CHANGELOG.md
   local tmpfile="$(mktemp ${TMPDIR:-/tmp}/relnotes-XXXXXXXX)"
@@ -98,7 +103,9 @@ function create_release_commit() {
   echo -n "## ${infos}" >${tmpfile}
   if [ -f "${changelog_path}" ]; then
     echo >>${tmpfile}
+    echo >>${tmpfile}
     cat "${changelog_path}" >>${tmpfile}
+    echo >>${tmpfile}
   fi
   cat "${tmpfile}" > ${changelog_path}
   git add ${changelog_path}
@@ -106,6 +113,7 @@ function create_release_commit() {
   trap - EXIT
 
   # Commit
+  infos="$(echo "${infos}" | grep -Ev '^```$')"
   git commit --no-verify -m "${infos}" --no-edit --author "${RELEASE_AUTHOR}"
 }
 
@@ -125,6 +133,9 @@ function apply_cherry_picks() {
         return 1
       fi
     }
+    # Add the origin of the cherry-pick in case the patch-id diverge and we cannot
+    # find the original commit.
+    git notes --ref=cherrypick add -f -m "$i"
   done
   return 0
 }
@@ -233,8 +244,6 @@ function setup_git_notes() {
   if [ -n "${last_release}" ]; then
     # Compute the previous release notes
     local last_baseline="$(get_release_baseline "${last_release}")"
-    local last_cherrypicks="$(get_cherrypicks "${last_release}" \
-      "${last_baseline}")"
     git checkout -q "${last_release}"
     local last_relnotes="$(create_release_notes "${tmpfile}")"
     git checkout -q "${branch_name}"
@@ -258,16 +267,29 @@ function setup_git_notes() {
   trap - EXIT
 }
 
+# Force push a ref $2 to repo $1 if exists
+function push_if_exists() {
+  if git show-ref -q "${2}"; then
+    git push -f "${1}" "+${2}"
+  fi
+}
+
+# Push release notes refs but also a given ref
+function push_notes_and_ref() {
+  local ref="$1"
+  for repo in ${RELEASE_REPOSITORIES}; do
+    push_if_exists "${repo}" "${ref}"
+    push_if_exists "${repo}" "refs/notes/release"
+    push_if_exists "${repo}" "refs/notes/release-candidate"
+    push_if_exists "${repo}" "refs/notes/release-notes"
+    push_if_exists "${repo}" "refs/notes/cherrypick"
+  done
+}
+
 # Push the release branch to the release repositories so a release
 # candidate can be created.
 function push_release_candidate() {
-  local branch="$(get_release_branch)"
-  for repo in ${RELEASE_REPOSITORIES}; do
-    git push -f ${repo} +${branch}
-    git push -f ${repo} +refs/notes/release
-    git push -f ${repo} +refs/notes/release-candidate
-    git push -f ${repo} +refs/notes/release-notes
-  done
+  push_notes_and_ref "$(get_release_branch)"
 }
 
 # Deletes the release branch after a release or abandoning the release
@@ -275,7 +297,7 @@ function cleanup_branches() {
   local tag_name=$1
   local i
   echo "Destroying the release branches for release ${tag_name}"
-  # Destroy branch, ignoring if it doesn't exists.
+  # Destroy branch, ignoring if it doesn't exist.
   git branch -D release-${tag_name} &>/dev/null || true
   for i in $RELEASE_REPOSITORIES; do
     git push -f $i :release-${tag_name} &>/dev/null || true
@@ -318,12 +340,7 @@ function do_release() {
     for i in $MASTER_REPOSITORIES; do
       git push $i +master
     done
-    for i in $RELEASE_REPOSITORIES; do
-      git push $i +refs/tags/${tag_name}
-      git push $i +refs/notes/release-candidate
-      git push $i +refs/notes/release
-      git push $i +refs/notes/release-notes
-    done
+    push_notes_and_ref "refs/tags/${tag_name}"
     cleanup_branches ${tag_name}
   fi
 }

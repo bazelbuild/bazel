@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.lib.shell;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.Map;
@@ -58,15 +58,36 @@ public class SubprocessBuilder {
     stderrAction = StreamAction.STREAM;
   }
 
+  /**
+   * Returns the complete argv, including argv0.
+   *
+   * <p>argv[0] is either absolute (e.g. "/foo/bar" or "c:/foo/bar.exe"), or is a single file name
+   * (no directory component, e.g. "true" or "cmd.exe"). It might be non-normalized though (e.g.
+   * "/foo/../bar/./baz").
+   */
   public ImmutableList<String> getArgv() {
     return argv;
   }
 
   /**
    * Sets the argv, including argv[0], that is, the binary to execute.
+   *
+   * <p>argv[0] must be either absolute (e.g. "/foo/bar" or "c:/foo/bar.exe"), or a single file name
+   * (no directory component, e.g. "true" or "cmd.exe") which should be on the OS-specific search
+   * path (PATH on Unixes, Windows-specific lookup paths on Windows).
+   *
+   * @throws IllegalArgumentException if argv is empty, or its first element (which becomes
+   *     this.argv[0]) is neither an absolute path nor just a single file name
    */
   public SubprocessBuilder setArgv(Iterable<String> argv) {
     this.argv = ImmutableList.copyOf(argv);
+    Preconditions.checkArgument(!this.argv.isEmpty());
+    File argv0 = new File(this.argv.get(0));
+    Preconditions.checkArgument(
+        argv0.isAbsolute() || argv0.getParent() == null,
+        "argv[0] = '%s'; it should be either absolute or just a single file name"
+            + " (no directory component)",
+        this.argv.get(0));
     return this;
   }
 
@@ -94,7 +115,7 @@ public class SubprocessBuilder {
 
   /**
    * Tells the object what to do with stdout: either stream as a {@code InputStream} or discard.
-   * 
+   *
    * <p>It can also be redirected to a file using {@link #setStdout(File)}.
    */
   public SubprocessBuilder setStdout(StreamAction action) {
@@ -105,7 +126,7 @@ public class SubprocessBuilder {
     this.stdoutFile = null;
     return this;
   }
-  
+
   /**
    * Sets the file stdout is appended to. If null, the stdout will be available as an input stream
    * on the resulting object representing the process.
@@ -135,7 +156,7 @@ public class SubprocessBuilder {
 
   /**
    * Tells the object what to do with stderr: either stream as a {@code InputStream} or discard.
-   * 
+   *
    * <p>It can also be redirected to a file using {@link #setStderr(File)}.
    */
   public SubprocessBuilder setStderr(StreamAction action) {
@@ -146,7 +167,7 @@ public class SubprocessBuilder {
     this.stderrFile = null;
     return this;
   }
-  
+
   /**
    * Sets the file stderr is appended to. If null, the stderr will be available as an input stream
    * on the resulting object representing the process.

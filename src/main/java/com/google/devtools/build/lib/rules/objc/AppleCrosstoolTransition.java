@@ -17,23 +17,22 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
+import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
+import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
-import java.util.List;
+import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
 
 /**
  * Transition that produces a configuration that causes c++ toolchain selection to use the
  * CROSSTOOL given in apple_crosstool_top.
  */
-public class AppleCrosstoolTransition implements SplitTransition<BuildOptions> {
+public class AppleCrosstoolTransition implements PatchTransition {
 
   /**
    * A singleton instance of AppleCrosstoolTransition.
    */
-  public static final SplitTransition<BuildOptions> APPLE_CROSSTOOL_TRANSITION =
-      new AppleCrosstoolTransition();
+  public static final PatchTransition APPLE_CROSSTOOL_TRANSITION = new AppleCrosstoolTransition();
   
   @Override
   public boolean defaultsToSelf() {
@@ -41,17 +40,20 @@ public class AppleCrosstoolTransition implements SplitTransition<BuildOptions> {
   }
 
   @Override
-  public List<BuildOptions> split(BuildOptions buildOptions) {
+  public BuildOptions apply(BuildOptions buildOptions) {
     BuildOptions result = buildOptions.clone();
-    result.get(AppleCommandLineOptions.class).configurationDistinguisher =
-        ConfigurationDistinguisher.APPLE_CROSSTOOL;
 
+    if (!appleCrosstoolTransitionIsAppliedForAllObjc(buildOptions)) {
+      return buildOptions;
+    }
 
     // TODO(b/29355778): Once ios_cpu is retired, introduce another top-level flag (perhaps
     // --apple_cpu) for toolchain selection in top-level consuming rules.
-    String cpu = "ios_" + buildOptions.get(AppleCommandLineOptions.class).iosCpu;
+    String cpu = Platform.cpuStringForTarget(
+        buildOptions.get(AppleCommandLineOptions.class).applePlatformType,
+        buildOptions.get(AppleCommandLineOptions.class).getSingleArchitecture());
     setAppleCrosstoolTransitionConfiguration(buildOptions, result, cpu);
-    return ImmutableList.of(result);
+    return result;
   }
   
   /**
@@ -67,7 +69,8 @@ public class AppleCrosstoolTransition implements SplitTransition<BuildOptions> {
       BuildOptions to, String cpu) {
     to.get(BuildConfiguration.Options.class).cpu = cpu;
     to.get(CppOptions.class).crosstoolTop =
-        from.get(AppleCommandLineOptions.class).appleCrosstoolTop; 
+        from.get(AppleCommandLineOptions.class).appleCrosstoolTop;
+    to.get(AppleCommandLineOptions.class).targetUsesAppleCrosstool = true;
 
     // --compiler = "compiler" for all OSX toolchains.  We do not support asan/tsan, cfi, etc. on
     // darwin.
@@ -75,8 +78,18 @@ public class AppleCrosstoolTransition implements SplitTransition<BuildOptions> {
 
     // OSX toolchains always use the runtime of the platform they are targeting (i.e. we do not
     // support custom production environments).
-    to.get(CppOptions.class).libcTop = null;
-    to.get(CppOptions.class).glibc = null; 
+    to.get(CppOptions.class).libcTopLabel = null;
+    to.get(CppOptions.class).glibc = null;
+
+    // OSX toolchains do not support fission.
+    to.get(CppOptions.class).fissionModes = ImmutableList.of();
   }
-  
+
+  /**
+   * Returns true if the given options imply use of AppleCrosstoolTransition for all apple targets.
+   */
+  public static boolean appleCrosstoolTransitionIsAppliedForAllObjc(BuildOptions options) {
+    return (options.get(AppleCommandLineOptions.class).enableAppleCrosstoolTransition
+        || options.get(ObjcCommandLineOptions.class).objcCrosstoolMode != ObjcCrosstoolMode.OFF);
+  }
 }

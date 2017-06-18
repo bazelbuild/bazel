@@ -14,7 +14,6 @@
 
 #include "src/main/cpp/blaze_util.h"
 
-#include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -25,13 +24,11 @@
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
-#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/util/port.h"
 
 using blaze_util::die;
-using blaze_util::pdie;
 
 namespace blaze {
 
@@ -39,7 +36,6 @@ using std::string;
 using std::vector;
 
 const char kServerPidFile[] = "server.pid.txt";
-const char kServerPidSymlink[] = "server.pid";
 
 string MakeAbsolute(const string &path) {
   // Check if path is already absolute.
@@ -89,6 +85,9 @@ const char* SearchUnaryOption(const vector<string>& args,
 
   vector<string>::size_type i = 0;
   for (; i < args.size() - 1; ++i) {
+    if (args[i] == "--") {
+      return NULL;
+    }
     const char* result = GetUnaryOption(args[i].c_str(),
                                         args[i + 1].c_str(),
                                         key);
@@ -101,6 +100,9 @@ const char* SearchUnaryOption(const vector<string>& args,
 
 bool SearchNullaryOption(const vector<string>& args, const char *key) {
   for (vector<string>::size_type i = 0; i < args.size(); i++) {
+    if (args[i] == "--") {
+      return false;
+    }
     if (GetNullaryOption(args[i].c_str(), key)) {
       return true;
     }

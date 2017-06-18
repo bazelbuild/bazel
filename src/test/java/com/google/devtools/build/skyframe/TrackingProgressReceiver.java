@@ -16,13 +16,13 @@ package com.google.devtools.build.skyframe;
 import com.google.common.base.Supplier;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.Set;
 
 /**
  * A testing utility to keep track of evaluation.
  */
-public class TrackingProgressReceiver implements EvaluationProgressReceiver {
+public class TrackingProgressReceiver
+    extends EvaluationProgressReceiver.NullEvaluationProgressReceiver {
   public final Set<SkyKey> dirty = Sets.newConcurrentHashSet();
   public final Set<SkyKey> deleted = Sets.newConcurrentHashSet();
   public final Set<SkyKey> enqueued = Sets.newConcurrentHashSet();
@@ -48,9 +48,6 @@ public class TrackingProgressReceiver implements EvaluationProgressReceiver {
   public void enqueueing(SkyKey skyKey) {
     enqueued.add(skyKey);
   }
-
-  @Override
-  public void computed(SkyKey skyKey, long elapsedTimeNanos) {}
 
   @Override
   public void evaluated(SkyKey skyKey, Supplier<SkyValue> skyValueSupplier, EvaluationState state) {

@@ -307,6 +307,20 @@ EOF
   expect_log bazel-genfiles/external/r/package/c/d
 }
 
+function test_genrule_toolchain_dependency {
+  mkdir -p t
+  cat > t/BUILD <<EOF
+genrule(
+    name = "toolchain_check",
+    outs = ["version"],
+    cmd = "ls -al \$(JAVABASE) > \$@",
+)
+EOF
+  bazel build //t:toolchain_check >$TEST_log 2>&1 || fail "Should build"
+  expect_log "bazel-genfiles/t/version"
+  expect_not_log "ls: cannot access"
+}
+
 function test_python_with_workspace_name() {
 
  create_new_workspace
@@ -380,6 +394,23 @@ EOF
  expect_log "Fib(10) is 89"
  bazel run @remote//module_b:bar2 >$TEST_log
  expect_log "The number is 42"
+}
+
+function test_build_python_zip_with_middleman() {
+  mkdir py
+  touch py/data.txt
+  cat > py/BUILD <<EOF
+py_binary(name = "bin", srcs = ["bin.py"], data = ["data.txt"])
+py_binary(name = "bin2", srcs = ["bin2.py"], data = [":bin"])
+EOF
+  cat > py/bin.py <<EOF
+print("hello")
+EOF
+  cat > py/bin2.py <<EOF
+print("world")
+EOF
+  bazel build --build_python_zip //py:bin2 || fail "build failed"
+  unzip -l ./bazel-bin/py/bin2 | grep "data.txt" || fail "failed to zip data file"
 }
 
 function test_build_with_aliased_input_file() {

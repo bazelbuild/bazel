@@ -49,10 +49,6 @@ string WorkspaceLayout::GetWorkspace(const string &cwd) const {
   return "";
 }
 
-string WorkspaceLayout::RcBasename() const {
-  return ".bazelrc";
-}
-
 static string FindDepotBlazerc(const blaze::WorkspaceLayout* workspace_layout,
                                const string& workspace) {
   // Package semantics are ignored here, but that's acceptable because
@@ -61,7 +57,7 @@ static string FindDepotBlazerc(const blaze::WorkspaceLayout* workspace_layout,
   workspace_layout->WorkspaceRcFileSearchPath(&candidates);
   for (const auto& candidate : candidates) {
     string blazerc = blaze_util::JoinPath(workspace, candidate);
-    if (blaze_util::CanAccess(blazerc, true, false, false)) {
+    if (blaze_util::CanReadFile(blazerc)) {
       return blazerc;
     }
   }
@@ -77,7 +73,7 @@ static string FindAlongsideBinaryBlazerc(const string& cwd,
                           : blaze_util::JoinPath(cwd, path_to_binary);
   const string base = blaze_util::Basename(path_to_binary);
   const string binary_blazerc_path = path + "." + base + "rc";
-  if (blaze_util::CanAccess(binary_blazerc_path, true, false, false)) {
+  if (blaze_util::CanReadFile(binary_blazerc_path)) {
     return binary_blazerc_path;
   }
   return "";

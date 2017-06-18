@@ -13,9 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
+import java.io.IOException;
+
 /** Indicates some sort of IO error while dealing with a Skylark extension. */
 public class ErrorReadingSkylarkExtensionException extends Exception {
-  public ErrorReadingSkylarkExtensionException(Exception e) {
+  public ErrorReadingSkylarkExtensionException(BuildFileNotFoundException e) {
+    super(e.getMessage(), e);
+  }
+
+  public ErrorReadingSkylarkExtensionException(IOException e) {
+    super(e.getMessage(), e);
+  }
+
+  public ErrorReadingSkylarkExtensionException(FileSymlinkException e) {
     super(e.getMessage(), e);
   }
 }

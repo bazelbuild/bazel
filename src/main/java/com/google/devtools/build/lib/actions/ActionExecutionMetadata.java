@@ -106,7 +106,7 @@ public interface ActionExecutionMetadata extends ActionAnalysisMetadata {
    * built first, as usual.
    */
   @ThreadSafe
-  boolean inputsKnown();
+  boolean inputsDiscovered();
 
   /**
    * Returns true iff inputsKnown() may ever return false.

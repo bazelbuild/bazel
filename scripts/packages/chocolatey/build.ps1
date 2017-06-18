@@ -9,12 +9,12 @@ param(
 write-host "mode: $mode"
 if ($mode -eq "release") {
   $tvVersion = $version
-  $tvFilename = "bazel-$($tvVersion)-windows-x86_64.zip"
+  $tvFilename = "bazel-msvc-$($tvVersion)-windows-msvc-x86_64.zip"
   $tvUri = "https://github.com/bazelbuild/bazel/releases/download/$($tvVersion)/$($tvFilename)"
   $tvReleaseNotesUri = "https://github.com/bazelbuild/bazel/releases/tag/$tvVersion"
 } elseif ($mode -eq "rc") {
   $tvVersion = "$($version)-rc$($rc)"
-  $tvFilename = "bazel-$($version)rc$($rc)-windows-x86_64.zip"
+  $tvFilename = "bazel-msvc-$($version)rc$($rc)-windows-msvc-x86_64.zip"
   $tvUri = "https://storage.googleapis.com/bazel/$($version)/rc$($rc)/$($tvFilename)"
   $tvReleaseNotesUri = "https://storage.googleapis.com/bazel/$($version)/rc$($rc)/index.html"
 } elseif ($mode -eq "local") {
@@ -27,13 +27,17 @@ if ($mode -eq "release") {
 }
 
 if ($fixPackage -eq $true) {
-  $tvPackageFixVersion = "-$((get-date).tostring("yyyyMMdd-hhmmss"))"
+  $prefix = "-"
+  if ($mode -eq "release") {
+    $prefix = "."
+  }
+  $tvPackageFixVersion = "$($prefix)$((get-date).tostring("yyyyMMdd_hhmmss"))"
 }
-rm -force -ErrorAction SilentlyContinue ./*.nupkg
-rm -force -ErrorAction SilentlyContinue ./bazel.nuspec
-rm -force -ErrorAction SilentlyContinue ./tools/LICENSE.txt
-rm -force -ErrorAction SilentlyContinue ./tools/params.json
-rm -force -ErrorAction SilentlyContinue ./tools/*.orig
+rm -force -ErrorAction SilentlyContinue "./*.nupkg"
+rm -force -ErrorAction SilentlyContinue "./bazel.nuspec"
+rm -force -ErrorAction SilentlyContinue "./tools/LICENSE*"
+rm -force -ErrorAction SilentlyContinue "./tools/*.orig"
+rm -force -ErrorAction SilentlyContinue "./tools/params.*"
 if ($checksum -eq "") {
   rm -force -ErrorAction SilentlyContinue ./*.zip
 }
@@ -55,21 +59,18 @@ $nuspecTemplate = get-content "bazel.nuspec.template" | out-string
 $nuspecExpanded = $ExecutionContext.InvokeCommand.ExpandString($nuspecTemplate)
 add-content -value $nuspecExpanded -path bazel.nuspec
 
-write-host "Copying LICENSE.txt from repo-root to tools directory"
+write-host "Copying LICENSE from repo-root to tools directory"
 $licenseHeader = @"
-From: https://github.com/bazelbuild/bazel/blob/master/LICENSE.txt
+From: https://github.com/bazelbuild/bazel/blob/master/LICENSE
 
 "@
-add-content -value $licenseHeader -path "./tools/LICENSE.txt"
-add-content -value (get-content "../../../LICENSE.txt") -path "./tools/LICENSE.txt"
+add-content -value $licenseHeader -path "./tools/LICENSE"
+add-content -value (get-content "../../../LICENSE") -path "./tools/LICENSE"
 
-$params = @{
-  package = @{
-    uri = $tvUri;
-    checksum = $tvChecksum;
-    checksumType = "sha256";
-  }
-}
-add-content -value (ConvertTo-Json $params) -path "./tools/params.json"
+$params = @"
+$tvUri
+$tvChecksum
+"@
+add-content -value $params -path "./tools/params.txt"
 
 choco pack ./bazel.nuspec

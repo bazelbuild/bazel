@@ -142,13 +142,14 @@ genrule(
 )
 EOF
   bazel build @a//b/c:echo-d &> $TEST_log || fail "Build failed"
-  assert_contains "bazel-out/local.*-fastbuild/genfiles/external/a/b/c" \
+  assert_contains "bazel-out/.*-fastbuild/genfiles/external/a/b/c" \
     "bazel-genfiles/external/a/b/c/d"
 }
 
 function test_package_group_in_external_repos() {
   REMOTE=$TEST_TMPDIR/r
   mkdir -p $REMOTE/v $REMOTE/a v a
+  touch $REMOTE/WORKSPACE
 
   echo 'filegroup(name="rv", srcs=["//:fg"])' > $REMOTE/v/BUILD
   echo 'filegroup(name="ra", srcs=["//:fg"])' > $REMOTE/a/BUILD
@@ -208,6 +209,7 @@ EOF
 function test_visibility_attributes_in_external_repos() {
   REMOTE=$TEST_TMPDIR/r
   mkdir -p $REMOTE/v $REMOTE/r
+  touch $REMOTE/WORKSPACE
 
   cat > $REMOTE/r/BUILD <<EOF
 package(default_visibility=["//v:v"])
@@ -240,6 +242,7 @@ EOF
 function test_select_in_external_repo() {
   REMOTE=$TEST_TMPDIR/r
   mkdir -p $REMOTE/a $REMOTE/c d
+  touch $REMOTE/WORKSPACE
 
   cat > $REMOTE/a/BUILD <<'EOF'
 genrule(

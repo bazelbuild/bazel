@@ -8,19 +8,7 @@ import android.databinding.BindingBuildInfo;
  * data binding declarations (from layoutInfoDir) to app code.
  */
 @BindingBuildInfo(
-  // Setting a random build ID triggers incremental recompiling for the
-  // annotation processor. But Bazel is already incrementally correct, so
-  // this is unnecessary.
-  buildId="not_used_here",
-  modulePackage="%module_package%",
-  sdkRoot="%sdk_root%",
-  // The layout info file's *directory* (not the file itself):
-  layoutInfoDir="%layout_info_dir%",
-  exportClassListTo="%export_class_list_to%",
-  isLibrary=%is_library%,
-  minSdk=%min_sdk%,
-  enableDebugLogs=false,
-  printEncodedError=true
+    buildId="not_used_here" // Adds incrementality, which Bazel already supports
 )
 public class DataBindingInfo {
   /* This only exists for annotation processing. */

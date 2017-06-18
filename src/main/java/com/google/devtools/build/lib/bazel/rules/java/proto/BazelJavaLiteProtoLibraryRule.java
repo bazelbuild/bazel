@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoLibrary;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
@@ -60,8 +61,6 @@ public class BazelJavaLiteProtoLibraryRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
     return builder
-        // This rule isn't ready for use yet.
-        .setUndocumented()
         .requiresConfigurationFragments(JavaConfiguration.class)
         /* <!-- #BLAZE_RULE(java_lite_proto_library).ATTRIBUTE(deps) -->
         The list of <a href="protocol-buffer.html#proto_library"><code>proto_library</code></a>
@@ -72,17 +71,14 @@ public class BazelJavaLiteProtoLibraryRule implements RuleDefinition {
                 .allowedRuleClasses("proto_library")
                 .allowedFileTypes()
                 .aspect(javaProtoAspect, ASPECT_PARAMETERS))
-        /* <!-- #BLAZE_RULE(java_lite_proto_library).ATTRIBUTE(strict_deps) -->
-        When True, this rule only exposes the protos that it wraps directly. Depending on indirect
-        protos will break the build and print an 'add_dep' command to correct the build.
-        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("strict_deps", BOOLEAN).value(true))
+        .add(attr("strict_deps", BOOLEAN).value(true).undocumented("for migration"))
         .add(
             attr(PROTO_TOOLCHAIN_ATTR, LABEL)
                 .mandatoryNativeProviders(
                     ImmutableList.<Class<? extends TransitiveInfoProvider>>of(
                         ProtoLangToolchainProvider.class))
                 .value(getProtoToolchainLabel(DEFAULT_PROTO_TOOLCHAIN_LABEL)))
+        .advertiseProvider(JavaCompilationArgsProvider.class)
         .build();
   }
 

@@ -25,10 +25,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
-import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
@@ -36,12 +34,11 @@ import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
-import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
-import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.BlazeClock;
@@ -53,8 +50,6 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -69,6 +64,8 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
   private static final int GLOBBING_THREADS = 7;
 
   protected LoadingMock loadingMock;
+  private PackageCacheOptions packageCacheOptions;
+  private SkylarkSemanticsOptions skylarkSemanticsOptions;
   protected ConfiguredRuleClassProvider ruleClassProvider;
   protected PackageFactory packageFactory;
   protected SkyframeExecutor skyframeExecutor;
@@ -76,6 +73,8 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
   @Before
   public final void initializeSkyframeExecutor() throws Exception {
     loadingMock = LoadingMock.get();
+    packageCacheOptions = parsePackageCacheOptions();
+    skylarkSemanticsOptions = parseSkylarkSemanticsOptions();
     List<RuleDefinition> extraRules = getExtraRules();
     if (!extraRules.isEmpty()) {
       ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
@@ -89,10 +88,11 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     }
     packageFactory =
         loadingMock
-            .getPackageFactoryForTesting()
-            .create(ruleClassProvider, null, getEnvironmentExtensions(), scratch.getFileSystem());
-    skyframeExecutor = createSkyframeExecutor(getPreprocessorFactorySupplier());
-    setUpSkyframe(parsePackageCacheOptions());
+            .getPackageFactoryBuilderForTesting()
+            .setEnvironmentExtensions(getEnvironmentExtensions())
+            .build(ruleClassProvider, scratch.getFileSystem());
+    skyframeExecutor = createSkyframeExecutor();
+    setUpSkyframe();
   }
 
   /** Allows subclasses to augment the {@link RuleDefinition}s available in this test. */
@@ -100,10 +100,9 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     return ImmutableList.of();
   }
 
-  private SkyframeExecutor createSkyframeExecutor(
-      Preprocessor.Factory.Supplier preprocessorFactorySupplier) {
+  private SkyframeExecutor createSkyframeExecutor() {
     SkyframeExecutor skyframeExecutor =
-        SequencedSkyframeExecutor.create(
+        SequencedSkyframeExecutor.createForTesting(
             packageFactory,
             new BlazeDirectories(
                 outputBase, outputBase, rootDirectory, loadingMock.getProductName()),
@@ -112,22 +111,15 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
             ruleClassProvider.getBuildInfoFactories(),
             ImmutableList.<DiffAwareness.Factory>of(),
             Predicates.<PathFragment>alwaysFalse(),
-            preprocessorFactorySupplier,
             ImmutableMap.<SkyFunctionName, SkyFunction>of(),
             ImmutableList.<PrecomputedValue.Injected>of(),
             ImmutableList.<SkyValueDirtinessChecker>of(),
-            loadingMock.getProductName(),
-            CrossRepositoryLabelViolationStrategy.ERROR,
-            ImmutableList.of(BuildFileName.BUILD_DOT_BAZEL, BuildFileName.BUILD));
+            loadingMock.getProductName());
     return skyframeExecutor;
   }
 
   protected Iterable<EnvironmentExtension> getEnvironmentExtensions() {
     return ImmutableList.<EnvironmentExtension>of();
-  }
-
-  protected Preprocessor.Factory.Supplier getPreprocessorFactorySupplier() {
-    return Preprocessor.Factory.Supplier.NullSupplier.INSTANCE;
   }
 
   protected void setUpSkyframe(RuleVisibility defaultVisibility, String defaultsPackageContents) {
@@ -138,13 +130,15 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     skyframeExecutor.preparePackageLoading(
         new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
         packageCacheOptions,
+        Options.getDefaults(SkylarkSemanticsOptions.class),
         defaultsPackageContents,
         UUID.randomUUID(),
+        ImmutableMap.<String, String>of(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
   }
 
-  private void setUpSkyframe(PackageCacheOptions packageCacheOptions) {
+  private void setUpSkyframe() {
     PathPackageLocator pkgLocator = PathPackageLocator.create(
         outputBase, packageCacheOptions.packagePath, reporter, rootDirectory, rootDirectory);
     packageCacheOptions.showLoadingProgress = true;
@@ -152,23 +146,38 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageCacheOptions,
+        skylarkSemanticsOptions,
         loadingMock.getDefaultsPackageContent(),
         UUID.randomUUID(),
+        ImmutableMap.<String, String>of(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setDeletedPackages(
         ImmutableSet.copyOf(packageCacheOptions.getDeletedPackages()));
   }
 
-  private PackageCacheOptions parsePackageCacheOptions(String... options) throws Exception {
+  private static PackageCacheOptions parsePackageCacheOptions(String... options) throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(PackageCacheOptions.class);
-    parser.parse(new String[] { "--default_visibility=public" });
+    parser.parse("--default_visibility=public");
     parser.parse(options);
     return parser.getOptions(PackageCacheOptions.class);
   }
 
+  private static SkylarkSemanticsOptions parseSkylarkSemanticsOptions(String... options)
+      throws Exception {
+    OptionsParser parser = OptionsParser.newOptionsParser(SkylarkSemanticsOptions.class);
+    parser.parse(options);
+    return parser.getOptions(SkylarkSemanticsOptions.class);
+  }
+
   protected void setPackageCacheOptions(String... options) throws Exception {
-    setUpSkyframe(parsePackageCacheOptions(options));
+    packageCacheOptions = parsePackageCacheOptions(options);
+    setUpSkyframe();
+  }
+
+  protected void setSkylarkSemanticsOptions(String... options) throws Exception {
+    skylarkSemanticsOptions = parseSkylarkSemanticsOptions(options);
+    setUpSkyframe();
   }
 
   protected Target getTarget(String label)
@@ -260,20 +269,6 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
       result.add(Label.parseAbsolute(s));
     }
     return result;
-  }
-
-  protected final Set<Target> asTargetSet(String... strLabels)
-      throws LabelSyntaxException, NoSuchThingException, InterruptedException {
-    return asTargetSet(Arrays.asList(strLabels));
-  }
-
-  protected Set<Target> asTargetSet(Iterable<String> strLabels)
-      throws LabelSyntaxException, NoSuchThingException, InterruptedException {
-    Set<Target> targets = new HashSet<>();
-    for (String strLabel : strLabels) {
-      targets.add(getTarget(strLabel));
-    }
-    return targets;
   }
 
   protected PackageManager getPackageManager() {

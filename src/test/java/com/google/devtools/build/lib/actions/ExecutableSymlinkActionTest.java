@@ -13,11 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
@@ -68,7 +66,7 @@ public class ExecutableSymlinkActionTest {
     Artifact output = new Artifact(outputFile, outputRoot);
     ExecutableSymlinkAction action = new ExecutableSymlinkAction(NULL_ACTION_OWNER, input, output);
     action.execute(createContext());
-    assertEquals(inputFile, outputFile.resolveSymbolicLinks());
+    assertThat(outputFile.resolveSymbolicLinks()).isEqualTo(inputFile);
   }
 
   @Test
@@ -82,7 +80,7 @@ public class ExecutableSymlinkActionTest {
       action.execute(createContext());
       fail();
     } catch (ActionExecutionException e) {
-      assertThat(e.getMessage()).contains("'some-dir' is not a file");
+      assertThat(e).hasMessageThat().contains("'some-dir' is not a file");
     }
   }
 
@@ -100,7 +98,9 @@ public class ExecutableSymlinkActionTest {
     } catch (ActionExecutionException e) {
       String want = "'some-file' is not executable";
       String got = e.getMessage();
-      assertTrue(String.format("got %s, want %s", got, want), got.contains(want));
+      assertWithMessage(String.format("got %s, want %s", got, want))
+          .that(got.contains(want))
+          .isTrue();
     }
   }
 }

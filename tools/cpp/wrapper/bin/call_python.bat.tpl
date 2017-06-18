@@ -14,12 +14,12 @@
 
 :: Invoke the python script under pydir with the same basename
 @echo OFF
-set arg0=%1
+set arg0=%~1
 for %%F in ("%arg0%") do set DRIVER_BIN=%%~dpF
 
-for /F %%i in ("%arg0%") do set TOOLNAME=%%~ni
+for /F "delims=" %%i in ("%arg0%") do set TOOLNAME=%%~ni
 
-set PYDIR="%DRIVER_BIN%pydir"
+set PYDIR=%DRIVER_BIN%pydir
 
 if not defined MSVCPYTHON set MSVCPYTHON="%{python_binary}"
 %MSVCPYTHON% -B "%PYDIR%\%TOOLNAME%.py" %*

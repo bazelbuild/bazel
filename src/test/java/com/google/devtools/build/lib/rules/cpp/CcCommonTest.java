@@ -17,8 +17,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseNamesOf;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -39,14 +37,12 @@ import com.google.devtools.build.lib.analysis.mock.BazelAnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
-import com.google.devtools.build.lib.bazel.rules.BazelToolchainLookup;
+import com.google.devtools.build.lib.bazel.rules.BazelToolchainType;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.rules.ToolchainLookup;
+import com.google.devtools.build.lib.rules.ToolchainType;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.OsUtils;
@@ -54,6 +50,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
+import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.Before;
@@ -115,15 +112,16 @@ public class CcCommonTest extends BuildViewTestCase {
     // But we avoid creating .so files for empty libraries,
     // because those have a potentially significant run-time startup cost.
     if (emptyShouldOutputStaticLibrary()) {
-      assertEquals("libemptylib.a", baseNamesOf(getFilesToBuild(emptylib)));
+      assertThat(baseNamesOf(getFilesToBuild(emptylib))).isEqualTo("libemptylib.a");
     } else {
       assertThat(getFilesToBuild(emptylib)).isEmpty();
     }
-    assertTrue(
-        emptylib
-            .getProvider(CcExecutionDynamicLibrariesProvider.class)
-            .getExecutionDynamicLibraryArtifacts()
-            .isEmpty());
+    assertThat(
+            emptylib
+                .getProvider(CcExecutionDynamicLibrariesProvider.class)
+                .getExecutionDynamicLibraryArtifacts()
+                .isEmpty())
+        .isTrue();
   }
 
   protected boolean emptyShouldOutputStaticLibrary() {
@@ -133,8 +131,8 @@ public class CcCommonTest extends BuildViewTestCase {
   @Test
   public void testEmptyBinary() throws Exception {
     ConfiguredTarget emptybin = getConfiguredTarget("//empty:emptybinary");
-    assertEquals(
-        "emptybinary" + OsUtils.executableExtension(), baseNamesOf(getFilesToBuild(emptybin)));
+    assertThat(baseNamesOf(getFilesToBuild(emptybin)))
+        .isEqualTo("emptybinary" + OsUtils.executableExtension());
   }
 
   private List<String> getCopts(String target) throws Exception {
@@ -230,11 +228,12 @@ public class CcCommonTest extends BuildViewTestCase {
             "cc_library(name = 'statically',",
             "           srcs = ['statically.cc'],",
             "           linkstatic=1)");
-    assertTrue(
-        statically
-            .getProvider(CcExecutionDynamicLibrariesProvider.class)
-            .getExecutionDynamicLibraryArtifacts()
-            .isEmpty());
+    assertThat(
+            statically
+                .getProvider(CcExecutionDynamicLibrariesProvider.class)
+                .getExecutionDynamicLibraryArtifacts()
+                .isEmpty())
+        .isTrue();
     Artifact staticallyDotA = getOnlyElement(getFilesToBuild(statically));
     assertThat(getGeneratingAction(staticallyDotA)).isInstanceOf(CppLinkAction.class);
     PathFragment dotAPath = staticallyDotA.getExecPath();
@@ -273,7 +272,8 @@ public class CcCommonTest extends BuildViewTestCase {
     CppLinkAction action = (CppLinkAction) getGeneratingAction(getExecutable(target));
     for (Artifact input : action.getInputs()) {
       String name = input.getFilename();
-      assertTrue(!CppFileTypes.ARCHIVE.matches(name) && !CppFileTypes.PIC_ARCHIVE.matches(name));
+      assertThat(!CppFileTypes.ARCHIVE.matches(name) && !CppFileTypes.PIC_ARCHIVE.matches(name))
+          .isTrue();
     }
   }
 
@@ -411,7 +411,7 @@ public class CcCommonTest extends BuildViewTestCase {
     String includesRoot = "bang/bang_includes";
     assertThat(foo.getProvider(CppCompilationContext.class).getSystemIncludeDirs())
         .containsAllOf(
-            new PathFragment(includesRoot),
+            PathFragment.create(includesRoot),
             targetConfig.getGenfilesFragment().getRelative(includesRoot));
   }
 
@@ -437,7 +437,7 @@ public class CcCommonTest extends BuildViewTestCase {
     List<PathFragment> expected =
         new ImmutableList.Builder<PathFragment>()
             .addAll(noIncludes.getProvider(CppCompilationContext.class).getSystemIncludeDirs())
-            .add(new PathFragment(includesRoot))
+            .add(PathFragment.create(includesRoot))
             .add(targetConfig.getGenfilesFragment().getRelative(includesRoot))
             .build();
     assertThat(foo.getProvider(CppCompilationContext.class).getSystemIncludeDirs())
@@ -548,8 +548,8 @@ public class CcCommonTest extends BuildViewTestCase {
         "    path = '/foo')");
     getSkyframeExecutor()
         .invalidateFilesUnderPathForTesting(
-            eventCollector,
-            new ModifiedFileSet.Builder().modify(new PathFragment("WORKSPACE")).build(),
+            reporter,
+            new ModifiedFileSet.Builder().modify(PathFragment.create("WORKSPACE")).build(),
             rootDirectory);
     FileSystemUtils.createDirectoryAndParents(scratch.resolve("/foo/bar"));
     scratch.file("/foo/WORKSPACE", "workspace(name = 'pkg')");
@@ -558,12 +558,9 @@ public class CcCommonTest extends BuildViewTestCase {
         "cc_library(name = 'lib',",
         "           srcs = ['foo.cc'],",
         "           includes = ['./'])");
-    Target target = getTarget("@pkg//bar:lib");
-    ensureTargetsVisited(target.getLabel());
-    assertThat(
-            view.hasErrors(
-                view.getConfiguredTargetForTesting(reporter, target.getLabel(), targetConfig)))
-        .isFalse();
+    Label label = Label.parseAbsolute("@pkg//bar:lib");
+    ConfiguredTarget target = view.getConfiguredTargetForTesting(reporter, label, targetConfig);
+    assertThat(view.hasErrors(target)).isFalse();
     assertNoEvents();
   }
 
@@ -629,7 +626,7 @@ public class CcCommonTest extends BuildViewTestCase {
     // make sure the binary is dependent on the static lib
     Action linkAction = getGeneratingAction(getOnlyElement(getFilesToBuild(theApp)));
     ImmutableList<Artifact> filesToBuild = ImmutableList.copyOf(getFilesToBuild(theLib));
-    assertTrue(ImmutableSet.copyOf(linkAction.getInputs()).containsAll(filesToBuild));
+    assertThat(ImmutableSet.copyOf(linkAction.getInputs()).containsAll(filesToBuild)).isTrue();
   }
 
   @Test
@@ -703,8 +700,8 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   private void assertStamping(boolean enabled, String label) throws Exception {
-    assertEquals(
-        enabled, AnalysisUtils.isStampingEnabled(getRuleContext(getConfiguredTarget(label))));
+    assertThat(AnalysisUtils.isStampingEnabled(getRuleContext(getConfiguredTarget(label))))
+        .isEqualTo(enabled);
   }
 
   @Test
@@ -772,7 +769,7 @@ public class CcCommonTest extends BuildViewTestCase {
         FileType.filterList(
             LinkerInputs.toLibraryArtifacts(linkingOutputs.getPreferredLibraries(true, true)),
             CppFileTypes.SHARED_LIBRARY);
-    assertEquals(sharedLibraries1, sharedLibraries2);
+    assertThat(sharedLibraries2).isEqualTo(sharedLibraries1);
   }
 
   /** Tests that shared libraries of the form "libfoo.so.1.2" are permitted within "srcs". */
@@ -895,11 +892,24 @@ public class CcCommonTest extends BuildViewTestCase {
         "header 'third_party/a/v1/b.h' is not under the specified strip prefix 'third_party/a/v2'");
   }
 
+  @Test
+  public void testSymlinkActionIsNotRegisteredWhenIncludePrefixDoesntChangePath() throws Exception {
+    scratch.file(
+        "third_party/BUILD",
+        "licenses(['notice'])",
+        "cc_library(name='a', hdrs=['a.h'], include_prefix='third_party')");
+
+    CppCompilationContext context =
+        getConfiguredTarget("//third_party:a").getProvider(CppCompilationContext.class);
+    assertThat(ActionsTestUtil.prettyArtifactNames(context.getDeclaredIncludeSrcs()))
+        .doesNotContain("third_party/_virtual_includes/a/third_party/a.h");
+  }
+
   /**
-   * A {@code toolchain_lookup} rule for testing that only supports C++.
+   * A {@code toolchain_type} rule for testing that only supports C++.
    */
-  public static class OnlyCppToolchainLookup extends ToolchainLookup {
-    public OnlyCppToolchainLookup() {
+  public static class OnlyCppToolchainType extends ToolchainType {
+    public OnlyCppToolchainType() {
       super(
           ImmutableMap.<Label, Class<? extends BuildConfiguration.Fragment>>of(),
           ImmutableMap.<Label, ImmutableMap<String, String>>of());
@@ -907,13 +917,13 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   /**
-   * A {@code toolchain_lookup} rule for testing that only supports C++.
+   * A {@code toolchain_type} rule for testing that only supports C++.
    */
-  public static class OnlyCppToolchainLookupRule implements RuleDefinition {
+  public static class OnlyCppToolchainTypeRule implements RuleDefinition {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
       return builder
-          // This means that *every* toolchain_lookup rule depends on every configuration fragment
+          // This means that *every* toolchain_type rule depends on every configuration fragment
           // that contributes Make variables, regardless of which one it is.
           .requiresConfigurationFragments(CppConfiguration.class)
           .removeAttribute("licenses")
@@ -924,8 +934,8 @@ public class CcCommonTest extends BuildViewTestCase {
     @Override
     public Metadata getMetadata() {
       return Metadata.builder()
-          .name("toolchain_lookup")
-          .factoryClass(BazelToolchainLookup.class)
+          .name("toolchain_type")
+          .factoryClass(BazelToolchainType.class)
           .ancestors(BaseRuleClasses.BaseRule.class)
           .build();
     }
@@ -936,6 +946,7 @@ public class CcCommonTest extends BuildViewTestCase {
    */
   @RunWith(JUnit4.class)
   public static class OnlyCppRules extends CcCommonTest {
+
     @Override
     protected AnalysisMock getAnalysisMock() {
       final AnalysisMock original = BazelAnalysisMock.INSTANCE;
@@ -954,9 +965,9 @@ public class CcCommonTest extends BuildViewTestCase {
           BazelRuleClassProvider.BAZEL_SETUP.init(builder);
           BazelRuleClassProvider.CORE_RULES.init(builder);
           BazelRuleClassProvider.CORE_WORKSPACE_RULES.init(builder);
-          BazelRuleClassProvider.BASIC_RULES.init(builder);
+          BazelRuleClassProvider.GENERIC_RULES.init(builder);
           BazelRuleClassProvider.CPP_RULES.init(builder);
-          builder.addRuleDefinition(new OnlyCppToolchainLookupRule());
+          builder.addRuleDefinition(new OnlyCppToolchainTypeRule());
           return builder.build();
         }
 
@@ -980,6 +991,16 @@ public class CcCommonTest extends BuildViewTestCase {
     @Override
     public void testStartEndLib() throws Exception {
       // Test sets --fat_apk_cpu, which doesn't exist.
+    }
+
+    @Override
+    public void testExpandLabelInLinkoptsAgainstSrc() throws Exception {
+      // genrule now requires JavaConfiguration, so isn't appropriate for OnlyCppRules.
+    }
+
+    @Override
+    public void testExpandedLinkopts() throws Exception {
+      // genrule now requires JavaConfiguration, so isn't appropriate for OnlyCppRules.
     }
   }
 }

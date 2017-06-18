@@ -1,5 +1,11 @@
 # Description:
 #   C++ utility source for Bazel
+package_group(
+    name = "ijar",
+    packages = [
+        "//third_party/ijar/...",
+    ],
+)
 
 cc_library(
     name = "util",
@@ -27,10 +33,9 @@ cc_library(
     name = "file",
     srcs = ["file.cc"] + select({
         "//src:windows": [
-            # TODO(bazel-team): implement functions in file_windows.cc and use
-            # more and more of them under MSYS until we can completely stop
-            # using file_posix.cc at which point remove it from this list.
-            "file_posix.cc",
+            "file_windows.cc",
+        ],
+        "//src:windows_msys": [
             "file_windows.cc",
         ],
         "//src:windows_msvc": [
@@ -45,6 +50,7 @@ cc_library(
         "file_platform.h",
     ],
     visibility = [
+        ":ijar",
         "//src/test/cpp/util:__pkg__",
         "//src/tools/singlejar:__pkg__",
     ],
@@ -52,13 +58,27 @@ cc_library(
         ":blaze_exit_code",
         ":errors",
         ":strings",
-    ],
+    ] + select({
+        "//src:windows": ["//src/main/native:windows_jni_lib"],
+        "//src:windows_msys": ["//src/main/native:windows_jni_lib"],
+        "//src:windows_msvc": ["//src/main/native:windows_jni_lib"],
+        "//conditions:default": [],
+    }),
 )
 
 cc_library(
     name = "errors",
-    srcs = ["errors.cc"],
+    srcs = ["errors.cc"] + select({
+        "//src:windows": ["errors_windows.cc"],
+        "//src:windows_msys": ["errors_windows.cc"],
+        "//src:windows_msvc": ["errors_windows.cc"],
+        "//conditions:default": ["errors_posix.cc"],
+    }),
     hdrs = ["errors.h"],
+    visibility = [
+        ":ijar",
+        "//src/main/cpp:__subpackages__",
+    ],
     deps = [":port"],
 )
 

@@ -29,11 +29,6 @@ namespace blaze {
 
 extern const char kServerPidFile[];
 
-// TODO(laszlocsomor) 2016-11-21: remove kServerPidSymlink after 2017-05-01
-// (~half a year from writing this comment). By that time old Bazel clients that
-// used to write PID symlinks will probably no longer be in use.
-extern const char kServerPidSymlink[];
-
 // Returns the given path in absolute form.  Does not change paths that are
 // already absolute.
 //
@@ -55,12 +50,14 @@ const char* GetUnaryOption(const char *arg,
 // Returns false otherwise.
 bool GetNullaryOption(const char *arg, const char *key);
 
-// Searches for 'key' in 'args' using GetUnaryOption.
+// Searches for 'key' in 'args' using GetUnaryOption. Arguments found after '--'
+// are omitted from the search.
 // Returns true iff key is a flag in args.
 const char* SearchUnaryOption(const std::vector<std::string>& args,
                               const char* key);
 
-// Searches for 'key' in 'args' using GetNullaryOption.
+// Searches for 'key' in 'args' using GetNullaryOption. Arguments found after
+// '--' are omitted from the search.
 // Returns the value of the 'key' flag iff it occurs in args.
 bool SearchNullaryOption(const std::vector<std::string>& args,
                          const char* key);

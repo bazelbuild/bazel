@@ -22,9 +22,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-
 import java.io.IOException;
 
 /**
@@ -64,11 +62,6 @@ final class ExtractInclusionAction extends AbstractAction {
   @Override
   protected String getRawProgressMessage() {
     return "Extracting include lines from " + getPrimaryInput().prettyPrint();
-  }
-
-  @Override
-  public ResourceSet estimateResourceConsumption(Executor executor) {
-    return ResourceSet.ZERO;
   }
 
   @Override

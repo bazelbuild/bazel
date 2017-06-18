@@ -28,12 +28,12 @@ public final class SkylarkProviderIdentifier {
   @Nullable
   private final String legacyId;
   @Nullable
-  private final SkylarkClassObjectConstructor.Key key;
+  private final ClassObjectConstructor.Key key;
 
   /**
    * Creates an id for a declared provider with a given key ({@see SkylarkClassObjectConstructor}).
    */
-  public static SkylarkProviderIdentifier forKey(SkylarkClassObjectConstructor.Key key) {
+  public static SkylarkProviderIdentifier forKey(ClassObjectConstructor.Key key) {
     return new SkylarkProviderIdentifier(key);
   }
 
@@ -49,7 +49,7 @@ public final class SkylarkProviderIdentifier {
     this.key = null;
   }
 
-  private SkylarkProviderIdentifier(SkylarkClassObjectConstructor.Key key) {
+  private SkylarkProviderIdentifier(ClassObjectConstructor.Key key) {
     this.legacyId = null;
     this.key = key;
   }
@@ -73,7 +73,7 @@ public final class SkylarkProviderIdentifier {
   /**
    * Returns a key identifying the declared provider (only for non-legacy providers).
    */
-  public SkylarkClassObjectConstructor.Key getKey() {
+  public ClassObjectConstructor.Key getKey() {
     Preconditions.checkState(!isLegacy(), "Check !isLegacy() first");
     return key;
   }
@@ -83,12 +83,12 @@ public final class SkylarkProviderIdentifier {
     if (isLegacy()) {
       return legacyId;
     }
-    return key.getExportedName();
+    return key.toString();
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(legacyId, key);
+    return legacyId != null ? legacyId.hashCode() * 2 : key.hashCode();
   }
 
   @Override

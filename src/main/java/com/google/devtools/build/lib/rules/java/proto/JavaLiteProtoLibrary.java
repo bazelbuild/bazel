@@ -78,8 +78,17 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
       filesToBuild.addTransitive(provider.getJars());
     }
 
+    JavaRuleOutputJarsProvider javaRuleOutputJarsProvider =
+        JavaRuleOutputJarsProvider.builder().build();
+    JavaSkylarkApiProvider.Builder skylarkApiProvider =
+        JavaSkylarkApiProvider.builder()
+            .setRuleOutputJarsProvider(javaRuleOutputJarsProvider)
+            .setSourceJarsProvider(sourceJarsProvider)
+            .setCompilationArgsProvider(dependencyArgsProviders);
+
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(filesToBuild.build())
+        .addSkylarkTransitiveInfo(JavaSkylarkApiProvider.NAME, skylarkApiProvider.build())
         .addProvider(RunfilesProvider.class, RunfilesProvider.withData(Runfiles.EMPTY, runfiles))
         .addOutputGroup(
             OutputGroupProvider.DEFAULT, NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
@@ -87,8 +96,7 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
         .add(JavaSourceJarsProvider.class, sourceJarsProvider)
         .add(JavaRunfilesProvider.class, new JavaRunfilesProvider(runfiles))
         .add(ProguardSpecProvider.class, getJavaLiteRuntimeSpec(ruleContext))
-        .add(JavaRuleOutputJarsProvider.class, JavaRuleOutputJarsProvider.builder().build())
-        .addSkylarkTransitiveInfo(JavaSkylarkApiProvider.NAME, new JavaSkylarkApiProvider())
+        .add(JavaRuleOutputJarsProvider.class, javaRuleOutputJarsProvider)
         .build();
   }
 

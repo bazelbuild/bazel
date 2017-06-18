@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.UnknownRuleConfiguredTarget;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.common.options.Option;
-
+import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import java.util.List;
 
 /**
@@ -48,7 +48,7 @@ public class LateBoundSplitUtil {
     @Option(
       name = "foo",
       defaultValue = "",
-      category = "undocumented"
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED
     )
     public String fooFlag;
 
@@ -81,7 +81,7 @@ public class LateBoundSplitUtil {
   /**
    * The {@link BuildConfiguration.Fragment} that contains the options.
    */
-  private static class TestFragment extends BuildConfiguration.Fragment {
+  static class TestFragment extends BuildConfiguration.Fragment {
   }
 
   /**

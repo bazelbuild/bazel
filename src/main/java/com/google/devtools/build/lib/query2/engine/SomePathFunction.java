@@ -20,10 +20,10 @@ import com.google.common.collect.Sets.SetView;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
-
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskCallable;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ForkJoinPool;
 
 /**
  * A somepath(x, y) query expression, which computes the set of nodes
@@ -51,50 +51,52 @@ class SomePathFunction implements QueryFunction {
   }
 
   @Override
-  public <T> void eval(
-      QueryEnvironment<T> env,
+  public <T> QueryTaskFuture<Void> eval(
+      final QueryEnvironment<T> env,
       VariableContext<T> context,
-      QueryExpression expression,
+      final QueryExpression expression,
       List<Argument> args,
-      final Callback<T> callback) throws QueryException, InterruptedException {
-    Set<T> fromValue = QueryUtil.evalAll(env, context, args.get(0).getExpression());
-    Set<T> toValue = QueryUtil.evalAll(env, context, args.get(1).getExpression());
+      final Callback<T> callback) {
+    final QueryTaskFuture<Set<T>> fromValueFuture =
+        QueryUtil.evalAll(env, context, args.get(0).getExpression());
+    final QueryTaskFuture<Set<T>> toValueFuture =
+        QueryUtil.evalAll(env, context, args.get(1).getExpression());
 
-    // Implementation strategy: for each x in "from", compute its forward
-    // transitive closure.  If it intersects "to", then do a path search from x
-    // to an arbitrary node in the intersection, and return the path.  This
-    // avoids computing the full transitive closure of "from" in some cases.
+    return env.whenAllSucceedCall(
+        ImmutableList.of(fromValueFuture, toValueFuture),
+        new QueryTaskCallable<Void>() {
+          @Override
+          public Void call() throws QueryException, InterruptedException {
+            // Implementation strategy: for each x in "from", compute its forward
+            // transitive closure.  If it intersects "to", then do a path search from x
+            // to an arbitrary node in the intersection, and return the path.  This
+            // avoids computing the full transitive closure of "from" in some cases.
 
-    env.buildTransitiveClosure(expression, fromValue, Integer.MAX_VALUE);
+            Set<T> fromValue = fromValueFuture.getIfSuccessful();
+            Set<T> toValue = toValueFuture.getIfSuccessful();
 
-    // This set contains all nodes whose TC does not intersect "toValue".
-    Uniquifier<T> uniquifier = env.createUniquifier();
+            env.buildTransitiveClosure(expression, fromValue, Integer.MAX_VALUE);
 
-    for (T x : uniquifier.unique(fromValue)) {
-      Set<T> xtc = env.getTransitiveClosure(ImmutableSet.of(x));
-      SetView<T> result;
-      if (xtc.size() > toValue.size()) {
-        result = Sets.intersection(toValue, xtc);
-      } else {
-        result = Sets.intersection(xtc, toValue);
-      }
-      if (!result.isEmpty()) {
-        callback.process(env.getNodesOnPath(x, result.iterator().next()));
-        return;
-      }
-      uniquifier.unique(xtc);
-    }
-    callback.process(ImmutableSet.<T>of());
-  }
+            // This set contains all nodes whose TC does not intersect "toValue".
+            Uniquifier<T> uniquifier = env.createUniquifier();
 
-  @Override
-  public <T> void parEval(
-      QueryEnvironment<T> env,
-      VariableContext<T> context,
-      QueryExpression expression,
-      List<Argument> args,
-      ThreadSafeCallback<T> callback,
-      ForkJoinPool forkJoinPool) throws QueryException, InterruptedException {
-    eval(env, context, expression, args, callback);
+            for (T x : uniquifier.unique(fromValue)) {
+              Set<T> xtc = env.getTransitiveClosure(ImmutableSet.of(x));
+              SetView<T> result;
+              if (xtc.size() > toValue.size()) {
+                result = Sets.intersection(toValue, xtc);
+              } else {
+                result = Sets.intersection(xtc, toValue);
+              }
+              if (!result.isEmpty()) {
+                callback.process(env.getNodesOnPath(x, result.iterator().next()));
+                return null;
+              }
+              uniquifier.unique(xtc);
+            }
+            callback.process(ImmutableSet.<T>of());
+            return null;
+          }
+        });
   }
 }

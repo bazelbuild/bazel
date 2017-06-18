@@ -21,12 +21,12 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.BuildInfo;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Key;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
@@ -41,7 +41,7 @@ import java.util.Properties;
  * An action that creates a Java properties file containing the build informations.
  */
 public class WriteBuildInfoPropertiesAction extends AbstractFileWriteAction {
-  private static final String GUID = "922949ca-1391-4046-a300-74810618dcdc";
+  private static final String GUID = "19e543c2-3ce4-4aef-80f5-4f8abf4b064f";
 
   private final ImmutableList<Artifact> valueArtifacts;
   private final BuildInfoPropertiesTranslator keyTranslations;
@@ -158,8 +158,13 @@ public class WriteBuildInfoPropertiesAction extends AbstractFileWriteAction {
         Map<String, String> keys = new HashMap<>();
         if (includeVolatile) {
           addValues(keys, values, context.getVolatileKeys());
-          keys.put("BUILD_TIMESTAMP", Long.toString(timestamp / 1000));
-          keys.put("BUILD_TIME", timestampFormatter.format(timestamp));
+          long timeMillis = timestamp;
+          Key sourceDateEpoch = context.getStableKeys().get(BuildInfo.SOURCE_DATE_EPOCH);
+          if (sourceDateEpoch != null) {
+            timeMillis = Long.valueOf(sourceDateEpoch.getDefaultValue()) * 1000L;
+          }
+          keys.put("BUILD_TIMESTAMP", Long.toString(timeMillis / 1000));
+          keys.put("BUILD_TIME", timestampFormatter.format(timeMillis));
         }
         addValues(keys, values, context.getStableKeys());
         Properties properties = new Properties();

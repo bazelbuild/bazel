@@ -13,17 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.syntax.compiler.ByteCodeMethodCalls;
-import com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils;
-import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
-import com.google.devtools.build.lib.syntax.compiler.VariableScope;
-
-import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
-
 /**
- * As syntax node for the not boolean operation.
+ * Syntax node for the not boolean operation.
  */
-public class NotExpression extends Expression {
+public final class NotExpression extends Expression {
 
   private final Expression expression;
 
@@ -31,7 +24,7 @@ public class NotExpression extends Expression {
     this.expression = expression;
   }
 
-  Expression getExpression() {
+  public Expression getExpression() {
     return expression;
   }
 
@@ -53,17 +46,5 @@ public class NotExpression extends Expression {
   @Override
   void validate(ValidationEnvironment env) throws EvalException {
     expression.validate(env);
-  }
-
-  @Override
-  ByteCodeAppender compile(VariableScope scope, DebugInfo debugInfo) throws EvalException {
-    // since there is no byte code logical negation
-    // compile expression and convert to boolean then negate and convert back to Boolean
-    return new ByteCodeAppender.Compound(
-        expression.compile(scope, debugInfo),
-        new ByteCodeAppender.Simple(
-            EvalUtils.toBoolean,
-            ByteCodeUtils.intLogicalNegation(),
-            ByteCodeMethodCalls.BCBoolean.valueOf));
   }
 }

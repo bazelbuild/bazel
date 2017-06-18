@@ -14,12 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# For this tests to run do the following:
-# 1. Uncomment the 2 lines regarding android integration tests in the WORKSPACE
-# file.
-# 2. Set the environment variables ANDROID_HOME and ANDROID_NDK accordingly to
-# your Android SDK and NDK home directories.
-# 3. Run scripts/workspace_user.sh.
+# For these tests to run do the following:
+#
+#   1. Install an Android SDK and NDK from https://developer.android.com
+#   2. Set the $ANDROID_HOME and $ANDROID_NDK_HOME environment variables
+#   3. Uncomment the two lines in WORKSPACE containing android_sdk_repository
+#      and android_ndk_repository
 #
 # Note that if the environment is not set up as above android_integration_test
 # will silently be ignored and will be shown as passing.
@@ -171,6 +171,7 @@ function check_num_sos() {
 }
 
 function check_soname() {
+  unzip -p bazel-bin/java/bazel/bin.apk lib/x86/libbin.so > libbin.so
   # For an android_binary with name foo, readelf output format is
   #  Tag        Type          Name/Value
   # 0x00000010 (SONAME)       Library soname: [libfoo]
@@ -181,7 +182,7 @@ function check_soname() {
   # includes readelf however the path is difference for Mac vs Linux, hence the
   # star.
   readelf="${TEST_SRCDIR}/androidndk/ndk/toolchains/arm-linux-androideabi-4.9/prebuilt/*/bin/arm-linux-androideabi-readelf"
-  soname=$($readelf -d bazel-bin/java/bazel/_dx/bin/native_symlinks/x86/libbin.so \
+  soname=$($readelf -d libbin.so \
     | grep SONAME \
     | awk '{print substr($5,2,length($5)-2)}')
   assert_equals "libbin" "$soname"
@@ -189,7 +190,7 @@ function check_soname() {
 
 function test_sdk_library_deps() {
   create_new_workspace
-  setup_android_support
+  setup_android_sdk_support
 
   mkdir -p java/a
   cat > java/a/BUILD<<EOF
@@ -204,7 +205,8 @@ EOF
 
 function test_android_binary() {
   create_new_workspace
-  setup_android_support
+  setup_android_sdk_support
+  setup_android_ndk_support
   create_android_binary
 
   cpus="armeabi,armeabi-v7a,arm64-v8a,mips,mips64,x86,x86_64"
@@ -214,14 +216,23 @@ function test_android_binary() {
   check_soname
 }
 
+is_ndk_10() {
+  if [[ -r "${BAZEL_RUNFILES}/external/androidndk/ndk/source.properties" ]]; then
+    return 1
+  else
+    return 0
+  fi
+}
+
 function test_android_binary_clang() {
   # clang3.8 is only available on NDK r11
-  # TODO(ahumesky): This is only distinguishing between r10 and r11+.
-  if [[ ! -r "${BAZEL_RUNFILES}/external/androidndk/ndk/source.properties" ]]; then
+  if is_ndk_10; then
+    echo "Not running test_android_binary_clang because it requires NDK11 or later"
     return
   fi
   create_new_workspace
-  setup_android_support
+  setup_android_sdk_support
+  setup_android_ndk_support
   create_android_binary
 
   cpus="armeabi,armeabi-v7a,arm64-v8a,mips,mips64,x86,x86_64"
@@ -234,10 +245,37 @@ function test_android_binary_clang() {
   check_soname
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/issues/2601.
+function test_clang_include_paths() {
+  if is_ndk_10; then
+    echo "Not running test_clang_include_paths because it requires NDK11 or later"
+    return
+  fi
+  create_new_workspace
+  setup_android_ndk_support
+  cat > BUILD <<EOF
+cc_binary(
+    name = "foo",
+    srcs = ["foo.cc"],
+    copts = ["-mfpu=neon"],
+)
+EOF
+  cat > foo.cc <<EOF
+#include <arm_neon.h>
+int main() { return 0; }
+EOF
+  bazel build //:foo \
+    --compiler=clang3.8 \
+    --cpu=armeabi-v7a \
+    --crosstool_top=//external:android/crosstool \
+    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
+    || fail "build failed"
+}
+
 # Regression test for https://github.com/bazelbuild/bazel/issues/1928.
 function test_empty_tree_artifact_action_inputs_mount_empty_directories() {
   create_new_workspace
-  setup_android_support
+  setup_android_sdk_support
   cat > AndroidManifest.xml <<EOF
 <manifest package="com.test"/>
 EOF
@@ -259,7 +297,7 @@ EOF
 
 function test_nonempty_aar_resources_tree_artifact() {
   create_new_workspace
-  setup_android_support
+  setup_android_sdk_support
   cat > AndroidManifest.xml <<EOF
 <manifest package="com.test"/>
 EOF
@@ -279,37 +317,89 @@ EOF
   bazel build :test
 }
 
-function test_android_sdk_repository_build_tools_version_detection() {
+function test_android_sdk_repository_path_from_environment() {
   create_new_workspace
-  # android_sdk_repository ignores directories that are not valid revisions
-  # inside sdk/build-tools.
-  mkdir -p androidsdk/build-tools/{25.0.1,25.0.2,fish}
-  # android_sdk_repository ignores files inside sdk/build-tools.
-  touch androidsdk/build-tools/25.0.4
-  cat >> WORKSPACE <<EOF
+  setup_android_sdk_support
+  # Overwrite WORKSPACE that was created by setup_android_sdk_support with one
+  # that does not set the path attribute of android_sdk_repository.
+  cat > WORKSPACE <<EOF
 android_sdk_repository(
     name = "androidsdk",
-    path = "$(pwd)/androidsdk",
+)
+EOF
+  ANDROID_HOME=$ANDROID_SDK bazel build @androidsdk//:files || fail \
+    "android_sdk_repository failed to build with \$ANDROID_HOME instead of " \
+    "path"
+}
+
+function test_android_ndk_repository_path_from_environment() {
+  create_new_workspace
+  setup_android_ndk_support
+  cat > WORKSPACE <<EOF
+android_ndk_repository(
+    name = "androidndk",
     api_level = 25,
 )
 EOF
+  ANDROID_NDK_HOME=$ANDROID_NDK bazel build @androidndk//:files || fail \
+    "android_ndk_repository failed to build with \$ANDROID_NDK_HOME instead " \
+    "of path"
+}
 
-  bazel build @androidsdk//:files
-  cat bazel-$(basename $(pwd))/external/androidsdk/BUILD.bazel > output
-  # android_sdk_repository picks the highest revision directory.
-  assert_contains "build_tools_version = \"25.0.2\"" output
+function test_android_sdk_repository_no_path_or_android_home() {
+  create_new_workspace
+  cat > WORKSPACE <<EOF
+android_sdk_repository(
+    name = "androidsdk",
+    api_level = 25,
+)
+EOF
+  bazel build @androidsdk//:files >& $TEST_log && fail "Should have failed"
+  expect_log "Either the path attribute of android_sdk_repository"
+}
 
-  mkdir -p androidsdk/build-tools/25.0.3
-  bazel build @androidsdk//:files
-  cat bazel-$(basename $(pwd))/external/androidsdk/BUILD.bazel > output
-  # android_sdk_repository is rerun if a new build-tools directory is added.
-  assert_contains "build_tools_version = \"25.0.3\"" output
+function test_android_ndk_repository_no_path_or_android_ndk_home() {
+  create_new_workspace
+  cat > WORKSPACE <<EOF
+android_ndk_repository(
+    name = "androidndk",
+    api_level = 25,
+)
+EOF
+  bazel build @androidndk//:files >& $TEST_log && fail "Should have failed"
+  expect_log "Either the path attribute of android_ndk_repository"
+}
 
-  rm -rf androidsdk/build-tools/25.0.{2,3}
-  bazel build @androidsdk//:files
-  cat bazel-$(basename $(pwd))/external/androidsdk/BUILD.bazel > output
-  # android_sdk_repository is rerun if a build-tools directory is removed.
-  assert_contains "build_tools_version = \"25.0.1\"" output
+# Check that the build succeeds if an android_sdk is specified with --android_sdk
+function test_specifying_android_sdk_flag() {
+  create_new_workspace
+  setup_android_sdk_support
+  setup_android_ndk_support
+  create_android_binary
+  cat > WORKSPACE <<EOF
+android_sdk_repository(
+    name = "a",
+)
+android_ndk_repository(
+    name = "androidndk",
+    api_level = 24,
+)
+EOF
+  ANDROID_HOME=$ANDROID_SDK ANDROID_NDK_HOME=$ANDROID_NDK bazel build \
+    --android_sdk=@a//:sdk-24 //java/bazel:bin || fail \
+    "build with --android_sdk failed"
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/2621.
+function test_android_sdk_repository_returns_null_if_env_vars_missing() {
+  create_new_workspace
+  setup_android_sdk_support
+  ANDROID_HOME=/does_not_exist_1 bazel build @androidsdk//:files || \
+    fail "Build failed"
+  sed -i -e 's/path =/#path =/g' WORKSPACE
+  ANDROID_HOME=/does_not_exist_2 bazel build @androidsdk//:files && \
+    fail "Build should have failed"
+  ANDROID_HOME=$ANDROID_SDK bazel build @androidsdk//:files || "Build failed"
 }
 
 # ndk r10 and earlier

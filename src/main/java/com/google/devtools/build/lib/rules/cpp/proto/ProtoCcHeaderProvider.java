@@ -21,11 +21,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 /** Provides information about generated C++ headers of dependencies. */
 public final class ProtoCcHeaderProvider implements TransitiveInfoProvider {
   private final NestedSet<Artifact> headers;
-  private final boolean generatesPbH;
 
-  public ProtoCcHeaderProvider(NestedSet<Artifact> headers, boolean generatesPbH) {
+  public ProtoCcHeaderProvider(NestedSet<Artifact> headers) {
     this.headers = headers;
-    this.generatesPbH = generatesPbH;
   }
 
   /**
@@ -35,10 +33,5 @@ public final class ProtoCcHeaderProvider implements TransitiveInfoProvider {
    */
   public NestedSet<Artifact> getHeaders() {
     return headers;
-  }
-
-  /** @return true, if this proto library generates .pb.h files. */
-  public boolean getGeneratesPbH() {
-    return generatesPbH;
   }
 }

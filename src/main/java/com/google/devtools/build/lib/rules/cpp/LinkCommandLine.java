@@ -54,6 +54,7 @@ import javax.annotation.Nullable;
 public final class LinkCommandLine extends CommandLine {
   private final String actionName;
   private final String toolPath;
+  private final boolean codeCoverageEnabled;
   private final CppConfiguration cppConfiguration;
   private final ActionOwner owner;
   private final CcToolchainFeatures.Variables variables;
@@ -73,6 +74,7 @@ public final class LinkCommandLine extends CommandLine {
   @Nullable private final PathFragment runtimeSolibDir;
   private final boolean nativeDeps;
   private final boolean useTestOnlyFlags;
+  private final CcToolchainProvider ccProvider;
 
   @Nullable private final Artifact paramFile;
 
@@ -97,10 +99,12 @@ public final class LinkCommandLine extends CommandLine {
       boolean useTestOnlyFlags,
       @Nullable Artifact paramFile,
       CcToolchainFeatures.Variables variables,
-      @Nullable FeatureConfiguration featureConfiguration) {
+      @Nullable FeatureConfiguration featureConfiguration,
+      CcToolchainProvider ccProvider) {
 
     this.actionName = actionName;
     this.toolPath = toolPath;
+    this.codeCoverageEnabled = configuration.isCodeCoverageEnabled();
     this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
     this.variables = variables;
     this.featureConfiguration = featureConfiguration;
@@ -123,6 +127,7 @@ public final class LinkCommandLine extends CommandLine {
     this.nativeDeps = nativeDeps;
     this.useTestOnlyFlags = useTestOnlyFlags;
     this.paramFile = paramFile;
+    this.ccProvider = ccProvider;
   }
 
   @Nullable
@@ -218,19 +223,15 @@ public final class LinkCommandLine extends CommandLine {
    * Splits the link command-line into a part to be written to a parameter file, and the remaining
    * actual command line to be executed (which references the parameter file). Should only be used
    * if getParamFile() is not null.
-   *
-   * @throws IllegalStateException if the command-line cannot be split
    */
   @VisibleForTesting
   final Pair<List<String>, List<String>> splitCommandline() {
     List<String> args = getRawLinkArgv();
     if (linkTargetType.staticness() == Staticness.STATIC) {
       // Ar link commands can also generate huge command lines.
-      List<String> paramFileArgs = args.subList(1, args.size());
+      List<String> paramFileArgs = new ArrayList<>();
       List<String> commandlineArgs = new ArrayList<>();
-      commandlineArgs.add(args.get(0));
-
-      commandlineArgs.add("@" + paramFile.getExecPath().getPathString());
+      extractArgumentsForStaticLinkParamFile(args, commandlineArgs, paramFileArgs);
       return Pair.of(commandlineArgs, paramFileArgs);
     } else {
       // Gcc link commands tend to generate humongous commandlines for some targets, which may
@@ -238,17 +239,14 @@ public final class LinkCommandLine extends CommandLine {
       // a parameter file and pass any linker options through it.
       List<String> paramFileArgs = new ArrayList<>();
       List<String> commandlineArgs = new ArrayList<>();
-      extractArgumentsForParamFile(args, commandlineArgs, paramFileArgs);
+      extractArgumentsForDynamicLinkParamFile(args, commandlineArgs, paramFileArgs);
 
-      commandlineArgs.add("-Wl,@" + paramFile.getExecPath().getPathString());
       return Pair.of(commandlineArgs, paramFileArgs);
     }
   }
 
   /**
    * Returns just the .params file portion of the command-line as a {@link CommandLine}.
-   *
-   * @throws IllegalStateException if the command-line cannot be split
    */
   CommandLine paramCmdLine() {
     Preconditions.checkNotNull(paramFile);
@@ -260,9 +258,22 @@ public final class LinkCommandLine extends CommandLine {
     };
   }
 
+  public static void extractArgumentsForStaticLinkParamFile(
+      List<String> args, List<String> commandlineArgs, List<String> paramFileArgs) {
+    commandlineArgs.add(args.get(0)); // ar command, must not be moved!
+    int argsSize = args.size();
+    for (int i = 1; i < argsSize; i++) {
+      String arg = args.get(i);
+      if (arg.startsWith("@")) {
+        commandlineArgs.add(arg); // params file, keep it in the command line
+      } else {
+        paramFileArgs.add(arg); // the rest goes to the params file
+      }
+    }
+  }
 
-  public static void extractArgumentsForParamFile(List<String> args, List<String> commandlineArgs,
-      List<String> paramFileArgs) {
+  public static void extractArgumentsForDynamicLinkParamFile(
+      List<String> args, List<String> commandlineArgs, List<String> paramFileArgs) {
     // Note, that it is not important that all linker arguments are extracted so that
     // they can be moved into a parameter file, but the vast majority should.
     commandlineArgs.add(args.get(0));   // gcc command, must not be moved!
@@ -314,7 +325,7 @@ public final class LinkCommandLine extends CommandLine {
     boolean sharedLinkopts =
         linkTargetType == LinkTargetType.DYNAMIC_LIBRARY
             || linkopts.contains("-shared")
-            || cppConfiguration.getLinkOptions().contains("-shared");
+            || cppConfiguration.hasSharedLinkOption();
 
     List<String> toolchainFlags = new ArrayList<>();
 
@@ -345,7 +356,7 @@ public final class LinkCommandLine extends CommandLine {
       toolchainFlags.addAll(cppConfiguration.getTestOnlyLinkOptions());
     }
 
-    toolchainFlags.addAll(cppConfiguration.getLinkOptions());
+    toolchainFlags.addAll(ccProvider.getLinkOptions());
 
     // -pie is not compatible with shared and should be
     // removed when the latter is part of the link command. Should we need to further
@@ -354,11 +365,6 @@ public final class LinkCommandLine extends CommandLine {
     // the only relevant use case we're just special-casing it here.
     if (linkTargetType == LinkTargetType.DYNAMIC_LIBRARY) {
       Iterables.removeIf(toolchainFlags, Predicates.equalTo("-pie"));
-    }
-
-    // Fission mode: debug info is in .dwo files instead of .o files. Inform the linker of this.
-    if (linkTargetType.staticness() == Staticness.DYNAMIC && cppConfiguration.useFission()) {
-      toolchainFlags.add("-Wl,--gdb-index");
     }
 
     return ImmutableList.copyOf(toolchainFlags);
@@ -375,22 +381,10 @@ public final class LinkCommandLine extends CommandLine {
     List<String> argv = new ArrayList<>();
 
     // TODO(b/30109612): Extract this switch into individual crosstools once action configs are no
-    // longer hardcoded in CppLinkActionConfigs
+    // longer hardcoded in CppActionConfigs.
     switch (linkTargetType) {
       case EXECUTABLE:
         argv.add(cppConfiguration.getCppExecutable().getPathString());
-        argv.addAll(
-            featureConfiguration.getCommandLine(
-                actionName,
-                new Variables.Builder()
-                    .addAll(variables)
-                    .addStringSequenceVariable(
-                        CppLinkActionBuilder.LEGACY_LINK_FLAGS_VARIABLE, getToolchainFlags())
-                    .build()));
-        break;
-
-      case DYNAMIC_LIBRARY:
-        argv.add(toolPath);
         argv.addAll(
             featureConfiguration.getCommandLine(
                 actionName,
@@ -405,22 +399,27 @@ public final class LinkCommandLine extends CommandLine {
       case PIC_STATIC_LIBRARY:
       case ALWAYS_LINK_STATIC_LIBRARY:
       case ALWAYS_LINK_PIC_STATIC_LIBRARY:
-        // The static library link command follows this template:
-        // ar <cmd> <output_archive> <input_files...>
-        argv.add(cppConfiguration.getArExecutable().getPathString());
-        argv.addAll(cppConfiguration.getArFlags());
-        argv.add(output.getExecPathString());
+        argv.add(toolPath);
         argv.addAll(featureConfiguration.getCommandLine(actionName, variables));
         break;
 
-        // Since the objc case is not hardcoded in CppConfiguration, we can use the actual tool.
-        // TODO(b/30109612): make this pattern the case for all link variants.
+      // Since the objc case/dynamic libs is not hardcoded in CppConfiguration, we can use the
+      // actual tool.
+      // TODO(b/30109612): make this pattern the case for all link variants.
+      case DYNAMIC_LIBRARY:
       case OBJC_ARCHIVE:
       case OBJC_FULLY_LINKED_ARCHIVE:
       case OBJC_EXECUTABLE:
       case OBJCPP_EXECUTABLE:
         argv.add(toolPath);
-        argv.addAll(featureConfiguration.getCommandLine(actionName, variables));
+        argv.addAll(
+            featureConfiguration.getCommandLine(
+                actionName,
+                new Variables.Builder()
+                    .addAll(variables)
+                    .addStringSequenceVariable(
+                        CppLinkActionBuilder.LEGACY_LINK_FLAGS_VARIABLE, getToolchainFlags())
+                    .build()));
         break;
 
       default:
@@ -566,12 +565,13 @@ public final class LinkCommandLine extends CommandLine {
       }
 
       optionList.add("-DGPLATFORM=\"" + cppConfiguration + "\"");
+      optionList.add("-DBUILD_COVERAGE_ENABLED=" + (codeCoverageEnabled ? "1" : "0"));
 
       // Needed to find headers included from linkstamps.
       optionList.add("-I.");
 
       // Add sysroot.
-      PathFragment sysroot = cppConfiguration.getSysroot();
+      PathFragment sysroot = ccProvider.getSysroot();
       if (sysroot != null) {
         optionList.add("--sysroot=" + sysroot.getPathString());
       }
@@ -579,7 +579,7 @@ public final class LinkCommandLine extends CommandLine {
       // Add toolchain compiler options.
       optionList.addAll(cppConfiguration.getCompilerOptions(features));
       optionList.addAll(cppConfiguration.getCOptions());
-      optionList.addAll(cppConfiguration.getUnfilteredCompilerOptions(features));
+      optionList.addAll(ccProvider.getUnfilteredCompilerOptions(features));
       if (CppFileTypes.CPP_SOURCE.matches(linkstamp.getKey().getExecPath())) {
         optionList.addAll(cppConfiguration.getCxxOptions(features));
       }
@@ -633,7 +633,7 @@ public final class LinkCommandLine extends CommandLine {
 
     private final BuildConfiguration configuration;
     private final ActionOwner owner;
-    @Nullable private final RuleContext ruleContext;
+    private final RuleContext ruleContext;
 
     @Nullable private String toolPath;
     @Nullable private Artifact output;
@@ -650,15 +650,15 @@ public final class LinkCommandLine extends CommandLine {
     private boolean nativeDeps;
     private boolean useTestOnlyFlags;
     @Nullable private Artifact paramFile;
-    @Nullable private CcToolchainProvider toolchain;
+    private CcToolchainProvider toolchain;
+    private FdoSupport fdoSupport;
     private Variables variables;
     private FeatureConfiguration featureConfiguration;
 
     // This interface is needed to support tests that don't create a
     // ruleContext, in which case the configuration and action owner
     // cannot be accessed off of the give ruleContext.
-    public Builder(
-        BuildConfiguration configuration, ActionOwner owner, @Nullable RuleContext ruleContext) {
+    public Builder(BuildConfiguration configuration, ActionOwner owner, RuleContext ruleContext) {
       this.configuration = configuration;
       this.owner = owner;
       this.ruleContext = ruleContext;
@@ -687,16 +687,22 @@ public final class LinkCommandLine extends CommandLine {
             Iterables.concat(DEFAULT_LINKSTAMP_OPTIONS, linkstampCompileOptions));
       }
 
+      if (toolchain == null) {
+        toolchain =
+            Preconditions.checkNotNull(
+                CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext));
+      }
+
       // The ruleContext can be null for some tests.
       if (ruleContext != null) {
         if (featureConfiguration == null) {
-          if (toolchain != null) {
-            featureConfiguration =
-                CcCommon.configureFeatures(
-                    ruleContext, toolchain, CcLibraryHelper.SourceCategory.CC);
-          } else {
-            featureConfiguration = CcCommon.configureFeatures(ruleContext);
-          }
+          featureConfiguration =
+              CcCommon.configureFeatures(ruleContext, toolchain, CcLibraryHelper.SourceCategory.CC);
+        }
+
+        if (fdoSupport == null) {
+          fdoSupport =
+              CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext).getFdoSupport();
         }
       }
       
@@ -721,13 +727,14 @@ public final class LinkCommandLine extends CommandLine {
           features,
           linkstamps,
           actualLinkstampCompileOptions,
-          CppHelper.getFdoBuildStamp(ruleContext),
+          CppHelper.getFdoBuildStamp(ruleContext, fdoSupport),
           runtimeSolibDir,
           nativeDeps,
           useTestOnlyFlags,
           paramFile,
           variables,
-          featureConfiguration);
+          featureConfiguration,
+          toolchain);
     }
 
     /**
@@ -736,6 +743,11 @@ public final class LinkCommandLine extends CommandLine {
      */
     public Builder setToolchain(CcToolchainProvider toolchain) {
       this.toolchain = toolchain;
+      return this;
+    }
+
+    public Builder setFdoSupport(FdoSupport fdoSupport) {
+      this.fdoSupport = fdoSupport;
       return this;
     }
 

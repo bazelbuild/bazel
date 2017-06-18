@@ -1,42 +1,30 @@
+package(default_visibility = [":packages"])
+
 package_group(
     name = "packages",
     packages = ["//src/java_tools/buildjar/..."],
 )
 
-package(default_visibility = [":packages"])
-
 java_binary(
     name = "turbine",
-    main_class = "com.google.devtools.build.java.turbine.javac.JavacTurbine",
+    main_class = "com.google.devtools.build.java.turbine.Turbine",
     visibility = ["//visibility:public"],
-    runtime_deps = [
+    runtime_deps = [":turbine_main"],
+)
+
+java_library(
+    name = "turbine_main",
+    srcs = ["Turbine.java"],
+    deps = [
         "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine/javac:javac_turbine",
-    ],
-)
-
-java_library(
-    name = "turbine_options",
-    srcs = ["TurbineOptions.java"],
-    deps = [
-        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:JarOwner",
         "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "turbine_options_parser",
-    srcs = ["TurbineOptionsParser.java"],
-    deps = [
-        ":turbine_options",
-        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:JarOwner",
-        "//third_party:guava",
-        "//third_party:jsr305",
+        "//third_party:turbine",
     ],
 )
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]) + ["//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine/javac:srcs"],
-    visibility = ["//src/java_tools/buildjar:__pkg__"],
+    srcs = glob(["**"]) + [
+        "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine/javac:srcs",
+    ],
 )

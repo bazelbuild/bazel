@@ -16,7 +16,6 @@ package com.google.devtools.build.android;
 import com.android.SdkConstants;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.android.proto.SerializeFormat.ProtoSource;
 import java.io.BufferedInputStream;
@@ -99,10 +98,19 @@ public class DataSource implements Comparable<DataSource> {
   }
 
   public DataSource overwrite(DataSource... sources) {
-    ImmutableSet<DataSource> overrides =
-        ImmutableSet.<DataSource>builder().addAll(this.overrides).add(sources).build();
-    Preconditions.checkArgument(!overrides.contains(this));
-    return new DataSource(path, overrides);
+    ImmutableSet.Builder<DataSource> overridesBuilder =
+        ImmutableSet.<DataSource>builder().addAll(this.overrides);
+    for (DataSource dataSource : sources) {
+      // A DataSource cannot overwrite itself.
+      // This will be an error once the depot can be assured not have source files.
+      if (!dataSource.path.equals(path)) {
+        // Flatten the DataSource to a placeholder to avoid building trees, which end up being
+        // expensive, slow, and hard to reason about.
+        overridesBuilder.add(of(dataSource.path));
+      }
+      overridesBuilder.addAll(dataSource.overrides);
+    }
+    return new DataSource(path, overridesBuilder.build());
   }
 
   public ImmutableSet<DataSource> overrides() {
@@ -123,5 +131,10 @@ public class DataSource implements Comparable<DataSource> {
         .add("path", path)
         .add("overrides", overrides)
         .toString();
+  }
+
+  /** Returns a representation suitible for a conflict message. */
+  public String asConflictString() {
+    return path.toString();
   }
 }

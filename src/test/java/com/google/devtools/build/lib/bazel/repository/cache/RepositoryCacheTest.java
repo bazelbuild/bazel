@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.bazel.repository.cache;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+import static com.google.common.truth.Truth.assertThat;
+
 import com.google.common.base.Strings;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -66,7 +66,7 @@ public class RepositoryCacheTest {
   @Test
   public void testNonExistentCacheValue() {
     String fakeSha256 = Strings.repeat("a", 64);
-    assertFalse(repositoryCache.exists(fakeSha256, KeyType.SHA256));
+    assertThat(repositoryCache.exists(fakeSha256, KeyType.SHA256)).isFalse();
   }
 
   /**
@@ -79,9 +79,8 @@ public class RepositoryCacheTest {
     Path cacheEntry = KeyType.SHA256.getCachePath(contentAddressableCachePath).getChild(downloadedFileSha256);
     Path cacheValue = cacheEntry.getChild(RepositoryCache.DEFAULT_CACHE_FILENAME);
 
-    assertEquals(
-        FileSystemUtils.readContent(cacheValue, Charset.defaultCharset()),
-        FileSystemUtils.readContent(downloadedFile, Charset.defaultCharset()));
+    assertThat(FileSystemUtils.readContent(downloadedFile, Charset.defaultCharset()))
+        .isEqualTo(FileSystemUtils.readContent(cacheValue, Charset.defaultCharset()));
   }
 
   /**
@@ -96,9 +95,8 @@ public class RepositoryCacheTest {
     Path cacheEntry = KeyType.SHA256.getCachePath(contentAddressableCachePath).getChild(downloadedFileSha256);
     Path cacheValue = cacheEntry.getChild(RepositoryCache.DEFAULT_CACHE_FILENAME);
 
-    assertEquals(
-        FileSystemUtils.readContent(cacheValue, Charset.defaultCharset()),
-        FileSystemUtils.readContent(downloadedFile, Charset.defaultCharset()));
+    assertThat(FileSystemUtils.readContent(downloadedFile, Charset.defaultCharset()))
+        .isEqualTo(FileSystemUtils.readContent(cacheValue, Charset.defaultCharset()));
   }
 
   /**
@@ -114,12 +112,11 @@ public class RepositoryCacheTest {
     Path actualTargetPath = repositoryCache.get(downloadedFileSha256, targetPath, KeyType.SHA256);
 
     // Check that the contents are the same.
-    assertEquals(
-        FileSystemUtils.readContent(actualTargetPath, Charset.defaultCharset()),
-        FileSystemUtils.readContent(downloadedFile, Charset.defaultCharset()));
+    assertThat(FileSystemUtils.readContent(downloadedFile, Charset.defaultCharset()))
+        .isEqualTo(FileSystemUtils.readContent(actualTargetPath, Charset.defaultCharset()));
 
     // Check that the returned value is stored under outputBaseExternal.
-    assertEquals(targetPath, actualTargetPath);
+    assertThat((Object) actualTargetPath).isEqualTo(targetPath);
   }
 
   /**
@@ -131,7 +128,7 @@ public class RepositoryCacheTest {
     Path targetPath = targetDirectory.getChild(downloadedFile.getBaseName());
     Path actualTargetPath = repositoryCache.get(downloadedFileSha256, targetPath, KeyType.SHA256);
 
-    assertEquals(actualTargetPath, null);
+    assertThat(actualTargetPath).isNull();
   }
 
   @Test
@@ -162,7 +159,7 @@ public class RepositoryCacheTest {
   @Test
   public void testGetChecksum() throws IOException {
     String actualChecksum = RepositoryCache.getChecksum(KeyType.SHA256, downloadedFile);
-    assertEquals(downloadedFileSha256, actualChecksum);
+    assertThat(actualChecksum).isEqualTo(downloadedFileSha256);
   }
 
   @Test

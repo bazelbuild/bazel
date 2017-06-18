@@ -32,8 +32,11 @@ import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
+import com.google.devtools.build.lib.query2.engine.SynchronizedDelegatingOutputFormatterCallback;
+import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.output.QueryOptions.OrderOutput;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
@@ -177,15 +180,16 @@ public abstract class OutputFormatter implements Serializable {
     void setOptions(QueryOptions options, AspectResolver aspectResolver);
 
     /**
-     * Returns a {@link OutputFormatterCallback} whose {@link OutputFormatterCallback#process}
-     * outputs formatted {@link Target}s to the given {@code out}.
+     * Returns a {@link ThreadSafeOutputFormatterCallback} whose
+     * {@link OutputFormatterCallback#process} outputs formatted {@link Target}s to the given
+     * {@code out}.
      *
      * <p>Takes any options specified via the most recent call to {@link #setOptions} into
      * consideration.
      *
      * <p>Intended to be use for streaming out during evaluation of a query.
      */
-    OutputFormatterCallback<Target> createStreamCallback(
+    ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
         OutputStream out, QueryOptions options, QueryEnvironment<?> env);
 
     /**
@@ -287,9 +291,10 @@ public abstract class OutputFormatter implements Serializable {
     }
 
     @Override
-    public OutputFormatterCallback<Target> createStreamCallback(
+    public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
         OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
-      return createPostFactoStreamCallback(out, options);
+      return new SynchronizedDelegatingOutputFormatterCallback<>(
+          createPostFactoStreamCallback(out, options));
     }
   }
 
@@ -326,7 +331,7 @@ public abstract class OutputFormatter implements Serializable {
         public void processOutput(Iterable<Target> partialResult) {
 
           for (Target target : partialResult) {
-            packageNames.add(target.getLabel().getPackageName());
+            packageNames.add(target.getPackage().getPackageIdentifier().toString());
           }
         }
 
@@ -344,9 +349,10 @@ public abstract class OutputFormatter implements Serializable {
     }
 
     @Override
-    public OutputFormatterCallback<Target> createStreamCallback(
+    public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
         OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
-      return createPostFactoStreamCallback(out, options);
+      return new SynchronizedDelegatingOutputFormatterCallback<>(
+          createPostFactoStreamCallback(out, options));
     }
   }
 
@@ -386,9 +392,10 @@ public abstract class OutputFormatter implements Serializable {
     }
 
     @Override
-    public OutputFormatterCallback<Target> createStreamCallback(
+    public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
         OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
-      return createPostFactoStreamCallback(out, options);
+      return new SynchronizedDelegatingOutputFormatterCallback<>(
+          createPostFactoStreamCallback(out, options));
     }
   }
 
@@ -412,46 +419,87 @@ public abstract class OutputFormatter implements Serializable {
 
         private void outputRule(Rule rule, PrintStream printStream) throws InterruptedException {
           final String lineTerm = options.getLineTerminator();
+          final String outputAttributePattern = "  %s = %s," + lineTerm;
           printStream.printf("# %s%s", rule.getLocation(), lineTerm);
           printStream.printf("%s(%s", rule.getRuleClass(), lineTerm);
           printStream.printf("  name = \"%s\",%s", rule.getName(), lineTerm);
 
           RawAttributeMapper attributeMap = RawAttributeMapper.of(rule);
           for (Attribute attr : rule.getAttributes()) {
-            if (attributeMap.isConfigurable(attr.getName(), attr.getType())) {
-              continue; // TODO(bazel-team): handle configurable attributes.
+            // Ignore the "name" attribute here, as we already print it above.
+            // This is not strictly necessary, but convention has it that the
+            // name attribute is printed first.
+            if ("name".equals(attr.getName())) {
+              continue;
+            }
+            if (attributeMap.isConfigurable(attr.getName())) {
+              // We don't know the actual value for configurable attributes, so we reconstruct
+              // the select without trying to resolve it.
+              printStream.printf(outputAttributePattern,
+                  attr.getPublicName(),
+                  outputConfigurableAttrValue(rule, attributeMap, attr));
+              continue;
             }
             PossibleAttributeValues values = getPossibleAttributeValues(rule, attr);
             if (values.source != AttributeValueSource.RULE) {
               continue; // Don't print default values.
             }
             if (Iterables.size(values) != 1) {
-              // Computed defaults that depend on configurable attributes can also have multiple
-              // values.
+              // Computed defaults that depend on configurable attributes can have multiple values.
               continue;
             }
-            Object value = Iterables.getOnlyElement(values);
-            printStream.printf("  %s = ", attr.getPublicName());
-            if (value instanceof Label) {
-              value = ((Label) value).getDefaultCanonicalForm();
-            } else if (value instanceof License) {
-              List<String> licenseTypes = new ArrayList<>();
-              for (License.LicenseType licenseType : ((License) value).getLicenseTypes()) {
-                licenseTypes.add(licenseType.toString().toLowerCase());
-              }
-              value = licenseTypes;
-            } else if (value instanceof List<?> && EvalUtils.isImmutable(value)) {
-              // Display it as a list (and not as a tuple). Attributes can never be tuples.
-              value = new ArrayList<>((List<?>) value);
-            }
-            // It is *much* faster to write to a StringBuilder compared to the PrintStream object.
-            StringBuilder builder = new StringBuilder();
-            Printer.write(builder, value);
-            printStream.print(builder);
-            printStream.printf(",%s", lineTerm);
+            printStream.printf(outputAttributePattern,
+                attr.getPublicName(),
+                outputAttrValue(Iterables.getOnlyElement(values)));
           }
           printStream.printf(")\n%s", lineTerm);
         }
+
+        /**
+         * Returns the given attribute value with BUILD output syntax. Does not support selects.
+         */
+        private String outputAttrValue(Object value) {
+          if (value instanceof Label) {
+            value = ((Label) value).getDefaultCanonicalForm();
+          } else if (value instanceof License) {
+            List<String> licenseTypes = new ArrayList<>();
+            for (License.LicenseType licenseType : ((License) value).getLicenseTypes()) {
+              licenseTypes.add(licenseType.toString().toLowerCase());
+            }
+            value = licenseTypes;
+          } else if (value instanceof List<?> && EvalUtils.isImmutable(value)) {
+            // Display it as a list (and not as a tuple). Attributes can never be tuples.
+            value = new ArrayList<>((List<?>) value);
+          } else if (value instanceof TriState) {
+            value = ((TriState) value).toInt();
+          }
+          // It is *much* faster to write to a StringBuilder compared to the PrintStream object.
+          StringBuilder builder = new StringBuilder();
+          Printer.write(builder, value);
+          return builder.toString();
+        }
+
+        /**
+         * Returns the given configurable attribute value with BUILD output syntax.
+         *
+         * <p>Since query doesn't know which select path should be chosen, this doesn't try to
+         * resolve the final value. Instead it just reconstructs the select.
+         */
+        private String outputConfigurableAttrValue(Rule rule, RawAttributeMapper attributeMap,
+            Attribute attr) {
+          List<String> selectors = new ArrayList<>();
+          for (BuildType.Selector<?> selector : ((BuildType.SelectorList<?>)
+              attributeMap.getRawAttributeValue(rule, attr)).getSelectors()) {
+            if (selector.isUnconditional()) {
+              selectors.add(outputAttrValue(
+                  Iterables.getOnlyElement(selector.getEntries().entrySet()).getValue()));
+            } else {
+              selectors.add(String.format("select(%s)", outputAttrValue(selector.getEntries())));
+            }
+          }
+          return String.join(" + ", selectors);
+        }
+
 
         @Override
         public void processOutput(Iterable<Target> partialResult) throws InterruptedException {
@@ -469,9 +517,10 @@ public abstract class OutputFormatter implements Serializable {
     }
 
     @Override
-    public OutputFormatterCallback<Target> createStreamCallback(
+    public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
         OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
-      return createPostFactoStreamCallback(out, options);
+      return new SynchronizedDelegatingOutputFormatterCallback<>(
+          createPostFactoStreamCallback(out, options));
     }
   }
 
@@ -722,7 +771,7 @@ public abstract class OutputFormatter implements Serializable {
 
     AggregatingAttributeMapper attributeMap = AggregatingAttributeMapper.of(rule);
     if (attr.getType().equals(BuildType.LABEL_LIST)
-        && attributeMap.isConfigurable(attr.getName(), attr.getType())) {
+        && attributeMap.isConfigurable(attr.getName())) {
       // TODO(gregce): Expand this to all collection types (we don't do this for scalars because
       // there's currently no syntax for expressing multiple scalar values). This unfortunately
       // isn't trivial because Bazel's label visitation logic includes special methods built

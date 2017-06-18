@@ -13,14 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.events;
 
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Objects;
-
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
@@ -36,11 +34,10 @@ public final class Event implements Serializable {
 
   /**
    * An alternative representation for message.
-   * Exactly one of message or messageBytes will be non-null.
-   * If messageBytes is non-null, then it contains the bytes
-   * of the message, encoded using the platform's default charset.
-   * We do this to avoid converting back and forth between Strings
-   * and bytes.
+   *
+   * <p>Exactly one of message or messageBytes will be non-null. If messageBytes is non-null, then
+   * it contains the UTF-8-encoded bytes of the message. We do this to avoid converting back and
+   * forth between Strings and bytes.
    */
   private final byte[] messageBytes;
 
@@ -77,11 +74,11 @@ public final class Event implements Serializable {
   }
 
   public String getMessage() {
-    return message != null ? message : new String(messageBytes);
+    return message != null ? message : new String(messageBytes, UTF_8);
   }
 
   public byte[] getMessageBytes() {
-    return messageBytes != null ? messageBytes : message.getBytes(ISO_8859_1);
+    return messageBytes != null ? messageBytes : message.getBytes(UTF_8);
   }
 
   public EventKind getKind() {
@@ -149,6 +146,11 @@ public final class Event implements Serializable {
     return new Event(kind, location, message, null);
   }
 
+  /**
+   * Construct an event by passing in the {@code byte[]} array instead of a String.
+   *
+   * The bytes must be decodable as UTF-8 text.
+   */
   public static Event of(EventKind kind, @Nullable Location location, byte[] messageBytes) {
     return new Event(kind, location, messageBytes, null);
   }

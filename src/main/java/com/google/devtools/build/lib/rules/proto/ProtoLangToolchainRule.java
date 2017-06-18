@@ -72,6 +72,8 @@ public class ProtoLangToolchainRule implements RuleDefinition {
                 .allowedFileTypes()
                 .mandatoryNativeProviders(
                     ImmutableList.<Class<? extends TransitiveInfoProvider>>of(FileProvider.class)))
+
+        .advertiseProvider(ProtoLangToolchainProvider.class)
         .build();
   }
 

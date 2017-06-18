@@ -14,11 +14,8 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.createDirectoryAndParents;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -101,34 +98,37 @@ public class SymlinkForestTest {
     FileSystemUtils.createEmptyFile(file5);
   }
 
-  private static String longestPathPrefixStr(String path, String... prefixStrs) {
+  private static PathFragment longestPathPrefix(String path, String... prefixStrs) {
     ImmutableSet.Builder<PackageIdentifier> prefixes = ImmutableSet.builder();
     for (String prefix : prefixStrs) {
       prefixes.add(PackageIdentifier.createInMainRepo(prefix));
     }
     PackageIdentifier longest = SymlinkForest.longestPathPrefix(
         PackageIdentifier.createInMainRepo(path), prefixes.build());
-    return longest != null ? longest.getPackageFragment().getPathString() : null;
+    return longest != null ? longest.getPackageFragment() : null;
   }
 
   @Test
   public void testLongestPathPrefix() {
-    assertEquals("A", longestPathPrefixStr("A/b", "A", "B")); // simple parent
-    assertEquals("A", longestPathPrefixStr("A", "A", "B")); // self
-    assertEquals("A/B", longestPathPrefixStr("A/B/c", "A", "A/B"));  // want longest
-    assertNull(longestPathPrefixStr("C/b", "A", "B"));  // not found in other parents
-    assertNull(longestPathPrefixStr("A", "A/B", "B"));  // not found in child
-    assertEquals("A/B/C", longestPathPrefixStr("A/B/C/d/e/f.h", "A/B/C", "B/C/d"));
-    assertEquals("", longestPathPrefixStr("A/f.h", "", "B/C/d"));
+    PathFragment a = PathFragment.create("A");
+    assertThat(longestPathPrefix("A/b", "A", "B")).isEqualTo(a); // simple parent
+    assertThat(longestPathPrefix("A", "A", "B")).isEqualTo(a); // self
+    assertThat(longestPathPrefix("A/B/c", "A", "A/B"))
+        .isEqualTo(a.getRelative("B")); // want longest
+    assertThat(longestPathPrefix("C/b", "A", "B")).isNull(); // not found in other parents
+    assertThat(longestPathPrefix("A", "A/B", "B")).isNull(); // not found in child
+    assertThat(longestPathPrefix("A/B/C/d/e/f.h", "A/B/C", "B/C/d"))
+        .isEqualTo(a.getRelative("B/C"));
+    assertThat(longestPathPrefix("A/f.h", "", "B/C/d")).isEqualTo(PathFragment.EMPTY_FRAGMENT);
   }
 
   @Test
   public void testDeleteTreesBelowNotPrefixed() throws IOException {
     createTestDirectoryTree();
     SymlinkForest.deleteTreesBelowNotPrefixed(topDir, new String[]{"file-"});
-    assertTrue(file1.exists());
-    assertTrue(file2.exists());
-    assertFalse(aDir.exists());
+    assertThat(file1.exists()).isTrue();
+    assertThat(file2.exists()).isTrue();
+    assertThat(aDir.exists()).isFalse();
   }
 
   private PackageIdentifier createPkg(Path rootA, Path rootB, String pkg) throws IOException {
@@ -150,7 +150,7 @@ public class SymlinkForestTest {
       createDirectoryAndParents(repoRoot.getRelative(pkg));
       FileSystemUtils.createEmptyFile(repoRoot.getRelative(pkg).getChild("file"));
     }
-    return PackageIdentifier.create(RepositoryName.create("@" + repo), new PathFragment(pkg));
+    return PackageIdentifier.create(RepositoryName.create("@" + repo), PathFragment.create(pkg));
   }
 
   private void assertLinksTo(Path fromRoot, Path toRoot, String relpart) throws IOException {
@@ -158,12 +158,12 @@ public class SymlinkForestTest {
   }
 
   private void assertLinksTo(Path fromRoot, Path toRoot) throws IOException {
-    assertTrue("stat: " + fromRoot.stat(), fromRoot.isSymbolicLink());
-    assertEquals(toRoot.asFragment(), fromRoot.readSymbolicLink());
+    assertWithMessage("stat: " + fromRoot.stat()).that(fromRoot.isSymbolicLink()).isTrue();
+    assertThat(fromRoot.readSymbolicLink()).isEqualTo(toRoot.asFragment());
   }
 
   private void assertIsDir(Path root, String relpart) {
-    assertTrue(root.getRelative(relpart).isDirectory(Symlinks.NOFOLLOW));
+    assertThat(root.getRelative(relpart).isDirectory(Symlinks.NOFOLLOW)).isTrue();
   }
 
   @Test
@@ -242,7 +242,7 @@ public class SymlinkForestTest {
 
     new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, "wsname")
         .plantSymlinkForest();
-    assertFalse(linkRoot.getRelative(Label.EXTERNAL_PATH_PREFIX + "/y/file").exists());
+    assertThat(linkRoot.getRelative(Label.EXTERNAL_PATH_PREFIX + "/y/file").exists()).isFalse();
     assertLinksTo(
         linkRoot.getRelative(Label.EXTERNAL_PATH_PREFIX + "/y/w"), rootY.getRelative("w"));
     assertLinksTo(
@@ -280,5 +280,14 @@ public class SymlinkForestTest {
     new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, "wsname")
         .plantSymlinkForest();
     assertThat(linkRoot.getRelative("../wsname").exists()).isTrue();
+  }
+
+  @Test
+  public void testExecrootVersionChanges() throws Exception {
+    ImmutableMap<PackageIdentifier, Path> packageRootMap = ImmutableMap.of();
+    linkRoot.getRelative("wsname").createDirectory();
+    new SymlinkForest(packageRootMap, linkRoot, TestConstants.PRODUCT_NAME, "wsname")
+        .plantSymlinkForest();
+    assertThat(linkRoot.getRelative("../wsname").isSymbolicLink()).isTrue();
   }
 }

@@ -14,9 +14,7 @@
 
 package com.google.devtools.lcovmerger;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -45,9 +43,9 @@ public class LcovMergerTest {
     File dir = new File("dir0");
     LcovMerger merger = new LcovMerger(dir.getAbsolutePath(), merged.getAbsolutePath());
     boolean success = merger.merge();
-    assertFalse(success);
+    assertThat(success).isFalse();
 
-    assertFalse(merged.exists());
+    assertThat(merged.exists()).isFalse();
   }
 
   @Test
@@ -59,11 +57,11 @@ public class LcovMergerTest {
     File dir = new File("dir1");
     LcovMerger merger = new LcovMerger(dir.getAbsolutePath(), merged.getAbsolutePath());
     boolean success = merger.merge();
-    assertTrue(success);
+    assertThat(success).isTrue();
 
-    assertTrue(merged.exists());
+    assertThat(merged.exists()).isTrue();
     String readContent = new String(Files.readAllBytes(merged.toPath())).trim();
-    assertEquals(content, readContent);
+    assertThat(readContent).isEqualTo(content);
   }
 
   @Test
@@ -75,8 +73,8 @@ public class LcovMergerTest {
     File dir = new File("dir2");
     LcovMerger merger = new LcovMerger(dir.getAbsolutePath(), merged.getAbsolutePath());
     boolean success = merger.merge();
-    assertFalse(success);
+    assertThat(success).isFalse();
 
-    assertFalse(merged.exists());
+    assertThat(merged.exists()).isFalse();
   }
 }

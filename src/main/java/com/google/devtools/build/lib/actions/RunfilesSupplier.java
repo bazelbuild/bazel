@@ -14,14 +14,16 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.IOException;
 import java.util.Map;
 
 /** Convenience wrapper around runfiles allowing lazy expansion. */
+// TODO(bazel-team): Ideally we could refer to Runfiles objects directly here, but current package
+// structure makes this difficult. Consider moving things around to make this possible.
 public interface RunfilesSupplier {
 
   /** @return the contained artifacts */
@@ -37,4 +39,7 @@ public interface RunfilesSupplier {
    * @throws IOException
    */
   ImmutableMap<PathFragment, Map<PathFragment, Artifact>> getMappings() throws IOException;
+
+  /** @return the runfiles manifest artifacts, if any. */
+  ImmutableList<Artifact> getManifests();
 }

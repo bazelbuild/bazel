@@ -20,8 +20,8 @@ import java.io.IOError;
 import java.nio.file.AccessDeniedException;
 
 /**
- * Utility class to provide java-level access to the blessed langtools jar path:
- * {@code //third_party/java/jdk:langtools}, as defined by bazel's --java_langtools flag.
+ * Utility class to provide java-level access to the blessed langtools jar path: {@code
+ * //third_party/java/jdk:langtools}, as defined by bazel's --java_langtools flag.
  */
 public class JavaLangtools {
 
@@ -49,9 +49,7 @@ public class JavaLangtools {
     FILE = file;
   }
 
-  /**
-   * Returns the blessed langtools jar path.
-   */
+  /** Returns the blessed langtools jar path. */
   public static File file() {
     return FILE;
   }

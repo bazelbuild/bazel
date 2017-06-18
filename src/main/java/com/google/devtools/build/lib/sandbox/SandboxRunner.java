@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.sandbox;
 
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
@@ -23,7 +24,6 @@ import com.google.devtools.build.lib.shell.KillableObserver;
 import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
-import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
@@ -32,37 +32,55 @@ import java.util.Map;
 /** A common interface of all sandbox runners, no matter which platform they're working on. */
 abstract class SandboxRunner {
 
-  private final boolean verboseFailures;
-  private final Path sandboxExecRoot;
+  private static final String SANDBOX_DEBUG_SUGGESTION =
+      "\n\nUse --sandbox_debug to see verbose messages from the sandbox";
 
-  SandboxRunner(Path sandboxExecRoot, boolean verboseFailures) {
-    this.sandboxExecRoot = sandboxExecRoot;
+  private final boolean verboseFailures;
+
+  SandboxRunner(boolean verboseFailures) {
     this.verboseFailures = verboseFailures;
   }
 
   /**
    * Runs the command specified via {@code arguments} and {@code env} inside the sandbox.
    *
+   * @param cmdEnv - the current command environment.
    * @param arguments - arguments of spawn to run inside the sandbox.
    * @param environment - environment variables to pass to the spawn.
-   * @param outErr - error output to capture sandbox's and command's stderr
-   * @param timeout - after how many seconds should the process be killed
-   * @param allowNetwork - whether networking should be allowed for the process
+   * @param outErr - error output to capture sandbox's and command's stderr.
+   * @param timeout - after how many seconds should the process be killed.
+   * @param allowNetwork - whether networking should be allowed for the process.
+   * @param sandboxDebug - whether debugging message should be printed.
+   * @param useFakeHostname - whether the hostname should be set to 'localhost' inside the sandbox.
+   * @param useFakeUsername - whether the username should be set to 'nobody' inside the sandbox.
    */
   void run(
+      CommandEnvironment cmdEnv,
       List<String> arguments,
       Map<String, String> environment,
       OutErr outErr,
       int timeout,
-      boolean allowNetwork)
+      boolean allowNetwork,
+      boolean sandboxDebug,
+      boolean useFakeHostname,
+      boolean useFakeUsername)
       throws ExecException {
     Command cmd;
     try {
-      cmd = getCommand(arguments, environment, timeout, allowNetwork);
+      cmd =
+          getCommand(
+              cmdEnv,
+              arguments,
+              environment,
+              timeout,
+              allowNetwork,
+              useFakeHostname,
+              useFakeUsername);
     } catch (IOException e) {
       throw new UserExecException("I/O error during sandboxed execution", e);
     }
 
+    TerminationStatus status = null;
     try {
       cmd.execute(
           /* stdin */ new byte[] {},
@@ -73,30 +91,54 @@ abstract class SandboxRunner {
     } catch (CommandException e) {
       boolean timedOut = false;
       if (e instanceof AbnormalTerminationException) {
-        TerminationStatus status =
-            ((AbnormalTerminationException) e).getResult().getTerminationStatus();
+        status = ((AbnormalTerminationException) e).getResult().getTerminationStatus();
         timedOut = !status.exited() && (status.getTerminatingSignal() == getSignalOnTimeout());
       }
-      String message =
-          CommandFailureUtils.describeCommandFailure(
-              verboseFailures,
-              Arrays.asList(cmd.getCommandLineElements()),
-              environment,
-              sandboxExecRoot.getPathString());
-      throw new UserExecException(message, e, timedOut);
+
+      String statusMessage = status + " [sandboxed]";
+
+      if (!verboseFailures) {
+        // Simplest possible error message.
+        throw new UserExecException(statusMessage, e, timedOut);
+      }
+
+      List<String> commandList = arguments;
+      if (sandboxDebug) {
+        // When using --sandbox_debug, show the entire command-line including the part where we call
+        // the sandbox helper binary.
+        commandList = Arrays.asList(cmd.getCommandLineElements());
+      }
+
+      String commandFailureMessage =
+          CommandFailureUtils.describeCommandFailure(true, commandList, environment, null);
+
+      if (!sandboxDebug) {
+        commandFailureMessage += SANDBOX_DEBUG_SUGGESTION;
+      }
+
+      throw new UserExecException(commandFailureMessage, e, timedOut);
     }
   }
 
   /**
    * Returns the {@link Command} that the {@link #run} method will execute inside the sandbox.
    *
+   * @param cmdEnv - the current command environment.
    * @param arguments - arguments of spawn to run inside the sandbox.
    * @param environment - environment variables to pass to the spawn.
-   * @param timeout - after how many seconds should the process be killed
-   * @param allowNetwork - whether networking should be allowed for the process
+   * @param timeout - after how many seconds should the process be killed.
+   * @param allowNetwork - whether networking should be allowed for the process.
+   * @param useFakeHostname - whether the hostname should be set to 'localhost' inside the sandbox.
+   * @param useFakeUsername - whether the username should be set to 'nobody' inside the sandbox.
    */
   protected abstract Command getCommand(
-      List<String> arguments, Map<String, String> environment, int timeout, boolean allowNetwork)
+      CommandEnvironment cmdEnv,
+      List<String> arguments,
+      Map<String, String> environment,
+      int timeout,
+      boolean allowNetwork,
+      boolean useFakeHostname,
+      boolean useFakeUsername)
       throws IOException;
 
   /**

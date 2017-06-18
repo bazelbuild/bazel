@@ -25,17 +25,21 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.SimpleSpawn;
+import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.extra.CppLinkInfo;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.analysis.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -46,12 +50,12 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -203,22 +207,10 @@ public final class CppLinkAction extends AbstractAction
     result.putAll(actionEnv);
     result.putAll(toolchainEnv);
 
-    if (OS.getCurrent() == OS.WINDOWS) {
-      // Both GCC and clang rely on their execution directories being on
-      // PATH, otherwise they fail to find dependent DLLs (and they fail silently...). On
-      // the other hand, Windows documentation says that the directory of the executable
-      // is always searched for DLLs first. Not sure what to make of it.
-      // Other options are to forward the system path (brittle), or to add a PATH field to
-      // the crosstool file.
-      //
-      // @see com.google.devtools.build.lib.rules.cpp.CppCompileAction#getEnvironment.
-      // TODO(b/28791924): Use the crosstool to provide this value.
-      result.put(
-          "PATH",
-          cppConfiguration
-              .getToolPathFragment(CppConfiguration.Tool.GCC)
-              .getParentDirectory()
-              .getPathString());
+    if (!needsToRunOnMac()) {
+      // This prevents gcc from writing the unpredictable (and often irrelevant)
+      // value of getcwd() into the debug info.
+      result.put("PWD", "/proc/self/cwd");
     }
     return ImmutableMap.copyOf(result);
   }
@@ -298,6 +290,10 @@ public final class CppLinkAction extends AbstractAction
     return allLTOBackendArtifacts;
   }
 
+  private boolean needsToRunOnMac() {
+    return getHostSystemName().equals(CppConfiguration.MAC_SYSTEM_NAME);
+  }
+
   @Override
   @ThreadCompatible
   public void execute(
@@ -307,10 +303,27 @@ public final class CppLinkAction extends AbstractAction
       executeFake();
     } else {
       Executor executor = actionExecutionContext.getExecutor();
-
       try {
-        executor.getContext(CppLinkActionContext.class).exec(
-            this, actionExecutionContext);
+        // Collect input files
+        List<ActionInput> allInputs = new ArrayList<>();
+        Artifact.addExpandedArtifacts(
+            getMandatoryInputs(), allInputs, actionExecutionContext.getArtifactExpander());
+
+        ImmutableMap<String, String> executionInfo = ImmutableMap.of();
+        if (needsToRunOnMac()) {
+          executionInfo = ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, "");
+        }
+
+        Spawn spawn = new SimpleSpawn(
+            this,
+            ImmutableList.copyOf(getCommandLine()),
+            getEnvironment(),
+            executionInfo,
+            ImmutableList.copyOf(allInputs),
+            getOutputs().asList(),
+            estimateResourceConsumptionLocal());
+        executor.getSpawnActionContext(getMnemonic()).exec(
+            spawn, actionExecutionContext);
       } catch (ExecException e) {
         throw e.toActionExecutionException("Linking of rule '" + getOwner().getLabel() + "'",
             executor.getVerboseFailures(), this);
@@ -485,11 +498,6 @@ public final class CppLinkAction extends AbstractAction
     return (isLTOIndexing ? "LTO indexing " : "Linking ") + linkOutput.prettyPrint();
   }
 
-  @Override
-  public ResourceSet estimateResourceConsumption(Executor executor) {
-    return executor.getContext(CppLinkActionContext.class).estimateResourceConsumption(this);
-  }
-
   /**
    * Estimate the resources consumed when this action is run locally.
    */
@@ -544,6 +552,7 @@ public final class CppLinkAction extends AbstractAction
     final ImmutableSet<Artifact> nonCodeInputs;
     final NestedSet<LibraryToLink> libraries;
     final NestedSet<Artifact> crosstoolInputs;
+    final ImmutableMap<Artifact, Artifact> ltoBitcodeFiles;
     final Artifact runtimeMiddleman;
     final NestedSet<Artifact> runtimeInputs;
     final ArtifactCategory runtimeType;
@@ -569,6 +578,7 @@ public final class CppLinkAction extends AbstractAction
           .addTransitive(builder.getLibraries().build()).build();
       this.crosstoolInputs =
           NestedSetBuilder.<Artifact>stableOrder().addTransitive(builder.getCrosstoolInputs()).build();
+      this.ltoBitcodeFiles = ImmutableMap.copyOf(builder.getLtoBitcodeFiles());
       this.runtimeMiddleman = builder.getRuntimeMiddleman();
       this.runtimeInputs =
           NestedSetBuilder.<Artifact>stableOrder().addTransitive(builder.getRuntimeInputs()).build();

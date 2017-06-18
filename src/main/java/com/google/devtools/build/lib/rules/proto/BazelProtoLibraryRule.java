@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTran
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -39,7 +38,7 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
 
   private static final Attribute.LateBoundLabel<BuildConfiguration> PROTO_COMPILER =
       new Attribute.LateBoundLabel<BuildConfiguration>(
-          "//third_party/protobuf:protoc", ProtoConfiguration.class) {
+          "@com_google_protobuf//:protoc", ProtoConfiguration.class) {
         @Override
         public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
           Label label = configuration.getFragment(ProtoConfiguration.class).protoCompiler();
@@ -52,10 +51,6 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
 
     return builder
         .requiresConfigurationFragments(ProtoConfiguration.class)
-        // This rule works, but does nothing, in open-source Bazel, due to the
-        // lack of protoc support. Users can theoretically write their own Skylark rules,
-        // but these are still 'experimental' according to the documentation.
-        .setUndocumented()
         .setOutputToGenfiles()
         .add(attr(":proto_compiler", LABEL).cfg(HOST).exec().value(PROTO_COMPILER))
         /* <!-- #BLAZE_RULE(proto_library).ATTRIBUTE(deps) -->
@@ -76,7 +71,6 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
             attr("srcs", LABEL_LIST)
                 .direct_compile_time_input()
                 .allowedFileTypes(FileType.of(".proto"), FileType.of(".protodevel")))
-        .add(attr("strict_proto_deps", TRISTATE).undocumented("for migration only"))
         .advertiseProvider(ProtoSourcesProvider.class, ProtoSupportDataProvider.class)
         .build();
   }
@@ -95,7 +89,17 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
 
 <p>Use <code>proto_library</code> to define libraries of protocol buffers
    which may be used from multiple languages. A <code>proto_library</code> may be listed
-   in the <code>deps</code> clause of supported rules, such as <code>objc_proto_library</code>.
+   in the <code>deps</code> clause of supported rules, such as <code>java_proto_library</code>.
 </p>
+
+<p>When compiled on the command-line, a <code>proto_library</code> creates a file named
+<code>foo-descriptor-set.proto.bin</code>, which is the descriptor set for the
+messages the rule srcs. The file is a serialized <code>FileDescriptorSet</code>, which is described
+in https://developers.google.com/protocol-buffers/docs/techniques#self-description.</p>
+
+<p>It only contains information about the <code>.proto</code> files directly mentioned by a
+<code>proto_library</code> rule; the collection of transitive descriptor sets is available through
+the <code>proto.transitivedescriptorsets</code> Skylark provider.
+See documentation in <code>ProtoSourcesProvider.java</code>.</p>
 
 <!-- #END_BLAZE_RULE -->*/

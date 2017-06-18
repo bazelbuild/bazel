@@ -56,6 +56,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
@@ -135,7 +136,7 @@ public class FilesystemValueChecker {
     @Override
     @Nullable
     public SkyValue get(SkyKey key) throws InterruptedException {
-      return walkableGraph.exists(key) ? walkableGraph.getValue(key) : null;
+      return walkableGraph.getValue(key);
     }
   }
 
@@ -215,7 +216,7 @@ public class FilesystemValueChecker {
               sortedKnownModifiedOutputFiles)
           : batchStatJob(dirtyKeys, shard, batchStatter, knownModifiedOutputFiles,
               sortedKnownModifiedOutputFiles);
-      executor.submit(wrapper.wrap(job));
+      Future<?> unused = executor.submit(wrapper.wrap(job));
     }
 
     boolean interrupted = ExecutorUtil.interruptibleShutdown(executor);

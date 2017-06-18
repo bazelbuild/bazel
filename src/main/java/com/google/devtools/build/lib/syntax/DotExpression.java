@@ -17,14 +17,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.FuncallExpression.MethodDescriptor;
-import com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils;
-import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
-import com.google.devtools.build.lib.syntax.compiler.VariableScope;
-import java.util.ArrayList;
-import java.util.List;
-import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
-import net.bytebuddy.implementation.bytecode.Duplication;
-import net.bytebuddy.implementation.bytecode.constant.TextConstant;
+import com.google.devtools.build.lib.util.SpellChecker;
 
 /** Syntax node for a dot expression. e.g. obj.field, but not obj.method() */
 public final class DotExpression extends Expression {
@@ -64,19 +57,22 @@ public final class DotExpression extends Expression {
    */
   public static Object checkResult(Object objValue, Object result, String name, Location loc)
       throws EvalException {
-    if (result == null) {
-      if (objValue instanceof ClassObject) {
-        String customErrorMessage = ((ClassObject) objValue).errorMessage(name);
-        if (customErrorMessage != null) {
-          throw new EvalException(loc, customErrorMessage);
-        }
-      }
-      throw new EvalException(
-          loc,
-          Printer.format(
-              "Object of type '%s' has no field %r", EvalUtils.getDataTypeName(objValue), name));
+    if (result != null) {
+      return result;
     }
-    return result;
+    String suffix = "";
+    if (objValue instanceof ClassObject) {
+      String customErrorMessage = ((ClassObject) objValue).errorMessage(name);
+      if (customErrorMessage != null) {
+        throw new EvalException(loc, customErrorMessage);
+      }
+      suffix = SpellChecker.didYouMean(name, ((ClassObject) objValue).getKeys());
+    }
+    throw new EvalException(
+        loc,
+        String.format(
+            "object of type '%s' has no field '%s'%s",
+            EvalUtils.getDataTypeName(objValue), name, suffix));
   }
 
   /**
@@ -102,9 +98,10 @@ public final class DotExpression extends Expression {
       }
     }
 
-    Iterable<MethodDescriptor> methods = objValue instanceof Class<?>
-        ? FuncallExpression.getMethods((Class<?>) objValue, name, loc)
-        : FuncallExpression.getMethods(objValue.getClass(), name, loc);
+    Iterable<MethodDescriptor> methods =
+        objValue instanceof Class<?>
+            ? FuncallExpression.getMethods((Class<?>) objValue, name)
+            : FuncallExpression.getMethods(objValue.getClass(), name);
 
     if (methods != null) {
       methods =
@@ -135,36 +132,5 @@ public final class DotExpression extends Expression {
   @Override
   void validate(ValidationEnvironment env) throws EvalException {
     obj.validate(env);
-  }
-
-  @Override
-  ByteCodeAppender compile(VariableScope scope, DebugInfo debugInfo) throws EvalException {
-    List<ByteCodeAppender> code = new ArrayList<>();
-    code.add(obj.compile(scope, debugInfo));
-    TextConstant name = new TextConstant(field.getName());
-    ByteCodeUtils.append(
-        code,
-        Duplication.SINGLE,
-        name,
-        debugInfo.add(this).loadLocation,
-        scope.loadEnvironment(),
-        ByteCodeUtils.invoke(
-            DotExpression.class,
-            "eval",
-            Object.class,
-            String.class,
-            Location.class,
-            Environment.class),
-        // at this point we have the value of obj and the result of eval on the stack
-        name,
-        debugInfo.add(this).loadLocation,
-        ByteCodeUtils.invoke(
-            DotExpression.class,
-            "checkResult",
-            Object.class,
-            Object.class,
-            String.class,
-            Location.class));
-    return ByteCodeUtils.compoundAppender(code);
   }
 }

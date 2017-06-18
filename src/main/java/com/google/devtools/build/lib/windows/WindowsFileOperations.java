@@ -19,9 +19,30 @@ import java.io.IOException;
 /** File operations on Windows. */
 public class WindowsFileOperations {
 
+  // A note about UNC paths and path prefixes on Windows. The prefixes can be:
+  // - "\\?\", meaning it's a UNC path that is passed to user mode unicode WinAPI functions
+  //   (e.g. CreateFileW) or a return value of theirs (e.g. GetLongPathNameW); this is the
+  //   prefix we'll most often see
+  // - "\??\", meaning it's Device Object path; it's mostly only used by kernel/driver functions
+  //   but we may come across it when resolving junction targets, as the target's path is
+  //   specified with this prefix, see usages of DeviceIoControl with FSCTL_GET_REPARSE_POINT
+  // - "\\.\", meaning it's a Device Object path again; both "\??\" and "\\.\" are shorthands
+  //   for the "\DosDevices\" Object Directory, so "\\.\C:" and "\??\C:" and "\DosDevices\C:"
+  //   and "C:\" all mean the same thing, but functions like CreateFileW don't understand the
+  //   fully qualified device path, only the shorthand versions; the difference between "\\.\"
+  //   is "\??\" is not entirely clear (one is not available while Windows is booting, but
+  //   that only concerns device drivers) but we most likely won't come across them anyway
+  // Some of this is documented here:
+  // - https://msdn.microsoft.com/en-us/library/windows/hardware/ff557762(v=vs.85).aspx
+  // - https://msdn.microsoft.com/en-us/library/windows/hardware/ff565384(v=vs.85).aspx
+  // - http://stackoverflow.com/questions/23041983
+  // - http://stackoverflow.com/questions/14482421
+
   private WindowsFileOperations() {
     // Prevent construction
   }
+
+  private static final int MAX_PATH = 260;
 
   // Keep IS_JUNCTION_* values in sync with src/main/native/windows_file_operations.cc.
   private static final int IS_JUNCTION_YES = 0;
@@ -31,6 +52,8 @@ public class WindowsFileOperations {
   static native int nativeIsJunction(String path, String[] error);
 
   static native boolean nativeGetLongPath(String path, String[] result, String[] error);
+
+  static native boolean nativeCreateJunction(String name, String target, String[] error);
 
   /** Determines whether `path` is a junction point or directory symlink. */
   public static boolean isJunction(String path) throws IOException {
@@ -70,14 +93,32 @@ public class WindowsFileOperations {
   }
 
   /**
-   * Returns a Windows-style path suitable to pass to Widechar Win32 API functions.
+   * Returns a Windows-style path suitable to pass to unicode WinAPI functions.
    *
-   * <p>Returns an UNC path if `path` is longer than `MAX_PATH` (in <windows.h>). If it's shorter or
-   * is already an UNC path, then this method returns `path` itself.
+   * <p>Returns an UNC path if `path` is at least `MAX_PATH` long. If it's shorter or is already an
+   * UNC path, then this method returns `path` itself.
    */
   static String asLongPath(String path) {
-    return path.length() > 260 && !path.startsWith("\\\\?\\")
+    return path.length() >= MAX_PATH && !path.startsWith("\\\\?\\")
         ? ("\\\\?\\" + path.replace('/', '\\'))
         : path;
+  }
+
+  /**
+   * Creates a junction at `name`, pointing to `target`.
+   *
+   * <p>Both `name` and `target` may be Unix-style Windows paths (i.e. use forward slashes), and
+   * they don't need to have a UNC prefix, not even if they are longer than `MAX_PATH`. The
+   * underlying logic will take care of adding the prefixes if necessary.
+   *
+   * @throws IOException if some error occurs
+   */
+  public static void createJunction(String name, String target) throws IOException {
+    WindowsJniLoader.loadJni();
+    String[] error = new String[] {null};
+    if (!nativeCreateJunction(name.replace('/', '\\'), target.replace('/', '\\'), error)) {
+      throw new IOException(
+          String.format("Cannot create junction (name=%s, target=%s): %s", name, target, error[0]));
+    }
   }
 }

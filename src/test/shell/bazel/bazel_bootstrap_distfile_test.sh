@@ -18,7 +18,7 @@
 #
 
 set -u
-DISTFILE=$(readlink $1)
+DISTFILE=$(rlocation io_bazel/${1#./})
 shift 1
 
 if [ "${JAVA_VERSION:-}" == "1.7" ] ; then
@@ -27,19 +27,20 @@ if [ "${JAVA_VERSION:-}" == "1.7" ] ; then
 fi
 
 # Load the test setup defined in the parent directory
-CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${CURRENT_DIR}/../integration_test_setup.sh" \
+source $(rlocation io_bazel/src/test/shell/integration_test_setup.sh) \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-function test_bootsrap()  {
+function test_bootstrap()  {
     local olddir=$(pwd)
     WRKDIR=$(mktemp -d ${TEST_TMPDIR}/bazelbootstrap.XXXXXXXX)
     mkdir -p "${WRKDIR}" || fail "Could not create workdir"
+    trap "rm -rf \"$WRKDIR\"" EXIT
     cd "${WRKDIR}" || fail "Could not change to work directory"
-    unzip ${DISTFILE}
+    unzip -q ${DISTFILE}
     find . -type f -exec chmod u+w {} \;
     ./compile.sh || fail "Expected to be able to bootstrap bazel"
     ./output/bazel version || fail "Generated bazel not working"
+    ./output/bazel shutdown
     cd "${olddir}"
 }
 

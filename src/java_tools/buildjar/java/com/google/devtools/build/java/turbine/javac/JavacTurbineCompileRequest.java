@@ -18,39 +18,37 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.StrictJavaDepsPlugin;
-
 import java.nio.file.Path;
-
 import javax.annotation.Nullable;
 
 /** The input to a {@link JavacTurbineCompiler} compilation. */
 class JavacTurbineCompileRequest {
 
-  enum Prune {
-    YES,
-    NO
-  }
-
+  private final ImmutableList<Path> sources;
   private final ImmutableList<Path> classPath;
   private final ImmutableList<Path> bootClassPath;
   private final ImmutableList<Path> processorClassPath;
   private final ImmutableList<String> javacOptions;
   @Nullable private final StrictJavaDepsPlugin strictJavaDepsPlugin;
-  private final Prune prune;
 
   JavacTurbineCompileRequest(
+      ImmutableList<Path> sources,
       ImmutableList<Path> classPath,
       ImmutableList<Path> bootClassPath,
       ImmutableList<Path> processorClassPath,
       ImmutableList<String> javacOptions,
-      @Nullable StrictJavaDepsPlugin strictJavaDepsPlugin,
-      Prune prune) {
+      @Nullable StrictJavaDepsPlugin strictJavaDepsPlugin) {
+    this.sources = checkNotNull(sources);
     this.classPath = checkNotNull(classPath);
     this.bootClassPath = checkNotNull(bootClassPath);
     this.processorClassPath = checkNotNull(processorClassPath);
     this.javacOptions = checkNotNull(javacOptions);
     this.strictJavaDepsPlugin = strictJavaDepsPlugin;
-    this.prune = checkNotNull(prune);
+  }
+
+  /** The sources to compile. */
+  ImmutableList<Path> sources() {
+    return sources;
   }
 
   /** The class path; correspond's to javac -classpath. */
@@ -81,28 +79,28 @@ class JavacTurbineCompileRequest {
     return strictJavaDepsPlugin;
   }
 
-  /** Whether to perform a relaxed header-only compilation. */
-  Prune prune() {
-    return prune;
-  }
-
   static JavacTurbineCompileRequest.Builder builder() {
     return new Builder();
   }
 
   static class Builder {
+    private ImmutableList<Path> sources;
     private ImmutableList<Path> classPath;
     private ImmutableList<Path> bootClassPath;
     private ImmutableList<Path> processorClassPath;
     private ImmutableList<String> javacOptions;
     @Nullable private StrictJavaDepsPlugin strictDepsPlugin;
-    private Prune prune = Prune.YES;
 
     private Builder() {}
 
     JavacTurbineCompileRequest build() {
       return new JavacTurbineCompileRequest(
-          classPath, bootClassPath, processorClassPath, javacOptions, strictDepsPlugin, prune);
+          sources, classPath, bootClassPath, processorClassPath, javacOptions, strictDepsPlugin);
+    }
+
+    Builder setSources(ImmutableList<Path> sources) {
+      this.sources = sources;
+      return this;
     }
 
     Builder setClassPath(ImmutableList<Path> classPath) {
@@ -127,11 +125,6 @@ class JavacTurbineCompileRequest {
 
     Builder setStrictDepsPlugin(@Nullable StrictJavaDepsPlugin strictDepsPlugin) {
       this.strictDepsPlugin = strictDepsPlugin;
-      return this;
-    }
-
-    Builder setPrune(Prune prune) {
-      this.prune = prune;
       return this;
     }
   }

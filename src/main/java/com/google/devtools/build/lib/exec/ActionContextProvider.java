@@ -34,16 +34,25 @@ public abstract class ActionContextProvider {
   public abstract Iterable<ActionContext> getActionContexts();
 
   /**
+   * Two-phase initialization. The input file cache and the input prefetcher usually come from a
+   * different module than the {@link ActionContextProvider} instances that require them, so this
+   * method is called after {@link BlazeModule#executorInit}.
+   *
+   * @param actionInputFileCache the input file cache
+   * @param actionInputPrefetcher the input file prefetcher
+   */
+  public void init(
+      ActionInputFileCache actionInputFileCache, ActionInputPrefetcher actionInputPrefetcher) {
+  }
+
+  /**
    * Called when the executor is constructed. The parameter contains all the contexts that were
    * selected for this execution phase.
    */
   public void executorCreated(Iterable<ActionContext> usedContexts) throws ExecutorInitException {}
 
-  /**
-   * Called when the execution phase is started.
-   */
+  /** Called when the execution phase is started. */
   public void executionPhaseStarting(
-      ActionInputFileCache actionInputFileCache,
       ActionGraph actionGraph,
       Iterable<Artifact> topLevelArtifacts)
       throws ExecutorInitException, InterruptedException {}

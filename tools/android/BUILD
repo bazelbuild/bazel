@@ -1,130 +1,4 @@
-package(default_visibility = ["//visibility:public"])
-
-alias(
-    name = "sdk",
-    actual = "//external:android/sdk",
-)
-
-android_library(
-    name = "incremental_stub_application",
-    deps = ["//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:incremental_stub_application"],
-)
-
-android_library(
-    name = "incremental_split_stub_application",
-    deps = ["//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:incremental_split_stub_application"],
-)
-
-alias(
-    name = "aar_generator",
-    actual = "//src/tools/android/java/com/google/devtools/build/android:AarGeneratorAction",
-)
-
-alias(
-    name = "manifest_merger",
-    actual = "//src/tools/android/java/com/google/devtools/build/android:ManifestMergerAction",
-)
-
-alias(
-    name = "rclass_generator",
-    actual = "//src/tools/android/java/com/google/devtools/build/android:RClassGeneratorAction",
-)
-
-alias(
-    name = "resources_processor",
-    actual = "//src/tools/android/java/com/google/devtools/build/android:AndroidResourceProcessingAction",
-)
-
-alias(
-    name = "resource_merger",
-    actual = "//src/tools/android/java/com/google/devtools/build/android:AndroidResourceMergingAction",
-)
-
-alias(
-    name = "resource_parser",
-    actual = "//src/tools/android/java/com/google/devtools/build/android:AndroidResourceParsingAction",
-)
-
-alias(
-    name = "resource_shrinker",
-    actual = "//src/tools/android/java/com/google/devtools/build/android:ResourceShrinkerAction",
-)
-
-alias(
-    name = "resource_validator",
-    actual = "//src/tools/android/java/com/google/devtools/build/android:AndroidResourceValidatorAction",
-)
-
-alias(
-    name = "merge_dexzips",
-    actual = "//src/tools/android/java/com/google/devtools/build/android/ziputils:reducer",
-)
-
-alias(
-    name = "shuffle_jars",
-    actual = "//src/tools/android/java/com/google/devtools/build/android/ziputils:mapper",
-)
-
-alias(
-    name = "dexbuilder",
-    actual = "//src/tools/android/java/com/google/devtools/build/android/dexer:DexBuilder",
-)
-
-alias(
-    name = "dexmerger",
-    actual = "//src/tools/android/java/com/google/devtools/build/android/dexer:DexFileMerger",
-)
-
-sh_binary(
-    name = "desugar_java8",
-    srcs = ["fail.sh"],
-)
-
-# TODO(bazel-team): Figure out how to compute this for Bazel
-filegroup(
-    name = "desugar_java8_extra_bootclasspath",
-    srcs = [],
-    visibility = ["//visibility:public"],
-)
-
-alias(
-    name = "IdlClass",
-    actual = "//src/tools/android/java/com/google/devtools/build/android/idlclass:IdlClass",
-)
-
-filegroup(
-    name = "jar_filter",
-    srcs = ["//src/tools/android/java/com/google/devtools/build/android/ideinfo:JarFilter_deploy.jar"],
-)
-
-java_binary(
-    name = "JarFilter",
-    main_class = "com.google.devtools.build.android.ideinfo.JarFilter",
-    visibility = ["//visibility:public"],
-    runtime_deps = [":jar_filter_import"],
-)
-
-java_import(
-    name = "jar_filter_import",
-    jars = [":jar_filter"],
-)
-
-filegroup(
-    name = "package_parser",
-    srcs = ["//src/tools/android/java/com/google/devtools/build/android/ideinfo:PackageParser_deploy.jar"],
-)
-
-java_binary(
-    name = "PackageParser",
-    main_class = "com.google.devtools.build.android.ideinfo.PackageParser",
-    visibility = ["//visibility:public"],
-    runtime_deps = [":package_parser_import"],
-)
-
-java_import(
-    name = "package_parser_import",
-    jars = [":package_parser"],
-)
+package(default_visibility = ["//tools:__pkg__"])
 
 py_binary(
     name = "merge_manifests",
@@ -146,7 +20,18 @@ py_test(
 py_binary(
     name = "build_incremental_dexmanifest",
     srcs = [":build_incremental_dexmanifest.py"],
-    deps = [],
+)
+
+sh_test(
+    name = "build_incremental_dexmanifest_test",
+    srcs = [
+        "build_incremental_dexmanifest_test.sh",
+    ],
+    args = ["$(location //tools/zip:zipper)"],
+    data = [
+        ":build_incremental_dexmanifest",
+        "//tools/zip:zipper",
+    ],
 )
 
 py_binary(
@@ -186,8 +71,16 @@ py_test(
 py_binary(
     name = "strip_resources",
     srcs = ["strip_resources.py"],
-    deps = [
-        "//third_party/py/gflags",
+    deps = ["//third_party/py/gflags"],
+)
+
+sh_test(
+    name = "strip_resources_test",
+    srcs = ["strip_resources_test.sh"],
+    args = ["$(location //tools/zip:zipper)"],
+    data = [
+        ":strip_resources",
+        "//tools/zip:zipper",
     ],
 )
 
@@ -198,6 +91,16 @@ py_binary(
     ],
     deps = [
         "//third_party/py/gflags",
+    ],
+)
+
+py_test(
+    name = "aar_native_libs_zip_creator_test",
+    srcs = [
+        "aar_native_libs_zip_creator_test.py",
+    ],
+    deps = [
+        ":aar_native_libs_zip_creator",
     ],
 )
 
@@ -217,21 +120,6 @@ py_test(
     ],
 )
 
-py_test(
-    name = "aar_native_libs_zip_creator_test",
-    srcs = [
-        "aar_native_libs_zip_creator_test.py",
-    ],
-    deps = [
-        ":aar_native_libs_zip_creator",
-    ],
-)
-
-sh_binary(
-    name = "rex_wrapper",
-    srcs = ["fail.sh"],
-)
-
 sh_binary(
     name = "zip_manifest_creator",
     srcs = ["zip_manifest_creator.sh"],
@@ -242,7 +130,11 @@ sh_test(
     name = "zip_manifest_creator_test",
     size = "small",
     srcs = ["zip_manifest_creator_test.sh"],
-    data = [":zip_manifest_creator"],
+    args = ["$(location //tools/zip:zipper)"],
+    data = [
+        ":zip_manifest_creator",
+        "//tools/zip:zipper",
+    ],
 )
 
 py_binary(
@@ -268,19 +160,21 @@ py_test(
     deps = [":resource_extractor"],
 )
 
-# If needed, this file can be regenerated by (validity is 30 * 365 days):
-# keytool -genkeypair \
-#    -alias androiddebugkey \
-#    -dname "CN=Android Debug, O=Android, C=US" \
-#    -keystore cica \
-#    -sigalg SHA256withDSA \
-#    -validity 10950
 filegroup(
-    name = "debug_keystore",
-    srcs = ["bazel_debug.keystore"],
+    name = "srcs",
+    srcs = glob(["**"]) + ["//tools/android/emulator:srcs"],
 )
 
 filegroup(
-    name = "srcs",
-    srcs = glob(["**"]),
+    name = "embedded_tools",
+    srcs = glob(
+        ["*"],
+        exclude = [
+            "*_test.py",
+            "*_test.sh",
+        ],
+    ) + ["//tools/android/emulator:embedded_tools"],
 )
+
+# Exported for AndroidSdkRepositoryTest to use it instead of mocking it out.
+exports_files(["android_sdk_repository_template.bzl"])

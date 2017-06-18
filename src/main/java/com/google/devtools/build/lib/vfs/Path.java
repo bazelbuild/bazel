@@ -54,22 +54,6 @@ public class Path implements Comparable<Path>, Serializable {
 
   /** Filesystem-specific factory for {@link Path} objects. */
   public static interface PathFactory {
-
-    /**
-     * A translated path, i.e. where the parent and name are potentially different from the input.
-     *
-     * <p>See {@link PathFactory#translatePath} for details.
-     */
-    public static final class TranslatedPath {
-      public final Path parent;
-      public final String child;
-
-      public TranslatedPath(Path parent, String child) {
-        this.parent = parent;
-        this.child = child;
-      }
-    }
-
     /**
      * Creates the root of all paths used by a filesystem.
      *
@@ -90,13 +74,15 @@ public class Path implements Comparable<Path>, Serializable {
     Path createChildPath(Path parent, String childName);
 
     /**
-     * Translate the input path in a filesystem-specific way if necessary.
+     * Makes the proper invocation of {@link FileSystem#getCachedChildPathInternal}, doing
+     * filesystem-specific logic if necessary.
      *
-     * <p>On Unix filesystems this operation is typically idempotent, but on Windows this can be
-     * used to translate absolute Unix paths to absolute Windows paths, e.g. "/c" to "C:/" or "/usr"
-     * to "C:/tools/msys64/usr".
+     * <p>On Unix filesystems this method merely calls through to {@code
+     * FileSystem.getCachedChildPathInternal(parent, child)}, but on Windows this can be used to
+     * handle the translatation of absolute Unix paths to absolute Windows paths, e.g. "/c" to "C:/"
+     * or "/usr" to "C:/tools/msys64/usr".
      */
-    TranslatedPath translatePath(Path parent, String child);
+    Path getCachedChildPathInternal(Path path, String childName);
   }
 
   private static FileSystem fileSystemForSerialization;
@@ -237,7 +223,7 @@ public class Path implements Comparable<Path>, Serializable {
   private void readObject(ObjectInputStream in) throws IOException {
     fileSystem = fileSystemForSerialization;
     String p = in.readUTF();
-    PathFragment pf = new PathFragment(p);
+    PathFragment pf = PathFragment.create(p);
     PathFragment parentDir = pf.getParentDirectory();
     if (parentDir == null) {
       this.name = "/";
@@ -310,30 +296,29 @@ public class Path implements Comparable<Path>, Serializable {
    * if it doesn't already exist.
    */
   private Path getCachedChildPath(String childName) {
-    return getCachedChildPath(fileSystem.getPathFactory().translatePath(this, childName));
+    return fileSystem.getPathFactory().getCachedChildPathInternal(this, childName);
   }
 
-  private static Path getCachedChildPath(PathFactory.TranslatedPath translated) {
-    Path parent = translated.parent;
+  /**
+   * Internal method only intended to be called by {@link PathFactory#getCachedChildPathInternal}.
+   */
+  public static Path getCachedChildPathInternal(Path parent, String childName, boolean cacheable) {
     // We get a canonical instance since 'children' is an IdentityHashMap.
-    String childName = StringCanonicalizer.intern(translated.child);
-    // We use double-checked locking so that we only hold the lock when we might need to mutate the
-    // 'children' variable. 'children' will never become null if it's already non-null, so we only
-    // need to worry about the case where it's currently null and we race with another thread
-    // executing getCachedChildPath(<doesn't matter>) trying to set 'children' to a non-null value.
-    if (parent.children == null) {
-      synchronized (parent) {
-        if (parent.children == null) {
-          // 66% of Paths have size == 1, 80% <= 2
-          parent.children = new IdentityHashMap<>(1);
-        }
-      }
+    childName = StringCanonicalizer.intern(childName);
+    if (!cacheable) {
+      // Non-cacheable children won't show up in `children` so applyToChildren won't run for these.
+      return parent.createChildPath(childName);
     }
+
     synchronized (parent) {
+      if (parent.children == null) {
+        // 66% of Paths have size == 1, 80% <= 2
+        parent.children = new IdentityHashMap<>(1);
+      }
       Reference<Path> childRef = parent.children.get(childName);
       Path child;
       if (childRef == null || (child = childRef.get()) == null) {
-        child = parent.fileSystem.getPathFactory().createChildPath(parent, childName);
+        child = parent.createChildPath(childName);
         parent.children.put(childName, new PathWeakReferenceForCleanup(child, REFERENCE_QUEUE));
       }
       return child;
@@ -739,10 +724,8 @@ public class Path implements Comparable<Path>, Serializable {
       return this;
     } else if (path.equals("..")) {
       return isTopLevelDirectory() ? this : parent;
-    } else if (path.indexOf('/') != -1) {
-      return getRelative(new PathFragment(path));
-    } else if (path.indexOf(PathFragment.EXTRA_SEPARATOR_CHAR) != -1) {
-      return getRelative(new PathFragment(path));
+    } else if (PathFragment.containsSeparator(path)) {
+      return getRelative(PathFragment.create(path));
     } else {
       return getCachedChildPath(path);
     }
@@ -760,7 +743,7 @@ public class Path implements Comparable<Path>, Serializable {
 
   /** Returns an absolute PathFragment representing this path. */
   public PathFragment asFragment() {
-    return new PathFragment('\0', true, getSegments());
+    return PathFragment.createAlreadyInterned('\0', true, getSegments());
   }
 
   /**
@@ -792,7 +775,7 @@ public class Path implements Comparable<Path>, Serializable {
           currentPath = currentPath.getParentDirectory();
         }
         if (ancestorPath.equals(currentPath)) {
-          return new PathFragment('\0', false, resultSegments);
+          return PathFragment.createAlreadyInterned('\0', false, resultSegments);
         }
       }
     }

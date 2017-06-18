@@ -19,18 +19,22 @@ import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
+import com.google.common.collect.ListMultimap;
 import com.google.common.escape.Escaper;
-
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.nio.file.FileSystem;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * A parser for options. Typical use case in a main method:
@@ -43,25 +47,45 @@ import java.util.Map;
  * List&lt;String&gt; otherArguments = parser.getResidue();
  * </pre>
  *
- * <p>FooOptions and BarOptions would be options specification classes, derived
- * from OptionsBase, that contain fields annotated with @Option(...).
+ * <p>FooOptions and BarOptions would be options specification classes, derived from OptionsBase,
+ * that contain fields annotated with @Option(...).
  *
- * <p>Alternatively, rather than calling
- * {@link #parseAndExitUponError(OptionPriority, String, String[])},
- * client code may call {@link #parse(OptionPriority,String,List)}, and handle
- * parser exceptions usage messages themselves.
+ * <p>Alternatively, rather than calling {@link #parseAndExitUponError(OptionPriority, String,
+ * String[])}, client code may call {@link #parse(OptionPriority,String,List)}, and handle parser
+ * exceptions usage messages themselves.
  *
- * <p>This options parsing implementation has (at least) one design flaw. It
- * allows both '--foo=baz' and '--foo baz' for all options except void, boolean
- * and tristate options. For these, the 'baz' in '--foo baz' is not treated as
- * a parameter to the option, making it is impossible to switch options between
- * void/boolean/tristate and everything else without breaking backwards
+ * <p>This options parsing implementation has (at least) one design flaw. It allows both '--foo=baz'
+ * and '--foo baz' for all options except void, boolean and tristate options. For these, the 'baz'
+ * in '--foo baz' is not treated as a parameter to the option, making it is impossible to switch
+ * options between void/boolean/tristate and everything else without breaking backwards
  * compatibility.
  *
- * @see Options a simpler class which you can use if you only have one options
- * specification class
+ * @see Options a simpler class which you can use if you only have one options specification class
  */
 public class OptionsParser implements OptionsProvider {
+
+  /**
+   * An unchecked exception thrown when there is a problem constructing a parser, e.g. an error
+   * while validating an {@link Option} field in one of its {@link OptionsBase} subclasses.
+   *
+   * <p>This exception is unchecked because it generally indicates an internal error affecting all
+   * invocations of the program. I.e., any such error should be immediately obvious to the
+   * developer. Although unchecked, we explicitly mark some methods as throwing it as a reminder in
+   * the API.
+   */
+  public static class ConstructionException extends RuntimeException {
+    public ConstructionException(String message) {
+      super(message);
+    }
+
+    public ConstructionException(Throwable cause) {
+      super(cause);
+    }
+
+    public ConstructionException(String message, Throwable cause) {
+      super(message, cause);
+    }
+  }
 
   /**
    * A cache for the parsed options data. Both keys and values are immutable, so
@@ -71,45 +95,53 @@ public class OptionsParser implements OptionsProvider {
    * options classes on the classpath.
    */
   private static final Map<ImmutableList<Class<? extends OptionsBase>>, OptionsData> optionsData =
-      Maps.newHashMap();
+      new HashMap<>();
 
   /**
-   * Returns {@link OpaqueOptionsData} suitable for passing along to
-   * {@link #newOptionsParser(OpaqueOptionsData optionsData)}.
+   * Returns {@link OpaqueOptionsData} suitable for passing along to {@link
+   * #newOptionsParser(OpaqueOptionsData optionsData)}.
    *
-   * This is useful when you want to do the work of analyzing the given {@code optionsClasses}
+   * <p>This is useful when you want to do the work of analyzing the given {@code optionsClasses}
    * exactly once, but you want to parse lots of different lists of strings (and thus need to
-   * construct lots of different {@link OptionsParser} instances). 
+   * construct lots of different {@link OptionsParser} instances).
    */
   public static OpaqueOptionsData getOptionsData(
-      ImmutableList<Class<? extends OptionsBase>> optionsClasses) {
+      List<Class<? extends OptionsBase>> optionsClasses) throws ConstructionException {
     return getOptionsDataInternal(optionsClasses);
   }
 
-  private static synchronized OptionsData getOptionsDataInternal(
-      ImmutableList<Class<? extends OptionsBase>> optionsClasses) {
-    OptionsData result = optionsData.get(optionsClasses);
+  /**
+   * Returns the {@link OptionsData} associated with the given list of options classes.
+   */
+  static synchronized OptionsData getOptionsDataInternal(
+      List<Class<? extends OptionsBase>> optionsClasses) throws ConstructionException {
+    ImmutableList<Class<? extends OptionsBase>> immutableOptionsClasses =
+        ImmutableList.copyOf(optionsClasses);
+    OptionsData result = optionsData.get(immutableOptionsClasses);
     if (result == null) {
-      result = OptionsData.of(optionsClasses);
-      optionsData.put(optionsClasses, result);
+      try {
+        result = OptionsData.from(immutableOptionsClasses);
+      } catch (Exception e) {
+        throw new ConstructionException(e.getMessage(), e);
+      }
+      optionsData.put(immutableOptionsClasses, result);
     }
     return result;
   }
 
   /**
-   * Returns all the annotated fields for the given class, including inherited
-   * ones.
+   * Returns the {@link OptionsData} associated with the given options class.
    */
-  static Collection<Field> getAllAnnotatedFields(Class<? extends OptionsBase> optionsClass) {
-    OptionsData data = getOptionsDataInternal(
-        ImmutableList.<Class<? extends OptionsBase>>of(optionsClass));
-    return data.getFieldsForClass(optionsClass);
+  static OptionsData getOptionsDataInternal(Class<? extends OptionsBase> optionsClass)
+      throws ConstructionException {
+    return getOptionsDataInternal(ImmutableList.<Class<? extends OptionsBase>>of(optionsClass));
   }
 
   /**
    * @see #newOptionsParser(Iterable)
    */
-  public static OptionsParser newOptionsParser(Class<? extends OptionsBase> class1) {
+  public static OptionsParser newOptionsParser(Class<? extends OptionsBase> class1)
+      throws ConstructionException {
     return newOptionsParser(ImmutableList.<Class<? extends OptionsBase>>of(class1));
   }
 
@@ -117,15 +149,15 @@ public class OptionsParser implements OptionsProvider {
    * @see #newOptionsParser(Iterable)
    */
   public static OptionsParser newOptionsParser(Class<? extends OptionsBase> class1,
-                                               Class<? extends OptionsBase> class2) {
+                                               Class<? extends OptionsBase> class2)
+      throws ConstructionException {
     return newOptionsParser(ImmutableList.of(class1, class2));
   }
 
-  /**
-   * Create a new {@link OptionsParser}.
-   */
+  /** Create a new {@link OptionsParser}. */
   public static OptionsParser newOptionsParser(
-      Iterable<? extends Class<? extends OptionsBase>> optionsClasses) {
+      Iterable<? extends Class<? extends OptionsBase>> optionsClasses)
+      throws ConstructionException {
     return newOptionsParser(
         getOptionsDataInternal(ImmutableList.<Class<? extends OptionsBase>>copyOf(optionsClasses)));
   }
@@ -141,10 +173,6 @@ public class OptionsParser implements OptionsProvider {
   private final OptionsParserImpl impl;
   private final List<String> residue = new ArrayList<String>();
   private boolean allowResidue = true;
-
-  OptionsParser(Collection<Class<? extends OptionsBase>> optionsClasses) {
-    this(OptionsData.of(optionsClasses));
-  }
 
   OptionsParser(OptionsData optionsData) {
     impl = new OptionsParserImpl(optionsData);
@@ -166,6 +194,11 @@ public class OptionsParser implements OptionsProvider {
    */
   public void setAllowSingleDashLongOptions(boolean allowSingleDashLongOptions) {
     this.impl.setAllowSingleDashLongOptions(allowSingleDashLongOptions);
+  }
+
+  /** Enables the Parser to handle params files loacted insinde the provided {@link FileSystem}. */
+  public void enableParamsFileSupport(FileSystem fs) {
+    this.impl.setArgsPreProcessor(new ParamsFilePreProcessor(fs));
   }
 
   public void parseAndExitUponError(String[] args) {
@@ -200,16 +233,28 @@ public class OptionsParser implements OptionsProvider {
   public static final class OptionDescription {
 
     private final String name;
+
+    // For valued flags
     private final Object defaultValue;
     private final Converter<?> converter;
     private final boolean allowMultiple;
 
-    public OptionDescription(String name, Object defaultValue, Converter<?> converter,
-        boolean allowMultiple) {
+    private final ImmutableList<OptionValueDescription> expansions;
+    private final ImmutableList<OptionValueDescription> implicitRequirements;
+
+    OptionDescription(
+        String name,
+        Object defaultValue,
+        Converter<?> converter,
+        boolean allowMultiple,
+        ImmutableList<OptionValueDescription> expansions,
+        ImmutableList<OptionValueDescription> implicitRequirements) {
       this.name = name;
       this.defaultValue = defaultValue;
       this.converter = converter;
       this.allowMultiple = allowMultiple;
+      this.expansions = expansions;
+      this.implicitRequirements = implicitRequirements;
     }
 
     public String getName() {
@@ -227,8 +272,16 @@ public class OptionsParser implements OptionsProvider {
     public boolean getAllowMultiple() {
       return allowMultiple;
     }
+
+    public ImmutableList<OptionValueDescription> getImplicitRequirements() {
+      return implicitRequirements;
+    }
+
+    public ImmutableList<OptionValueDescription> getExpansions() {
+      return expansions;
+    }
   }
-  
+
   /**
    * The name and value of an option with additional metadata describing its
    * priority, source, whether it was set via an implicit dependency, and if so,
@@ -236,27 +289,61 @@ public class OptionsParser implements OptionsProvider {
    */
   public static class OptionValueDescription {
     private final String name;
-    private final Object value;
-    private final OptionPriority priority;
-    private final String source;
-    private final String implicitDependant;
-    private final String expandedFrom;
+    @Nullable private final String originalValueString;
+    @Nullable private final Object value;
+    @Nullable private final OptionPriority priority;
+    @Nullable private final String source;
+    @Nullable private final String implicitDependant;
+    @Nullable private final String expandedFrom;
+    private final boolean allowMultiple;
 
-    public OptionValueDescription(String name, Object value,
-        OptionPriority priority, String source, String implicitDependant, String expandedFrom) {
+    public OptionValueDescription(
+        String name,
+        @Nullable String originalValueString,
+        @Nullable Object value,
+        @Nullable OptionPriority priority,
+        @Nullable String source,
+        @Nullable String implicitDependant,
+        @Nullable String expandedFrom,
+        boolean allowMultiple) {
       this.name = name;
+      this.originalValueString = originalValueString;
       this.value = value;
       this.priority = priority;
       this.source = source;
       this.implicitDependant = implicitDependant;
       this.expandedFrom = expandedFrom;
+      this.allowMultiple = allowMultiple;
     }
 
     public String getName() {
       return name;
     }
 
+    public String getOriginalValueString() {
+      return originalValueString;
+    }
+
+    // Need to suppress unchecked warnings, because the "multiple occurrence"
+    // options use unchecked ListMultimaps due to limitations of Java generics.
+    @SuppressWarnings({"unchecked", "rawtypes"})
     public Object getValue() {
+      if (allowMultiple) {
+        // Sort the results by option priority and return them in a new list.
+        // The generic type of the list is not known at runtime, so we can't
+        // use it here. It was already checked in the constructor, so this is
+        // type-safe.
+        List result = new ArrayList<>();
+        ListMultimap realValue = (ListMultimap) value;
+        for (OptionPriority priority : OptionPriority.values()) {
+          // If there is no mapping for this key, this check avoids object creation (because
+          // ListMultimap has to return a new object on get) and also an unnecessary addAll call.
+          if (realValue.containsKey(priority)) {
+            result.addAll(realValue.get(priority));
+          }
+        }
+        return result;
+      }
       return value;
     }
 
@@ -290,6 +377,10 @@ public class OptionsParser implements OptionsProvider {
       return expandedFrom != null;
     }
 
+    public boolean getAllowMultiple() {
+      return allowMultiple;
+    }
+
     @Override
     public String toString() {
       StringBuilder result = new StringBuilder();
@@ -303,6 +394,19 @@ public class OptionsParser implements OptionsProvider {
         result.append(" implicitly by ");
       }
       return result.toString();
+    }
+
+    // Need to suppress unchecked warnings, because the "multiple occurrence"
+    // options use unchecked ListMultimaps due to limitations of Java generics.
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void addValue(OptionPriority addedPriority, Object addedValue) {
+      Preconditions.checkState(allowMultiple);
+      ListMultimap optionValueList = (ListMultimap) value;
+      if (addedValue instanceof List<?>) {
+        optionValueList.putAll(addedPriority, (List<?>) addedValue);
+      } else {
+        optionValueList.put(addedPriority, addedValue);
+      }
     }
   }
 
@@ -343,22 +447,21 @@ public class OptionsParser implements OptionsProvider {
       return field.getType().equals(boolean.class);
     }
 
-    private DocumentationLevel documentationLevel() {
-      Option option = field.getAnnotation(Option.class);
-      return OptionsParser.documentationLevel(option.category());
+    private OptionUsageRestrictions optionUsageRestrictions() {
+      return field.getAnnotation(Option.class).optionUsageRestrictions();
     }
 
     public boolean isDocumented() {
-      return documentationLevel() == DocumentationLevel.DOCUMENTED;
+      return optionUsageRestrictions() == OptionUsageRestrictions.DOCUMENTED;
     }
 
     public boolean isHidden() {
-      return documentationLevel() == DocumentationLevel.HIDDEN;
+      return optionUsageRestrictions() == OptionUsageRestrictions.HIDDEN
+          || optionUsageRestrictions() == OptionUsageRestrictions.INTERNAL;
     }
 
     boolean isExpansion() {
-      Option option = field.getAnnotation(Option.class);
-      return option.expansion().length > 0;
+      return OptionsData.isExpansionOption(field.getAnnotation(Option.class));
     }
 
     boolean isImplicitRequirement() {
@@ -408,57 +511,60 @@ public class OptionsParser implements OptionsProvider {
   public enum HelpVerbosity { LONG, MEDIUM, SHORT }
 
   /**
-   * The level of documentation. Only documented options are output as part of
-   * the help.
+   * The restrictions on an option. Only documented options are output as part of the help and are
+   * intended for general user use. Undocumented options can be used by any user but aren't
+   * advertised and in practice should be used by bazel developers or early adopters helping to test
+   * a feature.
    *
-   * <p>We use 'hidden' so that options that form the protocol between the
-   * client and the server are not logged.
+   * <p>We use HIDDEN so that options that form the protocol between the client and the server are
+   * not logged. These are flags, but should never be set by a user.
+   *
+   * <p>Options which are INTERNAL are not recognized by the parser at all, and so cannot be used as
+   * flags.
    */
-  enum DocumentationLevel {
-    DOCUMENTED, UNDOCUMENTED, HIDDEN
+  public enum OptionUsageRestrictions {
+    DOCUMENTED, UNDOCUMENTED, HIDDEN, INTERNAL
   }
 
   /**
-   * Returns a description of all the options this parser can digest.
-   * In addition to {@link Option} annotations, this method also
-   * interprets {@link OptionsUsage} annotations which give an intuitive short
-   * description for the options.
+   * Returns a description of all the options this parser can digest. In addition to {@link Option}
+   * annotations, this method also interprets {@link OptionsUsage} annotations which give an
+   * intuitive short description for the options. Options of the same category (see {@link
+   * Option#category}) will be grouped together.
    *
-   * @param categoryDescriptions a mapping from category names to category
-   *   descriptions.  Options of the same category (see {@link
-   *   Option#category}) will be grouped together, preceded by the description
-   *   of the category.
-   * @param helpVerbosity if {@code long}, the options will be described
-   *   verbosely, including their types, defaults and descriptions.  If {@code
-   *   medium}, the descriptions are omitted, and if {@code short}, the options
-   *   are just enumerated.
+   * @param categoryDescriptions a mapping from category names to category descriptions.
+   *     Descriptions are optional; if omitted, a string based on the category name will be used.
+   * @param helpVerbosity if {@code long}, the options will be described verbosely, including their
+   *     types, defaults and descriptions. If {@code medium}, the descriptions are omitted, and if
+   *     {@code short}, the options are just enumerated.
    */
-  public String describeOptions(Map<String, String> categoryDescriptions,
-                                HelpVerbosity helpVerbosity) {
+  public String describeOptions(
+      Map<String, String> categoryDescriptions, HelpVerbosity helpVerbosity) {
+    OptionsData data = impl.getOptionsData();
     StringBuilder desc = new StringBuilder();
-    if (!impl.getOptionsClasses().isEmpty()) {
-      List<Field> allFields = Lists.newArrayList();
-      for (Class<? extends OptionsBase> optionsClass : impl.getOptionsClasses()) {
-        allFields.addAll(impl.getAnnotatedFieldsFor(optionsClass));
+    if (!data.getOptionsClasses().isEmpty()) {
+      List<Field> allFields = new ArrayList<>();
+      for (Class<? extends OptionsBase> optionsClass : data.getOptionsClasses()) {
+        allFields.addAll(data.getFieldsForClass(optionsClass));
       }
       Collections.sort(allFields, OptionsUsage.BY_CATEGORY);
       String prevCategory = null;
 
       for (Field optionField : allFields) {
-        String category = optionField.getAnnotation(Option.class).category();
-        if (!category.equals(prevCategory)) {
-          prevCategory = category;
+        Option option = optionField.getAnnotation(Option.class);
+        String category = option.category();
+        if (!category.equals(prevCategory)
+            && option.optionUsageRestrictions() == OptionUsageRestrictions.DOCUMENTED) {
           String description = categoryDescriptions.get(category);
           if (description == null) {
             description = "Options category '" + category + "'";
           }
-          if (documentationLevel(category) == DocumentationLevel.DOCUMENTED) {
-            desc.append("\n").append(description).append(":\n");
-          }
+          desc.append("\n").append(description).append(":\n");
+          prevCategory = category;
         }
 
-        if (documentationLevel(prevCategory) == DocumentationLevel.DOCUMENTED) {
-          OptionsUsage.getUsage(optionField, desc, helpVerbosity);
+        if (option.optionUsageRestrictions() == OptionUsageRestrictions.DOCUMENTED) {
+          OptionsUsage.getUsage(optionField, desc, helpVerbosity, impl.getOptionsData());
         }
       }
     }
@@ -477,19 +583,21 @@ public class OptionsParser implements OptionsProvider {
    *   of the category.
    */
   public String describeOptionsHtml(Map<String, String> categoryDescriptions, Escaper escaper) {
+    OptionsData data = impl.getOptionsData();
     StringBuilder desc = new StringBuilder();
-    if (!impl.getOptionsClasses().isEmpty()) {
-      List<Field> allFields = Lists.newArrayList();
-      for (Class<? extends OptionsBase> optionsClass : impl.getOptionsClasses()) {
-        allFields.addAll(impl.getAnnotatedFieldsFor(optionsClass));
+    if (!data.getOptionsClasses().isEmpty()) {
+      List<Field> allFields = new ArrayList<>();
+      for (Class<? extends OptionsBase> optionsClass : data.getOptionsClasses()) {
+        allFields.addAll(data.getFieldsForClass(optionsClass));
       }
       Collections.sort(allFields, OptionsUsage.BY_CATEGORY);
       String prevCategory = null;
 
       for (Field optionField : allFields) {
-        String category = optionField.getAnnotation(Option.class).category();
-        DocumentationLevel level = documentationLevel(category);
-        if (!category.equals(prevCategory) && level == DocumentationLevel.DOCUMENTED) {
+        Option option = optionField.getAnnotation(Option.class);
+        String category = option.category();
+        if (!category.equals(prevCategory)
+            && option.optionUsageRestrictions() == OptionUsageRestrictions.DOCUMENTED) {
           String description = categoryDescriptions.get(category);
           if (description == null) {
             description = "Options category '" + category + "'";
@@ -502,8 +610,8 @@ public class OptionsParser implements OptionsProvider {
           prevCategory = category;
         }
 
-        if (level == DocumentationLevel.DOCUMENTED) {
-          OptionsUsage.getUsageHtml(optionField, desc, escaper);
+        if (option.optionUsageRestrictions() == OptionUsageRestrictions.DOCUMENTED) {
+          OptionsUsage.getUsageHtml(optionField, desc, escaper, impl.getOptionsData());
         }
       }
       desc.append("</dl>\n");
@@ -517,12 +625,13 @@ public class OptionsParser implements OptionsProvider {
    * details on the format for the flag completion.
    */
   public String getOptionsCompletion() {
+    OptionsData data = impl.getOptionsData();
     StringBuilder desc = new StringBuilder();
 
     // List all options
-    List<Field> allFields = Lists.newArrayList();
-    for (Class<? extends OptionsBase> optionsClass : impl.getOptionsClasses()) {
-      allFields.addAll(impl.getAnnotatedFieldsFor(optionsClass));
+    List<Field> allFields = new ArrayList<>();
+    for (Class<? extends OptionsBase> optionsClass : data.getOptionsClasses()) {
+      allFields.addAll(data.getFieldsForClass(optionsClass));
     }
     // Sort field for deterministic ordering
     Collections.sort(allFields, new Comparator<Field>() {
@@ -534,8 +643,8 @@ public class OptionsParser implements OptionsProvider {
       }
     });
     for (Field optionField : allFields) {
-      String category = optionField.getAnnotation(Option.class).category();
-      if (documentationLevel(category) == DocumentationLevel.DOCUMENTED) {
+      Option option = optionField.getAnnotation(Option.class);
+      if (option.optionUsageRestrictions() == OptionUsageRestrictions.DOCUMENTED) {
         OptionsUsage.getCompletion(optionField, desc);
       }
     }
@@ -546,10 +655,10 @@ public class OptionsParser implements OptionsProvider {
   /**
    * Returns a description of the option.
    *
-   * @return The {@link OptionValueDescription} for the option, or null if there is no option by
-   *        the given name.
+   * @return The {@link OptionDescription} for the option, or null if there is no option by the
+   *     given name.
    */
-  public OptionDescription getOptionDescription(String name) {
+  public OptionDescription getOptionDescription(String name) throws OptionsParsingException {
     return impl.getOptionDescription(name);
   }
 
@@ -567,22 +676,12 @@ public class OptionsParser implements OptionsProvider {
     return impl.getOptionValueDescription(name);
   }
 
-  static DocumentationLevel documentationLevel(String category) {
-    if ("undocumented".equals(category)) {
-      return DocumentationLevel.UNDOCUMENTED;
-    } else if ("hidden".equals(category)) {
-      return DocumentationLevel.HIDDEN;
-    } else {
-      return DocumentationLevel.DOCUMENTED;
-    }
-  }
-
   /**
    * A convenience method, equivalent to
    * {@code parse(OptionPriority.COMMAND_LINE, null, Arrays.asList(args))}.
    */
   public void parse(String... args) throws OptionsParsingException {
-    parse(OptionPriority.COMMAND_LINE, (String) null, Arrays.asList(args));
+    parse(OptionPriority.COMMAND_LINE, null, Arrays.asList(args));
   }
 
   /**
@@ -590,7 +689,7 @@ public class OptionsParser implements OptionsProvider {
    * {@code parse(OptionPriority.COMMAND_LINE, null, args)}.
    */
   public void parse(List<String> args) throws OptionsParsingException {
-    parse(OptionPriority.COMMAND_LINE, (String) null, args);
+    parse(OptionPriority.COMMAND_LINE, null, args);
   }
 
   /**
@@ -629,8 +728,7 @@ public class OptionsParser implements OptionsProvider {
   }
 
   /**
-   * Clears the given option. Also clears expansion arguments and implicit requirements for that
-   * option.
+   * Clears the given option.
    *
    * <p>This will not affect options objects that have already been retrieved from this parser
    * through {@link #getOptions(Class)}.
@@ -639,11 +737,10 @@ public class OptionsParser implements OptionsProvider {
    * @return A map of an option name to the old value of the options that were cleared.
    * @throws IllegalArgumentException If the flag does not exist.
    */
-  public Map<String, OptionValueDescription> clearValue(String optionName)
+  public OptionValueDescription clearValue(String optionName)
       throws OptionsParsingException {
-    Map<String, OptionValueDescription> clearedValues = Maps.newHashMap();
-    impl.clearValue(optionName, clearedValues);
-    return clearedValues;
+    OptionValueDescription clearedValue = impl.clearValue(optionName);
+    return clearedValue;
   }
 
   @Override
@@ -686,5 +783,125 @@ public class OptionsParser implements OptionsProvider {
   @Override
   public List<String> canonicalize() {
     return impl.asCanonicalizedList();
+  }
+
+  /** Returns all options fields of the given options class, in alphabetic order. */
+  public static Collection<Field> getFields(Class<? extends OptionsBase> optionsClass) {
+    OptionsData data = OptionsParser.getOptionsDataInternal(optionsClass);
+    return data.getFieldsForClass(optionsClass);
+  }
+
+  /**
+   * Returns whether the given options class uses only the core types listed in {@link
+   * OptionsBase#coreTypes}. These are guaranteed to be deeply immutable and serializable.
+   */
+  public static boolean getUsesOnlyCoreTypes(Class<? extends OptionsBase> optionsClass) {
+    OptionsData data = OptionsParser.getOptionsDataInternal(optionsClass);
+    return data.getUsesOnlyCoreTypes(optionsClass);
+  }
+
+  /**
+   * Returns a mapping from each option {@link Field} in {@code optionsClass} (including inherited
+   * ones) to its value in {@code options}.
+   *
+   * <p>The map is a mutable copy; changing the map won't affect {@code options} and vice versa.
+   * The map entries appear sorted alphabetically by option name.
+   *
+   * If {@code options} is an instance of a subclass of {@code optionsClass}, any options defined
+   * by the subclass are not included in the map.
+   *
+   * @throws IllegalArgumentException if {@code options} is not an instance of {@code optionsClass}
+   */
+  public static <O extends OptionsBase> Map<Field, Object> toMap(Class<O> optionsClass, O options) {
+    OptionsData data = getOptionsDataInternal(optionsClass);
+    // Alphabetized due to getFieldsForClass()'s order.
+    Map<Field, Object> map = new LinkedHashMap<>();
+    for (Field field : data.getFieldsForClass(optionsClass)) {
+      try {
+        map.put(field, field.get(options));
+      } catch (IllegalAccessException e) {
+        // All options fields of options classes should be public.
+        throw new IllegalStateException(e);
+      } catch (IllegalArgumentException e) {
+        // This would indicate an inconsistency in the cached OptionsData.
+        throw new IllegalStateException(e);
+      }
+    }
+    return map;
+  }
+
+  /**
+   * Given a mapping as returned by {@link #toMap}, and the options class it that its entries
+   * correspond to, this constructs the corresponding instance of the options class.
+   *
+   * @throws IllegalArgumentException if {@code map} does not contain exactly the fields of {@code
+   *     optionsClass}, with values of the appropriate type
+   */
+  public static <O extends OptionsBase> O fromMap(Class<O> optionsClass, Map<Field, Object> map) {
+    // Instantiate the options class.
+    OptionsData data = getOptionsDataInternal(optionsClass);
+    O optionsInstance;
+    try {
+      Constructor<O> constructor = data.getConstructor(optionsClass);
+      Preconditions.checkNotNull(constructor, "No options class constructor available");
+      optionsInstance = constructor.newInstance();
+    } catch (ReflectiveOperationException e) {
+      throw new IllegalStateException("Error while instantiating options class", e);
+    }
+
+    List<Field> fields = data.getFieldsForClass(optionsClass);
+    // Ensure all fields are covered, no extraneous fields.
+    validateFieldsSets(new LinkedHashSet<>(fields), new LinkedHashSet<>(map.keySet()));
+    // Populate the instance.
+    for (Field field : fields) {
+      // Non-null as per above check.
+      Object value = map.get(field);
+      try {
+        field.set(optionsInstance, value);
+      } catch (IllegalAccessException e) {
+        throw new IllegalStateException(e);
+      }
+      // May also throw IllegalArgumentException if map value is ill typed.
+    }
+    return optionsInstance;
+  }
+
+  /**
+   * Raises a pretty {@link IllegalArgumentException} if the two sets of fields are not equal.
+   *
+   * <p>The entries in {@code fieldsFromMap} may be ill formed by being null or lacking an {@link
+   * Option} annotation. (This isn't done for {@code fieldsFromClass} because they come from an
+   * {@link OptionsData} object.)
+   */
+  private static void validateFieldsSets(
+      LinkedHashSet<Field> fieldsFromClass, LinkedHashSet<Field> fieldsFromMap) {
+    if (!fieldsFromClass.equals(fieldsFromMap)) {
+      List<String> extraNamesFromClass = new ArrayList<>();
+      List<String> extraNamesFromMap = new ArrayList<>();
+      for (Field field : fieldsFromClass) {
+        if (!fieldsFromMap.contains(field)) {
+          extraNamesFromClass.add("'" + field.getAnnotation(Option.class).name() + "'");
+        }
+      }
+      for (Field field : fieldsFromMap) {
+        // Extra validation on the map keys since they don't come from OptionsData.
+        if (!fieldsFromClass.contains(field)) {
+          if (field == null) {
+            extraNamesFromMap.add("<null field>");
+          } else {
+            Option annotation = field.getAnnotation(Option.class);
+            if (annotation == null) {
+              extraNamesFromMap.add("<non-Option field>");
+            } else {
+              extraNamesFromMap.add("'" + annotation.name() + "'");
+            }
+          }
+        }
+      }
+      throw new IllegalArgumentException(
+          "Map keys do not match fields of options class; extra map keys: {"
+          + Joiner.on(", ").join(extraNamesFromMap) + "}; extra options class options: {"
+          + Joiner.on(", ").join(extraNamesFromClass) + "}");
+    }
   }
 }

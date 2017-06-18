@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Arrays;
 import java.util.List;
@@ -43,9 +42,13 @@ public class SkylarkAspect implements SkylarkExportable {
   private final BaseFunction implementation;
   private final ImmutableList<String> attributeAspects;
   private final ImmutableList<Attribute> attributes;
+  private final ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> requiredAspectProviders;
+  private final ImmutableSet<SkylarkProviderIdentifier> provides;
   private final ImmutableSet<String> paramAttributes;
   private final ImmutableSet<String> fragments;
   private final ImmutableSet<String> hostFragments;
+  private final ImmutableList<ClassObjectConstructor.Key> requiredToolchains;
+
   private final Environment funcallEnv;
   private SkylarkAspectClass aspectClass;
 
@@ -53,18 +56,23 @@ public class SkylarkAspect implements SkylarkExportable {
       BaseFunction implementation,
       ImmutableList<String> attributeAspects,
       ImmutableList<Attribute> attributes,
+      ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> requiredAspectProviders,
+      ImmutableSet<SkylarkProviderIdentifier> provides,
       ImmutableSet<String> paramAttributes,
       ImmutableSet<String> fragments,
       ImmutableSet<String> hostFragments,
+      ImmutableList<ClassObjectConstructor.Key> requiredToolchains,
       Environment funcallEnv) {
     this.implementation = implementation;
     this.attributeAspects = attributeAspects;
     this.attributes = attributes;
+    this.requiredAspectProviders = requiredAspectProviders;
+    this.provides = provides;
     this.paramAttributes = paramAttributes;
     this.fragments = fragments;
     this.hostFragments = hostFragments;
+    this.requiredToolchains = requiredToolchains;
     this.funcallEnv = funcallEnv;
-    ImmutableList.Builder<Pair<String, Attribute>> builder = ImmutableList.builder();
   }
 
   public BaseFunction getImplementation() {
@@ -118,10 +126,10 @@ public class SkylarkAspect implements SkylarkExportable {
   public AspectDefinition getDefinition(AspectParameters aspectParams) {
     AspectDefinition.Builder builder = new AspectDefinition.Builder(aspectClass);
     if (allAttrAspects.equals(attributeAspects)) {
-      builder.allAttributesAspect(aspectClass);
+      builder.propagateAlongAllAttributes();
     } else {
       for (String attributeAspect : attributeAspects) {
-        builder.attributeAspect(attributeAspect, aspectClass);
+        builder.propagateAlongAttribute(attributeAspect);
       }
     }
     
@@ -140,8 +148,16 @@ public class SkylarkAspect implements SkylarkExportable {
       }
       builder.add(attr);
     }
+    builder.requireAspectsWithProviders(requiredAspectProviders);
+    ImmutableList.Builder<SkylarkProviderIdentifier> advertisedSkylarkProviders =
+        ImmutableList.builder();
+    for (SkylarkProviderIdentifier provider : provides) {
+      advertisedSkylarkProviders.add(provider);
+    }
+    builder.advertiseProvider(advertisedSkylarkProviders.build());
     builder.requiresConfigurationFragmentsBySkylarkModuleName(fragments);
     builder.requiresHostConfigurationFragmentsBySkylarkModuleName(hostFragments);
+    builder.addRequiredToolchains(requiredToolchains);
     return builder.build();
   }
 
@@ -183,5 +199,9 @@ public class SkylarkAspect implements SkylarkExportable {
         return builder.build();
       }
     };
+  }
+
+  public ImmutableList<ClassObjectConstructor.Key> getRequiredToolchains() {
+    return requiredToolchains;
   }
 }

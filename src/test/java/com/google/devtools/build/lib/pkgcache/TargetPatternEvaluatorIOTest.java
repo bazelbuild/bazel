@@ -58,7 +58,7 @@ public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluator
 
   @Override
   protected FileSystem createFileSystem() {
-    return new InMemoryFileSystem(BlazeClock.instance(), new PathFragment(FS_ROOT)) {
+    return new InMemoryFileSystem(BlazeClock.instance(), PathFragment.create(FS_ROOT)) {
       @Override
       public FileStatus stat(Path path, boolean followSymlinks) throws IOException {
         FileStatus defaultResult = super.stat(path, followSymlinks);

@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -25,16 +25,12 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.util.Map;
-
-/**
- * Tests for {@link LabelExpander}.
- */
+/** Tests for {@link LabelExpander}. */
 @TestSpec(size = Suite.SMALL_TESTS)
 @RunWith(JUnit4.class)
 public class LabelExpanderTest extends BuildViewTestCase {
@@ -106,8 +102,8 @@ public class LabelExpanderTest extends BuildViewTestCase {
    */
   private void assertExpansion(String expectedResult, String expressionToExpand,
       Map<Label, Iterable<Artifact>> mapping) throws Exception {
-    assertEquals(expectedResult,
-        LabelExpander.expand(expressionToExpand, mapping, dummyTarget.getLabel()));
+    assertThat(LabelExpander.expand(expressionToExpand, mapping, dummyTarget.getLabel()))
+        .isEqualTo(expectedResult);
   }
 
   /**

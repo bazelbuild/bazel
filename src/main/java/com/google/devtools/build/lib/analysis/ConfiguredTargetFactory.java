@@ -28,6 +28,8 @@ import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -35,6 +37,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -51,13 +54,17 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleVisibility;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.SkylarkRuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.rules.fileset.FilesetProvider;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.SkyFunction;
+
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -140,14 +147,21 @@ public final class ConfiguredTargetFactory {
     return null;
   }
 
-  private Artifact getOutputArtifact(OutputFile outputFile, BuildConfiguration configuration,
-      boolean isFileset, ArtifactFactory artifactFactory) {
+  /**
+   * Returns the output artifact for the given file, or null if Skyframe deps are missing.
+   */
+  private Artifact getOutputArtifact(AnalysisEnvironment analysisEnvironment, OutputFile outputFile,
+      BuildConfiguration configuration, boolean isFileset, ArtifactFactory artifactFactory)
+      throws InterruptedException {
     Rule rule = outputFile.getAssociatedRule();
     Root root = rule.hasBinaryOutput()
         ? configuration.getBinDirectory(rule.getRepository())
         : configuration.getGenfilesDirectory(rule.getRepository());
-    ArtifactOwner owner =
-        new ConfiguredTargetKey(rule.getLabel(), configuration.getArtifactOwnerConfiguration());
+    ArtifactOwner owner = new ConfiguredTargetKey(rule.getLabel(),
+        getArtifactOwnerConfiguration(analysisEnvironment.getSkyframeEnv(), configuration));
+    if (analysisEnvironment.getSkyframeEnv().valuesMissing()) {
+      return null;
+    }
     PathFragment rootRelativePath =
         outputFile.getLabel().getPackageIdentifier().getSourceRoot().getRelative(
             outputFile.getLabel().getName());
@@ -157,6 +171,37 @@ public final class ConfiguredTargetFactory {
     // The associated rule should have created the artifact.
     Preconditions.checkNotNull(result, "no artifact for %s", rootRelativePath);
     return result;
+  }
+
+  /**
+   * Returns the configuration's artifact owner (which may be null). Also returns null if the
+   * owning configuration isn't yet available from Skyframe.
+   */
+  public static BuildConfiguration getArtifactOwnerConfiguration(SkyFunction.Environment env,
+      BuildConfiguration fromConfig) throws InterruptedException {
+    if (fromConfig == null) {
+      return null;
+    }
+    if (!fromConfig.useDynamicConfigurations()) {
+      return fromConfig.getArtifactOwnerConfiguration();
+    }
+    PatchTransition ownerTransition = fromConfig.getArtifactOwnerTransition();
+    if (ownerTransition == null) {
+      return fromConfig;
+    }
+    try {
+      BuildConfigurationValue ownerConfig = (BuildConfigurationValue) env.getValueOrThrow(
+          BuildConfigurationValue.key(
+              fromConfig.fragmentClasses(), ownerTransition.apply(fromConfig.getOptions())),
+          InvalidConfigurationException.class);
+      return ownerConfig == null ? null : ownerConfig.getConfiguration();
+    } catch (InvalidConfigurationException e) {
+      // We don't expect to have to handle an invalid configuration because in practice the owning
+      // configuration should already exist. For example, the main user of this feature, the LIPO
+      // context collector, expects the owning configuration to be the top-level target config.
+      throw new IllegalStateException(
+          "this method should only return a pre-existing valid configuration");
+    }
   }
 
   /**
@@ -185,7 +230,11 @@ public final class ConfiguredTargetFactory {
     if (target instanceof OutputFile) {
       OutputFile outputFile = (OutputFile) target;
       boolean isFileset = outputFile.getGeneratingRule().getRuleClass().equals("Fileset");
-      Artifact artifact = getOutputArtifact(outputFile, config, isFileset, artifactFactory);
+      Artifact artifact =
+          getOutputArtifact(analysisEnvironment, outputFile, config, isFileset, artifactFactory);
+      if (analysisEnvironment.getSkyframeEnv().valuesMissing()) {
+        return null;
+      }
       TransitiveInfoCollection rule = targetContext.findDirectPrerequisite(
           outputFile.getGeneratingRule().getLabel(), config);
       if (isFileset) {
@@ -242,6 +291,9 @@ public final class ConfiguredTargetFactory {
             .setConfigConditions(configConditions)
             .setUniversalFragment(ruleClassProvider.getUniversalFragment())
             .setSkylarkProvidersRegistry(ruleClassProvider.getRegisteredSkylarkProviders())
+            // TODO(katre): Populate the actual selected toolchains.
+            .setToolchainContext(
+                new ToolchainContext(rule.getRuleClassObject().getRequiredToolchains(), null))
             .build();
     if (ruleContext.hasErrors()) {
       return null;
@@ -267,6 +319,7 @@ public final class ConfiguredTargetFactory {
       return SkylarkRuleConfiguredTargetBuilder.buildRule(
           ruleContext,
           rule.getRuleClassObject().getConfiguredTargetFunction(),
+          env.getSkylarkSemantics(),
           ruleClassProvider.getRegisteredSkylarkProviders());
     } else {
       RuleClass.ConfiguredTargetFactory<ConfiguredTarget, RuleContext> factory =
@@ -347,12 +400,58 @@ public final class ConfiguredTargetFactory {
             .setAspectAttributes(aspect.getDefinition().getAttributes())
             .setConfigConditions(configConditions)
             .setUniversalFragment(ruleClassProvider.getUniversalFragment())
+            // TODO(katre): Populate the actual selected toolchains.
+            .setToolchainContext(
+                new ToolchainContext(aspect.getDefinition().getRequiredToolchains(), null))
             .build();
     if (ruleContext.hasErrors()) {
       return null;
     }
 
-    return aspectFactory.create(associatedTarget, ruleContext, aspect.getParameters());
+    ConfiguredAspect configuredAspect = aspectFactory
+        .create(associatedTarget, ruleContext, aspect.getParameters());
+    if (configuredAspect != null) {
+      validateAdvertisedProviders(
+          configuredAspect, aspect.getDefinition().getAdvertisedProviders(),
+          associatedTarget.getTarget(),
+          env.getEventHandler()
+      );
+    }
+    return configuredAspect;
+  }
+
+  private void validateAdvertisedProviders(
+      ConfiguredAspect configuredAspect,
+      AdvertisedProviderSet advertisedProviders, Target target,
+      EventHandler eventHandler) {
+    if (advertisedProviders.canHaveAnyProvider()) {
+      return;
+    }
+    for (Class<?> aClass : advertisedProviders.getNativeProviders()) {
+      if (configuredAspect.getProvider(aClass.asSubclass(TransitiveInfoProvider.class)) == null) {
+        eventHandler.handle(Event.error(
+            target.getLocation(),
+            String.format(
+                "Aspect '%s', applied to '%s', does not provide advertised provider '%s'",
+                configuredAspect.getName(),
+                target.getLabel(),
+                aClass.getSimpleName()
+            )));
+      }
+    }
+
+    for (SkylarkProviderIdentifier providerId : advertisedProviders.getSkylarkProviders()) {
+      if (configuredAspect.getProvider(providerId) == null) {
+        eventHandler.handle(Event.error(
+            target.getLocation(),
+            String.format(
+                "Aspect '%s', applied to '%s', does not provide advertised provider '%s'",
+                configuredAspect.getName(),
+                target.getLabel(),
+                providerId
+            )));
+      }
+    }
   }
 
   /**

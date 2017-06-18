@@ -37,11 +37,12 @@ public class JavaPlugin implements RuleConfiguredTargetFactory {
   }
 
   @Override
-  public ConfiguredTarget create(RuleContext ruleContext)
+  public final ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
     JavaLibrary javaLibrary = new JavaLibrary(semantics);
     JavaCommon common = new JavaCommon(ruleContext, semantics);
-    RuleConfiguredTargetBuilder builder = javaLibrary.init(ruleContext, common);
+    RuleConfiguredTargetBuilder builder =
+        javaLibrary.init(ruleContext, common, true /* includeGeneratedExtensionRegistry */);
     if (builder == null) {
       return null;
     }
@@ -56,8 +57,7 @@ public class JavaPlugin implements RuleConfiguredTargetFactory {
       apiGeneratingProcessorClasses = ImmutableSet.of();
       apiGeneratingProcessorClasspath = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
     }
-    builder.add(
-        JavaPluginInfoProvider.class,
+    builder.addProvider(
         new JavaPluginInfoProvider(
             processorClasses,
             processorClasspath,
@@ -67,10 +67,10 @@ public class JavaPlugin implements RuleConfiguredTargetFactory {
   }
 
   /**
-   * Returns the class that should be passed to javac in order
-   * to run the annotation processor this class represents.
+   * Returns the class that should be passed to javac in order to run the annotation processor this
+   * class represents.
    */
-  private ImmutableSet<String> getProcessorClasses(RuleContext ruleContext) {
+  private static ImmutableSet<String> getProcessorClasses(RuleContext ruleContext) {
     if (ruleContext.getRule().isAttributeValueExplicitlySpecified("processor_class")) {
       return ImmutableSet.of(ruleContext.attributes().get("processor_class", Type.STRING));
     }

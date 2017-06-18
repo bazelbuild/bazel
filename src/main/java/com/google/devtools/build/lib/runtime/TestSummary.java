@@ -17,13 +17,16 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.MultimapBuilder;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
+import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter.Mode;
 import com.google.devtools.build.lib.vfs.Path;
@@ -60,7 +63,8 @@ public class TestSummary implements Comparable<TestSummary>, BuildEvent {
 
     private void mergeFrom(TestSummary existingSummary) {
       // Yuck, manually fill in fields.
-      summary.shardRunStatuses = ArrayListMultimap.create(existingSummary.shardRunStatuses);
+      summary.shardRunStatuses =
+          MultimapBuilder.hashKeys().arrayListValues().build(existingSummary.shardRunStatuses);
       setTarget(existingSummary.target);
       setStatus(existingSummary.status);
       addCoverageFiles(existingSummary.coverageFiles);
@@ -216,7 +220,7 @@ public class TestSummary implements Comparable<TestSummary>, BuildEvent {
 
     /**
      * Set the number of results cached, locally or remotely.
-     * 
+     *
      * @param numCached number of results cached locally or remotely
      * @return this Builder
      */
@@ -339,9 +343,8 @@ public class TestSummary implements Comparable<TestSummary>, BuildEvent {
   }
 
   /**
-   * Whether or not any results associated with this test were cached locally
-   * or remotely.
-   * 
+   * Whether or not any results associated with this test were cached locally or remotely.
+   *
    * @return true if any results were cached, false if not
    */
   public boolean isCached() {
@@ -368,9 +371,9 @@ public class TestSummary implements Comparable<TestSummary>, BuildEvent {
   }
 
   /**
-   * Whether or not any action was taken for this test, that is there was some
-   * result that was <em>not cached</em>.
-   * 
+   * Whether or not any action was taken for this test, that is there was some result that was
+   * <em>not cached</em>.
+   *
    * @return true if some action was taken for this test, false if not
    */
   public boolean actionRan() {
@@ -452,7 +455,8 @@ public class TestSummary implements Comparable<TestSummary>, BuildEvent {
 
   @Override
   public BuildEventId getEventId() {
-    return BuildEventId.testSummary(target.getTarget().getLabel());
+    return BuildEventId.testSummary(
+        target.getTarget().getLabel(), target.getConfiguration().getEventId());
   }
 
   @Override
@@ -461,16 +465,19 @@ public class TestSummary implements Comparable<TestSummary>, BuildEvent {
   }
 
   @Override
-  public BuildEventStreamProtos.BuildEvent asStreamProto() {
+  public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
+    PathConverter pathConverter = converters.pathConverter();
     BuildEventStreamProtos.TestSummary.Builder summaryBuilder =
-        BuildEventStreamProtos.TestSummary.newBuilder().setTotalRunCount(totalRuns());
+        BuildEventStreamProtos.TestSummary.newBuilder()
+            .setOverallStatus(BuildEventStreamerUtils.bepStatus(status))
+            .setTotalRunCount(totalRuns());
     for (Path path : getFailedLogs()) {
       summaryBuilder.addFailed(
-          BuildEventStreamProtos.File.newBuilder().setUri(path.toString()).build());
+          BuildEventStreamProtos.File.newBuilder().setUri(pathConverter.apply(path)).build());
     }
     for (Path path : getPassedLogs()) {
       summaryBuilder.addPassed(
-          BuildEventStreamProtos.File.newBuilder().setUri(path.toString()).build());
+          BuildEventStreamProtos.File.newBuilder().setUri(pathConverter.apply(path)).build());
     }
     return GenericBuildEvent.protoChaining(this).setTestSummary(summaryBuilder.build()).build();
   }

@@ -17,14 +17,22 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 
-/** Rule definition for apple_watch2_extension. */
+/**
+ * Rule definition for apple_watch2_extension.
+ *
+ * @deprecated The native bundling rules have been deprecated. This class will be removed in the
+ *     future.
+ */
+@Deprecated
 public class AppleWatch2ExtensionRule implements RuleDefinition {
 
   @Override
@@ -38,9 +46,11 @@ public class AppleWatch2ExtensionRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(
             attr("binary", LABEL)
-                .allowedRuleClasses("apple_binary")
                 .allowedFileTypes()
-                .mandatory()
+                .mandatoryProviders(
+                    ImmutableList.of(
+                        SkylarkProviderIdentifier.forKey(
+                            AppleExecutableBinaryProvider.SKYLARK_CONSTRUCTOR.getKey())))
                 .direct_compile_time_input())
         .build();
   }
@@ -52,7 +62,6 @@ public class AppleWatch2ExtensionRule implements RuleDefinition {
         .factoryClass(AppleWatch2Extension.class)
         .ancestors(
             BaseRuleClasses.BaseRule.class,
-            ObjcRuleClasses.XcodegenRule.class,
             ObjcRuleClasses.WatchApplicationBundleRule.class,
             ObjcRuleClasses.WatchExtensionBundleRule.class)
         .build();
@@ -60,6 +69,10 @@ public class AppleWatch2ExtensionRule implements RuleDefinition {
 }
 
 /*<!-- #BLAZE_RULE (NAME = apple_watch2_extension, TYPE = BINARY, FAMILY = Objective-C) -->
+
+<p><strong>This rule is deprecated.</strong> Please use the new Apple build rules
+(<a href="https://github.com/bazelbuild/rules_apple">https://github.com/bazelbuild/rules_apple</a>)
+to build Apple targets.</p>
 
 <p>This rule produces an extension bundle for apple watch OS 2.</p>
 

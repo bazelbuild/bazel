@@ -14,16 +14,15 @@
 
 package com.google.devtools.build.singlejar;
 
-import static org.junit.Assert.assertEquals;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import static com.google.common.truth.Truth.assertThat;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.jar.JarFile;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Unit tests for {@link DefaultJarEntryFilter}.
@@ -37,55 +36,56 @@ public class DefaultJarEntryFilterTest {
   public void testSingleInput() throws IOException {
     RecordingCallback callback = new RecordingCallback();
     new DefaultJarEntryFilter().accept("abc", callback);
-    assertEquals(Arrays.asList("copy"), callback.calls);
-    assertEquals(Arrays.asList(DOS_EPOCH), callback.dates);
+    assertThat(callback.calls).isEqualTo(Arrays.asList("copy"));
+    assertThat(callback.dates).isEqualTo(Arrays.asList(DOS_EPOCH));
   }
 
   @Test
   public void testProtobufExtensionsInput() throws IOException {
     RecordingCallback callback = new RecordingCallback();
     new DefaultJarEntryFilter().accept("protobuf.meta", callback);
-    assertEquals(Arrays.asList("customMerge"), callback.calls);
-    assertEquals(Arrays.asList(DOS_EPOCH), callback.dates);
+    assertThat(callback.calls).isEqualTo(Arrays.asList("customMerge"));
+    assertThat(callback.dates).isEqualTo(Arrays.asList(DOS_EPOCH));
   }
 
   @Test
   public void testManifestInput() throws IOException {
     RecordingCallback callback = new RecordingCallback();
     new DefaultJarEntryFilter().accept(JarFile.MANIFEST_NAME, callback);
-    assertEquals(Arrays.asList("skip"), callback.calls);
+    assertThat(callback.calls).isEqualTo(Arrays.asList("skip"));
   }
 
   @Test
   public void testServiceInput() throws IOException {
     RecordingCallback callback = new RecordingCallback();
     new DefaultJarEntryFilter().accept("META-INF/services/any.service", callback);
-    assertEquals(Arrays.asList("customMerge"), callback.calls);
-    assertEquals(Arrays.asList(DOS_EPOCH), callback.dates);
+    assertThat(callback.calls).isEqualTo(Arrays.asList("customMerge"));
+    assertThat(callback.dates).isEqualTo(Arrays.asList(DOS_EPOCH));
   }
 
   @Test
   public void testSpringHandlers() throws IOException {
     RecordingCallback callback = new RecordingCallback();
     new DefaultJarEntryFilter().accept("META-INF/spring.handlers", callback);
-    assertEquals(Arrays.asList("customMerge"), callback.calls);
-    assertEquals(Arrays.asList(DOS_EPOCH), callback.dates);
+    assertThat(callback.calls).isEqualTo(Arrays.asList("customMerge"));
+    assertThat(callback.dates).isEqualTo(Arrays.asList(DOS_EPOCH));
   }
 
   @Test
   public void testSpringSchemas() throws IOException {
     RecordingCallback callback = new RecordingCallback();
     new DefaultJarEntryFilter().accept("META-INF/spring.schemas", callback);
-    assertEquals(Arrays.asList("customMerge"), callback.calls);
-    assertEquals(Arrays.asList(DOS_EPOCH), callback.dates);
+    assertThat(callback.calls).isEqualTo(Arrays.asList("customMerge"));
+    assertThat(callback.dates).isEqualTo(Arrays.asList(DOS_EPOCH));
   }
 
   @Test
   public void testClassInput() throws IOException {
     RecordingCallback callback = new RecordingCallback();
     new DefaultJarEntryFilter().accept("a.class", callback);
-    assertEquals(Arrays.asList("copy"), callback.calls);
-    assertEquals(Arrays.asList(DefaultJarEntryFilter.DOS_EPOCH_PLUS_2_SECONDS), callback.dates);
+    assertThat(callback.calls).isEqualTo(Arrays.asList("copy"));
+    assertThat(callback.dates)
+        .isEqualTo(Arrays.asList(DefaultJarEntryFilter.DOS_EPOCH_PLUS_2_SECONDS));
   }
 
   @Test
@@ -95,7 +95,7 @@ public class DefaultJarEntryFilterTest {
     filter.accept("a.SF", callback);
     filter.accept("a.DSA", callback);
     filter.accept("a.RSA", callback);
-    assertEquals(Arrays.asList("skip", "skip", "skip"), callback.calls);
-    assertEquals(Arrays.<Date>asList(), callback.dates);
+    assertThat(callback.calls).isEqualTo(Arrays.asList("skip", "skip", "skip"));
+    assertThat(callback.dates).isEqualTo(Arrays.<Date>asList());
   }
 }

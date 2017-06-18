@@ -6,7 +6,7 @@
 
     <script>
       var current_url = window.location.href;
-      var bad_url = new RegExp("^https?://(bazelbuild.github.io/bazel|bazel.io)/");
+      var bad_url = new RegExp("^https?://(bazelbuild.github.io/bazel|(www\.)?bazel.io)/");
       if (bad_url.test(current_url)) {
         window.location.replace(current_url.replace(bad_url, "https://bazel.build/"));
       }

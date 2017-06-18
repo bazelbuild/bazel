@@ -195,8 +195,11 @@ class StartupOptions {
   // the --host_javabase option.
   std::string GetHostJavabase();
 
-  // Port for gRPC command server. 0 means let the kernel choose, -1 means no
-  // gRPC command server.
+  // Returns the explicit value of the --host_javabase startup option or the
+  // empty string if it was not specified on the command line.
+  std::string GetExplicitHostJavabase() const;
+
+  // Port to start up the gRPC command server on. If 0, let the kernel choose.
   int command_port;
 
   // Connection timeout for each gRPC connection attempt.
@@ -208,9 +211,8 @@ class StartupOptions {
   // Whether to output addition debugging information in the client.
   bool client_debug;
 
-  // Whether to check custom file for exit code when the Blaze Server exits
-  // abruptly without proper communication over gRPC.
-  bool use_custom_exit_code_on_abrupt_exit;
+  // Value of the java.util.logging.FileHandler.formatter Java property.
+  std::string java_logging_formatter;
 
  protected:
   // Constructor for subclasses only so that site-specific extensions of this
@@ -227,6 +229,11 @@ class StartupOptions {
 
  private:
   std::string host_javabase;
+  std::string default_host_javabase;
+
+#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+  static std::string WindowsUnixRoot(const std::string &bazel_sh);
+#endif
 };
 
 }  // namespace blaze

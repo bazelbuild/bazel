@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.analysis.PseudoAction;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.SkylarkProviders;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.Util;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -39,9 +38,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.LocalMetadataCollector;
@@ -159,7 +158,7 @@ public final class PyCommon {
    */
   public static SkylarkClassObject createSourceProvider(
       NestedSet<Artifact> transitivePythonSources, boolean isUsingSharedLibrary) {
-    return SkylarkClassObjectConstructor.STRUCT.create(
+    return NativeClassObjectConstructor.STRUCT.create(
         ImmutableMap.<String, Object>of(
             TRANSITIVE_PYTHON_SRCS,
             SkylarkNestedSet.of(Artifact.class, transitivePythonSources),
@@ -213,7 +212,8 @@ public final class PyCommon {
       }
     }
 
-    LanguageDependentFragment.Checker.depsSupportsLanguage(ruleContext, PyRuleClasses.LANGUAGE);
+    LanguageDependentFragment.Checker.depsSupportsLanguage(
+        ruleContext, PyRuleClasses.LANGUAGE, ImmutableList.of("deps"));
     return convertedFiles != null
         ? ImmutableList.copyOf(convertedFiles.values())
         : sourceFiles;
@@ -294,12 +294,13 @@ public final class PyCommon {
   private NestedSet<Artifact> getTransitivePythonSourcesFromSkylarkProvider(
       TransitiveInfoCollection dep) {
     SkylarkClassObject pythonSkylarkProvider = null;
-    SkylarkProviders skylarkProviders = dep.getProvider(SkylarkProviders.class);
     try {
-      if (skylarkProviders != null) {
-        pythonSkylarkProvider = skylarkProviders.getValue(PYTHON_SKYLARK_PROVIDER_NAME,
-            SkylarkClassObject.class);
-      }
+      pythonSkylarkProvider = SkylarkType.cast(
+              dep.get(PYTHON_SKYLARK_PROVIDER_NAME),
+              SkylarkClassObject.class,
+              null,
+              "%s should be a struct", PYTHON_SKYLARK_PROVIDER_NAME
+      );
 
       if (pythonSkylarkProvider != null) {
         Object sourceFiles = pythonSkylarkProvider.getValue(TRANSITIVE_PYTHON_SRCS);
@@ -410,7 +411,7 @@ public final class PyCommon {
       }
       mainSourceName = ruleName + ".py";
     }
-    PathFragment mainSourcePath = new PathFragment(mainSourceName);
+    PathFragment mainSourcePath = PathFragment.create(mainSourceName);
 
     Artifact mainArtifact = null;
     for (Artifact outItem : ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list()) {
@@ -433,8 +434,8 @@ public final class PyCommon {
     if (!withWorkspaceName) {
       return mainArtifact.getRunfilesPath().getPathString();
     }
-    PathFragment workspaceName = new PathFragment(
-        ruleContext.getRule().getPackage().getWorkspaceName());
+    PathFragment workspaceName =
+        PathFragment.create(ruleContext.getRule().getPackage().getWorkspaceName());
     return workspaceName.getRelative(mainArtifact.getRunfilesPath()).getPathString();
   }
 
@@ -472,13 +473,10 @@ public final class PyCommon {
   public static boolean checkForSharedLibraries(Iterable<TransitiveInfoCollection> deps)
           throws EvalException{
     for (TransitiveInfoCollection dep : deps) {
-      SkylarkProviders providers = dep.getProvider(SkylarkProviders.class);
-      SkylarkClassObject provider = null;
-      if (providers != null) {
-        provider = providers.getValue(PYTHON_SKYLARK_PROVIDER_NAME,
-                SkylarkClassObject.class);
-      }
-      if (provider != null) {
+      Object providerObject = dep.get(PYTHON_SKYLARK_PROVIDER_NAME);
+      if (providerObject != null) {
+        SkylarkType.checkType(providerObject, SkylarkClassObject.class, null);
+        SkylarkClassObject provider = (SkylarkClassObject) providerObject;
         Boolean isUsingSharedLibrary = provider.getValue(IS_USING_SHARED_LIBRARY, Boolean.class);
         if (Boolean.TRUE.equals(isUsingSharedLibrary)) {
           return true;

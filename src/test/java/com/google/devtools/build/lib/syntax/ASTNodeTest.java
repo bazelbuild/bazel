@@ -54,7 +54,7 @@ public class ASTNodeTest {
   @Test
   public void testEqualsNotSupported() {
     try {
-      node.equals(this);
+      node.equals(null);
       fail();
     } catch (UnsupportedOperationException e) {
       // yes!

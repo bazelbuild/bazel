@@ -21,6 +21,7 @@ public enum Operator {
   AND("and"),
   DIVIDE("/"),
   EQUALS_EQUALS("=="),
+  FLOOR_DIVIDE("//"),
   GREATER(">"),
   GREATER_EQUALS(">="),
   IN("in"),

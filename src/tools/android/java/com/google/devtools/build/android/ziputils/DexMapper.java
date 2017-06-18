@@ -19,7 +19,6 @@ import com.google.common.base.Predicates;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-
 import java.util.List;
 
 /**

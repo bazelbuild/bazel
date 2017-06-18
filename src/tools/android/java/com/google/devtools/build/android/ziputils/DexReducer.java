@@ -27,7 +27,6 @@ import static com.google.devtools.build.android.ziputils.LocalFileHeader.LOCTIM;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;

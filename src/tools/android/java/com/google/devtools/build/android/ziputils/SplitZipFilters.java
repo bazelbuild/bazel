@@ -16,7 +16,6 @@ package com.google.devtools.build.android.ziputils;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableSet;
-
 import java.io.FileInputStream;
 import java.io.IOException;
 

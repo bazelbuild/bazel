@@ -134,8 +134,8 @@ public final class Runfiles {
     private final Artifact artifact;
 
     private SymlinkEntry(PathFragment path, Artifact artifact) {
-      this.path = path;
-      this.artifact = artifact;
+      this.path = Preconditions.checkNotNull(path);
+      this.artifact = Preconditions.checkNotNull(artifact);
     }
 
     public PathFragment getPath() {
@@ -146,10 +146,12 @@ public final class Runfiles {
       return artifact;
     }
 
+    @Override
     public boolean isImmutable() {
       return true;
     }
 
+    @Override
     public void write(Appendable buffer, char quotationMark) {
       Printer.append(buffer, "SymlinkEntry(path = ");
       Printer.write(buffer, getPath().toString(), quotationMark);
@@ -330,12 +332,12 @@ public final class Runfiles {
   }
 
   /**
-   * Returns the collection of runfiles as artifacts, including both unconditional artifacts
-   * and pruning manifest candidates.
+   * Returns the collection of runfiles as artifacts, including both unconditional artifacts and
+   * pruning manifest candidates.
    */
   @SkylarkCallable(
     name = "files",
-    doc = "Returns the set of runfiles as files",
+    doc = "Returns the set of runfiles as files.",
     structField = true
   )
   public NestedSet<Artifact> getArtifacts() {
@@ -355,10 +357,8 @@ public final class Runfiles {
     return Iterables.filter(getArtifacts(), Artifact.MIDDLEMAN_FILTER);
   }
 
-  /**
-   * Returns the symlinks.
-   */
-  @SkylarkCallable(name = "symlinks", doc = "Returns the set of symlinks", structField = true)
+  /** Returns the symlinks. */
+  @SkylarkCallable(name = "symlinks", doc = "Returns the set of symlinks.", structField = true)
   public NestedSet<SymlinkEntry> getSymlinks() {
     return symlinks;
   }
@@ -433,14 +433,14 @@ public final class Runfiles {
    * Returns the symlinks as a map from PathFragment to Artifact.
    *
    * @param eventHandler Used for throwing an error if we have an obscuring runlink within the
-   *    normal source tree entries, or runfile conflicts. May be null, in which case obscuring
-   *    symlinks are silently discarded, and conflicts are overwritten.
+   *     normal source tree entries, or runfile conflicts. May be null, in which case obscuring
+   *     symlinks are silently discarded, and conflicts are overwritten.
    * @param location Location for eventHandler warnings. Ignored if eventHandler is null.
    * @return Map<PathFragment, Artifact> path fragment to artifact, of normal source tree entries
-   *    and elements that live outside the source tree. Null values represent empty input files.
+   *     and elements that live outside the source tree. Null values represent empty input files.
    */
-  public Map<PathFragment, Artifact> getRunfilesInputs(EventHandler eventHandler,
-      Location location) throws IOException {
+  public Map<PathFragment, Artifact> getRunfilesInputs(EventHandler eventHandler, Location location)
+      throws IOException {
     ConflictChecker checker = new ConflictChecker(conflictPolicy, eventHandler, location);
     Map<PathFragment, Artifact> manifest = getSymlinksAsMap(checker);
     // Add unconditional artifacts (committed to inclusion on construction of runfiles).
@@ -558,7 +558,8 @@ public final class Runfiles {
     }
 
     private PathFragment checkForWorkspace(PathFragment path) {
-      sawWorkspaceName = sawWorkspaceName || path.getSegment(0).equals(workspaceName);
+      sawWorkspaceName = sawWorkspaceName
+          || path.getSegment(0).equals(workspaceName.getPathString());
       return path;
     }
 
@@ -640,8 +641,8 @@ public final class Runfiles {
    * Returns if there are no runfiles.
    */
   public boolean isEmpty() {
-    return unconditionalArtifacts.isEmpty() && symlinks.isEmpty() && rootSymlinks.isEmpty() &&
-        pruningManifests.isEmpty();
+    return unconditionalArtifacts.isEmpty() && symlinks.isEmpty() && rootSymlinks.isEmpty()
+        && pruningManifests.isEmpty();
   }
 
   /**
@@ -784,7 +785,7 @@ public final class Runfiles {
      *     created.
      */
     public Builder(String workspace, boolean legacyExternalRunfiles) {
-      this(new PathFragment(workspace), legacyExternalRunfiles);
+      this(PathFragment.create(workspace), legacyExternalRunfiles);
     }
 
     /**
@@ -852,15 +853,11 @@ public final class Runfiles {
      * Adds a symlink.
      */
     public Builder addSymlink(PathFragment link, Artifact target) {
-      Preconditions.checkNotNull(link);
-      Preconditions.checkNotNull(target);
       symlinksBuilder.add(new SymlinkEntry(link, target));
       return this;
     }
 
-    /**
-     * Adds several symlinks.
-     */
+    /** Adds several symlinks. Neither keys nor values may be null. */
     public Builder addSymlinks(Map<PathFragment, Artifact> symlinks) {
       for (Map.Entry<PathFragment, Artifact> symlink : symlinks.entrySet()) {
         symlinksBuilder.add(new SymlinkEntry(symlink.getKey(), symlink.getValue()));
@@ -880,15 +877,11 @@ public final class Runfiles {
      * Adds a root symlink.
      */
     public Builder addRootSymlink(PathFragment link, Artifact target) {
-      Preconditions.checkNotNull(link);
-      Preconditions.checkNotNull(target);
       rootSymlinksBuilder.add(new SymlinkEntry(link, target));
       return this;
     }
 
-    /**
-     * Adds several root symlinks.
-     */
+    /** Adds several root symlinks. Neither keys nor values may be null. */
     public Builder addRootSymlinks(Map<PathFragment, Artifact> symlinks) {
       for (Map.Entry<PathFragment, Artifact> symlink : symlinks.entrySet()) {
         rootSymlinksBuilder.add(new SymlinkEntry(symlink.getKey(), symlink.getValue()));
@@ -1049,7 +1042,15 @@ public final class Runfiles {
      * Add the other {@link Runfiles} object transitively.
      */
     public Builder merge(Runfiles runfiles) {
-      return merge(runfiles, true);
+      return merge(runfiles, true, true);
+    }
+
+    /**
+     * Add the other {@link Runfiles} object transitively, but don't merge
+     * unconditional artifacts.
+     */
+    public Builder mergeExceptUnconditionalArtifacts(Runfiles runfiles) {
+      return merge(runfiles, false, true);
     }
 
     /**
@@ -1057,14 +1058,15 @@ public final class Runfiles {
      * pruning manifests.
      */
     public Builder mergeExceptPruningManifests(Runfiles runfiles) {
-      return merge(runfiles, false);
+      return merge(runfiles, true, false);
     }
 
     /**
      * Add the other {@link Runfiles} object transitively, with the option to include or exclude
      * pruning manifests in the merge.
      */
-    private Builder merge(Runfiles runfiles, boolean includePruningManifests) {
+    private Builder merge(Runfiles runfiles, boolean includeUnconditionalArtifacts,
+        boolean includePruningManifests) {
       // Propagate the most strict conflict checking from merged-in runfiles
       if (runfiles.conflictPolicy.compareTo(conflictPolicy) > 0) {
         conflictPolicy = runfiles.conflictPolicy;
@@ -1075,7 +1077,9 @@ public final class Runfiles {
       // The suffix should be the same within any blaze build, except for the EMPTY runfiles, which
       // may have an empty suffix, but that is covered above.
       Preconditions.checkArgument(suffix.equals(runfiles.suffix));
-      artifactsBuilder.addTransitive(runfiles.getUnconditionalArtifacts());
+      if (includeUnconditionalArtifacts) {
+        artifactsBuilder.addTransitive(runfiles.getUnconditionalArtifacts());
+      }
       symlinksBuilder.addTransitive(runfiles.getSymlinks());
       rootSymlinksBuilder.addTransitive(runfiles.getRootSymlinks());
       if (includePruningManifests) {
@@ -1118,13 +1122,12 @@ public final class Runfiles {
     }
   }
 
-  /**
-   * Provides a Skylark-visible way to merge two Runfiles objects. 
-   */
+  /** Provides a Skylark-visible way to merge two Runfiles objects. */
   @SkylarkCallable(
     name = "merge",
-    doc = "Returns a new runfiles object that includes all the contents of this one and the "
-        + "argument."
+    doc =
+        "Returns a new runfiles object that includes all the contents of this one and the "
+            + "argument."
   )
   public Runfiles merge(Runfiles other) {
     Runfiles.Builder builder = new Runfiles.Builder(suffix, false);

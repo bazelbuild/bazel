@@ -46,13 +46,13 @@ import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.List;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -99,7 +99,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
      * Returns a {@link SkyKey} for a given <Target, BuildConfiguration> pair.
      */
     static SkyKey key(Target target, BuildConfiguration config) {
-      return SkyKey.create(SKYFUNCTION_NAME, new TargetAndConfiguration(target, config));
+      return LegacySkyKey.create(SKYFUNCTION_NAME, new TargetAndConfiguration(target, config));
     }
 
     /**
@@ -211,7 +211,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
    *
    * <p>Throws an exception if the attribute can't be found.
    */
-  private List<ConfiguredTarget> getConfiguredDeps(String targetLabel, String attrName)
+  protected List<ConfiguredTarget> getConfiguredDeps(String targetLabel, String attrName)
       throws Exception {
     Multimap<Attribute, ConfiguredTarget> allDeps = getConfiguredDeps(targetLabel);
     for (Attribute attribute : allDeps.keySet()) {
@@ -316,16 +316,6 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
               Dependency.withConfiguration(dep1.getLabel(), dep1.getConfiguration()),
               Dependency.withConfiguration(dep2.getLabel(), dep2.getConfiguration())))
           .isLessThan(0);
-    }
-  }
-
-  /** Runs the same test with trimmed dynamic configurations. */
-  @TestSpec(size = Suite.SMALL_TESTS)
-  @RunWith(JUnit4.class)
-  public static class WithDynamicConfigurations extends ConfigurationsForTargetsTest {
-    @Override
-    protected FlagBuilder defaultFlags() {
-      return super.defaultFlags().with(Flag.DYNAMIC_CONFIGURATIONS);
     }
   }
 

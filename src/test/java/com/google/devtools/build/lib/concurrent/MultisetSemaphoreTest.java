@@ -27,6 +27,7 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -40,7 +41,6 @@ public class MultisetSemaphoreTest {
   public void testSimple_Serial() throws Exception {
     // When we have a MultisetSemaphore
     MultisetSemaphore<String> multisetSemaphore = MultisetSemaphore.newBuilder()
-        .concurrencyLevel(1)
         // with 3 max num unique values,
         .maxNumUniqueValues(3)
         .build();
@@ -66,9 +66,7 @@ public class MultisetSemaphoreTest {
     Preconditions.checkState(m > n && m % n == 0, "M=%d N=%d", m, n);
     // When we have a MultisetSemaphore
     final MultisetSemaphore<String> multisetSemaphore = MultisetSemaphore.newBuilder()
-        // With a concurrency level of M
-        .concurrencyLevel(m)
-        // And N max num unique values,
+        // with N max num unique values,
         .maxNumUniqueValues(n)
         .build();
 
@@ -84,37 +82,43 @@ public class MultisetSemaphoreTest {
     for (int i = 0; i < m; i++) {
       final String val = "val" + i;
       // And we submit M Runnables, each of which
-      executorService.submit(wrapper.wrap(new Runnable() {
-        @Override
-        public void run() {
-          try {
-            // Has two rounds
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError =
+          executorService.submit(
+              wrapper.wrap(
+                  new Runnable() {
+                    @Override
+                    public void run() {
+                      try {
+                        // Has two rounds
 
-            // Wherein the first round
-            //   The Runnable acquire a permit for a unique value (among M values),
-            ImmutableSet<String> valSet = ImmutableSet.of(val);
-            multisetSemaphore.acquireAll(valSet);
-            assertThat(numThreadsJustAfterAcquireInFirstRound.getAndIncrement()).isLessThan(n);
-            //   And then sleeps,
-            Thread.sleep(napTimeMs);
-            numThreadsJustAfterAcquireInFirstRound.decrementAndGet();
-            multisetSemaphore.releaseAll(valSet);
+                        // Wherein the first round
+                        //   The Runnable acquire a permit for a unique value (among M values),
+                        ImmutableSet<String> valSet = ImmutableSet.of(val);
+                        multisetSemaphore.acquireAll(valSet);
+                        assertThat(numThreadsJustAfterAcquireInFirstRound.getAndIncrement())
+                            .isLessThan(n);
+                        //   And then sleeps,
+                        Thread.sleep(napTimeMs);
+                        numThreadsJustAfterAcquireInFirstRound.decrementAndGet();
+                        multisetSemaphore.releaseAll(valSet);
 
-            // And wherein the second round
-            //   The Runnable again acquires a permit for its unique value,
-            multisetSemaphore.acquireAll(valSet);
-            assertThat(numThreadsJustAfterAcquireInSecondRound.getAndIncrement()).isLessThan(n);
-            //   And then sleeps,
-            Thread.sleep(napTimeMs);
-            numThreadsJustAfterAcquireInSecondRound.decrementAndGet();
-            //   And notes that it has completed the second round,
-            secondRoundCompleted.incrementAndGet();
-            multisetSemaphore.releaseAll(valSet);
-          } catch (InterruptedException e) {
-            throw new IllegalStateException(e);
-          }
-        }
-      }));
+                        // And wherein the second round
+                        //   The Runnable again acquires a permit for its unique value,
+                        multisetSemaphore.acquireAll(valSet);
+                        assertThat(numThreadsJustAfterAcquireInSecondRound.getAndIncrement())
+                            .isLessThan(n);
+                        //   And then sleeps,
+                        Thread.sleep(napTimeMs);
+                        numThreadsJustAfterAcquireInSecondRound.decrementAndGet();
+                        //   And notes that it has completed the second round,
+                        secondRoundCompleted.incrementAndGet();
+                        multisetSemaphore.releaseAll(valSet);
+                      } catch (InterruptedException e) {
+                        throw new IllegalStateException(e);
+                      }
+                    }
+                  }));
     }
     // And we wait for all M Runnables to complete (that is, none of them were deadlocked),
     boolean interrupted = ExecutorUtil.interruptibleShutdown(executorService);
@@ -143,9 +147,7 @@ public class MultisetSemaphoreTest {
     int n = 100;
     // When we have a MultisetSemaphore
     final MultisetSemaphore<String> multisetSemaphore = MultisetSemaphore.newBuilder()
-        // With a concurrency level of N
-        .concurrencyLevel(n)
-        // And 2 max num unique values,
+        // with 2 max num unique values,
         .maxNumUniqueValues(2)
         .build();
     // And a ExecutorService with N threads,
@@ -160,25 +162,29 @@ public class MultisetSemaphoreTest {
     for (int i = 0; i < n; i++) {
       final String differentVal = "different-val" + i;
       // And we submit N Runnables, each of which
-      executorService.submit(wrapper.wrap(new Runnable() {
-        @Override
-        public void run() {
-          try {
-            Set<String> vals = ImmutableSet.of(sameVal, differentVal);
-            // Tries to acquire a permit for a set of two values, one of which is the same for all
-            // the N Runnables and one of which is unique across all N Runnables.
-            multisetSemaphore.acquireAll(vals);
-            // And then sleeps
-            Thread.sleep(napTimeMs);
-            // And then releases its permits
-            multisetSemaphore.releaseAll(vals);
-            // And then counts down the done latch,
-            allDoneLatch.countDown();
-          } catch (InterruptedException e) {
-            throw new IllegalStateException(e);
-          }
-        }
-      }));
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError =
+          executorService.submit(
+              wrapper.wrap(
+                  new Runnable() {
+                    @Override
+                    public void run() {
+                      try {
+                        Set<String> vals = ImmutableSet.of(sameVal, differentVal);
+                        // Tries to acquire a permit for a set of two values, one of which is the same for all
+                        // the N Runnables and one of which is unique across all N Runnables.
+                        multisetSemaphore.acquireAll(vals);
+                        // And then sleeps
+                        Thread.sleep(napTimeMs);
+                        // And then releases its permits
+                        multisetSemaphore.releaseAll(vals);
+                        // And then counts down the done latch,
+                        allDoneLatch.countDown();
+                      } catch (InterruptedException e) {
+                        throw new IllegalStateException(e);
+                      }
+                    }
+                  }));
     }
     // Then all of our Runnables completed (without deadlock!), as expected,
     boolean interrupted = ExecutorUtil.interruptibleShutdown(executorService);
@@ -205,9 +211,7 @@ public class MultisetSemaphoreTest {
     int numPermutations = permutations.size();
     // And we have a MultisetSemaphore
     final MultisetSemaphore<String> multisetSemaphore = MultisetSemaphore.newBuilder()
-        // With a concurrency level of N!
-        .concurrencyLevel(numPermutations)
-        // And with N max num unique values,
+        // with N max num unique values,
         .maxNumUniqueValues(n)
         .build();
     // And a ExecutorService with N! threads,
@@ -218,20 +222,24 @@ public class MultisetSemaphoreTest {
     for (List<String> orderedVals : permutations) {
       final Set<String> orderedSet = new LinkedHashSet<>(orderedVals);
       // And we submit N! Runnables, each of which
-      executorService.submit(wrapper.wrap(new Runnable() {
-        @Override
-        public void run() {
-          try {
-            // Tries to acquire a permit for the set of N values, with a unique iteration order
-            // (across all the N! different permutations)
-            multisetSemaphore.acquireAll(orderedSet);
-            // And then immediately releases the permit.
-            multisetSemaphore.releaseAll(orderedSet);
-          } catch (InterruptedException e) {
-            throw new IllegalStateException(e);
-          }
-        }
-      }));
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError =
+          executorService.submit(
+              wrapper.wrap(
+                  new Runnable() {
+                    @Override
+                    public void run() {
+                      try {
+                        // Tries to acquire a permit for the set of N values, with a unique iteration order
+                        // (across all the N! different permutations)
+                        multisetSemaphore.acquireAll(orderedSet);
+                        // And then immediately releases the permit.
+                        multisetSemaphore.releaseAll(orderedSet);
+                      } catch (InterruptedException e) {
+                        throw new IllegalStateException(e);
+                      }
+                    }
+                  }));
     }
     // Then all of our Runnables completed (without deadlock!), as expected,
     boolean interrupted = ExecutorUtil.interruptibleShutdown(executorService);

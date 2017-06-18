@@ -21,10 +21,8 @@ import com.google.devtools.build.lib.packages.BuildType.Selector;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.Collection;
 import java.util.List;
-
 import javax.annotation.Nullable;
 
 /**
@@ -69,7 +67,7 @@ public class RawAttributeMapper extends AbstractAttributeMapper {
   @Nullable
   public <T> Collection<T> getMergedValues(String attributeName, Type<List<T>> type) {
     Preconditions.checkState(type instanceof Type.ListType);
-    if (!isConfigurable(attributeName, type)) {
+    if (!isConfigurable(attributeName)) {
       return get(attributeName, type);
     }
 

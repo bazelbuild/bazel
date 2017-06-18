@@ -16,29 +16,28 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import javax.annotation.Nullable;
 
-/** A provider for targets that can build .apk files. Currently used for coverage collection. */
+/** A provider for targets that produce an apk file. */
 @AutoValue
 @Immutable
 public abstract class ApkProvider implements TransitiveInfoProvider {
 
   public static ApkProvider create(
-      NestedSet<Artifact> transitiveApks,
-      NestedSet<Artifact> coverageMetdata,
-      NestedSet<Artifact> mergedManifests) {
-    return new AutoValue_ApkProvider(transitiveApks, coverageMetdata, mergedManifests);
+      Artifact apk, @Nullable Artifact coverageMetdata, Artifact mergedManifest) {
+    return new AutoValue_ApkProvider(apk, coverageMetdata, mergedManifest);
   }
 
-  /** Returns the APK files generated in the transitive closure. */
-  public abstract NestedSet<Artifact> getTransitiveApks();
+  /** Returns the APK file built in the transitive closure. */
+  public abstract Artifact getApk();
 
   /** Returns the coverage metadata artifacts generated in the transitive closure. */
-  public abstract NestedSet<Artifact> getCoverageMetadata();
+  @Nullable
+  public abstract Artifact getCoverageMetadata();
 
-  /** Returns the merged manifests */
-  public abstract NestedSet<Artifact> getMergedManifests();
+  /** Returns the merged manifest. */
+  public abstract Artifact getMergedManifest();
 
   ApkProvider() {}
 }

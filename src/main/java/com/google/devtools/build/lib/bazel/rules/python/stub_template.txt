@@ -12,6 +12,26 @@ import zipfile
 def IsWindows():
   return os.name == 'nt'
 
+def GetWindowsPathWithUNCPrefix(path):
+  """
+  Adding UNC prefix after getting a normalized absolute Windows path,
+  it's no-op for non-Windows platforms or if running under python2.
+  """
+  path = path.strip()
+
+  # No need to add prefix for non-Windows platforms.
+  # And \\?\ doesn't work in python 2
+  if not IsWindows() or sys.version_info[0] < 3:
+    return path
+
+  # Lets start the unicode fun
+  unicode_prefix = "\\\\?\\"
+  if path.startswith(unicode_prefix):
+    return path
+
+  # os.path.abspath returns a normalized absolute path
+  return unicode_prefix + os.path.abspath(path)
+
 PYTHON_BINARY = '%python_binary%'
 if IsWindows() and not PYTHON_BINARY.endswith('.exe'):
   PYTHON_BINARY = PYTHON_BINARY + '.exe'
@@ -75,9 +95,16 @@ def FindModuleSpace():
 def CreateModuleSpace():
   ZIP_RUNFILES_DIRECTORY_NAME = "runfiles"
   temp_dir = tempfile.mkdtemp("", "Bazel.runfiles_")
-  zf = zipfile.ZipFile(os.path.dirname(__file__))
-  zf.extractall(temp_dir)
+  zf = zipfile.ZipFile(GetWindowsPathWithUNCPrefix(os.path.dirname(__file__)))
+  zf.extractall(GetWindowsPathWithUNCPrefix(temp_dir))
   return os.path.join(temp_dir, ZIP_RUNFILES_DIRECTORY_NAME)
+
+# Returns repository roots to add to the import path.
+def GetRepositoriesImports(module_space, import_all):
+  if import_all:
+    repo_dirs = [os.path.join(module_space, d) for d in os.listdir(module_space)]
+    return [d for d in repo_dirs if os.path.isdir(d)]
+  return [os.path.join(module_space, "%workspace_name%")]
 
 def Main():
   args = sys.argv[1:]
@@ -91,25 +118,29 @@ def Main():
 
   python_imports = '%imports%'
   python_path_entries = CreatePythonPathEntries(python_imports, module_space)
+  python_path_entries += GetRepositoriesImports(module_space, %import_all%)
 
-  repo_dirs = [os.path.join(module_space, d) for d in os.listdir(module_space)]
-  repositories = [d for d in repo_dirs if os.path.isdir(d)]
-  python_path_entries += repositories
+  python_path_entries = [GetWindowsPathWithUNCPrefix(d) for d in python_path_entries]
 
   old_python_path = os.environ.get('PYTHONPATH')
-  separator = ':'
-  if IsWindows():
-    separator = ';'
-  python_path = separator.join(python_path_entries)
+  python_path = os.pathsep.join(python_path_entries)
   if old_python_path:
-    python_path += separator + old_python_path
+    python_path += os.pathsep + old_python_path
+
+  if IsWindows():
+    python_path = python_path.replace("/", os.sep)
 
   new_env['PYTHONPATH'] = python_path
 
   # Now look for my main python source file.
   # The magic string percent-main-percent is replaced with the filename of the
   # main file of the Python binary in BazelPythonSemantics.java.
-  main_filename = os.path.join(module_space, '%main%')
+  rel_path = '%main%'
+  if IsWindows():
+    rel_path = rel_path.replace("/", os.sep)
+
+  main_filename = os.path.join(module_space, rel_path)
+  main_filename = GetWindowsPathWithUNCPrefix(main_filename)
   assert os.path.exists(main_filename), \
          'Cannot exec() %r: file not found.' % main_filename
   assert os.access(main_filename, os.R_OK), \
@@ -125,6 +156,11 @@ def Main():
   try:
     sys.stdout.flush()
     if IsRunningFromZip():
+      # If RUN_UNDER_RUNFILES equals 1, it means we need to
+      # change directory to the right runfiles directory.
+      # (So that the data files are accessible)
+      if os.environ.get("RUN_UNDER_RUNFILES") == "1":
+        os.chdir(os.path.join(module_space, "%workspace_name%"))
       retCode = subprocess.call(args)
       shutil.rmtree(os.path.dirname(module_space), True)
       exit(retCode)

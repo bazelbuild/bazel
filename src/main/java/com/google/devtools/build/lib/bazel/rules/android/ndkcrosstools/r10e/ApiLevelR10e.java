@@ -22,8 +22,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 /**
  * Class which encodes information from the Android NDK makefiles about API levels. 
  */
-public class ApiLevelR10e extends ApiLevel {
-
+final class ApiLevelR10e extends ApiLevel {
   private static final ImmutableListMultimap<String, String> API_LEVEL_TO_ARCHITECTURES =
       ImmutableListMultimap.<String, String>builder()
           .putAll("3", "arm")
@@ -98,11 +97,7 @@ public class ApiLevelR10e extends ApiLevel {
     
           .build();
 
-  public ApiLevelR10e(
-      EventHandler eventHandler,
-      String repositoryName,
-      String apiLevel) {
-
+  ApiLevelR10e(EventHandler eventHandler, String repositoryName, String apiLevel) {
     super(API_LEVEL_TO_ARCHITECTURES, API_EQUIVALENCIES, eventHandler, repositoryName, apiLevel);
   }
 }

@@ -50,6 +50,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.After;
@@ -115,29 +116,32 @@ public class HttpConnectorTest {
   @Test
   public void normalRequest() throws Exception {
     final Map<String, String> headers = new ConcurrentHashMap<>();
-    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
-      executor.submit(
-          new Callable<Object>() {
-            @Override
-            public Object call() throws Exception {
-              try (Socket socket = server.accept()) {
-                readHttpRequest(socket.getInputStream(), headers);
-                sendLines(socket,
-                    "HTTP/1.1 200 OK",
-                    "Date: Fri, 31 Dec 1999 23:59:59 GMT",
-                    "Connection: close",
-                    "Content-Type: text/plain",
-                    "Content-Length: 5",
-                    "",
-                    "hello");
-              }
-              return null;
-            }
-          });
+    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
+      @SuppressWarnings("unused") 
+      Future<?> possiblyIgnoredError =
+          executor.submit(
+              new Callable<Object>() {
+                @Override
+                public Object call() throws Exception {
+                  try (Socket socket = server.accept()) {
+                    readHttpRequest(socket.getInputStream(), headers);
+                    sendLines(
+                        socket,
+                        "HTTP/1.1 200 OK",
+                        "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                        "Connection: close",
+                        "Content-Type: text/plain",
+                        "Content-Length: 5",
+                        "",
+                        "hello");
+                  }
+                  return null;
+                }
+              });
       try (Reader payload =
               new InputStreamReader(
                   connector.connect(
-                          new URL(String.format("http://127.0.0.1:%d/boo", server.getLocalPort())),
+                          new URL(String.format("http://localhost:%d/boo", server.getLocalPort())),
                           ImmutableMap.of("Content-Encoding", "gzip"))
                       .getInputStream(),
                   ISO_8859_1)) {
@@ -151,40 +155,44 @@ public class HttpConnectorTest {
 
   @Test
   public void serverError_retriesConnect() throws Exception {
-    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
-      executor.submit(
-          new Callable<Object>() {
-            @Override
-            public Object call() throws Exception {
-              try (Socket socket = server.accept()) {
-                readHttpRequest(socket.getInputStream());
-                sendLines(socket,
-                    "HTTP/1.1 500 Incredible Catastrophe",
-                    "Date: Fri, 31 Dec 1999 23:59:59 GMT",
-                    "Connection: close",
-                    "Content-Type: text/plain",
-                    "Content-Length: 8",
-                    "",
-                    "nononono");
-              }
-              try (Socket socket = server.accept()) {
-                readHttpRequest(socket.getInputStream());
-                sendLines(socket,
-                    "HTTP/1.1 200 OK",
-                    "Date: Fri, 31 Dec 1999 23:59:59 GMT",
-                    "Connection: close",
-                    "Content-Type: text/plain",
-                    "Content-Length: 5",
-                    "",
-                    "hello");
-              }
-              return null;
-            }
-          });
+    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError =
+          executor.submit(
+              new Callable<Object>() {
+                @Override
+                public Object call() throws Exception {
+                  try (Socket socket = server.accept()) {
+                    readHttpRequest(socket.getInputStream());
+                    sendLines(
+                        socket,
+                        "HTTP/1.1 500 Incredible Catastrophe",
+                        "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                        "Connection: close",
+                        "Content-Type: text/plain",
+                        "Content-Length: 8",
+                        "",
+                        "nononono");
+                  }
+                  try (Socket socket = server.accept()) {
+                    readHttpRequest(socket.getInputStream());
+                    sendLines(
+                        socket,
+                        "HTTP/1.1 200 OK",
+                        "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                        "Connection: close",
+                        "Content-Type: text/plain",
+                        "Content-Length: 5",
+                        "",
+                        "hello");
+                  }
+                  return null;
+                }
+              });
       try (Reader payload =
               new InputStreamReader(
                   connector.connect(
-                          new URL(String.format("http://127.0.0.1:%d", server.getLocalPort())),
+                          new URL(String.format("http://localhost:%d", server.getLocalPort())),
                           ImmutableMap.<String, String>of())
                       .getInputStream(),
                   ISO_8859_1)) {
@@ -196,29 +204,32 @@ public class HttpConnectorTest {
 
   @Test
   public void permanentError_doesNotRetryAndThrowsIOException() throws Exception {
-    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
-      executor.submit(
-          new Callable<Object>() {
-            @Override
-            public Object call() throws Exception {
-              try (Socket socket = server.accept()) {
-                readHttpRequest(socket.getInputStream());
-                sendLines(socket,
-                    "HTTP/1.1 404 Not Here",
-                    "Date: Fri, 31 Dec 1999 23:59:59 GMT",
-                    "Connection: close",
-                    "Content-Type: text/plain",
-                    "Content-Length: 0",
-                    "",
-                    "");
-              }
-              return null;
-            }
-          });
+    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError =
+          executor.submit(
+              new Callable<Object>() {
+                @Override
+                public Object call() throws Exception {
+                  try (Socket socket = server.accept()) {
+                    readHttpRequest(socket.getInputStream());
+                    sendLines(
+                        socket,
+                        "HTTP/1.1 404 Not Here",
+                        "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                        "Connection: close",
+                        "Content-Type: text/plain",
+                        "Content-Length: 0",
+                        "",
+                        "");
+                  }
+                  return null;
+                }
+              });
       thrown.expect(IOException.class);
       thrown.expectMessage("404 Not Here");
       connector.connect(
-          new URL(String.format("http://127.0.0.1:%d", server.getLocalPort())),
+          new URL(String.format("http://localhost:%d", server.getLocalPort())),
           ImmutableMap.<String, String>of());
     }
   }
@@ -227,30 +238,33 @@ public class HttpConnectorTest {
   public void permanentError_consumesPayloadBeforeReturningn() throws Exception {
     final CyclicBarrier barrier = new CyclicBarrier(2);
     final AtomicBoolean consumed = new AtomicBoolean();
-    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
-      executor.submit(
-          new Callable<Object>() {
-            @Override
-            public Object call() throws Exception {
-              try (Socket socket = server.accept()) {
-                readHttpRequest(socket.getInputStream());
-                sendLines(socket,
-                    "HTTP/1.1 501 Oh No",
-                    "Date: Fri, 31 Dec 1999 23:59:59 GMT",
-                    "Connection: close",
-                    "Content-Type: text/plain",
-                    "Content-Length: 1",
-                    "",
-                    "b");
-                consumed.set(true);
-              } finally {
-                barrier.await();
-              }
-              return null;
-            }
-          });
+    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError =
+          executor.submit(
+              new Callable<Object>() {
+                @Override
+                public Object call() throws Exception {
+                  try (Socket socket = server.accept()) {
+                    readHttpRequest(socket.getInputStream());
+                    sendLines(
+                        socket,
+                        "HTTP/1.1 501 Oh No",
+                        "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                        "Connection: close",
+                        "Content-Type: text/plain",
+                        "Content-Length: 1",
+                        "",
+                        "b");
+                    consumed.set(true);
+                  } finally {
+                    barrier.await();
+                  }
+                  return null;
+                }
+              });
       connector.connect(
-          new URL(String.format("http://127.0.0.1:%d", server.getLocalPort())),
+          new URL(String.format("http://localhost:%d", server.getLocalPort())),
           ImmutableMap.<String, String>of());
       fail();
     } catch (IOException ignored) {
@@ -265,31 +279,35 @@ public class HttpConnectorTest {
   @Test
   public void always500_givesUpEventually() throws Exception {
     final AtomicInteger tries = new AtomicInteger();
-    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
-      executor.submit(new Callable<Object>() {
-            @Override
-            public Object call() throws Exception {
-              while (true) {
-                try (Socket socket = server.accept()) {
-                  readHttpRequest(socket.getInputStream());
-                  sendLines(socket,
-                      "HTTP/1.1 500 Oh My",
-                      "Date: Fri, 31 Dec 1999 23:59:59 GMT",
-                      "Connection: close",
-                      "Content-Type: text/plain",
-                      "Content-Length: 0",
-                      "",
-                      "");
-                  tries.incrementAndGet();
+    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError =
+          executor.submit(
+              new Callable<Object>() {
+                @Override
+                public Object call() throws Exception {
+                  while (true) {
+                    try (Socket socket = server.accept()) {
+                      readHttpRequest(socket.getInputStream());
+                      sendLines(
+                          socket,
+                          "HTTP/1.1 500 Oh My",
+                          "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                          "Connection: close",
+                          "Content-Type: text/plain",
+                          "Content-Length: 0",
+                          "",
+                          "");
+                      tries.incrementAndGet();
+                    }
+                  }
                 }
-              }
-            }
-          });
+              });
       thrown.expect(IOException.class);
       thrown.expectMessage("500 Oh My");
       try {
         connector.connect(
-            new URL(String.format("http://127.0.0.1:%d", server.getLocalPort())),
+            new URL(String.format("http://localhost:%d", server.getLocalPort())),
             ImmutableMap.<String, String>of());
       } finally {
         assertThat(tries.get()).isGreaterThan(2);
@@ -300,32 +318,35 @@ public class HttpConnectorTest {
   @Test
   public void serverSays403_clientRetriesAnyway() throws Exception {
     final AtomicInteger tries = new AtomicInteger();
-    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
-      executor.submit(
-          new Callable<Object>() {
-            @Override
-            public Object call() throws Exception {
-              while (true) {
-                try (Socket socket = server.accept()) {
-                  readHttpRequest(socket.getInputStream());
-                  sendLines(socket,
-                      "HTTP/1.1 403 Forbidden",
-                      "Date: Fri, 31 Dec 1999 23:59:59 GMT",
-                      "Connection: close",
-                      "Content-Type: text/plain",
-                      "Content-Length: 0",
-                      "",
-                      "");
-                  tries.incrementAndGet();
+    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError =
+          executor.submit(
+              new Callable<Object>() {
+                @Override
+                public Object call() throws Exception {
+                  while (true) {
+                    try (Socket socket = server.accept()) {
+                      readHttpRequest(socket.getInputStream());
+                      sendLines(
+                          socket,
+                          "HTTP/1.1 403 Forbidden",
+                          "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                          "Connection: close",
+                          "Content-Type: text/plain",
+                          "Content-Length: 0",
+                          "",
+                          "");
+                      tries.incrementAndGet();
+                    }
+                  }
                 }
-              }
-            }
-          });
+              });
       thrown.expect(IOException.class);
       thrown.expectMessage("403 Forbidden");
       try {
         connector.connect(
-            new URL(String.format("http://127.0.0.1:%d", server.getLocalPort())),
+            new URL(String.format("http://localhost:%d", server.getLocalPort())),
             ImmutableMap.<String, String>of());
       } finally {
         assertThat(tries.get()).isGreaterThan(2);
@@ -337,42 +358,46 @@ public class HttpConnectorTest {
   public void redirectToDifferentPath_works() throws Exception {
     final Map<String, String> headers1 = new ConcurrentHashMap<>();
     final Map<String, String> headers2 = new ConcurrentHashMap<>();
-    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
-      executor.submit(
-          new Callable<Object>() {
-            @Override
-            public Object call() throws Exception {
-              try (Socket socket = server.accept()) {
-                readHttpRequest(socket.getInputStream(), headers1);
-                sendLines(socket,
-                    "HTTP/1.1 301 Redirect",
-                    "Date: Fri, 31 Dec 1999 23:59:59 GMT",
-                    "Connection: close",
-                    "Location: /doodle.tar.gz",
-                    "Content-Length: 0",
-                    "",
-                    "");
-              }
-              try (Socket socket = server.accept()) {
-                readHttpRequest(socket.getInputStream(), headers2);
-                sendLines(socket,
-                    "HTTP/1.1 200 OK",
-                    "Date: Fri, 31 Dec 1999 23:59:59 GMT",
-                    "Connection: close",
-                    "Content-Type: text/plain",
-                    "Content-Length: 0",
-                    "",
-                    "");
-              }
-              return null;
-            }
-          });
+    try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError =
+          executor.submit(
+              new Callable<Object>() {
+                @Override
+                public Object call() throws Exception {
+                  try (Socket socket = server.accept()) {
+                    readHttpRequest(socket.getInputStream(), headers1);
+                    sendLines(
+                        socket,
+                        "HTTP/1.1 301 Redirect",
+                        "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                        "Connection: close",
+                        "Location: /doodle.tar.gz",
+                        "Content-Length: 0",
+                        "",
+                        "");
+                  }
+                  try (Socket socket = server.accept()) {
+                    readHttpRequest(socket.getInputStream(), headers2);
+                    sendLines(
+                        socket,
+                        "HTTP/1.1 200 OK",
+                        "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                        "Connection: close",
+                        "Content-Type: text/plain",
+                        "Content-Length: 0",
+                        "",
+                        "");
+                  }
+                  return null;
+                }
+              });
       URLConnection connection =
           connector.connect(
-              new URL(String.format("http://127.0.0.1:%d", server.getLocalPort())),
+              new URL(String.format("http://localhost:%d", server.getLocalPort())),
               ImmutableMap.<String, String>of());
       assertThat(connection.getURL()).isEqualTo(
-          new URL(String.format("http://127.0.0.1:%d/doodle.tar.gz", server.getLocalPort())));
+          new URL(String.format("http://localhost:%d/doodle.tar.gz", server.getLocalPort())));
       try (InputStream input = connection.getInputStream()) {
         assertThat(ByteStreams.toByteArray(input)).isEmpty();
       }
@@ -383,51 +408,57 @@ public class HttpConnectorTest {
 
   @Test
   public void redirectToDifferentServer_works() throws Exception {
-    try (ServerSocket server1 = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"));
-        ServerSocket server2 = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
-      executor.submit(
-          new Callable<Object>() {
-            @Override
-            public Object call() throws Exception {
-              try (Socket socket = server1.accept()) {
-                readHttpRequest(socket.getInputStream());
-                sendLines(socket,
-                    "HTTP/1.1 301 Redirect",
-                    "Date: Fri, 31 Dec 1999 23:59:59 GMT",
-                    "Connection: close",
-                    String.format("Location: http://127.0.0.1:%d/doodle.tar.gz",
-                        server2.getLocalPort()),
-                    "Content-Length: 0",
-                    "",
-                    "");
-              }
-              return null;
-            }
-          });
-      executor.submit(
-          new Callable<Object>() {
-            @Override
-            public Object call() throws Exception {
-              try (Socket socket = server2.accept()) {
-                readHttpRequest(socket.getInputStream());
-                sendLines(socket,
-                    "HTTP/1.1 200 OK",
-                    "Date: Fri, 31 Dec 1999 23:59:59 GMT",
-                    "Connection: close",
-                    "Content-Type: text/plain",
-                    "Content-Length: 5",
-                    "",
-                    "hello");
-              }
-              return null;
-            }
-          });
+    try (ServerSocket server1 = new ServerSocket(0, 1, InetAddress.getByName(null));
+        ServerSocket server2 = new ServerSocket(0, 1, InetAddress.getByName(null))) {
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError =
+          executor.submit(
+              new Callable<Object>() {
+                @Override
+                public Object call() throws Exception {
+                  try (Socket socket = server1.accept()) {
+                    readHttpRequest(socket.getInputStream());
+                    sendLines(
+                        socket,
+                        "HTTP/1.1 301 Redirect",
+                        "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                        "Connection: close",
+                        String.format(
+                            "Location: http://localhost:%d/doodle.tar.gz", server2.getLocalPort()),
+                        "Content-Length: 0",
+                        "",
+                        "");
+                  }
+                  return null;
+                }
+              });
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError1 =
+          executor.submit(
+              new Callable<Object>() {
+                @Override
+                public Object call() throws Exception {
+                  try (Socket socket = server2.accept()) {
+                    readHttpRequest(socket.getInputStream());
+                    sendLines(
+                        socket,
+                        "HTTP/1.1 200 OK",
+                        "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                        "Connection: close",
+                        "Content-Type: text/plain",
+                        "Content-Length: 5",
+                        "",
+                        "hello");
+                  }
+                  return null;
+                }
+              });
       URLConnection connection =
           connector.connect(
-              new URL(String.format("http://127.0.0.1:%d", server1.getLocalPort())),
+              new URL(String.format("http://localhost:%d", server1.getLocalPort())),
               ImmutableMap.<String, String>of());
       assertThat(connection.getURL()).isEqualTo(
-          new URL(String.format("http://127.0.0.1:%d/doodle.tar.gz", server2.getLocalPort())));
+          new URL(String.format("http://localhost:%d/doodle.tar.gz", server2.getLocalPort())));
       try (InputStream input = connection.getInputStream()) {
         assertThat(ByteStreams.toByteArray(input)).isEqualTo("hello".getBytes(US_ASCII));
       }

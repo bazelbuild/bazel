@@ -15,9 +15,11 @@ package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -27,7 +29,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ForkJoinPool;
 
 /**
  * A tests(x) filter expression, which returns all the tests in set x,
@@ -62,15 +63,15 @@ class TestsFunction implements QueryFunction {
   }
 
   @Override
-  public <T> void eval(
+  public <T> QueryTaskFuture<Void> eval(
       final QueryEnvironment<T> env,
       VariableContext<T> context,
       QueryExpression expression,
       List<Argument> args,
-      final Callback<T> callback) throws QueryException, InterruptedException {
+      final Callback<T> callback) {
     final Closure<T> closure = new Closure<>(expression, env);
 
-    env.eval(args.get(0).getExpression(), context, new Callback<T>() {
+    return env.eval(args.get(0).getExpression(), context, new Callback<T>() {
       @Override
       public void process(Iterable<T> partialResult) throws QueryException, InterruptedException {
         for (T target : partialResult) {
@@ -84,17 +85,6 @@ class TestsFunction implements QueryFunction {
         }
       }
     });
-  }
-
-  @Override
-  public <T> void parEval(
-      QueryEnvironment<T> env,
-      VariableContext<T> context,
-      QueryExpression expression,
-      List<Argument> args,
-      ThreadSafeCallback<T> callback,
-      ForkJoinPool forkJoinPool) throws QueryException, InterruptedException {
-    eval(env, context, expression, args, callback);
   }
 
   /**
@@ -151,10 +141,8 @@ class TestsFunction implements QueryFunction {
     }
   }
 
-  /**
-   * A closure over the temporary state needed to compute the expression. This makes the evaluation
-   * thread-safe, as long as instances of this class are used only within a single thread.
-   */
+  /** A closure over the temporary state needed to compute the expression. */
+  @ThreadSafe
   private static final class Closure<T> {
     private final QueryExpression expression;
     /** A dynamically-populated mapping from test_suite rules to their tests. */
@@ -177,7 +165,8 @@ class TestsFunction implements QueryFunction {
      *
      * @precondition env.getAccessor().isTestSuite(testSuite)
      */
-    private Set<T> getTestsInSuite(T testSuite) throws QueryException, InterruptedException {
+    private synchronized Set<T> getTestsInSuite(T testSuite)
+        throws QueryException, InterruptedException {
       Set<T> tests = testsInSuite.get(testSuite);
       if (tests == null) {
         tests = Sets.newHashSet();

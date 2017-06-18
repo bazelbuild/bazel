@@ -15,9 +15,11 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.base.Strings;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -32,7 +34,6 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariableValue;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import java.io.IOException;
@@ -40,7 +41,6 @@ import java.io.ObjectInputStream;
 import java.io.Serializable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -83,9 +83,22 @@ public class CcToolchainFeatures implements Serializable {
     }
   }
 
+  /**
+   * Thrown when multiple features provide the same string symbol.
+   */
+  public static class CollidingProvidesException extends RuntimeException {
+    CollidingProvidesException(String message) {
+      super(message);
+    }
+  }
+
   /** Error message thrown when a toolchain does not provide a required artifact_name_pattern. */
   public static final String MISSING_ARTIFACT_NAME_PATTERN_ERROR_TEMPLATE =
       "Toolchain must provide artifact_name_pattern for category %s";
+
+  /** Error message thrown when a toolchain enables two features that provide the same string. */
+  @VisibleForTesting static final String COLLIDING_PROVIDES_ERROR =
+      "Symbol %s is provided by all of the following features: %s";
 
   /**
    * A piece of a single string value.
@@ -330,6 +343,17 @@ public class CcToolchainFeatures implements Serializable {
     }
   }
 
+  @Immutable
+  private static class VariableWithValue {
+    public final String variable;
+    public final String value;
+
+    public VariableWithValue(String variable, String value) {
+      this.variable = variable;
+      this.value = value;
+    }
+  }
+
   /**
    * A group of flags. When iterateOverVariable is specified, we assume the variable is a sequence
    * and the flag_group will be expanded repeatedly for every value in the sequence.
@@ -340,8 +364,10 @@ public class CcToolchainFeatures implements Serializable {
     private final ImmutableSet<String> usedVariables;
     private String iterateOverVariable;
     private final ImmutableSet<String> expandIfAllAvailable;
+    private final ImmutableSet<String> expandIfNoneAvailable;
     private final String expandIfTrue;
     private final String expandIfFalse;
+    private final VariableWithValue expandIfEqual;
 
     /**
      * TODO(b/32655571): Cleanup and get rid of usedVariables field once implicit iteration is not
@@ -377,8 +403,16 @@ public class CcToolchainFeatures implements Serializable {
       this.usedVariables = usedVariables.build();
       this.expandables = expandables.build();
       this.expandIfAllAvailable = ImmutableSet.copyOf(flagGroup.getExpandIfAllAvailableList());
-      this.expandIfTrue = flagGroup.getExpandIfTrue();
-      this.expandIfFalse = flagGroup.getExpandIfFalse();
+      this.expandIfNoneAvailable = ImmutableSet.copyOf(flagGroup.getExpandIfNoneAvailableList());
+      this.expandIfTrue = Strings.emptyToNull(flagGroup.getExpandIfTrue());
+      this.expandIfFalse = Strings.emptyToNull(flagGroup.getExpandIfFalse());
+      if (flagGroup.hasExpandIfEqual()) {
+        this.expandIfEqual = new VariableWithValue(
+            flagGroup.getExpandIfEqual().getVariable(),
+            flagGroup.getExpandIfEqual().getValue());
+      } else {
+        this.expandIfEqual = null;
+      }
     }
     
     @Override
@@ -410,14 +444,27 @@ public class CcToolchainFeatures implements Serializable {
           return false;
         }
       }
+      for (String variable : expandIfNoneAvailable) {
+        if (variables.isAvailable(variable)) {
+          return false;
+        }
+      }
       if (expandIfTrue != null
-          && variables.isAvailable(expandIfTrue)
-          && !variables.getVariable(expandIfTrue).isTruthy()) {
+          && (!variables.isAvailable(expandIfTrue)
+              || !variables.getVariable(expandIfTrue).isTruthy())) {
         return false;
       }
       if (expandIfFalse != null
-          && variables.isAvailable(expandIfFalse)
-          && variables.getVariable(expandIfFalse).isTruthy()) {
+          && (!variables.isAvailable(expandIfFalse)
+              || variables.getVariable(expandIfFalse).isTruthy())) {
+        return false;
+      }
+      if (expandIfEqual != null
+          && (!variables.isAvailable(expandIfEqual.variable)
+              || !variables
+                .getVariable(expandIfEqual.variable)
+                .getStringValue(expandIfEqual.variable)
+                .equals(expandIfEqual.value))) {
         return false;
       }
       return true;
@@ -446,7 +493,20 @@ public class CcToolchainFeatures implements Serializable {
       expand(variables, commandLine);
     }
   }
-  
+
+  private static boolean isWithFeaturesSatisfied(
+      Set<CToolchain.FeatureSet> withFeatureSets, Set<String> enabledFeatureNames) {
+    if (withFeatureSets.isEmpty()) {
+      return true;
+    }
+    for (CToolchain.FeatureSet featureSet : withFeatureSets) {
+      if (enabledFeatureNames.containsAll(featureSet.getFeatureList())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /**
    * Groups a set of flags to apply for certain actions.
    */
@@ -454,6 +514,7 @@ public class CcToolchainFeatures implements Serializable {
   private static class FlagSet implements Serializable {
     private final ImmutableSet<String> actions;
     private final ImmutableSet<String> expandIfAllAvailable;
+    private final ImmutableSet<CToolchain.FeatureSet> withFeatureSets;
     private final ImmutableList<FlagGroup> flagGroups;
     
     private FlagSet(CToolchain.FlagSet flagSet) throws InvalidConfigurationException {
@@ -467,6 +528,7 @@ public class CcToolchainFeatures implements Serializable {
         throws InvalidConfigurationException {
       this.actions = actions;
       this.expandIfAllAvailable = ImmutableSet.copyOf(flagSet.getExpandIfAllAvailableList());
+      this.withFeatureSets = ImmutableSet.copyOf(flagSet.getWithFeatureList());
       ImmutableList.Builder<FlagGroup> builder = ImmutableList.builder();
       for (CToolchain.FlagGroup flagGroup : flagSet.getFlagGroupList()) {
         builder.add(new FlagGroup(flagGroup));
@@ -474,14 +536,19 @@ public class CcToolchainFeatures implements Serializable {
       this.flagGroups = builder.build();
     }
 
-    /**
-     * Adds the flags that apply to the given {@code action} to {@code commandLine}.
-     */
-    private void expandCommandLine(String action, Variables variables, List<String> commandLine) {
+    /** Adds the flags that apply to the given {@code action} to {@code commandLine}. */
+    private void expandCommandLine(
+        String action,
+        Variables variables,
+        Set<String> enabledFeatureNames,
+        List<String> commandLine) {
       for (String variable : expandIfAllAvailable) {
         if (!variables.isAvailable(variable)) {
           return;
         }
+      }
+      if (!isWithFeaturesSatisfied(withFeatureSets, enabledFeatureNames)) {
+        return;
       }
       if (!actions.contains(action)) {
         return;
@@ -577,13 +644,14 @@ public class CcToolchainFeatures implements Serializable {
       }
     }
 
-    /**
-     * Adds the flags that apply to the given {@code action} to {@code commandLine}.
-     */
-    private void expandCommandLine(String action, Variables variables,
+    /** Adds the flags that apply to the given {@code action} to {@code commandLine}. */
+    private void expandCommandLine(
+        String action,
+        Variables variables,
+        Set<String> enabledFeatureNames,
         List<String> commandLine) {
       for (FlagSet flagSet : flagSets) {
-        flagSet.expandCommandLine(action, variables, commandLine);
+        flagSet.expandCommandLine(action, variables, enabledFeatureNames, commandLine);
       }
     }
   }
@@ -714,12 +782,11 @@ public class CcToolchainFeatures implements Serializable {
       }
     }
 
-    /**
-     * Adds the flags that apply to this action to {@code commandLine}.
-     */
-    private void expandCommandLine(Variables variables, List<String> commandLine) {
+    /** Adds the flags that apply to this action to {@code commandLine}. */
+    private void expandCommandLine(
+        Variables variables, Set<String> enabledFeatureNames, List<String> commandLine) {
       for (FlagSet flagSet : flagSets) {
-        flagSet.expandCommandLine(actionName, variables, commandLine);
+        flagSet.expandCommandLine(actionName, variables, enabledFeatureNames, commandLine);
       }
     }
   }
@@ -953,25 +1020,64 @@ public class CcToolchainFeatures implements Serializable {
      * significantly reduces memory overhead.
      */
     @Immutable
-    public static final class LibraryToLinkValue implements VariableValue {
+    public static class LibraryToLinkValue implements VariableValue {
 
-      public static final String NAMES_FIELD_NAME = "names";
+      public static final String OBJECT_FILES_FIELD_NAME = "object_files";
+      public static final String NAME_FIELD_NAME = "name";
+      public static final String TYPE_FIELD_NAME = "type";
       public static final String IS_WHOLE_ARCHIVE_FIELD_NAME = "is_whole_archive";
-      public static final String IS_LIB_GROUP_FIELD_NAME = "is_lib_group";
+      private enum Type {
+        OBJECT_FILE("object_file"),
+        OBJECT_FILE_GROUP("object_file_group"),
+        INTERFACE_LIBRARY("interface_library"),
+        STATIC_LIBRARY("static_library"),
+        DYNAMIC_LIBRARY("dynamic_library"),
+        VERSIONED_DYNAMIC_LIBRARY("versioned_dynamic_library");
 
-      private final ImmutableList<String> names;
-      private final boolean isWholeArchive;
-      private final boolean isLibGroup;
+        private final String name;
 
-      public LibraryToLinkValue(String name, boolean isWholeArchive) {
-        this(ImmutableList.of(name), isWholeArchive, false);
+        Type(String name) {
+          this.name = name;
+        }
       }
 
-      public LibraryToLinkValue(
-          ImmutableList<String> names, boolean isWholeArchive, boolean isLibGroup) {
-        this.names = names;
+      private final String name;
+      private final ImmutableList<String> objectFiles;
+      private final boolean isWholeArchive;
+      private final Type type;
+
+      public static LibraryToLinkValue forDynamicLibrary(String name) {
+        return new LibraryToLinkValue(name, null, false, Type.DYNAMIC_LIBRARY);
+      }
+
+      public static LibraryToLinkValue forVersionedDynamicLibrary(
+          String name) {
+        return new LibraryToLinkValue(name, null, false, Type.VERSIONED_DYNAMIC_LIBRARY);
+      }
+
+      public static LibraryToLinkValue forInterfaceLibrary(String name) {
+        return new LibraryToLinkValue(name, null, false, Type.INTERFACE_LIBRARY);
+      }
+
+      public static LibraryToLinkValue forStaticLibrary(String name, boolean isWholeArchive) {
+        return new LibraryToLinkValue(name, null, isWholeArchive, Type.STATIC_LIBRARY);
+      }
+
+      public static LibraryToLinkValue forObjectFile(String name, boolean isWholeArchive) {
+        return new LibraryToLinkValue(name, null, isWholeArchive, Type.OBJECT_FILE);
+      }
+
+      public static LibraryToLinkValue forObjectFileGroup(
+          ImmutableList<String> objects, boolean isWholeArchive) {
+        return new LibraryToLinkValue(null, objects, isWholeArchive, Type.OBJECT_FILE_GROUP);
+      }
+
+      private LibraryToLinkValue(
+          String name, ImmutableList<String> objectFiles, boolean isWholeArchive, Type type) {
+        this.name = name;
+        this.objectFiles = objectFiles;
         this.isWholeArchive = isWholeArchive;
-        this.isLibGroup = isLibGroup;
+        this.type = type;
       }
 
       @Override
@@ -991,21 +1097,14 @@ public class CcToolchainFeatures implements Serializable {
       @Override
       public VariableValue getFieldValue(String variableName, String field) {
         Preconditions.checkNotNull(field);
-        if (NAMES_FIELD_NAME.equals(field)) {
-          return new StringSequence(names);
+        if (NAME_FIELD_NAME.equals(field) && !type.equals(Type.OBJECT_FILE_GROUP)) {
+          return new StringValue(name);
+        } else if (OBJECT_FILES_FIELD_NAME.equals(field) && type.equals(Type.OBJECT_FILE_GROUP)) {
+          return new StringSequence(objectFiles);
+        } else if (TYPE_FIELD_NAME.equals(field)) {
+          return new StringValue(type.name);
         } else if (IS_WHOLE_ARCHIVE_FIELD_NAME.equals(field)) {
           return new IntegerValue(isWholeArchive ? 1 : 0);
-        } else if (IS_LIB_GROUP_FIELD_NAME.equals(field)) {
-          return new IntegerValue(isLibGroup ? 1 : 0);
-        } else if ("whole_archive_presence".equals(field)) {
-          // TODO(b/33403458): Cleanup this workaround once bazel >=0.4.3 is released.
-          return isWholeArchive ? new IntegerValue(0) : null;
-        } else if ("no_whole_archive_presence".equals(field)) {
-          // TODO(b/33403458): Cleanup this workaround once bazel >=0.4.3 is released.
-          return !isWholeArchive ? new IntegerValue(0) : null;
-        } else if ("lib_group_presence".equals(field)) {
-          // TODO(b/33403458): Cleanup this workaround once bazel >=0.4.3 is released.
-          return isLibGroup ? new IntegerValue(0) : null;
         } else {
           return null;
         }
@@ -1329,12 +1428,27 @@ public class CcToolchainFeatures implements Serializable {
       private final Map<String, VariableValue> variablesMap = new LinkedHashMap<>();
       private final Map<String, String> stringVariablesMap = new LinkedHashMap<>();
 
+      public Builder() {};
+
+      public Builder(Variables variables) {
+        variablesMap.putAll(variables.variablesMap);
+        stringVariablesMap.putAll(variables.stringVariablesMap);
+      }
+
       /** Add a variable that expands {@code name} to {@code value}. */
       public Builder addStringVariable(String name, String value) {
         Preconditions.checkArgument(
             !variablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
         Preconditions.checkArgument(
             !stringVariablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
+        Preconditions.checkNotNull(
+            value, "Cannot set null as a value for variable '%s'", name);
+        stringVariablesMap.put(name, value);
+        return this;
+      }
+
+      /** Overrides a variable to expands {@code name} to {@code value} instead. */
+      public Builder overrideStringVariable(String name, String value) {
         Preconditions.checkNotNull(
             value, "Cannot set null as a value for variable '%s'", name);
         stringVariablesMap.put(name, value);
@@ -1484,12 +1598,7 @@ public class CcToolchainFeatures implements Serializable {
      *     accessing a field of non-structured variable
      */
     public VariableValue getVariable(String name) {
-      Pair<VariableValue, String> pair = lookupVariable(name);
-      if (pair.getFirst() == null) {
-        throw new ExpansionException(pair.getSecond());
-      } else {
-        return pair.getFirst();
-      }
+      return lookupVariable(name, true);
     }
 
     /**
@@ -1499,17 +1608,73 @@ public class CcToolchainFeatures implements Serializable {
      * @return Pair<VariableValue, String> returns either (variable value, null) or (null, string
      *     reason why variable was not found)
      */
-    private Pair<VariableValue, String> lookupVariable(String name) {
-      Pair<VariableValue, String> nonStructuredPair = getNonStructuredVariable(name);
-      if (nonStructuredPair.getFirst() != null) {
-        return nonStructuredPair;
+    private VariableValue lookupVariable(String name, boolean throwOnMissingVariable) {
+      VariableValue nonStructuredVariable = getNonStructuredVariable(name);
+      if (nonStructuredVariable != null) {
+        return nonStructuredVariable;
       }
-      Pair<VariableValue, String> structuredPair = getStructureVariable(name);
-      if (structuredPair.getFirst() != null || structuredPair.getSecond() != null) {
-        return structuredPair;
+      VariableValue structuredVariable = getStructureVariable(name, throwOnMissingVariable);
+      if (structuredVariable != null) {
+        return structuredVariable;
+      } else if (throwOnMissingVariable) {
+        throw new ExpansionException(
+            String.format(
+                "Invalid toolchain configuration: Cannot find variable named '%s'.", name));
       } else {
-        return nonStructuredPair;
+        return null;
       }
+    }
+
+    private VariableValue getNonStructuredVariable(String name) {
+      if (variablesMap.containsKey(name)) {
+        return variablesMap.get(name);
+      }
+      if (stringVariablesMap.containsKey(name)) {
+        return new StringValue(stringVariablesMap.get(name));
+      }
+
+      if (parent != null) {
+        return parent.getNonStructuredVariable(name);
+      }
+
+      return null;
+    }
+
+    private VariableValue getStructureVariable(String name, boolean throwOnMissingVariable) {
+      if (!name.contains(".")) {
+        return null;
+      }
+
+      Stack<String> fieldsToAccess = new Stack<>();
+      String structPath = name;
+      VariableValue variable;
+
+      do {
+        fieldsToAccess.push(structPath.substring(structPath.lastIndexOf('.') + 1));
+        structPath = structPath.substring(0, structPath.lastIndexOf('.'));
+        variable = getNonStructuredVariable(structPath);
+      } while (variable == null && structPath.contains("."));
+
+      if (variable == null) {
+        return null;
+      }
+
+      while (!fieldsToAccess.empty()) {
+        String field = fieldsToAccess.pop();
+        variable = variable.getFieldValue(structPath, field);
+        if (variable == null) {
+          if (throwOnMissingVariable) {
+            throw new ExpansionException(
+                String.format(
+                    "Invalid toolchain configuration: Cannot expand variable '%s.%s': structure %s "
+                        + "doesn't have a field named '%s'",
+                    structPath, field, structPath, field));
+          } else {
+            return null;
+          }
+        }
+      }
+      return variable;
     }
 
     public String getStringVariable(String variableName) {
@@ -1520,62 +1685,10 @@ public class CcToolchainFeatures implements Serializable {
       return getVariable(variableName).getSequenceValue(variableName);
     }
 
-    private Pair<VariableValue, String> getNonStructuredVariable(String name) {
-      if (variablesMap.containsKey(name)) {
-        return Pair.of(variablesMap.get(name), null);
-      }
-      if (stringVariablesMap.containsKey(name)) {
-        return Pair.<VariableValue, String>of(new StringValue(stringVariablesMap.get(name)), null);
-      }
-
-      if (parent != null) {
-        return parent.getNonStructuredVariable(name);
-      }
-
-      return Pair.of(
-          null,
-          String.format("Invalid toolchain configuration: Cannot find variable named '%s'.", name));
-    }
-
-    private Pair<VariableValue, String> getStructureVariable(String name) {
-      if (!name.contains(".")) {
-        return Pair.of(null, null);
-      }
-
-      Stack<String> fieldsToAccess = new Stack<>();
-      String structPath = name;
-      Pair<VariableValue, String> pair;
-
-      do {
-        fieldsToAccess.push(structPath.substring(structPath.lastIndexOf('.') + 1));
-        structPath = structPath.substring(0, structPath.lastIndexOf('.'));
-        pair = getNonStructuredVariable(structPath);
-      } while (pair.getFirst() == null && structPath.contains("."));
-
-      if (pair.getFirst() == null) {
-        return pair;
-      }
-
-      VariableValue structure = pair.getFirst();
-      while (!fieldsToAccess.empty()) {
-        String field = fieldsToAccess.pop();
-        structure = structure.getFieldValue(structPath, field);
-        if (structure == null) {
-          return Pair.of(
-              null,
-              String.format(
-                  "Invalid toolchain configuration: Cannot expand variable '%s.%s': structure %s "
-                      + "doesn't have a field named '%s'",
-                  structPath, field, structPath, field));
-        }
-      }
-      return Pair.of(structure, null);
-    }
-
     private String guessIteratedOverVariable(ImmutableSet<String> usedVariables) {
       String sequenceName = null;
       for (String usedVariable : usedVariables) {
-        VariableValue variableValue = lookupVariable(usedVariable).getFirst();
+        VariableValue variableValue = lookupVariable(usedVariable, false);
         if (variableValue != null && variableValue.isSequence()) {
           if (sequenceName != null) {
             throw new ExpansionException(
@@ -1595,7 +1708,7 @@ public class CcToolchainFeatures implements Serializable {
 
     /** Returns whether {@code variable} is set. */
     boolean isAvailable(String variable) {
-      return lookupVariable(variable).getFirst() != null;
+      return lookupVariable(variable, false) != null;
     }
   }
   
@@ -1604,23 +1717,27 @@ public class CcToolchainFeatures implements Serializable {
    */
   @Immutable
   public static class FeatureConfiguration {
+    private final FeatureSpecification featureSpecification;
     private final ImmutableSet<String> enabledFeatureNames;
     private final Iterable<Feature> enabledFeatures;
     private final ImmutableSet<String> enabledActionConfigActionNames;
     
     private final ImmutableMap<String, ActionConfig> actionConfigByActionName;
-    
+
     public FeatureConfiguration() {
       this(
+          FeatureSpecification.EMPTY,
           ImmutableList.<Feature>of(),
           ImmutableList.<ActionConfig>of(),
           ImmutableMap.<String, ActionConfig>of());
     }
 
     private FeatureConfiguration(
+        FeatureSpecification featureSpecification,
         Iterable<Feature> enabledFeatures,
         Iterable<ActionConfig> enabledActionConfigs,
         ImmutableMap<String, ActionConfig> actionConfigByActionName) {
+      this.featureSpecification = featureSpecification;
       this.enabledFeatures = enabledFeatures;
       
       this.actionConfigByActionName = actionConfigByActionName;
@@ -1660,11 +1777,13 @@ public class CcToolchainFeatures implements Serializable {
     List<String> getCommandLine(String action, Variables variables) {
       List<String> commandLine = new ArrayList<>();
       for (Feature feature : enabledFeatures) {
-        feature.expandCommandLine(action, variables, commandLine);
+        feature.expandCommandLine(action, variables, enabledFeatureNames, commandLine);
       }
       
       if (actionIsConfigured(action)) {
-        actionConfigByActionName.get(action).expandCommandLine(variables, commandLine);
+        actionConfigByActionName
+            .get(action)
+            .expandCommandLine(variables, enabledFeatureNames, commandLine);
       }
 
       return commandLine;
@@ -1689,6 +1808,10 @@ public class CcToolchainFeatures implements Serializable {
           actionName);
       ActionConfig actionConfig = actionConfigByActionName.get(actionName);
       return actionConfig.getTool(enabledFeatureNames);
+    }
+
+    public FeatureSpecification getFeatureSpecification() {
+      return featureSpecification;
     }
   }
 
@@ -1737,19 +1860,26 @@ public class CcToolchainFeatures implements Serializable {
       requires;
 
   /**
+   * Maps from a string to the set of selectables that 'provide' it.
+   */
+  private final ImmutableMultimap<String, CrosstoolSelectable> provides;
+
+  /**
    * Maps from a selectable to all selectables that have a requirement referencing it.
    *
    * <p>This will be used to determine which selectables need to be re-checked after a selectable
    * was disabled.
    */
   private final ImmutableMultimap<CrosstoolSelectable, CrosstoolSelectable> requiredBy;
+
+  private final ImmutableList<String> defaultFeatures;
  
   /**
-   * A cache of feature selection results, so we do not recalculate the feature selection for
-   * all actions.
+   * A cache of feature selection results, so we do not recalculate the feature selection for all
+   * actions.
    */
-  private transient LoadingCache<Collection<String>, FeatureConfiguration>
-      configurationCache = buildConfigurationCache();
+  private transient LoadingCache<FeatureSpecification, FeatureConfiguration> configurationCache =
+      buildConfigurationCache();
 
   /**
    * Constructs the feature configuration from a {@code CToolchain} protocol buffer.
@@ -1769,11 +1899,16 @@ public class CcToolchainFeatures implements Serializable {
     // Also build a map from action -> action_config, for use in tool lookups
     ImmutableMap.Builder<String, ActionConfig> actionConfigsByActionName = ImmutableMap.builder();
 
+    ImmutableList.Builder<String> defaultFeaturesBuilder = ImmutableList.builder();
     for (CToolchain.Feature toolchainFeature : toolchain.getFeatureList()) {
       Feature feature = new Feature(toolchainFeature);
       selectablesBuilder.add(feature);
       selectablesByName.put(feature.getName(), feature);
+      if (toolchainFeature.getEnabled()) {
+        defaultFeaturesBuilder.add(feature.getName());
+      }
     }
+    this.defaultFeatures = defaultFeaturesBuilder.build();
     
     for (CToolchain.ActionConfig toolchainActionConfig : toolchain.getActionConfigList()) {
       ActionConfig actionConfig = new ActionConfig(toolchainActionConfig);
@@ -1798,11 +1933,12 @@ public class CcToolchainFeatures implements Serializable {
     }
     this.artifactNamePatterns = artifactNamePatternsBuilder.build();
 
-    // Next, we build up all forward references for 'implies' and 'requires' edges.
+    // Next, we build up all forward references for 'implies', 'requires', and 'provides' edges.
     ImmutableMultimap.Builder<CrosstoolSelectable, CrosstoolSelectable> implies =
         ImmutableMultimap.builder();
     ImmutableMultimap.Builder<CrosstoolSelectable, ImmutableSet<CrosstoolSelectable>> requires =
         ImmutableMultimap.builder();
+    ImmutableMultimap.Builder<CrosstoolSelectable, String> provides = ImmutableMultimap.builder();
     // We also store the reverse 'implied by' and 'required by' edges during this pass.
     ImmutableMultimap.Builder<CrosstoolSelectable, CrosstoolSelectable> impliedBy =
         ImmutableMultimap.builder();
@@ -1826,6 +1962,9 @@ public class CcToolchainFeatures implements Serializable {
         impliedBy.put(implied, selectable);
         implies.put(selectable, implied);
       }
+      for (String providesName : toolchainFeature.getProvidesList()) {
+        provides.put(selectable, providesName);
+      }
     }
 
     for (CToolchain.ActionConfig toolchainActionConfig : toolchain.getActionConfigList()) {
@@ -1840,6 +1979,7 @@ public class CcToolchainFeatures implements Serializable {
 
     this.implies = implies.build();
     this.requires = requires.build();
+    this.provides = provides.build().inverse();
     this.impliedBy = impliedBy.build();
     this.requiredBy = requiredBy.build();
   }
@@ -1871,7 +2011,7 @@ public class CcToolchainFeatures implements Serializable {
       }
     }
   }
- 
+
   /**
    * Assign an empty cache after default-deserializing all non-transient members.
    */
@@ -1880,19 +2020,18 @@ public class CcToolchainFeatures implements Serializable {
     this.configurationCache = buildConfigurationCache();
   }
   
-  /**
-   * @return an empty {@code FeatureConfiguration} cache. 
-   */
-  private LoadingCache<Collection<String>, FeatureConfiguration> buildConfigurationCache() {
+  /** @return an empty {@code FeatureConfiguration} cache. */
+  private LoadingCache<FeatureSpecification, FeatureConfiguration> buildConfigurationCache() {
     return CacheBuilder.newBuilder()
-        // TODO(klimek): Benchmark and tweak once we support a larger configuration. 
+        // TODO(klimek): Benchmark and tweak once we support a larger configuration.
         .maximumSize(10000)
-        .build(new CacheLoader<Collection<String>, FeatureConfiguration>() {
-          @Override
-          public FeatureConfiguration load(Collection<String> requestedFeatures) {
-            return computeFeatureConfiguration(requestedFeatures);
-          }
-        });
+        .build(
+            new CacheLoader<FeatureSpecification, FeatureConfiguration>() {
+              @Override
+              public FeatureConfiguration load(FeatureSpecification featureSpecification) {
+                return computeFeatureConfiguration(featureSpecification);
+              }
+            });
   }
 
   /**
@@ -1905,28 +2044,30 @@ public class CcToolchainFeatures implements Serializable {
    * <p>Additional features will be enabled if the toolchain supports them and they are implied by
    * requested features.
    */
-  public FeatureConfiguration getFeatureConfiguration(Collection<String> requestedFeatures) {
-    return configurationCache.getUnchecked(requestedFeatures);
+  public FeatureConfiguration getFeatureConfiguration(FeatureSpecification featureSpecification) {
+    return configurationCache.getUnchecked(featureSpecification);
   }
-      
-  private FeatureConfiguration computeFeatureConfiguration(Collection<String> requestedFeatures) { 
-    // Command line flags will be output in the order in which they are specified in the toolchain
-    // configuration.
-    return new FeatureSelection(requestedFeatures).run();
-  }
-  
+
   /**
-   * Given a list of {@code requestedFeatures}, returns all features that are enabled by the
-   * toolchain configuration.
+   * Given {@code featureSpecification}, returns a FeatureConfiguration with all requested features
+   * enabled.
    *
    * <p>A requested feature will not be enabled if the toolchain does not support it (which may
    * depend on other requested features).
    *
    * <p>Additional features will be enabled if the toolchain supports them and they are implied by
    * requested features.
-   */ 
-  public FeatureConfiguration getFeatureConfiguration(String... requestedFeatures) {
-    return getFeatureConfiguration(Arrays.asList(requestedFeatures));
+   */
+  public FeatureConfiguration computeFeatureConfiguration(
+      FeatureSpecification featureSpecification) {
+    // Command line flags will be output in the order in which they are specified in the toolchain
+    // configuration.
+    return new FeatureSelection(featureSpecification).run();
+  }
+
+  /** Returns the list of features that specify themselves as enabled by default. */
+  public ImmutableList<String> getDefaultFeatures() {
+    return defaultFeatures;
   }
 
   /**
@@ -1958,7 +2099,7 @@ public class CcToolchainFeatures implements Serializable {
    */
   String getArtifactNameForCategory(ArtifactCategory artifactCategory, String outputName)
       throws ExpansionException {
-    PathFragment output = new PathFragment(outputName);
+    PathFragment output = PathFragment.create(outputName);
 
     ArtifactNamePattern patternForCategory = null;
     for (ArtifactNamePattern artifactNamePattern : artifactNamePatterns) {
@@ -2008,10 +2149,12 @@ public class CcToolchainFeatures implements Serializable {
      * from selectables that have unmet requirements.
      */
     private final Set<CrosstoolSelectable> enabled = new HashSet<>();
-    
-    private FeatureSelection(Collection<String> requestedSelectables) {
+    private final FeatureSpecification featureSpecification;
+
+    private FeatureSelection(FeatureSpecification featureSpecification) {
+      this.featureSpecification = featureSpecification;
       ImmutableSet.Builder<CrosstoolSelectable> builder = ImmutableSet.builder();
-      for (String name : requestedSelectables) {
+      for (String name : featureSpecification.getRequestedFeatures()) {
         if (selectablesByName.containsKey(name)) {
           builder.add(selectablesByName.get(name));
         }
@@ -2036,7 +2179,7 @@ public class CcToolchainFeatures implements Serializable {
           enabledActivatablesInOrderBuilder.add(selectable);
         }
       }
-      
+
       ImmutableList<CrosstoolSelectable> enabledActivatablesInOrder =
           enabledActivatablesInOrderBuilder.build();
       Iterable<Feature> enabledFeaturesInOrder =
@@ -2044,10 +2187,27 @@ public class CcToolchainFeatures implements Serializable {
       Iterable<ActionConfig> enabledActionConfigsInOrder =
           Iterables.filter(enabledActivatablesInOrder, ActionConfig.class);
 
+      for (String provided : provides.keys()) {
+        List<String> conflicts = new ArrayList<>();
+        for (CrosstoolSelectable selectableProvidingString : provides.get(provided)) {
+          if (enabledActivatablesInOrder.contains(selectableProvidingString)) {
+            conflicts.add(selectableProvidingString.getName());
+          }
+        }
+
+        if (conflicts.size() > 1) {
+          throw new CollidingProvidesException(String.format(COLLIDING_PROVIDES_ERROR,
+              provided, Joiner.on(" ").join(conflicts)));
+        }
+      }
+
       return new FeatureConfiguration(
-          enabledFeaturesInOrder, enabledActionConfigsInOrder, actionConfigsByActionName);
+          featureSpecification,
+          enabledFeaturesInOrder,
+          enabledActionConfigsInOrder,
+          actionConfigsByActionName);
     }
-    
+
     /**
      * Transitively and unconditionally enable all selectables implied by the given selectable
      * and the selectable itself to the enabled selectable set.

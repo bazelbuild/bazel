@@ -16,17 +16,18 @@ package com.google.devtools.build.lib.runtime;
 import com.google.common.base.Joiner;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.BlazeClock;
-
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 /**
@@ -39,9 +40,11 @@ public class BuildSummaryStatsModule extends BlazeModule {
   private SimpleCriticalPathComputer criticalPathComputer;
   private EventBus eventBus;
   private Reporter reporter;
+  private boolean enabled;
+  private boolean discardActions;
 
   @Override
-  public void beforeCommand(Command command, CommandEnvironment env) {
+  public void beforeCommand(CommandEnvironment env) {
     this.reporter = env.getReporter();
     this.eventBus = env.getEventBus();
     eventBus.register(this);
@@ -54,10 +57,18 @@ public class BuildSummaryStatsModule extends BlazeModule {
     this.reporter = null;
   }
 
+  @Override
+  public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
+    enabled = env.getOptions().getOptions(ExecutionOptions.class).enableCriticalPathProfiling;
+    discardActions = !env.getSkyframeExecutor().hasIncrementalState();
+  }
+
   @Subscribe
   public void executionPhaseStarting(ExecutionStartingEvent event) {
-    criticalPathComputer = new SimpleCriticalPathComputer(BlazeClock.instance());
-    eventBus.register(criticalPathComputer);
+    if (enabled) {
+      criticalPathComputer = new SimpleCriticalPathComputer(BlazeClock.instance(), discardActions);
+      eventBus.register(criticalPathComputer);
+    }
   }
 
   @Subscribe
@@ -79,10 +90,12 @@ public class BuildSummaryStatsModule extends BlazeModule {
         // when the actions were executed while critical path computation is stored in the reverse
         // way.
         for (SimpleCriticalPathComponent stat : criticalPath.components().reverse()) {
-          Profiler.instance().logSimpleTaskDuration(
-              TimeUnit.MILLISECONDS.toNanos(stat.getStartWallTimeMillis(BlazeClock.instance())),
-              stat.getElapsedTimeNanos(),
-              ProfilerTask.CRITICAL_PATH_COMPONENT, stat.getAction());
+          Profiler.instance()
+              .logSimpleTaskDuration(
+                  stat.getStartNanos(),
+                  stat.getElapsedTimeNanos(),
+                  ProfilerTask.CRITICAL_PATH_COMPONENT,
+                  stat.prettyPrintAction());
         }
         Profiler.instance().completeTask(ProfilerTask.CRITICAL_PATH);
       }

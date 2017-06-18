@@ -23,10 +23,15 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
+import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
+import com.google.devtools.build.lib.analysis.util.TestAspects.AspectApplyingToFiles;
 import com.google.devtools.build.lib.analysis.util.TestAspects.AspectInfo;
 import com.google.devtools.build.lib.analysis.util.TestAspects.AspectRequiringRule;
 import com.google.devtools.build.lib.analysis.util.TestAspects.BaseRule;
@@ -41,6 +46,7 @@ import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import java.util.ArrayList;
 import java.util.List;
@@ -128,6 +134,74 @@ public class AspectTest extends AnalysisTestCase {
   }
 
   @Test
+  public void aspectIsNotCreatedIfAdvertisedProviderIsNotPresentWithAlias() throws Exception {
+    setRulesAvailableInTests(new TestAspects.BaseRule(), new TestAspects.LiarRule(),
+        new TestAspects.AspectRequiringProviderRule());
+
+    pkg("a",
+        "aspect_requiring_provider(name='a', foo=[':b'])",
+        "alias(name = 'b_alias', actual = ':b')",
+        "liar(name='b', foo=[])");
+
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
+    assertThat(a.getProvider(RuleInfo.class).getData()).containsExactly("rule //a:a");
+  }
+
+  @Test
+  public void aspectIsNotPropagatedThroughLiars() throws Exception {
+    setRulesAvailableInTests(new TestAspects.BaseRule(),
+        new TestAspects.LiarRule(),
+        new TestAspects.HonestRule(),
+        new TestAspects.AspectRequiringProviderRule());
+
+    pkg("a",
+        "aspect_requiring_provider(name='a', foo=[':b_alias'])",
+        "alias(name = 'b_alias', actual = ':b')",
+        "liar(name='b', foo=[':c'])",
+        "honest(name = 'c', foo = [])"
+    );
+
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
+    assertThat(a.getProvider(RuleInfo.class).getData()).containsExactly("rule //a:a");
+  }
+
+  @Test
+  public void aspectPropagatedThroughAliasRule() throws Exception {
+    setRulesAvailableInTests(new TestAspects.BaseRule(), new TestAspects.HonestRule(),
+        new TestAspects.AspectRequiringProviderRule());
+
+    pkg("a",
+        "aspect_requiring_provider(name='a', foo=[':b_alias'])",
+        "alias(name = 'b_alias', actual = ':b')",
+        "honest(name='b', foo=[])");
+
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
+    assertThat(a.getProvider(RuleInfo.class).getData()).containsExactly(
+        "rule //a:a", "aspect //a:b");
+  }
+
+  @Test
+  public void aspectPropagatedThroughAliasRuleAndHonestRules() throws Exception {
+    setRulesAvailableInTests(new TestAspects.BaseRule(), new TestAspects.HonestRule(),
+        new TestAspects.AspectRequiringProviderRule());
+
+    pkg("a",
+        "aspect_requiring_provider(name='a', foo=[':b'])",
+        "alias(name = 'b_alias', actual = ':b')",
+        "honest(name='b', foo=[':c'])",
+        "honest(name='c', foo=[])"
+    );
+
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
+    assertThat(a.getProvider(RuleInfo.class).getData()).containsExactly(
+        "rule //a:a", "aspect //a:b", "aspect //a:c");
+  }
+
+
+
+
+
+  @Test
   public void aspectCreationWorksThroughBind() throws Exception {
     setRulesAvailableInTests(new TestAspects.BaseRule(), new TestAspects.HonestRule(),
         new TestAspects.AspectRequiringProviderRule());
@@ -137,7 +211,10 @@ public class AspectTest extends AnalysisTestCase {
         "honest(name='b', foo=[])");
 
     scratch.overwriteFile("WORKSPACE",
-        "bind(name='b', actual='//a:b')");
+        new ImmutableList.Builder<String>()
+            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
+            .add("bind(name='b', actual='//a:b')")
+            .build());
 
     skyframeExecutor.invalidateFilesUnderPathForTesting(reporter,
         ModifiedFileSet.EVERYTHING_MODIFIED, rootDirectory);
@@ -296,6 +373,18 @@ public class AspectTest extends AnalysisTestCase {
     ConfiguredTarget a = getConfiguredTarget("//a:a");
     assertThat(a.getProvider(RuleInfo.class).getData())
         .containsExactly("aspect //a:b", "rule //a:a");
+  }
+
+  @Test
+  public void sameTargetInDifferentAttributesWithDifferentAspects() throws Exception {
+    setRulesAvailableInTests(new TestAspects.BaseRule(), new TestAspects.MultiAspectRule(),
+        new TestAspects.SimpleRule());
+    pkg("a",
+        "multi_aspect(name='a', foo=':b', bar=':b')",
+        "simple(name='b')");
+
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
+    assertThat(a.getProvider(RuleInfo.class).getData()).containsExactly("foo", "bar");
   }
 
   @Test
@@ -683,5 +772,50 @@ public class AspectTest extends AnalysisTestCase {
     assertThat(a.getProvider(RuleInfo.class).getData())
         .containsExactly(
             "aspect //a:a", "aspect //a:b", "aspect //a:c", "aspect //a:tool", "rule //a:x");
+  }
+
+  @Test
+  public void aspectTruthInAdvertisement() throws Exception {
+    reporter.removeHandler(failFastHandler); // expect errors
+    setRulesAvailableInTests(
+        new TestAspects.BaseRule(),
+        new TestAspects.SimpleRule(),
+        new TestAspects.FalseAdvertisementAspectRule());
+    pkg(
+        "a",
+        "simple(name = 's')",
+        "false_advertisement_aspect(name = 'x', deps = [':s'])"
+    );
+    try {
+      update("//a:x");
+    } catch (ViewCreationFailedException e) {
+      // expected.
+    }
+    assertContainsEvent(
+        "Aspect 'FalseAdvertisementAspect', applied to '//a:s',"
+            + " does not provide advertised provider 'RequiredProvider'");
+    assertContainsEvent(
+        "Aspect 'FalseAdvertisementAspect', applied to '//a:s',"
+            + " does not provide advertised provider 'advertised_provider'");
+  }
+
+  @Test
+  public void aspectApplyingtToFiles() throws Exception {
+    AspectApplyingToFiles aspectApplyingToFiles = new AspectApplyingToFiles();
+    setRulesAndAspectsAvailableInTests(
+        ImmutableList.<NativeAspectClass>of(aspectApplyingToFiles),
+        ImmutableList.<RuleDefinition>of());
+    pkg(
+        "a",
+        "java_binary(name = 'x', main_class = 'x.FooBar', srcs = ['x.java'])"
+    );
+    AnalysisResult analysisResult = update(new EventBus(), defaultFlags(),
+        ImmutableList.of(aspectApplyingToFiles.getName()),
+        "//a:x_deploy.jar");
+    AspectValue aspect = Iterables.getOnlyElement(analysisResult.getAspects());
+    AspectApplyingToFiles.Provider provider =
+        aspect.getConfiguredAspect().getProvider(AspectApplyingToFiles.Provider.class);
+    assertThat(provider.getLabel())
+        .isEqualTo(Label.parseAbsoluteUnchecked("//a:x_deploy.jar"));
   }
 }
