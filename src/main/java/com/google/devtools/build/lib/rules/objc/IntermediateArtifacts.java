@@ -434,16 +434,16 @@ public final class IntermediateArtifacts {
   public CppModuleMap moduleMap() {
     String moduleName = ObjcCommon.getClangModuleName(ruleContext);
 
-    // To get Swift to pick up module maps, we need to name them "module.modulemap" and have their
-    // parent directory in the module map search paths.
     if (umbrellaHeaderStrategy == UmbrellaHeaderStrategy.GENERATE) {
       return new CppModuleMap(
-          appendExtensionInGenfiles(".modulemaps/module.modulemap"),
+          appendExtensionInGenfiles(".modulemaps/" + moduleName + ".modulemap"),
           appendExtensionInGenfiles(".modulemaps/umbrella.h"),
           moduleName);
     } else {
       return new CppModuleMap(
-          appendExtensionInGenfiles(".modulemaps/module.modulemap"), moduleName);
+          appendExtensionInGenfiles(".modulemaps/" + moduleName + ".modulemap"),
+          moduleName
+        );
     }
   }
 

@@ -356,8 +356,6 @@ public class LegacyCompilationSupport extends CompilationSupport {
       if (!attributes.enableModules()) {
         commandLine.add("-fmodule-maps");
       }
-      // -fmodule-map-file only loads the module in Xcode 7, so we add the module maps's directory
-      // to the include path instead.
       commandLine
           .add("-iquote")
           .add(moduleMap.get().getArtifact().getExecPath().getParentDirectory().toString())
