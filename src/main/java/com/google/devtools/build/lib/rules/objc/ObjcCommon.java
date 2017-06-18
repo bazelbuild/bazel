@@ -668,25 +668,6 @@ public final class ObjcCommon {
     return false;
   }
 
-  static String getClangModuleName(RuleContext ruleContext) {
-    if (ruleContext.attributes().has("module_name", Type.STRING)) {
-      String moduleName = ruleContext.attributes().get("module_name", Type.STRING);
-      if (!Strings.isNullOrEmpty(moduleName)) {
-        return moduleName;
-      }
-    }
-
-    // Otherwise, just use target name, it doesn't matter.
-    return
-        ruleContext
-            .getLabel()
-            .toString()
-            .replace("//", "")
-            .replace("@", "")
-            .replace("/", "_")
-            .replace(":", "_");
-  }
-
   /**
    * Determines clang module name for a rule. The default is the fully qualified label with
    * underscores replacing reserved characters.

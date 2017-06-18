@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -44,7 +45,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import com.google.common.base.Optional;
 
 import static com.google.devtools.build.lib.collect.nestedset.Order.LINK_ORDER;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
@@ -1037,16 +1037,14 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
         }
         if (nonPropagated.containsKey(key)) {
           union.addTransitive(nonPropagated.get(key));
-        }
-        } else if (nonPropagated.containsKey(key)) {
           skylarkFields.put(
               key.getSkylarkKeyName(),
               ObjcProviderSkylarkConverters.convertToSkylark(key, nonPropagated.get(key)));
-        skylarkFields.put(
-            key.getSkylarkKeyName(),
-            ObjcProviderSkylarkConverters.convertToSkylark(key, union.build()));
+          skylarkFields.put(
+              key.getSkylarkKeyName(),
+              ObjcProviderSkylarkConverters.convertToSkylark(key, union.build()));
+        }
       }
-
       return new ObjcProvider(propagated, nonPropagated, strictDependency, skylarkFields.build());
     }
   }
