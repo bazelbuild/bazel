@@ -648,7 +648,6 @@ public final class ObjcCommon {
         ruleContext.getTokenizedStringListAttr("copts"));
   }
 
-
   static boolean shouldUseObjcModules(RuleContext ruleContext) {
     for (String copt : getNonCrosstoolCopts(ruleContext)) {
       if (copt.contains("-fmodules")) {

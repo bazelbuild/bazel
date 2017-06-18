@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.devtools.build.lib.collect.nestedset.Order.LINK_ORDER;
+import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
@@ -45,9 +48,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-
-import static com.google.devtools.build.lib.collect.nestedset.Order.LINK_ORDER;
-import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 
 /**
  * A provider that provides all compiling and linking information in the transitive closure of its
@@ -441,9 +441,9 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
           STATIC_FRAMEWORK_FILE,
           STORYBOARD,
           STRINGS,
-          UMBRELLA_HEADER,
           TOP_LEVEL_MODULE_MAP,
           TOP_LEVEL_MODULE_NAME,
+          UMBRELLA_HEADER,
           WEAK_SDK_FRAMEWORK,
           XCASSETS_DIR,
           XCDATAMODEL,
@@ -1037,14 +1037,15 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
         }
         if (nonPropagated.containsKey(key)) {
           union.addTransitive(nonPropagated.get(key));
-          skylarkFields.put(
-              key.getSkylarkKeyName(),
-              ObjcProviderSkylarkConverters.convertToSkylark(key, nonPropagated.get(key)));
-          skylarkFields.put(
-              key.getSkylarkKeyName(),
-              ObjcProviderSkylarkConverters.convertToSkylark(key, union.build()));
         }
+        skylarkFields.put(
+            key.getSkylarkKeyName(),
+            ObjcProviderSkylarkConverters.convertToSkylark(key, nonPropagated.get(key)));
+        skylarkFields.put(
+            key.getSkylarkKeyName(),
+            ObjcProviderSkylarkConverters.convertToSkylark(key, union.build()));
       }
+
       return new ObjcProvider(propagated, nonPropagated, strictDependency, skylarkFields.build());
     }
   }
