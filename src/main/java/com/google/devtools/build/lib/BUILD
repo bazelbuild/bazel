@@ -127,6 +127,7 @@ java_library(
         "collect/nestedset/*.java",
     ]),
     deps = [
+        ":concurrent",
         ":preconditions",
         "//third_party:guava",
         "//third_party:jsr305",
