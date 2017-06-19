@@ -98,6 +98,24 @@ public class ResourceFilterTest {
         ImmutableList.of("drawable-hdpi-v4/foo.png", "drawable-hdpi-v11/foo.png"));
   }
 
+  @Test
+  public void testFilterByDensityPersistsOrdering() {
+    testFilter(
+        ImmutableList.of(),
+        ImmutableList.of("hdpi", "ldpi"),
+        FilterBehavior.FILTER_IN_ANALYSIS,
+        // If we add resources to the output list in density order, these resources will be
+        // rearranged.
+        ImmutableList.of(
+            "drawable-hdpi/foo.png",
+            "drawable-ldpi/foo.png",
+            "drawable-ldpi/bar.png",
+            "drawable-hdpi/bar.png"),
+        // Filter out some resources to make sure the original list isn't just returned because the
+        // filtering was a no-op.
+        ImmutableList.of("drawable-mdpi/foo.png", "drawable-mdpi/bar.png"));
+  }
+
   private void testNoopFilter(
       ImmutableList<String> resourceConfigurationFilters,
       ImmutableList<String> densities,
@@ -129,7 +147,7 @@ public class ResourceFilterTest {
         new ResourceFilter(resourceConfigurationFilters, densities, filterBehavior)
             .filter(FAKE_ERROR_CONSUMER, allArtifacts);
 
-    assertThat(filtered).containsExactlyElementsIn(expectedResources);
+    assertThat(filtered).containsExactlyElementsIn(expectedResources).inOrder();
   }
 
   private static Artifact getArtifact(String pathString) {

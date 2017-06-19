@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
-import com.google.devtools.build.lib.actions.Executor.ActionContext;
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;

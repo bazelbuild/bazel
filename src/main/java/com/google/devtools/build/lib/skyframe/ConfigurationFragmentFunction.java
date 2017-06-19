@@ -97,7 +97,7 @@ public final class ConfigurationFragmentFunction implements SkyFunction {
   /**
    * A {@link ConfigurationEnvironment} implementation that can create dependencies on files.
    */
-  private final class ConfigurationBuilderEnvironment implements ConfigurationEnvironment {
+  private static final class ConfigurationBuilderEnvironment implements ConfigurationEnvironment {
     private final PackageProviderForConfigurations packageProvider;
 
     ConfigurationBuilderEnvironment(PackageProviderForConfigurations packageProvider) {

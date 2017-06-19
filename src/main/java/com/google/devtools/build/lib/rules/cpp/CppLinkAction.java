@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
-import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -296,13 +295,11 @@ public final class CppLinkAction extends AbstractAction
 
   @Override
   @ThreadCompatible
-  public void execute(
-      ActionExecutionContext actionExecutionContext)
-          throws ActionExecutionException, InterruptedException {
+  public void execute(ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException, InterruptedException {
     if (fake) {
       executeFake();
     } else {
-      Executor executor = actionExecutionContext.getExecutor();
       try {
         // Collect input files
         List<ActionInput> allInputs = new ArrayList<>();
@@ -322,11 +319,13 @@ public final class CppLinkAction extends AbstractAction
             ImmutableList.copyOf(allInputs),
             getOutputs().asList(),
             estimateResourceConsumptionLocal());
-        executor.getSpawnActionContext(getMnemonic()).exec(
-            spawn, actionExecutionContext);
+        actionExecutionContext.getSpawnActionContext(getMnemonic())
+            .exec(spawn, actionExecutionContext);
       } catch (ExecException e) {
-        throw e.toActionExecutionException("Linking of rule '" + getOwner().getLabel() + "'",
-            executor.getVerboseFailures(), this);
+        throw e.toActionExecutionException(
+            "Linking of rule '" + getOwner().getLabel() + "'",
+            actionExecutionContext.getVerboseFailures(),
+            this);
       }
     }
   }

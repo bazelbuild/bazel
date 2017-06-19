@@ -54,12 +54,15 @@ def RunJ2ObjC(java, jvm_flags, j2objc, main_class, output_file_path,
   Returns:
     None.
   """
-  source_file_manifest_content = ' '.join(files_to_translate)
+  j2objc_args.extend(['-sourcepath', ':'.join(source_paths)])
+  j2objc_args.extend(['-d', output_file_path])
+  j2objc_args.extend(files_to_translate)
+  param_file_content = ' '.join(j2objc_args)
   fd = None
   param_filename = None
   try:
     fd, param_filename = tempfile.mkstemp(text=True)
-    os.write(fd, source_file_manifest_content)
+    os.write(fd, param_file_content)
   finally:
     if fd:
       os.close(fd)
@@ -67,9 +70,6 @@ def RunJ2ObjC(java, jvm_flags, j2objc, main_class, output_file_path,
     j2objc_cmd = [java]
     j2objc_cmd.extend(filter(None, jvm_flags.split(',')))
     j2objc_cmd.extend(['-cp', j2objc, main_class])
-    j2objc_cmd.extend(j2objc_args)
-    j2objc_cmd.extend(['-sourcepath', ':'.join(source_paths)])
-    j2objc_cmd.extend(['-d', output_file_path])
     j2objc_cmd.extend(['@%s' % param_filename])
     subprocess.check_call(j2objc_cmd, stderr=subprocess.STDOUT)
   finally:

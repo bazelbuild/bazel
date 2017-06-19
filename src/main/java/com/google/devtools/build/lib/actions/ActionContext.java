@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2017 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,16 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
-
 /**
- * Annotation for action contexts. Actions contexts should also implement {@link ActionContext}.
+ * A marker interface for classes that provide services for actions during execution.
+ *
+ * <p>Interfaces extending this one should also be annotated with {@link ActionContextMarker}.
  */
-@Target(ElementType.TYPE)
-@Retention(RetentionPolicy.RUNTIME)
-public @interface ActionContextMarker {
-  String name();
+public interface ActionContext {
 }

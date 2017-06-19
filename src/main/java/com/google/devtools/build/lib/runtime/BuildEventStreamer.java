@@ -326,11 +326,6 @@ public class BuildEventStreamer implements EventHandler {
   public void handle(Event event) {}
 
   @Subscribe
-  public void noBuild(NoBuildEvent event) {
-    close();
-  }
-
-  @Subscribe
   public void buildInterrupted(BuildInterruptedEvent event) {
     abortReason = AbortReason.USER_INTERRUPTED;
   }
@@ -374,7 +369,9 @@ public class BuildEventStreamer implements EventHandler {
       buildEvent(freedEvent);
     }
 
-    if (event instanceof BuildCompleteEvent || event instanceof TestingCompleteEvent) {
+    if (event instanceof BuildCompleteEvent
+        || event instanceof TestingCompleteEvent
+        || event instanceof NoBuildEvent) {
       buildComplete();
     }
   }

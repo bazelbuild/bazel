@@ -77,11 +77,6 @@ final class PersistentStringIndexer extends CanonicalStringIndexer {
       throw new UnsupportedOperationException();
     }
 
-    @Override
-    public void clear() {
-      throw new UnsupportedOperationException();
-    }
-
     public void flush() {
       super.forceFlush();
     }

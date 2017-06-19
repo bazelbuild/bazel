@@ -19,10 +19,14 @@ package com.google.devtools.build.lib.util;
  */
 public final class OsUtils {
 
-  private static final String EXECUTABLE_EXTENSION = OS.getCurrent() == OS.WINDOWS ? ".exe" : "";
+  private static final String EXECUTABLE_EXTENSION = executableExtension(OS.getCurrent());
 
   // Utility class.
   private OsUtils() {
+  }
+
+  public static String executableExtension(OS os) {
+    return os == OS.WINDOWS ? ".exe" : "";
   }
 
   /**

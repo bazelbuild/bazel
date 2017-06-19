@@ -117,8 +117,8 @@ public final class SymlinkTreeHelper {
     if (enableRunfiles) {
       List<String> args =
           getSpawnArgumentList(
-              actionExecutionContext.getExecutor().getExecRoot(), binTools);
-      actionExecutionContext.getExecutor().getSpawnActionContext(action.getMnemonic()).exec(
+              actionExecutionContext.getExecRoot(), binTools);
+      actionExecutionContext.getSpawnActionContext(action.getMnemonic()).exec(
           new BaseSpawn.Local(args, shellEnvironment, action, RESOURCE_SET),
           actionExecutionContext);
     } else {

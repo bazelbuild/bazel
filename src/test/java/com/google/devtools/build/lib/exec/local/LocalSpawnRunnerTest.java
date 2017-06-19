@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.shell.JavaSubprocessFactory;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.util.NetUtil;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -218,7 +219,7 @@ public class LocalSpawnRunnerTest {
     options.localSigkillGraceSeconds = 456;
     LocalSpawnRunner runner = new LocalSpawnRunner(
         logger, execCount, fs.getPath("/execroot"), ActionInputPrefetcher.NONE, options,
-        resourceManager, USE_WRAPPER, "product-name", LocalEnvProvider.UNMODIFIED);
+        resourceManager, USE_WRAPPER, OS.LINUX, "product-name", LocalEnvProvider.UNMODIFIED);
 
     timeoutMillis = 123 * 1000L;
     outErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
@@ -253,7 +254,7 @@ public class LocalSpawnRunnerTest {
     options.localSigkillGraceSeconds = 456;
     LocalSpawnRunner runner = new LocalSpawnRunner(
         logger, execCount, fs.getPath("/execroot"), ActionInputPrefetcher.NONE, options,
-        resourceManager, NO_WRAPPER, "product-name", LocalEnvProvider.UNMODIFIED);
+        resourceManager, NO_WRAPPER, OS.LINUX, "product-name", LocalEnvProvider.UNMODIFIED);
 
     timeoutMillis = 123 * 1000L;
     outErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
@@ -283,7 +284,7 @@ public class LocalSpawnRunnerTest {
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     LocalSpawnRunner runner = new LocalSpawnRunner(
         logger, execCount, fs.getPath("/execroot"), ActionInputPrefetcher.NONE, options,
-        resourceManager, USE_WRAPPER, "product-name", LocalEnvProvider.UNMODIFIED);
+        resourceManager, USE_WRAPPER, OS.LINUX, "product-name", LocalEnvProvider.UNMODIFIED);
 
     outErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
     SpawnResult result = runner.exec(SIMPLE_SPAWN, policy);
@@ -313,7 +314,7 @@ public class LocalSpawnRunnerTest {
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     LocalSpawnRunner runner = new LocalSpawnRunner(
         logger, execCount, fs.getPath("/execroot"), ActionInputPrefetcher.NONE, options,
-        resourceManager, USE_WRAPPER, "product-name", LocalEnvProvider.UNMODIFIED);
+        resourceManager, USE_WRAPPER, OS.LINUX, "product-name", LocalEnvProvider.UNMODIFIED);
 
     assertThat(fs.getPath("/out").createDirectory()).isTrue();
     outErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
@@ -337,7 +338,7 @@ public class LocalSpawnRunnerTest {
     options.allowedLocalAction = Pattern.compile("none");
     LocalSpawnRunner runner = new LocalSpawnRunner(
         logger, execCount, fs.getPath("/execroot"), ActionInputPrefetcher.NONE, options,
-        resourceManager, USE_WRAPPER, "product-name", LocalEnvProvider.UNMODIFIED);
+        resourceManager, USE_WRAPPER, OS.LINUX, "product-name", LocalEnvProvider.UNMODIFIED);
 
     outErr = new FileOutErr();
     SpawnResult reply = runner.exec(SIMPLE_SPAWN, policy);
@@ -376,7 +377,7 @@ public class LocalSpawnRunnerTest {
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     LocalSpawnRunner runner = new LocalSpawnRunner(
         logger, execCount, fs.getPath("/execroot"), ActionInputPrefetcher.NONE, options,
-        resourceManager, USE_WRAPPER, "product-name", LocalEnvProvider.UNMODIFIED);
+        resourceManager, USE_WRAPPER, OS.LINUX, "product-name", LocalEnvProvider.UNMODIFIED);
 
     outErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
     try {
@@ -399,7 +400,7 @@ public class LocalSpawnRunnerTest {
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     LocalSpawnRunner runner = new LocalSpawnRunner(
         logger, execCount, fs.getPath("/execroot"), mockPrefetcher, options, resourceManager,
-        USE_WRAPPER, "product-name", LocalEnvProvider.UNMODIFIED);
+        USE_WRAPPER, OS.LINUX, "product-name", LocalEnvProvider.UNMODIFIED);
 
     timeoutMillis = 123 * 1000L;
     outErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
@@ -418,7 +419,7 @@ public class LocalSpawnRunnerTest {
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     LocalSpawnRunner runner = new LocalSpawnRunner(
         logger, execCount, fs.getPath("/execroot"), mockPrefetcher, options, resourceManager,
-        USE_WRAPPER, "product-name", LocalEnvProvider.UNMODIFIED);
+        USE_WRAPPER, OS.LINUX, "product-name", LocalEnvProvider.UNMODIFIED);
 
     timeoutMillis = 123 * 1000L;
     outErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
@@ -446,7 +447,7 @@ public class LocalSpawnRunnerTest {
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     LocalSpawnRunner runner = new LocalSpawnRunner(
         logger, execCount, fs.getPath("/execroot"), mockPrefetcher, options, resourceManager,
-        USE_WRAPPER, "product-name", LocalEnvProvider.UNMODIFIED);
+        USE_WRAPPER, OS.LINUX, "product-name", LocalEnvProvider.UNMODIFIED);
 
     policy.inputMapping.put(PathFragment.create("relative/path"), null);
     policy.inputMapping.put(
@@ -469,7 +470,7 @@ public class LocalSpawnRunnerTest {
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     LocalSpawnRunner runner = new LocalSpawnRunner(
         logger, execCount, fs.getPath("/execroot"), ActionInputPrefetcher.NONE, options,
-        resourceManager, USE_WRAPPER, "product-name", localEnvProvider);
+        resourceManager, USE_WRAPPER, OS.LINUX, "product-name", localEnvProvider);
 
     timeoutMillis = 123 * 1000L;
     outErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
@@ -477,5 +478,31 @@ public class LocalSpawnRunnerTest {
     runner.exec(SIMPLE_SPAWN, policy);
     verify(localEnvProvider)
         .rewriteLocalEnv(any(), eq(fs.getPath("/execroot")), eq("product-name"));
+  }
+
+  @Test
+  public void useCorrectExtensionOnWindows() throws Exception {
+    Subprocess.Factory factory = mock(Subprocess.Factory.class);
+    ArgumentCaptor<SubprocessBuilder> captor = ArgumentCaptor.forClass(SubprocessBuilder.class);
+    when(factory.create(captor.capture())).thenReturn(new FinishedSubprocess(0));
+    SubprocessBuilder.setSubprocessFactory(factory);
+
+    LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
+    options.localSigkillGraceSeconds = 654;
+    LocalSpawnRunner runner = new LocalSpawnRunner(
+        logger, execCount, fs.getPath("/execroot"), ActionInputPrefetcher.NONE, options,
+        resourceManager, USE_WRAPPER, OS.WINDOWS, "product-name", LocalEnvProvider.UNMODIFIED);
+
+    timeoutMillis = 321 * 1000L;
+    outErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
+    SpawnResult result = runner.exec(SIMPLE_SPAWN, policy);
+    verify(factory).create(any(SubprocessBuilder.class));
+    assertThat(result.status()).isEqualTo(SpawnResult.Status.SUCCESS);
+
+    assertThat(captor.getValue().getArgv())
+        .isEqualTo(ImmutableList.of(
+            // process-wrapper timeout grace_time stdout stderr
+            "/execroot/_bin/process-wrapper.exe", "321.0", "654.0", "/out/stdout", "/out/stderr",
+            "/bin/echo", "Hi!"));
   }
 }

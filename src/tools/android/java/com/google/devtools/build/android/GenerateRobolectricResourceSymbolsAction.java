@@ -30,6 +30,7 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.Closeable;
 import java.nio.file.FileSystems;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -106,7 +107,7 @@ public class GenerateRobolectricResourceSymbolsAction {
     try (ScopedTemporaryDirectory scopedTmp =
         new ScopedTemporaryDirectory("robolectric_resources_tmp")) {
       Path tmp = scopedTmp.getPath();
-      Path generatedSources = tmp.resolve("generated_resources");
+      Path generatedSources = Files.createDirectories(tmp.resolve("generated_resources"));
       // The reported availableProcessors may be higher than the actual resources
       // (on a shared system). On the other hand, a lot of the work is I/O, so it's not completely
       // CPU bound. As a compromise, divide by 2 the reported availableProcessors.

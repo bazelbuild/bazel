@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
-import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -82,13 +81,12 @@ public class ProcessWrapperSandboxedStrategy extends SandboxStrategy {
       ActionExecutionContext actionExecutionContext,
       AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles)
       throws ExecException, InterruptedException, IOException {
-    Executor executor = actionExecutionContext.getExecutor();
-    executor
+    actionExecutionContext
         .getEventBus()
         .post(
             ActionStatusMessage.runningStrategy(
                 spawn.getResourceOwner(), "processwrapper-sandbox"));
-    SandboxHelpers.reportSubcommand(executor, spawn);
+    SandboxHelpers.reportSubcommand(actionExecutionContext, spawn);
 
     // Each invocation of "exec" gets its own sandbox.
     Path sandboxPath = getSandboxRoot();

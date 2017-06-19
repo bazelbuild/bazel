@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.worker;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
-import com.google.devtools.build.lib.actions.Executor.ActionContext;
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ActionContextProvider;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -45,7 +45,7 @@ final class WorkerActionContextProvider extends ActionContextProvider {
   }
 
   @Override
-  public Iterable<ActionContext> getActionContexts() {
+  public Iterable<? extends ActionContext> getActionContexts() {
     return strategies;
   }
 }

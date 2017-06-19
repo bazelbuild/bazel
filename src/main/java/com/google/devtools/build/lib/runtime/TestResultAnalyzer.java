@@ -299,14 +299,16 @@ public class TestResultAnalyzer {
   }
 
   /**
-   * Checks whether the specified test timeout could have been smaller and adds
-   * a warning message if verbose is true.
+   * Checks whether the specified test timeout could have been smaller or is too small and adds a
+   * warning message if verbose is true.
    *
-   * <p>Returns true if there was a test with the wrong timeout, but if was not
-   * reported.
+   * <p>Returns true if there was a test with the wrong timeout, but if was not reported.
    */
-  private static boolean shouldEmitTestSizeWarningInSummary(boolean verbose,
-      List<String> warnings, List<Long> testTimes, TransitiveInfoCollection target) {
+  private static boolean shouldEmitTestSizeWarningInSummary(
+      boolean verbose,
+      List<String> warnings,
+      List<Long> testTimes,
+      TransitiveInfoCollection target) {
 
     TestTimeout specifiedTimeout =
         target.getProvider(TestProvider.class).getTestParams().getTimeout();

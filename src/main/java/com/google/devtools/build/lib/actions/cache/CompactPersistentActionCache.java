@@ -293,6 +293,12 @@ public class CompactPersistentActionCache implements ActionCache {
   }
 
   @Override
+  public void clear() {
+    indexer.clear();
+    map.clear();
+  }
+
+  @Override
   public synchronized String toString() {
     StringBuilder builder = new StringBuilder();
     // map.size() - 1 to avoid counting the validation key.

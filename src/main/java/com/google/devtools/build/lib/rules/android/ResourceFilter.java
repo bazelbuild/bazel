@@ -33,10 +33,11 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Filters resources based on their qualifiers.
@@ -305,12 +306,6 @@ public class ResourceFilter {
       return artifacts;
     }
 
-    /*
-     * Build an ImmutableSet rather than an ImmutableList to remove duplicate Artifacts in the case
-     * where one Artifact is the best option for multiple densities.
-     */
-    ImmutableSet.Builder<Artifact> builder = ImmutableSet.builder();
-
     List<BestArtifactsForDensity> bestArtifactsForAllDensities = new ArrayList<>();
     for (Density density : getDensities(ruleErrorConsumer)) {
       bestArtifactsForAllDensities.add(new BestArtifactsForDensity(ruleErrorConsumer, density));
@@ -318,6 +313,7 @@ public class ResourceFilter {
 
     ImmutableList<FolderConfiguration> folderConfigs = getConfigurationFilters(ruleErrorConsumer);
 
+    Set<Artifact> keptArtifactsNotFilteredByDensity = new HashSet<>();
     for (Artifact artifact : artifacts) {
       FolderConfiguration config = getConfigForArtifact(ruleErrorConsumer, artifact);
 
@@ -329,7 +325,7 @@ public class ResourceFilter {
       }
 
       if (!shouldFilterByDensity(artifact)) {
-        builder.add(artifact);
+        keptArtifactsNotFilteredByDensity.add(artifact);
         continue;
       }
 
@@ -338,23 +334,33 @@ public class ResourceFilter {
       }
     }
 
-    for (BestArtifactsForDensity bestArtifactsForDensity : bestArtifactsForAllDensities) {
-      builder.addAll(bestArtifactsForDensity.get());
-    }
-
-    ImmutableSet<Artifact> keptArtifacts = builder.build();
+    // Build the output by iterating through the input so that contents of both have the same order.
+    ImmutableList.Builder<Artifact> builder = ImmutableList.builder();
     for (Artifact artifact : artifacts) {
-      if (keptArtifacts.contains(artifact)) {
-        continue;
+
+      boolean kept = false;
+      if (keptArtifactsNotFilteredByDensity.contains(artifact)) {
+        builder.add(artifact);
+        kept = true;
+      } else {
+        for (BestArtifactsForDensity bestArtifactsForDensity : bestArtifactsForAllDensities) {
+          if (bestArtifactsForDensity.contains(artifact)) {
+            builder.add(artifact);
+            kept = true;
+            break;
+          }
+        }
       }
 
-      String parentDir = artifact.getPath().getParentDirectory().getBaseName();
-      filteredResources.add(parentDir + "/" + artifact.getFilename());
+      if (!kept) {
+        String parentDir = artifact.getPath().getParentDirectory().getBaseName();
+        filteredResources.add(parentDir + "/" + artifact.getFilename());
+      }
     }
 
     // TODO(asteinb): We should only build a new list if some artifacts were filtered out. If
     // nothing was filtered, we can be more efficient by returning the original list instead.
-    return keptArtifacts.asList();
+    return builder.build();
   }
 
   /**
@@ -364,9 +370,7 @@ public class ResourceFilter {
   private static class BestArtifactsForDensity {
     private final RuleErrorConsumer ruleErrorConsumer;
     private final Density desiredDensity;
-
-    // Use a LinkedHashMap to preserve determinism.
-    private final Map<String, Artifact> nameAndConfigurationToBestArtifact = new LinkedHashMap<>();
+    private final Map<String, Artifact> nameAndConfigurationToBestArtifact = new HashMap<>();
 
     public BestArtifactsForDensity(RuleErrorConsumer ruleErrorConsumer, Density density) {
       this.ruleErrorConsumer = ruleErrorConsumer;
@@ -392,9 +396,8 @@ public class ResourceFilter {
       }
     }
 
-    /** @return the collection of best Artifacts for this density. */
-    public Collection<Artifact> get() {
-      return nameAndConfigurationToBestArtifact.values();
+    public boolean contains(Artifact artifact) {
+      return nameAndConfigurationToBestArtifact.containsValue(artifact);
     }
 
     /**

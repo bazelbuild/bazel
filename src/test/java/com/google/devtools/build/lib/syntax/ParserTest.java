@@ -120,6 +120,35 @@ public class ParserTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testNonAssociativeOperators() throws Exception {
+    setFailFast(false);
+
+    parseExpression("0 < 2 < 4");
+    assertContainsError("Operator '<' is not associative with operator '<'");
+    clearEvents();
+
+    parseExpression("0 == 2 < 4");
+    assertContainsError("Operator '==' is not associative with operator '<'");
+    clearEvents();
+
+    parseExpression("1 in [1, 2] == True");
+    assertContainsError("Operator 'in' is not associative with operator '=='");
+    clearEvents();
+
+    parseExpression("1 >= 2 <= 3");
+    assertContainsError("Operator '>=' is not associative with operator '<='");
+    clearEvents();
+  }
+
+  @Test
+  public void testNonAssociativeOperatorsWithParens() throws Exception {
+    parseExpression("(0 < 2) < 4");
+    parseExpression("(0 == 2) < 4");
+    parseExpression("(1 in [1, 2]) == True");
+    parseExpression("1 >= (2 <= 3)");
+  }
+
+  @Test
   public void testUnaryMinusExpr() throws Exception {
     FuncallExpression e = (FuncallExpression) parseExpression("-5");
     FuncallExpression e2 = (FuncallExpression) parseExpression("- 5");
@@ -687,6 +716,10 @@ public class ParserTest extends EvaluationTestCase {
     clearEvents();
 
     parseExpression("[x for x for y in ['a']]");
+    assertContainsError("syntax error at 'for'");
+    clearEvents();
+
+    parseExpression("[x for x for y in 1, 2]");
     assertContainsError("syntax error at 'for'");
     clearEvents();
   }

@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
-import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
@@ -449,23 +448,21 @@ public class CppCompileAction extends AbstractAction
   @Override
   public Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    Executor executor = actionExecutionContext.getExecutor();
     Iterable<Artifact> initialResult;
 
     actionExecutionContext
-        .getExecutor()
         .getEventBus()
         .post(ActionStatusMessage.analysisStrategy(this));
     try {
       initialResult =
-          executor
+          actionExecutionContext
               .getContext(actionContext)
               .findAdditionalInputs(
                   this, actionExecutionContext, cppSemantics.getIncludeProcessing());
     } catch (ExecException e) {
       throw e.toActionExecutionException(
           "Include scanning of rule '" + getOwner().getLabel() + "'",
-          executor.getVerboseFailures(),
+          actionExecutionContext.getVerboseFailures(),
           this);
     }
 
@@ -506,7 +503,7 @@ public class CppCompileAction extends AbstractAction
     // to the set of inputs the caller may need to be aware of.
     Collection<Artifact> result = new HashSet<>();
     ArtifactResolver artifactResolver =
-        executor.getContext(IncludeScanningContext.class).getArtifactResolver();
+        actionExecutionContext.getContext(IncludeScanningContext.class).getArtifactResolver();
     for (Artifact artifact : initialResult) {
       result.addAll(specialInputsHandler.getInputsForIncludedFile(artifact, artifactResolver));
     }
@@ -1156,7 +1153,6 @@ public class CppCompileAction extends AbstractAction
           throws ActionExecutionException, InterruptedException {
     setModuleFileFlags();
 
-    Executor executor = actionExecutionContext.getExecutor();
     CppCompileActionContext.Reply reply;
     ShowIncludesFilter showIncludesFilterForStdout = null;
     ShowIncludesFilter showIncludesFilterForStderr = null;
@@ -1169,16 +1165,20 @@ public class CppCompileAction extends AbstractAction
       actionExecutionContext.getFileOutErr().setErrorFilter(showIncludesFilterForStderr);
     }
     try {
-      reply = executor.getContext(actionContext).execWithReply(this, actionExecutionContext);
+      reply = actionExecutionContext.getContext(actionContext)
+          .execWithReply(this, actionExecutionContext);
     } catch (ExecException e) {
-      throw e.toActionExecutionException("C++ compilation of rule '" + getOwner().getLabel() + "'",
-          executor.getVerboseFailures(), this);
+      throw e.toActionExecutionException(
+          "C++ compilation of rule '" + getOwner().getLabel() + "'",
+          actionExecutionContext.getVerboseFailures(),
+          this);
     }
     ensureCoverageNotesFilesExist();
 
     // This is the .d file scanning part.
-    IncludeScanningContext scanningContext = executor.getContext(IncludeScanningContext.class);
-    Path execRoot = executor.getExecRoot();
+    IncludeScanningContext scanningContext =
+        actionExecutionContext.getContext(IncludeScanningContext.class);
+    Path execRoot = actionExecutionContext.getExecRoot();
 
     NestedSet<Artifact> discoveredInputs;
     if (featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES)) {
@@ -1205,7 +1205,7 @@ public class CppCompileAction extends AbstractAction
       validateInclusions(
           discoveredInputs,
           actionExecutionContext.getArtifactExpander(),
-          executor.getEventHandler());
+          actionExecutionContext.getEventHandler());
     }
   }
 
@@ -1322,7 +1322,7 @@ public class CppCompileAction extends AbstractAction
       throws ActionExecutionException, InterruptedException {
     Iterable<Artifact> scannedIncludes;
     try {
-      scannedIncludes = actionExecutionContext.getExecutor().getContext(actionContext)
+      scannedIncludes = actionExecutionContext.getContext(actionContext)
           .findAdditionalInputs(this, actionExecutionContext,  cppSemantics.getIncludeProcessing());
     } catch (ExecException e) {
       throw e.toActionExecutionException(this);

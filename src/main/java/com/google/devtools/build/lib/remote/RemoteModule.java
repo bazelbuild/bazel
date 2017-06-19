@@ -103,7 +103,7 @@ public final class RemoteModule extends BlazeModule {
 
   @Override
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
-    builder.addActionContextProvider(new RemoteActionContextProvider(env, request));
+    builder.addActionContextProvider(new RemoteActionContextProvider(env));
   }
 
   @Subscribe
