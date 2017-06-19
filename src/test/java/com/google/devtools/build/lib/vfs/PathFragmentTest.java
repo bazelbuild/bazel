@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.vfs.FileSystemUtils.relativePath;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -114,6 +115,7 @@ public class PathFragmentTest {
     checkRelativeTo("/foo", "/");
     checkRelativeTo("foo", "");
     checkRelativeTo("foo/bar", "");
+
   }
 
   @Test

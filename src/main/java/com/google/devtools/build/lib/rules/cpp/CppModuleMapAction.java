@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -158,12 +159,15 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
         content.append("}");
         if (externDependencies) {
           for (CppModuleMap dep : dependencies) {
+
+            String relativeModulePath = FileSystemUtils.relativePath(
+                cppModuleMap.getArtifact().getExecPath().getParentDirectory(),
+                dep.getArtifact().getExecPath()).getPathString();
             content
                 .append("\nextern module \"")
                 .append(dep.getName())
                 .append("\" \"")
-                .append(leadingPeriods)
-                .append(dep.getArtifact().getExecPathString())
+                .append( relativeModulePath)
                 .append("\"");
           }
         }

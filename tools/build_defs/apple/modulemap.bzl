@@ -67,11 +67,24 @@ def module(
 
 
 def _rel_path(relfrom, file):
-  segments_to_exec_path = len(relfrom.dirname.split("/"))
   if relfrom.dirname == file.dirname:
     return file.basename
+
+  from_parts = relfrom.dirname.split("/")
+  to_parts = file.path.split("/")
+
+  common_segment_count = 0
+  for i in range(len(from_parts)):
+    if not (len(from_parts) > 1 and len(to_parts) > 1 and from_parts[0] == to_parts[0]):
+      break
+
+    from_parts = from_parts[1:]
+    to_parts = to_parts[1:]
+
+  segments_to_exec_path = len(from_parts)
+  # Remove common preifixes:
   leading_periods = "../" * segments_to_exec_path
-  return leading_periods + file.path
+  return leading_periods + to_parts.join("/")
 
 def _submodule_contents(output, module):
   contents = '  ' + ('explicit ' if module.explicit else '') + 'module ' + module.name + ' {\n'
