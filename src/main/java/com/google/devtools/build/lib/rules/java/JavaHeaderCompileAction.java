@@ -14,14 +14,16 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.util.Preconditions.checkNotNull;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -29,6 +31,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ParameterFile;
+import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
@@ -319,7 +322,7 @@ public class JavaHeaderCompileAction extends SpawnAction {
       ruleContext.registerAction(buildInternal(javaToolchain));
     }
 
-    private ActionAnalysisMetadata[] buildInternal(JavaToolchainProvider javaToolchain) {
+    private Action[] buildInternal(JavaToolchainProvider javaToolchain) {
       checkNotNull(outputDepsProto, "outputDepsProto must not be null");
       checkNotNull(sourceFiles, "sourceFiles must not be null");
       checkNotNull(sourceJars, "sourceJars must not be null");
@@ -340,47 +343,58 @@ public class JavaHeaderCompileAction extends SpawnAction {
         directJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
         compileTimeDependencyArtifacts = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
       }
-      boolean useDirectClasspath = useDirectClasspath();
-      boolean disableJavacFallback =
-          ruleContext.getFragment(JavaConfiguration.class).headerCompilationDisableJavacFallback();
-      CommandLine directCommandLine = null;
-      if (useDirectClasspath) {
-        CustomCommandLine.Builder builder =
-            baseCommandLine(getBaseArgs(javaToolchain)).addExecPaths("--classpath", directJars);
-        if (disableJavacFallback) {
-          builder.add("--nojavac_fallback");
-        }
-        directCommandLine = builder.build();
-      }
+
+      // The compilation uses API-generating annotation processors and has to fall back to
+      // javac-turbine.
+      boolean requiresAnnotationProcessing = !processorNames.isEmpty();
+
       Iterable<Artifact> tools = ImmutableList.of(javacJar, javaToolchain.getHeaderCompiler());
       ImmutableList<Artifact> outputs = ImmutableList.of(outputJar, outputDepsProto);
-      NestedSet<Artifact> directInputs =
+      NestedSet<Artifact> baseInputs =
           NestedSetBuilder.<Artifact>stableOrder()
               .addTransitive(javabaseInputs)
               .addAll(bootclasspathEntries)
               .addAll(sourceJars)
               .addAll(sourceFiles)
-              .addTransitive(directJars)
               .addAll(tools)
               .build();
 
-      if (useDirectClasspath && disableJavacFallback) {
-        // use a regular SpawnAction to invoke turbine with direct deps only,
-        // and no fallback to javac-turbine
-        return new ActionAnalysisMetadata[] {
-          new SpawnAction(
-              ruleContext.getActionOwner(),
-              tools,
-              directInputs,
-              outputs,
-              LOCAL_RESOURCES,
-              directCommandLine,
-              false,
-              JavaCompileAction.UTF8_ENVIRONMENT,
-              /*executionInfo=*/ ImmutableSet.<String>of(),
-              getProgressMessage(),
-              "Turbine")
-        };
+      boolean noFallback =
+          ruleContext.getFragment(JavaConfiguration.class).headerCompilationDisableJavacFallback();
+      // The action doesn't require annotation processing and either javac-turbine fallback is
+      // disabled, or the action doesn't distinguish between direct and transitive deps, so
+      // use a plain SpawnAction to invoke turbine.
+      if ((noFallback || directJars.isEmpty()) && !requiresAnnotationProcessing) {
+        SpawnAction.Builder builder = new SpawnAction.Builder();
+        NestedSet<Artifact> classpath;
+        if (!directJars.isEmpty() || classpathEntries.isEmpty()) {
+          classpath = directJars;
+        } else {
+          classpath = classpathEntries;
+          // Transitive classpath actions may exceed the command line length limit.
+          builder.alwaysUseParameterFile(ParameterFileType.SHELL_QUOTED);
+        }
+        CustomCommandLine.Builder commandLine =
+            baseCommandLine(CustomCommandLine.builder(), classpath);
+        if (noFallback) {
+          commandLine.add("--nojavac_fallback");
+        }
+        return builder
+            .addTools(tools)
+            .addTransitiveInputs(baseInputs)
+            .addTransitiveInputs(classpath)
+            .addOutputs(outputs)
+            .setCommandLine(commandLine.build())
+            .setJarExecutable(
+                ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable(),
+                javaToolchain.getHeaderCompiler(),
+                ImmutableList.<String>builder()
+                    .add("-Xbootclasspath/p:" + javacJar.getExecPath())
+                    .addAll(javaToolchain.getJvmOptions())
+                    .build())
+            .setMnemonic("Turbine")
+            .setProgressMessage(getProgressMessage())
+            .build(ruleContext);
       }
 
       CommandLine transitiveParams = transitiveCommandLine();
@@ -400,16 +414,17 @@ public class JavaHeaderCompileAction extends SpawnAction {
           getBaseArgs(javaToolchain).addPaths("@%s", paramsFile.getExecPath()).build();
       NestedSet<Artifact> transitiveInputs =
           NestedSetBuilder.<Artifact>stableOrder()
-              .addTransitive(directInputs)
+              .addTransitive(baseInputs)
               .addTransitive(classpathEntries)
               .addTransitive(processorPath)
               .addTransitive(compileTimeDependencyArtifacts)
               .add(paramsFile)
               .build();
-      if (!useDirectClasspath) {
-        // If direct classpaths are disabled (e.g. because the compilation uses API-generating
-        // annotation processors) skip the custom action implementation and just use SpawnAction.
-        return new ActionAnalysisMetadata[] {
+
+      if (requiresAnnotationProcessing) {
+        // turbine doesn't support API-generating annotation processors, so skip the two-tiered
+        // turbine/javac-turbine action and just use SpawnAction to invoke javac-turbine.
+        return new Action[] {
           parameterFileWriteAction,
           new SpawnAction(
               ruleContext.getActionOwner(),
@@ -421,11 +436,23 @@ public class JavaHeaderCompileAction extends SpawnAction {
               false,
               JavaCompileAction.UTF8_ENVIRONMENT,
               /*executionInfo=*/ ImmutableSet.<String>of(),
-              getProgressMessage(),
+              getProgressMessageWithAnnotationProcessors(),
               "JavacTurbine")
         };
       }
-      return new ActionAnalysisMetadata[] {
+
+      // The action doesn't require annotation processing, javac-turbine fallback is enabled, and
+      // the target distinguishes between direct and transitive deps. Try a two-tiered spawn
+      // the invokes turbine with direct deps, and falls back to javac-turbine on failures to
+      // produce better diagnostics. (At the cost of slower failed actions and a larger
+      // cache footprint.)
+      // TODO(cushon): productionize --nojavac_fallback and remove this path
+      checkState(!directJars.isEmpty());
+      NestedSet<Artifact> directInputs =
+          NestedSetBuilder.fromNestedSet(baseInputs).addTransitive(directJars).build();
+      CustomCommandLine directCommandLine =
+          baseCommandLine(getBaseArgs(javaToolchain), directJars).build();
+      return new Action[] {
         parameterFileWriteAction,
         new JavaHeaderCompileAction(
             ruleContext.getActionOwner(),
@@ -437,6 +464,17 @@ public class JavaHeaderCompileAction extends SpawnAction {
             transitiveCommandLine,
             getProgressMessage())
       };
+    }
+
+    private String getProgressMessageWithAnnotationProcessors() {
+      List<String> shortNames = new ArrayList<>();
+      for (String name : processorNames) {
+        shortNames.add(name.substring(name.lastIndexOf('.') + 1));
+      }
+      return getProgressMessage()
+          + " and running annotation processors ("
+          + Joiner.on(", ").join(shortNames)
+          + ")";
     }
 
     private String getProgressMessage() {
@@ -458,7 +496,8 @@ public class JavaHeaderCompileAction extends SpawnAction {
      * Adds the command line arguments shared by direct classpath and transitive classpath
      * invocations.
      */
-    private CustomCommandLine.Builder baseCommandLine(CustomCommandLine.Builder result) {
+    private CustomCommandLine.Builder baseCommandLine(
+        CustomCommandLine.Builder result, NestedSet<Artifact> classpathEntries) {
       result.addExecPath("--output", outputJar);
 
       if (outputDepsProto != null) {
@@ -492,13 +531,14 @@ public class JavaHeaderCompileAction extends SpawnAction {
           result.add("@" + targetLabel);
         }
       }
+      result.addExecPaths("--classpath", classpathEntries);
       return result;
     }
 
     /** Builds a transitive classpath command line. */
     private CommandLine transitiveCommandLine() {
       CustomCommandLine.Builder result = CustomCommandLine.builder();
-      baseCommandLine(result);
+      baseCommandLine(result, classpathEntries);
       if (!processorNames.isEmpty()) {
         result.add("--processors", processorNames);
       }
@@ -514,28 +554,7 @@ public class JavaHeaderCompileAction extends SpawnAction {
           result.addExecPaths("--deps_artifacts", compileTimeDependencyArtifacts);
         }
       }
-      result.addExecPaths("--classpath", classpathEntries);
       return result.build();
-    }
-
-    /** Returns true if the header compilation classpath should only include direct deps. */
-    boolean useDirectClasspath() {
-      if (directJars.isEmpty() && !classpathEntries.isEmpty()) {
-        // the compilation doesn't distinguish direct deps, e.g. because it doesn't support strict
-        // java deps
-        return false;
-      }
-      if (!processorNames.isEmpty()) {
-        // the compilation uses API-generating annotation processors and has to fall back to
-        // javac-turbine, which doesn't support direct classpaths
-        return false;
-      }
-      JavaConfiguration javaConfiguration = ruleContext.getFragment(JavaConfiguration.class);
-      if (!javaConfiguration.headerCompilationDirectClasspath()) {
-        // the experiment is disabled
-        return false;
-      }
-      return true;
     }
   }
 }
