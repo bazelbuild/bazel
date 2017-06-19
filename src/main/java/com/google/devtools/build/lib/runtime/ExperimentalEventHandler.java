@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.io.AnsiTerminal;
+import com.google.devtools.build.lib.util.io.AnsiTerminal.Color;
 import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.LineCountingAnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.LineWrappingAnsiTerminalWriter;
@@ -386,17 +387,17 @@ public class ExperimentalEventHandler implements EventHandler {
     switch (kind) {
       case ERROR:
       case FAIL:
-        terminal.textRed();
+        terminal.setTextColor(Color.RED);
         terminal.textBold();
         break;
       case WARNING:
-        terminal.textMagenta();
+        terminal.setTextColor(Color.MAGENTA);
         break;
       case INFO:
-        terminal.textGreen();
+        terminal.setTextColor(Color.GREEN);
         break;
       case SUBCOMMAND:
-        terminal.textBlue();
+        terminal.setTextColor(Color.BLUE);
         break;
       default:
         terminal.resetTerminal();
