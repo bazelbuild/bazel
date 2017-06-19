@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.rules.SkylarkAttr;
 import com.google.devtools.build.lib.rules.SkylarkAttr.Descriptor;
 import com.google.devtools.build.lib.rules.SkylarkFileType;
 import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions.RuleFunction;
+import com.google.devtools.build.lib.rules.SkylarkRuleContext;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
@@ -1388,5 +1389,31 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     ToolchainConstructor toolchain = (ToolchainConstructor) lookup("my_toolchain_type");
     RuleClass c = ((RuleFunction) lookup("r1")).getRuleClass();
     assertThat(c.getRequiredToolchains()).containsExactly(toolchain.getKey());
+  }
+
+  @Test
+  public void testRuleFunctionReturnsNone() throws Exception {
+    scratch.file("test/rule.bzl",
+        "def _impl(ctx):",
+        "  pass",
+        "foo_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {'params': attr.string_list()},",
+        ")");
+    scratch.file("test/BUILD",
+        "load(':rule.bzl', 'foo_rule')",
+        "r = foo_rule(name='foo')",  // Custom rule should return None
+        "c = cc_library(name='cc')", // Native rule should return None
+        "",
+        "foo_rule(",
+        "    name='check',",
+        "    params = [type(r), type(c)]",
+        ")");
+    invalidatePackages();
+    SkylarkRuleContext context = createRuleContext("//test:check");
+    @SuppressWarnings("unchecked")
+    MutableList<Object> params = (MutableList<Object>) context.getAttr().getValue("params");
+    assertThat(params.get(0)).isEqualTo("NoneType");
+    assertThat(params.get(1)).isEqualTo("NoneType");
   }
 }

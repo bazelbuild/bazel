@@ -764,13 +764,14 @@ public class SkylarkRuleClassFunctions {
               "Cannot instantiate a rule when loading a .bzl file. Rules can only be called from "
                   + "a BUILD file (possibly via a macro).");
         }
-        return RuleFactory.createAndAddRule(
+        RuleFactory.createAndAddRule(
             pkgContext,
             ruleClass,
             attributeValues,
             ast,
             env,
             pkgContext.getAttributeContainerFactory().apply(ruleClass));
+        return Runtime.NONE;
       } catch (InvalidRuleException | NameConflictException e) {
         throw new EvalException(ast.getLocation(), e.getMessage());
       }
