@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.WrappingProviderHelper;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -55,8 +56,8 @@ import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeJarProvider;
-import com.google.devtools.build.lib.rules.java.proto.JavaCompilationArgsAspectProvider;
 import com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoAspect;
+import com.google.devtools.build.lib.rules.java.proto.JavaProtoLibraryAspectProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import java.util.HashMap;
@@ -120,27 +121,39 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
 
   @Override
   public AspectDefinition getDefinition(AspectParameters params) {
-    AspectDefinition.Builder result = new AspectDefinition.Builder(this)
-        .requireProviderSets(
-            ImmutableList.of(
-                // We care about JavaRuntimeJarProvider, but rules don't advertise that provider.
-                ImmutableSet.<Class<?>>of(JavaCompilationArgsProvider.class),
-                // For proto_library rules, where we care about JavaCompilationArgsAspectProvider.
-                ImmutableSet.<Class<?>>of(ProtoSourcesProvider.class),
-                // For proto_lang_toolchain rules, where we just want to get at their runtime deps.
-                ImmutableSet.<Class<?>>of(ProtoLangToolchainProvider.class),
-                // For android_sdk rules, where we just want to get at aidl runtime deps.
-                ImmutableSet.<Class<?>>of(AndroidSdkProvider.class)))
-        // Parse labels since we don't have RuleDefinitionEnvironment.getLabel like in a rule
-        .add(attr(ASPECT_DESUGAR_PREREQ, LABEL).cfg(HOST).exec()
-            .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/android:desugar_java8")))
-        // Access to --android_sdk so we can stub in a bootclasspath for desugaring if missing
-        .add(attr(":dex_archive_android_sdk", LABEL)
-            .allowedRuleClasses("android_sdk", "filegroup")
-            .value(new AndroidRuleClasses.AndroidSdkLabel(
-                Label.parseAbsoluteUnchecked(toolsRepository + AndroidRuleClasses.DEFAULT_SDK))))
-        .requiresConfigurationFragments(AndroidConfiguration.class)
-        .requireAspectsWithNativeProviders(JavaCompilationArgsAspectProvider.class);
+    AspectDefinition.Builder result =
+        new AspectDefinition.Builder(this)
+            .requireProviderSets(
+                ImmutableList.of(
+                    // We care about JavaRuntimeJarProvider, but rules don't advertise that
+                    // provider.
+                    ImmutableSet.<Class<?>>of(JavaCompilationArgsProvider.class),
+                    // For proto_library rules, where we care about
+                    // JavaCompilationArgsAspectProvider.
+                    ImmutableSet.<Class<?>>of(ProtoSourcesProvider.class),
+                    // For proto_lang_toolchain rules, where we just want to get at their runtime
+                    // deps.
+                    ImmutableSet.<Class<?>>of(ProtoLangToolchainProvider.class),
+                    // For android_sdk rules, where we just want to get at aidl runtime deps.
+                    ImmutableSet.<Class<?>>of(AndroidSdkProvider.class)))
+            // Parse labels since we don't have RuleDefinitionEnvironment.getLabel like in a rule
+            .add(
+                attr(ASPECT_DESUGAR_PREREQ, LABEL)
+                    .cfg(HOST)
+                    .exec()
+                    .value(
+                        Label.parseAbsoluteUnchecked(
+                            toolsRepository + "//tools/android:desugar_java8")))
+            // Access to --android_sdk so we can stub in a bootclasspath for desugaring if missing
+            .add(
+                attr(":dex_archive_android_sdk", LABEL)
+                    .allowedRuleClasses("android_sdk", "filegroup")
+                    .value(
+                        new AndroidRuleClasses.AndroidSdkLabel(
+                            Label.parseAbsoluteUnchecked(
+                                toolsRepository + AndroidRuleClasses.DEFAULT_SDK))))
+            .requiresConfigurationFragments(AndroidConfiguration.class)
+            .requireAspectsWithNativeProviders(JavaProtoLibraryAspectProvider.class);
     if (TriState.valueOf(params.getOnlyValueOfAttribute("incremental_dexing")) != TriState.NO) {
       // Marginally improves "query2" precision for targets that disable incremental dexing
       result.add(attr(ASPECT_DEXBUILDER_PREREQ, LABEL).cfg(HOST).exec()
@@ -250,10 +263,13 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
       RuleContext ruleContext) {
     if (isProtoLibrary(ruleContext)
         && getAndroidConfig(ruleContext).incrementalDexingForLiteProtos()) {
-      JavaCompilationArgsAspectProvider javaProtos =
-          base.getProvider(JavaCompilationArgsAspectProvider.class);
-      if (javaProtos != null && !ruleContext.getPrerequisites("srcs", Mode.TARGET).isEmpty()) {
-        return javaProtos.provider.getJavaCompilationArgs().getRuntimeJars();
+      if (!ruleContext.getPrerequisites("srcs", Mode.TARGET).isEmpty()) {
+        JavaCompilationArgsProvider javaCompilationArgsProvider =
+            WrappingProviderHelper.getWrappedProvider(
+                base, JavaProtoLibraryAspectProvider.class, JavaCompilationArgsProvider.class);
+        if (javaCompilationArgsProvider != null) {
+          return javaCompilationArgsProvider.getJavaCompilationArgs().getRuntimeJars();
+        }
       }
     } else {
       JavaRuntimeJarProvider jarProvider = base.getProvider(JavaRuntimeJarProvider.class);
@@ -267,7 +283,8 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   private static JavaCompilationArgsProvider getJavaCompilationArgsProvider(ConfiguredTarget base,
       RuleContext ruleContext) {
     if (isProtoLibrary(ruleContext)) {
-      return base.getProvider(JavaCompilationArgsAspectProvider.class).provider;
+      return WrappingProviderHelper.getWrappedProvider(
+          base, JavaProtoLibraryAspectProvider.class, JavaCompilationArgsProvider.class);
     } else {
       return base.getProvider(JavaCompilationArgsProvider.class);
     }

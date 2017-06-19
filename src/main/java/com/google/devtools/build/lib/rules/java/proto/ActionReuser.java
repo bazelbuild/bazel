@@ -17,17 +17,16 @@ package com.google.devtools.build.lib.rules.java.proto;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.isEmpty;
-import static com.google.common.collect.Iterables.transform;
 import static com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode.TARGET;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType.BOTH;
-import static com.google.devtools.build.lib.rules.java.proto.JavaProtoLibraryTransitiveFilesToBuildProvider.GET_JARS;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgs;
@@ -75,28 +74,26 @@ public class ActionReuser {
             NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
             NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
 
-    JavaSkylarkApiProvider.Builder skylarkApiProvider =
-        JavaSkylarkApiProvider.builder()
-            .setRuleOutputJarsProvider(
-                createOutputJarProvider(outputJar, compileTimeJar, sourceJar))
-            .setSourceJarsProvider(createSrcJarProvider(sourceJar))
-            .setCompilationArgsProvider(compilationArgsProvider);
+    TransitiveInfoProviderMapBuilder javaProvidersBuilder =
+        new TransitiveInfoProviderMapBuilder()
+            .add(createOutputJarProvider(outputJar, compileTimeJar, sourceJar))
+            .add(createSrcJarProvider(sourceJar))
+            .add(compilationArgsProvider);
 
-    NestedSet<Artifact> transitiveOutputJars =
-        NestedSetBuilder.fromNestedSets(
-                transform(
-                    ruleContext.getPrerequisites(
-                        "deps", TARGET, JavaProtoLibraryTransitiveFilesToBuildProvider.class),
-                    GET_JARS))
-            .add(outputJar)
-            .build();
+    NestedSetBuilder<Artifact> transitiveOutputJars = NestedSetBuilder.stableOrder();
+    for (JavaProtoLibraryAspectProvider provider :
+        ruleContext.getPrerequisites("deps", TARGET, JavaProtoLibraryAspectProvider.class)) {
+      transitiveOutputJars.addTransitive(provider.getJars());
+    }
+    transitiveOutputJars.add(outputJar);
 
+    TransitiveInfoProviderMap javaProviders = javaProvidersBuilder.build();
     aspect
         .addSkylarkTransitiveInfo(
-            JavaSkylarkApiProvider.PROTO_NAME.getLegacyId(), skylarkApiProvider.build())
+            JavaSkylarkApiProvider.PROTO_NAME.getLegacyId(),
+            JavaSkylarkApiProvider.fromProviderMap(javaProviders))
         .addProviders(
-            new JavaProtoLibraryTransitiveFilesToBuildProvider(transitiveOutputJars),
-            new JavaCompilationArgsAspectProvider(compilationArgsProvider));
+            new JavaProtoLibraryAspectProvider(javaProviders, transitiveOutputJars.build()));
     return true;
   }
 

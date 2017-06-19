@@ -304,13 +304,9 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     addExtraProviders(builder, javaCommon, classJar, srcJar, genClassJar, genSourceJar);
 
     JavaRuleOutputJarsProvider ruleOutputJarsProvider = javaRuleOutputJarsProviderBuilder.build();
-    JavaSkylarkApiProvider.Builder skylarkApiProvider =
-        JavaSkylarkApiProvider.builder()
-            .setRuleOutputJarsProvider(ruleOutputJarsProvider)
-            .setSourceJarsProvider(sourceJarsProvider);
 
-    javaCommon.addTransitiveInfoProviders(builder, skylarkApiProvider, filesToBuild, classJar);
-    javaCommon.addGenJarsProvider(builder, skylarkApiProvider, genClassJar, genSourceJar);
+    javaCommon.addTransitiveInfoProviders(builder, filesToBuild, classJar);
+    javaCommon.addGenJarsProvider(builder, genClassJar, genSourceJar);
 
     // No need to use the flag map here - just confirming that dynamic configurations are in use.
     // TODO(mstaib): remove when static configurations are removed.
@@ -318,7 +314,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
     return builder
         .setFilesToBuild(filesToBuild)
-        .addSkylarkTransitiveInfo(JavaSkylarkApiProvider.NAME, skylarkApiProvider.build())
+        .addSkylarkTransitiveInfo(
+            JavaSkylarkApiProvider.NAME, JavaSkylarkApiProvider.fromRuleContext())
         .addProvider(ruleOutputJarsProvider)
         .addProvider(
             RunfilesProvider.class,

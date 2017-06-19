@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -47,26 +47,31 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
   public static final SkylarkProviderIdentifier PROTO_NAME =
       SkylarkProviderIdentifier.forLegacy("proto_java");
 
-  private final JavaRuleOutputJarsProvider ruleOutputJarsProvider;
-  @Nullable private final JavaSourceJarsProvider sourceJarsProvider;
-  @Nullable private final JavaGenJarsProvider genJarsProvider;
-  @Nullable private final JavaCompilationInfoProvider compilationInfoProvider;
-  @Nullable private final JavaCompilationArgsProvider compilationArgsProvider;
-  @Nullable private final JavaExportsProvider exportsProvider;
+  @Nullable private final TransitiveInfoProviderMap transitiveInfoProviderMap;
 
-  private JavaSkylarkApiProvider(
-      JavaRuleOutputJarsProvider ruleOutputJarsProvider,
-      @Nullable JavaSourceJarsProvider sourceJarsProvider,
-      @Nullable JavaGenJarsProvider genJarsProvider,
-      @Nullable JavaCompilationInfoProvider compilationInfoProvider,
-      @Nullable JavaCompilationArgsProvider compilationArgsProvider,
-      @Nullable JavaExportsProvider exportsProvider) {
-    this.compilationInfoProvider = compilationInfoProvider;
-    this.ruleOutputJarsProvider = ruleOutputJarsProvider;
-    this.sourceJarsProvider = sourceJarsProvider;
-    this.genJarsProvider = genJarsProvider;
-    this.compilationArgsProvider = compilationArgsProvider;
-    this.exportsProvider = exportsProvider;
+  public static JavaSkylarkApiProvider fromRuleContext() {
+    return new JavaSkylarkApiProvider();
+  }
+
+  public static JavaSkylarkApiProvider fromProviderMap(
+      TransitiveInfoProviderMap transitiveInfoProviderMap) {
+    return new JavaSkylarkApiProvider(transitiveInfoProviderMap);
+  }
+
+  private JavaSkylarkApiProvider() {
+    this.transitiveInfoProviderMap = null;
+  }
+
+  private JavaSkylarkApiProvider(TransitiveInfoProviderMap transitiveInfoProviderMap) {
+    this.transitiveInfoProviderMap = transitiveInfoProviderMap;
+  }
+
+  @Nullable
+  private <P extends TransitiveInfoProvider> P getProvider(Class<P> provider) {
+    if (transitiveInfoProviderMap != null) {
+      return transitiveInfoProviderMap.getProvider(provider);
+    }
+    return getInfo().getProvider(provider);
   }
 
   @SkylarkCallable(
@@ -75,6 +80,7 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
     structField = true
   )
   public NestedSet<Artifact> getSourceJars() {
+    JavaSourceJarsProvider sourceJarsProvider = getProvider(JavaSourceJarsProvider.class);
     if (sourceJarsProvider == null) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
@@ -87,6 +93,8 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
     structField = true
   )
   public NestedSet<Artifact> getTransitiveDeps() {
+    JavaCompilationArgsProvider compilationArgsProvider =
+        getProvider(JavaCompilationArgsProvider.class);
     if (compilationArgsProvider == null) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
@@ -99,6 +107,8 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
     structField = true
   )
   public NestedSet<Artifact> getTransitiveRuntimeDeps() {
+    JavaCompilationArgsProvider compilationArgsProvider =
+        getProvider(JavaCompilationArgsProvider.class);
     if (compilationArgsProvider == null) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
@@ -113,6 +123,7 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
     structField = true
   )
   public NestedSet<Artifact> getTransitiveSourceJars() {
+    JavaSourceJarsProvider sourceJarsProvider = getProvider(JavaSourceJarsProvider.class);
     if (sourceJarsProvider == null) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
@@ -125,7 +136,7 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
     structField = true
   )
   public JavaRuleOutputJarsProvider getOutputJars() {
-    return ruleOutputJarsProvider;
+    return getProvider(JavaRuleOutputJarsProvider.class);
   }
 
   @SkylarkCallable(
@@ -134,6 +145,7 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
     doc = "Returns transitive set of labels that are being exported from this rule."
   )
   public NestedSet<Label> getTransitiveExports() {
+    JavaExportsProvider exportsProvider = getProvider(JavaExportsProvider.class);
     if (exportsProvider != null) {
       return exportsProvider.getTransitiveExports();
     } else {
@@ -148,7 +160,7 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
     doc = "Returns information about annotation processing for this Java target."
   )
   public JavaGenJarsProvider getGenJarsProvider() {
-    return genJarsProvider;
+    return getProvider(JavaGenJarsProvider.class);
   }
 
   @SkylarkCallable(
@@ -158,61 +170,6 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
     doc = "Returns compilation information for this Java target."
   )
   public JavaCompilationInfoProvider getCompilationInfoProvider() {
-    return compilationInfoProvider;
-  }
-
-  public static Builder builder() {
-    return new Builder();
-  }
-
-  /** Builder for {@link JavaSkylarkApiProvider} */
-  public static class Builder {
-    private JavaRuleOutputJarsProvider ruleOutputJarsProvider;
-    private JavaSourceJarsProvider sourceJarsProvider;
-    private JavaGenJarsProvider genJarsProvider;
-    private JavaCompilationInfoProvider compilationInfoProvider;
-    private JavaCompilationArgsProvider compilationArgsProvider;
-    private JavaExportsProvider exportsProvider;
-
-    public Builder setRuleOutputJarsProvider(JavaRuleOutputJarsProvider ruleOutputJarsProvider) {
-      this.ruleOutputJarsProvider = ruleOutputJarsProvider;
-      return this;
-    }
-
-    public Builder setSourceJarsProvider(JavaSourceJarsProvider sourceJarsProvider) {
-      this.sourceJarsProvider = sourceJarsProvider;
-      return this;
-    }
-
-    public Builder setGenJarsProvider(JavaGenJarsProvider genJarsProvider) {
-      this.genJarsProvider = genJarsProvider;
-      return this;
-    }
-
-    public Builder setCompilationInfoProvider(JavaCompilationInfoProvider compilationInfoProvider) {
-      this.compilationInfoProvider = compilationInfoProvider;
-      return this;
-    }
-
-    public Builder setCompilationArgsProvider(JavaCompilationArgsProvider compilationArgsProvider) {
-      this.compilationArgsProvider = compilationArgsProvider;
-      return this;
-    }
-
-    public Builder setExportsProvider(JavaExportsProvider exportsProvider) {
-      this.exportsProvider = exportsProvider;
-      return this;
-    }
-
-    public JavaSkylarkApiProvider build() {
-      checkNotNull(ruleOutputJarsProvider, "Must provide JavaRuleOutputJarsProvider");
-      return new JavaSkylarkApiProvider(
-          ruleOutputJarsProvider,
-          sourceJarsProvider,
-          genJarsProvider,
-          compilationInfoProvider,
-          compilationArgsProvider,
-          exportsProvider);
-    }
+    return getProvider(JavaCompilationInfoProvider.class);
   }
 }

@@ -155,12 +155,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
         JavaSourceJarsProvider.create(transitiveJavaSourceJars, srcJars);
     JavaCompilationArgsProvider compilationArgsProvider =
         JavaCompilationArgsProvider.create(javaCompilationArgs, recursiveJavaCompilationArgs);
-    JavaSkylarkApiProvider.Builder skylarkApiProvider =
-        JavaSkylarkApiProvider.builder()
-            .setRuleOutputJarsProvider(ruleOutputJarsProvider)
-            .setSourceJarsProvider(sourceJarsProvider)
-            .setCompilationArgsProvider(compilationArgsProvider);
-    common.addTransitiveInfoProviders(ruleBuilder, skylarkApiProvider, filesToBuild, null);
+    common.addTransitiveInfoProviders(ruleBuilder, filesToBuild, null);
     JavaProvider javaProvider = JavaProvider.Builder.create()
         .addProvider(JavaCompilationArgsProvider.class, compilationArgsProvider)
         .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
@@ -168,7 +163,8 @@ public class JavaImport implements RuleConfiguredTargetFactory {
         .build();
     return ruleBuilder
         .setFilesToBuild(filesToBuild)
-        .addSkylarkTransitiveInfo(JavaSkylarkApiProvider.NAME, skylarkApiProvider.build())
+        .addSkylarkTransitiveInfo(
+            JavaSkylarkApiProvider.NAME, JavaSkylarkApiProvider.fromRuleContext())
         .addNativeDeclaredProvider(javaProvider)
         .addProvider(JavaProvider.class, javaProvider)
         .add(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)

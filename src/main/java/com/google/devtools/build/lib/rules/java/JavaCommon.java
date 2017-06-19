@@ -656,26 +656,19 @@ public class JavaCommon {
 
   public void addTransitiveInfoProviders(
       RuleConfiguredTargetBuilder builder,
-      JavaSkylarkApiProvider.Builder skylarkApiProvider,
       NestedSet<Artifact> filesToBuild,
       @Nullable Artifact classJar) {
-    addTransitiveInfoProviders(
-        builder, skylarkApiProvider, filesToBuild, classJar, JAVA_COLLECTION_SPEC);
+    addTransitiveInfoProviders(builder, filesToBuild, classJar, JAVA_COLLECTION_SPEC);
   }
 
   public void addTransitiveInfoProviders(
       RuleConfiguredTargetBuilder builder,
-      JavaSkylarkApiProvider.Builder skylarkApiProvider,
       NestedSet<Artifact> filesToBuild,
       @Nullable Artifact classJar,
       InstrumentationSpec instrumentationSpec) {
 
     JavaCompilationInfoProvider compilationInfoProvider = createCompilationInfoProvider();
     JavaExportsProvider exportsProvider = collectTransitiveExports();
-
-    skylarkApiProvider
-        .setCompilationInfoProvider(compilationInfoProvider)
-        .setExportsProvider(exportsProvider);
 
     builder
         .add(
@@ -700,7 +693,6 @@ public class JavaCommon {
 
   public void addGenJarsProvider(
       RuleConfiguredTargetBuilder builder,
-      JavaSkylarkApiProvider.Builder javaSkylarkApiProvider,
       @Nullable Artifact genClassJar,
       @Nullable Artifact genSourceJar) {
     JavaGenJarsProvider genJarsProvider = collectTransitiveGenJars(
@@ -711,7 +703,6 @@ public class JavaCommon {
     genJarsBuilder.addTransitive(genJarsProvider.getTransitiveGenClassJars());
     genJarsBuilder.addTransitive(genJarsProvider.getTransitiveGenSourceJars());
 
-    javaSkylarkApiProvider.setGenJarsProvider(genJarsProvider);
     builder
         .add(JavaGenJarsProvider.class, genJarsProvider)
         .addOutputGroup(JavaSemantics.GENERATED_JARS_OUTPUT_GROUP, genJarsBuilder.build());

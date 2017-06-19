@@ -14,10 +14,8 @@
 
 package com.google.devtools.build.lib.rules.java.proto;
 
-import static com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode.TARGET;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
@@ -26,7 +24,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.WrappingProviderHelper;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
@@ -45,12 +43,13 @@ public class JavaProtoLibrary implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(final RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
 
+    Iterable<JavaProtoLibraryAspectProvider> javaProtoLibraryAspectProviders =
+        ruleContext.getPrerequisites("deps", Mode.TARGET, JavaProtoLibraryAspectProvider.class);
+
     JavaCompilationArgsProvider dependencyArgsProviders =
         JavaCompilationArgsProvider.merge(
-            Iterables.<JavaCompilationArgsAspectProvider, JavaCompilationArgsProvider>transform(
-                this.<JavaCompilationArgsAspectProvider>getDeps(
-                    ruleContext, JavaCompilationArgsAspectProvider.class),
-                JavaCompilationArgsAspectProvider.GET_PROVIDER));
+            WrappingProviderHelper.unwrapProviders(
+                javaProtoLibraryAspectProviders, JavaCompilationArgsProvider.class));
 
     if (!StrictDepsUtils.isStrictDepsJavaProtoLibrary(ruleContext)) {
       dependencyArgsProviders = StrictDepsUtils.makeNonStrict(dependencyArgsProviders);
@@ -64,28 +63,16 @@ public class JavaProtoLibrary implements RuleConfiguredTargetFactory {
 
     JavaSourceJarsProvider sourceJarsProvider =
         JavaSourceJarsProvider.merge(
-            Iterables.<JavaSourceJarsAspectProvider, JavaSourceJarsProvider>transform(
-                this.<JavaSourceJarsAspectProvider>getDeps(
-                    ruleContext, JavaSourceJarsAspectProvider.class),
-                JavaSourceJarsAspectProvider.GET_PROVIDER));
+            WrappingProviderHelper.unwrapProviders(
+                javaProtoLibraryAspectProviders, JavaSourceJarsProvider.class));
 
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
 
     filesToBuild.addAll(sourceJarsProvider.getSourceJars());
 
-    for (JavaProtoLibraryTransitiveFilesToBuildProvider provider :
-        ruleContext.getPrerequisites(
-            "deps", Mode.TARGET, JavaProtoLibraryTransitiveFilesToBuildProvider.class)) {
+    for (JavaProtoLibraryAspectProvider provider : javaProtoLibraryAspectProviders) {
       filesToBuild.addTransitive(provider.getJars());
     }
-
-    JavaRuleOutputJarsProvider ruleOutputJarsProvider =
-        JavaRuleOutputJarsProvider.builder().build();
-    JavaSkylarkApiProvider.Builder skylarkApiProvider =
-        JavaSkylarkApiProvider.builder()
-            .setRuleOutputJarsProvider(ruleOutputJarsProvider)
-            .setSourceJarsProvider(sourceJarsProvider)
-            .setCompilationArgsProvider(dependencyArgsProviders);
 
     JavaRunfilesProvider javaRunfilesProvider = new JavaRunfilesProvider(runfiles);
 
@@ -102,14 +89,15 @@ public class JavaProtoLibrary implements RuleConfiguredTargetFactory {
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(filesToBuild.build())
-        .addSkylarkTransitiveInfo(JavaSkylarkApiProvider.NAME, skylarkApiProvider.build())
-        .addProvider(RunfilesProvider.class, RunfilesProvider.withData(Runfiles.EMPTY, runfiles))
+        .addSkylarkTransitiveInfo(
+            JavaSkylarkApiProvider.NAME, JavaSkylarkApiProvider.fromRuleContext())
+        .addProvider(RunfilesProvider.withData(Runfiles.EMPTY, runfiles))
         .addOutputGroup(
             OutputGroupProvider.DEFAULT, NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
-        .add(JavaCompilationArgsProvider.class, dependencyArgsProviders)
-        .add(JavaSourceJarsProvider.class, sourceJarsProvider)
-        .add(JavaRunfilesProvider.class, javaRunfilesProvider)
-        .add(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
+        .addProvider(dependencyArgsProviders)
+        .addProvider(sourceJarsProvider)
+        .addProvider(javaRunfilesProvider)
+        .addProvider(JavaRuleOutputJarsProvider.EMPTY)
         .addProvider(javaProvider)
         .addNativeDeclaredProvider(javaProvider)
         .build();
@@ -120,14 +108,9 @@ public class JavaProtoLibrary implements RuleConfiguredTargetFactory {
     ProtoJavaApiInfoAspectProvider.Builder protoJavaApiInfoAspectProvider =
         ProtoJavaApiInfoAspectProvider.builder();
     for (ProtoJavaApiInfoProvider protoJavaApiInfoProvider :
-        getDeps(ruleContext, ProtoJavaApiInfoProvider.class)) {
+        ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoJavaApiInfoProvider.class)) {
       protoJavaApiInfoAspectProvider.add(protoJavaApiInfoProvider).build();
     }
     return protoJavaApiInfoAspectProvider.build();
-  }
-
-  private <C extends TransitiveInfoProvider> Iterable<C> getDeps(
-      RuleContext ruleContext, Class<C> clazz) {
-    return ruleContext.getPrerequisites("deps", TARGET, clazz);
   }
 }
