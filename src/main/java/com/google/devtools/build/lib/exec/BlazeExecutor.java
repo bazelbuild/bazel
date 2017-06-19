@@ -15,18 +15,14 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
-import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
-import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
-import com.google.devtools.build.lib.actions.Spawns;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -149,7 +145,7 @@ public final class BlazeExecutor implements Executor {
   }
 
   @Override
-  public EventHandler getEventHandler() {
+  public ExtendedEventHandler getEventHandler() {
     return reporter;
   }
 
@@ -166,20 +162,6 @@ public final class BlazeExecutor implements Executor {
   @Override
   public boolean reportsSubcommands() {
     return showSubcommands;
-  }
-
-  @Override
-  public void reportSubcommand(Spawn spawn) {
-    String reason;
-    ActionOwner owner = spawn.getResourceOwner().getOwner();
-    if (owner == null) {
-      reason = spawn.getResourceOwner().prettyPrint();
-    } else {
-      reason = Label.print(owner.getLabel())
-          + " [" + spawn.getResourceOwner().prettyPrint() + "]";
-    }
-    String message = Spawns.asShellCommand(spawn, getExecRoot());
-    reporter.handle(Event.of(EventKind.SUBCOMMAND, null, "# " + reason + "\n" + message));
   }
 
   /**

@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
-import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.Spawns;
@@ -172,14 +171,12 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
         throw new UserExecException("Unexpected IO error.", e);
       } catch (UnsupportedOperationException e) {
         actionExecutionContext
-            .getExecutor()
             .getEventHandler()
             .handle(
                 Event.warn(
                     spawn.getMnemonic() + " unsupported operation for action cache (" + e + ")"));
       } catch (StatusRuntimeException e) {
         actionExecutionContext
-            .getExecutor()
             .getEventHandler()
             .handle(Event.warn(spawn.getMnemonic() + " failed uploading results (" + e + ")"));
       }
@@ -222,8 +219,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
       throws ExecException, InterruptedException {
     ActionKey actionKey = null;
     String mnemonic = spawn.getMnemonic();
-    Executor executor = actionExecutionContext.getExecutor();
-    EventHandler eventHandler = executor.getEventHandler();
+    EventHandler eventHandler = actionExecutionContext.getEventHandler();
 
     RemoteActionCache remoteCache = null;
     GrpcRemoteExecutor workExecutor = null;
@@ -253,10 +249,10 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
       fallbackStrategy.exec(spawn, actionExecutionContext);
       return;
     }
-    if (executor.reportsSubcommands()) {
-      executor.reportSubcommand(spawn);
+    if (actionExecutionContext.reportsSubcommands()) {
+      actionExecutionContext.reportSubcommand(spawn);
     }
-    executor
+    actionExecutionContext
         .getEventBus()
         .post(ActionStatusMessage.runningStrategy(spawn.getResourceOwner(), "remote"));
 
@@ -269,7 +265,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
               spawn,
               actionExecutionContext.getArtifactExpander(),
               actionExecutionContext.getActionInputFileCache(),
-              actionExecutionContext.getExecutor().getContext(FilesetActionContext.class));
+              actionExecutionContext.getContext(FilesetActionContext.class));
       TreeNode inputRoot = repository.buildFromActionInputs(inputMap);
       repository.computeMerkleDigests(inputRoot);
       Command command = buildCommand(spawn.getArguments(), spawn.getEnvironment());
@@ -325,7 +321,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
       passRemoteOutErr(remoteCache, result, actionExecutionContext.getFileOutErr());
       remoteCache.downloadAllResults(result, execRoot);
       if (result.getExitCode() != 0) {
-        String cwd = executor.getExecRoot().getPathString();
+        String cwd = actionExecutionContext.getExecRoot().getPathString();
         String message =
             CommandFailureUtils.describeCommandFailure(
                 verboseFailures, spawn.getArguments(), spawn.getEnvironment(), cwd);

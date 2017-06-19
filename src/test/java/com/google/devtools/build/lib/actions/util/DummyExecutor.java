@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.actions.util;
 
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.BlazeClock;
@@ -86,11 +85,6 @@ public final class DummyExecutor implements Executor {
 
   @Override
   public boolean reportsSubcommands() {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public void reportSubcommand(Spawn spawn) {
     throw new UnsupportedOperationException();
   }
 }

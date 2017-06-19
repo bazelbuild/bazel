@@ -80,12 +80,6 @@ public interface Executor {
   boolean reportsSubcommands();
 
   /**
-   * Report a subcommand event to this Executor's Reporter and, if action
-   * logging is enabled, post it on its EventBus.
-   */
-  void reportSubcommand(Spawn spawn);
-
-  /**
    * An event listener to report messages to. Errors that signal a action failure should
    * use ActionExecutionException.
    */

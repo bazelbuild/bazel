@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
-import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
@@ -78,7 +77,7 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
   public void exec(final Spawn spawn, final ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
     final int timeoutSeconds = Spawns.getTimeoutSeconds(spawn);
-    final EventBus eventBus = actionExecutionContext.getExecutor().getEventBus();
+    final EventBus eventBus = actionExecutionContext.getEventBus();
     SpawnExecutionPolicy policy = new SpawnExecutionPolicy() {
       @Override
       public ActionInputFileCache getActionInputFileCache() {
@@ -107,7 +106,7 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
                 spawn,
                 actionExecutionContext.getArtifactExpander(),
                 actionExecutionContext.getActionInputFileCache(),
-                actionExecutionContext.getExecutor().getContext(FilesetActionContext.class));
+                actionExecutionContext.getContext(FilesetActionContext.class));
       }
 
       @Override
@@ -127,9 +126,8 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
       }
     };
 
-    Executor executor = actionExecutionContext.getExecutor();
-    if (executor.reportsSubcommands()) {
-      executor.reportSubcommand(spawn);
+    if (actionExecutionContext.reportsSubcommands()) {
+      actionExecutionContext.reportSubcommand(spawn);
     }
 
     try {

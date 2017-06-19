@@ -122,7 +122,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx)
       throws IOException {
     final Map<PathFragment, Artifact> runfilesInputs =
-        runfiles.getRunfilesInputs(ctx.getExecutor().getEventHandler(), getOwner().getLocation());
+        runfiles.getRunfilesInputs(ctx.getEventHandler(), getOwner().getLocation());
     return new DeterministicWriter() {
       @Override
       public void writeOutputFile(OutputStream out) throws IOException {

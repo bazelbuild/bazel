@@ -23,7 +23,6 @@ import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
-import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
@@ -104,7 +103,7 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
         actionExecutionContext,
         addPersistentRunnerVars(spawn.getEnvironment()),
         startupArgs,
-        actionExecutionContext.getExecutor().getExecRoot());
+        actionExecutionContext.getExecRoot());
   }
 
   private TestResultData execInWorker(
@@ -114,10 +113,8 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
       List<String> startupArgs,
       Path execRoot)
       throws ExecException, InterruptedException, IOException {
-    Executor executor = actionExecutionContext.getExecutor();
-
     // TODO(kush): Remove once we're out of the experimental phase.
-    executor
+    actionExecutionContext
         .getEventHandler()
         .handle(
             Event.warn(
@@ -128,7 +125,7 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
     Path testLogPath = action.getTestLog().getPath();
     Worker worker = null;
     WorkerKey key = null;
-    long startTime = executor.getClock().currentTimeMillis();
+    long startTime = actionExecutionContext.getClock().currentTimeMillis();
     try {
       HashCode workerFilesHash = WorkerFilesHash.getWorkerFilesHash(
           action.getTools(), actionExecutionContext);
@@ -167,7 +164,7 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
                 .exception(e)
                 .logText(data)
                 .build();
-        executor.getEventHandler().handle(Event.warn(errorMessage.toString()));
+        actionExecutionContext.getEventHandler().handle(Event.warn(errorMessage.toString()));
         throw e;
       }
 
@@ -188,7 +185,7 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
       actionExecutionContext.getFileOutErr().getErrorStream().write(
           response.getOutputBytes().toByteArray());
 
-      long duration = executor.getClock().currentTimeMillis() - startTime;
+      long duration = actionExecutionContext.getClock().currentTimeMillis() - startTime;
       builder.addTestTimes(duration);
       builder.setRunDurationMillis(duration);
       if (response.getExitCode() == 0) {
@@ -204,7 +201,7 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
             .addFailedLogs(testLogPath.getPathString());
       }
       TestCase details = parseTestResult(
-          action.resolve(actionExecutionContext.getExecutor().getExecRoot()).getXmlOutputPath());
+          action.resolve(actionExecutionContext.getExecRoot()).getXmlOutputPath());
       if (details != null) {
         builder.setTestCase(details);
       }

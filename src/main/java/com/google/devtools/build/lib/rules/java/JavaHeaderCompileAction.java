@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -129,8 +128,7 @@ public class JavaHeaderCompileAction extends SpawnAction {
   @Override
   protected void internalExecute(ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
-    Executor executor = actionExecutionContext.getExecutor();
-    SpawnActionContext context = getContext(executor);
+    SpawnActionContext context = getContext(actionExecutionContext);
     try {
       context.exec(getDirectSpawn(), actionExecutionContext);
     } catch (ExecException e) {

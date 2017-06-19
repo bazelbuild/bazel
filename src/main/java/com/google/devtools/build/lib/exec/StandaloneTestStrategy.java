@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
-import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -87,7 +86,7 @@ public class StandaloneTestStrategy extends TestStrategy {
   @Override
   public void exec(TestRunnerAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
-    Path execRoot = actionExecutionContext.getExecutor().getExecRoot();
+    Path execRoot = actionExecutionContext.getExecRoot();
     Path coverageDir = execRoot.getRelative(action.getCoverageDirectory());
     Path runfilesDir =
         getLocalRunfilesDirectory(
@@ -133,8 +132,6 @@ public class StandaloneTestStrategy extends TestStrategy {
             ImmutableList.copyOf(action.getSpawnOutputs()),
             localResourceUsage);
 
-    Executor executor = actionExecutionContext.getExecutor();
-
     TestResultData.Builder dataBuilder = TestResultData.newBuilder();
 
     try {
@@ -153,7 +150,7 @@ public class StandaloneTestStrategy extends TestStrategy {
           data.getStatus() != BlazeTestStatus.PASSED && attempt < maxAttempts;
           attempt++) {
         processFailedTestAttempt(
-            attempt, executor, action, dataBuilder, data, actionExecutionContext.getFileOutErr());
+            attempt, actionExecutionContext, action, dataBuilder, data);
         data =
             executeTestAttempt(
                 action,
@@ -172,7 +169,7 @@ public class StandaloneTestStrategy extends TestStrategy {
       if (resolvedPaths.getXmlOutputPath().exists()) {
         testOutputsBuilder.add(Pair.of("test.xml", resolvedPaths.getXmlOutputPath()));
       }
-      executor
+      actionExecutionContext
           .getEventBus()
           .post(
               new TestAttempt(
@@ -185,18 +182,17 @@ public class StandaloneTestStrategy extends TestStrategy {
                   true));
       finalizeTest(actionExecutionContext, action, dataBuilder.build());
     } catch (IOException e) {
-      executor.getEventHandler().handle(Event.error("Caught I/O exception: " + e));
+      actionExecutionContext.getEventHandler().handle(Event.error("Caught I/O exception: " + e));
       throw new EnvironmentalExecException("unexpected I/O exception", e);
     }
   }
 
   private void processFailedTestAttempt(
       int attempt,
-      Executor executor,
+      ActionExecutionContext actionExecutionContext,
       TestRunnerAction action,
       Builder dataBuilder,
-      TestResultData data,
-      FileOutErr outErr)
+      TestResultData data)
       throws IOException {
     ImmutableList.Builder<Pair<String, Path>> testOutputsBuilder = new ImmutableList.Builder<>();
     // Rename outputs
@@ -211,7 +207,7 @@ public class StandaloneTestStrategy extends TestStrategy {
       action.getTestLog().getPath().renameTo(testLog);
       testOutputsBuilder.add(Pair.of("test.log", testLog));
     }
-    ResolvedPaths resolvedPaths = action.resolve(executor.getExecRoot());
+    ResolvedPaths resolvedPaths = action.resolve(actionExecutionContext.getExecRoot());
     if (resolvedPaths.getXmlOutputPath().exists()) {
       Path destinationPath = attemptsDir.getChild(attemptPrefix + ".xml");
       resolvedPaths.getXmlOutputPath().renameTo(destinationPath);
@@ -221,7 +217,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     dataBuilder.addFailedLogs(testLog.toString());
     dataBuilder.addTestTimes(data.getTestTimes(0));
     dataBuilder.addAllTestProcessTimes(data.getTestProcessTimesList());
-    executor
+    actionExecutionContext
         .getEventBus()
         .post(
             new TestAttempt(
@@ -232,7 +228,7 @@ public class StandaloneTestStrategy extends TestStrategy {
                 data.getRunDurationMillis(),
                 testOutputsBuilder.build(),
                 false));
-    processTestOutput(executor, outErr, new TestResult(action, data, false), testLog);
+    processTestOutput(actionExecutionContext, new TestResult(action, data, false), testLog);
   }
 
   private void processLastTestAttempt(int attempt, Builder dataBuilder, TestResultData data) {
@@ -305,20 +301,19 @@ public class StandaloneTestStrategy extends TestStrategy {
       Spawn spawn,
       ActionExecutionContext actionExecutionContext)
           throws ExecException, InterruptedException, IOException {
-    Executor executor = actionExecutionContext.getExecutor();
     Closeable streamed = null;
     Path testLogPath = action.getTestLog().getPath();
     TestResultData.Builder builder = TestResultData.newBuilder();
 
-    long startTime = executor.getClock().currentTimeMillis();
-    SpawnActionContext spawnActionContext = executor.getSpawnActionContext(action.getMnemonic());
+    long startTime = actionExecutionContext.getClock().currentTimeMillis();
+    SpawnActionContext spawnActionContext =
+        actionExecutionContext.getSpawnActionContext(action.getMnemonic());
     try {
       try {
         if (executionOptions.testOutput.equals(TestOutputFormat.STREAMED)) {
           streamed =
               new StreamedTestOutput(
-                  Reporter.outErrForReporter(
-                      actionExecutionContext.getExecutor().getEventHandler()),
+                  Reporter.outErrForReporter(actionExecutionContext.getEventHandler()),
                   testLogPath);
         }
         spawnActionContext.exec(spawn, actionExecutionContext);
@@ -341,7 +336,7 @@ public class StandaloneTestStrategy extends TestStrategy {
           throw e;
         }
       } finally {
-        long duration = executor.getClock().currentTimeMillis() - startTime;
+        long duration = actionExecutionContext.getClock().currentTimeMillis() - startTime;
         builder.setStartTimeMillisEpoch(startTime);
         builder.addTestTimes(duration);
         builder.addTestProcessTimes(duration);
@@ -354,7 +349,7 @@ public class StandaloneTestStrategy extends TestStrategy {
       TestCase details =
           parseTestResult(
               action
-                  .resolve(actionExecutionContext.getExecutor().getExecRoot())
+                  .resolve(actionExecutionContext.getExecRoot())
                   .getXmlOutputPath());
       if (details != null) {
         builder.setTestCase(details);
@@ -376,26 +371,30 @@ public class StandaloneTestStrategy extends TestStrategy {
    * parallel test outputs will not get interleaved.
    */
   protected void processTestOutput(
-      Executor executor, FileOutErr outErr, TestResult result, Path testLogPath)
-      throws IOException {
-    Path testOutput = executor.getExecRoot().getRelative(testLogPath.asFragment());
+      ActionExecutionContext actionExecutionContext, TestResult result, Path testLogPath)
+          throws IOException {
+    Path testOutput = actionExecutionContext.getExecRoot().getRelative(testLogPath.asFragment());
     boolean isPassed = result.getData().getTestPassed();
     try {
       if (TestLogHelper.shouldOutputTestLog(executionOptions.testOutput, isPassed)) {
-        TestLogHelper.writeTestLog(testOutput, result.getTestName(), outErr.getOutputStream());
+        TestLogHelper.writeTestLog(
+            testOutput,
+            result.getTestName(),
+            actionExecutionContext.getFileOutErr().getOutputStream());
       }
     } finally {
       if (isPassed) {
-        executor.getEventHandler().handle(Event.of(EventKind.PASS, null, result.getTestName()));
+        actionExecutionContext
+            .getEventHandler().handle(Event.of(EventKind.PASS, null, result.getTestName()));
       } else {
         if (result.getData().getStatus() == BlazeTestStatus.TIMEOUT) {
-          executor
+          actionExecutionContext
               .getEventHandler()
               .handle(
                   Event.of(
                       EventKind.TIMEOUT, null, result.getTestName() + " (see " + testOutput + ")"));
         } else {
-          executor
+          actionExecutionContext
               .getEventHandler()
               .handle(
                   Event.of(
@@ -409,11 +408,10 @@ public class StandaloneTestStrategy extends TestStrategy {
       ActionExecutionContext actionExecutionContext, TestRunnerAction action, TestResultData data)
       throws IOException, ExecException {
     TestResult result = new TestResult(action, data, false);
-    postTestResult(actionExecutionContext.getExecutor(), result);
+    postTestResult(actionExecutionContext, result);
 
     processTestOutput(
-        actionExecutionContext.getExecutor(),
-        actionExecutionContext.getFileOutErr(),
+        actionExecutionContext,
         result,
         result.getTestLogPath());
     // TODO(bazel-team): handle --test_output=errors, --test_output=all.

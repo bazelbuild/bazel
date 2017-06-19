@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
@@ -99,14 +98,14 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
   @Override
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx)
       throws IOException, InterruptedException, ExecException {
-    Options options = ctx.getExecutor().getOptions().getOptions(Options.class);
+    Options options = ctx.getOptions().getOptions(Options.class);
     final List<String> args = options.adbArgs;
     final String adb = options.adb;
     final int adbJobs = options.adbJobs;
     final String incrementalInstallVerbosity = options.incrementalInstallVerbosity;
     final StartType start = options.start;
-    final String userHomeDirectory = ctx.getExecutor().getContext(
-        WriteAdbArgsActionContext.class).getUserHomeDirectory();
+    final String userHomeDirectory =
+        ctx.getContext(WriteAdbArgsActionContext.class).getUserHomeDirectory();
 
     return new DeterministicWriter() {
       @Override
