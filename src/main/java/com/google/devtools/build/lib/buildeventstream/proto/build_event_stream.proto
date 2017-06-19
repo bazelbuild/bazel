@@ -19,6 +19,8 @@ package build_event_stream;
 option java_package = "com.google.devtools.build.lib.buildeventstream";
 option java_outer_classname = "BuildEventStreamProtos";
 
+import "src/main/protobuf/invocation_policy.proto";
+
 // Identifier for a build event. It is deliberately structured to also provide
 // information about which build target etc the event is related to.
 //
@@ -256,6 +258,7 @@ message OptionsParsed {
   repeated string explicit_startup_options = 2;
   repeated string cmd_line = 3;
   repeated string explicit_cmd_line = 4;
+  blaze.invocation_policy.InvocationPolicy invocation_policy = 5;
 }
 
 // Payload of an event reporting the workspace status. Key-value pairs can be
