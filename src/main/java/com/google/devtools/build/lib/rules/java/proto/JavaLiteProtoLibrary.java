@@ -35,12 +35,15 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
+import com.google.devtools.build.lib.rules.java.JavaProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRunfilesProvider;
 import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.ProguardLibrary;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
+import com.google.devtools.build.lib.rules.java.ProtoJavaApiInfoAspectProvider;
+import com.google.devtools.build.lib.rules.java.ProtoJavaApiInfoProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 
 /** Implementation of the java_lite_proto_library rule. */
@@ -86,6 +89,19 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
             .setSourceJarsProvider(sourceJarsProvider)
             .setCompilationArgsProvider(dependencyArgsProviders);
 
+    JavaRunfilesProvider javaRunfilesProvider = new JavaRunfilesProvider(runfiles);
+
+    JavaProvider javaProvider =
+        JavaProvider.Builder.create()
+            .addProvider(JavaCompilationArgsProvider.class, dependencyArgsProviders)
+            .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
+            .addProvider(
+                ProtoJavaApiInfoAspectProvider.class,
+                createProtoJavaApiInfoAspectProvider(ruleContext))
+            .addProvider(JavaRuleOutputJarsProvider.class, JavaRuleOutputJarsProvider.EMPTY)
+            .addProvider(JavaRunfilesProvider.class, javaRunfilesProvider)
+            .build();
+
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(filesToBuild.build())
         .addSkylarkTransitiveInfo(JavaSkylarkApiProvider.NAME, skylarkApiProvider.build())
@@ -94,10 +110,23 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
             OutputGroupProvider.DEFAULT, NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
         .add(JavaCompilationArgsProvider.class, dependencyArgsProviders)
         .add(JavaSourceJarsProvider.class, sourceJarsProvider)
-        .add(JavaRunfilesProvider.class, new JavaRunfilesProvider(runfiles))
+        .add(JavaRunfilesProvider.class, javaRunfilesProvider)
         .add(ProguardSpecProvider.class, getJavaLiteRuntimeSpec(ruleContext))
         .add(JavaRuleOutputJarsProvider.class, javaRuleOutputJarsProvider)
+        .addProvider(javaProvider)
+        .addNativeDeclaredProvider(javaProvider)
         .build();
+  }
+
+  private ProtoJavaApiInfoAspectProvider createProtoJavaApiInfoAspectProvider(
+      RuleContext ruleContext) {
+    ProtoJavaApiInfoAspectProvider.Builder protoJavaApiInfoAspectProvider =
+        ProtoJavaApiInfoAspectProvider.builder();
+    for (ProtoJavaApiInfoProvider protoJavaApiInfoProvider :
+        getDeps(ruleContext, ProtoJavaApiInfoProvider.class)) {
+      protoJavaApiInfoAspectProvider.add(protoJavaApiInfoProvider).build();
+    }
+    return protoJavaApiInfoAspectProvider.build();
   }
 
   private <C extends TransitiveInfoProvider> Iterable<C> getDeps(
