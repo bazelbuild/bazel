@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.exec;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.Executor.ActionContext;
+import com.google.devtools.build.lib.actions.ActionContext;
 import java.util.List;
 
 /**

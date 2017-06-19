@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
-import com.google.devtools.build.lib.actions.Executor.ActionContext;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.rules.fileset.FilesetActionContext;
 import java.util.concurrent.LinkedBlockingQueue;

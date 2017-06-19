@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ExecutorInitException;

@@ -17,14 +17,13 @@ package com.google.devtools.build.lib.bazel.rules;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
-import com.google.devtools.build.lib.actions.Executor.ActionContext;
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
 import com.google.devtools.build.lib.bazel.rules.BazelStrategyModule.BazelExecutionOptions;
 import com.google.devtools.build.lib.exec.ActionContextConsumer;
 import com.google.devtools.build.lib.rules.android.WriteAdbArgsActionContext;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanningContext;
-
 import java.util.Map;
 import java.util.TreeMap;
 
