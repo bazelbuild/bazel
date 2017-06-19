@@ -1384,15 +1384,6 @@ public final class PackageFactory {
     try {
       // At this point the package is guaranteed to exist.  It may have parse or
       // evaluation errors, resulting in a diminished number of rules.
-      prefetchGlobs(
-          packageId,
-          astAfterPreprocessing.ast,
-          buildFile,
-          globber,
-          defaultVisibility,
-          skylarkSemantics,
-          makeEnv,
-          imports);
       return evaluateBuildFile(
           workspaceName,
           packageId,
