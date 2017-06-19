@@ -950,6 +950,7 @@ public class Parser {
     Expression expr = parseNonTupleExpression(prec + 1);
     // The loop is not strictly needed, but it prevents risks of stack overflow. Depth is
     // limited to number of different precedence levels (operatorPrecedence.size()).
+    Operator lastOp = null;
     for (;;) {
 
       if (token.kind == TokenKind.NOT) {
@@ -967,10 +968,21 @@ public class Parser {
       if (!operatorPrecedence.get(prec).contains(operator)) {
         return expr;
       }
+
+      // Operator '==' and other operators of the same precedence (e.g. '<', 'in')
+      // are not associative.
+      if (lastOp != null && operatorPrecedence.get(prec).contains(Operator.EQUALS_EQUALS)) {
+        reportError(
+            lexer.createLocation(token.left, token.right),
+            String.format("Operator '%s' is not associative with operator '%s'. Use parens.",
+                lastOp, operator));
+      }
+
       nextToken();
       Expression secondary = parseNonTupleExpression(prec + 1);
       expr = optimizeBinOpExpression(operator, expr, secondary);
       setLocation(expr, start, secondary);
+      lastOp = operator;
     }
   }
 
