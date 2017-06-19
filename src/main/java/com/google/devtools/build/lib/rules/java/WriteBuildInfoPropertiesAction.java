@@ -148,8 +148,7 @@ public class WriteBuildInfoPropertiesAction extends AbstractFileWriteAction {
     return new DeterministicWriter() {
       @Override
       public void writeOutputFile(OutputStream out) throws IOException {
-        WorkspaceStatusAction.Context context =
-            ctx.getExecutor().getContext(WorkspaceStatusAction.Context.class);
+        WorkspaceStatusAction.Context context = ctx.getContext(WorkspaceStatusAction.Context.class);
         Map<String, String> values = new LinkedHashMap<>();
         for (Artifact valueFile : valueArtifacts) {
           values.putAll(WorkspaceStatusAction.parseValues(valueFile.getPath()));

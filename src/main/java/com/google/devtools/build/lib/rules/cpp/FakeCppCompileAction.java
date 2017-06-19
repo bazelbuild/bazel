@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -133,21 +132,22 @@ public class FakeCppCompileAction extends CppCompileAction {
   public void execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     setModuleFileFlags();
-    Executor executor = actionExecutionContext.getExecutor();
-
     // First, do a normal compilation, to generate the ".d" file. The generated object file is built
     // to a temporary location (tempOutputFile) and ignored afterwards.
     LOG.info("Generating " + getDotdFile());
-    CppCompileActionContext context = executor.getContext(actionContext);
+    CppCompileActionContext context = actionExecutionContext.getContext(actionContext);
     CppCompileActionContext.Reply reply = null;
     try {
       reply = context.execWithReply(this, actionExecutionContext);
     } catch (ExecException e) {
-      throw e.toActionExecutionException("C++ compilation of rule '" + getOwner().getLabel() + "'",
-          executor.getVerboseFailures(), this);
+      throw e.toActionExecutionException(
+          "C++ compilation of rule '" + getOwner().getLabel() + "'",
+          actionExecutionContext.getVerboseFailures(),
+          this);
     }
-    IncludeScanningContext scanningContext = executor.getContext(IncludeScanningContext.class);
-    Path execRoot = executor.getExecRoot();
+    IncludeScanningContext scanningContext =
+        actionExecutionContext.getContext(IncludeScanningContext.class);
+    Path execRoot = actionExecutionContext.getExecRoot();
 
     NestedSet<Artifact> discoveredInputs;
     if (getDotdFile() == null) {
@@ -184,11 +184,11 @@ public class FakeCppCompileAction extends CppCompileAction {
       validateInclusions(
           discoveredInputs,
           actionExecutionContext.getArtifactExpander(),
-          executor.getEventHandler());
+          actionExecutionContext.getEventHandler());
     } catch (ActionExecutionException e) {
       // TODO(bazel-team): (2009) make this into an error, once most of the current warnings
       // are fixed.
-      executor.getEventHandler().handle(Event.warn(
+      actionExecutionContext.getEventHandler().handle(Event.warn(
           getOwner().getLocation(),
           e.getMessage() + ";\n  this warning may eventually become an error"));
     }

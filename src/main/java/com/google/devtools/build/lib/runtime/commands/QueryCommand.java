@@ -147,6 +147,14 @@ public final class QueryCommand implements BlazeCommand {
           .handle(Event.error(null, "Error while parsing '" + query + "': " + e.getMessage()));
       return ExitCode.COMMAND_LINE_ERROR;
     }
+
+    try {
+      formatter.verifyCompatible(queryEnv, expr);
+    } catch (QueryException e) {
+      env.getReporter().handle(Event.error(e.getMessage()));
+      return ExitCode.COMMAND_LINE_ERROR;
+    }
+
     expr = queryEnv.transformParsedQuery(expr);
 
     OutputStream out = env.getReporter().getOutErr().getOutputStream();
@@ -199,7 +207,7 @@ public final class QueryCommand implements BlazeCommand {
       }
     }
 
-    env.getEventBus().post(new NoBuildEvent());
+    env.getEventBus().post(new NoBuildEvent(env.getCommandName(), env.getCommandStartTime()));
     if (!streamResults) {
       disableAnsiCharactersFiltering(env);
       try {

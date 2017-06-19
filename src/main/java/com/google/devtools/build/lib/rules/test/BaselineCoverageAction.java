@@ -21,7 +21,6 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
@@ -89,8 +88,8 @@ public final class BaselineCoverageAction extends AbstractFileWriteAction
   }
 
   @Override
-  protected void afterWrite(Executor executor) {
-    notifyAboutBaselineCoverage(executor.getEventBus());
+  protected void afterWrite(ActionExecutionContext actionExecutionContext) {
+    notifyAboutBaselineCoverage(actionExecutionContext.getEventBus());
   }
 
   @Override

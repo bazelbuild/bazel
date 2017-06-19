@@ -443,6 +443,11 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     }
 
     @Override
+    public void clear() {
+      // safe to ignore
+    }
+
+    @Override
     public void dump(PrintStream out) {
       out.println("In-memory action cache has " + actionCache.size() + " records");
     }

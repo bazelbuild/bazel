@@ -42,6 +42,9 @@ public class ActionCacheTestHelper {
         }
 
         @Override
+        public void clear() {}
+
+        @Override
         public void dump(PrintStream out) {}
       };
 }

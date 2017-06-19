@@ -208,10 +208,19 @@ public final class BlazeWorkspace {
   }
 
   /**
+   * Reinitializes the Skyframe evaluator.
+   */
+  public void resetEvaluator() throws IOException {
+    skyframeExecutor.resetEvaluator();
+  }
+
+  /**
    * Removes in-memory caches.
    */
   public void clearCaches() throws IOException {
-    skyframeExecutor.resetEvaluator();
+    if (actionCache != null) {
+      actionCache.clear();
+    }
     actionCache = null;
     FileSystemUtils.deleteTree(getCacheDirectory());
   }

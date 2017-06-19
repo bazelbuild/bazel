@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -58,13 +57,14 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
   public final void execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     try {
-      getStrategy(actionExecutionContext.getExecutor()).exec(this, actionExecutionContext);
+      getStrategy(actionExecutionContext).exec(this, actionExecutionContext);
     } catch (ExecException e) {
       throw e.toActionExecutionException(
           "Writing file for rule '" + Label.print(getOwner().getLabel()) + "'",
-          actionExecutionContext.getExecutor().getVerboseFailures(), this);
+          actionExecutionContext.getVerboseFailures(),
+          this);
     }
-    afterWrite(actionExecutionContext.getExecutor());
+    afterWrite(actionExecutionContext);
   }
 
   /**
@@ -78,9 +78,9 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
   /**
    * This hook is called after the File has been successfully written to disk.
    *
-   * @param executor the Executor.
+   * @param actionExecutionContext the execution context
    */
-  protected void afterWrite(Executor executor) {
+  protected void afterWrite(ActionExecutionContext actionExecutionContext) {
   }
 
   @Override
@@ -102,8 +102,8 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
     return true;
   }
 
-  private FileWriteActionContext getStrategy(Executor executor) {
-    return executor.getContext(FileWriteActionContext.class);
+  private FileWriteActionContext getStrategy(ActionExecutionContext actionExecutionContext) {
+    return actionExecutionContext.getContext(FileWriteActionContext.class);
   }
 
   /**

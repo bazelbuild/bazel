@@ -103,6 +103,7 @@ import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
@@ -115,7 +116,7 @@ import javax.annotation.Nullable;
  */
 public final class BlazeRuntime {
   private static final Pattern suppressFromLog =
-      Pattern.compile("(auth|pass|cookie)", Pattern.CASE_INSENSITIVE);
+      Pattern.compile("--client_env=([^=]*(?:auth|pass|cookie)[^=]*)=", Pattern.CASE_INSENSITIVE);
 
   private static final Logger LOG = Logger.getLogger(BlazeRuntime.class.getName());
 
@@ -584,32 +585,25 @@ public final class BlazeRuntime {
   }
 
   /**
-   * Generates a string form of a request to be written to the logs,
-   * filtering the user environment to remove anything that looks private.
-   * The current filter criteria removes any variable whose name includes
-   * "auth", "pass", or "cookie".
+   * Generates a string form of a request to be written to the logs, filtering the user environment
+   * to remove anything that looks private. The current filter criteria removes any variable whose
+   * name includes "auth", "pass", or "cookie".
    *
    * @param requestStrings
    * @return the filtered request to write to the log.
    */
   @VisibleForTesting
-  public static String getRequestLogString(List<String> requestStrings) {
+  static String getRequestLogString(List<String> requestStrings) {
     StringBuilder buf = new StringBuilder();
     buf.append('[');
     String sep = "";
+    Matcher m = suppressFromLog.matcher("");
     for (String s : requestStrings) {
       buf.append(sep);
-      if (s.startsWith("--client_env")) {
-        int varStart = "--client_env=".length();
-        int varEnd = s.indexOf('=', varStart);
-        String varName = s.substring(varStart, varEnd);
-        if (suppressFromLog.matcher(varName).find()) {
-          buf.append("--client_env=");
-          buf.append(varName);
-          buf.append("=__private_value_removed__");
-        } else {
-          buf.append(s);
-        }
+      m.reset(s);
+      if (m.lookingAt()) {
+        buf.append(m.group());
+        buf.append("__private_value_removed__");
       } else {
         buf.append(s);
       }

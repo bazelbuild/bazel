@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.analysis.actions;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
-import com.google.devtools.build.lib.actions.Executor.ActionContext;
 
 /**
  * Action context for symlink tree actions (an action that creates a tree of symlinks).

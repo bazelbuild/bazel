@@ -13,8 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.fileset;
 
-import com.google.devtools.build.lib.actions.Executor.ActionContext;
-
+import com.google.devtools.build.lib.actions.ActionContext;
 import java.util.concurrent.ThreadPoolExecutor;
 
 /**

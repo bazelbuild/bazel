@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.Executor.ActionContext;
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ActionContextProvider;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -28,8 +28,6 @@ import java.io.IOException;
  * Provides the sandboxed spawn strategy.
  */
 final class SandboxActionContextProvider extends ActionContextProvider {
-
-  @SuppressWarnings("unchecked")
   private final ImmutableList<ActionContext> contexts;
 
   private SandboxActionContextProvider(ImmutableList<ActionContext> contexts) {
@@ -72,7 +70,7 @@ final class SandboxActionContextProvider extends ActionContextProvider {
   }
 
   @Override
-  public Iterable<ActionContext> getActionContexts() {
+  public Iterable<? extends ActionContext> getActionContexts() {
     return contexts;
   }
 }
