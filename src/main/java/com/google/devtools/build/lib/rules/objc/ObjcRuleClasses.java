@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain.RequiresXcodeConfigRule;
@@ -986,22 +987,17 @@ public class ObjcRuleClasses {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          // TODO(b/32411441): Restrict the dylibs attribute to take only dylib dependencies.
-          // This will require refactoring ObjcProvider into alternate providers.
           /* <!-- #BLAZE_RULE($apple_dylib_depending_rule).ATTRIBUTE(dylibs) -->
           <p>A list of dynamic library targets to be linked against in this rule and included
           in the final bundle. Libraries which are transitive dependencies of any such dylibs will
           not be statically linked in this target (even if they are otherwise
           transitively depended on via the <code>deps</code> attribute) to avoid duplicate symbols.
-
-          <p>Please note: this attribute should only accept apple dynamic library targets, but
-          currently accepts many other objc or apple targets. This is a bug, so do not rely on this
-          behavior.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr(DYLIBS_ATTR_NAME, LABEL_LIST)
               .direct_compile_time_input()
-              .mandatoryNativeProviders(
-                  ImmutableList.<Class<? extends TransitiveInfoProvider>>of(ObjcProvider.class))
+              .mandatoryProviders(ImmutableList.of(
+                  SkylarkProviderIdentifier.forKey(
+                      AppleDynamicFrameworkProvider.SKYLARK_CONSTRUCTOR.getKey())))
               .allowedFileTypes()
               .aspect(objcProtoAspect))
           .build();
