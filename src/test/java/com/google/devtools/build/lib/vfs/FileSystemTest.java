@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.unix.NativePosixFiles;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -1305,7 +1306,7 @@ public abstract class FileSystemTest {
     Fingerprint fp = new Fingerprint();
     fp.addBytes(new byte[0]);
     assertThat(fp.hexDigestAndReset())
-        .isEqualTo(BaseEncoding.base16().lowerCase().encode(xFile.getMD5Digest()));
+        .isEqualTo(BaseEncoding.base16().lowerCase().encode(xFile.getDigest(HashFunction.MD5)));
   }
 
   @Test
@@ -1318,7 +1319,7 @@ public abstract class FileSystemTest {
     Fingerprint fp = new Fingerprint();
     fp.addBytes(buffer);
     assertThat(fp.hexDigestAndReset())
-        .isEqualTo(BaseEncoding.base16().lowerCase().encode(xFile.getMD5Digest()));
+        .isEqualTo(BaseEncoding.base16().lowerCase().encode(xFile.getDigest(HashFunction.MD5)));
   }
 
   @Test

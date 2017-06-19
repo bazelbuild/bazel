@@ -42,14 +42,17 @@ import java.util.List;
 public abstract class FileSystem {
 
   /** Type of hash function to use for digesting files. */
+  // The underlying HashFunctions are immutable and thread safe.
+  @SuppressWarnings("ImmutableEnumChecker")
   public enum HashFunction {
-    MD5(16),
-    SHA1(20);
+    MD5(Hashing.md5()),
+    SHA1(Hashing.sha1()),
+    SHA256(Hashing.sha256());
 
-    private final int digestSize;
+    private final com.google.common.hash.HashFunction hash;
 
-    HashFunction(int digestSize) {
-      this.digestSize = digestSize;
+    HashFunction(com.google.common.hash.HashFunction hash) {
+      this.hash = hash;
     }
 
     /** Converts to {@link HashFunction}. */
@@ -59,8 +62,12 @@ public abstract class FileSystem {
       }
     }
 
+    public com.google.common.hash.HashFunction getHash() {
+      return hash;
+    }
+
     public boolean isValidDigest(byte[] digest) {
-      return digest != null && digest.length == digestSize;
+      return digest != null && digest.length * 8 == hash.bits();
     }
   }
 
@@ -336,16 +343,16 @@ public abstract class FileSystem {
    *
    * @return a new byte array containing the file's digest
    * @throws IOException if the digest could not be computed for any reason
+   *
+   * Subclasses may (and do) optimize this computation for particular digest functions.
    */
-  protected final byte[] getDigest(final Path path, HashFunction hashFunction) throws IOException {
-    switch(hashFunction) {
-      case MD5:
-        return getMD5Digest(path);
-      case SHA1:
-        return getSHA1Digest(path);
-      default:
-        throw new IOException("Unsupported hash function: " + hashFunction);
-    }
+  protected byte[] getDigest(final Path path, HashFunction hashFunction) throws IOException {
+    return new ByteSource() {
+      @Override
+      public InputStream openStream() throws IOException {
+        return getInputStream(path);
+      }
+    }.hash(hashFunction.getHash()).asBytes();
   }
 
   /**
@@ -354,37 +361,8 @@ public abstract class FileSystem {
    * @return a new byte array containing the file's digest
    * @throws IOException if the digest could not be computed for any reason
    */
-  protected byte[] getDigest(final Path path) throws IOException {
+  protected final byte[] getDigest(final Path path) throws IOException {
     return getDigest(path, digestFunction);
-  }
-
-  /**
-   * Returns the MD5 digest of the file denoted by {@code path}. See
-   * {@link Path#getMD5Digest} for specification.
-   */
-  protected byte[] getMD5Digest(final Path path) throws IOException {
-    // Naive I/O implementation.  Subclasses may (and do) optimize.
-    // This code is only used by the InMemory or Zip or other weird FSs.
-    return new ByteSource() {
-      @Override
-      public InputStream openStream() throws IOException {
-        return getInputStream(path);
-      }
-    }.hash(Hashing.md5()).asBytes();
-  }
-
-  /**
-   * Returns the MD5 digest of the file denoted by {@code path}. See
-   * {@link Path#getMD5Digest} for specification.
-   */
-  protected byte[] getSHA1Digest(final Path path) throws IOException {
-    // Naive I/O implementation.  TODO(olaola): optimize!
-    return new ByteSource() {
-      @Override
-      public InputStream openStream() throws IOException {
-        return getInputStream(path);
-      }
-    }.hash(Hashing.sha1()).asBytes();
   }
 
   /**

@@ -1046,34 +1046,6 @@ public class Path implements Comparable<Path>, Serializable {
   }
 
   /**
-   * Returns the MD5 digest of the file denoted by the current path, following
-   * symbolic links.
-   *
-   * <p>This method runs in O(n) time where n is the length of the file, but
-   * certain implementations may be much faster than the worst case.
-   *
-   * @return a new 16-byte array containing the file's MD5 digest
-   * @throws IOException if the MD5 digest could not be computed for any reason
-   */
-  public byte[] getMD5Digest() throws IOException {
-    return fileSystem.getMD5Digest(this);
-  }
-
-  /**
-   * Returns the SHA1 digest of the file denoted by the current path, following
-   * symbolic links.
-   *
-   * <p>This method runs in O(n) time where n is the length of the file, but
-   * certain implementations may be much faster than the worst case.
-   *
-   * @return a new 20-byte array containing the file's SHA1 digest
-   * @throws IOException if the SHA1 digest could not be computed for any reason
-   */
-  public byte[] getSHA1Digest() throws IOException {
-    return fileSystem.getSHA1Digest(this);
-  }
-
-  /**
    * Returns the digest of the file denoted by the current path,
    * following symbolic links.
    *

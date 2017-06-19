@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -814,15 +815,15 @@ public class FileFunctionTest {
     fs =
         new CustomInMemoryFs(manualClock) {
           @Override
-          protected byte[] getMD5Digest(Path path) throws IOException {
+          protected byte[] getDigest(Path path, HashFunction hf) throws IOException {
             digestCalls.incrementAndGet();
-            return super.getMD5Digest(path);
+            return super.getDigest(path, hf);
           }
         };
     pkgRoot = fs.getRootDirectory().getRelative("root");
     Path file = file("file");
     FileSystemUtils.writeContentAsLatin1(file, Strings.repeat("a", 20));
-    byte[] digest = file.getMD5Digest();
+    byte[] digest = file.getDigest();
     expectedCalls++;
     assertThat(digestCalls.get()).isEqualTo(expectedCalls);
     FileValue value = valueForPath(file);

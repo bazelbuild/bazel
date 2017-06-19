@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.protobuf.ByteString;
@@ -64,9 +65,10 @@ public class SingleBuildFileCacheTest {
         }
 
         @Override
-        protected byte[] getMD5Digest(Path path) throws IOException {
+        protected byte[] getDigest(Path path, HashFunction hf) throws IOException {
+          assertThat(hf).isEqualTo(HashFunction.MD5);
           byte[] override = md5Overrides.get(path.getPathString());
-          return override != null ? override : super.getMD5Digest(path);
+          return override != null ? override : super.getDigest(path, hf);
         }
       };
     underTest = new SingleBuildFileCache("/", fs);

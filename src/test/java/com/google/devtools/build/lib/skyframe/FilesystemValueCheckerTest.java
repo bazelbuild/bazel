@@ -822,7 +822,7 @@ public class FilesystemValueCheckerTest {
       @Nullable
       @Override
       public byte[] getDigest() throws IOException {
-        return path.getMD5Digest();
+        return path.getDigest();
       }
 
       @Override
