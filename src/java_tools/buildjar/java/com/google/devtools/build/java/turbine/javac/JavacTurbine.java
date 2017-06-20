@@ -147,9 +147,6 @@ public class JavacTurbine implements AutoCloseable {
       argbuilder.add("-processor");
       argbuilder.add(Joiner.on(',').join(turbineOptions.processors()));
       processorpath = asPaths(turbineOptions.processorPath());
-
-      // see b/31371210
-      argbuilder.add("-Aexperimental_turbine_hjar");
     } else {
       processorpath = ImmutableList.of();
     }
