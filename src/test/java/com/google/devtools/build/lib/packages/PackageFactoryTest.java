@@ -807,11 +807,12 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
         /*excludesDirs=*/ false);
   }
 
-  @Test
-  public void testBadCharacterInGlob() throws Exception {
-    events.setFailFast(false);
-    assertGlobFails("glob(['?'])", "illegal character");
-  }
+  // Should '?' be legal in a glob?
+  //@Test
+  //public void testBadCharacterInGlob() throws Exception {
+  //  events.setFailFast(false);
+  //  assertGlobFails("glob(['?'])", "illegal character");
+  //}
 
   /**
    * Tests that a glob evaluation that encounters an I/O error produces
