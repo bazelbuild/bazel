@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.collect.ImmutableList;
 import java.util.Comparator;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Set;
 import java.util.TreeSet;
 import org.objectweb.asm.ClassReader;
@@ -28,11 +27,6 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
-import org.objectweb.asm.tree.AbstractInsnNode;
-import org.objectweb.asm.tree.InsnList;
-import org.objectweb.asm.tree.InsnNode;
-import org.objectweb.asm.tree.MethodInsnNode;
-import org.objectweb.asm.tree.MethodNode;
 
 /**
  * Fixer of classes that extend interfaces with default methods to declare any missing methods
@@ -49,8 +43,6 @@ public class DefaultMethodClassFixer extends ClassVisitor {
   private String internalName;
   private ImmutableList<String> directInterfaces;
   private String superName;
-  /** This method node caches <clinit>, and flushes out in {@code visitEnd()}; */
-  private MethodNode clInitMethodNode;
 
   public DefaultMethodClassFixer(
       ClassVisitor dest,
@@ -90,86 +82,8 @@ public class DefaultMethodClassFixer extends ClassVisitor {
       // figure out what methods they declare before stubbing in any missing default methods.
       recordInheritedMethods();
       stubMissingDefaultAndBridgeMethods();
-      // Check whether there are interfaces with default methods and <clinit>. If yes, the following
-      // method call will return a list of interface fields to access in the <clinit> to trigger
-      // the initialization of these interfaces.
-      ImmutableList<String> companionsToTriggerInterfaceClinit =
-          computeOrderedCompanionsToTriggerInterfaceClinit(directInterfaces);
-      if (!companionsToTriggerInterfaceClinit.isEmpty()) {
-        if (clInitMethodNode == null) {
-          clInitMethodNode = new MethodNode(Opcodes.ACC_STATIC, "<clinit>", "()V", null, null);
-        }
-        desugarClinitToTriggerInterfaceInitializers(companionsToTriggerInterfaceClinit);
-      }
-    }
-    if (clInitMethodNode != null && super.cv != null) { // Write <clinit> to the chained visitor.
-      clInitMethodNode.accept(super.cv);
     }
     super.visitEnd();
-  }
-
-  private boolean isClinitAlreadyDesugared(
-      ImmutableList<String> companionsToAccessToTriggerInterfaceClinit) {
-    InsnList instructions = clInitMethodNode.instructions;
-    if (instructions.size() <= companionsToAccessToTriggerInterfaceClinit.size()) {
-      // The <clinit> must end with RETURN, so if the instruction count is less than or equal to
-      // the companion class count, this <clinit> has not been desugared.
-      return false;
-    }
-    Iterator<AbstractInsnNode> iterator = instructions.iterator();
-    for (String companion : companionsToAccessToTriggerInterfaceClinit) {
-      if (!iterator.hasNext()) {
-        return false;
-      }
-      AbstractInsnNode first = iterator.next();
-      if (!(first instanceof MethodInsnNode)) {
-        return false;
-      }
-      MethodInsnNode methodInsnNode = (MethodInsnNode) first;
-      if (methodInsnNode.getOpcode() != Opcodes.INVOKESTATIC
-          || !methodInsnNode.owner.equals(companion)
-          || !methodInsnNode.name.equals(
-              InterfaceDesugaring.COMPANION_METHOD_TO_TRIGGER_INTERFACE_CLINIT_NAME)) {
-        return false;
-      }
-      checkState(
-          methodInsnNode.desc.equals(
-              InterfaceDesugaring.COMPANION_METHOD_TO_TRIGGER_INTERFACE_CLINIT_DESC),
-          "Inconsistent method desc: %s vs %s",
-          methodInsnNode.desc,
-          InterfaceDesugaring.COMPANION_METHOD_TO_TRIGGER_INTERFACE_CLINIT_DESC);
-
-      if (!iterator.hasNext()) {
-        return false;
-      }
-      AbstractInsnNode second = iterator.next();
-      if (second.getOpcode() != Opcodes.POP) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  private void desugarClinitToTriggerInterfaceInitializers(
-      ImmutableList<String> companionsToTriggerInterfaceClinit) {
-    if (isClinitAlreadyDesugared(companionsToTriggerInterfaceClinit)) {
-      return;
-    }
-    InsnList desugarInsts = new InsnList();
-    for (String companionClass : companionsToTriggerInterfaceClinit) {
-      desugarInsts.add(
-          new MethodInsnNode(
-              Opcodes.INVOKESTATIC,
-              companionClass,
-              InterfaceDesugaring.COMPANION_METHOD_TO_TRIGGER_INTERFACE_CLINIT_NAME,
-              InterfaceDesugaring.COMPANION_METHOD_TO_TRIGGER_INTERFACE_CLINIT_DESC,
-              false));
-    }
-    if (clInitMethodNode.instructions.size() == 0) {
-      clInitMethodNode.instructions.insert(new InsnNode(Opcodes.RETURN));
-    }
-    clInitMethodNode.instructions.insertBefore(
-        clInitMethodNode.instructions.getFirst(), desugarInsts);
   }
 
   @Override
@@ -178,11 +92,6 @@ public class DefaultMethodClassFixer extends ClassVisitor {
     // Keep track of instance methods implemented in this class for later.
     if (!isInterface) {
       recordIfInstanceMethod(access, name, desc);
-    }
-    if ("<clinit>".equals(name)) {
-      checkState(clInitMethodNode == null, "This class fixer has been used. ");
-      clInitMethodNode = new MethodNode(access, name, desc, signature, exceptions);
-      return clInitMethodNode;
     }
     return super.visitMethod(access, name, desc, signature, exceptions);
   }
@@ -256,55 +165,6 @@ public class DefaultMethodClassFixer extends ClassVisitor {
   }
 
   /**
-   * Starting from the given interfaces, this method scans the interface hierarchy, finds the
-   * interfaces that have default methods and <clinit>, and returns the companion class names of
-   * these interfaces.
-   *
-   * <p>Note that the returned companion classes are ordered in the order of the interface
-   * initialization, which is consistent with the JVM behavior. For example, "class A implements I1,
-   * I2", the returned list would be [I1$$CC, I2$$CC], not [I2$$CC, I1$$CC].
-   */
-  private ImmutableList<String> computeOrderedCompanionsToTriggerInterfaceClinit(
-      ImmutableList<String> interfaces) {
-    ImmutableList.Builder<String> companionCollector = ImmutableList.builder();
-    HashSet<String> visitedInterfaces = new HashSet<>();
-    for (String anInterface : interfaces) {
-      computeOrderedCompanionsToTriggerInterfaceClinit(
-          anInterface, visitedInterfaces, companionCollector);
-    }
-    return companionCollector.build();
-  }
-
-  private void computeOrderedCompanionsToTriggerInterfaceClinit(
-      String anInterface,
-      HashSet<String> visitedInterfaces,
-      ImmutableList.Builder<String> companionCollector) {
-    if (!visitedInterfaces.add(anInterface)) {
-      return;
-    }
-    ClassReader bytecode = classpath.readIfKnown(anInterface);
-    if (bytecode == null || bootclasspath.isKnown(anInterface)) {
-      return;
-    }
-    String[] parentInterfaces = bytecode.getInterfaces();
-    if (parentInterfaces != null && parentInterfaces.length > 0) {
-      for (String parentInterface : parentInterfaces) {
-        computeOrderedCompanionsToTriggerInterfaceClinit(
-            parentInterface, visitedInterfaces, companionCollector);
-      }
-    }
-    InterfaceInitializationNecessityDetector necessityDetector =
-        new InterfaceInitializationNecessityDetector(bytecode.getClassName());
-    bytecode.accept(necessityDetector, ClassReader.SKIP_DEBUG);
-    if (necessityDetector.needsToInitialize()) {
-      // If we need to initialize this interface, we initialize its companion class, and its
-      // companion class will initialize the interface then. This desigin decision is made to avoid
-      // access issue, e.g., package-private interfaces.
-      companionCollector.add(InterfaceDesugaring.getCompanionClassName(anInterface));
-    }
-  }
-
-  /**
    * Recursively searches the given interfaces for default methods not implemented by this class
    * directly. If this method returns true we need to think about stubbing missing default methods.
    */
@@ -338,13 +198,10 @@ public class DefaultMethodClassFixer extends ClassVisitor {
     // Note that an exception is that, if a bridge method is for a default interface method, javac
     // will NOT generate the bridge method in the implementing class. So we need extra logic to
     // handle these bridge methods.
-    return isNonBridgeDefaultMethod(access) && !instanceMethods.contains(name + ":" + desc);
-  }
-
-  private static boolean isNonBridgeDefaultMethod(int access) {
     return BitFlags.noneSet(
-        access,
-        Opcodes.ACC_ABSTRACT | Opcodes.ACC_STATIC | Opcodes.ACC_BRIDGE | Opcodes.ACC_PRIVATE);
+            access,
+            Opcodes.ACC_ABSTRACT | Opcodes.ACC_STATIC | Opcodes.ACC_BRIDGE | Opcodes.ACC_PRIVATE)
+        && !instanceMethods.contains(name + ":" + desc);
   }
 
   /**
@@ -519,66 +376,6 @@ public class DefaultMethodClassFixer extends ClassVisitor {
         int access, String name, String desc, String signature, String[] exceptions) {
       recordIfInstanceMethod(access, name, desc);
       return null;
-    }
-  }
-
-  /**
-   * Detector to determine whether an interface needs to be initialized when it is loaded.
-   *
-   * <p>If the interface has a default method, and its <clinit> initializes any of its fields, then
-   * this interface needs to be initialized.
-   */
-  private static class InterfaceInitializationNecessityDetector extends ClassVisitor {
-
-    private final String internalName;
-    private boolean hasFieldInitializedInClinit;
-    private boolean hasDefaultMethods;
-
-    public InterfaceInitializationNecessityDetector(String internalName) {
-      super(Opcodes.ASM5);
-      this.internalName = internalName;
-    }
-
-    public boolean needsToInitialize() {
-      return hasDefaultMethods && hasFieldInitializedInClinit;
-    }
-
-    @Override
-    public void visit(
-        int version,
-        int access,
-        String name,
-        String signature,
-        String superName,
-        String[] interfaces) {
-      super.visit(version, access, name, signature, superName, interfaces);
-      checkState(
-          internalName.equals(name),
-          "Inconsistent internal names: expected=%s, real=%s",
-          internalName,
-          name);
-      checkArgument(
-          BitFlags.isSet(access, Opcodes.ACC_INTERFACE),
-          "This class visitor is only used for interfaces.");
-    }
-
-    @Override
-    public MethodVisitor visitMethod(
-        int access, String name, String desc, String signature, String[] exceptions) {
-      if (!hasDefaultMethods) {
-        hasDefaultMethods = isNonBridgeDefaultMethod(access);
-      }
-      if ("<clinit>".equals(name)) {
-        return new MethodVisitor(Opcodes.ASM5) {
-          @Override
-          public void visitFieldInsn(int opcode, String owner, String name, String desc) {
-            if (opcode == Opcodes.PUTSTATIC && internalName.equals(owner)) {
-              hasFieldInitializedInClinit = true;
-            }
-          }
-        };
-      }
-      return null; // Do not care about the code.
     }
   }
 

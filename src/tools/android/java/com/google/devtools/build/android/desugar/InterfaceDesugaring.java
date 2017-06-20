@@ -14,7 +14,6 @@
 package com.google.devtools.build.android.desugar;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import javax.annotation.Nullable;
@@ -38,9 +37,6 @@ import org.objectweb.asm.TypePath;
  */
 class InterfaceDesugaring extends ClassVisitor {
 
-  static final String COMPANION_METHOD_TO_TRIGGER_INTERFACE_CLINIT_NAME = "$$triggerInterfaceInit";
-  static final String COMPANION_METHOD_TO_TRIGGER_INTERFACE_CLINIT_DESC = "()V";
-
   static final String COMPANION_SUFFIX = "$$CC";
   static final String INTERFACE_STATIC_COMPANION_METHOD_SUFFIX = "$$STATIC$$";
 
@@ -51,7 +47,6 @@ class InterfaceDesugaring extends ClassVisitor {
   private int bytecodeVersion;
   private int accessFlags;
   @Nullable private ClassVisitor companion;
-  @Nullable private FieldInfo interfaceFieldToAccessInCompanionMethodToTriggerInterfaceClinit;
 
   public InterfaceDesugaring(
       ClassVisitor dest, ClassReaderFactory bootclasspath, GeneratedClassStore store) {
@@ -78,50 +73,18 @@ class InterfaceDesugaring extends ClassVisitor {
   @Override
   public void visitEnd() {
     if (companion != null) {
-      // Emit a method to access the fields of the interfaces that need initialization.
-      emitInterfaceFieldAccessInCompanionMethodToTriggerInterfaceClinit();
       companion.visitEnd();
     }
     super.visitEnd();
-  }
-
-  private void emitInterfaceFieldAccessInCompanionMethodToTriggerInterfaceClinit() {
-    if (companion == null
-        || interfaceFieldToAccessInCompanionMethodToTriggerInterfaceClinit == null) {
-      return;
-    }
-
-    // Create a method to access the interface fields
-    MethodVisitor visitor =
-        checkNotNull(
-            companion.visitMethod(
-                Opcodes.ACC_STATIC | Opcodes.ACC_PUBLIC,
-                COMPANION_METHOD_TO_TRIGGER_INTERFACE_CLINIT_NAME,
-                COMPANION_METHOD_TO_TRIGGER_INTERFACE_CLINIT_DESC,
-                null,
-                null),
-            "Cannot get a method visitor to write out %s to the companion class.",
-            COMPANION_METHOD_TO_TRIGGER_INTERFACE_CLINIT_NAME);
-    // Visit the interface field to triger <clinit> of the interface.
-    visitor.visitFieldInsn(
-        Opcodes.GETSTATIC,
-        interfaceFieldToAccessInCompanionMethodToTriggerInterfaceClinit.owner(),
-        interfaceFieldToAccessInCompanionMethodToTriggerInterfaceClinit.name(),
-        interfaceFieldToAccessInCompanionMethodToTriggerInterfaceClinit.desc());
-    visitor.visitInsn(Opcodes.POP);
-    visitor.visitInsn(Opcodes.RETURN);
   }
 
   @Override
   public MethodVisitor visitMethod(
       int access, String name, String desc, String signature, String[] exceptions) {
     MethodVisitor result;
-    if (isStaticInitializer(name)) {
-      result =
-          new InterfaceFieldWriteCollector(
-              super.visitMethod(access, name, desc, signature, exceptions));
-    } else if (BitFlags.isSet(accessFlags, Opcodes.ACC_INTERFACE)
-        && BitFlags.noneSet(access, Opcodes.ACC_ABSTRACT | Opcodes.ACC_BRIDGE)) {
+    if (BitFlags.isSet(accessFlags, Opcodes.ACC_INTERFACE)
+        && BitFlags.noneSet(access, Opcodes.ACC_ABSTRACT | Opcodes.ACC_BRIDGE)
+        && !"<clinit>".equals(name)) {
       checkArgument(BitFlags.noneSet(access, Opcodes.ACC_NATIVE), "Forbidden per JLS ch 9.4");
 
       boolean isLambdaBody =
@@ -177,10 +140,6 @@ class InterfaceDesugaring extends ClassVisitor {
         : null;
   }
 
-  private static boolean isStaticInitializer(String methodName) {
-    return "<clinit>".equals(methodName);
-  }
-
   private static String normalizeInterfaceMethodName(
       String name, boolean isLambda, boolean isStatic) {
     String suffix;
@@ -195,10 +154,6 @@ class InterfaceDesugaring extends ClassVisitor {
       return name;
     }
     return name + suffix;
-  }
-
-  static String getCompanionClassName(String interfaceName) {
-    return interfaceName + COMPANION_SUFFIX;
   }
 
   /**
@@ -217,7 +172,7 @@ class InterfaceDesugaring extends ClassVisitor {
   private ClassVisitor companion() {
     if (companion == null) {
       checkState(BitFlags.isSet(accessFlags, Opcodes.ACC_INTERFACE));
-      String companionName = getCompanionClassName(internalName);
+      String companionName = internalName + COMPANION_SUFFIX;
 
       companion = store.add(companionName);
       companion.visit(
@@ -230,32 +185,6 @@ class InterfaceDesugaring extends ClassVisitor {
           new String[0]);
     }
     return companion;
-  }
-
-  /**
-   * Interface field scanner to get the field of the current interface that is written in the
-   * initializer.
-   */
-  private class InterfaceFieldWriteCollector extends MethodVisitor {
-
-    public InterfaceFieldWriteCollector(MethodVisitor mv) {
-      super(Opcodes.ASM5, mv);
-    }
-
-    @Override
-    public void visitFieldInsn(int opcode, String owner, String name, String desc) {
-      if (interfaceFieldToAccessInCompanionMethodToTriggerInterfaceClinit == null
-          && opcode == Opcodes.PUTSTATIC) {
-        checkState(
-            owner.equals(internalName),
-            "Expect only the fields in this interface to be initialized. owner=%s, expected=%s",
-            owner,
-            internalName);
-        interfaceFieldToAccessInCompanionMethodToTriggerInterfaceClinit =
-            FieldInfo.create(owner, name, desc);
-      }
-      super.visitFieldInsn(opcode, owner, name, desc);
-    }
   }
 
   /**
