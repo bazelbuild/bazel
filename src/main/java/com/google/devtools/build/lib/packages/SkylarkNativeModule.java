@@ -53,11 +53,11 @@ public class SkylarkNativeModule {
     returnType = SkylarkList.class,
     doc =
         "Glob returns a list of every file in the current package that:<ul>\n"
-        + "<li>Matches at least one pattern in <code>include</code>.</li>\n"
-        + "<li>Does not match any of the patterns in <code>exclude</code> "
-        + "(default <code>[]</code>).</li></ul>\n"
-        + "If the <code>exclude_directories</code> argument is enabled (set to <code>1</code>),"
-        + " files of type directory will be omitted from the results (default <code>1</code>).",
+            + "<li>Matches at least one pattern in <code>include</code>.</li>\n"
+            + "<li>Does not match any of the patterns in <code>exclude</code> "
+            + "(default <code>[]</code>).</li></ul>\n"
+            + "If the <code>exclude_directories</code> argument is enabled (set to <code>1</code>),"
+            + " files of type directory will be omitted from the results (default <code>1</code>).",
     parameters = {
       @Param(
         name = "include",
@@ -94,8 +94,7 @@ public class SkylarkNativeModule {
             Environment env)
             throws EvalException, ConversionException, InterruptedException {
           env.checkLoadingPhase("native.glob", ast.getLocation());
-          return PackageFactory.callGlob(
-              null, false, include, exclude, excludeDirectories != 0, ast, env);
+          return PackageFactory.callGlob(null, include, exclude, excludeDirectories != 0, ast, env);
         }
       };
 

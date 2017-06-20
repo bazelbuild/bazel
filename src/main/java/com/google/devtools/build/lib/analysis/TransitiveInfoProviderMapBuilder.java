@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -74,6 +73,6 @@ public class TransitiveInfoProviderMapBuilder {
   }
 
   public TransitiveInfoProviderMap build() {
-    return new TransitiveInfoProviderMapOffsetBased(ImmutableMap.copyOf(providers));
+    return new TransitiveInfoProviderMapImpl(providers);
   }
 }

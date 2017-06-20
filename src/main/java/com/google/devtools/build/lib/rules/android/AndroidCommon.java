@@ -768,20 +768,15 @@ public class AndroidCommon {
             recursiveJavaCompilationArgs,
             compileTimeDependencyArtifacts,
             NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
-    JavaSkylarkApiProvider.Builder skylarkApiProvider =
-        JavaSkylarkApiProvider.builder()
-            .setRuleOutputJarsProvider(ruleOutputJarsProvider)
-            .setSourceJarsProvider(sourceJarsProvider)
-            .setCompilationArgsProvider(compilationArgsProvider);
-    javaCommon.addTransitiveInfoProviders(
-        builder, skylarkApiProvider, filesToBuild, classJar, ANDROID_COLLECTION_SPEC);
-    javaCommon.addGenJarsProvider(builder, skylarkApiProvider, genClassJar, genSourceJar);
+    javaCommon.addTransitiveInfoProviders(builder, filesToBuild, classJar, ANDROID_COLLECTION_SPEC);
+    javaCommon.addGenJarsProvider(builder, genClassJar, genSourceJar);
 
     DataBinding.maybeAddProvider(builder, ruleContext);
 
     return builder
         .setFilesToBuild(filesToBuild)
-        .addSkylarkTransitiveInfo(JavaSkylarkApiProvider.NAME, skylarkApiProvider.build())
+        .addSkylarkTransitiveInfo(
+            JavaSkylarkApiProvider.NAME, JavaSkylarkApiProvider.fromRuleContext())
         .add(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
         .add(JavaSourceJarsProvider.class, sourceJarsProvider)
         .add(

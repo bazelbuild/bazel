@@ -32,14 +32,14 @@ For more information on using Bazel, see
 
 ## <a name="jdk7"></a>Using Bazel with JDK 7
 
-Bazel version _0.5.0_ does run with JDK 7. However, starting with version
-_0.5.1_ Bazel must use JDK 8.
+Bazel version _0.5.1_ does run with JDK 7. However, starting with version
+_0.5.2_ Bazel must use JDK 8.
 
-The installers available for _0.5.0_ are:
+The installers available for _0.5.1_ are:
 
-*  `bazel-0.5.0-installer.sh`: default version with embedded JDK
-*  `bazel-0.5.0-without-jdk-installer.sh`: version without embedded JDK
-*  `bazel-0.5.0-jdk7-installer.sh`: version compatible with JDK 7, will not be
+*  `bazel-0.5.1-installer.sh`: default version with embedded JDK
+*  `bazel-0.5.1-without-jdk-installer.sh`: version without embedded JDK
+*  `bazel-0.5.1-jdk7-installer.sh`: version compatible with JDK 7, will not be
    available in later releases
 
 ## <a name="bash"></a>Getting bash completion

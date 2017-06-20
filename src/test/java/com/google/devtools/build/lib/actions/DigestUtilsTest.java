@@ -57,31 +57,17 @@ public class DigestUtilsTest {
 
     FileSystem myfs = new InMemoryFileSystem(BlazeClock.instance()) {
         @Override
-        protected byte[] getMD5Digest(Path path) throws IOException {
+        protected byte[] getDigest(Path path, HashFunction hashFunction) throws IOException {
           try {
             barrierLatch.countDown();
             readyLatch.countDown();
-            // Either both threads will be inside getMD5Digest at the same time or they
+            // Either both threads will be inside getDigest at the same time or they
             // both will be blocked.
             barrierLatch.await();
           } catch (Exception e) {
             throw new IOException(e);
           }
-          return super.getMD5Digest(path);
-        }
-
-        @Override
-        protected byte[] getSHA1Digest(Path path) throws IOException {
-          try {
-            barrierLatch.countDown();
-            readyLatch.countDown();
-            // Either both threads will be inside getSHA1Digest at the same time or they
-            // both will be blocked.
-            barrierLatch.await();
-          } catch (Exception e) {
-            throw new IOException(e);
-          }
-          return super.getSHA1Digest(path);
+          return super.getDigest(path, hashFunction);
         }
 
         @Override
@@ -111,9 +97,9 @@ public class DigestUtilsTest {
      thread1.start();
      thread2.start();
      if (!expectConcurrent) { // Synchronized case.
-      // Wait until at least one thread reached getMD5Digest().
+      // Wait until at least one thread reached getDigest().
       assertThat(readyLatch.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)).isTrue();
-      // Only 1 thread should be inside getMD5Digest().
+      // Only 1 thread should be inside getDigest().
       assertThat(barrierLatch.getCount()).isEqualTo(1);
        barrierLatch.countDown(); // Release barrier latch, allowing both threads to proceed.
      }
@@ -123,8 +109,8 @@ public class DigestUtilsTest {
   }
 
   /**
-   * Ensures that MD5 calculation is synchronized for files
-   * greater than 4096 bytes if MD5 is not available cheaply,
+   * Ensures that digest calculation is synchronized for files
+   * greater than 4096 bytes if the digest is not available cheaply,
    * so machines with rotating drives don't become unusable.
    */
   @Test
@@ -240,9 +226,9 @@ public class DigestUtilsTest {
           }
 
           @Override
-          protected byte[] getDigest(Path path) throws IOException {
+          protected byte[] getDigest(Path path, HashFunction hashFunction) throws IOException {
             getDigestCounter.incrementAndGet();
-            return super.getDigest(path);
+            return super.getDigest(path, hashFunction);
           }
         };
 

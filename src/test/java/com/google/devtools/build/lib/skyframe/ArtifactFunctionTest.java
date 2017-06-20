@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -82,7 +83,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     Artifact output = createDerivedArtifact("output");
     Path path = output.getPath();
     file(path, "contents");
-    assertValueMatches(path.stat(), expectDigest ? path.getMD5Digest() : null, evaluateFAN(output));
+    assertValueMatches(path.stat(), expectDigest ? path.getDigest() : null, evaluateFAN(output));
   }
 
   @Test
@@ -129,10 +130,10 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     setupRoot(
         new CustomInMemoryFs() {
           @Override
-          public byte[] getMD5Digest(Path path) throws IOException {
+          public byte[] getDigest(Path path, HashFunction hf) throws IOException {
             return path.getBaseName().equals("unreadable")
                 ? expectedDigest
-                : super.getMD5Digest(path);
+                : super.getDigest(path, hf);
           }
         });
 
@@ -186,7 +187,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     setupRoot(
         new CustomInMemoryFs() {
           @Override
-          public byte[] getMD5Digest(Path path) throws IOException {
+          public byte[] getDigest(Path path, HashFunction hf) throws IOException {
             throw exception;
           }
         });
@@ -231,7 +232,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     Path path = artifact.getPath();
     writeFile(path, "hello"); //Non-empty file.
     FileArtifactValue value = create(artifact);
-    assertThat(value.getDigest()).isEqualTo(path.getMD5Digest());
+    assertThat(value.getDigest()).isEqualTo(path.getDigest());
     try {
       value.getModifiedTime();
       fail("mtime for non-empty file should not be stored.");
@@ -259,7 +260,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     writeFile(path, "");
     path.setLastModifiedTime(1L);
     FileArtifactValue value = create(artifact);
-    assertThat(value.getDigest()).isEqualTo(path.getMD5Digest());
+    assertThat(value.getDigest()).isEqualTo(path.getDigest());
     assertThat(value.getSize()).isEqualTo(0L);
   }
 

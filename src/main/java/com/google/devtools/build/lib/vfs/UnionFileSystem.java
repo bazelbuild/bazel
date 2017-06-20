@@ -19,13 +19,11 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringTrie;
 import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Collection;
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
 /**
@@ -190,9 +188,9 @@ public class UnionFileSystem extends FileSystem {
   }
 
   @Override
-  protected byte[] getMD5Digest(Path path) throws IOException {
+  protected byte[] getDigest(Path path, HashFunction hashFunction) throws IOException {
     FileSystem delegate = getDelegate(path);
-    return delegate.getMD5Digest(adjustPath(path, delegate));
+    return delegate.getDigest(adjustPath(path, delegate), hashFunction);
   }
 
   @Override

@@ -37,6 +37,11 @@ build --strategy=Javac=remote
 build --strategy=Closure=remote
 ```
 
+#### Customizing The Digest Function
+
+Bazel currently supports the following digest functions with the remote worker: SHA1, SHA256, and MD5. The digest function is passed via the `--host_jvm_args=-Dbazel.DigestFunction=###` startup option. In the example above, SHA1 is used, but you can use any one of SHA1, SHA256, and MD5, provided that your remote execution server supports it and is configured to use the same one. For example, the provided remote worker (`//src/tools/remote_worker`) is configured to use SHA1 by default in the binary build rule. You can customize it there by modifying the `jvm_flags` attribute to use, for example, `"-Dbazel.DigestFunction=SHA256"` instead.
+
+
 ### Hazelcast with REST interface
 
 [Hazelcast](https://hazelcast.org/) is a distributed in-memory cache which can be used by Bazel as a remote cache.

@@ -16,20 +16,15 @@ package com.google.devtools.build.lib.remote;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
-import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.ExitCode;
-import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
@@ -77,7 +72,6 @@ public final class RemoteModule extends BlazeModule {
   }
 
   private final CasPathConverter converter = new CasPathConverter();
-  private CommandEnvironment env;
 
   @Override
   public void serverInit(OptionsProvider startupOptions, ServerBuilder builder)
@@ -87,7 +81,6 @@ public final class RemoteModule extends BlazeModule {
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
-    this.env = env;
     env.getEventBus().register(this);
   }
 
@@ -97,28 +90,8 @@ public final class RemoteModule extends BlazeModule {
   }
 
   @Override
-  public void afterCommand() {
-    this.env = null;
-  }
-
-  @Override
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
     builder.addActionContextProvider(new RemoteActionContextProvider(env));
-  }
-
-  @Subscribe
-  public void buildStarting(BuildStartingEvent event) {
-    RemoteOptions options = event.getRequest().getOptions(RemoteOptions.class);
-
-    if (remoteEnabled(options)) {
-      HashFunction hf = FileSystem.getDigestFunction();
-      if (hf != HashFunction.SHA1) {
-        env.getBlazeModuleEnvironment().exit(new AbruptExitException(
-            "Remote cache/execution requires SHA1 digests, got " + hf
-            + ", run with --host_jvm_args=-Dbazel.DigestFunction=SHA1",
-            ExitCode.COMMAND_LINE_ERROR));
-      }
-    }
   }
 
   @Override

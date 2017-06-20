@@ -108,6 +108,8 @@ public class GotOptionsEvent implements BuildEventWithOrderConstraint {
                   }
                 })));
 
+    optionsBuilder.setInvocationPolicy(getInvocationPolicy());
+
     return GenericBuildEvent.protoChaining(this).setOptionsParsed(optionsBuilder.build()).build();
   }
 

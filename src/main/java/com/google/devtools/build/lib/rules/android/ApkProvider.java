@@ -25,12 +25,19 @@ import javax.annotation.Nullable;
 public abstract class ApkProvider implements TransitiveInfoProvider {
 
   public static ApkProvider create(
-      Artifact apk, @Nullable Artifact coverageMetdata, Artifact mergedManifest) {
-    return new AutoValue_ApkProvider(apk, coverageMetdata, mergedManifest);
+      Artifact apk,
+      Artifact unsignedApk,
+      @Nullable Artifact coverageMetdata,
+      Artifact mergedManifest,
+      Artifact keystore) {
+    return new AutoValue_ApkProvider(apk, unsignedApk, coverageMetdata, mergedManifest, keystore);
   }
 
   /** Returns the APK file built in the transitive closure. */
   public abstract Artifact getApk();
+
+  /** Returns the unsigned APK file built in the transitive closure. */
+  public abstract Artifact getUnsignedApk();
 
   /** Returns the coverage metadata artifacts generated in the transitive closure. */
   @Nullable
@@ -38,6 +45,9 @@ public abstract class ApkProvider implements TransitiveInfoProvider {
 
   /** Returns the merged manifest. */
   public abstract Artifact getMergedManifest();
+
+  /* The keystore that was used to sign the apk returned from {@see getApk() */
+  public abstract Artifact getKeystore();
 
   ApkProvider() {}
 }

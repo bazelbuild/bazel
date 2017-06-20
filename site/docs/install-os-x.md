@@ -5,12 +5,6 @@ title: Installing Bazel on macOS
 
 # <a name="mac-os-x"></a>Install Bazel on macOS (OS X)
 
-> Note: Bazel release 0.5.0 contains a bug in the compiler detection on macOS which
-> requires Xcode and the iOS tooling to be installed
-> ([corresponding issue #3063](https://github.com/bazelbuild/bazel/issues/3063)).
-> If you had Command Line Tools installed, you also need to switch to Xcode using
-> `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`.
-
 Install Bazel on macOS (OS X) using one of the following methods:
 
 *   [Use Homebrew (recommended)](#install-on-mac-os-x-homebrew)
@@ -79,18 +73,18 @@ sudo gcc --version
 
 Go to Bazel's [GitHub releases page](https://github.com/bazelbuild/bazel/releases).
 
-Download the binary installer `bazel-0.5.0-installer-darwin-x86_64.sh`. This
+Download the binary installer `bazel-0.5.1-installer-darwin-x86_64.sh`. This
 installer contains the Bazel binary and the required JDK, and can be used even
 if a JDK is already installed.
 
-Note that `bazel-0.5.0-without-jdk-installer-darwin-x86_64.sh` is a version of
+Note that `bazel-0.5.1-without-jdk-installer-darwin-x86_64.sh` is a version of
 the installer without embedded JDK 8. Only use this installer if you already
 have JDK 8 installed.
 
 Note that two other versions of the installer exist:
-*   `bazel-0.5.0-without-jdk-installer-darwin-x86_64.sh`: version without
+*   `bazel-0.5.1-without-jdk-installer-darwin-x86_64.sh`: version without
     embedded JDK 8. Only use this installer if you already have JDK 8 installed.
-*   `bazel-0.5.0-jdk7-installer-darwin-x86_64.sh`: last release compatible
+*   `bazel-0.5.1-jdk7-installer-darwin-x86_64.sh`: last release compatible
     with JDK 7.
 
 ### 3. Run the installer
@@ -98,8 +92,8 @@ Note that two other versions of the installer exist:
 Run the installer:
 
 <pre>
-chmod +x bazel-0.5.0-installer-darwin-x86_64.sh
-./bazel-0.5.0-installer-darwin-x86_64.sh --user
+chmod +x bazel-0.5.1-installer-darwin-x86_64.sh
+./bazel-0.5.1-installer-darwin-x86_64.sh --user
 </pre>
 
 The `--user` flag installs Bazel to the `$HOME/bin` directory on your system and

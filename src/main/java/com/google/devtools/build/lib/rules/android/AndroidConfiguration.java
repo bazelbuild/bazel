@@ -343,6 +343,15 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     )
     public boolean incrementalDexingErrorOnMissedJars;
 
+    @Option(
+      name = "experimental_android_use_parallel_dex2oat",
+      category = "experimental",
+      defaultValue = "false",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      help = "Use dex2oat in parallel to possibly speed up android_test."
+    )
+    public boolean useParallelDex2Oat;
+
     // Do not use on the command line.
     // This flag is intended to be updated as we add supported flags to the incremental dexing tools
     @Option(
@@ -622,6 +631,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean useNocompressExtensionsOnApk;
   private final boolean exportsManifestDefault;
   private final boolean generateRobolectricRClass;
+  private final boolean useParallelDex2Oat;
 
   AndroidConfiguration(Options options, Label androidSdk) throws InvalidConfigurationException {
     this.sdk = androidSdk;
@@ -655,6 +665,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.useNocompressExtensionsOnApk = options.useNocompressExtensionsOnApk;
     this.exportsManifestDefault = options.exportsManifestDefault;
     this.generateRobolectricRClass = options.generateRobolectricRClass;
+    this.useParallelDex2Oat = options.useParallelDex2Oat;
 
     if (!dexoptsSupportedInIncrementalDexing.contains("--no-locals")) {
       // TODO(bazel-team): Still needed? See DexArchiveAspect
@@ -753,6 +764,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   public ResourceFilter getResourceFilter() {
     return resourceFilter;
+  }
+
+  public boolean useParallelDex2Oat() {
+    return useParallelDex2Oat;
   }
 
   boolean compressJavaResources() {

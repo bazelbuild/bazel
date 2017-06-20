@@ -134,8 +134,11 @@ public class CppLinkActionBuilder {
   /** A build variable whose presence indicates that the debug symbols should be stripped. */
   public static final String STRIP_DEBUG_SYMBOLS_VARIABLE = "strip_debug_symbols";
 
-  /** A build variable whose presence indicates that this action is a cc_test linking action. */
+  @Deprecated
   public static final String IS_CC_TEST_LINK_ACTION_VARIABLE = "is_cc_test_link_action";
+
+  /** A build variable whose presence indicates that this action is a cc_test linking action. */
+  public static final String IS_CC_TEST_VARIABLE = "is_cc_test";
 
   /**
    * Temporary build variable for migrating osx crosstool.
@@ -150,10 +153,7 @@ public class CppLinkActionBuilder {
    */
   public static final String IS_USING_FISSION_VARIABLE = "is_using_fission";
 
-  /**
-   * A (temporary) build variable whose presence indicates that this action is not a cc_test linking
-   * action.
-   */
+  @Deprecated
   public static final String IS_NOT_CC_TEST_LINK_ACTION_VARIABLE = "is_not_cc_test_link_action";
 
   // Builder-only
@@ -1437,8 +1437,10 @@ public class CppLinkActionBuilder {
       }
 
       if (useTestOnlyFlags()) {
+        buildVariables.addIntegerVariable(IS_CC_TEST_VARIABLE, 1);
         buildVariables.addStringVariable(IS_CC_TEST_LINK_ACTION_VARIABLE, "");
       } else {
+        buildVariables.addIntegerVariable(IS_CC_TEST_VARIABLE, 0);
         buildVariables.addStringVariable(IS_NOT_CC_TEST_LINK_ACTION_VARIABLE, "");
       }
 
