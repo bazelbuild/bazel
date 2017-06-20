@@ -18,6 +18,8 @@ import static java.util.logging.Level.INFO;
 import static java.util.logging.Level.SEVERE;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Predicates;
+import com.google.common.collect.Iterables;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ResourceManager;
@@ -35,6 +37,7 @@ import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.util.NetUtil;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
@@ -75,6 +78,9 @@ public final class LocalSpawnRunner implements SpawnRunner {
   private final boolean useProcessWrapper;
   private final String processWrapper;
 
+  private final String productName;
+  private final LocalEnvProvider localEnvProvider;
+
   public LocalSpawnRunner(
       Logger logger,
       AtomicInteger execCount,
@@ -82,35 +88,44 @@ public final class LocalSpawnRunner implements SpawnRunner {
       ActionInputPrefetcher actionInputPrefetcher,
       LocalExecutionOptions localExecutionOptions,
       ResourceManager resourceManager,
-      boolean useProcessWrapper) {
+      boolean useProcessWrapper,
+      OS localOs,
+      String productName,
+      LocalEnvProvider localEnvProvider) {
     this.logger = logger;
     this.execRoot = execRoot;
     this.actionInputPrefetcher = Preconditions.checkNotNull(actionInputPrefetcher);
-    this.processWrapper = execRoot.getRelative("_bin/process-wrapper").getPathString();
-    this.localExecutionOptions = localExecutionOptions;
+    this.processWrapper =
+        execRoot
+            .getRelative("_bin/process-wrapper" + OsUtils.executableExtension(localOs))
+            .getPathString();
+    this.localExecutionOptions = Preconditions.checkNotNull(localExecutionOptions);
     this.hostName = NetUtil.findShortHostName();
     this.execCount = execCount;
     this.resourceManager = resourceManager;
     this.useProcessWrapper = useProcessWrapper;
+    this.productName = productName;
+    this.localEnvProvider = localEnvProvider;
   }
 
   public LocalSpawnRunner(
       Path execRoot,
       ActionInputPrefetcher actionInputPrefetcher,
       LocalExecutionOptions localExecutionOptions,
-      ResourceManager resourceManager) {
+      ResourceManager resourceManager,
+      String productName,
+      LocalEnvProvider localEnvProvider) {
     this(
-        null,
+        Logger.getLogger(LocalSpawnRunner.class.getName()),
         new AtomicInteger(),
         execRoot,
         actionInputPrefetcher,
         localExecutionOptions,
         resourceManager,
-        // TODO(bazel-team): process-wrapper seems to work on Windows, but requires additional setup
-        // as it is an msys2 binary, so it needs msys2 DLLs on %PATH%. Disable it for now to make
-        // the setup easier and to avoid further PATH hacks. Ideally we should have a native
-        // implementation of process-wrapper for Windows.
-        OS.getCurrent() != OS.WINDOWS);
+        /*useProcessWrapper=*/OS.getCurrent() != OS.WINDOWS,
+        OS.getCurrent(),
+        productName,
+        localEnvProvider);
   }
 
   @Override
@@ -227,7 +242,8 @@ public final class LocalSpawnRunner implements SpawnRunner {
       if (Spawns.shouldPrefetchInputsForLocalExecution(spawn)) {
         stepLog(INFO, "prefetching inputs for local execution");
         setState(State.PREFETCHING_LOCAL_INPUTS);
-        actionInputPrefetcher.prefetchFiles(policy.getInputMapping().values());
+        actionInputPrefetcher.prefetchFiles(
+            Iterables.filter(policy.getInputMapping().values(), Predicates.notNull()));
       }
 
       stepLog(INFO, "running locally");
@@ -247,14 +263,14 @@ public final class LocalSpawnRunner implements SpawnRunner {
         cmdLine.addAll(spawn.getArguments());
         cmd = new Command(
             cmdLine.toArray(new String[0]),
-            spawn.getEnvironment(),
+            localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, productName),
             execRoot.getPathFile());
       } else {
         stdOut = outErr.getOutputStream();
         stdErr = outErr.getErrorStream();
         cmd = new Command(
             spawn.getArguments().toArray(new String[0]),
-            spawn.getEnvironment(),
+            localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, productName),
             execRoot.getPathFile(),
             policy.getTimeoutMillis());
       }

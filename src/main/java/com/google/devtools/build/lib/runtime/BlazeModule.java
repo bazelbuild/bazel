@@ -133,17 +133,22 @@ public abstract class BlazeModule {
    * and only if the server initialization was successful. Modules can override this method to
    * affect how the workspace is configured.
    *
+   * @param runtime the blaze runtime
    * @param directories the workspace directories
    * @param builder the workspace builder
    */
-  public void workspaceInit(BlazeDirectories directories, WorkspaceBuilder builder) {
+  public void workspaceInit(
+      BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
   }
 
   /**
-   * Called before each command.
+   * Called to notify modules that the given command is about to be executed. This allows capturing
+   * the {@link com.google.common.eventbus.EventBus}, {@link Command}, or {@link OptionsProvider}.
+   *
+   * @param env the command
+   * @throws AbruptExitException modules can throw this exception to abort the command
    */
-  @SuppressWarnings("unused")
-  public void beforeCommand(Command command, CommandEnvironment env) throws AbruptExitException {
+  public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
   }
 
   /**

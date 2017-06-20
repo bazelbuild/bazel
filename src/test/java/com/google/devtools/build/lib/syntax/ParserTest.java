@@ -49,7 +49,7 @@ public class ParserTest extends EvaluationTestCase {
   /** Parses Skylark code */
   private List<Statement> parseFileForSkylark(String... input) {
     BuildFileAST ast = BuildFileAST.parseSkylarkString(getEventHandler(), input);
-    ast = ast.validate(new ValidationEnvironment(env), getEventHandler());
+    ast = ast.validate(env, getEventHandler());
     return ast.getStatements();
   }
 
@@ -117,6 +117,35 @@ public class ParserTest extends EvaluationTestCase {
     BinaryOperatorExpression e =
         (BinaryOperatorExpression) parseExpression("2 * x | y + 1");
     assertThat(e.getOperator()).isEqualTo(Operator.PIPE);
+  }
+
+  @Test
+  public void testNonAssociativeOperators() throws Exception {
+    setFailFast(false);
+
+    parseExpression("0 < 2 < 4");
+    assertContainsError("Operator '<' is not associative with operator '<'");
+    clearEvents();
+
+    parseExpression("0 == 2 < 4");
+    assertContainsError("Operator '==' is not associative with operator '<'");
+    clearEvents();
+
+    parseExpression("1 in [1, 2] == True");
+    assertContainsError("Operator 'in' is not associative with operator '=='");
+    clearEvents();
+
+    parseExpression("1 >= 2 <= 3");
+    assertContainsError("Operator '>=' is not associative with operator '<='");
+    clearEvents();
+  }
+
+  @Test
+  public void testNonAssociativeOperatorsWithParens() throws Exception {
+    parseExpression("(0 < 2) < 4");
+    parseExpression("(0 == 2) < 4");
+    parseExpression("(1 in [1, 2]) == True");
+    parseExpression("1 >= (2 <= 3)");
   }
 
   @Test
@@ -687,6 +716,10 @@ public class ParserTest extends EvaluationTestCase {
     clearEvents();
 
     parseExpression("[x for x for y in ['a']]");
+    assertContainsError("syntax error at 'for'");
+    clearEvents();
+
+    parseExpression("[x for x for y in 1, 2]");
     assertContainsError("syntax error at 'for'");
     clearEvents();
   }

@@ -66,7 +66,6 @@ public class SpawnGccStrategy implements CppCompileActionContext {
         action.estimateResourceConsumptionLocal());
 
     actionExecutionContext
-        .getExecutor()
         .getSpawnActionContext(action.getMnemonic())
         .exec(spawn, actionExecutionContext);
     return null;

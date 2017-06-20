@@ -31,7 +31,7 @@ import java.util.Set;
  *
  * <pre>expr ::= BUILDFILES '(' expr ')'</pre>
  */
-class BuildFilesFunction implements QueryFunction {
+public class BuildFilesFunction implements QueryFunction {
   BuildFilesFunction() {
   }
 

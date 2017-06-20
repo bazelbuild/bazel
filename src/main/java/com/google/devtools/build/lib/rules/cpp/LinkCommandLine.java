@@ -381,7 +381,7 @@ public final class LinkCommandLine extends CommandLine {
     List<String> argv = new ArrayList<>();
 
     // TODO(b/30109612): Extract this switch into individual crosstools once action configs are no
-    // longer hardcoded in CppLinkActionConfigs
+    // longer hardcoded in CppActionConfigs.
     switch (linkTargetType) {
       case EXECUTABLE:
         argv.add(cppConfiguration.getCppExecutable().getPathString());

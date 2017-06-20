@@ -90,7 +90,7 @@ public class FileOutErr extends OutErr {
 
   // Set a filter for FileErrorStream
   public void setErrorFilter(OutputFilter outputFilter) {
-    getFileOutputStream().setFilter(outputFilter);
+    getFileErrorStream().setFilter(outputFilter);
   }
 
   /**

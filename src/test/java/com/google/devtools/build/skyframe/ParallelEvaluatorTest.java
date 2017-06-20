@@ -99,6 +99,7 @@ public class ParallelEvaluatorTest {
         new Reporter(new EventBus(), eventCollector),
         new MemoizingEvaluator.EmittedEventState(),
         storedEventFilter,
+        ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
         keepGoing,
         150,
         revalidationReceiver);

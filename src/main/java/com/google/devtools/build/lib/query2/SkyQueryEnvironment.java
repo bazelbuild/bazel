@@ -388,10 +388,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   public QueryEvalResult evaluateQuery(
       QueryExpression expr, ThreadSafeOutputFormatterCallback<Target> callback)
           throws QueryException, InterruptedException, IOException {
-    // Some errors are reported as QueryExceptions and others as ERROR events (if --keep_going). The
-    // result is set to have an error iff there were errors emitted during the query, so we reset
-    // errors here.
-    eventHandler.resetErrors();
     beforeEvaluateQuery();
 
     // SkyQueryEnvironment batches callback invocations using a BatchStreamedCallback, created here

@@ -104,8 +104,8 @@ public class SymlinkAction extends AbstractAction {
   public void execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException {
     try {
-      getOutputPath().createSymbolicLink(
-          actionExecutionContext.getExecutor().getExecRoot().getRelative(inputPath));
+      getOutputPath()
+          .createSymbolicLink(actionExecutionContext.getExecRoot().getRelative(inputPath));
     } catch (IOException e) {
       throw new ActionExecutionException("failed to create symbolic link '"
           + Iterables.getOnlyElement(getOutputs()).prettyPrint()

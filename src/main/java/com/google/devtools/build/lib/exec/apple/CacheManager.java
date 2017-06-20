@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.rules.apple;
+package com.google.devtools.build.lib.exec.apple;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -20,11 +20,9 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-
 import javax.annotation.Nullable;
 
 /**
@@ -42,7 +40,7 @@ import javax.annotation.Nullable;
  * threads may write the same entry to cache. This is fine, as retrieval from the cache will simply
  * return the first found entry.
  */
-class CacheManager {
+final class CacheManager {
 
   private final Path cacheFilePath;
   private boolean cacheFileTouched;

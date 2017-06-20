@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Throwables;
 import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
@@ -27,8 +28,10 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.packages.AstAfterPreprocessing;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
@@ -38,7 +41,6 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.LegacyGlobber;
-import com.google.devtools.build.lib.packages.Preprocessor.AstAfterPreprocessing;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -447,6 +449,9 @@ public class PackageFunction implements SkyFunction {
 
     Package pkg = workspace.getPackage();
     Event.replayEventsOn(env.getListener(), pkg.getEvents());
+    for (Postable post : pkg.getPosts()) {
+      env.getListener().post(post);
+    }
 
     packageFactory.afterDoneLoadingPackage(pkg);
     return new PackageValue(pkg);
@@ -594,6 +599,9 @@ public class PackageFunction implements SkyFunction {
     }
 
     Event.replayEventsOn(env.getListener(), pkgBuilder.getEvents());
+    for (Postable post : pkgBuilder.getPosts()) {
+      env.getListener().post(post);
+    }
 
     if (packageShouldBeConsideredInError) {
       pkgBuilder.setContainsErrors();
@@ -624,6 +632,16 @@ public class PackageFunction implements SkyFunction {
     Preconditions.checkState(buildFileValue.exists(),
         "Package lookup succeeded but BUILD file doesn't exist");
     return buildFileValue;
+  }
+
+  private static BuildFileContainsErrorsException propagateSkylarkImportFailedException(
+      PackageIdentifier packageId, SkylarkImportFailedException e)
+          throws BuildFileContainsErrorsException {
+    Throwable rootCause = Throwables.getRootCause(e);
+    throw (rootCause instanceof IOException)
+        ? new BuildFileContainsErrorsException(
+            packageId, e.getMessage(), (IOException) rootCause)
+        : new BuildFileContainsErrorsException(packageId, e.getMessage());
   }
 
   /**
@@ -660,7 +678,7 @@ public class PackageFunction implements SkyFunction {
         return null;
       }
     } catch (SkylarkImportFailedException e) {
-      throw new BuildFileContainsErrorsException(packageId, e.getMessage());
+      throw propagateSkylarkImportFailedException(packageId, e);
     }
 
     // Look up and load the imports.
@@ -714,7 +732,7 @@ public class PackageFunction implements SkyFunction {
 
       }
     } catch (SkylarkImportFailedException e) {
-      throw new BuildFileContainsErrorsException(packageId, e.getMessage());
+      throw propagateSkylarkImportFailedException(packageId, e);
     } catch (InconsistentFilesystemException e) {
       throw new NoSuchPackageException(packageId, e.getMessage(), e);
     }

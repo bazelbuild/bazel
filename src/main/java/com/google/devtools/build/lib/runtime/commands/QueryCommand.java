@@ -139,7 +139,6 @@ public final class QueryCommand implements BlazeCommand {
           queryOptions.universeScope,
           queryOptions.loadingPhaseThreads,
           settings);
-    // 1. Parse and transform query:
     QueryExpression expr;
     try {
       expr = QueryExpression.parse(query, queryEnv);
@@ -148,14 +147,20 @@ public final class QueryCommand implements BlazeCommand {
           .handle(Event.error(null, "Error while parsing '" + query + "': " + e.getMessage()));
       return ExitCode.COMMAND_LINE_ERROR;
     }
+
+    try {
+      formatter.verifyCompatible(queryEnv, expr);
+    } catch (QueryException e) {
+      env.getReporter().handle(Event.error(e.getMessage()));
+      return ExitCode.COMMAND_LINE_ERROR;
+    }
+
     expr = queryEnv.transformParsedQuery(expr);
 
     OutputStream out = env.getReporter().getOutErr().getOutputStream();
     ThreadSafeOutputFormatterCallback<Target> callback;
     if (streamResults) {
       disableAnsiCharactersFiltering(env);
-
-      // 2. Evaluate expression:
       StreamedFormatter streamedFormatter = ((StreamedFormatter) formatter);
       streamedFormatter.setOptions(
           queryOptions,
@@ -202,11 +207,9 @@ public final class QueryCommand implements BlazeCommand {
       }
     }
 
-    env.getEventBus().post(new NoBuildEvent());
+    env.getEventBus().post(new NoBuildEvent(env.getCommandName(), env.getCommandStartTime()));
     if (!streamResults) {
       disableAnsiCharactersFiltering(env);
-
-      // 3. Output results:
       try {
         Set<Target> targets = ((AggregateAllOutputFormatterCallback<Target>) callback).getResult();
         QueryOutputUtils.output(

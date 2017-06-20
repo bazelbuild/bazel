@@ -22,6 +22,7 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -270,11 +271,11 @@ public abstract class PackageFactoryTestBase {
   protected class ParsingTracker extends Handler implements Runnable {
     private final Semaphore parsingStarted;
     private final Semaphore errorReported;
-    private final EventHandler eventHandler;
+    private final ExtendedEventHandler eventHandler;
     private boolean first = true;
     private boolean parsedOK;
 
-    public ParsingTracker(Semaphore first, Semaphore second, EventHandler eventHandler) {
+    public ParsingTracker(Semaphore first, Semaphore second, ExtendedEventHandler eventHandler) {
       this.eventHandler = eventHandler;
       parsingStarted = first;
       errorReported = second;

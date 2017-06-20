@@ -302,6 +302,31 @@ function build_jni() {
   fi
 }
 
+# Computes the value of the bazel.windows_unix_root JVM flag.
+# Prints the JVM flag verbatim on Windows, ready to be passed to the JVM.
+# Prints an empty string on other platforms.
+function windows_unix_root_jvm_flag() {
+  if [ "${PLATFORM}" != "windows" ]; then
+    echo ""
+    return
+  fi
+  [ -n "${BAZEL_SH}" ] || fail "\$BAZEL_SH is not defined"
+  if [ "$(basename "$BAZEL_SH")" = "bash.exe" ]; then
+    local result="$(dirname "$BAZEL_SH")"
+    if [ "$(basename "$result")" = "bin" ]; then
+      result="$(dirname "$result")"
+      if [ "$(basename "$result")" = "usr" ]; then
+        result="$(dirname "$result")"
+      fi
+      # Print the JVM flag. Replace backslashes with forward slashes so the JVM
+      # and the shell won't believe that backslashes are escaping characters.
+      echo "-Dbazel.windows_unix_root=${result//\\//}"
+      return
+    fi
+  fi
+  fail "\$BAZEL_SH=${BAZEL_SH}, must end with \"bin\\bash.exe\" or \"usr\\bin\\bash.exe\""
+}
+
 build_jni "${ARCHIVE_DIR}/_embedded_binaries"
 
 cp src/main/tools/jdk.BUILD ${ARCHIVE_DIR}/_embedded_binaries/jdk.BUILD
@@ -341,6 +366,7 @@ function run_bazel_jar() {
   "${JAVA_HOME}/bin/java" \
       -XX:+HeapDumpOnOutOfMemoryError -Xverify:none -Dfile.encoding=ISO-8859-1 \
       -XX:HeapDumpPath=${OUTPUT_DIR} \
+      $(windows_unix_root_jvm_flag) \
       -Djava.util.logging.config.file=${OUTPUT_DIR}/javalog.properties \
       ${JNI_FLAGS} \
       -jar ${ARCHIVE_DIR}/libblaze.jar \

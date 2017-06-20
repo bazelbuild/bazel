@@ -494,49 +494,22 @@ def _find_vc_path(repository_ctx):
     return vc_dir
 
   # 3. User might clean up all environment variables, if so looking for Visual C++ through registry.
-  # This method only works if Visual Studio is installed, and for some reason, is flaky.
-  # https://github.com/bazelbuild/bazel/issues/2434
+  # Works for all VS versions, including Visual Studio 2017.
   auto_configure_warning("Looking for Visual C++ through registry")
-  # Query the installed visual stduios on the machine, should return something like:
-  # HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Microsoft\VisualStudio\14.0
-  # HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Microsoft\VisualStudio\8.0
-  # ...
   reg_binary = _get_system_root(repository_ctx) + "\\system32\\reg.exe"
-  result = _execute(repository_ctx, [reg_binary, "query", "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Microsoft\\VisualStudio"])
-  vs_versions = result.split("\n")
-
-  vs_dir = None
-  vs_version_number = -1
-  for entry in vs_versions:
-    entry = entry.strip()
-    # Query InstallDir to find out where a specific version of VS is installed.
-    # The output looks like if succeeded:
-    # HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Microsoft\VisualStudio\14.0
-    #     InstallDir    REG_SZ    C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\IDE\
-    result = repository_ctx.execute([reg_binary, "query", entry, "-v", "InstallDir"])
+  vc_dir = None
+  for version in ["15.0", "14.0", "12.0", "11.0", "10.0", "9.0", "8.0"]:
+    if vc_dir:
+      break
+    result = repository_ctx.execute([reg_binary, "query", "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Microsoft\\VisualStudio\\SxS\\VC7", "/v", version])
     if not result.stderr:
       for line in result.stdout.split("\n"):
         line = line.strip()
-        if line.startswith("InstallDir") and line.find("REG_SZ") != -1:
-          install_dir = line[line.find("REG_SZ") + len("REG_SZ"):].strip()
-          path_segments = [ seg for seg in install_dir.split("\\") if seg ]
-          # Extract version number X from "Microsoft Visual Studio X.0"
-          version_number = int(path_segments[-3].split(" ")[-1][:-len(".0")])
-          if version_number > vs_version_number:
-            vs_version_number = version_number
-            vs_dir = "\\".join(path_segments[:-2])
+        if line.startswith(version) and line.find("REG_SZ") != -1:
+          vc_dir = line[line.find("REG_SZ") + len("REG_SZ"):].strip()
 
-  # 4. Try to find Visual C++ build tools 2017
-  result = repository_ctx.execute([reg_binary, "query", "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Microsoft\\VisualStudio\\SxS\\VS7", "/v", "15.0"])
-  if not result.stderr:
-    for line in result.stdout.split("\n"):
-      line = line.strip()
-      if line.startswith("15.0") and line.find("REG_SZ") != -1:
-        vs_dir = line[line.find("REG_SZ") + len("REG_SZ"):].strip()
-
-  if not vs_dir:
+  if not vc_dir:
     auto_configure_fail("Visual C++ build tools not found on your machine.")
-  vc_dir = vs_dir + "\\VC\\"
   auto_configure_warning("Visual C++ build tools found at %s" % vc_dir)
   return vc_dir
 

@@ -115,7 +115,6 @@ final class RemoteSpawnRunner implements SpawnRunner {
             ExecuteRequest.newBuilder()
                 .setInstanceName(options.remoteInstanceName)
                 .setAction(action)
-                .setWaitForCompletion(true)
                 .setTotalInputFileCount(inputMap.size())
                 .setSkipCacheLookup(!options.remoteAcceptCached);
         result = executor.executeRemotely(request.build()).getResult();
@@ -123,9 +122,7 @@ final class RemoteSpawnRunner implements SpawnRunner {
 
       // TODO(ulfjack): Download stdout, stderr, and the output files in a single call.
       passRemoteOutErr(remoteCache, result, policy.getFileOutErr());
-      if (result.getExitCode() == 0) {
-        remoteCache.downloadAllResults(result, execRoot);
-      }
+      remoteCache.downloadAllResults(result, execRoot);
       return new SpawnResult.Builder()
           .setStatus(Status.SUCCESS)  // Even if the action failed with non-zero exit code.
           .setExitCode(result.getExitCode())

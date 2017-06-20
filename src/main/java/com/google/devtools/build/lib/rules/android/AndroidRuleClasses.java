@@ -498,9 +498,8 @@ public final class AndroidRuleClasses {
           To build an Android app with data binding, you must also do the following:
           <ol>
             <li>Set this attribute for all Android rules that transitively depend on this one.
-              This is because of resource merging: when a rule declares data binding XML expressions
-              its dependers implicitly inherit those expressions. So they also need to build with
-              data binding in order to parse those expressions correctly.
+              This is because dependers inherit the rule's data binding expressions through resource
+              merging. So they also need to build with data binding to parse those expressions.
             <li>Add a <code>deps =</code> entry for the data binding runtime library to all targets
             that set this attribute. The location of this library depends on your depot setup.
           </ol>

@@ -38,7 +38,7 @@ The solution that's currently implemented:
   directory. So, for example, if Bazel is running in the workspace directory
   `/home/user/src/my-project` (or in a directory symlinked to that one), then we
   create an output base directory called:
-  `/home/.cache/bazel/_bazel_user/7ffd56a6e4cb724ea575aba15733d113`.
+  `/home/user/.cache/bazel/_bazel_user/7ffd56a6e4cb724ea575aba15733d113`.
 * Users can use Bazel's `--output_base` startup option to override the default
   output base directory. For example,
   `bazel --output_base=/tmp/bazel/output build x/y:z`.

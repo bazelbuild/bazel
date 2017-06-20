@@ -21,6 +21,10 @@ import java.io.Serializable;
 
 /**
  * Root class for nodes in the Abstract Syntax Tree of the Build language.
+ *
+ * The standard {@link Object#equals} and {@link Object#hashCode} methods are not supported. This is
+ * because their implementation would require traversing the entire tree in the worst case, and we
+ * don't want this kind of cost to occur implicitly.
  */
 public abstract class ASTNode implements Serializable {
 
@@ -78,7 +82,7 @@ public abstract class ASTNode implements Serializable {
 
   @Override
   public int hashCode() {
-    throw new UnsupportedOperationException(); // avoid nondeterminism
+    throw new UnsupportedOperationException();
   }
 
   @Override

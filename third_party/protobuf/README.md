@@ -4,7 +4,7 @@
 1) Fetch the desired protobuf version and copy it in a folder `new_proto` under
 `third_party/protobuf`.
 2) Bazel uses upstream protobuf from source, except for java, as we currently don't
-build protobuf java when bootstrapping bazel. So instead we use already build jars.
+build protobuf java when bootstrapping bazel. So instead we use pre-built jars.
 So build the java proto library from source and in case you cloned an upstream version
 of protobuf, remove the .git folders:
 ```

@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -40,16 +39,17 @@ import java.util.TreeMap;
 public final class SandboxHelpers {
 
   static void fallbackToNonSandboxedExecution(
-      Spawn spawn, ActionExecutionContext actionExecutionContext, Executor executor)
+      Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
     StandaloneSpawnStrategy standaloneStrategy =
-        Preconditions.checkNotNull(executor.getContext(StandaloneSpawnStrategy.class));
+        Preconditions.checkNotNull(
+            actionExecutionContext.getContext(StandaloneSpawnStrategy.class));
     standaloneStrategy.exec(spawn, actionExecutionContext);
   }
 
-  static void reportSubcommand(Executor executor, Spawn spawn) {
-    if (executor.reportsSubcommands()) {
-      executor.reportSubcommand(spawn);
+  static void reportSubcommand(ActionExecutionContext actionExecutionContext, Spawn spawn) {
+    if (actionExecutionContext.reportsSubcommands()) {
+      actionExecutionContext.reportSubcommand(spawn);
     }
   }
 
@@ -68,7 +68,7 @@ public final class SandboxHelpers {
             spawn,
             executionContext.getArtifactExpander(),
             executionContext.getActionInputFileCache(),
-            executionContext.getExecutor().getContext(FilesetActionContext.class));
+            executionContext.getContext(FilesetActionContext.class));
     // SpawnInputExpander#getInputMapping uses ArtifactExpander#expandArtifacts to expand
     // middlemen and tree artifacts, which expands empty tree artifacts to no entry. However,
     // actions that accept TreeArtifacts as inputs generally expect that the empty directory is

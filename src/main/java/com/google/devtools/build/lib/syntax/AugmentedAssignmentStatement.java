@@ -24,9 +24,9 @@ public final class AugmentedAssignmentStatement extends Statement {
   private final Expression expression;
 
   /** Constructs an augmented assignment: "lvalue ::= value". */
-  AugmentedAssignmentStatement(Operator operator, Expression lhs, Expression expression) {
+  public AugmentedAssignmentStatement(Operator operator, LValue lvalue, Expression expression) {
     this.operator = operator;
-    this.lvalue = new LValue(lhs);
+    this.lvalue = lvalue;
     this.expression = expression;
   }
 

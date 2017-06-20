@@ -23,7 +23,6 @@
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
-#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/workspace_layout.h"
@@ -63,6 +62,14 @@ StartupOptions::StartupOptions(const string &product_name,
   } else {
     output_root = workspace_layout->GetOutputRoot();
   }
+
+#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+  string windows_unix_root = WindowsUnixRoot(blaze::GetEnv("BAZEL_SH"));
+  if (!windows_unix_root.empty()) {
+    host_jvm_args.push_back(string("-Dbazel.windows_unix_root=") +
+                            windows_unix_root);
+  }
+#endif  // defined(COMPILER_MSVC) || defined(__CYGWIN__)
 
   const string product_name_lower = GetLowercaseProductName();
   output_user_root = blaze_util::JoinPath(
@@ -431,5 +438,33 @@ blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(
   }
   return blaze_exit_code::SUCCESS;
 }
+
+#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+// Extract the Windows path of "/" from $BAZEL_SH.
+// $BAZEL_SH usually has the form `<prefix>/usr/bin/bash.exe` or
+// `<prefix>/bin/bash.exe`, and this method returns that `<prefix>` part.
+// If $BAZEL_SH doesn't end with "usr/bin/bash.exe" or "bin/bash.exe" then this
+// method returns an empty string.
+string StartupOptions::WindowsUnixRoot(const string &bazel_sh) {
+  if (bazel_sh.empty()) {
+    return string();
+  }
+  std::pair<string, string> split = blaze_util::SplitPath(bazel_sh);
+  if (blaze_util::AsLower(split.second) != "bash.exe") {
+    return string();
+  }
+  split = blaze_util::SplitPath(split.first);
+  if (blaze_util::AsLower(split.second) != "bin") {
+    return string();
+  }
+
+  std::pair<string, string> split2 = blaze_util::SplitPath(split.first);
+  if (blaze_util::AsLower(split2.second) == "usr") {
+    return split2.first;
+  } else {
+    return split.first;
+  }
+}
+#endif  // defined(COMPILER_MSVC) || defined(__CYGWIN__)
 
 }  // namespace blaze

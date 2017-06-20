@@ -21,8 +21,8 @@ import com.google.common.base.Joiner;
 import com.google.common.truth.Ordered;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.syntax.BazelLibrary;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.syntax.Parser;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Statement;
-import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestMode;
 import java.util.LinkedList;
@@ -132,7 +131,7 @@ public class EvaluationTestCase {
     setMode(TestMode.BUILD, skylarkOptions);
   }
 
-  public EventHandler getEventHandler() {
+  public ExtendedEventHandler getEventHandler() {
     return eventCollectionApparatus.reporter();
   }
 
@@ -140,16 +139,30 @@ public class EvaluationTestCase {
     return env;
   }
 
+  protected BuildFileAST parseBuildFileASTWithoutValidation(String... input) {
+    return BuildFileAST.parseSkylarkString(getEventHandler(), input);
+  }
+
+  protected BuildFileAST parseBuildFileAST(String... input) {
+    BuildFileAST ast = parseBuildFileASTWithoutValidation(input);
+    return ast.validate(env, getEventHandler());
+  }
+
   protected List<Statement> parseFile(String... input) {
-    BuildFileAST ast = BuildFileAST.parseSkylarkString(getEventHandler(), input);
-    ast = ast.validate(new ValidationEnvironment(env), getEventHandler());
-    return ast.getStatements();
+    return parseBuildFileAST(input).getStatements();
   }
 
   /** Parses an Expression from string without a supporting file */
   @VisibleForTesting
   public Expression parseExpression(String... input) {
     return Parser.parseExpression(
+        ParserInputSource.create(Joiner.on("\n").join(input), null), getEventHandler());
+  }
+
+  /** Same as {@link #parseExpression} but supports Skylark constructs. */
+  @VisibleForTesting
+  public Expression parseExpressionForSkylark(String... input) {
+    return Parser.parseExpressionForSkylark(
         ParserInputSource.create(Joiner.on("\n").join(input), null), getEventHandler());
   }
 

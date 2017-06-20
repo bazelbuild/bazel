@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -98,7 +99,7 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
     return new DeterministicWriter() {
       @Override
       public void writeOutputFile(OutputStream out) throws IOException {
-        StringBuilder content = new StringBuilder();
+        OutputStreamWriter content = new OutputStreamWriter(out, StandardCharsets.ISO_8859_1);
         PathFragment fragment = cppModuleMap.getArtifact().getExecPath();
         int segmentsToExecPath = fragment.segmentCount() - 1;
         Optional<Artifact> umbrellaHeader = cppModuleMap.getUmbrellaHeader();
@@ -162,11 +163,11 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
                 .append(dep.getName())
                 .append("\" \"")
                 .append(leadingPeriods)
-                .append(dep.getArtifact().getExecPath())
+                .append(dep.getArtifact().getExecPathString())
                 .append("\"");
           }
         }
-        out.write(content.toString().getBytes(StandardCharsets.ISO_8859_1));
+        content.flush();
       }
     };
   }
@@ -185,9 +186,9 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
     return ImmutableList.copyOf(expandedHeaders);
   }
 
-  private void appendHeader(StringBuilder content, String visibilitySpecifier, PathFragment path,
-      String leadingPeriods, boolean canCompile, HashSet<PathFragment> deduper,
-      boolean isUmbrellaHeader) {
+  private void appendHeader(Appendable content, String visibilitySpecifier,
+      PathFragment path, String leadingPeriods, boolean canCompile, HashSet<PathFragment> deduper,
+      boolean isUmbrellaHeader) throws IOException {
     if (deduper.contains(path)) {
       return;
     }
@@ -197,7 +198,7 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
       return;
     }
     if (generateSubmodules) {
-      content.append("  module \"").append(path).append("\" {\n");
+      content.append("  module \"").append(path.toString()).append("\" {\n");
       content.append("    export *\n  ");
     }
     content.append("  ");
@@ -207,7 +208,7 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
     if (!canCompile || !shouldCompileHeader(path)) {
       content.append("textual ");
     }
-    content.append("header \"").append(leadingPeriods).append(path).append("\"");
+    content.append("header \"").append(leadingPeriods).append(path.toString()).append("\"");
     if (generateSubmodules) {
       content.append("\n  }");
     }

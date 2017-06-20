@@ -32,9 +32,9 @@ public final class FunctionDefStatement extends Statement {
       FunctionSignature.WithValues<Expression, Expression> signature,
       Iterable<Statement> statements) {
     this.ident = ident;
+    this.parameters = ImmutableList.copyOf(parameters);
     this.signature = signature;
     this.statements = ImmutableList.copyOf(statements);
-    this.parameters = ImmutableList.copyOf(parameters);
   }
 
   @Override

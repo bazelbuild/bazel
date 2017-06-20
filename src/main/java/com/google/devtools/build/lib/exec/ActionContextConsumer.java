@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
-import com.google.devtools.build.lib.actions.Executor.ActionContext;
+import com.google.devtools.build.lib.actions.ActionContext;
 
 /**
  * An object describing that actions require a particular implementation of an

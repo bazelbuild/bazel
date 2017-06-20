@@ -41,7 +41,7 @@ public final class FlowStatement extends Statement {
     this.ex = new FlowException(kind);
   }
 
-  Kind getKind() {
+  public Kind getKind() {
     return kind;
   }
 

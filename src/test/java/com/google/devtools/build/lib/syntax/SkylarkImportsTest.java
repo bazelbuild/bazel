@@ -30,7 +30,7 @@ import org.junit.runners.JUnit4;
  * Tests {@link SkylarkImports}.
  */
 @RunWith(JUnit4.class)
-public class SkylarkImportTest {
+public class SkylarkImportsTest {
   @Rule
   public ExpectedException thrown = ExpectedException.none();
 
@@ -39,17 +39,17 @@ public class SkylarkImportTest {
     SkylarkImport importForLabel = SkylarkImports.create(labelString);
 
     assertThat(importForLabel.hasAbsolutePath()).named("hasAbsolutePath()").isFalse();
-    assertThat(importForLabel.getImportString()).named("getIMportString()").isEqualTo(labelString);
+    assertThat(importForLabel.getImportString()).named("getImportString()").isEqualTo(labelString);
 
     Label irrelevantContainingFile = Label.parseAbsoluteUnchecked("//another/path:BUILD");
     assertThat(importForLabel.getLabel(irrelevantContainingFile)).named("getLabel()")
         .isEqualTo(Label.parseAbsoluteUnchecked(expectedLabelString));
- 
+
     assertThat(importForLabel.asPathFragment()).named("asPathFragment()")
         .isEqualTo(PathFragment.create(expectedPathString));
 
     thrown.expect(IllegalStateException.class);
-    importForLabel.getAbsolutePath();   
+    importForLabel.getAbsolutePath();
   }
 
   @Test
@@ -147,7 +147,7 @@ public class SkylarkImportTest {
     Label containingLabel = Label.parseAbsolute(containingLabelString);
     assertThat(importForPath.getLabel(containingLabel)).named("getLabel()")
         .isEqualTo(Label.parseAbsolute(expectedLabelString));
-    
+
     assertThat(importForPath.asPathFragment()).named("asPathFragment()")
         .isEqualTo(PathFragment.create(expectedPathString));
 
@@ -174,7 +174,7 @@ public class SkylarkImportTest {
   private void invalidImportTest(String importString, String expectedMsgPrefix) throws Exception {
     thrown.expect(SkylarkImportSyntaxException.class);
     thrown.expectMessage(startsWith(expectedMsgPrefix));
-    SkylarkImports.create(importString);   
+    SkylarkImports.create(importString);
   }
 
   @Test

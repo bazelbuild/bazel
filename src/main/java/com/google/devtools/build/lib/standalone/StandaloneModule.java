@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 public class StandaloneModule extends BlazeModule {
   @Override
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
-    builder.addActionContextProvider(new StandaloneActionContextProvider(env, request));
+    builder.addActionContextProvider(new StandaloneActionContextProvider(env));
     builder.addActionContextConsumer(new StandaloneActionContextConsumer());
   }
 }

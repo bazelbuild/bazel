@@ -4,8 +4,6 @@ DEFAULT_VISIBILITY = [
 
 package(default_visibility = DEFAULT_VISIBILITY)
 
-licenses(["notice"])  # Apache 2.0
-
 java_library(
     name = "testbed",
     testonly = 1,

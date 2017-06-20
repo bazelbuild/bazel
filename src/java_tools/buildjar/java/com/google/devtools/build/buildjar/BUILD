@@ -26,16 +26,13 @@ java_library(
 java_library(
     name = "javac",
     srcs = glob(
-        [
-            "javac/*.java",
-        ],
+        ["javac/*.java"],
         exclude = [
             "javac/JavacOptions.java",
         ],
     ),
     deps = [
         ":invalid_command_line_exception",
-        ":javac_options",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins",
         "//third_party:auto_value",
         "//third_party:guava",

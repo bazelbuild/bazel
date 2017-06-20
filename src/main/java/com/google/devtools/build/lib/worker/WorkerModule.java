@@ -49,7 +49,7 @@ public class WorkerModule extends BlazeModule {
   }
 
   @Override
-  public void beforeCommand(Command command, CommandEnvironment env) {
+  public void beforeCommand(CommandEnvironment env) {
     this.env = env;
     env.getEventBus().register(this);
   }

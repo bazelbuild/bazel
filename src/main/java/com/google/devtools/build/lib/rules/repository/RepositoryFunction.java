@@ -18,30 +18,24 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.rules.ExternalPackageUtil;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.FileSymlinkException;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.InconsistentFilesystemException;
-import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
-import com.google.devtools.build.lib.skyframe.WorkspaceFileValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
-import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -108,7 +102,6 @@ public abstract class RepositoryFunction {
     public RepositoryFunctionException(EvalException cause, Transience transience) {
       super(cause, transience);
     }
-
   }
 
   /**
@@ -134,25 +127,29 @@ public abstract class RepositoryFunction {
    * implementation needs on the following conditions:
    *
    * <ul>
-   * <li>When a Skyframe value is missing, fetching must be restarted, thus, in order to avoid doing
-   *     duplicate work, it's better to first request the Skyframe dependencies you need and only
-   *     then start doing anything costly.
-   * <li>The output directory must be populated from within this method (and not from within another
-   *     SkyFunction). This is because if it was populated in another SkyFunction, the repository
-   *     function would be restarted <b>after</b> that SkyFunction has been run, and it would wipe
-   *     the output directory clean.
+   *   <li>When a Skyframe value is missing, fetching must be restarted, thus, in order to avoid
+   *       doing duplicate work, it's better to first request the Skyframe dependencies you need and
+   *       only then start doing anything costly.
+   *   <li>The output directory must be populated from within this method (and not from within
+   *       another SkyFunction). This is because if it was populated in another SkyFunction, the
+   *       repository function would be restarted <b>after</b> that SkyFunction has been run, and it
+   *       would wipe the output directory clean.
    * </ul>
    *
    * <p>The {@code markerData} argument can be mutated to augment the data to write to the
-   * repository marker file. If any data in the {@code markerData} change between 2 execute of
-   * the {@link RepositoryDelegatorFunction} then this should be a reason to invalidate the
-   * repository. The {@link #verifyMarkerData(Map<String, String>)} method is responsible for
-   * checking the value added to that map when checking the content of a marker file.
+   * repository marker file. If any data in the {@code markerData} change between 2 execute of the
+   * {@link RepositoryDelegatorFunction} then this should be a reason to invalidate the repository.
+   * The {@link #verifyMarkerData} method is responsible for checking the value added to that map
+   * when checking the content of a marker file.
    */
   @ThreadSafe
   @Nullable
-  public abstract RepositoryDirectoryValue.Builder fetch(Rule rule, Path outputDirectory,
-      BlazeDirectories directories, Environment env, Map<String, String> markerData)
+  public abstract RepositoryDirectoryValue.Builder fetch(
+      Rule rule,
+      Path outputDirectory,
+      BlazeDirectories directories,
+      Environment env,
+      Map<String, String> markerData)
       throws SkyFunctionException, InterruptedException;
 
   /**
@@ -348,73 +345,6 @@ public abstract class RepositoryFunction {
   }
 
   /**
-   * Uses a remote repository name to fetch the corresponding Rule describing how to get it.
-   *
-   * <p>This should be the unique entry point for resolving a remote repository function.
-   */
-  @Nullable
-  public static Rule getRule(String repository, Environment env)
-      throws RepositoryFunctionException, InterruptedException {
-
-    SkyKey packageLookupKey = PackageLookupValue.key(Label.EXTERNAL_PACKAGE_IDENTIFIER);
-    PackageLookupValue packageLookupValue = (PackageLookupValue) env.getValue(packageLookupKey);
-    if (packageLookupValue == null) {
-      return null;
-    }
-    RootedPath workspacePath = packageLookupValue.getRootedPath(Label.EXTERNAL_PACKAGE_IDENTIFIER);
-
-    SkyKey workspaceKey = WorkspaceFileValue.key(workspacePath);
-    do {
-      WorkspaceFileValue value = (WorkspaceFileValue) env.getValue(workspaceKey);
-      if (value == null) {
-        return null;
-      }
-      Package externalPackage = value.getPackage();
-      if (externalPackage.containsErrors()) {
-        Event.replayEventsOn(env.getListener(), externalPackage.getEvents());
-        throw new RepositoryFunctionException(
-            new BuildFileContainsErrorsException(
-                Label.EXTERNAL_PACKAGE_IDENTIFIER, "Could not load //external package"),
-            Transience.PERSISTENT);
-      }
-      Rule rule = externalPackage.getRule(repository);
-      if (rule != null) {
-        return rule;
-      }
-      workspaceKey = value.next();
-    } while (workspaceKey != null);
-    throw new RepositoryNotFoundException(repository);
-  }
-
-  @Nullable
-  public static Rule getRule(String ruleName, @Nullable String ruleClassName, Environment env)
-      throws RepositoryFunctionException, InterruptedException {
-    try {
-      return getRule(RepositoryName.create("@" + ruleName), ruleClassName, env);
-    } catch (LabelSyntaxException e) {
-      throw new RepositoryFunctionException(
-          new IOException("Invalid rule name " + ruleName), Transience.PERSISTENT);
-    }
-  }
-
-  /**
-   * Uses a remote repository name to fetch the corresponding Rule describing how to get it. This
-   * should be called from {@link SkyFunction#compute} functions, which should return null if this
-   * returns null. If {@code ruleClassName} is set, the rule found must have a matching rule class
-   * name.
-   */
-  @Nullable
-  public static Rule getRule(
-      RepositoryName repositoryName, @Nullable String ruleClassName, Environment env)
-      throws RepositoryFunctionException, InterruptedException {
-    Rule rule = getRule(repositoryName.strippedName(), env);
-    Preconditions.checkState(
-        rule == null || ruleClassName == null || rule.getRuleClass().equals(ruleClassName),
-        "Got %s, was expecting a %s", rule, ruleClassName);
-    return rule;
-  }
-
-  /**
    * Adds the repository's directory to the graph and, if it's a symlink, resolves it to an actual
    * directory.
    */
@@ -464,9 +394,10 @@ public abstract class RepositoryFunction {
 
     try {
       // Add a dependency to the repository rule. RepositoryDirectoryValue does add this
-      // dependency already but we want to catch RepositoryNotFoundException, so invoke #getRule
+      // dependency already but we want to catch RepositoryNotFoundException, so invoke
+      // #getRuleByName
       // first.
-      Rule rule = RepositoryFunction.getRule(repositoryName, env);
+      Rule rule = ExternalPackageUtil.getRuleByName(repositoryName, env);
       if (rule == null) {
         return;
       }
@@ -489,13 +420,14 @@ public abstract class RepositoryFunction {
         // Invalidate external/<repo> if the repository overrides change.
         RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.get(env);
       }
-    } catch (RepositoryFunction.RepositoryNotFoundException ex) {
+    } catch (ExternalPackageUtil.ExternalRuleNotFoundException ex) {
       // The repository we are looking for does not exist so we should depend on the whole
-      // WORKSPACE file. In that case, the call to RepositoryFunction#getRule(String, Environment)
+      // WORKSPACE file. In that case, the call to RepositoryFunction#getRuleByName(String,
+      // Environment)
       // already requested all repository functions from the WORKSPACE file from Skyframe as part
       // of the resolution. Therefore we are safe to ignore that Exception.
       return;
-    } catch (RepositoryFunctionException ex) {
+    } catch (ExternalPackageUtil.ExternalPackageException ex) {
       // This should never happen.
       throw new IllegalStateException(
           "Repository " + repositoryName + " cannot be resolved for path " + rootedPath, ex);

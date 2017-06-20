@@ -1,11 +1,11 @@
+package(default_visibility = [":packages"])
+
 package_group(
     name = "packages",
     packages = [
         "//src/java_tools/buildjar/...",
     ],
 )
-
-package(default_visibility = [":packages"])
 
 JARHELPER_SRCS = [
     "JarHelper.java",

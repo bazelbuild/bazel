@@ -3,3 +3,6 @@ build --action_env=LD_LIBRARY_PATH
 build --action_env=TMPDIR
 build --test_env=PATH
 build --test_env=LD_LIBRARY_PATH
+build --experimental_skyframe_target_pattern_evaluator
+common --experimental_ui --experimental_ui_actions_shown 8
+common --show_progress_rate_limit=0.25

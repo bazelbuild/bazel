@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.rules.MakeVariableProvider;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoException;
+import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -72,12 +73,16 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
   private static final PathFragment BUILTIN_INCLUDE_FILE_SUFFIX =
       PathFragment.create("include/stdc-predef.h");
 
-  private static String getLLVMProfileFileName(Path fdoProfile) {
-    if (CppFileTypes.LLVM_PROFILE.matches(fdoProfile)) {
+  /*
+   * Returns the profile name with the same file name as fdoProfile and an
+   * extension that matches {@link FileType}.
+   */
+  private static String getLLVMProfileFileName(Path fdoProfile, FileType type) {
+    if (type.matches(fdoProfile)) {
       return fdoProfile.getBaseName();
     } else {
       return FileSystemUtils.removeExtension(fdoProfile.getBaseName())
-          + CppFileTypes.LLVM_PROFILE.getExtensions().get(0);
+          + type.getExtensions().get(0);
     }
   }
 
@@ -91,7 +96,9 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
     Artifact profileArtifact =
         ruleContext.getUniqueDirectoryArtifact(
-            "fdo", getLLVMProfileFileName(fdoProfile), ruleContext.getBinOrGenfilesDirectory());
+            "fdo",
+            getLLVMProfileFileName(fdoProfile, CppFileTypes.LLVM_PROFILE),
+            ruleContext.getBinOrGenfilesDirectory());
 
     // If the profile file is already in the desired format, symlink to it and return.
     if (CppFileTypes.LLVM_PROFILE.matches(fdoProfile)) {
@@ -106,14 +113,52 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
 
     Artifact rawProfileArtifact =
         ruleContext.getUniqueDirectoryArtifact(
-            "fdo", fdoProfile.getBaseName(), ruleContext.getBinOrGenfilesDirectory());
+            "fdo",
+            getLLVMProfileFileName(fdoProfile, CppFileTypes.LLVM_PROFILE_RAW),
+            ruleContext.getBinOrGenfilesDirectory());
 
-    ruleContext.registerAction(
-        new SymlinkAction(
-            ruleContext.getActionOwner(),
-            PathFragment.create(fdoProfile.getPathString()),
-            rawProfileArtifact,
-            "Symlinking LLVM Profile " + fdoProfile.getPathString()));
+    if (fdoProfile.getBaseName().endsWith(".zip")) {
+      // Get the zipper binary for unzipping the profile.
+      Artifact zipperBinaryArtifact = ruleContext.getPrerequisiteArtifact(":zipper", Mode.HOST);
+      if (zipperBinaryArtifact == null) {
+        ruleContext.ruleError("Cannot find zipper binary to unzip the profile");
+        return null;
+      }
+
+      // Symlink to the zipped profile file to extract the contents.
+      Artifact zipProfileArtifact =
+          ruleContext.getUniqueDirectoryArtifact(
+              "fdo", fdoProfile.getBaseName(), ruleContext.getBinOrGenfilesDirectory());
+      ruleContext.registerAction(
+          new SymlinkAction(
+              ruleContext.getActionOwner(),
+              PathFragment.create(fdoProfile.getPathString()),
+              zipProfileArtifact,
+              "Symlinking LLVM ZIP Profile " + fdoProfile.getPathString()));
+
+      // Unzip the profile.
+      ruleContext.registerAction(
+          new SpawnAction.Builder()
+              .addInput(zipProfileArtifact)
+              .addInput(zipperBinaryArtifact)
+              .addOutput(rawProfileArtifact)
+              .useDefaultShellEnvironment()
+              .setExecutable(zipperBinaryArtifact)
+              .addArguments("xf", zipProfileArtifact.getExecPathString())
+              .addArguments(
+                  "-d", rawProfileArtifact.getExecPath().getParentDirectory().getSafePathString())
+              .setProgressMessage(
+                  "LLVMUnzipProfileAction: Generating " + rawProfileArtifact.prettyPrint())
+              .setMnemonic("LLVMUnzipProfileAction")
+              .build(ruleContext));
+    } else {
+      ruleContext.registerAction(
+          new SymlinkAction(
+              ruleContext.getActionOwner(),
+              PathFragment.create(fdoProfile.getPathString()),
+              rawProfileArtifact,
+              "Symlinking LLVM Raw Profile " + fdoProfile.getPathString()));
+    }
 
     if (cppConfiguration.getLLVMProfDataExecutable() == null) {
       ruleContext.ruleError(
@@ -154,10 +199,12 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     Path fdoZip = ruleContext.getConfiguration().getCompilationMode() == CompilationMode.OPT
         ? cppConfiguration.getFdoZip()
         : null;
-    SkyKey fdoKey = FdoSupportValue.key(
-        cppConfiguration.getLipoMode(),
-        fdoZip,
-        cppConfiguration.getFdoInstrument());
+    SkyKey fdoKey =
+        FdoSupportValue.key(
+            cppConfiguration.getLipoMode(),
+            fdoZip,
+            cppConfiguration.getFdoInstrument(),
+            cppConfiguration.isLLVMOptimizedFdo());
 
     SkyFunction.Environment skyframeEnv = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
     FdoSupportValue fdoSupport;

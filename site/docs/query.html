@@ -45,25 +45,11 @@ title: Query Language
       </p>
 
 <code><!-- keep this alphabetically sorted -->
-<a href="#path-operators">allpaths</a><br/>
-<a href="#attr">attr</a><br/>
-
-<a href="#buildfiles">buildfiles</a><br/>
-
-<a href="#deps">deps</a><br/>
 <a href="#set-operations">except</a><br/>
-<a href="#filter">filter</a><br/>
 <a href="#variables">in</a><br/>
 <a href="#set-operations">intersect</a><br/>
-<a href="#kind">kind</a><br/>
-<a href="#labels">labels</a><br/>
 <a href="#variables">let</a><br/>
-<a href="#loadfiles">loadfiles</a><br/>
-<a href="#rdeps">rdeps</a><br/>
 <a href="#set">set</a><br/>
-<a href="#some">some</a><br/>
-<a href="#path-operators">somepath</a><br/>
-<a href="#tests">tests</a><br/>
 <a href="#set-operations">union</a><br/>
 </code>
     </li>
@@ -252,18 +238,8 @@ title: Query Language
        | <var>expr</var> + <var>expr</var>
        | <var>expr</var> except <var>expr</var>
        | <var>expr</var> - <var>expr</var>
-       | deps(<var>expr</var>)
-       | deps(<var>expr</var>, <var>depth</var>)
-       | rdeps(<var>expr</var>, <var>expr</var>)
-       | rdeps(<var>expr</var>, <var>expr</var>, <var>depth</var>)
-       | some(<var>expr</var>)
-       | somepath(<var>expr</var>, <var>expr</var>)
-       | allpaths(<var>expr</var>, <var>expr</var>)
-       | kind(<var>word</var>, <var>expr</var>)
-       | labels(<var>word</var>, <var>expr</var>)
-       | filter(<var>word</var>, <var>expr</var>)
        | set(<var>word</var> *)
-       | attr(<var>word</var>, <var>word</var>, <var>expr</var>)
+       | <var>word</var> '(' <var>int</var> | <var>word</var> | <var>expr</var> ... ')'
 </pre>
 
 <p>
@@ -490,6 +466,31 @@ x intersect (y union z)</pre>
   nodes using it.  See the <a href='#graph-order'>graph order</a>
   section below for more detail.
 </p>
+
+<h3 id="functions">Functions</h3>
+<pre>expr ::= <var>word</var> '(' <var>int</var> | <var>word</var> | <var>expr</var> ... ')'</pre>
+<p>
+  The query language defines several functions. The name of the function
+  determines the number and type of arguments it requires. The following
+  functions are available:
+</p>
+
+<code><!-- keep this alphabetically sorted -->
+<a href="#path-operators">allpaths</a><br/>
+<a href="#attr">attr</a><br/>
+
+<a href="#buildfiles">buildfiles</a><br/>
+
+<a href="#deps">deps</a><br/>
+<a href="#filter">filter</a><br/>
+<a href="#kind">kind</a><br/>
+<a href="#labels">labels</a><br/>
+<a href="#loadfiles">loadfiles</a><br/>
+<a href="#rdeps">rdeps</a><br/>
+<a href="#some">some</a><br/>
+<a href="#path-operators">somepath</a><br/>
+<a href="#tests">tests</a><br/>
+</code>
 
 <h3 id="deps">Transitive closure of dependencies: deps</h3>
 <pre>expr ::= deps(<var>expr</var>)
@@ -910,13 +911,6 @@ genrule(
   the <code>//foo</code> rule.  If there are multiple rules
   with <code>srcs</code> attributes in the <var>inputs</var> set, the
   union of their <code>srcs</code> is returned.
-</p>
-
-<p>
-  Please note, <code>deps</code> is a reserved word in the query
-  language, so you must quote it if you wish to query the rule
-  attribute of that name in a <code>labels</code> expression:
-  <code>labels("deps", //foo)</code>.
 </p>
 
 <h3 id="tests">Expand and filter test_suites: tests</h3>

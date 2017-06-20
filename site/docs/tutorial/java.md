@@ -29,7 +29,7 @@ To prepare for the tutorial, first [Install Bazel](/docs/install.md) if
 you don't have it installed already. Then, retrieve the sample project from
 Bazel's GitHub repository:
 
-```
+```sh
 git clone https://github.com/bazelbuild/examples/
 ```
 
@@ -134,7 +134,7 @@ through its contents to get an idea for Bazel's output structure.
 
 Now test your freshly built binary:
 
-```shell
+```sh
 bazel-bin/ProjectRunner
 ```
 

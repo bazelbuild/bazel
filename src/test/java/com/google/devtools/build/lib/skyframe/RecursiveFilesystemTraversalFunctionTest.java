@@ -811,7 +811,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     EvaluationResult<SkyValue> result = eval(key);
     assertThat(result.hasError()).isTrue();
     ErrorInfo error = result.getError(key);
-    assertThat(error.isTransient()).isFalse();
+    assertThat(error.isTransitivelyTransient()).isFalse();
     assertThat(error.getException())
         .hasMessageThat()
         .contains("Generated directory a/b/c conflicts with package under the same path.");

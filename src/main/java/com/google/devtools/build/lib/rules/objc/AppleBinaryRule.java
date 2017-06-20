@@ -120,8 +120,8 @@ public class AppleBinaryRule implements RuleDefinition {
                 .value(AppleBinary.BinaryType.EXECUTABLE.toString())
                 .allowedValues(new AllowedValueSet(AppleBinary.BinaryType.getValues())))
         /* <!-- #BLAZE_RULE(apple_binary).ATTRIBUTE(extension_safe) -->
-        Indicates whether this binary is for an extension. This will set certain compiler
-        options and restrictions on dependencies of this target.
+        This attribute is deprecated and will be removed soon. It currently has no effect.
+        "Extension-safe" link options may be added using the <code>linkopts</code> attribute.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr(EXTENSION_SAFE_ATTR_NAME, BOOLEAN).value(false)
             .nonconfigurable("Determines the configuration transition on deps"))

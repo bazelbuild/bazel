@@ -21,10 +21,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.Executor.ActionContext;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -34,23 +36,26 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.events.PrintingEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ActionContextProvider;
+import com.google.devtools.build.lib.exec.ActionInputPrefetcher;
 import com.google.devtools.build.lib.exec.BlazeExecutor;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
+import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.integration.util.IntegrationMock;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.testutil.TestFileOutErr;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
+import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collection;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -61,11 +66,19 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class StandaloneSpawnStrategyTest {
+  private static final ArtifactExpander SIMPLE_ARTIFACT_EXPANDER =
+      new ArtifactExpander() {
+        @Override
+        public void expand(Artifact artifact, Collection<? super Artifact> output) {
+          output.add(artifact);
+        }
+      };
 
   private Reporter reporter =
       new Reporter(new EventBus(), PrintingEventHandler.ERRORS_AND_WARNINGS_TO_STDERR);
   private BlazeExecutor executor;
   private FileSystem fileSystem;
+  private FileOutErr outErr;
 
   private Path createTestRoot() throws IOException {
     fileSystem = FileSystems.getNativeFileSystem();
@@ -84,6 +97,7 @@ public class StandaloneSpawnStrategyTest {
     Path testRoot = createTestRoot();
     Path workspaceDir = testRoot.getRelative("workspace-name");
     workspaceDir.createDirectory();
+    outErr = new FileOutErr(testRoot.getRelative("stdout"), testRoot.getRelative("stderr"));
 
     // setup output base & directories
     Path outputBase = testRoot.getRelative("outputBase");
@@ -95,6 +109,7 @@ public class StandaloneSpawnStrategyTest {
     IntegrationMock.get().getIntegrationBinTools(directories, TestConstants.WORKSPACE_NAME);
     OptionsParser optionsParser = OptionsParser.newOptionsParser(ExecutionOptions.class);
     optionsParser.parse("--verbose_failures");
+    LocalExecutionOptions localExecutionOptions = Options.getDefaults(LocalExecutionOptions.class);
 
     EventBus bus = new EventBus();
 
@@ -113,7 +128,8 @@ public class StandaloneSpawnStrategyTest {
             ImmutableMap.<String, SpawnActionContext>of(
                 "",
                 new StandaloneSpawnStrategy(
-                    execRoot, false, "mock-product-name", resourceManager)),
+                    execRoot, ActionInputPrefetcher.NONE, localExecutionOptions,
+                    /*verboseFailures=*/false, "mock-product-name", resourceManager)),
             ImmutableList.<ActionContextProvider>of());
 
     executor.getExecRoot().createDirectory();
@@ -126,8 +142,6 @@ public class StandaloneSpawnStrategyTest {
         new ActionsTestUtil.NullAction(),
         ResourceSet.ZERO);
   }
-
-  private TestFileOutErr outErr = new TestFileOutErr();
 
   private String out() {
     return outErr.outAsLatin1();
@@ -156,7 +170,7 @@ public class StandaloneSpawnStrategyTest {
         null,
         outErr,
         ImmutableMap.<String, String>of(),
-        null);
+        SIMPLE_ARTIFACT_EXPANDER);
   }
 
   @Test
@@ -211,30 +225,5 @@ public class StandaloneSpawnStrategyTest {
     run(spawn);
     assertThat(err()).isEqualTo("Oops!\n");
     assertThat(out()).isEmpty();
-  }
-
-  // Test an action with environment variables set indicating an action running on a darwin host
-  // system. Such actions should fail given the fact that these tests run on a non darwin
-  // architecture.
-  @Test
-  public void testIOSEnvironmentOnNonDarwin() throws Exception {
-    if (OS.getCurrent() == OS.DARWIN) {
-      return;
-    }
-    Spawn spawn = new BaseSpawn.Local(
-        Arrays.asList("/bin/sh", "-c", "echo $SDKROOT"),
-        ImmutableMap.<String, String>of(AppleConfiguration.APPLE_SDK_VERSION_ENV_NAME, "8.4",
-            AppleConfiguration.APPLE_SDK_PLATFORM_ENV_NAME, "iPhoneSimulator"),
-        new ActionsTestUtil.NullAction(),
-        ResourceSet.ZERO);
-
-    try {
-      run(spawn);
-      fail("action should fail due to being unable to resolve SDKROOT");
-    } catch (ExecException e) {
-      assertThat(e)
-          .hasMessageThat()
-          .contains("Cannot locate iOS SDK on non-darwin operating system");
-    }
   }
 }

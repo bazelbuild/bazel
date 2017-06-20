@@ -395,8 +395,8 @@ public class BuildRequest implements OptionsClassProvider {
     }
   }
 
-  @VisibleForTesting public static final int MAX_JOBS = 2000;
-  private static final int JOBS_TOO_HIGH_WARNING = 1000;
+  @VisibleForTesting public static final int MAX_JOBS = 3000;
+  private static final int JOBS_TOO_HIGH_WARNING = 1500;
 
   private final UUID id;
   private final LoadingCache<Class<? extends OptionsBase>, Optional<OptionsBase>> optionsCache;

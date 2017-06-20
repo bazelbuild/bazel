@@ -23,7 +23,7 @@ import java.util.Map;
  */
 public final class LoadStatement extends Statement {
 
-  private final ImmutableMap<Identifier, String> symbols;
+  private final ImmutableMap<Identifier, String> symbolMap;
   private final ImmutableList<Identifier> cachedSymbols; // to save time
   private final StringLiteral imp;
 
@@ -34,10 +34,14 @@ public final class LoadStatement extends Statement {
    * the bzl file that should be loaded. If aliasing is used, the value differs from its key's
    * {@code symbol.getName()}. Otherwise, both values are identical.
    */
-  LoadStatement(StringLiteral imp, Map<Identifier, String> symbols) {
+  public LoadStatement(StringLiteral imp, Map<Identifier, String> symbolMap) {
     this.imp = imp;
-    this.symbols = ImmutableMap.copyOf(symbols);
-    this.cachedSymbols = ImmutableList.copyOf(symbols.keySet());
+    this.symbolMap = ImmutableMap.copyOf(symbolMap);
+    this.cachedSymbols = ImmutableList.copyOf(symbolMap.keySet());
+  }
+
+  public ImmutableMap<Identifier, String> getSymbolMap() {
+    return symbolMap;
   }
 
   public ImmutableList<Identifier> getSymbols() {
@@ -56,7 +60,17 @@ public final class LoadStatement extends Statement {
 
   @Override
   void doExec(Environment env) throws EvalException, InterruptedException {
-    for (Map.Entry<Identifier, String> entry : symbols.entrySet()) {
+    if (env.getSemantics().incompatibleLoadArgumentIsLabel) {
+      String s = imp.getValue();
+      if (!s.startsWith("//") && !s.startsWith(":")) {
+        throw new EvalException(
+            getLocation(),
+            "First argument of 'load' must be a label and start with either '//' or ':'. "
+                + "Use --incompatibleLoadArgumentIsLabel to temporarily disable this check.");
+      }
+    }
+
+    for (Map.Entry<Identifier, String> entry : symbolMap.entrySet()) {
       try {
         Identifier name = entry.getKey();
         Identifier declared = new Identifier(entry.getValue());

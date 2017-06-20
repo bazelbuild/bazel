@@ -261,15 +261,14 @@ public final class BuildTool {
       catastrophe = true;
       throw e;
     } finally {
+      if (executionTool != null) {
+        executionTool.shutdown();
+      }
       if (!catastrophe) {
         // Delete dirty nodes to ensure that they do not accumulate indefinitely.
         long versionWindow = request.getViewOptions().versionWindowForDirtyNodeGc;
         if (versionWindow != -1) {
           env.getSkyframeExecutor().deleteOldNodes(versionWindow);
-        }
-
-        if (executionTool != null) {
-          executionTool.shutdown();
         }
         // The workspace status actions will not run with certain flags, or if an error
         // occurs early in the build. Tell a lie so that the event is not missing.
@@ -327,16 +326,18 @@ public final class BuildTool {
       }
       SupportedEnvironmentsProvider provider =
           Verify.verifyNotNull(asProvider.getProvider(SupportedEnvironmentsProvider.class));
-        Collection<Label> missingEnvironments = ConstraintSemantics.getUnsupportedEnvironments(
-            provider.getRefinedEnvironments(), expectedEnvironments);
-        if (!missingEnvironments.isEmpty()) {
-          throw new ViewCreationFailedException(
-              String.format("This is a restricted-environment build. %s does not support"
-                  + " required environment%s %s",
-                  topLevelTarget.getLabel(),
-                  missingEnvironments.size() == 1 ? "" : "s",
-                  Joiner.on(", ").join(missingEnvironments)));
-        }
+      Collection<Label> missingEnvironments =
+          ConstraintSemantics.getUnsupportedEnvironments(
+              provider.getRefinedEnvironments(), expectedEnvironments);
+      if (!missingEnvironments.isEmpty()) {
+        throw new ViewCreationFailedException(
+            String.format(
+                "This is a restricted-environment build. %s does not support"
+                    + " required environment%s %s",
+                topLevelTarget.getLabel(),
+                missingEnvironments.size() == 1 ? "" : "s",
+                Joiner.on(", ").join(missingEnvironments)));
+      }
     }
   }
 

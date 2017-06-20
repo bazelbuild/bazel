@@ -33,6 +33,9 @@ import javax.annotation.Nullable;
 /**
  * Abstract syntax node for an entire BUILD file.
  */
+// TODO(bazel-team): Consider breaking this up into two classes: One that extends ASTNode and does
+// not include import info; and one that wraps that object with additional import info but that
+// does not itself extend ASTNode. This would help keep the AST minimalistic.
 public class BuildFileAST extends ASTNode {
 
   private final ImmutableList<Statement> stmts;
@@ -292,22 +295,20 @@ public class BuildFileAST extends ASTNode {
    *
    * <p>This method should not be used in Bazel code, since it doesn't validate that the imports are
    * syntactically valid.
-   *
-   * @throws IOException if the file cannot not be read.
    */
   public static BuildFileAST parseSkylarkFileWithoutImports(
-      ParserInputSource input, EventHandler eventHandler) throws IOException {
+      ParserInputSource input, EventHandler eventHandler) {
     ParseResult result = Parser.parseFileForSkylark(input, eventHandler);
     return new BuildFileAST(
         ImmutableList.<Statement>builder()
             .addAll(ImmutableList.<Statement>of())
             .addAll(result.statements)
             .build(),
-        result.containsErrors, /*contentHashCode=*/
-        null,
+        result.containsErrors,
+        /*contentHashCode=*/null,
         result.location,
-        ImmutableList.copyOf(result.comments), /*imports=*/
-        null);
+        ImmutableList.copyOf(result.comments),
+        /*imports=*/null);
   }
 
   /**
@@ -315,8 +316,8 @@ public class BuildFileAST extends ASTNode {
    *
    * @return a new AST (or the same), with the containsErrors flag updated.
    */
-  public BuildFileAST validate(ValidationEnvironment validationEnv, EventHandler eventHandler) {
-    boolean valid = validationEnv.validateAst(stmts, eventHandler);
+  public BuildFileAST validate(Environment env, EventHandler eventHandler) {
+    boolean valid = ValidationEnvironment.validateAst(env, stmts, eventHandler);
     if (valid || containsErrors) {
       return this;
     }
@@ -384,8 +385,7 @@ public class BuildFileAST extends ASTNode {
   public static BuildFileAST parseAndValidateSkylarkString(Environment env, String[] input)
       throws EvalException {
     BuildFileAST ast = parseSkylarkString(env.getEventHandler(), input);
-    ValidationEnvironment valid = new ValidationEnvironment(env);
-    valid.validateAst(ast.getStatements());
+    ValidationEnvironment.validateAst(env, ast.getStatements());
     return ast;
   }
 

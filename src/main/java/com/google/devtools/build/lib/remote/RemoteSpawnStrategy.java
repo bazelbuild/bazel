@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
-import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.Spawns;
@@ -34,7 +33,6 @@ import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.remote.Digests.ActionKey;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.rules.fileset.FilesetActionContext;
-import com.google.devtools.build.lib.standalone.StandaloneSpawnStrategy;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
@@ -54,7 +52,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeSet;
 
@@ -68,7 +65,7 @@ import java.util.TreeSet;
 )
 final class RemoteSpawnStrategy implements SpawnActionContext {
   private final Path execRoot;
-  private final StandaloneSpawnStrategy standaloneStrategy;
+  private final SpawnActionContext fallbackStrategy;
   private final boolean verboseFailures;
   private final RemoteOptions remoteOptions;
   // TODO(olaola): This will be set on a per-action basis instead.
@@ -77,14 +74,13 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
   private final SpawnInputExpander spawnInputExpander = new SpawnInputExpander(/*strict=*/ false);
 
   RemoteSpawnStrategy(
-      Map<String, String> clientEnv,
       Path execRoot,
       RemoteOptions remoteOptions,
       AuthAndTLSOptions authTlsOptions,
       boolean verboseFailures,
-      String productName) {
+      SpawnActionContext fallbackStrategy) {
     this.execRoot = execRoot;
-    this.standaloneStrategy = new StandaloneSpawnStrategy(execRoot, verboseFailures, productName);
+    this.fallbackStrategy = fallbackStrategy;
     this.verboseFailures = verboseFailures;
     this.remoteOptions = remoteOptions;
     channelOptions = ChannelOptions.create(authTlsOptions);
@@ -144,7 +140,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
       RemoteActionCache remoteCache,
       ActionKey actionKey)
       throws ExecException, InterruptedException {
-    standaloneStrategy.exec(spawn, actionExecutionContext);
+    fallbackStrategy.exec(spawn, actionExecutionContext);
     if (remoteOptions.remoteUploadLocalResults && remoteCache != null && actionKey != null) {
       ArrayList<Path> outputFiles = new ArrayList<>();
       for (ActionInput output : spawn.getOutputFiles()) {
@@ -175,14 +171,12 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
         throw new UserExecException("Unexpected IO error.", e);
       } catch (UnsupportedOperationException e) {
         actionExecutionContext
-            .getExecutor()
             .getEventHandler()
             .handle(
                 Event.warn(
                     spawn.getMnemonic() + " unsupported operation for action cache (" + e + ")"));
       } catch (StatusRuntimeException e) {
         actionExecutionContext
-            .getExecutor()
             .getEventHandler()
             .handle(Event.warn(spawn.getMnemonic() + " failed uploading results (" + e + ")"));
       }
@@ -225,8 +219,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
       throws ExecException, InterruptedException {
     ActionKey actionKey = null;
     String mnemonic = spawn.getMnemonic();
-    Executor executor = actionExecutionContext.getExecutor();
-    EventHandler eventHandler = executor.getEventHandler();
+    EventHandler eventHandler = actionExecutionContext.getEventHandler();
 
     RemoteActionCache remoteCache = null;
     GrpcRemoteExecutor workExecutor = null;
@@ -253,13 +246,13 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
       }
     }
     if (!spawn.isRemotable() || remoteCache == null) {
-      standaloneStrategy.exec(spawn, actionExecutionContext);
+      fallbackStrategy.exec(spawn, actionExecutionContext);
       return;
     }
-    if (executor.reportsSubcommands()) {
-      executor.reportSubcommand(spawn);
+    if (actionExecutionContext.reportsSubcommands()) {
+      actionExecutionContext.reportSubcommand(spawn);
     }
-    executor
+    actionExecutionContext
         .getEventBus()
         .post(ActionStatusMessage.runningStrategy(spawn.getResourceOwner(), "remote"));
 
@@ -272,7 +265,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
               spawn,
               actionExecutionContext.getArtifactExpander(),
               actionExecutionContext.getActionInputFileCache(),
-              actionExecutionContext.getExecutor().getContext(FilesetActionContext.class));
+              actionExecutionContext.getContext(FilesetActionContext.class));
       TreeNode inputRoot = repository.buildFromActionInputs(inputMap);
       repository.computeMerkleDigests(inputRoot);
       Command command = buildCommand(spawn.getArguments(), spawn.getEnvironment());
@@ -317,7 +310,6 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
           ExecuteRequest.newBuilder()
               .setInstanceName(remoteOptions.remoteInstanceName)
               .setAction(action)
-              .setWaitForCompletion(true)
               .setTotalInputFileCount(inputMap.size())
               .setSkipCacheLookup(!acceptCachedResult);
       ExecuteResponse reply = workExecutor.executeRemotely(request.build());
@@ -329,7 +321,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
       passRemoteOutErr(remoteCache, result, actionExecutionContext.getFileOutErr());
       remoteCache.downloadAllResults(result, execRoot);
       if (result.getExitCode() != 0) {
-        String cwd = executor.getExecRoot().getPathString();
+        String cwd = actionExecutionContext.getExecRoot().getPathString();
         String message =
             CommandFailureUtils.describeCommandFailure(
                 verboseFailures, spawn.getArguments(), spawn.getEnvironment(), cwd);
