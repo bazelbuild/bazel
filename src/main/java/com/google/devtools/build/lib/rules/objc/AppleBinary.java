@@ -141,6 +141,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
             getDylibProtoProviders(ruleContext));
 
     Map<String, NestedSet<Artifact>> outputGroupCollector = new TreeMap<>();
+
     multiArchBinarySupport.registerActions(
         platform,
         getExtraLinkArgs(ruleContext),

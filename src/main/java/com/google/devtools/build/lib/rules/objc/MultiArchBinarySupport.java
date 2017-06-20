@@ -180,6 +180,7 @@ public class MultiArchBinarySupport {
               .build();
 
       compilationSupport
+          .registerGenerateModuleMapAction(compilationArtifacts)
           .registerCompileAndArchiveActions(
               compilationArtifacts, objcProvider, dependencySpecificConfiguration.toolchain())
           .registerLinkActions(
