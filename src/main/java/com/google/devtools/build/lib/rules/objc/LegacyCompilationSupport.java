@@ -523,6 +523,7 @@ public class LegacyCompilationSupport extends CompilationSupport {
             .setOutputPathMapper(COMPILE_ACTION_TEMPLATE_OUTPUT_PATH_MAPPER)
             .addCommonTransitiveInputs(objcProvider.get(HEADER))
             .addCommonTransitiveInputs(moduleMapInputs)
+            .addCommonInputs(moduleMap.transform(CppModuleMap::getArtifact).asSet())
             .addCommonInputs(compilationArtifacts.getPrivateHdrs())
             .addCommonTransitiveInputs(objcProvider.get(STATIC_FRAMEWORK_FILE))
             .addCommonTransitiveInputs(objcProvider.get(DYNAMIC_FRAMEWORK_FILE))
