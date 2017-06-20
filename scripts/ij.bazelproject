@@ -8,6 +8,7 @@ test_sources:
 
 targets:
   //src:bazel
+  //src/tools/remote_worker
   //src/test/...
 
 # TODO: Remove this once Bazel can use Java 8.
