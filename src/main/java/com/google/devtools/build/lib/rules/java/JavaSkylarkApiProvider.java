@@ -49,17 +49,19 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
 
   @Nullable private final TransitiveInfoProviderMap transitiveInfoProviderMap;
 
+  /**
+   * Creates a Skylark API provider that reads information from its associated target's providers.
+   */
   public static JavaSkylarkApiProvider fromRuleContext() {
-    return new JavaSkylarkApiProvider();
+    return new JavaSkylarkApiProvider(null);
   }
 
+  /**
+   * Creates a Skylark API provider that reads information from an explicit provider map.
+   */
   public static JavaSkylarkApiProvider fromProviderMap(
       TransitiveInfoProviderMap transitiveInfoProviderMap) {
     return new JavaSkylarkApiProvider(transitiveInfoProviderMap);
-  }
-
-  private JavaSkylarkApiProvider() {
-    this.transitiveInfoProviderMap = null;
   }
 
   private JavaSkylarkApiProvider(TransitiveInfoProviderMap transitiveInfoProviderMap) {
