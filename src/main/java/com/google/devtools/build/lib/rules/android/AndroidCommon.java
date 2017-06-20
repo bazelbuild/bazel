@@ -633,10 +633,22 @@ public class AndroidCommon {
 
   private JavaCompilationHelper initAttributes(
       JavaTargetAttributes.Builder attributes, JavaSemantics semantics) {
+    boolean useDataBinding = DataBinding.isEnabled(ruleContext);
     JavaCompilationHelper helper = new JavaCompilationHelper(ruleContext, semantics,
         javaCommon.getJavacOpts(), attributes,
-        DataBinding.isEnabled(ruleContext)
-            ? DataBinding.processDeps(ruleContext) : ImmutableList.<Artifact>of());
+        useDataBinding ? DataBinding.processDeps(ruleContext) : ImmutableList.<Artifact>of(),
+        // We have to disable strict deps checking with data binding because data binding propagates
+        // layout XML up the dependency chain. Say a library's XML references a Java class,
+        // e.g.: "<variable type="some.package.SomeClass" />". Data binding's annotation processor
+        // triggers a compile against SomeClass. Because data binding reprocesses bindings
+        // each step up the dependency chain (via merged resources), that means this compile also
+        // happens at the top-level binary. Since SomeClass.java is declared in the library, this
+        // creates a strict deps violation.
+        //
+        // This weakening of strict deps is unfortunate and deserves to be fixed. Once data
+        // binding integrates with aapt2 this problem should naturally go away (since reprocessing
+        // will no longer happen).
+        /*disableStrictDeps=*/useDataBinding);
 
     helper.addLibrariesToAttributes(javaCommon.targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY));
     attributes.setRuleKind(ruleContext.getRule().getRuleClass());
@@ -948,11 +960,15 @@ public class AndroidCommon {
 
     ImmutableList<Artifact> srcs =
         ruleContext.getPrerequisiteArtifacts("srcs", RuleConfiguredTarget.Mode.TARGET).list();
-    if (useDataBinding
-        && LocalResourceContainer.definesAndroidResources(ruleContext.attributes())) {
-      // Add this rule's annotation processor input if this rule has direct resources. If it
-      // doesn't have direct resources, it doesn't produce data binding output so there's no
-      // input for the annotation processor.
+    if (useDataBinding) {
+      // Add this rule's annotation processor input. If the rule doesn't have direct resources,
+      // there's no direct data binding info, so there's strictly no need for annotation processing.
+      // But it's still important to process the deps' .bin files so any Java class references get
+      // re-referenced so they don't get filtered out of the compilation classpath by JavaBuilder
+      // (which filters out classpath .jars that "aren't used": see --reduce_classpath). If data
+      // binding didn't reprocess a library's data binding expressions redundantly up the dependency
+      // chain (meaning each depender processes them again as if they were its own), this problem
+      // wouldn't happen.
       Artifact annotationFile = DataBinding.createAnnotationFile(ruleContext, isLibrary);
       if (annotationFile != null) {
         srcs = ImmutableList.<Artifact>builder().addAll(srcs).add(annotationFile).build();

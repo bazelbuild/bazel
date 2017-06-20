@@ -57,6 +57,40 @@ public class AndroidDataBindingTest extends AndroidBuildViewTestCase {
         "package android.binary; public class MyApp {};");
   }
 
+  private void writeDataBindingFilesWithNoResourcesDep() throws Exception {
+    scratch.file("java/android/lib_with_resource_files/BUILD",
+        "android_library(",
+        "    name = 'lib_with_resource_files',",
+        "    enable_data_binding = 1,",
+        "    manifest = 'AndroidManifest.xml',",
+        "    srcs = ['LibWithResourceFiles.java'],",
+        "    resource_files = glob(['res/**']),",
+        ")");
+    scratch.file("java/android/lib_with_resource_files/LibWithResourceFiles.java",
+        "package android.lib_with_resource_files; public class LibWithResourceFiles {};");
+
+    scratch.file("java/android/lib_no_resource_files/BUILD",
+        "android_library(",
+        "    name = 'lib_no_resource_files',",
+        "    enable_data_binding = 1,",
+        "    srcs = ['LibNoResourceFiles.java'],",
+        "    deps = ['//java/android/lib_with_resource_files'],",
+        ")");
+    scratch.file("java/android/lib_no_resource_files/LibNoResourceFiles.java",
+        "package android.lib_no_resource_files; public class LibNoResourceFiles {};");
+
+    scratch.file("java/android/binary/BUILD",
+        "android_binary(",
+        "    name = 'app',",
+        "    enable_data_binding = 1,",
+        "    manifest = 'AndroidManifest.xml',",
+        "    srcs = ['MyApp.java'],",
+        "    deps = ['//java/android/lib_no_resource_files'],",
+        ")");
+    scratch.file("java/android/binary/MyApp.java",
+        "package android.binary; public class MyApp {};");
+  }
+
   /**
    * Returns the .params file contents of a {@link JavaCompileAction}
    */
@@ -186,44 +220,11 @@ public class AndroidDataBindingTest extends AndroidBuildViewTestCase {
 
   @Test
   public void dataBindingIncludesTransitiveDepsForLibsWithNoResources() throws Exception {
-    scratch.file("java/android/lib_with_resource_files/BUILD",
-        "android_library(",
-        "    name = 'lib_with_resource_files',",
-        "    enable_data_binding = 1,",
-        "    manifest = 'AndroidManifest.xml',",
-        "    srcs = ['LibWithResourceFiles.java'],",
-        "    resource_files = glob(['res/**']),",
-        ")");
-    scratch.file("java/android/lib_with_resource_files/LibWithResourceFiles.java",
-        "package android.lib_with_resource_files; public class LibWithResourceFiles {};");
-
-    scratch.file("java/android/lib_no_resource_files/BUILD",
-        "android_library(",
-        "    name = 'lib_no_resource_files',",
-        "    enable_data_binding = 1,",
-        "    srcs = ['LibNoResourceFiles.java'],",
-        "    deps = ['//java/android/lib_with_resource_files'],",
-        ")");
-    scratch.file("java/android/lib_no_resource_files/LibNoResourceFiles.java",
-        "package android.lib_no_resource_files; public class LibNoResourceFiles {};");
-
-    scratch.file("java/android/binary/BUILD",
-        "android_binary(",
-        "    name = 'app',",
-        "    enable_data_binding = 1,",
-        "    manifest = 'AndroidManifest.xml',",
-        "    srcs = ['MyApp.java'],",
-        "    deps = ['//java/android/lib_no_resource_files'],",
-        ")");
-    scratch.file("java/android/binary/MyApp.java",
-        "package android.binary; public class MyApp {};");
-
+    writeDataBindingFilesWithNoResourcesDep();
     ConfiguredTarget ct = getConfiguredTarget("//java/android/binary:app");
     Set<Artifact> allArtifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(ct));
 
-    // Data binding resource processing outputs are expected only for libs with resources.
-    assertThat(getFirstArtifactEndingWith(allArtifacts,
-        "databinding/lib_no_resource_files/layout-info.zip")).isNull();
+    // Data binding resource processing outputs are expected for the app and libs with resources.
     assertThat(getFirstArtifactEndingWith(allArtifacts,
         "databinding/lib_with_resource_files/layout-info.zip")).isNotNull();
     assertThat(getFirstArtifactEndingWith(allArtifacts, "databinding/app/layout-info.zip"))
@@ -245,5 +246,31 @@ public class AndroidDataBindingTest extends AndroidBuildViewTestCase {
     for (String compileInput : appJarInputs) {
       assertThat(compileInput).doesNotMatch(".*lib_no_resource_files.*.bin");
     }
+  }
+
+  @Test
+  public void libsWithNoResourcesOnlyRunAnnotationProcessor() throws Exception {
+    // Bazel skips resource processing because there are no new resources to process. But it still
+    // runs the annotation processor to ensure the Java compiler reads Java sources referenced by
+    // the deps' resources (e.g. "<variable type="some.package.SomeClass" />"). Without this,
+    // JavaBuilder's --reduce_classpath feature would strip out those sources as "unused" and fail
+    // the binary's compilation with unresolved symbol errors.
+    writeDataBindingFilesWithNoResourcesDep();
+    ConfiguredTarget ct = getConfiguredTarget("//java/android/lib_no_resource_files");
+    Iterable<Artifact> libArtifacts = getFilesToBuild(ct);
+
+    assertThat(getFirstArtifactEndingWith(libArtifacts, "_resources.jar")).isNull();
+    assertThat(getFirstArtifactEndingWith(libArtifacts, "layout-info.zip")).isNull();
+
+    JavaCompileAction libCompileAction = (JavaCompileAction) getGeneratingAction(
+        getFirstArtifactEndingWith(libArtifacts, "lib_no_resource_files.jar"));
+    // The annotation processor is attached to the Java compilation:
+    assertThat(getParamFileContents(libCompileAction)).containsAllOf(
+        "--processors",
+        "android.databinding.annotationprocessor.ProcessDataBinding");
+    // The dummy .java file with annotations that trigger the annotation process is present:
+    assertThat(ActionsTestUtil.prettyArtifactNames(libCompileAction.getInputs()))
+        .contains("java/android/lib_no_resource_files/databinding/lib_no_resource_files/"
+            + "DataBindingInfo.java");
   }
 }
