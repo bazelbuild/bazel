@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.WrappingProviderHelper;
+import com.google.devtools.build.lib.analysis.WrappingProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
@@ -56,7 +56,7 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
 
     JavaCompilationArgsProvider dependencyArgsProviders =
         JavaCompilationArgsProvider.merge(
-            WrappingProviderHelper.unwrapProviders(
+            WrappingProvider.Helper.unwrapProviders(
                 javaProtoLibraryAspectProviders, JavaCompilationArgsProvider.class));
 
     if (!StrictDepsUtils.isStrictDepsJavaProtoLibrary(ruleContext)) {
@@ -71,7 +71,7 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
 
     JavaSourceJarsProvider sourceJarsProvider =
         JavaSourceJarsProvider.merge(
-            WrappingProviderHelper.unwrapProviders(
+            WrappingProvider.Helper.unwrapProviders(
                 javaProtoLibraryAspectProviders, JavaSourceJarsProvider.class));
 
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();

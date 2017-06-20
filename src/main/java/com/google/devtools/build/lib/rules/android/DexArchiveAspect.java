@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.analysis.WrappingProviderHelper;
+import com.google.devtools.build.lib.analysis.WrappingProvider;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -265,7 +265,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
         && getAndroidConfig(ruleContext).incrementalDexingForLiteProtos()) {
       if (!ruleContext.getPrerequisites("srcs", Mode.TARGET).isEmpty()) {
         JavaCompilationArgsProvider javaCompilationArgsProvider =
-            WrappingProviderHelper.getWrappedProvider(
+            WrappingProvider.Helper.getWrappedProvider(
                 base, JavaProtoLibraryAspectProvider.class, JavaCompilationArgsProvider.class);
         if (javaCompilationArgsProvider != null) {
           return javaCompilationArgsProvider.getJavaCompilationArgs().getRuntimeJars();
@@ -283,7 +283,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   private static JavaCompilationArgsProvider getJavaCompilationArgsProvider(ConfiguredTarget base,
       RuleContext ruleContext) {
     if (isProtoLibrary(ruleContext)) {
-      return WrappingProviderHelper.getWrappedProvider(
+      return WrappingProvider.Helper.getWrappedProvider(
           base, JavaProtoLibraryAspectProvider.class, JavaCompilationArgsProvider.class);
     } else {
       return base.getProvider(JavaCompilationArgsProvider.class);
