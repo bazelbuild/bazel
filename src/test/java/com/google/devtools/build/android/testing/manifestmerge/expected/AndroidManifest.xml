@@ -8,6 +8,9 @@
   <uses-feature android:name="android.hardware.nfc" android:required="true" />
   <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
   <permission android:name="com.google.android.apps.foo.C2D_MESSAGE" android:protectionLevel="signature" />
+  <android:uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+  <android:uses-permission android:name="android.permission.READ_PHONE_STATE" />
+  <android:uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
   <application
       android:name="com.google.android.apps.testapp.TestApplication"
       android:backupAgent="com.google.android.apps.testapp2.FooBar"
