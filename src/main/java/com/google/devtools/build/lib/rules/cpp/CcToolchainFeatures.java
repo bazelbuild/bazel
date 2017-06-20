@@ -1435,7 +1435,13 @@ public class CcToolchainFeatures implements Serializable {
         stringVariablesMap.putAll(variables.stringVariablesMap);
       }
 
-      /** Add a variable that expands {@code name} to {@code value}. */
+      /** Add an integer variable that expands {@code name} to {@code value}. */
+      public Builder addIntegerVariable(String name, int value) {
+        variablesMap.put(name, new IntegerValue(value));
+        return this;
+      }
+
+      /** Add a string variable that expands {@code name} to {@code value}. */
       public Builder addStringVariable(String name, String value) {
         Preconditions.checkArgument(
             !variablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
