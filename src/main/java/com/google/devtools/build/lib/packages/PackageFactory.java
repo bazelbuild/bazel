@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.packages.License.DistributionType;
@@ -535,7 +534,7 @@ public final class PackageFactory {
   )
   private static final BuiltinFunction.Factory newGlobFunction =
       new BuiltinFunction.Factory("glob") {
-        public BuiltinFunction create(final PackageContext originalContext, final boolean async) {
+        public BuiltinFunction create(final PackageContext originalContext) {
           return new BuiltinFunction("glob", this) {
             public SkylarkList invoke(
                 SkylarkList include,
@@ -544,22 +543,24 @@ public final class PackageFactory {
                 FuncallExpression ast,
                 Environment env)
                 throws EvalException, ConversionException, InterruptedException {
-              return callGlob(
-                  originalContext, async, include, exclude, excludeDirectories != 0, ast, env);
+              return callGlob(originalContext, include, exclude, excludeDirectories != 0, ast, env);
             }
           };
         }
       };
 
-  static SkylarkList callGlob(@Nullable PackageContext originalContext,
-      boolean async, Object include, Object exclude, boolean excludeDirs,
-      FuncallExpression ast, Environment env)
+  static SkylarkList<Object> callGlob(
+      @Nullable PackageContext originalContext,
+      Object include,
+      Object exclude,
+      boolean excludeDirs,
+      FuncallExpression ast,
+      Environment env)
       throws EvalException, ConversionException, InterruptedException {
     // Skylark build extensions need to get the PackageContext from the Environment;
     // async glob functions cannot do the same because the Environment is not thread safe.
     PackageContext context;
     if (originalContext == null) {
-      Preconditions.checkArgument(!async);
       context = getContext(env, ast);
     } else {
       context = originalContext;
@@ -568,45 +569,21 @@ public final class PackageFactory {
     List<String> includes = Type.STRING_LIST.convert(include, "'glob' argument");
     List<String> excludes = Type.STRING_LIST.convert(exclude, "'glob' argument");
 
-    GlobList<String> globList;
-    if (async) {
-      try {
-        context.globber.runAsync(includes, excludes, excludeDirs);
-      } catch (BadGlobException e) {
-        // Ignore: errors will appear during the actual evaluation of the package.
-      }
-      globList = GlobList.captureResults(includes, excludes, ImmutableList.<String>of());
-    } else {
-      globList = handleGlob(includes, excludes, excludeDirs, context, ast);
-    }
-    return new MutableList(globList, env);
-  }
-
-  /**
-   * Adds a glob to the package, reporting any errors it finds.
-   *
-   * @param includes the list of includes which must be non-null
-   * @param excludes the list of excludes which must be non-null
-   * @param context the package context
-   * @param ast the AST
-   * @return the list of matches
-   * @throws EvalException if globbing failed
-   */
-  private static GlobList<String> handleGlob(List<String> includes, List<String> excludes,
-      boolean excludeDirs, PackageContext context, FuncallExpression ast)
-        throws EvalException, InterruptedException {
+    List<String> matches;
     try {
       Globber.Token globToken = context.globber.runAsync(includes, excludes, excludeDirs);
-      List<String> matches = context.globber.fetch(globToken);
-      return GlobList.captureResults(includes, excludes, matches);
+      matches = context.globber.fetch(globToken);
     } catch (IOException expected) {
       context.eventHandler.handle(Event.error(ast.getLocation(),
               "error globbing [" + Joiner.on(", ").join(includes) + "]: " + expected.getMessage()));
       context.pkgBuilder.setContainsErrors();
-      return GlobList.captureResults(includes, excludes, ImmutableList.<String>of());
+      matches = ImmutableList.<String>of();
     } catch (BadGlobException e) {
       throw new EvalException(ast.getLocation(), e.getMessage());
     }
+
+    GlobList<String> globList = GlobList.captureResults(includes, excludes, matches);
+    return new MutableList<Object>(globList, env);
   }
 
   /**
@@ -1611,23 +1588,12 @@ public final class PackageFactory {
         builder.build(), "no native function or rule '%s'");
   }
 
-  /** A function that does nothing and ignores the arguments. */
-  private final BaseFunction noopFunction =
-      new BaseFunction("noop", FunctionSignature.KWARGS) {
-        @Override
-        public Object call(Object[] arguments, FuncallExpression ast, Environment env)
-            throws EvalException {
-          return Runtime.NONE;
-        }
-      };
-
   /** @param fakeEnv specify if we declare no-op functions, or real functions. */
   private void buildPkgEnv(
       Environment pkgEnv,
       PackageContext context,
       RuleFactory ruleFactory,
-      PackageIdentifier packageId,
-      boolean fakeEnv) {
+      PackageIdentifier packageId) {
     // TODO(bazel-team): remove the naked functions that are redundant with the nativeModule,
     // or if not possible, at least make them straight copies from the native module variant.
     // or better, use a common Environment.Frame for these common bindings
@@ -1635,7 +1601,7 @@ public final class PackageFactory {
     pkgEnv
         .setup("native", nativeModule)
         .setup("distribs", newDistribsFunction.apply(context))
-        .setup("glob", newGlobFunction.apply(context, /*async=*/ false))
+        .setup("glob", newGlobFunction.apply(context))
         .setup("licenses", newLicensesFunction.apply(context))
         .setup("mocksubinclude", newMockSubincludeFunction.apply(context))
         .setup("exports_files", newExportsFilesFunction.apply())
@@ -1647,11 +1613,7 @@ public final class PackageFactory {
 
     for (String ruleClass : ruleFactory.getRuleClassNames()) {
       BaseFunction ruleFunction = newRuleFunction(ruleFactory, ruleClass);
-      if (fakeEnv) {
-        pkgEnv.setup(ruleClass, ruleFunction);
-      } else {
-        pkgEnv.setup(ruleClass, noopFunction);
-      }
+      pkgEnv.setup(ruleClass, ruleFunction);
     }
 
     for (EnvironmentExtension extension : environmentExtensions) {
@@ -1735,7 +1697,7 @@ public final class PackageFactory {
       PackageContext context =
           new PackageContext(
               pkgBuilder, globber, eventHandler, ruleFactory.getAttributeContainerFactory());
-      buildPkgEnv(pkgEnv, context, ruleFactory, packageId, true);
+      buildPkgEnv(pkgEnv, context, ruleFactory, packageId);
 
       if (containsError) {
         pkgBuilder.setContainsErrors();
@@ -1768,64 +1730,6 @@ public final class PackageFactory {
   }
 
   /** Visit all targets and expand the globs in parallel. */
-  private void prefetchGlobs(
-      PackageIdentifier packageId,
-      BuildFileAST buildFileAST,
-      Path buildFilePath,
-      Globber globber,
-      RuleVisibility defaultVisibility,
-      SkylarkSemanticsOptions skylarkSemantics,
-      MakeEnvironment.Builder pkgMakeEnv,
-      Map<String, Extension> imports)
-      throws InterruptedException {
-    // TODO(bazel-team): It may be wasteful to evaluate the BUILD file here, only to throw away the
-    // result. It may be better to first scan the ast and see if there are even possibly any globs
-    // at all. Additionally, it's wasteful to execute Skylark code that cannot invoke globs. So one
-    // strategy would be to crawl the ast and tag statements whose execution cannot involve globs -
-    // these can be executed and their impact on the resulting package can be saved.
-    try (Mutability mutability = Mutability.create("prefetchGlobs for %s", packageId)) {
-      Environment pkgEnv =
-          Environment.builder(mutability)
-              .setGlobals(BazelLibrary.GLOBALS)
-              .setSemantics(skylarkSemantics)
-              .setEventHandler(NullEventHandler.INSTANCE)
-              .setImportedExtensions(imports)
-              .setPhase(Phase.LOADING)
-              .build();
-      SkylarkUtils.setToolsRepository(pkgEnv, ruleClassProvider.getToolsRepository());
-
-      Package.Builder pkgBuilder = new Package.Builder(packageBuilderHelper.createFreshPackage(
-          packageId, ruleClassProvider.getRunfilesPrefix()));
-
-      pkgBuilder.setFilename(buildFilePath)
-          .setMakeEnv(pkgMakeEnv)
-          .setDefaultVisibility(defaultVisibility)
-          // "defaultVisibility" comes from the command line. Let's give the BUILD file a chance to
-          // set default_visibility once, be reseting the PackageBuilder.defaultVisibilitySet flag.
-          .setDefaultVisibilitySet(false);
-
-      // Stuff that closes over the package context:
-      PackageContext context =
-          new PackageContext(
-              pkgBuilder,
-              globber,
-              NullEventHandler.INSTANCE,
-              ruleFactory.getAttributeContainerFactory());
-      buildPkgEnv(pkgEnv, context, ruleFactory, packageId, false);
-
-      try {
-        pkgEnv.update("glob", newGlobFunction.apply(context, /*async=*/true));
-        // The Fileset function is heavyweight in that it can run glob(). Avoid this during the
-        // preloading phase.
-        pkgEnv.update("FilesetEntry", noopFunction);
-        pkgEnv.update("vardef", noopFunction);
-      } catch (EvalException e) {
-        throw new AssertionError(e);
-      }
-      buildFileAST.exec(pkgEnv, NullEventHandler.INSTANCE);
-    }
-  }
-
   /**
    * Tests a build AST to ensure that it contains no assignment statements that redefine built-in
    * build rules.
