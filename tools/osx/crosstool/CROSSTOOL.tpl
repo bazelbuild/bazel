@@ -67,7 +67,7 @@ toolchain {
   abi_libc_version: "darwin_x86_64"
   tool_path {
     name: "ar"
-    path: "/usr/bin/libtool"
+    path: "wrapped_ar"
   }
   tool_path {
     name: "compat-ld"
@@ -1317,7 +1317,7 @@ toolchain {
   abi_libc_version: "local"
   tool_path {
     name: "ar"
-    path: "/usr/bin/libtool"
+    path: "wrapped_ar"
   }
   tool_path {
     name: "compat-ld"
@@ -2578,7 +2578,7 @@ toolchain {
   abi_libc_version: "local"
   tool_path {
     name: "ar"
-    path: "/usr/bin/libtool"
+    path: "wrapped_ar"
   }
   tool_path {
     name: "compat-ld"
@@ -3841,7 +3841,7 @@ toolchain {
   abi_libc_version: "local"
   tool_path {
     name: "ar"
-    path: "/usr/bin/libtool"
+    path: "wrapped_ar"
   }
   tool_path {
     name: "compat-ld"
@@ -5141,7 +5141,7 @@ toolchain {
   abi_libc_version: "local"
   tool_path {
     name: "ar"
-    path: "/usr/bin/libtool"
+    path: "wrapped_ar"
   }
   tool_path {
     name: "compat-ld"
@@ -6402,7 +6402,7 @@ toolchain {
   abi_libc_version: "local"
   tool_path {
     name: "ar"
-    path: "/usr/bin/libtool"
+    path: "wrapped_ar"
   }
   tool_path {
     name: "compat-ld"
@@ -7648,7 +7648,7 @@ toolchain {
   abi_libc_version: "local"
   tool_path {
     name: "ar"
-    path: "/usr/bin/libtool"
+    path: "wrapped_ar"
   }
   tool_path {
     name: "compat-ld"
@@ -8896,7 +8896,7 @@ toolchain {
   abi_libc_version: "local"
   tool_path {
     name: "ar"
-    path: "/usr/bin/libtool"
+    path: "wrapped_ar"
   }
   tool_path {
     name: "compat-ld"
@@ -10181,7 +10181,7 @@ toolchain {
   abi_libc_version: "local"
   tool_path {
     name: "ar"
-    path: "/usr/bin/libtool"
+    path: "wrapped_ar"
   }
   tool_path {
     name: "compat-ld"
