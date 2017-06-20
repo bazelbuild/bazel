@@ -57,3 +57,41 @@ constraint_value(
 
 # A default platform with nothing defined.
 platform(name = "default_platform")
+
+# A default platform referring to the host system. This only exists for
+# internal build configurations, and so shouldn't be accessed by other packages.
+platform(
+    name = "host_platform",
+    cpu_constraints = [
+        ":x86_32",
+        ":x86_64",
+        ":ppc",
+        ":arm",
+        ":s390x",
+    ],
+    host_platform = True,
+    os_constraints = [
+        ":osx",
+        ":freebsd",
+        ":linux",
+        ":windows",
+    ],
+)
+
+platform(
+    name = "target_platform",
+    cpu_constraints = [
+        ":x86_32",
+        ":x86_64",
+        ":ppc",
+        ":arm",
+        ":s390x",
+    ],
+    os_constraints = [
+        ":osx",
+        ":freebsd",
+        ":linux",
+        ":windows",
+    ],
+    target_platform = True,
+)
