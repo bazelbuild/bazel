@@ -1,8 +1,7 @@
 # Setup IntelliJ for Bazel development using the IntelliJ Bazel Plugin.
 # See https://github.com/bazelbuild/intellij for installation instructions.
 directories:
-  src/main
-  src/test
+  .
 
 test_sources:
   src/test/*
