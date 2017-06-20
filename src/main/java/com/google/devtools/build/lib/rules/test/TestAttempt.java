@@ -77,23 +77,6 @@ public class TestAttempt implements BuildEvent {
     this(false, testAction, attempt, status, startTimeMillis, durationMillis, files, lastAttempt);
   }
 
-  public TestAttempt(
-      TestRunnerAction testAction,
-      Integer attempt,
-      BlazeTestStatus status,
-      Collection<Pair<String, Path>> files,
-      boolean lastAttempt) {
-    this(testAction, attempt, status, 0, 0, files, lastAttempt);
-  }
-
-  public TestAttempt(
-      TestRunnerAction testAction,
-      Integer attempt,
-      BlazeTestStatus status,
-      Collection<Pair<String, Path>> files) {
-    this(testAction, attempt, status, files, false);
-  }
-
   public static TestAttempt fromCachedTestResult(TestResult result) {
     TestResultData data = result.getData();
     return new TestAttempt(
