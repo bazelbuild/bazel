@@ -122,9 +122,3 @@ You are all set. You can confirm Bazel is installed successfully by running
 ```bash
 bazel version
 ```
-
-Once installed, you can upgrade to a newer version of Bazel with:
-
-```bash
-sudo apt-get upgrade bazel
-```
