@@ -107,7 +107,6 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
 
         // For details about the different header types, see:
         // http://clang.llvm.org/docs/Modules.html#header-declaration
-        String leadingPeriods = moduleMapHomeIsCwd ? "" : Strings.repeat("../", segmentsToExecPath);
         content.append("module \"").append(cppModuleMap.getName()).append("\" {\n");
         content.append("  export *\n");
 
@@ -117,7 +116,6 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
               content,
               "",
               umbrellaHeader.get().getExecPath(),
-              leadingPeriods,
               /*canCompile=*/ false,
               deduper,
               /*isUmbrellaHeader*/ true);
@@ -127,7 +125,6 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
                 content,
                 "",
                 artifact.getExecPath(),
-                leadingPeriods,
                 /*canCompile=*/ true,
                 deduper,
                 /*isUmbrellaHeader*/ false);
@@ -137,7 +134,6 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
                 content,
                 "private",
                 artifact.getExecPath(),
-                leadingPeriods,
                 /*canCompile=*/ true,
                 deduper,
                 /*isUmbrellaHeader*/ false);
@@ -147,7 +143,6 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
                 content,
                 "",
                 additionalExportedHeader,
-                leadingPeriods,
                 /*canCompile*/ false,
                 deduper,
                 /*isUmbrellaHeader*/ false);
@@ -167,7 +162,7 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
                 .append("\nextern module \"")
                 .append(dep.getName())
                 .append("\" \"")
-                .append( relativeModulePath)
+                .append(relativeModulePath)
                 .append("\"");
           }
         }
@@ -191,7 +186,7 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
   }
 
   private void appendHeader(Appendable content, String visibilitySpecifier,
-      PathFragment path, String leadingPeriods, boolean canCompile, HashSet<PathFragment> deduper,
+      PathFragment path, boolean canCompile, HashSet<PathFragment> deduper,
       boolean isUmbrellaHeader) throws IOException {
     if (deduper.contains(path)) {
       return;
@@ -212,7 +207,10 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
     if (!canCompile || !shouldCompileHeader(path)) {
       content.append("textual ");
     }
-    content.append("header \"").append(leadingPeriods).append(path.toString()).append("\"");
+    PathFragment relPath =
+        FileSystemUtils.relativePath(cppModuleMap.getArtifact().getExecPath().getParentDirectory(),
+            path);
+    content.append("header \"").append(relPath.getPathString()).append("\"");
     if (generateSubmodules) {
       content.append("\n  }");
     }

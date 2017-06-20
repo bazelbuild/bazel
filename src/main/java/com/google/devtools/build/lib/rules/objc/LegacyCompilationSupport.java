@@ -14,27 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_FILE;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE_SYSTEM;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINK_INPUTS;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_FILE;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.CLANG;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.CLANG_PLUSPLUS;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.COMPILABLE_SRCS_TYPE;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.DSYMUTIL;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.HEADERS;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.NON_ARC_SRCS_TYPE;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PRECOMPILED_SRCS_TYPE;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -73,6 +52,27 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
+
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_FILE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE_SYSTEM;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINK_INPUTS;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_FILE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.CLANG;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.CLANG_PLUSPLUS;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.COMPILABLE_SRCS_TYPE;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.DSYMUTIL;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.HEADERS;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.NON_ARC_SRCS_TYPE;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PRECOMPILED_SRCS_TYPE;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
 
 /**
  * Constructs command lines for objc compilation, archiving, and linking.  Uses hard-coded
@@ -366,6 +366,16 @@ public class LegacyCompilationSupport extends CompilationSupport {
               .toString()
           )
           ;
+      for (Artifact map : objcProvider.get(MODULE_MAP)) {
+        // Clang doesn't always find transtive modules if they aren't named module.modulemap and aren't explicitely defined
+        commandLine
+            .add("-fmodule-map-file=" + map
+                .getExecPath()
+                .toString()
+            )
+        ;
+      }
+
       boolean alreadyHasModuleName = false;
 
       for (String otherFlag : attributes.copts()) {
