@@ -14,12 +14,12 @@
 
 package com.google.devtools.build.lib.rules.java.proto;
 
+import static com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode.TARGET;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.rules.java.JavaRunfilesProvider;
 import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.ProtoJavaApiInfoAspectProvider;
-import com.google.devtools.build.lib.rules.java.ProtoJavaApiInfoProvider;
 
 /** Implementation of the java_proto_library rule. */
 public class JavaProtoLibrary implements RuleConfiguredTargetFactory {
@@ -44,7 +43,7 @@ public class JavaProtoLibrary implements RuleConfiguredTargetFactory {
       throws InterruptedException, RuleErrorException {
 
     Iterable<JavaProtoLibraryAspectProvider> javaProtoLibraryAspectProviders =
-        ruleContext.getPrerequisites("deps", Mode.TARGET, JavaProtoLibraryAspectProvider.class);
+        ruleContext.getPrerequisites("deps", TARGET, JavaProtoLibraryAspectProvider.class);
 
     JavaCompilationArgsProvider dependencyArgsProviders =
         JavaCompilationArgsProvider.merge(
@@ -82,7 +81,10 @@ public class JavaProtoLibrary implements RuleConfiguredTargetFactory {
             .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
             .addProvider(
                 ProtoJavaApiInfoAspectProvider.class,
-                createProtoJavaApiInfoAspectProvider(ruleContext))
+                ProtoJavaApiInfoAspectProvider.merge(
+                    JavaProvider.getProvidersFromListOfTargets(
+                        ProtoJavaApiInfoAspectProvider.class,
+                        ruleContext.getPrerequisites("deps", TARGET))))
             .addProvider(JavaRuleOutputJarsProvider.class, JavaRuleOutputJarsProvider.EMPTY)
             .addProvider(JavaRunfilesProvider.class, javaRunfilesProvider)
             .build();
@@ -101,16 +103,5 @@ public class JavaProtoLibrary implements RuleConfiguredTargetFactory {
         .addProvider(javaProvider)
         .addNativeDeclaredProvider(javaProvider)
         .build();
-  }
-
-  private ProtoJavaApiInfoAspectProvider createProtoJavaApiInfoAspectProvider(
-      RuleContext ruleContext) {
-    ProtoJavaApiInfoAspectProvider.Builder protoJavaApiInfoAspectProvider =
-        ProtoJavaApiInfoAspectProvider.builder();
-    for (ProtoJavaApiInfoProvider protoJavaApiInfoProvider :
-        ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoJavaApiInfoProvider.class)) {
-      protoJavaApiInfoAspectProvider.add(protoJavaApiInfoProvider).build();
-    }
-    return protoJavaApiInfoAspectProvider.build();
   }
 }

@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.ProguardLibrary;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.rules.java.ProtoJavaApiInfoAspectProvider;
-import com.google.devtools.build.lib.rules.java.ProtoJavaApiInfoProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 
 /** Implementation of the java_lite_proto_library rule. */
@@ -91,7 +90,10 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
             .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
             .addProvider(
                 ProtoJavaApiInfoAspectProvider.class,
-                createProtoJavaApiInfoAspectProvider(ruleContext))
+                ProtoJavaApiInfoAspectProvider.merge(
+                    JavaProvider.getProvidersFromListOfTargets(
+                        ProtoJavaApiInfoAspectProvider.class,
+                        ruleContext.getPrerequisites("deps", TARGET))))
             .addProvider(JavaRuleOutputJarsProvider.class, JavaRuleOutputJarsProvider.EMPTY)
             .addProvider(JavaRunfilesProvider.class, javaRunfilesProvider)
             .build();
@@ -111,17 +113,6 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
         .addProvider(javaProvider)
         .addNativeDeclaredProvider(javaProvider)
         .build();
-  }
-
-  private ProtoJavaApiInfoAspectProvider createProtoJavaApiInfoAspectProvider(
-      RuleContext ruleContext) {
-    ProtoJavaApiInfoAspectProvider.Builder protoJavaApiInfoAspectProvider =
-        ProtoJavaApiInfoAspectProvider.builder();
-    for (ProtoJavaApiInfoProvider protoJavaApiInfoProvider :
-        ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoJavaApiInfoProvider.class)) {
-      protoJavaApiInfoAspectProvider.add(protoJavaApiInfoProvider).build();
-    }
-    return protoJavaApiInfoAspectProvider.build();
   }
 
   private ProguardSpecProvider getJavaLiteRuntimeSpec(RuleContext ruleContext) {
