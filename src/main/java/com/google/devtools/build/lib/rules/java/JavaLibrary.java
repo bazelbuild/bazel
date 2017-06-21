@@ -239,6 +239,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
         // TODO(bazel-team): this should only happen for java_plugin
         .addProvider(JavaCommon.getTransitivePlugins(ruleContext))
         .addProvider(new ProguardSpecProvider(proguardSpecs))
+        .addProvider(sourceJarsProvider)
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars)
         .addOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL, proguardSpecs);
 

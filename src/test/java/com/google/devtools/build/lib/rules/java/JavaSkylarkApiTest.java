@@ -25,7 +25,11 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor.SkylarkKey;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import org.junit.Test;
@@ -37,6 +41,69 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class JavaSkylarkApiTest extends BuildViewTestCase {
+
+  @Test
+  public void testExposesJavaSkylarkApiProvider() throws Exception {
+    scratch.file(
+        "java/test/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "java_library(",
+        "  name = 'dep',",
+        "  srcs = [ 'Dep.java'],",
+        ")",
+        "my_rule(",
+        "  name = 'my',",
+        "  dep = ':dep',",
+        ")");
+    scratch.file(
+        "java/test/extension.bzl",
+        "result = provider()",
+        "def impl(ctx):",
+        "   depj = ctx.attr.dep.java",
+        "   return [result(",
+        "             source_jars = depj.source_jars,",
+        "             transitive_deps = depj.transitive_deps,",
+        "             transitive_runtime_deps = depj.transitive_runtime_deps,",
+        "             transitive_source_jars = depj.transitive_source_jars,",
+        "             outputs = depj.outputs.jars,",
+        "          )]",
+        "my_rule = rule(impl, attrs = { 'dep' : attr.label() })");
+
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:my");
+    SkylarkClassObject skylarkClassObject =
+        configuredTarget.get(
+            new SkylarkKey(Label.parseAbsolute("//java/test:extension.bzl"), "result"));
+
+    SkylarkNestedSet sourceJars = ((SkylarkNestedSet) skylarkClassObject.getValue("source_jars"));
+    SkylarkNestedSet transitiveDeps =
+        ((SkylarkNestedSet) skylarkClassObject.getValue("transitive_deps"));
+    SkylarkNestedSet transitiveRuntimeDeps =
+        ((SkylarkNestedSet) skylarkClassObject.getValue("transitive_runtime_deps"));
+    SkylarkNestedSet transitiveSourceJars =
+        ((SkylarkNestedSet) skylarkClassObject.getValue("transitive_source_jars"));
+    SkylarkList<OutputJar> outputJars =
+        ((SkylarkList<OutputJar>) skylarkClassObject.getValue("outputs"));
+
+    assertThat(artifactFilesNames(sourceJars.toCollection(Artifact.class)))
+        .containsExactly("libdep-src.jar");
+    assertThat(artifactFilesNames(transitiveDeps.toCollection(Artifact.class)))
+        .containsExactly("libdep-hjar.jar");
+    assertThat(artifactFilesNames(transitiveRuntimeDeps.toCollection(Artifact.class)))
+        .containsExactly("libdep.jar");
+    assertThat(artifactFilesNames(transitiveSourceJars.toCollection(Artifact.class)))
+        .containsExactly("libdep-src.jar");
+    assertThat(outputJars).hasSize(1);
+    assertThat(outputJars.get(0).getClassJar().getFilename()).isEqualTo("libdep.jar");
+  }
+
+  private static Collection<String> artifactFilesNames(Collection<Artifact> artifacts) {
+    List<String> result = new ArrayList<>();
+    for (Artifact artifact : artifacts) {
+      result.add(artifact.getFilename());
+    }
+    return result;
+  }
+
   @Test
   public void testJavaPlugin() throws Exception {
     scratch.file(
