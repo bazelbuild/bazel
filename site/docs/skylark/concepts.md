@@ -254,38 +254,6 @@ sorted(deps.to_list())  # recommended
 *   Flag: `--incompatible_depset_is_not_iterable`
 *   Default: `false`
 
-## Upcoming changes
-
-The following items are upcoming changes.
-
-*   Comprehensions currently "leak" the values of their loop variables into the
-    surrounding scope (Python 2 semantics). This will be changed so that
-    comprehension variables are local (Python 3 semantics).
-
-*   Previously dictionaries were guaranteed to use sorted order for their keys.
-    Going forward, there is no guarantee on order besides that it is
-    deterministic. As an implementation matter, some kinds of dictionaries may
-    continue to use sorted order while others may use insertion order.
-
-These changes concern the `load()` syntax in particular.
-
-* Currently a `load()` statement can appear anywhere in a file so long as it is
-  at the top-level (not in an indented block of code). In the future they will
-  be required to appear at the beginning of the file, i.e., before any
-  non-`load()` statement.
-
-* In BUILD files, `load()` can overwrite an existing variable with the loaded
-  symbol. This will be disallowed in order to improve consistency with .bzl
-  files. Use load aliases to avoid name clashes.
-
-* The .bzl file can be specified as either a path or a label. In the future only
-  the label form will be allowed.
-
-* Cross-package visibility restrictions do not yet apply to loaded .bzl files.
-  At some point this will change. In order to load a .bzl from another package
-  it will need to be exported, such as by using an `exports_files` declaration.
-  The exact syntax has not yet been decided.
-
 
 ## Profiling the code
 
