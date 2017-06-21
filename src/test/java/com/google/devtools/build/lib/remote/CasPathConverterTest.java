@@ -51,7 +51,7 @@ public class CasPathConverterTest {
     Path path = fs.getPath("/foo");
     FileSystemUtils.writeContentAsLatin1(path, "foobar");
     assertThat(converter.apply(fs.getPath("/foo")))
-        .isEqualTo("//machine/blobs/3858f62230ac3c915f300c664312c63f/6");
+        .isEqualTo("bytestream://machine/blobs/3858f62230ac3c915f300c664312c63f/6");
   }
 
   @Test
@@ -62,6 +62,6 @@ public class CasPathConverterTest {
     Path path = fs.getPath("/foo");
     FileSystemUtils.writeContentAsLatin1(path, "foobar");
     assertThat(converter.apply(fs.getPath("/foo")))
-        .isEqualTo("//machine/projects/bazel/blobs/3858f62230ac3c915f300c664312c63f/6");
+        .isEqualTo("bytestream://machine/projects/bazel/blobs/3858f62230ac3c915f300c664312c63f/6");
   }
 }
