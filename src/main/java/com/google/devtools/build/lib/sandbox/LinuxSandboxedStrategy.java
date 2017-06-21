@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -47,7 +48,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class LinuxSandboxedStrategy extends SandboxStrategy {
 
   public static boolean isSupported(CommandEnvironment cmdEnv) {
-    return LinuxSandboxRunner.isSupported(cmdEnv);
+    return OS.getCurrent() == OS.LINUX && LinuxSandboxRunner.isSupported(cmdEnv);
   }
 
   private final SandboxOptions sandboxOptions;

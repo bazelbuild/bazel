@@ -255,10 +255,6 @@ public class RunCommand implements BlazeCommand  {
       Preconditions.checkNotNull(
           processWrapperPath, PROCESS_WRAPPER + " not found in embedded tools");
       cmdLine.add(env.getExecRoot().getRelative(processWrapperPath).getPathString());
-      cmdLine.add("-1");
-      cmdLine.add("15");
-      cmdLine.add("-");
-      cmdLine.add("-");
     }
     List<String> prettyCmdLine = new ArrayList<>();
     // Insert the command prefix specified by the "--run_under=<command-prefix>" option

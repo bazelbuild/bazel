@@ -41,44 +41,10 @@
 #include "src/main/tools/logging.h"
 #include "src/main/tools/process-tools.h"
 #include "src/main/tools/process-wrapper-legacy.h"
-
-struct Options opt;
-
-// Print out a usage error and exit with EXIT_FAILURE.
-static void Usage(char *program_name) {
-  fprintf(stderr,
-          "Usage: %s <timeout-secs> <kill-delay-secs> <stdout-redirect> "
-          "<stderr-redirect> <command> [args] ...\n",
-          program_name);
-  exit(EXIT_FAILURE);
-}
-
-// Parse the command line flags and return the result in an Options structure
-// passed as argument.
-static void ParseCommandLine(std::vector<char *> args) {
-  if (args.size() < 5) {
-    Usage(args.front());
-  }
-
-  int optind = 1;
-
-  if (sscanf(args[optind++], "%lf", &opt.timeout_secs) != 1) {
-    DIE("timeout_secs is not a real number.\n");
-  }
-  if (sscanf(args[optind++], "%lf", &opt.kill_delay_secs) != 1) {
-    DIE("kill_delay_secs is not a real number.\n");
-  }
-  opt.stdout_path.assign(args[optind++]);
-  opt.stderr_path.assign(args[optind++]);
-  opt.args.assign(args.begin() + optind, args.end());
-
-  // argv[] passed to execve() must be a null-terminated array.
-  opt.args.push_back(nullptr);
-}
+#include "src/main/tools/process-wrapper-options.h"
 
 int main(int argc, char *argv[]) {
-  std::vector<char *> args(argv, argv + argc);
-  ParseCommandLine(args);
+  ParseOptions(argc, argv);
 
   SwitchToEuid();
   SwitchToEgid();

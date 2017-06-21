@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.exec.ActionContextConsumer;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.util.OS;
 
 /**
  * {@link ActionContextConsumer} that requests the action contexts necessary for sandboxed
@@ -37,9 +36,9 @@ final class SandboxActionContextConsumer implements ActionContextConsumer {
         ImmutableMultimap.builder();
     ImmutableMap.Builder<String, String> spawnContexts = ImmutableMap.builder();
 
-    if ((OS.getCurrent() == OS.LINUX && LinuxSandboxedStrategy.isSupported(cmdEnv))
-        || (OS.getCurrent() == OS.DARWIN && DarwinSandboxRunner.isSupported(cmdEnv))
-        || (OS.isPosixCompatible() && ProcessWrapperSandboxedStrategy.isSupported(cmdEnv))) {
+    if (LinuxSandboxedStrategy.isSupported(cmdEnv)
+        || DarwinSandboxedStrategy.isSupported(cmdEnv)
+        || ProcessWrapperSandboxedStrategy.isSupported(cmdEnv)) {
       // This makes the "sandboxed" strategy available via --spawn_strategy=sandboxed,
       // but it is not necessarily the default.
       contexts.put(SpawnActionContext.class, "sandboxed");

@@ -33,7 +33,7 @@ public class LocalExecutionOptions extends OptionsBase {
         "Time to wait between terminating a local process due to timeout and forcefully "
             + "shutting it down."
   )
-  public double localSigkillGraceSeconds;
+  public int localSigkillGraceSeconds;
 
   @Option(
     name = "allowed_local_actions_regex",
