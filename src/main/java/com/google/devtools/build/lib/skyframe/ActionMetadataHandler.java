@@ -135,15 +135,6 @@ public class ActionMetadataHandler implements MetadataHandler {
     this.tsgm = tsgm;
   }
 
-  @Override
-  public Metadata getMetadataMaybe(Artifact artifact) {
-    try {
-      return getMetadata(artifact);
-    } catch (IOException e) {
-      return null;
-    }
-  }
-
   /**
    * Gets the {@link TimestampGranularityMonitor} to use for a given artifact.
    *
@@ -168,12 +159,6 @@ public class ActionMetadataHandler implements MetadataHandler {
     return value.isFile() ? new Metadata(value.getDigest()) : new Metadata(value.getModifiedTime());
   }
 
-  @Override
-  public Metadata getMetadata(Artifact artifact) throws IOException {
-    Metadata metadata = getRealMetadata(artifact);
-    return artifact.isConstantMetadata() ? Metadata.CONSTANT_METADATA : metadata;
-  }
-
   @Nullable
   private FileArtifactValue getInputFileArtifactValue(Artifact input) {
     if (outputs.contains(input)) {
@@ -187,18 +172,8 @@ public class ActionMetadataHandler implements MetadataHandler {
     return Preconditions.checkNotNull(inputArtifactData.get(input), input);
   }
 
-  /**
-   * Get the real (viz. on-disk) metadata for an Artifact.
-   * A key assumption is that getRealMetadata() will be called for every Artifact in this
-   * ActionMetadataHandler, to populate additionalOutputData and outputTreeArtifactData.
-   *
-   * <p>We cache data for constant-metadata artifacts, even though it is technically unnecessary,
-   * because the data stored in this cache is consumed by various parts of Blaze via the {@link
-   * ActionExecutionValue} (for now, {@link FilesystemValueChecker} and {@link ArtifactFunction}).
-   * It is simpler for those parts if every output of the action is present in the cache. However,
-   * we must not return the actual metadata for a constant-metadata artifact.
-   */
-  private Metadata getRealMetadata(Artifact artifact) throws IOException {
+  @Override
+  public Metadata getMetadata(Artifact artifact) throws IOException {
     FileArtifactValue value = getInputFileArtifactValue(artifact);
     if (value != null) {
       return metadataFromValue(value);
