@@ -367,7 +367,7 @@ public class LegacyCompilationSupport extends CompilationSupport {
           )
           ;
       for (Artifact map : objcProvider.get(MODULE_MAP)) {
-        // Clang doesn't always find transtive modules if they aren't named module.modulemap and aren't explicitely defined
+        // Clang doesn't always find transitive modules if they aren't named module.modulemap and aren't explicitly defined
         commandLine
             .add("-fmodule-map-file=" + map
                 .getExecPath()
@@ -439,6 +439,7 @@ public class LegacyCompilationSupport extends CompilationSupport {
             .addTransitiveHeaders(objcProvider.get(HEADER))
             .addHeaders(compilationArtifacts.getPrivateHdrs())
             .addTransitiveMandatoryInputs(moduleMapInputs)
+            .addMandatoryInputs(moduleMap.transform(CppModuleMap::getArtifact).asSet())
             .addTransitiveMandatoryInputs(objcProvider.get(STATIC_FRAMEWORK_FILE))
             .addTransitiveMandatoryInputs(objcProvider.get(DYNAMIC_FRAMEWORK_FILE))
             .setDotdFile(dotdFile)
