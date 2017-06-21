@@ -115,7 +115,7 @@ public class LValue extends ASTNode {
 
     if (lhs instanceof ListLiteral) {
       ListLiteral variables = (ListLiteral) lhs;
-      Collection<?> rvalue = EvalUtils.toCollection(result, loc);
+      Collection<?> rvalue = EvalUtils.toCollection(result, loc, env);
       int len = variables.getElements().size();
       if (len != rvalue.size()) {
         throw new EvalException(loc, String.format(

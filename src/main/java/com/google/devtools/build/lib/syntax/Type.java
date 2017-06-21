@@ -582,7 +582,7 @@ public abstract class Type<T> {
         throws ConversionException {
       Iterable<?> iterable;
       try {
-        iterable = EvalUtils.toIterableStrict(x, null);
+        iterable = EvalUtils.toIterableStrict(x, null, null);
       } catch (EvalException ex) {
         throw new ConversionException(this, x, what);
       }

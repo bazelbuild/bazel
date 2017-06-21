@@ -47,12 +47,12 @@ public class EvalUtilsTest extends EvaluationTestCase {
 
   @Test
   public void testEmptyStringToIterable() throws Exception {
-    assertThat(EvalUtils.toIterable("", null)).isEmpty();
+    assertThat(EvalUtils.toIterable("", null, null)).isEmpty();
   }
 
   @Test
   public void testStringToIterable() throws Exception {
-    assertThat(EvalUtils.toIterable("abc", null)).hasSize(3);
+    assertThat(EvalUtils.toIterable("abc", null, null)).hasSize(3);
   }
 
   @Test

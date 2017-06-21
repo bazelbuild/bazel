@@ -669,7 +669,6 @@ public class SkylarkRuleImplementationFunctions {
     }
   };
 
-
   /**
    * Ensures the given {@link Map} has keys that have {@link Label} type and values that have either
    * {@link Iterable} or {@link SkylarkNestedSet} type, and raises {@link EvalException} otherwise.
@@ -678,8 +677,7 @@ public class SkylarkRuleImplementationFunctions {
   // TODO(bazel-team): find a better way to typecheck this argument.
   @SuppressWarnings("unchecked")
   private static Map<Label, Iterable<Artifact>> checkLabelDict(
-      Map<?, ?> labelDict, Location loc)
-      throws EvalException {
+      Map<?, ?> labelDict, Location loc, Environment env) throws EvalException {
     Map<Label, Iterable<Artifact>> convertedMap = new HashMap<>();
     for (Map.Entry<?, ?> entry : labelDict.entrySet()) {
       Object key = entry.getKey();
@@ -691,7 +689,7 @@ public class SkylarkRuleImplementationFunctions {
       Object val = entry.getValue();
       Iterable<?> valIter;
       try {
-        valIter = EvalUtils.toIterableStrict(val, loc);
+        valIter = EvalUtils.toIterableStrict(val, loc, env);
       } catch (EvalException ex) {
         // EvalException is thrown only if the type is wrong.
         throw new EvalException(
@@ -813,7 +811,7 @@ public class SkylarkRuleImplementationFunctions {
             throws ConversionException, EvalException {
           ctx.checkMutable("resolve_command");
           Label ruleLabel = ctx.getLabel();
-          Map<Label, Iterable<Artifact>> labelDict = checkLabelDict(labelDictUnchecked, loc);
+          Map<Label, Iterable<Artifact>> labelDict = checkLabelDict(labelDictUnchecked, loc, env);
           // The best way to fix this probably is to convert CommandHelper to Skylark.
           CommandHelper helper =
               new CommandHelper(

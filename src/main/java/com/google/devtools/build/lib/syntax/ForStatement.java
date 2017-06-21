@@ -61,7 +61,7 @@ public final class ForStatement extends Statement {
   @Override
   void doExec(Environment env) throws EvalException, InterruptedException {
     Object o = collection.eval(env);
-    Iterable<?> col = EvalUtils.toIterable(o, getLocation());
+    Iterable<?> col = EvalUtils.toIterable(o, getLocation(), env);
     EvalUtils.lock(o, getLocation());
     try {
       for (Object it : col) {

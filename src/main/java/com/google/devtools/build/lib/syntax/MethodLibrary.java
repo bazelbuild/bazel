@@ -949,13 +949,18 @@ public class MethodLibrary {
           defaultValue = "{}",
           doc = "Dictionary of arguments."
         ),
-    useLocation = true
+    useLocation = true,
+    useEnvironment = true
   )
   private static final BuiltinFunction format =
       new BuiltinFunction("format") {
         @SuppressWarnings("unused")
         public String invoke(
-            String self, SkylarkList<Object> args, SkylarkDict<?, ?> kwargs, Location loc)
+            String self,
+            SkylarkList<Object> args,
+            SkylarkDict<?, ?> kwargs,
+            Location loc,
+            Environment env)
             throws EvalException {
           return new FormatParser(loc)
               .format(
@@ -992,14 +997,16 @@ public class MethodLibrary {
             + "If only one argument is provided, it must be a non-empty iterable.",
     extraPositionals =
         @Param(name = "args", type = SkylarkList.class, doc = "The elements to be checked."),
-    useLocation = true
+    useLocation = true,
+    useEnvironment = true
   )
   private static final BuiltinFunction min =
       new BuiltinFunction("min") {
         @SuppressWarnings("unused") // Accessed via Reflection.
-        public Object invoke(SkylarkList<?> args, Location loc) throws EvalException {
+        public Object invoke(SkylarkList<?> args, Location loc, Environment env)
+            throws EvalException {
           try {
-            return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR.reverse(), loc);
+            return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR.reverse(), loc, env);
           } catch (ComparisonException e) {
             throw new EvalException(loc, e);
           }
@@ -1014,29 +1021,30 @@ public class MethodLibrary {
             + "If only one argument is provided, it must be a non-empty iterable.",
     extraPositionals =
         @Param(name = "args", type = SkylarkList.class, doc = "The elements to be checked."),
-    useLocation = true
+    useLocation = true,
+    useEnvironment = true
   )
   private static final BuiltinFunction max =
       new BuiltinFunction("max") {
         @SuppressWarnings("unused") // Accessed via Reflection.
-        public Object invoke(SkylarkList<?> args, Location loc) throws EvalException {
+        public Object invoke(SkylarkList<?> args, Location loc, Environment env)
+            throws EvalException {
           try {
-            return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR, loc);
+            return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR, loc, env);
           } catch (ComparisonException e) {
             throw new EvalException(loc, e);
           }
         }
       };
 
-  /**
-   * Returns the maximum element from this list, as determined by maxOrdering.
-   */
-  private static Object findExtreme(SkylarkList<?> args, Ordering<Object> maxOrdering, Location loc)
+  /** Returns the maximum element from this list, as determined by maxOrdering. */
+  private static Object findExtreme(
+      SkylarkList<?> args, Ordering<Object> maxOrdering, Location loc, Environment env)
       throws EvalException {
     // Args can either be a list of items to compare, or a singleton list whose element is an
     // iterable of items to compare. In either case, there must be at least one item to compare.
     try {
-      Iterable<?> items = (args.size() == 1) ? EvalUtils.toIterable(args.get(0), loc) : args;
+      Iterable<?> items = (args.size() == 1) ? EvalUtils.toIterable(args.get(0), loc, env) : args;
       return maxOrdering.max(items);
     } catch (NoSuchElementException ex) {
       throw new EvalException(loc, "expected at least one item");
@@ -1050,13 +1058,15 @@ public class MethodLibrary {
     parameters = {
       @Param(name = "elements", type = Object.class, doc = "A string or a collection of elements.")
     },
-    useLocation = true
+    useLocation = true,
+    useEnvironment = true
   )
   private static final BuiltinFunction all =
       new BuiltinFunction("all") {
         @SuppressWarnings("unused") // Accessed via Reflection.
-        public Boolean invoke(Object collection, Location loc) throws EvalException {
-          return !hasElementWithBooleanValue(collection, false, loc);
+        public Boolean invoke(Object collection, Location loc, Environment env)
+            throws EvalException {
+          return !hasElementWithBooleanValue(collection, false, loc, env);
         }
       };
 
@@ -1067,19 +1077,21 @@ public class MethodLibrary {
     parameters = {
       @Param(name = "elements", type = Object.class, doc = "A string or a collection of elements.")
     },
-    useLocation = true
+    useLocation = true,
+    useEnvironment = true
   )
   private static final BuiltinFunction any =
       new BuiltinFunction("any") {
         @SuppressWarnings("unused") // Accessed via Reflection.
-        public Boolean invoke(Object collection, Location loc) throws EvalException {
-          return hasElementWithBooleanValue(collection, true, loc);
+        public Boolean invoke(Object collection, Location loc, Environment env)
+            throws EvalException {
+          return hasElementWithBooleanValue(collection, true, loc, env);
         }
       };
 
-  private static boolean hasElementWithBooleanValue(Object collection, boolean value, Location loc)
-      throws EvalException {
-    Iterable<?> iterable = EvalUtils.toIterable(collection, loc);
+  private static boolean hasElementWithBooleanValue(
+      Object collection, boolean value, Location loc, Environment env) throws EvalException {
+    Iterable<?> iterable = EvalUtils.toIterable(collection, loc, env);
     for (Object obj : iterable) {
       if (EvalUtils.toBoolean(obj) == value) {
         return true;
@@ -1105,7 +1117,8 @@ public class MethodLibrary {
             throws EvalException {
           try {
             return new MutableList(
-                EvalUtils.SKYLARK_COMPARATOR.sortedCopy(EvalUtils.toCollection(self, loc)), env);
+                EvalUtils.SKYLARK_COMPARATOR.sortedCopy(EvalUtils.toCollection(self, loc, env)),
+                env);
           } catch (EvalUtils.ComparisonException e) {
             throw new EvalException(loc, e);
           }
@@ -1140,7 +1153,7 @@ public class MethodLibrary {
                 loc, "Argument to reversed() must be a sequence, not a depset.");
           }
           LinkedList<Object> tmpList = new LinkedList<>();
-          for (Object element : EvalUtils.toIterable(sequence, loc)) {
+          for (Object element : EvalUtils.toIterable(sequence, loc, env)) {
             tmpList.addFirst(element);
           }
           return new MutableList(tmpList, env);
@@ -1560,12 +1573,13 @@ public class MethodLibrary {
             + "tuple((2, 3, 2)) == (2, 3, 2)\n"
             + "tuple({5: \"a\", 2: \"b\", 4: \"c\"}) == (5, 2, 4)</pre>",
     parameters = {@Param(name = "x", doc = "The object to convert.")},
-    useLocation = true
+    useLocation = true,
+    useEnvironment = true
   )
   private static final BuiltinFunction tuple =
       new BuiltinFunction("tuple") {
-        public Tuple<?> invoke(Object x, Location loc) throws EvalException {
-          return Tuple.create(ImmutableList.copyOf(EvalUtils.toCollection(x, loc)));
+        public Tuple<?> invoke(Object x, Location loc, Environment env) throws EvalException {
+          return Tuple.create(ImmutableList.copyOf(EvalUtils.toCollection(x, loc, env)));
         }
       };
 
@@ -1584,7 +1598,7 @@ public class MethodLibrary {
   private static final BuiltinFunction list =
       new BuiltinFunction("list") {
         public MutableList<?> invoke(Object x, Location loc, Environment env) throws EvalException {
-          return new MutableList(EvalUtils.toCollection(x, loc), env);
+          return new MutableList(EvalUtils.toCollection(x, loc, env), env);
         }
       };
 
@@ -2114,7 +2128,7 @@ public class MethodLibrary {
             throws EvalException {
           Iterator<?>[] iterators = new Iterator<?>[args.size()];
           for (int i = 0; i < args.size(); i++) {
-            iterators[i] = EvalUtils.toIterable(args.get(i), loc).iterator();
+            iterators[i] = EvalUtils.toIterable(args.get(i), loc, env).iterator();
           }
           List<Tuple<?>> result = new ArrayList<>();
           boolean allHasNext;

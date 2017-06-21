@@ -234,6 +234,26 @@ comprehension.
 *   Default: `false`
 
 
+### Depset is no longer iterable
+
+When the flag is set to true, `depset` objects are not treated as iterable. If
+you need an iterable, call the `.to_list()` method. This affects `for` loops and
+many functions, e.g. `list`, `tuple`, `min`, `max`, `sorted`, `all`, `any`. The
+goal of this change is to avoid accidental iteration on `depset`, which can be
+expensive.
+
+``` python
+deps = depset()
+[x.path for x in deps]  # deprecated
+[x.path for x in deps.to_list()]  # recommended
+
+sorted(deps)  # deprecated
+sorted(deps.to_list())  # recommended
+```
+
+*   Flag: `--incompatible_depset_is_not_iterable`
+*   Default: `false`
+
 ## Upcoming changes
 
 The following items are upcoming changes.

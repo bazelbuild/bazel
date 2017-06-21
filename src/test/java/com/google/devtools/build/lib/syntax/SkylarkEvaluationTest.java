@@ -880,6 +880,26 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
+  public void testSetIsNotIterable() throws Exception {
+    new SkylarkTest("--incompatible_depset_is_not_iterable=true")
+        .testIfErrorContains("not iterable", "list(depset(['a', 'b']))")
+        .testIfErrorContains("not iterable", "max(depset([1, 2, 3]))")
+        .testIfErrorContains("not iterable", "sorted(depset(['a', 'b']))")
+        .testIfErrorContains("not iterable", "tuple(depset(['a', 'b']))")
+        .testIfErrorContains("not iterable", "[x for x in depset()]");
+  }
+
+  @Test
+  public void testSetIsIterable() throws Exception {
+    new SkylarkTest("--incompatible_depset_is_not_iterable=false")
+        .testStatement("str(list(depset(['a', 'b'])))", "[\"a\", \"b\"]")
+        .testStatement("max(depset([1, 2, 3]))", 3)
+        .testStatement("str(sorted(depset(['b', 'a'])))", "[\"a\", \"b\"]")
+        .testStatement("str(tuple(depset(['a', 'b'])))", "(\"a\", \"b\")")
+        .testStatement("str([x for x in depset()])", "[]");
+  }
+
+  @Test
   public void testClassObjectCannotAccessNestedSet() throws Exception {
     new SkylarkTest()
         .update("mock", new MockClassObject())

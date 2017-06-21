@@ -118,4 +118,15 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
             + " comprehension executes."
   )
   public boolean incompatibleComprehensionVariablesDoNotLeak;
+
+  @Option(
+    name = "incompatible_depset_is_not_iterable",
+    defaultValue = "false",
+    category = "incompatible changes",
+    help =
+        "If set to true, depset type is not iterable. For loops and functions expecting an "
+            + "iterable will reject depset objects. Use the `.to_list` method to explicitly "
+            + "convert to a list."
+  )
+  public boolean incompatibleDepsetIsNotIterable;
 }

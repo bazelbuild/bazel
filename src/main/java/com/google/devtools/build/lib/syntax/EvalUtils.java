@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * Utilities used by the evaluator.
@@ -300,7 +301,8 @@ public final class EvalUtils {
     }
   }
 
-  public static Collection<?> toCollection(Object o, Location loc) throws EvalException {
+  public static Collection<?> toCollection(Object o, Location loc, @Nullable Environment env)
+      throws EvalException {
     if (o instanceof Collection) {
       return (Collection<?>) o;
     } else if (o instanceof SkylarkList) {
@@ -323,25 +325,36 @@ public final class EvalUtils {
         throw new EvalException(loc, e);
       }
     } else if (o instanceof SkylarkNestedSet) {
-      return ((SkylarkNestedSet) o).toCollection();
+      return nestedSetToCollection((SkylarkNestedSet) o, loc, env);
     } else {
       throw new EvalException(loc,
           "type '" + getDataTypeName(o) + "' is not a collection");
     }
   }
 
-  public static Iterable<?> toIterable(Object o, Location loc) throws EvalException {
+  private static Collection<?> nestedSetToCollection(
+      SkylarkNestedSet set, Location loc, @Nullable Environment env) throws EvalException {
+    if (env != null && env.getSemantics().incompatibleDepsetIsNotIterable) {
+      throw new EvalException(
+          loc,
+          "type 'depset' is not iterable. Use the `to_list()` method to get a list. "
+              + "Use --incompatible_depset_is_not_iterable to temporarily disable this check.");
+    }
+    return set.toCollection();
+  }
+
+  public static Iterable<?> toIterable(Object o, Location loc, @Nullable Environment env)
+      throws EvalException {
     if (o instanceof String) {
       // This is not as efficient as special casing String in for and dict and list comprehension
       // statements. However this is a more unified way.
       return split((String) o);
     } else if (o instanceof SkylarkNestedSet) {
-      // TODO(bazel-team): Add a deprecation warning: don't implicitly flatten depsets.
-      return ((SkylarkNestedSet) o).toCollection();
+      return nestedSetToCollection((SkylarkNestedSet) o, loc, env);
     } else if (o instanceof Iterable) {
       return (Iterable<?>) o;
     } else if (o instanceof Map) {
-      return toCollection(o, loc);
+      return toCollection(o, loc, env);
     } else {
       throw new EvalException(loc,
           "type '" + getDataTypeName(o) + "' is not iterable");
@@ -358,18 +371,17 @@ public final class EvalUtils {
    *
    * @throws EvalException if {@code o} is not an iterable or set
    * @deprecated avoid writing APIs that implicitly treat depsets as iterables. It encourages
-   * unnecessary flattening of depsets.
-   *
-   * <p>TODO(bazel-team): Remove this if/when implicit iteration over {@code SkylarkNestedSet} is no
-   * longer supported.
+   *     unnecessary flattening of depsets.
+   *     <p>TODO(bazel-team): Remove this if/when implicit iteration over {@code SkylarkNestedSet}
+   *     is no longer supported.
    */
   @Deprecated
-  public static Iterable<?> toIterableStrict(Object o, Location loc) throws EvalException {
+  public static Iterable<?> toIterableStrict(Object o, Location loc, @Nullable Environment env)
+      throws EvalException {
     if (o instanceof Iterable) {
       return (Iterable<?>) o;
     } else if (o instanceof SkylarkNestedSet) {
-      // TODO(bazel-team): Add a deprecation warning: don't implicitly flatten depsets.
-      return ((SkylarkNestedSet) o).toCollection();
+      return nestedSetToCollection((SkylarkNestedSet) o, loc, env);
     } else {
       throw new EvalException(loc,
           "expected Iterable or depset, but got '" + getDataTypeName(o) + "' (strings and maps "

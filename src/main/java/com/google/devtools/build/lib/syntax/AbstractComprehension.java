@@ -113,7 +113,7 @@ public abstract class AbstractComprehension extends Expression {
         throws EvalException, InterruptedException {
       Object listValueObject = list.eval(env);
       Location loc = collector.getLocation();
-      Iterable<?> listValue = EvalUtils.toIterable(listValueObject, loc);
+      Iterable<?> listValue = EvalUtils.toIterable(listValueObject, loc, env);
       EvalUtils.lock(listValueObject, loc);
       try {
         for (Object listElement : listValue) {
