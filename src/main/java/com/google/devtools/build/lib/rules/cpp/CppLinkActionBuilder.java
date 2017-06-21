@@ -755,8 +755,14 @@ public class CppLinkActionBuilder {
             .setToolchain(toolchain)
             .setFdoSupport(fdoSupport.getFdoSupport())
             .setBuildVariables(buildVariables)
-            .setToolPath(getToolPath())
             .setFeatureConfiguration(featureConfiguration);
+
+    // TODO(b/62693279): Cleanup once internal crosstools specify ifso building correctly.
+    if (linkType.equals(LinkTargetType.DYNAMIC_LIBRARY)
+        && !featureConfiguration.hasConfiguredLinkerPathInActionConfig()) {
+      linkCommandLineBuilder.forceToolPath(
+          toolchain.getLinkDynamicLibraryTool().getExecPathString());
+    }
 
     if (!isLTOIndexing) {
       linkCommandLineBuilder
@@ -887,26 +893,6 @@ public class CppLinkActionBuilder {
         configuration.getLocalShellEnvironment(),
         toolchainEnv,
         executionRequirements.build());
-  }
-
-  /**
-   * Returns the tool path from feature configuration, if the tool in the configuration is sane, or
-   * builtin tool, if configuration has a dummy value.
-   */
-  private String getToolPath() {
-    if (!featureConfiguration.actionIsConfigured(linkType.getActionName())) {
-      return null;
-    }
-    String toolPath =
-        featureConfiguration
-            .getToolForAction(linkType.getActionName())
-            .getToolPath(cppConfiguration.getCrosstoolTopPathFragment())
-            .getPathString();
-    if (linkType.equals(LinkTargetType.DYNAMIC_LIBRARY)
-        && !featureConfiguration.hasConfiguredLinkerPathInActionConfig()) {
-      toolPath = toolchain.getLinkDynamicLibraryTool().getExecPathString();
-    }
-    return toolPath;
   }
 
   /** The default heuristic on whether we need to use whole-archive for the link. */

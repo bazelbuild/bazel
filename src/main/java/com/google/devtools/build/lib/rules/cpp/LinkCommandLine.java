@@ -53,7 +53,7 @@ import javax.annotation.Nullable;
 @Immutable
 public final class LinkCommandLine extends CommandLine {
   private final String actionName;
-  private final String toolPath;
+  private final String forcedToolPath;
   private final boolean codeCoverageEnabled;
   private final CppConfiguration cppConfiguration;
   private final ActionOwner owner;
@@ -80,7 +80,7 @@ public final class LinkCommandLine extends CommandLine {
 
   private LinkCommandLine(
       String actionName,
-      String toolPath,
+      String forcedToolPath,
       BuildConfiguration configuration,
       ActionOwner owner,
       Artifact output,
@@ -103,7 +103,7 @@ public final class LinkCommandLine extends CommandLine {
       CcToolchainProvider ccProvider) {
 
     this.actionName = actionName;
-    this.toolPath = toolPath;
+    this.forcedToolPath = forcedToolPath;
     this.codeCoverageEnabled = configuration.isCodeCoverageEnabled();
     this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
     this.variables = variables;
@@ -320,6 +320,9 @@ public final class LinkCommandLine extends CommandLine {
   }
   
   private ImmutableList<String> getToolchainFlags() {
+    if (Staticness.STATIC.equals(linkTargetType.staticness())) {
+      return ImmutableList.of();
+    }
     boolean fullyStatic = (linkStaticness == LinkStaticness.FULLY_STATIC);
     boolean mostlyStatic = (linkStaticness == LinkStaticness.MOSTLY_STATIC);
     boolean sharedLinkopts =
@@ -379,52 +382,23 @@ public final class LinkCommandLine extends CommandLine {
    */
   public List<String> getRawLinkArgv() {
     List<String> argv = new ArrayList<>();
-
-    // TODO(b/30109612): Extract this switch into individual crosstools once action configs are no
-    // longer hardcoded in CppActionConfigs.
-    switch (linkTargetType) {
-      case EXECUTABLE:
-        argv.add(cppConfiguration.getCppExecutable().getPathString());
-        argv.addAll(
-            featureConfiguration.getCommandLine(
-                actionName,
-                new Variables.Builder()
-                    .addAll(variables)
-                    .addStringSequenceVariable(
-                        CppLinkActionBuilder.LEGACY_LINK_FLAGS_VARIABLE, getToolchainFlags())
-                    .build()));
-        break;
-
-      case STATIC_LIBRARY:
-      case PIC_STATIC_LIBRARY:
-      case ALWAYS_LINK_STATIC_LIBRARY:
-      case ALWAYS_LINK_PIC_STATIC_LIBRARY:
-        argv.add(toolPath);
-        argv.addAll(featureConfiguration.getCommandLine(actionName, variables));
-        break;
-
-      // Since the objc case/dynamic libs is not hardcoded in CppConfiguration, we can use the
-      // actual tool.
-      // TODO(b/30109612): make this pattern the case for all link variants.
-      case DYNAMIC_LIBRARY:
-      case OBJC_ARCHIVE:
-      case OBJC_FULLY_LINKED_ARCHIVE:
-      case OBJC_EXECUTABLE:
-      case OBJCPP_EXECUTABLE:
-        argv.add(toolPath);
-        argv.addAll(
-            featureConfiguration.getCommandLine(
-                actionName,
-                new Variables.Builder()
-                    .addAll(variables)
-                    .addStringSequenceVariable(
-                        CppLinkActionBuilder.LEGACY_LINK_FLAGS_VARIABLE, getToolchainFlags())
-                    .build()));
-        break;
-
-      default:
-        throw new IllegalArgumentException();
+    if (forcedToolPath != null) {
+      argv.add(forcedToolPath);
+    } else {
+      argv.add(
+          featureConfiguration
+              .getToolForAction(linkTargetType.getActionName())
+              .getToolPath(cppConfiguration.getCrosstoolTopPathFragment())
+              .getPathString());
     }
+    argv.addAll(
+        featureConfiguration.getCommandLine(
+            actionName,
+            new Variables.Builder()
+                .addAll(variables)
+                .addStringSequenceVariable(
+                    CppLinkActionBuilder.LEGACY_LINK_FLAGS_VARIABLE, getToolchainFlags())
+                .build()));
     return argv;
   }
 
@@ -635,7 +609,7 @@ public final class LinkCommandLine extends CommandLine {
     private final ActionOwner owner;
     private final RuleContext ruleContext;
 
-    @Nullable private String toolPath;
+    private String forcedToolPath;
     @Nullable private Artifact output;
     private ImmutableList<Artifact> buildInfoHeaderArtifacts = ImmutableList.of();
     private Iterable<? extends LinkerInput> linkerInputs = ImmutableList.of();
@@ -714,7 +688,7 @@ public final class LinkCommandLine extends CommandLine {
 
       return new LinkCommandLine(
           actionName,
-          toolPath,
+          forcedToolPath,
           configuration,
           owner,
           output,
@@ -751,9 +725,9 @@ public final class LinkCommandLine extends CommandLine {
       return this;
     }
 
-    /** Sets the tool path, with tool being the first thing on the command line */
-    public Builder setToolPath(String toolPath) {
-      this.toolPath = toolPath;
+    /** Use given tool path instead of the one from feature configuration */
+    public Builder forceToolPath(String forcedToolPath) {
+      this.forcedToolPath = forcedToolPath;
       return this;
     }
 
