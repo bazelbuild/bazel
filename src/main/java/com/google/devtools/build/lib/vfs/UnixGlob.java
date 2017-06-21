@@ -131,14 +131,6 @@ public final class UnixGlob {
     if (pattern.charAt(0) == '/') {
       return "pattern cannot be absolute";
     }
-    for (int i = 0; i < pattern.length(); i++) {
-      char c = pattern.charAt(i);
-      switch (c) {
-        case '{': case '}':
-        case '[': case ']':
-        return "illegal character '" + c + "'";
-      }
-    }
     Iterable<String> segments = Splitter.on('/').split(pattern);
     for (String segment : segments) {
       if (segment.isEmpty()) {
