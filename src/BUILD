@@ -126,6 +126,7 @@ filegroup(
 [genrule(
     name = "embedded_tools" + suffix,
     srcs = [
+        "BUILD.tools",
         ":create_embedded_tools.sh",
         "//tools:embedded_tools_srcs",
         "//third_party:gpl-srcs",
@@ -140,6 +141,9 @@ filegroup(
         "//src/tools/android/java/com/google/devtools/build/android/idlclass:embedded_tools",
         "//src/tools/android/java/com/google/devtools/build/android/dexer:embedded_tools",
         "//src/tools/android/java/com/google/devtools/build/android/ziputils:embedded_tools",
+        "//src/tools/singlejar:embedded_tools",
+        "//src/main/cpp/util:embedded_tools",
+        "//src/main/native:embedded_tools",
         "//src/main/protobuf:srcs",
         "//src/java_tools/buildjar:JavaBuilderDeploy",
         "//src/java_tools/buildjar:VanillaJavaBuilder_deploy.jar",
@@ -148,7 +152,9 @@ filegroup(
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:ExperimentalRunner_deploy.jar",
         "//src/java_tools/junitrunner/java/com/google/testing/coverage:embedded_tools",
         "//third_party/ijar",
+        "//third_party/ijar:embedded_tools",
         "//third_party/java/jacoco:srcs",
+        "//third_party/zlib:embedded_tools",
     ] + select({
         ":darwin": [
             ":darwin_tools",
