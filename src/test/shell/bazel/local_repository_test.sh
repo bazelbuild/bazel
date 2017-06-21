@@ -427,17 +427,6 @@ EOF
   expect_log "//external:my_repo"
 }
 
-function test_repository_package_query() {
-  mkdir a b b/b
-  echo "local_repository(name='b', path='b')" > WORKSPACE
-  echo "sh_library(name='a', deps=['@b//b'])" > a/BUILD
-  touch b/WORKSPACE
-  echo "sh_library(name='b')" > b/b/BUILD
-  bazel query --output package "deps(//a)" >& $TEST_log || fail "query failed"
-  expect_log "a"
-  expect_log "@b//b"
-}
-
 function test_warning() {
   local bar=$TEST_TMPDIR/bar
   rm -rf "$bar"

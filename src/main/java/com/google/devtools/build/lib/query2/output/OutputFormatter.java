@@ -344,7 +344,7 @@ public abstract class OutputFormatter implements Serializable {
         public void processOutput(Iterable<Target> partialResult) {
 
           for (Target target : partialResult) {
-            packageNames.add(target.getPackage().getPackageIdentifier().toString());
+            packageNames.add(target.getLabel().getPackageName());
           }
         }
 
