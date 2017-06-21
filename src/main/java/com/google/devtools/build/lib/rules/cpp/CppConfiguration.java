@@ -1378,10 +1378,14 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       return unfilteredCompilerFlags.evaluate(features);
     } else {
       return ImmutableList.<String>builder()
-          .add("--sysroot=" + sysroot)
+          .add(getSysrootCompilerOption(sysroot))
           .addAll(unfilteredCompilerFlags.evaluate(features))
           .build();
     }
+  }
+
+  public String getSysrootCompilerOption(PathFragment sysroot) {
+    return "--sysroot=" + sysroot;
   }
 
   /**
