@@ -59,12 +59,12 @@ public final class RemoteModule extends BlazeModule {
         Digest digest = Digests.computeDigest(path);
         return remoteInstanceName.isEmpty()
             ? String.format(
-                "//%s/blobs/%s/%d",
+                "bytestream://%s/blobs/%s/%d",
                 server,
                 digest.getHash(),
                 digest.getSizeBytes())
             : String.format(
-                "//%s/%s/blobs/%s/%d",
+                "bytestream://%s/%s/blobs/%s/%d",
                 server,
                 remoteInstanceName,
                 digest.getHash(),
