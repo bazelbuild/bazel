@@ -73,6 +73,9 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
   private final ChannelOptions channelOptions;
   private final SpawnInputExpander spawnInputExpander = new SpawnInputExpander(/*strict=*/ false);
 
+  private final RemoteActionCache remoteCache;
+  private final GrpcRemoteExecutor workExecutor;
+
   RemoteSpawnStrategy(
       Path execRoot,
       RemoteOptions remoteOptions,
@@ -96,6 +99,30 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
       platform = platformBuilder.build();
     } else {
       platform = null;
+    }
+    // Initialize remote cache and execution handlers. We use separate handlers for every
+    // action to enable server-side parallelism (need a different gRPC channel per action).
+    if (SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions)) {
+      remoteCache = new SimpleBlobStoreActionCache(SimpleBlobStoreFactory.create(remoteOptions));
+    } else if (GrpcActionCache.isRemoteCacheOptions(remoteOptions)) {
+      remoteCache =
+          new GrpcActionCache(
+              RemoteUtils.createChannel(remoteOptions.remoteCache, channelOptions),
+              channelOptions,
+              remoteOptions);
+    } else {
+      remoteCache = null;
+    }
+    // Otherwise remoteCache remains null and remote caching/execution are disabled.
+
+    if (remoteCache != null && GrpcRemoteExecutor.isRemoteExecutionOptions(remoteOptions)) {
+      workExecutor =
+          new GrpcRemoteExecutor(
+              RemoteUtils.createChannel(remoteOptions.remoteExecutor, channelOptions),
+              channelOptions,
+              remoteOptions);
+    } else {
+      workExecutor = null;
     }
   }
 
@@ -221,30 +248,6 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
     String mnemonic = spawn.getMnemonic();
     EventHandler eventHandler = actionExecutionContext.getEventHandler();
 
-    RemoteActionCache remoteCache = null;
-    GrpcRemoteExecutor workExecutor = null;
-    if (spawn.isRemotable()) {
-      // Initialize remote cache and execution handlers. We use separate handlers for every
-      // action to enable server-side parallelism (need a different gRPC channel per action).
-      if (SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions)) {
-        remoteCache = new SimpleBlobStoreActionCache(SimpleBlobStoreFactory.create(remoteOptions));
-      } else if (GrpcActionCache.isRemoteCacheOptions(remoteOptions)) {
-        remoteCache =
-            new GrpcActionCache(
-                RemoteUtils.createChannel(remoteOptions.remoteCache, channelOptions),
-                channelOptions,
-                remoteOptions);
-      }
-      // Otherwise remoteCache remains null and remote caching/execution are disabled.
-
-      if (remoteCache != null && GrpcRemoteExecutor.isRemoteExecutionOptions(remoteOptions)) {
-        workExecutor =
-            new GrpcRemoteExecutor(
-                RemoteUtils.createChannel(remoteOptions.remoteExecutor, channelOptions),
-                channelOptions,
-                remoteOptions);
-      }
-    }
     if (!spawn.isRemotable() || remoteCache == null) {
       fallbackStrategy.exec(spawn, actionExecutionContext);
       return;
