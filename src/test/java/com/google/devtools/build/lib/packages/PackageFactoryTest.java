@@ -808,16 +808,12 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   }
 
   @Test
-  public void testBadCharactersInGlob() throws Exception {
-    events.setFailFast(false);
-    assertGlobFails("glob(['{'])", "illegal character");
-    assertGlobFails("glob(['?'])", "illegal character");
+  public void testBadCharacterInGlob() throws Exception {
+   events.setFailFast(false);
+   assertGlobFails("glob(['?'])", "glob pattern '?' contains forbidden '?' wildcard");
   }
 
-  /**
-   * Tests that a glob evaluation that encounters an I/O error produces
-   * a glob error.
-   */
+  /** Tests that a glob evaluation that encounters an I/O error produces a glob error. */
   @Test
   public void testGlobWithIOErrors() throws Exception {
     events.setFailFast(false);
