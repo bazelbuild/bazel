@@ -167,7 +167,7 @@ public final class QueryCommand implements BlazeCommand {
           queryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()));
       callback = streamedFormatter.createStreamCallback(out, queryOptions, queryEnv);
     } else {
-      callback = QueryUtil.newOrderedAggregateAllOutputFormatterCallback();
+      callback = QueryUtil.newOrderedAggregateAllOutputFormatterCallback(queryEnv);
     }
     boolean catastrophe = true;
     try {
@@ -211,7 +211,8 @@ public final class QueryCommand implements BlazeCommand {
     if (!streamResults) {
       disableAnsiCharactersFiltering(env);
       try {
-        Set<Target> targets = ((AggregateAllOutputFormatterCallback<Target>) callback).getResult();
+        Set<Target> targets =
+            ((AggregateAllOutputFormatterCallback<Target, ?>) callback).getResult();
         QueryOutputUtils.output(
             queryOptions,
             result,

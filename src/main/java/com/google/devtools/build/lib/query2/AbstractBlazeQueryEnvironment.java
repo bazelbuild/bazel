@@ -238,7 +238,8 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
     return true;
   }
 
-  public QueryTaskFuture<Set<T>> evalTargetPattern(QueryExpression caller, String pattern) {
+  public QueryTaskFuture<ThreadSafeMutableSet<T>> evalTargetPattern(
+      QueryExpression caller, String pattern) {
     try {
       preloadOrThrow(caller, ImmutableList.of(pattern));
     } catch (TargetParsingException tpe) {
@@ -253,14 +254,15 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
     } catch (InterruptedException e) {
       return immediateCancelledFuture();
     }
-    final AggregateAllCallback<T> aggregatingCallback = QueryUtil.newAggregateAllCallback();
+    final AggregateAllCallback<T, ThreadSafeMutableSet<T>> aggregatingCallback =
+        QueryUtil.newAggregateAllCallback(this);
     QueryTaskFuture<Void> evalFuture =
         getTargetsMatchingPattern(caller, pattern, aggregatingCallback);
     return whenSucceedsCall(
         evalFuture,
-        new QueryTaskCallable<Set<T>>() {
+        new QueryTaskCallable<ThreadSafeMutableSet<T>>() {
           @Override
-          public Set<T> call() {
+          public ThreadSafeMutableSet<T> call() {
             return aggregatingCallback.getResult();
           }
         });

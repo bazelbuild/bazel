@@ -15,9 +15,9 @@ package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskCallable;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -100,12 +100,13 @@ public class BinaryOperatorExpression extends QueryExpression {
       final QueryEnvironment<T> env,
       final VariableContext<T> context,
       final Callback<T> callback) {
-    QueryTaskFuture<Set<T>> lhsValueFuture = QueryUtil.evalAll(env, context, operands.get(0));
-    Function<Set<T>, QueryTaskFuture<Void>> substractAsyncFunction =
-        new Function<Set<T>, QueryTaskFuture<Void>>() {
+    QueryTaskFuture<ThreadSafeMutableSet<T>> lhsValueFuture =
+        QueryUtil.evalAll(env, context, operands.get(0));
+    Function<ThreadSafeMutableSet<T>, QueryTaskFuture<Void>> subtractAsyncFunction =
+        new Function<ThreadSafeMutableSet<T>, QueryTaskFuture<Void>>() {
       @Override
-      public QueryTaskFuture<Void> apply(Set<T> lhsValue) {
-        final Set<T> threadSafeLhsValue = Sets.newConcurrentHashSet(lhsValue);
+      public QueryTaskFuture<Void> apply(ThreadSafeMutableSet<T> lhsValue) {
+        final Set<T> threadSafeLhsValue = lhsValue;
         Callback<T> subtractionCallback = new Callback<T>() {
           @Override
           public void process(Iterable<T> partialResult) {
@@ -127,7 +128,7 @@ public class BinaryOperatorExpression extends QueryExpression {
             });
       }
     };
-    return env.transformAsync(lhsValueFuture, substractAsyncFunction);
+    return env.transformAsync(lhsValueFuture, subtractAsyncFunction);
   }
 
   private <T> QueryTaskFuture<Void> evalIntersect(
@@ -141,20 +142,24 @@ public class BinaryOperatorExpression extends QueryExpression {
     // TODO(bazel-team): Consider keeping just the name / label of the right-hand side results
     // instead of the potentially heavy-weight instances of type T. This would let us process all
     // right-hand side operands in parallel without worrying about memory usage.
-    QueryTaskFuture<Set<T>> rollingResultFuture = QueryUtil.evalAll(env, context, operands.get(0));
+    QueryTaskFuture<ThreadSafeMutableSet<T>> rollingResultFuture =
+        QueryUtil.evalAll(env, context, operands.get(0));
     for (int i = 1; i < operands.size(); i++) {
       final int index = i;
-      Function<Set<T>, QueryTaskFuture<Set<T>>> evalOperandAndIntersectAsyncFunction =
-          new Function<Set<T>, QueryTaskFuture<Set<T>>>() {
+      Function<ThreadSafeMutableSet<T>, QueryTaskFuture<ThreadSafeMutableSet<T>>>
+          evalOperandAndIntersectAsyncFunction =
+          new Function<ThreadSafeMutableSet<T>, QueryTaskFuture<ThreadSafeMutableSet<T>>>() {
             @Override
-            public QueryTaskFuture<Set<T>> apply(final Set<T> rollingResult) {
-              final QueryTaskFuture<Set<T>> rhsOperandValueFuture =
+            public QueryTaskFuture<ThreadSafeMutableSet<T>> apply(
+                final ThreadSafeMutableSet<T> rollingResult) {
+              final QueryTaskFuture<ThreadSafeMutableSet<T>> rhsOperandValueFuture =
                   QueryUtil.evalAll(env, context, operands.get(index));
               return env.whenSucceedsCall(
                   rhsOperandValueFuture,
-                  new QueryTaskCallable<Set<T>>() {
+                  new QueryTaskCallable<ThreadSafeMutableSet<T>>() {
                     @Override
-                    public Set<T> call() throws QueryException, InterruptedException {
+                    public ThreadSafeMutableSet<T> call()
+                        throws QueryException, InterruptedException {
                       rollingResult.retainAll(rhsOperandValueFuture.getIfSuccessful());
                       return rollingResult;
                     }
@@ -164,7 +169,7 @@ public class BinaryOperatorExpression extends QueryExpression {
       rollingResultFuture =
           env.transformAsync(rollingResultFuture, evalOperandAndIntersectAsyncFunction);
     }
-    final QueryTaskFuture<Set<T>> resultFuture = rollingResultFuture;
+    final QueryTaskFuture<ThreadSafeMutableSet<T>> resultFuture = rollingResultFuture;
     return env.whenSucceedsCall(
         resultFuture,
         new QueryTaskCallable<Void>() {

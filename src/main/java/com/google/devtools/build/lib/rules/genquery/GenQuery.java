@@ -284,8 +284,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
 
     DigraphQueryEvalResult<Target> queryResult;
     OutputFormatter formatter;
-    AggregateAllOutputFormatterCallback<Target> targets =
-        QueryUtil.newOrderedAggregateAllOutputFormatterCallback();
+    AggregateAllOutputFormatterCallback<Target, ?> targets;
     try {
       Set<Setting> settings = queryOptions.toSettings();
 
@@ -327,6 +326,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
                   /*blockUniverseEvaluationErrors=*/ false);
       QueryExpression expr = QueryExpression.parse(query, queryEnvironment);
       formatter.verifyCompatible(queryEnvironment, expr);
+      targets = QueryUtil.newOrderedAggregateAllOutputFormatterCallback(queryEnvironment);
       queryResult = queryEnvironment.evaluateQuery(expr, targets);
     } catch (SkyframeRestartQueryException e) {
       // Do not emit errors for skyframe restarts. They make output of the ConfiguredTargetFunction
