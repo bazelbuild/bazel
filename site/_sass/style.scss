@@ -1,16 +1,21 @@
+// Bazel logo colors
+$bazel-green: #43a047;
+$bazel-green-light: #76d275;
+$bazel-green-dark-left: #00701a;
+$bazel-green-dark-right: #004300;
+$color-on-bazel-green: #fff;
+
 $body-font-family: 'RobotoDraft', 'Helvetica Neue', Helvetica, Arial,
                    sans-serif;
 $code-font-family: 'Source Code Pro', monospace;
 
-$link-color: #4caf50;
+$link-color: $bazel-green;
 $link-hover-color: darken($link-color, 10%);
 $well-color: #f9f9f9;
 $text-color: #444;
 
 $vpad: 20px;
 
-$footer-height: 60px;
-$footer-margin: 40px;
 
 html {
   position: relative;
@@ -21,47 +26,6 @@ body {
   padding-top: 50px;
   color: $text-color;
   font-family: $body-font-family;
-  margin-bottom: $footer-height + $footer-margin;
-}
-
-// Footer styles
-$footer-bg-color: #424242;
-$footer-color: #fff;
-$footer-muted-color: #e0e0e0;
-$footer-link-color: #e0e0e0;
-$footer-link-hover-color: #fff;
-
-.footer {
-  position: absolute;
-  bottom: 0;
-  width: 100%;
-  height: $footer-height;
-  margin-top: $footer-margin;
-  background-color: $footer-bg-color;
-  color: $footer-color;
-  padding: 20px;
-
-  .text-muted {
-    color: $footer-muted-color;
-  }
-
-  a {
-    color: $footer-link-color;
-
-    &:hover,
-    &:focus {
-      color: $footer-link-hover-color;
-      text-decoration: none;
-    }
-  }
-}
-
-.body-home {
-  margin-bottom: $footer-height;
-
-  .footer {
-    margin-top: 0;
-  }
 }
 
 a {
@@ -149,6 +113,23 @@ code {
   background-color: $well-color;
 }
 
+
+// Immitate material design buttons
+.btn-lg {
+  font-size: 14px;
+  text-transform: uppercase;
+}
+
+$md-shadow-1: rgba(0, 0, 0, .14);
+$md-shadow-2: rgba(0, 0, 0, .2);
+$md-shadow-3: rgba(0, 0, 0, .12);
+
+.btn-success {
+  border-radius: 2px;
+  box-shadow: 0 2px 2px 0 $md-shadow-1, 0 3px 1px -2px $md-shadow-2, 0 1px 5px 0 $md-shadow-3;
+  border: 0;
+}
+
 .well {
   background-color: $well-color;
   border-color: $well-color;
@@ -160,43 +141,8 @@ code {
   padding-top: $vpad;
 }
 
-// Main page hero styles.
-$hero-bg-color: #fafafa;
-
-.hero {
-  background-color: $hero-bg-color;
-  color: $text-color;
-  padding-top: 40px;
-  padding-bottom: 40px;
-  text-align: center;
-
-  h1 {
-    margin-top: 0;
-    font-size: 72px;
-    color: $text-color;
-  }
-
-  .logo {
-    width: 270px;
-    padding-bottom: 20px;
-  }
-}
-
-$hero-bar-bg-color: #eee;
-
-.hero-bar {
-  text-align: center;
-  background-color: $hero-bar-bg-color;
-  padding-bottom: 10px;
-  padding-top: 10px;
-  font-weight: bold;
-}
-
-$page-title-bar-bg-color: #e8f5e9;
-$page-title-bar-color: #4caf50;
-
 .page-title-bar {
-  background-color: $page-title-bar-bg-color;
+  background-color: $bazel-green-light;
   padding-top: 20px;
   padding-bottom: 20px;
 
@@ -206,340 +152,8 @@ $page-title-bar-color: #4caf50;
   h4,
   h5,
   h6 {
-    margin: 8px 0 4px 0;
-    color: $page-title-bar-color;
-  }
-}
-
-.page-spacer {
-  height: 100px;
-}
-
-// Sidebar styles
-$navbar-bg-color: #4caf50;
-$navbar-hover-bg-color: #66bb6a;
-$navbar-color: #fff;
-$navbar-hover-color: #444;
-$navbar-input-bg-color: #c8e6c9;
-$navbar-input-focus-bg-color: #fff;
-$navbar-input-border-color: #4caf50;
-
-.navbar-inverse {
-  margin-bottom: 0;
-  background-color: $navbar-bg-color;
-  border-bottom: 1px solid $navbar-bg-color;
-
-  .navbar-brand {
-    padding-top: 10px;
-  }
-
-  a.navbar-brand {
-    color: $navbar-color;
-
-    &:focus,
-    &:hover {
-      color: $navbar-color;
-      background-color: $navbar-bg-color;
-    }
-  }
-
-  .navbar-nav > li > a {
-    color: $navbar-color;
-
-    &:focus,
-    &:hover {
-      color: $navbar-color;
-      background-color: $navbar-hover-bg-color;
-    }
-
-    &.nav-icon {
-      font-size: 18px;
-    }
-  }
-
-  .navbar-nav > li.active > a {
-    background-color: $navbar-hover-bg-color;
-
-    &:focus,
-    &:hover {
-      background-color: $navbar-hover-bg-color;
-    }
-  }
-
-  .navbar-form {
-    border-color: $navbar-bg-color;
-
-    .input-sm {
-      margin-top: 2px;
-    }
-
-    input[type="search"] {
-      background-color: $navbar-input-bg-color;
-      border-color: $navbar-input-border-color;
-
-      &:focus,
-      &:active {
-        background-color: $navbar-input-focus-bg-color;
-      }
-    }
-  }
-
-  .navbar-toggle {
-    border: 1px solid $navbar-bg-color;
-
-    &.active,
-    &:focus,
-    &:hover {
-      background-color: $navbar-hover-bg-color;
-    }
-  }
-
-  .navbar-collapse {
-    border-color: $navbar-bg-color;
-  }
-}
-
-@media (max-width: 768px) {
-  #cse-search-box {
-    margin-top: 0;
-    margin-bottom: 0;
-  }
-}
-
-// Landing page features styles.
-$landing-feature-1-bg-color: #fff;
-$landing-feature-2-bg-color: #fafafa;
-
-.landing-feature-1 {
-  background-color: $landing-feature-1-bg-color;
-  padding-top: 20px;
-  padding-bottom: 30px;
-  text-align: center;
-}
-
-.landing-feature-2 {
-  background-color: $landing-feature-2-bg-color;
-  padding-top: 20px;
-  padding-bottom: 30px;
-  text-align: center;
-}
-
-.landing-feature-1,
-.landing-feature-2 {
-  font-size: 16px;
-  line-height: 28px;
-}
-
-// Landing page
-.landing-context {
-  .lang-list {
-    font-size: 18px;
-  }
-}
-
-// Docs layout specific
-$sidebar-border-color: #fff;
-$sidebar-hover-border-color: #66bb6a;
-
-.sidebar {
-  margin-top: 40px;
-
-  ul.sidebar-nav {
-    list-style-type: none;
-    padding: 0;
-
-    li {
-      &.sidebar-nav-heading {
-        padding: 10px 0;
-        margin: 0;
-        display: block;
-        font-size: 16px;
-        font-weight: 300;
-      }
-
-      a {
-        padding: 4px 0;
-        display: block;
-        border-right: 2px solid $sidebar-border-color;;
-
-        &:focus {
-          text-decoration: none;
-        }
-
-        &:active,
-        &:hover {
-          border-right: 2px solid $sidebar-hover-border-color;
-          text-decoration: none;
-        }
-
-        .caret {
-          float: right;
-          margin-top: 8px;
-          margin-right: 10px;
-        }
-      }
-
-      &.active {
-        a {
-          border-right: 2px solid $sidebar-hover-border-color;
-        }
-      }
-    }
-
-    ul.sidebar-nav {
-      padding-left: 10px;
-    }
-  }
-}
-
-@media (min-width: 992px) {
-  .sidebar-toggle {
-    display: none;
-  }
-
-  .sidebar {
-    &.collapse {
-      display: block;
-    }
-  }
-}
-
-// FAQ page
-.faq-context {
-  h4 {
-    margin-top: 30px;
-  }
-}
-
-// Build Encyclopedia and Skylark Library
-
-pre.rule-signature {
-  white-space: normal;
-  word-wrap: break-word;
-  word-break: normal;
-}
-
-colgroup {
-  .col-param {
-    width: 25%;
-  }
-
-  .col-description {
-    width: 75%;
-  }
-}
-
-$table-params-border-color: #81c784;
-$table-params-head-color: #fff;
-$table-params-body-bg-color: #e8f5e9;
-
-.table-params {
-  border: 1px solid $table-params-border-color;
-
-  thead > tr > th {
-    color: $table-params-head-color;
-    border: 1px solid $table-params-border-color;
-    background-color: $table-params-border-color;
-  }
-
-  tbody > tr > td {
-    background-color: $table-params-body-bg-color;
-    border: 1px solid $table-params-border-color;
-  }
-}
-
-$table-implicit-border-color: #c0c0c0;
-$table-implicit-head-color: #fff;
-$table-implicit-body-bg-color: #f0f0f0;
-
-.table-implicit {
-  border: 1px solid $table-implicit-border-color;
-
-  thead > tr > th {
-    color: $table-implicit-head-color;
-    border: 1px solid $table-implicit-border-color;
-    background-color: $table-implicit-border-color;
-  }
-
-  tbody > tr > td {
-    background-color: $table-implicit-body-bg-color;
-    border: 1px solid $table-implicit-border-color;
-  }
-}
-
-$toc-border-color: #c8e6c9;
-$toc-color: #757575;
-
-.toc {
-  border-left: 4px solid $toc-border-color;
-  padding-left: 18px;
-  margin-bottom: 20px;
-
-  h1,
-  h2 {
-    font-size: 24px;
-    color: $toc-color;
-    margin-bottom: 12px;
-  }
-
-  ul {
-    list-style: none;
-    padding-left: 0;
-    margin-top: 0;
-
-    li {
-      line-height: 36px;
-      font-size: 16px;
-      font-weight: 400;
-    }
-  }
-}
-
-// Command-line Reference
-dt {
-  margin-top: .5em;
-}
-
-dd {
-  margin-left: 2em;
-}
-
-// Roadmap page styles
-.roadmap-col-phase {
-  width: 10%;
-}
-
-.roadmap-col-milestone {
-  width: 5%;
-}
-
-.roadmap-col-date {
-  width: 10%;
-}
-
-.roadmap-col-features {
-  width: 75%;
-}
-
-// Support page styles
-.support-col-rules {
-  width: 30%;
-}
-
-.support-col-notes {
-  width: 70%;
-}
-
-// Blog styles
-.blog-post {
-  margin-bottom: 60px;
-
-  .blog-post-title {
-    margin-bottom: 5px;
-  }
-
-  .blog-post-meta {
-    margin-bottom: 20px;
+    margin: 8px 0 4px;
+    color: $color-on-bazel-green;
   }
 }
 
@@ -551,12 +165,4 @@ dd {
     -moz-box-sizing: content-box !important;
     box-sizing: content-box !important;
   }
-}
-
-.gh-edit {
-  float: right;
-}
-
-.gh-edit.default-hidden {
-  visibility: hidden;
 }

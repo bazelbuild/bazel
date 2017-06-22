@@ -8,8 +8,8 @@
             <span class="icon-bar"></span>
             <span class="icon-bar"></span>
           </button>
-          <a class="navbar-brand" href="{{ site.main_site_url }}">
-            <img src="/images/bazel-navbar.png" height="30px">
+          <a class="navbar-brand" href="{{ site.main_site_url }}/">
+            <img class="navbar-logo" src="/images/bazel-navbar.svg">
           </a>
         </div>
 
@@ -28,21 +28,17 @@
           </form>
           <ul class="nav navbar-nav navbar-right">
             <li{% if page.nav == "docs" %} class="active"{% endif %}>
-              <a href="/">Docs</a>
+              <a href="{{ site.docs_site_url }}">Documentation</a>
             </li>
             <li{% if page.nav == "contribute" %} class="active"{% endif %}>
-              <a href="{{ site.main_site_url }}/contributing.html">Contribute!</a>
+              <a href="{{ site.main_site_url }}/contributing.html">Contribute</a>
             </li>
-            <li{% if page.nav == "faq" %} class="active"{% endif %}>
-              <a href="{{ site.main_site_url }}/faq.html">FAQ</a></li>
             <li{% if page.nav == "blog" %} class="active"{% endif %}>
               <a href="{{ site.blog_site_url }}">Blog</a>
             </li>
-            <li><a href="http://stackoverflow.com/questions/tagged/bazel" class="nav-icon"><i class="fa fa-stack-overflow"></i></a></li>
-            <li><a href="https://groups.google.com/forum/#!forum/bazel-discuss" class="nav-icon"><i class="fa fa-envelope"></i></a></li>
             <li><a href="https://twitter.com/bazelbuild" class="nav-icon"><i class="fa fa-twitter"></i></a></li>
+            <li><a href="http://stackoverflow.com/questions/tagged/bazel" class="nav-icon"><i class="fa fa-stack-overflow"></i></a></li>
           </ul>
         </div><!-- /.navbar-collapse -->
       </div><!-- /.container-fluid -->
     </nav>
-

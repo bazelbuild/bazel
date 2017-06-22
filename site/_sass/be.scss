@@ -1,0 +1,93 @@
+// Build Encyclopedia and Skylark Library
+
+pre.rule-signature {
+  white-space: normal;
+  word-wrap: break-word;
+  word-break: normal;
+}
+
+colgroup {
+  .col-param {
+    width: 25%;
+  }
+
+  .col-description {
+    width: 75%;
+  }
+}
+
+$table-params-border-color: #81c784;
+$table-params-head-color: #fff;
+$table-params-body-bg-color: #e8f5e9;
+
+.table-params {
+  border: 1px solid $table-params-border-color;
+
+  thead > tr > th {
+    color: $table-params-head-color;
+    border: 1px solid $table-params-border-color;
+    background-color: $table-params-border-color;
+  }
+
+  tbody > tr > td {
+    background-color: $table-params-body-bg-color;
+    border: 1px solid $table-params-border-color;
+  }
+}
+
+$table-implicit-border-color: #c0c0c0;
+$table-implicit-head-color: #fff;
+$table-implicit-body-bg-color: #f0f0f0;
+
+.table-implicit {
+  border: 1px solid $table-implicit-border-color;
+
+  thead > tr > th {
+    color: $table-implicit-head-color;
+    border: 1px solid $table-implicit-border-color;
+    background-color: $table-implicit-border-color;
+  }
+
+  tbody > tr > td {
+    background-color: $table-implicit-body-bg-color;
+    border: 1px solid $table-implicit-border-color;
+  }
+}
+
+
+$toc-border-color: #c8e6c9;
+$toc-color: #757575;
+
+.toc {
+  border-left: 4px solid $toc-border-color;
+  padding-left: 18px;
+  margin-bottom: 20px;
+
+  h1,
+  h2 {
+    font-size: 24px;
+    color: $toc-color;
+    margin-bottom: 12px;
+  }
+
+  ul {
+    list-style: none;
+    padding-left: 0;
+    margin-top: 0;
+
+    li {
+      line-height: 36px;
+      font-size: 16px;
+      font-weight: 400;
+    }
+  }
+}
+
+// Command-line Reference
+dt {
+  margin-top: .5em;
+}
+
+dd {
+  margin-left: 2em;
+}
