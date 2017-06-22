@@ -33,21 +33,47 @@ import java.util.Date;
  */
 @Immutable @ThreadSafe
 public final class Metadata {
-  public final long mtime;
-  public final byte[] digest;
+  private final long mtime;
+  private final byte[] digest;
 
   // Convenience object for use with volatile files that we do not want checked
   // (e.g. the build-changelist.txt)
   public static final Metadata CONSTANT_METADATA = new Metadata(-1);
 
+  /**
+   * Construct an instance for a directory with the specified mtime. The {@link #isFile} method
+   * returns true if and only if a digest is set.
+   */
   public Metadata(long mtime) {
     this.mtime = mtime;
     this.digest = null;
   }
 
+  /**
+   * Construct an instance for a file with the specified digest. The {@link #isFile} method returns
+   * true if and only if a digest is set.
+   */
   public Metadata(byte[] digest) {
     this.mtime = 0L;
     this.digest = Preconditions.checkNotNull(digest);
+  }
+
+  public boolean isFile() {
+    return digest != null;
+  }
+
+  /**
+   * Returns the digest for the underlying file system object.
+   *
+   * <p>The return value is owned by the cache and must not be modified.
+   */
+  public byte[] getDigest() {
+    Preconditions.checkState(digest != null);
+    return digest;
+  }
+
+  public long getModifiedTime() {
+    return mtime;
   }
 
   @Override
