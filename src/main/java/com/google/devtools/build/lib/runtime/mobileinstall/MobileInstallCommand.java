@@ -156,7 +156,8 @@ public class MobileInstallCommand implements BlazeCommand {
         env.getReporter().handle(Event.warn(
            "Warm start is enabled, but will have no effect on a non-incremental build"));
       }
-      List<String> targets = ProjectFileSupport.getTargets(env.getRuntime(), options);
+      List<String> targets =
+          ProjectFileSupport.getTargets(env.getRuntime().getProjectFileProvider(), options);
       BuildRequest request =
           BuildRequest.create(
               this.getClass().getAnnotation(Command.class).name(),

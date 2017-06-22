@@ -13,12 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
-import com.google.devtools.build.lib.runtime.BlazeRuntime;
-import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.ProjectFile;
 import com.google.devtools.build.lib.vfs.Path;
@@ -42,11 +42,11 @@ public final class ProjectFileSupport {
    * accordingly. If project files cannot be read or if they contain unparsable options, or if they
    * are not enabled, then it throws an exception instead.
    */
-  public static void handleProjectFiles(CommandEnvironment env, OptionsParser optionsParser,
-      String command) throws OptionsParsingException {
-    BlazeRuntime runtime = env.getRuntime();
+  public static void handleProjectFiles(
+      EventHandler eventHandler, EventBus eventBus, ProjectFile.Provider projectFileProvider,
+      Path workspaceDir, Path workingDir, OptionsParser optionsParser, String command)
+          throws OptionsParsingException {
     List<String> targets = optionsParser.getResidue();
-    ProjectFile.Provider projectFileProvider = runtime.getProjectFileProvider();
     if (projectFileProvider != null && !targets.isEmpty()
         && targets.get(0).startsWith(PROJECT_FILE_PREFIX)) {
       if (targets.size() > 1) {
@@ -60,18 +60,20 @@ public final class ProjectFileSupport {
       // relative to the cwd instead.
       PathFragment projectFilePath = PathFragment.create(targets.get(0).substring(1));
       List<Path> packagePath = PathPackageLocator.create(
-          env.getOutputBase(),
+          // We only need a non-null outputBase for the PathPackageLocator if we support external
+          // repositories, which we don't for project files.
+          null,
           optionsParser.getOptions(PackageCacheOptions.class).packagePath,
-          env.getReporter(),
-          env.getWorkspace(),
-          env.getWorkingDirectory()).getPathEntries();
+          eventHandler,
+          workspaceDir,
+          workingDir).getPathEntries();
       ProjectFile projectFile = projectFileProvider.getProjectFile(
-          env.getWorkingDirectory(), packagePath, projectFilePath);
-      env.getReporter().handle(Event.info("Using " + projectFile.getName()));
+          workingDir, packagePath, projectFilePath);
+      eventHandler.handle(Event.info("Using " + projectFile.getName()));
 
       optionsParser.parse(
           OptionPriority.RC_FILE, projectFile.getName(), projectFile.getCommandLineFor(command));
-      env.getEventBus().post(new GotProjectFileEvent(projectFile.getName()));
+      eventBus.post(new GotProjectFileEvent(projectFile.getName()));
     }
   }
 
@@ -80,9 +82,10 @@ public final class ProjectFileSupport {
    * argument, it will be ignored, on the assumption that handleProjectFiles() has been called to
    * process it.
    */
-  public static List<String> getTargets(BlazeRuntime runtime, OptionsProvider options) {
+  public static List<String> getTargets(
+      ProjectFile.Provider projectFileProvider, OptionsProvider options) {
     List<String> targets = options.getResidue();
-    if (runtime.getProjectFileProvider() != null && !targets.isEmpty()
+    if (projectFileProvider != null && !targets.isEmpty()
         && targets.get(0).startsWith(PROJECT_FILE_PREFIX)) {
       return targets.subList(1, targets.size());
     }
