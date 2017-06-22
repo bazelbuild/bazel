@@ -866,6 +866,9 @@ public class LegacyCompilationSupport extends CompilationSupport {
       case TVOS_DEVICE:
         minOSVersionArg = "-mtvos-version-min";
         break;
+      case MACOS:
+        minOSVersionArg = "-mmacosx-version-min";
+        break;
       default:
         throw new IllegalArgumentException("Unhandled platform " + platform);
     }
@@ -904,6 +907,8 @@ public class LegacyCompilationSupport extends CompilationSupport {
       case WATCHOS_SIMULATOR:
       case TVOS_SIMULATOR:
         return SIMULATOR_COMPILE_FLAGS;
+      case MACOS:
+        return SIMULATOR_COMPILE_FLAGS; // TODO add own compile flags, but this works for now
       default:
         throw new AssertionError();
     }
