@@ -14,7 +14,7 @@ Bazel on your machine.
 
 All Bazel builds take place in a [_workspace_](/docs/build-ref.html#workspaces),
 a directory on your filesystem that contains source code for the software you
-want to build, as well symbolic links to directories that contain the build
+want to build, as well as symbolic links to directories that contain the build
 outputs (for example, `bazel-bin` and `bazel-out`). The location of the
 workspace directory is not significant, but it must contain a file called
 `WORKSPACE` in the top-level directory; an empty file is a valid workspace.
