@@ -49,7 +49,7 @@ import java.util.logging.Logger;
 @ThreadCompatible
 public class FakeCppCompileAction extends CppCompileAction {
 
-  private static final Logger LOG = Logger.getLogger(FakeCppCompileAction.class.getName());
+  private static final Logger log = Logger.getLogger(FakeCppCompileAction.class.getName());
 
   public static final UUID GUID = UUID.fromString("8ab63589-be01-4a39-b770-b98ae8b03493");
 
@@ -134,7 +134,7 @@ public class FakeCppCompileAction extends CppCompileAction {
     setModuleFileFlags();
     // First, do a normal compilation, to generate the ".d" file. The generated object file is built
     // to a temporary location (tempOutputFile) and ignored afterwards.
-    LOG.info("Generating " + getDotdFile());
+    log.info("Generating " + getDotdFile());
     CppCompileActionContext context = actionExecutionContext.getContext(actionContext);
     CppCompileActionContext.Reply reply = null;
     try {
@@ -197,7 +197,7 @@ public class FakeCppCompileAction extends CppCompileAction {
 
     // Generate a fake ".o" file containing the command line needed to generate
     // the real object file.
-    LOG.info("Generating " + outputFile);
+    log.info("Generating " + outputFile);
 
     // A cc_fake_binary rule generates fake .o files and a fake target file,
     // which merely contain instructions on building the real target. We need to
