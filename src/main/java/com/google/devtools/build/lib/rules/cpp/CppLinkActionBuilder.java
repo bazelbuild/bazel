@@ -758,8 +758,7 @@ public class CppLinkActionBuilder {
             .setFeatureConfiguration(featureConfiguration);
 
     // TODO(b/62693279): Cleanup once internal crosstools specify ifso building correctly.
-    if (linkType.equals(LinkTargetType.DYNAMIC_LIBRARY)
-        && !featureConfiguration.hasConfiguredLinkerPathInActionConfig()) {
+    if (shouldUseLinkDynamicLibraryTool()) {
       linkCommandLineBuilder.forceToolPath(
           toolchain.getLinkDynamicLibraryTool().getExecPathString());
     }
@@ -783,8 +782,11 @@ public class CppLinkActionBuilder {
     // Compute the set of inputs - we only need stable order here.
     NestedSetBuilder<Artifact> dependencyInputsBuilder = NestedSetBuilder.stableOrder();
     dependencyInputsBuilder.addTransitive(crosstoolInputs);
-    dependencyInputsBuilder.add(toolchain.getLinkDynamicLibraryTool());
     dependencyInputsBuilder.addTransitive(linkActionInputs.build());
+    // TODO(b/62693279): Cleanup once internal crosstools specify ifso building correctly.
+    if (shouldUseLinkDynamicLibraryTool()) {
+      dependencyInputsBuilder.add(toolchain.getLinkDynamicLibraryTool());
+    }
     if (runtimeMiddleman != null) {
       dependencyInputsBuilder.add(runtimeMiddleman);
     }
@@ -893,6 +895,12 @@ public class CppLinkActionBuilder {
         configuration.getLocalShellEnvironment(),
         toolchainEnv,
         executionRequirements.build());
+  }
+
+  private boolean shouldUseLinkDynamicLibraryTool() {
+    return linkType.equals(LinkTargetType.DYNAMIC_LIBRARY)
+        && cppConfiguration.supportsInterfaceSharedObjects()
+        && !featureConfiguration.hasConfiguredLinkerPathInActionConfig();
   }
 
   /** The default heuristic on whether we need to use whole-archive for the link. */

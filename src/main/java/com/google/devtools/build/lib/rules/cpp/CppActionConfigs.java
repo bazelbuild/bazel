@@ -37,9 +37,10 @@ public class CppActionConfigs {
       String gccToolPath,
       String cppLinkDynamicLibraryToolPath,
       String arToolPath,
-      boolean supportsEmbeddedRuntimes) {
+      boolean supportsEmbeddedRuntimes,
+      boolean supportsInterfaceSharedLibraries) {
     String cppDynamicLibraryLinkerTool = "";
-    if (!features.contains("dynamic_library_linker_tool")) {
+    if (!features.contains("dynamic_library_linker_tool") && supportsInterfaceSharedLibraries) {
       cppDynamicLibraryLinkerTool =
           ""
               + "feature {"
@@ -138,8 +139,10 @@ public class CppActionConfigs {
                 "  tool {",
                 "    tool_path: '" + gccToolPath + "'",
                 "  }",
-                "  implies: 'build_interface_libraries'",
-                "  implies: 'dynamic_library_linker_tool'",
+                ifTrue(
+                    supportsInterfaceSharedLibraries,
+                    "implies: 'build_interface_libraries'",
+                    "implies: 'dynamic_library_linker_tool'"),
                 "  implies: 'symbol_counts'",
                 "  implies: 'strip_debug_symbols'",
                 "  implies: 'shared_flag'",
@@ -192,22 +195,24 @@ public class CppActionConfigs {
                 "  implies: 'libraries_to_link'",
                 "  implies: 'linker_param_file'",
                 "}",
-                "feature {",
-                "  name: 'build_interface_libraries'",
-                "  flag_set {",
-                "    expand_if_all_available: 'generate_interface_library'",
-                "    action: 'c++-link-dynamic-library'",
-                "    flag_group {",
-                "      flag: '%{generate_interface_library}'",
-                "      flag: '%{interface_library_builder_path}'",
-                "      flag: '%{interface_library_input_path}'",
-                "      flag: '%{interface_library_output_path}'",
-                "    }",
-                "  }",
-                "}",
-                // Order of feature declaration matters, cppDynamicLibraryLinkerTool has to follow
-                // right after build_interface_libraries.
-                cppDynamicLibraryLinkerTool,
+                ifTrue(
+                    supportsInterfaceSharedLibraries,
+                    "feature {",
+                    "  name: 'build_interface_libraries'",
+                    "  flag_set {",
+                    "    expand_if_all_available: 'generate_interface_library'",
+                    "    action: 'c++-link-dynamic-library'",
+                    "    flag_group {",
+                    "      flag: '%{generate_interface_library}'",
+                    "      flag: '%{interface_library_builder_path}'",
+                    "      flag: '%{interface_library_input_path}'",
+                    "      flag: '%{interface_library_output_path}'",
+                    "    }",
+                    "  }",
+                    "}",
+                    // Order of feature declaration matters, cppDynamicLibraryLinkerTool has to
+                    // follow right after build_interface_libraries.
+                    cppDynamicLibraryLinkerTool),
                 "feature {",
                 "  name: 'symbol_counts'",
                 "  flag_set {",

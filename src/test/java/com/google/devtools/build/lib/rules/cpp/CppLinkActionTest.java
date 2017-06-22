@@ -87,7 +87,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 "gcc_tool",
                 "dynamic_library_linker_tool",
                 "ar_tool",
-                true))
+                true,
+                false))
         .getFeatureConfiguration(
             FeatureSpecification.create(
                 ImmutableSet.of(

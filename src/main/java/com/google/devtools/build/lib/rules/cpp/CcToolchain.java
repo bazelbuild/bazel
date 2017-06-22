@@ -368,7 +368,9 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             getBuildVariables(ruleContext),
             getBuiltinIncludes(ruleContext),
             coverageEnvironment.build(),
-            ruleContext.getPrerequisiteArtifact("$link_dynamic_library_tool", Mode.HOST),
+            cppConfiguration.supportsInterfaceSharedObjects()
+                ? ruleContext.getPrerequisiteArtifact("$link_dynamic_library_tool", Mode.HOST)
+                : null,
             getEnvironment(ruleContext),
             builtInIncludeDirectories,
             sysroot);
