@@ -235,7 +235,9 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       javaProvidersBuilder.add(generatedCompilationArgsProvider);
       TransitiveInfoProviderMap javaProviders = javaProvidersBuilder.build();
       aspect
-          .addSkylarkTransitiveInfo(JavaSkylarkApiProvider.PROTO_NAME.getLegacyId(), javaProviders)
+          .addSkylarkTransitiveInfo(
+              JavaSkylarkApiProvider.PROTO_NAME.getLegacyId(),
+              JavaSkylarkApiProvider.fromProviderMap(javaProviders))
           .addProvider(
               new JavaProtoLibraryAspectProvider(javaProviders, transitiveOutputJars.build()));
     }
