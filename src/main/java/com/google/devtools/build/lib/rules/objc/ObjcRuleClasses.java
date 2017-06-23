@@ -26,7 +26,6 @@ import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
@@ -623,20 +622,13 @@ public class ObjcRuleClasses {
    * Common attributes for {@code objc_*} rules that contain compilable content.
    */
   public static class CompilingRule implements RuleDefinition {
-    
+
     /**
      * Rule class names for cc rules which are allowed as targets of the 'deps' attribute of this
      * rule.
      */
     static final ImmutableSet<String> ALLOWED_CC_DEPS_RULE_CLASSES =
         ImmutableSet.of("cc_library", "cc_inc_library");
-    /**
-     * Rule class names which are allowed as targets of the 'deps' attribute of this rule.
-     */
-    static final Iterable<String> ALLOWED_DEPS_RULE_CLASSES =
-        Iterables.<String>concat(
-            ALLOWED_CC_DEPS_RULE_CLASSES,
-            ImmutableList.of("experimental_objc_library"));
 
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -680,7 +672,7 @@ public class ObjcRuleClasses {
           .override(
               attr("deps", LABEL_LIST)
                   .direct_compile_time_input()
-                  .allowedRuleClasses(ALLOWED_DEPS_RULE_CLASSES)
+                  .allowedRuleClasses(ALLOWED_CC_DEPS_RULE_CLASSES)
                   .mandatoryNativeProviders(
                       ImmutableList.<Class<? extends TransitiveInfoProvider>>of(ObjcProvider.class))
                   .allowedFileTypes())
@@ -704,7 +696,7 @@ public class ObjcRuleClasses {
           .add(
               attr("non_propagated_deps", LABEL_LIST)
                   .direct_compile_time_input()
-                  .allowedRuleClasses(ALLOWED_DEPS_RULE_CLASSES)
+                  .allowedRuleClasses(ALLOWED_CC_DEPS_RULE_CLASSES)
                   .mandatoryNativeProviders(
                       ImmutableList.<Class<? extends TransitiveInfoProvider>>of(ObjcProvider.class))
                   .allowedFileTypes())
