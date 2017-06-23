@@ -155,8 +155,8 @@ public final class ValidationEnvironment {
             "load() statements must be called before any other statement. "
                 + "First non-load() statement appears at "
                 + firstStatement
-                + ". Use --incompatible_bzl_disallow_load_after_statement to temporarily disable "
-                + "this check.");
+                + ". Use --incompatible_bzl_disallow_load_after_statement=false to temporarily "
+                + "disable this check.");
       }
 
       if (firstStatement == null) {
@@ -173,7 +173,7 @@ public final class ValidationEnvironment {
             statement.getLocation(),
             "if statements are not allowed at the top level. You may move it inside a function "
                 + "or use an if expression (x if condition else y). "
-                + "Use --incompatible_disallow_toplevel_if_statement to temporarily disable "
+                + "Use --incompatible_disallow_toplevel_if_statement=false to temporarily disable "
                 + "this check.");
       }
     }

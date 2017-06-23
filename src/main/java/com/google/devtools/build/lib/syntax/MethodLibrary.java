@@ -1617,8 +1617,9 @@ public class MethodLibrary {
             throw new EvalException(
                 loc,
                 EvalUtils.getDataTypeName(x)
-                    + " is not iterable. Use --incompatible_depset_is_not_iterable=false to "
-                    + "temporarily disable this check.");
+                    + " is not iterable. You may use `len(<depset>.to_list())` instead. Use "
+                    + "--incompatible_depset_is_not_iterable=false to temporarily disable this "
+                    + "check.");
           }
           int l = EvalUtils.size(x);
           if (l == -1) {
