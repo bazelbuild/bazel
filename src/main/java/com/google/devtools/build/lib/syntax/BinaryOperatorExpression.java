@@ -69,8 +69,18 @@ public final class BinaryOperatorExpression extends Expression {
   }
 
   /** Implements the "in" operator. */
-  private static boolean in(Object lval, Object rval, Location location) throws EvalException {
-    if (rval instanceof SkylarkQueryable) {
+  private static boolean in(Object lval, Object rval, Location location, Environment env)
+      throws EvalException {
+    if (env.getSemantics().incompatibleDepsetIsNotIterable && rval instanceof SkylarkNestedSet) {
+      throw new EvalException(
+          location,
+          "argument of type '"
+              + EvalUtils.getDataTypeName(rval)
+              + "' is not iterable. "
+              + "in operator only works on lists, tuples, dicts and strings. "
+              + "Use --incompatible_depset_is_not_iterable=false to temporarily disable "
+              + "this check.");
+    } else if (rval instanceof SkylarkQueryable) {
       return ((SkylarkQueryable) rval).containsKey(lval, location);
     } else if (rval instanceof String) {
       if (lval instanceof String) {
@@ -159,10 +169,10 @@ public final class BinaryOperatorExpression extends Expression {
         return compare(lval, rval, location) >= 0;
 
       case IN:
-        return in(lval, rval, location);
+        return in(lval, rval, location, env);
 
       case NOT_IN:
-        return !in(lval, rval, location);
+        return !in(lval, rval, location, env);
 
       default:
         throw new AssertionError("Unsupported binary operator: " + operator);
