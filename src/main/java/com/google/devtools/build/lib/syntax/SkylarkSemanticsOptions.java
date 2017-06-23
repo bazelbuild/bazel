@@ -129,4 +129,12 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
             + "convert to a list."
   )
   public boolean incompatibleDepsetIsNotIterable;
+
+  @Option(
+    name = "incompatible_dict_literal_has_no_duplicates",
+    defaultValue = "false",
+    category = "incompatible changes",
+    help = "If set to true, the dictionary literal syntax doesn't allow duplicated keys."
+  )
+  public boolean incompatibleDictLiteralHasNoDuplicates;
 }

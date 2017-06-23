@@ -72,11 +72,12 @@ public final class DictionaryLiteral extends Expression {
     SkylarkDict<Object, Object> dict = SkylarkDict.<Object, Object>of(env);
     Location loc = getLocation();
     for (DictionaryEntryLiteral entry : entries) {
-      if (entry == null) {
-        throw new EvalException(loc, "null expression in " + this);
-      }
       Object key = entry.key.eval(env);
       Object val = entry.value.eval(env);
+      if (env.getSemantics().incompatibleDictLiteralHasNoDuplicates && dict.containsKey(key)) {
+        throw new EvalException(
+            loc, "Duplicated key " + Printer.repr(key) + " when creating dictionary");
+      }
       dict.put(key, val, loc, env);
     }
     return dict;

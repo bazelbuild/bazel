@@ -255,6 +255,26 @@ sorted(deps.to_list())  # recommended
 *   Default: `false`
 
 
+### Dictionary literal has no duplicates
+
+When the flag is set to true, duplicated keys are not allowed in the dictionary
+literal syntax.
+
+``` python
+{"a": 2, "b": 3, "a": 4}  # error
+```
+
+When the flag is false, the last value overrides the previous value (so the
+example above is equivalent to `{"a": 4, "b": 3}`. This behavior has been a
+source of bugs, which is why we are going to forbid it.
+
+If you really want to override a value, use a separate statement:
+`mydict["a"] = 4`.
+
+*   Flag: `--incompatible_dict_literal_has_no_duplicates`
+*   Default: `false`
+
+
 ## Profiling the code
 
 To profile your code and analyze the performance, use the `--profile` flag:

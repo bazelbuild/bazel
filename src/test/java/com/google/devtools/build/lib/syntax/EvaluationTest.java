@@ -359,6 +359,19 @@ public class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testDictWithDuplicatedKey() throws Exception {
+    new SkylarkTest("--incompatible_dict_literal_has_no_duplicates=true")
+        .testIfErrorContains(
+            "Duplicated key \"str\" when creating dictionary", "{'str': 1, 'x': 2, 'str': 3}");
+  }
+
+  @Test
+  public void testDictAllowDuplicatedKey() throws Exception {
+    new SkylarkTest("--incompatible_dict_literal_has_no_duplicates=false")
+        .testStatement("{'str': 1, 'x': 2, 'str': 3}", ImmutableMap.of("str", 3, "x", 2));
+  }
+
+  @Test
   public void testRecursiveTupleDestructuring() throws Exception {
     newTest()
         .setUp("((a, b), (c, d)) = [(1, 2), (3, 4)]")

@@ -22,29 +22,29 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-/**
- * Skylark Dict module.
- */
-@SkylarkModule(name = "dict",
-    category = SkylarkModuleCategory.BUILTIN,
-    doc = "A language built-in type representating a dictionary (associative mapping). "
-    + "Dictionaries may be constructed with a special literal syntax:<br>"
-    + "<pre class=\"language-python\">d = {\"a\": 2, \"b\": 5}</pre>"
-    + "Use square brackets to access elements:<br>"
-    + "<pre class=\"language-python\">e = d[\"a\"]   # e == 2</pre>"
-    + "Like lists, they can also be constructed using a comprehension syntax:<br>"
-    + "<pre class=\"language-python\">d = {i: 2*i for i in range(20)}\n"
-    + "e = d[8]       # e == 16</pre>"
-    + "See also the <a href=\"globals.html#dict\">dict()</a> constructor function. "
-    + "<p>Iterating over a dict is equivalent to iterating over its keys. The <code>in</code> "
-    + "operator tests for membership in the keyset of the dict.<br>"
-    + "<pre class=\"language-python\">\"a\" in {\"a\" : 2, \"b\" : 5}   # evaluates as True</pre>"
-    + "The iteration order for a dict is deterministic but not specified. When constructing a dict "
-    + "using any of the above methods, if there are two identical keys with conflicting values "
-    + "then the last value takes precedence."
+/** Skylark Dict module. */
+@SkylarkModule(
+  name = "dict",
+  category = SkylarkModuleCategory.BUILTIN,
+  doc =
+      "A language built-in type representating a dictionary (associative mapping). "
+          + "Dictionaries may be constructed with a special literal syntax:<br>"
+          + "<pre class=\"language-python\">d = {\"a\": 2, \"b\": 5}</pre>"
+          + "When using the literal syntax, it is an error to have duplicated keys. "
+          + "Use square brackets to access elements:<br>"
+          + "<pre class=\"language-python\">e = d[\"a\"]   # e == 2</pre>"
+          + "Like lists, they can also be constructed using a comprehension syntax:<br>"
+          + "<pre class=\"language-python\">d = {i: 2*i for i in range(20)}\n"
+          + "e = d[8]       # e == 16</pre>"
+          + "See also the <a href=\"globals.html#dict\">dict()</a> constructor function. "
+          + "<p>Iterating over a dict is equivalent to iterating over its keys. The "
+          + "<code>in</code> operator tests for membership in the keyset of the dict.<br>"
+          + "<pre class=\"language-python\">\"a\" in {\"a\" : 2, \"b\" : 5} "
+          + "# evaluates as True</pre>"
+          + "The iteration order for a dict is deterministic but not specified."
 )
-public final class SkylarkDict<K, V>
-    extends MutableMap<K, V> implements Map<K, V>, SkylarkIndexable {
+public final class SkylarkDict<K, V> extends MutableMap<K, V>
+    implements Map<K, V>, SkylarkIndexable {
 
   private final LinkedHashMap<K, V> contents = new LinkedHashMap<>();
 
