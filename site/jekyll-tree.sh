@@ -13,6 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# This script constructs the final Jekyll tree by combining the static Jekyll
+# site files with generated documentation, such as the Build Encyclopedia and
+# Skylark Library. It then constructs the site directory structure for
+# Bazel documentation at HEAD by moving all documentation into the
+# /versions/master directory and adding redirects from the root of the site.
+# This way, URLs of the form https://docs.bazel.build/foo.html will be
+# redirected to https://docs.bazel.build/versions/master/foo.html.
+
 set -eu
 
 readonly OUTPUT=${PWD}/$1
@@ -32,56 +40,44 @@ readonly TMP=$(mktemp -d "${TMPDIR:-/tmp}/tmp.XXXXXXXX")
 readonly OUT_DIR="$TMP/out"
 trap "rm -rf ${TMP}" EXIT
 
+# TODO: Create a variant of this script for cutting versions of documentation
+# for Bazel releases. For that case, consider extracting the Git branch or tag
+# name to be used as the versioned directory name.
+readonly VERSION="master"
+readonly VERSION_DIR="$OUT_DIR/versions/$VERSION"
+
+# Unpacks the base Jekyll tree, Build Encyclopedia, Skylark Library, and
+# command line reference.
 function setup {
   mkdir -p "$OUT_DIR"
   cd "$OUT_DIR"
   tar -xf "${JEKYLL_BASE}"
-}
 
-# Unpack the Build Encyclopedia into docs/be
-function unpack_build_encyclopedia {
-  local be_dir="$OUT_DIR/docs/be"
+  mkdir -p "$VERSION_DIR"
+  mv "$OUT_DIR"/docs/* "$VERSION_DIR"
+  rm -r "$OUT_DIR"/docs
+
+  # Unpack the Build Encyclopedia into versions/master/be
+  local be_dir="$VERSION_DIR/be"
   mkdir -p "$be_dir"
   unzip -qq "$BE_ZIP" -d "$be_dir"
   mv "$be_dir/be-nav.html" "$OUT_DIR/_includes"
 
-  # Create redirects to each page in the Build Encyclopedia.
-  mkdir -p "$OUT_DIR/docs/be"
-  for f in $(find "$OUT_DIR/docs/be" -name "*.html"); do
-    local filename=$(basename "$f")
-    cat > "$OUT_DIR/docs/be/${filename}" <<EOF
----
-layout: redirect
-redirect: docs/be/${filename}
----
-EOF
-  done
-}
-
-# Unpack the Skylark Library into docs/skylark/lib
-function unpack_skylark_library {
-  local sl_dir="$OUT_DIR/docs/skylark/lib"
+  # Unpack the Skylark Library into versions/master/skylark/lib
+  local sl_dir="$VERSION_DIR/skylark/lib"
   mkdir -p "$sl_dir"
   unzip -qq "$SL_ZIP" -d "$sl_dir"
   mv "$sl_dir/skylark-nav.html" "$OUT_DIR/_includes"
 
-  # Create redirects to each page in the Skylark Library
-  mkdir -p "$OUT_DIR/docs/skylark/lib"
-  for f in $(find "$OUT_DIR/docs/skylark/lib" -name "*.html"); do
-    local filename=$(basename "$f")
-    cat > "$OUT_DIR/docs/skylark/lib/${filename}" <<EOF
----
-layout: redirect
-redirect: docs/skylark/lib/${filename}
----
-EOF
-  done
+  # Copy the command line reference.
+  cp "$CLR_HTML" "$VERSION_DIR"
 }
 
+# Helper function for copying a Skylark rule doc.
 function copy_skylark_rule_doc {
   local rule_family=$1
   local rule_family_name=$2
-  local be_dir="$OUT_DIR/docs/be"
+  local be_dir="$VERSION_DIR/be"
 
   ( cat <<EOF
 ---
@@ -92,6 +88,7 @@ EOF
     cat "$TMP/skylark/$rule_family/README.md"; ) > "$be_dir/${rule_family}.md"
 }
 
+# Copies the READMEs for Skylark rules bundled with Bazel.
 function unpack_skylark_rule_docs {
   local tmp_dir=$TMP/skylark
   mkdir -p $tmp_dir
@@ -101,6 +98,7 @@ function unpack_skylark_rule_docs {
   copy_skylark_rule_doc pkg "Packaging"
 }
 
+# Processes a documentation page, such as replacing Blaze with Bazel.
 function process_doc {
   local f=$1
   local tempf=$(mktemp -t bazel-doc-XXXXXX)
@@ -110,18 +108,58 @@ function process_doc {
   cat "$tempf" > "$f"
 }
 
+# Performs fixup on each doc, such as replacing instances of 'blaze' with
+# 'bazel'.
 function process_docs {
-  for f in $(find "$OUT_DIR/docs" -name "*.html"); do
+  for f in $(find "$VERSION_DIR" -name "*.html"); do
     process_doc $f
   done
-  for f in $(find "$OUT_DIR/docs" -name "*.md"); do
-    process_doc $f
-  done
-  for f in $(find "$OUT_DIR/designs" -name "*.md"); do
+  for f in $(find "$VERSION_DIR" -name "*.md"); do
     process_doc $f
   done
 }
 
+# Generates a redirect for a documentation page under /versions/master.
+function gen_redirect {
+  local output_dir=$OUT_DIR/$(dirname $f)
+  if [[ ! -d "$output_dir" ]]; then
+    mkdir -p "$output_dir"
+  fi
+
+  local src_basename=$(basename $f)
+  local md_basename="${src_basename%.*}.md"
+  local html_file="${f%.*}.html"
+  local redirect_file="$output_dir/$md_basename"
+  if [[ -e "$redirect_file" ]]; then
+    echo "Cannot create redirect file $redirect_file. File exists."
+    exit 1
+  fi
+  cat > "$redirect_file" <<EOF
+---
+layout: redirect
+redirect: /versions/$VERSION/$html_file
+---
+EOF
+}
+
+# During setup, all documentation under docs are moved to the /versions/master
+# directory as the documentation from HEAD.
+#
+# This function henerates a redirect from the root of the site for the given
+# doc page under /versions/master so that https://docs.bazel.build/foo.html
+# will be redirected to https://docs.bazel.build/versions/master/foo.html
+function gen_redirects {
+  pushd "$VERSION_DIR" > /dev/null
+  for f in $(find . -name "*.html" -type f); do
+    gen_redirect $f
+  done
+  for f in $(find . -name "*.md" -type f); do
+    gen_redirect $f
+  done
+  popd > /dev/null
+}
+
+# Creates a tar archive containing the final Jekyll tree.
 function package_output {
   cd "$OUT_DIR"
   tar -hcf $OUTPUT $(find . -type f | sort)
@@ -129,11 +167,9 @@ function package_output {
 
 function main {
   setup
-  unpack_build_encyclopedia
-  unpack_skylark_library
   unpack_skylark_rule_docs
-  cp ${CLR_HTML} ${OUT_DIR}/docs
   process_docs
+  gen_redirects
   package_output
 }
 main
