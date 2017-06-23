@@ -343,13 +343,8 @@ def configure_windows_toolchain(repository_ctx):
       "%{cuda_compute_capabilities}": ", ".join(
           ["\"%s\"" % c for c in escaped_compute_capabilities]),
   })
-  tpl(repository_ctx, "windows_cc_wrapper.bat", {
-      "%{msvc_cl_path}": msvc_cl_path,
-      "%{msvc_link_path}": msvc_link_path,
-  }, "windows_cc_wrapper.bat")
 
   if _is_no_msvc_wrapper(repository_ctx):
-    msvc_cl_path = "windows_cc_wrapper.bat"
     compilation_mode_content = ""
   else:
     msvc_cl_path = "wrapper/bin/msvc_cl.bat"

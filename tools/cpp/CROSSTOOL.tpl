@@ -446,7 +446,6 @@ toolchain {
     implies: 'linkstamps'
     implies: 'output_execpath_flags'
     implies: 'input_param_flags'
-    implies: 'has_configured_linker_path'
     implies: 'legacy_link_flags'
     implies: 'linker_param_file'
     implies: 'msvc_env'
@@ -526,10 +525,6 @@ toolchain {
     requires: {
       feature: 'fastbuild'
     }
-  }
-
-  feature {
-    name: 'has_configured_linker_path'
   }
 
   feature {
