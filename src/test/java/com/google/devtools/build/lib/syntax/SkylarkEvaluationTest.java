@@ -886,7 +886,8 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         .testIfErrorContains("not iterable", "max(depset([1, 2, 3]))")
         .testIfErrorContains("not iterable", "sorted(depset(['a', 'b']))")
         .testIfErrorContains("not iterable", "tuple(depset(['a', 'b']))")
-        .testIfErrorContains("not iterable", "[x for x in depset()]");
+        .testIfErrorContains("not iterable", "[x for x in depset()]")
+        .testIfErrorContains("not iterable", "len(depset(['a']))");
   }
 
   @Test
@@ -896,7 +897,8 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         .testStatement("max(depset([1, 2, 3]))", 3)
         .testStatement("str(sorted(depset(['b', 'a'])))", "[\"a\", \"b\"]")
         .testStatement("str(tuple(depset(['a', 'b'])))", "(\"a\", \"b\")")
-        .testStatement("str([x for x in depset()])", "[]");
+        .testStatement("str([x for x in depset()])", "[]")
+        .testStatement("len(depset(['a']))", 1);
   }
 
   @Test

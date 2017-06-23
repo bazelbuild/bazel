@@ -1607,11 +1607,19 @@ public class MethodLibrary {
     returnType = Integer.class,
     doc = "Returns the length of a string, list, tuple, depset, or dictionary.",
     parameters = {@Param(name = "x", doc = "The object to check length of.")},
-    useLocation = true
+    useLocation = true,
+    useEnvironment = true
   )
   private static final BuiltinFunction len =
       new BuiltinFunction("len") {
-        public Integer invoke(Object x, Location loc) throws EvalException {
+        public Integer invoke(Object x, Location loc, Environment env) throws EvalException {
+          if (env.getSemantics().incompatibleDepsetIsNotIterable && x instanceof SkylarkNestedSet) {
+            throw new EvalException(
+                loc,
+                EvalUtils.getDataTypeName(x)
+                    + " is not iterable. Use --incompatible_depset_is_not_iterable=false to "
+                    + "temporarily disable this check.");
+          }
           int l = EvalUtils.size(x);
           if (l == -1) {
             throw new EvalException(loc, EvalUtils.getDataTypeName(x) + " is not iterable");

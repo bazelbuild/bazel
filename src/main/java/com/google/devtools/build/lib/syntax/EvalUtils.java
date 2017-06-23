@@ -337,8 +337,8 @@ public final class EvalUtils {
     if (env != null && env.getSemantics().incompatibleDepsetIsNotIterable) {
       throw new EvalException(
           loc,
-          "type 'depset' is not iterable. Use the `to_list()` method to get a list. "
-              + "Use --incompatible_depset_is_not_iterable to temporarily disable this check.");
+          "type 'depset' is not iterable. Use the `to_list()` method to get a list. Use "
+              + "--incompatible_depset_is_not_iterable=false to temporarily disable this check.");
     }
     return set.toCollection();
   }
