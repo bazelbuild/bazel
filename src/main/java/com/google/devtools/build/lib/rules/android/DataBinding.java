@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -86,21 +85,13 @@ public final class DataBinding {
   /**
    * Should data binding support be enabled for this rule?
    *
-   * <p>This is true if either the rule or any of its transitive dependencies declares data binding
-   * support in its attributes.
-   *
    * <p>Data binding incurs additional resource processing and compilation work as well as
    * additional compile/runtime dependencies. But rules with data binding disabled will fail if
-   * any data binding expressions appear in their layout resources.
+   * data binding expressions appear in their layout resources.
    */
   public static boolean isEnabled(RuleContext ruleContext) {
-    if (ruleContext.attributes().has("enable_data_binding", Type.BOOLEAN)
-        && ruleContext.attributes().get("enable_data_binding", Type.BOOLEAN)) {
-      return true;
-    } else {
-      return !Iterables.isEmpty(ruleContext.getPrerequisites("deps",
-          RuleConfiguredTarget.Mode.TARGET, UsesDataBindingProvider.class));
-    }
+    return ruleContext.attributes().has("enable_data_binding", Type.BOOLEAN)
+        && ruleContext.attributes().get("enable_data_binding", Type.BOOLEAN);
   }
 
   /**
