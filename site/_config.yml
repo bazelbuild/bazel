@@ -9,4 +9,5 @@ gems: [jekyll-paginate]
 version: "master"
 
 main_site_url: https://www.bazel.build
+docs_site_url: "/"
 blog_site_url: https://blog.bazel.build
