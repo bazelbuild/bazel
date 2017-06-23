@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration.Configuratio
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
-import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.MultiArchPlatformRule;
+import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PlatformRule;
 import java.util.List;
 
 /**
@@ -63,11 +63,12 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
    */
   public static PlatformType getPlatformType(RuleContext ruleContext) throws RuleErrorException {
     String attributeValue =
-        ruleContext.attributes().get(MultiArchPlatformRule.PLATFORM_TYPE_ATTR_NAME, STRING);
+        ruleContext.attributes().get(PlatformRule.PLATFORM_TYPE_ATTR_NAME, STRING);
     try {
       return getPlatformType(attributeValue);
     } catch (IllegalArgumentException exception) {
-      throw ruleContext.throwWithAttributeError(MultiArchPlatformRule.PLATFORM_TYPE_ATTR_NAME,
+      throw ruleContext.throwWithAttributeError(
+          PlatformRule.PLATFORM_TYPE_ATTR_NAME,
           String.format(UNSUPPORTED_PLATFORM_TYPE_ERROR_FORMAT, attributeValue));
     }
   }
@@ -79,18 +80,19 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
    *     an invalid value
    */
   public static void validateMinimumOs(RuleContext ruleContext) throws RuleErrorException {
-    String attributeValue =
-        ruleContext.attributes().get(MultiArchPlatformRule.MINIMUM_OS_VERSION, STRING);
+    String attributeValue = ruleContext.attributes().get(PlatformRule.MINIMUM_OS_VERSION, STRING);
     // TODO(b/37096178): This should be a mandatory attribute.
     if (!Strings.isNullOrEmpty(attributeValue)) {
       try {
         DottedVersion minimumOsVersion = DottedVersion.fromString(attributeValue);
         if (minimumOsVersion.hasAlphabeticCharacters() || minimumOsVersion.numComponents() > 2) {
-          throw ruleContext.throwWithAttributeError(MultiArchPlatformRule.MINIMUM_OS_VERSION,
+          throw ruleContext.throwWithAttributeError(
+              PlatformRule.MINIMUM_OS_VERSION,
               String.format(INVALID_VERSION_STRING_ERROR_FORMAT, attributeValue));
         }
       } catch (IllegalArgumentException exception) {
-        throw ruleContext.throwWithAttributeError(MultiArchPlatformRule.MINIMUM_OS_VERSION,
+        throw ruleContext.throwWithAttributeError(
+            PlatformRule.MINIMUM_OS_VERSION,
             String.format(INVALID_VERSION_STRING_ERROR_FORMAT, attributeValue));
       }
     }
@@ -116,10 +118,8 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
   @Override
   public SplitTransition<?> apply(Rule fromRule) {
     NonconfigurableAttributeMapper attrMapper = NonconfigurableAttributeMapper.of(fromRule);
-    String platformTypeString = 
-        attrMapper.get(MultiArchPlatformRule.PLATFORM_TYPE_ATTR_NAME, STRING);
-    String minimumOsVersionString = 
-        attrMapper.get(MultiArchPlatformRule.MINIMUM_OS_VERSION, STRING);
+    String platformTypeString = attrMapper.get(PlatformRule.PLATFORM_TYPE_ATTR_NAME, STRING);
+    String minimumOsVersionString = attrMapper.get(PlatformRule.MINIMUM_OS_VERSION, STRING);
     PlatformType platformType;
     Optional<DottedVersion> minimumOsVersion;
     try {

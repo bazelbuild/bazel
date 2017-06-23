@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTran
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
@@ -44,6 +45,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
@@ -830,6 +832,12 @@ public class ObjcRuleClasses {
   static final String PROTOBUF_WELL_KNOWN_TYPES = "$protobuf_well_known_types";
 
   /**
+   * Template for the fat binary output (using Apple's "lipo" tool to combine binaries of multiple
+   * architectures).
+   */
+  static final SafeImplicitOutputsFunction LIPOBIN_OUTPUT = fromTemplates("%{name}_lipobin");
+
+  /**
    * Common attributes for {@code objc_*} rules that link sources and dependencies.
    */
   public static class LinkingRule implements RuleDefinition {
@@ -884,16 +892,16 @@ public class ObjcRuleClasses {
   }
 
   /**
-   * Common attributes for apple rules that build multi-architecture outputs for a given platform
-   * type (such as ios or watchos).
+   * Common attributes for apple rules that produce outputs for a given platform type (such as ios
+   * or watchos).
    */
-  public static class MultiArchPlatformRule implements RuleDefinition {
+  public static class PlatformRule implements RuleDefinition {
 
     /**
      * Attribute name for apple platform type (e.g. ios or watchos).
      */
     static final String PLATFORM_TYPE_ATTR_NAME = "platform_type";
-    
+
     /**
      * Attribute name for the minimum OS version (e.g. "7.3").
      */
@@ -901,16 +909,8 @@ public class ObjcRuleClasses {
 
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
-      MultiArchSplitTransitionProvider splitTransitionProvider =
-          new MultiArchSplitTransitionProvider();
       return builder
-          // This is currently a hack to obtain all child configurations regardless of the attribute
-          // values of this rule -- this rule does not currently use the actual info provided by
-          // this attribute.
-          .add(attr(CHILD_CONFIG_ATTR, LABEL)
-              .cfg(splitTransitionProvider)
-              .value(ObjcRuleClasses.APPLE_TOOLCHAIN))
-          /* <!-- #BLAZE_RULE($apple_multiarch_rule).ATTRIBUTE(platform_type) -->
+          /* <!-- #BLAZE_RULE($apple_platform_rule).ATTRIBUTE(platform_type) -->
           The type of platform for which to create artifacts in this rule.
 
           This dictates which Apple platform SDK is used for compilation/linking and which flag is
@@ -935,13 +935,14 @@ public class ObjcRuleClasses {
           </ul>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           // TODO(b/37635370): Remove the "ios" default and make this mandatory.
-          .add(attr(PLATFORM_TYPE_ATTR_NAME, STRING)
-              .value(PlatformType.IOS.toString())
-              .nonconfigurable("Determines the configuration transition on deps"))
-          /* <!-- #BLAZE_RULE($apple_multiarch_rule).ATTRIBUTE(minimum_os) -->
+          .add(
+              attr(PLATFORM_TYPE_ATTR_NAME, STRING)
+                  .value(PlatformType.IOS.toString())
+                  .nonconfigurable("Determines the configuration transition on deps"))
+          /* <!-- #BLAZE_RULE($apple_platform_rule).ATTRIBUTE(minimum_os) -->
           The minimum OS version that this target and its dependencies should be built for.
 
-          This should be a dotted version string such as "7.3". 
+          This should be a dotted version string such as "7.3".
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           // TODO(b/37096178): This should be a mandatory attribute.
           .add(
@@ -953,9 +954,39 @@ public class ObjcRuleClasses {
     @Override
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
+          .name("$apple_platform_rule")
+          .type(RuleClassType.ABSTRACT)
+          .build();
+    }
+  }
+
+  /**
+   * Common attributes for apple rules that build multi-architecture outputs for a given platform
+   * type (such as ios or watchos).
+   */
+  public static class MultiArchPlatformRule implements RuleDefinition {
+
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+      MultiArchSplitTransitionProvider splitTransitionProvider =
+          new MultiArchSplitTransitionProvider();
+      return builder
+          // This is currently a hack to obtain all child configurations regardless of the attribute
+          // values of this rule -- this rule does not currently use the actual info provided by
+          // this attribute.
+          .add(
+              attr(CHILD_CONFIG_ATTR, LABEL)
+                  .cfg(splitTransitionProvider)
+                  .value(ObjcRuleClasses.APPLE_TOOLCHAIN))
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
           .name("$apple_multiarch_rule")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(CrosstoolRule.class)
+          .ancestors(PlatformRule.class, CrosstoolRule.class)
           .build();
     }
   }
