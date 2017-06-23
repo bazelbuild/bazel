@@ -357,6 +357,14 @@ function test_query() {
   expect_log '^started'
   expect_log 'command: "query"'
   expect_log 'args: "--experimental_build_event_text_file='
+  expect_log 'build_finished'
+  expect_not_log 'aborted'
+  # For query, we also expect the full output to be contained in the protocol,
+  # as well as a proper finished event.
+  expect_log '//pkg:true'
+  expect_log '//pkg:slow'
+  expect_log '^finished'
+  expect_log 'name: "SUCCESS"'
 }
 
 function test_multiple_transports() {

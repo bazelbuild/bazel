@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.analysis.BuildInfoEvent;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
+import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildEventWithConfiguration;
 import com.google.devtools.build.lib.buildeventstream.AbortedEvent;
@@ -371,8 +372,14 @@ public class BuildEventStreamer implements EventHandler {
 
     if (event instanceof BuildCompleteEvent
         || event instanceof TestingCompleteEvent
-        || event instanceof NoBuildEvent) {
+        || event instanceof NoBuildRequestFinishedEvent) {
       buildComplete();
+    }
+
+    if (event instanceof NoBuildEvent) {
+      if (!((NoBuildEvent) event).separateFinishedEvent()) {
+        buildComplete();
+      }
     }
   }
 

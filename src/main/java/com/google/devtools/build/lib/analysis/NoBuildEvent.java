@@ -27,19 +27,25 @@ import java.util.Collection;
 public final class NoBuildEvent implements BuildEvent {
   private final String command;
   private final Long startTimeMillis;
+  private final boolean separateFinishedEvent;
 
-  public NoBuildEvent(String command, Long startTimeMillis) {
+  public NoBuildEvent(String command, Long startTimeMillis, boolean separateFinishedEvent) {
     this.command = command;
     this.startTimeMillis = startTimeMillis;
+    this.separateFinishedEvent = separateFinishedEvent;
   }
 
   public NoBuildEvent() {
-    this(null, null);
+    this(null, null, false);
   }
 
   @Override
   public Collection<BuildEventId> getChildrenEvents() {
-    return ImmutableList.of(ProgressEvent.INITIAL_PROGRESS_UPDATE);
+    if (separateFinishedEvent) {
+      return ImmutableList.of(ProgressEvent.INITIAL_PROGRESS_UPDATE, BuildEventId.buildFinished());
+    } else {
+      return ImmutableList.of(ProgressEvent.INITIAL_PROGRESS_UPDATE);
+    }
   }
 
   @Override
@@ -59,5 +65,9 @@ public final class NoBuildEvent implements BuildEvent {
       started.setStartTimeMillis(startTimeMillis);
     }
     return GenericBuildEvent.protoChaining(this).setStarted(started.build()).build();
+  }
+
+  public boolean separateFinishedEvent() {
+    return separateFinishedEvent;
   }
 }
