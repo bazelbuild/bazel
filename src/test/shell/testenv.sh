@@ -454,7 +454,7 @@ function tear_down() {
 # Simples assert to make the tests more readable
 #
 function assert_build() {
-  bazel build -s --verbose_failures "$@" || fail "Failed to build $*"
+  bazel build -s --verbose_failures $* || fail "Failed to build $*"
 }
 
 function assert_build_output() {
@@ -474,12 +474,12 @@ function assert_build_fails() {
 }
 
 function assert_test_ok() {
-  bazel test --test_output=errors "$@" >& $TEST_log \
+  bazel test --test_output=errors $* >& $TEST_log \
     || fail "Test $1 failed while expecting success"
 }
 
 function assert_test_fails() {
-  bazel test --test_output=errors "$@" >& $TEST_log \
+  bazel test --test_output=errors $* >& $TEST_log \
     && fail "Test $* succeed while expecting failure" \
     || true
   expect_log "$1.*FAILED"
