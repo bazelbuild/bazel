@@ -496,7 +496,7 @@ message AllowedRuleClassInfo {
 // This message represents a single attribute of a single rule.
 message AttributeDefinition {
 
-  // Rule name, e.g. "cc_library"
+  // Attribute name, i.e. "name", "srcs", "deps"
   required string name = 1;
   required Attribute.Discriminator type = 2;
   required bool mandatory = 3;
