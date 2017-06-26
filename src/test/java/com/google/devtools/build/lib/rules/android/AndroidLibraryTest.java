@@ -147,6 +147,16 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
+  public void testAndroidLibraryWithIdlPreprocessed() throws Exception {
+    scratchConfiguredTarget(
+        "java/com/google/android",
+        "lib",
+        "android_library(name  = 'lib',",
+        "    idl_srcs = ['src/android/Dummy.aidl'],",
+        "    idl_preprocessed = ['src/android/DummyParcelable.aidl'])");
+  }
+
+  @Test
   public void testCommandLineContainsTargetLabelAndRuleKind() throws Exception {
     scratch.file("java/android/BUILD",
         "android_library(name = 'a', srcs = ['A.java'])");
