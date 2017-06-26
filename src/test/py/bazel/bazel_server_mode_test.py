@@ -17,9 +17,9 @@ import unittest
 from src.test.py.bazel import test_base
 
 
-class BazelCleanTest(test_base.TestBase):
+class BazelServerModeTest(test_base.TestBase):
 
-  def testBazelClean(self):
+  def testBazelServerMode(self):
     self.ScratchFile('WORKSPACE')
 
     exit_code, stdout, _ = self.RunBazel(['info', 'server_pid'])
