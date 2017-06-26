@@ -61,6 +61,46 @@ public class AllRdepsFunction implements QueryFunction {
     return eval(env, context, args, callback, Optional.<Predicate<T>>absent());
   }
 
+  /** Evaluates rdeps query. */
+  public static <T> QueryTaskFuture<Void> eval(
+      final QueryEnvironment<T> env,
+      QueryExpression expression,
+      final Predicate<T> universe,
+      VariableContext<T> context,
+      final Callback<T> callback,
+      final int depth) {
+    final MinDepthUniquifier<T> minDepthUniquifier = env.createMinDepthUniquifier();
+    return env.eval(
+        expression,
+        context,
+        new Callback<T>() {
+          @Override
+          public void process(Iterable<T> partialResult)
+              throws QueryException, InterruptedException {
+            Iterable<T> current = partialResult;
+            // We need to iterate depthBound + 1 times.
+            for (int i = 0; i <= depth; i++) {
+              List<T> next = new ArrayList<>();
+              // Restrict to nodes satisfying the universe predicate.
+              Iterable<T> currentInUniverse = Iterables.filter(current, universe);
+              // Filter already visited nodes: if we see a node in a later round, then we don't
+              // need to visit it again, because the depth at which we see it must be greater
+              // than or equal to the last visit.
+              Iterables.addAll(
+                  next,
+                  env.getReverseDeps(
+                      minDepthUniquifier.uniqueAtDepthLessThanOrEqualTo(currentInUniverse, i)));
+              callback.process(currentInUniverse);
+              if (next.isEmpty()) {
+                // Exit when there are no more nodes to visit.
+                break;
+              }
+              current = next;
+            }
+          }
+        });
+  }
+
   protected <T> QueryTaskFuture<Void> eval(
       final QueryEnvironment<T> env,
       VariableContext<T> context,
@@ -78,36 +118,7 @@ public class AllRdepsFunction implements QueryFunction {
         : streamableEnv.getAllRdeps(
             args.get(0).getExpression(), universe, context, callback, depth);
     } else {
-      final MinDepthUniquifier<T> minDepthUniquifier = env.createMinDepthUniquifier();
-      return env.eval(
-          args.get(0).getExpression(),
-          context,
-          new Callback<T>() {
-            @Override
-            public void process(Iterable<T> partialResult)
-                throws QueryException, InterruptedException {
-              Iterable<T> current = partialResult;
-              // We need to iterate depthBound + 1 times.
-              for (int i = 0; i <= depth; i++) {
-                List<T> next = new ArrayList<>();
-                // Restrict to nodes satisfying the universe predicate.
-                Iterable<T> currentInUniverse = Iterables.filter(current, universe);
-                // Filter already visited nodes: if we see a node in a later round, then we don't
-                // need to visit it again, because the depth at which we see it must be greater
-                // than or equal to the last visit.
-                Iterables.addAll(
-                    next,
-                    env.getReverseDeps(
-                        minDepthUniquifier.uniqueAtDepthLessThanOrEqualTo(currentInUniverse, i)));
-                callback.process(currentInUniverse);
-                if (next.isEmpty()) {
-                  // Exit when there are no more nodes to visit.
-                  break;
-                }
-                current = next;
-              }
-            }
-          });
+      return eval(env, args.get(0).getExpression(), universe, context, callback, depth);
     }
   }
 }

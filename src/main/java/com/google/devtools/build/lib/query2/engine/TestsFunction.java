@@ -30,19 +30,18 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * A tests(x) filter expression, which returns all the tests in set x,
- * expanding test_suite rules into their constituents.
+ * A tests(x) filter expression, which returns all the tests in set x, expanding test_suite rules
+ * into their constituents.
  *
- * <p>Unfortunately this class reproduces a substantial amount of logic from
- * {@code TestSuiteConfiguredTarget}, albeit in a somewhat simplified form.
- * This is basically inevitable since the expansion of test_suites cannot be
- * done during the loading phase, because it involves inter-package references.
- * We make no attempt to validate the input, or report errors or warnings other
- * than missing target.
+ * <p>Unfortunately this class reproduces a substantial amount of logic from {@code
+ * TestSuiteConfiguredTarget}, albeit in a somewhat simplified form. This is basically inevitable
+ * since the expansion of test_suites cannot be done during the loading phase, because it involves
+ * inter-package references. We make no attempt to validate the input, or report errors or warnings
+ * other than missing target.
  *
  * <pre>expr ::= TESTS '(' expr ')'</pre>
  */
-class TestsFunction implements QueryFunction {
+public class TestsFunction implements QueryFunction {
   TestsFunction() {
   }
 

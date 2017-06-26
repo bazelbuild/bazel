@@ -59,17 +59,17 @@ import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.pkgcache.RecursivePackageProvider;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
-import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment.TargetKeyExtractor;
 import com.google.devtools.build.lib.query2.engine.AllRdepsFunction;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.FunctionExpression;
 import com.google.devtools.build.lib.query2.engine.KeyExtractor;
 import com.google.devtools.build.lib.query2.engine.MinDepthUniquifier;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.MutableMap;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
@@ -263,11 +263,20 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
             new ThreadFactoryBuilder().setNameFormat("QueryEnvironment %d").build()));
     }
     resolver =
-        new RecursivePackageProviderBackedTargetPatternResolver(
+        createTargetPatternResolver(
             graphBackedRecursivePackageProvider,
             eventHandler,
             TargetPatternEvaluator.DEFAULT_FILTERING_POLICY,
             packageSemaphore);
+  }
+
+  protected RecursivePackageProviderBackedTargetPatternResolver createTargetPatternResolver(
+      RecursivePackageProvider graphBackedRecursivePackageProvider,
+      ExtendedEventHandler eventHandler,
+      FilteringPolicy policy,
+      MultisetSemaphore<PackageIdentifier> packageSemaphore) {
+    return new RecursivePackageProviderBackedTargetPatternResolver(
+        graphBackedRecursivePackageProvider, eventHandler, policy, packageSemaphore);
   }
 
   protected MultisetSemaphore<PackageIdentifier> makeFreshPackageMultisetSemaphore() {
