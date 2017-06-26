@@ -52,6 +52,7 @@ import com.google.devtools.common.options.OpaqueOptionsData;
 import com.google.devtools.common.options.OptionPriority;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
@@ -197,11 +198,10 @@ public class BlazeCommandDispatcher {
     return ExitCode.SUCCESS;
   }
 
-  private ExitCode parseArgsAndConfigs(CommandEnvironment env, OptionsParser optionsParser,
+  private void parseArgsAndConfigs(CommandEnvironment env, OptionsParser optionsParser,
       Command commandAnnotation, List<String> args, List<String> rcfileNotes,
       EventHandler eventHandler)
           throws OptionsParsingException {
-
     Function<String, String> commandOptionSourceFunction =
         new Function<String, String>() {
           @Override
@@ -252,15 +252,11 @@ public class BlazeCommandDispatcher {
                 "Config values are not defined in any .rc file: "
                     + Joiner.on(", ").join(unknownConfigs)));
       } else {
-        eventHandler.handle(
-            Event.error(
-                "Config values are not defined in any .rc file: "
-                    + Joiner.on(", ").join(unknownConfigs)));
-        return ExitCode.COMMAND_LINE_ERROR;
+        throw new OptionsParsingException(
+            "Config values are not defined in any .rc file: "
+                + Joiner.on(", ").join(unknownConfigs));
       }
     }
-
-    return ExitCode.SUCCESS;
   }
 
   /**
@@ -396,25 +392,29 @@ public class BlazeCommandDispatcher {
       return result.getNumericExitCode();
     }
 
-    OptionsParser optionsParser;
+    // Declare options as OptionsProvider so the options can't be easily modified after we've
+    // applied the invocation policy.
+    OptionsProvider options;
     // Delay output of notes regarding the parsed rc file, so it's possible to disable this in the
     // rc file.
     List<String> rcfileNotes = new ArrayList<>();
     try {
-      optionsParser = createOptionsParser(command);
-    } catch (OptionsParser.ConstructionException e) {
-      eventHandler.handle(
-          Event.error("Internal error while constructing options parser: " + e.getMessage()));
-      return ExitCode.BLAZE_INTERNAL_ERROR.getNumericExitCode();
-    }
-    try {
+      OptionsParser optionsParser = createOptionsParser(command);
       // TODO(ulfjack): parseArgsAndConfigs calls env.getWorkingDirectory, which isn't set correctly
       // at this point in the code - it's initialized to the workspace root, which usually works.
-      ExitCode parseResult =
-          parseArgsAndConfigs(
-              env, optionsParser, commandAnnotation, args, rcfileNotes, eventHandler);
-      if (!parseResult.equals(ExitCode.SUCCESS)) {
-        return parseResult.getNumericExitCode();
+      parseArgsAndConfigs(
+          env, optionsParser, commandAnnotation, args, rcfileNotes, eventHandler);
+      // Allow the command to edit the options.
+      command.editOptions(optionsParser);
+      // Migration of --watchfs to a command option.
+      // TODO(ulfjack): Get rid of the startup option and drop this code.
+      if (runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).watchFS) {
+        try {
+          optionsParser.parse("--watchfs");
+        } catch (OptionsParsingException e) {
+          // This should never happen.
+          throw new IllegalStateException(e);
+        }
       }
       // Merge the invocation policy that is user-supplied, from the command line, and any
       // invocation policy that was added by a module. The module one goes 'first,' so the user
@@ -425,7 +425,22 @@ public class BlazeCommandDispatcher {
               .mergeFrom(invocationPolicy)
               .build();
       InvocationPolicyEnforcer optionsPolicyEnforcer = new InvocationPolicyEnforcer(combinedPolicy);
+      // Enforce the invocation policy. It is intentional that this is the last step in preparing
+      // the options. The invocation policy is used in security-critical contexts, and may be used
+      // as a last resort to override flags. That means that the policy can override flags set in
+      // BlazeCommand.editOptions, so the code needs to be safe regardless of the actual flag
+      // values. At the time of this writing, editOptions was only used as a convenience feature or
+      // to improve the user experience, but not required for safety or correctness.
       optionsPolicyEnforcer.enforce(optionsParser, commandName);
+      // Print warnings for odd options usage
+      for (String warning : optionsParser.getWarnings()) {
+        eventHandler.handle(Event.warn(warning));
+      }
+      options = optionsParser;
+    } catch (OptionsParser.ConstructionException e) {
+      eventHandler.handle(
+          Event.error("Internal error while constructing options parser: " + e.getMessage()));
+      return ExitCode.BLAZE_INTERNAL_ERROR.getNumericExitCode();
     } catch (OptionsParsingException e) {
       for (String note : rcfileNotes) {
         eventHandler.handle(Event.info(note));
@@ -436,7 +451,7 @@ public class BlazeCommandDispatcher {
 
     // Setup log filtering
     BlazeCommandEventHandler.Options eventHandlerOptions =
-        optionsParser.getOptions(BlazeCommandEventHandler.Options.class);
+        options.getOptions(BlazeCommandEventHandler.Options.class);
     OutErr colorfulOutErr = outErr;
 
     if (!eventHandlerOptions.useColor()) {
@@ -457,7 +472,7 @@ public class BlazeCommandDispatcher {
       outErr = lineBufferErr(outErr);
     }
 
-    CommonCommandOptions commonOptions = optionsParser.getOptions(CommonCommandOptions.class);
+    CommonCommandOptions commonOptions = options.getOptions(CommonCommandOptions.class);
     if (!commonOptions.verbosity.equals(lastLogVerbosityLevel)) {
       BlazeRuntime.setupLogging(commonOptions.verbosity);
       lastLogVerbosityLevel = commonOptions.verbosity;
@@ -511,24 +526,17 @@ public class BlazeCommandDispatcher {
       try {
         // Notify the BlazeRuntime, so it can do some initial setup.
         env.beforeCommand(
-            optionsParser,
+            options,
             commonOptions,
             execStartTimeNanos,
             waitTimeInMs,
             invocationPolicy);
-        // Allow the command to edit options after parsing:
-        command.editOptions(optionsParser);
       } catch (AbruptExitException e) {
         reporter.handle(Event.error(e.getMessage()));
         return e.getExitCode().getNumericExitCode();
       }
       for (BlazeModule module : runtime.getBlazeModules()) {
-        module.handleOptions(optionsParser);
-      }
-
-      // Print warnings for odd options usage
-      for (String warning : optionsParser.getWarnings()) {
-        reporter.handle(Event.warn(warning));
+        module.handleOptions(options);
       }
 
       env.getEventBus().post(originalCommandLine);
@@ -537,7 +545,7 @@ public class BlazeCommandDispatcher {
         env.getSkyframeExecutor().injectExtraPrecomputedValues(module.getPrecomputedValues());
       }
 
-      ExitCode outcome = command.exec(env, optionsParser);
+      ExitCode outcome = command.exec(env, options);
       outcome = env.precompleteCommand(outcome);
       numericExitCode = outcome.getNumericExitCode();
       return numericExitCode;
