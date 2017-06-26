@@ -331,6 +331,7 @@ def configure_windows_toolchain(repository_ctx):
     support_whole_archive = "False"
   escaped_tmp_dir = escape_string(
       get_env_var(repository_ctx, "TMP", "C:\\Windows\\Temp").replace("\\", "\\\\"))
+  nvcc_tmp_dir_name = escaped_tmp_dir + "\\\\nvcc_inter_files_tmp_dir"
   # Make sure nvcc.exe is in PATH
   escaped_paths = escape_string(env["PATH"])
   cuda_path = _find_cuda(repository_ctx)
@@ -342,6 +343,7 @@ def configure_windows_toolchain(repository_ctx):
       "%{support_whole_archive}": support_whole_archive,
       "%{cuda_compute_capabilities}": ", ".join(
           ["\"%s\"" % c for c in escaped_compute_capabilities]),
+      "%{nvcc_tmp_dir_name}": nvcc_tmp_dir_name,
   })
 
   if _is_no_msvc_wrapper(repository_ctx):
@@ -352,8 +354,9 @@ def configure_windows_toolchain(repository_ctx):
     msvc_lib_path = "wrapper/bin/msvc_link.bat"
     compilation_mode_content = _get_compilation_mode_content()
 
-  # nvcc will generate some source files under tmp_dir
-  escaped_cxx_include_directories = [ "cxx_builtin_include_directory: \"%s\"" % escaped_tmp_dir ]
+  # nvcc will generate some source files under %{nvcc_tmp_dir_name}
+  # The generated files are guranteed to have unique name, so they can share the same tmp directory
+  escaped_cxx_include_directories = [ "cxx_builtin_include_directory: \"%s\"" % nvcc_tmp_dir_name ]
   for path in escaped_include_paths.split(";"):
     if path:
       escaped_cxx_include_directories.append("cxx_builtin_include_directory: \"%s\"" % path)
