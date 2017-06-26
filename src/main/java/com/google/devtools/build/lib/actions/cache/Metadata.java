@@ -14,104 +14,43 @@
 
 package com.google.devtools.build.lib.actions.cache;
 
-import com.google.common.io.BaseEncoding;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.util.Preconditions;
-import java.util.Arrays;
-import java.util.Date;
-
 /**
- * A class to represent file metadata.
- * ActionCacheChecker may assume that, for a given file, equal
- * metadata at different moments implies equal file-contents,
- * where metadata equality is computed using Metadata.equals().
- * <p>
- * NB! Several other parts of Blaze are relying on the fact that metadata
- * uses mtime and not ctime. If metadata is ever changed
- * to use ctime, all uses of Metadata must be carefully examined.
+ * An interface to represent the state of a file (or directory). This is used to determine whether a
+ * file has changed or not.
+ *
+ * <p>NB! Several other parts of Blaze are relying on the fact that metadata uses mtime and not
+ * ctime. If metadata is ever changed to use ctime, all uses of Metadata must be carefully examined.
  */
-@Immutable @ThreadSafe
-public final class Metadata {
-  private final long mtime;
-  private final byte[] digest;
-
-  // Convenience object for use with volatile files that we do not want checked
-  // (e.g. the build-changelist.txt)
-  public static final Metadata CONSTANT_METADATA = new Metadata(-1);
-
+public interface Metadata {
   /**
-   * Construct an instance for a directory with the specified mtime. The {@link #isFile} method
-   * returns true if and only if a digest is set.
+   * Marker interface for singleton implementations of the Metadata interface. This is only needed
+   * for a correct implementation of {@code equals}.
    */
-  public Metadata(long mtime) {
-    this.mtime = mtime;
-    this.digest = null;
+  public interface Singleton {
   }
 
   /**
-   * Construct an instance for a file with the specified digest. The {@link #isFile} method returns
-   * true if and only if a digest is set.
+   * Whether the underlying file system object is a file or a symlink to a file, rather than a
+   * directory. All files are guaranteed to have a digest, and {@link #getDigest} must only be
+   * called on files.
    */
-  public Metadata(byte[] digest) {
-    this.mtime = 0L;
-    this.digest = Preconditions.checkNotNull(digest);
-  }
-
-  public boolean isFile() {
-    return digest != null;
-  }
+  boolean isFile();
 
   /**
-   * Returns the digest for the underlying file system object.
+   * Returns the file's digest; must only be called on objects for which {@link #isFile} returns
+   * true.
    *
    * <p>The return value is owned by the cache and must not be modified.
    */
-  public byte[] getDigest() {
-    Preconditions.checkState(digest != null);
-    return digest;
-  }
+  byte[] getDigest();
 
-  public long getModifiedTime() {
-    return mtime;
-  }
+  /** Returns the file's size, or 0 if the underlying file system object is not a file. */
+  // TODO(ulfjack): Throw an exception if it's not a file.
+  long getSize();
 
-  @Override
-  public int hashCode() {
-    int hash = 0;
-    if (digest != null) {
-      // We are already dealing with the digest so we can just use portion of it
-      // as a hash code.
-      hash += digest[0] + (digest[1] << 8) + (digest[2] << 16) + (digest[3] << 24);
-    } else {
-      // Inlined hashCode for Long, so we don't
-      // have to construct an Object, just to compute
-      // a 32-bit hash out of a 64 bit value.
-      hash = (int) (mtime ^ (mtime >>> 32));
-    }
-    return hash;
-  }
-
-  @Override
-  public boolean equals(Object that) {
-    if (this == that) {
-      return true;
-    }
-    if (!(that instanceof Metadata)) {
-      return false;
-    }
-    // Do a strict comparison - both digest and mtime should match
-    return Arrays.equals(this.digest, ((Metadata) that).digest)
-        && this.mtime == ((Metadata) that).mtime;
-  }
-
-  @Override
-  public String toString() {
-    if (digest != null) {
-      return "MD5 " + BaseEncoding.base16().lowerCase().encode(digest);
-    } else if (mtime > 0) {
-      return "timestamp " + new Date(mtime);
-    }
-    return "no metadata";
-  }
+  /**
+   * Returns the last modified time; must only be called on objects for which {@link #isFile}
+   * returns false.
+   */
+  long getModifiedTime();
 }

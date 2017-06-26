@@ -11,18 +11,16 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.actions.cache;
-
+package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.io.BaseEncoding;
 import com.google.common.testing.EqualsTester;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
-public class MetadataTest {
+public class FileArtifactValueTest {
 
   private static byte[] toBytes(String hex) {
     return BaseEncoding.base16().upperCase().decode(hex);
@@ -33,12 +31,20 @@ public class MetadataTest {
     // Each "equality group" is checked for equality within itself (including hashCode equality)
     // and inequality with members of other equality groups.
     new EqualsTester()
-        .addEqualityGroup(new Metadata(toBytes("00112233445566778899AABBCCDDEEFF")),
-                          new Metadata(toBytes("00112233445566778899AABBCCDDEEFF")))
-        .addEqualityGroup(new Metadata(1))
-        .addEqualityGroup(new Metadata(toBytes("FFFFFF00000000000000000000000000")))
-        .addEqualityGroup(new Metadata(2),
-                          new Metadata(2))
+        .addEqualityGroup(
+            FileArtifactValue.createNormalFile(toBytes("00112233445566778899AABBCCDDEEFF"), 1),
+            FileArtifactValue.createNormalFile(toBytes("00112233445566778899AABBCCDDEEFF"), 1))
+        .addEqualityGroup(
+            FileArtifactValue.createNormalFile(toBytes("00112233445566778899AABBCCDDEEFF"), 2))
+        .addEqualityGroup(FileArtifactValue.createDirectory(1))
+        .addEqualityGroup(
+            FileArtifactValue.createNormalFile(toBytes("FFFFFF00000000000000000000000000"), 1))
+        .addEqualityGroup(
+            FileArtifactValue.createDirectory(2),
+            FileArtifactValue.createDirectory(2))
+        .addEqualityGroup(FileArtifactValue.OMITTED_FILE_MARKER)
+        .addEqualityGroup(FileArtifactValue.MISSING_FILE_MARKER)
+        .addEqualityGroup(FileArtifactValue.DEFAULT_MIDDLEMAN)
         .addEqualityGroup("a string")
         .testEquals();
   }
