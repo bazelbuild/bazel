@@ -18,7 +18,6 @@ filegroup(
         ":darwin": [
             "//src/objc_tools/bundlemerge:bundlemerge_deploy.jar",
             "//src/objc_tools/plmerge:plmerge_deploy.jar",
-            "//src/objc_tools/xcodegen:xcodegen_deploy.jar",
             "//src/tools/xcode/actoolwrapper",
             "//src/tools/xcode/environment:environment_plist",
             "//src/tools/xcode/ibtoolwrapper",

@@ -16,7 +16,6 @@ FILES = [
     "test_status",
     "plmerge",
     "bundlemerge",
-    "xcodegen",
     "worker_protocol",
     "invocation_policy",
     "android_deploy_info",

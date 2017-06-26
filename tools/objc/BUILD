@@ -25,17 +25,6 @@ java_import(
     jars = [":precomp_plmerge_deploy.jar"],
 )
 
-java_binary(
-    name = "xcodegen",
-    main_class = "com.google.devtools.build.xcode.xcodegen.XcodeGen",
-    runtime_deps = [":xcodegen_import"],
-)
-
-java_import(
-    name = "xcodegen_import",
-    jars = [":precomp_xcodegen_deploy.jar"],
-)
-
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [

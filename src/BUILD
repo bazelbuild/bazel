@@ -81,7 +81,6 @@ OSX_DUMMY_TARGETS = [
     "src/tools/xcode/environment/environment_plist",
     "src/objc_tools/bundlemerge/bundlemerge_deploy.jar",
     "src/objc_tools/plmerge/plmerge_deploy.jar",
-    "src/objc_tools/xcodegen/xcodegen_deploy.jar",
     "src/tools/xcode/realpath/realpath",
     "src/tools/xcode/stdredirect/StdRedirect.dylib",
 ]
@@ -106,7 +105,6 @@ filegroup(
         "//src/tools/xcode/environment:environment_plist",
         "//src/objc_tools/bundlemerge:bundlemerge_deploy.jar",
         "//src/objc_tools/plmerge:plmerge_deploy.jar",
-        "//src/objc_tools/xcodegen:xcodegen_deploy.jar",
         "//src/tools/xcode/realpath:realpath",
         "//tools/osx:xcode_locator.m",
     ] + select({
@@ -361,7 +359,6 @@ filegroup(
         "//src/main/tools:srcs",
         "//src/objc_tools/bundlemerge:srcs",
         "//src/objc_tools/plmerge:srcs",
-        "//src/objc_tools/xcodegen:srcs",
         "//src/test/cpp:srcs",
         "//src/test/gen:srcs",
         "//src/test/native:srcs",

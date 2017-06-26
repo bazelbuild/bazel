@@ -29,7 +29,6 @@ java_library(
         "//src/main/protobuf:bundlemerge_java_proto",
         "//src/main/protobuf:extra_actions_base_java_proto",
         "//src/main/protobuf:plmerge_java_proto",
-        "//src/main/protobuf:xcodegen_java_proto",
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
