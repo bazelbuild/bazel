@@ -107,6 +107,13 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     }
   }
 
+  /** Converter for {@link AndroidAaptVersion} */
+  public static final class AndroidAaptConverter extends EnumConverter<AndroidAaptVersion> {
+    public AndroidAaptConverter() {
+      super(AndroidAaptVersion.class, "android androidAaptVersion");
+    }
+  }
+
   /**
    * Value used to avoid multiple configurations from conflicting.
    *
@@ -185,6 +192,31 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       for (AndroidManifestMerger merger : AndroidManifestMerger.values()) {
         if (merger.name().equalsIgnoreCase(value)) {
           return merger;
+        }
+      }
+      return null;
+    }
+  }
+
+  /** Types of android manifest mergers. */
+  public enum AndroidAaptVersion {
+    AAPT,
+    AAPT2,
+    AUTO;
+
+    public static List<String> getAttributeValues() {
+      return ImmutableList.of(
+          AAPT.name().toLowerCase(), AAPT2.name().toLowerCase(), getRuleAttributeDefault());
+    }
+
+    public static String getRuleAttributeDefault() {
+      return AUTO.name().toLowerCase();
+    }
+
+    public static AndroidAaptVersion fromString(String value) {
+      for (AndroidAaptVersion version : AndroidAaptVersion.values()) {
+        if (version.name().equalsIgnoreCase(value)) {
+          return version;
         }
       }
       return null;
@@ -438,6 +470,18 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     )
     public AndroidManifestMerger manifestMerger;
 
+    @Option(
+      name = "android_aapt",
+      defaultValue = "aapt",
+      category = "semantics",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      converter = AndroidAaptConverter.class,
+      help =
+          "Selects the version of androidAaptVersion to use for android_binary rules."
+              + "Flag to help the test and transition to aapt2."
+    )
+    public AndroidAaptVersion androidAaptVersion;
+
     // Do not use on the command line.
     @Option(
       name = "experimental_use_parallel_android_resource_processing",
@@ -570,6 +614,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       host.dexoptsSupportedInIncrementalDexing = dexoptsSupportedInIncrementalDexing;
       host.dexoptsSupportedInDexMerger = dexoptsSupportedInDexMerger;
       host.manifestMerger = manifestMerger;
+      host.androidAaptVersion = androidAaptVersion;
       return host;
     }
 
@@ -630,6 +675,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean includeLibraryResourceJars;
   private final boolean useNocompressExtensionsOnApk;
   private final boolean exportsManifestDefault;
+  private final AndroidAaptVersion androidAaptVersion;
   private final boolean generateRobolectricRClass;
   private final boolean useParallelDex2Oat;
 
@@ -664,6 +710,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.includeLibraryResourceJars = options.includeLibraryResourceJars;
     this.useNocompressExtensionsOnApk = options.useNocompressExtensionsOnApk;
     this.exportsManifestDefault = options.exportsManifestDefault;
+    this.androidAaptVersion = options.androidAaptVersion;
     this.generateRobolectricRClass = options.generateRobolectricRClass;
     this.useParallelDex2Oat = options.useParallelDex2Oat;
 
@@ -748,6 +795,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   public boolean useParallelResourceProcessing() {
     return useParallelResourceProcessing;
+  }
+
+  public AndroidAaptVersion getAndroidAaptVersion() {
+    return androidAaptVersion;
   }
 
   public AndroidManifestMerger getManifestMerger() {
