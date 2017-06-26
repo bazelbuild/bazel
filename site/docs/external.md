@@ -6,10 +6,10 @@ title: External Dependencies
 # Working with external dependencies
 
 External dependencies can be specified in the `WORKSPACE` file of the
-[workspace directory](/docs/build-ref.html#workspace). This `WORKSPACE` file
+[workspace directory](build-ref.html#workspace). This `WORKSPACE` file
 uses the same syntax as BUILD files, but allows a different set of
 rules. The full list of rules are in the Build Encyclopedia's
-[Workspace Rules](/docs/be/workspace.html).
+[Workspace Rules](be/workspace.html).
 
 External dependencies are all downloaded and symlinked under a directory named
 `external`. You can see this directory by running:

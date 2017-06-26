@@ -16,7 +16,7 @@ Here, you'll do the following:
 
 ## Install Bazel
 
-Follow the [installation instructions](/docs/install.md) to install Bazel and
+Follow the [installation instructions](../install.md) to install Bazel and
 its dependencies.
 
 ## Install Android Studio

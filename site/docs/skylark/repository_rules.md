@@ -7,7 +7,7 @@ title: Repository Rules
 **Status: Experimental**. We may make breaking changes to the API, but we will
   announce them and help you update your code.
 
-An [external repository](/docs/external.md) is a rule that can be used only
+An [external repository](../external.md) is a rule that can be used only
 in the `WORKSPACE` file and enable non-hermetic operation at the loading phase
 of Bazel. Each external repository rule creates its own workspace, with its
 own BUILD files and artifacts. They can be used to depend on third-party

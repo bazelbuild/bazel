@@ -5,7 +5,7 @@ title: Tutorial - Set Up a Workspace
 
 # Tutorial - Set Up a Workspace
 
-A [workspace](/docs/build-ref.html#workspaces) is a directory that contains the
+A [workspace](../build-ref.html#workspaces) is a directory that contains the
 source files for one or more software projects, as well as a `WORKSPACE` file
 and `BUILD` files that contain the instructions that Bazel uses to build
 the software. The workspace may also contain symbolic links to output
@@ -32,7 +32,7 @@ export WORKSPACE=$HOME/examples/tutorial
 
 Every workspace must have a text file named `WORKSPACE` located in the top-level
 workspace directory. This file may be empty or it may contain references
-to [external dependencies](/docs/external.html) required to build the
+to [external dependencies](../external.html) required to build the
 software.
 
 For now, you'll create an empty `WORKSPACE` file, which simply serves to

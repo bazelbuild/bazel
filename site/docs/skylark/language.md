@@ -8,7 +8,7 @@ title: Extensions - Overview
 ## Syntax
 
 The extension language, Skylark, is a superset of the
-[Core Build Language](/docs/build-ref.html#core_build_language)
+[Core Build Language](../build-ref.html#core_build_language)
 and its syntax is a subset of Python.
 It is designed to be simple, thread-safe and integrated with the
 BUILD language. It is not a general-purpose language and most Python
