@@ -628,4 +628,97 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     assertThat(allEventsSeen.get(5).getEventId()).isEqualTo(BuildEventId.progressId(2));
     assertThat(allEventsSeen.get(6)).isEqualTo(secondWithConfiguration);
   }
+
+  @Test
+  public void testEarlyFlush() throws Exception {
+    // Verify that the streamer can handle early calls to flush() and still correctly
+    // reports stdout and stderr in the build-event stream.
+    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
+    BuildEventStreamer streamer =
+        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
+    BuildEventStreamer.OutErrProvider outErr =
+        Mockito.mock(BuildEventStreamer.OutErrProvider.class);
+    String firstStdoutMsg = "Some text that was written to stdout.";
+    String firstStderrMsg = "The UI text that bazel wrote to stderr.";
+    String secondStdoutMsg = "More text that was written to stdout, still before the start event.";
+    String secondStderrMsg = "More text written to stderr, still before the start event.";
+    when(outErr.getOut()).thenReturn(firstStdoutMsg).thenReturn(secondStdoutMsg);
+    when(outErr.getErr()).thenReturn(firstStderrMsg).thenReturn(secondStderrMsg);
+    BuildEvent startEvent =
+        new GenericBuildEvent(
+            testId("Initial"),
+            ImmutableSet.<BuildEventId>of(ProgressEvent.INITIAL_PROGRESS_UPDATE));
+
+    streamer.registerOutErrProvider(outErr);
+    streamer.flush();
+    streamer.flush();
+    streamer.buildEvent(startEvent);
+
+    List<BuildEvent> eventsSeen = transport.getEvents();
+    assertThat(eventsSeen).hasSize(3);
+    assertThat(eventsSeen.get(0).getEventId()).isEqualTo(startEvent.getEventId());
+    BuildEvent progressEvent = eventsSeen.get(1);
+    assertThat(progressEvent.getEventId()).isEqualTo(ProgressEvent.INITIAL_PROGRESS_UPDATE);
+    BuildEventStreamProtos.BuildEvent progressEventProto = transport.getEventProtos().get(1);
+    assertThat(progressEventProto.getProgress().getStdout()).isEqualTo(firstStdoutMsg);
+    assertThat(progressEventProto.getProgress().getStderr()).isEqualTo(firstStderrMsg);
+    BuildEventStreamProtos.BuildEvent secondProgressEventProto = transport.getEventProtos().get(2);
+    assertThat(secondProgressEventProto.getProgress().getStdout()).isEqualTo(secondStdoutMsg);
+    assertThat(secondProgressEventProto.getProgress().getStderr()).isEqualTo(secondStderrMsg);
+
+    // As there is only one progress event, the OutErrProvider should be queried
+    // only once per flush() for stdout and stderr.
+    verify(outErr, times(2)).getOut();
+    verify(outErr, times(2)).getErr();
+  }
+
+  @Test
+  public void testEarlyFlushBadInitialEvent() throws Exception {
+    // Verify that an early flush works correctly with an unusual start event.
+    // In this case, we expect 3 events in the stream, in that order:
+    // - an artifical progress event as initial event, to properly link in
+    //   all events
+    // - the unusal first event we have seen, and
+    // - a progress event reporting the flushed messages.
+    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
+    BuildEventStreamer streamer =
+        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
+    BuildEventStreamer.OutErrProvider outErr =
+        Mockito.mock(BuildEventStreamer.OutErrProvider.class);
+    String stdoutMsg = "Some text that was written to stdout.";
+    String stderrMsg = "The UI text that bazel wrote to stderr.";
+    when(outErr.getOut()).thenReturn(stdoutMsg);
+    when(outErr.getErr()).thenReturn(stderrMsg);
+
+    BuildEvent unexpectedStartEvent =
+        new GenericBuildEvent(testId("unexpected start"), ImmutableSet.<BuildEventId>of());
+
+    streamer.registerOutErrProvider(outErr);
+    streamer.flush();
+    streamer.buildEvent(unexpectedStartEvent);
+
+    List<BuildEvent> eventsSeen = transport.getEvents();
+    assertThat(eventsSeen).hasSize(3);
+
+    BuildEvent initial = eventsSeen.get(0);
+    assertThat(initial.getEventId()).isEqualTo(ProgressEvent.INITIAL_PROGRESS_UPDATE);
+    BuildEventStreamProtos.BuildEvent initialProto = transport.getEventProtos().get(0);
+    assertThat(initialProto.getProgress().getStdout()).isEmpty();
+    assertThat(initialProto.getProgress().getStderr()).isEmpty();
+
+    assertThat(eventsSeen.get(1).getEventId()).isEqualTo(unexpectedStartEvent.getEventId());
+    assertWithMessage("Unexpected event should be linked")
+        .that(initial.getChildrenEvents().contains(unexpectedStartEvent.getEventId()))
+        .isTrue();
+
+    BuildEventStreamProtos.BuildEvent progressProto = transport.getEventProtos().get(2);
+    assertThat(progressProto.getProgress().getStdout()).isEqualTo(stdoutMsg);
+    assertThat(progressProto.getProgress().getStderr()).isEqualTo(stderrMsg);
+    assertWithMessage("flushed progress should be linked")
+        .that(initial.getChildrenEvents().contains(eventsSeen.get(2).getEventId()))
+        .isTrue();
+
+    verify(outErr, times(1)).getOut();
+    verify(outErr, times(1)).getErr();
+  }
 }
