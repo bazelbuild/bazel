@@ -323,6 +323,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
   )
   public boolean exoblaze;
 
+  // TODO(ulfjack): Make this a command option.
   @Option(
     name = "write_command_log",
     defaultValue = "true",

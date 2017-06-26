@@ -390,23 +390,6 @@ public class BlazeCommandDispatcher {
       }
     }
 
-    try {
-      Path commandLog = getCommandLogPath(workspace.getOutputBase());
-
-      // Unlink old command log from previous build, if present, so scripts
-      // reading it don't conflate it with the command log we're about to write.
-      closeSilently(logOutputStream);
-      logOutputStream = null;
-      commandLog.delete();
-
-      if (workspace.getRuntime().writeCommandLog() && commandAnnotation.writeCommandLog()) {
-        logOutputStream = commandLog.getOutputStream();
-        outErr = tee(outErr, OutErr.create(logOutputStream, logOutputStream));
-      }
-    } catch (IOException ioException) {
-      LoggingUtil.logToRemote(Level.WARNING, "Unable to delete or open command.log", ioException);
-    }
-
     EventHandler eventHandler = new PrintingEventHandler(outErr, EventKind.ALL_EVENTS);
     ExitCode result = checkCwdInWorkspace(workspace, commandAnnotation, commandName, eventHandler);
     if (!result.equals(ExitCode.SUCCESS)) {
@@ -719,13 +702,6 @@ public class BlazeCommandDispatcher {
     }
 
     return message;
-  }
-
-  /**
-   * For a given output_base directory, returns the command log file path.
-   */
-  public static Path getCommandLogPath(Path outputBase) {
-    return outputBase.getRelative("command.log");
   }
 
   private OutErr tee(OutErr outErr1, OutErr outErr2) {
