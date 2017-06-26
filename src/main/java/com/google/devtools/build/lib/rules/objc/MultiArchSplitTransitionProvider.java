@@ -22,6 +22,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransitionProvider;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.Platform;
@@ -167,11 +169,15 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
         case IOS:
           cpus = buildOptions.get(AppleCommandLineOptions.class).iosMultiCpus;
           if (cpus.isEmpty()) {
-            cpus = ImmutableList.of(buildOptions.get(AppleCommandLineOptions.class).iosCpu);
+            cpus =
+                ImmutableList.of(
+                    AppleConfiguration.iosCpuFromCpu(buildOptions.get(Options.class).cpu));
           }
           configurationDistinguisher = ConfigurationDistinguisher.APPLEBIN_IOS;
-          actualMinimumOsVersion = minimumOsVersion.isPresent() ? minimumOsVersion.get()
-              : buildOptions.get(AppleCommandLineOptions.class).iosMinimumOs;
+          actualMinimumOsVersion =
+              minimumOsVersion.isPresent()
+                  ? minimumOsVersion.get()
+                  : buildOptions.get(AppleCommandLineOptions.class).iosMinimumOs;
           break;
         case WATCHOS:
           cpus = buildOptions.get(AppleCommandLineOptions.class).watchosCpus;

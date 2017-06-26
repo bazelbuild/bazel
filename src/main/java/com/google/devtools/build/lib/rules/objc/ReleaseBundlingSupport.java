@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -1293,7 +1294,7 @@ public final class ReleaseBundlingSupport {
       ImmutableList.Builder<BuildOptions> splitBuildOptions = ImmutableList.builder();
       for (String iosCpu : iosMultiCpus) {
         BuildOptions splitOptions = buildOptions.clone();
-        setArchitectureOptions(splitOptions, buildOptions, iosCpu);
+        setIosArchitectureOptions(splitOptions, buildOptions, iosCpu);
         setAdditionalOptions(splitOptions, buildOptions);
         splitOptions.get(AppleCommandLineOptions.class).configurationDistinguisher =
             getConfigurationDistinguisher();
@@ -1321,10 +1322,11 @@ public final class ReleaseBundlingSupport {
      */
     protected void setAdditionalOptions(BuildOptions splitOptions, BuildOptions originalOptions) {}
 
-    private static void setArchitectureOptions(BuildOptions splitOptions, 
-        BuildOptions originalOptions, String iosCpu) {
+    private static void setIosArchitectureOptions(
+        BuildOptions splitOptions, BuildOptions originalOptions, String iosCpu) {
       splitOptions.get(AppleCommandLineOptions.class).applePlatformType = PlatformType.IOS;
       splitOptions.get(AppleCommandLineOptions.class).appleSplitCpu = iosCpu;
+      splitOptions.get(Options.class).cpu = AppleConfiguration.IOS_CPU_PREFIX + iosCpu;
       splitOptions.get(AppleCommandLineOptions.class).iosCpu = iosCpu;
      if (splitOptions.get(ObjcCommandLineOptions.class).enableCcDeps) {
         // Only set the (CC-compilation) CPU for dependencies if explicitly required by the user.

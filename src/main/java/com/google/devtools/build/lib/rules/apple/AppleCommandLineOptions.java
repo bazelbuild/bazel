@@ -299,7 +299,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
 
   @Option(
     name = "apple_crosstool_transition",
-    defaultValue = "false",
+    defaultValue = "true",
     optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     help = "If true, the apple crosstool is used for all apple rules."
   )
