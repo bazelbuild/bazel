@@ -18,9 +18,12 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
+import com.google.devtools.common.options.proto.OptionFilters.OptionMetadataTag;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
@@ -97,12 +100,13 @@ public class CommonCommandOptions extends OptionsBase {
     }
   }
 
-
   // To create a new incompatible change, see the javadoc for AllIncompatibleChangesExpansion.
   @Option(
     name = "all_incompatible_changes",
     defaultValue = "null",
     category = "misc",
+    effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
     expansionFunction = AllIncompatibleChangesExpansion.class,
     help =
         "Enables all options of the form --incompatible_*. Use this option to find places where "
@@ -114,6 +118,7 @@ public class CommonCommandOptions extends OptionsBase {
     name = "config",
     defaultValue = "",
     category = "misc",
+    effectTags = {OptionEffectTag.UNKNOWN},
     allowMultiple = true,
     help =
         "Selects additional config sections from the rc files; for every <command>, it "
@@ -129,6 +134,8 @@ public class CommonCommandOptions extends OptionsBase {
     name = "logging",
     defaultValue = "3", // Level.INFO
     category = "verbosity",
+    documentationCategory = OptionDocumentationCategory.LOGGING,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
     converter = Converters.LogLevelConverter.class,
     help = "The logging level."
   )
@@ -138,16 +145,19 @@ public class CommonCommandOptions extends OptionsBase {
     name = "client_env",
     defaultValue = "",
     optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    effectTags = {OptionEffectTag.CHANGES_INPUTS},
     converter = Converters.AssignmentConverter.class,
     allowMultiple = true,
     help = "A system-generated parameter which specifies the client's environment"
   )
   public List<Map.Entry<String, String>> clientEnv;
 
+  @Deprecated
   @Option(
     name = "ignore_client_env",
     defaultValue = "false",
     optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    metadataTags = OptionMetadataTag.DEPRECATED,
     deprecationWarning = "Deprecated, no-op.",
     help = "Deprecated, no-op."
   )
@@ -159,6 +169,7 @@ public class CommonCommandOptions extends OptionsBase {
     name = "client_cwd",
     defaultValue = "",
     optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    effectTags = {OptionEffectTag.CHANGES_INPUTS},
     converter = OptionsUtils.PathFragmentConverter.class,
     help = "A system-generated parameter which specifies the client's working directory"
   )
@@ -168,6 +179,8 @@ public class CommonCommandOptions extends OptionsBase {
     name = "announce_rc",
     defaultValue = "false",
     category = "verbosity",
+    documentationCategory = OptionDocumentationCategory.LOGGING,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
     help = "Whether to announce rc options."
   )
   public boolean announceRcOptions;
@@ -181,6 +194,7 @@ public class CommonCommandOptions extends OptionsBase {
     name = "default_override",
     defaultValue = "",
     allowMultiple = true,
+    effectTags = {OptionEffectTag.CHANGES_INPUTS},
     optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
     converter = OptionOverrideConverter.class,
     help = ""
@@ -192,6 +206,7 @@ public class CommonCommandOptions extends OptionsBase {
     name = "rc_source",
     defaultValue = "",
     allowMultiple = true,
+    effectTags = {OptionEffectTag.CHANGES_INPUTS},
     optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
     help = ""
   )
@@ -200,6 +215,7 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "always_profile_slow_operations",
     defaultValue = "true",
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
     optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     help = "Whether profiling slow operations is always turned on"
   )
@@ -209,6 +225,7 @@ public class CommonCommandOptions extends OptionsBase {
     name = "allow_undefined_configs",
     defaultValue = "true",
     category = "flags",
+    effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
     help = "Do not throw an error when the config is not defined."
   )
   public boolean allowUndefinedConfigs;
@@ -217,6 +234,8 @@ public class CommonCommandOptions extends OptionsBase {
     name = "profile",
     defaultValue = "null",
     category = "misc",
+    documentationCategory = OptionDocumentationCategory.LOGGING,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
     converter = OptionsUtils.PathFragmentConverter.class,
     help =
         "If set, profile Blaze and write data to the specified "
@@ -227,6 +246,8 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "record_full_profiler_data",
     defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.LOGGING,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
     optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     help =
         "By default, Blaze profiler will record only aggregated data for fast but numerous "
@@ -239,15 +260,19 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "memory_profile",
     defaultValue = "null",
+    documentationCategory = OptionDocumentationCategory.LOGGING,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
     optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     converter = OptionsUtils.PathFragmentConverter.class,
-    help = "If set, write memory usage data to the specified " + "file at phase ends."
+    help = "If set, write memory usage data to the specified file at phase ends."
   )
   public PathFragment memoryProfilePath;
 
+  @Deprecated
   @Option(
     name = "gc_watchdog",
     defaultValue = "false",
+    metadataTags = {OptionMetadataTag.DEPRECATED},
     optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     deprecationWarning = "Ignoring: this option is no longer supported",
     help = "Deprecated."
@@ -257,6 +282,8 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "startup_time",
     defaultValue = "0",
+    documentationCategory = OptionDocumentationCategory.LOGGING,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
     optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
     help = "The time in ms the launcher spends before sending the request to the blaze server."
   )
@@ -265,6 +292,8 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "extract_data_time",
     defaultValue = "0",
+    documentationCategory = OptionDocumentationCategory.LOGGING,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
     optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
     help = "The time in ms spent on extracting the new blaze version."
   )
@@ -273,6 +302,8 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "command_wait_time",
     defaultValue = "0",
+    documentationCategory = OptionDocumentationCategory.LOGGING,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
     optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
     help = "The time in ms a command had to wait on a busy Blaze server process."
   )
@@ -282,6 +313,8 @@ public class CommonCommandOptions extends OptionsBase {
     name = "tool_tag",
     defaultValue = "",
     category = "misc",
+    documentationCategory = OptionDocumentationCategory.LOGGING,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
     help = "A tool name to attribute this Blaze invocation to."
   )
   public String toolTag;
@@ -289,6 +322,8 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "restart_reason",
     defaultValue = "no_restart",
+    documentationCategory = OptionDocumentationCategory.LOGGING,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
     optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
     help = "The reason for the server restart."
   )
@@ -297,6 +332,8 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "binary_path",
     defaultValue = "",
+    documentationCategory = OptionDocumentationCategory.LOGGING,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
     optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
     help = "The absolute path of the blaze binary."
   )
@@ -305,6 +342,8 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "experimental_allow_project_files",
     defaultValue = "false",
+    effectTags = {OptionEffectTag.CHANGES_INPUTS},
+    metadataTags = {OptionMetadataTag.EXPERIMENTAL},
     optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
     help = "Enable processing of +<file> parameters."
   )
@@ -313,11 +352,11 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "block_for_lock",
     defaultValue = "true",
+    effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
     optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
     help =
         "If set (the default), a command will block if there is another one running. If "
             + "unset, these commands will immediately return with an error."
   )
   public boolean blockForLock;
-
 }

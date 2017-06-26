@@ -8,6 +8,7 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//src/main/protobuf:invocation_policy_java_proto",
+        "//src/main/protobuf:option_filters_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",

@@ -14,6 +14,8 @@
 package com.google.devtools.common.options;
 
 import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
+import com.google.devtools.common.options.proto.OptionFilters.OptionMetadataTag;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -72,11 +74,21 @@ public @interface Option {
   String defaultValue();
 
   /**
-   * A string describing the role of the option. Some existing categories are "input," "output,"
-   * "config," "semantics," and "strategy," among others.
+   * This category field is deprecated. Bazel is in the process of migrating all options to use the
+   * better defined enums in OptionDocumentationCategory and the tags in the option_filters.proto
+   * file. It will still be used for the usage documentation until a sufficient proportion of
+   * options are using the new system.
    *
-   * <p>The category of options that this belongs to dictates how options are grouped by {@link
-   * OptionsParser#describeOptions}, for the usage documentation.
+   * <p>Please leave the old category field in existing options to minimize disruption to the Help
+   * output during the transition period. All uses of this field will be removed when transition is
+   * complete. This category field has no effect on the other fields below, having both set is not a
+   * problem.
+   */
+  @Deprecated
+  String category() default "misc";
+
+  /**
+   * Grouping categories used for usage documentation. See the enum's definition for details.
    *
    * <p>For undocumented flags that aren't listed anywhere, this is currently a no-op. Feel free to
    * set the value that it would have if it were documented, which might be helpful if a flag is
@@ -86,7 +98,27 @@ public @interface Option {
    * <p>For hidden or internal options, use the category field only if it is helpful for yourself or
    * other Bazel developers.
    */
-  String category() default "misc";
+  OptionDocumentationCategory documentationCategory() default
+      OptionDocumentationCategory.UNCATEGORIZED;
+
+  /**
+   * Tag about the intent or effect of this option. Unless this option is a no-op (and the reason
+   * for this should be documented) all options should have some effect, so this needs to have at
+   * least one value.
+   *
+   * <p>No option should list NO_OP_OR_UNKNOWN with other effects listed, but all other combinations
+   * are allowed.
+   */
+  OptionEffectTag[] effectTags() default {OptionEffectTag.UNKNOWN};
+
+  /**
+   * Tag about the state of this option, such as if it gates an experimental feature, or is
+   * deprecated.
+   *
+   * <p>If one or more of the OptionMetadataTag values apply, please include, but otherwise, this
+   * list can be left blank.
+   */
+  OptionMetadataTag[] metadataTags() default {};
 
   /**
    * Options have multiple uses, some flags, some not. For user-visible flags, they are
