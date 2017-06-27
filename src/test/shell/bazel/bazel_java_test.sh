@@ -173,7 +173,7 @@ def _impl(ctx):
       deps.append(dep[java_common.provider])
   deps_provider = java_common.merge(deps)
 
-  output_jar = ctx.new_file("lib" + ctx.label.name + ".jar")
+  output_jar = ctx.actions.declare_file("lib" + ctx.label.name + ".jar")
 
   compilation_provider = java_common.compile(
     ctx,
@@ -290,7 +290,7 @@ EOF
 
   cat >g/java_custom_library.bzl <<'EOF'
 def _impl(ctx):
-  output_jar = ctx.new_file("lib" + ctx.label.name + ".jar")
+  output_jar = ctx.actions.declare_file("lib" + ctx.label.name + ".jar")
 
   compilation_provider = java_common.compile(
     ctx,
@@ -367,7 +367,7 @@ EOF
 
   cat >g/java_custom_library.bzl <<'EOF'
 def _impl(ctx):
-  output_jar = ctx.new_file("lib" + ctx.label.name + ".jar")
+  output_jar = ctx.actions.declare_file("lib" + ctx.label.name + ".jar")
 
   compilation_provider = java_common.compile(
     ctx,

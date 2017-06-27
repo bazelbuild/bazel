@@ -70,7 +70,7 @@ function test_aspect_and_configured_target_cleared() {
 def _simple_aspect_impl(target, ctx):
   result=depset()
   for orig_out in target.files:
-    aspect_out = ctx.new_file(orig_out.basename + ".aspect")
+    aspect_out = ctx.actions.declare_file(orig_out.basename + ".aspect")
     ctx.file_action(
         output=aspect_out,
         content = "Hello from aspect for %s" % orig_out.basename)

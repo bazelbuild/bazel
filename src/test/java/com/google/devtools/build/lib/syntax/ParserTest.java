@@ -471,8 +471,8 @@ public class ParserTest extends EvaluationTestCase {
     assertThat(parseFile("x[1::2]").toString()).isEqualTo("[x[1::2]\n]");
     assertThat(parseFile("x[1:]").toString()).isEqualTo("[x[1:]\n]");
     assertThat(parseFile("str[42]").toString()).isEqualTo("[str[42]\n]");
-    assertThat(parseFile("ctx.new_file('hello')").toString())
-        .isEqualTo("[ctx.new_file(\"hello\")\n]");
+    assertThat(parseFile("ctx.actions.declare_file('hello')").toString())
+        .isEqualTo("[ctx.actions.declare_file(\"hello\")\n]");
     assertThat(parseFile("new_file(\"hello\")").toString()).isEqualTo("[new_file(\"hello\")\n]");
   }
 

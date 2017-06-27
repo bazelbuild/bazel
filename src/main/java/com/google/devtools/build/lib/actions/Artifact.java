@@ -99,8 +99,8 @@ import javax.annotation.Nullable;
         + "Files. If you have a Skylark rule that needs to create a new File, you might need to "
         + "add the label to the attrs (if it's an input) or the outputs (if it's an output). Then "
         + "you can access the File through the rule's <a href='ctx.html'>context</a>. You can "
-        + "also use <a href='ctx.html#new_file'>ctx.new_file</a> to create a new file in the rule "
-        + "implementation.</p>")
+        + "also use <a href='actions.html#declare_file'>ctx.actions.declare_file</a> to "
+        + "declare a new file in the rule implementation.</p>")
 public class Artifact
     implements FileType.HasFilename, ActionInput, SkylarkValue, Comparable<Object> {
 

@@ -69,7 +69,7 @@ function test_top_level_aspect() {
 def _simple_aspect_impl(target, ctx):
   result=depset()
   for orig_out in target.files:
-    aspect_out = ctx.new_file(orig_out.basename + ".aspect")
+    aspect_out = ctx.actions.declare_file(orig_out.basename + ".aspect")
     ctx.file_action(
         output=aspect_out,
         content = "Hello from aspect for %s" % orig_out.basename)
@@ -253,7 +253,7 @@ function test_action_conflict() {
   cat > conflict/conflict_rule.bzl <<EOF || fail "Couldn't write bzl file"
 def _create(ctx):
   files_to_build = set(ctx.outputs.outs)
-  intemediate_outputs = [ctx.new_file("bar")]
+  intemediate_outputs = [ctx.actions.declare_file("bar")]
   intermediate_cmd = "cat %s > %s" % (ctx.attr.name, intemediate_outputs[0].path)
   action_cmd = "touch " + list(files_to_build)[0].path
   ctx.action(outputs=list(intemediate_outputs),

@@ -169,6 +169,8 @@ public final class SkylarkRuleContext implements SkylarkValue {
   // after this object has been nullified.
   private final String ruleLabelCanonicalName;
 
+  private final SkylarkActionFactory actionFactory;
+
   // The fields below intended to be final except that they can be cleared by calling `nullify()`
   // when the object becomes featureless.
   private RuleContext ruleContext;
@@ -195,6 +197,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
   public SkylarkRuleContext(RuleContext ruleContext,
       @Nullable AspectDescriptor aspectDescriptor)
       throws EvalException, InterruptedException {
+    this.actionFactory = new SkylarkActionFactory(this, ruleContext);
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
     this.ruleLabelCanonicalName = ruleContext.getLabel().getCanonicalForm();
     this.fragments = new FragmentCollection(ruleContext, ConfigurationTransition.NONE);
@@ -293,6 +296,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
    * rule implementation function has exited).
    */
   public void nullify() {
+    actionFactory.nullify();
     ruleContext = null;
     fragments = null;
     hostFragments = null;
@@ -611,6 +615,15 @@ public final class SkylarkRuleContext implements SkylarkValue {
     return DefaultProvider.SKYLARK_CONSTRUCTOR;
   }
 
+  @SkylarkCallable(
+      name = "actions",
+      structField = true,
+      doc = "Functions to declare files and create actions."
+  )
+  public SkylarkActionFactory actions() {
+    return actionFactory;
+  }
+
   @SkylarkCallable(name = "created_actions",
       doc = "For rules with <a href=\"globals.html#rule._skylark_testable\">_skylark_testable"
           + "</a> set to <code>True</code>, this returns an "
@@ -867,7 +880,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
     }
   }
 
-  private boolean isForAspect() {
+  boolean isForAspect() {
     return ruleAttributesCollection != null;
   }
 

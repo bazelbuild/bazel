@@ -1902,7 +1902,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
           "def _aspect_impl(target, ctx):",
           "  if ctx.rule.attr.deps:",
           "    dep = ctx.rule.attr.deps[0]",
-          "    file = ctx.new_file('file.txt')",
+          "    file = ctx.actions.declare_file('file.txt')",
           "    foo = dep." + (attribute.startsWith("rule.") ? "" : "ctx.") + attribute,
           "  return struct(ctx = ctx, rule=ctx.rule)",
           "MyAspect = aspect(implementation=_aspect_impl)",
