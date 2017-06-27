@@ -887,7 +887,8 @@ public final class SkylarkRuleContext implements SkylarkValue {
   @SkylarkCallable(
     name = "new_file",
     doc =
-        "Creates a file object with the given filename, in the current package. "
+        "DEPRECATED. Use <a href=\"actions.html#declare_file\">ctx.actions.declare_file</a>. <br>"
+            + "Creates a file object with the given filename, in the current package. "
             + DOC_NEW_FILE_TAIL,
     parameters = {
       @Param(
@@ -899,13 +900,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
   )
   public Artifact newFile(String filename) throws EvalException {
     checkMutable("new_file");
-    return newFile(newFileRoot(), filename);
-  }
-
-  private Root newFileRoot() throws EvalException {
-    return isForAspect()
-        ? getConfiguration().getBinDirectory(ruleContext.getRule().getRepository())
-        : ruleContext.getBinOrGenfilesDirectory();
+    return actionFactory.declareFile(filename, Runtime.NONE);
   }
 
   // Kept for compatibility with old code.
@@ -935,9 +930,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
     )
   public Artifact newFile(Artifact baseArtifact, String newBaseName) throws EvalException {
     checkMutable("new_file");
-    PathFragment original = baseArtifact.getRootRelativePath();
-    PathFragment fragment = original.replaceName(newBaseName);
-    return ruleContext.getDerivedArtifact(fragment, newFileRoot());
+    return actionFactory.declareFile(newBaseName, baseArtifact);
   }
 
   // Kept for compatibility with old code.
@@ -949,7 +942,6 @@ public final class SkylarkRuleContext implements SkylarkValue {
     return ruleContext.getDerivedArtifact(fragment, root);
   }
 
-  // TODO(b/36548861): Document this when it's ready to be made publicly available.
   @SkylarkCallable(
     name = "experimental_new_directory",
     documented = false,
@@ -966,13 +958,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
   )
   public Artifact newDirectory(String name, Object siblingArtifactUnchecked) throws EvalException {
     checkMutable("experimental_new_directory");
-    if (siblingArtifactUnchecked == Runtime.NONE) {
-      return ruleContext.getPackageRelativeTreeArtifact(PathFragment.create(name), newFileRoot());
-    }
-    Artifact siblingArtifact = (Artifact) siblingArtifactUnchecked;
-    PathFragment original = siblingArtifact.getRootRelativePath();
-    PathFragment fragment = original.replaceName(name);
-    return ruleContext.getTreeArtifact(fragment, newFileRoot());
+    return actionFactory.declareDirectory(name, siblingArtifactUnchecked);
   }
 
   @SkylarkCallable(documented = false)

@@ -776,6 +776,18 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testDeriveTreeArtifactType() throws Exception {
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    Object result =
+        evalRuleContextCode(ruleContext,
+            "b = ruleContext.actions.declare_directory('a/b')\n"
+            + "type(b)");
+    assertThat(result).isInstanceOf(String.class);
+    assertThat(result).isEqualTo("File");
+  }
+
+
+  @Test
   public void testDeriveTreeArtifactNextToSibling() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result =
@@ -802,7 +814,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testParamFileSuffix() throws Exception {
+  public void testParamFileSuffixLegacy() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result =
         evalRuleContextCode(
@@ -812,6 +824,19 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     PathFragment fragment = ((Artifact) result).getRootRelativePath();
     assertThat(fragment.getPathString()).isEqualTo("foo/t.exe.params");
   }
+
+  @Test
+  public void testParamFileSuffix() throws Exception {
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    Object result =
+        evalRuleContextCode(
+            ruleContext,
+            "ruleContext.actions.declare_file(ruleContext.files.tools[0].basename + '.params', "
+                + "sibling = ruleContext.files.tools[0])");
+    PathFragment fragment = ((Artifact) result).getRootRelativePath();
+    assertThat(fragment.getPathString()).isEqualTo("foo/t.exe.params");
+  }
+
 
   @Test
   public void testLabelKeyedStringDictConvertsToTargetToStringMap() throws Exception {
@@ -1832,6 +1857,10 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
       "expand('foo', [], Label('//test:main'))",
       "new_file('foo.txt')",
       "new_file(file, 'foo.txt')",
+      "actions.declare_file('foo.txt')",
+      "actions.declare_file('foo.txt', sibling = file)",
+      "actions.declare_directory('foo.txt')",
+      "actions.declare_directory('foo.txt', sibling = file)",
       "check_placeholders('foo', [])",
       "action(command = 'foo', outputs = [file])",
       "file_action(file, 'foo')",
