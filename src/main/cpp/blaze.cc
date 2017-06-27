@@ -808,7 +808,7 @@ class ExtractBlazeZipProcessor : public devtools_ijar::ZipExtractorProcessor {
            path.c_str());
     }
 
-    if (!blaze_util::WriteFile(data, size, path)) {
+    if (!blaze_util::WriteFile(data, size, path, 0755)) {
       die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
           "\nFailed to write zipped file \"%s\": %s", path.c_str(),
           blaze_util::GetLastErrorString().c_str());
