@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.common.options.Converter;
+import com.google.devtools.common.options.ExpansionContext;
 import com.google.devtools.common.options.ExpansionFunction;
 import com.google.devtools.common.options.IsolatedOptionsData;
 import com.google.devtools.common.options.Option;
@@ -153,11 +154,11 @@ public class AllIncompatibleChangesExpansion implements ExpansionFunction {
   }
 
   @Override
-  public ImmutableList<String> getExpansion(IsolatedOptionsData optionsData) {
+  public ImmutableList<String> getExpansion(ExpansionContext context) {
     // Grab all registered options that are identified as incompatible changes by either name or
     // by category. Ensure they satisfy our requirements.
     ArrayList<String> incompatibleChanges = new ArrayList<>();
-    for (Map.Entry<String, Field> entry : optionsData.getAllNamedFields()) {
+    for (Map.Entry<String, Field> entry : context.getOptionsData().getAllNamedFields()) {
       Field field = entry.getValue();
       Option annotation = field.getAnnotation(Option.class);
       if (annotation.name().startsWith(INCOMPATIBLE_NAME_PREFIX)

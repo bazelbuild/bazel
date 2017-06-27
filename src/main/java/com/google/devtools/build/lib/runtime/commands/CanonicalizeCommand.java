@@ -165,8 +165,8 @@ public final class CanonicalizeCommand implements BlazeCommand {
 
       // Print out the canonical invocation policy if requested.
       if (canonicalizeOptions.canonicalizePolicy) {
-        List<FlagPolicy> effectiveFlagPolicies =
-            InvocationPolicyEnforcer.getEffectivePolicy(policy, parser, commandName);
+        ImmutableList<FlagPolicy> effectiveFlagPolicies =
+            InvocationPolicyEnforcer.getEffectivePolicies(policy, parser, commandName);
         InvocationPolicy effectivePolicy =
             InvocationPolicy.newBuilder().addAllFlagPolicies(effectiveFlagPolicies).build();
         env.getReporter().getOutErr().printOutLn(effectivePolicy.toString());

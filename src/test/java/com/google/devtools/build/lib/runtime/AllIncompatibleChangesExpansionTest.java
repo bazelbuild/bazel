@@ -21,9 +21,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.UseDefault;
 import com.google.devtools.common.options.Converters;
+import com.google.devtools.common.options.ExpansionContext;
 import com.google.devtools.common.options.ExpansionFunction;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
-import com.google.devtools.common.options.IsolatedOptionsData;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
@@ -110,7 +110,7 @@ public class AllIncompatibleChangesExpansionTest {
     /** Dummy comment (linter suppression) */
     public static class YExpansion implements ExpansionFunction {
       @Override
-      public ImmutableList<String> getExpansion(IsolatedOptionsData optionsData) {
+      public ImmutableList<String> getExpansion(ExpansionContext context) {
         return ImmutableList.of("--noY");
       }
     }

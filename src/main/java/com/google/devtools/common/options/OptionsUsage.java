@@ -81,15 +81,22 @@ class OptionsUsage {
 
   /**
    * Returns the expansion for an option, to the extent known. Precisely, if an {@link OptionsData}
-   * object is supplied, the expansion is read from that. Otherwise, the annotation is inspected: If
-   * the annotation uses {@link Option#expansion} it is returned, and if it uses {@link
-   * Option#expansionFunction} null is returned, indicating a lack of definite information. In all
-   * cases, when the option is not an expansion option, an empty list is returned.
+   * object is supplied, the expansion is read from that if the expansion function doesn't take an
+   * argument. Otherwise, the annotation is inspected: If the annotation uses {@link
+   * Option#expansion} it is returned, and if it uses {@link Option#expansionFunction} null is
+   * returned, indicating a lack of definite information. In all cases, when the option is not an
+   * expansion option, an empty list is returned.
    */
   private static @Nullable ImmutableList<String> getExpansionIfKnown(
       Field optionField, Option annotation, @Nullable OptionsData optionsData) {
     if (optionsData != null) {
-      return optionsData.getEvaluatedExpansion(optionField);
+      try {
+        return optionsData.getEvaluatedExpansion(optionField, null);
+      } catch (ExpansionNeedsValueException e) {
+        return null;
+      } catch (OptionsParsingException e) {
+        throw new IllegalStateException("Error expanding void expansion function: ", e);
+      }
     } else {
       if (OptionsData.usesExpansionFunction(annotation)) {
         return null;

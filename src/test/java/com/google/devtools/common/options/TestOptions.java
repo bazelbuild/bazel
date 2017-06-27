@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.common.options.InvocationPolicyEnforcerTestBase.ToListConverter;
 import java.util.List;
 
@@ -174,4 +175,47 @@ public class TestOptions extends OptionsBase {
       implicitRequirements = {"--test_implicit_requirement=" + TEST_IMPLICIT_REQUIREMENT_REQUIRED}
   )
   public String testRecursiveImplicitRequirement;
+
+  public static final String TEST_EXPANSION_FUNCTION_ACCEPTED_VALUE = "valueA";
+  public static final String EXPANDED_D_EXPANSION_FUNCTION_VALUE = "expanded valueA";
+
+  /** Used for testing an expansion flag that requires a value. */
+  public static class TestExpansionFunction implements ExpansionFunction {
+    @Override
+    public ImmutableList<String> getExpansion(ExpansionContext expansionContext)
+        throws OptionsParsingException {
+      String value = expansionContext.getUnparsedValue();
+      if (value == null) {
+        throw new ExpansionNeedsValueException("Expansion value not set.");
+      } else if (value.equals(TEST_EXPANSION_FUNCTION_ACCEPTED_VALUE)) {
+        return ImmutableList.of("--expanded_d", EXPANDED_D_EXPANSION_FUNCTION_VALUE);
+      } else {
+        throw new OptionsParsingException("Unrecognized expansion value: " + value);
+      }
+    }
+  }
+
+  @Option(
+    name = "test_expansion_function",
+    defaultValue = "null",
+    expansionFunction = TestExpansionFunction.class
+  )
+  public Void testExpansionFunction;
+
+  public static final String EXPANDED_D_VOID_EXPANSION_FUNCTION_VALUE = "void expanded";
+
+  /** Used for testing an expansion flag that doesn't requires a value. */
+  public static class TestVoidExpansionFunction implements ExpansionFunction {
+    @Override
+    public ImmutableList<String> getExpansion(ExpansionContext expansionContext) {
+      return ImmutableList.of("--expanded_d", EXPANDED_D_VOID_EXPANSION_FUNCTION_VALUE);
+    }
+  }
+
+  @Option(
+    name = "test_void_expansion_function",
+    defaultValue = "null",
+    expansionFunction = TestVoidExpansionFunction.class
+  )
+  public Void testVoidExpansionFunction;
 }

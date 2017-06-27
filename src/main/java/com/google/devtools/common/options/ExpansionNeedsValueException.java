@@ -13,21 +13,13 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
-import com.google.common.collect.ImmutableList;
-
 /**
- * A function from an option parser's static setup (what flags it knows about) to a list of
- * expansion Strings to use for one of its options.
+ * Exception specific to evaluating {@link ExpansionFunction} objects. Used when expansion isn't
+ * possible because of a missing input.
  */
-public interface ExpansionFunction {
+public final class ExpansionNeedsValueException extends OptionsParsingException {
 
-  /**
-   * Compute the expansion for an option. May be called at any time during or after the {@link
-   * OptionsParser}'s construction, or not at all.
-   *
-   * @param optionsData the parser's indexed information about its own options, before expansion
-   *     information is computed
-   * @return An expansion to use on an empty list
-   */
-  ImmutableList<String> getExpansion(ExpansionContext context) throws OptionsParsingException;
+  public ExpansionNeedsValueException(String message) {
+    super(message);
+  }
 }

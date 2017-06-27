@@ -14,14 +14,15 @@
 
 package com.google.devtools.common.options;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.Collection;
 import java.util.Map;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -32,38 +33,100 @@ import javax.annotation.concurrent.Immutable;
 @Immutable
 final class OptionsData extends IsolatedOptionsData {
 
-  /** Mapping from each Option-annotated field to expansion strings, if it has any. */
-  private final ImmutableMap<Field, ImmutableList<String>> evaluatedExpansions;
+  /**
+   * Keeps track of all the information needed to calculate expansion flags, whether they come from
+   * a static list or a @{link ExpansionFunction} object.
+   */
+  static class ExpansionData {
+    private final ImmutableList<String> staticExpansion;
+    @Nullable private final ExpansionFunction dynamicExpansions;
+
+    ExpansionData(ImmutableList<String> staticExpansion) {
+      Preconditions.checkArgument(staticExpansion != null);
+      this.staticExpansion = staticExpansion;
+      this.dynamicExpansions = null;
+    }
+
+    ExpansionData(ExpansionFunction dynamicExpansions) {
+      Preconditions.checkArgument(dynamicExpansions != null);
+      this.staticExpansion = EMPTY_EXPANSION;
+      this.dynamicExpansions = dynamicExpansions;
+    }
+
+    ImmutableList<String> getExpansion(ExpansionContext context) throws OptionsParsingException {
+      Preconditions.checkArgument(context != null);
+      if (dynamicExpansions != null) {
+        ImmutableList<String> result = dynamicExpansions.getExpansion(context);
+        if (result == null) {
+          String valueString =
+              context.getUnparsedValue() != null ? context.getUnparsedValue() : "(null)";
+          String name = context.getField().getAnnotation(Option.class).name();
+          throw new OptionsParsingException(
+              "Error expanding option '"
+                  + name
+                  + "': no expansions defined for value: "
+                  + valueString,
+              name);
+        }
+        return result;
+      } else {
+        return staticExpansion;
+      }
+    }
+
+    boolean isEmpty() {
+      return staticExpansion.isEmpty() && (dynamicExpansions == null);
+    }
+  }
+
+  /**
+   * Mapping from each Option-annotated field with expansion information to the {@link
+   * ExpansionData} needed to caclulate it.
+   */
+  private final ImmutableMap<Field, ExpansionData> expansionDataForFields;
 
   /** Construct {@link OptionsData} by extending an {@link IsolatedOptionsData} with new info. */
-  private OptionsData(
-      IsolatedOptionsData base, Map<Field, ImmutableList<String>> evaluatedExpansions) {
+  private OptionsData(IsolatedOptionsData base, Map<Field, ExpansionData> expansionDataForFields) {
     super(base);
-    this.evaluatedExpansions = ImmutableMap.copyOf(evaluatedExpansions);
+    this.expansionDataForFields = ImmutableMap.copyOf(expansionDataForFields);
   }
 
   private static final ImmutableList<String> EMPTY_EXPANSION = ImmutableList.<String>of();
+  private static final ExpansionData EMPTY_EXPANSION_DATA = new ExpansionData(EMPTY_EXPANSION);
 
   /**
    * Returns the expansion of an options field, regardless of whether it was defined using {@link
    * Option#expansion} or {@link Option#expansionFunction}. If the field is not an expansion option,
    * returns an empty array.
    */
-  public ImmutableList<String> getEvaluatedExpansion(Field field) {
-    ImmutableList<String> result = evaluatedExpansions.get(field);
-    return result != null ? result : EMPTY_EXPANSION;
+  public ImmutableList<String> getEvaluatedExpansion(Field field, @Nullable String unparsedValue)
+      throws OptionsParsingException {
+    ExpansionData expansionData = expansionDataForFields.get(field);
+    if (expansionData == null) {
+      return EMPTY_EXPANSION;
+    }
+
+    return expansionData.getExpansion(new ExpansionContext(this, field, unparsedValue));
+  }
+
+  ExpansionData getExpansionDataForField(Field field) {
+    ExpansionData result = expansionDataForFields.get(field);
+    return result != null ? result : EMPTY_EXPANSION_DATA;
   }
 
   /**
    * Constructs an {@link OptionsData} object for a parser that knows about the given {@link
    * OptionsBase} classes. In addition to the work done to construct the {@link
-   * IsolatedOptionsData}, this also computes expansion information.
+   * IsolatedOptionsData}, this also computes expansion information. If an option has static
+   * expansions or uses an expansion function that takes a Void object, try to precalculate the
+   * expansion here.
    */
-  public static OptionsData from(Collection<Class<? extends OptionsBase>> classes) {
+  static OptionsData from(Collection<Class<? extends OptionsBase>> classes) {
     IsolatedOptionsData isolatedData = IsolatedOptionsData.from(classes);
 
     // All that's left is to compute expansions.
-    Map<Field, ImmutableList<String>> evaluatedExpansionsBuilder = Maps.newHashMap();
+    ImmutableMap.Builder<Field, ExpansionData> expansionDataBuilder =
+        ImmutableMap.<Field, ExpansionData>builder();
     for (Map.Entry<String, Field> entry : isolatedData.getAllNamedFields()) {
       Field field = entry.getValue();
       Option annotation = field.getAnnotation(Option.class);
@@ -74,7 +137,7 @@ final class OptionsData extends IsolatedOptionsData {
         throw new AssertionError(
             "Cannot set both expansion and expansionFunction for option --" + annotation.name());
       } else if (constExpansion.length > 0) {
-        evaluatedExpansionsBuilder.put(field, ImmutableList.copyOf(constExpansion));
+        expansionDataBuilder.put(field, new ExpansionData(ImmutableList.copyOf(constExpansion)));
       } else if (usesExpansionFunction(annotation)) {
         if (Modifier.isAbstract(expansionFunctionClass.getModifiers())) {
           throw new AssertionError(
@@ -90,11 +153,25 @@ final class OptionsData extends IsolatedOptionsData {
           // time it is used.
           throw new AssertionError(e);
         }
-        ImmutableList<String> expansion = instance.getExpansion(isolatedData);
-        evaluatedExpansionsBuilder.put(field, expansion);
+
+        ImmutableList<String> staticExpansion = null;
+        try {
+          staticExpansion = instance.getExpansion(new ExpansionContext(isolatedData, field, null));
+          Preconditions.checkState(
+              staticExpansion != null,
+              "Error calling expansion function for option: %s",
+              annotation.name());
+          expansionDataBuilder.put(field, new ExpansionData(staticExpansion));
+        } catch (ExpansionNeedsValueException e) {
+          // This expansion function needs data that isn't available yet. Save the instance and call
+          // it later.
+          expansionDataBuilder.put(field, new ExpansionData(instance));
+        } catch (OptionsParsingException e) {
+          throw new IllegalStateException("Error expanding void expansion function: ", e);
+        }
       }
     }
 
-    return new OptionsData(isolatedData, evaluatedExpansionsBuilder);
+    return new OptionsData(isolatedData, expansionDataBuilder.build());
   }
 }

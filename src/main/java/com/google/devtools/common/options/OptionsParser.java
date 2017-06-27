@@ -239,7 +239,7 @@ public class OptionsParser implements OptionsProvider {
     private final Converter<?> converter;
     private final boolean allowMultiple;
 
-    private final ImmutableList<OptionValueDescription> expansions;
+    private final OptionsData.ExpansionData expansionData;
     private final ImmutableList<OptionValueDescription> implicitRequirements;
 
     OptionDescription(
@@ -247,13 +247,13 @@ public class OptionsParser implements OptionsProvider {
         Object defaultValue,
         Converter<?> converter,
         boolean allowMultiple,
-        ImmutableList<OptionValueDescription> expansions,
+        OptionsData.ExpansionData expansionData,
         ImmutableList<OptionValueDescription> implicitRequirements) {
       this.name = name;
       this.defaultValue = defaultValue;
       this.converter = converter;
       this.allowMultiple = allowMultiple;
-      this.expansions = expansions;
+      this.expansionData = expansionData;
       this.implicitRequirements = implicitRequirements;
     }
 
@@ -277,8 +277,14 @@ public class OptionsParser implements OptionsProvider {
       return implicitRequirements;
     }
 
-    public ImmutableList<OptionValueDescription> getExpansions() {
-      return expansions;
+    public boolean isExpansion() {
+      return !expansionData.isEmpty();
+    }
+
+    /** Return a list of flags that this option expands to. */
+    public ImmutableList<String> getExpansion(ExpansionContext context)
+        throws OptionsParsingException {
+      return expansionData.getExpansion(context);
     }
   }
 
@@ -658,21 +664,33 @@ public class OptionsParser implements OptionsProvider {
    * @return The {@link OptionDescription} for the option, or null if there is no option by the
    *     given name.
    */
-  public OptionDescription getOptionDescription(String name) throws OptionsParsingException {
+  OptionDescription getOptionDescription(String name) throws OptionsParsingException {
     return impl.getOptionDescription(name);
   }
 
   /**
-   * Returns a description of the option value set by the last previous call to
-   * {@link #parse(OptionPriority, String, List)} that successfully set the given
-   * option. If the option is of type {@link List}, the description will
-   * correspond to any one of the calls, but not necessarily the last.
+   * Returns a description of the options values that get expanded from this flag with the given
+   * flag value.
+   *
+   * @return The {@link ImmutableList<OptionValueDescription>} for the option, or null if there is
+   *     no option by the given name.
+   */
+  ImmutableList<OptionValueDescription> getExpansionOptionValueDescriptions(
+      String flagName, @Nullable String flagValue) throws OptionsParsingException {
+    return impl.getExpansionOptionValueDescriptions(flagName, flagValue);
+  }
+
+  /**
+   * Returns a description of the option value set by the last previous call to {@link
+   * #parse(OptionPriority, String, List)} that successfully set the given option. If the option is
+   * of type {@link List}, the description will correspond to any one of the calls, but not
+   * necessarily the last.
    *
    * @return The {@link OptionValueDescription} for the option, or null if the value has not been
-   *        set.
+   *     set.
    * @throws IllegalArgumentException if there is no option by the given name.
    */
-  public OptionValueDescription getOptionValueDescription(String name) {
+  OptionValueDescription getOptionValueDescription(String name) {
     return impl.getOptionValueDescription(name);
   }
 
