@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransportClosedEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
+import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.buildeventstream.ProgressEvent;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
@@ -332,14 +333,18 @@ public class BuildEventStreamer implements EventHandler {
   }
 
   private void maybeReportConfiguration(BuildConfiguration configuration) {
-    BuildEventId id = configuration.getEventId();
+    BuildEvent event = configuration;
+    if (configuration == null) {
+      event = new NullConfiguration();
+    }
+    BuildEventId id = event.getEventId();
     synchronized (this) {
       if (configurationsPosted.contains(id)) {
         return;
       }
       configurationsPosted.add(id);
     }
-    post(configuration);
+    post(event);
   }
 
   @Override

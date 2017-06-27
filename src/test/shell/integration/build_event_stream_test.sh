@@ -27,6 +27,7 @@ set -e
 
 function set_up() {
   mkdir -p pkg
+  touch pkg/somesourcefile
   cat > pkg/true.sh <<EOF
 #!/bin/sh
 exit 0
@@ -45,6 +46,7 @@ EOF
   chmod 755 pkg/slowtest.sh
   touch pkg/sourcefileA pkg/sourcefileB pkg/sourcefileC
   cat > pkg/BUILD <<EOF
+exports_files(["somesourcefile"])
 sh_test(
   name = "true",
   srcs = ["true.sh"],
@@ -473,6 +475,16 @@ function test_stdout_stderr_reported() {
   sample_line=`cat stderr.log | grep 'slow' | head -1 | tr '[]' '..'`
   echo "Sample regexp of stderr: ${sample_line}"
   expect_log "stderr.*$sample_line"
+}
+
+function test_srcfiles() {
+  # Even if the build target is a source file, the stream should be correctly
+  # and bazel shouldn't crash.
+    bazel build --experimental_build_event_text_file=$TEST_log \
+          pkg:somesourcefile || fail "build failed"
+  expect_log 'SUCCESS'
+  expect_log_once '^configuration'
+  expect_not_log 'aborted'
 }
 
 run_suite "Integration tests for the build event stream"

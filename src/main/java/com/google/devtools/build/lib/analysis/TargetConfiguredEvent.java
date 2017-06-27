@@ -47,7 +47,12 @@ public class TargetConfiguredEvent implements BuildEventWithConfiguration {
   public Collection<BuildEventId> getChildrenEvents() {
     ImmutableList.Builder childrenBuilder = ImmutableList.builder();
     for (BuildConfiguration config : configurations) {
-      childrenBuilder.add(BuildEventId.targetCompleted(label, config.getEventId()));
+      if (config != null) {
+        childrenBuilder.add(BuildEventId.targetCompleted(label, config.getEventId()));
+      } else {
+        childrenBuilder.add(
+            BuildEventId.targetCompleted(label, BuildEventId.nullConfigurationId()));
+      }
     }
     return childrenBuilder.build();
   }

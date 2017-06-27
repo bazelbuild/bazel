@@ -116,8 +116,10 @@ public final class TargetCompleteEvent
 
   @Override
   public BuildEventId getEventId() {
-    return BuildEventId.targetCompleted(
-        getTarget().getLabel(), getTarget().getConfiguration().getEventId());
+    BuildConfiguration config = getTarget().getConfiguration();
+    BuildEventId configId =
+        config == null ? BuildEventId.nullConfigurationId() : config.getEventId();
+    return BuildEventId.targetCompleted(getTarget().getLabel(), configId);
   }
 
   @Override
