@@ -398,12 +398,16 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
 
     this.toolPaths = Maps.newHashMap();
     for (CrosstoolConfig.ToolPath tool : toolchain.getToolPathList()) {
-      PathFragment path = PathFragment.create(tool.getPath());
+      PathFragment path = resolveIncludeDir(tool.getPath(), null, crosstoolTopPathFragment);
       if (!path.isNormalized()) {
-        throw new IllegalArgumentException("The include path '" + tool.getPath()
+        throw new IllegalArgumentException("The include path '" + path.toString()
             + "' is not normalized.");
       }
-      toolPaths.put(tool.getName(), crosstoolTopPathFragment.getRelative(path));
+      if (path.toString().contains("%{")) {
+        toolPaths.put(tool.getName(), crosstoolTopPathFragment.getRelative(path));
+      } else {
+        toolPaths.put(tool.getName(), path);
+      }
     }
 
     if (toolPaths.isEmpty()) {
@@ -609,7 +613,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
 
   // TODO(bazel-team): Remove this once bazel supports all crosstool flags through
   // feature configuration, and all crosstools have been converted.
-  private CToolchain addLegacyFeatures(CToolchain toolchain) {
+  private CToolchain addLegacyFeatures(CToolchain toolchain)
+        throws InvalidConfigurationException {
     CToolchain.Builder toolchainBuilder = CToolchain.newBuilder();
 
     Set<ArtifactCategory> definedCategories = new HashSet<>();
@@ -643,10 +648,10 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
         String arToolPath = "DUMMY_AR_TOOL";
         for (ToolPath tool : toolchain.getToolPathList()) {
           if (tool.getName().equals(Tool.GCC.getNamePart())) {
-            gccToolPath = tool.getPath();
+            gccToolPath = resolveIncludeDir(tool.getPath(), null, crosstoolTopPathFragment);
             linkerToolPath =
                 crosstoolTopPathFragment
-                    .getRelative(PathFragment.create(tool.getPath()))
+                    .getRelative(gccToolPath)
                     .getPathString();
           }
           if (tool.getName().equals(Tool.AR.getNamePart())) {
