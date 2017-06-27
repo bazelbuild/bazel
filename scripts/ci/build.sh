@@ -323,7 +323,7 @@ Origin: Bazel Authors
 Label: Bazel
 Codename: stable
 Architectures: amd64 source
-Components: jdk1.7 jdk1.8
+Components: jdk1.8
 Description: Bazel APT Repository
 DebOverride: override.stable
 DscOverride: override.stable
@@ -333,7 +333,7 @@ Origin: Bazel Authors
 Label: Bazel
 Codename: testing
 Architectures: amd64 source
-Components: jdk1.7 jdk1.8
+Components: jdk1.8
 Description: Bazel APT Repository
 DebOverride: override.testing
 DscOverride: override.testing
@@ -360,15 +360,12 @@ EOF
 
   local distribution="$1"
   local deb_pkg_name_jdk8="$2"
-  local deb_pkg_name_jdk7="$3"
-  local deb_dsc_name="$4"
+  local deb_dsc_name="$3"
 
   debsign -k ${APT_GPG_KEY_ID} "${deb_dsc_name}"
 
   reprepro -C jdk1.8 includedeb "${distribution}" "${deb_pkg_name_jdk8}"
   reprepro -C jdk1.8 includedsc "${distribution}" "${deb_dsc_name}"
-  reprepro -C jdk1.7 includedeb "${distribution}" "${deb_pkg_name_jdk7}"
-  reprepro -C jdk1.7 includedsc "${distribution}" "${deb_dsc_name}"
 
   "${gs}" -m cp -a public-read -r dists "gs://${GCS_APT_BUCKET}/"
   "${gs}" -m cp -a public-read -r pool "gs://${GCS_APT_BUCKET}/"
@@ -394,18 +391,16 @@ function release_to_apt() {
     mkdir -p "${dir}/${release_name}"
     local release_label="$(get_full_release_name)"
     local deb_pkg_name_jdk8="${release_name}/bazel_${release_label}-linux-x86_64.deb"
-    local deb_pkg_name_jdk7="${release_name}/bazel_${release_label}-jdk7-linux-x86_64.deb"
     local deb_dsc_name="${release_name}/bazel_${release_label}.dsc"
     local deb_tar_name="${release_name}/bazel_${release_label}.tar.gz"
     cp "${tmpdir}/bazel_${release_label}-linux-x86_64.deb" "${dir}/${deb_pkg_name_jdk8}"
-    cp "${tmpdir}/bazel_${release_label}-jdk7-linux-x86_64.deb" "${dir}/${deb_pkg_name_jdk7}"
     cp "${tmpdir}/bazel.dsc" "${dir}/${deb_dsc_name}"
     cp "${tmpdir}/bazel.tar.gz" "${dir}/${deb_tar_name}"
     cd "${dir}"
     if [ -n "${rc}" ]; then
-      create_apt_repository testing "${deb_pkg_name_jdk8}" "${deb_pkg_name_jdk7}" "${deb_dsc_name}"
+      create_apt_repository testing "${deb_pkg_name_jdk8}" "${deb_dsc_name}"
     else
-      create_apt_repository stable "${deb_pkg_name_jdk8}" "${deb_pkg_name_jdk7}" "${deb_dsc_name}"
+      create_apt_repository stable "${deb_pkg_name_jdk8}" "${deb_dsc_name}"
     fi
     cd "${prev_dir}"
     rm -fr "${dir}"
