@@ -143,6 +143,7 @@ public class BuildRequest implements OptionsClassProvider {
     @Option(
       name = "dump_makefile",
       defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.NO_OP},
       metadataTags = {OptionMetadataTag.DEPRECATED},
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
@@ -154,6 +155,7 @@ public class BuildRequest implements OptionsClassProvider {
     @Option(
       name = "dump_action_graph",
       defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.NO_OP},
       metadataTags = {OptionMetadataTag.DEPRECATED},
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
@@ -166,6 +168,7 @@ public class BuildRequest implements OptionsClassProvider {
       name = "dump_action_graph_for_package",
       allowMultiple = true,
       defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.NO_OP},
       metadataTags = {OptionMetadataTag.DEPRECATED},
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
@@ -177,6 +180,7 @@ public class BuildRequest implements OptionsClassProvider {
     @Option(
       name = "dump_action_graph_with_middlemen",
       defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.NO_OP},
       metadataTags = {OptionMetadataTag.DEPRECATED},
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
@@ -188,6 +192,7 @@ public class BuildRequest implements OptionsClassProvider {
     @Option(
       name = "dump_providers",
       defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.NO_OP},
       metadataTags = {OptionMetadataTag.DEPRECATED},
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
@@ -199,6 +204,7 @@ public class BuildRequest implements OptionsClassProvider {
     @Option(
       name = "dump_targets",
       defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.NO_OP},
       metadataTags = {OptionMetadataTag.DEPRECATED},
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
@@ -210,6 +216,7 @@ public class BuildRequest implements OptionsClassProvider {
     @Option(
       name = "dump_host_deps",
       defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.NO_OP},
       metadataTags = {OptionMetadataTag.DEPRECATED},
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
@@ -221,6 +228,7 @@ public class BuildRequest implements OptionsClassProvider {
     @Option(
       name = "dump_to_stdout",
       defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.NO_OP},
       metadataTags = {OptionMetadataTag.DEPRECATED},
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
@@ -231,6 +239,7 @@ public class BuildRequest implements OptionsClassProvider {
     @Option(
       name = "analyze",
       defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {
         OptionEffectTag.LOADING_AND_ANALYSIS,
         OptionEffectTag.EAGERNESS_TO_EXIT,
@@ -351,6 +360,7 @@ public class BuildRequest implements OptionsClassProvider {
       name = "output_tree_tracking",
       oldName = "experimental_output_tree_tracking",
       defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       help =
@@ -366,6 +376,7 @@ public class BuildRequest implements OptionsClassProvider {
       converter = Converters.CommaSeparatedOptionListConverter.class,
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.UNKNOWN},
       allowMultiple = true,
       help =
           "Comma-separated list of aspects to be applied to top-level targets. All aspects "

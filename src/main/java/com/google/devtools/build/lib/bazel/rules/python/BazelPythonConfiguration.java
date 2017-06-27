@@ -26,7 +26,9 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import javax.annotation.Nullable;
 
 /**
@@ -57,10 +59,14 @@ public class BazelPythonConfiguration extends BuildConfiguration.Fragment {
    * Bazel-specific Python configuration options.
    */
   public static final class Options extends FragmentOptions {
-    @Option(name = "python2_path",
+    @Option(
+      name = "python2_path",
       defaultValue = "python",
       category = "version",
-      help = "Local path to the Python2 executable.")
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Local path to the Python2 executable."
+    )
     public String python2Path;
 
     @Option(
@@ -68,6 +74,8 @@ public class BazelPythonConfiguration extends BuildConfiguration.Fragment {
       converter = Python3PathConverter.class,
       defaultValue = "auto",
       category = "version",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Local path to the Python3 executable."
     )
     public String python3Path;
@@ -76,6 +84,8 @@ public class BazelPythonConfiguration extends BuildConfiguration.Fragment {
       name = "experimental_python_import_all_repositories",
       defaultValue = "true",
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Do not use."
     )
     public boolean experimentalPythonImportAllRepositories;

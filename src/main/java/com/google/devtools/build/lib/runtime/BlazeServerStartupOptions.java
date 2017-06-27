@@ -298,6 +298,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
   @Option(
     name = "fatal_event_bus_exceptions",
     defaultValue = "false", // NOTE: purely decorative!
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT, OptionEffectTag.LOSES_INCREMENTAL_STATE},
     help = "Whether or not to exit if an exception is thrown by an internal EventBus handler."
@@ -322,6 +323,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
     defaultValue = "false",
     category = "server startup",
     documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+    effectTags = {OptionEffectTag.UNKNOWN},
     metadataTags = OptionMetadataTag.DEPRECATED,
     help =
         "If true, %{product} tries to use the operating system's file watch service for local "

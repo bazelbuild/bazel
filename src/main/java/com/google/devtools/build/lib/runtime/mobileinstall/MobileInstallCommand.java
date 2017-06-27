@@ -39,29 +39,30 @@ import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionPriority;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-/**
- * Implementation of the 'mobile-install' command.
- */
- @Command(name = "mobile-install",
-         builds = true,
-         options = { MobileInstallCommand.Options.class, WriteAdbArgsAction.Options.class },
-         inherits = { BuildCommand.class },
-         shortDescription = "Installs targets to mobile devices.",
-         completion = "label",
-         allowResidue = true,
-         help = "resource:mobile-install.txt")
+/** Implementation of the 'mobile-install' command. */
+@Command(
+  name = "mobile-install",
+  builds = true,
+  options = {MobileInstallCommand.Options.class, WriteAdbArgsAction.Options.class},
+  inherits = {BuildCommand.class},
+  shortDescription = "Installs targets to mobile devices.",
+  completion = "label",
+  allowResidue = true,
+  help = "resource:mobile-install.txt"
+)
 public class MobileInstallCommand implements BlazeCommand {
-
 
   /**
    * An enumeration of all the modes that mobile-install supports.
@@ -102,21 +103,31 @@ public class MobileInstallCommand implements BlazeCommand {
    * Command line options for the 'mobile-install' command.
    */
   public static final class Options extends OptionsBase {
-    @Option(name = "split_apks",
-        defaultValue = "false",
-        category = "mobile-install",
-        help = "Whether to use split apks to install and update the "
-            + "application on the device. Works only with devices with "
-            + "Marshmallow or later")
+    @Option(
+      name = "split_apks",
+      defaultValue = "false",
+      category = "mobile-install",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Whether to use split apks to install and update the "
+              + "application on the device. Works only with devices with "
+              + "Marshmallow or later"
+    )
     public boolean splitApks;
 
-    @Option(name = "incremental",
-        category = "mobile-install",
-        defaultValue = "false",
-        help = "Whether to do an incremental install. If true, try to avoid unnecessary additional "
-            + "work by reading the state of the device the code is to be installed on and using "
-            + "that information to avoid unnecessary work. If false (the default), always do a "
-            + "full install.")
+    @Option(
+      name = "incremental",
+      category = "mobile-install",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Whether to do an incremental install. If true, try to avoid unnecessary additional "
+              + "work by reading the state of the device the code is to be installed on and using "
+              + "that information to avoid unnecessary work. If false (the default), always do a "
+              + "full install."
+    )
     public boolean incremental;
 
     @Option(
@@ -124,10 +135,14 @@ public class MobileInstallCommand implements BlazeCommand {
       category = "mobile-install",
       defaultValue = "classic",
       converter = ModeConverter.class,
-      help = "Select how to run mobile-install. \"classic\" runs the current version of "
-          + "mobile-install. \"skylark\" uses the new skylark version, which has support for "
-          + "android_test. \"skylark_incremental_res\" is the same as \"skylark\" plus incremental "
-          + "resource processing. \"skylark_incremental_res\" requires a device with root access.",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Select how to run mobile-install. \"classic\" runs the current version of "
+              + "mobile-install. \"skylark\" uses the new skylark version, which has support for "
+              + "android_test. \"skylark_incremental_res\" is the same as \"skylark\" plus "
+              + "incremental resource processing. \"skylark_incremental_res\" requires a device "
+              + "with root access.",
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED
     )
     public Mode mode;
@@ -136,6 +151,8 @@ public class MobileInstallCommand implements BlazeCommand {
       name = "mobile_install_aspect",
       category = "mobile-install",
       defaultValue = "@android_test_support//tools/android/mobile_install:mobile-install.bzl",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "The aspect to use for mobile-install.",
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED
     )

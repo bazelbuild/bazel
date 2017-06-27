@@ -23,7 +23,9 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
@@ -41,53 +43,83 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
    * Options of the {@code mobile-install} command pertaining to the way {@code adb} is invoked.
    */
   public static final class Options extends OptionsBase {
-    @Option(name = "adb",
-        category = "mobile-install",
-        defaultValue = "",
-        help = "adb binary to use for the 'mobile-install' command. If unspecified, the one in "
-            + "the Android SDK specified by the --android_sdk command line option (or the default "
-            + "SDK if --android_sdk is not specified) is used.")
+    @Option(
+      name = "adb",
+      category = "mobile-install",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "adb binary to use for the 'mobile-install' command. If unspecified, the one in "
+              + "the Android SDK specified by the --android_sdk command line option (or the "
+              + "default SDK if --android_sdk is not specified) is used."
+    )
     public String adb;
 
-    @Option(name = "adb_arg",
-        category = "mobile-install",
-        allowMultiple = true,
-        defaultValue = "",
-        help = "Extra arguments to pass to adb. Usually used to designate a device to install to.")
+    @Option(
+      name = "adb_arg",
+      category = "mobile-install",
+      allowMultiple = true,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Extra arguments to pass to adb. Usually used to designate a device to install to."
+    )
     public List<String> adbArgs;
 
-    @Option(name = "adb_jobs",
-        category = "mobile-install",
-        defaultValue = "2",
-        help = "The number of instances of adb to use in parallel to update files on the device")
+    @Option(
+      name = "adb_jobs",
+      category = "mobile-install",
+      defaultValue = "2",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "The number of instances of adb to use in parallel to update files on the device"
+    )
     public int adbJobs;
 
-    @Option(name = "incremental_install_verbosity",
-        category = "mobile-install",
-        defaultValue = "",
-        help = "The verbosity for incremental install. Set to 1 for debug logging.")
+    @Option(
+      name = "incremental_install_verbosity",
+      category = "mobile-install",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "The verbosity for incremental install. Set to 1 for debug logging."
+    )
     public String incrementalInstallVerbosity;
 
-    @Option(name = "start",
-        category = "mobile-install",
-        converter = StartTypeConverter.class,
-        defaultValue = "NO",
-        help = "How the app should be started after installing it. Set to WARM to preserve "
-            + "and restore application state on incremental installs.")
+    @Option(
+      name = "start",
+      category = "mobile-install",
+      converter = StartTypeConverter.class,
+      defaultValue = "NO",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "How the app should be started after installing it. Set to WARM to preserve "
+              + "and restore application state on incremental installs."
+    )
     public StartType start;
 
-    @Option(name = "start_app",
-        category = "mobile-install",
-        defaultValue = "null",
-        help = "Whether to start the app after installing it.",
-        expansion = {"--start=COLD"})
+    @Option(
+      name = "start_app",
+      category = "mobile-install",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Whether to start the app after installing it.",
+      expansion = {"--start=COLD"}
+    )
     public Void startApp;
 
-    @Option(name = "debug_app",
-        category = "mobile-install",
-        defaultValue = "null",
-        help = "Whether to wait for the debugger before starting the app.",
-        expansion = {"--start=DEBUG"})
+    @Option(
+      name = "debug_app",
+      category = "mobile-install",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Whether to wait for the debugger before starting the app.",
+      expansion = {"--start=DEBUG"}
+    )
     public Void debugApp;
   }
 

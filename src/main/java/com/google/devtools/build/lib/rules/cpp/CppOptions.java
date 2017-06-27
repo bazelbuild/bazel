@@ -34,8 +34,10 @@ import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoM
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -134,6 +136,8 @@ public class CppOptions extends FragmentOptions {
     defaultValue = "@bazel_tools//tools/cpp:toolchain",
     category = "version",
     converter = LabelConverter.class,
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "The label of the crosstool package to be used for compiling C++ code."
   )
   public Label crosstoolTop;
@@ -142,6 +146,8 @@ public class CppOptions extends FragmentOptions {
     name = "compiler",
     defaultValue = "null",
     category = "version",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "The C++ compiler to use for compiling the target."
   )
   public String cppCompiler;
@@ -150,6 +156,8 @@ public class CppOptions extends FragmentOptions {
     name = "glibc",
     defaultValue = "null",
     category = "version",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "The version of glibc the target should be linked against. "
             + "By default, a suitable version is chosen based on --cpu."
@@ -162,6 +170,8 @@ public class CppOptions extends FragmentOptions {
     name = "start_end_lib",
     defaultValue = "true",
     category = "strategy", // but also adds edges to the action graph
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "Use the --start-lib/--end-lib ld options if supported by the toolchain."
   )
   public boolean useStartEndLib;
@@ -170,6 +180,8 @@ public class CppOptions extends FragmentOptions {
     name = "interface_shared_objects",
     defaultValue = "true",
     category = "strategy", // but also adds edges to the action graph
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Use interface shared objects if supported by the toolchain. "
             + "All ELF toolchains currently support this setting."
@@ -181,6 +193,8 @@ public class CppOptions extends FragmentOptions {
     defaultValue = "no",
     converter = FissionOptionConverter.class,
     category = "semantics",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Specifies which compilation modes use fission for C++ compilations and links. "
             + " May be any combination of {'fastbuild', 'dbg', 'opt'} or the special values 'yes' "
@@ -192,6 +206,8 @@ public class CppOptions extends FragmentOptions {
     name = "build_test_dwp",
     defaultValue = "false",
     category = "semantics",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "If enabled, when building C++ tests statically and with fission the .dwp file "
             + " for the test binary will be automatically built as well."
@@ -203,6 +219,8 @@ public class CppOptions extends FragmentOptions {
     defaultValue = "default",
     converter = DynamicModeConverter.class,
     category = "semantics",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Determines whether C++ binaries will be linked dynamically.  'default' means "
             + "blaze will choose whether to link dynamically.  'fully' means all libraries "
@@ -215,6 +233,8 @@ public class CppOptions extends FragmentOptions {
     name = "experimental_link_compile_output_separately",
     defaultValue = "false",
     category = "semantics",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "This flag is experimental and may go away at any time.  "
             + "If true, dynamically linked binary targets will build and link their own srcs as "
@@ -226,6 +246,8 @@ public class CppOptions extends FragmentOptions {
     name = "force_pic",
     defaultValue = "false",
     category = "semantics",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "If enabled, all C++ compilations produce position-independent code (\"-fPIC\"),"
             + " links prefer PIC pre-built libraries over non-PIC libraries, and links produce"
@@ -237,6 +259,8 @@ public class CppOptions extends FragmentOptions {
     name = "force_ignore_dash_static",
     defaultValue = "false",
     category = "semantics",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "If set, '-static' options in the linkopts of cc_* rules will be ignored."
   )
   public boolean forceIgnoreDashStatic;
@@ -245,6 +269,8 @@ public class CppOptions extends FragmentOptions {
     name = "experimental_skip_static_outputs",
     defaultValue = "false",
     category = "semantics",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "This flag is experimental and may go away at any time.  "
             + "If true, linker output for mostly-static C++ executables is a tiny amount of "
@@ -259,6 +285,8 @@ public class CppOptions extends FragmentOptions {
     name = "send_transitive_header_module_srcs",
     defaultValue = "true",
     category = "semantics",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "Obsolete. Don't use."
   )
   public boolean sendTransitiveHeaderModuleSrcs;
@@ -267,6 +295,8 @@ public class CppOptions extends FragmentOptions {
     name = "process_headers_in_dependencies",
     defaultValue = "false",
     category = "semantics",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "When building a target //a:a, process headers in all targets that //a:a depends "
             + "on (if header processing is enabled for the toolchain)."
@@ -278,6 +308,8 @@ public class CppOptions extends FragmentOptions {
     allowMultiple = true,
     defaultValue = "",
     category = "flags",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "Additional options to pass to gcc."
   )
   public List<String> coptList;
@@ -287,6 +319,8 @@ public class CppOptions extends FragmentOptions {
     defaultValue = "",
     category = "flags",
     allowMultiple = true,
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "Additional option to pass to gcc when compiling C++ source files."
   )
   public List<String> cxxoptList;
@@ -296,6 +330,8 @@ public class CppOptions extends FragmentOptions {
     allowMultiple = true,
     defaultValue = "",
     category = "flags",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "Additional option to pass to gcc when compiling C source files."
   )
   public List<String> conlyoptList;
@@ -305,6 +341,8 @@ public class CppOptions extends FragmentOptions {
     defaultValue = "",
     category = "flags",
     allowMultiple = true,
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "Additional option to pass to gcc when linking."
   )
   public List<String> linkoptList;
@@ -314,6 +352,8 @@ public class CppOptions extends FragmentOptions {
     defaultValue = "",
     category = "flags",
     allowMultiple = true,
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "Additional option to pass to the LTO indexing step (under --features=thin_lto)."
   )
   public List<String> ltoindexoptList;
@@ -323,6 +363,8 @@ public class CppOptions extends FragmentOptions {
     allowMultiple = true,
     defaultValue = "",
     category = "flags",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "Additional options to pass to strip when generating a '<name>.stripped' binary."
   )
   public List<String> stripoptList;
@@ -331,6 +373,8 @@ public class CppOptions extends FragmentOptions {
     name = "custom_malloc",
     defaultValue = "null",
     category = "semantics",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Specifies a custom malloc implementation. This setting overrides malloc "
             + "attributes in build rules.",
@@ -342,6 +386,8 @@ public class CppOptions extends FragmentOptions {
     name = "legacy_whole_archive",
     defaultValue = "true",
     category = "semantics",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "When on, use --whole-archive for cc_binary rules that have "
             + "linkshared=1 and either linkstatic=1 or '-static' in linkopts. "
@@ -354,6 +400,8 @@ public class CppOptions extends FragmentOptions {
     name = "strip",
     defaultValue = "sometimes",
     category = "flags",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Specifies whether to strip binaries and shared libraries "
             + " (using \"-Wl,--strip-debug\").  The default value of 'sometimes'"
@@ -368,6 +416,8 @@ public class CppOptions extends FragmentOptions {
     converter = OptionsUtils.PathFragmentConverter.class,
     category = "flags",
     implicitRequirements = {"--copt=-Wno-error"},
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Generate binaries with FDO instrumentation. Specify the relative "
             + "directory name for the .gcda files at runtime with GCC compiler. "
@@ -376,8 +426,8 @@ public class CppOptions extends FragmentOptions {
   )
   /**
    * Never read FDO/LIPO options directly. This is because {@link #lipoConfigurationState}
-   * determines whether these options are actually "active" for this configuration. Instead, use
-   * the equivalent getter method, which takes that into account.
+   * determines whether these options are actually "active" for this configuration. Instead, use the
+   * equivalent getter method, which takes that into account.
    */
   public PathFragment fdoInstrumentForBuild;
 
@@ -393,6 +443,8 @@ public class CppOptions extends FragmentOptions {
     name = "fdo_optimize",
     defaultValue = "null",
     category = "flags",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Use FDO profile information to optimize compilation. Specify the name "
             + "of the zip file containing the .gcda file tree or an afdo file containing "
@@ -403,8 +455,8 @@ public class CppOptions extends FragmentOptions {
   )
   /**
    * Never read FDO/LIPO options directly. This is because {@link #lipoConfigurationState}
-   * determines whether these options are actually "active" for this configuration. Instead, use
-   * the equivalent getter method, which takes that into account.
+   * determines whether these options are actually "active" for this configuration. Instead, use the
+   * equivalent getter method, which takes that into account.
    */
   public String fdoOptimizeForBuild;
 
@@ -420,14 +472,16 @@ public class CppOptions extends FragmentOptions {
     name = "autofdo_lipo_data",
     defaultValue = "false",
     category = "flags",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "If true then the directory name for non-LIPO targets will have a "
             + "'-lipodata' suffix in AutoFDO mode."
   )
   /**
    * Never read FDO/LIPO options directly. This is because {@link #lipoConfigurationState}
-   * determines whether these options are actually "active" for this configuration. Instead, use
-   * the equivalent getter method, which takes that into account.
+   * determines whether these options are actually "active" for this configuration. Instead, use the
+   * equivalent getter method, which takes that into account.
    */
   public boolean autoFdoLipoDataForBuild;
 
@@ -441,11 +495,14 @@ public class CppOptions extends FragmentOptions {
         : lipoModeForBuild != LipoMode.OFF && fdoOptimizeForBuild != null && FdoSupport.isAutoFdo(
             fdoOptimizeForBuild);
   }
+
   @Option(
     name = "lipo",
     defaultValue = "off",
     converter = LipoModeConverter.class,
     category = "flags",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Enable LIPO optimization (lightweight inter-procedural optimization, The allowed "
             + "values for  this option are 'off' and 'binary', which enables LIPO. This option "
@@ -454,8 +511,8 @@ public class CppOptions extends FragmentOptions {
   )
   /**
    * Never read FDO/LIPO options directly. This is because {@link #lipoConfigurationState}
-   * determines whether these options are actually "active" for this configuration. Instead, use
-   * the equivalent getter method, which takes that into account.
+   * determines whether these options are actually "active" for this configuration. Instead, use the
+   * equivalent getter method, which takes that into account.
    */
   public LipoMode lipoModeForBuild;
 
@@ -473,12 +530,14 @@ public class CppOptions extends FragmentOptions {
     category = "flags",
     converter = LabelConverter.class,
     implicitRequirements = {"--linkopt=-Wl,--warn-unresolved-symbols"},
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "Specifies the binary from which the LIPO profile information comes."
   )
   /**
    * Never read FDO/LIPO options directly. This is because {@link #lipoConfigurationState}
-   * determines whether these options are actually "active" for this configuration. Instead, use
-   * the equivalent getter method, which takes that into account.
+   * determines whether these options are actually "active" for this configuration. Instead, use the
+   * equivalent getter method, which takes that into account.
    */
   public Label lipoContextForBuild;
 
@@ -528,6 +587,8 @@ public class CppOptions extends FragmentOptions {
     name = "lipo configuration state",
     defaultValue = "apply_lipo",
     optionUsageRestrictions = OptionUsageRestrictions.INTERNAL,
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     converter = LipoConfigurationStateConverter.class
   )
   public LipoConfigurationState lipoConfigurationState;
@@ -557,6 +618,8 @@ public class CppOptions extends FragmentOptions {
     converter = LabelConverter.class,
     defaultValue = "null",
     category = "version",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "If set, use this label instead of the default STL implementation. "
             + "This option is EXPERIMENTAL and may go away in a future release."
@@ -567,6 +630,8 @@ public class CppOptions extends FragmentOptions {
     name = "save_temps",
     defaultValue = "false",
     category = "what",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "If set, temporary outputs from gcc will be saved.  "
             + "These include .s files (assembler code), .i files (preprocessed C) and "
@@ -580,6 +645,8 @@ public class CppOptions extends FragmentOptions {
     converter = PerLabelOptions.PerLabelOptionsConverter.class,
     defaultValue = "",
     category = "semantics",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Additional options to selectively pass to gcc when compiling certain files. "
             + "This option can be passed multiple times. "
@@ -600,6 +667,8 @@ public class CppOptions extends FragmentOptions {
     defaultValue = "null",
     converter = LabelConverter.class,
     category = "semantics",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "By default, the --crosstool_top and --compiler options are also used "
             + "for the host configuration. If this flag is provided, Blaze uses the default libc "
@@ -612,6 +681,8 @@ public class CppOptions extends FragmentOptions {
     allowMultiple = true,
     defaultValue = "",
     category = "flags",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "Additional options to pass to gcc for host tools."
   )
   public List<String> hostCoptList;
@@ -621,6 +692,8 @@ public class CppOptions extends FragmentOptions {
     allowMultiple = true,
     defaultValue = "",
     category = "flags",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "Additional options to pass to gcc for host tools."
   )
   public List<String> hostCxxoptList;
@@ -630,6 +703,8 @@ public class CppOptions extends FragmentOptions {
     defaultValue = "null", // The default value is chosen by the toolchain.
     category = "version",
     converter = LibcTopLabelConverter.class,
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "A label to a checked-in libc library. The default value is selected by the crosstool "
             + "toolchain, and you almost never need to override it."
@@ -641,6 +716,8 @@ public class CppOptions extends FragmentOptions {
     defaultValue = "null", // The default value is chosen by the toolchain.
     category = "version",
     converter = LibcTopLabelConverter.class,
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "If specified, this setting overrides the libc top-level directory (--grte_top) "
             + "for the host configuration."
@@ -651,6 +728,8 @@ public class CppOptions extends FragmentOptions {
     name = "output_symbol_counts",
     defaultValue = "false",
     category = "flags",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "If enabled, for every C++ binary linked with gold, the number of defined symbols "
             + "and the number of used symbols per input file is stored in a .sc file."
@@ -661,6 +740,8 @@ public class CppOptions extends FragmentOptions {
     name = "experimental_inmemory_dotd_files",
     defaultValue = "false",
     category = "experimental",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "If enabled, C++ .d files will be passed through in memory directly from the remote "
             + "build nodes instead of being written to disk."
@@ -671,6 +752,8 @@ public class CppOptions extends FragmentOptions {
     name = "experimental_skip_unused_modules",
     defaultValue = "false",
     category = "experimental",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "Deprecated. No effect."
   )
   public boolean skipUnusedModules;
@@ -679,6 +762,8 @@ public class CppOptions extends FragmentOptions {
     name = "experimental_prune_more_modules",
     defaultValue = "false",
     category = "experimental",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "Deprecated. No effect."
   )
   public boolean pruneMoreModules;
@@ -687,6 +772,8 @@ public class CppOptions extends FragmentOptions {
     name = "prune_cpp_modules",
     defaultValue = "true",
     category = "strategy",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "If enabled, use the results of input discovery to reduce the number of used modules."
   )
   public boolean pruneCppModules;
@@ -695,6 +782,8 @@ public class CppOptions extends FragmentOptions {
     name = "parse_headers_verifies_modules",
     defaultValue = "false",
     category = "strategy",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "If enabled, the parse_headers feature verifies that a header module can be built for the "
             + "target in question instead of doing a separate compile of the header."
@@ -705,6 +794,8 @@ public class CppOptions extends FragmentOptions {
     name = "experimental_omitfp",
     defaultValue = "false",
     category = "semantics",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "If true, use libunwind for stack unwinding, and compile with "
             + "-fomit-frame-pointer and -fasynchronous-unwind-tables."
@@ -715,6 +806,8 @@ public class CppOptions extends FragmentOptions {
     name = "share_native_deps",
     defaultValue = "true",
     category = "strategy",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "If true, native libraries that contain identical functionality "
             + "will be shared among different targets"
@@ -725,6 +818,8 @@ public class CppOptions extends FragmentOptions {
     name = "strict_system_includes",
     defaultValue = "false",
     category = "strategy",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "If true, headers found through system include paths (-isystem) are also required to be "
             + "declared."

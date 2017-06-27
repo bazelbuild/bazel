@@ -37,9 +37,11 @@ import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -48,17 +50,16 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * The 'blaze help' command, which prints all available commands as well as
- * specific help pages.
- */
-@Command(name = "help",
-         options = { HelpCommand.Options.class },
-         allowResidue = true,
-         mustRunInWorkspace = false,
-         shortDescription = "Prints help for commands, or the index.",
-         completion = "command|{startup_options,target-syntax,info-keys}",
-         help = "resource:help.txt")
+/** The 'blaze help' command, which prints all available commands as well as specific help pages. */
+@Command(
+  name = "help",
+  options = {HelpCommand.Options.class},
+  allowResidue = true,
+  mustRunInWorkspace = false,
+  shortDescription = "Prints help for commands, or the index.",
+  completion = "command|{startup_options,target-syntax,info-keys}",
+  help = "resource:help.txt"
+)
 public final class HelpCommand implements BlazeCommand {
   private static final Joiner SPACE_JOINER = Joiner.on(" ");
 
@@ -70,26 +71,38 @@ public final class HelpCommand implements BlazeCommand {
 
   public static class Options extends OptionsBase {
 
-    @Option(name = "help_verbosity",
-            category = "help",
-            defaultValue = "medium",
-            converter = Converters.HelpVerbosityConverter.class,
-            help = "Select the verbosity of the help command.")
+    @Option(
+      name = "help_verbosity",
+      category = "help",
+      defaultValue = "medium",
+      converter = Converters.HelpVerbosityConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Select the verbosity of the help command."
+    )
     public OptionsParser.HelpVerbosity helpVerbosity;
 
-    @Option(name = "long",
-            abbrev = 'l',
-            defaultValue = "null",
-            category = "help",
-            expansion = {"--help_verbosity=long"},
-            help = "Show full description of each option, instead of just its name.")
+    @Option(
+      name = "long",
+      abbrev = 'l',
+      defaultValue = "null",
+      category = "help",
+      expansion = {"--help_verbosity=long"},
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Show full description of each option, instead of just its name."
+    )
     public Void showLongFormOptions;
 
-    @Option(name = "short",
-            defaultValue = "null",
-            category = "help",
-            expansion = {"--help_verbosity=short"},
-            help = "Show only the names of the options, not their types or meanings.")
+    @Option(
+      name = "short",
+      defaultValue = "null",
+      category = "help",
+      expansion = {"--help_verbosity=short"},
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Show only the names of the options, not their types or meanings."
+    )
     public Void showShortFormOptions;
   }
 

@@ -1262,6 +1262,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:option_filters_java_proto",
         "//src/main/protobuf:worker_protocol_java_proto",
         "//third_party:guava",
     ],

@@ -15,65 +15,83 @@
 package com.google.devtools.build.lib.authandtls;
 
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 
 /**
  * Common options for authentication and TLS.
  */
 public class AuthAndTLSOptions extends OptionsBase {
   @Option(
-      name = "auth_enabled",
-      defaultValue = "false",
-      category = "remote",
-      help = "Whether to enable authentication for remote execution/caching and the build event "
-          + "service (BES). If not otherwise specified 'Google Application Default Credentials' "
-          + "are used. Disabled by default."
+    name = "auth_enabled",
+    defaultValue = "false",
+    category = "remote",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help =
+        "Whether to enable authentication for remote execution/caching and the build event "
+            + "service (BES). If not otherwise specified 'Google Application Default Credentials' "
+            + "are used. Disabled by default."
   )
   public boolean authEnabled;
 
   @Option(
-      name = "auth_scope",
-      defaultValue = "null",
-      category = "remote",
-      help = "If server authentication requires a scope, provide it here."
+    name = "auth_scope",
+    defaultValue = "null",
+    category = "remote",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "If server authentication requires a scope, provide it here."
   )
   public String authScope;
 
   @Option(
-      name = "auth_credentials",
-      defaultValue = "null",
-      category = "remote",
-      help = "Specifies the file to get authentication credentials from. See "
-          + "https://cloud.google.com/docs/authentication for more details. 'Google Application "
-          + "Default Credentials' are used by default."
+    name = "auth_credentials",
+    defaultValue = "null",
+    category = "remote",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help =
+        "Specifies the file to get authentication credentials from. See "
+            + "https://cloud.google.com/docs/authentication for more details. 'Google Application "
+            + "Default Credentials' are used by default."
   )
   public String authCredentials;
 
   @Option(
-      name = "tls_enabled",
-      defaultValue = "false",
-      category = "remote",
-      help = "Specifies whether to use TLS for remote execution/caching and the build event service"
-          + " (BES)."
+    name = "tls_enabled",
+    defaultValue = "false",
+    category = "remote",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help =
+        "Specifies whether to use TLS for remote execution/caching and the build event service"
+            + " (BES)."
   )
   public boolean tlsEnabled;
 
   @Option(
-      name = "tls_certificate",
-      defaultValue = "null",
-      category = "remote",
-      help = "Specify the TLS client certificate to use."
+    name = "tls_certificate",
+    defaultValue = "null",
+    category = "remote",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "Specify the TLS client certificate to use."
   )
   public String tlsCertificate;
 
   @Option(
-      name = "tls_authority_override",
-      defaultValue = "null",
-      category = "remote",
-      optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
-      help = "TESTING ONLY! Can be used with a self-signed certificate to consider the specified "
-          + "value a valid TLS authority."
+    name = "tls_authority_override",
+    defaultValue = "null",
+    category = "remote",
+    optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help =
+        "TESTING ONLY! Can be used with a self-signed certificate to consider the specified "
+            + "value a valid TLS authority."
   )
   public String tlsAuthorityOverride;
 }

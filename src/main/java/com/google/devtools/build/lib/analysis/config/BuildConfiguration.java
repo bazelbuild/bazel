@@ -79,9 +79,11 @@ import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -464,6 +466,8 @@ public final class BuildConfiguration implements BuildEvent {
       defaultValue = "",
       category = "semantics",
       allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Each --define option specifies an assignment for a build variable."
     )
     public List<Map.Entry<String, String>> commandLineBuildVariables;
@@ -473,6 +477,8 @@ public final class BuildConfiguration implements BuildEvent {
       defaultValue = "",
       category = "semantics",
       converter = AutoCpuConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "The target CPU."
     )
     public String cpu;
@@ -488,6 +494,8 @@ public final class BuildConfiguration implements BuildEvent {
     @Option(
       name = "experimental multi cpu distinguisher",
       defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       optionUsageRestrictions = OptionUsageRestrictions.INTERNAL
     )
     public String experimentalMultiCpuDistinguisher;
@@ -496,6 +504,8 @@ public final class BuildConfiguration implements BuildEvent {
       name = "min_param_file_size",
       defaultValue = "32768",
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Minimum command line length before creating a parameter file."
     )
     public int minParamFileSize;
@@ -504,6 +514,8 @@ public final class BuildConfiguration implements BuildEvent {
       name = "experimental_extended_sanity_checks",
       defaultValue = "false",
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Enables internal validation checks to make sure that configured target "
               + "implementations only access things they should. Causes a performance hit."
@@ -514,6 +526,8 @@ public final class BuildConfiguration implements BuildEvent {
       name = "experimental_allow_runtime_deps_on_neverlink",
       defaultValue = "true",
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Flag to help transition from allowing to disallowing runtime_deps on neverlink"
               + " Java archives. The depot needs to be cleaned up to roll this out by default."
@@ -524,6 +538,8 @@ public final class BuildConfiguration implements BuildEvent {
       name = "strict_filesets",
       defaultValue = "false",
       category = "semantics",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "If this option is enabled, filesets crossing package boundaries are reported "
               + "as errors. It does not work when check_fileset_dependencies_recursively is "
@@ -541,6 +557,8 @@ public final class BuildConfiguration implements BuildEvent {
       allowMultiple = true,
       defaultValue = "",
       category = "flags",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Plugins to use in the build. Currently works with java_plugin."
     )
     public List<Label> pluginList;
@@ -551,6 +569,8 @@ public final class BuildConfiguration implements BuildEvent {
       allowMultiple = true,
       category = "flags",
       defaultValue = ":",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Plugin options"
     )
     public List<Map.Entry<String, String>> pluginCoptList;
@@ -559,6 +579,8 @@ public final class BuildConfiguration implements BuildEvent {
       name = "stamp",
       defaultValue = "false",
       category = "semantics",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Stamp binaries with the date, username, hostname, workspace information, etc."
     )
     public boolean stampBinaries;
@@ -570,6 +592,8 @@ public final class BuildConfiguration implements BuildEvent {
       converter = RegexFilter.RegexFilterConverter.class,
       defaultValue = "-/javatests[/:]",
       category = "semantics",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "When coverage is enabled, only rules with names included by the "
               + "specified regex-based filter will be instrumented. Rules prefixed "
@@ -582,6 +606,8 @@ public final class BuildConfiguration implements BuildEvent {
       name = "instrument_test_targets",
       defaultValue = "false",
       category = "semantics",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "When coverage is enabled, specifies whether to consider instrumenting test rules. "
               + "When set, test rules included by --instrumentation_filter are instrumented. "
@@ -594,6 +620,8 @@ public final class BuildConfiguration implements BuildEvent {
       defaultValue = "",
       category = "semantics",
       converter = AutoCpuConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "The host CPU."
     )
     public String hostCpu;
@@ -604,6 +632,8 @@ public final class BuildConfiguration implements BuildEvent {
       converter = CompilationMode.Converter.class,
       defaultValue = "fastbuild",
       category = "semantics", // Should this be "flags"?
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Specify the mode the binary will be built in. " + "Values: 'fastbuild', 'dbg', 'opt'."
     )
     public CompilationMode compilationMode;
@@ -616,6 +646,8 @@ public final class BuildConfiguration implements BuildEvent {
     @Option(
       name = "output directory name",
       defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       optionUsageRestrictions = OptionUsageRestrictions.INTERNAL
     )
     public String outputDirectoryName;
@@ -624,6 +656,8 @@ public final class BuildConfiguration implements BuildEvent {
       name = "platform_suffix",
       defaultValue = "null",
       category = "misc",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Specifies a suffix to be added to the configuration directory."
     )
     public String platformSuffix;
@@ -637,6 +671,8 @@ public final class BuildConfiguration implements BuildEvent {
       allowMultiple = true,
       defaultValue = "",
       category = "testing",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Specifies additional environment variables to be injected into the test runner "
               + "environment. Variables can be either specified by name, in which case its value "
@@ -655,6 +691,8 @@ public final class BuildConfiguration implements BuildEvent {
       allowMultiple = true,
       defaultValue = "",
       category = "semantics",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Specifies the set of environment variables available to actions. "
               + "Variables can be either specified by name, in which case the value will be "
@@ -669,6 +707,8 @@ public final class BuildConfiguration implements BuildEvent {
       name = "collect_code_coverage",
       defaultValue = "false",
       category = "testing",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "If specified, Bazel will instrument code (using offline instrumentation where "
               + "possible) and will collect coverage information during tests. Only targets that "
@@ -682,6 +722,8 @@ public final class BuildConfiguration implements BuildEvent {
       converter = LabelConverter.class,
       defaultValue = "@bazel_tools//tools/test:coverage_support",
       category = "testing",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Location of support files that are required on the inputs of every test action "
               + "that collects code coverage. Defaults to '//tools/test:coverage_support'."
@@ -693,6 +735,8 @@ public final class BuildConfiguration implements BuildEvent {
       converter = LabelConverter.class,
       defaultValue = "@bazel_tools//tools/test:coverage_report_generator",
       category = "testing",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Location of the binary that is used to generate coverage reports. This must "
               + "currently be a filegroup that contains a single file, the binary. Defaults to "
@@ -704,6 +748,8 @@ public final class BuildConfiguration implements BuildEvent {
       name = "experimental_use_llvm_covmap",
       defaultValue = "false",
       category = "experimental",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "If specified, Bazel will generate llvm-cov coverage map information rather than "
               + "gcov when collect_code_coverage is enabled."
@@ -715,6 +761,8 @@ public final class BuildConfiguration implements BuildEvent {
       defaultValue = "auto",
       category = "testing",
       abbrev = 't', // it's useful to toggle this on/off quickly
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "If 'auto', Bazel will only rerun a test if any of the following conditions apply: "
               + "(1) Bazel detects changes in the test or its dependencies "
@@ -732,6 +780,8 @@ public final class BuildConfiguration implements BuildEvent {
       name = "test_result_expiration",
       defaultValue = "-1", // No expiration by defualt.
       category = "testing",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "This option is deprecated and has no effect."
     )
     public int testResultExpiration;
@@ -741,6 +791,8 @@ public final class BuildConfiguration implements BuildEvent {
       defaultValue = "explicit",
       category = "testing",
       converter = TestActionBuilder.ShardingStrategyConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Specify strategy for test sharding: "
               + "'explicit' to only use sharding if the 'shard_count' BUILD attribute is present. "
@@ -757,6 +809,8 @@ public final class BuildConfiguration implements BuildEvent {
       defaultValue = "1",
       category = "testing",
       converter = RunsPerTestConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Specifies number of times to run each test. If any of those attempts "
               + "fail for any reason, the whole test would be considered failed. "
@@ -776,6 +830,8 @@ public final class BuildConfiguration implements BuildEvent {
       name = "build_runfile_links",
       defaultValue = "true",
       category = "strategy",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "If true, build runfiles symlink forests for all targets.  "
               + "If false, write only manifests when possible."
@@ -786,6 +842,8 @@ public final class BuildConfiguration implements BuildEvent {
       name = "legacy_external_runfiles",
       defaultValue = "true",
       category = "strategy",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "If true, build runfiles symlink forests for external repositories under "
               + ".runfiles/wsname/external/repo (in addition to .runfiles/repo)."
@@ -797,6 +855,8 @@ public final class BuildConfiguration implements BuildEvent {
       allowMultiple = true,
       defaultValue = "",
       category = "testing",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Specifies additional options and arguments that should be passed to the test "
               + "executable. Can be used multiple times to specify several arguments. "
@@ -810,6 +870,8 @@ public final class BuildConfiguration implements BuildEvent {
       allowMultiple = false,
       defaultValue = "null",
       category = "testing",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Specifies a filter to forward to the test framework.  Used to limit "
               + "the tests run. Note that this does not affect which targets are built."
@@ -820,6 +882,8 @@ public final class BuildConfiguration implements BuildEvent {
       name = "check_fileset_dependencies_recursively",
       defaultValue = "true",
       category = "semantics",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "If false, fileset targets will, whenever possible, create "
               + "symlinks to directories instead of creating one symlink for each "
@@ -834,6 +898,8 @@ public final class BuildConfiguration implements BuildEvent {
       name = "experimental_skyframe_native_filesets",
       defaultValue = "false",
       category = "experimental",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "If true, Blaze will use the skyframe-native implementation of the Fileset rule."
               + " This offers improved performance in incremental builds of Filesets as well as"
@@ -847,6 +913,8 @@ public final class BuildConfiguration implements BuildEvent {
       category = "run",
       defaultValue = "null",
       converter = RunUnderConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Prefix to insert in front of command before running. "
               + "Examples:\n"
@@ -863,6 +931,8 @@ public final class BuildConfiguration implements BuildEvent {
       name = "distinct_host_configuration",
       defaultValue = "true",
       category = "strategy",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Build all the tools used during the build for a distinct configuration from that used "
               + "for the target program. When this is disabled, the same configuration is used for "
@@ -882,6 +952,8 @@ public final class BuildConfiguration implements BuildEvent {
       name = "check_visibility",
       defaultValue = "true",
       category = "checking",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "If disabled, visibility errors are demoted to warnings."
     )
     public boolean checkVisibility;
@@ -893,6 +965,8 @@ public final class BuildConfiguration implements BuildEvent {
       name = "check_licenses",
       defaultValue = "false",
       category = "checking",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Check that licensing constraints imposed by dependent packages "
               + "do not conflict with distribution modes of the targets being built. "
@@ -904,6 +978,8 @@ public final class BuildConfiguration implements BuildEvent {
       name = "enforce_constraints",
       defaultValue = "true",
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Checks the environments each target is compatible with and reports errors if any "
               + "target has dependencies that don't support the same environments",
@@ -917,6 +993,8 @@ public final class BuildConfiguration implements BuildEvent {
       defaultValue = "",
       category = "experimental",
       converter = LabelListConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Use action_listener to attach an extra_action to existing build actions."
     )
     public List<Label> actionListeners;
@@ -928,6 +1006,8 @@ public final class BuildConfiguration implements BuildEvent {
       name = "experimental_transparent_compression",
       defaultValue = "true",
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Enables gzip compression for the contents of FileWriteActions, which reduces "
               + "memory usage in the analysis phase at the expense of additional time overhead."
@@ -938,6 +1018,8 @@ public final class BuildConfiguration implements BuildEvent {
       name = "is host configuration",
       defaultValue = "false",
       optionUsageRestrictions = OptionUsageRestrictions.INTERNAL,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Shows whether these options are set for host configuration."
     )
     public boolean isHost;
@@ -947,6 +1029,8 @@ public final class BuildConfiguration implements BuildEvent {
       allowMultiple = true,
       defaultValue = "",
       category = "flags",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "The given features will be enabled or disabled by default for all packages. "
               + "Specifying -<feature> will disable the feature globally. "
@@ -962,6 +1046,8 @@ public final class BuildConfiguration implements BuildEvent {
       allowMultiple = true,
       defaultValue = "",
       category = "flags",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Declares this build's target environment. Must be a label reference to an "
               + "\"environment\" rule. If specified, all top-level targets must be "
@@ -1002,6 +1088,8 @@ public final class BuildConfiguration implements BuildEvent {
       defaultValue = "notrim",
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       converter = DynamicConfigsConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Dynamically instantiates build configurations instead of using the default "
               + "static globally defined ones"
@@ -1012,6 +1100,8 @@ public final class BuildConfiguration implements BuildEvent {
       name = "experimental_enable_runfiles",
       defaultValue = "auto",
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Enable runfiles; off on Windows, on on other platforms"
     )
     public TriState enableRunfiles;
@@ -1020,6 +1110,8 @@ public final class BuildConfiguration implements BuildEvent {
       name = "build_python_zip",
       defaultValue = "auto",
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Build python executable zip; on on Windows, off on other platforms"
     )
     public TriState buildPythonZip;

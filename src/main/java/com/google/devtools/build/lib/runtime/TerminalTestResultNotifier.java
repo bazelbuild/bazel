@@ -22,8 +22,10 @@ import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -48,18 +50,28 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
    * Flags specific to test summary reporting.
    */
   public static class TestSummaryOptions extends OptionsBase {
-    @Option(name = "verbose_test_summary",
-        defaultValue = "true",
-        category = "verbosity",
-        help = "If true, print additional information (timing, number of failed runs, etc) in the"
-             + " test summary.")
+    @Option(
+      name = "verbose_test_summary",
+      defaultValue = "true",
+      category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If true, print additional information (timing, number of failed runs, etc) in the"
+              + " test summary."
+    )
     public boolean verboseSummary;
 
-    @Option(name = "test_verbose_timeout_warnings",
-        defaultValue = "false",
-        category = "verbosity",
-        help = "If true, print additional warnings when the actual test execution time does not " +
-               "match the timeout defined by the test (whether implied or explicit).")
+    @Option(
+      name = "test_verbose_timeout_warnings",
+      defaultValue = "false",
+      category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If true, print additional warnings when the actual test execution time does not "
+              + "match the timeout defined by the test (whether implied or explicit)."
+    )
     public boolean testVerboseTimeoutWarnings;
   }
 

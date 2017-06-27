@@ -15,8 +15,10 @@
 package com.google.devtools.build.lib.buildeventstream.transports;
 
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 
 /** Options used to configure BuildEventStreamer and its BuildEventTransports. */
 public class BuildEventStreamOptions extends OptionsBase {
@@ -25,6 +27,8 @@ public class BuildEventStreamOptions extends OptionsBase {
     name = "experimental_build_event_text_file",
     defaultValue = "",
     optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "If non-empty, write a textual representation of the build event protocol to that file"
   )
   public String buildEventTextFile;
@@ -33,6 +37,8 @@ public class BuildEventStreamOptions extends OptionsBase {
     name = "experimental_build_event_binary_file",
     defaultValue = "",
     optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "If non-empty, write a varint delimited binary representation of representation of the"
             + " build event protocol to that file."
@@ -43,6 +49,8 @@ public class BuildEventStreamOptions extends OptionsBase {
     name = "experimental_build_event_json_file",
     defaultValue = "",
     optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "If non-empty, write a JSON serialisation of the build event protocol to that file."
   )
   public String buildEventJsonFile;
@@ -51,6 +59,8 @@ public class BuildEventStreamOptions extends OptionsBase {
     name = "experimental_build_event_text_file_path_conversion",
     defaultValue = "true",
     optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Convert paths in the text file representation of the build event protocol to more "
             + "globally valid URIs whenever possible; if disabled, the file:// uri scheme will "
@@ -62,6 +72,8 @@ public class BuildEventStreamOptions extends OptionsBase {
     name = "experimental_build_event_binary_file_path_conversion",
     defaultValue = "true",
     optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Convert paths in the binary file representation of the build event protocol to more "
             + "globally valid URIs whenever possible; if disabled, the file:// uri scheme will "
@@ -73,6 +85,8 @@ public class BuildEventStreamOptions extends OptionsBase {
     name = "experimental_build_event_json_file_path_conversion",
     defaultValue = "true",
     optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Convert paths in the json file representation of the build event protocol to more "
             + "globally valid URIs whenever possible; if disabled, the file:// uri scheme will "

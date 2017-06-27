@@ -15,7 +15,9 @@
 package com.google.devtools.build.lib.remote;
 
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 
 /** Options for remote execution and distributed caching. */
 public final class RemoteOptions extends OptionsBase {
@@ -23,6 +25,8 @@ public final class RemoteOptions extends OptionsBase {
     name = "remote_rest_cache",
     defaultValue = "null",
     category = "remote",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "A base URL for a RESTful cache server for storing build artifacts."
             + "It has to support PUT, GET, and HEAD requests."
@@ -33,6 +37,8 @@ public final class RemoteOptions extends OptionsBase {
     name = "remote_rest_cache_pool_size",
     defaultValue = "20",
     category = "remote",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "Size of the HTTP pool for making requests to the REST cache."
   )
   public int restCachePoolSize;
@@ -41,6 +47,8 @@ public final class RemoteOptions extends OptionsBase {
     name = "hazelcast_node",
     defaultValue = "null",
     category = "remote",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "A comma separated list of hostnames of hazelcast nodes."
   )
   public String hazelcastNode;
@@ -49,6 +57,8 @@ public final class RemoteOptions extends OptionsBase {
     name = "hazelcast_client_config",
     defaultValue = "null",
     category = "remote",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "A file path to a hazelcast client config XML file."
   )
   public String hazelcastClientConfig;
@@ -57,6 +67,8 @@ public final class RemoteOptions extends OptionsBase {
     name = "hazelcast_standalone_listen_port",
     defaultValue = "0",
     category = "build_worker",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Runs an embedded hazelcast server that listens to this port. The server does not join"
             + " any cluster. This is useful for testing."
@@ -67,6 +79,8 @@ public final class RemoteOptions extends OptionsBase {
     name = "remote_executor",
     defaultValue = "null",
     category = "remote",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "HOST or HOST:PORT of a remote execution endpoint."
   )
   public String remoteExecutor;
@@ -75,6 +89,8 @@ public final class RemoteOptions extends OptionsBase {
     name = "remote_cache",
     defaultValue = "null",
     category = "remote",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "HOST or HOST:PORT of a remote caching endpoint."
   )
   public String remoteCache;
@@ -83,6 +99,8 @@ public final class RemoteOptions extends OptionsBase {
     name = "remote_timeout",
     defaultValue = "60",
     category = "remote",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "The maximum number of seconds to wait for remote execution and cache calls."
   )
   public int remoteTimeout;
@@ -91,6 +109,8 @@ public final class RemoteOptions extends OptionsBase {
     name = "remote_accept_cached",
     defaultValue = "true",
     category = "remote",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "Whether to accept remotely cached action results."
   )
   public boolean remoteAcceptCached;
@@ -99,6 +119,8 @@ public final class RemoteOptions extends OptionsBase {
     name = "remote_local_fallback",
     defaultValue = "false",
     category = "remote",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "Whether to fall back to standalone local execution strategy if remote execution fails."
   )
   public boolean remoteLocalFallback;
@@ -107,6 +129,8 @@ public final class RemoteOptions extends OptionsBase {
     name = "remote_upload_local_results",
     defaultValue = "true",
     category = "remote",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "Whether to upload locally executed action results to the remote cache."
   )
   public boolean remoteUploadLocalResults;
@@ -115,6 +139,8 @@ public final class RemoteOptions extends OptionsBase {
     name = "experimental_remote_platform_override",
     defaultValue = "null",
     category = "remote",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "Temporary, for testing only. Manually set a Platform to pass to remote execution."
   )
   public String experimentalRemotePlatformOverride;
@@ -123,6 +149,8 @@ public final class RemoteOptions extends OptionsBase {
     name = "remote_instance_name",
     defaultValue = "",
     category = "remote",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "Value to pass as instance_name in the remote execution API."
   )
   public String remoteInstanceName;

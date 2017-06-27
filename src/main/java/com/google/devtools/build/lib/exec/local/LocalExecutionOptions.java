@@ -15,8 +15,10 @@ package com.google.devtools.build.lib.exec.local;
 
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.regex.Pattern;
 
 /**
@@ -28,6 +30,8 @@ public class LocalExecutionOptions extends OptionsBase {
     name = "local_termination_grace_seconds",
     oldName = "local_sigkill_grace_seconds",
     category = "remote execution",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     defaultValue = "15",
     help =
         "Time to wait between terminating a local process due to timeout and forcefully "
@@ -37,6 +41,8 @@ public class LocalExecutionOptions extends OptionsBase {
 
   @Option(
     name = "allowed_local_actions_regex",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     converter = Converters.RegexPatternConverter.class,
     defaultValue = "null",

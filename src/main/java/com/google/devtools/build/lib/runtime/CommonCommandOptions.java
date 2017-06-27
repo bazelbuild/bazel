@@ -105,6 +105,7 @@ public class CommonCommandOptions extends OptionsBase {
     name = "all_incompatible_changes",
     defaultValue = "null",
     category = "misc",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
     expansionFunction = AllIncompatibleChangesExpansion.class,
@@ -118,6 +119,7 @@ public class CommonCommandOptions extends OptionsBase {
     name = "config",
     defaultValue = "",
     category = "misc",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     allowMultiple = true,
     help =
@@ -144,6 +146,7 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "client_env",
     defaultValue = "",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
     effectTags = {OptionEffectTag.CHANGES_INPUTS},
     converter = Converters.AssignmentConverter.class,
@@ -156,7 +159,9 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "ignore_client_env",
     defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    effectTags = {OptionEffectTag.NO_OP},
     metadataTags = OptionMetadataTag.DEPRECATED,
     deprecationWarning = "Deprecated, no-op.",
     help = "Deprecated, no-op."
@@ -168,6 +173,7 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "client_cwd",
     defaultValue = "",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
     effectTags = {OptionEffectTag.CHANGES_INPUTS},
     converter = OptionsUtils.PathFragmentConverter.class,
@@ -194,6 +200,7 @@ public class CommonCommandOptions extends OptionsBase {
     name = "default_override",
     defaultValue = "",
     allowMultiple = true,
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.CHANGES_INPUTS},
     optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
     converter = OptionOverrideConverter.class,
@@ -206,6 +213,7 @@ public class CommonCommandOptions extends OptionsBase {
     name = "rc_source",
     defaultValue = "",
     allowMultiple = true,
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.CHANGES_INPUTS},
     optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
     help = ""
@@ -215,6 +223,7 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "always_profile_slow_operations",
     defaultValue = "true",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
     optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     help = "Whether profiling slow operations is always turned on"
@@ -225,6 +234,7 @@ public class CommonCommandOptions extends OptionsBase {
     name = "allow_undefined_configs",
     defaultValue = "true",
     category = "flags",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
     help = "Do not throw an error when the config is not defined."
   )
@@ -272,6 +282,8 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "gc_watchdog",
     defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.NO_OP},
     metadataTags = {OptionMetadataTag.DEPRECATED},
     optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     deprecationWarning = "Ignoring: this option is no longer supported",
@@ -342,6 +354,7 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "experimental_allow_project_files",
     defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.CHANGES_INPUTS},
     metadataTags = {OptionMetadataTag.EXPERIMENTAL},
     optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
@@ -352,6 +365,7 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "block_for_lock",
     defaultValue = "true",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
     optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
     help =
