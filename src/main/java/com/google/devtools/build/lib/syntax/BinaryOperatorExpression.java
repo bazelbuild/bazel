@@ -102,7 +102,6 @@ public final class BinaryOperatorExpression extends Expression {
     }
   }
 
-  /** Helper method. Reused from the LValue class. */
   public static Object evaluate(
       Operator operator,
       Object lval,

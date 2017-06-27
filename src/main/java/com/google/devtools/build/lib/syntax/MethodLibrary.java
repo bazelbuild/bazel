@@ -1547,23 +1547,6 @@ public class MethodLibrary {
     }
   };
 
-  // unary minus
-  @SkylarkSignature(
-    name = "-",
-    returnType = Integer.class,
-    documented = false,
-    doc = "Unary minus operator.",
-    parameters = {
-      @Param(name = "num", type = Integer.class, doc = "The number to negate.")
-    }
-  )
-  private static final BuiltinFunction minus =
-      new BuiltinFunction("-") {
-        public Integer invoke(Integer num) throws ConversionException {
-          return -num;
-        }
-      };
-
   @SkylarkSignature(
     name = "tuple",
     returnType = Tuple.class,
@@ -2221,7 +2204,7 @@ public class MethodLibrary {
   static final List<BaseFunction> defaultGlobalFunctions =
       ImmutableList.<BaseFunction>of(
           all, any, bool, dict, dir, fail, getattr, hasattr, hash, enumerate, int_, len, list, max,
-          min, minus, print, range, repr, reversed, sorted, str, tuple, zip);
+          min, print, range, repr, reversed, sorted, str, tuple, zip);
 
   static {
     SkylarkSignatureProcessor.configureSkylarkFunctions(MethodLibrary.class);

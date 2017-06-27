@@ -697,10 +697,9 @@ public class Parser {
       case MINUS:
         {
           nextToken();
-          List<Argument.Passed> args = new ArrayList<>();
           Expression expr = parsePrimaryWithSuffix();
-          args.add(setLocation(new Argument.Positional(expr), start, expr));
-          return makeFuncallExpression(null, new Identifier("-"), args, start, token.right);
+          UnaryOperatorExpression minus = new UnaryOperatorExpression(UnaryOperator.MINUS, expr);
+          return setLocation(minus, start, expr);
         }
       default:
         {
@@ -1061,7 +1060,8 @@ public class Parser {
     int start = token.left;
     expect(TokenKind.NOT);
     Expression expression = parseNonTupleExpression(prec + 1);
-    NotExpression notExpression = new NotExpression(expression);
+    UnaryOperatorExpression notExpression =
+        new UnaryOperatorExpression(UnaryOperator.NOT, expression);
     return setLocation(notExpression, start, token.right);
   }
 

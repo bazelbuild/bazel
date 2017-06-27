@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2017 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,31 +14,16 @@
 
 package com.google.devtools.build.lib.syntax;
 
-/** Infix binary operators. */
-public enum Operator {
+/** Unary operators. */
+public enum UnaryOperator {
 
-  AND("and"),
-  DIVIDE("/"),
-  EQUALS_EQUALS("=="),
-  FLOOR_DIVIDE("//"),
-  GREATER(">"),
-  GREATER_EQUALS(">="),
-  IN("in"),
-  LESS("<"),
-  LESS_EQUALS("<="),
-  MINUS("-"),
-  MULT("*"),
-  NOT("not"),
-  NOT_EQUALS("!="),
-  NOT_IN("not in"),
-  OR("or"),
-  PERCENT("%"),
-  PIPE("|"),
-  PLUS("+");
+  // Include trailing whitespace in name for non-symbolic operators (for pretty printing).
+  NOT("not "),
+  MINUS("-");
 
   private final String name;
 
-  Operator(String name) {
+  UnaryOperator(String name) {
     this.name = name;
   }
 

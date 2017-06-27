@@ -58,6 +58,17 @@ public class ParserTest extends EvaluationTestCase {
                           node.getLocation().getEndOffset());
   }
 
+  private void assertLocation(int start, int end, Location location)
+      throws Exception {
+    int actualStart = location.getStartOffset();
+    int actualEnd = location.getEndOffset();
+
+    if (actualStart != start || actualEnd != end) {
+      fail("Expected location = [" + start + ", " + end + "), found ["
+          + actualStart + ", " + actualEnd + ")");
+    }
+  }
+
   // helper func for testListLiterals:
   private static int getIntElem(DictionaryEntryLiteral entry, boolean key) {
     return ((IntegerLiteral) (key ? entry.getKey() : entry.getValue())).getValue();
@@ -150,17 +161,15 @@ public class ParserTest extends EvaluationTestCase {
 
   @Test
   public void testUnaryMinusExpr() throws Exception {
-    FuncallExpression e = (FuncallExpression) parseExpression("-5");
-    FuncallExpression e2 = (FuncallExpression) parseExpression("- 5");
+    UnaryOperatorExpression e = (UnaryOperatorExpression) parseExpression("-5");
+    UnaryOperatorExpression e2 = (UnaryOperatorExpression) parseExpression("- 5");
 
-    assertThat(e.getFunction().getName()).isEqualTo("-");
-    assertThat(e2.getFunction().getName()).isEqualTo("-");
-
-    assertThat(e.getArguments()).hasSize(1);
-    assertThat(e.getNumPositionalArguments()).isEqualTo(1);
-
-    IntegerLiteral arg0 = (IntegerLiteral) e.getArguments().get(0).getValue();
-    assertThat((int) arg0.getValue()).isEqualTo(5);
+    IntegerLiteral i = (IntegerLiteral) e.getOperand();
+    assertThat(i.getValue()).isEqualTo(5);
+    IntegerLiteral i2 = (IntegerLiteral) e2.getOperand();
+    assertThat(i2.getValue()).isEqualTo(5);
+    assertLocation(0, 2, e.getLocation());
+    assertLocation(0, 3, e2.getLocation());
   }
 
   @Test
@@ -268,6 +277,14 @@ public class ParserTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testIndex() throws Exception {
+    IndexExpression e = (IndexExpression) parseExpression("a[i]");
+    assertThat(e.getObject().toString()).isEqualTo("a");
+    assertThat(e.getKey().toString()).isEqualTo("i");
+    assertLocation(0, 4, e.getLocation());
+  }
+
+  @Test
   public void testSubstring() throws Exception {
     SliceExpression s = (SliceExpression) parseExpression("'FOO.CC'[:].lower()[1:]");
     assertThat(((IntegerLiteral) s.getStart()).value).isEqualTo(1);
@@ -294,37 +311,18 @@ public class ParserTest extends EvaluationTestCase {
     evalSlice("'0123'[1::-1]", 1, Runtime.NONE, -1);
     evalSlice("'0123'[:3:-1]", Runtime.NONE, 3, -1);
     evalSlice("'0123'[1:3:-1]", 1, 3, -1);
+
+    Expression slice = parseExpression("'0123'[1:3:-1]");
+    assertLocation(0, 14, slice.getLocation());
   }
 
   private void evalSlice(String statement, Object... expectedArgs) {
     SliceExpression e = (SliceExpression) parseExpression(statement);
 
     // There is no way to evaluate the expression here, so we rely on string comparison.
-    assertThat(e.getStart().toString()).isEqualTo(printSliceArg(expectedArgs[0]));
-    assertThat(e.getEnd().toString()).isEqualTo(printSliceArg(expectedArgs[1]));
-    assertThat(e.getStep().toString()).isEqualTo(printSliceArg(expectedArgs[2]));
-  }
-
-  private String printSliceArg(Object arg) {
-    // The parser sees negative integer constants as FuncallExpressions instead of negative
-    // IntegerLiterals.
-    // Consequently, the string representation of -1 is "-(1)", not "-1".
-    if (arg instanceof Integer) {
-      int value = (int) arg;
-      return value < 0 ? String.format("-(%d)", -value) : String.valueOf(value);
-    }
-    return arg.toString();
-  }
-
-  private void assertLocation(int start, int end, Location location)
-      throws Exception {
-    int actualStart = location.getStartOffset();
-    int actualEnd = location.getEndOffset();
-
-    if (actualStart != start || actualEnd != end) {
-      fail("Expected location = [" + start + ", " + end + "), found ["
-          + actualStart + ", " + actualEnd + ")");
-    }
+    assertThat(e.getStart().toString()).isEqualTo(expectedArgs[0].toString());
+    assertThat(e.getEnd().toString()).isEqualTo(expectedArgs[1].toString());
+    assertThat(e.getStep().toString()).isEqualTo(expectedArgs[2].toString());
   }
 
   @Test
@@ -481,18 +479,6 @@ public class ParserTest extends EvaluationTestCase {
     List<Statement> statements = parseFile("a(b);c = d\n");
     Statement statement = statements.get(0);
     assertThat(statement.getLocation().getEndOffset()).isEqualTo(4);
-  }
-
-  @Test
-  public void testSpecialFuncallLocation() throws Exception {
-    List<Statement> statements = parseFile("-x\n");
-    assertLocation(0, 3, statements.get(0).getLocation());
-
-    statements = parseFile("arr[15]\n");
-    assertLocation(0, 8, statements.get(0).getLocation());
-
-    statements = parseFile("str[1:12]\n");
-    assertLocation(0, 10, statements.get(0).getLocation());
   }
 
   @Test
