@@ -22,12 +22,12 @@ class BazelServerModeTest(test_base.TestBase):
   def testBazelServerMode(self):
     self.ScratchFile('WORKSPACE')
 
-    exit_code, stdout, _ = self.RunBazel(['info', 'server_pid'])
-    self.assertEqual(exit_code, 0)
+    exit_code, stdout, stderr = self.RunBazel(['info', 'server_pid'])
+    self.AssertExitCode(exit_code, 0, stderr)
     pid1 = stdout[0]
 
-    exit_code, stdout, _ = self.RunBazel(['info', 'server_pid'])
-    self.assertEqual(exit_code, 0)
+    exit_code, stdout, stderr = self.RunBazel(['info', 'server_pid'])
+    self.AssertExitCode(exit_code, 0, stderr)
     pid2 = stdout[0]
 
     self.assertEqual(pid1, pid2)

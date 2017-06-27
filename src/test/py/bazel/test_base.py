@@ -55,6 +55,17 @@ class TestBase(unittest.TestCase):
     os.mkdir(self._tests_root)
     os.chdir(self._tests_root)
 
+  def AssertExitCode(self, actual_exit_code, expected_exit_code, stderr_lines):
+    """Assert that `actual_exit_code` == `expected_exit_code`."""
+    if actual_exit_code != expected_exit_code:
+      self.fail('\n'.join([
+          'Bazel exited with %d (expected %d), stderr:' % (actual_exit_code,
+                                                           expected_exit_code),
+          '(start stderr)----------------------------------------',
+      ] + (stderr_lines or []) + [
+          '(end stderr)------------------------------------------',
+      ]))
+
   @staticmethod
   def GetEnv(name, default=None):
     """Returns environment variable `name`.

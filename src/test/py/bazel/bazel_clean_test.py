@@ -22,33 +22,36 @@ class BazelCleanTest(test_base.TestBase):
   def testBazelClean(self):
     self.ScratchFile('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
-        'genrule(', '  name = "x",', '  outs = ["x.out"],',
-        '  cmd = "touch $@",', ')'
+        'genrule(',
+        '  name = "x",',
+        '  outs = ["x.out"],',
+        '  cmd = "touch $@",',
+        ')',
     ])
 
-    exit_code, stdout, _ = self.RunBazel(['info', 'bazel-genfiles'])
-    self.assertEqual(exit_code, 0)
+    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-genfiles'])
+    self.AssertExitCode(exit_code, 0, stderr)
     bazel_genfiles = stdout[0]
 
-    exit_code, stdout, _ = self.RunBazel(['info', 'output_base'])
-    self.assertEqual(exit_code, 0)
+    exit_code, stdout, stderr = self.RunBazel(['info', 'output_base'])
+    self.AssertExitCode(exit_code, 0, stderr)
     output_base = stdout[0]
 
-    exit_code, _, _ = self.RunBazel(['build', '//foo:x'])
-    self.assertEqual(exit_code, 0)
+    exit_code, _, stderr = self.RunBazel(['build', '//foo:x'])
+    self.AssertExitCode(exit_code, 0, stderr)
     self.assertTrue(os.path.exists(os.path.join(bazel_genfiles, 'foo/x.out')))
 
-    exit_code, _, _ = self.RunBazel(['clean'])
-    self.assertEqual(exit_code, 0)
+    exit_code, _, stderr = self.RunBazel(['clean'])
+    self.AssertExitCode(exit_code, 0, stderr)
     self.assertFalse(os.path.exists(os.path.join(bazel_genfiles, 'foo/x.out')))
     self.assertTrue(os.path.exists(output_base))
 
-    exit_code, _, _ = self.RunBazel(['build', '//foo:x'])
-    self.assertEqual(exit_code, 0)
+    exit_code, _, stderr = self.RunBazel(['build', '//foo:x'])
+    self.AssertExitCode(exit_code, 0, stderr)
     self.assertTrue(os.path.exists(os.path.join(bazel_genfiles, 'foo/x.out')))
 
-    exit_code, _, _ = self.RunBazel(['clean', '--expunge'])
-    self.assertEqual(exit_code, 0)
+    exit_code, _, stderr = self.RunBazel(['clean', '--expunge'])
+    self.AssertExitCode(exit_code, 0, stderr)
     self.assertFalse(os.path.exists(os.path.join(bazel_genfiles, 'foo/x.out')))
     self.assertFalse(os.path.exists(output_base))
 
