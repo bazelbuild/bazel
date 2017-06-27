@@ -122,7 +122,7 @@ python_server="${BAZEL_RUNFILES}/src/test/shell/bazel/testing_server.py"
 # Third-party
 MACHINE_TYPE="$(uname -m)"
 MACHINE_IS_64BIT='no'
-if [ "${MACHINE_TYPE}" = 'amd64' -o "${MACHINE_TYPE}" = 'x86_64' -o "${MACHINE_TYPE}" = 's390x' ]; then
+if [ "${MACHINE_TYPE}" = 'amd64' ] || [ "${MACHINE_TYPE}" = 'x86_64' ] || [ "${MACHINE_TYPE}" = 's390x' ]; then
   MACHINE_IS_64BIT='yes'
 fi
 
@@ -164,6 +164,8 @@ fi
 function copy_tools_directory() {
   cp -RL ${tools_dir}/* tools
   # tools/jdk/BUILD file for JDK 7 is generated.
+  # Only works if there's 0 or 1 matches.
+  # If there are multiple, the test fails.
   if [ -f tools/jdk/BUILD.* ]; then
     cp tools/jdk/BUILD.* tools/jdk/BUILD
   fi
@@ -418,7 +420,7 @@ function cleanup_workspace() {
     done
     touch WORKSPACE
   fi
-  for i in ${workspaces}; do
+  for i in "${workspaces[@]}"; do
     if [ "$i" != "${WORKSPACE_DIR:-}" ]; then
       rm -fr $i
     fi
@@ -435,9 +437,9 @@ function cleanup() {
       if rm -fr "${BAZEL_INSTALL_BASE}" ; then
         break
       fi
-      if (( $i == 10 )) || (( $i == 30 )) || (( $i == 60 )) ; then
+      if (( i == 10 )) || (( i == 30 )) || (( i == 60 )) ; then
         echo "Test cleanup: couldn't delete ${BAZEL_INSTALL_BASE} \ after $i seconds"
-        echo "(Timeout in $((120-$i)) seconds.)"
+        echo "(Timeout in $((120-i)) seconds.)"
         sleep 1
       fi
     done
