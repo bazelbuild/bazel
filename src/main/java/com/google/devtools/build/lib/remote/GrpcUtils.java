@@ -21,7 +21,7 @@ import io.grpc.netty.NettyChannelBuilder;
 
 /** Helper methods for gRPC calls */
 @ThreadSafe
-public final class RemoteUtils {
+final class GrpcUtils {
   public static ManagedChannel createChannel(String target, ChannelOptions channelOptions) {
     NettyChannelBuilder builder =
         NettyChannelBuilder.forTarget(target)

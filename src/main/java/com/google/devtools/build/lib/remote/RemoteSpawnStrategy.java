@@ -106,7 +106,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
     } else if (GrpcActionCache.isRemoteCacheOptions(remoteOptions)) {
       remoteCache =
           new GrpcActionCache(
-              RemoteUtils.createChannel(remoteOptions.remoteCache, channelOptions),
+              GrpcUtils.createChannel(remoteOptions.remoteCache, channelOptions),
               channelOptions,
               remoteOptions);
     } else {
@@ -117,7 +117,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
     if (remoteCache != null && GrpcRemoteExecutor.isRemoteExecutionOptions(remoteOptions)) {
       workExecutor =
           new GrpcRemoteExecutor(
-              RemoteUtils.createChannel(remoteOptions.remoteExecutor, channelOptions),
+              GrpcUtils.createChannel(remoteOptions.remoteExecutor, channelOptions),
               channelOptions,
               remoteOptions);
     } else {
