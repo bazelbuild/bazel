@@ -48,6 +48,7 @@ EOF
 sh_test(
   name = "true",
   srcs = ["true.sh"],
+  size = "small",
 )
 sh_test(
   name = "slow",
@@ -153,6 +154,8 @@ function test_basic() {
   expect_not_log 'aborted'
   # target kind for the sh_test
   expect_log 'target_kind:.*sh'
+  # test size should be reported
+  expect_log 'test_size: SMALL'
   # configuration reported with make variables
   expect_log_once '^configuration '
   expect_log 'key: "TARGET_CPU"'
