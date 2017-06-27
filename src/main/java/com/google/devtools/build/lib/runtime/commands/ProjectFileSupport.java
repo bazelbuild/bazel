@@ -13,9 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
@@ -43,7 +42,7 @@ public final class ProjectFileSupport {
    * are not enabled, then it throws an exception instead.
    */
   public static void handleProjectFiles(
-      EventHandler eventHandler, EventBus eventBus, ProjectFile.Provider projectFileProvider,
+      ExtendedEventHandler eventHandler, ProjectFile.Provider projectFileProvider,
       Path workspaceDir, Path workingDir, OptionsParser optionsParser, String command)
           throws OptionsParsingException {
     List<String> targets = optionsParser.getResidue();
@@ -73,7 +72,7 @@ public final class ProjectFileSupport {
 
       optionsParser.parse(
           OptionPriority.RC_FILE, projectFile.getName(), projectFile.getCommandLineFor(command));
-      eventBus.post(new GotProjectFileEvent(projectFile.getName()));
+      eventHandler.post(new GotProjectFileEvent(projectFile.getName()));
     }
   }
 

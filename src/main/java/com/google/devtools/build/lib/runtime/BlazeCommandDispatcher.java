@@ -32,6 +32,8 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.PrintingEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.runtime.commands.ProjectFileSupport;
@@ -198,9 +200,9 @@ public class BlazeCommandDispatcher {
     return ExitCode.SUCCESS;
   }
 
-  private void parseArgsAndConfigs(CommandEnvironment env, OptionsParser optionsParser,
-      Command commandAnnotation, List<String> args, List<String> rcfileNotes,
-      EventHandler eventHandler)
+  private void parseArgsAndConfigs(Path workspaceDirectory, Path workingDirectory,
+      OptionsParser optionsParser, Command commandAnnotation, List<String> args,
+      List<String> rcfileNotes, ExtendedEventHandler eventHandler)
           throws OptionsParsingException {
     Function<String, String> commandOptionSourceFunction =
         new Function<String, String>() {
@@ -229,8 +231,8 @@ public class BlazeCommandDispatcher {
     parseOptionsForCommand(rcfileNotes, commandAnnotation, optionsParser, optionsMap, null, null);
     if (commandAnnotation.builds()) {
       ProjectFileSupport.handleProjectFiles(
-          eventHandler, env.getEventBus(), runtime.getProjectFileProvider(), env.getWorkspace(),
-          env.getWorkingDirectory(), optionsParser, commandAnnotation.name());
+          eventHandler, runtime.getProjectFileProvider(), workspaceDirectory, workingDirectory,
+          optionsParser, commandAnnotation.name());
     }
 
     // Fix-point iteration until all configs are loaded.
@@ -386,7 +388,9 @@ public class BlazeCommandDispatcher {
       }
     }
 
-    EventHandler eventHandler = new PrintingEventHandler(outErr, EventKind.ALL_EVENTS);
+    // Print any normal events, but store all event bus events.
+    ExtendedPrintingEventHandler eventHandler =
+        new ExtendedPrintingEventHandler(outErr, EventKind.ALL_EVENTS);
     ExitCode result = checkCwdInWorkspace(workspace, commandAnnotation, commandName, eventHandler);
     if (!result.equals(ExitCode.SUCCESS)) {
       return result.getNumericExitCode();
@@ -400,10 +404,11 @@ public class BlazeCommandDispatcher {
     List<String> rcfileNotes = new ArrayList<>();
     try {
       OptionsParser optionsParser = createOptionsParser(command);
-      // TODO(ulfjack): parseArgsAndConfigs calls env.getWorkingDirectory, which isn't set correctly
-      // at this point in the code - it's initialized to the workspace root, which usually works.
+      // TODO(ulfjack): env.getWorkingDirectory isn't set correctly at this point in the code - it's
+      // initialized to the workspace root, which usually works.
       parseArgsAndConfigs(
-          env, optionsParser, commandAnnotation, args, rcfileNotes, eventHandler);
+          env.getWorkspace(), env.getWorkingDirectory(), optionsParser, commandAnnotation, args,
+          rcfileNotes, eventHandler);
       // Allow the command to edit the options.
       command.editOptions(optionsParser);
       // Migration of --watchfs to a command option.
@@ -512,6 +517,10 @@ public class BlazeCommandDispatcher {
       OutErr reporterOutErr = reporter.getOutErr();
       System.setOut(new PrintStream(reporterOutErr.getOutputStream(), /*autoflush=*/true));
       System.setErr(new PrintStream(reporterOutErr.getErrorStream(), /*autoflush=*/true));
+
+      for (Postable post : eventHandler.posts) {
+        env.getEventBus().post(post);
+      }
 
       for (BlazeModule module : runtime.getBlazeModules()) {
         module.checkEnvironment(env);
@@ -855,5 +864,21 @@ public class BlazeCommandDispatcher {
     closeSilently(logOutputStream);
     logOutputStream = null;
   }
-}
 
+  /**
+   * A printing event handler that also stores posts.
+   */
+  private static final class ExtendedPrintingEventHandler extends PrintingEventHandler
+      implements ExtendedEventHandler {
+    private final List<Postable> posts = new ArrayList<>();
+
+    public ExtendedPrintingEventHandler(OutErr outErr, Set<EventKind> mask) {
+      super(outErr, mask);
+    }
+
+    @Override
+    public void post(Postable p) {
+      posts.add(p);
+    }
+  }
+}
