@@ -108,13 +108,14 @@ nav: docs
         <div class="col-lg-9">
           <a id="gh-edit" class="gh-edit default-hidden"><i class="fa fa-pencil" aria-hidden="true"></i> Edit</a>
           <script>
+            var versionDocsURLRegex = /\/versions\/[\w\.]+\/(.*)/;
             var ghDocsBazeURL = 'https://github.com/bazelbuild/bazel/tree/master/site/docs/';
             var editButton = document.getElementById('gh-edit');
-            // if there is an edit button and we are on a doc page but not in the Build Encyclopedia
+            // if there is an edit button and we are not in the Build Encyclopedia
             if (editButton
-                && window.location.pathname.split('docs/').length > 1
+                && window.location.pathname.match(versionDocsURLRegex)
                 && window.location.pathname.lastIndexOf('/be/') == -1) {
-              var docFile = window.location.pathname.split('docs/')[1];
+              var docFile = window.location.pathname.match(versionDocsURLRegex)[1];
               // some pages are now using markdown :(
               if (docFile !== 'bazel-user-manual.html'
                   && docFile !== 'build-ref.html'
