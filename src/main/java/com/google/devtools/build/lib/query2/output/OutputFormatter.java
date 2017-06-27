@@ -18,6 +18,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.CompactHashSet;
@@ -809,6 +810,7 @@ public abstract class OutputFormatter implements Serializable {
     }
 
     AggregatingAttributeMapper attributeMap = AggregatingAttributeMapper.of(rule);
+    Iterable<?> list;
     if (attr.getType().equals(BuildType.LABEL_LIST)
         && attributeMap.isConfigurable(attr.getName())) {
       // TODO(gregce): Expand this to all collection types (we don't do this for scalars because
@@ -819,7 +821,13 @@ public abstract class OutputFormatter implements Serializable {
           ImmutableList.<Object>of(
               attributeMap.getReachableLabels(attr.getName(), /*includeSelectKeys=*/false)),
           source);
+    } else if ((list =
+            attributeMap.getConcatenatedSelectorListsOfListType(
+                attr.getName(), attr.getType()))
+        != null) {
+      return new PossibleAttributeValues(Lists.newArrayList(list), source);
     } else {
+      // The call to getPossibleAttributeValues below is especially slow with selector lists.
       return new PossibleAttributeValues(attributeMap.getPossibleAttributeValues(rule, attr),
           source);
     }

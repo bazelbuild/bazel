@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -26,6 +25,7 @@ import com.google.devtools.build.lib.packages.BuildType.Selector;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.LabelVisitor;
+import com.google.devtools.build.lib.syntax.Type.ListType;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -206,6 +206,33 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       return result;
     }
     return Lists.<Object>newArrayList(visitAttribute(attr.getName(), attr.getType()));
+  }
+
+  /**
+   * If the attribute is a selector list of list type, then this method returns a list with number
+   * of elements equal to the number of select statements in the selector list. Each element of this
+   * list is equal to concatenating every possible attribute value in a single select statement.
+   * The conditions themselves in the select statements are completely ignored. Returns {@code null}
+   * if the attribute isn't of the desired format.
+   *
+   * As an example, if we have select({a: ["a"], b: ["a", "b"]}) + select({a: ["c", "d"], c: ["e"])
+   * The output will be [["a", "a", "b"], ["c", "d", "e"]]. The idea behind this structure is that
+   * at least some of the structure in the original selector list is preserved and we know any
+   * possible attribute value is the result of concatenating some sublist of each element.
+   */
+  @Nullable
+  public <T> Iterable<T> getConcatenatedSelectorListsOfListType(
+      String attributeName, Type<T> type) {
+    SelectorList<T> selectorList = getSelectorList(attributeName, type);
+    if (selectorList != null && type instanceof ListType) {
+      List<T> selectList = new ArrayList<>();
+
+      for (Selector<T> selector : selectorList.getSelectors()) {
+        selectList.add(type.concat(selector.getEntries().values()));
+      }
+      return ImmutableList.copyOf(selectList);
+    }
+    return null;
   }
 
   /**
