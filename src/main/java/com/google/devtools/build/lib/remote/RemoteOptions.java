@@ -30,6 +30,14 @@ public final class RemoteOptions extends OptionsBase {
   public String remoteRestCache;
 
   @Option(
+    name = "remote_rest_cache_pool_size",
+    defaultValue = "20",
+    category = "remote",
+    help = "Size of the HTTP pool for making requests to the REST cache."
+  )
+  public int restCachePoolSize;
+
+  @Option(
     name = "hazelcast_node",
     defaultValue = "null",
     category = "remote",

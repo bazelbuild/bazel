@@ -272,4 +272,9 @@ public final class SimpleBlobStoreActionCache implements RemoteActionCache {
       throws InterruptedException {
     blobStore.put(actionKey.getDigest().getHash(), result.toByteArray());
   }
+
+  @Override
+  public void close() {
+    blobStore.close();
+  }
 }

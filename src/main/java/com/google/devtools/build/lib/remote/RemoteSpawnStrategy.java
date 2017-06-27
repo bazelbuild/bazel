@@ -125,6 +125,13 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
     }
   }
 
+  /** Release resources associated with this spawn strategy. */
+  public void close() {
+    if (remoteCache != null) {
+      remoteCache.close();
+    }
+  }
+
   private Action buildAction(
       Collection<? extends ActionInput> outputs,
       Digest command,

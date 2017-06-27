@@ -215,6 +215,13 @@ EOF
       || fail "Failed to build //a:test with remote gRPC cache service"
   diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
       || fail "Remote cache generated different result"
+  # Check that persistent connections are closed after the build. Is there a good cross-platform way
+  # to check this?
+  if [[ "$PLATFORM" = "linux" ]]; then
+    if netstat -tn | grep -qE ":${hazelcast_port}\\s+ESTABLISHED$"; then
+      fail "connections to to cache not closed"
+    fi
+  fi
 }
 
 function test_py_test() {

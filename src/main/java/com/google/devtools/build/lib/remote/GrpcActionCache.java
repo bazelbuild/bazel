@@ -81,6 +81,9 @@ public class GrpcActionCache implements RemoteActionCache {
     this.channel = channel;
   }
 
+  @Override
+  public void close() {}
+
   // All gRPC stubs are reused.
   private final Supplier<ContentAddressableStorageBlockingStub> casBlockingStub =
       Suppliers.memoize(

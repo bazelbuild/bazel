@@ -74,4 +74,7 @@ interface RemoteActionCache {
    */
   void upload(ActionKey actionKey, Path execRoot, Collection<Path> files, FileOutErr outErr)
       throws IOException, InterruptedException;
+
+  /** Release resources associated with the cache. The cache may not be used after calling this. */
+  void close();
 }
