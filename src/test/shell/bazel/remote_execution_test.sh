@@ -23,17 +23,17 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 function set_up() {
-  work_path=$(mktemp -d ${TEST_TMPDIR}/remote.XXXXXXXX)
-  pid_file=$(mktemp -u ${TEST_TMPDIR}/remote.XXXXXXXX)
+  work_path=$(mktemp -d "${TEST_TMPDIR}/remote.XXXXXXXX")
+  pid_file=$(mktemp -u "${TEST_TMPDIR}/remote.XXXXXXXX")
   worker_port=$(pick_random_unused_tcp_port) || fail "no port found"
   hazelcast_port=$(pick_random_unused_tcp_port) || fail "no port found"
-  ${bazel_data}/src/tools/remote_worker/remote_worker \
-      --work_path=${work_path} \
+  "${bazel_data}/src/tools/remote_worker/remote_worker" \
+      --work_path="${work_path}" \
       --listen_port=${worker_port} \
       --hazelcast_standalone_listen_port=${hazelcast_port} \
-      --pid_file=${pid_file} >& $TEST_log &
+      --pid_file="${pid_file}" >& $TEST_log &
   local wait_seconds=0
-  until [ -s "${pid_file}" ] || [ $wait_seconds -eq 30 ]; do
+  until [ -s "${pid_file}" ] || [ "$wait_seconds" -eq 30 ]; do
     sleep 1
     ((wait_seconds++)) || true
   done
@@ -43,12 +43,12 @@ function set_up() {
 }
 
 function tear_down() {
-  if [ -s ${pid_file} ]; then
-    local pid=$(cat ${pid_file})
-    kill ${pid} || true
+  if [ -s "${pid_file}" ]; then
+    local pid=$(cat "${pid_file}")
+    kill "${pid}" || true
   fi
-  rm -rf ${pid_file}
-  rm -rf ${work_path}
+  rm -rf "${pid_file}"
+  rm -rf "${work_path}"
 }
 
 function test_cc_binary() {

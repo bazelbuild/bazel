@@ -81,16 +81,19 @@ final class WatcherServer extends WatcherImplBase {
   private final SimpleBlobStoreActionCache cache;
   private final RemoteWorkerOptions workerOptions;
   private final ConcurrentHashMap<String, ExecuteRequest> operationsCache;
+  private final Path sandboxPath;
 
   public WatcherServer(
       Path workPath,
       SimpleBlobStoreActionCache cache,
       RemoteWorkerOptions workerOptions,
-      ConcurrentHashMap<String, ExecuteRequest> operationsCache) {
+      ConcurrentHashMap<String, ExecuteRequest> operationsCache,
+      Path sandboxPath) {
     this.workPath = workPath;
     this.cache = cache;
     this.workerOptions = workerOptions;
     this.operationsCache = operationsCache;
+    this.sandboxPath = sandboxPath;
   }
 
   private Map<String, String> getEnvironmentVariables(
@@ -154,44 +157,62 @@ final class WatcherServer extends WatcherImplBase {
       String pathString)
       throws IllegalArgumentException {
     String container = dockerContainer(action);
-    if (container == null) {
-      // Was not asked to Dockerize.
+    if (container != null) {
+      // Run command inside a docker container.
+      ArrayList<String> newCommandLineElements = new ArrayList<>(commandLineElements.length);
+      newCommandLineElements.add("docker");
+      newCommandLineElements.add("run");
+
+      long uid = getUid();
+      if (uid >= 0) {
+        newCommandLineElements.add("-u");
+        newCommandLineElements.add(Long.toString(uid));
+      }
+
+      String dockerPathString = pathString + "-docker";
+      newCommandLineElements.add("-v");
+      newCommandLineElements.add(pathString + ":" + dockerPathString);
+      newCommandLineElements.add("-w");
+      newCommandLineElements.add(dockerPathString);
+
+      for (Map.Entry<String, String> entry : environmentVariables.entrySet()) {
+        String key = entry.getKey();
+        String value = entry.getValue();
+
+        newCommandLineElements.add("-e");
+        newCommandLineElements.add(key + "=" + value);
+      }
+
+      newCommandLineElements.add(container);
+
+      newCommandLineElements.addAll(Arrays.asList(commandLineElements));
+
+      return new Command(newCommandLineElements.toArray(new String[0]), null, new File(pathString));
+    } else if (sandboxPath != null) {
+      // Run command with sandboxing.
+      ArrayList<String> newCommandLineElements = new ArrayList<>(commandLineElements.length);
+      newCommandLineElements.add(sandboxPath.getPathString());
+      if (workerOptions.sandboxingBlockNetwork) {
+        newCommandLineElements.add("-N");
+      }
+      for (String writablePath : workerOptions.sandboxingWritablePaths) {
+        newCommandLineElements.add("-w");
+        newCommandLineElements.add(writablePath);
+      }
+      for (String tmpfsDir : workerOptions.sandboxingTmpfsDirs) {
+        newCommandLineElements.add("-e");
+        newCommandLineElements.add(tmpfsDir);
+      }
+      newCommandLineElements.add("--");
+      newCommandLineElements.addAll(Arrays.asList(commandLineElements));
+      return new Command(
+          newCommandLineElements.toArray(new String[0]),
+          environmentVariables,
+          new File(pathString));
+    } else {
+      // Just run the command.
       return new Command(commandLineElements, environmentVariables, new File(pathString));
     }
-
-    // Run command inside a docker container.
-    ArrayList<String> newCommandLineElements = new ArrayList<>();
-    newCommandLineElements.add("docker");
-    newCommandLineElements.add("run");
-
-    long uid = getUid();
-    if (uid >= 0) {
-      newCommandLineElements.add("-u");
-      newCommandLineElements.add(Long.toString(uid));
-    }
-
-    String dockerPathString = pathString + "-docker";
-    newCommandLineElements.add("-v");
-    newCommandLineElements.add(pathString + ":" + dockerPathString);
-    newCommandLineElements.add("-w");
-    newCommandLineElements.add(dockerPathString);
-
-    for (Map.Entry<String, String> entry : environmentVariables.entrySet()) {
-      String key = entry.getKey();
-      String value = entry.getValue();
-
-      newCommandLineElements.add("-e");
-      newCommandLineElements.add(key + "=" + value);
-    }
-
-    newCommandLineElements.add(container);
-
-    newCommandLineElements.addAll(Arrays.asList(commandLineElements));
-
-    return new Command(
-        newCommandLineElements.toArray(new String[newCommandLineElements.size()]),
-        null,
-        new File(pathString));
   }
 
   public ActionResult execute(Action action, Path execRoot)
@@ -290,7 +311,9 @@ final class WatcherServer extends WatcherImplBase {
       logger.log(
           FINE,
           "Work received has {0} input files and {1} output files.",
-          new int[] {request.getTotalInputFileCount(), request.getAction().getOutputFilesCount()});
+          new Object[] {
+            request.getTotalInputFileCount(), request.getAction().getOutputFilesCount()
+          });
       ActionResult result = execute(request.getAction(), tempRoot);
       responseObserver.onNext(
           ChangeBatch.newBuilder()

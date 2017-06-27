@@ -8,6 +8,7 @@ java_library(
     name = "remote",
     srcs = glob(["*.java"]),
     data = ["//src:libunix"],
+    resources = ["//src/main/tools:linux-sandbox"],
     visibility = ["//src/tools/remote_worker:__subpackages__"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:auth_and_tls_options",

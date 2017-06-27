@@ -379,6 +379,16 @@ sh_test(
 )
 
 sh_test(
+    name = "remote_execution_sandboxing_test",
+    size = "large",
+    srcs = ["remote_execution_sandboxing_test.sh"],
+    data = [
+        ":test-deps",
+        "//src/tools/remote_worker",
+    ],
+)
+
+sh_test(
     name = "client_test",
     size = "medium",
     srcs = ["client_test.sh"],
