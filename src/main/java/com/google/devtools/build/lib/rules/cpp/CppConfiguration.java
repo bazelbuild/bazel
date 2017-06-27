@@ -648,7 +648,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
         String arToolPath = "DUMMY_AR_TOOL";
         for (ToolPath tool : toolchain.getToolPathList()) {
           if (tool.getName().equals(Tool.GCC.getNamePart())) {
-            gccToolPath = resolveIncludeDir(tool.getPath(), null, crosstoolTopPathFragment);
+            gccToolPath = resolveIncludeDir(tool.getPath(), null, crosstoolTopPathFragment)
+                .getPathString();
             linkerToolPath =
                 crosstoolTopPathFragment
                     .getRelative(gccToolPath)
