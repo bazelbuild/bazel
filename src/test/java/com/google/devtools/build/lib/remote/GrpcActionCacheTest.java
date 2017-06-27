@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -67,6 +68,7 @@ import org.mockito.stubbing.Answer;
 public class GrpcActionCacheTest {
   private FileSystem fs;
   private Path execRoot;
+  private FileOutErr outErr;
   private FakeActionInputFileCache fakeFileCache;
   private final MutableHandlerRegistry serviceRegistry = new MutableHandlerRegistry();
   private final String fakeServerName = "fake server for " + getClass();
@@ -87,6 +89,12 @@ public class GrpcActionCacheTest {
     execRoot = fs.getPath("/exec/root");
     FileSystemUtils.createDirectoryAndParents(execRoot);
     fakeFileCache = new FakeActionInputFileCache(execRoot);
+
+    Path stdout = fs.getPath("/tmp/stdout");
+    Path stderr = fs.getPath("/tmp/stderr");
+    FileSystemUtils.createDirectoryAndParents(stdout.getParentDirectory());
+    FileSystemUtils.createDirectoryAndParents(stderr.getParentDirectory());
+    outErr = new FileOutErr(stdout, stderr);
   }
 
   @After
@@ -194,7 +202,7 @@ public class GrpcActionCacheTest {
     result.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
     result.addOutputFilesBuilder().setPath("b/empty").setDigest(emptyDigest);
     result.addOutputFilesBuilder().setPath("a/bar").setDigest(barDigest).setIsExecutable(true);
-    client.downloadAllResults(result.build(), execRoot);
+    client.download(result.build(), execRoot, null);
     assertThat(Digests.computeDigest(execRoot.getRelative("a/foo"))).isEqualTo(fooDigest);
     assertThat(Digests.computeDigest(execRoot.getRelative("b/empty"))).isEqualTo(emptyDigest);
     assertThat(Digests.computeDigest(execRoot.getRelative("a/bar"))).isEqualTo(barDigest);
@@ -380,7 +388,7 @@ public class GrpcActionCacheTest {
         });
 
     ActionResult.Builder result = ActionResult.newBuilder();
-    client.uploadAllResults(execRoot, ImmutableList.<Path>of(fooFile, barFile), result);
+    client.upload(execRoot, ImmutableList.<Path>of(fooFile, barFile), outErr, result);
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
     expectedResult
@@ -429,7 +437,7 @@ public class GrpcActionCacheTest {
         .thenAnswer(blobChunkedWriteAnswer("x", 1));
 
     ActionResult.Builder result = ActionResult.newBuilder();
-    client.uploadAllResults(execRoot, ImmutableList.<Path>of(fooFile, barFile), result);
+    client.upload(execRoot, ImmutableList.<Path>of(fooFile, barFile), outErr, result);
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
     expectedResult

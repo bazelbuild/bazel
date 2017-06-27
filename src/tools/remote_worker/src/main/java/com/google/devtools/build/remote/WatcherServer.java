@@ -21,6 +21,7 @@ import static java.util.logging.Level.WARNING;
 import com.google.common.base.Throwables;
 import com.google.devtools.build.lib.remote.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.Digests;
+import com.google.devtools.build.lib.remote.Digests.ActionKey;
 import com.google.devtools.build.lib.remote.SimpleBlobStoreActionCache;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
@@ -37,7 +38,6 @@ import com.google.devtools.remoteexecution.v1test.ExecuteResponse;
 import com.google.devtools.remoteexecution.v1test.Platform;
 import com.google.longrunning.Operation;
 import com.google.protobuf.Any;
-import com.google.protobuf.ByteString;
 import com.google.protobuf.Duration;
 import com.google.protobuf.util.Durations;
 import com.google.rpc.Code;
@@ -75,7 +75,6 @@ final class WatcherServer extends WatcherImplBase {
   // How long to wait for the uid command.
   private static final Duration uidTimeout = Durations.fromMicros(30);
 
-  private static final int MAX_BLOB_SIZE_FOR_INLINE = 10 * 1024;
   private static final int LOCAL_EXEC_ERROR = -1;
 
   private final Path workPath;
@@ -195,25 +194,10 @@ final class WatcherServer extends WatcherImplBase {
         new File(pathString));
   }
 
-  private void passOutErr(byte[] stdout, byte[] stderr, ActionResult.Builder result)
-      throws InterruptedException {
-    if (stdout.length <= MAX_BLOB_SIZE_FOR_INLINE) {
-      result.setStdoutRaw(ByteString.copyFrom(stdout));
-    } else if (stdout.length > 0) {
-      result.setStdoutDigest(cache.uploadBlob(stdout));
-    }
-    if (stderr.length <= MAX_BLOB_SIZE_FOR_INLINE) {
-      result.setStderrRaw(ByteString.copyFrom(stderr));
-    } else if (stderr.length > 0) {
-      result.setStderrDigest(cache.uploadBlob(stderr));
-    }
-  }
-
   public ActionResult execute(Action action, Path execRoot)
       throws IOException, InterruptedException, IllegalArgumentException, CacheNotFoundException {
-    ByteArrayOutputStream stdout = new ByteArrayOutputStream();
-    ByteArrayOutputStream stderr = new ByteArrayOutputStream();
-    ActionResult.Builder result = ActionResult.newBuilder();
+    ByteArrayOutputStream stdoutBuffer = new ByteArrayOutputStream();
+    ByteArrayOutputStream stderrBuffer = new ByteArrayOutputStream();
     com.google.devtools.remoteexecution.v1test.Command command =
         com.google.devtools.remoteexecution.v1test.Command.parseFrom(
             cache.downloadBlob(action.getCommandDigest()));
@@ -241,7 +225,8 @@ final class WatcherServer extends WatcherImplBase {
     long startTime = System.currentTimeMillis();
     CommandResult cmdResult = null;
     try {
-      cmdResult = cmd.execute(Command.NO_INPUT, Command.NO_OBSERVER, stdout, stderr, true);
+      cmdResult =
+          cmd.execute(Command.NO_INPUT, Command.NO_OBSERVER, stdoutBuffer, stderrBuffer, true);
     } catch (AbnormalTerminationException e) {
       cmdResult = e.getResult();
     } catch (CommandException e) {
@@ -271,11 +256,15 @@ final class WatcherServer extends WatcherImplBase {
       exitCode = cmdResult.getTerminationStatus().getRawExitCode();
     }
 
-    passOutErr(stdout.toByteArray(), stderr.toByteArray(), result);
-    cache.uploadAllResults(execRoot, outputs, result);
+    ActionResult.Builder result = ActionResult.newBuilder();
+    cache.upload(result, execRoot, outputs);
+    byte[] stdout = stdoutBuffer.toByteArray();
+    byte[] stderr = stderrBuffer.toByteArray();
+    cache.uploadOutErr(result, stdout, stderr);
     ActionResult finalResult = result.setExitCode(exitCode).build();
     if (exitCode == 0) {
-      cache.setCachedActionResult(Digests.computeActionKey(action), finalResult);
+      ActionKey actionKey = Digests.computeActionKey(action);
+      cache.setCachedActionResult(actionKey, finalResult);
     }
     return finalResult;
   }

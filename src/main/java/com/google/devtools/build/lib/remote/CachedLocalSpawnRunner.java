@@ -108,9 +108,7 @@ final class CachedLocalSpawnRunner implements SpawnRunner {
         // For now, download all outputs locally; in the future, we can reuse the digests to
         // just update the TreeNodeRepository and continue the build.
         try {
-          // TODO(ulfjack): Download stdout, stderr, and the output files in a single call.
-          remoteCache.downloadAllResults(result, execRoot);
-          passRemoteOutErr(result, policy.getFileOutErr());
+          remoteCache.download(result, execRoot, policy.getFileOutErr());
           return new SpawnResult.Builder()
               .setStatus(Status.SUCCESS)
               .setExitCode(result.getExitCode())
@@ -164,30 +162,6 @@ final class CachedLocalSpawnRunner implements SpawnRunner {
     return command.build();
   }
 
-  private void passRemoteOutErr(ActionResult result, FileOutErr outErr) throws IOException {
-    try {
-      if (!result.getStdoutRaw().isEmpty()) {
-        result.getStdoutRaw().writeTo(outErr.getOutputStream());
-        outErr.getOutputStream().flush();
-      } else if (result.hasStdoutDigest()) {
-        byte[] stdoutBytes = remoteCache.downloadBlob(result.getStdoutDigest());
-        outErr.getOutputStream().write(stdoutBytes);
-        outErr.getOutputStream().flush();
-      }
-      if (!result.getStderrRaw().isEmpty()) {
-        result.getStderrRaw().writeTo(outErr.getErrorStream());
-        outErr.getErrorStream().flush();
-      } else if (result.hasStderrDigest()) {
-        byte[] stderrBytes = remoteCache.downloadBlob(result.getStderrDigest());
-        outErr.getErrorStream().write(stderrBytes);
-        outErr.getErrorStream().flush();
-      }
-    } catch (CacheNotFoundException e) {
-      outErr.printOutLn("Failed to fetch remote stdout/err due to cache miss.");
-      outErr.getOutputStream().flush();
-    }
-  }
-
   private void writeCacheEntry(Spawn spawn, FileOutErr outErr, ActionKey actionKey)
       throws IOException, InterruptedException {
     ArrayList<Path> outputFiles = new ArrayList<>();
@@ -199,12 +173,6 @@ final class CachedLocalSpawnRunner implements SpawnRunner {
         outputFiles.add(outputPath);
       }
     }
-    ActionResult.Builder result = ActionResult.newBuilder();
-    remoteCache.uploadAllResults(execRoot, outputFiles, result);
-    Digest stderr = remoteCache.uploadFileContents(outErr.getErrorPath());
-    Digest stdout = remoteCache.uploadFileContents(outErr.getOutputPath());
-    result.setStderrDigest(stderr);
-    result.setStdoutDigest(stdout);
-    remoteCache.setCachedActionResult(actionKey, result.build());
+    remoteCache.upload(actionKey, execRoot, outputFiles, outErr);
   }
 }

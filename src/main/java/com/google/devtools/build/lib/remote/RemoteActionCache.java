@@ -14,14 +14,13 @@
 
 package com.google.devtools.build.lib.remote;
 
-import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.remote.Digests.ActionKey;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
+import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.remoteexecution.v1test.ActionResult;
-import com.google.devtools.remoteexecution.v1test.Digest;
+import com.google.devtools.remoteexecution.v1test.Command;
 import java.io.IOException;
 import java.util.Collection;
 import javax.annotation.Nullable;
@@ -35,61 +34,44 @@ interface RemoteActionCache {
   // ways to signal a cache miss.
 
   /**
-   * Upload enough of the tree metadata and data into remote cache so that the entire tree can be
-   * reassembled remotely using the root digest.
+   * Ensures that the tree structure of the inputs, the input files themselves, and the command are
+   * available in the remote cache, such that the tree can be reassembled and executed on another
+   * machine given the root digest.
+   *
+   * <p>The cache may check whether files or parts of the tree structure are already present, and do
+   * not need to be uploaded again.
+   *
+   * <p>Note that this method is only required for remote execution, not for caching itself.
+   * However, remote execution uses a cache to store input files, and that may be a separate
+   * end-point from the executor itself, so the functionality lives here. A pure remote caching
+   * implementation that does not support remote execution may choose not to implement this
+   * function, and throw {@link UnsupportedOperationException} instead. If so, it should be clearly
+   * documented that it cannot be used for remote execution.
    */
-  void uploadTree(TreeNodeRepository repository, Path execRoot, TreeNode root)
-      throws IOException, InterruptedException;
+  void ensureInputsPresent(
+      TreeNodeRepository repository, Path execRoot, TreeNode root, Command command)
+          throws IOException, InterruptedException;
 
   /**
-   * Download the entire tree data rooted by the given digest and write it into the given location.
+   * Download the output files and directory trees of a remotely executed action to the local
+   * machine, as well stdin / stdout to the given files.
    */
-  void downloadTree(Digest rootDigest, Path rootLocation)
+  // TODO(olaola): will need to amend to include the TreeNodeRepository for updating.
+  void download(ActionResult result, Path execRoot, FileOutErr outErr)
       throws IOException, CacheNotFoundException;
 
   /**
-   * Download all results of a remotely executed action locally. TODO(olaola): will need to amend to
-   * include the {@link com.google.devtools.build.lib.remote.TreeNodeRepository} for updating.
+   * Attempts to look up the given action in the remote cache and return its result, if present.
+   * Returns {@code null} if there is no such entry. Note that a successful result from this method
+   * does not guarantee the availability of the corresponding output files in the remote cache.
    */
-  void downloadAllResults(ActionResult result, Path execRoot)
-      throws IOException, CacheNotFoundException;
-
-  /**
-   * Upload all results of a locally executed action to the cache. Add the files to the ActionResult
-   * builder.
-   */
-  void uploadAllResults(Path execRoot, Collection<Path> files, ActionResult.Builder result)
-      throws IOException, InterruptedException;
-
-  /**
-   * Put the file contents in cache if it is not already in it. No-op if the file is already stored
-   * in cache. The given path must be a full absolute path.
-   *
-   * @return The key for fetching the file contents blob from cache.
-   */
-  Digest uploadFileContents(Path file) throws IOException, InterruptedException;
-
-  /**
-   * Put the input file contents in cache if it is not already in it. No-op if the data is already
-   * stored in cache.
-   *
-   * @return The key for fetching the file contents blob from cache.
-   */
-  Digest uploadFileContents(ActionInput input, Path execRoot, ActionInputFileCache inputCache)
-      throws IOException, InterruptedException;
-
-  /** Upload the given blob to the cache, and return its digests. */
-  Digest uploadBlob(byte[] blob) throws InterruptedException;
-
-  /** Download and return a blob with a given digest from the cache. */
-  byte[] downloadBlob(Digest digest) throws CacheNotFoundException;
-
-  // Execution Cache API
-
-  /** Returns a cached result for a given Action digest, or null if not found in cache. */
   @Nullable
   ActionResult getCachedActionResult(ActionKey actionKey);
 
-  /** Sets the given result as result of the given Action. */
-  void setCachedActionResult(ActionKey actionKey, ActionResult result) throws InterruptedException;
+  /**
+   * Upload the result of a locally executed action to the cache by uploading any necessary files,
+   * stdin / stdout, as well as adding an entry for the given action key to the cache.
+   */
+  void upload(ActionKey actionKey, Path execRoot, Collection<Path> files, FileOutErr outErr)
+      throws IOException, InterruptedException;
 }

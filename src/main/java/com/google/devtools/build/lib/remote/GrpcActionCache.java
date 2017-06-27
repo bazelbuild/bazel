@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.Digests.ActionKey;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.remoteexecution.v1test.ActionCacheGrpc;
@@ -39,6 +40,7 @@ import com.google.devtools.remoteexecution.v1test.ActionCacheGrpc.ActionCacheBlo
 import com.google.devtools.remoteexecution.v1test.ActionResult;
 import com.google.devtools.remoteexecution.v1test.BatchUpdateBlobsRequest;
 import com.google.devtools.remoteexecution.v1test.BatchUpdateBlobsResponse;
+import com.google.devtools.remoteexecution.v1test.Command;
 import com.google.devtools.remoteexecution.v1test.ContentAddressableStorageGrpc;
 import com.google.devtools.remoteexecution.v1test.ContentAddressableStorageGrpc.ContentAddressableStorageBlockingStub;
 import com.google.devtools.remoteexecution.v1test.Digest;
@@ -145,8 +147,9 @@ public class GrpcActionCache implements RemoteActionCache {
    * reassembled remotely using the root digest.
    */
   @Override
-  public void uploadTree(TreeNodeRepository repository, Path execRoot, TreeNode root)
-      throws IOException, InterruptedException {
+  public void ensureInputsPresent(
+      TreeNodeRepository repository, Path execRoot, TreeNode root, Command command)
+          throws IOException, InterruptedException {
     repository.computeMerkleDigests(root);
     // TODO(olaola): avoid querying all the digests, only ask for novel subtrees.
     ImmutableSet<Digest> missingDigests = getMissingDigests(repository.getAllDigests(root));
@@ -176,6 +179,7 @@ public class GrpcActionCache implements RemoteActionCache {
         }
       }
     }
+    uploadBlob(command.toByteArray());
     if (!actionInputs.isEmpty()) {
       uploadChunks(
           actionInputs.size(),
@@ -189,9 +193,8 @@ public class GrpcActionCache implements RemoteActionCache {
   /**
    * Download the entire tree data rooted by the given digest and write it into the given location.
    */
-  @Override
-  public void downloadTree(Digest rootDigest, Path rootLocation)
-      throws IOException, CacheNotFoundException {
+  @SuppressWarnings("unused")
+  private void downloadTree(Digest rootDigest, Path rootLocation) {
     throw new UnsupportedOperationException();
   }
 
@@ -200,11 +203,8 @@ public class GrpcActionCache implements RemoteActionCache {
    * include the {@link com.google.devtools.build.lib.remote.TreeNodeRepository} for updating.
    */
   @Override
-  public void downloadAllResults(ActionResult result, Path execRoot)
+  public void download(ActionResult result, Path execRoot, FileOutErr outErr)
       throws IOException, CacheNotFoundException {
-    if (result.getOutputFilesList().isEmpty() && result.getOutputDirectoriesList().isEmpty()) {
-      return;
-    }
     for (OutputFile file : result.getOutputFilesList()) {
       Path path = execRoot.getRelative(file.getPath());
       FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());
@@ -229,6 +229,28 @@ public class GrpcActionCache implements RemoteActionCache {
     for (OutputDirectory directory : result.getOutputDirectoriesList()) {
       downloadTree(directory.getDigest(), execRoot.getRelative(directory.getPath()));
     }
+    // TODO(ulfjack): use same code as above also for stdout / stderr if applicable.
+    downloadOutErr(result, outErr);
+  }
+
+  private void downloadOutErr(ActionResult result, FileOutErr outErr)
+          throws IOException, CacheNotFoundException {
+    if (!result.getStdoutRaw().isEmpty()) {
+      result.getStdoutRaw().writeTo(outErr.getOutputStream());
+      outErr.getOutputStream().flush();
+    } else if (result.hasStdoutDigest()) {
+      byte[] stdoutBytes = downloadBlob(result.getStdoutDigest());
+      outErr.getOutputStream().write(stdoutBytes);
+      outErr.getOutputStream().flush();
+    }
+    if (!result.getStderrRaw().isEmpty()) {
+      result.getStderrRaw().writeTo(outErr.getErrorStream());
+      outErr.getErrorStream().flush();
+    } else if (result.hasStderrDigest()) {
+      byte[] stderrBytes = downloadBlob(result.getStderrDigest());
+      outErr.getErrorStream().write(stderrBytes);
+      outErr.getErrorStream().flush();
+    }
   }
 
   private Iterator<ReadResponse> readBlob(Digest digest) throws CacheNotFoundException {
@@ -249,10 +271,30 @@ public class GrpcActionCache implements RemoteActionCache {
     }
   }
 
-  /** Upload all results of a locally executed action to the cache. */
   @Override
-  public void uploadAllResults(Path execRoot, Collection<Path> files, ActionResult.Builder result)
-      throws IOException, InterruptedException {
+  public void upload(
+      ActionKey actionKey, Path execRoot, Collection<Path> files, FileOutErr outErr)
+          throws IOException, InterruptedException {
+    ActionResult.Builder result = ActionResult.newBuilder();
+    upload(execRoot, files, outErr, result);
+    try {
+      acBlockingStub
+          .get()
+          .updateActionResult(
+              UpdateActionResultRequest.newBuilder()
+                  .setInstanceName(options.remoteInstanceName)
+                  .setActionDigest(actionKey.getDigest())
+                  .setActionResult(result)
+                  .build());
+    } catch (StatusRuntimeException e) {
+      if (e.getStatus().getCode() != Status.Code.UNIMPLEMENTED) {
+        throw e;
+      }
+    }
+  }
+
+  void upload(Path execRoot, Collection<Path> files, FileOutErr outErr, ActionResult.Builder result)
+          throws IOException, InterruptedException {
     ArrayList<Digest> digests = new ArrayList<>();
     Chunker.Builder b = new Chunker.Builder();
     for (Path file : files) {
@@ -282,6 +324,15 @@ public class GrpcActionCache implements RemoteActionCache {
           .setDigest(digests.get(index++))
           .setIsExecutable(file.isExecutable());
     }
+    // TODO(ulfjack): Use the Chunker also for stdout / stderr.
+    if (outErr.getErrorPath().exists()) {
+      Digest stderr = uploadFileContents(outErr.getErrorPath());
+      result.setStderrDigest(stderr);
+    }
+    if (outErr.getOutputPath().exists()) {
+      Digest stdout = uploadFileContents(outErr.getOutputPath());
+      result.setStdoutDigest(stdout);
+    }
   }
 
   /**
@@ -290,8 +341,7 @@ public class GrpcActionCache implements RemoteActionCache {
    *
    * @return The key for fetching the file contents blob from cache.
    */
-  @Override
-  public Digest uploadFileContents(Path file) throws IOException, InterruptedException {
+  private Digest uploadFileContents(Path file) throws IOException, InterruptedException {
     Digest digest = Digests.computeDigest(file);
     ImmutableSet<Digest> missing = getMissingDigests(ImmutableList.of(digest));
     if (!missing.isEmpty()) {
@@ -306,8 +356,7 @@ public class GrpcActionCache implements RemoteActionCache {
    *
    * @return The key for fetching the file contents blob from cache.
    */
-  @Override
-  public Digest uploadFileContents(
+  Digest uploadFileContents(
       ActionInput input, Path execRoot, ActionInputFileCache inputCache)
       throws IOException, InterruptedException {
     Digest digest = Digests.getDigestFromInputCache(input, inputCache);
@@ -392,8 +441,7 @@ public class GrpcActionCache implements RemoteActionCache {
     }
   }
 
-  @Override
-  public Digest uploadBlob(byte[] blob) throws InterruptedException {
+  Digest uploadBlob(byte[] blob) throws InterruptedException {
     Digest digest = Digests.computeDigest(blob);
     ImmutableSet<Digest> missing = getMissingDigests(ImmutableList.of(digest));
     try {
@@ -407,8 +455,7 @@ public class GrpcActionCache implements RemoteActionCache {
     }
   }
 
-  @Override
-  public byte[] downloadBlob(Digest digest) throws CacheNotFoundException {
+  byte[] downloadBlob(Digest digest) throws CacheNotFoundException {
     if (digest.getSizeBytes() == 0) {
       return new byte[0];
     }
@@ -442,26 +489,6 @@ public class GrpcActionCache implements RemoteActionCache {
         return null;
       }
       throw e;
-    }
-  }
-
-  /** Sets the given result as result of the given Action. */
-  @Override
-  public void setCachedActionResult(ActionKey actionKey, ActionResult result)
-      throws InterruptedException {
-    try {
-      acBlockingStub
-          .get()
-          .updateActionResult(
-              UpdateActionResultRequest.newBuilder()
-                  .setInstanceName(options.remoteInstanceName)
-                  .setActionDigest(actionKey.getDigest())
-                  .setActionResult(result)
-                  .build());
-    } catch (StatusRuntimeException e) {
-      if (e.getStatus().getCode() != Status.Code.UNIMPLEMENTED) {
-        throw e;
-      }
     }
   }
 }

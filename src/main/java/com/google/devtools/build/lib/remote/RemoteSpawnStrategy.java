@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.remote.Digests.ActionKey;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.rules.fileset.FilesetActionContext;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
-import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.remoteexecution.v1test.Action;
@@ -181,19 +180,8 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
         outputFiles.add(outputFile);
       }
       try {
-        ActionResult.Builder result = ActionResult.newBuilder();
-        remoteCache.uploadAllResults(execRoot, outputFiles, result);
-        FileOutErr outErr = actionExecutionContext.getFileOutErr();
-        if (outErr.getErrorPath().exists()) {
-          Digest stderr = remoteCache.uploadFileContents(outErr.getErrorPath());
-          result.setStderrDigest(stderr);
-        }
-        if (outErr.getOutputPath().exists()) {
-          Digest stdout = remoteCache.uploadFileContents(outErr.getOutputPath());
-          result.setStdoutDigest(stdout);
-        }
-        remoteCache.setCachedActionResult(actionKey, result.build());
-        // Handle all cache errors here.
+        remoteCache.upload(
+            actionKey, execRoot, outputFiles, actionExecutionContext.getFileOutErr());
       } catch (IOException e) {
         throw new UserExecException("Unexpected IO error.", e);
       } catch (UnsupportedOperationException e) {
@@ -207,31 +195,6 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
             .getEventHandler()
             .handle(Event.warn(spawn.getMnemonic() + " failed uploading results (" + e + ")"));
       }
-    }
-  }
-
-  private static void passRemoteOutErr(
-      RemoteActionCache cache, ActionResult result, FileOutErr outErr) throws IOException {
-    try {
-      if (!result.getStdoutRaw().isEmpty()) {
-        result.getStdoutRaw().writeTo(outErr.getOutputStream());
-        outErr.getOutputStream().flush();
-      } else if (result.hasStdoutDigest()) {
-        byte[] stdoutBytes = cache.downloadBlob(result.getStdoutDigest());
-        outErr.getOutputStream().write(stdoutBytes);
-        outErr.getOutputStream().flush();
-      }
-      if (!result.getStderrRaw().isEmpty()) {
-        result.getStderrRaw().writeTo(outErr.getErrorStream());
-        outErr.getErrorStream().flush();
-      } else if (result.hasStderrDigest()) {
-        byte[] stderrBytes = cache.downloadBlob(result.getStderrDigest());
-        outErr.getErrorStream().write(stderrBytes);
-        outErr.getErrorStream().flush();
-      }
-    } catch (CacheNotFoundException e) {
-      outErr.printOutLn("Failed to fetch remote stdout/err due to cache miss.");
-      outErr.getOutputStream().flush();
     }
   }
 
@@ -292,8 +255,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
         // For now, download all outputs locally; in the future, we can reuse the digests to
         // just update the TreeNodeRepository and continue the build.
         try {
-          remoteCache.downloadAllResults(result, execRoot);
-          passRemoteOutErr(remoteCache, result, actionExecutionContext.getFileOutErr());
+          remoteCache.download(result, execRoot, actionExecutionContext.getFileOutErr());
           return;
         } catch (CacheNotFoundException e) {
           acceptCachedResult = false; // Retry the action remotely and invalidate the results.
@@ -306,8 +268,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
       }
 
       // Upload the command and all the inputs into the remote cache.
-      remoteCache.uploadBlob(command.toByteArray());
-      remoteCache.uploadTree(repository, execRoot, inputRoot);
+      remoteCache.ensureInputsPresent(repository, execRoot, inputRoot, command);
       // TODO(olaola): set BuildInfo and input total bytes as well.
       ExecuteRequest.Builder request =
           ExecuteRequest.newBuilder()
@@ -321,8 +282,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
         execLocally(spawn, actionExecutionContext, remoteCache, actionKey);
         return;
       }
-      passRemoteOutErr(remoteCache, result, actionExecutionContext.getFileOutErr());
-      remoteCache.downloadAllResults(result, execRoot);
+      remoteCache.download(result, execRoot, actionExecutionContext.getFileOutErr());
       if (result.getExitCode() != 0) {
         String cwd = actionExecutionContext.getExecRoot().getPathString();
         String message =
