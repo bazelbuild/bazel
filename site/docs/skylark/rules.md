@@ -591,6 +591,16 @@ the `implementation` function of the rule must generate the output file
 `ctx.outputs.executable`.
 
 Test rules inherit the following attributes: `args`, `flaky`, `local`,
-`shard_count`, `size`, `timeout`.
+`shard_count`, `size`, `timeout`. The defaults of inherited attributes cannot be
+changed, but you can use a macro with default arguments:
+
+```python
+def example_test(size="small", **kwargs):
+  _example_test(size=size, **kwargs)
+
+_example_test = rule(
+ ...
+)
+```
 
 [1]: https://www.python.org/dev/peps/pep-0008/#id46
