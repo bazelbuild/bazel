@@ -1,3 +1,116 @@
+## Release 0.5.2 (2017-06-27)
+
+```
+Baseline: e78ad83ded6e9c6d639793827e27b6570e6e9f65
+
+Cherry picks:
+   + 68028317c1d3d831a24f90e2b25d1410ce045c54:
+     experimental UI: move stopUpdateThread() out of synchronized,
+     again
+   + 019935dfbb61e61d08d1351b0365fb4e2d0df305:
+     Fix bug in URI computation in RemoteModule
+   + e9424cf9b9d72b98594966d5ac0f15bb018ec639:
+     Automated rollback of commit
+     7dec00574aa91327693f6ba7e90bff5bc834253e.
+   + 9eea05d068a06ab642dd9d86d46ee5fa2e36b02e:
+     Switching to Watcher API instead of wait_for_completion, in
+     preparation for deprecating the wait_for_completion field.
+   + 89659810e3048782dfb5e308e39aa8a0727e464e:
+     Set correct execroot for info
+   + 716b527266f47f59a2b7fb2e5fc52cb45e1691b1:
+     Only create a single per-build instance of the remote cache /
+     executor
+   + 1d82d199f82409f217a42bcefebb96f723f91caa:
+     protobuf: Update protobuf jars to be binary compatible with Java
+     6. Fixes #3198
+   + 524b90d9e5acc4fa568f215c9415eaa902e979f8:
+     Change CAS URI to use the "bytestream" scheme instead of being
+     scheme-less
+   + 4929ad79865f8c13ef3b33c827040f4a037e4afe:
+     Automated g4 rollback of commit
+     923d7df521f67d031b288180560848bd35e20976.
+   + 68b9a7e2dc17e32b194238d287e79bee1ba035b9:
+     Automated g4 rollback of commit
+     da56606563ee9df438db93392f681bf2abb4ac97.
+   + 2ba693ffbe824136a0ca5f47d34710612f6302c3:
+     Automated rollback of commit
+     ce7c4deda60a307bba5f0c9421738e2a375cf44e.
+```
+
+Incompatible changes:
+
+  - Blaze no longer generates xcode projects. Use tulsi.bazel.build
+    instead.
+
+Important changes:
+
+  - Keyword-only syntax in a function definition is deprecated
+      (e.g. `def foo(a, *, b)` or `def foo(a, *b, c)`) and will be
+    removed in the future.
+  - Attempting to build an Android target without setting up
+    android_sdk_repository will now produce a helpful error message.
+  - Adds a sha256 attribute to git_repository and new_git_repository.
+    This can only be used if the remote is a public GitHub
+    repository. It forces
+    Bazel to download the repository as a tarball, which will often
+    be faster and
+    more robust than cloning it.
+  - Sandboxing is now enabled by default on FreeBSD (via
+    processwrapper-sandbox).
+  - android_test may use manifest placeholders with 'manifest_merger
+    = "android"'.
+  - load() statements should be called at the top of .bzl files,
+    before any
+      other statement. This convention will be enforced in the future.
+  - Effectively remove sysroot from CppConfiguration and allow it to
+    use select statements.
+  - proto_library.strict_proto_deps no longer exists.
+  - Flag --explicit_jre_deps is now a noop.
+  - The 'legacy' Android manifest merger is deprecated. Please
+    upgrade to the 'android' manifest merger, which is the same
+    merger used by Gradle.
+    https://developer.android.com/studio/build/manifest-merge.html
+  - Using $(CC_FLAGS) in a GenRule adds a dependency to the c++
+    toolchain
+  - add one-version enforcement to android_local_test
+  - Skylark support (apple_common.dotted_version(string)) for
+    building DottedVersion objects to interface with native apple
+    rules
+  - CC_FLAGS can be defined using 'cc-flags-make-variable' action_config in
+    CROSSTOOL
+  - ios_framework native rule has been removed. This rule had been
+    essentially broken for several months now; users should be using
+    the skylark ios framework rule.
+    https://github.com/bazelbuild/rules_apple has details.
+  - Clean command no longer uses boolean values for --async,
+    --expunge, and --expunge_async options.
+  - Partially fixes external J2ObjC support.
+  - '--aspects' can occur more than once on the command line.
+  - --no_ prefix no longer recognized.
+  - Use action_config in crosstool for static library archiving,
+    remove ar_flag.
+  - Added a new flag --sandbox_writable_path, which asks the sandbox
+    to
+    make an existing directory writable when running actions.
+  - bazel test now also computes a default instrumentation filter if
+    --collect_code_coverage is enabled
+  - n/na
+  - In .bzl files, top-level `if` statements are deprecated and will
+    be forbidden
+      in the future. Move them in a function body instead (or use a
+    conditional
+      expression instead: `x if condition else y`).
+  - ios_device and ios_test are deprecated. Please use the new testing
+    rules in https://github.com/bazelbuild/rules_apple instead.
+  - bazel query --output package now displays packages from external
+    repository with the format "@reponame//package". Packages in the
+    main repository continue to have the format "package".
+  - ctx.expand_make_variables is deprecated.
+  - Bazel posts links to the CAS to the BEP if remote caching /
+    execution is enabled
+  - `bazel info execution_root` returns the corrrect directory name
+    for the execution root.
+
 ## Release 0.5.1 (2017-06-06)
 
 ```
@@ -1368,6 +1481,7 @@ Baseline: a0881e8
 ```
 
 Initial release.
+
 
 
 
