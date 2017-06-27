@@ -247,4 +247,19 @@ TEST_F(BlazeUtilTest, TestSearchUnarySkipsAfterDashDashWithoutEquals) {
                    "--flag"));
 }
 
+TEST_F(BlazeUtilTest, MakeAbsolute) {
+#if defined(WIN32)
+  EXPECT_EQ(MakeAbsolute("C:\\foo\\bar"), "C:\\foo\\bar");
+  EXPECT_EQ(MakeAbsolute("C:/foo/bar"), "C:\\foo\\bar");
+  EXPECT_EQ(MakeAbsolute("C:\\foo\\bar\\"), "C:\\foo\\bar\\");
+  EXPECT_EQ(MakeAbsolute("C:/foo/bar/"), "C:\\foo\\bar\\");
+  EXPECT_EQ(MakeAbsolute("foo"), blaze_util::GetCwd() + "\\foo");
+#else
+  EXPECT_EQ(MakeAbsolute("/foo/bar"), "/foo/bar");
+  EXPECT_EQ(MakeAbsolute("/foo/bar/"), "/foo/bar/");
+  EXPECT_EQ(MakeAbsolute("foo"), blaze_util::GetCwd() + "/foo");
+#endif
+  EXPECT_EQ(MakeAbsolute(std::string()), blaze_util::GetCwd());
+}
+
 }  // namespace blaze
