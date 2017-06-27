@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import java.io.IOException;
 import java.util.Map;
 
 /**
@@ -53,9 +53,25 @@ public final class LoadStatement extends Statement {
   }
 
   @Override
-  public String toString() {
-    return String.format(
-        "load(\"%s\", %s)", imp.getValue(), Joiner.on(", ").join(cachedSymbols));
+  public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
+    printIndent(buffer, indentLevel);
+    buffer.append("load(");
+    imp.prettyPrint(buffer);
+    for (Identifier symbol : cachedSymbols) {
+      buffer.append(", ");
+      String origName = symbolMap.get(symbol);
+      if (origName.equals(symbol.getName())) {
+        buffer.append('"');
+        symbol.prettyPrint(buffer);
+        buffer.append('"');
+      } else {
+        symbol.prettyPrint(buffer);
+        buffer.append("=\"");
+        buffer.append(origName);
+        buffer.append('"');
+      }
+    }
+    buffer.append(")\n");
   }
 
   @Override

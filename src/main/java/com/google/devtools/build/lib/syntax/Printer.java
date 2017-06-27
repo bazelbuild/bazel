@@ -604,6 +604,13 @@ public final class Printer {
      * <p>If the input string was already shortened and contains "<x more arguments>", this part
      * will also be appended.
      */
+    // TODO(bazel-team): Given an input list
+    //
+    //     [1, 2, 3, [10, 20, 30, 40, 50, 60], 4, 5, 6]
+    //
+    // the inner list gets doubly mangled as
+    //
+    //     [1, 2, 3, [10, 20, 30, 40, <2 more argu...<2 more arguments>], <3 more arguments>]
     private void appendTrailingSpecialChars(CharSequence csq, int limit) throws IOException {
       int length = csq.length();
       Matcher matcher = ARGS_PATTERN.matcher(csq);

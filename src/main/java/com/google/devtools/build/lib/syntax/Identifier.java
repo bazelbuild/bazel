@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.devtools.build.lib.util.SpellChecker;
+import java.io.IOException;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -52,8 +53,8 @@ public final class Identifier extends Expression {
   }
 
   @Override
-  public String toString() {
-    return name;
+  public void prettyPrint(Appendable buffer) throws IOException {
+    buffer.append(name);
   }
 
   @Override

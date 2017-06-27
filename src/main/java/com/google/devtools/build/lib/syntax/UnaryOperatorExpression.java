@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.devtools.build.lib.events.Location;
 
+import java.io.IOException;
+
 /** Syntax node for a unary operator expression. */
 public final class UnaryOperatorExpression extends Expression {
 
@@ -36,9 +38,23 @@ public final class UnaryOperatorExpression extends Expression {
   }
 
   @Override
+  public void prettyPrint(Appendable buffer) throws IOException {
+    // TODO(bazel-team): Possibly omit parentheses when they are not needed according to operator
+    // precedence rules. This requires passing down more contextual information.
+    buffer.append(operator.toString());
+    buffer.append('(');
+    operand.prettyPrint(buffer);
+    buffer.append(')');
+  }
+
+  @Override
   public String toString() {
     // All current and planned unary operators happen to be prefix operators.
     // Non-symbolic operators have trailing whitespace built into their name.
+    //
+    // Note that this omits the parentheses for brevity, but is not correct in general due to
+    // operator precedence rules. For example, "(not False) in mylist" prints as
+    // "not False in mylist", which evaluates to opposite results in the case that mylist is empty.
     return operator.toString() + operand;
   }
 

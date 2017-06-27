@@ -16,8 +16,9 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.events.Location;
-
+import java.io.IOException;
 import java.io.Serializable;
+import java.util.List;
 
 /**
  * Root class for nodes in the Abstract Syntax Tree of the Build language.
@@ -73,12 +74,83 @@ public abstract class ASTNode implements Serializable {
     return node;
   }
 
+  /** Number of spaces that each indentation level expands to when pretty-printing. */
+  public static final int INDENT_WIDTH = 2;
+
+  /** Writes out the indentation prefix for a line. */
+  protected void printIndent(Appendable buffer, int indentLevel) throws IOException {
+    for (int i = 0; i < indentLevel * INDENT_WIDTH; i++) {
+      buffer.append(' ');
+    }
+  }
+
   /**
-   * Print the syntax node in a form useful for debugging.  The output is not
-   * precisely specified, and should not be used by pretty-printing routines.
+   * Writes out a suite of statements. The statements are indented one more level than given, i.e.,
+   * the {@code indentLevel} parameter should be the same as the parent node's.
+   *
+   * <p>This also prints out a {@code pass} line if the suite is empty.
+   */
+  protected void printSuite(Appendable buffer, List<Statement> statements, int parentIndentLevel)
+      throws IOException {
+    if (statements.isEmpty()) {
+      printIndent(buffer, parentIndentLevel + 1);
+      buffer.append("pass\n");
+    } else {
+      for (Statement stmt : statements) {
+        stmt.prettyPrint(buffer, parentIndentLevel + 1);
+      }
+    }
+  }
+
+  /**
+   * Writes a pretty-printed representation of this node to a buffer, assuming the given starting
+   * indentation level.
+   *
+   * <p>For expressions, the indentation level is ignored. For statements, the indentation is
+   * written, then the statement contents (which may include multiple lines with their own
+   * indentation), then a newline character.
+   *
+   * <p>Indentation expands to {@code INDENT_WIDTH} many spaces per indent.
+   *
+   * <p>Pretty printing returns the canonical source code corresponding to an AST. Generally, the
+   * output can be round-tripped: Pretty printing an AST and then parsing the result should give you
+   * back an equivalent AST.
+   *
+   * <p>Pretty printing can also be used as a proxy for comparing for equality between two ASTs.
+   * This can be very useful in tests. However, it is still possible for two different trees to have
+   * the same pretty printing. In particular, {@link BuildFileAST} includes import metadata and
+   * comment information that is not reflected in the string.
+   */
+  public abstract void prettyPrint(Appendable buffer, int indentLevel) throws IOException;
+
+  /** Same as {@link #prettyPrint(Appendable, int)}, except with no indent. */
+  public void prettyPrint(Appendable buffer) throws IOException {
+    prettyPrint(buffer, 0);
+  }
+
+  /** Returns a pretty-printed representation of this node. */
+  public String prettyPrint() {
+    StringBuilder builder = new StringBuilder();
+    try {
+      prettyPrint(builder);
+    } catch (IOException e) {
+      // Not possible for StringBuilder.
+      throw new AssertionError(e);
+    }
+    return builder.toString();
+  }
+
+  /**
+   * Print the syntax node in a form useful for debugging.
+   *
+   * <p>The output is not precisely specified; use {@link #prettyPrint()} if you need more stable
+   * and complete information. For instance, this function may omit child statements of compound
+   * statements, or parentheses around some expressions. It may also abbreviate large list literals.
    */
   @Override
-  public abstract String toString();
+  public String toString() {
+    return prettyPrint();
+  }
 
   @Override
   public int hashCode() {

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -68,6 +69,21 @@ public final class ListLiteral extends Expression {
    */
   public boolean isTuple() {
     return kind == Kind.TUPLE;
+  }
+
+  @Override
+  public void prettyPrint(Appendable buffer) throws IOException {
+    buffer.append(isTuple() ? '(' : '[');
+    String sep = "";
+    for (Expression e : exprs) {
+      buffer.append(sep);
+      e.prettyPrint(buffer);
+      sep = ", ";
+    }
+    if (isTuple() && exprs.size() == 1) {
+      buffer.append(',');
+    }
+    buffer.append(isTuple() ? ')' : ']');
   }
 
   @Override

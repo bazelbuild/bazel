@@ -33,11 +33,6 @@ public abstract class Literal<T> extends Expression {
   }
 
   @Override
-  public String toString() {
-    return value.toString();
-  }
-
-  @Override
   Object doEval(Environment env) {
     return value;
   }

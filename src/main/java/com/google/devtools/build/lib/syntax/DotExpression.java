@@ -18,6 +18,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.FuncallExpression.MethodDescriptor;
 import com.google.devtools.build.lib.util.SpellChecker;
+import java.io.IOException;
 
 /** Syntax node for a dot expression. e.g. obj.field, but not obj.method() */
 public final class DotExpression extends Expression {
@@ -40,8 +41,10 @@ public final class DotExpression extends Expression {
   }
 
   @Override
-  public String toString() {
-    return obj + "." + field;
+  public void prettyPrint(Appendable buffer) throws IOException {
+    obj.prettyPrint(buffer);
+    buffer.append('.');
+    field.prettyPrint(buffer);
   }
 
   @Override

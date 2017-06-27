@@ -426,14 +426,6 @@ public class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testDictComprehensions_ToString() throws Exception {
-    assertThat(parseExpression("{x : x for x in [1, 2]}").toString())
-        .isEqualTo("{x: x for x in [1, 2]}");
-    assertThat(parseExpression("{x + 'a' : x for x in [1, 2]}").toString())
-        .isEqualTo("{x + \"a\": x for x in [1, 2]}");
-  }
-
-  @Test
   public void testListConcatenation() throws Exception {
     newTest()
         .testStatement("[1, 2] + [3, 4]", MutableList.of(env, 1, 2, 3, 4))

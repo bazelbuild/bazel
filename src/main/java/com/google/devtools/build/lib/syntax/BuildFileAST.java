@@ -247,8 +247,16 @@ public class BuildFileAST extends ASTNode {
   }
 
   @Override
+  public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
+    // Only statements are printed, not comments and processed import data.
+    for (Statement stmt : stmts) {
+      stmt.prettyPrint(buffer, indentLevel);
+    }
+  }
+
+  @Override
   public String toString() {
-    return "BuildFileAST" + getStatements();
+    return "<BuildFileAST with " + stmts.size() + " statements>";
   }
 
   @Override

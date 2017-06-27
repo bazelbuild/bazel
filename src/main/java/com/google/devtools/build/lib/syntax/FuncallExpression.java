@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringUtilities;
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -248,6 +249,23 @@ public final class FuncallExpression extends Expression {
   public int getNumPositionalArguments() {
     return numPositionalArgs;
   }
+
+   @Override
+   public void prettyPrint(Appendable buffer) throws IOException {
+     if (obj != null) {
+       obj.prettyPrint(buffer);
+       buffer.append('.');
+     }
+     func.prettyPrint(buffer);
+     buffer.append('(');
+     String sep = "";
+     for (Argument.Passed arg : args) {
+       buffer.append(sep);
+       arg.prettyPrint(buffer);
+       sep = ", ";
+     }
+     buffer.append(')');
+   }
 
   @Override
   public String toString() {
