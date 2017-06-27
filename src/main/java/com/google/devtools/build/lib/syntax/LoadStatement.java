@@ -66,7 +66,8 @@ public final class LoadStatement extends Statement {
         throw new EvalException(
             getLocation(),
             "First argument of 'load' must be a label and start with either '//' or ':'. "
-                + "Use --incompatibleLoadArgumentIsLabel=false to temporarily disable this check.");
+                + "Use --incompatible_load_argument_is_label=false to temporarily disable this "
+                + "check.");
       }
     }
 
