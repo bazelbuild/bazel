@@ -81,6 +81,7 @@ pkg_tar(
         local = 1,
         main = "docker_test.py",
         tags = [
+            "docker",
             "exclusive",
             "local",
         ],
@@ -97,5 +98,5 @@ pkg_tar(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//tools/cpp:__pkg__"],
+    visibility = ["//src:__pkg__"],
 )

@@ -40,8 +40,7 @@ function set_up() {
   XCODE_VERSION=$(cat xcode_versions | grep -m1 '7\|8')
 
   # Allow access to //external:xcrunwrapper.
-  rm WORKSPACE
-  ln -sv ${workspace_file} WORKSPACE
+  use_bazel_workspace_file
 }
 
 function make_app() {

@@ -160,6 +160,18 @@ else
   hamcrest_jar=$(rlocation io_bazel/third_party/hamcrest/hamcrest-.*.jar)
 fi
 
+
+function use_bazel_workspace_file() {
+  mkdir -p src/test/docker
+  cat >src/test/docker/docker_repository.bzl <<EOF
+def docker_repository():
+  pass
+EOF
+  touch src/test/docker/BUILD
+  rm -f WORKSPACE
+  ln -sf ${workspace_file} WORKSPACE
+}
+
 # This function copies the tools directory from Bazel.
 function copy_tools_directory() {
   cp -RL ${tools_dir}/* tools

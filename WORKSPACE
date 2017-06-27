@@ -33,8 +33,8 @@ bind(
     actual = "//third_party/py/six",
 )
 
-# For tools/cpp/test/...
-load("//tools/cpp/test:docker_repository.bzl", "docker_repository")
+# For src/test/docker/...
+load("//src/test/docker:docker_repository.bzl", "docker_repository")
 
 docker_repository()
 
