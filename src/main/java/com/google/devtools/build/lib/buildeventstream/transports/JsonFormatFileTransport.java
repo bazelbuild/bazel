@@ -62,7 +62,7 @@ public final class JsonFormatFileTransport extends FileTransport {
       // We don't expect any unknown Any fields in our protocol buffer. Nevertheless, handle
       // the exception gracefully and, at least, return valid JSON with an id field.
       protoJsonRepresentation =
-          "{\"id\" : \"unknown\", \"exception\" : \"InvlaidProtocolBufferException\"}\n";
+          "{\"id\" : \"unknown\", \"exception\" : \"InvalidProtocolBufferException\"}\n";
     }
     writeData(protoJsonRepresentation.getBytes());
   }
