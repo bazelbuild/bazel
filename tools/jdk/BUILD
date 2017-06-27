@@ -36,6 +36,11 @@ alias(
 )
 
 alias(
+    name = "jni_md_header-windows",
+    actual = "@local_jdk//:jni_md_header-windows",
+)
+
+alias(
     name = "jni_md_header-freebsd",
     actual = "@local_jdk//:jni_md_header-freebsd",
 )
