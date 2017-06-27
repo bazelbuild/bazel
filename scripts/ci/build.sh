@@ -194,7 +194,7 @@ function release_to_github() {
   local release_name=$(get_release_name)
   local rc=$(get_release_candidate)
   local release_tool="${GITHUB_RELEASE:-$(which github-release 2>/dev/null || true)}"
-  local gpl_warning="
+  local gpl_warning='
 
 _Notice_: Bazel installers contain binaries licensed under the GPLv2 with
 Classpath exception. Those installers should always be redistributed along with
@@ -209,7 +209,7 @@ The binaries and source-code of the bundled OpenJDK can be
 
 _Security_: All our binaries are signed with our
 [public key](https://bazel.build/bazel-release.pub.gpg) 48457EE0.
-"
+'
 
   if [ ! -x "${release_tool}" ]; then
     echo "Please set GITHUB_RELEASE to the path to the github-release binary." >&2
