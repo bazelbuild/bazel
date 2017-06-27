@@ -319,9 +319,8 @@ def configure_windows_toolchain(repository_ctx):
 
   vc_path = _find_vc_path(repository_ctx)
   env = _find_env_vars(repository_ctx, vc_path)
-  python_dir = python_binary[0:-10].replace("\\", "\\\\")
-  escaped_include_paths = env["INCLUDE"] + (python_dir + "include")
-  escaped_lib_paths = escape_string(env["LIB"] + (python_dir + "libs"))
+  escaped_include_paths = escape_string(env["INCLUDE"])
+  escaped_lib_paths = escape_string(env["LIB"])
   msvc_cl_path = _find_msvc_tool(repository_ctx, vc_path, "cl.exe").replace("\\", "/")
   msvc_link_path = _find_msvc_tool(repository_ctx, vc_path, "link.exe").replace("\\", "/")
   msvc_lib_path = _find_msvc_tool(repository_ctx, vc_path, "lib.exe").replace("\\", "/")
