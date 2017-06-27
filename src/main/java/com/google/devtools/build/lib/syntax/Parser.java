@@ -14,8 +14,7 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import static com.google.devtools.build.lib.syntax.Parser.ParsingMode.BUILD;
-import static com.google.devtools.build.lib.syntax.Parser.ParsingMode.SKYLARK;
+import static com.google.devtools.build.lib.syntax.Parser.Dialect.SKYLARK;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
@@ -73,14 +72,21 @@ public class Parser {
     }
   }
 
-  /**
-   * ParsingMode is used to select which features the parser should accept.
-   */
-  public enum ParsingMode {
-    /** Used for parsing BUILD files */
+  /** Used to select whether the parser rejects features that are prohibited for BUILD files. */
+  // TODO(brandjon): Instead of using an enum to control what features are allowed, factor these
+  // restrictions into a separate visitor that can be outside the core Skylark parser. This will
+  // reduce parser complexity and help keep Bazel-specific knowledge out of the interpreter.
+  public enum Dialect {
+    /** Used for BUILD files. */
     BUILD,
-    /** Used for parsing .bzl files */
+    /** Used for .bzl and other Skylark files. This allows all language features. */
     SKYLARK,
+  }
+
+  /** Used to select what constructs are allowed based on whether we're at the top level. */
+  public enum ParsingLevel {
+    TOP_LEVEL,
+    LOCAL_LEVEL
   }
 
   private static final EnumSet<TokenKind> STATEMENT_TERMINATOR_SET =
@@ -141,7 +147,7 @@ public class Parser {
   private final Lexer lexer;
   private final EventHandler eventHandler;
   private final List<Comment> comments;
-  private final ParsingMode parsingMode;
+  private final Dialect dialect;
 
   private static final Map<TokenKind, Operator> binaryOperators =
       new ImmutableMap.Builder<TokenKind, Operator>()
@@ -192,10 +198,10 @@ public class Parser {
   private int errorsCount;
   private boolean recoveryMode;  // stop reporting errors until next statement
 
-  private Parser(Lexer lexer, EventHandler eventHandler, ParsingMode parsingMode) {
+  private Parser(Lexer lexer, EventHandler eventHandler, Dialect dialect) {
     this.lexer = lexer;
     this.eventHandler = eventHandler;
-    this.parsingMode = parsingMode;
+    this.dialect = dialect;
     this.tokens = lexer.getTokens().iterator();
     this.comments = new ArrayList<>();
     nextToken();
@@ -212,17 +218,18 @@ public class Parser {
   }
 
   /**
-   * Entry-point for parsing a file with comments.
+   * Main entry point for parsing a file.
    *
    * @param input the input to parse
    * @param eventHandler a reporter for parsing errors
-   * @param parsingMode if set to {@link ParsingMode#BUILD}, restricts the parser to just the
-   *     features present in the Build language
+   * @param dialect may restrict the parser to Build-language features
+   * @see BuildFileAST#parseBuildString
+   * @see BuildFileAST#parseSkylarkString
    */
   public static ParseResult parseFile(
-      ParserInputSource input, EventHandler eventHandler, ParsingMode parsingMode) {
+      ParserInputSource input, EventHandler eventHandler, Dialect dialect) {
     Lexer lexer = new Lexer(input, eventHandler);
-    Parser parser = new Parser(lexer, eventHandler, parsingMode);
+    Parser parser = new Parser(lexer, eventHandler, dialect);
     List<Statement> statements = parser.parseFileInput();
     return new ParseResult(
         statements,
@@ -231,31 +238,19 @@ public class Parser {
         parser.errorsCount > 0 || lexer.containsErrors());
   }
 
-  /** Convenience method for {@code parseFile} with the Build language. */
-  public static ParseResult parseFile(ParserInputSource input, EventHandler eventHandler) {
-    return parseFile(input, eventHandler, BUILD);
-  }
-
-  /** Convenience method for {@code parseFile} with Skylark. */
-  public static ParseResult parseFileForSkylark(
-      ParserInputSource input, EventHandler eventHandler) {
-    return parseFile(input, eventHandler, SKYLARK);
-  }
-
   /**
-   * Entry-point for parsing an expression. The expression may be followed by newline tokens.
+   * Parses a sequence of statements, possibly followed by newline tokens.
    *
-   * @param input the input to parse
-   * @param eventHandler a reporter for parsing errors
-   * @param parsingMode if set to {@link ParsingMode#BUILD}, restricts the parser to just the
-   *     features present in the Build language
+   * <p>{@code load()} statements are not permitted. Use {@code parsingLevel} to control whether
+   * function definitions, for statements, etc., are allowed.
    */
-  @VisibleForTesting
-  public static Expression parseExpression(
-      ParserInputSource input, EventHandler eventHandler, ParsingMode parsingMode) {
+  public static List<Statement> parseStatements(
+      ParserInputSource input, EventHandler eventHandler,
+      ParsingLevel parsingLevel, Dialect dialect) {
     Lexer lexer = new Lexer(input, eventHandler);
-    Parser parser = new Parser(lexer, eventHandler, parsingMode);
-    Expression result = parser.parseExpression();
+    Parser parser = new Parser(lexer, eventHandler, dialect);
+    List<Statement> result = new ArrayList<>();
+    parser.parseStatement(result, parsingLevel);
     while (parser.token.kind == TokenKind.NEWLINE) {
       parser.nextToken();
     }
@@ -263,17 +258,30 @@ public class Parser {
     return result;
   }
 
-  /** Convenience method for {@code parseExpression} with the Build language. */
-  @VisibleForTesting
-  public static Expression parseExpression(ParserInputSource input, EventHandler eventHandler) {
-    return parseExpression(input, eventHandler, BUILD);
+  /**
+   * Convenience wrapper for {@link #parseStatements} where exactly one statement is expected.
+   *
+   * @throws IllegalArgumentException if the number of parsed statements was not exactly one
+   */
+  public static Statement parseStatement(
+      ParserInputSource input, EventHandler eventHandler,
+      ParsingLevel parsingLevel, Dialect dialect) {
+    List<Statement> stmts = parseStatements(
+        input, eventHandler, parsingLevel, dialect);
+    return Iterables.getOnlyElement(stmts);
   }
 
-  /** Convenience method for {@code parseExpression} with Skylark. */
-  @VisibleForTesting
-  public static Expression parseExpressionForSkylark(
-      ParserInputSource input, EventHandler eventHandler) {
-    return parseExpression(input, eventHandler, SKYLARK);
+  /** Parses an expression, possibly followed by newline tokens. */
+  public static Expression parseExpression(
+      ParserInputSource input, EventHandler eventHandler, Dialect dialect) {
+    Lexer lexer = new Lexer(input, eventHandler);
+    Parser parser = new Parser(lexer, eventHandler, dialect);
+    Expression result = parser.parseExpression();
+    while (parser.token.kind == TokenKind.NEWLINE) {
+      parser.nextToken();
+    }
+    parser.expect(TokenKind.EOF);
+    return result;
   }
 
   private void reportError(Location location, String message) {
@@ -452,7 +460,7 @@ public class Parser {
     final int start = token.left;
     // parse **expr
     if (token.kind == TokenKind.STAR_STAR) {
-      if (parsingMode != SKYLARK) {
+      if (dialect != SKYLARK) {
         reportError(
             lexer.createLocation(token.left, token.right),
             "**kwargs arguments are not allowed in BUILD files");
@@ -463,7 +471,7 @@ public class Parser {
     }
     // parse *expr
     if (token.kind == TokenKind.STAR) {
-      if (parsingMode != SKYLARK) {
+      if (dialect != SKYLARK) {
         reportError(
             lexer.createLocation(token.left, token.right),
             "*args arguments are not allowed in BUILD files");
@@ -1176,7 +1184,7 @@ public class Parser {
       }
       pushToken(identToken); // push the ident back to parse it as a statement
     }
-    parseStatement(list, true);
+    parseStatement(list, ParsingLevel.TOP_LEVEL);
   }
 
   // small_stmt | 'pass'
@@ -1388,7 +1396,7 @@ public class Parser {
       }
       expect(TokenKind.INDENT);
       while (token.kind != TokenKind.OUTDENT && token.kind != TokenKind.EOF) {
-        parseStatement(list, false);
+        parseStatement(list, ParsingLevel.LOCAL_LEVEL);
       }
       expectAndRecover(TokenKind.OUTDENT);
     } else {
@@ -1434,17 +1442,17 @@ public class Parser {
 
   // stmt ::= simple_stmt
   //        | compound_stmt
-  private void parseStatement(List<Statement> list, boolean isTopLevel) {
-    if (token.kind == TokenKind.DEF && parsingMode == SKYLARK) {
-      if (!isTopLevel) {
+  private void parseStatement(List<Statement> list, ParsingLevel parsingLevel) {
+    if (token.kind == TokenKind.DEF && dialect == SKYLARK) {
+      if (parsingLevel == ParsingLevel.LOCAL_LEVEL) {
         reportError(lexer.createLocation(token.left, token.right),
             "nested functions are not allowed. Move the function to top-level");
       }
       parseFunctionDefStatement(list);
-    } else if (token.kind == TokenKind.IF && parsingMode == SKYLARK) {
+    } else if (token.kind == TokenKind.IF && dialect == SKYLARK) {
       list.add(parseIfStatement());
-    } else if (token.kind == TokenKind.FOR && parsingMode == SKYLARK) {
-      if (isTopLevel) {
+    } else if (token.kind == TokenKind.FOR && dialect == SKYLARK) {
+      if (parsingLevel == ParsingLevel.TOP_LEVEL) {
         reportError(
             lexer.createLocation(token.left, token.right),
             "for loops are not allowed on top-level. Put it into a function");

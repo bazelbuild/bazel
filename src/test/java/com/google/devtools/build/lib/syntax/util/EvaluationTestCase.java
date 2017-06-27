@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.syntax.util;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.truth.Ordered;
 import com.google.devtools.build.lib.events.Event;
@@ -152,18 +151,37 @@ public class EvaluationTestCase {
     return parseBuildFileAST(input).getStatements();
   }
 
-  /** Parses an Expression from string without a supporting file */
-  @VisibleForTesting
-  public Expression parseExpression(String... input) {
-    return Parser.parseExpression(
-        ParserInputSource.create(Joiner.on("\n").join(input), null), getEventHandler());
+  /** Construct a ParserInputSource by concatenating multiple strings with newlines. */
+  private ParserInputSource makeParserInputSource(String... input) {
+    return ParserInputSource.create(Joiner.on("\n").join(input), null);
   }
 
-  /** Same as {@link #parseExpression} but supports Skylark constructs. */
-  @VisibleForTesting
-  public Expression parseExpressionForSkylark(String... input) {
-    return Parser.parseExpressionForSkylark(
-        ParserInputSource.create(Joiner.on("\n").join(input), null), getEventHandler());
+  /** Parses a statement, possibly followed by newlines. */
+  protected Statement parseStatement(Parser.ParsingLevel parsingLevel, String... input) {
+    return Parser.parseStatement(
+        makeParserInputSource(input), getEventHandler(),
+        parsingLevel, Parser.Dialect.SKYLARK);
+  }
+
+  /** Parses a top-level statement, possibly followed by newlines. */
+  protected Statement parseTopLevelStatement(String... input) {
+    return Parser.parseStatement(
+        makeParserInputSource(input), getEventHandler(),
+        Parser.ParsingLevel.TOP_LEVEL, Parser.Dialect.SKYLARK);
+  }
+
+  /** Parses a local statement, possibly followed by newlines. */
+  protected Statement parseLocalLevelStatement(String... input) {
+    return Parser.parseStatement(
+        makeParserInputSource(input), getEventHandler(),
+        Parser.ParsingLevel.LOCAL_LEVEL, Parser.Dialect.SKYLARK);
+  }
+
+  /** Parses an expression, possibly followed by newlines. */
+  protected Expression parseExpression(String... input) {
+    return Parser.parseExpression(
+        makeParserInputSource(input), getEventHandler(),
+        Parser.Dialect.SKYLARK);
   }
 
   public EvaluationTestCase update(String varname, Object value) throws Exception {
