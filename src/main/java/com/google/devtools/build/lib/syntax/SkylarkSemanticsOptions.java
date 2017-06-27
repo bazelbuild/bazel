@@ -20,6 +20,7 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.UsesOnlyCoreTypes;
 import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
+import com.google.devtools.common.options.proto.OptionFilters.OptionMetadataTag;
 import java.io.Serializable;
 
 /**
@@ -53,6 +54,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
     category = "incompatible changes",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
     help = "If set to true, disables the deprecated `set` constructor for depsets."
   )
   public boolean incompatibleDisallowSetConstructor;
@@ -63,6 +65,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
     category = "incompatible changes",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
     help = "If set to true, disables the keyword-only argument syntax in function definition."
   )
   public boolean incompatibleDisallowKeywordOnlyArgs;
@@ -73,6 +76,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
     category = "incompatible changes",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
     help =
         "If set to true, `+=` on lists works like the `extend` method mutating the original "
             + "list. Otherwise it copies the original list without mutating it."
@@ -85,6 +89,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
     category = "incompatible changes",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
     help = "If set to true, the `+` becomes disabled for dicts."
   )
   public boolean incompatibleDisallowDictPlus;
@@ -95,6 +100,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
     category = "incompatible changes",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
     help =
         "If set to true, all `load` must be called at the top of .bzl files, before any other "
             + "statement."
@@ -107,6 +113,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
     category = "incompatible changes",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
     help =
         "If set to true, the first argument of 'load' statements is a label (not a path). "
             + "It must start with '//' or ':'."
@@ -119,6 +126,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
     category = "incompatible changes",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
     help =
         "If set to true, 'if' statements are forbidden at the top-level "
             + "(outside a function definition)"
@@ -131,6 +139,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
     category = "incompatible changes",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
     help =
         "If set to true, loop variables in a comprehension shadow any existing variable by "
             + "the same name. If the existing variable was declared in the same scope that "
@@ -145,6 +154,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
     category = "incompatible changes",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
     help =
         "If set to true, depset type is not iterable. For loops and functions expecting an "
             + "iterable will reject depset objects. Use the `.to_list` method to explicitly "
@@ -158,6 +168,7 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
     category = "incompatible changes",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
     help = "If set to true, the dictionary literal syntax doesn't allow duplicated keys."
   )
   public boolean incompatibleDictLiteralHasNoDuplicates;

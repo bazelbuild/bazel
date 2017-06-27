@@ -21,6 +21,7 @@ import com.google.devtools.common.options.IsolatedOptionsData;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.proto.OptionFilters.OptionMetadataTag;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Map;
@@ -131,6 +132,11 @@ public class AllIncompatibleChangesExpansion implements ExpansionFunction {
     }
     if (!annotation.category().equals(INCOMPATIBLE_CATEGORY)) {
       throw new IllegalArgumentException(prefix + "must have category \"incompatible changes\"");
+    }
+    if (!ImmutableList.copyOf(annotation.metadataTags())
+        .contains(OptionMetadataTag.INCOMPATIBLE_CHANGE)) {
+      throw new IllegalArgumentException(
+          prefix + "must have metadata tag \"OptionMetadataTag.INCOMPATIBLE_CHANGE\"");
     }
     if (!IsolatedOptionsData.isExpansionOption(annotation)) {
       if (!field.getType().equals(Boolean.TYPE)) {

@@ -125,9 +125,11 @@ enum OptionMetadataTag {
   // labeled experimental.
   EXPERIMENTAL = 0;
 
-  // This option triggers a breaking change that is off by default, but will be
-  // enabled in the next major Bazel version. Use this option to test your
+  // This option triggers a backwards-incompatible change. It will be off by
+  // default when the option is first introduced, and later switched on by
+  // default on a major Blaze release. Use this option to test your
   // migration readiness or get early access to the feature.
+  // The option may be deprecated some time after the feature's release.
   INCOMPATIBLE_CHANGE = 1;
 
   // This flag is deprecated. It might either no longer have any effect, or
