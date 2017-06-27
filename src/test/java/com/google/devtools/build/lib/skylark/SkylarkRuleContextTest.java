@@ -768,7 +768,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   public void testDeriveTreeArtifact() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result =
-        evalRuleContextCode(ruleContext, "ruleContext.experimental_new_directory('a/b')");
+        evalRuleContextCode(ruleContext, "ruleContext.actions.declare_directory('a/b')");
     Artifact artifact = (Artifact) result;
     PathFragment fragment = artifact.getRootRelativePath();
     assertThat(fragment.getPathString()).isEqualTo("foo/a/b");
@@ -781,8 +781,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     Object result =
         evalRuleContextCode(
             ruleContext,
-            "b = ruleContext.experimental_new_directory('a/b')\n"
-                + "ruleContext.experimental_new_directory('c', sibling=b)");
+            "b = ruleContext.actions.declare_directory('a/b')\n"
+                + "ruleContext.actions.declare_directory('c', sibling=b)");
     Artifact artifact = (Artifact) result;
     PathFragment fragment = artifact.getRootRelativePath();
     assertThat(fragment.getPathString()).isEqualTo("foo/a/c");

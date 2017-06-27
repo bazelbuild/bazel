@@ -51,7 +51,6 @@ public class SkylarkActionFactory implements SkylarkValue {
         : ruleContext.getBinOrGenfilesDirectory();
   }
 
-
   @SkylarkCallable(
       name = "declare_file",
       doc =
@@ -93,7 +92,47 @@ public class SkylarkActionFactory implements SkylarkValue {
     }
   }
 
-  @Override
+  @SkylarkCallable(
+      name = "declare_directory",
+      doc =
+          "Declares that rule or aspect create a directory with the given name, in the "
+              + "current package. You must create an action that generates the file. <br>"
+              + "Files that are specified in rule's outputs do not need to be declared and are "
+              + "available through  <a href=\"ctx.html#outputs\">ctx.outputs</a>.",
+      parameters = {
+          @Param(
+              name = "filename",
+              type = String.class,
+              doc =
+                  "If no 'sibling' provided, path of the new directory, relative "
+                      + "to the current package. Otherwise a base name for a file "
+                      + "('sibling' defines a directory)."
+          ),
+          @Param(
+              name = "sibling",
+              doc = "A file that lives in the same directory as the newly declared directory.",
+              type = Artifact.class,
+              noneable = true,
+              positional = false,
+              named = true,
+              defaultValue = "None"
+          )
+      }
+  )
+  public Artifact declareDirectory(String filename, Object sibling) throws EvalException {
+    context.checkMutable("actions.declare_directory");
+    if (Runtime.NONE.equals(sibling)) {
+      return ruleContext.getPackageRelativeTreeArtifact(
+          PathFragment.create(filename), newFileRoot());
+    } else {
+      PathFragment original = ((Artifact) sibling).getRootRelativePath();
+      PathFragment fragment = original.replaceName(filename);
+      return ruleContext.getTreeArtifact(fragment, newFileRoot());
+    }
+  }
+
+
+    @Override
   public boolean isImmutable() {
     return context.isImmutable();
   }
