@@ -51,6 +51,7 @@ cc_autoconf = repository_rule(
         "BAZEL_VC",
         "BAZEL_VS",
         "CC",
+        "CC_CONFIGURE_DEBUG",
         "CC_TOOLCHAIN_NAME",
         "CPLUS_INCLUDE_PATH",
         "CUDA_COMPUTE_CAPABILITIES",

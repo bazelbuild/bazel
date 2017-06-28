@@ -115,3 +115,9 @@ def tpl(repository_ctx, template, substitutions={}, out=None):
       out,
       Label("@bazel_tools//tools/cpp:%s.tpl" % template),
       substitutions)
+
+
+def is_cc_configure_debug(repository_ctx):
+  """Returns True if CC_CONFIGURE_DEBUG is set to 1."""
+  env = repository_ctx.os.environ
+  return "CC_CONFIGURE_DEBUG" in env and env["CC_CONFIGURE_DEBUG"] == "1"

@@ -24,6 +24,7 @@ load(
     "which_cmd",
     "execute",
     "tpl",
+    "is_cc_configure_debug",
 )
 
 
@@ -150,6 +151,9 @@ def _find_vc_path(repository_ctx):
     if vc_dir:
       break
     result = repository_ctx.execute([reg_binary, "query", "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Microsoft\\VisualStudio\\SxS\\VC7", "/v", version])
+    if is_cc_configure_debug(repository_ctx):
+      auto_configure_warning("registry query result for VC %s:\n\nSTDOUT(start)\n%s\nSTDOUT(end)\nSTDERR(start):\n%s\nSTDERR(end)\n" %
+                             (version, result.stdout, result.stderr))
     if not result.stderr:
       for line in result.stdout.split("\n"):
         line = line.strip()
