@@ -142,12 +142,12 @@ function test_basic() {
   # - the target_kind is reported
   # - for single-configuration builds, there is precisely one configuration
   #   event reported; also make variables are shown
-  bazel test --experimental_build_event_text_file=$TEST_log pkg:true \
+  bazel test --build_event_text_file=$TEST_log pkg:true \
     || fail "bazel test failed"
   expect_log 'pkg:true'
   # Command line
   expect_log 'args: "test"'
-  expect_log 'args: "--experimental_build_event_text_file='
+  expect_log 'args: "--build_event_text_file='
   expect_log 'args: "pkg:true"'
   # Build Finished
   expect_log 'build_finished'
@@ -164,7 +164,7 @@ function test_basic() {
 }
 
 function test_workspace_status() {
-  bazel test --experimental_build_event_text_file=$TEST_log \
+  bazel test --build_event_text_file=$TEST_log \
      --workspace_status_command=sample_workspace_status pkg:true \
     || fail "bazel test failed"
   expect_log_once '^workspace_status'
@@ -174,7 +174,7 @@ function test_workspace_status() {
 
 function test_suite() {
   # ...same true when running a test suite containing that test
-  bazel test --experimental_build_event_text_file=$TEST_log pkg:suite \
+  bazel test --build_event_text_file=$TEST_log pkg:suite \
     || fail "bazel test failed"
   expect_log 'pkg:true'
   expect_not_log 'aborted'
@@ -185,7 +185,7 @@ function test_test_summary() {
   # - precisely one test summary (for the single test we run)
   # - that is properly chained (no additional progress events)
   # - the correct overall status being reported
-  bazel test --experimental_build_event_text_file=$TEST_log pkg:true \
+  bazel test --build_event_text_file=$TEST_log pkg:true \
     || fail "bazel test failed"
   expect_log_once '^test_summary '
   expect_not_log 'aborted'
@@ -198,7 +198,7 @@ function test_test_inidivual_results() {
   # Requesting a test, we expect
   # - precisely one test summary (for the single test we run)
   # - that is properly chained (no additional progress events)
-  bazel test --experimental_build_event_text_file=$TEST_log \
+  bazel test --build_event_text_file=$TEST_log \
     --runs_per_test=2 pkg:true \
     || fail "bazel test failed"
   expect_log '^test_result'
@@ -214,7 +214,7 @@ function test_test_attempts() {
   # mentioned in the stream.
   # Moreover, as the test consistently fails, we expect the overall status
   # to be reported as failure.
-  ( bazel test --experimental_build_event_text_file=$TEST_log pkg:flaky \
+  ( bazel test --build_event_text_file=$TEST_log pkg:flaky \
     && fail "test failure expected" ) || true
   expect_log 'attempt.*1$'
   expect_log 'attempt.*2$'
@@ -236,7 +236,7 @@ function test_test_attempts() {
 }
 
 function test_test_runtime() {
-  bazel test --experimental_build_event_text_file=$TEST_log pkg:slow \
+  bazel test --build_event_text_file=$TEST_log pkg:slow \
     || fail "bazel test failed"
   expect_log 'pkg:slow'
   expect_log '^test_result'
@@ -251,11 +251,11 @@ function test_test_start_times() {
   # Verify that the start time of a test is reported, regardless whether
   # it was cached or not.
   bazel clean --expunge
-  bazel test --experimental_build_event_text_file=$TEST_log pkg:true \
+  bazel test --build_event_text_file=$TEST_log pkg:true \
     || fail "bazel test failed"
   expect_log 'test_attempt_start_millis_epoch.*[1-9]'
   expect_not_log 'cached_locally'
-  bazel test --experimental_build_event_text_file=$TEST_log pkg:true \
+  bazel test --build_event_text_file=$TEST_log pkg:true \
     || fail "bazel test failed"
   expect_log 'test_attempt_start_millis_epoch.*[1-9]'
   expect_log 'cached_locally.*true'
@@ -265,7 +265,7 @@ function test_test_attempts_multi_runs() {
   # Sanity check on individual test attempts. Even in more complicated
   # situations, with some test rerun and some not, all events are properly
   # announced by the test actions (and not chained into the progress events).
-  ( bazel test --experimental_build_event_text_file=$TEST_log \
+  ( bazel test --build_event_text_file=$TEST_log \
     --runs_per_test=2 pkg:true pkg:flaky \
     && fail "test failure expected" ) || true
   expect_log 'run.*1'
@@ -277,7 +277,7 @@ function test_test_attempts_multi_runs_flake_detection() {
   # Sanity check on individual test attempts. Even in more complicated
   # situations, with some test rerun and some not, all events are properly
   # announced by the test actions (and not chained into the progress events).
-  ( bazel test --experimental_build_event_text_file=$TEST_log \
+  ( bazel test --build_event_text_file=$TEST_log \
     --runs_per_test=2 --runs_per_test_detects_flakes pkg:true pkg:flaky \
     && fail "test failure expected" ) || true
   expect_log 'run.*1'
@@ -289,14 +289,14 @@ function test_cached_test_results() {
   # Verify that both, clean and cached test results are reported correctly,
   # including the appropriate reference to log files.
   bazel clean --expunge
-  bazel test --experimental_build_event_text_file=$TEST_log pkg:true \
+  bazel test --build_event_text_file=$TEST_log pkg:true \
     || fail "Clean testing pkg:true failed"
   expect_log '^test_result'
   expect_log 'name:.*test.log'
   expect_log 'name:.*test.xml'
   expect_not_log 'cached_locally'
   expect_not_log 'aborted'
-  bazel test --experimental_build_event_text_file=$TEST_log pkg:true \
+  bazel test --build_event_text_file=$TEST_log pkg:true \
     || fail "Second testing of pkg:true failed"
   expect_log '^test_result'
   expect_log 'name:.*test.log'
@@ -306,7 +306,7 @@ function test_cached_test_results() {
 }
 
 function test_target_complete() {
-  bazel build --verbose_failures --experimental_build_event_text_file=$TEST_log \
+  bazel build --verbose_failures --build_event_text_file=$TEST_log \
   pkg:output_files_and_tags || fail "bazel build failed"
   expect_log 'output_group'
   expect_log 'out1.txt'
@@ -317,17 +317,17 @@ function test_target_complete() {
 function test_extra_action() {
   # verify that normal successful actions are not reported, but extra actions
   # are
-  bazel build --experimental_build_event_text_file=$TEST_log \
+  bazel build --build_event_text_file=$TEST_log \
     pkg:output_files_and_tags || fail "bazel build failed"
   expect_not_log '^action'
-  bazel build --experimental_build_event_text_file=$TEST_log \
-    --experimental_action_listener=pkg:listener \
+  bazel build --build_event_text_file=$TEST_log \
+    --action_listener=pkg:listener \
     pkg:output_files_and_tags || fail "bazel build with listener failed"
   expect_log '^action'
 }
 
 function test_aspect_artifacts() {
-  bazel build --experimental_build_event_text_file=$TEST_log \
+  bazel build --build_event_text_file=$TEST_log \
     --aspects=simpleaspect.bzl%simple_aspect \
     --output_groups=aspect-out \
     pkg:output_files_and_tags || fail "bazel build failed"
@@ -341,7 +341,7 @@ function test_build_only() {
   # When building but not testing a test, there won't be a test summary
   # (as nothing was tested), so it should not be announced.
   # Still, no event should only be chained in by progress events.
-  bazel build --experimental_build_event_text_file=$TEST_log pkg:true \
+  bazel build --build_event_text_file=$TEST_log pkg:true \
     || fail "bazel build failed"
   expect_not_log 'aborted'
   expect_not_log 'test_summary '
@@ -354,14 +354,14 @@ function test_build_only() {
 function test_query() {
   # Verify that at least a minimally meaningful event stream is generated
   # for non-build. In particular, we expect bazel not to crash.
-  bazel version --experimental_build_event_text_file=$TEST_log \
+  bazel version --build_event_text_file=$TEST_log \
     || fail "bazel version failed"
   expect_log '^started'
-  bazel query --experimental_build_event_text_file=$TEST_log 'tests(//...)' \
+  bazel query --build_event_text_file=$TEST_log 'tests(//...)' \
     || fail "bazel query failed"
   expect_log '^started'
   expect_log 'command: "query"'
-  expect_log 'args: "--experimental_build_event_text_file='
+  expect_log 'args: "--build_event_text_file='
   expect_log 'build_finished'
   expect_not_log 'aborted'
   # For query, we also expect the full output to be contained in the protocol,
@@ -376,9 +376,9 @@ function test_multiple_transports() {
   # Verifies usage of multiple build event transports at the same time
     outdir=$(mktemp -d ${TEST_TMPDIR}/bazel.XXXXXXXX)
     bazel test \
-      --experimental_build_event_text_file=${outdir}/test_multiple_transports.txt \
-      --experimental_build_event_binary_file=${outdir}/test_multiple_transports.bin \
-      --experimental_build_event_json_file=${outdir}/test_multiple_transports.json \
+      --build_event_text_file=${outdir}/test_multiple_transports.txt \
+      --build_event_binary_file=${outdir}/test_multiple_transports.bin \
+      --build_event_json_file=${outdir}/test_multiple_transports.json \
       pkg:suite || fail "bazel test failed"
   [ -f ${outdir}/test_multiple_transports.txt ] || fail "Missing expected file test_multiple_transports.txt"
   [ -f ${outdir}/test_multiple_transports.bin ] || fail "Missing expected file test_multiple_transports.bin"
@@ -387,7 +387,7 @@ function test_multiple_transports() {
 
 function test_basic_json() {
   # Verify that the json transport writes json files
-  bazel test --experimental_build_event_json_file=$TEST_log pkg:true \
+  bazel test --build_event_json_file=$TEST_log pkg:true \
     || fail "bazel test failed"
   # check for some typical fragments that would be encoded differently in the
   # proto text format.
@@ -398,7 +398,7 @@ function test_basic_json() {
 }
 
 function test_root_cause_early() {
-  (bazel build --experimental_build_event_text_file=$TEST_log \
+  (bazel build --build_event_text_file=$TEST_log \
          pkg:fails_to_build && fail "build failure expected") || true
   # We expect precisely one action being reported (the failed one) and
   # precisely on report on a completed target; moreover, the action has
@@ -416,7 +416,7 @@ function test_loading_failure() {
   # Verify that if loading fails, this is properly reported as the
   # reason for the target expansion event not resulting in targets
   # being expanded.
-  (bazel build --experimental_build_event_text_file=$TEST_log \
+  (bazel build --build_event_text_file=$TEST_log \
          //does/not/exist && fail "build failure expected") || true
   expect_log_once '^progress '
   expect_log_once '^loading_failed'
@@ -427,20 +427,20 @@ function test_loading_failure() {
 
 function test_visibility_failure() {
   bazel shutdown
-  (bazel build --experimental_build_event_text_file=$TEST_log \
+  (bazel build --build_event_text_file=$TEST_log \
          //visibility:cannotsee && fail "build failure expected") || true
   expect_log '^analysis_failed'
   expect_not_log '^aborted'
 
   # The same should hold true, if the server has already analyzed the target
-  (bazel build --experimental_build_event_text_file=$TEST_log \
+  (bazel build --build_event_text_file=$TEST_log \
          //visibility:cannotsee && fail "build failure expected") || true
   expect_log '^analysis_failed'
   expect_not_log '^aborted'
 }
 
 function test_loading_failure_keep_going() {
-  (bazel build --experimental_build_event_text_file=$TEST_log \
+  (bazel build --build_event_text_file=$TEST_log \
          -k //does/not/exist && fail "build failure expected") || true
   expect_log_once '^loading_failed'
   expect_log_once '^expanded'
@@ -452,7 +452,7 @@ function test_loading_failure_keep_going() {
 #               for every target completion
 #
 # function test_artifact_dedup() {
-#   bazel build --experimental_build_event_text_file=$TEST_log \
+#   bazel build --build_event_text_file=$TEST_log \
 #       pkg:innergroup pkg:outergroup \
 #   || fail "bazel build failed"
 #   expect_log_once "name.*sourcefileA"
@@ -466,7 +466,7 @@ function test_stdout_stderr_reported() {
 
   # Make sure we generate enough output on stderr
   bazel clean --expunge
-  bazel test --experimental_build_event_text_file=$TEST_log --curses=no \
+  bazel test --build_event_text_file=$TEST_log --curses=no \
         pkg:slow 2>stderr.log || fail "slowtest failed"
   # Take a line that is likely not the output of an action (possibly reported
   # independently in the stream) and still characteristic enough to not occur
@@ -480,7 +480,7 @@ function test_stdout_stderr_reported() {
 function test_srcfiles() {
   # Even if the build target is a source file, the stream should be correctly
   # and bazel shouldn't crash.
-    bazel build --experimental_build_event_text_file=$TEST_log \
+    bazel build --build_event_text_file=$TEST_log \
           pkg:somesourcefile || fail "build failed"
   expect_log 'SUCCESS'
   expect_log_once '^configuration'
