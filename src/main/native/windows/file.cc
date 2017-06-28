@@ -18,10 +18,11 @@
 #include <sstream>
 #include <string>
 
-#include "src/main/native/windows_file_operations.h"
-#include "src/main/native/windows_util.h"
+#include "src/main/native/windows/file.h"
+#include "src/main/native/windows/util.h"
 
-namespace windows_util {
+namespace bazel {
+namespace windows {
 
 using std::string;
 using std::unique_ptr;
@@ -181,4 +182,5 @@ string CreateJunction(const wstring& junction_name,
   return "";
 }
 
-}  // namespace windows_util
+}  // namespace windows
+}  // namespace bazel

@@ -20,14 +20,15 @@
 #include <string>
 
 #include "gtest/gtest.h"
-#include "src/main/native/windows_file_operations.h"
+#include "src/main/native/windows/file.h"
 #include "src/test/cpp/util/windows_test_util.h"
 
 #if !defined(COMPILER_MSVC) && !defined(__CYGWIN__)
 #error("This test should only be run on Windows")
 #endif  // !defined(COMPILER_MSVC) && !defined(__CYGWIN__)
 
-namespace windows_util {
+namespace bazel {
+namespace windows {
 
 using blaze_util::DeleteAllUnder;
 using blaze_util::GetTestTmpDirW;
@@ -108,4 +109,5 @@ TEST_F(WindowsFileOperationsTest, TestCreateJunction) {
             ::GetFileAttributesW((name + L"4\\bar").c_str()));
 }
 
-}  // namespace windows_util
+}  // namespace windows
+}  // namespace bazel

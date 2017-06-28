@@ -11,15 +11,16 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef BAZEL_SRC_MAIN_NATIVE_WINDOWS_FILE_OPERATIONS_H_
-#define BAZEL_SRC_MAIN_NATIVE_WINDOWS_FILE_OPERATIONS_H_
+#ifndef BAZEL_SRC_MAIN_NATIVE_WINDOWS_FILE_H_
+#define BAZEL_SRC_MAIN_NATIVE_WINDOWS_FILE_H_
 
 #include <windows.h>
 
 #include <memory>
 #include <string>
 
-namespace windows_util {
+namespace bazel {
+namespace windows {
 
 using std::string;
 using std::unique_ptr;
@@ -79,6 +80,7 @@ HANDLE OpenDirectory(const WCHAR* path, bool read_write);
 string CreateJunction(const wstring& junction_name,
                       const wstring& junction_target);
 
-}  // namespace windows_util
+}  // namespace windows
+}  // namespace bazel
 
-#endif  // BAZEL_SRC_MAIN_NATIVE_WINDOWS_FILE_OPERATIONS_H_
+#endif  // BAZEL_SRC_MAIN_NATIVE_WINDOWS_FILE_H_

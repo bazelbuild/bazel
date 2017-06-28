@@ -20,14 +20,15 @@
 #include <memory>      // unique_ptr
 #include <string>
 
-#include "src/main/native/windows_util.h"
 #include "gtest/gtest.h"
+#include "src/main/native/windows/util.h"
 
 #if !defined(COMPILER_MSVC) && !defined(__CYGWIN__)
 #error("This test should only be run on Windows")
 #endif  // !defined(COMPILER_MSVC) && !defined(__CYGWIN__)
 
-namespace windows_util {
+namespace bazel {
+namespace windows {
 
 using std::function;
 using std::string;
@@ -363,4 +364,5 @@ TEST(WindowsUtilTest, TestAsExecutablePathForCreateProcessConversions) {
   DeleteDirsUnder(tmpdir, short_root);
 }
 
-}  // namespace windows_util
+}  // namespace windows
+}  // namespace bazel

@@ -21,9 +21,10 @@
 #include <memory>
 #include <string>
 
-#include "src/main/native/windows_util.h"
+#include "src/main/native/windows/util.h"
 
-namespace windows_util {
+namespace bazel {
+namespace windows {
 
 using std::function;
 using std::string;
@@ -38,21 +39,16 @@ string GetLastErrorString(const string& cause) {
 
   LPSTR message;
   DWORD size = FormatMessageA(
-      FORMAT_MESSAGE_ALLOCATE_BUFFER
-          | FORMAT_MESSAGE_FROM_SYSTEM
-          | FORMAT_MESSAGE_IGNORE_INSERTS,
-      NULL,
-      last_error,
-      MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-      (LPSTR) &message,
-      0,
-      NULL);
+      FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
+          FORMAT_MESSAGE_IGNORE_INSERTS,
+      NULL, last_error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+      (LPSTR)&message, 0, NULL);
 
   if (size == 0) {
     char buf[256];
     snprintf(buf, sizeof(buf),
-        "%s: Error %d (cannot format message due to error %d)",
-        cause.c_str(), last_error, GetLastError());
+             "%s: Error %d (cannot format message due to error %d)",
+             cause.c_str(), last_error, GetLastError());
     buf[sizeof(buf) - 1] = 0;
   }
 
@@ -127,8 +123,8 @@ string AsShortPath(string path, function<wstring()> path_as_wstring,
   WCHAR wshort[kMaxShortPath];
   DWORD wshort_size = ::GetShortPathNameW(wlong.c_str(), NULL, 0);
   if (wshort_size == 0) {
-    return windows_util::GetLastErrorString(
-        string("GetShortPathName failed (path=") + path + ")");
+    return GetLastErrorString(string("GetShortPathName failed (path=") + path +
+                              ")");
   }
 
   if (wshort_size >= kMaxShortPath) {
@@ -168,4 +164,5 @@ string AsExecutablePathForCreateProcess(const string& path,
   return error;
 }
 
-}  // namespace windows_util
+}  // namespace windows
+}  // namespace bazel

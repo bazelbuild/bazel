@@ -21,7 +21,8 @@
 #include <memory>
 #include <string>
 
-namespace windows_util {
+namespace bazel {
+namespace windows {
 
 using std::function;
 using std::string;
@@ -88,6 +89,7 @@ string AsExecutablePathForCreateProcess(const string& path,
                                         function<wstring()> path_as_wstring,
                                         string* result);
 
-}  // namespace windows_util
+}  // namespace windows
+}  // namespace bazel
 
 #endif  // BAZEL_SRC_MAIN_NATIVE_WINDOWS_UTIL_H__
