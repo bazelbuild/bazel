@@ -225,91 +225,64 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                   .getApk()
               : null;
 
-      resourceApk = applicationManifest.packWithDataAndResources(
-          ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_APK),
-          ruleContext,
-          false, /* isLibrary */
-          resourceDeps,
-          ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
-          null, /* Artifact symbolsTxt */
-          ResourceFilter.fromRuleContext(ruleContext),
-          ruleContext.getTokenizedStringListAttr("nocompress_extensions"),
-          ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
-          false, /* incremental */
-          ProguardHelper.getProguardConfigArtifact(ruleContext, ""),
-          createMainDexProguardSpec(ruleContext),
-          ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST),
-          ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP),
-          DataBinding.isEnabled(ruleContext) ? DataBinding.getLayoutInfoFile(ruleContext) : null,
-          featureOfArtifact,
-          featureAfterArtifact);
-      ruleContext.assertNoErrors();
-
-      incrementalResourceApk = applicationManifest
-          .addMobileInstallStubApplication(ruleContext)
-          .packWithDataAndResources(
-              ruleContext
-                  .getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_INCREMENTAL_RESOURCES_APK),
+      resourceApk =
+          applicationManifest.packBinaryWithDataAndResources(
               ruleContext,
-              false, /* isLibrary */
+              ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_APK),
               resourceDeps,
-              null, /* Artifact rTxt */
-              null, /* Artifact symbolsTxt */
+              ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
               ResourceFilter.fromRuleContext(ruleContext),
               ruleContext.getTokenizedStringListAttr("nocompress_extensions"),
               ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
-              true, /* incremental */
-              ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental"),
-              null, /* mainDexProguardCfg */
-              null, /* manifestOut */
-              null, /* mergedResourcesOut */
-              null, /* dataBindingInfoZip */
-              null, /* featureOf */
-              null /* featureAfter */);
+              ProguardHelper.getProguardConfigArtifact(ruleContext, ""),
+              createMainDexProguardSpec(ruleContext),
+              ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST),
+              ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP),
+              DataBinding.isEnabled(ruleContext)
+                  ? DataBinding.getLayoutInfoFile(ruleContext)
+                  : null,
+              featureOfArtifact,
+              featureAfterArtifact);
       ruleContext.assertNoErrors();
 
-      instantRunResourceApk = applicationManifest
-          .addInstantRunStubApplication(ruleContext)
-          .packWithDataAndResources(
-              getDxArtifact(ruleContext, "android_instant_run.ap_"),
-              ruleContext,
-              false, /* isLibrary */
-              resourceDeps,
-              null, /* Artifact rTxt */
-              null, /* Artifact symbolsTxt */
-              ResourceFilter.fromRuleContext(ruleContext),
-              ruleContext.getTokenizedStringListAttr("nocompress_extensions"),
-              ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
-              true, /* incremental */
-              ProguardHelper.getProguardConfigArtifact(ruleContext, "instant_run"),
-              null, /* mainDexProguardCfg */
-              null, /* manifestOut */
-              null, /* mergedResourcesOut */
-              null, /* dataBindingInfoZip */
-              null, /* featureOf */
-              null /* featureAfter */);
+      incrementalResourceApk =
+          applicationManifest
+              .addMobileInstallStubApplication(ruleContext)
+              .packIncrementalBinaryWithDataAndResources(
+                  ruleContext,
+                  ruleContext.getImplicitOutputArtifact(
+                      AndroidRuleClasses.ANDROID_INCREMENTAL_RESOURCES_APK),
+                  resourceDeps,
+                  ResourceFilter.fromRuleContext(ruleContext),
+                  ruleContext.getTokenizedStringListAttr("nocompress_extensions"),
+                  ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
+                  ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental"));
       ruleContext.assertNoErrors();
 
-      splitResourceApk = applicationManifest
-          .createSplitManifest(ruleContext, "android_resources", false)
-          .packWithDataAndResources(
-              getDxArtifact(ruleContext, "android_resources.ap_"),
-              ruleContext,
-              false, /* isLibrary */
-              resourceDeps,
-              null, /* Artifact rTxt */
-              null, /* Artifact symbolsTxt */
-              ResourceFilter.fromRuleContext(ruleContext),
-              ruleContext.getTokenizedStringListAttr("nocompress_extensions"),
-              ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
-              true, /* incremental */
-              ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental_split"),
-              null, /* mainDexProguardCfg */
-              null, /* manifestOut */
-              null, /* mergedResourcesOut */
-              null, /* dataBindingInfoZip */
-              null, /* featureOf */
-              null /* featureAfter */);
+      instantRunResourceApk =
+          applicationManifest
+              .addInstantRunStubApplication(ruleContext)
+              .packIncrementalBinaryWithDataAndResources(
+                  ruleContext,
+                  getDxArtifact(ruleContext, "android_instant_run.ap_"),
+                  resourceDeps,
+                  ResourceFilter.fromRuleContext(ruleContext),
+                  ruleContext.getTokenizedStringListAttr("nocompress_extensions"),
+                  ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
+                  ProguardHelper.getProguardConfigArtifact(ruleContext, "instant_run"));
+      ruleContext.assertNoErrors();
+
+      splitResourceApk =
+          applicationManifest
+              .createSplitManifest(ruleContext, "android_resources", false)
+              .packIncrementalBinaryWithDataAndResources(
+                  ruleContext,
+                  getDxArtifact(ruleContext, "android_resources.ap_"),
+                  resourceDeps,
+                  ResourceFilter.fromRuleContext(ruleContext),
+                  ruleContext.getTokenizedStringListAttr("nocompress_extensions"),
+                  ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
+                  ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental_split"));
       ruleContext.assertNoErrors();
 
     } else {
@@ -981,7 +954,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
   private static void createApkManifestAction(
       RuleContext ruleContext,
-      Artifact apkManfiest,
+      Artifact apkManifest,
       boolean textProto,
       final AndroidCommon androidCommon,
       JavaTargetAttributes resourceClasses,
@@ -1010,15 +983,16 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
 
-    ApkManifestAction manifestAction = new ApkManifestAction(
-        ruleContext.getActionOwner(),
-        apkManfiest,
-        textProto,
-        sdk,
-        filteredJars,
-        resourceApk,
-        nativeLibs,
-        debugKeystore);
+    ApkManifestAction manifestAction =
+        new ApkManifestAction(
+            ruleContext.getActionOwner(),
+            apkManifest,
+            textProto,
+            sdk,
+            filteredJars,
+            resourceApk,
+            nativeLibs,
+            debugKeystore);
 
     ruleContext.registerAction(manifestAction);
   }
