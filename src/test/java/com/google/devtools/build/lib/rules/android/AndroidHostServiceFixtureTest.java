@@ -152,11 +152,11 @@ public class AndroidHostServiceFixtureTest extends AndroidBuildViewTestCase {
         ")");
     assertThat(
             getHostServiceFixtureInfoProvider(getConfiguredTarget("//javatests/com/app:no_daemon"))
-                .getIsDaemon())
+                .getDaemon())
         .isFalse();
     assertThat(
             getHostServiceFixtureInfoProvider(getConfiguredTarget("//javatests/com/app:daemon"))
-                .getIsDaemon())
+                .getDaemon())
         .isTrue();
   }
 

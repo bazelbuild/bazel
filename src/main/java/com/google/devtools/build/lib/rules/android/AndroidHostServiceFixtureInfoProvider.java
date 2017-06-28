@@ -34,21 +34,28 @@ public class AndroidHostServiceFixtureInfoProvider extends SkylarkClassObject
   static final NativeClassObjectConstructor ANDROID_HOST_SERVICE_FIXTURE_INFO =
       new NativeClassObjectConstructor(SKYLARK_NAME) {};
 
+  private final Artifact executable;
   private final ImmutableList<String> serviceNames;
   private final NestedSet<Artifact> supportApks;
   private final boolean providesTestArgs;
-  private final boolean isDaemon;
+  private final boolean daemon;
 
   AndroidHostServiceFixtureInfoProvider(
+      Artifact executable,
       ImmutableList<String> serviceNames,
       NestedSet<Artifact> supportApks,
       boolean providesTestArgs,
       boolean isDaemon) {
     super(ANDROID_HOST_SERVICE_FIXTURE_INFO, ImmutableMap.<String, Object>of());
+    this.executable = executable;
     this.serviceNames = serviceNames;
     this.supportApks = supportApks;
     this.providesTestArgs = providesTestArgs;
-    this.isDaemon = isDaemon;
+    this.daemon = isDaemon;
+  }
+
+  public Artifact getExecutable() {
+    return executable;
   }
 
   public ImmutableList<String> getServiceNames() {
@@ -63,7 +70,7 @@ public class AndroidHostServiceFixtureInfoProvider extends SkylarkClassObject
     return providesTestArgs;
   }
 
-  public boolean getIsDaemon() {
-    return isDaemon;
+  public boolean getDaemon() {
+    return daemon;
   }
 }

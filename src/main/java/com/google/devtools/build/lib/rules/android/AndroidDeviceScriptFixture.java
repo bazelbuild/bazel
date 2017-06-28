@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
@@ -36,7 +37,12 @@ public class AndroidDeviceScriptFixture implements RuleConfiguredTargetFactory {
     Artifact fixtureScript = getFixtureScript(ruleContext);
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(NestedSetBuilder.<Artifact>stableOrder().add(fixtureScript).build())
-        .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
+        .addProvider(
+            RunfilesProvider.class,
+            RunfilesProvider.simple(
+                new Runfiles.Builder(ruleContext.getWorkspaceName())
+                    .addArtifact(fixtureScript)
+                    .build()))
         .addNativeDeclaredProvider(
             new AndroidDeviceScriptFixtureInfoProvider(
                 fixtureScript,

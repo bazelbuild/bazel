@@ -56,6 +56,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
         .addRuleDefinition(new AndroidDeviceScriptFixtureRule())
         .addRuleDefinition(new AndroidHostServiceFixtureRule())
         .addRuleDefinition(new AndroidInstrumentationRule())
+        .addRuleDefinition(new AndroidInstrumentationTestRule())
         .build();
   }
 

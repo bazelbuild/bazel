@@ -234,6 +234,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         .add("            jars = [ 'idlclass.jar' ])")
         .add("exports_files(['adb', 'adb_static'])")
         .add("sh_binary(name = 'android_runtest', srcs = ['empty.sh'])")
+        .add("sh_binary(name = 'instrumentation_test_entry_point', srcs = ['empty.sh'])")
         .add("java_plugin(name = 'databinding_annotation_processor',")
         .add("    processor_class = 'android.databinding.annotationprocessor.ProcessDataBinding')");
 
