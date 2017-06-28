@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.analysis.PlatformConfigurationLoader;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.constraints.EnvironmentRule;
+import com.google.devtools.build.lib.analysis.featurecontrol.FeaturePolicyLoader;
+import com.google.devtools.build.lib.analysis.featurecontrol.FeaturePolicyOptions;
 import com.google.devtools.build.lib.bazel.rules.BazelToolchainType.BazelToolchainTypeRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
@@ -222,10 +224,15 @@ public class BazelRuleClassProvider {
         }
       };
 
+  public static final ImmutableSet<String> FEATURE_POLICY_FEATURES = ImmutableSet.<String>of();
+
   public static final RuleSet CORE_RULES =
       new RuleSet() {
         @Override
         public void init(Builder builder) {
+          builder.addConfigurationOptions(FeaturePolicyOptions.class);
+          builder.addConfigurationFragment(new FeaturePolicyLoader(FEATURE_POLICY_FEATURES));
+
           builder.addRuleDefinition(new BaseRuleClasses.RootRule());
           builder.addRuleDefinition(new BaseRuleClasses.BaseRule());
           builder.addRuleDefinition(new BaseRuleClasses.RuleBase());
