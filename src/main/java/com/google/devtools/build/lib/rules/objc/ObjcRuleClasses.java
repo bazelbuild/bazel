@@ -730,7 +730,8 @@ public class ObjcRuleClasses {
                   .cfg(HOST)
                   .value(
                       new LateBoundLabel<BuildConfiguration>(
-                          "//tools/objc:header_scanner", ObjcConfiguration.class) {
+                          env.getToolsLabel("//tools/objc:header_scanner"),
+                          ObjcConfiguration.class) {
                         @Override
                         public Label resolve(
                             Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
