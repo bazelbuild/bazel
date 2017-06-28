@@ -179,6 +179,11 @@ if [ -n "${XML_OUTPUT_FILE-}" -a ! -f "${XML_OUTPUT_FILE-}" ]; then
     errors=0
     error_msg=
   fi
+  # Ensure that test shards have unique names in the xml output.
+  if [[ -n "${TEST_TOTAL_SHARDS+x}" ]] && ((TEST_TOTAL_SHARDS != 0)); then
+    ((shard_num=TEST_SHARD_INDEX+1))
+    TEST_NAME="$TEST_NAME"_shard_"$shard_num"/"$TEST_TOTAL_SHARDS"
+  fi
   cat <<EOF >${XML_OUTPUT_FILE}
 <?xml version="1.0" encoding="UTF-8"?>
 <testsuites>
