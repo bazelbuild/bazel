@@ -438,7 +438,7 @@ public final class ApplicationManifest {
       @Nullable Artifact mainDexProguardCfg,
       Artifact manifestOut,
       Artifact mergedResources,
-      Artifact dataBindingInfoZip,
+      @Nullable Artifact dataBindingInfoZip,
       @Nullable Artifact featureOf,
       @Nullable Artifact featureAfter)
       throws InterruptedException {
@@ -511,7 +511,7 @@ public final class ApplicationManifest {
         true /* isLibrary */,
         resourceDeps,
         resourceFilter,
-        ImmutableList.<String>of(),
+        ImmutableList.<String>of() /* uncompressedExtensions */,
         false /* crunchPng */,
         false /* incremental */,
         ResourceContainer.builderFromRule(ruleContext)
@@ -572,11 +572,24 @@ public final class ApplicationManifest {
           AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR);
 
       if (resourceContainer.getSymbols() != null) {
-        new AndroidResourceParsingActionBuilder(ruleContext)
-            .withPrimary(resourceContainer)
-            .setParse(data)
-            .setOutput(resourceContainer.getSymbols())
-            .build(ruleContext);
+        AndroidResourceParsingActionBuilder parsingBuilder =
+            new AndroidResourceParsingActionBuilder(ruleContext)
+                .withPrimary(resourceContainer)
+                .setParse(data)
+                .setOutput(resourceContainer.getSymbols())
+                .setCompiledSymbolsOutput(resourceContainer.getCompiledSymbols());
+
+        if (dataBindingInfoZip != null && resourceContainer.getCompiledSymbols() != null) {
+          PathFragment unusedInfo = dataBindingInfoZip.getRootRelativePath();
+          // TODO(corysmith): Centralize the data binding processing and zipping into a single
+          // action. Data binding processing needs to be triggered here as well as the merger to
+          // avoid aapt2 from throwing an error during compilation.
+          parsingBuilder.setDataBindingInfoZip(
+              ruleContext.getDerivedArtifact(
+                  unusedInfo.replaceName(unusedInfo.getBaseName() + "_unused.zip"),
+                  dataBindingInfoZip.getRoot()));
+        }
+        resourceContainer = parsingBuilder.build(ruleContext);
       }
 
       AndroidResourceMergingActionBuilder resourcesMergerBuilder =
@@ -590,16 +603,21 @@ public final class ApplicationManifest {
               .setDataBindingInfoZip(dataBindingInfoZip);
       ResourceContainer merged = resourcesMergerBuilder.build(ruleContext);
 
-      AndroidResourceValidatorActionBuilder validatorBuilder =
+      processed =
           new AndroidResourceValidatorActionBuilder(ruleContext)
               .setJavaPackage(merged.getJavaPackage())
-              .setDebug(
-                  ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
+              .setDebug(ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
               .setMergedResources(mergedResources)
               .withPrimary(merged)
+              .setRTxtOut(merged.getRTxt())
               .setSourceJarOut(merged.getJavaSourceJar())
-              .setRTxtOut(merged.getRTxt());
-      processed = validatorBuilder.build(ruleContext);
+              // aapt2 related artifacts. Will be generated if the targetAaptVersion is AAPT2.
+              .withDependencies(resourceDeps)
+              .setCompiledSymbols(merged.getCompiledSymbols())
+              .setAapt2RTxtOut(merged.getAapt2RTxt())
+              .setAapt2SourceJarOut(merged.getAapt2JavaSourceJar())
+              .setStaticLibraryOut(merged.getStaticLibrary())
+              .build(ruleContext);
     } else {
       AndroidResourcesProcessorBuilder builder =
           new AndroidResourcesProcessorBuilder(ruleContext)

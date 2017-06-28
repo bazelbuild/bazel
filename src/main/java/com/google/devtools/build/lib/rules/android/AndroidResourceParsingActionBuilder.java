@@ -17,6 +17,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /** Builder for creating $android_resource_parser action. */
 public class AndroidResourceParsingActionBuilder {
@@ -46,6 +48,8 @@ public class AndroidResourceParsingActionBuilder {
   private Artifact output;
 
   private ResourceContainer resourceContainer;
+  private Artifact compiledSymbols;
+  private Artifact dataBindingInfoZip;
 
   /**
    * @param ruleContext The RuleContext that was used to create the SpawnAction.Builder.
@@ -73,6 +77,17 @@ public class AndroidResourceParsingActionBuilder {
   /** Set the primary resources. */
   public AndroidResourceParsingActionBuilder withPrimary(ResourceContainer resourceContainer) {
     this.resourceContainer = resourceContainer;
+    return this;
+  }
+
+  public AndroidResourceParsingActionBuilder setCompiledSymbolsOutput(
+      @Nullable Artifact compiledSymbols) {
+    this.compiledSymbols = compiledSymbols;
+    return this;
+  }
+
+  public AndroidResourceParsingActionBuilder setDataBindingInfoZip(Artifact dataBindingInfoZip) {
+    this.dataBindingInfoZip = dataBindingInfoZip;
     return this;
   }
 
@@ -112,40 +127,74 @@ public class AndroidResourceParsingActionBuilder {
 
   public ResourceContainer build(ActionConstructionContext context) {
     CustomCommandLine.Builder builder = new CustomCommandLine.Builder();
-    
+
     // Set the busybox tool.
     builder.add("--tool").add("PARSE").add("--");
 
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.naiveLinkOrder();
-    inputs.addAll(
-        ruleContext
-            .getExecutablePrerequisite("$android_resources_busybox", Mode.HOST)
-            .getRunfilesSupport()
-            .getRunfilesArtifactsWithoutMiddlemen());
 
     Preconditions.checkNotNull(primary);
-    builder.add("--primaryData").add(RESOURCE_CONTAINER_TO_ARG.apply(primary));
+    String resourceDirectories = RESOURCE_CONTAINER_TO_ARG.apply(primary);
+    builder.add("--primaryData").add(resourceDirectories);
     inputs.addTransitive(RESOURCE_CONTAINER_TO_ARTIFACTS.apply(primary));
 
-    List<Artifact> outs = new ArrayList<>();
     Preconditions.checkNotNull(output);
     builder.addExecPath("--output", output);
-    outs.add(output);
 
-    SpawnAction.Builder spawnActionBuilder = new SpawnAction.Builder();
     // Create the spawn action.
     ruleContext.registerAction(
-        spawnActionBuilder
+        new SpawnAction.Builder()
             .useParameterFile(ParameterFileType.UNQUOTED)
             .addTransitiveInputs(inputs.build())
-            .addOutputs(ImmutableList.copyOf(outs))
+            .addOutputs(ImmutableList.of(output))
             .setCommandLine(builder.build())
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
             .setProgressMessage("Parsing Android resources for " + ruleContext.getLabel())
             .setMnemonic("AndroidResourceParser")
             .build(context));
-    
-    return resourceContainer.toBuilder().setSymbols(output).build();
+
+    if (compiledSymbols != null) {
+      List<Artifact> outs = new ArrayList<>();
+      CustomCommandLine.Builder flatFileBuilder = new CustomCommandLine.Builder();
+      flatFileBuilder
+          .add("--tool")
+          .add("COMPILE_LIBRARY_RESOURCES")
+          .add("--")
+          .add("--resources")
+          .add(resourceDirectories)
+          .addExecPath("--output", compiledSymbols);
+      outs.add(compiledSymbols);
+
+      // The databinding needs to be processed before compilation, so the stripping happens here.
+      if (dataBindingInfoZip != null) {
+        flatFileBuilder.addExecPath("--manifest", resourceContainer.getManifest());
+        inputs.add(resourceContainer.getManifest());
+        if (!Strings.isNullOrEmpty(resourceContainer.getJavaPackage())) {
+          flatFileBuilder.add("--packagePath").add(resourceContainer.getJavaPackage());
+        }
+        builder.addExecPath("--dataBindingInfoOut", dataBindingInfoZip);
+        outs.add(dataBindingInfoZip);
+      }
+      // Create the spawn action.
+      ruleContext.registerAction(
+          new SpawnAction.Builder()
+              .useParameterFile(ParameterFileType.UNQUOTED)
+              .addTransitiveInputs(inputs.build())
+              .addOutputs(ImmutableList.copyOf(outs))
+              .setCommandLine(flatFileBuilder.build())
+              .setExecutable(
+                  ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
+              .setProgressMessage("Compiling Android resources for " + ruleContext.getLabel())
+              .setMnemonic("AndroidResourceCompiler")
+              .build(context));
+      return resourceContainer
+          .toBuilder()
+          .setCompiledSymbols(compiledSymbols)
+          .setSymbols(output)
+          .build();
+    } else {
+      return resourceContainer.toBuilder().setSymbols(output).build();
+    }
   }
 }
