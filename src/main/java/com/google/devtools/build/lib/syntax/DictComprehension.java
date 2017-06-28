@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.events.Location;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -52,8 +52,10 @@ public final class DictComprehension extends AbstractComprehension {
   }
 
   @Override
-  String printExpressions() {
-    return String.format("%s: %s", keyExpression, valueExpression);
+  protected void printExpressions(Appendable buffer) throws IOException {
+    keyExpression.prettyPrint(buffer);
+    buffer.append(": ");
+    valueExpression.prettyPrint(buffer);
   }
 
   /** Builder for {@link DictComprehension}. */

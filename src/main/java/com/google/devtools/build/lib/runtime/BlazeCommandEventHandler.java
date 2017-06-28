@@ -20,8 +20,10 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
@@ -61,6 +63,8 @@ public class BlazeCommandEventHandler implements EventHandler {
       name = "show_progress",
       defaultValue = "true",
       category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Display progress messages during a build."
     )
     public boolean showProgress;
@@ -69,6 +73,8 @@ public class BlazeCommandEventHandler implements EventHandler {
       name = "show_task_finish",
       defaultValue = "false",
       category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Display progress messages when tasks complete, not just when they start."
     )
     public boolean showTaskFinish;
@@ -77,6 +83,8 @@ public class BlazeCommandEventHandler implements EventHandler {
       name = "show_progress_rate_limit",
       defaultValue = "0.03", // A nice middle ground; snappy but not too spammy in logs.
       category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Minimum number of seconds between progress messages in the output."
     )
     public double showProgressRateLimit;
@@ -86,6 +94,8 @@ public class BlazeCommandEventHandler implements EventHandler {
       defaultValue = "auto",
       converter = UseColorConverter.class,
       category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Use terminal controls to colorize output."
     )
     public UseColor useColorEnum;
@@ -95,6 +105,8 @@ public class BlazeCommandEventHandler implements EventHandler {
       defaultValue = "auto",
       converter = UseCursesConverter.class,
       category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Use terminal cursor controls to minimize scrolling output"
     )
     public UseCurses useCursesEnum;
@@ -103,6 +115,8 @@ public class BlazeCommandEventHandler implements EventHandler {
       name = "terminal_columns",
       defaultValue = "80",
       optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "A system-generated parameter which specifies the terminal width in columns."
     )
     public int terminalColumns;
@@ -111,6 +125,8 @@ public class BlazeCommandEventHandler implements EventHandler {
       name = "isatty",
       defaultValue = "false",
       optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "A system-generated parameter which is used to notify the "
               + "server whether this client is running in a terminal. "
@@ -126,6 +142,8 @@ public class BlazeCommandEventHandler implements EventHandler {
       name = "emacs",
       defaultValue = "false",
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "A system-generated parameter which is true iff EMACS=t or INSIDE_EMACS is set "
               + "in the environment of the client.  This option controls certain display "
@@ -137,6 +155,8 @@ public class BlazeCommandEventHandler implements EventHandler {
       name = "show_timestamps",
       defaultValue = "false",
       category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Include timestamps in messages"
     )
     public boolean showTimestamp;
@@ -145,6 +165,8 @@ public class BlazeCommandEventHandler implements EventHandler {
       name = "progress_in_terminal_title",
       defaultValue = "false",
       category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Show the command progress in the terminal title. "
               + "Useful to see what blaze is doing when having multiple terminal tabs."
@@ -155,6 +177,8 @@ public class BlazeCommandEventHandler implements EventHandler {
       name = "experimental_external_repositories",
       defaultValue = "false",
       category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Use external repositories for improved stability and speed when available."
     )
     public boolean externalRepositories;
@@ -163,6 +187,8 @@ public class BlazeCommandEventHandler implements EventHandler {
       name = "force_experimental_external_repositories",
       defaultValue = "false",
       category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Forces --experimental_external_repositories."
     )
     public boolean forceExternalRepositories;
@@ -171,6 +197,8 @@ public class BlazeCommandEventHandler implements EventHandler {
       name = "experimental_ui",
       defaultValue = "false",
       category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Switches to an alternative progress bar that more explicitly shows progress, such "
               + "as loaded packages and executed actions."
@@ -181,6 +209,8 @@ public class BlazeCommandEventHandler implements EventHandler {
       name = "experimental_ui_debug_all_events",
       defaultValue = "false",
       optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Report all events known to the experimental new Bazel UI."
     )
     public boolean experimentalUiDebugAllEvents;
@@ -189,6 +219,8 @@ public class BlazeCommandEventHandler implements EventHandler {
       name = "experimental_ui_actions_shown",
       defaultValue = "3",
       category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Number of concurrent actions shown in the alternative progress bar; each "
               + "action is shown on a separate line. The alternative progress bar always shows "
@@ -201,6 +233,8 @@ public class BlazeCommandEventHandler implements EventHandler {
       name = "experimental_ui_limit_console_output",
       defaultValue = "0",
       category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Number of bytes to which the experimental UI will limit its output (non-positive "
               + "values indicate unlimited). Once the limit is approaching, the experimental UI "

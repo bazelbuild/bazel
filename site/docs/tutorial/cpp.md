@@ -27,7 +27,7 @@ In this tutorial you'll learn how to:
 
 ## Before you begin
 
-To prepare for the tutorial, first [Install Bazel](/docs/install.md) if
+To prepare for the tutorial, first [Install Bazel](../install.md) if
 you don't have it installed already. Then, retrieve the sample project from
 Bazel's GitHub repository:
 
@@ -369,15 +369,15 @@ Congratulations! You now know the basics of building a C++ project with Bazel.
 Next, read up on the most common [C++ build use cases](cpp-use-cases.md). Then,
 check out the following:
 
-*  [External Dependencies](https://bazel.build/versions/master/docs/external.html)
-   to learn more about working with local and remote repositories.
+*  [External Dependencies](../external.html) to learn more about working with
+   local and remote repositories.
 
-*  The [Build Encyclopedia](/docs/be/overview.html) to learn more about Bazel.
+*  The [Build Encyclopedia](../be/overview.html) to learn more about Bazel.
 
-*  The [Java build tutorial](/docs/tutorial/java.md) to get started with
+*  The [Java build tutorial](java.md) to get started with
    building Java applications with Bazel.
 
-*  The [mobile application tutorial](/docs/tutorial/app.md) to get started with
+*  The [mobile application tutorial](app.md) to get started with
    building mobile applications for Android and iOS with Bazel.
 
 Happy building!

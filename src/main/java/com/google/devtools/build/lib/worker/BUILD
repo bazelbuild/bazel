@@ -18,6 +18,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/sandbox",
         "//src/main/java/com/google/devtools/build/lib/standalone",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:option_filters_java_proto",
         "//src/main/protobuf:test_status_java_proto",
         "//src/main/protobuf:worker_protocol_java_proto",
         "//third_party:apache_commons_pool2",

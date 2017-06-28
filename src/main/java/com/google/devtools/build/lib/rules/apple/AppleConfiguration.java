@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.apple;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Strings;
@@ -66,6 +67,12 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
 
   private static final DottedVersion MINIMUM_BITCODE_XCODE_VERSION = DottedVersion.fromString("7");
 
+  /** Prefix for iOS cpu values. */
+  public static final String IOS_CPU_PREFIX = "ios_";
+
+  /** Default cpu for iOS builds. */
+  @VisibleForTesting static final String DEFAULT_IOS_CPU = "x86_64";
+
   @Nullable private final DottedVersion xcodeVersion;
   private final DottedVersion iosSdkVersion;
   private final DottedVersion iosMinimumOs;
@@ -89,7 +96,9 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   @Nullable private final String xcodeToolchain;
   @Nullable private final Label defaultProvisioningProfileLabel;
 
-  AppleConfiguration(AppleCommandLineOptions appleOptions,
+  AppleConfiguration(
+      AppleCommandLineOptions appleOptions,
+      String cpu,
       @Nullable DottedVersion xcodeVersion,
       DottedVersion iosSdkVersion,
       DottedVersion watchosSdkVersion,
@@ -113,7 +122,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     this.macosMinimumOs = Preconditions.checkNotNull(macosMinimumOs, "macOsMinimumOs");
 
     this.xcodeVersion = xcodeVersion;
-    this.iosCpu = Preconditions.checkNotNull(appleOptions.iosCpu, "iosCpu");
+    this.iosCpu = iosCpuFromCpu(cpu);
     this.appleSplitCpu = Preconditions.checkNotNull(appleOptions.appleSplitCpu, "appleSplitCpu");
     this.applePlatformType =
         Preconditions.checkNotNull(appleOptions.applePlatformType, "applePlatformType");
@@ -135,6 +144,15 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     this.enableAppleCrosstool = appleOptions.enableAppleCrosstoolTransition;
     this.defaultProvisioningProfileLabel = appleOptions.defaultProvisioningProfile;
     this.xcodeToolchain = appleOptions.xcodeToolchain;
+  }
+
+  /** Determines cpu value from apple-specific toolchain identifier. */
+  public static String iosCpuFromCpu(String cpu) {
+    if (cpu.startsWith(IOS_CPU_PREFIX)) {
+      return cpu.substring(IOS_CPU_PREFIX.length());
+    } else {
+      return DEFAULT_IOS_CPU;
+    }
   }
 
   /**
@@ -593,6 +611,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     public AppleConfiguration create(ConfigurationEnvironment env, BuildOptions buildOptions)
         throws InvalidConfigurationException, InterruptedException {
       AppleCommandLineOptions appleOptions = buildOptions.get(AppleCommandLineOptions.class);
+      String cpu = buildOptions.get(BuildConfiguration.Options.class).cpu;
       XcodeVersionProperties xcodeVersionProperties = getXcodeVersionProperties(env, appleOptions);
 
       DottedVersion iosSdkVersion = (appleOptions.iosSdkVersion != null)
@@ -612,9 +631,17 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
       DottedVersion macosMinimumOsVersion = (appleOptions.macosMinimumOs != null)
           ? appleOptions.macosMinimumOs : macosSdkVersion;
       AppleConfiguration configuration =
-          new AppleConfiguration(appleOptions, xcodeVersionProperties.getXcodeVersion().orNull(),
-              iosSdkVersion, watchosSdkVersion, watchosMinimumOsVersion,
-              tvosSdkVersion, tvosMinimumOsVersion, macosSdkVersion, macosMinimumOsVersion);
+          new AppleConfiguration(
+              appleOptions,
+              cpu,
+              xcodeVersionProperties.getXcodeVersion().orNull(),
+              iosSdkVersion,
+              watchosSdkVersion,
+              watchosMinimumOsVersion,
+              tvosSdkVersion,
+              tvosMinimumOsVersion,
+              macosSdkVersion,
+              macosMinimumOsVersion);
 
       validate(configuration);
       return configuration;

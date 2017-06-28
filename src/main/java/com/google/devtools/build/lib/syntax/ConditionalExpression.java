@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import java.io.IOException;
 
 /**
  * Syntax node for an if/else expression.
@@ -43,8 +44,12 @@ public final class ConditionalExpression extends Expression {
    * Constructs a string representation of the if expression
    */
   @Override
-  public String toString() {
-    return thenCase + " if " + condition + " else " + elseCase;
+  public void prettyPrint(Appendable buffer) throws IOException {
+    thenCase.prettyPrint(buffer);
+    buffer.append(" if ");
+    condition.prettyPrint(buffer);
+    buffer.append(" else ");
+    elseCase.prettyPrint(buffer);
   }
 
   @Override

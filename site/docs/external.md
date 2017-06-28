@@ -6,10 +6,10 @@ title: External Dependencies
 # Working with external dependencies
 
 External dependencies can be specified in the `WORKSPACE` file of the
-[workspace directory](/docs/build-ref.html#workspace). This `WORKSPACE` file
+[workspace directory](build-ref.html#workspace). This `WORKSPACE` file
 uses the same syntax as BUILD files, but allows a different set of
 rules. The full list of rules are in the Build Encyclopedia's
-[Workspace Rules](/docs/be/workspace.html).
+[Workspace Rules](be/workspace.html).
 
 External dependencies are all downloaded and symlinked under a directory named
 `external`. You can see this directory by running:
@@ -158,10 +158,7 @@ Wrote:
 ```
 
 The `WORKSPACE` file will contain the transitive dependencies of the given
-projects and artifacts. The `BUILD` file will contain a single target,
-`transitive-deps`, that contains all of the dependencies. You can copy these
-files to your project and add `transitive-deps` as a dependency of your `java_`
-targets in `BUILD` files.
+projects and artifacts.
 
 If you specify multiple Bazel projects, Maven projects, or artifacts, they will
 all be combined into one `WORKSPACE` file (e.g., if the Bazel project depends on
@@ -192,10 +189,6 @@ The example above indicates that `org.springframework:spring:2.5.6`,
 all depend on javax.activation. However, two of these libraries wanted
 version 1.1 and three of them wanted 1.0.2. The `WORKSPACE` file is using
 version 1.1, but that might not be the right version to use.
-
-You may also want to break `transitive-deps` into smaller targets, as it is
-unlikely that all of your targets depend on the transitive closure of your
-maven jars.
 
 ## Caching of external dependencies
 

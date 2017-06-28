@@ -117,7 +117,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
       return null;
     }
 
-    fileHandler.finishFile(outputDirectory);
+    fileHandler.finishFile(rule, outputDirectory, markerData);
 
     return RepositoryDirectoryValue.builder().setPath(outputDirectory).setSourceDir(directoryValue);
   }

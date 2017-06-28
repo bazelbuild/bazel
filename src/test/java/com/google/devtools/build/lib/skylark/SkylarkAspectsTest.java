@@ -866,7 +866,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     scratch.file(
         "test/aspect.bzl",
         "def _impl(target, ctx):",
-        "  ctx.new_file('missing_in_action.txt')",
+        "  ctx.actions.declare_file('missing_in_action.txt')",
         "  return struct()",
         "",
         "MyAspect = aspect(implementation=_impl)");
@@ -911,13 +911,13 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     scratch.file(
         "test/aspect.bzl",
         "def _impl(target, ctx):",
-        "  f = ctx.new_file('f.txt')",
+        "  f = ctx.actions.declare_file('f.txt')",
         "  ctx.file_action(f, 'f')",
         "  return struct(output_groups = { 'duplicate' : depset([f]) })",
         "",
         "MyAspect = aspect(implementation=_impl)",
         "def _rule_impl(ctx):",
-        "  g = ctx.new_file('g.txt')",
+        "  g = ctx.actions.declare_file('g.txt')",
         "  ctx.file_action(g, 'g')",
         "  return struct(output_groups = { 'duplicate' : depset([g]) })",
         "my_rule = rule(_rule_impl)",
@@ -947,7 +947,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     scratch.file(
         "test/aspect.bzl",
         "def _a1_impl(target, ctx):",
-        "  f = ctx.new_file(target.label.name + '_a1.txt')",
+        "  f = ctx.actions.declare_file(target.label.name + '_a1.txt')",
         "  ctx.file_action(f, 'f')",
         "  return struct(output_groups = { 'a1_group' : depset([f]) })",
         "",
@@ -979,7 +979,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     scratch.file(
         "test/aspect.bzl",
         "def _a1_impl(target, ctx):",
-        "  f = ctx.new_file(target.label.name + '_a1.txt')",
+        "  f = ctx.actions.declare_file(target.label.name + '_a1.txt')",
         "  ctx.file_action(f, 'f')",
         "  return [OutputGroupInfo(a1_group = depset([f]))]",
         "",
@@ -1010,7 +1010,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     scratch.file(
         "test/aspect.bzl",
         "def _a1_impl(target, ctx):",
-        "  f = ctx.new_file(target.label.name + '_a1.txt')",
+        "  f = ctx.actions.declare_file(target.label.name + '_a1.txt')",
         "  ctx.file_action(f, 'f')",
         "  return struct(output_groups = { 'a1_group' : depset([f]) })",
         "",
@@ -1022,7 +1022,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         "  return struct(output_groups = og)",
         "my_rule1 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a1]) })",
         "def _a2_impl(target, ctx):",
-        "  g = ctx.new_file(target.label.name + '_a2.txt')",
+        "  g = ctx.actions.declare_file(target.label.name + '_a2.txt')",
         "  ctx.file_action(g, 'f')",
         "  return struct(output_groups = { 'a2_group' : depset([g]) })",
         "",
@@ -1051,7 +1051,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     scratch.file(
         "test/aspect.bzl",
         "def _a1_impl(target, ctx):",
-        "  f = ctx.new_file(target.label.name + '_a1.txt')",
+        "  f = ctx.actions.declare_file(target.label.name + '_a1.txt')",
         "  ctx.file_action(f, 'f')",
         "  return [OutputGroupInfo(a1_group = depset([f]))]",
         "",
@@ -1068,7 +1068,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         "  return [OutputGroupInfo(**og)]",
         "my_rule1 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a1]) })",
         "def _a2_impl(target, ctx):",
-        "  g = ctx.new_file(target.label.name + '_a2.txt')",
+        "  g = ctx.actions.declare_file(target.label.name + '_a2.txt')",
         "  ctx.file_action(g, 'f')",
         "  return [OutputGroupInfo(a2_group = depset([g]))]",
         "",
@@ -1098,7 +1098,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     scratch.file(
         "test/aspect.bzl",
         "def _a1_impl(target, ctx):",
-        "  f = ctx.new_file(target.label.name + '_a1.txt')",
+        "  f = ctx.actions.declare_file(target.label.name + '_a1.txt')",
         "  ctx.file_action(f, 'f')",
         "  return struct(output_groups = { 'a1_group' : depset([f]) })",
         "",
@@ -1110,7 +1110,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         "  return struct(output_groups = og)",
         "my_rule1 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a1]) })",
         "def _a2_impl(target, ctx):",
-        "  g = ctx.new_file(target.label.name + '_a2.txt')",
+        "  g = ctx.actions.declare_file(target.label.name + '_a2.txt')",
         "  ctx.file_action(g, 'f')",
         "  return struct(output_groups = { 'a1_group' : depset([g]) })",
         "",
@@ -1647,7 +1647,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     scratch.file(
         "foo/extension.bzl",
         "def _aspect_impl(target, ctx):",
-        "   file = ctx.new_file('aspect-output-' + target.label.name)",
+        "   file = ctx.actions.declare_file('aspect-output-' + target.label.name)",
         "   ctx.file_action(file, 'data')",
         "   return struct(aspect_file = file)",
         "my_aspect = aspect(_aspect_impl)",
@@ -1768,7 +1768,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     scratch.file(
         "test/aspect.bzl",
         "def _aspect_impl(target,ctx):",
-        "  f = ctx.new_file('dummy.txt')",
+        "  f = ctx.actions.declare_file('dummy.txt')",
         "  ctx.action(outputs = [f], command='echo xxx > $(location f)', mnemonic='AspectAction')",
         "  return struct()",
         "my_aspect = aspect(implementation = _aspect_impl)"
@@ -1918,7 +1918,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         "",
         "def _a3_impl(target,ctx):",
         "  value = []",
-        "  f = ctx.new_file('a3.out')",
+        "  f = ctx.actions.declare_file('a3.out')",
         "  ctx.file_action(f, 'text')",
         "  for dep in ctx.rule.attr.deps:",
         "     if hasattr(dep, 'a3p'):",

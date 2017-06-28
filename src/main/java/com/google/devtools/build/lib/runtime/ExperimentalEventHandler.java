@@ -104,15 +104,19 @@ public class ExperimentalEventHandler implements EventHandler {
    * values for the remaining relative capacity left at which we start taking given measure.
    *
    * <p>The degrading of progress updates to stay within output limit is done in the following
-   * steps. - We limit progress updates to at most one per second; this is the granularity at which
-   * times in he progress bar are shown. So the appearance won't look too bad. Hence we start that
-   * measure realatively early. - We only show the short version of the progress bar, even if curses
-   * are enabled. - We reduce the update frequency of the progress bar to at most one update per 5s.
-   * This still looks as moving and is is line with escalation strategy that so far, every step
-   * reduces output by about a factor of 5. - We start decreasing the update frequency to what we
-   * would do, if curses were not allowed. Note that now the time between updates is at least a
-   * fixed fraction of the time that passed so far; so the time between progress updates will
-   * continue to increase.
+   * steps.
+   * <ul>
+   *   <li>We limit progress updates to at most one per second; this is the granularity at which
+   *       times in he progress bar are shown. So the appearance won't look too bad. Hence we start
+   *       that measure relatively early.
+   *   <li>We only show the short version of the progress bar, even if curses are enabled.
+   *   <li>We reduce the update frequency of the progress bar to at most one update per 5s. This
+   *       still looks moving and is in line with the escalation strategy that so far: every step
+   *       reduces output by about a factor of 5.
+   *   <li>We start decreasing the update frequency to what we would do, if curses were not allowed.
+   *       Note that now the time between updates is at least a fixed fraction of the time that
+   *       passed so far; so the time between progress updates will continue to increase.
+   * </ul>
    */
   private static final double CAPACITY_INCREASE_UPDATE_DELAY = 0.7;
 

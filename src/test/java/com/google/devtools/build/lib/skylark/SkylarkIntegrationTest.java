@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -692,27 +693,37 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testSpecialMandatoryProviderMissing() throws Exception {
+    // Test that rules satisfy `providers = [...]` condition if a special provider that always
+    // exists for all rules is requested. Also check external rules.
+
+    FileSystemUtils.appendIsoLatin1(scratch.resolve("WORKSPACE"),
+        "bind(name = 'bar', actual = '//test/ext:bar')");
+    scratch.file(
+        "test/ext/BUILD",
+        "load('//test/skylark:extension.bzl', 'foobar')",
+        "",
+        "foobar(name = 'bar', visibility = ['//visibility:public'],)");
     scratch.file(
         "test/skylark/extension.bzl",
         "def rule_impl(ctx):",
         "  pass",
         "",
-        "dependent_rule = rule(implementation = rule_impl)",
+        "foobar = rule(implementation = rule_impl)",
         "main_rule = rule(implementation = rule_impl, attrs = {",
         "    'deps': attr.label_list(providers = [",
         "        'files', 'data_runfiles', 'default_runfiles',",
         "        'files_to_run', 'label', 'output_groups',",
         "    ])",
         "})");
-
     scratch.file(
         "test/skylark/BUILD",
-        "load('/test/skylark/extension', 'dependent_rule', 'main_rule')",
+        "load(':extension.bzl', 'foobar', 'main_rule')",
         "",
-        "dependent_rule(name = 'a')",
-        "main_rule(name = 'b', deps = [':a'])");
+        "foobar(name = 'foo')",
+        "main_rule(name = 'main', deps = [':foo', '//external:bar'])");
 
-    getConfiguredTarget("//test/skylark:b");
+    invalidatePackages();
+    getConfiguredTarget("//test/skylark:main");
   }
 
   @Test

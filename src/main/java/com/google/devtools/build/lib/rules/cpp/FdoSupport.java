@@ -572,16 +572,14 @@ public class FdoSupport {
   private Iterable<Artifact> getAuxiliaryInputs(
       RuleContext ruleContext, PathFragment sourceName, PathFragment sourceExecPath, boolean usePic,
       FdoSupportProvider fdoSupportProvider) {
-    LipoContextProvider lipoContextProvider = CppHelper.getLipoContextProvider(ruleContext);
+    CppConfiguration cppConfig = ruleContext.getFragment(CppConfiguration.class);
+    LipoContextProvider lipoContextProvider =
+        cppConfig.isLLVMCompiler() ? null : CppHelper.getLipoContextProvider(ruleContext);
 
     // If --fdo_optimize was not specified, we don't have any additional inputs.
     if (fdoProfile == null) {
       return ImmutableSet.of();
-    } else if (fdoMode == FdoMode.LLVM_FDO) {
-      ImmutableSet.Builder<Artifact> auxiliaryInputs = ImmutableSet.builder();
-      auxiliaryInputs.add(fdoSupportProvider.getProfileArtifact());
-      return auxiliaryInputs.build();
-    } else if (fdoMode == FdoMode.AUTO_FDO) {
+    } else if (fdoMode == FdoMode.LLVM_FDO || fdoMode == FdoMode.AUTO_FDO) {
       ImmutableSet.Builder<Artifact> auxiliaryInputs = ImmutableSet.builder();
       auxiliaryInputs.add(fdoSupportProvider.getProfileArtifact());
       if (lipoContextProvider != null) {

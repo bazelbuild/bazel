@@ -17,8 +17,10 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
@@ -45,6 +47,8 @@ public class QueryOptions extends OptionsBase {
     name = "output",
     defaultValue = "label",
     category = "query",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "The format in which the query results should be printed. Allowed values are: "
             + "label, label_kind, minrank, maxrank, package, location, graph, xml, proto, record."
@@ -56,6 +60,8 @@ public class QueryOptions extends OptionsBase {
     defaultValue = "null",
     category = "query",
     expansion = {"--line_terminator_null=true"},
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "Whether each format is terminated with \0 instead of newline."
   )
   public Void isNull;
@@ -64,6 +70,8 @@ public class QueryOptions extends OptionsBase {
     name = "line_terminator_null",
     defaultValue = "false",
     category = "query",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "Whether each format is terminated with \0 instead of newline."
   )
   public boolean lineTerminatorNull;
@@ -74,6 +82,8 @@ public class QueryOptions extends OptionsBase {
     category = "query",
     deprecationWarning = "Please use --order_output=auto or --order_output=no instead of this flag",
     expansion = {"--order_output=auto"},
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Output the results in dependency-ordered (default) or unordered fashion. The "
             + "unordered output is faster but only supported when --output is not minrank, "
@@ -87,6 +97,8 @@ public class QueryOptions extends OptionsBase {
     category = "query",
     deprecationWarning = "Please use --order_output=no or --order_output=auto instead of this flag",
     expansion = {"--order_output=no"},
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Output the results in dependency-ordered (default) or unordered fashion. The "
             + "unordered output is faster but only supported when --output is not minrank, "
@@ -107,6 +119,8 @@ public class QueryOptions extends OptionsBase {
     converter = OrderOutputConverter.class,
     defaultValue = "auto",
     category = "query",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Output the results unordered (no), dependency-ordered (deps), or fully ordered (full). "
             + "The default is 'auto', meaning that results are output either dependency-ordered or "
@@ -122,6 +136,8 @@ public class QueryOptions extends OptionsBase {
     abbrev = 'k',
     defaultValue = "false",
     category = "strategy",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Continue as much as possible after an error. While the target that failed, and those "
             + "that depend on it, cannot be analyzed, other prerequisites of these targets can be."
@@ -132,6 +148,8 @@ public class QueryOptions extends OptionsBase {
     name = "loading_phase_threads",
     defaultValue = "200",
     optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "Number of parallel threads to use for the loading phase."
   )
   public int loadingPhaseThreads;
@@ -140,6 +158,8 @@ public class QueryOptions extends OptionsBase {
     name = "host_deps",
     defaultValue = "true",
     category = "query",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "If enabled, dependencies on 'host configuration' targets will be included in the "
             + "dependency graph over which the query operates.  A 'host configuration' dependency "
@@ -156,6 +176,8 @@ public class QueryOptions extends OptionsBase {
     name = "implicit_deps",
     defaultValue = "true",
     category = "query",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "If enabled, implicit dependencies will be included in the dependency graph over "
             + "which the query operates. An implicit dependency is one that is not explicitly "
@@ -167,6 +189,8 @@ public class QueryOptions extends OptionsBase {
     name = "graph:node_limit",
     defaultValue = "512",
     category = "query",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "The maximum length of the label string for a graph node in the output.  Longer labels"
             + " will be truncated; -1 means no truncation.  This option is only applicable to"
@@ -178,6 +202,8 @@ public class QueryOptions extends OptionsBase {
     name = "graph:factored",
     defaultValue = "true",
     category = "query",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "If true, then the graph will be emitted 'factored', i.e. topologically-equivalent nodes "
             + "will be merged together and their labels concatenated. This option is only "
@@ -189,6 +215,8 @@ public class QueryOptions extends OptionsBase {
     name = "proto:default_values",
     defaultValue = "true",
     category = "query",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "If true, attributes whose value is not explicitly specified in the BUILD file are "
             + "included; otherwise they are omitted. This option is applicable to --output=proto"
@@ -199,6 +227,8 @@ public class QueryOptions extends OptionsBase {
     name = "xml:line_numbers",
     defaultValue = "true",
     category = "query",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "If true, XML output contains line numbers. Disabling this option may make diffs easier "
             + "to read.  This option is only applicable to --output=xml."
@@ -209,6 +239,8 @@ public class QueryOptions extends OptionsBase {
     name = "xml:default_values",
     defaultValue = "false",
     category = "query",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "If true, rule attributes whose value is not explicitly specified in the BUILD file are "
             + "printed; otherwise they are omitted."
@@ -219,6 +251,8 @@ public class QueryOptions extends OptionsBase {
     name = "strict_test_suite",
     defaultValue = "false",
     category = "query",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "If true, the tests() expression gives an error if it encounters a test_suite containing "
             + "non-test targets."
@@ -230,6 +264,8 @@ public class QueryOptions extends OptionsBase {
     converter = Converters.CommaSeparatedOptionListConverter.class,
     defaultValue = "",
     category = "query",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "A comma-separated set of target patterns (additive and subtractive). The query may "
             + "be performed in the universe defined by the transitive closure of the specified "
@@ -241,6 +277,8 @@ public class QueryOptions extends OptionsBase {
     name = "relative_locations",
     defaultValue = "false",
     category = "query",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "If true, the location of BUILD files in xml and proto outputs will be relative. "
             + "By default, the location output is an absolute path and will not be consistent "
@@ -254,6 +292,8 @@ public class QueryOptions extends OptionsBase {
     converter = AspectResolutionModeConverter.class,
     defaultValue = "conservative",
     category = "query",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "How to resolve aspect dependencies when the output format is one of {xml,proto,record}. "
             + "'off' means no aspect dependencies are resolved, 'conservative' (the default) means "
@@ -271,12 +311,14 @@ public class QueryOptions extends OptionsBase {
     name = "query_file",
     defaultValue = "",
     category = "query",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "If set, query will read the query from the file named here, rather than on the command "
             + "line. It is an error to specify a file here as well as a command-line query."
   )
   public String queryFile;
-  
+
   /** Ugly workaround since line terminator option default has to be constant expression. */
   public String getLineTerminator() {
     if (lineTerminatorNull) {

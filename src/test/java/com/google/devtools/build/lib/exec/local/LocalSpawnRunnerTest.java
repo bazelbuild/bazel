@@ -231,10 +231,15 @@ public class LocalSpawnRunnerTest {
     assertThat(result.getExecutorHostName()).isEqualTo(NetUtil.findShortHostName());
 
     assertThat(captor.getValue().getArgv())
-        .isEqualTo(ImmutableList.of(
-            // process-wrapper timeout grace_time stdout stderr
-            "/execroot/_bin/process-wrapper", "123.0", "456.0", "/out/stdout", "/out/stderr",
-            "/bin/echo", "Hi!"));
+        .containsExactlyElementsIn(
+            ImmutableList.of(
+                "/execroot/_bin/process-wrapper",
+                "--timeout=123",
+                "--kill_delay=456",
+                "--stdout=/out/stdout",
+                "--stderr=/out/stderr",
+                "/bin/echo",
+                "Hi!"));
     assertThat(captor.getValue().getEnv()).containsExactly("VARIABLE", "value");
     assertThat(captor.getValue().getTimeoutMillis()).isEqualTo(-1);
 
@@ -266,7 +271,7 @@ public class LocalSpawnRunnerTest {
     assertThat(result.getExecutorHostName()).isEqualTo(NetUtil.findShortHostName());
 
     assertThat(captor.getValue().getArgv())
-        .isEqualTo(ImmutableList.of("/bin/echo", "Hi!"));
+        .containsExactlyElementsIn(ImmutableList.of("/bin/echo", "Hi!"));
     assertThat(captor.getValue().getEnv()).containsExactly("VARIABLE", "value");
     // Without the process wrapper, we use the Command API to enforce the timeout.
     assertThat(captor.getValue().getTimeoutMillis()).isEqualTo(timeoutMillis);
@@ -295,10 +300,16 @@ public class LocalSpawnRunnerTest {
     assertThat(result.getExecutorHostName()).isEqualTo(NetUtil.findShortHostName());
 
     assertThat(captor.getValue().getArgv())
-        .isEqualTo(ImmutableList.of(
-            // process-wrapper timeout grace_time stdout stderr
-            "/execroot/_bin/process-wrapper", "0.0", "15.0", "/out/stdout", "/out/stderr",
-            "/bin/echo", "Hi!"));
+        .containsExactlyElementsIn(
+            ImmutableList.of(
+                // process-wrapper timeout grace_time stdout stderr
+                "/execroot/_bin/process-wrapper",
+                "--timeout=0",
+                "--kill_delay=15",
+                "--stdout=/out/stdout",
+                "--stderr=/out/stderr",
+                "/bin/echo",
+                "Hi!"));
     assertThat(captor.getValue().getEnv()).containsExactly("VARIABLE", "value");
 
     assertThat(calledLockOutputFiles).isTrue();
@@ -500,9 +511,15 @@ public class LocalSpawnRunnerTest {
     assertThat(result.status()).isEqualTo(SpawnResult.Status.SUCCESS);
 
     assertThat(captor.getValue().getArgv())
-        .isEqualTo(ImmutableList.of(
-            // process-wrapper timeout grace_time stdout stderr
-            "/execroot/_bin/process-wrapper.exe", "321.0", "654.0", "/out/stdout", "/out/stderr",
-            "/bin/echo", "Hi!"));
+        .containsExactlyElementsIn(
+            ImmutableList.of(
+                // process-wrapper timeout grace_time stdout stderr
+                "/execroot/_bin/process-wrapper.exe",
+                "--timeout=321",
+                "--kill_delay=654",
+                "--stdout=/out/stdout",
+                "--stderr=/out/stderr",
+                "/bin/echo",
+                "Hi!"));
   }
 }

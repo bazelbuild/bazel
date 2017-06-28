@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
@@ -58,7 +59,7 @@ public abstract class AbstractComprehension extends Expression {
      * <p>This avoids having to rely on reflection, or on checking whether {@link #getLValue} is
      * null.
      */
-    public abstract Kind getKind();
+    public Kind getKind();
 
     /**
      * The evaluation of the comprehension is based on recursion. Each clause may
@@ -72,23 +73,26 @@ public abstract class AbstractComprehension extends Expression {
      * @param collector the aggregated results of the comprehension.
      * @param step the index of the next clause to evaluate.
      */
-    abstract void eval(Environment env, OutputCollector collector, int step)
+    void eval(Environment env, OutputCollector collector, int step)
         throws EvalException, InterruptedException;
 
-    abstract void validate(ValidationEnvironment env, Location loc) throws EvalException;
+    void validate(ValidationEnvironment env, Location loc) throws EvalException;
 
     /**
      * The LValue defined in Clause, i.e. the loop variables for ForClause and null for
      * IfClause. This is needed for SyntaxTreeVisitor.
      */
     @Nullable  // for the IfClause
-    public abstract LValue getLValue();
+    public LValue getLValue();
 
     /**
      * The Expression defined in Clause, i.e. the collection for ForClause and the
      * condition for IfClause. This is needed for SyntaxTreeVisitor.
      */
-    public abstract Expression getExpression();
+    public Expression getExpression();
+
+    /** Pretty print to a buffer. */
+    public void prettyPrint(Appendable buffer) throws IOException;
   }
 
   /**
@@ -113,7 +117,7 @@ public abstract class AbstractComprehension extends Expression {
         throws EvalException, InterruptedException {
       Object listValueObject = list.eval(env);
       Location loc = collector.getLocation();
-      Iterable<?> listValue = EvalUtils.toIterable(listValueObject, loc);
+      Iterable<?> listValue = EvalUtils.toIterable(listValueObject, loc, env);
       EvalUtils.lock(listValueObject, loc);
       try {
         for (Object listElement : listValue) {
@@ -142,8 +146,23 @@ public abstract class AbstractComprehension extends Expression {
     }
 
     @Override
+    public void prettyPrint(Appendable buffer) throws IOException {
+      buffer.append("for ");
+      variables.prettyPrint(buffer);
+      buffer.append(" in ");
+      list.prettyPrint(buffer);
+    }
+
+    @Override
     public String toString() {
-      return Printer.format("for %s in %r", variables.toString(), list);
+      StringBuilder builder = new StringBuilder();
+      try {
+        prettyPrint(builder);
+      } catch (IOException e) {
+        // Not possible for StringBuilder.
+        throw new AssertionError(e);
+      }
+      return builder.toString();
     }
   }
 
@@ -186,8 +205,21 @@ public abstract class AbstractComprehension extends Expression {
     }
 
     @Override
+    public void prettyPrint(Appendable buffer) throws IOException {
+      buffer.append("if ");
+      condition.prettyPrint(buffer);
+    }
+
+    @Override
     public String toString() {
-      return String.format("if %s", condition);
+      StringBuilder builder = new StringBuilder();
+      try {
+        prettyPrint(builder);
+      } catch (IOException e) {
+        // Not possible for StringBuilder.
+        throw new AssertionError(e);
+      }
+      return builder.toString();
     }
   }
 
@@ -213,14 +245,14 @@ public abstract class AbstractComprehension extends Expression {
   }
 
   @Override
-  public String toString() {
-    StringBuilder sb = new StringBuilder();
-    sb.append(openingBracket()).append(printExpressions());
+  public void prettyPrint(Appendable buffer) throws IOException {
+    buffer.append(openingBracket());
+    printExpressions(buffer);
     for (Clause clause : clauses) {
-      sb.append(' ').append(clause);
+      buffer.append(' ');
+      clause.prettyPrint(buffer);
     }
-    sb.append(closingBracket());
-    return sb.toString();
+    buffer.append(closingBracket());
   }
 
   /** Base class for comprehension builders. */
@@ -312,10 +344,8 @@ public abstract class AbstractComprehension extends Expression {
     }
   }
 
-  /**
-   * Returns a {@link String} representation of the output expression(s).
-   */
-  abstract String printExpressions();
+  /** Pretty-prints the output expression(s). */
+  protected abstract void printExpressions(Appendable buffer) throws IOException;
 
   abstract OutputCollector createCollector(Environment env);
 

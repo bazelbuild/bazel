@@ -6,22 +6,21 @@ load("//third_party/protobuf/3.2.0:protobuf.bzl", "cc_proto_library", "py_proto_
 load("//third_party/grpc:build_defs.bzl", "java_grpc_library")
 
 FILES = [
-    "build",
-    "deps",
-    "java_compilation",
-    "crosstool_config",
-    "extra_actions_base",
-    "intellij_ide_info",
-    "package_manifest",
-    "test_status",
-    "plmerge",
-    "bundlemerge",
-    "xcodegen",
-    "worker_protocol",
-    "invocation_policy",
     "android_deploy_info",
     "apk_manifest",
+    "build",
+    "bundlemerge",
     "command_server",
+    "crosstool_config",
+    "deps",
+    "extra_actions_base",
+    "intellij_ide_info",
+    "invocation_policy",
+    "java_compilation",
+    "package_manifest",
+    "plmerge",
+    "test_status",
+    "worker_protocol",
 ]
 
 [proto_library(
@@ -38,6 +37,29 @@ FILES = [
     name = s + "_java_proto_srcs",
     deps = [":" + s + "_java_proto"],
 ) for s in FILES]
+
+# This new option tagging method is in flux while being applied to the options
+# in the Bazel code base. The visibility should not be changed to allow external
+# dependencies until the interface has stabilized and can commit to maintaining
+# backwards compatibility for 6 months' time.
+# TODO(bazel-team) Make these visibility:public when the interface is stable.
+proto_library(
+    name = "option_filters_proto",
+    srcs = ["option_filters.proto"],
+    visibility = ["//visibility:private"],
+)
+
+java_proto_library(
+    name = "option_filters_java_proto",
+    visibility = ["//src:__subpackages__"],
+    deps = [":option_filters_proto"],
+)
+
+java_library_srcs(
+    name = "option_filters_java_proto_srcs",
+    visibility = ["//visibility:private"],
+    deps = [":option_filters_java_proto"],
+)
 
 cc_proto_library(
     name = "worker_protocol_cc_proto",
@@ -74,5 +96,6 @@ filegroup(
     name = "dist_jars",
     srcs = [s + "_java_proto_srcs" for s in FILES] + [
         ":command_server_java_grpc_srcs",
+        ":option_filters_java_proto_srcs",
     ],
 )

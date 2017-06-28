@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -45,8 +46,8 @@ public final class ListComprehension extends AbstractComprehension {
   }
 
   @Override
-  String printExpressions() {
-    return outputExpression.toString();
+  protected void printExpressions(Appendable buffer) throws IOException {
+    outputExpression.prettyPrint(buffer);
   }
 
   /** Builder for {@link ListComprehension}. */

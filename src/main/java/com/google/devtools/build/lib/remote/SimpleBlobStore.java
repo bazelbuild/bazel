@@ -33,4 +33,7 @@ public interface SimpleBlobStore {
    * indexed by the same {@param key} will be overwritten.
    */
   void put(String key, byte[] value);
+
+  /** Close resources associated with the blob store. */
+  void close();
 }

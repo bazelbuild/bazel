@@ -1178,7 +1178,7 @@ toolchain {
     config_name: "c++-link-executable"
     action_name: "c++-link-executable"
     tool {
-      tool_path: "DUMMY_TOOL"
+      tool_path: "cc_wrapper.sh"
     }
     implies: "symbol_counts"
     implies: "linkstamps"
@@ -1197,7 +1197,7 @@ toolchain {
     config_name: "c++-link-dynamic-library"
     action_name: "c++-link-dynamic-library"
     tool {
-      tool_path: "wrapped_clang"
+      tool_path: "cc_wrapper.sh"
     }
     implies: "has_configured_linker_path"
     implies: "symbol_counts"
@@ -1269,7 +1269,8 @@ toolchain {
     config_name: "c++-link-interface-dynamic-library"
     action_name: "c++-link-interface-dynamic-library"
     tool {
-      tool_path: "DUMMY_TOOL"
+      tool_path: "wrapped_clang"
+      execution_requirement: "requires-darwin"
     }
     implies: "strip_debug_symbols"
     implies: "apple_env"
@@ -2439,7 +2440,7 @@ toolchain {
     config_name: "c++-link-executable"
     action_name: "c++-link-executable"
     tool {
-      tool_path: "DUMMY_TOOL"
+      tool_path: "cc_wrapper.sh"
     }
     implies: "symbol_counts"
     implies: "linkstamps"
@@ -2458,7 +2459,7 @@ toolchain {
     config_name: "c++-link-dynamic-library"
     action_name: "c++-link-dynamic-library"
     tool {
-      tool_path: "wrapped_clang"
+      tool_path: "cc_wrapper.sh"
     }
     implies: "has_configured_linker_path"
     implies: "symbol_counts"
@@ -2530,7 +2531,8 @@ toolchain {
     config_name: "c++-link-interface-dynamic-library"
     action_name: "c++-link-interface-dynamic-library"
     tool {
-      tool_path: "DUMMY_TOOL"
+      tool_path: "wrapped_clang"
+      execution_requirement: "requires-darwin"
     }
     implies: "strip_debug_symbols"
     implies: "apple_env"
@@ -3702,7 +3704,7 @@ toolchain {
     config_name: "c++-link-executable"
     action_name: "c++-link-executable"
     tool {
-      tool_path: "DUMMY_TOOL"
+      tool_path: "cc_wrapper.sh"
     }
     implies: "symbol_counts"
     implies: "linkstamps"
@@ -3721,7 +3723,7 @@ toolchain {
     config_name: "c++-link-dynamic-library"
     action_name: "c++-link-dynamic-library"
     tool {
-      tool_path: "wrapped_clang"
+      tool_path: "cc_wrapper.sh"
     }
     implies: "has_configured_linker_path"
     implies: "symbol_counts"
@@ -3793,7 +3795,8 @@ toolchain {
     config_name: "c++-link-interface-dynamic-library"
     action_name: "c++-link-interface-dynamic-library"
     tool {
-      tool_path: "DUMMY_TOOL"
+      tool_path: "wrapped_clang"
+      execution_requirement: "requires-darwin"
     }
     implies: "strip_debug_symbols"
     implies: "apple_env"
@@ -5000,7 +5003,7 @@ toolchain {
     config_name: "c++-link-executable"
     action_name: "c++-link-executable"
     tool {
-      tool_path: "DUMMY_TOOL"
+      tool_path: "cc_wrapper.sh"
     }
     implies: "symbol_counts"
     implies: "linkstamps"
@@ -5020,7 +5023,7 @@ toolchain {
     config_name: "c++-link-dynamic-library"
     action_name: "c++-link-dynamic-library"
     tool {
-      tool_path: "wrapped_clang"
+      tool_path: "cc_wrapper.sh"
     }
     implies: "has_configured_linker_path"
     implies: "symbol_counts"
@@ -5093,7 +5096,8 @@ toolchain {
     config_name: "c++-link-interface-dynamic-library"
     action_name: "c++-link-interface-dynamic-library"
     tool {
-      tool_path: "DUMMY_TOOL"
+      tool_path: "wrapped_clang"
+      execution_requirement: "requires-darwin"
     }
     implies: "strip_debug_symbols"
     implies: "apple_env"
@@ -6263,7 +6267,7 @@ toolchain {
     config_name: "c++-link-executable"
     action_name: "c++-link-executable"
     tool {
-      tool_path: "DUMMY_TOOL"
+      tool_path: "cc_wrapper.sh"
     }
     implies: "symbol_counts"
     implies: "linkstamps"
@@ -6282,7 +6286,7 @@ toolchain {
     config_name: "c++-link-dynamic-library"
     action_name: "c++-link-dynamic-library"
     tool {
-      tool_path: "wrapped_clang"
+      tool_path: "cc_wrapper.sh"
     }
     implies: "has_configured_linker_path"
     implies: "symbol_counts"
@@ -6354,7 +6358,8 @@ toolchain {
     config_name: "c++-link-interface-dynamic-library"
     action_name: "c++-link-interface-dynamic-library"
     tool {
-      tool_path: "DUMMY_TOOL"
+      tool_path: "wrapped_clang"
+      execution_requirement: "requires-darwin"
     }
     implies: "strip_debug_symbols"
     implies: "apple_env"
@@ -7509,7 +7514,7 @@ toolchain {
     config_name: "c++-link-executable"
     action_name: "c++-link-executable"
     tool {
-      tool_path: "DUMMY_TOOL"
+      tool_path: "cc_wrapper.sh"
     }
     implies: "symbol_counts"
     implies: "linkstamps"
@@ -7528,7 +7533,7 @@ toolchain {
     config_name: "c++-link-dynamic-library"
     action_name: "c++-link-dynamic-library"
     tool {
-      tool_path: "wrapped_clang"
+      tool_path: "cc_wrapper.sh"
     }
     implies: "has_configured_linker_path"
     implies: "symbol_counts"
@@ -7600,7 +7605,8 @@ toolchain {
     config_name: "c++-link-interface-dynamic-library"
     action_name: "c++-link-interface-dynamic-library"
     tool {
-      tool_path: "DUMMY_TOOL"
+      tool_path: "wrapped_clang"
+      execution_requirement: "requires-darwin"
     }
     implies: "strip_debug_symbols"
     implies: "apple_env"
@@ -8757,7 +8763,7 @@ toolchain {
     config_name: "c++-link-executable"
     action_name: "c++-link-executable"
     tool {
-      tool_path: "DUMMY_TOOL"
+      tool_path: "cc_wrapper.sh"
     }
     implies: "symbol_counts"
     implies: "linkstamps"
@@ -8776,7 +8782,7 @@ toolchain {
     config_name: "c++-link-dynamic-library"
     action_name: "c++-link-dynamic-library"
     tool {
-      tool_path: "wrapped_clang"
+      tool_path: "cc_wrapper.sh"
     }
     implies: "has_configured_linker_path"
     implies: "symbol_counts"
@@ -8848,7 +8854,8 @@ toolchain {
     config_name: "c++-link-interface-dynamic-library"
     action_name: "c++-link-interface-dynamic-library"
     tool {
-      tool_path: "DUMMY_TOOL"
+      tool_path: "wrapped_clang"
+      execution_requirement: "requires-darwin"
     }
     implies: "strip_debug_symbols"
     implies: "apple_env"
@@ -10040,7 +10047,7 @@ toolchain {
     config_name: "c++-link-executable"
     action_name: "c++-link-executable"
     tool {
-      tool_path: "DUMMY_TOOL"
+      tool_path: "cc_wrapper.sh"
     }
     implies: "symbol_counts"
     implies: "linkstamps"
@@ -10060,7 +10067,7 @@ toolchain {
     config_name: "c++-link-dynamic-library"
     action_name: "c++-link-dynamic-library"
     tool {
-      tool_path: "wrapped_clang"
+      tool_path: "cc_wrapper.sh"
     }
     implies: "has_configured_linker_path"
     implies: "symbol_counts"
@@ -10133,7 +10140,8 @@ toolchain {
     config_name: "c++-link-interface-dynamic-library"
     action_name: "c++-link-interface-dynamic-library"
     tool {
-      tool_path: "DUMMY_TOOL"
+      tool_path: "wrapped_clang"
+      execution_requirement: "requires-darwin"
     }
     implies: "strip_debug_symbols"
     implies: "apple_env"
@@ -11288,7 +11296,7 @@ toolchain {
     config_name: "c++-link-executable"
     action_name: "c++-link-executable"
     tool {
-      tool_path: "DUMMY_TOOL"
+      tool_path: "cc_wrapper.sh"
     }
     implies: "symbol_counts"
     implies: "linkstamps"
@@ -11307,7 +11315,7 @@ toolchain {
     config_name: "c++-link-dynamic-library"
     action_name: "c++-link-dynamic-library"
     tool {
-      tool_path: "wrapped_clang"
+      tool_path: "cc_wrapper.sh"
     }
     implies: "has_configured_linker_path"
     implies: "symbol_counts"
@@ -11379,7 +11387,8 @@ toolchain {
     config_name: "c++-link-interface-dynamic-library"
     action_name: "c++-link-interface-dynamic-library"
     tool {
-      tool_path: "DUMMY_TOOL"
+      tool_path: "wrapped_clang"
+      execution_requirement: "requires-darwin"
     }
     implies: "strip_debug_symbols"
     implies: "apple_env"
@@ -12540,7 +12549,7 @@ toolchain {
     config_name: "c++-link-executable"
     action_name: "c++-link-executable"
     tool {
-      tool_path: "DUMMY_TOOL"
+      tool_path: "cc_wrapper.sh"
     }
     implies: "symbol_counts"
     implies: "linkstamps"
@@ -12559,7 +12568,7 @@ toolchain {
     config_name: "c++-link-dynamic-library"
     action_name: "c++-link-dynamic-library"
     tool {
-      tool_path: "wrapped_clang"
+      tool_path: "cc_wrapper.sh"
     }
     implies: "has_configured_linker_path"
     implies: "symbol_counts"
@@ -12631,7 +12640,8 @@ toolchain {
     config_name: "c++-link-interface-dynamic-library"
     action_name: "c++-link-interface-dynamic-library"
     tool {
-      tool_path: "DUMMY_TOOL"
+      tool_path: "wrapped_clang"
+      execution_requirement: "requires-darwin"
     }
     implies: "strip_debug_symbols"
     implies: "apple_env"

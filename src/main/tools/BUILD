@@ -23,6 +23,8 @@ cc_binary(
             "process-wrapper.h",
             "process-wrapper-legacy.cc",
             "process-wrapper-legacy.h",
+            "process-wrapper-options.cc",
+            "process-wrapper-options.h",
         ],
     }),
     linkopts = ["-lm"],

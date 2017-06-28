@@ -18,8 +18,11 @@ import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
+import com.google.devtools.common.options.proto.OptionFilters.OptionMetadataTag;
 import java.util.Map;
 
 /**
@@ -78,6 +81,8 @@ public class BlazeServerStartupOptions extends OptionsBase {
   @Option(
     name = "install_base",
     defaultValue = "", // NOTE: purely decorative!  See class docstring.
+    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+    effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
     optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
     converter = OptionsUtils.PathFragmentConverter.class,
     help = "This launcher option is intended for use only by tests."
@@ -91,6 +96,11 @@ public class BlazeServerStartupOptions extends OptionsBase {
   @Option(
     name = "install_md5",
     defaultValue = "", // NOTE: purely decorative!  See class docstring.
+    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+    effectTags = {
+      OptionEffectTag.LOSES_INCREMENTAL_STATE,
+      OptionEffectTag.BAZEL_MONITORING
+    },
     optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
     help = "This launcher option is intended for use only by tests."
   )
@@ -105,6 +115,8 @@ public class BlazeServerStartupOptions extends OptionsBase {
     name = "output_base",
     defaultValue = "null", // NOTE: purely decorative!  See class docstring.
     category = "server startup",
+    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
     converter = OptionsUtils.PathFragmentConverter.class,
     valueHelp = "<path>",
     help =
@@ -128,6 +140,8 @@ public class BlazeServerStartupOptions extends OptionsBase {
     name = "output_user_root",
     defaultValue = "null", // NOTE: purely decorative!  See class docstring.
     category = "server startup",
+    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
     converter = OptionsUtils.PathFragmentConverter.class,
     valueHelp = "<path>",
     help =
@@ -140,6 +154,8 @@ public class BlazeServerStartupOptions extends OptionsBase {
   @Option(
     name = "workspace_directory",
     defaultValue = "",
+    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+    effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
     optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
     converter = OptionsUtils.PathFragmentConverter.class,
     help =
@@ -152,6 +168,8 @@ public class BlazeServerStartupOptions extends OptionsBase {
     name = "max_idle_secs",
     defaultValue = "" + (3 * 3600), // NOTE: purely decorative!  See class docstring.
     category = "server startup",
+    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+    effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT, OptionEffectTag.LOSES_INCREMENTAL_STATE},
     valueHelp = "<integer>",
     help =
         "The number of seconds the build server will wait idling before shutting down. Zero "
@@ -163,6 +181,11 @@ public class BlazeServerStartupOptions extends OptionsBase {
     name = "batch",
     defaultValue = "false", // NOTE: purely decorative!  See class docstring.
     category = "server startup",
+    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+    effectTags = {
+      OptionEffectTag.LOSES_INCREMENTAL_STATE,
+      OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION
+    },
     help =
         "If set, Blaze will be run as just a client process without a server, instead of in "
             + "the standard client/server mode."
@@ -173,6 +196,8 @@ public class BlazeServerStartupOptions extends OptionsBase {
     name = "deep_execroot",
     defaultValue = "true", // NOTE: purely decorative!  See class docstring.
     category = "server startup",
+    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.EXECUTION},
     help =
         "If set, the execution root will be under $OUTPUT_BASE/execroot instead of "
             + "$OUTPUT_BASE."
@@ -183,6 +208,8 @@ public class BlazeServerStartupOptions extends OptionsBase {
     name = "experimental_oom_more_eagerly",
     defaultValue = "false", // NOTE: purely decorative!  See class docstring.
     category = "server startup",
+    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.EAGERNESS_TO_EXIT},
     help =
         "If set, attempt to detect Java heap OOM conditions and exit before thrashing. Only "
             + "honored when --batch is also passed. In some cases, builds that previously "
@@ -194,6 +221,8 @@ public class BlazeServerStartupOptions extends OptionsBase {
     name = "experimental_oom_more_eagerly_threshold",
     defaultValue = "100", // NOTE: purely decorative!  See class docstring.
     category = "server startup",
+    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.EAGERNESS_TO_EXIT},
     help =
         "If this flag is set, Blaze will OOM if, after two full GC's, more than this "
             + "percentage of the (old gen) heap is still occupied."
@@ -204,6 +233,8 @@ public class BlazeServerStartupOptions extends OptionsBase {
     name = "block_for_lock",
     defaultValue = "true", // NOTE: purely decorative!  See class docstring.
     category = "server startup",
+    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+    effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
     help =
         "When --noblock_for_lock is passed, Blaze does not wait for a running command to "
             + "complete, but instead exits immediately."
@@ -214,6 +245,8 @@ public class BlazeServerStartupOptions extends OptionsBase {
     name = "io_nice_level",
     defaultValue = "-1", // NOTE: purely decorative!
     category = "server startup",
+    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+    effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
     valueHelp = "{-1,0,1,2,3,4,5,6,7}",
     help =
         "Only on Linux; set a level from 0-7 for best-effort IO scheduling using the "
@@ -227,6 +260,8 @@ public class BlazeServerStartupOptions extends OptionsBase {
     name = "batch_cpu_scheduling",
     defaultValue = "false", // NOTE: purely decorative!
     category = "server startup",
+    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+    effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
     help =
         "Only on Linux; use 'batch' CPU scheduling for Blaze. This policy is useful for "
             + "workloads that are non-interactive, but do not want to lower their nice value. "
@@ -238,6 +273,8 @@ public class BlazeServerStartupOptions extends OptionsBase {
     name = "blazerc",
     defaultValue = "null", // NOTE: purely decorative!
     category = "misc",
+    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+    effectTags = {OptionEffectTag.CHANGES_INPUTS},
     valueHelp = "<path>",
     help =
         "The location of the .%{product}rc file containing default values of "
@@ -252,6 +289,8 @@ public class BlazeServerStartupOptions extends OptionsBase {
     name = "master_blazerc",
     defaultValue = "true", // NOTE: purely decorative!
     category = "misc",
+    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+    effectTags = {OptionEffectTag.CHANGES_INPUTS},
     help = "If this option is false, the master %{product}rc next to the binary is not read."
   )
   public boolean masterBlazerc;
@@ -259,7 +298,9 @@ public class BlazeServerStartupOptions extends OptionsBase {
   @Option(
     name = "fatal_event_bus_exceptions",
     defaultValue = "false", // NOTE: purely decorative!
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT, OptionEffectTag.LOSES_INCREMENTAL_STATE},
     help = "Whether or not to exit if an exception is thrown by an internal EventBus handler."
   )
   public boolean fatalEventBusExceptions;
@@ -268,6 +309,8 @@ public class BlazeServerStartupOptions extends OptionsBase {
     name = "option_sources",
     converter = OptionSourcesConverter.class,
     defaultValue = "",
+    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
     optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
     help = ""
   )
@@ -279,6 +322,9 @@ public class BlazeServerStartupOptions extends OptionsBase {
     name = "watchfs",
     defaultValue = "false",
     category = "server startup",
+    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = OptionMetadataTag.DEPRECATED,
     help =
         "If true, %{product} tries to use the operating system's file watch service for local "
             + "changes instead of scanning every file for a change."
@@ -288,6 +334,8 @@ public class BlazeServerStartupOptions extends OptionsBase {
   @Option(
     name = "invocation_policy",
     defaultValue = "",
+    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+    effectTags = {OptionEffectTag.CHANGES_INPUTS},
     optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     help =
         "A base64-encoded-binary-serialized or text-formated "
@@ -299,6 +347,11 @@ public class BlazeServerStartupOptions extends OptionsBase {
   @Option(
     name = "command_port",
     defaultValue = "0",
+    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+    effectTags = {
+      OptionEffectTag.LOSES_INCREMENTAL_STATE,
+      OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION
+    },
     optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     help = "Port to start up the gRPC command server on. If 0, let the kernel choose."
   )
@@ -307,6 +360,12 @@ public class BlazeServerStartupOptions extends OptionsBase {
   @Option(
     name = "product_name",
     defaultValue = "bazel", // NOTE: purely decorative!
+    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+    effectTags = {
+      OptionEffectTag.LOSES_INCREMENTAL_STATE,
+      OptionEffectTag.AFFECTS_OUTPUTS,
+      OptionEffectTag.BAZEL_MONITORING
+    },
     optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
     help =
         "The name of the build system. It is used as part of the name of the generated "
@@ -319,13 +378,18 @@ public class BlazeServerStartupOptions extends OptionsBase {
     name = "exoblaze",
     defaultValue = "false",
     category = "server startup",
+    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
     help = "If true, Blaze runs as Exoblaze"
   )
   public boolean exoblaze;
 
+  // TODO(ulfjack): Make this a command option.
   @Option(
     name = "write_command_log",
     defaultValue = "true",
+    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
     optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     help = "Whether or not to write the command.log file"
   )
@@ -335,6 +399,8 @@ public class BlazeServerStartupOptions extends OptionsBase {
     name = "client_debug",
     defaultValue = "false", // NOTE: purely decorative!
     category = "server startup",
+    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
     help = "If true, log debug information from the client to stderr"
   )
   public boolean clientDebug;
@@ -343,6 +409,8 @@ public class BlazeServerStartupOptions extends OptionsBase {
     name = "connect_timeout_secs",
     defaultValue = "10",
     category = "server startup",
+    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+    effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
     help = "The amount of time the client waits for each attempt to connect to the server"
   )
   public int connectTimeoutSecs;

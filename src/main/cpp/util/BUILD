@@ -146,3 +146,9 @@ filegroup(
     srcs = glob(["**"]),
     visibility = ["//src/main/cpp:__pkg__"],
 )
+
+filegroup(
+    name = "embedded_tools",
+    srcs = glob(["*.cc"]) + glob(["*.h"]) + ["BUILD"],
+    visibility = ["//visibility:public"],
+)

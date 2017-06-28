@@ -203,7 +203,7 @@ if [ $DO_TESTS ]; then
 
   ndk_target="$(get_bind_target //external:android_ndk_for_testing)"
   sdk_target="$(get_bind_target //external:android_sdk_for_testing)"
-  if [ "$ndk_target" = "//:dummy" -o "$sdk_target" = "//:dummy" ]; then
+  if [ "$ndk_target" = "//:dummy" ] || [ "$sdk_target" = "//:dummy" ]; then
     display "$WARNING Android SDK or NDK are not set in the WORKSPACE file. Android tests will not be run."
   fi
 

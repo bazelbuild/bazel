@@ -43,7 +43,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class ProcessWrapperSandboxedStrategy extends SandboxStrategy {
 
   public static boolean isSupported(CommandEnvironment cmdEnv) {
-    return ProcessWrapperRunner.isSupported(cmdEnv);
+    return OS.isPosixCompatible() && ProcessWrapperRunner.isSupported(cmdEnv);
   }
 
   private final SandboxOptions sandboxOptions;

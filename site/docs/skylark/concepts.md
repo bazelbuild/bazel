@@ -234,37 +234,45 @@ comprehension.
 *   Default: `false`
 
 
-## Upcoming changes
+### Depset is no longer iterable
 
-The following items are upcoming changes.
+When the flag is set to true, `depset` objects are not treated as iterable. If
+you need an iterable, call the `.to_list()` method. This affects `for` loops and
+many functions, e.g. `list`, `tuple`, `min`, `max`, `sorted`, `all`, `any`. The
+goal of this change is to avoid accidental iteration on `depset`, which can be
+expensive.
 
-*   Comprehensions currently "leak" the values of their loop variables into the
-    surrounding scope (Python 2 semantics). This will be changed so that
-    comprehension variables are local (Python 3 semantics).
+``` python
+deps = depset()
+[x.path for x in deps]  # deprecated
+[x.path for x in deps.to_list()]  # recommended
 
-*   Previously dictionaries were guaranteed to use sorted order for their keys.
-    Going forward, there is no guarantee on order besides that it is
-    deterministic. As an implementation matter, some kinds of dictionaries may
-    continue to use sorted order while others may use insertion order.
+sorted(deps)  # deprecated
+sorted(deps.to_list())  # recommended
+```
 
-These changes concern the `load()` syntax in particular.
+*   Flag: `--incompatible_depset_is_not_iterable`
+*   Default: `false`
 
-* Currently a `load()` statement can appear anywhere in a file so long as it is
-  at the top-level (not in an indented block of code). In the future they will
-  be required to appear at the beginning of the file, i.e., before any
-  non-`load()` statement.
 
-* In BUILD files, `load()` can overwrite an existing variable with the loaded
-  symbol. This will be disallowed in order to improve consistency with .bzl
-  files. Use load aliases to avoid name clashes.
+### Dictionary literal has no duplicates
 
-* The .bzl file can be specified as either a path or a label. In the future only
-  the label form will be allowed.
+When the flag is set to true, duplicated keys are not allowed in the dictionary
+literal syntax.
 
-* Cross-package visibility restrictions do not yet apply to loaded .bzl files.
-  At some point this will change. In order to load a .bzl from another package
-  it will need to be exported, such as by using an `exports_files` declaration.
-  The exact syntax has not yet been decided.
+``` python
+{"a": 2, "b": 3, "a": 4}  # error
+```
+
+When the flag is false, the last value overrides the previous value (so the
+example above is equivalent to `{"a": 4, "b": 3}`. This behavior has been a
+source of bugs, which is why we are going to forbid it.
+
+If you really want to override a value, use a separate statement:
+`mydict["a"] = 4`.
+
+*   Flag: `--incompatible_dict_literal_has_no_duplicates`
+*   Default: `false`
 
 
 ## Profiling the code

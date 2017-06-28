@@ -14,11 +14,13 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
@@ -47,11 +49,13 @@ public class AppleCrosstoolTransition implements PatchTransition {
       return buildOptions;
     }
 
-    // TODO(b/29355778): Once ios_cpu is retired, introduce another top-level flag (perhaps
-    // --apple_cpu) for toolchain selection in top-level consuming rules.
-    String cpu = Platform.cpuStringForTarget(
-        buildOptions.get(AppleCommandLineOptions.class).applePlatformType,
-        buildOptions.get(AppleCommandLineOptions.class).getSingleArchitecture());
+    AppleCommandLineOptions appleOptions = buildOptions.get(AppleCommandLineOptions.class);
+    BuildConfiguration.Options configOptions = buildOptions.get(BuildConfiguration.Options.class);
+
+    String cpu =
+        Platform.cpuStringForTarget(
+            appleOptions.applePlatformType,
+            determineSingleArchitecture(appleOptions, configOptions));
     setAppleCrosstoolTransitionConfiguration(buildOptions, result, cpu);
     return result;
   }
@@ -91,5 +95,33 @@ public class AppleCrosstoolTransition implements PatchTransition {
   public static boolean appleCrosstoolTransitionIsAppliedForAllObjc(BuildOptions options) {
     return (options.get(AppleCommandLineOptions.class).enableAppleCrosstoolTransition
         || options.get(ObjcCommandLineOptions.class).objcCrosstoolMode != ObjcCrosstoolMode.OFF);
+  }
+
+  /**
+   * Returns the Apple architecture implied by AppleCommandLineOptions and
+   * BuildConfiguration.Options
+   */
+  private String determineSingleArchitecture(
+      AppleCommandLineOptions appleOptions, BuildConfiguration.Options configOptions) {
+    if (!Strings.isNullOrEmpty(appleOptions.appleSplitCpu)) {
+      return appleOptions.appleSplitCpu;
+    }
+    switch (appleOptions.applePlatformType) {
+      case IOS:
+        if (!appleOptions.iosMultiCpus.isEmpty()) {
+          return appleOptions.iosMultiCpus.get(0);
+        } else {
+          return AppleConfiguration.iosCpuFromCpu(configOptions.cpu);
+        }
+      case WATCHOS:
+        return appleOptions.watchosCpus.get(0);
+      case TVOS:
+        return appleOptions.tvosCpus.get(0);
+      case MACOS:
+        return appleOptions.macosCpus.get(0);
+      default:
+        throw new IllegalArgumentException(
+            "Unhandled platform type " + appleOptions.applePlatformType);
+    }
   }
 }

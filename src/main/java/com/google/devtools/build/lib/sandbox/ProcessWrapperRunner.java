@@ -66,10 +66,8 @@ final class ProcessWrapperRunner extends SandboxRunner {
       CommandEnvironment cmdEnv, List<String> spawnArguments, int timeout) {
     List<String> commandLineArgs = new ArrayList<>(5 + spawnArguments.size());
     commandLineArgs.add(getProcessWrapper(cmdEnv).getPathString());
-    commandLineArgs.add(Integer.toString(timeout));
-    commandLineArgs.add("5"); /* kill delay: give some time to print stacktraces and whatnot. */
-    commandLineArgs.add("-"); /* stdout. */
-    commandLineArgs.add("-"); /* stderr. */
+    commandLineArgs.add("--timeout=" + timeout);
+    commandLineArgs.add("--kill_delay=5"); /* give some time to print stacktraces and whatnot. */
     commandLineArgs.addAll(spawnArguments);
     return commandLineArgs;
   }

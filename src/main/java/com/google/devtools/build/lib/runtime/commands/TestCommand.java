@@ -109,7 +109,7 @@ public class TestCommand implements BlazeCommand {
       AggregatingTestListener testListener) {
     BlazeRuntime runtime = env.getRuntime();
     // Run simultaneous build and test.
-    List<String> targets = ProjectFileSupport.getTargets(runtime, options);
+    List<String> targets = ProjectFileSupport.getTargets(runtime.getProjectFileProvider(), options);
     BuildRequest request = BuildRequest.create(
         getClass().getAnnotation(Command.class).name(), options,
         runtime.getStartupOptionsProvider(), targets,

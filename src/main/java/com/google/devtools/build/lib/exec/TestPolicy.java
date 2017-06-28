@@ -88,22 +88,10 @@ public class TestPolicy {
     env.putAll(testAction.getExtraTestEnv());
 
     // Overwrite with the environment common to all actions, see --action_env.
-    env.putAll(testAction.getConfiguration().getLocalShellEnvironment());
-    for (String key : testAction.getConfiguration().getVariableShellEnvironment()) {
-      String value = clientEnv.get(key);
-      if (value != null) {
-        env.put(key, value);
-      }
-    }
+    testAction.getConfiguration().getActionEnvironment().resolve(env, clientEnv);
 
     // Overwrite with the environment common to all tests, see --test_env.
-    env.putAll(testAction.getConfiguration().getTestEnv());
-    for (String key : testAction.getConfiguration().getInheritedTestEnv()) {
-      String value = clientEnv.get(key);
-      if (value != null) {
-        env.put(key, value);
-      }
-    }
+    testAction.getConfiguration().getTestActionEnvironment().resolve(env, clientEnv);
 
     // Setup any test-specific env variables; note that this does not overwrite existing values for
     // TEST_RANDOM_SEED or TEST_SIZE if they're already set.

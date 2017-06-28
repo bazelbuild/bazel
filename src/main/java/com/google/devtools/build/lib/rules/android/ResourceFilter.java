@@ -38,6 +38,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Filters resources based on their qualifiers.
@@ -203,7 +205,7 @@ public class ResourceFilter {
     ImmutableList.Builder<FolderConfiguration> filterBuilder = ImmutableList.builder();
     for (String filter : configFilters) {
       addIfNotNull(
-          getFolderConfiguration(filter),
+          getFolderConfiguration(ruleErrorConsumer, filter),
           filter,
           filterBuilder,
           ruleErrorConsumer,
@@ -212,27 +214,80 @@ public class ResourceFilter {
 
     return filterBuilder.build();
   }
+  private FolderConfiguration getFolderConfiguration(
+      RuleErrorConsumer ruleErrorConsumer, String filter) {
 
-  private static FolderConfiguration getFolderConfiguration(String filter) {
-    /*
-     * Aapt used to expect locale configurations of form 'en_US'. It now also supports the correct
-     * 'en-rUS' format. For backwards comparability, use a regex to convert filters with locales in
-     * the old format to filters with locales of the correct format.
-     *
-     * The correct format for locales is defined at
-     * https://developer.android.com/guide/topics/resources/providing-resources.html#LocaleQualifier
-     *
-     * TODO(bazel-team): Migrate consumers away from the old Aapt locale format, then remove this
-     * replacement.
-     *
-     * The regex is a bit complicated to avoid modifying potential new qualifiers that contain
-     * underscores. Specifically, it searches for the entire beginning of the resource qualifier,
-     * including (optionally) MCC and MNC, and then the locale itself.
-     */
-    String fixedFilter =
-        filter.replaceFirst("^((mcc[0-9]{3}-(mnc[0-9]{3}-)?)?[a-z]{2})_([A-Z]{2})", "$1-r$4");
-    return FolderConfiguration.getConfigForQualifierString(fixedFilter);
+    // Clean up deprecated representations of resource qualifiers that FolderConfiguration can't
+    // handle.
+    for (DeprecatedQualifierHandler handler : deprecatedQualifierHandlers) {
+      filter = handler.replaceIfNeeded(ruleErrorConsumer, filter);
+    }
+
+    return FolderConfiguration.getConfigForQualifierString(filter);
   }
+
+  private static final class DeprecatedQualifierHandler {
+    private final Pattern pattern;
+    private final String replacement;
+    private final String description;
+
+    private boolean warned = false;
+
+    private DeprecatedQualifierHandler(String pattern, String replacement, String description) {
+      this.pattern = Pattern.compile(pattern);
+      this.replacement = replacement;
+      this.description = description;
+    }
+
+    private String replaceIfNeeded(RuleErrorConsumer ruleErrorConsumer, String qualifier) {
+      Matcher matcher = pattern.matcher(qualifier);
+
+      if (!matcher.matches()) {
+        return qualifier;
+      }
+
+      String fixed = matcher.replaceFirst(replacement);
+      // We don't want to spam users. Only warn about this kind of issue once per target.
+      // TODO(asteinb): Will this cause problems when settings are propogated via dynamic
+      // configuration?
+      if (!warned) {
+        ruleErrorConsumer.attributeWarning(
+            RESOURCE_CONFIGURATION_FILTERS_NAME,
+            String.format(
+                "When referring to %s, use of qualifier '%s' is deprecated. Use '%s' instead.",
+                description, matcher.group(), fixed));
+        warned = true;
+      }
+
+      return fixed;
+    }
+  }
+
+  /** List of deprecated qualifiers that should currently by handled with a warning */
+  private final List<DeprecatedQualifierHandler> deprecatedQualifierHandlers = ImmutableList.of(
+      /*
+       * Aapt used to expect locale configurations of form 'en_US'. It now also supports the correct
+       * 'en-rUS' format. For backwards comparability, use a regex to convert filters with locales
+       * in the old format to filters with locales of the correct format.
+       *
+       * The correct format for locales is defined at
+       * https://developer.android.com/guide/topics/resources/providing-resources.html#LocaleQualifier
+       *
+       * TODO(bazel-team): Migrate consumers away from the old Aapt locale format, then remove this
+       * replacement.
+       *
+       * The regex is a bit complicated to avoid modifying potential new qualifiers that contain
+       * underscores. Specifically, it searches for the entire beginning of the resource qualifier,
+       * including (optionally) MCC and MNC, and then the locale itself.
+       */
+      new DeprecatedQualifierHandler(
+          "^((mcc[0-9]{3}-(mnc[0-9]{3}-)?)?[a-z]{2})_([A-Z]{2}).*",
+          "$1-r$4", "locale qualifiers with regions"),
+      new DeprecatedQualifierHandler(
+          "sr[_\\-]r?Latn.*", "b+sr+Latn", "Serbian in Latin characters"),
+      new DeprecatedQualifierHandler(
+          "es[_\\-]419.*", "b+es+419", "Spanish for Latin America and the Caribbean")
+  );
 
   private ImmutableList<Density> getDensities(RuleErrorConsumer ruleErrorConsumer) {
     ImmutableList.Builder<Density> densityBuilder = ImmutableList.builder();

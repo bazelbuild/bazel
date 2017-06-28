@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -69,8 +70,24 @@ public final class FunctionDefStatement extends Statement {
   }
 
   @Override
+  public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
+    printIndent(buffer, indentLevel);
+    buffer.append("def ");
+    ident.prettyPrint(buffer);
+    buffer.append('(');
+    String sep = "";
+    for (Parameter<?, ?> param : parameters) {
+      buffer.append(sep);
+      param.prettyPrint(buffer);
+      sep = ", ";
+    }
+    buffer.append("):\n");
+    printSuite(buffer, statements, indentLevel);
+  }
+
+  @Override
   public String toString() {
-    return "def " + ident + "(" + signature + "):\n";
+    return "def " + ident + "(" + signature + "): ...\n";
   }
 
   public Identifier getIdent() {

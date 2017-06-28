@@ -24,7 +24,6 @@
 
 namespace blaze_util {
 
-using std::pair;
 using std::string;
 using std::vector;
 

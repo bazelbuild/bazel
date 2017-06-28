@@ -22,8 +22,8 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskCallable;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * A somepath(x, y) query expression, which computes the set of nodes
@@ -57,9 +57,9 @@ class SomePathFunction implements QueryFunction {
       final QueryExpression expression,
       List<Argument> args,
       final Callback<T> callback) {
-    final QueryTaskFuture<Set<T>> fromValueFuture =
+    final QueryTaskFuture<ThreadSafeMutableSet<T>> fromValueFuture =
         QueryUtil.evalAll(env, context, args.get(0).getExpression());
-    final QueryTaskFuture<Set<T>> toValueFuture =
+    final QueryTaskFuture<ThreadSafeMutableSet<T>> toValueFuture =
         QueryUtil.evalAll(env, context, args.get(1).getExpression());
 
     return env.whenAllSucceedCall(
@@ -72,8 +72,8 @@ class SomePathFunction implements QueryFunction {
             // to an arbitrary node in the intersection, and return the path.  This
             // avoids computing the full transitive closure of "from" in some cases.
 
-            Set<T> fromValue = fromValueFuture.getIfSuccessful();
-            Set<T> toValue = toValueFuture.getIfSuccessful();
+            ThreadSafeMutableSet<T> fromValue = fromValueFuture.getIfSuccessful();
+            ThreadSafeMutableSet<T> toValue = toValueFuture.getIfSuccessful();
 
             env.buildTransitiveClosure(expression, fromValue, Integer.MAX_VALUE);
 
@@ -81,7 +81,9 @@ class SomePathFunction implements QueryFunction {
             Uniquifier<T> uniquifier = env.createUniquifier();
 
             for (T x : uniquifier.unique(fromValue)) {
-              Set<T> xtc = env.getTransitiveClosure(ImmutableSet.of(x));
+              ThreadSafeMutableSet<T> xSet = env.createThreadSafeMutableSet();
+              xSet.add(x);
+              ThreadSafeMutableSet<T> xtc = env.getTransitiveClosure(xSet);
               SetView<T> result;
               if (xtc.size() > toValue.size()) {
                 result = Sets.intersection(toValue, xtc);

@@ -22,8 +22,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskCallable;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -127,8 +125,8 @@ public abstract class AbstractQueryEnvironment<T> implements QueryEnvironment<T>
     // QueryEnvironment#buildTransitiveClosure. So if the implementation of that method does some
     // heavyweight blocking work, then it's best to do this blocking work in a single batch.
     // Importantly, the callback we pass in needs to maintain order.
-    final QueryUtil.AggregateAllCallback<T> aggregateAllCallback =
-        QueryUtil.newOrderedAggregateAllOutputFormatterCallback();
+    final QueryUtil.AggregateAllCallback<T, ?> aggregateAllCallback =
+        QueryUtil.newOrderedAggregateAllOutputFormatterCallback(this);
     QueryTaskFuture<Void> evalAllFuture = expr.eval(this, context, aggregateAllCallback);
     return whenSucceedsCall(
         evalAllFuture,

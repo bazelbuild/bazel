@@ -16,7 +16,7 @@ projects with Bazel by completing the tutorial
 ## Including multiple files in a target
 
 You can include multiple files in a single target with
-[glob](https://bazel.build/versions/master/docs/be/functions.html#glob).
+[glob](../be/functions.html#glob).
 For example:
 
 ```python

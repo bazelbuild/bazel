@@ -29,6 +29,7 @@ MAX_PATH_ADJUSTED = MAX_PATH - MAX_OPTION_LENGTH - MAX_DRIVE_LENGTH
 ASSEMBLY_AS_C_SOURCE = '/Tc'
 LIB_SUFFIX = '.lib'
 LIB_TOOL = "%{lib_tool}"
+NVCC_TEMP_DIR = "%{nvcc_tmp_dir_name}"
 supported_cuda_compute_capabilities = [ %{cuda_compute_capabilities} ]
 
 class Error(Exception):
@@ -186,6 +187,15 @@ class ArgParser(object):
     nvccopts += m_options
     nvccopts += ['--compiler-options="' + " ".join(host_compiler_options) + '"']
     nvccopts += ['-x', 'cu'] + opt + includes + out + ['-c'] + src_files
+    # If we don't specify --keep-dir, nvcc will generate intermediate files under TEMP
+    # Put them under NVCC_TEMP_DIR instead, then Bazel can ignore files under NVCC_TEMP_DIR during dependency check
+    # http://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html#options-for-guiding-compiler-driver
+    # Different actions are sharing NVCC_TEMP_DIR, so we cannot remove it if the directory already exists.
+    if os.path.isfile(NVCC_TEMP_DIR):
+      os.remove(NVCC_TEMP_DIR)
+    if not os.path.exists(NVCC_TEMP_DIR):
+      os.makedirs(NVCC_TEMP_DIR)
+    nvccopts += ['--keep', '--keep-dir', NVCC_TEMP_DIR]
 
     if self.cuda_log:
       Log("Running: " + " ".join(["nvcc"] + nvccopts))

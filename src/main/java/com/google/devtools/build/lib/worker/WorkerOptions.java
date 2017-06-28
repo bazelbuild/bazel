@@ -15,8 +15,10 @@ package com.google.devtools.build.lib.worker;
 
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.List;
 import java.util.Map.Entry;
 
@@ -30,6 +32,8 @@ public class WorkerOptions extends OptionsBase {
     name = "experimental_persistent_javac",
     defaultValue = "null",
     category = "strategy",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "Enable the experimental persistent Java compiler.",
     expansion = {
       "--strategy=Javac=worker",
@@ -45,6 +49,8 @@ public class WorkerOptions extends OptionsBase {
     name = "worker_max_instances",
     defaultValue = "4",
     category = "strategy",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "How many instances of a worker process (like the persistent Java compiler) may be "
             + "launched if you use the 'worker' strategy."
@@ -55,6 +61,8 @@ public class WorkerOptions extends OptionsBase {
     name = "worker_quit_after_build",
     defaultValue = "false",
     category = "strategy",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "If enabled, all workers quit after a build is done."
   )
   public boolean workerQuitAfterBuild;
@@ -63,19 +71,23 @@ public class WorkerOptions extends OptionsBase {
     name = "worker_verbose",
     defaultValue = "false",
     category = "strategy",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "If enabled, prints verbose messages when workers are started, shutdown, ..."
   )
   public boolean workerVerbose;
 
   @Option(
-      name = "worker_extra_flag",
-      converter = Converters.AssignmentConverter.class,
-      defaultValue = "",
-      category = "strategy",
-      help =
-          "Extra command-flags that will be passed to worker processes in addition to "
-              + "--persistent_worker, keyed by mnemonic (e.g. --worker_extra_flag=Javac=--debug.",
-      allowMultiple = true
+    name = "worker_extra_flag",
+    converter = Converters.AssignmentConverter.class,
+    defaultValue = "",
+    category = "strategy",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help =
+        "Extra command-flags that will be passed to worker processes in addition to "
+            + "--persistent_worker, keyed by mnemonic (e.g. --worker_extra_flag=Javac=--debug.",
+    allowMultiple = true
   )
   public List<Entry<String, String>> workerExtraFlags;
 
@@ -83,6 +95,8 @@ public class WorkerOptions extends OptionsBase {
     name = "worker_sandboxing",
     defaultValue = "false",
     category = "strategy",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "If enabled, workers will be executed in a sandboxed environment."
   )
   public boolean workerSandboxing;

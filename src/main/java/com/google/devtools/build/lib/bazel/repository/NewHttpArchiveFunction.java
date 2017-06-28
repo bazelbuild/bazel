@@ -62,7 +62,6 @@ public class NewHttpArchiveFunction extends HttpArchiveFunction {
         rule, outputDirectory, env.getListener(), clientEnvironment);
 
     // Decompress.
-    Path decompressed;
     WorkspaceAttributeMapper mapper = WorkspaceAttributeMapper.of(rule);
     String prefix = null;
     if (mapper.isAttributeValueExplicitlySpecified("strip_prefix")) {
@@ -72,16 +71,17 @@ public class NewHttpArchiveFunction extends HttpArchiveFunction {
         throw new RepositoryFunctionException(e, Transience.PERSISTENT);
       }
     }
-    decompressed = DecompressorValue.decompress(DecompressorDescriptor.builder()
-        .setTargetKind(rule.getTargetKind())
-        .setTargetName(rule.getName())
-        .setArchivePath(downloadedPath)
-        .setRepositoryPath(outputDirectory)
-        .setPrefix(prefix)
-        .build());
+    DecompressorValue.decompress(
+        DecompressorDescriptor.builder()
+            .setTargetKind(rule.getTargetKind())
+            .setTargetName(rule.getName())
+            .setArchivePath(downloadedPath)
+            .setRepositoryPath(outputDirectory)
+            .setPrefix(prefix)
+            .build());
 
     // Finally, write WORKSPACE and BUILD files.
-    fileHandler.finishFile(outputDirectory);
+    fileHandler.finishFile(rule, outputDirectory, markerData);
 
     return RepositoryDirectoryValue.builder().setPath(outputDirectory);
   }

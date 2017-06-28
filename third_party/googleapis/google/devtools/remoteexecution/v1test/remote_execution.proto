@@ -1,3 +1,17 @@
+// Copyright 2017 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 syntax = "proto3";
 
 package google.devtools.remoteexecution.v1test;
@@ -8,19 +22,22 @@ import "google/protobuf/duration.proto";
 import "google/rpc/status.proto";
 
 option csharp_namespace = "Google.RemoteExecution.V1Test";
-option java_package = "com.google.devtools.remoteexecution.v1test";
+option go_package = "google.golang.org/genproto/googleapis/devtools/remoteexecution/v1test;remoteexecution";
 option java_multiple_files = true;
 option java_outer_classname = "RemoteExecutionProto";
+option java_package = "com.google.devtools.remoteexecution.v1test";
 option objc_class_prefix = "REX";
 
-// The Remote Execution API is used to execute an [Action][] on the remote
-// workers.
+
+// The Remote Execution API is used to execute an
+// [Action][google.devtools.remoteexecution.v1test.Action] on the remote workers.
 service Execution {
   // Execute an action remotely.
   //
   // In order to execute an action, the client must first upload all of the
-  // inputs, as well as the [Command][] to run, into the
-  // [ContentAddressableStorage][]. It then calls `Execute` with an [Action][]
+  // inputs, as well as the [Command][google.devtools.remoteexecution.v1test.Command]
+  // to run, into the [ContentAddressableStorage][google.devtools.remoteexecution.v1test.ContentAddressableStorage].
+  // It then calls `Execute` with an [Action][google.devtools.remoteexecution.v1test.Action]
   // referring to them. The server will run the action and eventually return the
   // result.
   //
@@ -33,9 +50,11 @@ service Execution {
   // verify the requirement, then it will treat the `Action` as distinct from
   // another logically equivalent action if they hash differently.
   //
-  // Returns a [google.longrunning.Operation][] describing the resulting
-  // execution, with eventual `response` [ExecuteResponse][]. The `metadata` on
-  // the operation is of type [ExecuteOperationMetadata][].
+  // Returns a [google.longrunning.Operation][google.longrunning.Operation]
+  // describing the resulting execution, with eventual `response`
+  // [ExecuteResponse][google.devtools.remoteexecution.v1test.ExecuteResponse].
+  // The `metadata` on the operation is of type
+  // [ExecuteOperationMetadata][google.devtools.remoteexecution.v1test.ExecuteOperationMetadata].
   //
   // To query the operation, you can use the
   // [Operations API][google.longrunning.Operations.GetOperation]. If you wish
@@ -69,49 +88,44 @@ service Execution {
   //   worker.
   // * `DEADLINE_EXCEEDED`: The execution timed out.
   rpc Execute(ExecuteRequest) returns (google.longrunning.Operation) {
-    option (google.api.http) = {
-      post: "/v1test/{instance_name=**}/actions:execute",
-      body: "*"
-    };
+    option (google.api.http) = { post: "/v1test/{instance_name=**}/actions:execute" body: "*" };
   }
 }
 
 // The action cache API is used to query whether a given action has already been
 // performed and, if so, retrieve its result. Unlike the
-// [ContentAddressableStorage][], which addresses blobs by their own content,
-// the action cache addresses the [ActionResult][] by a digest of the encoded
-// [Action][] which produced them.
+// [ContentAddressableStorage][google.devtools.remoteexecution.v1test.ContentAddressableStorage],
+// which addresses blobs by their own content, the action cache addresses the
+// [ActionResult][google.devtools.remoteexecution.v1test.ActionResult] by a
+// digest of the encoded [Action][google.devtools.remoteexecution.v1test.Action]
+// which produced them.
 //
-// The lifetime of entries in the action cache is implementation specific, but
-// SHOULD be long enough to allow useful persistence of results. The server
-// SHOULD prefer to evict less recently-used entries over more recently-used
-// ones, since they are less likely to be queried again.
+// The lifetime of entries in the action cache is implementation-specific, but
+// the server SHOULD assume that more recently used entries are more likely to
+// be used again. Additionally, action cache implementations SHOULD ensure that
+// any blobs referenced in the [ContentAddressableStorage][google.devtools.remoteexecution.v1test.ContentAddressableStorage]
+// are still valid when returning a result.
 service ActionCache {
   // Retrieve a cached execution result.
   //
   // Errors:
   // * `NOT_FOUND`: The requested `ActionResult` is not in the cache.
   rpc GetActionResult(GetActionResultRequest) returns (ActionResult) {
-    option (google.api.http) = {
-      get: "/v1test/{instance_name=**}/action-results/{action_digest.hash}/{action_digest.size_bytes}"
-    };
+    option (google.api.http) = { get: "/v1test/{instance_name=**}/action-results/{action_digest.hash}/{action_digest.size_bytes}" };
   }
 
   // Upload a new execution result.
   //
   // This method is intended for servers which implement the distributed cache
-  // independently of the [Execution][] API. As a result, it is OPTIONAL for
-  // servers to implement.
+  // independently of the [Execution][google.devtools.remoteexecution.v1test.Execution]
+  // API. As a result, it is OPTIONAL for servers to implement.
   //
   // Errors:
   // * `NOT_IMPLEMENTED`: This method is not supported by the server.
   // * `RESOURCE_EXHAUSTED`: There is insufficient storage space to add the
   //   entry to the cache.
   rpc UpdateActionResult(UpdateActionResultRequest) returns (ActionResult) {
-    option (google.api.http) = {
-      put: "/v1test/{instance_name=**}/action-results/{action_digest.hash}/{action_digest.size_bytes}";
-      body: "action_result"
-    };
+    option (google.api.http) = { put: "/v1test/{instance_name=**}/action-results/{action_digest.hash}/{action_digest.size_bytes}" body: "action_result" };
   }
 }
 
@@ -120,25 +134,31 @@ service ActionCache {
 // digest of its binary data.
 //
 // Most of the binary data stored in the CAS is opaque to the execution engine,
-// and is only used as a communication medium. In order to build an [Action][],
-// however, the client will need to also upload the [Command][] and input root
-// [Directory][] for the Action. The Command and Directory messages must be
-// marshalled to wire format and then uploaded under the hash as with any other
-// piece of content. In practice, the input root directory is likely to refer
-// to other Directories in its hierarchy, which must also each be uploaded on
-// their own.
+// and is only used as a communication medium. In order to build an
+// [Action][google.devtools.remoteexecution.v1test.Action],
+// however, the client will need to also upload the
+// [Command][google.devtools.remoteexecution.v1test.Command] and input root
+// [Directory][google.devtools.remoteexecution.v1test.Directory] for the Action.
+// The Command and Directory messages must be marshalled to wire format and then
+// uploaded under the hash as with any other piece of content. In practice, the
+// input root directory is likely to refer to other Directories in its
+// hierarchy, which must also each be uploaded on their own.
 //
 // For small file uploads the client should group them together and call
-// [BatchUpdateBlobs][] on chunks of no more than 10 MiB. For large uploads, the
-// client must use the [Write method][google.bytestream.ByteStream.Write] of the
-// ByteStream API. The `resource_name` is
-// `"{instance_name}/uploads/{uuid}/blobs/{hash}/{size}"`, where
-// `instance_name` is as described in the next paragraph, `uuid` is a version 4
-// UUID generated by the client, and `hash` and `size` are the [Digest][] of the
-// blob. The `uuid` is used only to avoid collisions when multiple clients try
-// to upload the same file (or the same client tries to upload the file multiple
-// times at once on different threads), so the client MAY reuse the `uuid` for
-// uploading different blobs.
+// [BatchUpdateBlobs][google.devtools.remoteexecution.v1test.ContentAddressableStorage.BatchUpdateBlobs]
+// on chunks of no more than 10 MiB. For large uploads, the client must use the
+// [Write method][google.bytestream.ByteStream.Write] of the ByteStream API. The
+// `resource_name` is `{instance_name}/uploads/{uuid}/blobs/{hash}/{size}`,
+// where `instance_name` is as described in the next paragraph, `uuid` is a
+// version 4 UUID generated by the client, and `hash` and `size` are the
+// [Digest][google.devtools.remoteexecution.v1test.Digest] of the blob. The
+// `uuid` is used only to avoid collisions when multiple clients try to upload
+// the same file (or the same client tries to upload the file multiple times at
+// once on different threads), so the client MAY reuse the `uuid` for uploading
+// different blobs. The `resource_name` may optionally have a trailing filename
+// (or other metadata) for a client to use if it is storing URLs, as in
+// `{instance}/uploads/{uuid}/blobs/{hash}/{size}/foo/bar/baz.cc`. Anything
+// after the `size` is ignored.
 //
 // A single server MAY support multiple instances of the execution system, each
 // with their own workers, storage, cache, etc. The exact relationship between
@@ -152,22 +172,21 @@ service ActionCache {
 // When attempting an upload, if another client has already completed the upload
 // (which may occur in the middle of a single upload if another client uploads
 // the same blob concurrently), the request will terminate with an error of
-// `ALREADY_EXISTS`. If the client completes the upload but the [Digest][] does
-// not match, an `INVALID_ARGUMENT` will be returned. In either case, the client
-// should not attempt to retry the upload.
+// `ALREADY_EXISTS`. If the client completes the upload but the
+// [Digest][google.devtools.remoteexecution.v1test.Digest] does not match, an
+// `INVALID_ARGUMENT` will be returned. In either case, the client should not
+// attempt to retry the upload.
 //
 // For downloading blobs, the client must use the
 // [Read method][google.bytestream.ByteStream.Read] of the ByteStream API, with
 // a `resource_name` of `"{instance_name}/blobs/{hash}/{size}"`, where
 // `instance_name` is the instance name (see above), and `hash` and `size` are
-// the [Digest][] of the blob.
+// the [Digest][google.devtools.remoteexecution.v1test.Digest] of the blob.
 //
-// The lifetime of entries in the CAS is implementation specific, but SHOULD be
-// long enough to allow useful persistence of objects, or at least to ensure
-// that the normal execution flow can proceed without a blob being removed
-// between upload and the call to [Execute][]. The server SHOULD prefer to evict
-// less recently-used entries over more recently-used ones, since they are less
-// likely to be used again.
+// The lifetime of entries in the CAS is implementation specific, but it SHOULD
+// be long enough to allow for newly-added and recently looked-up entries to be
+// used in subsequent calls (e.g. to
+// [Execute][google.devtools.remoteexecution.v1test.Execution.Execute]).
 service ContentAddressableStorage {
   // Determine if blobs are present in the CAS.
   //
@@ -176,10 +195,7 @@ service ContentAddressableStorage {
   //
   // There are no method-specific errors.
   rpc FindMissingBlobs(FindMissingBlobsRequest) returns (FindMissingBlobsResponse) {
-    option (google.api.http) = {
-      post: "/v1test/{instance_name=**}/blobs:findMissing",
-      body: "*"
-    };
+    option (google.api.http) = { post: "/v1test/{instance_name=**}/blobs:findMissing" body: "*" };
   }
 
   // Upload many blobs at once.
@@ -198,19 +214,19 @@ service ContentAddressableStorage {
   //
   // Individual requests may return the following errors, additionally:
   // * `RESOURCE_EXHAUSTED`: There is insufficient disk quota to store the blob.
-  // * `INVALID_ARGUMENT`: The [Digest][] does not match the provided data.
+  // * `INVALID_ARGUMENT`: The [Digest][google.devtools.remoteexecution.v1test.Digest]
+  // does not match the provided data.
   rpc BatchUpdateBlobs(BatchUpdateBlobsRequest) returns (BatchUpdateBlobsResponse) {
-    option (google.api.http) = {
-      post: "/v1test/{instance_name=**}/blobs:batchUpdate",
-      body: "*"
-    };
+    option (google.api.http) = { post: "/v1test/{instance_name=**}/blobs:batchUpdate" body: "*" };
   }
 
   // Fetch the entire directory tree rooted at a node.
   //
-  // This request must be targeted at a [Directory][] stored in the
-  // [ContentAddressableStorage][] (CAS). The server will enumerate the
-  // `Directory` tree recursively and return every node descended from the root.
+  // This request must be targeted at a
+  // [Directory][google.devtools.remoteexecution.v1test.Directory] stored in the
+  // [ContentAddressableStorage][google.devtools.remoteexecution.v1test.ContentAddressableStorage]
+  // (CAS). The server will enumerate the `Directory` tree recursively and
+  // return every node descended from the root.
   // The exact traversal order is unspecified and, unless retrieving subsequent
   // pages from an earlier request, is not guaranteed to be stable across
   // multiple invocations of `GetTree`.
@@ -220,48 +236,8 @@ service ContentAddressableStorage {
   //
   // * `NOT_FOUND`: The requested tree root is not present in the CAS.
   rpc GetTree(GetTreeRequest) returns (GetTreeResponse) {
-    option (google.api.http) = {
-      get: "/v1test/{instance_name=**}/blobs/{root_digest.hash}/{root_digest.size_bytes}:getTree"
-    };
+    option (google.api.http) = { get: "/v1test/{instance_name=**}/blobs/{root_digest.hash}/{root_digest.size_bytes}:getTree" };
   }
-}
-
-// The precondition violation types that may be reported (in string form) in the
-// `type` field of a [Violation][google.rpc.PreconditionFailure.Violation], in
-// response to a call to [Execute][]. Most errors will specify additional detail
-// about the violation in the `subject` field of the `Violation`.
-enum ExecutePreconditionViolationType {
-  UNKNOWN = 0;
-  // A requested input (or the [Command][] of the [Action][]) was not found in
-  // the [ContentAddressableStorage][].
-  MISSING_INPUT = 1;
-  // One of the input [Directories][Directory] has multiple entries with the
-  // same file name. This will also occur if the worker filesystem considers
-  // two names to be the same, such as two names that vary only by case on a
-  // case-insensitive filesystem, or two names with the same normalized form on
-  // a filesystem that performs Unicode normalization on filenames.
-  DUPLICATE_FILE_NODE = 2;
-  // One of the input [PathNodes][PathNode] has an invalid name, such as a name
-  // containing a `/` character or another character which cannot be used in a
-  // file's name on the filesystem of the worker.
-  INVALID_FILE_NAME = 3;
-  // The files in an input [Directory][] are not correctly sorted by `name`.
-  DIRECTORY_NOT_SORTED = 4;
-  // The [Command][]'s `environment_variables` are not correctly sorted by
-  // `name`.
-  ENVIRONMENT_VARIABLES_NOT_SORTED = 5;
-  // The [Command][]'s `environment_variables` contain a duplicate entry. On
-  // systems where environment variables may consider two different names to be
-  // the same, such as if environment variables are case-insensitive, this may
-  // also occur if two equivalent environment variables appear.
-  DUPLICATE_ENVIRONMENT_VARIABLE = 6;
-  // The input file tree contains a cycle (a [Directory][] which, directly or
-  // indirectly, contains itself).
-  DIRECTORY_CYCLE_DETECTED = 7;
-  // No worker is available which matches the requested [Platform][].
-  NO_WORKER = 8;
-  // A `Digest` in the input tree is invalid.
-  INVALID_DIGEST = 9;
 }
 
 // An `Action` captures all the information about an execution which is required
@@ -274,23 +250,25 @@ enum ExecutePreconditionViolationType {
 // cached in the action cache. Future requests can then use the cached result
 // rather than needing to run afresh.
 //
-// When a server completes execution of an [Action][], it MAY choose to cache
-// the [result][ActionResult] in the [ActionCache][] unless `do_not_cache` is
-// `true`. Clients SHOULD expect the server to do so. By default, future calls
-// to [Execute][] the same `Action` will also serve their results from the
-// cache. Clients must take care to understand the caching behaviour. Ideally,
-// all `Action`s will be reproducible so that serving a result from cache is
-// always desirable and correct.
+// When a server completes execution of an [Action][google.devtools.remoteexecution.v1test.Action],
+// it MAY choose to cache the [result][google.devtools.remoteexecution.v1test.ActionResult]
+// in the [ActionCache][google.devtools.remoteexecution.v1test.ActionCache]
+// unless `do_not_cache` is `true`. Clients SHOULD expect the server to do so.
+// By default, future calls to [Execute][] the same `Action` will also serve
+// their results from the cache. Clients must take care to understand the
+// caching behaviour. Ideally, all `Action`s will be reproducible so that
+// serving a result from cache is always desirable and correct.
 message Action {
-  // The digest of the [Command][] to run, which MUST be present in the
-  // [ContentAddressableStorage][].
+  // The digest of the [Command][google.devtools.remoteexecution.v1test.Command]
+  // to run, which MUST be present in the
+  // [ContentAddressableStorage][google.devtools.remoteexecution.v1test.ContentAddressableStorage].
   Digest command_digest = 1;
 
-  // The digest of the root [Directory][] for the input files. The files in the
-  // directory tree are available in the correct location on the build machine
-  // before the command is executed. The root directory, as well as every
-  // subdirectory and content blob referred to, MUST be in the
-  // [ContentAddressableStorage][].
+  // The digest of the root [Directory][google.devtools.remoteexecution.v1test.Directory]
+  // for the input files. The files in the directory tree are available in the
+  // correct location on the build machine before the command is executed. The
+  // root directory, as well as every subdirectory and content blob referred to,
+  // MUST be in the [ContentAddressableStorage][google.devtools.remoteexecution.v1test.ContentAddressableStorage].
   Digest input_root_digest = 2;
 
   // A list of the output files that the client expects to retrieve from the
@@ -337,26 +315,38 @@ message Action {
   // timeout that is longer than the server's maximum timeout, the server MUST
   // reject the request.
   //
-  // The timeout is a part of the [Action][] message, and therefore two
-  // `Actions` with different timeouts are different, even if they are otherwise
-  // identical. This is because, if they were not, running an `Action` with a
-  // lower timeout than is required might result in a cache hit from an
-  // execution run with a longer timeout, hiding the fact that the timeout is
-  // too short. By encoding it directly in the `Action`, a lower timeout will
-  // result in a cache miss and the execution timeout will fail immediately,
-  // rather than whenever the cache entry gets evicted.
+  // The timeout is a part of the
+  // [Action][google.devtools.remoteexecution.v1test.Action] message, and
+  // therefore two `Actions` with different timeouts are different, even if they
+  // are otherwise identical. This is because, if they were not, running an
+  // `Action` with a lower timeout than is required might result in a cache hit
+  // from an execution run with a longer timeout, hiding the fact that the
+  // timeout is too short. By encoding it directly in the `Action`, a lower
+  // timeout will result in a cache miss and the execution timeout will fail
+  // immediately, rather than whenever the cache entry gets evicted.
   google.protobuf.Duration timeout = 6;
 
   // If true, then the `Action`'s result cannot be cached.
   bool do_not_cache = 7;
 }
 
-// A `Command` is the actual command executed by a worker running an [Action][].
+// A `Command` is the actual command executed by a worker running an
+// [Action][google.devtools.remoteexecution.v1test.Action].
 //
 // Except as otherwise required, the environment (such as which system
 // libraries or binaries are available, and what filesystems are mounted where)
 // is defined by and specific to the implementation of the remote execution API.
 message Command {
+  // An `EnvironmentVariable` is one variable to set in the running program's
+  // environment.
+  message EnvironmentVariable {
+    // The variable name.
+    string name = 1;
+
+    // The variable value.
+    string value = 2;
+  }
+
   // The arguments to the command. The first argument must be the path to the
   // executable, which must be either a relative path, in which case it is
   // evaluated with respect to the input root, or an absolute path. The `PATH`
@@ -365,15 +355,6 @@ message Command {
   //
   // The working directory will always be the input root.
   repeated string arguments = 1;
-
-  // An `EnvironmentVariable` is one variable to set in the running program's
-  // environment.
-  message EnvironmentVariable {
-    // The variable name.
-    string name = 1;
-    // The variable value.
-    string value = 2;
-  }
 
   // The environment variables to set when running the program. The worker may
   // provide its own default environment variables; these defaults can be
@@ -386,15 +367,20 @@ message Command {
 }
 
 // A `Platform` is a set of requirements, such as hardware, operation system, or
-// compiler toolchain, for an [Action][]'s execution environment. A `Platform`
-// is represented as a series of key-value pairs representing the properties
-// that are required of the platform.
+// compiler toolchain, for an
+// [Action][google.devtools.remoteexecution.v1test.Action]'s execution
+// environment. A `Platform` is represented as a series of key-value pairs
+// representing the properties that are required of the platform.
+//
+// This message is currently being redeveloped since it is an overly simplistic
+// model of platforms.
 message Platform {
   // A single property for the environment. The server is responsible for
   // specifying the property `name`s that it accepts. If an unknown `name` is
-  // provided in the requirements for an [Action][], the server SHOULD reject
-  // the execution request. If permitted by the server, the same `name` may
-  // occur multiple times.
+  // provided in the requirements for an
+  // [Action][google.devtools.remoteexecution.v1test.Action], the server SHOULD
+  // reject the execution request. If permitted by the server, the same `name`
+  // may occur multiple times.
   //
   // The server is also responsible for specifying the interpretation of
   // property `value`s. For instance, a property describing how much RAM must be
@@ -409,6 +395,7 @@ message Platform {
   message Property {
     // The property name.
     string name = 1;
+
     // The property value.
     string value = 2;
   }
@@ -421,7 +408,8 @@ message Platform {
 }
 
 // A `Directory` represents a directory node in a file tree, containing zero or
-// more children [FileNodes][FileNode] and [DirectoryNodes][DirectoryNode].
+// more children [FileNodes][google.devtools.remoteexecution.v1test.FileNode] and
+// [DirectoryNodes][google.devtools.remoteexecution.v1test.DirectoryNode].
 // Each `Node` contains its name in the directory, the digest of its content
 // (either a file blob or a `Directory` proto), as well as possibly some
 // metadata about the file or directory.
@@ -482,6 +470,7 @@ message Platform {
 message Directory {
   // The files in the directory.
   repeated FileNode files = 1;
+
   // The subdirectories in the directory.
   repeated DirectoryNode directories = 2;
 }
@@ -494,21 +483,20 @@ message FileNode {
   // The digest of the file's content.
   Digest digest = 2;
 
-  // This field is reserved to ensure binary-compatibility with [OutputFile][].
-  reserved 3;
-
   // True if file is executable, false otherwise.
   bool is_executable = 4;
 }
 
-// A `DirectoryNode` represents a child of a [Directory][] which is itself a
-// `Directory` and its associated metadata.
+// A `DirectoryNode` represents a child of a
+// [Directory][google.devtools.remoteexecution.v1test.Directory] which is itself
+// a `Directory` and its associated metadata.
 message DirectoryNode {
   // The name of the directory.
   string name = 1;
 
-  // The digest of the [Directory][] object represented. See [Digest][] for
-  // information about how to take the digest of a proto message.
+  // The digest of the [Directory][google.devtools.remoteexecution.v1test.Directory]
+  // object represented. See [Digest][google.devtools.remoteexecution.v1test.Digest]
+  // for information about how to take the digest of a proto message.
   Digest digest = 2;
 }
 
@@ -547,14 +535,14 @@ message Digest {
   // The hash. In the case of SHA-256, it will always be a lowercase hex string
   // exactly 64 characters long.
   string hash = 1;
+
   // The size of the blob, in bytes.
   int64 size_bytes = 2;
 }
 
-// An ActionResult represents the result of an [Action][] being run.
+// An ActionResult represents the result of an
+// [Action][google.devtools.remoteexecution.v1test.Action] being run.
 message ActionResult {
-  reserved 1; // Reserved for use as the resource name.
-
   // The output files of the action. For each output file requested, if the
   // corresponding file existed after the action completed, a single entry will
   // be present in the output list.
@@ -568,7 +556,8 @@ message ActionResult {
   // The output directories of the action. For each output directory requested,
   // if the corresponding directory existed after the action completed, a single
   // entry will be present in the output list. The client can retrieve the full
-  // [Directory][] structure using [ContentAddressableStorage.GetTree][].
+  // [Directory][google.devtools.remoteexecution.v1test.Directory] structure
+  // using [ContentAddressableStorage.GetTree][google.devtools.remoteexecution.v1test.ContentAddressableStorage.GetTree].
   //
   // If the action does not produce the requested output, or produces a
   // directory where a regular file is expected or vice versa, then that output
@@ -588,8 +577,9 @@ message ActionResult {
   bytes stdout_raw = 5;
 
   // The digest for a blob containing the standard output of the action, which
-  // can be retrieved from the [ContentAddressableStorage][]. See `stdout_raw`
-  // for when this will be set.
+  // can be retrieved from the
+  // [ContentAddressableStorage][google.devtools.remoteexecution.v1test.ContentAddressableStorage].
+  // See `stdout_raw` for when this will be set.
   Digest stdout_digest = 6;
 
   // The standard error buffer of the action. The server will determine, based
@@ -601,14 +591,16 @@ message ActionResult {
   bytes stderr_raw = 7;
 
   // The digest for a blob containing the standard error of the action, which
-  // can be retrieved from the [ContentAddressableStorage][]. See `stderr_raw`
-  // for when this will be set.
+  // can be retrieved from the
+  // [ContentAddressableStorage][google.devtools.remoteexecution.v1test.ContentAddressableStorage].
+  // See `stderr_raw` for when this will be set.
   Digest stderr_digest = 8;
 }
 
-// An `OutputFile` is similar to a [FileNode][], but it is tailored for output
-// as part of an `ActionResult`. It allows a full file path rather than only a
-// name, and allows the server to include content inline.
+// An `OutputFile` is similar to a
+// [FileNode][google.devtools.remoteexecution.v1test.FileNode], but it is
+// tailored for output as part of an `ActionResult`. It allows a full file path
+// rather than only a name, and allows the server to include content inline.
 //
 // `OutputFile` is binary-compatible with `FileNode`.
 message OutputFile {
@@ -622,8 +614,9 @@ message OutputFile {
   // The raw content of the file.
   //
   // This field may be used by the server to provide the content of a file
-  // inline in an [ActionResult][] and avoid requiring that the client make a
-  // separate call to [ContentAddressableStorage.GetBlob] to retrieve it.
+  // inline in an [ActionResult][google.devtools.remoteexecution.v1test.ActionResult]
+  // and avoid requiring that the client make a separate call to
+  // [ContentAddressableStorage.GetBlob] to retrieve it.
   //
   // The client SHOULD NOT assume that it will get raw content with any request,
   // and always be prepared to retrieve it via `digest`.
@@ -633,9 +626,11 @@ message OutputFile {
   bool is_executable = 4;
 }
 
-// An `OutputDirectory` is similar to a [DirectoryNode][], but it is tailored
-// for output as part of an `ActionResult`. It allows a full file path rather
-// than only a name. It contains the digest of a [Directory][] which will meet
+// An `OutputDirectory` is similar to a
+// [DirectoryNode][google.devtools.remoteexecution.v1test.DirectoryNode],
+// but it is tailored for output as part of an `ActionResult`. It allows a full
+// file path rather than only a name. It contains the digest of a
+// [Directory][google.devtools.remoteexecution.v1test.Directory] which will meet
 // all the usual requirements for a `Directory`.
 //
 // `OutputDirectory` is binary-compatible with `DirectoryNode`.
@@ -644,11 +639,13 @@ message OutputDirectory {
   // filename. The path separator is a forward slash `/`.
   string path = 1;
 
-  // The digest of the [Directory][] proto describing the directory's contents.
+  // The digest of the [Directory][google.devtools.remoteexecution.v1test.Directory]
+  // proto describing the directory's contents.
   Digest digest = 2;
 }
 
-// A request message for [Execution.Execute][].
+// A request message for
+// [Execution.Execute][google.devtools.remoteexecution.v1test.Execution.Execute].
 message ExecuteRequest {
   // The instance of the execution system to operate against. A server may
   // support multiple instances of the execution system (with their own workers,
@@ -662,7 +659,7 @@ message ExecuteRequest {
 
   // If true, the action will be executed anew even if its result was already
   // present in the cache. If false, the result may be served from the
-  // [ActionCache][].
+  // [ActionCache][google.devtools.remoteexecution.v1test.ActionCache].
   bool skip_cache_lookup = 3;
 
   // The total count of input files, not counting directories. This must be
@@ -678,15 +675,11 @@ message ExecuteRequest {
   // servers MUST return an error if the total size of input files described in
   // the `action` is different.
   int64 total_input_file_bytes = 5;
-
-  // If set, the method will not return until the operation is completed, and
-  // the returned [Operation][google.longrunning.Operation] will contain the
-  // resulting [ExecuteResponse][].
-  bool wait_for_completion = 6;
 }
 
-// The response message for [Execution.Execute][], which will be contained in
-// the [response field][google.longrunning.Operation.response] of the
+// The response message for
+// [Execution.Execute][google.devtools.remoteexecution.v1test.Execution.Execute],
+// which will be contained in the [response field][google.longrunning.Operation.response] of the
 // [Operation][google.longrunning.Operation].
 message ExecuteResponse {
   // The result of the action.
@@ -696,7 +689,8 @@ message ExecuteResponse {
   bool cached_result = 2;
 }
 
-// Metadata about an ongoing [execution][Execution.Execute], which will be
+// Metadata about an ongoing [execution][google.devtools.remoteexecution.v1test.Execution.Execute],
+// which will be
 // contained in the [metadata field][google.longrunning.Operation.response] of
 // the [Operation][google.longrunning.Operation].
 message ExecuteOperationMetadata {
@@ -716,9 +710,11 @@ message ExecuteOperationMetadata {
     // Finished execution.
     COMPLETED = 4;
   }
+
   Stage stage = 1;
 
-  // The digest of the [Action][] being executed.
+  // The digest of the [Action][google.devtools.remoteexecution.v1test.Action]
+  // being executed.
   Digest action_digest = 2;
 
   // If set, the client can use this name with
@@ -732,7 +728,8 @@ message ExecuteOperationMetadata {
   string stderr_stream_name = 4;
 }
 
-// A request message for [ActionCache.GetActionResult][].
+// A request message for
+// [ActionCache.GetActionResult][google.devtools.remoteexecution.v1test.ActionCache.GetActionResult].
 message GetActionResultRequest {
   // The instance of the execution system to operate against. A server may
   // support multiple instances of the execution system (with their own workers,
@@ -741,11 +738,13 @@ message GetActionResultRequest {
   // omitted.
   string instance_name = 1;
 
-  // The digest of the [Action][] whose result is requested.
+  // The digest of the [Action][google.devtools.remoteexecution.v1test.Action]
+  // whose result is requested.
   Digest action_digest = 2;
 }
 
-// A request message for [ActionCache.UpdateActionResult][].
+// A request message for
+// [ActionCache.UpdateActionResult][google.devtools.remoteexecution.v1test.ActionCache.UpdateActionResult].
 message UpdateActionResultRequest {
   // The instance of the execution system to operate against. A server may
   // support multiple instances of the execution system (with their own workers,
@@ -754,14 +753,17 @@ message UpdateActionResultRequest {
   // omitted.
   string instance_name = 1;
 
-  // The digest of the [Action][] whose result is being uploaded.
+  // The digest of the [Action][google.devtools.remoteexecution.v1test.Action]
+  // whose result is being uploaded.
   Digest action_digest = 2;
 
-  // The [ActionResult][] to store in the cache.
+  // The [ActionResult][google.devtools.remoteexecution.v1test.ActionResult]
+  // to store in the cache.
   ActionResult action_result = 3;
 }
 
-// A request message for [ContentAddressableStorage.FindMissingBlobs][].
+// A request message for
+// [ContentAddressableStorage.FindMissingBlobs][google.devtools.remoteexecution.v1test.ContentAddressableStorage.FindMissingBlobs].
 message FindMissingBlobsRequest {
   // The instance of the execution system to operate against. A server may
   // support multiple instances of the execution system (with their own workers,
@@ -774,21 +776,25 @@ message FindMissingBlobsRequest {
   repeated Digest blob_digests = 2;
 }
 
-// A response message for [ContentAddressableStorage.FindMissingBlobs][].
+// A response message for
+// [ContentAddressableStorage.FindMissingBlobs][google.devtools.remoteexecution.v1test.ContentAddressableStorage.FindMissingBlobs].
 message FindMissingBlobsResponse {
   // A list of the blobs requested *not* present in the storage.
   repeated Digest missing_blob_digests = 2;
 }
 
-// A single request message for [ContentAddressableStorage.BatchUpdateBlobs][].
+// A single request message for
+// [ContentAddressableStorage.BatchUpdateBlobs][google.devtools.remoteexecution.v1test.ContentAddressableStorage.BatchUpdateBlobs].
 message UpdateBlobRequest {
   // The digest of the blob. This MUST be the digest of `data`.
   Digest content_digest = 1;
+
   // The raw binary data.
   bytes data = 2;
 }
 
-// A request message for [ContentAddressableStorage.BatchUpdateBlobs][].
+// A request message for
+// [ContentAddressableStorage.BatchUpdateBlobs][google.devtools.remoteexecution.v1test.ContentAddressableStorage.BatchUpdateBlobs].
 message BatchUpdateBlobsRequest {
   // The instance of the execution system to operate against. A server may
   // support multiple instances of the execution system (with their own workers,
@@ -801,20 +807,24 @@ message BatchUpdateBlobsRequest {
   repeated UpdateBlobRequest requests = 2;
 }
 
-// A response message for [ContentAddressableStorage.BatchUpdateBlobs][].
+// A response message for
+// [ContentAddressableStorage.BatchUpdateBlobs][google.devtools.remoteexecution.v1test.ContentAddressableStorage.BatchUpdateBlobs].
 message BatchUpdateBlobsResponse {
   // A response corresponding to a single blob that the client tried to upload.
   message Response {
     // The digest to which this response corresponds.
     Digest blob_digest = 1;
+
     // The result of attempting to upload that blob.
     google.rpc.Status status = 2;
   }
+
   // The responses to the requests.
   repeated Response responses = 1;
 }
 
-// A request message for [ContentAddressableStorage.GetTree][].
+// A request message for
+// [ContentAddressableStorage.GetTree][google.devtools.remoteexecution.v1test.ContentAddressableStorage.GetTree].
 message GetTreeRequest {
   // The instance of the execution system to operate against. A server may
   // support multiple instances of the execution system (with their own workers,
@@ -823,8 +833,9 @@ message GetTreeRequest {
   // omitted.
   string instance_name = 1;
 
-  // The digest of the root, which must be an encoded [Directory][] message
-  // stored in the [ContentAddressableStorage][].
+  // The digest of the root, which must be an encoded
+  // [Directory][google.devtools.remoteexecution.v1test.Directory] message
+  // stored in the [ContentAddressableStorage][google.devtools.remoteexecution.v1test.ContentAddressableStorage].
   Digest root_digest = 2;
 
   // A maximum page size to request. If present, the server will request no more
@@ -834,19 +845,20 @@ message GetTreeRequest {
   int32 page_size = 3;
 
   // A page token, which must be a value received in a previous
-  // [GetTreeResponse][]. If present, the server will use it to return the
-  // following page of results.
+  // [GetTreeResponse][google.devtools.remoteexecution.v1test.GetTreeResponse].
+  // If present, the server will use it to return the following page of results.
   string page_token = 4;
 }
 
-// A response message for [ContentAddressableStorage.GetTree][].
+// A response message for
+// [ContentAddressableStorage.GetTree][google.devtools.remoteexecution.v1test.ContentAddressableStorage.GetTree].
 message GetTreeResponse {
   // The directories descended from the requested root.
   repeated Directory directories = 1;
 
   // If present, signifies that there are more results which the client can
   // retrieve by passing this as the page_token in a subsequent
-  // [request][GetTreeRequest]. If empty, signifies that this is the last page
-  // of results.
+  // [request][google.devtools.remoteexecution.v1test.GetTreeRequest].
+  // If empty, signifies that this is the last page of results.
   string next_page_token = 2;
 }

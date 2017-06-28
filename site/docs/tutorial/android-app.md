@@ -115,7 +115,7 @@ explicitly specified with a `path` attribute on `android_ndk_repository`.
 
 ## Create a BUILD file
 
-A [`BUILD` file](/docs/build-ref.html#BUILD_files) is a text file that describes
+A [`BUILD` file](../build-ref.html#BUILD_files) is a text file that describes
 the relationship between a set of build outputs -- for example, compiled
 software libraries or executables -- and their dependencies. These dependencies
 may be source files in your workspace or other build outputs. `BUILD` files are
@@ -123,7 +123,7 @@ written in the Bazel *build language*.
 
 `BUILD` files are part of concept in Bazel known as the *package hierarchy*.
 The package hierarchy is a logical structure that overlays the directory
-structure in your workspace. Each [package](/docs/build-ref.html#packages) is a
+structure in your workspace. Each [package](../build-ref.html#packages) is a
 directory (and its subdirectories) that contains a related set of source files
 and a `BUILD` file. The package also includes any subdirectories, excluding
 those that contain their own `BUILD` file. The *package name* is the name of the
@@ -145,13 +145,13 @@ vi $WORKSPACE/android/BUILD
 ### Add an android_library rule
 
 A `BUILD` file contains several different types of instructions for Bazel. The
-most important type is the [build rule](/docs/build-ref.html#funcs), which tells
+most important type is the [build rule](../build-ref.html#funcs), which tells
 Bazel how to build an intermediate or final software output from a set of source
 files or other dependencies.
 
 Bazel provides two build rules, `android_library` and `android_binary`, that you
 can use to build an Android app. For this tutorial, you'll first use the
-[`android_library`](/docs/be/android.html#android_library) rule to tell
+[`android_library`](../be/android.html#android_library) rule to tell
 Bazel how to build an
 [Android library module](http://developer.android.com/tools/projects/index.html#LibraryProjects)
 from the app source code and resource files. Then you'll use the
@@ -176,7 +176,7 @@ reference the rule using this name as a dependency in the `android_binary` rule.
 
 ### Add an android_binary rule
 
-The [`android_binary`](/docs/be/android.html#android_binary) rule builds
+The [`android_binary`](../be/android.html#android_binary) rule builds
 the Android application package (`.apk` file) for your app.
 
 Add the following to your build file:
@@ -204,10 +204,10 @@ in the `master` branch of the GitHub repo.
 ## Run the build
 
 You use the
-[`bazel`](/docs/bazel-user-manual.html) command-line tool to run builds, execute
+[`bazel`](../bazel-user-manual.html) command-line tool to run builds, execute
 unit tests and perform other operations in Bazel. This tool is located in the
 `output` subdirectory of the location where you installed Bazel. During
-[installation](/docs/install.md), you probably added this location to your
+[installation](../install.md), you probably added this location to your
 path.
 
 Before you build the sample app, make sure that your current working directory
@@ -223,12 +223,12 @@ Now, enter the following to build the sample app:
 bazel build //android:android
 ```
 
-The [`build`](/docs/bazel-user-manual.html#build) subcommand instructs Bazel to
+The [`build`](../bazel-user-manual.html#build) subcommand instructs Bazel to
 build the target that follows. The target is specified as the name of a build
 rule inside a `BUILD` file, with along with the package path relative to
 your workspace directory. Note that you can sometimes omit the package path
 or target name, depending on your current working directory at the command
-line and the name of the target. See [Labels](/docs/build-ref.html#labels) in
+line and the name of the target. See [Labels](../build-ref.html#labels) in
 *Bazel Concepts and Terminology* page for more information about target labels
 and paths.
 
@@ -271,7 +271,7 @@ ls $WORKSPACE/bazel-bin/android
 
 You can now deploy the app to a connected Android device or emulator from the
 command line using the
-[`bazel mobile-install`](http://bazel.build/docs/bazel-user-manual.html#mobile-install)
+[`bazel mobile-install`](../bazel-user-manual.html#mobile-install)
 command. This command uses the Android Debug Bridge (`adb`) to communicate with
 the device. You must set up your device to use `adb` following the instructions
 in
@@ -287,7 +287,7 @@ bazel mobile-install //android:android
 ```
 
 Note that the `mobile-install` subcommand also supports the
-[`--incremental`](http://bazel.build/docs/bazel-user-manual.html#mobile-install)
+[`--incremental`](../bazel-user-manual.html#mobile-install)
 flag that can be used to deploy only those parts of the app that have changed
 since the last deployment.
 

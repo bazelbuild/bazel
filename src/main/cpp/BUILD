@@ -5,10 +5,10 @@ package(
 )
 
 WIN_LINK_OPTS = [
-    "-Wl,advapi32.lib",  # GetUserNameW
-    "-Wl,ole32.lib",  # CoTaskMemFree
-    "-Wl,shell32.lib",  # SHGetKnownFolderPath
-    "-Wl,ws2_32.lib",  # grpc
+    "-DEFAULTLIB:advapi32.lib",  # GetUserNameW
+    "-DEFAULTLIB:ole32.lib",  # CoTaskMemFree
+    "-DEFAULTLIB:shell32.lib",  # SHGetKnownFolderPath
+    "-DEFAULTLIB:ws2_32.lib",  # grpc
 ]
 
 cc_library(
@@ -89,9 +89,11 @@ cc_binary(
         "workspace_layout.cc",
         "workspace_layout.h",
     ],
-    copts = [
-        "-Wno-sign-compare",
-    ],
+    copts = select({
+        "//src:windows": ["/wd4018"],
+        "//src:windows_msvc": ["/wd4018"],
+        "//conditions:default": ["-Wno-sign-compare"],
+    }),
     linkopts = select({
         "//src:darwin": [
         ],

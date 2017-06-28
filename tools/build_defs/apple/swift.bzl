@@ -176,6 +176,10 @@ def _validate_rule_and_deps(ctx):
     if not _is_valid_swift_module_name(dep.label.name):
       fail(name_error_str % dep.label)
 
+  for dep in ctx.attr.non_propagated_Deps:
+    if not _is_valid_swift_module_name(dep.label.name):
+      fail(name_error_str % dep.label)
+
 
 def swiftc_inputs(ctx):
   """Determine the list of inputs required for the compile action.
@@ -186,8 +190,9 @@ def swiftc_inputs(ctx):
   Returns:
     A list of files needed by swiftc.
   """
-  swift_providers = [x.swift for x in ctx.attr.deps if hasattr(x, "swift")]
-  objc_providers = [x.objc for x in ctx.attr.deps if hasattr(x, "objc")]
+  all_deps = ctx.attr.deps + ctx.attr.non_propagated_deps
+  swift_providers = [x.swift for x in all_deps if hasattr(x, "swift")]
+  objc_providers = [x.objc for x in all_deps if hasattr(x, "objc")]
 
   dep_modules = []
   for swift in swift_providers:
@@ -241,8 +246,8 @@ def swiftc_args(ctx):
   dep_modules = []
   swiftc_defines = ctx.attr.defines
 
-  swift_providers = [x.swift for x in ctx.attr.deps if hasattr(x, "swift")]
-  objc_providers = [x.objc for x in ctx.attr.deps if hasattr(x, "objc")]
+  swift_providers = [x.swift for x in all_deps if hasattr(x, "swift")]
+  objc_providers = [x.objc for x in all_deps if hasattr(x, "objc")]
 
   for swift in swift_providers:
     dep_modules += swift.transitive_modules
@@ -340,8 +345,8 @@ def _swift_library_impl(ctx):
   dep_libs = []
   swiftc_defines = ctx.attr.defines
 
-  swift_providers = [x.swift for x in ctx.attr.deps if hasattr(x, "swift")]
-  objc_providers = [x.objc for x in ctx.attr.deps if hasattr(x, "objc")]
+  swift_providers = [x.swift for x in all_deps if hasattr(x, "swift")]
+  objc_providers = [x.objc for x in all_deps if hasattr(x, "objc")]
 
   for swift in swift_providers:
     dep_libs += swift.transitive_libs
@@ -466,6 +471,7 @@ def _swift_library_impl(ctx):
 SWIFT_LIBRARY_ATTRS = {
     "srcs": attr.label_list(allow_files = [".swift"], allow_empty=False),
     "deps": attr.label_list(providers=[["swift"], ["objc"]]),
+    "non_propagated_deps": attr.label_list(providers=[["swift"], ["objc"]]),
     "module_name": attr.string(mandatory=False),
     "defines": attr.string_list(mandatory=False, allow_empty=True),
     "copts": attr.string_list(mandatory=False, allow_empty=True),

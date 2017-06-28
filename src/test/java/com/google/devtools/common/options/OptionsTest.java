@@ -71,14 +71,31 @@ public class OptionsTest {
     /** SpecialExpansion */
     public static class SpecialExpansion implements ExpansionFunction {
       @Override
-      public ImmutableList<String> getExpansion(IsolatedOptionsData optionsData) {
+      public ImmutableList<String> getExpansion(ExpansionContext context) {
         TreeSet<String> flags = new TreeSet<>();
-        for (Map.Entry<String, ?> entry : optionsData.getAllNamedFields()) {
+        for (Map.Entry<String, ?> entry : context.getOptionsData().getAllNamedFields()) {
           if (entry.getKey().startsWith("specialexp_")) {
             flags.add("--" + entry.getKey());
           }
         }
         return ImmutableList.copyOf(flags);
+      }
+    }
+
+    /** VariableExpansion */
+    public static class VariableExpansion implements ExpansionFunction {
+      @Override
+      public ImmutableList<String> getExpansion(ExpansionContext context)
+          throws OptionsParsingException {
+        String value = context.getUnparsedValue();
+        if (value == null) {
+          throw new ExpansionNeedsValueException("Expansion value not set.");
+        }
+        if (value.equals("foo_bar")) {
+          return ImmutableList.<String>of("--specialexp_foo", "--specialexp_bar");
+        }
+
+        throw new OptionsParsingException("Unexpected expansion argument: " + value);
       }
     }
 
@@ -90,6 +107,9 @@ public class OptionsTest {
 
     @Option(name = "specialexp", defaultValue = "null", expansionFunction = SpecialExpansion.class)
     public Void specialExp;
+
+    @Option(name = "dynamicexp", defaultValue = "null", expansionFunction = VariableExpansion.class)
+    public Void variableExpansion;
   }
 
   @Test
@@ -538,5 +558,24 @@ public class OptionsTest {
     Options<HttpOptions> options2 =
         Options.parse(HttpOptions.class, new String[] {"--specialexp_foo", "--specialexp_bar"});
     assertThat(options1.getOptions()).isEqualTo(options2.getOptions());
+  }
+
+  @Test
+  public void dynamicExpansionFunctionWorks() throws Exception {
+    Options<HttpOptions> options1 =
+        Options.parse(HttpOptions.class, new String[] {"--dynamicexp=foo_bar"});
+    Options<HttpOptions> options2 =
+        Options.parse(HttpOptions.class, new String[] {"--specialexp_foo", "--specialexp_bar"});
+    assertThat(options1.getOptions()).isEqualTo(options2.getOptions());
+  }
+
+  @Test
+  public void dynamicExpansionFunctionUnknowValue() throws Exception {
+    try {
+      Options.parse(HttpOptions.class, new String[] {"--dynamicexp=foo"});
+      fail("Unknown expansion argument should cause a failure.");
+    } catch (OptionsParsingException e) {
+      assertThat(e).hasMessage("Unexpected expansion argument: foo");
+    }
   }
 }

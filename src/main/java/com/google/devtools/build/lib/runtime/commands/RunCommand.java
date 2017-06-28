@@ -62,9 +62,11 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -92,6 +94,8 @@ public class RunCommand implements BlazeCommand  {
       name = "script_path",
       category = "run",
       defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       converter = OptionsUtils.PathFragmentConverter.class,
       help =
           "If set, write a shell script to the given file which invokes the "
@@ -255,10 +259,6 @@ public class RunCommand implements BlazeCommand  {
       Preconditions.checkNotNull(
           processWrapperPath, PROCESS_WRAPPER + " not found in embedded tools");
       cmdLine.add(env.getExecRoot().getRelative(processWrapperPath).getPathString());
-      cmdLine.add("-1");
-      cmdLine.add("15");
-      cmdLine.add("-");
-      cmdLine.add("-");
     }
     List<String> prettyCmdLine = new ArrayList<>();
     // Insert the command prefix specified by the "--run_under=<command-prefix>" option

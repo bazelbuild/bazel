@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
+import java.io.IOException;
 import java.util.List;
 
 /**
@@ -42,12 +43,10 @@ public final class DictionaryLiteral extends Expression {
     }
 
     @Override
-    public String toString() {
-      StringBuilder sb = new StringBuilder();
-      sb.append(key);
-      sb.append(": ");
-      sb.append(value);
-      return sb.toString();
+    public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
+      key.prettyPrint(buffer);
+      buffer.append(": ");
+      value.prettyPrint(buffer);
     }
 
     @Override
@@ -72,28 +71,27 @@ public final class DictionaryLiteral extends Expression {
     SkylarkDict<Object, Object> dict = SkylarkDict.<Object, Object>of(env);
     Location loc = getLocation();
     for (DictionaryEntryLiteral entry : entries) {
-      if (entry == null) {
-        throw new EvalException(loc, "null expression in " + this);
-      }
       Object key = entry.key.eval(env);
       Object val = entry.value.eval(env);
+      if (env.getSemantics().incompatibleDictLiteralHasNoDuplicates && dict.containsKey(key)) {
+        throw new EvalException(
+            loc, "Duplicated key " + Printer.repr(key) + " when creating dictionary");
+      }
       dict.put(key, val, loc, env);
     }
     return dict;
   }
 
   @Override
-  public String toString() {
-    StringBuilder sb = new StringBuilder();
-    sb.append("{");
+  public void prettyPrint(Appendable buffer) throws IOException {
+    buffer.append("{");
     String sep = "";
     for (DictionaryEntryLiteral e : entries) {
-      sb.append(sep);
-      sb.append(e);
+      buffer.append(sep);
+      e.prettyPrint(buffer);
       sep = ", ";
     }
-    sb.append("}");
-    return sb.toString();
+    buffer.append("}");
   }
 
   @Override

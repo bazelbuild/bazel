@@ -355,6 +355,16 @@ message OutputGroup {
   repeated BuildEventId.NamedSetOfFilesId file_sets = 3;
 }
 
+// Enumeration type characterizing the size of a test, as specified by the
+// test rule.
+enum TestSize {
+  UNKNOWN = 0;
+  SMALL = 1;
+  MEDIUM = 2;
+  LARGE = 3;
+  ENORMOUS = 4;
+}
+
 // Payload of the event indicating the completion of a target. The target is
 // specified in the id. If the target failed the root causes are provided as
 // children events.
@@ -364,6 +374,9 @@ message TargetComplete {
   // The kind of target (e.g.,  e.g. "cc_library rule", "source file",
   // "generated file") where the completion is reported.
   string target_kind = 5;
+
+  // The size of the test, if the target is a test target. Unset otherwise.
+  TestSize test_size = 6;
 
   // The output files are arranged by their output group. If an output file
   // is part of multiple output groups, it appears once in each output

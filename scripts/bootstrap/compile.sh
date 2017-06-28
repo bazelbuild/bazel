@@ -233,42 +233,6 @@ cp $1 $2/MANIFEST
 EOF
 chmod 0755 ${ARCHIVE_DIR}/_embedded_binaries/build-runfiles${EXE_EXT}
 
-log "Creating process-wrapper..."
-cat <<'EOF' >${ARCHIVE_DIR}/_embedded_binaries/process-wrapper${EXE_EXT}
-#!/bin/sh
-# Dummy process wrapper, does not support timeout
-shift 2
-stdout="$1"
-stderr="$2"
-shift 2
-
-if [ "$stdout" = "-" ]
-then
-  if [ "$stderr" = "-" ]
-  then
-    "$@"
-    exit $?
-  else
-    "$@" 2>"$stderr"
-    exit $?
-  fi
-else
-  if [ "$stderr" = "-" ]
-  then
-    "$@" >"$stdout"
-    exit $?
-  else
-    "$@" 2>"$stderr" >"$stdout"
-    exit $?
-  fi
-fi
-
-
-"$@"
-exit $?
-EOF
-chmod 0755 ${ARCHIVE_DIR}/_embedded_binaries/process-wrapper${EXE_EXT}
-
 function build_jni() {
   local -r output_dir=$1
 

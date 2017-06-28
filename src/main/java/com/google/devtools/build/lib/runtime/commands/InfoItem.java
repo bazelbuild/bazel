@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build.AllowedRuleCla
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.AttributeDefinition;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.BuildLanguage;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.RuleDefinition;
-import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ProcessUtils;
@@ -102,7 +101,7 @@ public abstract class InfoItem {
       Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
       throws AbruptExitException, InterruptedException;
 
-  private static byte[] print(Object value) {
+  protected static byte[] print(Object value) {
     if (value instanceof byte[]) {
       return (byte[]) value;
     }
@@ -181,7 +180,8 @@ public abstract class InfoItem {
     public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
         throws AbruptExitException {
       checkNotNull(env);
-      return print(env.getDirectories().getExecRoot());
+      return print(env.getDirectories().getExecRoot(
+          configurationSupplier.get().getMainRepositoryName()));
     }
   }
 
@@ -265,25 +265,6 @@ public abstract class InfoItem {
       checkNotNull(configurationSupplier);
       return print(
           configurationSupplier.get().getTestLogsDirectory(RepositoryName.MAIN).getPath());
-    }
-  }
-
-  /**
-   * Info item for the command log
-   */
-  public static final class CommandLogInfoItem extends InfoItem {
-    public CommandLogInfoItem() {
-      super("command_log",
-          "Location of the log containg the output from the build commands.",
-          false);
-    }
-
-    @Override
-    public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
-        throws AbruptExitException {
-      checkNotNull(env);
-      return print(BlazeCommandDispatcher.getCommandLogPath(
-          env.getRuntime().getWorkspace().getOutputBase()));
     }
   }
 

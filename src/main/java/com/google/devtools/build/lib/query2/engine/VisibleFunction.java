@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
 import java.util.List;
 import java.util.Set;
 
@@ -59,12 +60,12 @@ public class VisibleFunction implements QueryFunction {
       QueryExpression expression,
       final List<Argument> args,
       final Callback<T> callback) {
-    final QueryTaskFuture<Set<T>> toSetFuture =
+    final QueryTaskFuture<ThreadSafeMutableSet<T>> toSetFuture =
         QueryUtil.evalAll(env, context, args.get(0).getExpression());
-    Function<Set<T>, QueryTaskFuture<Void>> computeVisibleNodesAsyncFunction =
-        new Function<Set<T>, QueryTaskFuture<Void>>() {
+    Function<ThreadSafeMutableSet<T>, QueryTaskFuture<Void>> computeVisibleNodesAsyncFunction =
+        new Function<ThreadSafeMutableSet<T>, QueryTaskFuture<Void>>() {
           @Override
-          public QueryTaskFuture<Void> apply(final Set<T> toSet) {
+          public QueryTaskFuture<Void> apply(final ThreadSafeMutableSet<T> toSet) {
             return env.eval(args.get(1).getExpression(), context, new Callback<T>() {
               @Override
               public void process(Iterable<T> partialResult)

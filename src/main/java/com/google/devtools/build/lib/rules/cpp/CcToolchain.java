@@ -111,11 +111,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       return profileArtifact;
     }
 
-    Artifact rawProfileArtifact =
-        ruleContext.getUniqueDirectoryArtifact(
-            "fdo",
-            getLLVMProfileFileName(fdoProfile, CppFileTypes.LLVM_PROFILE_RAW),
-            ruleContext.getBinOrGenfilesDirectory());
+    Artifact rawProfileArtifact;
 
     if (fdoProfile.getBaseName().endsWith(".zip")) {
       // Get the zipper binary for unzipping the profile.
@@ -124,6 +120,11 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
         ruleContext.ruleError("Cannot find zipper binary to unzip the profile");
         return null;
       }
+
+      String rawProfileFileName = "fdocontrolz_profile.profraw";
+      rawProfileArtifact =
+          ruleContext.getUniqueDirectoryArtifact(
+              "fdo", rawProfileFileName, ruleContext.getBinOrGenfilesDirectory());
 
       // Symlink to the zipped profile file to extract the contents.
       Artifact zipProfileArtifact =
@@ -152,6 +153,11 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
               .setMnemonic("LLVMUnzipProfileAction")
               .build(ruleContext));
     } else {
+      rawProfileArtifact =
+          ruleContext.getUniqueDirectoryArtifact(
+              "fdo",
+              getLLVMProfileFileName(fdoProfile, CppFileTypes.LLVM_PROFILE_RAW),
+              ruleContext.getBinOrGenfilesDirectory());
       ruleContext.registerAction(
           new SymlinkAction(
               ruleContext.getActionOwner(),
@@ -368,7 +374,9 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             getBuildVariables(ruleContext),
             getBuiltinIncludes(ruleContext),
             coverageEnvironment.build(),
-            ruleContext.getPrerequisiteArtifact("$link_dynamic_library_tool", Mode.HOST),
+            cppConfiguration.supportsInterfaceSharedObjects()
+                ? ruleContext.getPrerequisiteArtifact("$link_dynamic_library_tool", Mode.HOST)
+                : null,
             getEnvironment(ruleContext),
             builtInIncludeDirectories,
             sysroot);

@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.analysis.BuildInfoEvent;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
+import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildEventWithConfiguration;
 import com.google.devtools.build.lib.buildeventstream.AbortedEvent;
@@ -43,6 +44,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransportClosedEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
+import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.buildeventstream.ProgressEvent;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
@@ -55,6 +57,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.rules.extra.ExtraAction;
+import com.google.devtools.build.lib.util.Pair;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -85,6 +88,7 @@ public class BuildEventStreamer implements EventHandler {
   private Set<BuildEventId> announcedEvents;
   private final Set<BuildEventId> postedEvents = new HashSet<>();
   private final Set<BuildEventId> configurationsPosted = new HashSet<>();
+  private List<Pair<String, String>> bufferedStdoutStderrPairs = new ArrayList<>();
   private final Multimap<BuildEventId, BuildEvent> pendingEvents = HashMultimap.create();
   private int progressCount;
   private final CountingArtifactGroupNamer artifactGroupNamer = new CountingArtifactGroupNamer();
@@ -167,6 +171,7 @@ public class BuildEventStreamer implements EventHandler {
   private void post(BuildEvent event) {
     BuildEvent linkEvent = null;
     BuildEventId id = event.getEventId();
+    List<BuildEvent> flushEvents = null;
 
     synchronized (this) {
       if (announcedEvents == null) {
@@ -181,6 +186,14 @@ public class BuildEventStreamer implements EventHandler {
         if (reporter != null) {
           reporter.post(new AnnounceBuildEventTransportsEvent(transports));
         }
+
+        if (!bufferedStdoutStderrPairs.isEmpty()) {
+          flushEvents = new ArrayList<>(bufferedStdoutStderrPairs.size());
+          for (Pair<String, String> outErrPair : bufferedStdoutStderrPairs) {
+            flushEvents.add(flushStdoutStderrEvent(outErrPair.getFirst(), outErrPair.getSecond()));
+          }
+        }
+        bufferedStdoutStderrPairs = null;
       } else {
         if (!announcedEvents.contains(id)) {
           String out = null;
@@ -213,6 +226,14 @@ public class BuildEventStreamer implements EventHandler {
         transport.sendBuildEvent(linkEvent, artifactGroupNamer);
       }
       transport.sendBuildEvent(event, artifactGroupNamer);
+    }
+
+    if (flushEvents != null) {
+      for (BuildEvent flushEvent : flushEvents) {
+        for (BuildEventTransport transport : transports) {
+          transport.sendBuildEvent(flushEvent, artifactGroupNamer);
+        }
+      }
     }
   }
 
@@ -312,14 +333,18 @@ public class BuildEventStreamer implements EventHandler {
   }
 
   private void maybeReportConfiguration(BuildConfiguration configuration) {
-    BuildEventId id = configuration.getEventId();
+    BuildEvent event = configuration;
+    if (configuration == null) {
+      event = new NullConfiguration();
+    }
+    BuildEventId id = event.getEventId();
     synchronized (this) {
       if (configurationsPosted.contains(id)) {
         return;
       }
       configurationsPosted.add(id);
     }
-    post(configuration);
+    post(event);
   }
 
   @Override
@@ -371,13 +396,27 @@ public class BuildEventStreamer implements EventHandler {
 
     if (event instanceof BuildCompleteEvent
         || event instanceof TestingCompleteEvent
-        || event instanceof NoBuildEvent) {
+        || event instanceof NoBuildRequestFinishedEvent) {
       buildComplete();
+    }
+
+    if (event instanceof NoBuildEvent) {
+      if (!((NoBuildEvent) event).separateFinishedEvent()) {
+        buildComplete();
+      }
     }
   }
 
+  private synchronized BuildEvent flushStdoutStderrEvent(String out, String err) {
+    BuildEvent updateEvent = ProgressEvent.progressUpdate(progressCount, out, err);
+    progressCount++;
+    announcedEvents.addAll(updateEvent.getChildrenEvents());
+    postedEvents.add(updateEvent.getEventId());
+    return updateEvent;
+  }
+
   void flush() {
-    BuildEvent updateEvent;
+    BuildEvent updateEvent = null;
     synchronized (this) {
       String out = null;
       String err = null;
@@ -385,13 +424,16 @@ public class BuildEventStreamer implements EventHandler {
         out = outErrProvider.getOut();
         err = outErrProvider.getErr();
       }
-      updateEvent = ProgressEvent.progressUpdate(progressCount, out, err);
-      progressCount++;
-      announcedEvents.addAll(updateEvent.getChildrenEvents());
-      postedEvents.add(updateEvent.getEventId());
+      if (announcedEvents != null) {
+        updateEvent = flushStdoutStderrEvent(out, err);
+      } else {
+        bufferedStdoutStderrPairs.add(Pair.of(out, err));
+      }
     }
-    for (BuildEventTransport transport : transports) {
-      transport.sendBuildEvent(updateEvent, artifactGroupNamer);
+    if (updateEvent != null) {
+      for (BuildEventTransport transport : transports) {
+        transport.sendBuildEvent(updateEvent, artifactGroupNamer);
+      }
     }
   }
 

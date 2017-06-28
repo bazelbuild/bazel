@@ -784,7 +784,7 @@ public final class RuleContext extends TargetContext
   /**
    * Returns the specified provider of the prerequisite referenced by the attribute in the
    * argument. Note that you need to specify the correct mode for the attribute, otherwise an
-   * assertion will be raised. If the attribute is empty of it does not support the specified
+   * assertion will be raised. If the attribute is empty or it does not support the specified
    * provider, returns null.
    */
   public <C extends TransitiveInfoProvider> C getPrerequisite(

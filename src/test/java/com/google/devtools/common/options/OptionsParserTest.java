@@ -868,7 +868,7 @@ public class OptionsParserTest {
     /** ExpFunc */
     public static class ExpFunc implements ExpansionFunction {
       @Override
-      public ImmutableList<String> getExpansion(IsolatedOptionsData optionsData) {
+      public ImmutableList<String> getExpansion(ExpansionContext context) {
         return ImmutableList.of("--yyy");
       }
     }
@@ -900,7 +900,7 @@ public class OptionsParserTest {
     /** ExpFunc */
     public static class ExpFunc implements ExpansionFunction {
       @Override
-      public ImmutableList<String> getExpansion(IsolatedOptionsData optionsData) {
+      public ImmutableList<String> getExpansion(ExpansionContext context) {
         return null;
       }
     }
@@ -917,8 +917,35 @@ public class OptionsParserTest {
       newOptionsParser(NullExpansionsOptions.class);
       fail("Should have failed due to null expansion function result");
     } catch (OptionsParser.ConstructionException e) {
-      assertThat(e).hasCauseThat().isInstanceOf(NullPointerException.class);
-      assertThat(e).hasCauseThat().hasMessageThat().contains("null value in entry");
+      assertThat(e).hasCauseThat().isInstanceOf(IllegalStateException.class);
+    }
+  }
+
+  /** NullExpansionOptions */
+  public static class NullExpansionsWithArgumentOptions extends OptionsBase {
+
+    /** ExpFunc */
+    public static class ExpFunc implements ExpansionFunction {
+      @Override
+      public ImmutableList<String> getExpansion(ExpansionContext context) {
+        return null;
+      }
+    }
+
+    @Option(name = "badness", expansionFunction = ExpFunc.class, defaultValue = "null")
+    public String badness;
+  }
+
+  @Test
+  public void nullExpansionsWithArgument() throws Exception {
+    try {
+      // When an expansion takes a value, this exception should still happen at parse time.
+      newOptionsParser(NullExpansionsWithArgumentOptions.class);
+      fail("Should have failed due to null expansion function result");
+    } catch (OptionsParser.ConstructionException e) {
+      assertThat(e)
+          .hasMessageThat()
+          .isEqualTo("Error calling expansion function for option: badness");
     }
   }
 
@@ -937,8 +964,31 @@ public class OptionsParserTest {
     /** ExpFunc */
     public static class ExpFunc implements ExpansionFunction {
       @Override
-      public ImmutableList<String> getExpansion(IsolatedOptionsData optionsData) {
+      public ImmutableList<String> getExpansion(ExpansionContext context) {
         return ImmutableList.of("--expands");
+      }
+    }
+
+    @Option(name = "expands_by_function", defaultValue = "null", expansionFunction = ExpFunc.class)
+    public Void expandsByFunction;
+  }
+
+  /** ExpansionMultipleOptions */
+  public static class ExpansionMultipleOptions extends OptionsBase {
+    @Option(name = "underlying", defaultValue = "null", allowMultiple = true)
+    public List<String> underlying;
+
+    /** ExpFunc */
+    public static class ExpFunc implements ExpansionFunction {
+      @Override
+      public ImmutableList<String> getExpansion(ExpansionContext context)
+          throws OptionsParsingException {
+        String value = context.getUnparsedValue();
+        if (value == null) {
+          throw new ExpansionNeedsValueException("No value given to 'expands_by_function'");
+        }
+
+        return ImmutableList.of("--underlying=pre_" + value, "--underlying=post_" + value);
       }
     }
 
@@ -974,6 +1024,19 @@ public class OptionsParserTest {
         OptionPriority.COMMAND_LINE, null, Arrays.asList("--underlying=direct_value", "--expands"));
     ExpansionOptions options = parser.getOptions(ExpansionOptions.class);
     assertThat(options.underlying).isEqualTo("from_expansion");
+  }
+
+  // Makes sure the expansion options are expanded in the right order if they affect flags that
+  // allow multiples.
+  @Test
+  public void multipleExpansionOptionsWithValue() throws Exception {
+    OptionsParser parser = OptionsParser.newOptionsParser(ExpansionMultipleOptions.class);
+    parser.parse(
+        OptionPriority.COMMAND_LINE,
+        null,
+        Arrays.asList("--expands_by_function=a", "--expands_by_function=b"));
+    ExpansionMultipleOptions options = parser.getOptions(ExpansionMultipleOptions.class);
+    assertThat(options.underlying).containsExactly("pre_a", "post_a", "pre_b", "post_b").inOrder();
   }
 
   @Test

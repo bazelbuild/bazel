@@ -1122,11 +1122,6 @@ public class MethodLibraryTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testDictionaryWithMultipleKeys() throws Exception {
-    new BothModesTest().testStatement("{0: 'a', 1: 'b', 0: 'c'}[0]", "c");
-  }
-
-  @Test
   public void testDictionaryKeyNotFound() throws Exception {
     new BothModesTest()
         .testIfErrorContains("key \"0\" not found in dictionary", "{}['0']")

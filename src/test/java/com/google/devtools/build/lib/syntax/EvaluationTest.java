@@ -58,7 +58,9 @@ public class EvaluationTest extends EvaluationTestCase {
         .testStatement("123 + 456", 579)
         .testStatement("456 - 123", 333)
         .testStatement("8 % 3", 2)
-        .testIfErrorContains("unsupported operand type(s) for %: 'int' and 'string'", "3 % 'foo'");
+        .testIfErrorContains("unsupported operand type(s) for %: 'int' and 'string'", "3 % 'foo'")
+        .testStatement("-5", -5)
+        .testIfErrorContains("unsupported operand type for -: 'string'", "-'foo'");
   }
 
   @Test
@@ -359,6 +361,19 @@ public class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testDictWithDuplicatedKey() throws Exception {
+    new SkylarkTest("--incompatible_dict_literal_has_no_duplicates=true")
+        .testIfErrorContains(
+            "Duplicated key \"str\" when creating dictionary", "{'str': 1, 'x': 2, 'str': 3}");
+  }
+
+  @Test
+  public void testDictAllowDuplicatedKey() throws Exception {
+    new SkylarkTest("--incompatible_dict_literal_has_no_duplicates=false")
+        .testStatement("{'str': 1, 'x': 2, 'str': 3}", ImmutableMap.of("str", 3, "x", 2));
+  }
+
+  @Test
   public void testRecursiveTupleDestructuring() throws Exception {
     newTest()
         .setUp("((a, b), (c, d)) = [(1, 2), (3, 4)]")
@@ -408,14 +423,6 @@ public class EvaluationTest extends EvaluationTestCase {
     newTest().testStatement("{x : x for x in [1, 2, 1]}", ImmutableMap.of(1, 1, 2, 2))
         .testStatement("{y : y for y in ['ab', 'c', 'a' + 'b']}",
             ImmutableMap.of("ab", "ab", "c", "c"));
-  }
-
-  @Test
-  public void testDictComprehensions_ToString() throws Exception {
-    assertThat(parseExpression("{x : x for x in [1, 2]}").toString())
-        .isEqualTo("{x: x for x in [1, 2]}");
-    assertThat(parseExpression("{x + 'a' : x for x in [1, 2]}").toString())
-        .isEqualTo("{x + \"a\": x for x in [1, 2]}");
   }
 
   @Test

@@ -14,9 +14,8 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.devtools.build.lib.util.Preconditions;
-
+import java.io.IOException;
 import java.util.List;
-
 import javax.annotation.Nullable;
 
 /**
@@ -54,15 +53,20 @@ public abstract class Argument extends ASTNode {
     public boolean isPositional() {
       return false;
     }
+
     public boolean isKeyword() {
       return false;
     }
-    @Nullable public String getName() { // only for keyword arguments
+
+    @Nullable
+    public String getName() { // only for keyword arguments
       return null;
     }
+
     public Expression getValue() {
       return value;
     }
+
     @Override
     public void accept(SyntaxTreeVisitor visitor) {
       visitor.visit(this);
@@ -76,12 +80,14 @@ public abstract class Argument extends ASTNode {
       super(value);
     }
 
-    @Override public boolean isPositional() {
+    @Override
+    public boolean isPositional() {
       return true;
     }
+
     @Override
-    public String toString() {
-      return String.valueOf(value);
+    public void prettyPrint(Appendable buffer) throws IOException {
+      value.prettyPrint(buffer);
     }
   }
 
@@ -95,15 +101,21 @@ public abstract class Argument extends ASTNode {
       this.name = name;
     }
 
-    @Override public String getName() {
+    @Override
+    public String getName() {
       return name;
     }
-    @Override public boolean isKeyword() {
+
+    @Override
+    public boolean isKeyword() {
       return true;
     }
+
     @Override
-    public String toString() {
-      return name + " = " + value;
+    public void prettyPrint(Appendable buffer) throws IOException {
+      buffer.append(name);
+      buffer.append(" = ");
+      value.prettyPrint(buffer);
     }
   }
 
@@ -114,12 +126,15 @@ public abstract class Argument extends ASTNode {
       super(value);
     }
 
-    @Override public boolean isStar() {
+    @Override
+    public boolean isStar() {
       return true;
     }
+
     @Override
-    public String toString() {
-      return "*" + value;
+    public void prettyPrint(Appendable buffer) throws IOException {
+      buffer.append('*');
+      value.prettyPrint(buffer);
     }
   }
 
@@ -130,12 +145,15 @@ public abstract class Argument extends ASTNode {
       super(value);
     }
 
-    @Override public boolean isStarStar() {
+    @Override
+    public boolean isStarStar() {
       return true;
     }
+
     @Override
-    public String toString() {
-      return "**" + value;
+    public void prettyPrint(Appendable buffer) throws IOException {
+      buffer.append("**");
+      value.prettyPrint(buffer);
     }
   }
 
@@ -179,4 +197,12 @@ public abstract class Argument extends ASTNode {
       }
     }
   }
+
+  @Override
+  public final void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
+    prettyPrint(buffer);
+  }
+
+  @Override
+  public abstract void prettyPrint(Appendable buffer) throws IOException;
 }

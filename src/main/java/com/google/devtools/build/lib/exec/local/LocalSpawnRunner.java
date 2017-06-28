@@ -81,6 +81,10 @@ public final class LocalSpawnRunner implements SpawnRunner {
   private final String productName;
   private final LocalEnvProvider localEnvProvider;
 
+  private static Path getProcessWrapper(Path execRoot, OS localOs) {
+    return execRoot.getRelative("_bin/process-wrapper" + OsUtils.executableExtension(localOs));
+  }
+
   public LocalSpawnRunner(
       Logger logger,
       AtomicInteger execCount,
@@ -95,10 +99,7 @@ public final class LocalSpawnRunner implements SpawnRunner {
     this.logger = logger;
     this.execRoot = execRoot;
     this.actionInputPrefetcher = Preconditions.checkNotNull(actionInputPrefetcher);
-    this.processWrapper =
-        execRoot
-            .getRelative("_bin/process-wrapper" + OsUtils.executableExtension(localOs))
-            .getPathString();
+    this.processWrapper = getProcessWrapper(execRoot, localOs).getPathString();
     this.localExecutionOptions = Preconditions.checkNotNull(localExecutionOptions);
     this.hostName = NetUtil.findShortHostName();
     this.execCount = execCount;
@@ -122,7 +123,7 @@ public final class LocalSpawnRunner implements SpawnRunner {
         actionInputPrefetcher,
         localExecutionOptions,
         resourceManager,
-        /*useProcessWrapper=*/OS.getCurrent() != OS.WINDOWS,
+        OS.getCurrent() != OS.WINDOWS && getProcessWrapper(execRoot, OS.getCurrent()).exists(),
         OS.getCurrent(),
         productName,
         localEnvProvider);
@@ -256,10 +257,10 @@ public final class LocalSpawnRunner implements SpawnRunner {
       if (useProcessWrapper) {
         List<String> cmdLine = new ArrayList<>();
         cmdLine.add(processWrapper);
-        cmdLine.add(Float.toString(timeoutSeconds));
-        cmdLine.add(Double.toString(localExecutionOptions.localSigkillGraceSeconds));
-        cmdLine.add(getPathOrDevNull(outErr.getOutputPath()));
-        cmdLine.add(getPathOrDevNull(outErr.getErrorPath()));
+        cmdLine.add("--timeout=" + timeoutSeconds);
+        cmdLine.add("--kill_delay=" + localExecutionOptions.localSigkillGraceSeconds);
+        cmdLine.add("--stdout=" + getPathOrDevNull(outErr.getOutputPath()));
+        cmdLine.add("--stderr=" + getPathOrDevNull(outErr.getErrorPath()));
         cmdLine.addAll(spawn.getArguments());
         cmd = new Command(
             cmdLine.toArray(new String[0]),

@@ -48,9 +48,9 @@ public class LValueBoundNamesTest {
     assertBoundNames("[[x], y], [z, w[1]] = 1", "x", "y", "z");
   }
 
-  private static void assertBoundNames(String assignement, String... boundNames) {
+  private static void assertBoundNames(String assignment, String... boundNames) {
     BuildFileAST buildFileAST = BuildFileAST
-        .parseSkylarkString(Environment.FAIL_FAST_HANDLER, assignement);
+        .parseSkylarkString(Environment.FAIL_FAST_HANDLER, assignment);
     LValue lValue = ((AssignmentStatement) buildFileAST.getStatements().get(0)).getLValue();
     Truth.assertThat(lValue.boundNames()).containsExactlyElementsIn(Arrays.asList(boundNames));
   }

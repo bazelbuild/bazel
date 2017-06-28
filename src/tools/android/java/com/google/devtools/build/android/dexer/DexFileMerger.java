@@ -96,7 +96,6 @@ class DexFileMerger {
       defaultValue = "null",
       category = "multidex",
       converter = ExistingPathConverter.class,
-      implicitRequirements = "--multidex=minimal",
       help = "List of classes to be placed into \"main\" classes.dex file."
     )
     public Path mainDexListFile;
@@ -105,7 +104,6 @@ class DexFileMerger {
       name = "minimal-main-dex",
       defaultValue = "false",
       category = "multidex",
-      implicitRequirements = "--multidex=minimal",
       help =
           "If true, *only* classes listed in --main_dex_list file are placed into \"main\" "
               + "classes.dex file."
@@ -156,6 +154,16 @@ class DexFileMerger {
 
   @VisibleForTesting
   static void buildMergedDexFiles(Options options) throws IOException {
+    if (!options.multidexMode.isMultidexAllowed()) {
+      checkArgument(
+          options.mainDexListFile == null,
+          "--main-dex-list is only supported with multidex enabled, but mode is: %s",
+          options.multidexMode);
+      checkArgument(
+          !options.minimalMainDex,
+          "--minimal-main-dex is only supported with multidex enabled, but mode is: %s",
+          options.multidexMode);
+    }
     ImmutableSet<String> classesInMainDex = options.mainDexListFile != null
         ? ImmutableSet.copyOf(Files.readAllLines(options.mainDexListFile, UTF_8))
         : null;
@@ -172,10 +180,6 @@ class DexFileMerger {
       if (classesInMainDex == null) {
         processDexFiles(zip, out, Predicates.<ZipEntry>alwaysTrue());
       } else {
-        // Options parser should be making sure of this but let's be extra-safe as other modes
-        // might result in classes from main dex list ending up in files other than classes.dex
-        checkArgument(options.multidexMode == MultidexStrategy.MINIMAL, "Only minimal multidex "
-            + "mode is supported with --main_dex_list, but mode is: %s", options.multidexMode);
         // To honor --main_dex_list make two passes:
         // 1. process only the classes listed in the given file
         // 2. process the remaining files

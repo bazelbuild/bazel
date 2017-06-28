@@ -114,6 +114,10 @@ public final class BuildEventId implements Serializable {
         BuildEventStreamProtos.BuildEventId.newBuilder().setConfiguration(configurationId).build());
   }
 
+  public static BuildEventId nullConfigurationId() {
+    return configurationId("none");
+  }
+
   private static BuildEventId targetPatternExpanded(List<String> targetPattern, boolean skipped) {
     BuildEventStreamProtos.BuildEventId.PatternExpandedId patternId =
         BuildEventStreamProtos.BuildEventId.PatternExpandedId.newBuilder()

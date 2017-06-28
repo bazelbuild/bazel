@@ -27,7 +27,7 @@ public interface ExpansionFunction {
    *
    * @param optionsData the parser's indexed information about its own options, before expansion
    *     information is computed
-   * @return An expansion to use for all occurrences of this option in this parser
+   * @return An expansion to use on an empty list
    */
-  ImmutableList<String> getExpansion(IsolatedOptionsData optionsData);
+  ImmutableList<String> getExpansion(ExpansionContext context) throws OptionsParsingException;
 }

@@ -122,13 +122,12 @@ public class GlobCacheTest {
   }
 
   @Test
-  public void testSafeGlobInvalidPatterns() throws Exception {
-    for (String pattern : new String[] {"Foo?.txt", "List{Test}.py"}) {
-      try {
-        cache.safeGlobUnsorted(pattern, false);
-        fail("Expected pattern " + pattern + " to fail");
-      } catch (BadGlobException expected) {
-      }
+  public void testSafeGlobInvalidPattern() throws Exception {
+    String invalidPattern = "Foo?.txt";
+    try {
+      cache.safeGlobUnsorted(invalidPattern, false);
+      fail("Expected pattern " + invalidPattern + " to fail");
+    } catch (BadGlobException expected) {
     }
   }
 

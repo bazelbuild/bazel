@@ -36,9 +36,9 @@ public abstract class ProtoJavaApiInfoProvider implements TransitiveInfoProvider
       JavaCompilationArgs transitiveJavaCompilationArgss1,
       JavaCompilationArgs transitiveJavaCompilationArgssMutable,
       JavaCompilationArgs transitiveJavaCompilationArgssImmutable,
-      JavaCompilationArgs javaCompilationArgs1,
-      JavaCompilationArgs javaCompilationArgsMutable,
-      JavaCompilationArgs javaCompilationArgsImmutable,
+      JavaCompilationArtifacts javaCompilationArgs1,
+      JavaCompilationArtifacts javaCompilationArgsMutable,
+      JavaCompilationArtifacts javaCompilationArgsImmutable,
       Artifact sourceJar1,
       Artifact sourceJarMutable,
       Artifact sourceJarImmutable,
@@ -111,22 +111,20 @@ public abstract class ProtoJavaApiInfoProvider implements TransitiveInfoProvider
    */
   public abstract JavaCompilationArgs getTransitiveJavaCompilationArgsImmutable();
 
-  /**
-   * Returns the artifacts for java compilation (API version 1) for only this target.
-   */
-  public abstract JavaCompilationArgs getJavaCompilationArgs1();
+  /** Returns the artifacts for java compilation (API version 1) for only this target. */
+  public abstract JavaCompilationArtifacts getJavaCompilationArtifacts1();
 
   /**
-   * Returns the artifacts for java compilation (API version 2, code for mutable API)
-   * for only this target.
+   * Returns the artifacts for java compilation (API version 2, code for mutable API) for only this
+   * target.
    */
-  public abstract JavaCompilationArgs getJavaCompilationArgsMutable();
+  public abstract JavaCompilationArtifacts getJavaCompilationArtifactsMutable();
 
   /**
-   * Returns the artifacts for java compilation (API version 2, code for immutable API)
-   * for only this target.
+   * Returns the artifacts for java compilation (API version 2, code for immutable API) for only
+   * this target.
    */
-  public abstract JavaCompilationArgs getJavaCompilationArgsImmutable();
+  public abstract JavaCompilationArtifacts getJavaCompilationArtifactsImmutable();
 
   // The following 3 fields are the -src.jar artifact created by proto_library. If a certain
   // proto_library does not produce some artifact, it'll be null. This can happen for example when

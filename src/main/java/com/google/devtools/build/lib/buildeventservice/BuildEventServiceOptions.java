@@ -16,8 +16,10 @@ package com.google.devtools.build.lib.buildeventservice;
 
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.joda.time.Duration;
@@ -26,44 +28,57 @@ import org.joda.time.Duration;
 public class BuildEventServiceOptions extends OptionsBase {
 
   @Option(
-      name = "bes_backend",
-      defaultValue = "",
-      help = "Specifies the build event service (BES) backend endpoint as HOST or HOST:PORT. "
-          + "Disabled by default."
+    name = "bes_backend",
+    defaultValue = "",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help =
+        "Specifies the build event service (BES) backend endpoint as HOST or HOST:PORT. "
+            + "Disabled by default."
   )
   public String besBackend;
 
   @Option(
-      name = "bes_timeout",
-      defaultValue = "0s",
-      converter = DurationConverter.class,
-      help = "Specifies how long bazel should wait for the BES/BEP upload to complete after the "
-          + "build and tests have finished. A valid timeout is a natural number followed by a "
-          + "unit: Days (d), hours (h), minutes (m), seconds (s), and milliseconds (ms). The "
-          + "default value is '0' which means that there is no timeout and that the upload will "
-          + "continue in the background after a build has finished."
+    name = "bes_timeout",
+    defaultValue = "0s",
+    converter = DurationConverter.class,
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help =
+        "Specifies how long bazel should wait for the BES/BEP upload to complete after the "
+            + "build and tests have finished. A valid timeout is a natural number followed by a "
+            + "unit: Days (d), hours (h), minutes (m), seconds (s), and milliseconds (ms). The "
+            + "default value is '0' which means that there is no timeout and that the upload will "
+            + "continue in the background after a build has finished."
   )
   public Duration besTimeout;
 
   @Option(
-      name = "bes_best_effort",
-      defaultValue = "true",
-      help = "Specifies whether a failure to upload the BES protocol should also result in a build "
-          + "failure. If 'true', bazel exits with ExitCode.PUBLISH_ERROR. (defaults to 'true')."
+    name = "bes_best_effort",
+    defaultValue = "true",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help =
+        "Specifies whether a failure to upload the BES protocol should also result in a build "
+            + "failure. If 'true', bazel exits with ExitCode.PUBLISH_ERROR. (defaults to 'true')."
   )
   public boolean besBestEffort;
 
   @Option(
-      name = "bes_lifecycle_events",
-      defaultValue = "true",
-      help = "Specifies whether to publish BES lifecycle events. (defaults to 'true')."
+    name = "bes_lifecycle_events",
+    defaultValue = "true",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "Specifies whether to publish BES lifecycle events. (defaults to 'true')."
   )
   public boolean besLifecycleEvents;
 
   @Option(
-      name = "project_id",
-      defaultValue =  "null",
-      help = "Specifies the BES project identifier. Defaults to null."
+    name = "project_id",
+    defaultValue = "null",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "Specifies the BES project identifier. Defaults to null."
   )
   public String projectId;
 

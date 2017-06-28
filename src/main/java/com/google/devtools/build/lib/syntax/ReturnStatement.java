@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.devtools.build.lib.events.Location;
+import java.io.IOException;
 
 /**
  * A wrapper Statement class for return expressions.
@@ -61,8 +62,16 @@ public final class ReturnStatement extends Statement {
   }
 
   @Override
-  public String toString() {
-    return "return " + returnExpression;
+  public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
+    printIndent(buffer, indentLevel);
+    buffer.append("return");
+    // "return" with no arg is represented internally as returning the None identifier.
+    if (!(returnExpression instanceof Identifier
+          && ((Identifier) returnExpression).getName().equals("None"))) {
+      buffer.append(' ');
+      returnExpression.prettyPrint(buffer, indentLevel);
+    }
+    buffer.append('\n');
   }
 
   @Override

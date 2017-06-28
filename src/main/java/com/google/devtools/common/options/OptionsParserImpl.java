@@ -41,6 +41,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * The implementation of the options parser. This is intentionally package
@@ -350,41 +351,66 @@ class OptionsParserImpl {
         optionsData.getDefaultValue(field),
         optionsData.getConverter(field),
         optionsData.getAllowMultiple(field),
-        getExpansionDescriptions(
-            optionsData.getEvaluatedExpansion(field),
-            /* expandedFrom */ name,
-            /* implicitDependant */ null),
-        getExpansionDescriptions(
-            ImmutableList.copyOf(optionAnnotation.implicitRequirements()),
-            /* expandedFrom */ null,
-            /* implicitDependant */ name));
+        optionsData.getExpansionDataForField(field),
+        getImplicitDependantDescriptions(
+            ImmutableList.copyOf(optionAnnotation.implicitRequirements()), name));
   }
 
   /**
-   * @return A list of the descriptions corresponding to the list of unparsed flags passed in. These
-   *     descriptions are are divorced from the command line - there is no correct priority or
+   * @return A list of the descriptions corresponding to the implicit dependant flags passed in.
+   *     These descriptions are are divorced from the command line - there is no correct priority or
    *     source for these, as they are not actually set values. The value itself is also a string,
    *     no conversion has taken place.
    */
-  private ImmutableList<OptionValueDescription> getExpansionDescriptions(
-      ImmutableList<String> optionStrings, String expandedFrom, String implicitDependant)
-      throws OptionsParsingException {
+  private ImmutableList<OptionValueDescription> getImplicitDependantDescriptions(
+      ImmutableList<String> options, String implicitDependant) throws OptionsParsingException {
     ImmutableList.Builder<OptionValueDescription> builder = ImmutableList.builder();
-    ImmutableList<String> options = ImmutableList.copyOf(optionStrings);
     Iterator<String> optionsIterator = options.iterator();
 
     while (optionsIterator.hasNext()) {
       String unparsedFlagExpression = optionsIterator.next();
       ParseOptionResult parseResult = parseOption(unparsedFlagExpression, optionsIterator);
-      builder.add(new OptionValueDescription(
-          parseResult.option.name(),
-          parseResult.value,
-          /* value */ null,
-          /* priority */ null,
-          /* source */null,
-          implicitDependant,
-          expandedFrom,
-          optionsData.getAllowMultiple(parseResult.field)));
+      builder.add(
+          new OptionValueDescription(
+              parseResult.option.name(),
+              parseResult.value,
+              /* value */ null,
+              /* priority */ null,
+              /* source */ null,
+              implicitDependant,
+              /* expendedFrom */ null,
+              optionsData.getAllowMultiple(parseResult.field)));
+    }
+    return builder.build();
+  }
+
+  /**
+   * @return A list of the descriptions corresponding to options expanded from the flag for the
+   *     given value. These descriptions are are divorced from the command line - there is no
+   *     correct priority or source for these, as they are not actually set values. The value itself
+   *     is also a string, no conversion has taken place.
+   */
+  ImmutableList<OptionValueDescription> getExpansionOptionValueDescriptions(
+      String flagName, @Nullable String flagValue) throws OptionsParsingException {
+    ImmutableList.Builder<OptionValueDescription> builder = ImmutableList.builder();
+    Field field = optionsData.getFieldFromName(flagName);
+
+    ImmutableList<String> options = optionsData.getEvaluatedExpansion(field, flagValue);
+    Iterator<String> optionsIterator = options.iterator();
+
+    while (optionsIterator.hasNext()) {
+      String unparsedFlagExpression = optionsIterator.next();
+      ParseOptionResult parseResult = parseOption(unparsedFlagExpression, optionsIterator);
+      builder.add(
+          new OptionValueDescription(
+              parseResult.option.name(),
+              parseResult.value,
+              /* value */ null,
+              /* priority */ null,
+              /* source */ null,
+              /* implicitDependant */ null,
+              flagName,
+              optionsData.getAllowMultiple(parseResult.field)));
     }
     return builder.build();
   }
@@ -444,7 +470,7 @@ class OptionsParserImpl {
       ParseOptionResult parseOptionResult = parseOption(arg, argsIterator);
       Field field = parseOptionResult.field;
       Option option = parseOptionResult.option;
-      String value = parseOptionResult.value;
+      @Nullable String value = parseOptionResult.value;
 
       final String originalName = option.name();
 
@@ -498,8 +524,9 @@ class OptionsParserImpl {
       }
 
       // Handle expansion options.
-      ImmutableList<String> expansion = optionsData.getEvaluatedExpansion(field);
-      if (!expansion.isEmpty()) {
+      if (OptionsData.isExpansionOption(field.getAnnotation(Option.class))) {
+        ImmutableList<String> expansion = optionsData.getEvaluatedExpansion(field, value);
+
         Function<Object, String> expansionSourceFunction =
             Functions.constant(
                 "expanded from option --"
@@ -580,9 +607,9 @@ class OptionsParserImpl {
   private static final class ParseOptionResult {
     final Field field;
     final Option option;
-    final String value;
+    @Nullable final String value;
 
-    ParseOptionResult(Field field, Option option, String value) {
+    ParseOptionResult(Field field, Option option, @Nullable String value) {
       this.field = field;
       this.option = option;
       this.value = value;

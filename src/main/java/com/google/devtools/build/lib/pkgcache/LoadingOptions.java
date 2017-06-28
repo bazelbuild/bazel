@@ -17,8 +17,10 @@ import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.List;
 import java.util.Set;
 
@@ -30,6 +32,8 @@ public class LoadingOptions extends OptionsBase {
     name = "build_tests_only",
     defaultValue = "false",
     category = "what",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "If specified, only *_test and test_suite rules will be built and other targets specified "
             + "on the command line will be ignored. By default everything that was requested "
@@ -41,6 +45,8 @@ public class LoadingOptions extends OptionsBase {
     name = "compile_one_dependency",
     defaultValue = "false",
     category = "what",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Compile a single dependency of the argument files. This is useful for syntax checking "
             + "source files in IDEs, for example, by rebuilding a single target that depends on "
@@ -56,6 +62,8 @@ public class LoadingOptions extends OptionsBase {
     converter = CommaSeparatedOptionListConverter.class,
     defaultValue = "",
     category = "what",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Specifies a comma-separated list of tags. Each tag can be optionally "
             + "preceded with '-' to specify excluded tags. Only those targets will be built that "
@@ -70,6 +78,8 @@ public class LoadingOptions extends OptionsBase {
     converter = CommaSeparatedOptionListConverter.class,
     defaultValue = "",
     category = "what",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Specifies a comma-separated list of test tags. Each tag can be optionally "
             + "preceded with '-' to specify excluded tags. Only those test targets will be "
@@ -83,6 +93,8 @@ public class LoadingOptions extends OptionsBase {
     converter = TestSize.TestSizeFilterConverter.class,
     defaultValue = "",
     category = "what",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Specifies a comma-separated list of test sizes. Each size can be optionally "
             + "preceded with '-' to specify excluded sizes. Only those test targets will be "
@@ -96,6 +108,8 @@ public class LoadingOptions extends OptionsBase {
     converter = TestTimeout.TestTimeoutFilterConverter.class,
     defaultValue = "",
     category = "what",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Specifies a comma-separated list of test timeouts. Each timeout can be "
             + "optionally preceded with '-' to specify excluded timeouts. Only those test "
@@ -110,6 +124,8 @@ public class LoadingOptions extends OptionsBase {
     converter = CommaSeparatedOptionListConverter.class,
     defaultValue = "",
     category = "what",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Specifies a comma-separated list of test languages. Each language can be "
             + "optionally preceded with '-' to specify excluded languages. Only those "
@@ -124,6 +140,8 @@ public class LoadingOptions extends OptionsBase {
     name = "build_manual_tests",
     defaultValue = "false",
     category = "what",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Forces test targets tagged 'manual' to be built. 'manual' tests are excluded from "
             + "processing. This option forces them to be built (but not executed)."
@@ -139,6 +157,8 @@ public class LoadingOptions extends OptionsBase {
     name = "experimental_skyframe_target_pattern_evaluator",
     defaultValue = "false",
     optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Use the Skyframe-based target pattern evaluator; implies "
             + "--experimental_interleave_loading_and_analysis."

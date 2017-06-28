@@ -22,14 +22,17 @@ class BazelWindowsTest(test_base.TestBase):
     self.ScratchFile('WORKSPACE')
     self.ScratchFile('foo/BUILD', ['cc_binary(name="x", srcs=["x.cc"])'])
     self.ScratchFile('foo/x.cc', [
-        '#include <stdio.h>', 'int main(int, char**) {'
-        '  printf("hello\\n");', '  return 0;', '}'
+        '#include <stdio.h>',
+        'int main(int, char**) {'
+        '  printf("hello\\n");',
+        '  return 0;',
+        '}',
     ])
 
     exit_code, _, stderr = self.RunBazel(
         ['--batch', 'build', '//foo:x', '--cpu=x64_windows_msys'],
         env_remove={'BAZEL_SH'})
-    self.assertEqual(exit_code, 2)
+    self.AssertExitCode(exit_code, 2, stderr)
     self.assertIn('\'BAZEL_SH\' environment variable is not set',
                   '\n'.join(stderr))
 
@@ -37,13 +40,13 @@ class BazelWindowsTest(test_base.TestBase):
         '--batch', '--host_jvm_args=-Dbazel.windows_unix_root=', 'build',
         '//foo:x', '--cpu=x64_windows_msys'
     ])
-    self.assertEqual(exit_code, 37)
+    self.AssertExitCode(exit_code, 37, stderr)
     self.assertIn('"bazel.windows_unix_root" JVM flag is not set',
                   '\n'.join(stderr))
 
-    exit_code, _, _ = self.RunBazel(
+    exit_code, _, stderr = self.RunBazel(
         ['--batch', 'build', '//foo:x', '--cpu=x64_windows_msys'])
-    self.assertEqual(exit_code, 0)
+    self.AssertExitCode(exit_code, 0, stderr)
 
 
 if __name__ == '__main__':

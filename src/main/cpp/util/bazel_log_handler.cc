@@ -80,14 +80,14 @@ void BazelLogHandler::SetOutputDir(const std::string& new_output_dir) {
   if (logfile_stream_->fail()) {
     // If opening the stream failed, continue buffering and have the logs
     // dump to stderr at shutdown.
-    logfile_stream_ = std::move(nullptr);
+    logfile_stream_ = nullptr;
     BAZEL_LOG(ERROR) << "Opening the log file failed, in directory "
                      << new_output_dir;
   } else {
     // Transfer the contents of the buffer to the logfile's stream before
     // replacing it.
     *logfile_stream_ << buffer_stream_->rdbuf();
-    buffer_stream_ = std::move(nullptr);
+    buffer_stream_ = nullptr;
     logfile_stream_->flush();
   }
 }

@@ -179,25 +179,25 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
     host_jvm_args.push_back(value);
     option_sources["host_jvm_args"] = rcfile;  // NB: This is incorrect
   } else if ((value = GetUnaryOption(arg, next_arg, "--bazelrc")) != NULL) {
-    if (rcfile != "") {
+    if (!rcfile.empty()) {
       *error = "Can't specify --bazelrc in the .bazelrc file.";
       return blaze_exit_code::BAD_ARGV;
     }
   } else if ((value = GetUnaryOption(arg, next_arg, "--blazerc")) != NULL) {
-    if (rcfile != "") {
+    if (!rcfile.empty()) {
       *error = "Can't specify --blazerc in the .blazerc file.";
       return blaze_exit_code::BAD_ARGV;
     }
   } else if (GetNullaryOption(arg, "--nomaster_blazerc") ||
              GetNullaryOption(arg, "--master_blazerc")) {
-    if (rcfile != "") {
+    if (!rcfile.empty()) {
       *error = "Can't specify --[no]master_blazerc in .blazerc file.";
       return blaze_exit_code::BAD_ARGV;
     }
     option_sources["blazerc"] = rcfile;
   } else if (GetNullaryOption(arg, "--nomaster_bazelrc") ||
              GetNullaryOption(arg, "--master_bazelrc")) {
-    if (rcfile != "") {
+    if (!rcfile.empty()) {
       *error = "Can't specify --[no]master_bazelrc in .bazelrc file.";
       return blaze_exit_code::BAD_ARGV;
     }

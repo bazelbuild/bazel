@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import java.io.IOException;
 
 /**
  * A class for flow statements (e.g. break and continue)
@@ -54,8 +55,15 @@ public final class FlowStatement extends Statement {
   void validate(ValidationEnvironment env) throws EvalException {}
 
   @Override
+  public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
+    printIndent(buffer, indentLevel);
+    buffer.append(kind.name);
+    buffer.append('\n');
+  }
+
+  @Override
   public String toString() {
-    return kind.name;
+    return kind.name + "\n";
   }
 
   @Override

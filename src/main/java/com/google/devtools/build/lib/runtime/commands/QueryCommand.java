@@ -19,6 +19,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
+import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
@@ -167,7 +168,7 @@ public final class QueryCommand implements BlazeCommand {
           queryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()));
       callback = streamedFormatter.createStreamCallback(out, queryOptions, queryEnv);
     } else {
-      callback = QueryUtil.newOrderedAggregateAllOutputFormatterCallback();
+      callback = QueryUtil.newOrderedAggregateAllOutputFormatterCallback(queryEnv);
     }
     boolean catastrophe = true;
     try {
@@ -207,11 +208,12 @@ public final class QueryCommand implements BlazeCommand {
       }
     }
 
-    env.getEventBus().post(new NoBuildEvent(env.getCommandName(), env.getCommandStartTime()));
+    env.getEventBus().post(new NoBuildEvent(env.getCommandName(), env.getCommandStartTime(), true));
     if (!streamResults) {
       disableAnsiCharactersFiltering(env);
       try {
-        Set<Target> targets = ((AggregateAllOutputFormatterCallback<Target>) callback).getResult();
+        Set<Target> targets =
+            ((AggregateAllOutputFormatterCallback<Target, ?>) callback).getResult();
         QueryOutputUtils.output(
             queryOptions,
             result,
@@ -240,7 +242,10 @@ public final class QueryCommand implements BlazeCommand {
       env.getReporter().handle(Event.info("Empty results"));
     }
 
-    return result.getSuccess() ? ExitCode.SUCCESS : ExitCode.PARTIAL_ANALYSIS_FAILURE;
+    ExitCode exitCode = result.getSuccess() ? ExitCode.SUCCESS : ExitCode.PARTIAL_ANALYSIS_FAILURE;
+    env.getEventBus()
+        .post(new NoBuildRequestFinishedEvent(exitCode, runtime.getClock().currentTimeMillis()));
+    return exitCode;
   }
 
   /**

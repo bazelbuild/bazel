@@ -303,10 +303,17 @@ public class LexerTest {
   @Test
   public void testOctalEscapes() throws Exception {
     // Regression test for a bug.
-    assertThat(values(tokens("'\\0 \\1 \\11 \\77 \\111 \\1111 \\377 \\777 \\776'")))
-        .isEqualTo("STRING(\0 \1 \t \u003f I I1 \u00ff \u00ff \u00fe) NEWLINE EOF");
+    assertThat(values(tokens("'\\0 \\1 \\11 \\77 \\111 \\1111 \\377'")))
+        .isEqualTo("STRING(\0 \1 \t \u003f I I1 \u00ff) NEWLINE EOF");
     // Test boundaries (non-octal char, EOF).
     assertThat(values(tokens("'\\1b \\1'"))).isEqualTo("STRING(\1b \1) NEWLINE EOF");
+  }
+
+  @Test
+  public void testOctalEscapeOutOfRange() throws Exception {
+    assertThat(values(tokens("'\\777'"))).isEqualTo("STRING(\u00ff) NEWLINE EOF");
+    assertThat(lastError.toString())
+        .isEqualTo("/some/path.txt:1: octal escape sequence out of range (maximum is \\377)");
   }
 
   @Test

@@ -25,6 +25,7 @@
 
 #include "src/main/tools/logging.h"
 #include "src/main/tools/process-tools.h"
+#include "src/main/tools/process-wrapper-options.h"
 #include "src/main/tools/process-wrapper.h"
 
 pid_t LegacyProcessWrapper::child_pid = 0;

@@ -28,8 +28,10 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
@@ -61,6 +63,8 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
       defaultValue = "",
       category = "misc",
       valueHelp = "<string>",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Embed source control revision or release label in binary"
     )
     public String embedLabel;
@@ -69,6 +73,8 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
       name = "experimental_embed_timestamp_epoch",
       defaultValue = "-1",
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Alternative timestamp to be used in stamping the binary"
     )
     public long embedTimestampEpoch;
@@ -79,6 +85,8 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
       category = "misc",
       converter = OptionsUtils.PathFragmentConverter.class,
       valueHelp = "<path>",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "A command invoked at the beginning of the build to provide status "
               + "information about the workspace in the form of key/value pairs.  "

@@ -8,6 +8,7 @@ java_library(
     name = "remote",
     srcs = glob(["*.java"]),
     data = ["//src:libunix"],
+    resources = ["//src/main/tools:linux-sandbox"],
     visibility = ["//src/tools/remote_worker:__subpackages__"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:auth_and_tls_options",
@@ -20,6 +21,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:process_util",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib:shell",
+        "//src/main/java/com/google/devtools/build/lib:single-line-formatter",
         "//src/main/java/com/google/devtools/build/lib:unix",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib:vfs",

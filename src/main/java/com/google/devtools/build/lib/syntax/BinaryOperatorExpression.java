@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.Concatable.Concatter;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
+import java.io.IOException;
 import java.util.Collections;
 import java.util.IllegalFormatException;
 
@@ -55,7 +56,22 @@ public final class BinaryOperatorExpression extends Expression {
   }
 
   @Override
+  public void prettyPrint(Appendable buffer) throws IOException {
+    // TODO(bazel-team): Possibly omit parentheses when they are not needed according to operator
+    // precedence rules. This requires passing down more contextual information.
+    buffer.append('(');
+    lhs.prettyPrint(buffer);
+    buffer.append(' ');
+    buffer.append(operator.toString());
+    buffer.append(' ');
+    rhs.prettyPrint(buffer);
+    buffer.append(')');
+  }
+
+  @Override
   public String toString() {
+    // This omits the parentheses for brevity, but is not correct in general due to operator
+    // precedence rules.
     return lhs + " " + operator + " " + rhs;
   }
 
@@ -69,8 +85,18 @@ public final class BinaryOperatorExpression extends Expression {
   }
 
   /** Implements the "in" operator. */
-  private static boolean in(Object lval, Object rval, Location location) throws EvalException {
-    if (rval instanceof SkylarkQueryable) {
+  private static boolean in(Object lval, Object rval, Location location, Environment env)
+      throws EvalException {
+    if (env.getSemantics().incompatibleDepsetIsNotIterable && rval instanceof SkylarkNestedSet) {
+      throw new EvalException(
+          location,
+          "argument of type '"
+              + EvalUtils.getDataTypeName(rval)
+              + "' is not iterable. "
+              + "in operator only works on lists, tuples, dicts and strings. "
+              + "Use --incompatible_depset_is_not_iterable=false to temporarily disable "
+              + "this check.");
+    } else if (rval instanceof SkylarkQueryable) {
       return ((SkylarkQueryable) rval).containsKey(lval, location);
     } else if (rval instanceof String) {
       if (lval instanceof String) {
@@ -92,7 +118,6 @@ public final class BinaryOperatorExpression extends Expression {
     }
   }
 
-  /** Helper method. Reused from the LValue class. */
   public static Object evaluate(
       Operator operator,
       Object lval,
@@ -159,10 +184,10 @@ public final class BinaryOperatorExpression extends Expression {
         return compare(lval, rval, location) >= 0;
 
       case IN:
-        return in(lval, rval, location);
+        return in(lval, rval, location, env);
 
       case NOT_IN:
-        return !in(lval, rval, location);
+        return !in(lval, rval, location, env);
 
       default:
         throw new AssertionError("Unsupported binary operator: " + operator);

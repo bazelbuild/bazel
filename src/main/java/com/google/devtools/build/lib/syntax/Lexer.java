@@ -400,6 +400,9 @@ public final class Lexer {
                   }
                 }
               }
+              if (octal > 0xff) {
+                error("octal escape sequence out of range (maximum is \\377)");
+              }
               literal.append((char) (octal & 0xff));
               break;
             }

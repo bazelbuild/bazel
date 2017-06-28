@@ -229,8 +229,6 @@ public class GlobTest {
 
   @Test
   public void testIllegalPatterns() throws Exception {
-    assertIllegalPattern("[illegal pattern");
-    assertIllegalPattern("}illegal pattern");
     assertIllegalPattern("foo**bar");
     assertIllegalPattern("");
     assertIllegalPattern(".");

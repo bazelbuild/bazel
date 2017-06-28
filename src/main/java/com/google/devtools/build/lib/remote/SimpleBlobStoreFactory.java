@@ -24,16 +24,16 @@ import com.hazelcast.core.HazelcastInstance;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.concurrent.ConcurrentMap;
-import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.HttpClient;
+import org.apache.http.client.ResponseHandler;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpHead;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.util.EntityUtils;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 
 /**
  * A factory class for providing a {@link SimpleBlobStore} to be used with {@link
@@ -67,6 +67,9 @@ public final class SimpleBlobStoreFactory {
     public void put(String key, byte[] value) {
       map.put(key, value);
     }
+
+    @Override
+    public void close() {}
   }
 
   /** Construct a {@link SimpleBlobStore} using Hazelcast's version of {@link ConcurrentMap} */
@@ -120,19 +123,38 @@ public final class SimpleBlobStoreFactory {
   private static class RestBlobStore implements SimpleBlobStore {
 
     private final String baseUrl;
+    private final PoolingHttpClientConnectionManager connMan;
+    private final HttpClientBuilder clientFactory;
 
-    RestBlobStore(String baseUrl) {
+    RestBlobStore(String baseUrl, int poolSize) {
       this.baseUrl = baseUrl;
+      connMan = new PoolingHttpClientConnectionManager();
+      connMan.setDefaultMaxPerRoute(poolSize);
+      connMan.setMaxTotal(poolSize);
+      clientFactory = HttpClientBuilder.create();
+      clientFactory.setConnectionManager(connMan);
+      clientFactory.setConnectionManagerShared(true);
+    }
+
+    @Override
+    public void close() {
+      connMan.close();
     }
 
     @Override
     public boolean containsKey(String key) {
       try {
-        HttpClient client = HttpClientBuilder.create().build();
+        HttpClient client = clientFactory.build();
         HttpHead head = new HttpHead(baseUrl + "/" + key);
-        HttpResponse response = client.execute(head);
-        int statusCode = response.getStatusLine().getStatusCode();
-        return HttpStatus.SC_OK == statusCode;
+        return client.execute(
+            head,
+            new ResponseHandler<Boolean>() {
+              @Override
+              public Boolean handleResponse(HttpResponse response) {
+                int statusCode = response.getStatusLine().getStatusCode();
+                return HttpStatus.SC_OK == statusCode;
+              }
+            });
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
@@ -141,24 +163,27 @@ public final class SimpleBlobStoreFactory {
     @Override
     public byte[] get(String key) {
       try {
-        HttpClient client = HttpClientBuilder.create().build();
+        HttpClient client = clientFactory.build();
         HttpGet get = new HttpGet(baseUrl + "/" + key);
-        HttpResponse response = client.execute(get);
-        int statusCode = response.getStatusLine().getStatusCode();
-        if (HttpStatus.SC_NOT_FOUND == statusCode || HttpStatus.SC_NO_CONTENT == statusCode) {
-          return null;
-        }
-        if (HttpStatus.SC_OK != statusCode) {
-          throw new RuntimeException("GET failed with status code " + statusCode);
-        }
-        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-        HttpEntity entity = response.getEntity();
-        entity.writeTo(buffer);
-        buffer.flush();
-        EntityUtils.consume(entity);
-
-        return buffer.toByteArray();
-
+        return client.execute(
+            get,
+            new ResponseHandler<byte[]>() {
+              @Override
+              public byte[] handleResponse(HttpResponse response) throws IOException {
+                int statusCode = response.getStatusLine().getStatusCode();
+                if (HttpStatus.SC_NOT_FOUND == statusCode
+                    || HttpStatus.SC_NO_CONTENT == statusCode) {
+                  return null;
+                }
+                if (HttpStatus.SC_OK != statusCode) {
+                  throw new RuntimeException("GET failed with status code " + statusCode);
+                }
+                ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+                response.getEntity().writeTo(buffer);
+                buffer.flush();
+                return buffer.toByteArray();
+              }
+            });
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
@@ -167,20 +192,27 @@ public final class SimpleBlobStoreFactory {
     @Override
     public void put(String key, byte[] value) {
       try {
-        HttpClient client = HttpClientBuilder.create().build();
+        HttpClient client = clientFactory.build();
         HttpPut put = new HttpPut(baseUrl + "/" + key);
         put.setEntity(new ByteArrayEntity(value));
         put.setHeader("Content-Type", "application/octet-stream");
-        HttpResponse response = client.execute(put);
-        int statusCode = response.getStatusLine().getStatusCode();
+        client.execute(
+            put,
+            new ResponseHandler<Void>() {
+              @Override
+              public Void handleResponse(HttpResponse response) {
+                int statusCode = response.getStatusLine().getStatusCode();
 
-        // Accept more than SC_OK to be compatible with Nginx WebDav module.
-        if (HttpStatus.SC_OK != statusCode
-            && HttpStatus.SC_ACCEPTED != statusCode
-            && HttpStatus.SC_CREATED != statusCode
-            && HttpStatus.SC_NO_CONTENT != statusCode) {
-          throw new RuntimeException("PUT failed with status code " + statusCode);
-        }
+                // Accept more than SC_OK to be compatible with Nginx WebDav module.
+                if (HttpStatus.SC_OK != statusCode
+                    && HttpStatus.SC_ACCEPTED != statusCode
+                    && HttpStatus.SC_CREATED != statusCode
+                    && HttpStatus.SC_NO_CONTENT != statusCode) {
+                  throw new RuntimeException("PUT failed with status code " + statusCode);
+                }
+                return null;
+              }
+            });
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
@@ -188,7 +220,7 @@ public final class SimpleBlobStoreFactory {
   }
 
   public static SimpleBlobStore createRest(RemoteOptions options) {
-    return new RestBlobStore(options.remoteRestCache);
+    return new RestBlobStore(options.remoteRestCache, options.restCachePoolSize);
   }
 
   public static SimpleBlobStore create(RemoteOptions options) {

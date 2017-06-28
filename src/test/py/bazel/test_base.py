@@ -55,6 +55,17 @@ class TestBase(unittest.TestCase):
     os.mkdir(self._tests_root)
     os.chdir(self._tests_root)
 
+  def AssertExitCode(self, actual_exit_code, expected_exit_code, stderr_lines):
+    """Assert that `actual_exit_code` == `expected_exit_code`."""
+    if actual_exit_code != expected_exit_code:
+      self.fail('\n'.join([
+          'Bazel exited with %d (expected %d), stderr:' % (actual_exit_code,
+                                                           expected_exit_code),
+          '(start stderr)----------------------------------------',
+      ] + (stderr_lines or []) + [
+          '(end stderr)------------------------------------------',
+      ]))
+
   @staticmethod
   def GetEnv(name, default=None):
     """Returns environment variable `name`.
@@ -201,6 +212,9 @@ class TestBase(unittest.TestCase):
           # and use those here instead of hardcoding paths.
           'JAVA_HOME': 'c:\\program files\\java\\' + sorted(result)[-1],
           'BAZEL_SH': 'c:\\tools\\msys64\\usr\\bin\\bash.exe',
+          # TODO(pcloudy): Remove this after no longer need to debug
+          # https://github.com/bazelbuild/bazel/issues/3273
+          'CC_CONFIGURE_DEBUG': '1',
       }
     else:
       env = {'HOME': os.path.join(self._temp, 'home')}

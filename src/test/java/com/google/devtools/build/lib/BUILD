@@ -1040,6 +1040,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/transports",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:invocation_policy_java_proto",
+        "//src/main/protobuf:option_filters_java_proto",
         "//src/main/protobuf:test_status_java_proto",
         "//third_party:guava",
         "//third_party:junit4",
@@ -1262,6 +1263,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:option_filters_java_proto",
         "//src/main/protobuf:worker_protocol_java_proto",
         "//third_party:guava",
     ],

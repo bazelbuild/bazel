@@ -38,26 +38,27 @@ import com.google.devtools.build.lib.util.TimeUtilities;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
-
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.EnumMap;
 import java.util.regex.Pattern;
 
-/**
- * Command line wrapper for analyzing Blaze build profiles.
- */
-@Command(name = "analyze-profile",
-         options = { ProfileCommand.ProfileOptions.class },
-         shortDescription = "Analyzes build profile data.",
-         help = "resource:analyze-profile.txt",
-         allowResidue = true,
-         completion = "path",
-         mustRunInWorkspace = false)
+/** Command line wrapper for analyzing Blaze build profiles. */
+@Command(
+  name = "analyze-profile",
+  options = {ProfileCommand.ProfileOptions.class},
+  shortDescription = "Analyzes build profile data.",
+  help = "resource:analyze-profile.txt",
+  allowResidue = true,
+  completion = "path",
+  mustRunInWorkspace = false
+)
 public final class ProfileCommand implements BlazeCommand {
 
   public static class DumpConverter extends Converters.StringSetConverter {
@@ -70,6 +71,8 @@ public final class ProfileCommand implements BlazeCommand {
     @Option(
       name = "chart",
       defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "If --nochart is present, do not include the task chart with --html_details."
               + " The default is --chart."
@@ -79,6 +82,8 @@ public final class ProfileCommand implements BlazeCommand {
     @Option(
       name = "combine",
       defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "If present, the statistics of all given profile files will be combined and output"
               + " in text/--html format to the file named in the argument. Does not output HTML"
@@ -86,29 +91,46 @@ public final class ProfileCommand implements BlazeCommand {
     )
     public String combine;
 
-    @Option(name = "dump",
-        abbrev='d',
-        converter = DumpConverter.class,
-        defaultValue = "null",
-        help = "output full profile data dump either in human-readable 'text' format or"
-            + " script-friendly 'raw' format, either sorted or unsorted.")
+    @Option(
+      name = "dump",
+      abbrev = 'd',
+      converter = DumpConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "output full profile data dump either in human-readable 'text' format or"
+              + " script-friendly 'raw' format, either sorted or unsorted."
+    )
     public String dumpMode;
 
-    @Option(name = "html",
-        defaultValue = "false",
-        help = "If present, an HTML file visualizing the tasks of the profiled build is created. "
-            + "The name of the html file is the name of the profile file plus '.html'.")
+    @Option(
+      name = "html",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If present, an HTML file visualizing the tasks of the profiled build is created. "
+              + "The name of the html file is the name of the profile file plus '.html'."
+    )
     public boolean html;
 
-    @Option(name = "html_pixels_per_second",
-        defaultValue = "50",
-        help = "Defines the scale of the time axis of the task diagram. The unit is "
-            + "pixels per second. Default is 50 pixels per second. ")
+    @Option(
+      name = "html_pixels_per_second",
+      defaultValue = "50",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Defines the scale of the time axis of the task diagram. The unit is "
+              + "pixels per second. Default is 50 pixels per second. "
+    )
     public int htmlPixelsPerSecond;
 
     @Option(
       name = "html_details",
       defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "If --html_details is present, the task diagram contains all tasks of the profile "
               + " and performance statistics on user-defined and built-in Skylark functions. "
@@ -120,6 +142,8 @@ public final class ProfileCommand implements BlazeCommand {
     @Option(
       name = "html_histograms",
       defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "If --html_histograms and --html_details is present, the HTML output will display"
               + " histograms for Skylark functions clicked in the statistics table. This will"
@@ -131,6 +155,8 @@ public final class ProfileCommand implements BlazeCommand {
       name = "task_tree",
       defaultValue = "null",
       converter = Converters.RegexPatternConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Print the tree of profiler tasks from all tasks matching the given regular expression."
     )
@@ -139,20 +165,30 @@ public final class ProfileCommand implements BlazeCommand {
     @Option(
       name = "task_tree_threshold",
       defaultValue = "50",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "When printing a task tree, will skip tasks with a duration that is less than the"
               + " given threshold in milliseconds."
     )
     public long taskTreeThreshold;
 
-    @Option(name = "vfs_stats",
-        defaultValue = "false",
-        help = "If present, include VFS path statistics.")
+    @Option(
+      name = "vfs_stats",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "If present, include VFS path statistics."
+    )
     public boolean vfsStats;
 
-    @Option(name = "vfs_stats_limit",
-        defaultValue = "-1",
-        help = "Maximum number of VFS path statistics to print.")
+    @Option(
+      name = "vfs_stats_limit",
+      defaultValue = "-1",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Maximum number of VFS path statistics to print."
+    )
     public int vfsStatsLimit;
   }
 

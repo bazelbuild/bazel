@@ -755,8 +755,13 @@ public class CppLinkActionBuilder {
             .setToolchain(toolchain)
             .setFdoSupport(fdoSupport.getFdoSupport())
             .setBuildVariables(buildVariables)
-            .setToolPath(getToolPath())
             .setFeatureConfiguration(featureConfiguration);
+
+    // TODO(b/62693279): Cleanup once internal crosstools specify ifso building correctly.
+    if (shouldUseLinkDynamicLibraryTool()) {
+      linkCommandLineBuilder.forceToolPath(
+          toolchain.getLinkDynamicLibraryTool().getExecPathString());
+    }
 
     if (!isLTOIndexing) {
       linkCommandLineBuilder
@@ -777,8 +782,11 @@ public class CppLinkActionBuilder {
     // Compute the set of inputs - we only need stable order here.
     NestedSetBuilder<Artifact> dependencyInputsBuilder = NestedSetBuilder.stableOrder();
     dependencyInputsBuilder.addTransitive(crosstoolInputs);
-    dependencyInputsBuilder.add(toolchain.getLinkDynamicLibraryTool());
     dependencyInputsBuilder.addTransitive(linkActionInputs.build());
+    // TODO(b/62693279): Cleanup once internal crosstools specify ifso building correctly.
+    if (shouldUseLinkDynamicLibraryTool()) {
+      dependencyInputsBuilder.add(toolchain.getLinkDynamicLibraryTool());
+    }
     if (runtimeMiddleman != null) {
       dependencyInputsBuilder.add(runtimeMiddleman);
     }
@@ -889,24 +897,10 @@ public class CppLinkActionBuilder {
         executionRequirements.build());
   }
 
-  /**
-   * Returns the tool path from feature configuration, if the tool in the configuration is sane, or
-   * builtin tool, if configuration has a dummy value.
-   */
-  private String getToolPath() {
-    if (!featureConfiguration.actionIsConfigured(linkType.getActionName())) {
-      return null;
-    }
-    String toolPath =
-        featureConfiguration
-            .getToolForAction(linkType.getActionName())
-            .getToolPath(cppConfiguration.getCrosstoolTopPathFragment())
-            .getPathString();
-    if (linkType.equals(LinkTargetType.DYNAMIC_LIBRARY)
-        && !featureConfiguration.hasConfiguredLinkerPathInActionConfig()) {
-      toolPath = toolchain.getLinkDynamicLibraryTool().getExecPathString();
-    }
-    return toolPath;
+  private boolean shouldUseLinkDynamicLibraryTool() {
+    return linkType.equals(LinkTargetType.DYNAMIC_LIBRARY)
+        && cppConfiguration.supportsInterfaceSharedObjects()
+        && !featureConfiguration.hasConfiguredLinkerPathInActionConfig();
   }
 
   /** The default heuristic on whether we need to use whole-archive for the link. */

@@ -77,7 +77,7 @@ public abstract class BugReport {
     LOG.severe("Crash: " + Throwables.getStackTraceAsString(throwable));
     BugReport.sendBugReport(throwable, Arrays.asList(args));
     BugReport.printBug(OutErr.SYSTEM_OUT_ERR, throwable);
-    System.err.println(getProductName() + " crash in async thread:");
+    System.err.println("ERROR: " + getProductName() + " crash in async thread:");
     throwable.printStackTrace();
   }
 
@@ -114,7 +114,7 @@ public abstract class BugReport {
       }
     } catch (Throwable t) {
       System.err.println(
-          "An crash occurred while "
+          "ERROR: An crash occurred while "
               + getProductName()
               + " was trying to handle a crash! Please file a bug against "
               + getProductName()
@@ -153,7 +153,7 @@ public abstract class BugReport {
   public static void printBug(OutErr outErr, Throwable e) {
     if (e instanceof OutOfMemoryError) {
       outErr.printErr(
-          e.getMessage() + "\n\n" + getProductName() + " ran out of memory and crashed.\n");
+          e.getMessage() + "\n\nERROR: " + getProductName() + " ran out of memory and crashed.\n");
     } else {
       printThrowableTo(outErr, e);
     }

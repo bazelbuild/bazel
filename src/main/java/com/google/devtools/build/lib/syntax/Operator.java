@@ -11,11 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package com.google.devtools.build.lib.syntax;
 
-/**
- * Infix operators supported by the build language.
- */
+/** Infix binary operators. */
 public enum Operator {
 
   AND("and"),
@@ -39,7 +38,7 @@ public enum Operator {
 
   private final String name;
 
-  private Operator(String name) {
+  Operator(String name) {
     this.name = name;
   }
 
@@ -47,5 +46,4 @@ public enum Operator {
   public String toString() {
     return name;
   }
-
 }

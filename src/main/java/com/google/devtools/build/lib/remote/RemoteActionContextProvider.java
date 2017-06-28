@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.standalone.StandaloneSpawnStrategy;
 final class RemoteActionContextProvider extends ActionContextProvider {
   private final CommandEnvironment env;
   private ActionInputPrefetcher actionInputPrefetcher;
+  private RemoteSpawnStrategy spawnStrategy;
 
   RemoteActionContextProvider(CommandEnvironment env) {
     this.env = env;
@@ -43,10 +44,6 @@ final class RemoteActionContextProvider extends ActionContextProvider {
   public void init(
       ActionInputFileCache actionInputFileCache, ActionInputPrefetcher actionInputPrefetcher) {
     this.actionInputPrefetcher = Preconditions.checkNotNull(actionInputPrefetcher);
-  }
-
-  @Override
-  public Iterable<? extends ActionContext> getActionContexts() {
     ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);
     LocalExecutionOptions localExecutionOptions =
         env.getOptions().getOptions(LocalExecutionOptions.class);
@@ -58,12 +55,25 @@ final class RemoteActionContextProvider extends ActionContextProvider {
             executionOptions.verboseFailures,
             env.getRuntime().getProductName(),
             ResourceManager.instance());
-    return ImmutableList.of(
+    spawnStrategy =
         new RemoteSpawnStrategy(
             env.getExecRoot(),
             env.getOptions().getOptions(RemoteOptions.class),
             env.getOptions().getOptions(AuthAndTLSOptions.class),
             executionOptions.verboseFailures,
-            fallbackStrategy));
+            fallbackStrategy);
+  }
+
+  @Override
+  public Iterable<? extends ActionContext> getActionContexts() {
+    return ImmutableList.of(Preconditions.checkNotNull(spawnStrategy));
+  }
+
+  @Override
+  public void executionPhaseEnding() {
+    if (spawnStrategy != null) {
+      spawnStrategy.close();
+      spawnStrategy = null;
+    }
   }
 }

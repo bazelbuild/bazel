@@ -16,17 +16,20 @@ package com.google.devtools.build.lib.query2.engine;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * The environment of a Blaze query. Implementations do not need to be thread-safe. The generic type
  * T represents a node of the graph on which the query runs; as such, there is no restriction on T.
  * However, query assumes a certain graph model, and the {@link TargetAccessor} class is used to
- * access properties of these nodes.
+ * access properties of these nodes. Also, the query engine doesn't assume T's
+ * {@link Object#hashCode} and {@link Object#equals} are meaningful and instead uses
+ * {@link QueryEnvironment#createUniquifier}, {@link QueryEnvironment#createThreadSafeMutableSet()},
+ * and {@link QueryEnvironment#createMutableMap()} when appropriate.
  *
  * @param <T> the node type of the dependency graph
  */
@@ -152,16 +155,17 @@ public interface QueryEnvironment<T> {
   T getOrCreate(T target);
 
   /** Returns the direct forward dependencies of the specified targets. */
-  Collection<T> getFwdDeps(Iterable<T> targets) throws InterruptedException;
+  Iterable<T> getFwdDeps(Iterable<T> targets) throws InterruptedException;
 
   /** Returns the direct reverse dependencies of the specified targets. */
-  Collection<T> getReverseDeps(Iterable<T> targets) throws InterruptedException;
+  Iterable<T> getReverseDeps(Iterable<T> targets) throws InterruptedException;
 
   /**
    * Returns the forward transitive closure of all of the targets in "targets". Callers must ensure
    * that {@link #buildTransitiveClosure} has been called for the relevant subgraph.
    */
-  Set<T> getTransitiveClosure(Set<T> targets) throws InterruptedException;
+  ThreadSafeMutableSet<T> getTransitiveClosure(ThreadSafeMutableSet<T> targets)
+      throws InterruptedException;
 
   /**
    * Construct the dependency graph for a depth-bounded forward transitive closure
@@ -173,11 +177,11 @@ public interface QueryEnvironment<T> {
    * after it is built anyway.
    */
   void buildTransitiveClosure(QueryExpression caller,
-                              Set<T> targetNodes,
+                              ThreadSafeMutableSet<T> targetNodes,
                               int maxDepth) throws QueryException, InterruptedException;
 
-  /** Returns the set of nodes on some path from "from" to "to". */
-  Set<T> getNodesOnPath(T from, T to) throws InterruptedException;
+  /** Returns the ordered sequence of nodes on some path from "from" to "to". */
+  Iterable<T> getNodesOnPath(T from, T to) throws InterruptedException;
 
   /**
    * Returns a {@link QueryTaskFuture} representing the asynchronous evaluation of the given
@@ -335,6 +339,41 @@ public interface QueryEnvironment<T> {
   }
 
   /**
+   * A mutable {@link ThreadSafe} {@link Set} that uses proper equality semantics for {@code T}.
+   * {@link QueryExpression}/{@link QueryFunction} implementations should use
+   * {@code ThreadSafeMutableSet<T>} they need a set-like data structure for {@code T}.
+   */
+  @ThreadSafe
+  interface ThreadSafeMutableSet<T> extends Set<T> {
+  }
+
+  /** Returns a fresh {@link ThreadSafeMutableSet} instance for the type {@code T}. */
+  ThreadSafeMutableSet<T> createThreadSafeMutableSet();
+
+  /**
+   * A simple map-like interface that uses proper equality semantics for the key type.
+   * {@link QueryExpression}/{@link QueryFunction} implementations should use
+   * {@code ThreadSafeMutableSet<T, V>} they need a map-like data structure for {@code T}.
+   */
+  interface MutableMap<K, V> {
+    /**
+     * Returns the value {@code value} associated with the given key by the most recent call to
+     * {@code put(key, value)}, or {@code null} if there was no such call.
+     */
+    @Nullable
+    V get(K key);
+
+    /**
+     * Associates the given key with the given value and returns the previous value associated with
+     * the key, or {@code null} if there wasn't one.
+     */
+    V put(K key, V value);
+  }
+
+  /** Returns a fresh {@link MutableMap} instance with key type {@code T}. */
+  <V> MutableMap<T, V> createMutableMap();
+
+  /**
    * Creates a Uniquifier for use in a {@code QueryExpression}. Note that the usage of this
    * uniquifier should not be used for returning unique results to the parent callback. It should
    * only be used to avoid processing the same elements multiple times within this QueryExpression.
@@ -355,9 +394,9 @@ public interface QueryEnvironment<T> {
    * Returns the set of BUILD, and optionally sub-included and Skylark files that define the given
    * set of targets. Each such file is itself represented as a target in the result.
    */
-  Set<T> getBuildFiles(
-      QueryExpression caller, Set<T> nodes, boolean buildFiles, boolean subincludes, boolean loads)
-      throws QueryException, InterruptedException;
+  ThreadSafeMutableSet<T> getBuildFiles(
+      QueryExpression caller, ThreadSafeMutableSet<T> nodes, boolean buildFiles,
+      boolean subincludes, boolean loads) throws QueryException, InterruptedException;
 
   /**
    * Returns an object that can be used to query information about targets. Implementations should

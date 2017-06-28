@@ -34,6 +34,14 @@ py_test(
 )
 
 py_test(
+    name = "bazel_external_repository_test",
+    size = "medium",
+    srcs = ["bazel_external_repository_test.py"],
+    tags = ["requires_internet"],
+    deps = [":test_base"],
+)
+
+py_test(
     name = "bazel_windows_test",
     size = "medium",
     srcs = select({

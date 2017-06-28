@@ -61,7 +61,7 @@ bool ReadFrom(file_handle_type handle, void *data, size_t size);
 // Writes `content` into file `filename`, and chmods it to `perm`.
 // Returns false on failure.
 bool WriteFile(const std::string &content, const std::string &filename,
-               unsigned int perm = 0755);
+               unsigned int perm = 0644);
 
 // Returns the part of the path before the final "/".  If there is a single
 // leading "/" in the path, the result will be the leading "/".  If there is

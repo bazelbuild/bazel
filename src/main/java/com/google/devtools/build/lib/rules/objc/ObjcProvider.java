@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.TargetControl;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;

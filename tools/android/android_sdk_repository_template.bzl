@@ -13,6 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+def create_config_setting_rules():
+  """Create config_setting rules for windows_msvc, windows_msys, windows.
+
+  These represent the matching --host_cpu values.
+  """
+  for suffix in ["", "_msvc", "_msys"]:
+    name = "windows" + suffix
+    if not native.existing_rule(name):
+      native.config_setting(
+          name = name,
+          values = {"host_cpu": "x64_" + name},
+      )
+
 def create_android_sdk_rules(
     name,
     build_tools_version,
@@ -31,6 +44,8 @@ def create_android_sdk_rules(
     default_api_level: int, the API level to alias the default sdk to if
         --android_sdk is not specified on the command line.
   """
+
+  create_config_setting_rules()
 
   # This filegroup is used to pass the contents of the SDK to the Android
   # integration tests. We need to glob because not all of these folders ship
@@ -66,18 +81,38 @@ def create_android_sdk_rules(
         name = "sdk-%d" % api_level,
         build_tools_version = build_tools_version,
         proguard = ":proguard_binary",
-        aapt = ":aapt_binary",
+        aapt = select({
+            ":windows": "build-tools/%s/aapt.exe" % build_tools_directory,
+            ":windows_msvc": "build-tools/%s/aapt.exe" % build_tools_directory,
+            ":windows_msys": "build-tools/%s/aapt.exe" % build_tools_directory,
+            "//conditions:default": ":aapt_binary",
+        }),
         dx = ":dx_binary",
         main_dex_list_creator = ":main_dex_list_creator",
-        adb = "platform-tools/adb",
+        adb = select({
+            ":windows": "platform-tools/adb.exe",
+            ":windows_msvc": "platform-tools/adb.exe",
+            ":windows_msys": "platform-tools/adb.exe",
+            "//conditions:default": "platform-tools/adb",
+        }),
         framework_aidl = "platforms/android-%d/framework.aidl" % api_level,
-        aidl = ":aidl_binary",
+        aidl = select({
+            ":windows": "build-tools/%s/aidl.exe" % build_tools_directory,
+            ":windows_msvc": "build-tools/%s/aidl.exe" % build_tools_directory,
+            ":windows_msys": "build-tools/%s/aidl.exe" % build_tools_directory,
+            "//conditions:default": ":aidl_binary",
+        }),
         android_jar = "platforms/android-%d/android.jar" % api_level,
         shrinked_android_jar = "platforms/android-%d/android.jar" % api_level,
         annotations_jar = "tools/support/annotations.jar",
         main_dex_classes = "build-tools/%s/mainDexClasses.rules" % build_tools_directory,
         apksigner = ":apksigner",
-        zipalign = ":zipalign_binary",
+        zipalign = select({
+            ":windows": "build-tools/%s/zipalign.exe" % build_tools_directory,
+            ":windows_msvc": "build-tools/%s/zipalign.exe" % build_tools_directory,
+            ":windows_msys": "build-tools/%s/zipalign.exe" % build_tools_directory,
+            "//conditions:default": ":zipalign_binary",
+        }),
         resource_extractor = "@bazel_tools//tools/android:resource_extractor",
     )
 
@@ -126,8 +161,12 @@ def create_android_sdk_rules(
             "cat > $@ << 'EOF'",
             "#!/bin/bash",
             "set -eu",
-            # The tools under build-tools/VERSION require the libraries under build-tools/VERSION/lib,
-            # so we can't simply depend on them as a file like we do with aapt.
+            # The tools under build-tools/VERSION require the libraries under
+            # build-tools/VERSION/lib, so we can't simply depend on them as a
+            # file like we do with aapt.
+            # On Windows however we can use these binaries directly because
+            # there's no runfiles support so Bazel just creates a junction to
+            # {SDK}/build-tools.
             "SDK=$${0}.runfiles/%s" % name,
             "exec $${SDK}/build-tools/%s/%s $$*" % (build_tools_directory, tool),
             "EOF\n"]),
@@ -144,13 +183,26 @@ def create_android_sdk_rules(
 
   native.sh_binary(
       name = "fail",
-      srcs = ["fail.sh"])
+      srcs = select({
+          ":windows": [":generate_fail_cmd"],
+          ":windows_msvc": [":generate_fail_cmd"],
+          ":windows_msys": [":generate_fail_cmd"],
+          "//conditions:default": [":generate_fail_sh"],
+      }),
+  )
 
   native.genrule(
       name = "generate_fail_sh",
-      srcs = [],
+      executable = 1,
       outs = ["fail.sh"],
       cmd = "echo -e '#!/bin/bash\\nexit 1' >> $@; chmod +x $@",
+  )
+
+  native.genrule(
+      name = "generate_fail_cmd",
+      executable = 1,
+      outs = ["fail.cmd"],
+      cmd = "echo @exit /b 1 > $@",
   )
 
 

@@ -15,18 +15,4 @@
 #ifndef SRC_MAIN_TOOLS_PROCESS_WRAPPER_H_
 #define SRC_MAIN_TOOLS_PROCESS_WRAPPER_H_
 
-#include <string>
-#include <vector>
-
-// Options parsing result.
-struct Options {
-  double timeout_secs;
-  double kill_delay_secs;
-  std::string stdout_path;
-  std::string stderr_path;
-  std::vector<char *> args;
-};
-
-extern struct Options opt;
-
 #endif

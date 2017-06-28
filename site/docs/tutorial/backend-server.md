@@ -19,7 +19,7 @@ Here, you'll do the following:
 *   Deploy to Google App Engine
 
 Bazel provides a set of [App Engine build rules](https://github.com/bazelbuild/rules_appengine)
-written using the [Skylark](/docs/skylark/index.html) framework. You'll use
+written using the [Skylark](../skylark/index.html) framework. You'll use
 these in the steps below to build the application.
 
 ## Review the source files
@@ -50,7 +50,7 @@ The key files and directories are:
 ## Update the WORKSPACE file
 
 As with the Android app, you must add references to
-[external dependencies](http://bazel.build/docs/external.html) to your `WORKSPACE`
+[external dependencies](../external.html) to your `WORKSPACE`
 file. For the backend server, these are references to the App Engine SDK,
 the Java Servlet SDK and other libraries needed to build the App Engine
 applications.
@@ -78,9 +78,9 @@ load("@io_bazel_rules_appengine//appengine:appengine.bzl", "appengine_repositori
 appengine_repositories()
 ```
 
-[`http_archive`](/docs/be/workspace.html#http_archive) downloads the
+[`http_archive`](../be/workspace.html#http_archive) downloads the
 AppEngine rules from a GitHub archive. We could also have used
-[`git_repository`](/docs/be/workspace.html#git_repository) to fetch the rules
+[`git_repository`](../be/workspace.html#git_repository) to fetch the rules
 directly from the Git repository.
 
 The next two lines use the `appengine_repositories` function defined in
@@ -118,11 +118,11 @@ java_binary(
 )
 ```
 
-The [`java_binary`](/docs/be/java.html#java_binary) tells Bazel
+The [`java_binary`](../be/java.html#java_binary) tells Bazel
 how to build a Java `.jar` library for your application, plus a wrapper shell
 script that launches the application code from the specified main class. Here,
 we're using this rule instead of the
-[`java_library`](/docs/be/java.html#java_library) because we need
+[`java_library`](../be/java.html#java_library) because we need
 the `.jar` file to contain all the dependencies required to build the final
 App Engine `.war` file. For this reason, we specify a bogus class name
 for the `main_class` attribute.
@@ -147,7 +147,7 @@ filegroup(
 )
 ```
 
-The [`appengine_war`](/docs/be/appengine.html#appengine_war)
+The [`appengine_war`](../be/appengine.html#appengine_war)
 rule builds the final App Engine `war` file from the library `.jar` file and web
 application metadata files in the `webapp` directory.
 

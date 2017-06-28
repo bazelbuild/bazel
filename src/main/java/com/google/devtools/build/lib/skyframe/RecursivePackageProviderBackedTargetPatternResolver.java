@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.pkgcache.RecursivePackageProvider;
 import com.google.devtools.build.lib.pkgcache.TargetPatternResolverUtil;
 import com.google.devtools.build.lib.util.BatchCallback;
+import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.ThreadSafeBatchCallback;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -65,9 +66,9 @@ public class RecursivePackageProviderBackedTargetPatternResolver
   // TODO(janakr): Move this to a more generic place and unify with SkyQueryEnvironment's value?
   private static final int MAX_PACKAGES_BULK_GET = 1000;
 
+  protected final FilteringPolicy policy;
   private final RecursivePackageProvider recursivePackageProvider;
   private final ExtendedEventHandler eventHandler;
-  private final FilteringPolicy policy;
   private final MultisetSemaphore<PackageIdentifier> packageSemaphore;
 
   public RecursivePackageProviderBackedTargetPatternResolver(
@@ -100,13 +101,19 @@ public class RecursivePackageProviderBackedTargetPatternResolver
     return recursivePackageProvider.bulkGetPackages(pkgIds);
   }
 
+  /** Optionally convert a {@link Target} before including it in returns. */
+  protected Target maybeConvertTargetBeforeReturn(Target target) {
+    return target;
+  }
+
   @Override
   public Target getTargetOrNull(Label label) throws InterruptedException {
     try {
       if (!isPackage(label.getPackageIdentifier())) {
         return null;
       }
-      return recursivePackageProvider.getTarget(eventHandler, label);
+      return maybeConvertTargetBeforeReturn(
+          recursivePackageProvider.getTarget(eventHandler, label));
     } catch (NoSuchThingException e) {
       return null;
     }
@@ -118,7 +125,7 @@ public class RecursivePackageProviderBackedTargetPatternResolver
     try {
       Target target = recursivePackageProvider.getTarget(eventHandler, label);
       return policy.shouldRetain(target, true)
-          ? ResolvedTargets.of(target)
+          ? ResolvedTargets.of(maybeConvertTargetBeforeReturn(target))
           : ResolvedTargets.<Target>empty();
     } catch (NoSuchThingException e) {
       throw new TargetParsingException(e.getMessage(), e);
@@ -132,15 +139,17 @@ public class RecursivePackageProviderBackedTargetPatternResolver
     FilteringPolicy actualPolicy = rulesOnly
         ? FilteringPolicies.and(FilteringPolicies.RULES_ONLY, policy)
         : policy;
-    return getTargetsInPackage(originalPattern, packageIdentifier, actualPolicy);
-  }
-
-  private ResolvedTargets<Target> getTargetsInPackage(String originalPattern,
-      PackageIdentifier packageIdentifier, FilteringPolicy policy)
-      throws TargetParsingException, InterruptedException {
     try {
       Package pkg = getPackage(packageIdentifier);
-      return TargetPatternResolverUtil.resolvePackageTargets(pkg, policy);
+      return TargetPatternResolverUtil.resolvePackageTargets(
+          pkg,
+          actualPolicy,
+          new Function<Target, Target>() {
+            @Override
+            public Target apply(Target target) {
+              return maybeConvertTargetBeforeReturn(Preconditions.checkNotNull(target));
+            }
+          });
     } catch (NoSuchThingException e) {
       String message = TargetPatternResolverUtil.getParsingErrorMessage(
           e.getMessage(), originalPattern);
@@ -286,33 +295,35 @@ public class RecursivePackageProviderBackedTargetPatternResolver
         ImmutableList.copyOf(Iterables.partition(pkgIds, MAX_PACKAGES_BULK_GET));
     ArrayList<ListenableFuture<Void>> futures = new ArrayList<>(partitions.size());
     for (final Iterable<PackageIdentifier> pkgIdBatch : partitions) {
-      futures.add(executor.submit(new Callable<Void>() {
-          @Override
-          public Void call() throws E, TargetParsingException, InterruptedException {
-            ImmutableSet<PackageIdentifier> pkgIdBatchSet = ImmutableSet.copyOf(pkgIdBatch);
-            packageSemaphore.acquireAll(pkgIdBatchSet);
-            try {
-              Iterable<ResolvedTargets<Target>> resolvedTargets =
-                  bulkGetTargetsInPackage(originalPattern, pkgIdBatch, NO_FILTER).values();
-              List<Target> filteredTargets = new ArrayList<>(calculateSize(resolvedTargets));
-              for (ResolvedTargets<Target> targets : resolvedTargets) {
-                for (Target target : targets.getTargets()) {
-                  // Perform the no-targets-found check before applying the filtering policy
-                  // so we only return the error if the input directory's subtree really
-                  // contains no targets.
-                  foundTarget.set(true);
-                  if (actualPolicy.shouldRetain(target, false)) {
-                    filteredTargets.add(target);
+      futures.add(
+          executor.submit(
+              new Callable<Void>() {
+                @Override
+                public Void call() throws E, TargetParsingException, InterruptedException {
+                  ImmutableSet<PackageIdentifier> pkgIdBatchSet = ImmutableSet.copyOf(pkgIdBatch);
+                  packageSemaphore.acquireAll(pkgIdBatchSet);
+                  try {
+                    Iterable<ResolvedTargets<Target>> resolvedTargets =
+                        bulkGetTargetsInPackage(originalPattern, pkgIdBatch, NO_FILTER).values();
+                    List<Target> filteredTargets = new ArrayList<>(calculateSize(resolvedTargets));
+                    for (ResolvedTargets<Target> targets : resolvedTargets) {
+                      for (Target target : targets.getTargets()) {
+                        // Perform the no-targets-found check before applying the filtering policy
+                        // so we only return the error if the input directory's subtree really
+                        // contains no targets.
+                        foundTarget.set(true);
+                        if (actualPolicy.shouldRetain(target, false)) {
+                          filteredTargets.add(maybeConvertTargetBeforeReturn(target));
+                        }
+                      }
+                    }
+                    callback.process(filteredTargets);
+                  } finally {
+                    packageSemaphore.releaseAll(pkgIdBatchSet);
                   }
+                  return null;
                 }
-              }
-              callback.process(filteredTargets);
-            } finally {
-              packageSemaphore.releaseAll(pkgIdBatchSet);
-            }
-            return null;
-          }
-        }));
+              }));
     }
     return Futures.whenAllSucceed(futures)
         .call(
@@ -336,6 +347,5 @@ public class RecursivePackageProviderBackedTargetPatternResolver
     }
     return size;
   }
-
 }
 

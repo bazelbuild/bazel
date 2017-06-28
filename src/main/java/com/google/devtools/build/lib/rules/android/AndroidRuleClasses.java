@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TriState;
+import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidManifestMerger;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagProvider;
@@ -92,6 +93,12 @@ public final class AndroidRuleClasses {
       fromTemplates("%{name}_resources.jar");
   public static final SafeImplicitOutputsFunction ANDROID_RESOURCES_APK =
       fromTemplates("%{name}.ap_");
+  public static final SafeImplicitOutputsFunction ANDROID_RESOURCES_AAPT2_LIBRARY_APK =
+      fromTemplates("%{name}_files/aapt2_library.ap_");
+  public static final SafeImplicitOutputsFunction ANDROID_RESOURCES_AAPT2_R_TXT =
+      fromTemplates("%{name}_symbols/r.aapt2.txt");
+  public static final SafeImplicitOutputsFunction ANDROID_RESOURCES_AAPT2_SOURCE_JAR =
+      fromTemplates("%{name}_files/%{name}_resources_aapt2-src.jar");
   public static final SafeImplicitOutputsFunction ANDROID_RESOURCES_SHRUNK_APK =
       fromTemplates("%{name}_shrunk.ap_");
   public static final SafeImplicitOutputsFunction ANDROID_RESOURCES_ZIP =
@@ -122,6 +129,8 @@ public final class AndroidRuleClasses {
       fromTemplates("%{name}_symbols/local.bin");
   public static final SafeImplicitOutputsFunction ANDROID_MERGED_SYMBOLS =
       fromTemplates("%{name}_symbols/merged.bin");
+  public static final SafeImplicitOutputsFunction ANDROID_COMPILED_SYMBOLS =
+      fromTemplates("%{name}_symbols/symbols.zip");
   public static final ImplicitOutputsFunction ANDROID_PROCESSED_MANIFEST =
       fromTemplates("%{name}_processed_manifest/AndroidManifest.xml");
   public static final SafeImplicitOutputsFunction MOBILE_INSTALL_STUB_APPLICATION_MANIFEST =
@@ -368,9 +377,14 @@ public final class AndroidRuleClasses {
           // --proguard_top is not specified.
           .add(attr("proguard", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE).exec())
           .add(attr("aapt", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE).exec())
+          .add(attr("aapt2", LABEL).cfg(HOST).allowedFileTypes(ANY_FILE).exec())
           .add(attr("dx", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE).exec())
-          .add(attr("main_dex_list_creator", LABEL)
-              .mandatory().cfg(HOST).allowedFileTypes(ANY_FILE).exec())
+          .add(
+              attr("main_dex_list_creator", LABEL)
+                  .mandatory()
+                  .cfg(HOST)
+                  .allowedFileTypes(ANY_FILE)
+                  .exec())
           .add(attr("adb", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE).exec())
           .add(attr("framework_aidl", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE))
           .add(attr("aidl", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE).exec())
@@ -644,14 +658,14 @@ public final class AndroidRuleClasses {
                   .aspect(dexArchiveAspect, DexArchiveAspect.PARAM_EXTRACTOR))
           .add(
               attr("feature_of", LABEL)
-                .allowedRuleClasses("android_binary")
-                .allowedFileTypes()
-                .undocumented("experimental, see b/36226333"))
+                  .allowedRuleClasses("android_binary")
+                  .allowedFileTypes()
+                  .undocumented("experimental, see b/36226333"))
           .add(
               attr("feature_after", LABEL)
-                .allowedRuleClasses("android_binary")
-                .allowedFileTypes()
-                .undocumented("experimental, see b/36226333"))
+                  .allowedRuleClasses("android_binary")
+                  .allowedFileTypes()
+                  .undocumented("experimental, see b/36226333"))
           .add(
               attr("$build_incremental_dexmanifest", LABEL)
                   .cfg(HOST)
@@ -819,8 +833,10 @@ public final class AndroidRuleClasses {
                   .value(TriState.AUTO)
                   .undocumented("No-op, soon to be removed"))
           .add(attr(":extra_proguard_specs", LABEL_LIST).value(JavaSemantics.EXTRA_PROGUARD_SPECS))
-          .add(attr(":bytecode_optimizers", LABEL_LIST)
-              .cfg(HOST).value(JavaSemantics.BYTECODE_OPTIMIZERS))
+          .add(
+              attr(":bytecode_optimizers", LABEL_LIST)
+                  .cfg(HOST)
+                  .value(JavaSemantics.BYTECODE_OPTIMIZERS))
           .add(attr("rewrite_dexes_with_rex", BOOLEAN).value(false).undocumented("experimental"))
           /*
           File to be used as a package map for Rex tool that keeps the assignment of classes to
@@ -851,9 +867,10 @@ public final class AndroidRuleClasses {
                 --android_manifest_merger</a> flag.</li>
           </ul>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(attr("manifest_merger", STRING)
-              .allowedValues(new AllowedValueSet(AndroidManifestMerger.getAttributeValues()))
-              .value(AndroidManifestMerger.getRuleAttributeDefault()))
+          .add(
+              attr("manifest_merger", STRING)
+                  .allowedValues(new AllowedValueSet(AndroidManifestMerger.getAttributeValues()))
+                  .value(AndroidManifestMerger.getRuleAttributeDefault()))
           /* <!-- #BLAZE_RULE(android_binary).ATTRIBUTE(manifest_values) -->
           A dictionary of values to be overridden in the manifest. Any instance of ${name} in the
           manifest will be replaced with the value corresponding to name in this dictionary.
@@ -864,12 +881,33 @@ public final class AndroidRuleClasses {
           applicationId, versionCode and versionName will have any effect.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("manifest_values", STRING_DICT))
-          .add(attr(AndroidFeatureFlagSetProvider.FEATURE_FLAG_ATTR, LABEL_KEYED_STRING_DICT)
-              .undocumented("the feature flag feature has not yet been launched")
-              .allowedRuleClasses("config_feature_flag")
-              .allowedFileTypes()
-              .nonconfigurable("defines an aspect of configuration")
-              .mandatoryProviders(ImmutableList.of(ConfigFeatureFlagProvider.SKYLARK_IDENTIFIER)))
+          /* <!-- #BLAZE_RULE(android_binary).ATTRIBUTE(aapt_version) -->
+          Select the version of aapt for this rule.<br/>
+          Possible values:
+          <ul>
+              <li><code>aapt_version = "aapt"</code>: Use aapt. This is the current default
+                behaviour, and should be used for production binaries. The android_sdk rule must
+                have an aapt binary to use this option.</li>
+              <li><code>aapt_version = "aapt2"</code>: Use aapt2. This is the new resource
+               packaging system that provides improved incremental resource processing, smaller apks
+               and more. The android_sdk rule must have the aapt2 binary to use this option.</li>
+              <li><code>aapt_version = "auto"</code>: aapt is controlled by the
+                --android_aapt_version flag.</li>
+          </ul>
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(
+              attr("aapt_version", STRING)
+                  .undocumented("experimental, b/28819519")
+                  .allowedValues(new AllowedValueSet(AndroidAaptVersion.getAttributeValues()))
+                  .value(AndroidAaptVersion.getRuleAttributeDefault()))
+          .add(
+              attr(AndroidFeatureFlagSetProvider.FEATURE_FLAG_ATTR, LABEL_KEYED_STRING_DICT)
+                  .undocumented("the feature flag feature has not yet been launched")
+                  .allowedRuleClasses("config_feature_flag")
+                  .allowedFileTypes()
+                  .nonconfigurable("defines an aspect of configuration")
+                  .mandatoryProviders(
+                      ImmutableList.of(ConfigFeatureFlagProvider.SKYLARK_IDENTIFIER)))
           .advertiseProvider(JavaCompilationArgsProvider.class)
           .build();
       }

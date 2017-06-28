@@ -15,11 +15,16 @@
 package com.google.devtools.build.lib.rules.repository;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Rule;
@@ -28,6 +33,7 @@ import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.FileSymlinkException;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.InconsistentFilesystemException;
+import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
@@ -118,6 +124,24 @@ public abstract class RepositoryFunction {
   }
 
   /**
+   * An exception thrown when a dependency is missing to notify the SkyFunction from an evaluation.
+   */
+  protected static class RepositoryMissingDependencyException extends EvalException {
+
+    RepositoryMissingDependencyException() {
+      super(Location.BUILTIN, "Internal exception");
+    }
+  }
+
+  /**
+   * repository functions can throw the result of this function to notify the RepositoryFunction
+   * that a dependency was missing and the evaluation of the function must be restarted.
+   */
+  public static EvalException restart() {
+    return new RepositoryMissingDependencyException();
+  }
+
+  /**
    * Fetch the remote repository represented by the given rule.
    *
    * <p>When this method is called, it has already been determined that the repository is stale and
@@ -152,6 +176,14 @@ public abstract class RepositoryFunction {
       Map<String, String> markerData)
       throws SkyFunctionException, InterruptedException;
 
+  @SuppressWarnings("unchecked")
+  private static Iterable<String> getEnviron(Rule rule) {
+    if (rule.isAttrDefined("$environ", Type.STRING_LIST)) {
+      return (Iterable<String>) rule.getAttributeContainer().getAttr("$environ");
+    }
+    return ImmutableList.of();
+  }
+
   /**
    * Verify the data provided by the marker file to check if a refetch is needed. Returns true if
    * the data is up to date and no refetch is needed and false if the data is obsolete and a refetch
@@ -159,8 +191,89 @@ public abstract class RepositoryFunction {
    */
   @Nullable
   public boolean verifyMarkerData(Rule rule, Map<String, String> markerData, Environment env)
+      throws InterruptedException, RepositoryFunctionException {
+    return verifyEnvironMarkerData(markerData, env, getEnviron(rule))
+        && verifyMarkerDataForFiles(rule, markerData, env);
+  }
+
+  private static boolean verifyLabelMarkerData(Rule rule, String key, String value, Environment env)
       throws InterruptedException {
+    Preconditions.checkArgument(key.startsWith("FILE:"));
+    try {
+      RootedPath rootedPath;
+      String fileKey = key.substring(5);
+      if (LabelValidator.isAbsolute(fileKey)) {
+        rootedPath = getRootedPathFromLabel(Label.parseAbsolute(fileKey), env);
+      } else {
+        // TODO(pcloudy): Removing checking absolute path, they should all be absolute label.
+        PathFragment filePathFragment = PathFragment.create(fileKey);
+        Path file = rule.getPackage().getPackageDirectory().getRelative(filePathFragment);
+        rootedPath =
+            RootedPath.toRootedPath(
+                file.getParentDirectory(), PathFragment.create(file.getBaseName()));
+      }
+
+      SkyKey fileSkyKey = FileValue.key(rootedPath);
+      FileValue fileValue =
+          (FileValue)
+              env.getValueOrThrow(
+                  fileSkyKey,
+                  IOException.class,
+                  FileSymlinkException.class,
+                  InconsistentFilesystemException.class);
+
+      if (fileValue == null || !fileValue.isFile()) {
+        return false;
+      }
+
+      return Objects.equals(value, Integer.toString(fileValue.realFileStateValue().hashCode()));
+    } catch (LabelSyntaxException e) {
+      throw new IllegalStateException(
+          "Key " + key + " is not a correct file key (should be in form FILE:label)", e);
+    } catch (IOException
+        | FileSymlinkException
+        | InconsistentFilesystemException
+        | EvalException e) {
+      // Consider those exception to be a cause for invalidation
+      return false;
+    }
+  }
+
+  static boolean verifyMarkerDataForFiles(
+      Rule rule, Map<String, String> markerData, Environment env) throws InterruptedException {
+    for (Map.Entry<String, String> entry : markerData.entrySet()) {
+      if (entry.getKey().startsWith("FILE:")) {
+        if (!verifyLabelMarkerData(rule, entry.getKey(), entry.getValue(), env)) {
+          return false;
+        }
+      }
+    }
     return true;
+  }
+
+  public static RootedPath getRootedPathFromLabel(Label label, Environment env)
+      throws InterruptedException, EvalException {
+    // Look for package.
+    if (label.getPackageIdentifier().getRepository().isDefault()) {
+      try {
+        label = Label.create(label.getPackageIdentifier().makeAbsolute(), label.getName());
+      } catch (LabelSyntaxException e) {
+        throw new AssertionError(e); // Can't happen because the input label is valid
+      }
+    }
+    SkyKey pkgSkyKey = PackageLookupValue.key(label.getPackageIdentifier());
+    PackageLookupValue pkgLookupValue = (PackageLookupValue) env.getValue(pkgSkyKey);
+    if (pkgLookupValue == null) {
+      throw RepositoryFunction.restart();
+    }
+    if (!pkgLookupValue.packageExists()) {
+      throw new EvalException(
+          Location.BUILTIN, "Unable to load package for " + label + ": not found.");
+    }
+
+    // And now for the file
+    Path packageRoot = pkgLookupValue.getRoot();
+    return RootedPath.toRootedPath(packageRoot, label.toPathFragment());
   }
 
   /**

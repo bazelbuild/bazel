@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="0 0 512 512" style="enable-background:new 0 0 512 512;" xml:space="preserve">
+<style type="text/css">
+	.st0{fill:#43A047;}
+	.st1{fill:#00701A;}
+	.st2{fill:#004300;}
+	.st3{fill:#76D275;}
+	.st4{fill:none;}
+</style>
+<g>
+	<polygon class="st0" points="21.3,139.8 21.3,254.9 138.7,372.2 138.7,257.1 	"/>
+	<polygon class="st1" points="256,374.4 256,489.6 138.7,372.2 138.7,257.1 	"/>
+	<polygon class="st0" points="490.7,139.8 490.7,254.9 373.3,372.2 373.3,257.1 	"/>
+	<polygon class="st2" points="256,374.4 373.3,257.1 373.3,372.2 256,489.6 	"/>
+
+		<rect x="55.7" y="56.8" transform="matrix(0.7071 0.7071 -0.7071 0.7071 139.436 -57.119)" class="st3" width="165.9" height="165.9"/>
+
+		<rect x="173" y="174.1" transform="matrix(0.7071 0.7071 -0.7071 0.7071 256.7693 -105.72)" class="st0" width="165.9" height="165.9"/>
+
+		<rect x="290.4" y="56.8" transform="matrix(0.7071 0.7071 -0.7071 0.7071 208.1683 -223.0533)" class="st3" width="165.9" height="165.9"/>
+</g>
+<rect x="0" y="0" class="st4" width="512" height="512"/>
+</svg>

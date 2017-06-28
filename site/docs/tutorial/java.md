@@ -25,7 +25,7 @@ In this tutorial you'll learn how to:
 
 ## Before you begin
 
-To prepare for the tutorial, first [Install Bazel](/docs/install.md) if
+To prepare for the tutorial, first [Install Bazel](../install.md) if
 you don't have it installed already. Then, retrieve the sample project from
 Bazel's GitHub repository:
 
@@ -94,7 +94,7 @@ java_binary(
 ```
 
 In our example, the `ProjectRunner` target instantiates Bazel's built-in
-[`java_binary` rule](/docs/be/java.html#java_binary). The rule tells Bazel to
+[`java_binary` rule](../be/java.html#java_binary). The rule tells Bazel to
 build a `.jar` file and a wrapper shell script (both named after the target).
 
 The attributes in the target explicitly state its dependencies and options.
@@ -102,7 +102,7 @@ While the `name` attribute is mandatory, many are optional. For example, in the
 `ProjectRunner` rule target, `name` is the name of the target, `srcs` specifies
 the source files that Bazel uses to build the target, and `main_class` specifies
 the class that contains the main method. (You may have noticed that our example
-uses [glob](/docs/be/functions.html#glob) to pass a set of source files to Bazel
+uses [glob](../be/functions.html#glob) to pass a set of source files to Bazel
 instead of listing them one by one.)
 
 ### Build the project
@@ -338,7 +338,7 @@ Let’s now package a Java target for deployment by building the binary with all
 of its runtime dependencies. This lets you run the binary outside of your
 development environment.
 
-As you remember, the [java_binary](/docs/be/java.html#java_binary) build rule
+As you remember, the [java_binary](../be/java.html#java_binary) build rule
 produces a `.jar` and a wrapper shell script. Take a look at the contents of
 `runner.jar` using this command:
 
@@ -382,15 +382,15 @@ dependencies.
 
 ## Further reading
 
-*  [External Dependencies](https://bazel.build/versions/master/docs/external.html)
-   to learn more about working with local and remote repositories.
+*  [External Dependencies](../external.html) to learn more about working with
+   local and remote repositories.
 
-*  The [Build Encyclopedia](/docs/be/overview.html) to learn more about Bazel.
+*  The [Build Encyclopedia](../be/overview.html) to learn more about Bazel.
 
-*  The [C++ build tutorial](/docs/tutorial/cpp.md) to get started with building
+*  The [C++ build tutorial](../tutorial/cpp.md) to get started with building
    C++ projects with Bazel.
 
-*  The [mobile application tutorial](/docs/tutorial/app.md) to get started with
+*  The [mobile application tutorial](../tutorial/app.md) to get started with
    building mobile applications for Android and iOS with Bazel.
 
 Happy building!

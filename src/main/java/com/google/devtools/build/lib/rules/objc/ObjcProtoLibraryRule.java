@@ -49,8 +49,6 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
   static final String PORTABLE_PROTO_FILTERS_ATTR = "portable_proto_filters";
   static final String USES_PROTOBUF_ATTR = "uses_protobuf";
 
-  static final String XCODE_GEN_ATTR = "$xcodegen";
-
   private final ObjcProtoAspect objcProtoAspect;
 
   /**
@@ -152,11 +150,6 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
             ProtoSourceFileBlacklist.blacklistFilegroupAttribute(
                 PROTOBUF_WELL_KNOWN_TYPES,
                 ImmutableList.of(env.getToolsLabel("//tools/objc:protobuf_well_known_types"))))
-        .add(
-            attr(XCODE_GEN_ATTR, LABEL)
-                .cfg(HOST)
-                .exec()
-                .value(env.getToolsLabel("//tools/objc:xcodegen")))
         .cfg(AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION)
         .build();
   }

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.util.Preconditions;
+import java.io.IOException;
 import java.util.List;
 
 /**
@@ -42,6 +43,12 @@ public final class IfStatement extends Statement {
       }
     }
 
+    // No prettyPrint function; handled directly by IfStatement#prettyPrint.
+    @Override
+    public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
+      throw new UnsupportedOperationException("Cannot pretty print ConditionalStatements node");
+    }
+
     @Override
     public String toString() {
       return "[el]if " + condition + ": " + stmts + "\n";
@@ -67,6 +74,7 @@ public final class IfStatement extends Statement {
     }
   }
 
+  /** "if" or "elif" clauses. Must be non-empty. */
   private final ImmutableList<ConditionalStatements> thenBlocks;
   private final ImmutableList<Statement> elseBlock;
 
@@ -89,11 +97,26 @@ public final class IfStatement extends Statement {
   }
 
   @Override
+  public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
+    String clauseWord = "if ";
+    for (ConditionalStatements condStmt : thenBlocks) {
+      printIndent(buffer, indentLevel);
+      buffer.append(clauseWord);
+      condStmt.getCondition().prettyPrint(buffer);
+      buffer.append(":\n");
+      printSuite(buffer, condStmt.getStmts(), indentLevel);
+      clauseWord = "elif ";
+    }
+    if (!elseBlock.isEmpty()) {
+      printIndent(buffer, indentLevel);
+      buffer.append("else:\n");
+      printSuite(buffer, elseBlock, indentLevel);
+    }
+  }
+
+  @Override
   public String toString() {
-    // TODO(bazel-team): if we want to print the complete statement, the function
-    // needs an extra argument to specify indentation level.
-    // As guaranteed by the constructor, there must be at least one element in thenBlocks.
-    return String.format("if %s:\n", thenBlocks.get(0).getCondition());
+    return String.format("if %s: ...\n", thenBlocks.get(0).getCondition());
   }
 
   @Override

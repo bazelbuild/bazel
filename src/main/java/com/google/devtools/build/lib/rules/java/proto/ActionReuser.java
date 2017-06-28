@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgs;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
+import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
@@ -51,7 +52,7 @@ public class ActionReuser {
       return false;
     }
 
-    JavaCompilationArgs directJars = javaApi.getJavaCompilationArgsImmutable();
+    JavaCompilationArtifacts directJars = javaApi.getJavaCompilationArtifactsImmutable();
     if (isEmpty(directJars.getCompileTimeJars()) || javaApi.sourceJarImmutable() == null) {
       return false;
     }
@@ -60,7 +61,7 @@ public class ActionReuser {
         JavaCompilationArgs.builder()
             .addTransitiveArgs(javaApi.getTransitiveJavaCompilationArgsImmutable(), BOTH)
             .addTransitiveDependencies(javaApi.getProtoRuntimeImmutable(), true /* recursive */)
-            .addTransitiveArgs(directJars, BOTH)
+            .merge(directJars)
             .build();
 
     Artifact outputJar = getOnlyElement(directJars.getRuntimeJars());
@@ -69,9 +70,10 @@ public class ActionReuser {
 
     JavaCompilationArgsProvider compilationArgsProvider =
         JavaCompilationArgsProvider.create(
-            directJars,
+            JavaCompilationArgs.builder().merge(directJars).build(),
             transitiveJars,
-            NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+            NestedSetBuilder.create(
+                Order.STABLE_ORDER, directJars.getCompileTimeDependencyArtifact()),
             NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
 
     TransitiveInfoProviderMapBuilder javaProvidersBuilder =

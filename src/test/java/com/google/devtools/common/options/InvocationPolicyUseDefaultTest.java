@@ -14,6 +14,7 @@
 package com.google.devtools.common.options;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import org.junit.Test;
@@ -98,6 +99,50 @@ public class InvocationPolicyUseDefaultTest extends InvocationPolicyEnforcerTest
     assertThat(testOptions.expandedB).isEqualTo(TestOptions.EXPANDED_B_DEFAULT);
     assertThat(testOptions.expandedC).isEqualTo(TestOptions.EXPANDED_C_DEFAULT);
     assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_DEFAULT);
+  }
+
+  @Test
+  public void testUseDefaultWithVoidExpansionFunction() throws Exception {
+    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
+    invocationPolicyBuilder
+        .addFlagPoliciesBuilder()
+        .setFlagName("test_void_expansion_function")
+        .getUseDefaultBuilder();
+
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    parser.parse("--expanded_d=value to override");
+
+    TestOptions testOptions = getTestOptions();
+    assertThat(testOptions.expandedD).isEqualTo("value to override");
+
+    enforcer.enforce(parser, BUILD_COMMAND);
+
+    // After policy enforcement, all the flags that --test_void_expansion_function expanded into
+    // should be back to their default values.
+    testOptions = getTestOptions();
+    assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_DEFAULT);
+  }
+
+  @Test
+  public void testUseDefaultWithExpansionFunction() throws Exception {
+    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
+    invocationPolicyBuilder
+        .addFlagPoliciesBuilder()
+        .setFlagName("test_expansion_function")
+        .getUseDefaultBuilder();
+
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    parser.parse("--expanded_d=value to override");
+
+    TestOptions testOptions = getTestOptions();
+    assertThat(testOptions.expandedD).isEqualTo("value to override");
+
+    try {
+      enforcer.enforce(parser, BUILD_COMMAND);
+      fail();
+    } catch (OptionsParsingException e) {
+      assertThat(e).hasMessage("Expansion value not set.");
+    }
   }
 
   @Test

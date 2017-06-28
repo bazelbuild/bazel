@@ -19,7 +19,9 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.List;
 
 /** Command-line options for platform-related configuration. */
@@ -28,8 +30,9 @@ public class PlatformOptions extends FragmentOptions {
   @Option(
     name = "experimental_host_platform",
     converter = BuildConfiguration.LabelConverter.class,
-    // TODO(katre): Use @bazel_tools//platforms:host_platform when available.
-    defaultValue = "@bazel_tools//platforms:default_platform",
+    defaultValue = "@bazel_tools//platforms:host_platform",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     optionUsageRestrictions = OptionsParser.OptionUsageRestrictions.HIDDEN,
     help = "Declare the platform the build is started from"
   )
@@ -40,8 +43,9 @@ public class PlatformOptions extends FragmentOptions {
   @Option(
     name = "experimental_platforms",
     converter = BuildConfiguration.LabelListConverter.class,
-    // TODO(katre): Use @bazel_tools//platforms:target_platform when available.
-    defaultValue = "@bazel_tools//platforms:default_platform",
+    defaultValue = "@bazel_tools//platforms:target_platform",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     optionUsageRestrictions = OptionsParser.OptionUsageRestrictions.HIDDEN,
     help = "Declare the platforms targeted by the current build"
   )

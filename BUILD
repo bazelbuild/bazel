@@ -40,7 +40,7 @@ filegroup(
     srcs = [":WORKSPACE"],
     visibility = [
         "//src/test/shell/bazel:__subpackages__",
-        "//tools/cpp/test:__pkg__",
+        "//src/test/docker:__pkg__",
     ],
 )
 

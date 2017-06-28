@@ -38,10 +38,11 @@ using std::vector;
 const char kServerPidFile[] = "server.pid.txt";
 
 string MakeAbsolute(const string &path) {
-  // Check if path is already absolute.
-  // TODO(laszlocsomor): remove the "path.empty() ||" clause; empty paths are
-  // not absolute!
-  if (path.empty() || blaze_util::IsAbsolute(path)) {
+  if (path.empty()) {
+    return blaze_util::GetCwd();
+  }
+
+  if (blaze_util::IsAbsolute(path)) {
     return path;
   }
 

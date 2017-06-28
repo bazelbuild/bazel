@@ -37,11 +37,14 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClassProvider;
 import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
+import com.google.devtools.common.options.proto.OptionFilters.OptionMetadataTag;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -73,6 +76,8 @@ public class BuildRequest implements OptionsClassProvider {
       abbrev = 'j',
       defaultValue = "auto",
       category = "strategy",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
       converter = JobsConverter.class,
       help =
           "The number of concurrent jobs to run. 0 means build sequentially."
@@ -89,6 +94,8 @@ public class BuildRequest implements OptionsClassProvider {
       name = "progress_report_interval",
       defaultValue = "0",
       category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       converter = ProgressReportIntervalConverter.class,
       help =
           "The number of seconds to wait between two reports on still running jobs. The "
@@ -100,6 +107,8 @@ public class BuildRequest implements OptionsClassProvider {
       name = "explain",
       defaultValue = "null",
       category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       converter = OptionsUtils.PathFragmentConverter.class,
       help =
           "Causes the build system to explain each executed step of the "
@@ -111,6 +120,8 @@ public class BuildRequest implements OptionsClassProvider {
       name = "verbose_explanations",
       defaultValue = "false",
       category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "Increases the verbosity of the explanations issued if --explain is enabled. "
               + "Has no effect if --explain is not enabled."
@@ -122,6 +133,8 @@ public class BuildRequest implements OptionsClassProvider {
       converter = Converters.RegexPatternConverter.class,
       defaultValue = "null",
       category = "flags",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help = "Only shows warnings for rules with a name matching the provided regular expression."
     )
     public Pattern outputFilter;
@@ -130,6 +143,9 @@ public class BuildRequest implements OptionsClassProvider {
     @Option(
       name = "dump_makefile",
       defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.DEPRECATED},
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       help = "this flag has no effect."
     )
@@ -139,6 +155,9 @@ public class BuildRequest implements OptionsClassProvider {
     @Option(
       name = "dump_action_graph",
       defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.DEPRECATED},
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       help = "this flag has no effect."
     )
@@ -149,6 +168,9 @@ public class BuildRequest implements OptionsClassProvider {
       name = "dump_action_graph_for_package",
       allowMultiple = true,
       defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.DEPRECATED},
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       help = "this flag has no effect."
     )
@@ -158,6 +180,9 @@ public class BuildRequest implements OptionsClassProvider {
     @Option(
       name = "dump_action_graph_with_middlemen",
       defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.DEPRECATED},
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       help = "this flag has no effect."
     )
@@ -167,6 +192,9 @@ public class BuildRequest implements OptionsClassProvider {
     @Option(
       name = "dump_providers",
       defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.DEPRECATED},
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       help = "This is a no-op."
     )
@@ -176,6 +204,9 @@ public class BuildRequest implements OptionsClassProvider {
     @Option(
       name = "dump_targets",
       defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.DEPRECATED},
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       help = "this flag has no effect."
     )
@@ -185,6 +216,9 @@ public class BuildRequest implements OptionsClassProvider {
     @Option(
       name = "dump_host_deps",
       defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.DEPRECATED},
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       help = "Deprecated"
     )
@@ -194,6 +228,9 @@ public class BuildRequest implements OptionsClassProvider {
     @Option(
       name = "dump_to_stdout",
       defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      metadataTags = {OptionMetadataTag.DEPRECATED},
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       help = "Deprecated"
     )
@@ -202,6 +239,12 @@ public class BuildRequest implements OptionsClassProvider {
     @Option(
       name = "analyze",
       defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.EAGERNESS_TO_EXIT,
+        OptionEffectTag.AFFECTS_OUTPUTS
+      },
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       help =
           "Execute the analysis phase; this is the usual behaviour. Specifying --noanalyze causes "
@@ -214,6 +257,12 @@ public class BuildRequest implements OptionsClassProvider {
       name = "build",
       defaultValue = "true",
       category = "what",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {
+        OptionEffectTag.EXECUTION,
+        OptionEffectTag.EAGERNESS_TO_EXIT,
+        OptionEffectTag.AFFECTS_OUTPUTS
+      },
       help =
           "Execute the build; this is the usual behaviour. "
               + "Specifying --nobuild causes the build to stop before executing the build "
@@ -226,6 +275,8 @@ public class BuildRequest implements OptionsClassProvider {
       name = "output_groups",
       converter = Converters.CommaSeparatedOptionListConverter.class,
       allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.AFFECTS_OUTPUTS},
       defaultValue = "",
       help =
           "Specifies which output groups of the top-level targets to build. If omitted, a default "
@@ -239,6 +290,8 @@ public class BuildRequest implements OptionsClassProvider {
       name = "show_result",
       defaultValue = "1",
       category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "Show the results of the build.  For each target, state whether or not it was brought "
               + "up-to-date, and if so, a list of output files that were built.  The printed files "
@@ -253,6 +306,8 @@ public class BuildRequest implements OptionsClassProvider {
     @Option(
       name = "experimental_show_artifacts",
       defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       help =
           "Output a list of all top level artifacts produced by this build."
@@ -266,6 +321,8 @@ public class BuildRequest implements OptionsClassProvider {
       name = "announce",
       defaultValue = "false",
       category = "verbosity",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help = "Deprecated. No-op.",
       deprecationWarning = "This option is now deprecated and is a no-op"
     )
@@ -275,6 +332,8 @@ public class BuildRequest implements OptionsClassProvider {
       name = "symlink_prefix",
       defaultValue = "null",
       category = "misc",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "The prefix that is prepended to any of the convenience symlinks that are created "
               + "after a build. If '/' is passed, then no symlinks are created and no warning is "
@@ -288,6 +347,9 @@ public class BuildRequest implements OptionsClassProvider {
       allowMultiple = true,
       defaultValue = "",
       category = "semantics",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "This flag allows specifying multiple target CPUs. If this is specified, "
               + "the --cpu option is ignored."
@@ -298,6 +360,8 @@ public class BuildRequest implements OptionsClassProvider {
       name = "output_tree_tracking",
       oldName = "experimental_output_tree_tracking",
       defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       help =
           "If set, tell the output service (if any) to track when files in the output "
@@ -311,6 +375,8 @@ public class BuildRequest implements OptionsClassProvider {
       name = "aspects",
       converter = Converters.CommaSeparatedOptionListConverter.class,
       defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.UNKNOWN},
       allowMultiple = true,
       help =
           "Comma-separated list of aspects to be applied to top-level targets. All aspects "
@@ -318,7 +384,6 @@ public class BuildRequest implements OptionsClassProvider {
               + "the form <bzl-file-label>%<aspect_name>, "
               + "for example '//tools:my_def.bzl%my_aspect', where 'my_aspect' is a top-level "
               + "value from from a file tools/my_def.bzl"
-
     )
     public List<String> aspects;
 
@@ -329,6 +394,11 @@ public class BuildRequest implements OptionsClassProvider {
     @Option(
       name = "use_action_cache",
       defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {
+        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+        OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
+      },
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       help = "Whether to use the action cache"
     )

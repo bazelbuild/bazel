@@ -108,3 +108,12 @@ filegroup(
     srcs = glob(["**"]),
     visibility = ["//src:__pkg__"],
 )
+
+# TODO(laszlocsomor): move the common parts needed both by the Windows JNI lib
+# and the Bazel client into a separate library, and only copy those to the
+# embedded tools folder.
+filegroup(
+    name = "embedded_tools",
+    srcs = glob(["*.cc"]) + glob(["*.h"]) + ["BUILD"],
+    visibility = ["//visibility:public"],
+)

@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -47,6 +48,10 @@ import java.util.concurrent.atomic.AtomicReference;
   contextType = SpawnActionContext.class
 )
 public class DarwinSandboxedStrategy extends SandboxStrategy {
+
+  public static boolean isSupported(CommandEnvironment cmdEnv) {
+    return OS.getCurrent() == OS.DARWIN && DarwinSandboxRunner.isSupported(cmdEnv);
+  }
 
   private final Path execRoot;
   private final boolean sandboxDebug;

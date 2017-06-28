@@ -942,7 +942,8 @@ public final class Environment implements Freezable {
 
 
   /**
-   * The fail fast handler, which throws a AssertionError whenever an error or warning occurs.
+   * The fail fast handler, which throws an {@link IllegalArgumentException} whenever an error or
+   * warning occurs.
    */
   public static final EventHandler FAIL_FAST_HANDLER = new EventHandler() {
       @Override

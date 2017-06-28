@@ -21,8 +21,8 @@ import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 /**
  * Utility methods for the build event stream.
  *
- * <p>TODO(aehlig): remove once proto to proto dependencies are available and pass through the
- * BlazeTestStatus.
+ * <p>TODO(aehlig): remove once {@link BlazeTestStatus} is replaced by {@link TestStatus} from the
+ * {@link BuildEventStreamProtos}.
  */
 public final class BuildEventStreamerUtils {
 

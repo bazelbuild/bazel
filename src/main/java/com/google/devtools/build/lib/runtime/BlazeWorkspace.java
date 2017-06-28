@@ -91,6 +91,10 @@ public final class BlazeWorkspace {
     this.outputBaseFilesystemTypeName = FileSystemUtils.getFileSystem(getOutputBase());
   }
 
+  public BlazeRuntime getRuntime() {
+    return runtime;
+  }
+
   /**
    * Returns the Blaze directories object for this runtime.
    */

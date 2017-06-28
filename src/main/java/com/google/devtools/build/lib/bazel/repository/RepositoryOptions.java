@@ -21,9 +21,11 @@ import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.List;
 
 /**
@@ -34,6 +36,8 @@ public class RepositoryOptions extends OptionsBase {
   @Option(
     name = "experimental_repository_cache",
     defaultValue = "null",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
     converter = OptionsUtils.PathFragmentConverter.class,
     help =
@@ -42,11 +46,15 @@ public class RepositoryOptions extends OptionsBase {
   )
   public PathFragment experimentalRepositoryCache;
 
-  @Option(name = "override_repository",
-      defaultValue = "null",
-      allowMultiple = true,
-      converter = RepositoryOverrideConverter.class,
-      help = "Overrides a repository with a local directory.")
+  @Option(
+    name = "override_repository",
+    defaultValue = "null",
+    allowMultiple = true,
+    converter = RepositoryOverrideConverter.class,
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "Overrides a repository with a local directory."
+  )
   public List<RepositoryOverride> repositoryOverrides;
 
   /**
