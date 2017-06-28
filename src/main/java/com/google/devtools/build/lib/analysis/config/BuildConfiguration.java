@@ -34,6 +34,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MutableClassToInstanceMap;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -70,7 +71,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.Path;
@@ -99,7 +99,6 @@ import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.TreeSet;
 import javax.annotation.Nullable;
 
 /**
@@ -1306,22 +1305,8 @@ public final class BuildConfiguration implements BuildEvent {
    */
   private final ImmutableMap<String, String> globalMakeEnv;
 
-  // The action and test environments each consist of two parts. The first part are all the
-  // environment variables with a fixed value, and is stored in a map. The second part are all the
-  // environment variables inherited from the client environment, and is stored in a set. The second
-  // part is resolved as part of action execution - they are declared in the Action interface, and
-  // the SkyframeExecutor adds dependency edges from the actions to nodes corresponding to the
-  // individual client env variables, which ensures correct invalidation when the client env
-  // changes.
-  // Care needs to be taken that the two sets don't overlap - the order in which the two parts are
-  // combined later is undefined.
-  // TODO(ulfjack): Consider adding a wrapper class to construct and contain the two parts, and also
-  // handle case independence on certain platforms.
-  private final ImmutableMap<String, String> actionEnv;
-  private final ImmutableSet<String> inheritedActionEnvVars;
-
-  private final ImmutableMap<String, String> testEnv;
-  private final ImmutableSet<String> inheritedTestEnvVars;
+  private final ActionEnvironment actionEnv;
+  private final ActionEnvironment testEnv;
 
   private final BuildOptions buildOptions;
   private final Options options;
@@ -1471,7 +1456,7 @@ public final class BuildConfiguration implements BuildEvent {
    * statically set environment variables with their values and the set of environment variables to
    * be inherited from the client environment.
    */
-  private Pair<ImmutableMap<String, String>, ImmutableSet<String>> setupActionEnvironment() {
+  private ActionEnvironment setupActionEnvironment() {
     // We make a copy first to remove duplicate entries; last one wins.
     Map<String, String> actionEnv = new HashMap<>();
     // TODO(ulfjack): Remove all env variables from configuration fragments.
@@ -1484,7 +1469,7 @@ public final class BuildConfiguration implements BuildEvent {
     for (Map.Entry<String, String> entry : options.actionEnvironment) {
       actionEnv.put(entry.getKey(), entry.getValue());
     }
-    return split(actionEnv);
+    return ActionEnvironment.split(actionEnv);
   }
 
   /**
@@ -1492,27 +1477,13 @@ public final class BuildConfiguration implements BuildEvent {
    * statically set environment variables with their values and the set of environment variables to
    * be inherited from the client environment.
    */
-  private Pair<ImmutableMap<String, String>, ImmutableSet<String>> setupTestEnvironment() {
+  private ActionEnvironment setupTestEnvironment() {
     // We make a copy first to remove duplicate entries; last one wins.
     Map<String, String> testEnv = new HashMap<>();
     for (Map.Entry<String, String> entry : options.testEnvironment) {
       testEnv.put(entry.getKey(), entry.getValue());
     }
-    return split(testEnv);
-  }
-
-  private Pair<ImmutableMap<String, String>, ImmutableSet<String>> split(Map<String, String> env) {
-    Map<String, String> fixedEnv = new TreeMap<>();
-    Set<String> variableEnv = new TreeSet<>();
-    for (Map.Entry<String, String> entry : env.entrySet()) {
-      if (entry.getValue() != null) {
-        fixedEnv.put(entry.getKey(), entry.getValue());
-      } else {
-        String key = entry.getKey();
-        variableEnv.add(key);
-      }
-    }
-    return Pair.of(ImmutableMap.copyOf(fixedEnv), ImmutableSet.copyOf(variableEnv));
+    return ActionEnvironment.split(testEnv);
   }
 
   /**
@@ -1583,13 +1554,9 @@ public final class BuildConfiguration implements BuildEvent {
 
     this.shellExecutable = computeShellExecutable();
 
-    Pair<ImmutableMap<String, String>, ImmutableSet<String>> actionEnvs = setupActionEnvironment();
-    this.actionEnv = actionEnvs.getFirst();
-    this.inheritedActionEnvVars = actionEnvs.getSecond();
+    this.actionEnv = setupActionEnvironment();
 
-    Pair<ImmutableMap<String, String>, ImmutableSet<String>> testEnvs = setupTestEnvironment();
-    this.testEnv = testEnvs.getFirst();
-    this.inheritedTestEnvVars = testEnvs.getSecond();
+    this.testEnv = setupTestEnvironment();
 
     this.transitiveOptionDetails = computeOptionsMap(buildOptions, fragments.values());
 
@@ -2353,6 +2320,10 @@ public final class BuildConfiguration implements BuildEvent {
     return checksum();
   }
 
+  public ActionEnvironment getActionEnvironment() {
+    return actionEnv;
+  }
+
   @SkylarkCallable(
     name = "default_shell_env",
     structField = true,
@@ -2371,8 +2342,9 @@ public final class BuildConfiguration implements BuildEvent {
    * <p>Since values of the "fixed" variables are already known at analysis phase, it is returned
    * here as a map.
    */
+  @Deprecated // Use getActionEnvironment instead.
   public ImmutableMap<String, String> getLocalShellEnvironment() {
-    return actionEnv;
+    return actionEnv.getFixedEnv();
   }
 
   /**
@@ -2389,8 +2361,9 @@ public final class BuildConfiguration implements BuildEvent {
    * environment. (Variables where the name is not returned in this set should not be taken from the
    * client environment.)
    */
+  @Deprecated // Use getActionEnvironment instead.
   public ImmutableSet<String> getVariableShellEnvironment() {
-    return inheritedActionEnvVars;
+    return actionEnv.getInheritedEnv();
   }
 
   /**
@@ -2540,19 +2513,27 @@ public final class BuildConfiguration implements BuildEvent {
    * Returns user-specified test environment variables and their values, as set by the --test_env
    * options.
    */
+  @Deprecated
   @SkylarkCallable(
     name = "test_env",
     structField = true,
     doc =
         "A dictionary containing user-specified test environment variables and their values, "
-            + "as set by the --test_env options."
+            + "as set by the --test_env options. DO NOT USE! This is not the complete environment!"
   )
   public ImmutableMap<String, String> getTestEnv() {
-    return testEnv;
+    return testEnv.getFixedEnv();
   }
 
-  public ImmutableSet<String> getInheritedTestEnv() {
-    return inheritedTestEnvVars;
+  /**
+   * Returns user-specified test environment variables and their values, as set by the
+   * {@code --test_env} options. It is incomplete in that it is not a superset of the
+   * {@link #getActionEnvironment}, but both have to be applied, with this one being applied after
+   * the other, such that {@code --test_env} settings can override {@code --action_env} settings.
+   */
+  // TODO(ulfjack): Just return the merged action and test action environment here?
+  public ActionEnvironment getTestActionEnvironment() {
+    return testEnv;
   }
 
   public TriState cacheTestResults() {
