@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.bazel.repository.skylark;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.repository.DecompressorDescriptor;
@@ -25,18 +24,17 @@ import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyT
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpUtils;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.skyframe.FileSymlinkException;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.InconsistentFilesystemException;
-import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -64,7 +62,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 /** Skylark API for the repository_rule's context. */
 @SkylarkModule(
@@ -688,34 +685,9 @@ public class SkylarkRepositoryContext {
     return "repository_ctx[" + rule.getLabel() + "]";
   }
 
-  private static RootedPath getRootedPathFromLabel(Label label, Environment env)
-      throws InterruptedException, EvalException {
-    // Look for package.
-    if (label.getPackageIdentifier().getRepository().isDefault()) {
-      try {
-        label = Label.create(label.getPackageIdentifier().makeAbsolute(), label.getName());
-      } catch (LabelSyntaxException e) {
-        throw new AssertionError(e); // Can't happen because the input label is valid
-      }
-    }
-    SkyKey pkgSkyKey = PackageLookupValue.key(label.getPackageIdentifier());
-    PackageLookupValue pkgLookupValue = (PackageLookupValue) env.getValue(pkgSkyKey);
-    if (pkgLookupValue == null) {
-      throw SkylarkRepositoryFunction.restart();
-    }
-    if (!pkgLookupValue.packageExists()) {
-      throw new EvalException(Location.BUILTIN,
-          "Unable to load package for " + label + ": not found.");
-    }
-
-    // And now for the file
-    Path packageRoot = pkgLookupValue.getRoot();
-    return RootedPath.toRootedPath(packageRoot, label.toPathFragment());
-  }
-
   // Resolve the label given by value into a file path.
   private SkylarkPath getPathFromLabel(Label label) throws EvalException, InterruptedException {
-    RootedPath rootedPath = getRootedPathFromLabel(label, env);
+    RootedPath rootedPath = RepositoryFunction.getRootedPathFromLabel(label, env);
     SkyKey fileSkyKey = FileValue.key(rootedPath);
     FileValue fileValue = null;
     try {
@@ -726,7 +698,7 @@ public class SkylarkRepositoryContext {
     }
 
     if (fileValue == null) {
-      throw SkylarkRepositoryFunction.restart();
+      throw RepositoryFunction.restart();
     }
     if (!fileValue.isFile()) {
       throw new EvalException(Location.BUILTIN,
@@ -738,40 +710,4 @@ public class SkylarkRepositoryContext {
     return new SkylarkPath(rootedPath.asPath());
   }
 
-  private static boolean verifyLabelMarkerData(String key, String value, Environment env)
-      throws InterruptedException {
-    Preconditions.checkArgument(key.startsWith("FILE:"));
-    try {
-      Label label = Label.parseAbsolute(key.substring(5));
-      RootedPath rootedPath = getRootedPathFromLabel(label, env);
-      SkyKey fileSkyKey = FileValue.key(rootedPath);
-      FileValue fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class,
-          FileSymlinkException.class, InconsistentFilesystemException.class);
-
-      if (fileValue == null || !fileValue.isFile()) {
-        return false;
-      }
-
-      return Objects.equals(value, Integer.toString(fileValue.realFileStateValue().hashCode()));
-    } catch (LabelSyntaxException e) {
-      throw new IllegalStateException(
-          "Key " + key + " is not a correct file key (should be in form FILE:label)", e);
-    } catch (IOException | FileSymlinkException | InconsistentFilesystemException
-        | EvalException e) {
-      // Consider those exception to be a cause for invalidation
-      return false;
-    }
-  }
-
-  static boolean verifyMarkerDataForFiles(Map<String, String> markerData, Environment env)
-      throws InterruptedException {
-    for (Map.Entry<String, String> entry : markerData.entrySet()) {
-      if (entry.getKey().startsWith("FILE:")) {
-        if (!verifyLabelMarkerData(entry.getKey(), entry.getValue(), env)) {
-          return false;
-        }
-      }
-    }
-    return true;
-  }
 }

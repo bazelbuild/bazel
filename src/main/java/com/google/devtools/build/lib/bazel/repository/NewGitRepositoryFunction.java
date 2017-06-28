@@ -42,7 +42,7 @@ public class NewGitRepositoryFunction extends GitRepositoryFunction {
 
     createDirectory(outputDirectory, rule);
     GitCloner.clone(rule, outputDirectory, env.getListener(), clientEnvironment, downloader);
-    fileHandler.finishFile(outputDirectory);
+    fileHandler.finishFile(rule, outputDirectory, markerData);
 
     return RepositoryDirectoryValue.builder().setPath(outputDirectory);
   }
