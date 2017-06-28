@@ -103,12 +103,19 @@ class InterfaceDesugaring extends ClassVisitor {
             "Cannot get a method visitor to write out %s to the companion class.",
             COMPANION_METHOD_TO_TRIGGER_INTERFACE_CLINIT_NAME);
     // Visit the interface field to triger <clinit> of the interface.
+
     visitor.visitFieldInsn(
         Opcodes.GETSTATIC,
         interfaceFieldToAccessInCompanionMethodToTriggerInterfaceClinit.owner(),
         interfaceFieldToAccessInCompanionMethodToTriggerInterfaceClinit.name(),
         interfaceFieldToAccessInCompanionMethodToTriggerInterfaceClinit.desc());
-    visitor.visitInsn(Opcodes.POP);
+    Type fieldType =
+        Type.getType(interfaceFieldToAccessInCompanionMethodToTriggerInterfaceClinit.desc());
+    if (fieldType.getSort() == Type.LONG || fieldType.getSort() == Type.DOUBLE) {
+      visitor.visitInsn(Opcodes.POP2);
+    } else {
+      visitor.visitInsn(Opcodes.POP);
+    }
     visitor.visitInsn(Opcodes.RETURN);
   }
 
