@@ -321,7 +321,7 @@ function test_extra_action() {
     pkg:output_files_and_tags || fail "bazel build failed"
   expect_not_log '^action'
   bazel build --build_event_text_file=$TEST_log \
-    --action_listener=pkg:listener \
+    --experimental_action_listener=pkg:listener \
     pkg:output_files_and_tags || fail "bazel build with listener failed"
   expect_log '^action'
 }
