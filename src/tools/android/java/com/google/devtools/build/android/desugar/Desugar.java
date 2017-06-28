@@ -20,6 +20,7 @@ import static com.google.devtools.build.android.desugar.LambdaClassMaker.LAMBDA_
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -625,7 +626,8 @@ class Desugar {
     return ioPairListbuilder.build();
   }
 
-  private static class ThrowingClassLoader extends ClassLoader {
+  @VisibleForTesting
+  static class ThrowingClassLoader extends ClassLoader {
     @Override
     protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
       if (name.startsWith("java.")) {
@@ -700,7 +702,8 @@ class Desugar {
    * closer.
    */
   @SuppressWarnings("MustBeClosedChecker")
-  private static ImmutableList<InputFileProvider> toRegisteredInputFileProvider(
+  @VisibleForTesting
+  static ImmutableList<InputFileProvider> toRegisteredInputFileProvider(
       Closer closer, List<Path> paths) throws IOException {
     ImmutableList.Builder<InputFileProvider> builder = new ImmutableList.Builder<>();
     for (Path path : paths) {
