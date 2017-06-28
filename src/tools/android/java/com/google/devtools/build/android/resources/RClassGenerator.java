@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.android.resources;
 
+import static java.nio.file.StandardOpenOption.CREATE_NEW;
+
 import com.android.SdkConstants;
 import com.android.resources.ResourceType;
 import com.google.common.base.Splitter;
@@ -116,7 +118,7 @@ public class RClassGenerator {
           Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL | Opcodes.ACC_STATIC);
     }
     classWriter.visitEnd();
-    Files.write(rClassFile, classWriter.toByteArray());
+    Files.write(rClassFile, classWriter.toByteArray(), CREATE_NEW);
     // Now generate the R$inner.class files.
     for (Map.Entry<ResourceType, Map<String, FieldInitializer>> entry : initializersToWrite) {
       writeInnerClass(entry.getValue(), packageDir, rClassName, entry.getKey().toString());
@@ -151,7 +153,7 @@ public class RClassGenerator {
 
     innerClassWriter.visitEnd();
     Path innerFile = packageDir.resolve("R$" + innerClass + ".class");
-    Files.write(innerFile, innerClassWriter.toByteArray());
+    Files.write(innerFile, innerClassWriter.toByteArray(), CREATE_NEW);
   }
 
   private String writeInnerClassHeader(

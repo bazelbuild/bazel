@@ -15,6 +15,7 @@ package com.google.devtools.build.android.resources;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.android.SdkConstants;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -28,6 +29,7 @@ import java.lang.reflect.Modifier;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -120,6 +122,38 @@ public class RClassGeneratorTest {
   }
 
   @Test
+  public void checkFileWriteThrowsOnExisting() throws Exception {
+    checkFileWriteThrowsOnExisting(SdkConstants.FN_COMPILED_RESOURCE_CLASS);
+  }
+
+  @Test
+  public void checkInnerFileWriteThrowsOnExisting() throws Exception {
+    checkFileWriteThrowsOnExisting("R$string.class");
+  }
+
+  private void checkFileWriteThrowsOnExisting(String existingFile) throws Exception {
+    ResourceSymbols symbolValues =
+        createSymbolFile("R.txt", "int string ok 0x7f100001");
+    ResourceSymbols symbolsInLibrary =
+        createSymbolFile("lib.R.txt", "int string ok 0x1");
+
+    Path out = temp.resolve("classes");
+    String packageName = "com";
+    Path packageFolder = out.resolve(packageName);
+    Files.createDirectories(packageFolder);
+
+    RClassGenerator writer = RClassGenerator.with(out, symbolValues.asInitializers(), false);
+    Files.write(packageFolder.resolve(existingFile), new byte[0]);
+
+    try {
+      writer.write(packageName, symbolsInLibrary.asInitializers());
+    } catch (FileAlreadyExistsException e) {
+      return;
+    }
+    throw new Exception("Expected to throw a FileAlreadyExistsException");
+  }
+
+  @Test
   public void emptyIntArrays() throws Exception {
     boolean finalFields = true;
     // Make sure we parse an empty array the way the R.txt writes it.
@@ -145,7 +179,7 @@ public class RClassGeneratorTest {
         finalFields
     );
   }
-  
+
   static final Matcher<Throwable> NUMBER_FORMAT_EXCEPTION =
       new BaseMatcher<Throwable>() {
         @Override
