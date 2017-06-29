@@ -39,6 +39,11 @@ load("//pkg:build.bzl", "environ")
 
 environ(name = "no_default_env", env = 0)
 environ(name = "with_default_env", env = 1)
+
+sh_test(
+    name = "test_env_foo",
+    srcs = ["test_env_foo.sh"],
+)
 EOF
   cat > pkg/build.bzl <<EOF
 def _impl(ctx):
@@ -55,6 +60,15 @@ environ = rule(
     outputs={"out": "%{name}.env"},
 )
 EOF
+  cat > pkg/test_env_foo.sh <<'EOF'
+#!/bin/sh
+
+echo "FOO is >${FOO}<"
+
+{ echo "${FOO}" | grep foo; } || { echo "expected FOO to contain foo"; exit 1; }
+
+EOF
+  chmod u+x pkg/test_env_foo.sh
 }
 
 #### TESTS #############################################################
@@ -182,6 +196,26 @@ function test_use_default_shell_env {
         || fail "dynamic action environment not honored"
     (grep -q BAR bazel-bin/pkg/no_default_env.env \
          && fail "dynamic action_env used, even though requested not to") || true
+}
+
+function test_action_env_changes_honored {
+    # Verify that changes to the explicitly specified action_env in honored in
+    # tests. Regression test for #3265.
+
+    # start with a fresh bazel, to have a reproducible starting point
+    bazel clean --expunge
+    bazel test --test_output=all --action_env=FOO=foo //pkg:test_env_foo \
+        || fail "expected to pass with correct value for FOO"
+    # While the test is cached, changing the environment should rerun it and
+    # detect the failure in the new environemnt.
+    (bazel test --test_output=all --action_env=FOO=bar //pkg:test_env_foo \
+         && fail "expected to fail with incorrect value for FOO") || true
+    # Redo the same FOO being taken from the environment
+    env FOO=foo bazel test --test_output=all --action_env=FOO //pkg:test_env_foo \
+        || fail "expected to pass with correct value for FOO from the environment"
+    (env FOO=bar bazel test --test_output=all --action_env=FOO=bar //pkg:test_env_foo \
+         && fail "expected to fail with incorrect value for FOO from the environment") || true
+
 }
 
 run_suite "Tests for bazel's handling of environment variables in actions"
