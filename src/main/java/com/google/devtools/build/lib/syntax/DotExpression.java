@@ -13,12 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.base.Predicate;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.FuncallExpression.MethodDescriptor;
 import com.google.devtools.build.lib.util.SpellChecker;
 import java.io.IOException;
+import java.util.Optional;
 
 /** Syntax node for a dot expression. e.g. obj.field, but not obj.method() */
 public final class DotExpression extends Expression {
@@ -107,20 +107,13 @@ public final class DotExpression extends Expression {
             : FuncallExpression.getMethods(objValue.getClass(), name);
 
     if (methods != null) {
-      methods =
-          Iterables.filter(
-              methods,
-              new Predicate<MethodDescriptor>() {
-                @Override
-                public boolean apply(MethodDescriptor methodDescriptor) {
-                  return methodDescriptor.getAnnotation().structField();
-                }
-              });
-      if (methods.iterator().hasNext()) {
-        MethodDescriptor method = Iterables.getOnlyElement(methods);
-        if (method.getAnnotation().structField()) {
-          return FuncallExpression.callMethod(method, name, objValue, new Object[] {}, loc, env);
-        }
+      Optional<MethodDescriptor> method =
+          Streams.stream(methods)
+              .filter(methodDescriptor -> methodDescriptor.getAnnotation().structField())
+              .findFirst();
+      if (method.isPresent() && method.get().getAnnotation().structField()) {
+        return FuncallExpression.callMethod(
+            method.get(), name, objValue, new Object[] {}, loc, env);
       }
     }
 
