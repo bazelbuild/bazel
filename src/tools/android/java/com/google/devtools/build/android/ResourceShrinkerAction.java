@@ -30,8 +30,10 @@ import com.google.devtools.build.android.Converters.PathListConverter;
 import com.google.devtools.build.android.Converters.VariantTypeConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -72,89 +74,138 @@ public class ResourceShrinkerAction {
 
   /** Flag specifications for this action. */
   public static final class Options extends OptionsBase {
-    @Option(name = "shrunkJar",
-        defaultValue = "null",
-        category = "input",
-        converter = ExistingPathConverter.class,
-        help = "Path to the shrunk jar from a Proguard run with shrinking enabled.")
+    @Option(
+      name = "shrunkJar",
+      defaultValue = "null",
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = ExistingPathConverter.class,
+      help = "Path to the shrunk jar from a Proguard run with shrinking enabled."
+    )
     public Path shrunkJar;
 
-    @Option(name = "proguardMapping",
-        defaultValue = "null",
-        category = "input",
-        converter = PathConverter.class,
-        help = "Path to the Proguard obfuscation mapping of shrunkJar.")
+    @Option(
+      name = "proguardMapping",
+      defaultValue = "null",
+      category = "input",
+      converter = PathConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to the Proguard obfuscation mapping of shrunkJar."
+    )
     public Path proguardMapping;
 
-    @Option(name = "resources",
-        defaultValue = "null",
-        category = "input",
-        converter = ExistingPathConverter.class,
-        help = "Path to the resources zip to be shrunk.")
+    @Option(
+      name = "resources",
+      defaultValue = "null",
+      category = "input",
+      converter = ExistingPathConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to the resources zip to be shrunk."
+    )
     public Path resourcesZip;
 
-    @Option(name = "rTxt",
-        defaultValue = "null",
-        category = "input",
-        converter = ExistingPathConverter.class,
-        help = "Path to the R.txt of the complete resource tree.")
+    @Option(
+      name = "rTxt",
+      defaultValue = "null",
+      category = "input",
+      converter = ExistingPathConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to the R.txt of the complete resource tree."
+    )
     public Path rTxt;
 
-    @Option(name = "primaryManifest",
-        defaultValue = "null",
-        category = "input",
-        converter = ExistingPathConverter.class,
-        help = "Path to the primary manifest for the resources to be shrunk.")
+    @Option(
+      name = "primaryManifest",
+      defaultValue = "null",
+      category = "input",
+      converter = ExistingPathConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to the primary manifest for the resources to be shrunk."
+    )
     public Path primaryManifest;
 
-    @Option(name = "dependencyManifests",
-        defaultValue = "",
-        category = "input",
-        converter = PathListConverter.class,
-        help = "A list of paths to the manifests of the dependencies.")
+    @Option(
+      name = "dependencyManifests",
+      defaultValue = "",
+      category = "input",
+      converter = PathListConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "A list of paths to the manifests of the dependencies."
+    )
     public List<Path> dependencyManifests;
 
-    @Option(name = "resourcePackages",
-        defaultValue = "",
-        category = "input",
-        converter = CommaSeparatedOptionListConverter.class,
-        help = "A list of packages that resources have been generated for.")
+    @Option(
+      name = "resourcePackages",
+      defaultValue = "",
+      category = "input",
+      converter = CommaSeparatedOptionListConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "A list of packages that resources have been generated for."
+    )
     public List<String> resourcePackages;
 
-    @Option(name = "shrunkResourceApk",
-        defaultValue = "null",
-        category = "output",
-        converter = PathConverter.class,
-        help = "Path to where the shrunk resource.ap_ should be written.")
+    @Option(
+      name = "shrunkResourceApk",
+      defaultValue = "null",
+      category = "output",
+      converter = PathConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to where the shrunk resource.ap_ should be written."
+    )
     public Path shrunkApk;
 
-    @Option(name = "shrunkResources",
-        defaultValue = "null",
-        category = "output",
-        converter = PathConverter.class,
-        help = "Path to where the shrunk resource.ap_ should be written.")
+    @Option(
+      name = "shrunkResources",
+      defaultValue = "null",
+      category = "output",
+      converter = PathConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to where the shrunk resource.ap_ should be written."
+    )
     public Path shrunkResources;
 
-    @Option(name = "rTxtOutput",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        help = "Path to where the R.txt should be written.")
+    @Option(
+      name = "rTxtOutput",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      category = "output",
+      help = "Path to where the R.txt should be written."
+    )
     public Path rTxtOutput;
 
-    @Option(name = "log",
-        defaultValue = "null",
-        category = "output",
-        converter = PathConverter.class,
-        help = "Path to where the shrinker log should be written.")
+    @Option(
+      name = "log",
+      defaultValue = "null",
+      category = "output",
+      converter = PathConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to where the shrinker log should be written."
+    )
     public Path log;
 
-    @Option(name = "packageType",
-        defaultValue = "DEFAULT",
-        converter = VariantTypeConverter.class,
-        category = "config",
-        help = "Variant configuration type for packaging the resources."
-            + " Acceptible values DEFAULT, LIBRARY, ANDROID_TEST, UNIT_TEST")
+    @Option(
+      name = "packageType",
+      defaultValue = "DEFAULT",
+      converter = VariantTypeConverter.class,
+      category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Variant configuration type for packaging the resources."
+              + " Acceptible values DEFAULT, LIBRARY, ANDROID_TEST, UNIT_TEST"
+    )
     public VariantType packageType;
   }
 

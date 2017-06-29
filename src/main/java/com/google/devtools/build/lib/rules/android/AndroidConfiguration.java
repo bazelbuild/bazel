@@ -523,6 +523,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       defaultValue = "aapt",
       category = "semantics",
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       converter = AndroidAaptConverter.class,
       help =
           "Selects the version of androidAaptVersion to use for android_binary rules."

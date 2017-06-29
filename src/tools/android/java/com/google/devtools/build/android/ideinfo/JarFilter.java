@@ -32,8 +32,10 @@ import com.google.devtools.build.lib.ideinfo.androidstudio.PackageManifestOuterC
 import com.google.devtools.build.lib.ideinfo.androidstudio.PackageManifestOuterClass.JavaSourcePackage;
 import com.google.devtools.build.lib.ideinfo.androidstudio.PackageManifestOuterClass.PackageManifest;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -64,6 +66,8 @@ public final class JarFilter {
   public static final class JarFilterOptions extends OptionsBase {
     @Option(
       name = "filter_jars",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       defaultValue = "null",
       converter = PathListConverter.class,
       category = "input",
@@ -73,6 +77,8 @@ public final class JarFilter {
 
     @Option(
       name = "filter_source_jars",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       defaultValue = "null",
       converter = PathListConverter.class,
       category = "input",
@@ -82,6 +88,8 @@ public final class JarFilter {
 
     @Option(
       name = "keep_java_files",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       defaultValue = "null",
       converter = PathListConverter.class,
       category = "input",
@@ -91,6 +99,8 @@ public final class JarFilter {
 
     @Option(
       name = "keep_source_jars",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       defaultValue = "null",
       converter = PathListConverter.class,
       category = "input",
@@ -100,6 +110,8 @@ public final class JarFilter {
 
     @Option(
       name = "filtered_jar",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       defaultValue = "null",
       converter = PathConverter.class,
       category = "output",
@@ -109,6 +121,8 @@ public final class JarFilter {
 
     @Option(
       name = "filtered_source_jar",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       defaultValue = "null",
       converter = PathConverter.class,
       category = "output",
@@ -122,6 +136,8 @@ public final class JarFilter {
     @Deprecated
     @Option(
       name = "jars",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       defaultValue = "null",
       converter = PathListConverter.class,
       category = "input",
@@ -132,6 +148,8 @@ public final class JarFilter {
     @Deprecated
     @Option(
       name = "manifest",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       defaultValue = "null",
       converter = PathConverter.class,
       category = "input",
@@ -142,6 +160,8 @@ public final class JarFilter {
     @Deprecated
     @Option(
       name = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       defaultValue = "null",
       converter = PathConverter.class,
       category = "output",

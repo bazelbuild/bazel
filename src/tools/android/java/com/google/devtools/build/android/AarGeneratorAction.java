@@ -24,8 +24,10 @@ import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.Converters.UnvalidatedAndroidDataConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -65,41 +67,62 @@ public class AarGeneratorAction {
 
   /** Flag specifications for this action. */
   public static final class Options extends OptionsBase {
-    @Option(name = "mainData",
-        defaultValue = "null",
-        converter = UnvalidatedAndroidDataConverter.class,
-        category = "input",
-        help = "The directory containing the primary resource directory."
-            + "The contents will override the contents of any other resource directories during "
-            + "merging. The expected format is resources[#resources]:assets[#assets]:manifest")
+    @Option(
+      name = "mainData",
+      defaultValue = "null",
+      converter = UnvalidatedAndroidDataConverter.class,
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The directory containing the primary resource directory."
+              + "The contents will override the contents of any other resource directories during "
+              + "merging. The expected format is resources[#resources]:assets[#assets]:manifest"
+    )
     public UnvalidatedAndroidData mainData;
 
-    @Option(name = "manifest",
-        defaultValue = "null",
-        converter = ExistingPathConverter.class,
-        category = "input",
-        help = "Path to AndroidManifest.xml.")
+    @Option(
+      name = "manifest",
+      defaultValue = "null",
+      converter = ExistingPathConverter.class,
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to AndroidManifest.xml."
+    )
     public Path manifest;
 
-    @Option(name = "rtxt",
-        defaultValue = "null",
-        converter = ExistingPathConverter.class,
-        category = "input",
-        help = "Path to R.txt.")
+    @Option(
+      name = "rtxt",
+      defaultValue = "null",
+      converter = ExistingPathConverter.class,
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to R.txt."
+    )
     public Path rtxt;
 
-    @Option(name = "classes",
-        defaultValue = "null",
-        converter = ExistingPathConverter.class,
-        category = "input",
-        help = "Path to classes.jar.")
+    @Option(
+      name = "classes",
+      defaultValue = "null",
+      converter = ExistingPathConverter.class,
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to classes.jar."
+    )
     public Path classes;
 
-    @Option(name = "aarOutput",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        help = "Path to write the archive.")
+    @Option(
+      name = "aarOutput",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to write the archive."
+    )
     public Path aarOutput;
   }
 

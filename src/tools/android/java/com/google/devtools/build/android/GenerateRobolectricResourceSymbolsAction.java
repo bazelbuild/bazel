@@ -26,8 +26,10 @@ import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.resources.RClassGenerator;
 import com.google.devtools.build.android.resources.ResourceSymbols;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.io.Closeable;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -84,6 +86,8 @@ public class GenerateRobolectricResourceSymbolsAction {
       defaultValue = "",
       converter = DependencyAndroidDataListConverter.class,
       category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Data dependencies. The expected format is "
               + DependencyAndroidData.EXPECTED_FORMAT
@@ -96,6 +100,8 @@ public class GenerateRobolectricResourceSymbolsAction {
       defaultValue = "null",
       converter = PathConverter.class,
       category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Path for the generated java class jar."
     )
     public Path classJarOutput;

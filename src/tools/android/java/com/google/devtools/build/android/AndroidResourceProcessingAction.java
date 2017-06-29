@@ -33,9 +33,11 @@ import com.google.devtools.build.android.SplitConfigurationFilter.UnrecognizedSp
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.TriState;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
@@ -74,143 +76,224 @@ public class AndroidResourceProcessingAction {
 
   /** Flag specifications for this action. */
   public static final class Options extends OptionsBase {
-    @Option(name = "primaryData",
-        defaultValue = "null",
-        converter = UnvalidatedAndroidDataConverter.class,
-        category = "input",
-        help = "The directory containing the primary resource directory. The contents will override"
-            + " the contents of any other resource directories during merging. The expected format"
-            + " is " + UnvalidatedAndroidData.EXPECTED_FORMAT)
+    @Option(
+      name = "primaryData",
+      defaultValue = "null",
+      converter = UnvalidatedAndroidDataConverter.class,
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The directory containing the primary resource directory. The contents will override "
+              + "the contents of any other resource directories during merging. The expected "
+              + "format is "
+              + UnvalidatedAndroidData.EXPECTED_FORMAT
+    )
     public UnvalidatedAndroidData primaryData;
 
-    @Option(name = "data",
-        defaultValue = "",
-        converter = DependencyAndroidDataListConverter.class,
-        category = "input",
-        help = "Transitive Data dependencies. These values will be used if not defined in the "
-            + "primary resources. The expected format is "
-            + DependencyAndroidData.EXPECTED_FORMAT
-            + "[,...]")
+    @Option(
+      name = "data",
+      defaultValue = "",
+      converter = DependencyAndroidDataListConverter.class,
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Transitive Data dependencies. These values will be used if not defined in the "
+              + "primary resources. The expected format is "
+              + DependencyAndroidData.EXPECTED_FORMAT
+              + "[,...]"
+    )
     public List<DependencyAndroidData> transitiveData;
 
-    @Option(name = "directData",
-        defaultValue = "",
-        converter = DependencyAndroidDataListConverter.class,
-        category = "input",
-        help = "Direct Data dependencies. These values will be used if not defined in the "
-            + "primary resources. The expected format is "
-            + DependencyAndroidData.EXPECTED_FORMAT
-            + "[,...]")
+    @Option(
+      name = "directData",
+      defaultValue = "",
+      converter = DependencyAndroidDataListConverter.class,
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Direct Data dependencies. These values will be used if not defined in the "
+              + "primary resources. The expected format is "
+              + DependencyAndroidData.EXPECTED_FORMAT
+              + "[,...]"
+    )
     public List<DependencyAndroidData> directData;
 
-    @Option(name = "rOutput",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        help = "Path to where the R.txt should be written.")
+    @Option(
+      name = "rOutput",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to where the R.txt should be written."
+    )
     public Path rOutput;
 
-    @Option(name = "symbolsOut",
-        oldName = "symbolsTxtOut",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        help = "Path to where the symbols should be written.")
+    @Option(
+      name = "symbolsOut",
+      oldName = "symbolsTxtOut",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to where the symbols should be written."
+    )
     public Path symbolsOut;
 
-    @Option(name = "dataBindingInfoOut",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        help = "Path to where data binding's layout info output should be written.")
+    @Option(
+      name = "dataBindingInfoOut",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to where data binding's layout info output should be written."
+    )
     public Path dataBindingInfoOut;
 
-    @Option(name = "packagePath",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        help = "Path to the write the archive.")
+    @Option(
+      name = "packagePath",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to the write the archive."
+    )
     public Path packagePath;
 
-    @Option(name = "resourcesOutput",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        help = "Path to the write merged resources archive.")
+    @Option(
+      name = "resourcesOutput",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to the write merged resources archive."
+    )
     public Path resourcesOutput;
 
-    @Option(name = "proguardOutput",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        help = "Path for the proguard file.")
+    @Option(
+      name = "proguardOutput",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path for the proguard file."
+    )
     public Path proguardOutput;
 
-    @Option(name = "mainDexProguardOutput",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        help = "Path for the main dex proguard file.")
+    @Option(
+      name = "mainDexProguardOutput",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path for the main dex proguard file."
+    )
     public Path mainDexProguardOutput;
 
-    @Option(name = "manifestOutput",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        help = "Path for the modified manifest.")
+    @Option(
+      name = "manifestOutput",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path for the modified manifest."
+    )
     public Path manifestOutput;
 
-    @Option(name = "srcJarOutput",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        help = "Path for the generated java source jar.")
+    @Option(
+      name = "srcJarOutput",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path for the generated java source jar."
+    )
     public Path srcJarOutput;
 
-    @Option(name = "packageType",
-        defaultValue = "DEFAULT",
-        converter = VariantTypeConverter.class,
-        category = "config",
-        help = "Variant configuration type for packaging the resources."
-            + " Acceptible values DEFAULT, LIBRARY, ANDROID_TEST, UNIT_TEST")
+    @Option(
+      name = "packageType",
+      defaultValue = "DEFAULT",
+      converter = VariantTypeConverter.class,
+      category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Variant configuration type for packaging the resources."
+              + " Acceptible values DEFAULT, LIBRARY, ANDROID_TEST, UNIT_TEST"
+    )
     public VariantType packageType;
 
-    @Option(name = "densities",
-        defaultValue = "",
-        converter = CommaSeparatedOptionListConverter.class,
-        category = "config",
-        help = "A list of densities to filter the resource drawables by.")
+    @Option(
+      name = "densities",
+      defaultValue = "",
+      converter = CommaSeparatedOptionListConverter.class,
+      category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "A list of densities to filter the resource drawables by."
+    )
     public List<String> densities;
 
-    @Option(name = "packageForR",
-        defaultValue = "null",
-        category = "config",
-        help = "Custom java package to generate the R symbols files.")
+    @Option(
+      name = "packageForR",
+      defaultValue = "null",
+      category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Custom java package to generate the R symbols files."
+    )
     public String packageForR;
 
-    @Option(name = "applicationId",
-        defaultValue = "null",
-        category = "config",
-        help = "Custom application id (package manifest) for the packaged manifest.")
+    @Option(
+      name = "applicationId",
+      defaultValue = "null",
+      category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Custom application id (package manifest) for the packaged manifest."
+    )
     public String applicationId;
 
-    @Option(name = "versionName",
-        defaultValue = "null",
-        category = "config",
-        help = "Version name to stamp into the packaged manifest.")
+    @Option(
+      name = "versionName",
+      defaultValue = "null",
+      category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Version name to stamp into the packaged manifest."
+    )
     public String versionName;
 
-    @Option(name = "versionCode",
-        defaultValue = "-1",
-        category = "config",
-        help = "Version code to stamp into the packaged manifest.")
+    @Option(
+      name = "versionCode",
+      defaultValue = "-1",
+      category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Version code to stamp into the packaged manifest."
+    )
     public int versionCode;
 
-    @Option(name = "prefilteredResources",
-        defaultValue = "",
-        converter = Converters.CommaSeparatedOptionListConverter.class,
-        category = "config",
-        help = "A list of resources that were filtered out in analysis.")
+    @Option(
+      name = "prefilteredResources",
+      defaultValue = "",
+      converter = Converters.CommaSeparatedOptionListConverter.class,
+      category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "A list of resources that were filtered out in analysis."
+    )
     public List<String> prefilteredResources;
   }
 
