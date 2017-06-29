@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.ProtoDeterministicWriter;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -118,16 +119,16 @@ public final class ApkManifestAction extends AbstractFileWriteAction {
 
     final ApkManifest manifest = manifestCreator.createManifest();
 
-    return new DeterministicWriter() {
-      @Override
-      public void writeOutputFile(OutputStream out) throws IOException {
-        if (textOutput) {
+    if (textOutput) {
+      return new DeterministicWriter() {
+        @Override
+        public void writeOutputFile(OutputStream out) throws IOException {
           TextFormat.print(manifest, new PrintStream(out));
-        } else {
-          manifest.writeTo(out);
         }
-      }
-    };
+      };
+    } else {
+      return new ProtoDeterministicWriter(manifest);
+    }
   }
 
   @Override

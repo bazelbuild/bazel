@@ -16,23 +16,21 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.ByteStringDeterministicWriter;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.android.deployinfo.AndroidDeployInfoOuterClass;
 import com.google.devtools.build.lib.rules.android.deployinfo.AndroidDeployInfoOuterClass.AndroidDeployInfo;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
-
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 
 /**
  * Writes AndroidDeployInfo proto message. This proto describes how
@@ -96,16 +94,7 @@ public final class AndroidDeployInfoAction extends AbstractFileWriteAction {
 
   @Override
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) throws IOException {
-
-    return new DeterministicWriter() {
-      @Override
-      public void writeOutputFile(OutputStream out) throws IOException {
-        try (InputStream in = byteString.newInput()) {
-          ByteStreams.copy(in, out);
-        }
-        out.flush();
-      }
-    };
+    return new ByteStringDeterministicWriter(byteString);
   }
 
   @VisibleForTesting

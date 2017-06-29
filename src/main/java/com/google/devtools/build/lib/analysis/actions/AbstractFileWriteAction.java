@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.OutputStream;
 
@@ -111,6 +112,16 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
    * on every invocation of writeOutputFile().
    */
   public interface DeterministicWriter {
-    public void writeOutputFile(OutputStream out) throws IOException;
+    void writeOutputFile(OutputStream out) throws IOException;
+
+    /**
+     * Returns the contents that would be written, as a {@link ByteString}. Used when the caller
+     * wants a {@link ByteString} in the end, to avoid making unnecessary copies.
+     */
+    default ByteString getBytes() throws IOException {
+      ByteString.Output out = ByteString.newOutput();
+      writeOutputFile(out);
+      return out.toByteString();
+    }
   }
 }
