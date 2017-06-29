@@ -206,28 +206,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public String iosSigningCertName;
 
   @Option(
-    name = "experimental_use_absolute_paths_for_actions",
-    defaultValue = "false",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "If set, then all actions objc actions will be executed with absolute paths."
-  )
-  public boolean useAbsolutePathsForActions;
-
-  @Option(
-    name = "xcode_override_workspace_root",
-    defaultValue = "",
-    category = "xcode",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "If set, then this path will be used as workspace_root and mainGroup path when "
-            + "generating an .xcodeproj/project.pbxproj file."
-  )
-  public String xcodeOverrideWorkspaceRoot;
-
-  @Option(
     name = "objc_includes_prioritize_static_libs",
     defaultValue = "true",
     category = "flags",
