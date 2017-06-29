@@ -507,12 +507,12 @@ public class GrpcServerImpl implements RPCServer {
   private final PidFileWatcherThread pidFileWatcherThread;
   private final Path pidFile;
   private final String pidInFile;
+  private final List<Path> filesToDeleteAtExit = new ArrayList<>();
+  private final int port;
 
   private Server server;
   private IdleServerTasks idleServerTasks;
-  private final int port;
   boolean serving;
-  private List<Path> filesToDeleteAtExit = new ArrayList<Path>();
 
   public GrpcServerImpl(CommandExecutor commandExecutor, Clock clock, int port,
       Path workspace, Path serverDirectory, int maxIdleSeconds) throws IOException {
