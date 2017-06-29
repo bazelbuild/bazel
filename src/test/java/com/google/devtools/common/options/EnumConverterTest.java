@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.common.options.OptionsParser.newOptionsParser;
 import static org.junit.Assert.fail;
 
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -93,10 +94,14 @@ public class EnumConverterTest {
   }
 
   public static class EnumListTestOptions extends OptionsBase {
-    @Option(name = "goo",
-            allowMultiple = true,
-            converter = AlphabetEnumConverter.class,
-            defaultValue = "null")
+    @Option(
+      name = "goo",
+      allowMultiple = true,
+      converter = AlphabetEnumConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "null"
+    )
     public List<AlphabetEnum> goo;
   }
 

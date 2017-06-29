@@ -35,9 +35,11 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -55,10 +57,20 @@ public class BlazeCommandDispatcherRcoptionsTest {
    * Example options to be used by the tests.
    */
   public static class FooOptions extends OptionsBase {
-    @Option(name = "numoption", defaultValue = "0")
+    @Option(
+      name = "numoption",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "0"
+    )
     public int numOption;
 
-    @Option(name = "stringoption", defaultValue = "[unspecified]")
+    @Option(
+      name = "stringoption",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "[unspecified]"
+    )
     public String stringOption;
   }
 
@@ -300,7 +312,12 @@ public class BlazeCommandDispatcherRcoptionsTest {
   public static class MockFragmentOptions extends FragmentOptions {
     public MockFragmentOptions() {}
 
-    @Option(name = "fake_opt", defaultValue = "false")
+    @Option(
+      name = "fake_opt",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "false"
+    )
     public boolean fakeOpt;
 
     @Override

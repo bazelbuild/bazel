@@ -20,9 +20,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -63,23 +65,52 @@ public class TransitiveOptionDetailsTest {
 
   /** Example options class for testing options lookup. */
   public static final class Options extends OptionsBase {
-    @Option(name = "boolean_option", defaultValue = "true")
+    @Option(
+      name = "boolean_option",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "true"
+    )
     public boolean booleanOption;
 
-    @Option(name = "convertible_option", converter = Optionalizer.class, defaultValue = "")
+    @Option(
+      name = "convertible_option",
+      converter = Optionalizer.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = ""
+    )
     public Optional<String> convertibleOption;
 
-    @Option(name = "null_default", defaultValue = "null")
+    @Option(
+      name = "null_default",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "null"
+    )
     public String nullDefault;
 
-    @Option(name = "late_bound_default", defaultValue = "null")
+    @Option(
+      name = "late_bound_default",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "null"
+    )
     public String lateBoundDefault;
 
-    @Option(name = "multi_option", defaultValue = "n/a (allows multiple)", allowMultiple = true)
+    @Option(
+      name = "multi_option",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "n/a (allows multiple)",
+      allowMultiple = true
+    )
     public List<String> multiOption;
 
     @Option(
       name = "internal option",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "secret",
       optionUsageRestrictions = OptionUsageRestrictions.INTERNAL
     )
@@ -87,6 +118,8 @@ public class TransitiveOptionDetailsTest {
 
     @Option(
       name = "internal multi option",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "n/a",
       optionUsageRestrictions = OptionUsageRestrictions.INTERNAL,
       allowMultiple = true
@@ -96,7 +129,12 @@ public class TransitiveOptionDetailsTest {
 
   /** Additional options class for testing options lookup. */
   public static final class MoreOptions extends OptionsBase {
-    @Option(name = "other_option", defaultValue = "")
+    @Option(
+      name = "other_option",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = ""
+    )
     public String otherOption;
   }
 

@@ -14,7 +14,9 @@
 package com.google.devtools.build.lib.worker;
 
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 
 /**
  * Options for the example worker itself.
@@ -27,19 +29,35 @@ public class ExampleWorkerOptions extends OptionsBase {
   public static class ExampleWorkOptions extends OptionsBase {
     @Option(
       name = "output_file",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "",
       help = "Write the output to a file instead of stdout."
     )
     public String outputFile;
 
-    @Option(name = "uppercase", defaultValue = "false", help = "Uppercase the input.")
+    @Option(
+      name = "uppercase",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "false",
+      help = "Uppercase the input."
+    )
     public boolean uppercase;
 
-    @Option(name = "write_uuid", defaultValue = "false", help = "Writes a UUID into the output.")
+    @Option(
+      name = "write_uuid",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "false",
+      help = "Writes a UUID into the output."
+    )
     public boolean writeUUID;
 
     @Option(
       name = "write_counter",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "false",
       help = "Writes a counter that increases with each work unit processed into the output."
     )
@@ -47,24 +65,35 @@ public class ExampleWorkerOptions extends OptionsBase {
 
     @Option(
       name = "print_inputs",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "false",
       help = "Writes a list of input files and their digests."
     )
     public boolean printInputs;
 
     @Option(
-        name = "print_env",
-        defaultValue = "false",
-        help = "Prints a list of all environment variables."
+      name = "print_env",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "false",
+      help = "Prints a list of all environment variables."
     )
     public boolean printEnv;
   }
 
-  @Option(name = "persistent_worker", defaultValue = "false")
+  @Option(
+    name = "persistent_worker",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.NO_OP},
+    defaultValue = "false"
+  )
   public boolean persistentWorker;
 
   @Option(
     name = "exit_after",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.NO_OP},
     defaultValue = "0",
     help = "The worker exits after processing this many work units (default: disabled)."
   )
@@ -72,6 +101,8 @@ public class ExampleWorkerOptions extends OptionsBase {
 
   @Option(
     name = "poison_after",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.NO_OP},
     defaultValue = "0",
     help =
         "Poisons the worker after processing this many work units, so that it returns a "
@@ -81,6 +112,8 @@ public class ExampleWorkerOptions extends OptionsBase {
 
   @Option(
     name = "hard_poison",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.NO_OP},
     defaultValue = "false",
     help = "Instead of writing an error message to stdout, write it to stderr and terminate."
   )

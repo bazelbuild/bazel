@@ -31,7 +31,9 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -49,7 +51,12 @@ public class ConfigSettingTest extends BuildViewTestCase {
   public static class LateBoundTestOptions extends FragmentOptions {
     public LateBoundTestOptions() {}
 
-    @Option(name = "opt_with_default", defaultValue = "null")
+    @Option(
+      name = "opt_with_default",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "null"
+    )
     public String optwithDefault;
   }
 
@@ -86,6 +93,8 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
     @Option(
       name = "internal_option",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "super secret",
       optionUsageRestrictions = OptionUsageRestrictions.INTERNAL
     )
