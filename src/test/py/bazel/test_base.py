@@ -229,6 +229,10 @@ class TestBase(unittest.TestCase):
           # TODO(pcloudy): Remove this after no longer need to debug
           # https://github.com/bazelbuild/bazel/issues/3273
           'CC_CONFIGURE_DEBUG': '1',
+          # TODO(pcloudy): Remove this hardcoded path after resolving
+          # https://github.com/bazelbuild/bazel/issues/3273
+          'BAZEL_VC':
+          'C:\\Program Files (x86)\\Microsoft Visual Studio 14.0\\VC',
       }
     else:
       env = {'HOME': os.path.join(self._temp, 'home')}
