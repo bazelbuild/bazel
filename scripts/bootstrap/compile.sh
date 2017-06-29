@@ -249,8 +249,7 @@ function build_jni() {
 
     # Keep this `find` command in sync with the `srcs` of
     # //src/main/native:windows_jni
-    local srcs=$(find src/main/native \
-        -name 'windows_*.cc' -o -name 'windows_*.h')
+    local srcs=$(find src/main/native/windows -name '*.cc' -o -name '*.h')
     [ -n "$srcs" ] || fail "Could not find sources for Windows JNI library"
 
     # do not quote $srcs because we need to expand it to multiple args
