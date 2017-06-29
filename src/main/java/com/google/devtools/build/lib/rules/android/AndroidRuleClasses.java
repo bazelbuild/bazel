@@ -396,12 +396,7 @@ public final class AndroidRuleClasses {
           .add(attr("apkbuilder", LABEL).cfg(HOST).allowedFileTypes(ANY_FILE).exec())
           .add(attr("apksigner", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE).exec())
           .add(attr("zipalign", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE).exec())
-          .add(
-              attr("resource_extractor", LABEL)
-                  .cfg(HOST)
-                  .allowedFileTypes(ANY_FILE)
-                  .exec()
-                  .mandatory())
+          .add(attr("resource_extractor", LABEL).cfg(HOST).allowedFileTypes(ANY_FILE).exec())
           .add(
               attr(":java_toolchain", LABEL)
                   .useOutputLicenses()
@@ -908,6 +903,13 @@ public final class AndroidRuleClasses {
                   .nonconfigurable("defines an aspect of configuration")
                   .mandatoryProviders(
                       ImmutableList.of(ConfigFeatureFlagProvider.SKYLARK_IDENTIFIER)))
+          // The resource extractor is used at the binary level to extract java resources from the
+          // deploy jar so that they can be added to the APK.
+          .add(
+              attr("$resource_extractor", LABEL)
+                  .cfg(HOST)
+                  .exec()
+                  .value(env.getToolsLabel("//tools/android:resource_extractor")))
           .advertiseProvider(JavaCompilationArgsProvider.class)
           .build();
       }

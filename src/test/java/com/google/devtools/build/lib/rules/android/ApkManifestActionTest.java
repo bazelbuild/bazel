@@ -67,8 +67,7 @@ public class ApkManifestActionTest {
             null, // apkBuilder, optional
             createFilesToRunProvider("apkSigner"),
             createFilesToRunProvider("proguard"),
-            createFilesToRunProvider("zipalign"),
-            createFilesToRunProvider("resourceExtractor"));
+            createFilesToRunProvider("zipalign"));
 
     Iterable<Artifact> jars1 = ImmutableList.of(
         createArtifact("/workspace/java/test/output_jar1"),

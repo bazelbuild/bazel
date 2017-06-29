@@ -56,7 +56,6 @@ public final class ApkManifestAction extends AbstractFileWriteAction {
         .add(sdk.getMainDexClasses())
         .add(sdk.getMainDexListCreator().getExecutable())
         .add(sdk.getProguard().getExecutable())
-        .add(sdk.getResourceExtractor().getExecutable())
         .add(sdk.getShrinkedAndroidJar())
         .add(sdk.getZipalign().getExecutable())
         .addAll(jars)
@@ -79,7 +78,7 @@ public final class ApkManifestAction extends AbstractFileWriteAction {
   /**
    * @param owner The action owner.
    * @param outputFile The artifact to write the proto to.
-   * @param textOutput Whether to make the 
+   * @param textOutput Whether to write the output as a text proto.
    * @param sdk The Android SDK.
    * @param jars All the jars that would be merged and dexed and put into an APK.
    * @param resourceApk The ResourceApk for the .ap_ that contains the resources that would go into
@@ -220,11 +219,11 @@ public final class ApkManifestAction extends AbstractFileWriteAction {
     private String getArtifactPath(Artifact artifact) {
       return artifact.getExecPathString();
     }
-    
+
     private String getArtifactPath(FilesToRunProvider filesToRunProvider) {
       return filesToRunProvider.getExecutable().getExecPathString();
     }
-    
+
     private ApkManifestOuterClass.AndroidSdk createAndroidSdk(AndroidSdkProvider sdk) {
 
       ApkManifestOuterClass.AndroidSdk.Builder sdkProto =
@@ -240,7 +239,6 @@ public final class ApkManifestAction extends AbstractFileWriteAction {
       sdkProto.setMainDexClasses(getArtifactPath(sdk.getMainDexClasses()));
       sdkProto.setMainDexListCreator(getArtifactPath(sdk.getMainDexListCreator()));
       sdkProto.setProguard(getArtifactPath(sdk.getProguard()));
-      sdkProto.setResourceExtractor(getArtifactPath(sdk.getResourceExtractor()));
       sdkProto.setShrinkedAndroidJar(getArtifactPath(sdk.getShrinkedAndroidJar()));
       sdkProto.setZipalign(getArtifactPath(sdk.getZipalign()));
       sdkProto.setBuildToolsVersion(sdk.getBuildToolsVersion());

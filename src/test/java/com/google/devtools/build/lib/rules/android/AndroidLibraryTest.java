@@ -567,7 +567,8 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testAidlLibAddsProguardSpecs() throws Exception {
-    scratch.file("sdk/BUILD",
+    scratch.file(
+        "sdk/BUILD",
         "android_sdk(name = 'sdk',",
         "            aapt = 'aapt',",
         "            adb = 'adb',",
@@ -582,8 +583,7 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "            main_dex_list_creator = 'main_dex_list_creator',",
         "            proguard = 'proguard',",
         "            shrinked_android_jar = 'shrinked_android_jar',",
-        "            zipalign = 'zipalign',",
-        "            resource_extractor = 'resource_extractor')",
+        "            zipalign = 'zipalign')",
         "java_library(name = 'aidl_lib',",
         "             srcs = ['AidlLib.java'],",
         "             proguard_specs = ['aidl_lib.cfg'])");

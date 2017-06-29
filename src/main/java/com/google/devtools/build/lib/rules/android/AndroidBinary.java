@@ -532,11 +532,13 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     Artifact zipAlignedApk =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_APK);
     Artifact signingKey = androidSemantics.getApkDebugSigningKey(ruleContext);
+    FilesToRunProvider resourceExtractor =
+        ruleContext.getExecutablePrerequisite("$resource_extractor", Mode.HOST);
 
     ApkActionsBuilder.create("apk")
         .setClassesDex(finalDexes)
         .addInputZip(resourceApk.getArtifact())
-        .setJavaResourceZip(dexingOutput.javaResourceJar)
+        .setJavaResourceZip(dexingOutput.javaResourceJar, resourceExtractor)
         .addInputZips(nativeLibsZips)
         .setNativeLibs(nativeLibs)
         .setUnsignedApk(unsignedApk)
@@ -598,7 +600,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         ApkActionsBuilder.create("incremental apk")
             .setClassesDex(stubDex)
             .addInputZip(incrementalResourceApk.getArtifact())
-            .setJavaResourceZip(dexingOutput.javaResourceJar)
+            .setJavaResourceZip(dexingOutput.javaResourceJar, resourceExtractor)
             .addInputZips(nativeLibsZips)
             .setJavaResourceFile(stubData)
             .setSignedApk(incrementalApk)
@@ -693,7 +695,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     Artifact javaSplitApk = getDxArtifact(ruleContext, "java_resources.apk");
     ApkActionsBuilder.create("split Java resource apk")
         .addInputZip(javaSplitApkResources)
-        .setJavaResourceZip(dexingOutput.javaResourceJar)
+        .setJavaResourceZip(dexingOutput.javaResourceJar, resourceExtractor)
         .setSignedApk(javaSplitApk)
         .setSigningKey(signingKey)
         .registerActions(ruleContext);

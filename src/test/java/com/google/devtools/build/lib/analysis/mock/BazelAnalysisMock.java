@@ -187,7 +187,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "    main_dex_classes = ':mainDexClasses.rules',",
         "    main_dex_list_creator = ':main_dex_list_creator',",
         "    proguard = ':ProGuard',",
-        "    resource_extractor = ':resource_extractor',",
         "    shrinked_android_jar = ':shrinkedAndroid.jar',",
         "    zipalign = ':zipalign',",
         ")",
