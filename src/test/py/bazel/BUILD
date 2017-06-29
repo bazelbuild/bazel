@@ -63,3 +63,10 @@ py_test(
         "//conditions:default": [],
     }),
 )
+
+py_test(
+    name = "launcher_script_test",
+    size = "medium",
+    srcs = ["launcher_script_test.py"],
+    deps = [":test_base"],
+)
