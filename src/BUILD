@@ -199,6 +199,9 @@ filegroup(
         ":windows_msvc": [
             "@openjdk_win//file",
         ],
+        ":windows": [
+            "@openjdk_win//file",
+        ],
         "//conditions:default": [
             "@openjdk_linux//file",
         ],
