@@ -132,13 +132,15 @@ class Desugar {
 
     @Option(
       name = "rewrite_calls_to_long_compare",
-      defaultValue = "true",
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "rewrite calls to Long.compare(long, long) to the JVM instruction lcmp",
+      help =
+          "Rewrite calls to Long.compare(long, long) to the JVM instruction lcmp "
+              + "regardless of --min_sdk_version.",
       category = "misc"
     )
-    public boolean enableRewritingOfLongCompare;
+    public boolean alwaysRewriteLongCompare;
 
     @Option(
       name = "output",
@@ -244,6 +246,7 @@ class Desugar {
   private final boolean outputJava7;
   private final boolean allowDefaultMethods;
   private final boolean allowCallsToObjectsNonNull;
+  private final boolean allowCallsToLongCompare;
   /** An instance of Desugar is expected to be used ONLY ONCE */
   private boolean used;
 
@@ -256,6 +259,7 @@ class Desugar {
     this.allowDefaultMethods =
         options.desugarInterfaceMethodBodiesIfNeeded || options.minSdkVersion >= 24;
     this.allowCallsToObjectsNonNull = options.minSdkVersion >= 19;
+    this.allowCallsToLongCompare = options.minSdkVersion >= 19 && !options.alwaysRewriteLongCompare;
     this.used = false;
   }
 
@@ -512,7 +516,7 @@ class Desugar {
       // the inliner again
       visitor = new ObjectsRequireNonNullMethodRewriter(visitor);
     }
-    if (options.enableRewritingOfLongCompare) {
+    if (!allowCallsToLongCompare) {
       visitor = new LongCompareMethodRewriter(visitor);
     }
     return visitor;
@@ -553,7 +557,7 @@ class Desugar {
     if (!allowCallsToObjectsNonNull) {
       visitor = new ObjectsRequireNonNullMethodRewriter(visitor);
     }
-    if (options.enableRewritingOfLongCompare) {
+    if (!allowCallsToLongCompare) {
       visitor = new LongCompareMethodRewriter(visitor);
     }
     return visitor;
