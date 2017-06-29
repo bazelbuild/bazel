@@ -89,9 +89,10 @@ public final class ParamFileHelper {
    */
   public static CommandLine createWithParamsFile(
       List<String> executableArgs, ParamFileInfo paramFileInfo, Artifact parameterFile) {
-    String pathWithFlag = paramFileInfo.getFlag() + parameterFile.getExecPathString();
-    Iterable<String> commandArgv = Iterables.concat(executableArgs, ImmutableList.of(pathWithFlag));
-    return CommandLine.of(commandArgv);
+    return CustomCommandLine.builder()
+        .add(executableArgs)
+        .addParamFile(paramFileInfo.getFlag(), parameterFile)
+        .build();
   }
 
   /**

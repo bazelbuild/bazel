@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
@@ -193,6 +194,21 @@ public final class CustomCommandLine extends CommandLine {
     void eval(ImmutableList.Builder<String> builder) {
       // PathFragment.toString() uses getPathString()
       builder.add(String.format(template, (Object[]) paths));
+    }
+  }
+
+  private static final class ParamFileArgument extends ArgvFragment {
+    private final String paramFilePrefix;
+    private final PathFragment path;
+
+    private ParamFileArgument(String paramFilePrefix, PathFragment path) {
+      this.paramFilePrefix = paramFilePrefix;
+      this.path = path;
+    }
+
+    @Override
+    void eval(ImmutableList.Builder<String> builder) {
+      builder.add(paramFilePrefix + path);
     }
   }
 
@@ -551,6 +567,17 @@ public final class CustomCommandLine extends CommandLine {
       if (template != null && path != null) {
         arguments.add(new PathWithTemplateArg(template, path));
       }
+      return this;
+    }
+
+    /**
+     * Adds a param file as an argument.
+     *
+     * @param paramFilePrefix The character that denotes a param file, commonly '@'
+     * @param paramFile The param file artifact
+     */
+    public Builder addParamFile(String paramFilePrefix, Artifact paramFile) {
+      arguments.add(new ParamFileArgument(paramFilePrefix, paramFile.getExecPath()));
       return this;
     }
 
