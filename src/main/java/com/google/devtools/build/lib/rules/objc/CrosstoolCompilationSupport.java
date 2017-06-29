@@ -241,7 +241,8 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
             .setLinkStaticness(LinkStaticness.FULLY_STATIC)
             .setLibraryIdentifier(libraryIdentifier)
             .addVariablesExtension(extension)
-            .setFeatureConfiguration(getFeatureConfiguration(ruleContext, buildConfiguration))
+            .setFeatureConfiguration(
+                getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration))
             .build();
     ruleContext.registerAction(fullyLinkAction);
 
@@ -318,7 +319,8 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
             .setLinkType(linkType)
             .setLinkStaticness(LinkStaticness.FULLY_STATIC)
             .addLinkopts(ImmutableList.copyOf(extraLinkArgs))
-            .setFeatureConfiguration(getFeatureConfiguration(ruleContext, buildConfiguration));
+            .setFeatureConfiguration(
+                getFeatureConfiguration(ruleContext, toolchain, buildConfiguration));
 
     if (objcConfiguration.generateDsym()) {
       Artifact dsymBundleZip = intermediateArtifacts.tempDsymBundleZip(dsymOutputType);
@@ -402,7 +404,7 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
         new CcLibraryHelper(
                 ruleContext,
                 semantics,
-                getFeatureConfiguration(ruleContext, buildConfiguration),
+                getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration),
                 CcLibraryHelper.SourceCategory.CC_AND_OBJC,
                 ccToolchain,
                 fdoSupport,
@@ -439,10 +441,11 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
   }
 
   private FeatureConfiguration getFeatureConfiguration(RuleContext ruleContext,
-      BuildConfiguration configuration) {
+      CcToolchainProvider ccToolchain, BuildConfiguration configuration) {
     boolean isHost = ruleContext.getConfiguration().isHostConfiguration();
     ImmutableSet.Builder<String> activatedCrosstoolSelectables =
         ImmutableSet.<String>builder()
+            .addAll(ccToolchain.getFeatures().getDefaultFeatures())
             .addAll(ACTIVATED_ACTIONS)
             .addAll(
                 ruleContext
