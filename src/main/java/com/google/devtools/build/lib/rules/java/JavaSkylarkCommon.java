@@ -182,6 +182,15 @@ public class JavaSkylarkCommon {
         doc = "A list of dependencies. Optional."
       ),
       @Param(
+          name = "exports",
+          positional = false,
+          named = true,
+          type = SkylarkList.class,
+          generic1 = JavaProvider.class,
+          defaultValue = "[]",
+          doc = "A list of exports. Optional."
+      ),
+      @Param(
         name = "strict_deps",
         defaultValue = "'ERROR'",
         positional = false,
@@ -231,6 +240,7 @@ public class JavaSkylarkCommon {
       Artifact outputJar,
       SkylarkList<String> javacOpts,
       SkylarkList<JavaProvider> deps,
+      SkylarkList<JavaProvider> exports,
       String strictDepsMode,
       ConfiguredTarget javaToolchain,
       ConfiguredTarget hostJavabase,
@@ -246,9 +256,12 @@ public class JavaSkylarkCommon {
             .setSourcePathEntries(sourcepathEntries)
             .setJavacOpts(javacOpts);
 
-    List<JavaCompilationArgsProvider> compilationArgsProviders =
+    List<JavaCompilationArgsProvider> depsCompilationArgsProviders =
         JavaProvider.fetchProvidersFromList(deps, JavaCompilationArgsProvider.class);
-    helper.addAllDeps(compilationArgsProviders);
+    List<JavaCompilationArgsProvider> exportsCompilationArgsProviders =
+        JavaProvider.fetchProvidersFromList(exports, JavaCompilationArgsProvider.class);
+    helper.addAllDeps(depsCompilationArgsProviders);
+    helper.addAllExports(exportsCompilationArgsProviders);
     helper.setCompilationStrictDepsMode(getStrictDepsMode(strictDepsMode));
     MiddlemanProvider hostJavabaseProvider = hostJavabase.getProvider(MiddlemanProvider.class);
 

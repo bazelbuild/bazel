@@ -52,6 +52,7 @@ public final class JavaLibraryHelper {
    * Contains all the dependencies; these are treated as both compile-time and runtime dependencies.
    */
   private final List<JavaCompilationArgsProvider> deps = new ArrayList<>();
+  private final List<JavaCompilationArgsProvider> exports = new ArrayList<>();
   private ImmutableList<String> javacOpts = ImmutableList.of();
   private ImmutableList<Artifact> sourcePathEntries = ImmutableList.of();
   private StrictDepsMode strictDepsMode = StrictDepsMode.OFF;
@@ -110,6 +111,11 @@ public final class JavaLibraryHelper {
   public JavaLibraryHelper addAllDeps(
       Iterable<JavaCompilationArgsProvider> providers) {
     Iterables.addAll(deps, providers);
+    return this;
+  }
+
+  public JavaLibraryHelper addAllExports(Iterable<JavaCompilationArgsProvider> providers) {
+    Iterables.addAll(exports, providers);
     return this;
   }
 
@@ -200,7 +206,10 @@ public final class JavaLibraryHelper {
    */
   public JavaCompilationArgsProvider buildCompilationArgsProvider(
       JavaCompilationArtifacts artifacts, boolean isReportedAsStrict) {
-    JavaCompilationArgs directArgs = JavaCompilationArgs.builder().merge(artifacts).build();
+    JavaCompilationArgs directArgs = JavaCompilationArgs.builder()
+        .merge(artifacts)
+        .addTransitiveDependencies(exports, true /* recursive */)
+        .build();
     JavaCompilationArgs transitiveArgs =
         JavaCompilationArgs.builder()
             .addTransitiveArgs(directArgs, BOTH)
