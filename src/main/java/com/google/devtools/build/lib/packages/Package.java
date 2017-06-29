@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -483,14 +482,7 @@ public class Package {
   /** Returns all rules in the package that match the given rule class. */
   public Iterable<Rule> getRulesMatchingRuleClass(final String ruleClass) {
     Iterable<Rule> targets = getTargets(Rule.class);
-    return Iterables.filter(
-        targets,
-        new Predicate<Rule>() {
-          @Override
-          public boolean apply(@Nullable Rule rule) {
-            return rule.getRuleClass().equals(ruleClass);
-          }
-        });
+    return Iterables.filter(targets, rule -> rule.getRuleClass().equals(ruleClass));
   }
 
   /**
@@ -1264,9 +1256,7 @@ public class Package {
         PathFragment outputFileFragment = PathFragment.create(outputFile.getName());
         for (int i = 1; i < outputFileFragment.segmentCount(); i++) {
           String prefix = outputFileFragment.subFragment(0, i).toString();
-          if (!outputFilePrefixes.containsKey(prefix)) {
-            outputFilePrefixes.put(prefix, outputFile);
-          }
+          outputFilePrefixes.putIfAbsent(prefix, outputFile);
         }
       }
       targets.put(rule.getName(), rule);
@@ -1460,9 +1450,7 @@ public class Package {
             throw conflictingOutputFile(outputFile, (OutputFile) targets.get(prefix));
           }
 
-          if (!outputFilePrefixes.containsKey(prefix)) {
-            outputFilePrefixes.put(prefix, outputFile);
-          }
+          outputFilePrefixes.putIfAbsent(prefix, outputFile);
         }
       }
 

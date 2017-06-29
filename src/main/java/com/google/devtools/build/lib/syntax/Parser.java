@@ -568,7 +568,7 @@ public class Parser {
 
   // arg_list ::= ( (arg ',')* arg ','? )?
   private List<Argument.Passed> parseFuncallArguments() {
-    List<Argument.Passed> arguments = parseFunctionArguments(() -> parseFuncallArgument());
+    List<Argument.Passed> arguments = parseFunctionArguments(this::parseFuncallArgument);
     try {
       Argument.validateFuncallArguments(arguments);
     } catch (Argument.ArgumentException e) {
@@ -1306,7 +1306,7 @@ public class Parser {
     Identifier ident = parseIdent();
     expect(TokenKind.LPAREN);
     List<Parameter<Expression, Expression>> params =
-        parseFunctionArguments(() -> parseFunctionParameter());
+        parseFunctionArguments(this::parseFunctionParameter);
     FunctionSignature.WithValues<Expression, Expression> signature = functionSignature(params);
     expect(TokenKind.RPAREN);
     expect(TokenKind.COLON);

@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.common.collect.ImmutableList;
@@ -157,14 +156,7 @@ public class ActionLookupValue implements SkyValue {
   public static Map<Artifact, ActionAnalysisMetadata> getMapForConsistencyCheck(
       Map<Artifact, Integer> generatingActionIndex,
       final List<? extends ActionAnalysisMetadata> actions) {
-    return Maps.transformValues(
-        generatingActionIndex,
-        new Function<Integer, ActionAnalysisMetadata>() {
-          @Override
-          public ActionAnalysisMetadata apply(Integer index) {
-            return actions.get(index);
-          }
-        });
+    return Maps.transformValues(generatingActionIndex, actions::get);
   }
 
   /**

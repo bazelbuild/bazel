@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toCollection;
+
 import com.google.common.base.Function;
-import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -24,6 +26,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -52,7 +55,6 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.Staticness;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -171,14 +173,10 @@ public final class CcLibraryHelper {
 
   /** Function for extracting module maps from CppCompilationDependencies. */
   public static final Function<TransitiveInfoCollection, CppModuleMap> CPP_DEPS_TO_MODULES =
-    new Function<TransitiveInfoCollection, CppModuleMap>() {
-      @Override
-      @Nullable
-      public CppModuleMap apply(TransitiveInfoCollection dep) {
+      dep -> {
         CppCompilationContext context = dep.getProvider(CppCompilationContext.class);
         return context == null ? null : context.getCppModuleMap();
-      }
-    };
+      };
 
   /**
    * Contains the providers as well as the compilation and linking outputs, and the compilation
@@ -1004,15 +1002,17 @@ public final class CcLibraryHelper {
               LinkerInputs.toNonSolibArtifacts(linkedLibraryMap.get(matchingIdentifier));
           ruleContext.ruleError(
               "Can't put "
-                  + Joiner.on(", ")
-                      .join(Iterables.transform(matchingInputLibs, FileType.TO_FILENAME))
+                  + Streams.stream(matchingInputLibs)
+                      .map(Artifact::getFilename)
+                      .collect(joining(", "))
                   + " into the srcs of a "
                   + ruleContext.getRuleClassNameForLogging()
                   + " with the same name ("
                   + ruleContext.getRule().getName()
                   + ") which also contains other code or objects to link; it shares a name with "
-                  + Joiner.on(", ")
-                      .join(Iterables.transform(matchingOutputLibs, FileType.TO_FILENAME))
+                  + Streams.stream(matchingOutputLibs)
+                      .map(Artifact::getFilename)
+                      .collect(joining(", "))
                   + " (output compiled and linked from the non-library sources of this rule), "
                   + "which could cause confusion");
         }
@@ -1463,8 +1463,8 @@ public final class CcLibraryHelper {
 
   private Iterable<CppModuleMap> collectModuleMaps() {
     // Cpp module maps may be null for some rules. We filter the nulls out at the end.
-    List<CppModuleMap> result = new ArrayList<>();
-    Iterables.addAll(result, Iterables.transform(deps, CPP_DEPS_TO_MODULES));
+    List<CppModuleMap> result =
+        deps.stream().map(CPP_DEPS_TO_MODULES).collect(toCollection(ArrayList::new));
     if (ruleContext.getRule().getAttributeDefinition(":stl") != null) {
       CppCompilationContext stl =
           ruleContext.getPrerequisite(":stl", Mode.TARGET, CppCompilationContext.class);

@@ -981,15 +981,13 @@ public class FileSystemUtils {
     // (a) name the function, (b) put it in a box and (c) use List not array
     // because of the generic type.  *sigh*.
     final List<Predicate<Path>> dumpFunction = new ArrayList<>();
-    dumpFunction.add(new Predicate<Path>() {
-        @Override
-        public boolean apply(Path child) {
+    dumpFunction.add(
+        child -> {
           Path path = child;
           out.println("  " + path + " (" + path.toDebugString() + ")");
           path.applyToChildren(dumpFunction.get(0));
           return false;
-        }
-      });
+        });
 
     fs.getRootDirectory().applyToChildren(dumpFunction.get(0));
   }

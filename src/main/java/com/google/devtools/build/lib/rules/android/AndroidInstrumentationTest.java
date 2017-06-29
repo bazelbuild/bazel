@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -37,7 +38,6 @@ import com.google.devtools.build.lib.rules.test.ExecutionInfoProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import java.io.IOException;
-import java.util.stream.StreamSupport;
 import javax.annotation.Nullable;
 
 /** An implementation of the {@code android_instrumentation} rule. */
@@ -170,7 +170,7 @@ public class AndroidInstrumentationTest implements RuleConfiguredTargetFactory {
   private static Substitution artifactListSubstitution(String key, Iterable<Artifact> artifacts) {
     return Substitution.ofSpaceSeparatedList(
         key,
-        StreamSupport.stream(artifacts.spliterator(), false)
+        Streams.stream(artifacts)
             .map(Artifact::getRunfilesPathString)
             .collect(ImmutableList.toImmutableList()));
   }

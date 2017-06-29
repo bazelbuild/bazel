@@ -16,12 +16,12 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression.COMPRESSED;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.replaceExtension;
+import static java.util.stream.Collectors.toCollection;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -61,7 +61,9 @@ import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistry
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.stream.Stream;
 
 /**
  * An base implementation for the "android_local_test" rule.
@@ -214,12 +216,14 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     NestedSet<Artifact> filesToBuild = filesToBuildBuilder.build();
 
     Iterable<AndroidLibraryAarProvider> androidAarProviders =
-        Sets.newLinkedHashSet(
-            Iterables.concat(
-                ruleContext.getPrerequisites(
-                    "runtime_deps", Mode.TARGET, AndroidLibraryAarProvider.class),
-                ruleContext.getPrerequisites(
-                    "deps", Mode.TARGET, AndroidLibraryAarProvider.class)));
+        Stream.concat(
+                Streams.stream(
+                    ruleContext.getPrerequisites(
+                        "runtime_deps", Mode.TARGET, AndroidLibraryAarProvider.class)),
+                Streams.stream(
+                    ruleContext.getPrerequisites(
+                        "deps", Mode.TARGET, AndroidLibraryAarProvider.class)))
+            .collect(toCollection(LinkedHashSet::new));
 
     NestedSetBuilder<Aar> transitiveAarsBuilder = NestedSetBuilder.naiveLinkOrder();
     NestedSetBuilder<Aar> strictAarsBuilder = NestedSetBuilder.naiveLinkOrder();
@@ -241,27 +245,11 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
     CustomCommandLine.Builder cmdLineArgs = CustomCommandLine.builder();
     if (!transitiveAars.isEmpty()) {
       cmdLineArgs.addJoinValues(
-          "--android_libraries",
-          ",",
-          transitiveAars,
-          new Function<Aar, String>() {
-            @Override
-            public String apply(Aar aar) {
-              return aarCmdLineArg(aar);
-            }
-          });
+          "--android_libraries", ",", transitiveAars, AndroidLocalTestBase::aarCmdLineArg);
     }
     if (!strictAars.isEmpty()) {
       cmdLineArgs.addJoinValues(
-          "--strict_libraries",
-          ",",
-          strictAars,
-          new Function<Aar, String>() {
-            @Override
-            public String apply(Aar aar) {
-              return aarCmdLineArg(aar);
-            }
-          });
+          "--strict_libraries", ",", strictAars, AndroidLocalTestBase::aarCmdLineArg);
     }
     RunfilesSupport runfilesSupport =
         RunfilesSupport.withExecutable(

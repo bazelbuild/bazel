@@ -107,12 +107,7 @@ public class ResourceContainerConverter {
           // arguments in a list of arguments. Those characters require escaping if used in a label
           // (part of the set of allowed characters in a label).
           if (includeLabel) {
-            escaper = new Function<String, String>() {
-              @Override
-              public String apply(String input) {
-                return input.replace(":", "\\:").replace(",", "\\,");
-              }
-            };
+            escaper = (String input) -> input.replace(":", "\\:").replace(",", "\\,");
           }
           break;
         case SEMICOLON_AMPERSAND:

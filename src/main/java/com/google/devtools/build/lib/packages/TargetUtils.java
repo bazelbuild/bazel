@@ -209,22 +209,19 @@ public final class TargetUtils {
         TestTargetUtils.sortTagsBySense(tagFilterList);
     final Collection<String> requiredTags = tagLists.first;
     final Collection<String> excludedTags = tagLists.second;
-    return new Predicate<Target>() {
-      @Override
-      public boolean apply(Target input) {
-        if (requiredTags.isEmpty() && excludedTags.isEmpty()) {
-          return true;
-        }
-
-        if (!(input instanceof Rule)) {
-          return false;
-        }
-        // Note that test_tags are those originating from the XX_test rule,
-        // whereas the requiredTags and excludedTags originate from the command
-        // line or test_suite rule.
-        return TestTargetUtils.testMatchesFilters(((Rule) input).getRuleTags(),
-            requiredTags, excludedTags, false);
+    return input -> {
+      if (requiredTags.isEmpty() && excludedTags.isEmpty()) {
+        return true;
       }
+
+      if (!(input instanceof Rule)) {
+        return false;
+      }
+      // Note that test_tags are those originating from the XX_test rule,
+      // whereas the requiredTags and excludedTags originate from the command
+      // line or test_suite rule.
+      return TestTargetUtils.testMatchesFilters(
+          ((Rule) input).getRuleTags(), requiredTags, excludedTags, false);
     };
   }
 

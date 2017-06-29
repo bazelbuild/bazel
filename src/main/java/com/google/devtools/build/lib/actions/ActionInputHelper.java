@@ -129,19 +129,11 @@ public final class ActionInputHelper {
     return fromPath(path.getPathString());
   }
 
-  private static final Function<String, ActionInput> FROM_PATH =
-      new Function<String, ActionInput>() {
-    @Override
-    public ActionInput apply(String path) {
-      return fromPath(path);
-    }
-  };
-
   /**
    * Creates a sequence of {@link ActionInput}s from a sequence of string paths.
    */
   public static Collection<ActionInput> fromPaths(Collection<String> paths) {
-    return Collections2.transform(paths, FROM_PATH);
+    return Collections2.transform(paths, ActionInputHelper::fromPath);
   }
 
   /**
@@ -178,13 +170,8 @@ public final class ActionInputHelper {
       final Artifact parent, Iterable<? extends PathFragment> parentRelativePaths) {
     Preconditions.checkState(parent.isTreeArtifact(),
         "Given parent %s must be a TreeArtifact", parent);
-    return Iterables.transform(parentRelativePaths,
-        new Function<PathFragment, TreeFileArtifact>() {
-          @Override
-          public TreeFileArtifact apply(PathFragment pathFragment) {
-            return treeFileArtifact(parent, pathFragment);
-          }
-        });
+    return Iterables.transform(
+        parentRelativePaths, pathFragment -> treeFileArtifact(parent, pathFragment));
   }
 
   /** Returns a Set of TreeFileArtifacts with the given parent and parent-relative paths. */
@@ -224,12 +211,7 @@ public final class ActionInputHelper {
 
   /** Formatter for execPath String output. Public because {@link Artifact} uses it directly. */
   public static final Function<ActionInput, String> EXEC_PATH_STRING_FORMATTER =
-      new Function<ActionInput, String>() {
-        @Override
-        public String apply(ActionInput input) {
-          return input.getExecPathString();
-        }
-  };
+      ActionInput::getExecPathString;
 
   public static Iterable<String> toExecPaths(Iterable<? extends ActionInput> artifacts) {
     return Iterables.transform(artifacts, EXEC_PATH_STRING_FORMATTER);

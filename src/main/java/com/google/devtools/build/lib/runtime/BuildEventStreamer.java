@@ -265,18 +265,19 @@ public class BuildEventStreamer implements EventHandler {
 
   private ScheduledFuture<?> bepUploadWaitEvent(ScheduledExecutorService executor) {
     final long startNanos = System.nanoTime();
-    return executor.scheduleAtFixedRate(new Runnable() {
-      @Override
-      public void run() {
-        long deltaNanos = System.nanoTime() - startNanos;
-        long deltaSeconds = TimeUnit.NANOSECONDS.toSeconds(deltaNanos);
-        Event waitEvt =
-            of(PROGRESS, null, "Waiting for build event protocol upload: " + deltaSeconds + "s");
-        if (reporter != null) {
-          reporter.handle(waitEvt);
-        }
-      }
-    }, 0, 1, TimeUnit.SECONDS);
+    return executor.scheduleAtFixedRate(
+        () -> {
+          long deltaNanos = System.nanoTime() - startNanos;
+          long deltaSeconds = TimeUnit.NANOSECONDS.toSeconds(deltaNanos);
+          Event waitEvt =
+              of(PROGRESS, null, "Waiting for build event protocol upload: " + deltaSeconds + "s");
+          if (reporter != null) {
+            reporter.handle(waitEvt);
+          }
+        },
+        0,
+        1,
+        TimeUnit.SECONDS);
   }
 
   private void close() {
@@ -286,14 +287,13 @@ public class BuildEventStreamer implements EventHandler {
       List<ListenableFuture<Void>> closeFutures = new ArrayList<>(transports.size());
       for (final BuildEventTransport transport : transports) {
         ListenableFuture<Void> closeFuture = transport.close();
-        closeFuture.addListener(new Runnable() {
-          @Override
-          public void run() {
-            if (reporter != null) {
-              reporter.post(new BuildEventTransportClosedEvent(transport));
-            }
-          }
-        }, executor);
+        closeFuture.addListener(
+            () -> {
+              if (reporter != null) {
+                reporter.post(new BuildEventTransportClosedEvent(transport));
+              }
+            },
+            executor);
         closeFutures.add(closeFuture);
       }
 

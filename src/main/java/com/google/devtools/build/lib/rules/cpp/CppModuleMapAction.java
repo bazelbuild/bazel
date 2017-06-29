@@ -77,11 +77,11 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
     super(
         owner,
         ImmutableList.<Artifact>builder()
-            .addAll(Iterables.filter(privateHeaders, Artifact.IS_TREE_ARTIFACT))
-            .addAll(Iterables.filter(publicHeaders, Artifact.IS_TREE_ARTIFACT))
+            .addAll(Iterables.filter(privateHeaders, Artifact::isTreeArtifact))
+            .addAll(Iterables.filter(publicHeaders, Artifact::isTreeArtifact))
             .build(),
         cppModuleMap.getArtifact(),
-        /*makeExecutable=*/false);
+        /*makeExecutable=*/ false);
     this.cppModuleMap = cppModuleMap;
     this.moduleMapHomeIsCwd = moduleMapHomeIsCwd;
     this.privateHeaders = ImmutableList.copyOf(privateHeaders);

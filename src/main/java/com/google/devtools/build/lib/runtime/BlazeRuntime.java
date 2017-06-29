@@ -681,19 +681,17 @@ public final class BlazeRuntime {
     final Thread mainThread = Thread.currentThread();
     final AtomicInteger numInterrupts = new AtomicInteger();
 
-    final Runnable interruptWatcher = new Runnable() {
-      @Override
-      public void run() {
-        int count = 0;
-        // Not an actual infinite loop because it's run in a daemon thread.
-        while (true) {
-          count++;
-          Uninterruptibles.sleepUninterruptibly(10, TimeUnit.SECONDS);
-          LOG.warning("Slow interrupt number " + count + " in batch mode");
-          ThreadUtils.warnAboutSlowInterrupt();
-        }
-      }
-    };
+    final Runnable interruptWatcher =
+        () -> {
+          int count = 0;
+          // Not an actual infinite loop because it's run in a daemon thread.
+          while (true) {
+            count++;
+            Uninterruptibles.sleepUninterruptibly(10, TimeUnit.SECONDS);
+            LOG.warning("Slow interrupt number " + count + " in batch mode");
+            ThreadUtils.warnAboutSlowInterrupt();
+          }
+        };
 
     new InterruptSignalHandler() {
       @Override
@@ -821,12 +819,7 @@ public final class BlazeRuntime {
       Iterable<BlazeModule> modules, List<String> args)
       throws IOException, OptionsParsingException, AbruptExitException {
     final RPCServer[] rpcServer = new RPCServer[1];
-    Runnable prepareForAbruptShutdown = new Runnable() {
-      @Override
-      public void run() {
-        rpcServer[0].prepareForAbruptShutdown();
-      }
-    };
+    Runnable prepareForAbruptShutdown = () -> rpcServer[0].prepareForAbruptShutdown();
 
     BlazeRuntime runtime = newRuntime(modules, args, prepareForAbruptShutdown);
     BlazeCommandDispatcher dispatcher = new BlazeCommandDispatcher(runtime);
@@ -870,17 +863,18 @@ public final class BlazeRuntime {
     parser.parse(OptionPriority.COMMAND_LINE, null, args);
     Map<String, String> optionSources =
         parser.getOptions(BlazeServerStartupOptions.class).optionSources;
-    Function<String, String> sourceFunction = option -> {
-      if (!optionSources.containsKey(option)) {
-        return "default";
-      }
+    Function<String, String> sourceFunction =
+        option -> {
+          if (!optionSources.containsKey(option)) {
+            return "default";
+          }
 
-      if (optionSources.get(option).isEmpty()) {
-        return "command line";
-      }
+          if (optionSources.get(option).isEmpty()) {
+            return "command line";
+          }
 
-      return optionSources.get(option);
-    };
+          return optionSources.get(option);
+        };
 
     // Then parse the command line again, this time with the correct option sources
     parser = OptionsParser.newOptionsParser(optionClasses);
@@ -1082,12 +1076,7 @@ public final class BlazeRuntime {
    */
   private static void setupUncaughtHandler(final String[] args) {
     Thread.setDefaultUncaughtExceptionHandler(
-        new Thread.UncaughtExceptionHandler() {
-          @Override
-          public void uncaughtException(Thread thread, Throwable throwable) {
-            BugReport.handleCrash(throwable, args);
-          }
-        });
+        (thread, throwable) -> BugReport.handleCrash(throwable, args));
   }
 
   public String getProductName() {

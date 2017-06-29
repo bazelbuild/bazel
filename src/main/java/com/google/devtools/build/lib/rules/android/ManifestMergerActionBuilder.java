@@ -102,14 +102,11 @@ public class ManifestMergerActionBuilder {
     inputs.add(manifest);
 
     if (mergeeManifests != null && !mergeeManifests.isEmpty()) {
-      builder.add("--mergeeManifests")
-          .add(mapToDictionaryString(mergeeManifests,
-              new Function<Artifact, String>() {
-                @Override public String apply(Artifact input) {
-                  return input.getExecPathString();
-                }
-              },
-              null /* valueConverter */));
+      builder
+          .add("--mergeeManifests")
+          .add(
+              mapToDictionaryString(
+                  mergeeManifests, Artifact::getExecPathString, null /* valueConverter */));
       inputs.addAll(mergeeManifests.keySet());
     }
 
@@ -145,11 +142,8 @@ public class ManifestMergerActionBuilder {
             .build(context));
   }
 
-  private static final Function<String, String> ESCAPER = new Function<String, String>() {
-    @Override public String apply(String value) {
-      return value.replace(":", "\\:").replace(",", "\\,");
-    }
-  };
+  private static final Function<String, String> ESCAPER =
+      (String value) -> value.replace(":", "\\:").replace(",", "\\,");
 
   private <K, V> String mapToDictionaryString(Map<K, V> map) {
     return mapToDictionaryString(map, Functions.toStringFunction(), Functions.toStringFunction());

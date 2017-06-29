@@ -14,10 +14,8 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -69,15 +67,13 @@ public class IosApplication extends ReleaseBundlingTargetFactory {
           + "watch extension for each watch OS version");
     }
   }
-  
-  private boolean hasMoreThanOneWatchExtension(Iterable<ObjcProvider> objcProviders,
-      final Flag watchExtensionVersionFlag) {
-    return Lists.newArrayList(Iterables.filter(objcProviders, new Predicate<ObjcProvider>() {
-      @Override
-      public boolean apply(ObjcProvider objcProvider) {
-        return objcProvider.is(watchExtensionVersionFlag);
-      }
-    })).size() > 1;
+
+  private boolean hasMoreThanOneWatchExtension(
+      Iterable<ObjcProvider> objcProviders, final Flag watchExtensionVersionFlag) {
+    return Streams.stream(objcProviders)
+            .filter(objcProvider -> objcProvider.is(watchExtensionVersionFlag))
+            .count()
+        > 1;
   }
 
   @Override

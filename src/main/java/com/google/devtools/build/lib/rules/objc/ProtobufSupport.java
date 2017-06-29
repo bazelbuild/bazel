@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicates;
@@ -567,13 +566,7 @@ final class ProtobufSupport {
 
     Iterable<String> filterLines =
         Iterables.transform(
-            protoFilePaths,
-            new Function<String, String>() {
-              @Override
-              public String apply(String protoFilePath) {
-                return String.format("allowed_file: \"%s\"", protoFilePath);
-              }
-            });
+            protoFilePaths, protoFilePath -> String.format("allowed_file: \"%s\"", protoFilePath));
 
     return String.format(
             "# Generated portable filter for %s\n\n", ruleContext.getLabel().getCanonicalForm())

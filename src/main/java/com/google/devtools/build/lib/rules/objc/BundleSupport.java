@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STRINGS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
 
 import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -39,7 +38,6 @@ import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -205,13 +203,13 @@ final class BundleSupport {
    * Returns true if this bundle is targeted to {@link TargetDeviceFamily#WATCH}, false otherwise.
    */
   boolean isBuildingForWatch() {
-    return Iterables.any(targetDeviceFamilies(),
-        new Predicate<TargetDeviceFamily>() {
-      @Override
-      public boolean apply(TargetDeviceFamily targetDeviceFamily) {
-        return targetDeviceFamily.name().equalsIgnoreCase(TargetDeviceFamily.WATCH.getNameInRule());
-      }
-    });
+    return targetDeviceFamilies()
+        .stream()
+        .anyMatch(
+            targetDeviceFamily ->
+                targetDeviceFamily
+                    .name()
+                    .equalsIgnoreCase(TargetDeviceFamily.WATCH.getNameInRule()));
   }
 
   /**

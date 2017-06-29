@@ -69,19 +69,15 @@ public class WindowsFileSystem extends JavaIoFileSystem {
 
   /** Resolves DOS-style, shortened path names, returning the last segment's long form. */
   private static final Function<String, String> WINDOWS_SHORT_PATH_RESOLVER =
-      new Function<String, String>() {
-        @Override
-        @Nullable
-        public String apply(String path) {
-          try {
-            // Since Path objects are created hierarchically, we know for sure that every segment of
-            // the path, except the last one, is already canonicalized, so we can return just that.
-            // Plus the returned value is passed to Path.getChild so we must not return a full
-            // path here.
-            return PathFragment.create(WindowsFileOperations.getLongPath(path)).getBaseName();
-          } catch (IOException e) {
-            return null;
-          }
+      path -> {
+        try {
+          // Since Path objects are created hierarchically, we know for sure that every segment of
+          // the path, except the last one, is already canonicalized, so we can return just that.
+          // Plus the returned value is passed to Path.getChild so we must not return a full
+          // path here.
+          return PathFragment.create(WindowsFileOperations.getLongPath(path)).getBaseName();
+        } catch (IOException e) {
+          return null;
         }
       };
 

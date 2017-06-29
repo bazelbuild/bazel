@@ -103,31 +103,29 @@ public class BinaryOperatorExpression extends QueryExpression {
     QueryTaskFuture<ThreadSafeMutableSet<T>> lhsValueFuture =
         QueryUtil.evalAll(env, context, operands.get(0));
     Function<ThreadSafeMutableSet<T>, QueryTaskFuture<Void>> subtractAsyncFunction =
-        new Function<ThreadSafeMutableSet<T>, QueryTaskFuture<Void>>() {
-      @Override
-      public QueryTaskFuture<Void> apply(ThreadSafeMutableSet<T> lhsValue) {
-        final Set<T> threadSafeLhsValue = lhsValue;
-        Callback<T> subtractionCallback = new Callback<T>() {
-          @Override
-          public void process(Iterable<T> partialResult) {
-            for (T target : partialResult) {
-              threadSafeLhsValue.remove(target);
-            }
-          }
+        lhsValue -> {
+          final Set<T> threadSafeLhsValue = lhsValue;
+          Callback<T> subtractionCallback =
+              new Callback<T>() {
+                @Override
+                public void process(Iterable<T> partialResult) {
+                  for (T target : partialResult) {
+                    threadSafeLhsValue.remove(target);
+                  }
+                }
+              };
+          QueryTaskFuture<Void> rhsEvaluatedFuture =
+              evalPlus(operands.subList(1, operands.size()), env, context, subtractionCallback);
+          return env.whenSucceedsCall(
+              rhsEvaluatedFuture,
+              new QueryTaskCallable<Void>() {
+                @Override
+                public Void call() throws QueryException, InterruptedException {
+                  callback.process(threadSafeLhsValue);
+                  return null;
+                }
+              });
         };
-        QueryTaskFuture<Void> rhsEvaluatedFuture = evalPlus(
-            operands.subList(1, operands.size()), env, context, subtractionCallback);
-        return env.whenSucceedsCall(
-            rhsEvaluatedFuture,
-            new QueryTaskCallable<Void>() {
-              @Override
-              public Void call() throws QueryException, InterruptedException {
-                callback.process(threadSafeLhsValue);
-                return null;
-              }
-            });
-      }
-    };
     return env.transformAsync(lhsValueFuture, subtractAsyncFunction);
   }
 
@@ -148,24 +146,20 @@ public class BinaryOperatorExpression extends QueryExpression {
       final int index = i;
       Function<ThreadSafeMutableSet<T>, QueryTaskFuture<ThreadSafeMutableSet<T>>>
           evalOperandAndIntersectAsyncFunction =
-          new Function<ThreadSafeMutableSet<T>, QueryTaskFuture<ThreadSafeMutableSet<T>>>() {
-            @Override
-            public QueryTaskFuture<ThreadSafeMutableSet<T>> apply(
-                final ThreadSafeMutableSet<T> rollingResult) {
-              final QueryTaskFuture<ThreadSafeMutableSet<T>> rhsOperandValueFuture =
-                  QueryUtil.evalAll(env, context, operands.get(index));
-              return env.whenSucceedsCall(
-                  rhsOperandValueFuture,
-                  new QueryTaskCallable<ThreadSafeMutableSet<T>>() {
-                    @Override
-                    public ThreadSafeMutableSet<T> call()
-                        throws QueryException, InterruptedException {
-                      rollingResult.retainAll(rhsOperandValueFuture.getIfSuccessful());
-                      return rollingResult;
-                    }
-                  });
-            }
-      };
+              rollingResult -> {
+                final QueryTaskFuture<ThreadSafeMutableSet<T>> rhsOperandValueFuture =
+                    QueryUtil.evalAll(env, context, operands.get(index));
+                return env.whenSucceedsCall(
+                    rhsOperandValueFuture,
+                    new QueryTaskCallable<ThreadSafeMutableSet<T>>() {
+                      @Override
+                      public ThreadSafeMutableSet<T> call()
+                          throws QueryException, InterruptedException {
+                        rollingResult.retainAll(rhsOperandValueFuture.getIfSuccessful());
+                        return rollingResult;
+                      }
+                    });
+              };
       rollingResultFuture =
           env.transformAsync(rollingResultFuture, evalOperandAndIntersectAsyncFunction);
     }

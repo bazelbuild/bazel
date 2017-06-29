@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Arrays;
 import java.util.List;
-import javax.annotation.Nullable;
 
 /** A Skylark value that is a result of an 'aspect(..)' function call. */
 @SkylarkModule(
@@ -167,37 +166,33 @@ public class SkylarkAspect implements SkylarkExportable {
   }
 
   public Function<Rule, AspectParameters> getDefaultParametersExtractor() {
-    return new Function<Rule, AspectParameters>() {
-      @Nullable
-      @Override
-      public AspectParameters apply(Rule rule) {
-        AttributeMap ruleAttrs = RawAttributeMapper.of(rule);
-        AspectParameters.Builder builder = new AspectParameters.Builder();
-        for (Attribute aspectAttr : attributes) {
-          if (!Attribute.isImplicit(aspectAttr.getName())) {
-            String param = aspectAttr.getName();
-            Attribute ruleAttr = ruleAttrs.getAttributeDefinition(param);
-            if (paramAttributes.contains(aspectAttr.getName())) {
-              // These are preconditions because if they are false, RuleFunction.call() should
-              // already have generated an error.
-              Preconditions.checkArgument(ruleAttr != null,
-                  String.format("Cannot apply aspect %s to %s that does not define attribute '%s'.",
-                                getName(),
-                                rule.getTargetKind(),
-                                param));
-              Preconditions.checkArgument(ruleAttr.getType() == Type.STRING,
-                  String.format("Cannot apply aspect %s to %s with non-string attribute '%s'.",
-                                getName(),
-                                rule.getTargetKind(),
-                                param));
-            }
-            if (ruleAttr != null && ruleAttr.getType() == aspectAttr.getType()) {
-              builder.addAttribute(param, (String) ruleAttrs.get(param, ruleAttr.getType()));
-            }
+    return rule -> {
+      AttributeMap ruleAttrs = RawAttributeMapper.of(rule);
+      AspectParameters.Builder builder = new AspectParameters.Builder();
+      for (Attribute aspectAttr : attributes) {
+        if (!Attribute.isImplicit(aspectAttr.getName())) {
+          String param = aspectAttr.getName();
+          Attribute ruleAttr = ruleAttrs.getAttributeDefinition(param);
+          if (paramAttributes.contains(aspectAttr.getName())) {
+            // These are preconditions because if they are false, RuleFunction.call() should
+            // already have generated an error.
+            Preconditions.checkArgument(
+                ruleAttr != null,
+                String.format(
+                    "Cannot apply aspect %s to %s that does not define attribute '%s'.",
+                    getName(), rule.getTargetKind(), param));
+            Preconditions.checkArgument(
+                ruleAttr.getType() == Type.STRING,
+                String.format(
+                    "Cannot apply aspect %s to %s with non-string attribute '%s'.",
+                    getName(), rule.getTargetKind(), param));
+          }
+          if (ruleAttr != null && ruleAttr.getType() == aspectAttr.getType()) {
+            builder.addAttribute(param, (String) ruleAttrs.get(param, ruleAttr.getType()));
           }
         }
-        return builder.build();
       }
+      return builder.build();
     };
   }
 

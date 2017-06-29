@@ -142,11 +142,8 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
         continue;
       }
 
-      OptionsParser parser = parserCache.get(optionClass);
-      if (parser == null) {
-        parser = OptionsParser.newOptionsParser(optionClass);
-        parserCache.put(optionClass, parser);
-      }
+      OptionsParser parser =
+          parserCache.computeIfAbsent(optionClass, OptionsParser::newOptionsParser);
 
       try {
         parser.parse("--" + optionName + "=" + expectedRawValue);

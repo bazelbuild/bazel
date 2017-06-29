@@ -109,18 +109,19 @@ public class GlobCache {
     this.maxDirectoriesToEagerlyVisit = maxDirectoriesToEagerlyVisit;
 
     Preconditions.checkNotNull(locator);
-    childDirectoryPredicate = new Predicate<Path>() {
-      @Override
-      public boolean apply(Path directory) {
-        if (directory.equals(packageDirectory)) {
-          return true;
-        }
-        PackageIdentifier subPackageId = PackageIdentifier.create(
-            packageId.getRepository(),
-            packageId.getPackageFragment().getRelative(directory.relativeTo(packageDirectory)));
-        return locator.getBuildFileForPackage(subPackageId) == null;
-      }
-    };
+    childDirectoryPredicate =
+        directory -> {
+          if (directory.equals(packageDirectory)) {
+            return true;
+          }
+          PackageIdentifier subPackageId =
+              PackageIdentifier.create(
+                  packageId.getRepository(),
+                  packageId
+                      .getPackageFragment()
+                      .getRelative(directory.relativeTo(packageDirectory)));
+          return locator.getBuildFileForPackage(subPackageId) == null;
+        };
   }
 
   /**

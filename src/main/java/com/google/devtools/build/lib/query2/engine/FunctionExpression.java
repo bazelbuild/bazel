@@ -13,10 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import static java.util.stream.Collectors.joining;
+
 import com.google.common.base.Functions;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
@@ -66,7 +66,9 @@ public class FunctionExpression extends QueryExpression {
 
   @Override
   public String toString() {
-    return function.getName() +
-        "(" + Joiner.on(", ").join(Iterables.transform(args, Functions.toStringFunction())) + ")";
+    return function.getName()
+        + "("
+        + args.stream().map(Functions.toStringFunction()).collect(joining(", "))
+        + ")";
   }
 }

@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.remote;
 
-import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
@@ -202,14 +201,7 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
 
   @Override
   public Iterable<TreeNode> children(TreeNode node) {
-    return Iterables.transform(
-        node.getChildEntries(),
-        new Function<TreeNode.ChildEntry, TreeNode>() {
-          @Override
-          public TreeNode apply(TreeNode.ChildEntry entry) {
-            return entry.getChild();
-          }
-        });
+    return Iterables.transform(node.getChildEntries(), TreeNode.ChildEntry::getChild);
   }
 
   /** Traverse the directory structure in order (pre-order tree traversal). */

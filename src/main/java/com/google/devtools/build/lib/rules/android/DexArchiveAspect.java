@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 import static com.google.devtools.build.lib.rules.android.AndroidCommon.getAndroidConfig;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.util.stream.Collectors.toCollection;
 
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
@@ -29,6 +30,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParameterFile;
@@ -65,6 +67,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * Aspect to {@link DexArchiveProvider build .dex Archives} from Jars.
@@ -76,15 +79,12 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
    * aspect. Must be provided when attaching this aspect to a target.
    */
   public static final Function<Rule, AspectParameters> PARAM_EXTRACTOR =
-      new Function<Rule, AspectParameters>() {
-        @Override
-        public AspectParameters apply(Rule rule) {
-          AttributeMap attributes = NonconfigurableAttributeMapper.of(rule);
-          AspectParameters.Builder result = new AspectParameters.Builder();
-          TriState incrementalAttr = attributes.get("incremental_dexing", TRISTATE);
-          result.addAttribute("incremental_dexing", incrementalAttr.name());
-          return result.build();
-        }
+      (Rule rule) -> {
+        AttributeMap attributes = NonconfigurableAttributeMapper.of(rule);
+        AspectParameters.Builder result = new AspectParameters.Builder();
+        TriState incrementalAttr = attributes.get("incremental_dexing", TRISTATE);
+        result.addAttribute("incremental_dexing", incrementalAttr.name());
+        return result.build();
       };
   /**
    * Function that limits this aspect to Java 8 desugaring (disabling incremental dexing) when
@@ -92,15 +92,10 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
    * for {@code blaze mobile-install}.
    */
   static final Function<Rule, AspectParameters> ONLY_DESUGAR_JAVA8 =
-      new Function<Rule, AspectParameters>() {
-        @Override
-        public AspectParameters apply(Rule rule) {
-          return new AspectParameters.Builder()
+      (Rule rule) ->
+          new AspectParameters.Builder()
               .addAttribute("incremental_dexing", TriState.NO.name())
               .build();
-        }
-      };
-
   /** Aspect-only label for dexbuidler executable, to avoid name clashes with labels on rules. */
   private static final String ASPECT_DEXBUILDER_PREREQ = "$dex_archive_dexbuilder";
   /** Aspect-only label for desugaring executable, to avoid name clashes with labels on rules. */
@@ -513,7 +508,10 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
     // we generate one dex archive per set of flag in create() method, regardless of how those flags
     // are listed in all the top-level targets being built.
     return ImmutableSet.copyOf(
-        Sets.newTreeSet(Iterables.transform(tokenizedDexopts, FlagConverter.DX_TO_DEXBUILDER)));
+        Streams.stream(tokenizedDexopts)
+            .map(FlagConverter.DX_TO_DEXBUILDER)
+            .collect(toCollection(TreeSet::new))
+            .iterator());
   }
 
   private static class FlagMatcher implements Predicate<String> {

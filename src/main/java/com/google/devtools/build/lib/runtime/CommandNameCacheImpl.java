@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -34,13 +33,7 @@ class CommandNameCacheImpl implements CommandNameCache {
     // post-creation.
     this.commandMap =
         Maps.transformValues(
-            commandMap,
-            new Function<BlazeCommand, Command>() {
-              @Override
-              public Command apply(BlazeCommand blazeCommand) {
-                return blazeCommand.getClass().getAnnotation(Command.class);
-              }
-            });
+            commandMap, blazeCommand -> blazeCommand.getClass().getAnnotation(Command.class));
   }
 
   @Override

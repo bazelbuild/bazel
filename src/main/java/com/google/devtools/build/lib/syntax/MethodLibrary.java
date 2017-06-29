@@ -14,11 +14,12 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import static java.util.stream.Collectors.joining;
+
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -2063,39 +2064,48 @@ public class MethodLibrary {
         }
       };
 
-  @SkylarkSignature(name = "print", returnType = Runtime.NoneType.class,
-      doc = "Prints <code>args</code> as output. It will be prefixed with the string <code>"
-          + "\"WARNING\"</code> and the location (file and line number) of this call. It can be "
-          + "used for debugging."
-          + "<p>Using <code>print</code> in production code is discouraged due to the spam it "
-          + "creates for users. For deprecations, prefer a hard error using <a href=\"#fail\">"
-          + "fail()</a> when possible.",
-      parameters = {
-        @Param(name = "sep", type = String.class, defaultValue = "' '",
-            named = true, positional = false,
-            doc = "The separator string between the objects, default is space (\" \").")},
-      // NB: as compared to Python3, we're missing optional named-only arguments 'end' and 'file'
-      extraPositionals = @Param(name = "args", doc = "The objects to print."),
-      useLocation = true, useEnvironment = true)
-  private static final BuiltinFunction print = new BuiltinFunction("print") {
-    public Runtime.NoneType invoke(String sep, SkylarkList<?> starargs,
-        Location loc, Environment env) throws EvalException {
-      String msg = Joiner.on(sep).join(Iterables.transform(starargs,
-              new com.google.common.base.Function<Object, String>() {
-                @Override
-                public String apply(Object input) {
-                  return Printer.str(input);
-                }}));
-      // As part of the integration test "skylark_flag_test.sh", if the
-      // "--internal_skylark_flag_test_canary" flag is enabled, append an extra marker string to the
-      // output.
-      if (env.getSemantics().skylarkFlagTestCanary) {
-        msg += "<== skylark flag test ==>";
-      }
-      env.handleEvent(Event.warn(loc, msg));
-      return Runtime.NONE;
-    }
-  };
+  @SkylarkSignature(
+    name = "print",
+    returnType = Runtime.NoneType.class,
+    doc =
+        "Prints <code>args</code> as output. It will be prefixed with the string <code>"
+            + "\"WARNING\"</code> and the location (file and line number) of this call. It can be "
+            + "used for debugging."
+            + "<p>Using <code>print</code> in production code is discouraged due to the spam it "
+            + "creates for users. For deprecations, prefer a hard error using <a href=\"#fail\">"
+            + "fail()</a> when possible.",
+    parameters = {
+      @Param(
+        name = "sep",
+        type = String.class,
+        defaultValue = "' '",
+        named = true,
+        positional = false,
+        doc = "The separator string between the objects, default is space (\" \")."
+      )
+    },
+    // NB: as compared to Python3, we're missing optional named-only arguments 'end' and 'file'
+    extraPositionals = @Param(name = "args", doc = "The objects to print."),
+    useLocation = true,
+    useEnvironment = true
+  )
+  private static final BuiltinFunction print =
+      new BuiltinFunction("print") {
+        public Runtime.NoneType invoke(
+            String sep, SkylarkList<?> starargs, Location loc, Environment env)
+            throws EvalException {
+          String msg = starargs.stream().map(Printer::str).collect(joining(sep));
+          // As part of the integration test "skylark_flag_test.sh", if the
+          // "--internal_skylark_flag_test_canary" flag is enabled, append an extra marker string to
+          // the
+          // output.
+          if (env.getSemantics().skylarkFlagTestCanary) {
+            msg += "<== skylark flag test ==>";
+          }
+          env.handleEvent(Event.warn(loc, msg));
+          return Runtime.NONE;
+        }
+      };
 
   @SkylarkSignature(
     name = "zip",

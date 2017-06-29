@@ -887,19 +887,12 @@ public class GrpcServerImpl implements RPCServer {
       new CommandServerGrpc.CommandServerImplBase() {
         @Override
         public void run(final RunRequest request, final StreamObserver<RunResponse> observer) {
-          final GrpcSink sink = new GrpcSink(
-              "Run",
-              (ServerCallStreamObserver<RunResponse>) observer,
-              streamExecutorPool);
+          final GrpcSink sink =
+              new GrpcSink(
+                  "Run", (ServerCallStreamObserver<RunResponse>) observer, streamExecutorPool);
           // Switch to our own threads so that onReadyStateHandler can be called (see class-level
           // comment)
-          commandExecutorPool.execute(
-              new Runnable() {
-                @Override
-                public void run() {
-                  executeCommand(request, observer, sink);
-                }
-              });
+          commandExecutorPool.execute(() -> executeCommand(request, observer, sink));
         }
 
         @Override
@@ -928,12 +921,7 @@ public class GrpcServerImpl implements RPCServer {
 
           // Actually performing the cancellation can result in some blocking which we don't want
           // to do on the dispatcher thread, instead offload to command pool.
-          commandExecutorPool.execute(new Runnable() {
-            @Override
-            public void run() {
-              doCancel(request, streamObserver);
-            }
-          });
+          commandExecutorPool.execute(() -> doCancel(request, streamObserver));
         }
 
         private void doCancel(
@@ -958,8 +946,8 @@ public class GrpcServerImpl implements RPCServer {
               streamObserver.onCompleted();
             } catch (StatusRuntimeException e) {
               // There is no one to report the failure to
-              log.info("Client cancelled RPC of cancellation request for "
-                  + request.getCommandId());
+              log.info(
+                  "Client cancelled RPC of cancellation request for " + request.getCommandId());
             }
           }
         }

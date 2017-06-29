@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
-import static com.google.common.collect.Iterables.filter;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.analysis.OutputGroupProvider.INTERNAL_SUFFIX;
 
 import com.google.common.base.Function;
@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
@@ -980,8 +981,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     }
     NestedSet<Artifact> libraryResourceJars = libraryResourceJarsBuilder.build();
 
-    Iterable<Artifact> filteredJars = ImmutableList.copyOf(
-        filter(jars, not(in(libraryResourceJars.toSet()))));
+    Iterable<Artifact> filteredJars =
+        Streams.stream(jars)
+            .filter(not(in(libraryResourceJars.toSet())))
+            .collect(toImmutableList());
 
     AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
 

@@ -13,17 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.CompactHashSet;
@@ -134,10 +134,9 @@ class ParallelSkyQueryUtils {
         Iterable<SkyKey> keysToUseForResult, Callback<Target> callback)
             throws QueryException, InterruptedException {
       Set<PackageIdentifier> pkgIdsNeededForResult =
-          ImmutableSet.copyOf(
-              Iterables.transform(
-                  keysToUseForResult,
-                  SkyQueryEnvironment.PACKAGE_SKYKEY_TO_PACKAGE_IDENTIFIER));
+          Streams.stream(keysToUseForResult)
+              .map(SkyQueryEnvironment.PACKAGE_SKYKEY_TO_PACKAGE_IDENTIFIER)
+              .collect(toImmutableSet());
       packageSemaphore.acquireAll(pkgIdsNeededForResult);
       try {
         callback.process(SkyQueryEnvironment.getBuildFilesForPackageValues(
@@ -222,9 +221,7 @@ class ParallelSkyQueryUtils {
           continue;
         }
 
-        if (!reverseDepsMap.containsKey(reverseDepPair.first)) {
-          reverseDepsMap.put(reverseDepPair.first, new LinkedList<SkyKey>());
-        }
+        reverseDepsMap.computeIfAbsent(reverseDepPair.first, k -> new LinkedList<SkyKey>());
 
         reverseDepsMap.get(reverseDepPair.first).add(reverseDepPair.second);
       }
@@ -232,10 +229,11 @@ class ParallelSkyQueryUtils {
       Multimap<SkyKey, SkyKey> packageKeyToTargetKeyMap =
           env.makePackageKeyToTargetKeyMap(Iterables.concat(reverseDepsMap.values()));
       Set<PackageIdentifier> pkgIdsNeededForTargetification =
-          ImmutableSet.copyOf(
-              Iterables.transform(
-                  packageKeyToTargetKeyMap.keySet(),
-                  SkyQueryEnvironment.PACKAGE_SKYKEY_TO_PACKAGE_IDENTIFIER));
+          packageKeyToTargetKeyMap
+              .keySet()
+              .stream()
+              .map(SkyQueryEnvironment.PACKAGE_SKYKEY_TO_PACKAGE_IDENTIFIER)
+              .collect(toImmutableSet());
       packageSemaphore.acquireAll(pkgIdsNeededForTargetification);
 
       try {
@@ -245,8 +243,10 @@ class ParallelSkyQueryUtils {
           Collection<Target> filteredTargets =
               env.filterRawReverseDepsOfTransitiveTraversalKeys(
                   reverseDepsMap, packageKeyToTargetKeyMap);
-          filteredKeys.addAll(
-              Collections2.transform(filteredTargets, SkyQueryEnvironment.TARGET_TO_SKY_KEY));
+          filteredTargets
+              .stream()
+              .map(SkyQueryEnvironment.TARGET_TO_SKY_KEY)
+              .forEachOrdered(filteredKeys::add);
         }
       } finally {
         packageSemaphore.releaseAll(pkgIdsNeededForTargetification);
@@ -276,10 +276,11 @@ class ParallelSkyQueryUtils {
       Multimap<SkyKey, SkyKey> packageKeyToTargetKeyMap =
           env.makePackageKeyToTargetKeyMap(keysToUseForResult);
       Set<PackageIdentifier> pkgIdsNeededForResult =
-          ImmutableSet.copyOf(
-            Iterables.transform(
-                packageKeyToTargetKeyMap.keySet(),
-                SkyQueryEnvironment.PACKAGE_SKYKEY_TO_PACKAGE_IDENTIFIER));
+          packageKeyToTargetKeyMap
+              .keySet()
+              .stream()
+              .map(SkyQueryEnvironment.PACKAGE_SKYKEY_TO_PACKAGE_IDENTIFIER)
+              .collect(toImmutableSet());
       packageSemaphore.acquireAll(pkgIdsNeededForResult);
       try {
         callback.process(
@@ -291,16 +292,7 @@ class ParallelSkyQueryUtils {
 
     @Override
     protected Iterable<Pair<SkyKey, SkyKey>> preprocessInitialVisit(Iterable<SkyKey> keys) {
-      return Iterables.transform(
-          keys,
-          new Function<SkyKey, Pair<SkyKey, SkyKey>>() {
-            @Override
-            public Pair<SkyKey, SkyKey> apply(SkyKey key) {
-              // Set parent of first-level nodes to null. They are handled specially in
-              // AllRdepsUnboundedVisitor#getVisitResult and will not be filtered later.
-              return Pair.of(null, key);
-            }
-          });
+      return Iterables.transform(keys, key -> Pair.of(null, key));
     }
 
     @Override

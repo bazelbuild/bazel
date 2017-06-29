@@ -65,21 +65,18 @@ public final class RdepsFunction extends AllRdepsFunction {
     QueryTaskFuture<ThreadSafeMutableSet<T>> universeValueFuture =
         QueryUtil.evalAll(env, context, args.get(0).getExpression());
     Function<ThreadSafeMutableSet<T>, QueryTaskFuture<Void>> evalInUniverseAsyncFunction =
-        new Function<ThreadSafeMutableSet<T>, QueryTaskFuture<Void>>() {
-          @Override
-          public QueryTaskFuture<Void> apply(ThreadSafeMutableSet<T> universeValue) {
-            Predicate<T> universe;
-            try {
-              env.buildTransitiveClosure(expression, universeValue, Integer.MAX_VALUE);
-              universe = Predicates.in(env.getTransitiveClosure(universeValue));
-            } catch (InterruptedException e) {
-              return env.immediateCancelledFuture();
-            } catch (QueryException e) {
-              return env.immediateFailedFuture(e);
-            }
-            return RdepsFunction.this.eval(
-                env, context, args.subList(1, args.size()), callback, Optional.of(universe));
+        universeValue -> {
+          Predicate<T> universe;
+          try {
+            env.buildTransitiveClosure(expression, universeValue, Integer.MAX_VALUE);
+            universe = Predicates.in(env.getTransitiveClosure(universeValue));
+          } catch (InterruptedException e) {
+            return env.immediateCancelledFuture();
+          } catch (QueryException e) {
+            return env.immediateFailedFuture(e);
           }
+          return RdepsFunction.this.eval(
+              env, context, args.subList(1, args.size()), callback, Optional.of(universe));
         };
     return env.transformAsync(universeValueFuture, evalInUniverseAsyncFunction);
   }

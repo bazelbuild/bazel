@@ -18,12 +18,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
 /**
@@ -132,11 +130,7 @@ public class MakeEnvironment {
       if (varname == null || value == null || platformSetRegexp == null) {
         throw new NullPointerException();
       }
-      LinkedList<Binding> bindings = env.get(varname);
-      if (bindings == null) {
-        bindings = new LinkedList<>();
-        env.put(varname, bindings);
-      }
+      LinkedList<Binding> bindings = env.computeIfAbsent(varname, k -> new LinkedList<>());
       // push new bindings onto head of list (=> most recent binding is
       // definitive):
       bindings.addFirst(new Binding(value, platformSetRegexp));

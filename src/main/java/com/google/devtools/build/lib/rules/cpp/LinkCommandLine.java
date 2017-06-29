@@ -657,8 +657,9 @@ public final class LinkCommandLine extends CommandLine {
       if (linkstampCompileOptions.isEmpty()) {
         actualLinkstampCompileOptions = DEFAULT_LINKSTAMP_OPTIONS;
       } else {
-        actualLinkstampCompileOptions = ImmutableList.copyOf(
-            Iterables.concat(DEFAULT_LINKSTAMP_OPTIONS, linkstampCompileOptions));
+        actualLinkstampCompileOptions =
+            ImmutableList.copyOf(
+                Iterables.concat(DEFAULT_LINKSTAMP_OPTIONS, linkstampCompileOptions));
       }
 
       if (toolchain == null) {

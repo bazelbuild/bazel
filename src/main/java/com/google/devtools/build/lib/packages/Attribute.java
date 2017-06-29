@@ -974,14 +974,12 @@ public final class Attribute implements Comparable<Attribute> {
 
     public Builder<TYPE> legacyMandatoryProviders(String... ids) {
       return mandatoryProviders(
-          Iterables.transform(Arrays.asList(ids),
-              new Function<String, SkylarkProviderIdentifier>() {
-        @Override
-        public SkylarkProviderIdentifier apply(String s) {
-          Preconditions.checkNotNull(s);
-          return SkylarkProviderIdentifier.forLegacy(s);
-        }
-      }));
+          Iterables.transform(
+              Arrays.asList(ids),
+              s -> {
+                Preconditions.checkNotNull(s);
+                return SkylarkProviderIdentifier.forLegacy(s);
+              }));
     }
 
     public Builder<TYPE> mandatoryProviders(Iterable<SkylarkProviderIdentifier> providers) {
@@ -1014,14 +1012,7 @@ public final class Attribute implements Comparable<Attribute> {
      * dependencies through this attribute.
      */
     public Builder<TYPE> aspect(NativeAspectClass aspect) {
-      Function<Rule, AspectParameters> noParameters =
-          new Function<Rule, AspectParameters>() {
-            @Override
-            public AspectParameters apply(Rule input) {
-              return AspectParameters.EMPTY;
-            }
-          };
-      return this.aspect(aspect, noParameters);
+      return this.aspect(aspect, input -> AspectParameters.EMPTY);
     }
 
     public Builder<TYPE> aspect(

@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -39,14 +38,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 final class ProtocolBuffers2Support {
 
   private static final String UNIQUE_DIRECTORY_NAME = "_generated_protos";
-
-  private static final Function<Artifact, PathFragment> PARENT_PATHFRAGMENT =
-      new Function<Artifact, PathFragment>() {
-        @Override
-        public PathFragment apply(Artifact input) {
-          return input.getExecPath().getParentDirectory();
-        }
-      };
 
   private final RuleContext ruleContext;
   private final ProtoAttributes attributes;
@@ -195,7 +186,8 @@ final class ProtocolBuffers2Support {
           .add(generatedProtoDir)
           .addAll(
               Iterables.transform(
-                  getGeneratedProtoOutputs(getHeaderExtension()), PARENT_PATHFRAGMENT));
+                  getGeneratedProtoOutputs(getHeaderExtension()),
+                  input -> input.getExecPath().getParentDirectory()));
     }
 
     return searchPathEntriesBuilder.build();

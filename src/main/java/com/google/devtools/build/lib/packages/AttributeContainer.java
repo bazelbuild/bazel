@@ -226,11 +226,7 @@ public class AttributeContainer {
     setAttributeLocation(index, location);
   }
 
+  // TODO(laurentlb): Delete field and inline it.
   public static final Function<RuleClass, AttributeContainer> ATTRIBUTE_CONTAINER_FACTORY =
-      new Function<RuleClass, AttributeContainer>() {
-        @Override
-        public AttributeContainer apply(RuleClass ruleClass) {
-          return new AttributeContainer(ruleClass);
-        }
-      };
+      AttributeContainer::new;
 }

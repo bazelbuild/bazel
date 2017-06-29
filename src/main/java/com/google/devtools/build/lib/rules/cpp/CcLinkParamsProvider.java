@@ -31,23 +31,20 @@ public final class CcLinkParamsProvider extends SkylarkClassObject
   public static final ClassObjectConstructor CC_LINK_PARAMS =
       new NativeClassObjectConstructor("link_params") { };
   public static final Function<TransitiveInfoCollection, CcLinkParamsStore> TO_LINK_PARAMS =
-      new Function<TransitiveInfoCollection, CcLinkParamsStore>() {
-        @Override
-        public CcLinkParamsStore apply(TransitiveInfoCollection input) {
+      input -> {
 
-          // Try native first...
-          CcLinkParamsProvider provider = input.getProvider(CcLinkParamsProvider.class);
-          if (provider != null) {
-            return provider.getCcLinkParamsStore();
-          }
-
-          // ... then try Skylark.
-          provider = (CcLinkParamsProvider) input.get(CC_LINK_PARAMS.getKey());
-          if (provider != null) {
-            return provider.getCcLinkParamsStore();
-          }
-          return null;
+        // Try native first...
+        CcLinkParamsProvider provider = input.getProvider(CcLinkParamsProvider.class);
+        if (provider != null) {
+          return provider.getCcLinkParamsStore();
         }
+
+        // ... then try Skylark.
+        provider = (CcLinkParamsProvider) input.get(CC_LINK_PARAMS.getKey());
+        if (provider != null) {
+          return provider.getCcLinkParamsStore();
+        }
+        return null;
       };
 
   private final CcLinkParamsStoreImpl store;

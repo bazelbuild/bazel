@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.base.Predicate;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
@@ -505,7 +505,7 @@ public class Path implements Comparable<Path>, Serializable {
    */
   public Collection<Path> getDirectoryEntries(Predicate<? super Path> predicate)
       throws IOException, FileNotFoundException {
-    return ImmutableList.<Path>copyOf(Iterables.filter(getDirectoryEntries(), predicate));
+    return getDirectoryEntries().stream().filter(predicate).collect(toImmutableList());
   }
 
   /**

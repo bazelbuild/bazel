@@ -143,11 +143,7 @@ public class Chart {
    *         otherwise
    */
   private ChartRow addSlotIfAbsent(long id) {
-    ChartRow slot = rows.get(id);
-    if (slot == null) {
-      slot = new ChartRow(Long.toString(id), rowIndex++);
-      rows.put(id, slot);
-    }
+    ChartRow slot = rows.computeIfAbsent(id, k -> new ChartRow(Long.toString(k), rowIndex++));
     return slot;
   }
 

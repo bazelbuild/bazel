@@ -13,13 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import static java.util.stream.Collectors.joining;
+
 import com.google.common.base.Function;
-import com.google.common.base.Functions;
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -122,7 +122,7 @@ public class AndroidResourceParsingActionBuilder {
   }
 
   private static String convertRoots(Iterable<PathFragment> roots) {
-    return Joiner.on("#").join(Iterables.transform(roots, Functions.toStringFunction()));
+    return Streams.stream(roots).map(Object::toString).collect(joining("#"));
   }
 
   public ResourceContainer build(ActionConstructionContext context) {

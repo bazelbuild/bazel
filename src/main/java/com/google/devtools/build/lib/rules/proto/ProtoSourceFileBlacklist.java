@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.proto;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
@@ -23,7 +24,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -46,13 +47,7 @@ public class ProtoSourceFileBlacklist {
   private final RuleContext ruleContext;
   private final ImmutableSet<PathFragment> blacklistProtoFilePaths;
 
-  private final Predicate<Artifact> isBlacklistProto =
-      new Predicate<Artifact>() {
-        @Override
-        public boolean apply(Artifact protoFile) {
-          return isBlacklisted(protoFile);
-        }
-      };
+  private final Predicate<Artifact> isBlacklistProto = this::isBlacklisted;
 
   /**
    * Creates a proto source file blacklist.
@@ -83,7 +78,9 @@ public class ProtoSourceFileBlacklist {
    * Filters the blacklisted protos from the given protos.
    */
   public Iterable<Artifact> filter(Iterable<Artifact> protoFiles) {
-    return ImmutableSet.copyOf(Iterables.filter(protoFiles, Predicates.not(isBlacklistProto)));
+    return Streams.stream(protoFiles)
+        .filter(Predicates.not(isBlacklistProto))
+        .collect(toImmutableSet());
   }
 
   /**

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
@@ -21,6 +22,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIB
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE_SYSTEM;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_FILE;
+import static java.util.Comparator.naturalOrder;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
@@ -29,6 +31,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
@@ -63,6 +66,7 @@ import com.google.devtools.build.lib.rules.objc.ObjcVariablesExtension.VariableC
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.Map;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -387,8 +391,11 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
         ImmutableSortedSet.copyOf(compilationArtifacts.getNonArcSrcs());
     Collection<Artifact> privateHdrs =
         ImmutableSortedSet.copyOf(compilationArtifacts.getPrivateHdrs());
-    Collection<Artifact> publicHdrs = ImmutableSortedSet.copyOf(
-        Iterables.concat(attributes.hdrs(), compilationArtifacts.getAdditionalHdrs()));
+    Collection<Artifact> publicHdrs =
+        Stream.concat(
+                Streams.stream(attributes.hdrs()),
+                Streams.stream(compilationArtifacts.getAdditionalHdrs()))
+            .collect(toImmutableSortedSet(naturalOrder()));
     Artifact pchHdr = null;
     if (ruleContext.attributes().has("pch", BuildType.LABEL)) {
       pchHdr = ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET);

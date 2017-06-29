@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -352,12 +351,7 @@ public abstract class LinkerInputs {
    */
   public static Iterable<LinkerInput> simpleLinkerInputs(Iterable<Artifact> input,
       final ArtifactCategory category) {
-    return Iterables.transform(input, new Function<Artifact, LinkerInput>() {
-        @Override
-        public LinkerInput apply(Artifact artifact) {
-          return simpleLinkerInput(artifact, category);
-        }
-      });
+    return Iterables.transform(input, artifact -> simpleLinkerInput(artifact, category));
   }
 
   /**
@@ -382,12 +376,7 @@ public abstract class LinkerInputs {
    */
   public static Iterable<LibraryToLink> opaqueLibrariesToLink(
       final ArtifactCategory category, Iterable<Artifact> input) {
-    return Iterables.transform(input, new Function<Artifact, LibraryToLink>() {
-      @Override
-      public LibraryToLink apply(Artifact artifact) {
-        return precompiledLibraryToLink(artifact, category);
-      }
-    });
+    return Iterables.transform(input, artifact -> precompiledLibraryToLink(artifact, category));
   }
 
   /**
@@ -429,27 +418,14 @@ public abstract class LinkerInputs {
         library, category, libraryIdentifier, objectFiles, ltoBitcodeFiles);
   }
 
-  private static final Function<LibraryToLink, Artifact> LIBRARY_TO_NON_SOLIB =
-      new Function<LibraryToLink, Artifact>() {
-        @Override
-        public Artifact apply(LibraryToLink input) {
-          return input.getOriginalLibraryArtifact();
-        }
-      };
-
   public static Iterable<Artifact> toNonSolibArtifacts(Iterable<LibraryToLink> libraries) {
-    return Iterables.transform(libraries, LIBRARY_TO_NON_SOLIB);
+    return Iterables.transform(libraries, LibraryToLink::getOriginalLibraryArtifact);
   }
 
   /**
    * Returns the linker input artifacts from a collection of {@link LinkerInput} objects.
    */
   public static Iterable<Artifact> toLibraryArtifacts(Iterable<? extends LinkerInput> artifacts) {
-    return Iterables.transform(artifacts, new Function<LinkerInput, Artifact>() {
-      @Override
-      public Artifact apply(LinkerInput input) {
-        return input.getArtifact();
-      }
-    });
+    return Iterables.transform(artifacts, LinkerInput::getArtifact);
   }
 }

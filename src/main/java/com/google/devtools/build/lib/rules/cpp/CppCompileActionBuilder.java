@@ -222,17 +222,14 @@ public class CppCompileActionBuilder {
     if (finalPatterns.isEmpty()) {
       return Predicates.alwaysTrue();
     } else {
-      return new Predicate<String>() {
-        @Override
-        public boolean apply(String option) {
-          for (Pattern pattern : finalPatterns) {
-            if (pattern.matcher(option).matches()) {
-              return false;
-            }
+      return option -> {
+        for (Pattern pattern : finalPatterns) {
+          if (pattern.matcher(option).matches()) {
+            return false;
           }
-
-          return true;
         }
+
+        return true;
       };
     }
   }

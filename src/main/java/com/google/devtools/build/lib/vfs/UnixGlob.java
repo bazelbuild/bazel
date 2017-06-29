@@ -615,18 +615,16 @@ public final class UnixGlob {
       totalOps.incrementAndGet();
       pendingOps.incrementAndGet();
 
-      Runnable wrapped = new Runnable() {
-        @Override
-        public void run() {
-          try {
-            if (!canceled && failure.get() == null) {
-              r.run();
+      Runnable wrapped =
+          () -> {
+            try {
+              if (!canceled && failure.get() == null) {
+                r.run();
+              }
+            } finally {
+              decrementAndCheckDone();
             }
-          } finally {
-            decrementAndCheckDone();
-          }
-        }
-      };
+          };
 
       if (executor == null) {
         wrapped.run();

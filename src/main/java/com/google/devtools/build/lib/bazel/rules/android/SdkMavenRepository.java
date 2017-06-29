@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.bazel.rules.android;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
@@ -25,7 +24,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
-import javax.annotation.Nullable;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import org.w3c.dom.Document;
@@ -124,12 +122,8 @@ final class SdkMavenRepository {
   static SdkMavenRepository create(Iterable<Path> mavenRepositories) throws IOException {
     Collection<Path> pomPaths = new ArrayList<>();
     for (Path mavenRepository : mavenRepositories) {
-      pomPaths.addAll(FileSystemUtils.traverseTree(mavenRepository, new Predicate<Path>() {
-        @Override
-        public boolean apply(@Nullable Path path) {
-          return path.toString().endsWith(".pom");
-        }
-      }));
+      pomPaths.addAll(
+          FileSystemUtils.traverseTree(mavenRepository, path -> path.toString().endsWith(".pom")));
     }
 
     ImmutableSortedSet.Builder<Pom> poms =

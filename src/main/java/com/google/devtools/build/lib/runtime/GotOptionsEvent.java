@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
@@ -23,7 +22,6 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstra
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.util.OptionsUtils;
-import com.google.devtools.common.options.OptionsParser.UnparsedOptionValueDescription;
 import com.google.devtools.common.options.OptionsProvider;
 import java.util.Collection;
 import java.util.Objects;
@@ -88,25 +86,14 @@ public class GotOptionsEvent implements BuildEventWithOrderConstraint {
         OptionsUtils.asArgumentList(
             Iterables.filter(
                 options.asListOfExplicitOptions(),
-                new Predicate<UnparsedOptionValueDescription>() {
-                  @Override
-                  public boolean apply(UnparsedOptionValueDescription input) {
-                    return !Objects.equals(input.getSource(), "default");
-                  }
-                })));
+                input -> !Objects.equals(input.getSource(), "default"))));
     options = getOptions();
     optionsBuilder.addAllCmdLine(OptionsUtils.asArgumentList(options));
     optionsBuilder.addAllExplicitCmdLine(
         OptionsUtils.asArgumentList(
             Iterables.filter(
                 options.asListOfExplicitOptions(),
-                new Predicate<UnparsedOptionValueDescription>() {
-                  @Override
-                  public boolean apply(UnparsedOptionValueDescription input) {
-                    // Source can be null coming from the OptionParser.
-                    return Objects.equals(input.getSource(), "command line options");
-                  }
-                })));
+                input -> Objects.equals(input.getSource(), "command line options"))));
 
     optionsBuilder.setInvocationPolicy(getInvocationPolicy());
 

@@ -13,14 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import com.google.common.base.Function;
-import com.google.common.base.Joiner;
+import static com.google.common.collect.MoreCollectors.onlyElement;
+import static java.util.stream.Collectors.joining;
+
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -70,38 +72,11 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
   // this is a much lower pixels-per-inch then even some of the oldest phones.
   private static final int MIN_LCD_DENSITY = 30;
 
-  private static final Predicate<Artifact> SOURCE_ARTIFACT_SELECTOR = new Predicate<Artifact>() {
-    @Override
-    public boolean apply(Artifact artifact) {
-      return artifact.isSourceArtifact();
-    }
-  };
-
-  private static final Predicate<Artifact> GOOGLETEST_SH_SELECTOR = new Predicate<Artifact>() {
-    @Override
-    public boolean apply(Artifact artifact) {
-      return "googletest.sh".equals(artifact.getPath().getBaseName());
-    }
-  };
-
-  private static final Predicate<Artifact> SOURCE_PROPERTIES_SELECTOR = new Predicate<Artifact>() {
-    @Override
-    public boolean apply(Artifact artifact) {
-      return "source.properties".equals(artifact.getPath().getBaseName());
-    }
-  };
+  private static final Predicate<Artifact> SOURCE_PROPERTIES_SELECTOR =
+      (Artifact artifact) -> "source.properties".equals(artifact.getPath().getBaseName());
 
   private static final Predicate<Artifact> SOURCE_PROPERTIES_FILTER = Predicates.not(
       SOURCE_PROPERTIES_SELECTOR);
-
-  private static final Function<Artifact, String> RUNFILES_PATH_STRING =
-      new Function<Artifact, String>() {
-        @Override
-        public String apply(Artifact input) {
-          return input.getRunfilesPathString();
-        }
-      };
-
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
@@ -214,10 +189,14 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
       androidRuntestDeps =
           ruleContext.getPrerequisiteArtifacts("$android_runtest", Mode.HOST).list();
       androidRuntest =
-          Iterables.getOnlyElement(Iterables.filter(androidRuntestDeps, SOURCE_ARTIFACT_SELECTOR));
+          androidRuntestDeps.stream().filter(Artifact::isSourceArtifact).collect(onlyElement());
       testingShbaseDeps = ruleContext.getPrerequisiteArtifacts("$testing_shbase", Mode.HOST).list();
       testingShbase =
-          Iterables.getOnlyElement(Iterables.filter(testingShbaseDeps, GOOGLETEST_SH_SELECTOR));
+          testingShbaseDeps
+              .stream()
+              .filter(
+                  (Artifact artifact) -> "googletest.sh".equals(artifact.getPath().getBaseName()))
+              .collect(onlyElement());
 
       // may be empty
       platformApks = ruleContext.getPrerequisiteArtifacts("platform_apks", Mode.TARGET).list();
@@ -282,10 +261,16 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
       arguments.add(Substitution.of("%emulator_arm%", emulatorArm.getRunfilesPathString()));
       arguments.add(Substitution.of("%mksdcard%", mksdcard.getRunfilesPathString()));
       arguments.add(Substitution.of("%empty_snapshot_fs%", snapshotFs.getRunfilesPathString()));
-      arguments.add(Substitution.of("%system_images%",
-          Joiner.on(" ").join(Iterables.transform(systemImages, RUNFILES_PATH_STRING))));
-      arguments.add(Substitution.of("%bios_files%",
-          Joiner.on(" ").join(Iterables.transform(emulatorX86Bios, RUNFILES_PATH_STRING))));
+      arguments.add(
+          Substitution.of(
+              "%system_images%",
+              Streams.stream(systemImages)
+                  .map(Artifact::getRunfilesPathString)
+                  .collect(joining(" "))));
+      arguments.add(
+          Substitution.of(
+              "%bios_files%",
+              emulatorX86Bios.stream().map(Artifact::getRunfilesPathString).collect(joining(" "))));
       arguments.add(Substitution.of("%source_properties_file%",
           sourcePropertiesFile.getRunfilesPathString()));
       arguments.add(Substitution.of("%image_input_file%", images.getRunfilesPathString()));
