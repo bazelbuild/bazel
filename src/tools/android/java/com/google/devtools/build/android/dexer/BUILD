@@ -34,6 +34,7 @@ java_library(
     visibility = ["//src/test/java/com/google/devtools/build/android/dexer:__pkg__"],
     deps = [
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:option_filters_java_proto",
         "//src/main/protobuf:worker_protocol_java_proto",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//third_party:auto_value",
@@ -54,6 +55,7 @@ java_binary(
     name = "dexerdeps",
     runtime_deps = [
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:option_filters_java_proto",
         "//src/main/protobuf:worker_protocol_java_proto",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//third_party:auto_value",

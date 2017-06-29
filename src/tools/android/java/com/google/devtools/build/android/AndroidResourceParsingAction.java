@@ -19,8 +19,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.Converters.UnvalidatedAndroidDirectoriesConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
@@ -41,19 +43,29 @@ public class AndroidResourceParsingAction {
    */
   public static final class Options extends OptionsBase {
 
-    @Option(name = "primaryData",
-        defaultValue = "null",
-        converter = UnvalidatedAndroidDirectoriesConverter.class,
-        category = "input",
-        help = "The resource and asset directories to parse and summarize in a symbols file."
-            + " The expected format is " + UnvalidatedAndroidDirectories.EXPECTED_FORMAT)
+    @Option(
+      name = "primaryData",
+      defaultValue = "null",
+      converter = UnvalidatedAndroidDirectoriesConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      category = "input",
+      help =
+          "The resource and asset directories to parse and summarize in a symbols file."
+              + " The expected format is "
+              + UnvalidatedAndroidDirectories.EXPECTED_FORMAT
+    )
     public UnvalidatedAndroidDirectories primaryData;
 
-    @Option(name = "output",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        help = "Path to write the output protobuf.")
+    @Option(
+      name = "output",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      category = "output",
+      help = "Path to write the output protobuf."
+    )
     public Path output;
   }
 

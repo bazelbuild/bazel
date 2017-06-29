@@ -30,10 +30,12 @@ import com.google.devtools.build.android.dexer.Dexing.DexingOptions;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -65,6 +67,8 @@ class DexBuilder {
       name = "input_jar",
       defaultValue = "null",
       category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       converter = ExistingPathConverter.class,
       abbrev = 'i',
       help = "Input file to read classes and jars from."
@@ -75,6 +79,8 @@ class DexBuilder {
       name = "output_zip",
       defaultValue = "null",
       category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       converter = PathConverter.class,
       abbrev = 'o',
       help = "Output file to write."
@@ -85,6 +91,8 @@ class DexBuilder {
       name = "max_threads",
       defaultValue = "8",
       category = "misc",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "How many threads (besides the main thread) to use at most."
     )
     public int maxThreads;
@@ -92,6 +100,8 @@ class DexBuilder {
     @Option(
       name = "persistent_worker",
       defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
       help = "Run as a Bazel persistent worker."
     )

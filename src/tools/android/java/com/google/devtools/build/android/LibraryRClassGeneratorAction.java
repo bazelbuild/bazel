@@ -20,8 +20,10 @@ import com.google.devtools.build.android.AndroidResourceProcessor.AaptConfigOpti
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.Converters.PathListConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
@@ -48,6 +50,8 @@ public class LibraryRClassGeneratorAction {
       name = "classJarOutput",
       defaultValue = "null",
       converter = PathConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       category = "output",
       help = "Path for the generated java class jar."
     )
@@ -56,6 +60,8 @@ public class LibraryRClassGeneratorAction {
     @Option(
       name = "packageForR",
       defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       category = "config",
       help = "Custom java package to generate the R symbols files."
     )
@@ -65,6 +71,8 @@ public class LibraryRClassGeneratorAction {
       name = "symbols",
       defaultValue = "",
       converter = PathListConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       category = "config",
       help = "Parsed symbol binaries to write as R classes."
     )
