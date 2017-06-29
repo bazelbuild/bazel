@@ -36,15 +36,7 @@ public abstract class InterruptSignalHandler implements Runnable {
    * cause the run() method to be invoked in another thread.
    */
   protected InterruptSignalHandler() {
-    this.oldHandler =
-        Signal.handle(
-            SIGINT,
-            new SignalHandler() {
-              @Override
-              public void handle(Signal signal) {
-                run();
-              }
-            });
+    this.oldHandler = Signal.handle(SIGINT, signal -> run());
   }
 
   /** Disables SIGINT handling. */

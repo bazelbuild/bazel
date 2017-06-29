@@ -59,13 +59,9 @@ class IdleServerTasks {
     // Do a GC cycle while the server is idle.
     @SuppressWarnings("unused") 
     Future<?> possiblyIgnoredError =
-        executor.schedule(
-            new Runnable() {
-              @Override
-              public void run() {
-                try (AutoProfiler p = AutoProfiler.logged("Idle GC", LOG)) {
-                  System.gc();
-                }
+        executor.schedule(() -> {
+              try (AutoProfiler p = AutoProfiler.logged("Idle GC", LOG)) {
+                System.gc();
               }
             },
             10,
