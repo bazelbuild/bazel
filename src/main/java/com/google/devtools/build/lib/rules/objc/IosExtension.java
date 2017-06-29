@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.SplitArchTransition;
 import java.io.Serializable;
+import javax.annotation.Nullable;
 
 /**
  * Implementation for {@code ios_extension}.
@@ -95,8 +96,11 @@ public class IosExtension extends ReleaseBundlingTargetFactory {
    * @param fromFlag the minimum OS version from command line flag
    * @param minimumOSVersion the minumum OS version the extension should be built with
    */
-  private static DottedVersion determineMinimumOsVersion(DottedVersion fromFlag,
+  private static DottedVersion determineMinimumOsVersion(@Nullable DottedVersion fromFlag,
       DottedVersion minimumOSVersion) {
+    if (fromFlag == null) {
+      return minimumOSVersion;
+    }
     return Ordering.natural().max(fromFlag, minimumOSVersion);
   }
 

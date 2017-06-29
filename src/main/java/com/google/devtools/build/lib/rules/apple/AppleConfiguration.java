@@ -101,6 +101,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
       String cpu,
       @Nullable DottedVersion xcodeVersion,
       DottedVersion iosSdkVersion,
+      DottedVersion iosMinimumOs,
       DottedVersion watchosSdkVersion,
       DottedVersion watchosMinimumOs,
       DottedVersion tvosSdkVersion,
@@ -108,7 +109,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
       DottedVersion macosSdkVersion,
       DottedVersion macosMinimumOs) {
     this.iosSdkVersion = Preconditions.checkNotNull(iosSdkVersion, "iosSdkVersion");
-    this.iosMinimumOs = Preconditions.checkNotNull(appleOptions.iosMinimumOs, "iosMinimumOs");
+    this.iosMinimumOs = Preconditions.checkNotNull(iosMinimumOs, "iosMinimumOs");
     this.watchosSdkVersion =
         Preconditions.checkNotNull(watchosSdkVersion, "watchOsSdkVersion");
     this.watchosMinimumOs =
@@ -616,8 +617,8 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
 
       DottedVersion iosSdkVersion = (appleOptions.iosSdkVersion != null)
           ? appleOptions.iosSdkVersion : xcodeVersionProperties.getDefaultIosSdkVersion();
-      // TODO(cparsons): Look into ios_minimum_os matching the defaulting behavior of the other
-      // platforms.
+      DottedVersion iosMinimumOsVersion = (appleOptions.iosMinimumOs != null)
+          ? appleOptions.iosMinimumOs : iosSdkVersion;
       DottedVersion watchosSdkVersion = (appleOptions.watchOsSdkVersion != null)
           ? appleOptions.watchOsSdkVersion : xcodeVersionProperties.getDefaultWatchosSdkVersion();
       DottedVersion watchosMinimumOsVersion = (appleOptions.watchosMinimumOs != null)
@@ -636,6 +637,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
               cpu,
               xcodeVersionProperties.getXcodeVersion().orNull(),
               iosSdkVersion,
+              iosMinimumOsVersion,
               watchosSdkVersion,
               watchosMinimumOsVersion,
               tvosSdkVersion,

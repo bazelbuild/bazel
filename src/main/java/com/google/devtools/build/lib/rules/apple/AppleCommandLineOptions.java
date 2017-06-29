@@ -40,10 +40,6 @@ import java.util.List;
  */
 public class AppleCommandLineOptions extends FragmentOptions {
 
-  @VisibleForTesting
-  public static final String DEFAULT_MINIMUM_IOS = "7.0";
-  public static final String DEFAULT_MINIMUM_MACOS = "10.10";
-
   @Option(
     name = "xcode_version",
     defaultValue = "null",
@@ -105,7 +101,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
 
   @Option(
     name = "ios_minimum_os",
-    defaultValue = DEFAULT_MINIMUM_IOS,
+    defaultValue = "null",
     category = "flags",
     converter = DottedVersionConverter.class,
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -138,7 +134,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
 
   @Option(
     name = "macos_minimum_os",
-    defaultValue = DEFAULT_MINIMUM_MACOS,
+    defaultValue = "null",
     category = "flags",
     converter = DottedVersionConverter.class,
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
