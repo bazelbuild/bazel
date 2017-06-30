@@ -43,3 +43,9 @@ java_test(
         ":tests",
     ],
 )
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src/test/java/com/google/devtools/build/android:__pkg__"],
+)
