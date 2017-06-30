@@ -20,6 +20,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.DosFileAttributeView;
 
 /**
  * Creates a temporary directory that will be deleted once a scope closes. NOTE: If an error occurs
@@ -39,6 +40,12 @@ final class ScopedTemporaryDirectory extends SimpleFileVisitor<Path> implements 
 
   @Override
   public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+    // Make the file deletable on Windows.
+    // Setting this attribute on other platforms than Windows has no effect.
+    DosFileAttributeView dosAttribs = Files.getFileAttributeView(path, DosFileAttributeView.class);
+    if (dosAttribs != null) {
+      dosAttribs.setReadOnly(false);
+    }
     Files.delete(file);
     return FileVisitResult.CONTINUE;
   }
