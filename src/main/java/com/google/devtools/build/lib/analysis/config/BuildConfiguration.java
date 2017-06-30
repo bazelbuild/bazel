@@ -84,6 +84,7 @@ import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
 import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
+import com.google.devtools.common.options.proto.OptionFilters.OptionMetadataTag;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -1045,14 +1046,29 @@ public final class BuildConfiguration implements BuildEvent {
       allowMultiple = true,
       defaultValue = "",
       category = "flags",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
           "Declares this build's target environment. Must be a label reference to an "
               + "\"environment\" rule. If specified, all top-level targets must be "
               + "compatible with this environment."
     )
     public List<Label> targetEnvironments;
+
+    @Option(
+      name = "experimental_auto_cpu_environment_group",
+      converter = EmptyToNullLabelConverter.class,
+      defaultValue = "",
+      category = "flags",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      help =
+          "Declare the environment_group to use for automatically mapping cpu values to "
+              + "target_environment values."
+    )
+    public Label autoCpuEnvironmentGroup;
 
     /**
      * Values for --experimental_dynamic_configs.
@@ -2762,6 +2778,14 @@ public final class BuildConfiguration implements BuildEvent {
    */
   public List<Label> getTargetEnvironments() {
     return options.targetEnvironments;
+  }
+
+  /**
+   * Returns the {@link Label} of the {@code environment_group} target that will be used to find the
+   * target environment during auto-population.
+   */
+  public Label getAutoCpuEnvironmentGroup() {
+    return options.autoCpuEnvironmentGroup;
   }
 
   public Class<? extends Fragment> getSkylarkFragmentByName(String name) {
