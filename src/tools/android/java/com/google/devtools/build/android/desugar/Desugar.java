@@ -390,6 +390,9 @@ class Desugar {
         // any danger of accidentally uncompressed resources ending up in an .apk.
         if (filename.endsWith(".class")) {
           ClassReader reader = rewriter.reader(content);
+          InvokeDynamicLambdaMethodCollector lambdaMethodCollector =
+              new InvokeDynamicLambdaMethodCollector();
+          reader.accept(lambdaMethodCollector, ClassReader.SKIP_DEBUG);
           UnprefixingClassWriter writer = rewriter.writer(ClassWriter.COMPUTE_MAXS);
           ClassVisitor visitor =
               createClassVisitorsForClassesInInputs(
@@ -397,7 +400,8 @@ class Desugar {
                   classpathReader,
                   bootclasspathReader,
                   interfaceLambdaMethodCollector,
-                  writer);
+                  writer,
+                  lambdaMethodCollector.getLambdaMethodsUsedInInvokeDyanmic());
           reader.accept(visitor, 0);
 
           outputFileProvider.write(filename, writer.toByteArray());
@@ -510,7 +514,9 @@ class Desugar {
             outputJava7);
     // Send lambda classes through desugaring to make sure there's no invokedynamic
     // instructions in generated lambda classes (checkState below will fail)
-    visitor = new LambdaDesugaring(visitor, loader, lambdas, null, allowDefaultMethods);
+    visitor =
+        new LambdaDesugaring(
+            visitor, loader, lambdas, null, ImmutableSet.of(), allowDefaultMethods);
     if (!allowCallsToObjectsNonNull) {
       // Not sure whether there will be implicit null check emitted by javac, so we rerun
       // the inliner again
@@ -532,7 +538,8 @@ class Desugar {
       @Nullable ClassReaderFactory classpathReader,
       ClassReaderFactory bootclasspathReader,
       Builder<String> interfaceLambdaMethodCollector,
-      UnprefixingClassWriter writer) {
+      UnprefixingClassWriter writer,
+      ImmutableSet<MethodInfo> lambdaMethodsUsedInInvokeDynamic) {
     ClassVisitor visitor = checkNotNull(writer);
 
     if (!options.onlyDesugarJavac9ForLint) {
@@ -551,7 +558,12 @@ class Desugar {
       }
       visitor =
           new LambdaDesugaring(
-              visitor, loader, lambdas, interfaceLambdaMethodCollector, allowDefaultMethods);
+              visitor,
+              loader,
+              lambdas,
+              interfaceLambdaMethodCollector,
+              lambdaMethodsUsedInInvokeDynamic,
+              allowDefaultMethods);
     }
 
     if (!allowCallsToObjectsNonNull) {

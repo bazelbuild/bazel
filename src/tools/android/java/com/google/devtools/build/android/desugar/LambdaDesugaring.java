@@ -46,7 +46,7 @@ import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.TypeInsnNode;
 
 /**
- * Visitor that desugars classes with uses of lambdas into Java 7-looking code.  This includes
+ * Visitor that desugars classes with uses of lambdas into Java 7-looking code. This includes
  * rewriting lambda-related invokedynamic instructions as well as fixing accessibility of methods
  * that javac emits for lambda bodies.
  */
@@ -56,6 +56,7 @@ class LambdaDesugaring extends ClassVisitor {
   private final LambdaClassMaker lambdas;
   private final ImmutableSet.Builder<String> aggregateInterfaceLambdaMethods;
   private final Map<Handle, MethodReferenceBridgeInfo> bridgeMethods = new HashMap<>();
+  private final ImmutableSet<MethodInfo> lambdaMethodsUsedInInvokeDyanmic;
   private final boolean allowDefaultMethods;
 
   private String internalName;
@@ -67,11 +68,13 @@ class LambdaDesugaring extends ClassVisitor {
       ClassLoader targetLoader,
       LambdaClassMaker lambdas,
       ImmutableSet.Builder<String> aggregateInterfaceLambdaMethods,
+      ImmutableSet<MethodInfo> lambdaMethodsUsedInInvokeDyanmic,
       boolean allowDefaultMethods) {
     super(Opcodes.ASM5, dest);
     this.targetLoader = targetLoader;
     this.lambdas = lambdas;
     this.aggregateInterfaceLambdaMethods = aggregateInterfaceLambdaMethods;
+    this.lambdaMethodsUsedInInvokeDyanmic = lambdaMethodsUsedInInvokeDyanmic;
     this.allowDefaultMethods = allowDefaultMethods;
   }
 
@@ -94,11 +97,17 @@ class LambdaDesugaring extends ClassVisitor {
     for (Map.Entry<Handle, MethodReferenceBridgeInfo> bridge : bridgeMethods.entrySet()) {
       Handle original = bridge.getKey();
       Handle neededMethod = bridge.getValue().bridgeMethod();
-      checkState(neededMethod.getTag() == Opcodes.H_INVOKESTATIC
-          || neededMethod.getTag() == Opcodes.H_INVOKEVIRTUAL,
-          "Cannot generate bridge method %s to reach %s", neededMethod, original);
-      checkState(bridge.getValue().referenced() != null,
-          "Need referenced method %s to generate bridge %s", original, neededMethod);
+      checkState(
+          neededMethod.getTag() == Opcodes.H_INVOKESTATIC
+              || neededMethod.getTag() == Opcodes.H_INVOKEVIRTUAL,
+          "Cannot generate bridge method %s to reach %s",
+          neededMethod,
+          original);
+      checkState(
+          bridge.getValue().referenced() != null,
+          "Need referenced method %s to generate bridge %s",
+          original,
+          neededMethod);
 
       int access = Opcodes.ACC_BRIDGE | Opcodes.ACC_SYNTHETIC | Opcodes.ACC_FINAL;
       if (neededMethod.getTag() == Opcodes.H_INVOKESTATIC) {
@@ -127,8 +136,12 @@ class LambdaDesugaring extends ClassVisitor {
         bridgeMethod.visitVarInsn(arg.getOpcode(Opcodes.ILOAD), slot);
         slot += arg.getSize();
       }
-      bridgeMethod.visitMethodInsn(invokeOpcode(original), original.getOwner(), original.getName(),
-          original.getDesc(), original.isInterface());
+      bridgeMethod.visitMethodInsn(
+          invokeOpcode(original),
+          original.getOwner(),
+          original.getName(),
+          original.getDesc(),
+          original.isInterface());
       bridgeMethod.visitInsn(neededType.getReturnType().getOpcode(Opcodes.IRETURN));
 
       bridgeMethod.visitMaxs(0, 0); // rely on class writer to compute these
@@ -146,7 +159,9 @@ class LambdaDesugaring extends ClassVisitor {
       // java/lang/invoke/SerializedLambda, which doesn't exist on Android.
       return null;
     }
-    if (name.startsWith("lambda$") && BitFlags.isSet(access, Opcodes.ACC_SYNTHETIC)) {
+    if (name.startsWith("lambda$")
+        && BitFlags.isSet(access, Opcodes.ACC_SYNTHETIC)
+        && lambdaMethodsUsedInInvokeDyanmic.contains(MethodInfo.create(internalName, name, desc))) {
       if (!allowDefaultMethods && isInterface && BitFlags.isSet(access, Opcodes.ACC_STATIC)) {
         // There must be a lambda in the interface (which in the absence of hand-written default or
         // static interface methods must mean it's in the <clinit> method or inside another lambda).
@@ -197,8 +212,8 @@ class LambdaDesugaring extends ClassVisitor {
   }
 
   /**
-   * Makes {@link #visitEnd} generate a bridge method for the given method handle if the
-   * referenced method will be invisible to the generated lambda class.
+   * Makes {@link #visitEnd} generate a bridge method for the given method handle if the referenced
+   * method will be invisible to the generated lambda class.
    *
    * @return struct containing either {@code invokedMethod} or {@code invokedMethod} and a handle
    *     representing the bridge method that will be generated for {@code invokedMethod}.
@@ -218,10 +233,16 @@ class LambdaDesugaring extends ClassVisitor {
     }
 
     // We need a bridge method if we get here
-    checkState(!isInterface,
-        "%s is an interface and shouldn't need bridge to %s", internalName, invokedMethod);
-    checkState(!invokedMethod.isInterface(),
-        "%s's lambda classes can't see interface method: %s", internalName, invokedMethod);
+    checkState(
+        !isInterface,
+        "%s is an interface and shouldn't need bridge to %s",
+        internalName,
+        invokedMethod);
+    checkState(
+        !invokedMethod.isInterface(),
+        "%s's lambda classes can't see interface method: %s",
+        internalName,
+        invokedMethod);
     MethodReferenceBridgeInfo result = bridgeMethods.get(invokedMethod);
     if (result != null) {
       return result; // we're already queued up a bridge method for this method reference
@@ -231,24 +252,32 @@ class LambdaDesugaring extends ClassVisitor {
     Handle bridgeMethod;
     switch (invokedMethod.getTag()) {
       case Opcodes.H_INVOKESTATIC:
-        bridgeMethod = new Handle(invokedMethod.getTag(), internalName, name,
-            invokedMethod.getDesc(), /*itf*/ false);
+        bridgeMethod =
+            new Handle(
+                invokedMethod.getTag(), internalName, name, invokedMethod.getDesc(), /*itf*/ false);
         break;
       case Opcodes.H_INVOKEVIRTUAL:
       case Opcodes.H_INVOKESPECIAL: // we end up calling these using invokevirtual
-        bridgeMethod = new Handle(Opcodes.H_INVOKEVIRTUAL, internalName, name,
-            invokedMethod.getDesc(), /*itf*/ false);
+        bridgeMethod =
+            new Handle(
+                Opcodes.H_INVOKEVIRTUAL,
+                internalName,
+                name,
+                invokedMethod.getDesc(), /*itf*/
+                false);
         break;
-      case Opcodes.H_NEWINVOKESPECIAL: {
-        // Call invisible constructor through generated bridge "factory" method, so we need to
-        // compute the descriptor for the bridge method from the constructor's descriptor
-        String desc =
-            Type.getMethodDescriptor(
-                Type.getObjectType(invokedMethod.getOwner()),
-                Type.getArgumentTypes(invokedMethod.getDesc()));
-        bridgeMethod = new Handle(Opcodes.H_INVOKESTATIC, internalName, name, desc, /*itf*/ false);
-        break;
-      }
+      case Opcodes.H_NEWINVOKESPECIAL:
+        {
+          // Call invisible constructor through generated bridge "factory" method, so we need to
+          // compute the descriptor for the bridge method from the constructor's descriptor
+          String desc =
+              Type.getMethodDescriptor(
+                  Type.getObjectType(invokedMethod.getOwner()),
+                  Type.getArgumentTypes(invokedMethod.getDesc()));
+          bridgeMethod =
+              new Handle(Opcodes.H_INVOKESTATIC, internalName, name, desc, /*itf*/ false);
+          break;
+        }
       case Opcodes.H_INVOKEINTERFACE:
         // Shouldn't get here
       default:
@@ -289,8 +318,7 @@ class LambdaDesugaring extends ClassVisitor {
       }
     } else {
       for (Method m : owner.getDeclaredMethods()) {
-        if (m.getName().equals(invokedMethod.getName())
-            && Type.getType(m).equals(descriptor)) {
+        if (m.getName().equals(invokedMethod.getName()) && Type.getType(m).equals(descriptor)) {
           return m;
         }
       }
@@ -339,8 +367,13 @@ class LambdaDesugaring extends ClassVisitor {
 
     private final MethodVisitor dest;
 
-    public InvokedynamicRewriter(MethodVisitor dest,
-        int access, String name, String desc, String signature, String[] exceptions) {
+    public InvokedynamicRewriter(
+        MethodVisitor dest,
+        int access,
+        String name,
+        String desc,
+        String signature,
+        String[] exceptions) {
       super(ASM5, access, name, desc, signature, exceptions);
       this.dest = checkNotNull(dest, "Null destination for %s.%s : %s", internalName, name, desc);
     }
@@ -382,8 +415,9 @@ class LambdaDesugaring extends ClassVisitor {
         // but with separate counter for each surrounding class.
         String lambdaClassName = internalName + "$$Lambda$" + (lambdaCount++);
         Type[] capturedTypes = Type.getArgumentTypes(desc);
-        boolean needFactory = capturedTypes.length != 0
-            && !attemptAllocationBeforeArgumentLoads(lambdaClassName, capturedTypes);
+        boolean needFactory =
+            capturedTypes.length != 0
+                && !attemptAllocationBeforeArgumentLoads(lambdaClassName, capturedTypes);
         lambdas.generateLambdaClass(
             internalName,
             LambdaInfo.create(
@@ -397,8 +431,11 @@ class LambdaDesugaring extends ClassVisitor {
         if (desc.startsWith("()")) {
           // For stateless lambda classes we'll generate a singleton instance that we can just load
           checkState(capturedTypes.length == 0);
-          super.visitFieldInsn(Opcodes.GETSTATIC, lambdaClassName,
-              LambdaClassFixer.SINGLETON_FIELD_NAME, desc.substring("()".length()));
+          super.visitFieldInsn(
+              Opcodes.GETSTATIC,
+              lambdaClassName,
+              LambdaClassFixer.SINGLETON_FIELD_NAME,
+              desc.substring("()".length()));
         } else if (needFactory) {
           // If we were unable to inline the allocation of the generated lambda class then
           // invoke factory method of generated lambda class with the arguments on the stack
@@ -419,8 +456,16 @@ class LambdaDesugaring extends ClassVisitor {
               /*itf*/ false);
         }
       } catch (IOException | ReflectiveOperationException e) {
-        throw new IllegalStateException("Couldn't desugar invokedynamic for " + internalName + "."
-            + name + " using " + bsm + " with arguments " + Arrays.toString(bsmArgs), e);
+        throw new IllegalStateException(
+            "Couldn't desugar invokedynamic for "
+                + internalName
+                + "."
+                + name
+                + " using "
+                + bsm
+                + " with arguments "
+                + Arrays.toString(bsmArgs),
+            e);
       }
     }
 
@@ -429,9 +474,9 @@ class LambdaDesugaring extends ClassVisitor {
      * set up arguments for an invokedynamic factory method with the given types.
      *
      * <p>For lambda expressions and simple method references we can assume that arguments are set
-     * up with loads of the captured (effectively) final variables.  But method references, can in
+     * up with loads of the captured (effectively) final variables. But method references, can in
      * general capture an expression, such as in {@code myObject.toString()::charAt} (a {@code
-     * Function&lt;Integer, Character&gt;}), which can also cause null checks to be inserted.  In
+     * Function&lt;Integer, Character&gt;}), which can also cause null checks to be inserted. In
      * such more complicated cases this method may fail to insert a new/dup pair and returns {@code
      * false}.
      *
@@ -455,29 +500,45 @@ class LambdaDesugaring extends ClassVisitor {
                   ? getfield.desc.equals(paramTypes[i].getDescriptor())
                   : paramTypes[i].getDescriptor().length() > 1,
               "Expected getfield for %s to set up parameter %s for %s but got %s : %s",
-              paramTypes[i], i, internalName, getfield.name, getfield.desc);
+              paramTypes[i],
+              i,
+              internalName,
+              getfield.name,
+              getfield.desc);
           insn = insn.getPrevious();
 
           while (insn.getOpcode() == Opcodes.GETFIELD) {
             // Nested inner classes can cause a cascade of getfields from the outermost one inwards
-            checkState(((FieldInsnNode) insn).desc.startsWith("L"),
+            checkState(
+                ((FieldInsnNode) insn).desc.startsWith("L"),
                 "expect object type getfields to get to %s to set up parameter %s for %s, not: %s",
-                paramTypes[i], i, internalName, ((FieldInsnNode) insn).desc);
+                paramTypes[i],
+                i,
+                internalName,
+                ((FieldInsnNode) insn).desc);
             insn = insn.getPrevious();
           }
 
-          checkState(insn.getOpcode() == Opcodes.ALOAD, // should be a this pointer to be precise
+          checkState(
+              insn.getOpcode() == Opcodes.ALOAD, // should be a this pointer to be precise
               "Expected aload before getfield for %s to set up parameter %s for %s but got %s",
-              getfield.name, i, internalName, insn.getOpcode());
+              getfield.name,
+              i,
+              internalName,
+              insn.getOpcode());
         } else if (insn.getOpcode() != paramTypes[i].getOpcode(Opcodes.ILOAD)) {
           // Otherwise expect load of a (effectively) final local variable.  Not seeing that means
           // we're dealing with a method reference on some arbitrary expression, <expression>::m.
           // In that case we give up and keep using the factory method for now, since inserting
           // the NEW/DUP so the new object ends up in the right stack slot is hard in that case.
           // Note this still covers simple cases such as this::m or x::m, where x is a local.
-          checkState(paramTypes.length == 1,
+          checkState(
+              paramTypes.length == 1,
               "Expected a load for %s to set up parameter %s for %s but got %s",
-              paramTypes[i], i, internalName, insn.getOpcode());
+              paramTypes[i],
+              i,
+              internalName,
+              insn.getOpcode());
           return false;
         }
         insn = insn.getPrevious();
@@ -503,8 +564,8 @@ class LambdaDesugaring extends ClassVisitor {
 
     /**
      * Produces a {@link MethodHandle} or {@link MethodType} using {@link #targetLoader} for the
-     * given ASM {@link Handle} or {@link Type}. {@code lookup} is only used for resolving
-     * {@link Handle}s.
+     * given ASM {@link Handle} or {@link Type}. {@code lookup} is only used for resolving {@link
+     * Handle}s.
      */
     private Object toJvmMetatype(Lookup lookup, Object asm) throws ReflectiveOperationException {
       if (asm instanceof Number) {
@@ -534,8 +595,10 @@ class LambdaDesugaring extends ClassVisitor {
     private MethodHandle toMethodHandle(Lookup lookup, Handle asmHandle, boolean target)
         throws ReflectiveOperationException {
       Class<?> owner = loadFromInternal(asmHandle.getOwner());
-      MethodType signature = MethodType.fromMethodDescriptorString(asmHandle.getDesc(),
-          target ? targetLoader : Thread.currentThread().getContextClassLoader());
+      MethodType signature =
+          MethodType.fromMethodDescriptorString(
+              asmHandle.getDesc(),
+              target ? targetLoader : Thread.currentThread().getContextClassLoader());
       switch (asmHandle.getTag()) {
         case Opcodes.H_INVOKESTATIC:
           return lookup.findStatic(owner, asmHandle.getName(), signature);
@@ -565,6 +628,7 @@ class LambdaDesugaring extends ClassVisitor {
       return new AutoValue_LambdaDesugaring_MethodReferenceBridgeInfo(
           methodReference, (Executable) null, methodReference);
     }
+
     public static MethodReferenceBridgeInfo bridge(
         Handle methodReference, Executable referenced, Handle bridgeMethod) {
       checkArgument(!bridgeMethod.equals(methodReference));
@@ -575,7 +639,8 @@ class LambdaDesugaring extends ClassVisitor {
     public abstract Handle methodReference();
 
     /** Returns {@code null} iff {@link #bridgeMethod} equals {@link #methodReference}. */
-    @Nullable public abstract Executable referenced();
+    @Nullable
+    public abstract Executable referenced();
 
     public abstract Handle bridgeMethod();
   }
