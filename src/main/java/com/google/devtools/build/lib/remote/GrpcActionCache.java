@@ -467,15 +467,10 @@ public class GrpcActionCache implements RemoteActionCache {
   Digest uploadBlob(byte[] blob) throws IOException, InterruptedException {
     Digest digest = Digests.computeDigest(blob);
     ImmutableSet<Digest> missing = getMissingDigests(ImmutableList.of(digest));
-    try {
-      if (!missing.isEmpty()) {
-        uploadChunks(1, new Chunker.Builder().addInput(blob));
-      }
-      return digest;
-    } catch (IOException e) {
-      // This will never happen.
-      throw new RuntimeException();
+    if (!missing.isEmpty()) {
+      uploadChunks(1, new Chunker.Builder().addInput(blob));
     }
+    return digest;
   }
 
   byte[] downloadBlob(Digest digest)
