@@ -134,6 +134,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     SkylarkClassObject skylarkClassObject = configuredTarget.get(
           new SkylarkKey(Label.parseAbsolute("//java/test:extension.bzl"), "result"));
 
+    assertThat((List<?>) skylarkClassObject.getValue("processor_classnames"))
+        .containsExactly("com.google.process.stuff");
     assertThat(
             Iterables.transform(
                 ((SkylarkNestedSet) skylarkClassObject.getValue("processor_classpath"))
@@ -146,8 +148,6 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
                 }))
         .containsExactly("libplugin.jar", "libplugin_dep.jar");
 
-    assertThat((List<?>) skylarkClassObject.getValue("processor_classnames"))
-        .containsExactly("com.google.process.stuff");
   }
 
   @Test

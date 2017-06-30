@@ -53,6 +53,7 @@ public final class JavaLibraryHelper {
    */
   private final List<JavaCompilationArgsProvider> deps = new ArrayList<>();
   private final List<JavaCompilationArgsProvider> exports = new ArrayList<>();
+  private final List<JavaPluginInfoProvider> plugins = new ArrayList<>();
   private ImmutableList<String> javacOpts = ImmutableList.of();
   private ImmutableList<Artifact> sourcePathEntries = ImmutableList.of();
   private StrictDepsMode strictDepsMode = StrictDepsMode.OFF;
@@ -119,6 +120,11 @@ public final class JavaLibraryHelper {
     return this;
   }
 
+  public JavaLibraryHelper addAllPlugins(Iterable<JavaPluginInfoProvider> providers) {
+    Iterables.addAll(plugins, providers);
+    return this;
+  }
+
   /**
    * Sets the compiler options.
    */
@@ -163,6 +169,7 @@ public final class JavaLibraryHelper {
     attributes.setRuleKind(ruleContext.getRule().getRuleClass());
     attributes.setTargetLabel(ruleContext.getLabel());
     attributes.setSourcePath(sourcePathEntries);
+    JavaCommon.addPlugins(attributes, plugins);
 
     for (Artifact resource : resources) {
       attributes.addResource(

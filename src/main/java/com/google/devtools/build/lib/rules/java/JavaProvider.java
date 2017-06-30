@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -45,7 +46,8 @@ public final class JavaProvider extends SkylarkClassObject implements Transitive
         JavaSourceJarsProvider.class,
         ProtoJavaApiInfoAspectProvider.class,
         JavaRuleOutputJarsProvider.class,
-        JavaRunfilesProvider.class
+        JavaRunfilesProvider.class,
+        JavaPluginInfoProvider.class
       );
 
   private final TransitiveInfoProviderMap providers;
@@ -74,6 +76,8 @@ public final class JavaProvider extends SkylarkClassObject implements Transitive
         JavaProvider.fetchProvidersFromList(providers, ProtoJavaApiInfoAspectProvider.class);
     List<JavaRunfilesProvider> javaRunfilesProviders =
         JavaProvider.fetchProvidersFromList(providers, JavaRunfilesProvider.class);
+    List<JavaPluginInfoProvider> javaPluginInfoProviders =
+        JavaProvider.fetchProvidersFromList(providers, JavaPluginInfoProvider.class);
 
     Runfiles mergedRunfiles = Runfiles.EMPTY;
     for (JavaRunfilesProvider javaRunfilesProvider : javaRunfilesProviders) {
@@ -94,6 +98,8 @@ public final class JavaProvider extends SkylarkClassObject implements Transitive
         // it doesn't have any output jars.
         .addProvider(JavaRuleOutputJarsProvider.class, JavaRuleOutputJarsProvider.builder().build())
         .addProvider(JavaRunfilesProvider.class, new JavaRunfilesProvider(mergedRunfiles))
+        .addProvider(
+            JavaPluginInfoProvider.class, JavaPluginInfoProvider.merge(javaPluginInfoProviders))
         .build();
   }
 
@@ -150,6 +156,23 @@ public final class JavaProvider extends SkylarkClassObject implements Transitive
       }
     }
     return providersList;
+  }
+
+  /**
+   * Returns a list of the given provider class with all the said providers retrieved from the
+   * given {@link JavaProvider}s.
+   */
+  public static <T extends TransitiveInfoProvider> ImmutableList<T>
+      getProvidersFromListOfJavaProviders(
+          Class<T> providerClass, Iterable<JavaProvider> javaProviders) {
+    ImmutableList.Builder<T> providersList = new ImmutableList.Builder<>();
+    for (JavaProvider javaProvider : javaProviders) {
+      T provider = javaProvider.getProvider(providerClass);
+      if (provider != null) {
+        providersList.add(provider);
+      }
+    }
+    return providersList.build();
   }
 
   private JavaProvider(TransitiveInfoProviderMap providers) {
