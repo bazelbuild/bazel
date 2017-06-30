@@ -17,16 +17,13 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.AbstractConfiguredTarget;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.FileProvider;
-import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.LocationExpander;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -223,112 +220,40 @@ public class SkylarkRuleImplementationFunctions {
             Object executionRequirementsUnchecked,
             Object inputManifestsUnchecked,
             Location loc)
-            throws EvalException, ConversionException {
+            throws EvalException {
           ctx.checkMutable("action");
-          SpawnAction.Builder builder = new SpawnAction.Builder();
-          // TODO(bazel-team): builder still makes unnecessary copies of inputs, outputs and args.
-          boolean hasCommand = commandUnchecked != Runtime.NONE;
-          Iterable<Artifact> inputArtifacts;
-          if (inputs instanceof SkylarkList) {
-            inputArtifacts = ((SkylarkList) inputs).getContents(Artifact.class, "inputs");
-            builder.addInputs(inputArtifacts);
-          } else {
-            inputArtifacts = ((SkylarkNestedSet) inputs).toCollection(Artifact.class);
-            builder.addInputs(((SkylarkNestedSet) inputs).getSet(Artifact.class));
-          }
-          builder.addOutputs(outputs.getContents(Artifact.class, "outputs"));
-          if (hasCommand && arguments.size() > 0) {
-            // When we use a shell command, add an empty argument before other arguments.
-            //   e.g.  bash -c "cmd" '' 'arg1' 'arg2'
-            // bash will use the empty argument as the value of $0 (which we don't care about).
-            // arg1 and arg2 will be $1 and $2, as a user expects.
-            builder.addArgument("");
-          }
-          builder.addArguments(arguments.getContents(String.class, "arguments"));
-          if (executableUnchecked != Runtime.NONE) {
-            if (executableUnchecked instanceof Artifact) {
-              Artifact executable = (Artifact) executableUnchecked;
-              builder.addInput(executable);
-              FilesToRunProvider provider = ctx.getExecutableRunfiles(executable);
-              if (provider == null) {
-                builder.setExecutable(executable);
-              } else {
-                builder.setExecutable(provider);
-              }
-            } else if (executableUnchecked instanceof PathFragment) {
-              builder.setExecutable((PathFragment) executableUnchecked);
-            } else {
-              throw new EvalException(
-                  loc,
-                  "expected file or PathFragment for "
-                      + "executable but got "
-                      + EvalUtils.getDataTypeName(executableUnchecked)
-                      + " instead");
-            }
-          }
           if ((commandUnchecked == Runtime.NONE) == (executableUnchecked == Runtime.NONE)) {
             throw new EvalException(
                 loc, "You must specify either 'command' or 'executable' argument");
           }
-          if (hasCommand) {
-            if (commandUnchecked instanceof String) {
-              builder.setShellCommand((String) commandUnchecked);
-            } else if (commandUnchecked instanceof SkylarkList) {
-              SkylarkList commandList = (SkylarkList) commandUnchecked;
-              if (commandList.size() < 3) {
-                throw new EvalException(loc, "'command' list has to be of size at least 3");
-              }
-              builder.setShellCommand(commandList.getContents(String.class, "command"));
-            } else {
-              throw new EvalException(
-                  loc,
-                  "expected string or list of strings for "
-                      + "command instead of "
-                      + EvalUtils.getDataTypeName(commandUnchecked));
-            }
-          }
+          boolean hasCommand = commandUnchecked != Runtime.NONE;
+          if (!hasCommand) {
+            ctx.actions().run(
+                outputs,
+                inputs,
+                executableUnchecked,
+                arguments,
+                mnemonicUnchecked,
+                progressMessage,
+                useDefaultShellEnv,
+                envUnchecked,
+                executionRequirementsUnchecked,
+                inputManifestsUnchecked);
 
-          // The actual command can refer to an executable from the inputs, which could require
-          // some runfiles. Consequently, we add the runfiles of all inputs of this action manually.
-          for (Artifact current : inputArtifacts) {
-            FilesToRunProvider provider = ctx.getExecutableRunfiles(current);
-            if (provider != null) {
-              builder.addTool(provider);
-            }
+          } else {
+            ctx.actions().runShell(
+                outputs,
+                inputs,
+                arguments,
+                mnemonicUnchecked,
+                commandUnchecked,
+                progressMessage,
+                useDefaultShellEnv,
+                envUnchecked,
+                executionRequirementsUnchecked,
+                inputManifestsUnchecked
+            );
           }
-
-          String mnemonic =
-              mnemonicUnchecked == Runtime.NONE ? "Generating" : (String) mnemonicUnchecked;
-          builder.setMnemonic(mnemonic);
-          if (envUnchecked != Runtime.NONE) {
-            builder.setEnvironment(
-                ImmutableMap.copyOf(
-                    SkylarkDict.castSkylarkDictOrNoneToDict(
-                        envUnchecked, String.class, String.class, "env")));
-          }
-          if (progressMessage != Runtime.NONE) {
-            builder.setProgressMessage((String) progressMessage);
-          }
-          if (EvalUtils.toBoolean(useDefaultShellEnv)) {
-            builder.useDefaultShellEnvironment();
-          }
-          if (executionRequirementsUnchecked != Runtime.NONE) {
-            builder.setExecutionInfo(
-                ImmutableMap.copyOf(
-                    SkylarkDict.castSkylarkDictOrNoneToDict(
-                        executionRequirementsUnchecked,
-                        String.class,
-                        String.class,
-                        "execution_requirements")));
-          }
-          if (inputManifestsUnchecked != Runtime.NONE) {
-            for (RunfilesSupplier supplier : SkylarkList.castSkylarkListOrNoneToList(
-                inputManifestsUnchecked, RunfilesSupplier.class, "runfiles suppliers")) {
-              builder.addRunfilesSupplier(supplier);
-            }
-          }
-          // Always register the action
-          ctx.getRuleContext().registerAction(builder.build(ctx.getRuleContext()));
           return Runtime.NONE;
         }
       };
