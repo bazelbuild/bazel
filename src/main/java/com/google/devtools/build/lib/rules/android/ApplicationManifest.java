@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidManifestMerger;
 import com.google.devtools.build.lib.rules.android.ResourceContainer.Builder.JavaPackageSource;
 import com.google.devtools.build.lib.rules.android.ResourceContainer.ResourceType;
@@ -598,6 +599,7 @@ public final class ApplicationManifest {
               .setJavaPackage(resourceContainer.getJavaPackage())
               .withPrimary(resourceContainer)
               .withDependencies(resourceDeps)
+              .setDataBindingInfoZip(dataBindingInfoZip)
               .setMergedResourcesOut(mergedResources)
               .setManifestOut(manifestOut)
               .setClassJarOut(rJavaClassJar)
@@ -638,11 +640,12 @@ public final class ApplicationManifest {
               .setDataBindingInfoZip(dataBindingInfoZip)
               .setApplicationId(manifestValues.get("applicationId"))
               .setVersionCode(manifestValues.get("versionCode"))
-              .setVersionName(manifestValues.get("versionName"));
-      builder.setFeatureOf(featureOf);
-      builder.setFeatureAfter(featureAfter);
+              .setVersionName(manifestValues.get("versionName"))
+              .setFeatureOf(featureOf)
+              .setFeatureAfter(featureAfter);
       if (!incremental) {
         builder
+            .targetAaptVersion(AndroidAaptVersion.AAPT)
             .setRTxtOut(resourceContainer.getRTxt())
             .setSymbols(resourceContainer.getSymbols())
             .setSourceJarOut(resourceContainer.getJavaSourceJar());

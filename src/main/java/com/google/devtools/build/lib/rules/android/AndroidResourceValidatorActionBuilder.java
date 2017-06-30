@@ -35,7 +35,7 @@ import java.util.List;
  *
  * <p>This is split from merging, so that it can happen off of the compilation critical path.
  */
-class AndroidResourceValidatorActionBuilder {
+public class AndroidResourceValidatorActionBuilder {
 
   private final RuleContext ruleContext;
   private final AndroidSdkProvider sdk;
@@ -153,11 +153,12 @@ class AndroidResourceValidatorActionBuilder {
 
     FluentIterable<Artifact> libraries =
         FluentIterable.from(resourceDeps.getResources())
-            .transform(ResourceContainer::getStaticLibrary);
+            .transform(ResourceContainer::getStaticLibrary)
+            .append(ImmutableList.of(sdk.getAndroidJar())); // the android jar is a static library.
 
     builder
         .add("--libraries")
-        .add(libraries.join(Joiner.on(context.getConfiguration().getHostPathSeparator())));
+        .add(libraries.join(Joiner.on(':')));
     inputs.addAll(libraries);
 
     builder.addExecPath("--compiled", compiledSymbols);
