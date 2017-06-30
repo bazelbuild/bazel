@@ -321,13 +321,14 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         CacheBuilder.newBuilder().build();
     Cache<PackageIdentifier, CacheEntryWithGlobDeps<AstAfterPreprocessing>> astCache =
         CacheBuilder.newBuilder().build();
-    PackageFactory pkgFactory = new PackageFactory(
-        ruleClassProvider,
-        null,
-        AttributeContainer.ATTRIBUTE_CONTAINER_FACTORY,
-        getEnvironmentExtensions(),
-        getName(),
-        Package.Builder.DefaultHelper.INSTANCE);
+    PackageFactory pkgFactory =
+        new PackageFactory(
+            ruleClassProvider,
+            null,
+            AttributeContainer::new,
+            getEnvironmentExtensions(),
+            getName(),
+            Package.Builder.DefaultHelper.INSTANCE);
     pkgFactory.setGlobbingThreads(legacyGlobbingThreads);
     ImmutableMap.Builder<SkyFunctionName, SkyFunction> builder = ImmutableMap.builder();
     builder

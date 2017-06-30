@@ -160,7 +160,7 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
     }
     // TODO(bazel-team): Make RecursivePkgValue return NestedSet<PathFragment> so this transform is
     // unnecessary.
-    return Iterables.transform(packageNames.build(), PathFragment.TO_PATH_FRAGMENT);
+    return Iterables.transform(packageNames.build(), PathFragment::create);
   }
 
   @Override

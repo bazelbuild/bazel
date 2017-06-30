@@ -133,8 +133,7 @@ public class WorkspaceFactory {
     this.workspaceDir = workspaceDir;
     this.allowOverride = allowOverride;
     this.environmentExtensions = environmentExtensions;
-    this.ruleFactory = new RuleFactory(
-        ruleClassProvider, AttributeContainer.ATTRIBUTE_CONTAINER_FACTORY);
+    this.ruleFactory = new RuleFactory(ruleClassProvider, AttributeContainer::new);
     this.workspaceFunctions = WorkspaceFactory.createWorkspaceFunctions(
         allowOverride, ruleFactory);
   }
@@ -458,8 +457,7 @@ public class WorkspaceFactory {
       }
       workspaceEnv.setupDynamic(
           PackageFactory.PKG_CONTEXT,
-          new PackageFactory.PackageContext(
-              builder, null, localReporter, AttributeContainer.ATTRIBUTE_CONTAINER_FACTORY));
+          new PackageFactory.PackageContext(builder, null, localReporter, AttributeContainer::new));
     } catch (EvalException e) {
       throw new AssertionError(e);
     }
@@ -481,8 +479,7 @@ public class WorkspaceFactory {
   }
 
   static ClassObject newNativeModule(RuleClassProvider ruleClassProvider, String version) {
-    RuleFactory ruleFactory = new RuleFactory(
-        ruleClassProvider, AttributeContainer.ATTRIBUTE_CONTAINER_FACTORY);
+    RuleFactory ruleFactory = new RuleFactory(ruleClassProvider, AttributeContainer::new);
     return WorkspaceFactory.newNativeModule(
         WorkspaceFactory.createWorkspaceFunctions(false, ruleFactory), version);
   }

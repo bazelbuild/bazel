@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -58,9 +57,6 @@ public abstract class PathFragment implements Comparable<PathFragment>, Serializ
 
   /** An empty path fragment. */
   public static final PathFragment EMPTY_FRAGMENT = create("");
-
-  // TODO(laurentlb): Inline this
-  public static final Function<String, PathFragment> TO_PATH_FRAGMENT = PathFragment::create;
 
   /**
    * A helper object for manipulating the various internal {@link PathFragment} implementations.

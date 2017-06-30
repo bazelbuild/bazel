@@ -352,7 +352,7 @@ public final class PackageFactory {
     protected Iterable<EnvironmentExtension> environmentExtensions = ImmutableList.of();
     protected Map<String, String> platformSetRegexps = null;
     protected Function<RuleClass, AttributeContainer> attributeContainerFactory =
-        AttributeContainer.ATTRIBUTE_CONTAINER_FACTORY;
+        AttributeContainer::new;
     protected boolean doChecksForTesting = true;
 
     public BuilderForTesting setEnvironmentExtensions(

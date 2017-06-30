@@ -21,8 +21,6 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -46,8 +44,6 @@ public class ProtoSourceFileBlacklist {
       PathFragment.create("external/bazel_tools/");
   private final RuleContext ruleContext;
   private final ImmutableSet<PathFragment> blacklistProtoFilePaths;
-
-  private final Predicate<Artifact> isBlacklistProto = this::isBlacklisted;
 
   /**
    * Creates a proto source file blacklist.
@@ -78,9 +74,7 @@ public class ProtoSourceFileBlacklist {
    * Filters the blacklisted protos from the given protos.
    */
   public Iterable<Artifact> filter(Iterable<Artifact> protoFiles) {
-    return Streams.stream(protoFiles)
-        .filter(Predicates.not(isBlacklistProto))
-        .collect(toImmutableSet());
+    return Streams.stream(protoFiles).filter(f -> !isBlacklisted(f)).collect(toImmutableSet());
   }
 
   /**

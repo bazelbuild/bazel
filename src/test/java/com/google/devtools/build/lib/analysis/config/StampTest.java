@@ -37,8 +37,7 @@ public class StampTest extends BuildViewTestCase {
   @Test
   public void testNoStampingForTests() throws Exception {
     RuleFactory ruleFactory =
-        new RuleFactory(
-            analysisMock.createRuleClassProvider(), AttributeContainer.ATTRIBUTE_CONTAINER_FACTORY);
+        new RuleFactory(analysisMock.createRuleClassProvider(), AttributeContainer::new);
     for (String name : ruleFactory.getRuleClassNames()) {
       RuleClass ruleClass = ruleFactory.getRuleClass(name);
       if (TargetUtils.isTestRuleName(name) && ruleClass.hasAttr("stamp", BuildType.TRISTATE)) {
