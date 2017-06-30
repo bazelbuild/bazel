@@ -13,18 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler.statistics;
 
+import com.google.common.base.Predicate;
 import com.google.devtools.build.lib.actions.MiddlemanAction;
 import com.google.devtools.build.lib.profiler.ProfileInfo;
 import com.google.devtools.build.lib.profiler.ProfileInfo.CriticalPathEntry;
 import com.google.devtools.build.lib.profiler.ProfileInfo.Task;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.Pair;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.List;
+
 import javax.annotation.Nullable;
 
 /**
@@ -47,7 +50,12 @@ public final class CriticalPathStatistics implements Iterable<Pair<String, Doubl
           Pair.of(
               "the VFS calls",
               ProfilerTask.allSatisfying(
-                  task -> DEFAULT_FILTER.contains(task) || task.name().startsWith("VFS_"))),
+                  new Predicate<ProfilerTask>() {
+                    @Override
+                    public boolean apply(ProfilerTask task) {
+                      return DEFAULT_FILTER.contains(task) || task.name().startsWith("VFS_");
+                    }
+                  })),
           typeFilter("the dependency checking", ProfilerTask.ACTION_CHECK),
           typeFilter("the execution setup", ProfilerTask.ACTION_EXECUTE),
           typeFilter("local execution", ProfilerTask.SPAWN, ProfilerTask.LOCAL_EXECUTION),

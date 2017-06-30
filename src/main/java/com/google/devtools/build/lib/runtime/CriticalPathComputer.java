@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.runtime;
 
-import static java.util.Comparator.comparingLong;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.common.eventbus.Subscribe;
@@ -30,6 +28,7 @@ import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Objects;
 import java.util.PriorityQueue;
 import java.util.concurrent.ConcurrentMap;
@@ -60,8 +59,14 @@ public abstract class CriticalPathComputer<C extends AbstractCriticalPathCompone
    * <p>This data is a useful metric when running non highly incremental builds, where multiple
    * tasks could run un parallel and critical path would only record the longest path.
    */
-  private final PriorityQueue<C> slowestComponents =
-      new PriorityQueue<>(SLOWEST_COMPONENTS_SIZE, comparingLong(C::getElapsedTimeNanos));
+  private final PriorityQueue<C> slowestComponents = new PriorityQueue<>(SLOWEST_COMPONENTS_SIZE,
+      new Comparator<C>() {
+        @Override
+        public int compare(C o1, C o2) {
+          return Long.compare(o1.getElapsedTimeNanos(), o2.getElapsedTimeNanos());
+        }
+      }
+  );
 
   private final Object lock = new Object();
 
