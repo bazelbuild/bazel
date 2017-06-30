@@ -340,7 +340,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
     @Option(
       name = "incremental_dexing",
-      defaultValue = "false",
+      defaultValue = "true",
       category = "semantics",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},

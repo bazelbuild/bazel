@@ -103,6 +103,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testMainDexProguardSpecs() throws Exception {
+    useConfiguration("--noincremental_dexing");
     ConfiguredTarget ct = scratchConfiguredTarget("java/a", "a",
         "android_binary(",
         "    name = 'a',",
@@ -458,7 +459,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     Action shardAction =
         getGeneratingAction(getBinArtifact("_dx/top/classes.jar", topTarget));
-    for (String basename : ActionsTestUtil.baseArtifactNames(shardAction.getInputs())) {
+    for (String basename : ActionsTestUtil.baseArtifactNames(getNonToolInputs(shardAction))) {
       // all jars are converted to dex archives
       assertThat(!basename.contains(".jar") || basename.endsWith(".jar.dex.zip"))
           .named(basename).isTrue();
@@ -516,7 +517,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     Action shardAction =
         getGeneratingAction(getBinArtifact("_dx/top/classes.jar", topTarget));
-    for (String basename : ActionsTestUtil.baseArtifactNames(shardAction.getInputs())) {
+    for (String basename : ActionsTestUtil.baseArtifactNames(getNonToolInputs(shardAction))) {
       // all jars are converted to dex archives
       assertThat(!basename.contains(".jar") || basename.endsWith(".jar.dex.zip"))
           .named(basename).isTrue();
@@ -556,7 +557,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     Action shardAction =
         getGeneratingAction(getBinArtifact("_dx/top/classes.jar", topTarget));
-    for (Artifact input : shardAction.getInputs()) {
+    for (Artifact input : getNonToolInputs(shardAction)) {
       String basename = input.getFilename();
       // all jars are converted to dex archives
       assertThat(!basename.contains(".jar") || basename.endsWith(".jar.dex.zip"))
@@ -573,7 +574,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     // *all* expected input dex archives.
     assertThat(
             Iterables.filter(
-                ActionsTestUtil.baseArtifactNames(shardAction.getInputs()),
+                ActionsTestUtil.baseArtifactNames(getNonToolInputs(shardAction)),
                 Predicates.containsPattern("\\.jar")))
         .containsExactly(
             // top's dex archives
@@ -606,9 +607,9 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     assertNoEvents();
     Action shardAction = getGeneratingAction(getBinArtifact("_dx/top/shard1.jar", topTarget));
     assertThat(
-        Iterables.filter(
-            ActionsTestUtil.baseArtifactNames(shardAction.getInputs()),
-            Predicates.containsPattern("\\.jar\\.dex\\.zip")))
+            Iterables.filter(
+                ActionsTestUtil.baseArtifactNames(getNonToolInputs(shardAction)),
+                Predicates.containsPattern("\\.jar\\.dex\\.zip")))
         .isEmpty(); // no dex archives are used
   }
 
@@ -934,17 +935,20 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testDexopts() throws Exception {
+    useConfiguration("--noincremental_dexing");
     checkDexopts("[ '--opt1', '--opt2' ]", ImmutableList.of("--opt1", "--opt2"));
   }
 
   @Test
   public void testDexoptsTokenization() throws Exception {
+    useConfiguration("--noincremental_dexing");
     checkDexopts("[ '--opt1', '--opt2 tokenized' ]",
         ImmutableList.of("--opt1", "--opt2", "tokenized"));
   }
 
   @Test
   public void testDexoptsMakeVariableSubstitution() throws Exception {
+    useConfiguration("--noincremental_dexing");
     checkDexopts("[ '--opt1', '$(COMPILATION_MODE)' ]", ImmutableList.of("--opt1", "fastbuild"));
   }
 
@@ -1992,6 +1996,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testDexShardingLegacyStructure() throws Exception {
+    useConfiguration("--noincremental_dexing");
     scratch.file("java/a/BUILD",
         "android_binary(",
         "    name='a',",
@@ -2005,6 +2010,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testDexShardingNativeStructure() throws Exception {
+    useConfiguration("--noincremental_dexing");
     scratch.file("java/a/BUILD",
         "android_binary(",
         "    name='a',",
@@ -2018,7 +2024,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testDexShardingNativeStructure_withDesugaring() throws Exception {
-    useConfiguration("--experimental_desugar_for_android");
+    useConfiguration("--experimental_desugar_for_android", "--noincremental_dexing");
+
     scratch.file("java/a/BUILD",
         "android_binary(",
         "    name='a',",
@@ -2179,6 +2186,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testMainDexAaptGenerationSupported() throws Exception {
+    useConfiguration("--android_sdk=//sdk:sdk", "--noincremental_dexing");
     scratch.file(
         "sdk/BUILD",
         "android_sdk(",
@@ -2205,7 +2213,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    manifest = 'AndroidManifest.xml',",
         "    multidex = 'legacy')");
 
-    useConfiguration("--android_sdk=//sdk:sdk");
     ConfiguredTarget a = getConfiguredTarget("//java/a:a");
     Artifact intermediateJar = artifactByPath(ImmutableList.of(getCompressedUnsignedApk(a)),
         ".apk", ".dex.zip", ".dex.zip", "main_dex_list.txt", "_intermediate.jar");
@@ -2219,6 +2226,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testMainDexGenerationWithoutProguardMap() throws Exception {
+    useConfiguration("--noincremental_dexing");
     scratchConfiguredTarget("java/foo", "abin",
         "android_binary(",
         "    name = 'abin',",
@@ -2601,7 +2609,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testFeatureFlagsAttributeSetsSelectInDependency() throws Exception {
-    useConfiguration("--experimental_dynamic_configs=on");
+    useConfiguration("--experimental_dynamic_configs=notrim");
     scratch.file(
         "java/com/foo/BUILD",
         "config_feature_flag(",
@@ -2651,7 +2659,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testFeatureFlagsAttributeSetsSelectInBinary() throws Exception {
-    useConfiguration("--experimental_dynamic_configs=on");
+    useConfiguration("--experimental_dynamic_configs=notrim");
     scratch.file(
         "java/com/foo/BUILD",
         "config_feature_flag(",
@@ -2764,7 +2772,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   public void testFeatureFlagsAttributeFailsAnalysisIfFlagIsAliased()
       throws Exception {
     reporter.removeHandler(failFastHandler);
-    useConfiguration("--experimental_dynamic_configs=on");
+    useConfiguration("--experimental_dynamic_configs=notrim");
     scratch.file(
         "java/com/foo/BUILD",
         "config_feature_flag(",
@@ -2792,7 +2800,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testFeatureFlagsAttributeSetsFeatureFlagProviderValues() throws Exception {
-    useConfiguration("--experimental_dynamic_configs=on");
+    useConfiguration("--experimental_dynamic_configs=notrim");
     scratch.file(
         "java/com/foo/reader.bzl",
         "def _impl(ctx):",

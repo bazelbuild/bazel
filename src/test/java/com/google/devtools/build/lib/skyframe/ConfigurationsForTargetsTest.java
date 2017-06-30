@@ -287,38 +287,6 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
     assertThat(toolDep.getConfiguration().isHostConfiguration()).isTrue();
   }
 
-  @Test
-  public void splitDeps() throws Exception {
-    scratch.file(
-        "java/a/BUILD",
-        "cc_library(name = 'lib', srcs = ['lib.cc'])",
-        "android_binary(name='a', manifest = 'AndroidManifest.xml', deps = [':lib'])");
-    useConfiguration("--fat_apk_cpu=k8,armeabi-v7a");
-    List<ConfiguredTarget> deps = getConfiguredDeps("//java/a:a", "deps");
-    assertThat(deps).hasSize(2);
-    ConfiguredTarget dep1 = deps.get(0);
-    ConfiguredTarget dep2 = deps.get(1);
-    assertThat(
-        ImmutableList.<String>of(
-            dep1.getConfiguration().getCpu(),
-            dep2.getConfiguration().getCpu()))
-        .containsExactly("armeabi-v7a", "k8");
-    // We don't care what order split deps are listed, but it must be deterministic. Static and
-    // dynamic configurations happen to apply different orders (static: same order as the split
-    // transition definition, dynamic: ConfiguredTargetFunction.DYNAMIC_SPLIT_DEP_ORDERING). That's
-    // okay because of the "we don't care what order" principle. The primary value of this test is
-    // to check against the new dynamic code, which will soon replace the static code anyway. And
-    // the static code is already well-tested through all other Blaze tests. And checking its order
-    // would be a lot uglier. So we only worry about the dynamic case here.
-    if (getTargetConfiguration().useDynamicConfigurations()) {
-      assertThat(
-          ConfiguredTargetFunction.DYNAMIC_SPLIT_DEP_ORDERING.compare(
-              Dependency.withConfiguration(dep1.getLabel(), dep1.getConfiguration()),
-              Dependency.withConfiguration(dep2.getLabel(), dep2.getConfiguration())))
-          .isLessThan(0);
-    }
-  }
-
   /** Runs the same test with untrimmed dynamic configurations. */
   @TestSpec(size = Suite.SMALL_TESTS)
   @RunWith(JUnit4.class)
@@ -326,6 +294,40 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
     @Override
     protected FlagBuilder defaultFlags() {
       return super.defaultFlags().with(Flag.DYNAMIC_CONFIGURATIONS_NOTRIM);
+    }
+
+    // This test does not pass with trimming because android_binary applies an aspect and aspects
+    // are not yet correctly supported with trimming.
+    @Test
+    public void splitDeps() throws Exception {
+      scratch.file(
+          "java/a/BUILD",
+          "cc_library(name = 'lib', srcs = ['lib.cc'])",
+          "android_binary(name='a', manifest = 'AndroidManifest.xml', deps = [':lib'])");
+      useConfiguration("--fat_apk_cpu=k8,armeabi-v7a");
+      List<ConfiguredTarget> deps = getConfiguredDeps("//java/a:a", "deps");
+      assertThat(deps).hasSize(2);
+      ConfiguredTarget dep1 = deps.get(0);
+      ConfiguredTarget dep2 = deps.get(1);
+      assertThat(
+          ImmutableList.<String>of(
+              dep1.getConfiguration().getCpu(),
+              dep2.getConfiguration().getCpu()))
+          .containsExactly("armeabi-v7a", "k8");
+      // We don't care what order split deps are listed, but it must be deterministic. Static and
+      // dynamic configurations happen to apply different orders (static: same order as the split
+      // transition definition, dynamic: ConfiguredTargetFunction.DYNAMIC_SPLIT_DEP_ORDERING).
+      // That's okay because of the "we don't care what order" principle. The primary value of this
+      // test is to check against the new dynamic code, which will soon replace the static code
+      // anyway. And the static code is already well-tested through all other Blaze tests. And
+      // checking its order would be a lot uglier. So we only worry about the dynamic case here.
+      if (getTargetConfiguration().useDynamicConfigurations()) {
+        assertThat(
+            ConfiguredTargetFunction.DYNAMIC_SPLIT_DEP_ORDERING.compare(
+                Dependency.withConfiguration(dep1.getLabel(), dep1.getConfiguration()),
+                Dependency.withConfiguration(dep2.getLabel(), dep2.getConfiguration())))
+            .isLessThan(0);
+      }
     }
   }
 }
