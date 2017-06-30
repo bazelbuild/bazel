@@ -527,7 +527,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/skylark/extension.bzl",
         "def custom_rule_impl(ctx):",
-        "  ctx.file_action(output = ctx.outputs.executable, content = 'echo hello')",
+        "  ctx.actions.write(output = ctx.outputs.executable, content = 'echo hello')",
         "  rf = ctx.runfiles(ctx.files.data)",
         "  return struct(runfiles = rf)",
         "",
@@ -967,7 +967,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "    command = 'echo')",
         "  ftb = depset(files)",
         "  for i in ctx.outputs.out:",
-        "    ctx.file_action(output=i, content='hi there')",
+        "    ctx.actions.write(output=i, content='hi there')",
         "",
         "def output_func(attr1):",
         "  return {'o': attr1 + '.txt'}",

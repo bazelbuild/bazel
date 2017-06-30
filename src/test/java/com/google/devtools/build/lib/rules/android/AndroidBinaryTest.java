@@ -2796,7 +2796,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     scratch.file(
         "java/com/foo/reader.bzl",
         "def _impl(ctx):",
-        "  ctx.file_action(",
+        "  ctx.actions.write(",
         "      ctx.outputs.java,",
         "      '\\n'.join([",
         "          str(target.label) + ': ' + target[config_common.FeatureFlagInfo].value",

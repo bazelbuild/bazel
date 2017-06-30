@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.LocationExpander;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
@@ -403,10 +402,10 @@ public class SkylarkRuleImplementationFunctions {
     return builder.build();
   }
 
-  // TODO(bazel-team): improve this method to be more memory friendly
   @SkylarkSignature(
     name = "file_action",
-    doc = "Creates a file write action.",
+    doc = "DEPRECATED. Use <a href =\"actions.html#write\">ctx.actions.write</a> instead. <br>"
+        + "Creates a file write action.",
     objectType = SkylarkRuleContext.class,
     returnType = Runtime.NoneType.class,
     parameters = {
@@ -425,11 +424,9 @@ public class SkylarkRuleImplementationFunctions {
       new BuiltinFunction("file_action") {
         public Runtime.NoneType invoke(
             SkylarkRuleContext ctx, Artifact output, String content, Boolean executable)
-            throws EvalException, ConversionException {
+            throws EvalException {
           ctx.checkMutable("file_action");
-          FileWriteAction action =
-              FileWriteAction.create(ctx.getRuleContext(), output, content, executable);
-          ctx.getRuleContext().registerAction(action);
+          ctx.actions().write(output, content, executable);
           return Runtime.NONE;
         }
       };

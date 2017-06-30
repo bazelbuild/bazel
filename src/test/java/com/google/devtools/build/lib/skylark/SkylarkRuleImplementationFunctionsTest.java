@@ -409,10 +409,10 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     evalRuleContextCode(
         ruleContext,
-        "ruleContext.file_action(",
+        "ruleContext.actions.write(",
         "  output = ruleContext.files.srcs[0],",
         "  content = 'hello world',",
-        "  executable = False)");
+        "  is_executable = False)");
     FileWriteAction action =
         (FileWriteAction)
             Iterables.getOnlyElement(
@@ -621,12 +621,12 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     checkErrorContains(
         ruleContext,
-        "method ctx.file_action(output: File, content: string, executable: bool) is not applicable "
-            + "for arguments (File, int, bool): 'content' is 'int', but should be 'string'",
-        "ruleContext.file_action(",
+        "Cannot convert parameter 'content' to type string, in method "
+            + "write(File output, int content, bool is_executable) of 'actions'",
+        "ruleContext.actions.write(",
         "  output = ruleContext.files.srcs[0],",
         "  content = 1,",
-        "  executable = False)");
+        "  is_executable = False)");
   }
 
   @Test
@@ -1533,7 +1533,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "  outs = ctx.outputs",
         "  for i in ctx.attr.srcs:",
         "    o = getattr(outs, 'foo_' + i.label.name)",
-        "    ctx.file_action(",
+        "    ctx.actions.write(",
         "      output = o,",
         "      content = 'hoho')",
         "",

@@ -71,7 +71,7 @@ def _simple_aspect_impl(target, ctx):
   result=depset()
   for orig_out in target.files:
     aspect_out = ctx.actions.declare_file(orig_out.basename + ".aspect")
-    ctx.file_action(
+    ctx.actions.write(
         output=aspect_out,
         content = "Hello from aspect for %s" % orig_out.basename)
     result += [aspect_out]

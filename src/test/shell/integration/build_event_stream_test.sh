@@ -99,7 +99,7 @@ cat > simpleaspect.bzl <<EOF
 def _simple_aspect_impl(target, ctx):
     for orig_out in ctx.rule.attr.outs:
         aspect_out = ctx.actions.declare_file(orig_out.name + ".aspect")
-        ctx.file_action(
+        ctx.actions.write(
             output=aspect_out,
             content = "Hello from aspect")
     return struct(output_groups={

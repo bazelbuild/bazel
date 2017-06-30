@@ -578,7 +578,7 @@ public abstract class AbstractAction implements Action, SkylarkValue {
 
   @SkylarkCallable(
       name = "content",
-      doc = "For actions created by <a href=\"ctx.html#file_action\">ctx.file_action()</a> or "
+      doc = "For actions created by <a href=\"actions.html#write\">ctx.actions.write()</a> or "
           + "<a href=\"ctx.html#template_action\">ctx.template_action()</a>, the contents of the "
           + "file to be written.",
       structField = true,

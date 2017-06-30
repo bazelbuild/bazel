@@ -1561,7 +1561,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         "def _undertest_impl(ctx):",
         "  out1 = ctx.outputs.out1",
         "  out2 = ctx.outputs.out2",
-        "  ctx.file_action(output=out1, content='foo123')",
+        "  ctx.actions.write(output=out1, content='foo123')",
         "  ctx.action(outputs=[out2], inputs=[out1], command='cp ' + out1.path + ' ' + out2.path)",
         "  return struct(out1=out1, out2=out2)",
         "undertest_rule = rule(",
@@ -1681,7 +1681,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   public void testFileWriteActionInterface() throws Exception {
     scratch.file("test/rules.bzl",
         getSimpleUnderTestDefinition(
-            "ctx.file_action(output=out, content='foo123')"),
+            "ctx.actions.write(output=out, content='foo123')"),
         testingRuleDefinition);
     scratch.file("test/BUILD",
         simpleBuildDefinition);
@@ -1862,6 +1862,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
       "actions.declare_directory('foo.txt')",
       "actions.declare_directory('foo.txt', sibling = file)",
       "actions.do_nothing(mnemonic = 'foo', inputs = [file])",
+      "actions.write(file, 'foo')",
       "check_placeholders('foo', [])",
       "action(command = 'foo', outputs = [file])",
       "file_action(file, 'foo')",

@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.analysis.PseudoAction;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -192,6 +193,38 @@ public class SkylarkActionFactory implements SkylarkValue {
   }
 
 
+  @SkylarkCallable(
+      name = "write",
+      doc = "Creates a file write action.",
+      parameters = {
+          @Param(
+              name = "output",
+              type = Artifact.class,
+              doc = "the output file.",
+              named = true
+          ),
+          @Param(
+              name = "content",
+              type = String.class,
+              doc = "the contents of the file.",
+              named = true
+          ),
+          @Param(
+              name = "is_executable",
+              type = Boolean.class,
+              defaultValue = "False",
+              doc = "whether the output file should be executable (default is False).",
+              named = true
+          )
+      }
+  )
+  public void write(Artifact output, String content, Boolean isExecutable)
+            throws EvalException {
+    context.checkMutable("actions.write");
+    FileWriteAction action =
+        FileWriteAction.create(ruleContext, output, content, isExecutable);
+    ruleContext.registerAction(action);
+  }
 
   @Override
   public boolean isImmutable() {
