@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.AliasProvider;
+import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagFeatureVisibility;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagProvider;
 import java.util.Map;
 
@@ -61,6 +62,14 @@ public abstract class AndroidFeatureFlagSetProvider implements TransitiveInfoPro
     Map<Label, String> expectedValues =
         NonconfigurableAttributeMapper.of(ruleContext.getRule())
             .get(FEATURE_FLAG_ATTR, BuildType.LABEL_KEYED_STRING_DICT);
+
+    if (expectedValues.isEmpty()) {
+      return ImmutableMap.of();
+    }
+
+    ConfigFeatureFlagFeatureVisibility.checkAvailable(
+        ruleContext, "the " + FEATURE_FLAG_ATTR + " attribute");
+
     Iterable<? extends TransitiveInfoCollection> actualTargets =
         ruleContext.getPrerequisites(FEATURE_FLAG_ATTR, Mode.TARGET);
     boolean aliasFound = false;

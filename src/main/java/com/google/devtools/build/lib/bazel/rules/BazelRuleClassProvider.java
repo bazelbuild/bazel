@@ -96,6 +96,7 @@ import com.google.devtools.build.lib.rules.apple.cpp.AppleCcToolchainRule;
 import com.google.devtools.build.lib.rules.apple.swift.SwiftCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.swift.SwiftConfiguration;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagConfiguration;
+import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagFeatureVisibility;
 import com.google.devtools.build.lib.rules.config.ConfigRuleClasses;
 import com.google.devtools.build.lib.rules.config.ConfigSkylarkCommon;
 import com.google.devtools.build.lib.rules.cpp.CcIncLibraryRule;
@@ -224,7 +225,9 @@ public class BazelRuleClassProvider {
         }
       };
 
-  public static final ImmutableSet<String> FEATURE_POLICY_FEATURES = ImmutableSet.<String>of();
+  public static final ImmutableSet<String> FEATURE_POLICY_FEATURES = ImmutableSet.<String>of(
+    ConfigFeatureFlagFeatureVisibility.POLICY_NAME
+  );
 
   public static final RuleSet CORE_RULES =
       new RuleSet() {

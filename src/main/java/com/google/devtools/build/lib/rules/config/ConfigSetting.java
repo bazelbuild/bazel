@@ -69,6 +69,11 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
             .get(
                 ConfigRuleClasses.ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
                 BuildType.LABEL_KEYED_STRING_DICT);
+    if (!flagSettings.isEmpty()) {
+      ConfigFeatureFlagFeatureVisibility.checkAvailable(
+          ruleContext,
+          "the " + ConfigRuleClasses.ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE + " attribute");
+    }
 
     List<? extends TransitiveInfoCollection> flagValues =
         ruleContext.getPrerequisites(

@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.featurecontrol.FeaturePolicyConfiguration;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -42,7 +43,10 @@ public class BazelAndroidBinaryRule implements RuleDefinition {
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder
         .requiresConfigurationFragments(
-            AndroidConfiguration.class, JavaConfiguration.class, CppConfiguration.class)
+            AndroidConfiguration.class,
+            JavaConfiguration.class,
+            FeaturePolicyConfiguration.class,
+            CppConfiguration.class)
         .override(
             attr("manifest", BuildType.LABEL).mandatory().allowedFileTypes(FileType.of(".xml")))
         .add(

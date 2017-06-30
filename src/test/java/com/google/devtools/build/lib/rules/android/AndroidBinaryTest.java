@@ -2934,4 +2934,94 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     assertThat(javacAction.buildCommandLine()).doesNotContain("--testonly");
   }
+
+  @Test
+  public void testFeatureFlagPolicyMustContainRuleToUseFeatureFlags() throws Exception {
+    reporter.removeHandler(failFastHandler); // expecting an error
+    scratch.file(
+        "policy/BUILD",
+        "package_group(",
+        "    name = 'feature_flag_users',",
+        "    packages = ['//flag'])");
+    scratch.file(
+        "flag/BUILD",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['right', 'wrong'],",
+        "    default_value = 'right',",
+        "    visibility = ['//java/com/google/android/foo:__pkg__'],",
+        ")");
+    scratch.file(
+        "java/com/google/android/foo/BUILD",
+        "android_binary(",
+        "  name = 'foo',",
+        "  manifest = 'AndroidManifest.xml',",
+        "  srcs = [':FooFlags.java'],",
+        "  feature_flags = {",
+        "    '//flag:flag': 'right',",
+        "  }",
+        ")");
+    useConfiguration(
+        "--experimental_dynamic_configs=notrim",
+        "--feature_control_policy=config_feature_flag=//policy:feature_flag_users");
+    assertThat(getConfiguredTarget("//java/com/google/android/foo:foo")).isNull();
+    assertContainsEvent(
+        "in android_binary rule //java/com/google/android/foo:foo: the feature_flags attribute is "
+            + "not available in package 'java/com/google/android/foo' according to policy "
+            + "'//policy:feature_flag_users'");
+  }
+
+  @Test
+  public void testFeatureFlagPolicyDoesNotBlockRuleIfInPolicy() throws Exception {
+    scratch.file(
+        "policy/BUILD",
+        "package_group(",
+        "    name = 'feature_flag_users',",
+        "    packages = ['//flag', '//java/com/google/android/foo'])");
+    scratch.file(
+        "flag/BUILD",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['right', 'wrong'],",
+        "    default_value = 'right',",
+        "    visibility = ['//java/com/google/android/foo:__pkg__'],",
+        ")");
+    scratch.file(
+        "java/com/google/android/foo/BUILD",
+        "android_binary(",
+        "  name = 'foo',",
+        "  manifest = 'AndroidManifest.xml',",
+        "  srcs = [':FooFlags.java'],",
+        "  feature_flags = {",
+        "    '//flag:flag': 'right',",
+        "  }",
+        ")");
+    useConfiguration(
+        "--experimental_dynamic_configs=notrim",
+        "--feature_control_policy=config_feature_flag=//policy:feature_flag_users");
+    assertThat(getConfiguredTarget("//java/com/google/android/foo:foo")).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
+  public void testFeatureFlagPolicyDoesNotBlockRuleIfFlagValuesNotUsed() throws Exception {
+    scratch.file(
+        "policy/BUILD",
+        "package_group(",
+        "    name = 'feature_flag_users',",
+        "    packages = ['//flag'])");
+    scratch.file("flag/BUILD");
+    scratch.file(
+        "java/com/google/android/foo/BUILD",
+        "android_binary(",
+        "  name = 'foo',",
+        "  manifest = 'AndroidManifest.xml',",
+        "  srcs = [':FooFlags.java'],",
+        ")");
+    useConfiguration(
+        "--experimental_dynamic_configs=notrim",
+        "--feature_control_policy=config_feature_flag=//policy:feature_flag_users");
+    assertThat(getConfiguredTarget("//java/com/google/android/foo:foo")).isNotNull();
+    assertNoEvents();
+  }
 }

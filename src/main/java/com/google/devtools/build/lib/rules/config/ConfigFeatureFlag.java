@@ -43,6 +43,9 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
+    ConfigFeatureFlagFeatureVisibility.checkAvailable(
+        ruleContext, "the " + ruleContext.getRuleClassNameForLogging() + " rule");
+
     List<String> specifiedValues = ruleContext.attributes().get("allowed_values", STRING_LIST);
     ImmutableSet<String> values = ImmutableSet.copyOf(specifiedValues);
     Predicate<String> isValidValue = Predicates.in(values);
