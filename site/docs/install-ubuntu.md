@@ -63,23 +63,21 @@ sudo apt-get install pkg-config zip g++ zlib1g-dev unzip
 
 Go to Bazel's [GitHub releases page](https://github.com/bazelbuild/bazel/releases).
 
-Download the binary installer `bazel-0.5.1-installer-linux-x86_64.sh`. This
+Download the binary installer `bazel-0.5.2-installer-linux-x86_64.sh`. This
 installer contains the Bazel binary and the required JDK, and can be used even
 if JDK is already installed.
 
-Note that two other versions of the installer exist:
-*   `bazel-0.5.1-without-jdk-installer-linux-x86_64.sh`: version without
-    embedded JDK 8. Only use this installer if you already have JDK 8 installed.
-*   `bazel-0.5.1-jdk7-installer-linux-x86_64.sh`: last release compatible
-    with JDK 7.
+Note that `bazel-0.5.2-without-jdk-installer-linux-x86_64.sh` also exist. It is
+a version without embedded JDK 8. Only use this installer if you already have
+JDK 8 installed.
 
 ### 3. Run the installer
 
 Run the installer:
 
 ```bash
-chmod +x bazel-0.5.1-installer-linux-x86_64.sh
-./bazel-0.5.1-installer-linux-x86_64.sh --user
+chmod +x bazel-0.5.2-installer-linux-x86_64.sh
+./bazel-0.5.2-installer-linux-x86_64.sh --user
 ```
 
 The `--user` flag installs Bazel to the `$HOME/bin` directory on your system and
