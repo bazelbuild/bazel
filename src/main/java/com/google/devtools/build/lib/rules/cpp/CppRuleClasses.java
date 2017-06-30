@@ -330,6 +330,12 @@ public class CppRuleClasses {
    */
   public static final String COVERAGE = "coverage";
 
+  /** Produce artifacts for coverage in llvm coverage mapping format. */
+  public static final String LLVM_COVERAGE_MAP_FORMAT = "llvm_coverage_map_format";
+
+  /** Produce artifacts for coverage in gcc coverage mapping format. */
+  public static final String GCC_COVERAGE_MAP_FORMAT = "gcc_coverage_map_format";
+
   /** A string constant for the match-clif feature. */
   public static final String MATCH_CLIF = "match_clif";
 }

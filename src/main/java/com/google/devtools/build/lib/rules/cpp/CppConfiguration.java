@@ -2141,6 +2141,11 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     }
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
       requestedFeatures.add(CppRuleClasses.COVERAGE);
+      if (useLLVMCoverageMap) {
+        requestedFeatures.add(CppRuleClasses.LLVM_COVERAGE_MAP_FORMAT);
+      } else {
+        requestedFeatures.add(CppRuleClasses.GCC_COVERAGE_MAP_FORMAT);
+      }
     }
     return requestedFeatures.build();
   }

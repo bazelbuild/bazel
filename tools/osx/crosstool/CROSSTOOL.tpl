@@ -163,6 +163,9 @@ toolchain {
     name: "fastbuild"
   }
   feature {
+    name: "no_legacy_features"
+  }
+  feature {
     name: "opt"
   }
   feature {
@@ -591,6 +594,94 @@ toolchain {
     }
   }
   feature {
+    name: "include_paths"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "clif-match"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-iquote"
+        flag: "%{quote_include_paths}"
+        iterate_over: "quote_include_paths"
+      }
+      flag_group {
+        flag: "-I%{include_paths}"
+        iterate_over: "include_paths"
+      }
+      flag_group {
+        flag: "-isystem"
+        flag: "%{system_include_paths}"
+        iterate_over: "system_include_paths"
+      }
+    }
+  }
+  feature {
+    name: "dependency_file"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "c++-header-preprocessing"
+      action: "c++-header-parsing"
+      flag_group {
+        flag: "-MD"
+        flag: "-MF"
+        flag: "%{dependency_file}"
+      }
+      expand_if_all_available: "dependency_file"
+    }
+  }
+  feature {
+    name: "random_seed"
+    flag_set {
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      flag_group {
+        flag: "-frandom-seed=%{output_file}"
+      }
+    }
+  }
+  feature {
+    name: "pic"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      action: "preprocess-assemble"
+      flag_group {
+        flag: "-fPIC"
+      }
+      expand_if_all_available: "pic"
+    }
+  }
+  feature {
+    name: "per_object_debug_info"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "lto-backend"
+      flag_group {
+        flag: "-gsplit-dwarf"
+      }
+      expand_if_all_available: "per_object_debug_info_file"
+    }
+  }
+  feature {
     name: "preprocessor_defines"
     flag_set {
       action: "preprocess-assemble"
@@ -619,19 +710,112 @@ toolchain {
     }
   }
   feature {
+    name: "fdo_instrument"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      flag_group {
+        flag: "-fprofile-generate=%{fdo_instrument_path}"
+        flag: "-fno-data-sections"
+      }
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "fdo_optimize"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fprofile-use=%{fdo_profile_path}"
+        flag: "-Xclang-only=-Wno-profile-instr-unprofiled"
+        flag: "-Xclang-only=-Wno-profile-instr-out-of-date"
+        flag: "-fprofile-correction"
+      }
+      expand_if_all_available: "fdo_profile_path"
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "autofdo"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fauto-profile=%{fdo_profile_path}"
+        flag: "-fprofile-correction"
+      }
+      expand_if_all_available: "fdo_profile_path"
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "lipo"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fripa"
+      }
+    }
+    requires {
+      feature: "autofdo"
+    }
+    requires {
+      feature: "fdo_optimize"
+    }
+    requires {
+      feature: "fdo_instrument"
+    }
+  }
+  feature {
     name: "coverage"
+  }
+  feature {
+    name: "llvm_coverage_map_format"
     flag_set {
       action: "preprocess-assemble"
       action: "c-compile"
       action: "c++-compile"
-      action: "c++-header-parsing"
-      action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
         flag: "-fprofile-instr-generate"
         flag: "-fcoverage-mapping"
+        flag: "-g"
+      }
+    }
+    flag_set {
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-fprofile-instr-generate"
+      }
+    }
+    requires {
+      feature: "coverage"
+    }
+  }
+  feature {
+    name: "gcc_coverage_map_format"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-fprofile-arcs"
+        flag: "-ftest-coverage"
+        flag: "-g"
       }
     }
     flag_set {
@@ -639,10 +823,12 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-executable"
       flag_group {
-        flag: "-fprofile-instr-generate"
+        flag: "-lgcov"
       }
     }
-    provides: "profile"
+    requires {
+      feature: "coverage"
+    }
   }
   feature {
     name: "apply_default_compiler_flags"
@@ -832,41 +1018,6 @@ toolchain {
     }
     requires {
       feature: "opt"
-    }
-  }
-  feature {
-    name: "run_coverage"
-  }
-  feature {
-    name: "llvm_coverage_map_format"
-    flag_set {
-      action: "c-compile"
-      action: "c++-compile"
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fprofile-instr-generate"
-        flag: "-fcoverage-mapping"
-      }
-    }
-    requires {
-      feature: "run_coverage"
-    }
-  }
-  feature {
-    name: "gcc_coverage_map_format"
-    flag_set {
-      action: "c-compile"
-      action: "c++-compile"
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fprofile-arcs"
-        flag: "-ftest-coverage"
-      }
-    }
-    requires {
-      feature: "run_coverage"
     }
   }
   feature {
@@ -1418,6 +1569,9 @@ toolchain {
     name: "fastbuild"
   }
   feature {
+    name: "no_legacy_features"
+  }
+  feature {
     name: "opt"
   }
   feature {
@@ -1846,6 +2000,94 @@ toolchain {
     }
   }
   feature {
+    name: "include_paths"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "clif-match"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-iquote"
+        flag: "%{quote_include_paths}"
+        iterate_over: "quote_include_paths"
+      }
+      flag_group {
+        flag: "-I%{include_paths}"
+        iterate_over: "include_paths"
+      }
+      flag_group {
+        flag: "-isystem"
+        flag: "%{system_include_paths}"
+        iterate_over: "system_include_paths"
+      }
+    }
+  }
+  feature {
+    name: "dependency_file"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "c++-header-preprocessing"
+      action: "c++-header-parsing"
+      flag_group {
+        flag: "-MD"
+        flag: "-MF"
+        flag: "%{dependency_file}"
+      }
+      expand_if_all_available: "dependency_file"
+    }
+  }
+  feature {
+    name: "random_seed"
+    flag_set {
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      flag_group {
+        flag: "-frandom-seed=%{output_file}"
+      }
+    }
+  }
+  feature {
+    name: "pic"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      action: "preprocess-assemble"
+      flag_group {
+        flag: "-fPIC"
+      }
+      expand_if_all_available: "pic"
+    }
+  }
+  feature {
+    name: "per_object_debug_info"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "lto-backend"
+      flag_group {
+        flag: "-gsplit-dwarf"
+      }
+      expand_if_all_available: "per_object_debug_info_file"
+    }
+  }
+  feature {
     name: "preprocessor_defines"
     flag_set {
       action: "preprocess-assemble"
@@ -1874,19 +2116,112 @@ toolchain {
     }
   }
   feature {
+    name: "fdo_instrument"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      flag_group {
+        flag: "-fprofile-generate=%{fdo_instrument_path}"
+        flag: "-fno-data-sections"
+      }
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "fdo_optimize"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fprofile-use=%{fdo_profile_path}"
+        flag: "-Xclang-only=-Wno-profile-instr-unprofiled"
+        flag: "-Xclang-only=-Wno-profile-instr-out-of-date"
+        flag: "-fprofile-correction"
+      }
+      expand_if_all_available: "fdo_profile_path"
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "autofdo"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fauto-profile=%{fdo_profile_path}"
+        flag: "-fprofile-correction"
+      }
+      expand_if_all_available: "fdo_profile_path"
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "lipo"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fripa"
+      }
+    }
+    requires {
+      feature: "autofdo"
+    }
+    requires {
+      feature: "fdo_optimize"
+    }
+    requires {
+      feature: "fdo_instrument"
+    }
+  }
+  feature {
     name: "coverage"
+  }
+  feature {
+    name: "llvm_coverage_map_format"
     flag_set {
       action: "preprocess-assemble"
       action: "c-compile"
       action: "c++-compile"
-      action: "c++-header-parsing"
-      action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
         flag: "-fprofile-instr-generate"
         flag: "-fcoverage-mapping"
+        flag: "-g"
+      }
+    }
+    flag_set {
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-fprofile-instr-generate"
+      }
+    }
+    requires {
+      feature: "coverage"
+    }
+  }
+  feature {
+    name: "gcc_coverage_map_format"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-fprofile-arcs"
+        flag: "-ftest-coverage"
+        flag: "-g"
       }
     }
     flag_set {
@@ -1894,10 +2229,12 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-executable"
       flag_group {
-        flag: "-fprofile-instr-generate"
+        flag: "-lgcov"
       }
     }
-    provides: "profile"
+    requires {
+      feature: "coverage"
+    }
   }
   feature {
     name: "apply_default_compiler_flags"
@@ -2088,41 +2425,6 @@ toolchain {
     }
     requires {
       feature: "opt"
-    }
-  }
-  feature {
-    name: "run_coverage"
-  }
-  feature {
-    name: "llvm_coverage_map_format"
-    flag_set {
-      action: "c-compile"
-      action: "c++-compile"
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fprofile-instr-generate"
-        flag: "-fcoverage-mapping"
-      }
-    }
-    requires {
-      feature: "run_coverage"
-    }
-  }
-  feature {
-    name: "gcc_coverage_map_format"
-    flag_set {
-      action: "c-compile"
-      action: "c++-compile"
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fprofile-arcs"
-        flag: "-ftest-coverage"
-      }
-    }
-    requires {
-      feature: "run_coverage"
     }
   }
   feature {
@@ -2680,6 +2982,9 @@ toolchain {
     name: "fastbuild"
   }
   feature {
+    name: "no_legacy_features"
+  }
+  feature {
     name: "opt"
   }
   feature {
@@ -3108,6 +3413,94 @@ toolchain {
     }
   }
   feature {
+    name: "include_paths"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "clif-match"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-iquote"
+        flag: "%{quote_include_paths}"
+        iterate_over: "quote_include_paths"
+      }
+      flag_group {
+        flag: "-I%{include_paths}"
+        iterate_over: "include_paths"
+      }
+      flag_group {
+        flag: "-isystem"
+        flag: "%{system_include_paths}"
+        iterate_over: "system_include_paths"
+      }
+    }
+  }
+  feature {
+    name: "dependency_file"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "c++-header-preprocessing"
+      action: "c++-header-parsing"
+      flag_group {
+        flag: "-MD"
+        flag: "-MF"
+        flag: "%{dependency_file}"
+      }
+      expand_if_all_available: "dependency_file"
+    }
+  }
+  feature {
+    name: "random_seed"
+    flag_set {
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      flag_group {
+        flag: "-frandom-seed=%{output_file}"
+      }
+    }
+  }
+  feature {
+    name: "pic"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      action: "preprocess-assemble"
+      flag_group {
+        flag: "-fPIC"
+      }
+      expand_if_all_available: "pic"
+    }
+  }
+  feature {
+    name: "per_object_debug_info"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "lto-backend"
+      flag_group {
+        flag: "-gsplit-dwarf"
+      }
+      expand_if_all_available: "per_object_debug_info_file"
+    }
+  }
+  feature {
     name: "preprocessor_defines"
     flag_set {
       action: "preprocess-assemble"
@@ -3136,19 +3529,112 @@ toolchain {
     }
   }
   feature {
+    name: "fdo_instrument"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      flag_group {
+        flag: "-fprofile-generate=%{fdo_instrument_path}"
+        flag: "-fno-data-sections"
+      }
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "fdo_optimize"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fprofile-use=%{fdo_profile_path}"
+        flag: "-Xclang-only=-Wno-profile-instr-unprofiled"
+        flag: "-Xclang-only=-Wno-profile-instr-out-of-date"
+        flag: "-fprofile-correction"
+      }
+      expand_if_all_available: "fdo_profile_path"
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "autofdo"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fauto-profile=%{fdo_profile_path}"
+        flag: "-fprofile-correction"
+      }
+      expand_if_all_available: "fdo_profile_path"
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "lipo"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fripa"
+      }
+    }
+    requires {
+      feature: "autofdo"
+    }
+    requires {
+      feature: "fdo_optimize"
+    }
+    requires {
+      feature: "fdo_instrument"
+    }
+  }
+  feature {
     name: "coverage"
+  }
+  feature {
+    name: "llvm_coverage_map_format"
     flag_set {
       action: "preprocess-assemble"
       action: "c-compile"
       action: "c++-compile"
-      action: "c++-header-parsing"
-      action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
         flag: "-fprofile-instr-generate"
         flag: "-fcoverage-mapping"
+        flag: "-g"
+      }
+    }
+    flag_set {
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-fprofile-instr-generate"
+      }
+    }
+    requires {
+      feature: "coverage"
+    }
+  }
+  feature {
+    name: "gcc_coverage_map_format"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-fprofile-arcs"
+        flag: "-ftest-coverage"
+        flag: "-g"
       }
     }
     flag_set {
@@ -3156,10 +3642,12 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-executable"
       flag_group {
-        flag: "-fprofile-instr-generate"
+        flag: "-lgcov"
       }
     }
-    provides: "profile"
+    requires {
+      feature: "coverage"
+    }
   }
   feature {
     name: "apply_default_compiler_flags"
@@ -3352,41 +3840,6 @@ toolchain {
     }
     requires {
       feature: "opt"
-    }
-  }
-  feature {
-    name: "run_coverage"
-  }
-  feature {
-    name: "llvm_coverage_map_format"
-    flag_set {
-      action: "c-compile"
-      action: "c++-compile"
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fprofile-instr-generate"
-        flag: "-fcoverage-mapping"
-      }
-    }
-    requires {
-      feature: "run_coverage"
-    }
-  }
-  feature {
-    name: "gcc_coverage_map_format"
-    flag_set {
-      action: "c-compile"
-      action: "c++-compile"
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fprofile-arcs"
-        flag: "-ftest-coverage"
-      }
-    }
-    requires {
-      feature: "run_coverage"
     }
   }
   feature {
@@ -3945,6 +4398,9 @@ toolchain {
     name: "fastbuild"
   }
   feature {
+    name: "no_legacy_features"
+  }
+  feature {
     name: "opt"
   }
   feature {
@@ -4373,6 +4829,94 @@ toolchain {
     }
   }
   feature {
+    name: "include_paths"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "clif-match"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-iquote"
+        flag: "%{quote_include_paths}"
+        iterate_over: "quote_include_paths"
+      }
+      flag_group {
+        flag: "-I%{include_paths}"
+        iterate_over: "include_paths"
+      }
+      flag_group {
+        flag: "-isystem"
+        flag: "%{system_include_paths}"
+        iterate_over: "system_include_paths"
+      }
+    }
+  }
+  feature {
+    name: "dependency_file"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "c++-header-preprocessing"
+      action: "c++-header-parsing"
+      flag_group {
+        flag: "-MD"
+        flag: "-MF"
+        flag: "%{dependency_file}"
+      }
+      expand_if_all_available: "dependency_file"
+    }
+  }
+  feature {
+    name: "random_seed"
+    flag_set {
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      flag_group {
+        flag: "-frandom-seed=%{output_file}"
+      }
+    }
+  }
+  feature {
+    name: "pic"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      action: "preprocess-assemble"
+      flag_group {
+        flag: "-fPIC"
+      }
+      expand_if_all_available: "pic"
+    }
+  }
+  feature {
+    name: "per_object_debug_info"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "lto-backend"
+      flag_group {
+        flag: "-gsplit-dwarf"
+      }
+      expand_if_all_available: "per_object_debug_info_file"
+    }
+  }
+  feature {
     name: "preprocessor_defines"
     flag_set {
       action: "preprocess-assemble"
@@ -4401,19 +4945,112 @@ toolchain {
     }
   }
   feature {
+    name: "fdo_instrument"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      flag_group {
+        flag: "-fprofile-generate=%{fdo_instrument_path}"
+        flag: "-fno-data-sections"
+      }
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "fdo_optimize"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fprofile-use=%{fdo_profile_path}"
+        flag: "-Xclang-only=-Wno-profile-instr-unprofiled"
+        flag: "-Xclang-only=-Wno-profile-instr-out-of-date"
+        flag: "-fprofile-correction"
+      }
+      expand_if_all_available: "fdo_profile_path"
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "autofdo"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fauto-profile=%{fdo_profile_path}"
+        flag: "-fprofile-correction"
+      }
+      expand_if_all_available: "fdo_profile_path"
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "lipo"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fripa"
+      }
+    }
+    requires {
+      feature: "autofdo"
+    }
+    requires {
+      feature: "fdo_optimize"
+    }
+    requires {
+      feature: "fdo_instrument"
+    }
+  }
+  feature {
     name: "coverage"
+  }
+  feature {
+    name: "llvm_coverage_map_format"
     flag_set {
       action: "preprocess-assemble"
       action: "c-compile"
       action: "c++-compile"
-      action: "c++-header-parsing"
-      action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
         flag: "-fprofile-instr-generate"
         flag: "-fcoverage-mapping"
+        flag: "-g"
+      }
+    }
+    flag_set {
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-fprofile-instr-generate"
+      }
+    }
+    requires {
+      feature: "coverage"
+    }
+  }
+  feature {
+    name: "gcc_coverage_map_format"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-fprofile-arcs"
+        flag: "-ftest-coverage"
+        flag: "-g"
       }
     }
     flag_set {
@@ -4421,10 +5058,12 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-executable"
       flag_group {
-        flag: "-fprofile-instr-generate"
+        flag: "-lgcov"
       }
     }
-    provides: "profile"
+    requires {
+      feature: "coverage"
+    }
   }
   feature {
     name: "apply_default_compiler_flags"
@@ -4615,41 +5254,6 @@ toolchain {
     }
     requires {
       feature: "opt"
-    }
-  }
-  feature {
-    name: "run_coverage"
-  }
-  feature {
-    name: "llvm_coverage_map_format"
-    flag_set {
-      action: "c-compile"
-      action: "c++-compile"
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fprofile-instr-generate"
-        flag: "-fcoverage-mapping"
-      }
-    }
-    requires {
-      feature: "run_coverage"
-    }
-  }
-  feature {
-    name: "gcc_coverage_map_format"
-    flag_set {
-      action: "c-compile"
-      action: "c++-compile"
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fprofile-arcs"
-        flag: "-ftest-coverage"
-      }
-    }
-    requires {
-      feature: "run_coverage"
     }
   }
   feature {
@@ -5245,6 +5849,9 @@ toolchain {
     name: "fastbuild"
   }
   feature {
+    name: "no_legacy_features"
+  }
+  feature {
     name: "opt"
   }
   feature {
@@ -5673,6 +6280,94 @@ toolchain {
     }
   }
   feature {
+    name: "include_paths"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "clif-match"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-iquote"
+        flag: "%{quote_include_paths}"
+        iterate_over: "quote_include_paths"
+      }
+      flag_group {
+        flag: "-I%{include_paths}"
+        iterate_over: "include_paths"
+      }
+      flag_group {
+        flag: "-isystem"
+        flag: "%{system_include_paths}"
+        iterate_over: "system_include_paths"
+      }
+    }
+  }
+  feature {
+    name: "dependency_file"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "c++-header-preprocessing"
+      action: "c++-header-parsing"
+      flag_group {
+        flag: "-MD"
+        flag: "-MF"
+        flag: "%{dependency_file}"
+      }
+      expand_if_all_available: "dependency_file"
+    }
+  }
+  feature {
+    name: "random_seed"
+    flag_set {
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      flag_group {
+        flag: "-frandom-seed=%{output_file}"
+      }
+    }
+  }
+  feature {
+    name: "pic"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      action: "preprocess-assemble"
+      flag_group {
+        flag: "-fPIC"
+      }
+      expand_if_all_available: "pic"
+    }
+  }
+  feature {
+    name: "per_object_debug_info"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "lto-backend"
+      flag_group {
+        flag: "-gsplit-dwarf"
+      }
+      expand_if_all_available: "per_object_debug_info_file"
+    }
+  }
+  feature {
     name: "preprocessor_defines"
     flag_set {
       action: "preprocess-assemble"
@@ -5701,19 +6396,112 @@ toolchain {
     }
   }
   feature {
+    name: "fdo_instrument"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      flag_group {
+        flag: "-fprofile-generate=%{fdo_instrument_path}"
+        flag: "-fno-data-sections"
+      }
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "fdo_optimize"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fprofile-use=%{fdo_profile_path}"
+        flag: "-Xclang-only=-Wno-profile-instr-unprofiled"
+        flag: "-Xclang-only=-Wno-profile-instr-out-of-date"
+        flag: "-fprofile-correction"
+      }
+      expand_if_all_available: "fdo_profile_path"
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "autofdo"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fauto-profile=%{fdo_profile_path}"
+        flag: "-fprofile-correction"
+      }
+      expand_if_all_available: "fdo_profile_path"
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "lipo"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fripa"
+      }
+    }
+    requires {
+      feature: "autofdo"
+    }
+    requires {
+      feature: "fdo_optimize"
+    }
+    requires {
+      feature: "fdo_instrument"
+    }
+  }
+  feature {
     name: "coverage"
+  }
+  feature {
+    name: "llvm_coverage_map_format"
     flag_set {
       action: "preprocess-assemble"
       action: "c-compile"
       action: "c++-compile"
-      action: "c++-header-parsing"
-      action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
         flag: "-fprofile-instr-generate"
         flag: "-fcoverage-mapping"
+        flag: "-g"
+      }
+    }
+    flag_set {
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-fprofile-instr-generate"
+      }
+    }
+    requires {
+      feature: "coverage"
+    }
+  }
+  feature {
+    name: "gcc_coverage_map_format"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-fprofile-arcs"
+        flag: "-ftest-coverage"
+        flag: "-g"
       }
     }
     flag_set {
@@ -5721,10 +6509,12 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-executable"
       flag_group {
-        flag: "-fprofile-instr-generate"
+        flag: "-lgcov"
       }
     }
-    provides: "profile"
+    requires {
+      feature: "coverage"
+    }
   }
   feature {
     name: "apply_default_compiler_flags"
@@ -5915,41 +6705,6 @@ toolchain {
     }
     requires {
       feature: "opt"
-    }
-  }
-  feature {
-    name: "run_coverage"
-  }
-  feature {
-    name: "llvm_coverage_map_format"
-    flag_set {
-      action: "c-compile"
-      action: "c++-compile"
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fprofile-instr-generate"
-        flag: "-fcoverage-mapping"
-      }
-    }
-    requires {
-      feature: "run_coverage"
-    }
-  }
-  feature {
-    name: "gcc_coverage_map_format"
-    flag_set {
-      action: "c-compile"
-      action: "c++-compile"
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fprofile-arcs"
-        flag: "-ftest-coverage"
-      }
-    }
-    requires {
-      feature: "run_coverage"
     }
   }
   feature {
@@ -6507,6 +7262,9 @@ toolchain {
     name: "fastbuild"
   }
   feature {
+    name: "no_legacy_features"
+  }
+  feature {
     name: "opt"
   }
   feature {
@@ -6935,6 +7693,94 @@ toolchain {
     }
   }
   feature {
+    name: "include_paths"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "clif-match"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-iquote"
+        flag: "%{quote_include_paths}"
+        iterate_over: "quote_include_paths"
+      }
+      flag_group {
+        flag: "-I%{include_paths}"
+        iterate_over: "include_paths"
+      }
+      flag_group {
+        flag: "-isystem"
+        flag: "%{system_include_paths}"
+        iterate_over: "system_include_paths"
+      }
+    }
+  }
+  feature {
+    name: "dependency_file"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "c++-header-preprocessing"
+      action: "c++-header-parsing"
+      flag_group {
+        flag: "-MD"
+        flag: "-MF"
+        flag: "%{dependency_file}"
+      }
+      expand_if_all_available: "dependency_file"
+    }
+  }
+  feature {
+    name: "random_seed"
+    flag_set {
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      flag_group {
+        flag: "-frandom-seed=%{output_file}"
+      }
+    }
+  }
+  feature {
+    name: "pic"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      action: "preprocess-assemble"
+      flag_group {
+        flag: "-fPIC"
+      }
+      expand_if_all_available: "pic"
+    }
+  }
+  feature {
+    name: "per_object_debug_info"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "lto-backend"
+      flag_group {
+        flag: "-gsplit-dwarf"
+      }
+      expand_if_all_available: "per_object_debug_info_file"
+    }
+  }
+  feature {
     name: "preprocessor_defines"
     flag_set {
       action: "preprocess-assemble"
@@ -6963,19 +7809,112 @@ toolchain {
     }
   }
   feature {
+    name: "fdo_instrument"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      flag_group {
+        flag: "-fprofile-generate=%{fdo_instrument_path}"
+        flag: "-fno-data-sections"
+      }
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "fdo_optimize"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fprofile-use=%{fdo_profile_path}"
+        flag: "-Xclang-only=-Wno-profile-instr-unprofiled"
+        flag: "-Xclang-only=-Wno-profile-instr-out-of-date"
+        flag: "-fprofile-correction"
+      }
+      expand_if_all_available: "fdo_profile_path"
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "autofdo"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fauto-profile=%{fdo_profile_path}"
+        flag: "-fprofile-correction"
+      }
+      expand_if_all_available: "fdo_profile_path"
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "lipo"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fripa"
+      }
+    }
+    requires {
+      feature: "autofdo"
+    }
+    requires {
+      feature: "fdo_optimize"
+    }
+    requires {
+      feature: "fdo_instrument"
+    }
+  }
+  feature {
     name: "coverage"
+  }
+  feature {
+    name: "llvm_coverage_map_format"
     flag_set {
       action: "preprocess-assemble"
       action: "c-compile"
       action: "c++-compile"
-      action: "c++-header-parsing"
-      action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
         flag: "-fprofile-instr-generate"
         flag: "-fcoverage-mapping"
+        flag: "-g"
+      }
+    }
+    flag_set {
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-fprofile-instr-generate"
+      }
+    }
+    requires {
+      feature: "coverage"
+    }
+  }
+  feature {
+    name: "gcc_coverage_map_format"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-fprofile-arcs"
+        flag: "-ftest-coverage"
+        flag: "-g"
       }
     }
     flag_set {
@@ -6983,10 +7922,12 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-executable"
       flag_group {
-        flag: "-fprofile-instr-generate"
+        flag: "-lgcov"
       }
     }
-    provides: "profile"
+    requires {
+      feature: "coverage"
+    }
   }
   feature {
     name: "apply_default_compiler_flags"
@@ -7177,41 +8118,6 @@ toolchain {
     }
     requires {
       feature: "opt"
-    }
-  }
-  feature {
-    name: "run_coverage"
-  }
-  feature {
-    name: "llvm_coverage_map_format"
-    flag_set {
-      action: "c-compile"
-      action: "c++-compile"
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fprofile-instr-generate"
-        flag: "-fcoverage-mapping"
-      }
-    }
-    requires {
-      feature: "run_coverage"
-    }
-  }
-  feature {
-    name: "gcc_coverage_map_format"
-    flag_set {
-      action: "c-compile"
-      action: "c++-compile"
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fprofile-arcs"
-        flag: "-ftest-coverage"
-      }
-    }
-    requires {
-      feature: "run_coverage"
     }
   }
   feature {
@@ -7754,6 +8660,9 @@ toolchain {
     name: "fastbuild"
   }
   feature {
+    name: "no_legacy_features"
+  }
+  feature {
     name: "opt"
   }
   feature {
@@ -8182,6 +9091,94 @@ toolchain {
     }
   }
   feature {
+    name: "include_paths"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "clif-match"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-iquote"
+        flag: "%{quote_include_paths}"
+        iterate_over: "quote_include_paths"
+      }
+      flag_group {
+        flag: "-I%{include_paths}"
+        iterate_over: "include_paths"
+      }
+      flag_group {
+        flag: "-isystem"
+        flag: "%{system_include_paths}"
+        iterate_over: "system_include_paths"
+      }
+    }
+  }
+  feature {
+    name: "dependency_file"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "c++-header-preprocessing"
+      action: "c++-header-parsing"
+      flag_group {
+        flag: "-MD"
+        flag: "-MF"
+        flag: "%{dependency_file}"
+      }
+      expand_if_all_available: "dependency_file"
+    }
+  }
+  feature {
+    name: "random_seed"
+    flag_set {
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      flag_group {
+        flag: "-frandom-seed=%{output_file}"
+      }
+    }
+  }
+  feature {
+    name: "pic"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      action: "preprocess-assemble"
+      flag_group {
+        flag: "-fPIC"
+      }
+      expand_if_all_available: "pic"
+    }
+  }
+  feature {
+    name: "per_object_debug_info"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "lto-backend"
+      flag_group {
+        flag: "-gsplit-dwarf"
+      }
+      expand_if_all_available: "per_object_debug_info_file"
+    }
+  }
+  feature {
     name: "preprocessor_defines"
     flag_set {
       action: "preprocess-assemble"
@@ -8210,19 +9207,112 @@ toolchain {
     }
   }
   feature {
+    name: "fdo_instrument"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      flag_group {
+        flag: "-fprofile-generate=%{fdo_instrument_path}"
+        flag: "-fno-data-sections"
+      }
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "fdo_optimize"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fprofile-use=%{fdo_profile_path}"
+        flag: "-Xclang-only=-Wno-profile-instr-unprofiled"
+        flag: "-Xclang-only=-Wno-profile-instr-out-of-date"
+        flag: "-fprofile-correction"
+      }
+      expand_if_all_available: "fdo_profile_path"
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "autofdo"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fauto-profile=%{fdo_profile_path}"
+        flag: "-fprofile-correction"
+      }
+      expand_if_all_available: "fdo_profile_path"
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "lipo"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fripa"
+      }
+    }
+    requires {
+      feature: "autofdo"
+    }
+    requires {
+      feature: "fdo_optimize"
+    }
+    requires {
+      feature: "fdo_instrument"
+    }
+  }
+  feature {
     name: "coverage"
+  }
+  feature {
+    name: "llvm_coverage_map_format"
     flag_set {
       action: "preprocess-assemble"
       action: "c-compile"
       action: "c++-compile"
-      action: "c++-header-parsing"
-      action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
         flag: "-fprofile-instr-generate"
         flag: "-fcoverage-mapping"
+        flag: "-g"
+      }
+    }
+    flag_set {
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-fprofile-instr-generate"
+      }
+    }
+    requires {
+      feature: "coverage"
+    }
+  }
+  feature {
+    name: "gcc_coverage_map_format"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-fprofile-arcs"
+        flag: "-ftest-coverage"
+        flag: "-g"
       }
     }
     flag_set {
@@ -8230,10 +9320,12 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-executable"
       flag_group {
-        flag: "-fprofile-instr-generate"
+        flag: "-lgcov"
       }
     }
-    provides: "profile"
+    requires {
+      feature: "coverage"
+    }
   }
   feature {
     name: "apply_default_compiler_flags"
@@ -8426,41 +9518,6 @@ toolchain {
     }
     requires {
       feature: "opt"
-    }
-  }
-  feature {
-    name: "run_coverage"
-  }
-  feature {
-    name: "llvm_coverage_map_format"
-    flag_set {
-      action: "c-compile"
-      action: "c++-compile"
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fprofile-instr-generate"
-        flag: "-fcoverage-mapping"
-      }
-    }
-    requires {
-      feature: "run_coverage"
-    }
-  }
-  feature {
-    name: "gcc_coverage_map_format"
-    flag_set {
-      action: "c-compile"
-      action: "c++-compile"
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fprofile-arcs"
-        flag: "-ftest-coverage"
-      }
-    }
-    requires {
-      feature: "run_coverage"
     }
   }
   feature {
@@ -9004,6 +10061,9 @@ toolchain {
     name: "fastbuild"
   }
   feature {
+    name: "no_legacy_features"
+  }
+  feature {
     name: "opt"
   }
   feature {
@@ -9432,6 +10492,94 @@ toolchain {
     }
   }
   feature {
+    name: "include_paths"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "clif-match"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-iquote"
+        flag: "%{quote_include_paths}"
+        iterate_over: "quote_include_paths"
+      }
+      flag_group {
+        flag: "-I%{include_paths}"
+        iterate_over: "include_paths"
+      }
+      flag_group {
+        flag: "-isystem"
+        flag: "%{system_include_paths}"
+        iterate_over: "system_include_paths"
+      }
+    }
+  }
+  feature {
+    name: "dependency_file"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "c++-header-preprocessing"
+      action: "c++-header-parsing"
+      flag_group {
+        flag: "-MD"
+        flag: "-MF"
+        flag: "%{dependency_file}"
+      }
+      expand_if_all_available: "dependency_file"
+    }
+  }
+  feature {
+    name: "random_seed"
+    flag_set {
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      flag_group {
+        flag: "-frandom-seed=%{output_file}"
+      }
+    }
+  }
+  feature {
+    name: "pic"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      action: "preprocess-assemble"
+      flag_group {
+        flag: "-fPIC"
+      }
+      expand_if_all_available: "pic"
+    }
+  }
+  feature {
+    name: "per_object_debug_info"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "lto-backend"
+      flag_group {
+        flag: "-gsplit-dwarf"
+      }
+      expand_if_all_available: "per_object_debug_info_file"
+    }
+  }
+  feature {
     name: "preprocessor_defines"
     flag_set {
       action: "preprocess-assemble"
@@ -9460,19 +10608,112 @@ toolchain {
     }
   }
   feature {
+    name: "fdo_instrument"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      flag_group {
+        flag: "-fprofile-generate=%{fdo_instrument_path}"
+        flag: "-fno-data-sections"
+      }
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "fdo_optimize"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fprofile-use=%{fdo_profile_path}"
+        flag: "-Xclang-only=-Wno-profile-instr-unprofiled"
+        flag: "-Xclang-only=-Wno-profile-instr-out-of-date"
+        flag: "-fprofile-correction"
+      }
+      expand_if_all_available: "fdo_profile_path"
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "autofdo"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fauto-profile=%{fdo_profile_path}"
+        flag: "-fprofile-correction"
+      }
+      expand_if_all_available: "fdo_profile_path"
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "lipo"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fripa"
+      }
+    }
+    requires {
+      feature: "autofdo"
+    }
+    requires {
+      feature: "fdo_optimize"
+    }
+    requires {
+      feature: "fdo_instrument"
+    }
+  }
+  feature {
     name: "coverage"
+  }
+  feature {
+    name: "llvm_coverage_map_format"
     flag_set {
       action: "preprocess-assemble"
       action: "c-compile"
       action: "c++-compile"
-      action: "c++-header-parsing"
-      action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
         flag: "-fprofile-instr-generate"
         flag: "-fcoverage-mapping"
+        flag: "-g"
+      }
+    }
+    flag_set {
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-fprofile-instr-generate"
+      }
+    }
+    requires {
+      feature: "coverage"
+    }
+  }
+  feature {
+    name: "gcc_coverage_map_format"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-fprofile-arcs"
+        flag: "-ftest-coverage"
+        flag: "-g"
       }
     }
     flag_set {
@@ -9480,10 +10721,12 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-executable"
       flag_group {
-        flag: "-fprofile-instr-generate"
+        flag: "-lgcov"
       }
     }
-    provides: "profile"
+    requires {
+      feature: "coverage"
+    }
   }
   feature {
     name: "apply_default_compiler_flags"
@@ -9674,41 +10917,6 @@ toolchain {
     }
     requires {
       feature: "opt"
-    }
-  }
-  feature {
-    name: "run_coverage"
-  }
-  feature {
-    name: "llvm_coverage_map_format"
-    flag_set {
-      action: "c-compile"
-      action: "c++-compile"
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fprofile-instr-generate"
-        flag: "-fcoverage-mapping"
-      }
-    }
-    requires {
-      feature: "run_coverage"
-    }
-  }
-  feature {
-    name: "gcc_coverage_map_format"
-    flag_set {
-      action: "c-compile"
-      action: "c++-compile"
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fprofile-arcs"
-        flag: "-ftest-coverage"
-      }
-    }
-    requires {
-      feature: "run_coverage"
     }
   }
   feature {
@@ -10289,6 +11497,9 @@ toolchain {
     name: "fastbuild"
   }
   feature {
+    name: "no_legacy_features"
+  }
+  feature {
     name: "opt"
   }
   feature {
@@ -10717,6 +11928,94 @@ toolchain {
     }
   }
   feature {
+    name: "include_paths"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "clif-match"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-iquote"
+        flag: "%{quote_include_paths}"
+        iterate_over: "quote_include_paths"
+      }
+      flag_group {
+        flag: "-I%{include_paths}"
+        iterate_over: "include_paths"
+      }
+      flag_group {
+        flag: "-isystem"
+        flag: "%{system_include_paths}"
+        iterate_over: "system_include_paths"
+      }
+    }
+  }
+  feature {
+    name: "dependency_file"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "c++-header-preprocessing"
+      action: "c++-header-parsing"
+      flag_group {
+        flag: "-MD"
+        flag: "-MF"
+        flag: "%{dependency_file}"
+      }
+      expand_if_all_available: "dependency_file"
+    }
+  }
+  feature {
+    name: "random_seed"
+    flag_set {
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      flag_group {
+        flag: "-frandom-seed=%{output_file}"
+      }
+    }
+  }
+  feature {
+    name: "pic"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      action: "preprocess-assemble"
+      flag_group {
+        flag: "-fPIC"
+      }
+      expand_if_all_available: "pic"
+    }
+  }
+  feature {
+    name: "per_object_debug_info"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "lto-backend"
+      flag_group {
+        flag: "-gsplit-dwarf"
+      }
+      expand_if_all_available: "per_object_debug_info_file"
+    }
+  }
+  feature {
     name: "preprocessor_defines"
     flag_set {
       action: "preprocess-assemble"
@@ -10745,19 +12044,112 @@ toolchain {
     }
   }
   feature {
+    name: "fdo_instrument"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      flag_group {
+        flag: "-fprofile-generate=%{fdo_instrument_path}"
+        flag: "-fno-data-sections"
+      }
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "fdo_optimize"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fprofile-use=%{fdo_profile_path}"
+        flag: "-Xclang-only=-Wno-profile-instr-unprofiled"
+        flag: "-Xclang-only=-Wno-profile-instr-out-of-date"
+        flag: "-fprofile-correction"
+      }
+      expand_if_all_available: "fdo_profile_path"
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "autofdo"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fauto-profile=%{fdo_profile_path}"
+        flag: "-fprofile-correction"
+      }
+      expand_if_all_available: "fdo_profile_path"
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "lipo"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fripa"
+      }
+    }
+    requires {
+      feature: "autofdo"
+    }
+    requires {
+      feature: "fdo_optimize"
+    }
+    requires {
+      feature: "fdo_instrument"
+    }
+  }
+  feature {
     name: "coverage"
+  }
+  feature {
+    name: "llvm_coverage_map_format"
     flag_set {
       action: "preprocess-assemble"
       action: "c-compile"
       action: "c++-compile"
-      action: "c++-header-parsing"
-      action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
         flag: "-fprofile-instr-generate"
         flag: "-fcoverage-mapping"
+        flag: "-g"
+      }
+    }
+    flag_set {
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-fprofile-instr-generate"
+      }
+    }
+    requires {
+      feature: "coverage"
+    }
+  }
+  feature {
+    name: "gcc_coverage_map_format"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-fprofile-arcs"
+        flag: "-ftest-coverage"
+        flag: "-g"
       }
     }
     flag_set {
@@ -10765,10 +12157,12 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-executable"
       flag_group {
-        flag: "-fprofile-instr-generate"
+        flag: "-lgcov"
       }
     }
-    provides: "profile"
+    requires {
+      feature: "coverage"
+    }
   }
   feature {
     name: "apply_default_compiler_flags"
@@ -10959,41 +12353,6 @@ toolchain {
     }
     requires {
       feature: "opt"
-    }
-  }
-  feature {
-    name: "run_coverage"
-  }
-  feature {
-    name: "llvm_coverage_map_format"
-    flag_set {
-      action: "c-compile"
-      action: "c++-compile"
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fprofile-instr-generate"
-        flag: "-fcoverage-mapping"
-      }
-    }
-    requires {
-      feature: "run_coverage"
-    }
-  }
-  feature {
-    name: "gcc_coverage_map_format"
-    flag_set {
-      action: "c-compile"
-      action: "c++-compile"
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fprofile-arcs"
-        flag: "-ftest-coverage"
-      }
-    }
-    requires {
-      feature: "run_coverage"
     }
   }
   feature {
@@ -11542,6 +12901,9 @@ toolchain {
     name: "fastbuild"
   }
   feature {
+    name: "no_legacy_features"
+  }
+  feature {
     name: "opt"
   }
   feature {
@@ -11970,6 +13332,94 @@ toolchain {
     }
   }
   feature {
+    name: "include_paths"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "c++-module-compile"
+      action: "clif-match"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-iquote"
+        flag: "%{quote_include_paths}"
+        iterate_over: "quote_include_paths"
+      }
+      flag_group {
+        flag: "-I%{include_paths}"
+        iterate_over: "include_paths"
+      }
+      flag_group {
+        flag: "-isystem"
+        flag: "%{system_include_paths}"
+        iterate_over: "system_include_paths"
+      }
+    }
+  }
+  feature {
+    name: "dependency_file"
+    flag_set {
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      action: "c++-header-preprocessing"
+      action: "c++-header-parsing"
+      flag_group {
+        flag: "-MD"
+        flag: "-MF"
+        flag: "%{dependency_file}"
+      }
+      expand_if_all_available: "dependency_file"
+    }
+  }
+  feature {
+    name: "random_seed"
+    flag_set {
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      flag_group {
+        flag: "-frandom-seed=%{output_file}"
+      }
+    }
+  }
+  feature {
+    name: "pic"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "c++-module-compile"
+      action: "preprocess-assemble"
+      flag_group {
+        flag: "-fPIC"
+      }
+      expand_if_all_available: "pic"
+    }
+  }
+  feature {
+    name: "per_object_debug_info"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-codegen"
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "lto-backend"
+      flag_group {
+        flag: "-gsplit-dwarf"
+      }
+      expand_if_all_available: "per_object_debug_info_file"
+    }
+  }
+  feature {
     name: "preprocessor_defines"
     flag_set {
       action: "preprocess-assemble"
@@ -11998,19 +13448,112 @@ toolchain {
     }
   }
   feature {
+    name: "fdo_instrument"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      flag_group {
+        flag: "-fprofile-generate=%{fdo_instrument_path}"
+        flag: "-fno-data-sections"
+      }
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "fdo_optimize"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fprofile-use=%{fdo_profile_path}"
+        flag: "-Xclang-only=-Wno-profile-instr-unprofiled"
+        flag: "-Xclang-only=-Wno-profile-instr-out-of-date"
+        flag: "-fprofile-correction"
+      }
+      expand_if_all_available: "fdo_profile_path"
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "autofdo"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fauto-profile=%{fdo_profile_path}"
+        flag: "-fprofile-correction"
+      }
+      expand_if_all_available: "fdo_profile_path"
+    }
+    provides: "profile"
+  }
+  feature {
+    name: "lipo"
+    flag_set {
+      action: "c-compile"
+      action: "c++-compile"
+      flag_group {
+        flag: "-fripa"
+      }
+    }
+    requires {
+      feature: "autofdo"
+    }
+    requires {
+      feature: "fdo_optimize"
+    }
+    requires {
+      feature: "fdo_instrument"
+    }
+  }
+  feature {
     name: "coverage"
+  }
+  feature {
+    name: "llvm_coverage_map_format"
     flag_set {
       action: "preprocess-assemble"
       action: "c-compile"
       action: "c++-compile"
-      action: "c++-header-parsing"
-      action: "c++-header-preprocessing"
       action: "c++-module-compile"
       action: "objc-compile"
       action: "objc++-compile"
       flag_group {
         flag: "-fprofile-instr-generate"
         flag: "-fcoverage-mapping"
+        flag: "-g"
+      }
+    }
+    flag_set {
+      action: "c++-link-interface-dynamic-library"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-executable"
+      action: "objc-executable"
+      action: "objc++-executable"
+      flag_group {
+        flag: "-fprofile-instr-generate"
+      }
+    }
+    requires {
+      feature: "coverage"
+    }
+  }
+  feature {
+    name: "gcc_coverage_map_format"
+    flag_set {
+      action: "preprocess-assemble"
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "objc-compile"
+      action: "objc++-compile"
+      flag_group {
+        flag: "-fprofile-arcs"
+        flag: "-ftest-coverage"
+        flag: "-g"
       }
     }
     flag_set {
@@ -12018,10 +13561,12 @@ toolchain {
       action: "c++-link-dynamic-library"
       action: "c++-link-executable"
       flag_group {
-        flag: "-fprofile-instr-generate"
+        flag: "-lgcov"
       }
     }
-    provides: "profile"
+    requires {
+      feature: "coverage"
+    }
   }
   feature {
     name: "apply_default_compiler_flags"
@@ -12212,41 +13757,6 @@ toolchain {
     }
     requires {
       feature: "opt"
-    }
-  }
-  feature {
-    name: "run_coverage"
-  }
-  feature {
-    name: "llvm_coverage_map_format"
-    flag_set {
-      action: "c-compile"
-      action: "c++-compile"
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fprofile-instr-generate"
-        flag: "-fcoverage-mapping"
-      }
-    }
-    requires {
-      feature: "run_coverage"
-    }
-  }
-  feature {
-    name: "gcc_coverage_map_format"
-    flag_set {
-      action: "c-compile"
-      action: "c++-compile"
-      action: "objc-compile"
-      action: "objc++-compile"
-      flag_group {
-        flag: "-fprofile-arcs"
-        flag: "-ftest-coverage"
-      }
-    }
-    requires {
-      feature: "run_coverage"
     }
   }
   feature {
