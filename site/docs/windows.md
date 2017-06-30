@@ -5,16 +5,12 @@ title: Windows
 
 # Using Bazel on Windows
 
-Windows support is experimental. Known issues are [marked with label
+Windows support is in beta. Known issues are [marked with label
 "Windows"](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+is%3Aopen+label%3A%22category%3A+multi-platform+%3E+windows%22)
 on github issues.
 
 We currently support only 64 bit Windows 7 or higher and we compile Bazel as a
 msys2 binary.
-
-## <a name="install"></a>Installation
-
-See instructions on the [installation page](install-windows.md).
 
 ## <a name="requirements"></a>Requirements
 
@@ -63,26 +59,9 @@ To **run** Bazel (even pre-built binaries), you will need:
      pacman -Syuu gcc git curl zip unzip zlib-devel
      ```
 
-To **compile** Bazel, in addition to the above you will need:
+## <a name="install"></a>Installation
 
-*    [Visual C++ Build Tools](http://landinghub.visualstudio.com/visual-cpp-build-tools)
-     or the full [Visual C++](https://www.visualstudio.com/) (as part of Visual
-     Studio; Community Edition is fine) with Windows SDK installed.
-*    You may need to apply some patches/workarounds, see the
-     [known issues](install-compile-source.md#known-issues-when-compiling-from-source).
-
-## <a name="compiling"></a>Compiling Bazel on Windows
-
-Ensure you have the [requirements](#requirements).
-
-To build Bazel:
-
-*    Open the msys2 shell.
-*    Clone the Bazel git repository as normal.
-*    Set the environment variables (see above)
-*    Run ``compile.sh`` in Bazel directory.
-*    If all works fine, bazel will be built at ``output\bazel.exe``.
-
+See [Install Bazel on Windows](install-windows.md) for installation instructions.
 
 ## <a name="using"></a>Using Bazel on Windows
 
