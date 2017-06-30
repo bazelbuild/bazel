@@ -1861,6 +1861,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
       "actions.declare_file('foo.txt', sibling = file)",
       "actions.declare_directory('foo.txt')",
       "actions.declare_directory('foo.txt', sibling = file)",
+      "actions.do_nothing(mnemonic = 'foo', inputs = [file])",
       "check_placeholders('foo', [])",
       "action(command = 'foo', outputs = [file])",
       "file_action(file, 'foo')",

@@ -1294,7 +1294,7 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file(
         "x/extension.bzl",
         "def _aspect1_impl(target, ctx):",
-        "  ctx.empty_action(mnemonic='Mnemonic')",
+        "  ctx.actions.do_nothing(mnemonic='Mnemonic')",
         "  return struct()",
         "aspect1 = aspect(_aspect1_impl, attr_aspects=['deps'])",
         "",

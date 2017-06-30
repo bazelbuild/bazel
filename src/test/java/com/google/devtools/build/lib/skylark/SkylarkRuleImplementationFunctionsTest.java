@@ -433,14 +433,14 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
     checkErrorContains(
         ruleContext,
-        "missing mandatory named-only argument 'mnemonic' while calling empty_action",
-        "ruleContext.empty_action(inputs = ruleContext.files.srcs)");
+        "parameter 'mnemonic' has no default value, in method do_nothing(list inputs) of 'actions'",
+        "ruleContext.actions.do_nothing(inputs = ruleContext.files.srcs)");
   }
 
   private void checkEmptyAction(SkylarkRuleContext ruleContext, String namedArgs) throws Exception {
     assertThat(
             evalRuleContextCode(
-                ruleContext, String.format("ruleContext.empty_action(%s)", namedArgs)))
+                ruleContext, String.format("ruleContext.actions.do_nothing(%s)", namedArgs)))
         .isEqualTo(Runtime.NONE);
   }
 
@@ -449,7 +449,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     scratch.file(
         "test/empty.bzl",
         "def _impl(ctx):",
-        "  ctx.empty_action(",
+        "  ctx.actions.do_nothing(",
         "      inputs = ctx.files.srcs,",
         "      mnemonic = 'EA',",
         "  )",

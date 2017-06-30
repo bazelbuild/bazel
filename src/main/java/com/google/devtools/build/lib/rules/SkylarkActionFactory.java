@@ -13,10 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules;
 
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.extra.SpawnInfo;
+import com.google.devtools.build.lib.analysis.PseudoAction;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.skylarkinterface.Param;
+import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -24,7 +31,11 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.nio.charset.StandardCharsets;
+import java.util.UUID;
 
 /**
  * Provides a Skylark interface for all action creation needs.
@@ -132,7 +143,57 @@ public class SkylarkActionFactory implements SkylarkValue {
   }
 
 
-    @Override
+  @SkylarkCallable(
+      name = "do_nothing",
+      doc =
+          "Creates an empty action that neither executes a command nor produces any "
+              + "output, but that is useful for inserting 'extra actions'.",
+      parameters = {
+          @Param(
+              name = "mnemonic",
+              type = String.class,
+              named = true,
+              positional = false,
+              doc = "a one-word description of the action, e.g. CppCompile or GoLink."
+          ),
+          @Param(
+              name = "inputs",
+              allowedTypes = {
+                  @ParamType(type = SkylarkList.class),
+                  @ParamType(type = SkylarkNestedSet.class),
+              },
+              generic1 = Artifact.class,
+              named = true,
+              positional = false,
+              defaultValue = "[]",
+              doc = "list of the input files of the action."
+          ),
+      }
+  )
+  public void doNothing(String mnemonic, Object inputs) throws EvalException {
+    context.checkMutable("actions.do_nothing");
+    NestedSet<Artifact> inputSet = inputs instanceof SkylarkNestedSet
+        ? ((SkylarkNestedSet) inputs).getSet(Artifact.class)
+        : NestedSetBuilder.<Artifact>compileOrder()
+            .addAll(((SkylarkList) inputs).getContents(Artifact.class, "inputs"))
+            .build();
+    Action action =
+        new PseudoAction<>(
+            UUID.nameUUIDFromBytes(
+                String.format("empty action %s", ruleContext.getLabel())
+                    .getBytes(StandardCharsets.UTF_8)),
+            ruleContext.getActionOwner(),
+            inputSet,
+            ImmutableList.of(PseudoAction.getDummyOutput(ruleContext)),
+            mnemonic,
+            SpawnInfo.spawnInfo,
+            SpawnInfo.newBuilder().build());
+    ruleContext.registerAction(action);
+  }
+
+
+
+  @Override
   public boolean isImmutable() {
     return context.isImmutable();
   }
