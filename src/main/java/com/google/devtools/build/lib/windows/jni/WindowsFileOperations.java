@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.windows;
+package com.google.devtools.build.lib.windows.jni;
 
 import java.io.IOException;
 
@@ -49,11 +49,11 @@ public class WindowsFileOperations {
   private static final int IS_JUNCTION_NO = 1;
   private static final int IS_JUNCTION_ERROR = 2;
 
-  static native int nativeIsJunction(String path, String[] error);
+  private static native int nativeIsJunction(String path, String[] error);
 
-  static native boolean nativeGetLongPath(String path, String[] result, String[] error);
+  private static native boolean nativeGetLongPath(String path, String[] result, String[] error);
 
-  static native boolean nativeCreateJunction(String name, String target, String[] error);
+  private static native boolean nativeCreateJunction(String name, String target, String[] error);
 
   /** Determines whether `path` is a junction point or directory symlink. */
   public static boolean isJunction(String path) throws IOException {

@@ -12,15 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.windows;
+package com.google.devtools.build.lib.windows.jni;
 
+import com.google.devtools.build.lib.windows.runfiles.WindowsRunfiles;
 import java.io.IOException;
 
-/**
- * Loads native code under Windows.
- */
+/** Loads native code under Windows. */
 public class WindowsJniLoader {
   private static boolean jniLoaded = false;
+
   public static synchronized void loadJni() {
     if (jniLoaded) {
       return;

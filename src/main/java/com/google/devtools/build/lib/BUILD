@@ -43,6 +43,8 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/sandbox:srcs",
         "//src/main/java/com/google/devtools/build/lib/ssd:srcs",
         "//src/main/java/com/google/devtools/build/lib/standalone:srcs",
+        "//src/main/java/com/google/devtools/build/lib/windows/jni:srcs",
+        "//src/main/java/com/google/devtools/build/lib/windows/runfiles:srcs",
         "//src/main/java/com/google/devtools/build/lib/worker:srcs",
         "//src/main/java/com/google/devtools/build/skyframe:srcs",
         "//src/main/java/com/google/devtools/common/options:srcs",
@@ -103,6 +105,7 @@ java_library(
         ":preconditions",
         ":shell",
         ":vfs",
+        "//src/main/java/com/google/devtools/build/lib/windows/jni",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -259,6 +262,7 @@ java_library(
         ":os_util",
         ":unix",
         ":windows",
+        "//src/main/java/com/google/devtools/build/lib/windows/jni:processes",
     ],
 )
 

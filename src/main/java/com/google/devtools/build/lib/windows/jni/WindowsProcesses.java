@@ -12,24 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.windows;
+package com.google.devtools.build.lib.windows.jni;
 
 import java.util.List;
 
-/**
- * Process management on Windows.
- */
+/** Process management on Windows. */
 public class WindowsProcesses {
   public static final long INVALID = -1;
 
   private WindowsProcesses() {
     // Prevent construction
   }
-
-  /**
-   * returns the PID of the current process.
-   */
-  static native int nativeGetpid();
 
   /**
    * Creates a process with the specified Windows command line.
@@ -50,7 +43,13 @@ public class WindowsProcesses {
    *     work.
    * @return the opaque identifier of the created process
    */
-  static native long nativeCreateProcess(
+  public static long createProcess(
+      String argv0, String argvRest, byte[] env, String cwd, String stdoutFile, String stderrFile) {
+    WindowsJniLoader.loadJni();
+    return nativeCreateProcess(argv0, argvRest, env, cwd, stdoutFile, stderrFile);
+  }
+
+  private static native long nativeCreateProcess(
       String argv0, String argvRest, byte[] env, String cwd, String stdoutFile, String stderrFile);
 
   /**
@@ -60,13 +59,28 @@ public class WindowsProcesses {
    *
    * @return the number of bytes written
    */
-  static native int nativeWriteStdin(long process, byte[] bytes, int offset, int length);
+  public static int writeStdin(long process, byte[] bytes, int offset, int length) {
+    WindowsJniLoader.loadJni();
+    return nativeWriteStdin(process, bytes, offset, length);
+  }
+
+  private static native int nativeWriteStdin(long process, byte[] bytes, int offset, int length);
 
   /** Returns an opaque identifier of stdout stream for the process. */
-  static native long nativeGetStdout(long process);
+  public static long getStdout(long process) {
+    WindowsJniLoader.loadJni();
+    return nativeGetStdout(process);
+  }
 
-  /** Returns am opaque identifier of stderr stream for the process. */
-  static native long nativeGetStderr(long process);
+  private static native long nativeGetStdout(long process);
+
+  /** Returns an opaque identifier of stderr stream for the process. */
+  public static long getStderr(long process) {
+    WindowsJniLoader.loadJni();
+    return nativeGetStderr(process);
+  }
+
+  private static native long nativeGetStderr(long process);
 
   /**
    * Reads data from the stream into the given array. {@code stream} should come from {@link
@@ -76,34 +90,55 @@ public class WindowsProcesses {
    *
    * @return the number of bytes read, 0 on EOF, or -1 if there was an error.
    */
-  static native int nativeReadStream(long stream, byte[] bytes, int offset, int length);
+  public static int readStream(long stream, byte[] bytes, int offset, int length) {
+    WindowsJniLoader.loadJni();
+    return nativeReadStream(stream, bytes, offset, length);
+  }
+
+  private static native int nativeReadStream(long stream, byte[] bytes, int offset, int length);
 
   /**
    * Waits until the given process terminates. If timeout is non-negative, it indicates the number
    * of milliseconds before the call times out.
    *
    * <p>Return values:
-   * <li>0: Process finished</li>
-   * <li>1: Timeout</li>
-   * <li>2: Something went wrong</li>
+   * <li>0: Process finished
+   * <li>1: Timeout
+   * <li>2: Something went wrong
    */
-  static native int nativeWaitFor(long process, long timeout);
+  public static int waitFor(long process, long timeout) {
+    WindowsJniLoader.loadJni();
+    return nativeWaitFor(process, timeout);
+  }
+
+  private static native int nativeWaitFor(long process, long timeout);
 
   /**
-   * Returns the exit code of the process. Throws {@code IllegalStateException} if something
-   * goes wrong.
+   * Returns the exit code of the process. Throws {@code IllegalStateException} if something goes
+   * wrong.
    */
-  static native int nativeGetExitCode(long process);
+  public static int getExitCode(long process) {
+    WindowsJniLoader.loadJni();
+    return nativeGetExitCode(process);
+  }
 
-  /**
-   * Returns the process ID of the given process or -1 if there was an error.
-   */
-  static native int nativeGetProcessPid(long process);
+  private static native int nativeGetExitCode(long process);
 
-  /**
-   * Terminates the given process. Returns true if the termination was successful.
-   */
-  static native boolean nativeTerminate(long process);
+  /** Returns the process ID of the given process or -1 if there was an error. */
+  public static int getProcessPid(long process) {
+    WindowsJniLoader.loadJni();
+    return nativeGetProcessPid(process);
+  }
+
+  private static native int nativeGetProcessPid(long process);
+
+  /** Terminates the given process. Returns true if the termination was successful. */
+  public static boolean terminate(long process) {
+    WindowsJniLoader.loadJni();
+    return nativeTerminate(process);
+  }
+
+  private static native boolean nativeTerminate(long process);
 
   /**
    * Releases the native data structures associated with the process.
@@ -111,7 +146,12 @@ public class WindowsProcesses {
    * <p>Calling any other method on the same process after this call will result in the JVM crashing
    * or worse.
    */
-  static native void nativeDeleteProcess(long process);
+  public static void deleteProcess(long process) {
+    WindowsJniLoader.loadJni();
+    nativeDeleteProcess(process);
+  }
+
+  private static native void nativeDeleteProcess(long process);
 
   /**
    * Closes the stream
@@ -119,7 +159,12 @@ public class WindowsProcesses {
    * @param stream should come from {@link #nativeGetStdout(long)} or {@link
    *     #nativeGetStderr(long)}.
    */
-  static native void nativeCloseStream(long stream);
+  public static void closeStream(long stream) {
+    WindowsJniLoader.loadJni();
+    nativeCloseStream(stream);
+  }
+
+  private static native void nativeCloseStream(long stream);
 
   /**
    * Returns a string representation of the last error caused by any call on the given process or
@@ -130,16 +175,29 @@ public class WindowsProcesses {
    * <p>After this call returns, subsequent calls will return the empty string if there was no
    * failed operation in between.
    */
-  static native String nativeProcessGetLastError(long process);
+  public static String processGetLastError(long process) {
+    WindowsJniLoader.loadJni();
+    return nativeProcessGetLastError(process);
+  }
 
-  static native String nativeStreamGetLastError(long process);
+  private static native String nativeProcessGetLastError(long process);
 
+  public static String streamGetLastError(long process) {
+    WindowsJniLoader.loadJni();
+    return nativeStreamGetLastError(process);
+  }
+
+  private static native String nativeStreamGetLastError(long process);
+
+  /** returns the PID of the current process. */
   public static int getpid() {
     WindowsJniLoader.loadJni();
     return nativeGetpid();
   }
 
-  static String quoteCommandLine(List<String> argv) {
+  private static native int nativeGetpid();
+
+  public static String quoteCommandLine(List<String> argv) {
     StringBuilder result = new StringBuilder();
     for (int iArg = 0; iArg < argv.size(); iArg++) {
       if (iArg != 0) {
@@ -170,8 +228,8 @@ public class WindowsProcesses {
               } else {
                 // Backslashes everywhere else are quoted if they are followed by a
                 // quote or a backslash
-                result.append(arg.charAt(iChar + 1) == '"' || arg.charAt(iChar + 1) == '\\'
-                    ? "\\\\" : "\\");
+                result.append(
+                    arg.charAt(iChar + 1) == '"' || arg.charAt(iChar + 1) == '\\' ? "\\\\" : "\\");
               }
               break;
             default:

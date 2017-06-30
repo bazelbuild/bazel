@@ -12,32 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#define WIN32_LEAN_AND_MEAN
 #define WINVER 0x0601
 #define _WIN32_WINNT 0x0601
 
-#include <ctype.h>
 #include <jni.h>
-#include <stdlib.h>
-#include <string.h>
-#include <wchar.h>
 #include <windows.h>
 
 #include <atomic>
-#include <functional>
 #include <memory>
 #include <string>
-#include <type_traits>  // static_assert
 
-#include "src/main/native/windows/file.h"
+#include "src/main/native/windows/jni-util.h"
 #include "src/main/native/windows/util.h"
 
-// Ensure we can safely cast (const) jchar* to (const) WCHAR* and LP(C)WSTR.
-// This is true with MSVC but not always with GCC.
-static_assert(sizeof(jchar) == sizeof(WCHAR),
-              "jchar and WCHAR should be the same size");
-
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeGetpid(
+Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeGetpid(
     JNIEnv* env, jclass clazz) {
   return GetCurrentProcessId();
 }
@@ -60,6 +50,10 @@ struct NativeOutputStream {
     handle_ = INVALID_HANDLE_VALUE;
   }
 };
+
+static std::wstring AddUncPrefixMaybe(const std::wstring& path) {
+  return (path.size() >= MAX_PATH) ? (std::wstring(L"\\\\?\\") + path) : path;
+}
 
 struct NativeProcess {
   HANDLE stdin_;
@@ -118,53 +112,18 @@ static bool NestedJobsSupported() {
          version_info.dwMajorVersion == 6 && version_info.dwMinorVersion >= 2;
 }
 
-static void MaybeReportLastError(const std::string& reason, JNIEnv* env,
-                                 jobjectArray error_msg_holder) {
-  if (error_msg_holder != nullptr &&
-      env->GetArrayLength(error_msg_holder) > 0) {
-    std::string error_str = bazel::windows::GetLastErrorString(reason);
-    jstring error_msg = env->NewStringUTF(error_str.c_str());
-    env->SetObjectArrayElement(error_msg_holder, 0, error_msg);
-  }
-}
-
-static std::string GetJavaUTFString(JNIEnv* env, jstring str) {
-  std::string result;
-  if (str != nullptr) {
-    const char* jstr = env->GetStringUTFChars(str, nullptr);
-    result.assign(jstr);
-    env->ReleaseStringUTFChars(str, jstr);
-  }
-  return result;
-}
-
-static std::wstring GetJavaWstring(JNIEnv* env, jstring str) {
-  std::wstring result;
-  if (str != nullptr) {
-    const jchar* jstr = env->GetStringChars(str, nullptr);
-    // We can safely reinterpret_cast because of the static_assert checking that
-    // sizeof(jchar) = sizeof(WCHAR).
-    result.assign(reinterpret_cast<const WCHAR*>(jstr));
-    env->ReleaseStringChars(str, jstr);
-  }
-  return result;
-}
-
-static std::wstring AddUncPrefixMaybe(const std::wstring& path) {
-  return (path.size() >= MAX_PATH) ? (std::wstring(L"\\\\?\\") + path) : path;
-}
-
 static jlong PtrAsJlong(void* p) { return reinterpret_cast<jlong>(p); }
 
 static std::string AsExecutableForCreateProcess(JNIEnv* env, jstring path,
                                                 std::string* result) {
   return bazel::windows::AsExecutablePathForCreateProcess(
-      GetJavaUTFString(env, path),
-      [env, path]() { return GetJavaWstring(env, path); }, result);
+      bazel::windows::GetJavaUTFString(env, path),
+      [env, path]() { return bazel::windows::GetJavaWstring(env, path); },
+      result);
 }
 
 extern "C" JNIEXPORT jlong JNICALL
-Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
+Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCreateProcess(
     JNIEnv* env, jclass clazz, jstring java_argv0, jstring java_argv_rest,
     jbyteArray java_env, jstring java_cwd, jstring java_stdout_redirect,
     jstring java_stderr_redirect) {
@@ -177,15 +136,19 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
     return PtrAsJlong(result);
   }
 
-  std::string commandline = argv0 + " " + GetJavaUTFString(env, java_argv_rest);
-  std::wstring stdout_redirect =
-      AddUncPrefixMaybe(GetJavaWstring(env, java_stdout_redirect));
-  std::wstring stderr_redirect =
-      AddUncPrefixMaybe(GetJavaWstring(env, java_stderr_redirect));
+  std::string commandline =
+      argv0 + " " + bazel::windows::GetJavaUTFString(env, java_argv_rest);
+  std::wstring stdout_redirect = AddUncPrefixMaybe(
+      bazel::windows::GetJavaWstring(env, java_stdout_redirect));
+  std::wstring stderr_redirect = AddUncPrefixMaybe(
+      bazel::windows::GetJavaWstring(env, java_stderr_redirect));
   std::string cwd;
   error_msg = bazel::windows::AsShortPath(
-      GetJavaUTFString(env, java_cwd),
-      [env, java_cwd]() { return GetJavaWstring(env, java_cwd); }, &cwd);
+      bazel::windows::GetJavaUTFString(env, java_cwd),
+      [env, java_cwd]() {
+        return bazel::windows::GetJavaWstring(env, java_cwd);
+      },
+      &cwd);
   if (!error_msg.empty()) {
     result->error_ = error_msg;
     return PtrAsJlong(result);
@@ -371,7 +334,7 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeWriteStdin(
+Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeWriteStdin(
     JNIEnv* env, jclass clazz, jlong process_long, jbyteArray java_bytes,
     jint offset, jint length) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
@@ -395,21 +358,21 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeWriteStdin(
 }
 
 extern "C" JNIEXPORT jlong JNICALL
-Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeGetStdout(
+Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeGetStdout(
     JNIEnv* env, jclass clazz, jlong process_long) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
   return PtrAsJlong(&process->stdout_);
 }
 
 extern "C" JNIEXPORT jlong JNICALL
-Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeGetStderr(
+Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeGetStderr(
     JNIEnv* env, jclass clazz, jlong process_long) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
   return PtrAsJlong(&process->stderr_);
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeReadStream(
+Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeReadStream(
     JNIEnv* env, jclass clazz, jlong stream_long, jbyteArray java_bytes,
     jint offset, jint length) {
   NativeOutputStream* stream =
@@ -448,7 +411,7 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeReadStream(
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeGetExitCode(
+Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeGetExitCode(
     JNIEnv* env, jclass clazz, jlong process_long) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
   DWORD exit_code;
@@ -466,7 +429,7 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeGetExitCode(
 // 1: Timeout
 // 2: Wait returned with an error
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeWaitFor(
+Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeWaitFor(
     JNIEnv* env, jclass clazz, jlong process_long, jlong java_timeout) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
   HANDLE handles[1] = {process->process_};
@@ -515,7 +478,7 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeWaitFor(
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeGetProcessPid(
+Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeGetProcessPid(
     JNIEnv* env, jclass clazz, jlong process_long) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
   process->error_ = "";
@@ -523,7 +486,7 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeGetProcessPid(
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeTerminate(
+Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeTerminate(
     JNIEnv* env, jclass clazz, jlong process_long) {
   static const UINT exit_code = 130;  // 128 + SIGINT, like on Linux
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
@@ -547,7 +510,7 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeTerminate(
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeDeleteProcess(
+Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeDeleteProcess(
     JNIEnv* env, jclass clazz, jlong process_long) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
 
@@ -570,7 +533,7 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeDeleteProcess(
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCloseStream(
+Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeCloseStream(
     JNIEnv* env, jclass clazz, jlong stream_long) {
   NativeOutputStream* stream =
       reinterpret_cast<NativeOutputStream*>(stream_long);
@@ -578,7 +541,7 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCloseStream(
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeProcessGetLastError(
+Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeProcessGetLastError(
     JNIEnv* env, jclass clazz, jlong process_long) {
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
   jstring result = env->NewStringUTF(process->error_.c_str());
@@ -587,57 +550,11 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeProcessGetLast
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeStreamGetLastError(
+Java_com_google_devtools_build_lib_windows_jni_WindowsProcesses_nativeStreamGetLastError(
     JNIEnv* env, jclass clazz, jlong stream_long) {
   NativeOutputStream* stream =
       reinterpret_cast<NativeOutputStream*>(stream_long);
   jstring result = env->NewStringUTF(stream->error_.c_str());
   stream->error_ = "";
   return result;
-}
-
-extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_windows_WindowsFileOperations_nativeIsJunction(
-    JNIEnv* env, jclass clazz, jstring path, jobjectArray error_msg_holder) {
-  int result = bazel::windows::IsJunctionOrDirectorySymlink(
-      GetJavaWstring(env, path).c_str());
-  if (result == bazel::windows::IS_JUNCTION_ERROR) {
-    MaybeReportLastError(
-        std::string("GetFileAttributes(") + GetJavaUTFString(env, path) + ")",
-        env, error_msg_holder);
-  }
-  return result;
-}
-
-extern "C" JNIEXPORT jboolean JNICALL
-Java_com_google_devtools_build_lib_windows_WindowsFileOperations_nativeGetLongPath(
-    JNIEnv* env, jclass clazz, jstring path, jobjectArray result_holder,
-    jobjectArray error_msg_holder) {
-  std::unique_ptr<WCHAR[]> result;
-  bool success =
-      bazel::windows::GetLongPath(GetJavaWstring(env, path).c_str(), &result);
-  if (!success) {
-    MaybeReportLastError(
-        std::string("GetLongPathName(") + GetJavaUTFString(env, path) + ")",
-        env, error_msg_holder);
-    return JNI_FALSE;
-  }
-  env->SetObjectArrayElement(
-      result_holder, 0,
-      env->NewString(reinterpret_cast<const jchar*>(result.get()),
-                     wcslen(result.get())));
-  return JNI_TRUE;
-}
-
-extern "C" JNIEXPORT jboolean JNICALL
-Java_com_google_devtools_build_lib_windows_WindowsFileOperations_nativeCreateJunction(
-    JNIEnv* env, jclass clazz, jstring name, jstring target,
-    jobjectArray error_msg_holder) {
-  std::string error = bazel::windows::CreateJunction(
-      GetJavaWstring(env, name), GetJavaWstring(env, target));
-  if (!error.empty()) {
-    MaybeReportLastError(error, env, error_msg_holder);
-    return JNI_FALSE;
-  }
-  return JNI_TRUE;
 }

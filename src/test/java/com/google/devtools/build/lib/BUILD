@@ -221,6 +221,8 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:vfs",
         "//src/main/java/com/google/devtools/build/lib:windows",
+        "//src/main/java/com/google/devtools/build/lib/windows/jni",
+        "//src/main/java/com/google/devtools/build/lib/windows/runfiles",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:junit4",
@@ -248,6 +250,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:os_util",
         "//src/main/java/com/google/devtools/build/lib:vfs",
         "//src/main/java/com/google/devtools/build/lib:windows",
+        "//src/main/java/com/google/devtools/build/lib/windows/jni",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",

@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.windows.WindowsFileSystem.WindowsPath;
+import com.google.devtools.build.lib.windows.jni.WindowsFileOperations;
 import com.google.devtools.build.lib.windows.util.WindowsTestUtil;
 import java.io.File;
 import java.io.IOException;
@@ -55,7 +56,6 @@ public class WindowsFileSystemTest {
 
   @Before
   public void loadJni() throws Exception {
-    WindowsTestUtil.loadJni();
     scratchRoot = new File(System.getenv("TEST_TMPDIR")).getAbsolutePath() + "/x";
     testUtil = new WindowsTestUtil(scratchRoot);
     fs = new WindowsFileSystem();
