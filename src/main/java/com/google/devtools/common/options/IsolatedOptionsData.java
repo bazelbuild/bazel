@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
 import com.google.devtools.common.options.OptionsParser.ConstructionException;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -360,6 +361,35 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
     booleanAliasMap.put("no" + optionName, optionName);
   }
 
+  private static void checkEffectTagRationality(String optionName, OptionEffectTag[] effectTags) {
+    // Check that there is at least one OptionEffectTag listed.
+    if (effectTags.length < 1) {
+      throw new ConstructionException(
+          "Option "
+              + optionName
+              + " does not list at least one OptionEffectTag. If the option has no effect, "
+              + "please add NO_OP, otherwise, add a tag representing its effect.");
+    } else if (effectTags.length > 1) {
+      // If there are more than 1 tag, make sure that NO_OP and UNKNOWN is not one of them.
+      // These don't make sense if other effects are listed.
+      ImmutableList<OptionEffectTag> tags = ImmutableList.copyOf(effectTags);
+      if (tags.contains(OptionEffectTag.UNKNOWN)) {
+        throw new ConstructionException(
+            "Option "
+                + optionName
+                + " includes UNKNOWN with other, known, effects. Please remove UNKNOWN from "
+                + "the list.");
+      }
+      if (tags.contains(OptionEffectTag.NO_OP)) {
+        throw new ConstructionException(
+            "Option "
+                + optionName
+                + " includes NO_OP with other effects. This doesn't make much sense. Please "
+                + "remove NO_OP or the actual effects from the list, whichever is correct.");
+      }
+    }
+  }
+
   /**
    * Constructs an {@link IsolatedOptionsData} object for a parser that knows about the given
    * {@link OptionsBase} classes. No inter-option analysis is done. Performs basic sanity checking
@@ -406,6 +436,8 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
               "Documentation level is no longer read from the option category. Category \""
                   + annotation.category() + "\" in option \"" + optionName + "\" is disallowed.");
         }
+
+        checkEffectTagRationality(optionName, annotation.effectTags());
 
         Type fieldType = getFieldSingularType(field, annotation);
         // For simple, static expansions, don't accept non-Void types.

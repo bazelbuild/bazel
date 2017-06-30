@@ -247,6 +247,8 @@ public class TestOptions extends OptionsBase {
   @Option(
     name = "test_expansion_function",
     defaultValue = "null",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.NO_OP},
     expansionFunction = TestExpansionFunction.class
   )
   public Void testExpansionFunction;
@@ -264,6 +266,8 @@ public class TestOptions extends OptionsBase {
   @Option(
     name = "test_void_expansion_function",
     defaultValue = "null",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.NO_OP},
     expansionFunction = TestVoidExpansionFunction.class
   )
   public Void testVoidExpansionFunction;

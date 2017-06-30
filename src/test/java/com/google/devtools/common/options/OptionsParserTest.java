@@ -1024,7 +1024,13 @@ public class OptionsParserTest {
       }
     }
 
-    @Option(name = "badness", expansionFunction = ExpFunc.class, defaultValue = "null")
+    @Option(
+      name = "badness",
+      expansionFunction = ExpFunc.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "null"
+    )
     public String badness;
   }
 
@@ -1080,7 +1086,13 @@ public class OptionsParserTest {
 
   /** ExpansionMultipleOptions */
   public static class ExpansionMultipleOptions extends OptionsBase {
-    @Option(name = "underlying", defaultValue = "null", allowMultiple = true)
+    @Option(
+      name = "underlying",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      allowMultiple = true
+    )
     public List<String> underlying;
 
     /** ExpFunc */
@@ -1097,7 +1109,13 @@ public class OptionsParserTest {
       }
     }
 
-    @Option(name = "expands_by_function", defaultValue = "null", expansionFunction = ExpFunc.class)
+    @Option(
+      name = "expands_by_function",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      expansionFunction = ExpFunc.class
+    )
     public Void expandsByFunction;
   }
 

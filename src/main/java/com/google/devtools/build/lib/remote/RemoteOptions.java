@@ -159,6 +159,8 @@ public final class RemoteOptions extends OptionsBase {
     name = "experimental_remote_retry",
     defaultValue = "true",
     category = "remote",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "Whether to retry transient remote execution/cache errors."
   )
   public boolean experimentalRemoteRetry;
@@ -167,6 +169,8 @@ public final class RemoteOptions extends OptionsBase {
     name = "experimental_remote_retry_start_delay_millis",
     defaultValue = "100",
     category = "remote",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "The initial delay before retrying a transient error."
   )
   public long experimentalRemoteRetryStartDelayMillis;
@@ -175,6 +179,8 @@ public final class RemoteOptions extends OptionsBase {
     name = "experimental_remote_retry_max_delay_millis",
     defaultValue = "5000",
     category = "remote",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "The maximum delay before retrying a transient error."
   )
   public long experimentalRemoteRetryMaxDelayMillis;
@@ -183,6 +189,8 @@ public final class RemoteOptions extends OptionsBase {
     name = "experimental_remote_retry_max_attempts",
     defaultValue = "5",
     category = "remote",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "The maximum number of attempts to retry a transient error."
   )
   public int experimentalRemoteRetryMaxAttempts;
@@ -191,6 +199,8 @@ public final class RemoteOptions extends OptionsBase {
     name = "experimental_remote_retry_multiplier",
     defaultValue = "2",
     category = "remote",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "The multiplier by which to increase the retry delay on transient errors."
   )
   public double experimentalRemoteRetryMultiplier;
@@ -199,6 +209,8 @@ public final class RemoteOptions extends OptionsBase {
     name = "experimental_remote_retry_jitter",
     defaultValue = "0.1",
     category = "remote",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "The random factor to apply to retry delays on transient errors."
   )
   public double experimentalRemoteRetryJitter;
