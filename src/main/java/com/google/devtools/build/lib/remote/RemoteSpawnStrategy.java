@@ -297,13 +297,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
                 verboseFailures, spawn.getArguments(), spawn.getEnvironment(), cwd);
         throw new UserExecException(message + ": Exit " + result.getExitCode());
       }
-    } catch (IOException e) {
-      throw new UserExecException("Unexpected IO error.", e);
-    } catch (InterruptedException e) {
-      eventHandler.handle(Event.warn(mnemonic + " remote work interrupted (" + e + ")"));
-      Thread.currentThread().interrupt();
-      throw e;
-    } catch (StatusRuntimeException e) {
+    } catch (RetryException e) {
       String stackTrace = "";
       if (verboseFailures) {
         stackTrace = "\n" + Throwables.getStackTraceAsString(e);
@@ -312,7 +306,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
       if (remoteOptions.remoteLocalFallback) {
         execLocally(spawn, actionExecutionContext, remoteCache, actionKey);
       } else {
-        throw new UserExecException(e);
+        throw new UserExecException(e.getCause());
       }
     } catch (CacheNotFoundException e) {
       // TODO(olaola): handle this exception by reuploading / reexecuting the action remotely.
@@ -322,6 +316,8 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
       } else {
         throw new UserExecException(e);
       }
+    } catch (IOException e) {
+      throw new UserExecException("Unexpected IO error.", e);
     } catch (UnsupportedOperationException e) {
       eventHandler.handle(
           Event.warn(mnemonic + " unsupported operation for action cache (" + e + ")"));

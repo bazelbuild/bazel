@@ -294,6 +294,7 @@ final class WatcherServer extends WatcherImplBase {
     return timeoutSeconds > 0 && wallTimeMillis / 1000.0 > timeoutSeconds;
   }
 
+  @Override
   public void watch(Request wr, StreamObserver<ChangeBatch> responseObserver) {
     final String opName = wr.getTarget();
     if (!operationsCache.containsKey(opName)) {
@@ -303,6 +304,7 @@ final class WatcherServer extends WatcherImplBase {
                   .setCode(Code.NOT_FOUND.getNumber())
                   .setMessage("Operation not found: " + opName)
                   .build()));
+      return;
     }
     ExecuteRequest request = operationsCache.get(opName);
     Path tempRoot = workPath.getRelative("build-" + opName);
@@ -336,7 +338,21 @@ final class WatcherServer extends WatcherImplBase {
       logger.log(WARNING, "Cache miss on {0}.", e.getMissingDigest());
       responseObserver.onError(StatusUtils.notFoundError(e.getMissingDigest()));
     } catch (StatusRuntimeException e) {
-      responseObserver.onError(e);
+      // In particular, command DEADLINE_EXCEEDED errors should go in the Operation.error field to
+      // distinguish them from gRPC request DEADLINE_EXCEEDED.
+      responseObserver.onNext(
+          ChangeBatch.newBuilder()
+              .addChanges(
+                  Change.newBuilder()
+                      .setState(Change.State.EXISTS)
+                      .setData(
+                          Any.pack(
+                              Operation.newBuilder()
+                                  .setName(opName)
+                                  .setError(StatusProto.fromThrowable(e))
+                                  .build()))
+                      .build())
+              .build());
     } catch (IllegalArgumentException e) {
       responseObserver.onError(
           StatusProto.toStatusRuntimeException(

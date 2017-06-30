@@ -58,17 +58,15 @@ import com.google.devtools.remoteexecution.v1test.GetActionResultRequest;
 import com.google.longrunning.Operation;
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
-import com.google.rpc.Code;
-import com.google.rpc.Status;
 import com.google.watcher.v1.Change;
 import com.google.watcher.v1.ChangeBatch;
 import com.google.watcher.v1.Request;
 import com.google.watcher.v1.WatcherGrpc.WatcherImplBase;
 import io.grpc.Channel;
 import io.grpc.Server;
+import io.grpc.Status;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
-import io.grpc.protobuf.StatusProto;
 import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
 import java.io.IOException;
@@ -285,6 +283,30 @@ public class GrpcRemoteExecutionClientTest {
     };
   }
 
+  private Answer<StreamObserver<WriteRequest>> blobWriteAnswerError() {
+    return new Answer<StreamObserver<WriteRequest>>() {
+      @Override
+      @SuppressWarnings("unchecked")
+      public StreamObserver<WriteRequest> answer(final InvocationOnMock invocation) {
+        return new StreamObserver<WriteRequest>() {
+          @Override
+          public void onNext(WriteRequest request) {
+            ((StreamObserver<WriteResponse>) invocation.getArguments()[0])
+                .onError(Status.UNAVAILABLE.asRuntimeException());
+          }
+
+          @Override
+          public void onCompleted() {}
+
+          @Override
+          public void onError(Throwable t) {
+            fail("An unexpected client-side error occurred: " + t);
+          }
+        };
+      }
+    };
+  }
+
   @Test
   public void remotelyExecute() throws Exception {
     serviceRegistry.addService(
@@ -292,9 +314,7 @@ public class GrpcRemoteExecutionClientTest {
           @Override
           public void getActionResult(
               GetActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
-            responseObserver.onError(
-                StatusProto.toStatusRuntimeException(
-                    Status.newBuilder().setCode(Code.NOT_FOUND.getNumber()).build()));
+            responseObserver.onError(Status.NOT_FOUND.asRuntimeException());
           }
         });
     final ActionResult actionResult =
@@ -359,15 +379,16 @@ public class GrpcRemoteExecutionClientTest {
   }
 
   @Test
-  public void remotelyExecuteWithWatch() throws Exception {
+  public void remotelyExecuteWithWatchAndRetries() throws Exception {
     serviceRegistry.addService(
         new ActionCacheImplBase() {
+          private int numErrors = 4;
+
           @Override
           public void getActionResult(
               GetActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
             responseObserver.onError(
-                StatusProto.toStatusRuntimeException(
-                    Status.newBuilder().setCode(Code.NOT_FOUND.getNumber()).build()));
+                (numErrors-- <= 0 ? Status.NOT_FOUND : Status.UNAVAILABLE).asRuntimeException());
           }
         });
     final ActionResult actionResult =
@@ -378,17 +399,29 @@ public class GrpcRemoteExecutionClientTest {
     final String opName = "operations/xyz";
     serviceRegistry.addService(
         new ExecutionImplBase() {
+          private int numErrors = 4;
+
           @Override
           public void execute(ExecuteRequest request, StreamObserver<Operation> responseObserver) {
-            responseObserver.onNext(Operation.newBuilder().setName(opName).build());
-            responseObserver.onCompleted();
+            if (numErrors-- <= 0) {
+              responseObserver.onNext(Operation.newBuilder().setName(opName).build());
+              responseObserver.onCompleted();
+            } else {
+              responseObserver.onError(Status.UNAVAILABLE.asRuntimeException());
+            }
           }
         });
     serviceRegistry.addService(
         new WatcherImplBase() {
+          private int numErrors = 4;
+
           @Override
           public void watch(Request request, StreamObserver<ChangeBatch> responseObserver) {
             assertThat(request.getTarget()).isEqualTo(opName);
+            if (numErrors-- > 0) {
+              responseObserver.onError(Status.UNAVAILABLE.asRuntimeException());
+              return;
+            }
             // Some optional initial state.
             responseObserver.onNext(
                 ChangeBatch.newBuilder()
@@ -443,10 +476,17 @@ public class GrpcRemoteExecutionClientTest {
     final Digest cmdDigest = Digests.computeDigest(command);
     serviceRegistry.addService(
         new ContentAddressableStorageImplBase() {
+          private int numErrors = 4;
+
           @Override
           public void findMissingBlobs(
               FindMissingBlobsRequest request,
               StreamObserver<FindMissingBlobsResponse> responseObserver) {
+            if (numErrors-- > 0) {
+              responseObserver.onError(Status.UNAVAILABLE.asRuntimeException());
+              return;
+            }
+
             FindMissingBlobsResponse.Builder b = FindMissingBlobsResponse.newBuilder();
             final Set<Digest> requested = ImmutableSet.copyOf(request.getBlobDigestsList());
             if (requested.contains(cmdDigest)) {
@@ -463,8 +503,11 @@ public class GrpcRemoteExecutionClientTest {
 
     ByteStreamImplBase mockByteStreamImpl = Mockito.mock(ByteStreamImplBase.class);
     when(mockByteStreamImpl.write(Mockito.<StreamObserver<WriteResponse>>anyObject()))
-        .thenAnswer(blobWriteAnswer(command.toByteArray()))
-        .thenAnswer(blobWriteAnswer("xyz".getBytes(UTF_8)));
+        .thenAnswer(blobWriteAnswerError())                  // Error on command upload.
+        .thenAnswer(blobWriteAnswer(command.toByteArray()))  // Upload command successfully.
+        .thenAnswer(blobWriteAnswerError())                  // Error on the input file.
+        .thenAnswer(blobWriteAnswerError())                  // Error on the input file again.
+        .thenAnswer(blobWriteAnswer("xyz".getBytes(UTF_8))); // Upload input file successfully.
     serviceRegistry.addService(mockByteStreamImpl);
 
     SpawnResult result = client.exec(simpleSpawn, simplePolicy);

@@ -28,6 +28,7 @@ import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.remote.Digests.ActionKey;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -36,11 +37,14 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
+import com.google.devtools.remoteexecution.v1test.ActionCacheGrpc.ActionCacheImplBase;
 import com.google.devtools.remoteexecution.v1test.ActionResult;
 import com.google.devtools.remoteexecution.v1test.ContentAddressableStorageGrpc.ContentAddressableStorageImplBase;
 import com.google.devtools.remoteexecution.v1test.Digest;
 import com.google.devtools.remoteexecution.v1test.FindMissingBlobsRequest;
 import com.google.devtools.remoteexecution.v1test.FindMissingBlobsResponse;
+import com.google.devtools.remoteexecution.v1test.GetActionResultRequest;
+import com.google.devtools.remoteexecution.v1test.UpdateActionResultRequest;
 import com.google.protobuf.ByteString;
 import io.grpc.CallOptions;
 import io.grpc.Channel;
@@ -49,6 +53,7 @@ import io.grpc.ClientInterceptor;
 import io.grpc.ClientInterceptors;
 import io.grpc.MethodDescriptor;
 import io.grpc.Server;
+import io.grpc.Status;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
@@ -210,17 +215,23 @@ public class GrpcActionCacheTest {
   }
 
   @Test
-  public void testUploadBlobCacheHit() throws Exception {
+  public void testUploadBlobCacheHitWithRetries() throws Exception {
     final GrpcActionCache client = newClient();
     final Digest digest = Digests.computeDigestUtf8("abcdefg");
     serviceRegistry.addService(
         new ContentAddressableStorageImplBase() {
+          private int numErrors = 4;
+
           @Override
           public void findMissingBlobs(
               FindMissingBlobsRequest request,
               StreamObserver<FindMissingBlobsResponse> responseObserver) {
-            responseObserver.onNext(FindMissingBlobsResponse.getDefaultInstance());
-            responseObserver.onCompleted();
+            if (numErrors-- <= 0) {
+              responseObserver.onNext(FindMissingBlobsResponse.getDefaultInstance());
+              responseObserver.onCompleted();
+            } else {
+              responseObserver.onError(Status.UNAVAILABLE.asRuntimeException());
+            }
           }
         });
     assertThat(client.uploadBlob("abcdefg".getBytes(UTF_8))).isEqualTo(digest);
@@ -337,6 +348,30 @@ public class GrpcActionCacheTest {
     };
   }
 
+  private Answer<StreamObserver<WriteRequest>> blobChunkedWriteAnswerError() {
+    return new Answer<StreamObserver<WriteRequest>>() {
+      @Override
+      @SuppressWarnings("unchecked")
+      public StreamObserver<WriteRequest> answer(final InvocationOnMock invocation) {
+        return new StreamObserver<WriteRequest>() {
+          @Override
+          public void onNext(WriteRequest request) {
+            ((StreamObserver<WriteResponse>) invocation.getArguments()[0])
+                .onError(Status.UNAVAILABLE.asRuntimeException());
+          }
+
+          @Override
+          public void onCompleted() {}
+
+          @Override
+          public void onError(Throwable t) {
+            fail("An unexpected client-side error occurred: " + t);
+          }
+        };
+      }
+    };
+  }
+
   @Test
   public void testUploadBlobMultipleChunks() throws Exception {
     final Digest digest = Digests.computeDigestUtf8("abcdef");
@@ -364,7 +399,7 @@ public class GrpcActionCacheTest {
   }
 
   @Test
-  public void testUploadAllResultsCacheHits() throws Exception {
+  public void testUploadCacheHits() throws Exception {
     final GrpcActionCache client = newClient();
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
@@ -404,51 +439,89 @@ public class GrpcActionCacheTest {
   }
 
   @Test
-  public void testUploadAllResultsCacheMisses() throws Exception {
+  public void testUploadCacheMissesWithRetries() throws Exception {
     final GrpcActionCache client = newClient();
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
     final Digest barDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("bar"), "x");
+    final Digest bazDigest =
+        fakeFileCache.createScratchInput(ActionInputHelper.fromPath("baz"), "z");
     final Path fooFile = execRoot.getRelative("a/foo");
     final Path barFile = execRoot.getRelative("bar");
+    final Path bazFile = execRoot.getRelative("baz");
+    ActionKey actionKey = Digests.unsafeActionKeyFromDigest(fooDigest); // Could be any key.
     barFile.setExecutable(true);
     serviceRegistry.addService(
         new ContentAddressableStorageImplBase() {
+          private int numErrors = 4;
+
           @Override
           public void findMissingBlobs(
               FindMissingBlobsRequest request,
               StreamObserver<FindMissingBlobsResponse> responseObserver) {
+            if (numErrors-- <= 0) {
+              responseObserver.onNext(FindMissingBlobsResponse.getDefaultInstance());
+              responseObserver.onCompleted();
+            } else {
+              responseObserver.onError(Status.UNAVAILABLE.asRuntimeException());
+            }
+          }
+        });
+    ActionResult.Builder rb = ActionResult.newBuilder();
+    rb.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
+    rb.addOutputFilesBuilder().setPath("bar").setDigest(barDigest).setIsExecutable(true);
+    rb.addOutputFilesBuilder().setPath("baz").setDigest(bazDigest);
+    ActionResult result = rb.build();
+    serviceRegistry.addService(
+        new ActionCacheImplBase() {
+          private int numErrors = 4;
+
+          @Override
+          public void updateActionResult(
+              UpdateActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
             assertThat(request)
                 .isEqualTo(
-                    FindMissingBlobsRequest.newBuilder()
-                        .addBlobDigests(fooDigest)
-                        .addBlobDigests(barDigest)
+                    UpdateActionResultRequest.newBuilder()
+                        .setActionDigest(fooDigest)
+                        .setActionResult(result)
                         .build());
-            // Both are missing.
-            responseObserver.onNext(
-                FindMissingBlobsResponse.newBuilder()
-                    .addMissingBlobDigests(fooDigest)
-                    .addMissingBlobDigests(barDigest)
-                    .build());
-            responseObserver.onCompleted();
+            if (numErrors-- <= 0) {
+              responseObserver.onNext(result);
+              responseObserver.onCompleted();
+            } else {
+              responseObserver.onError(Status.UNAVAILABLE.asRuntimeException());
+            }
           }
         });
     ByteStreamImplBase mockByteStreamImpl = Mockito.mock(ByteStreamImplBase.class);
     serviceRegistry.addService(mockByteStreamImpl);
     when(mockByteStreamImpl.write(Mockito.<StreamObserver<WriteResponse>>anyObject()))
-        .thenAnswer(blobChunkedWriteAnswer("xyz", 3))
-        .thenAnswer(blobChunkedWriteAnswer("x", 1));
+        .thenAnswer(blobChunkedWriteAnswerError())     // Error out for foo.
+        .thenAnswer(blobChunkedWriteAnswer("x", 1))    // Upload bar successfully.
+        .thenAnswer(blobChunkedWriteAnswerError())     // Error out for baz.
+        .thenAnswer(blobChunkedWriteAnswer("xyz", 3))  // Retry foo successfully.
+        .thenAnswer(blobChunkedWriteAnswerError())     // Error out for baz again.
+        .thenAnswer(blobChunkedWriteAnswer("z", 1));   // Retry baz successfully.
 
-    ActionResult.Builder result = ActionResult.newBuilder();
-    client.upload(execRoot, ImmutableList.<Path>of(fooFile, barFile), outErr, result);
-    ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest);
-    expectedResult
-        .addOutputFilesBuilder()
-        .setPath("bar")
-        .setDigest(barDigest)
-        .setIsExecutable(true);
-    assertThat(result.build()).isEqualTo(expectedResult.build());
+    client.upload(actionKey, execRoot, ImmutableList.<Path>of(fooFile, barFile, bazFile), outErr);
+  }
+
+  @Test
+  public void testGetCachedActionResultWithRetries() throws Exception {
+    final GrpcActionCache client = newClient();
+    ActionKey actionKey = Digests.unsafeActionKeyFromDigest(Digests.computeDigestUtf8("key"));
+    serviceRegistry.addService(
+        new ActionCacheImplBase() {
+          private int numErrors = 4;
+
+          @Override
+          public void getActionResult(
+              GetActionResultRequest request, StreamObserver<ActionResult> responseObserver) {
+            responseObserver.onError(
+                (numErrors-- <= 0 ? Status.NOT_FOUND : Status.UNAVAILABLE).asRuntimeException());
+          }
+        });
+    assertThat(client.getCachedActionResult(actionKey)).isNull();
   }
 }
