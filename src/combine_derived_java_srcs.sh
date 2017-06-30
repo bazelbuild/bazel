@@ -18,6 +18,8 @@ set -eu
 
 # Combine src jars to a single archive containing all the source files.
 
+JAVABASE="${PWD}/$1"
+shift
 OUTPUT="${PWD}/$1"
 shift
 
@@ -30,7 +32,7 @@ mkdir -p "${JAVA_SRC_DIR}"
 for i in $*
 do
     JARFILE="${PWD}/$i"
-    (cd "${JAVA_SRC_DIR}" && jar xf "${JARFILE}")
+    (cd "${JAVA_SRC_DIR}" && "${JAVABASE}/bin/jar" xf "${JARFILE}")
 done
 
 find "${PACKAGE_DIR}" -exec touch -t 198001010000.00 '{}' '+'

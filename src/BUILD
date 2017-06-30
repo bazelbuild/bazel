@@ -399,7 +399,7 @@ genrule(
         "@googleapis//:dist_jars",
     ],
     outs = ["derived_java_srcs.zip"],
-    cmd = "$(location :combine_derived_java_srcs.sh) $@ $(SRCS)",
+    cmd = "$(location :combine_derived_java_srcs.sh) $(JAVABASE) $@ $(SRCS)",
     tools = ["combine_derived_java_srcs.sh"],
     visibility = ["//:__pkg__"],
 )
