@@ -123,72 +123,8 @@ and `C` to your project's `WORKSPACE` file. This requirement can balloon the
 `WORKSPACE` file size, but hopefully limits the chances of having one library
 include `C` at version 1.0 and another include `C` at 2.0.
 
-## Generate a `WORKSPACE` file
-
-Bazel provides a tool to help generate these expansive `WORKSPACE` files, called
-`generate_workspace`. This tool is not included with the binary installer, so
-you'll need to clone the [GitHub repo](https://github.com/bazelbuild/bazel) to
-use it. We recommend using the tag corresponding to your current version of
-bazel, which you can check by running `bazel version`.
-
-`cd` to the GitHub clone, `git checkout` the appropriate tag, and run the
-following to build the tool and see usage:
-
-```
-bazel run //src/tools/generate_workspace
-```
-
-Note that you need run this command from your Bazel source folder even if you
-build your binary from source.
-
-You can specify directories containing Bazel projects (i.e., directories
-containing a `WORKSPACE` file), Maven projects (i.e., directories containing a
-`pom.xml` file), or Maven artifact coordinates directly. For example:
-
-```bash
-$ bazel run //src/tools/generate_workspace -- \
->    --maven_project=/path/to/my/project \
->    --bazel_project=/path/to/skunkworks \
->    --bazel_project=/path/to/teleporter/project \
->    --artifact=groupId:artifactId:version \
->    --artifact=groupId:artifactId:version
-Wrote:
-/tmp/1437415510621-0/2015-07-20-14-05-10.WORKSPACE
-/tmp/1437415510621-0/2015-07-20-14-05-10.BUILD
-```
-
-The `WORKSPACE` file will contain the transitive dependencies of the given
-projects and artifacts.
-
-If you specify multiple Bazel projects, Maven projects, or artifacts, they will
-all be combined into one `WORKSPACE` file (e.g., if the Bazel project depends on
-junit and the Maven project also depends on junit, junit will only appear once
-as a dependency in the output).
-
-You may wish to curate the generated `WORKSPACE` file to ensure it is using the
-correct version of each dependency. If several different versions of an artifact
-are requested (by different libraries that depend on it), then
-`generate_workspace` chooses a version and annotates the `maven_jar` with the
-other versions requested, for example:
-
-```python
-# org.springframework:spring:2.5.6
-# javax.mail:mail:1.4
-# httpunit:httpunit:1.6 wanted version 1.0.2
-# org.springframework:spring-support:2.0.2 wanted version 1.0.2
-# org.slf4j:nlog4j:1.2.24 wanted version 1.0.2
-maven_jar(
-    name = "javax_activation_activation",
-    artifact = "javax.activation:activation:1.1",
-)
-```
-
-The example above indicates that `org.springframework:spring:2.5.6`,
-`javax.mail:mail:1.4`, `httpunit:httpunit:1.6`,
-`org.springframework:spring-support:2.0.2`, and `org.slf4j:nlog4j:1.2.24`
-all depend on javax.activation. However, two of these libraries wanted
-version 1.1 and three of them wanted 1.0.2. The `WORKSPACE` file is using
-version 1.1, but that might not be the right version to use.
+Large `WORKSPACE` files can be generated using the tool `generate_workspace`.
+For details, see [Generate a WORKSPACE file](/docs/generate-workspace.html).
 
 ## Caching of external dependencies
 
