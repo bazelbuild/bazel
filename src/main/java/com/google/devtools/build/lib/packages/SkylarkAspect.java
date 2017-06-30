@@ -20,9 +20,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Arrays;
@@ -96,9 +96,9 @@ public class SkylarkAspect implements SkylarkExportable {
   }
 
   @Override
-  public void write(Appendable buffer, char quotationMark) {
-    Printer.append(buffer, "Aspect:");
-    implementation.write(buffer, quotationMark);
+  public void repr(SkylarkPrinter printer) {
+    printer.append("Aspect:");
+    implementation.repr(printer);
   }
 
   public String getName() {

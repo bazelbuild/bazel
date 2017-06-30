@@ -22,17 +22,15 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -74,22 +72,20 @@ public final class FilesetEntry implements SkylarkValue {
   }
 
   @Override
-  public void write(Appendable buffer, char quotationMark) {
-    Printer.append(buffer, "FilesetEntry(srcdir = ");
-    Printer.write(buffer, getSrcLabel().toString(), quotationMark);
-    Printer.append(buffer, ", files = ");
-    Printer.write(buffer, makeStringList(getFiles()), quotationMark);
-    Printer.append(buffer, ", excludes = ");
-    Printer.write(buffer, makeList(getExcludes()), quotationMark);
-    Printer.append(buffer, ", destdir = ");
-    Printer.write(buffer, getDestDir().getPathString(), quotationMark);
-    Printer.append(buffer, ", strip_prefix = ");
-    Printer.write(buffer, getStripPrefix(), quotationMark);
-    Printer.append(buffer, ", symlinks = ");
-    Printer.append(buffer, quotationMark);
-    Printer.append(buffer, getSymlinkBehavior().toString());
-    Printer.append(buffer, quotationMark);
-    Printer.append(buffer, ")");
+  public void repr(SkylarkPrinter printer) {
+    printer.append("FilesetEntry(srcdir = ");
+    printer.repr(getSrcLabel().toString());
+    printer.append(", files = ");
+    printer.repr(makeStringList(getFiles()));
+    printer.append(", excludes = ");
+    printer.repr(makeList(getExcludes()));
+    printer.append(", destdir = ");
+    printer.repr(getDestDir().getPathString());
+    printer.append(", strip_prefix = ");
+    printer.repr(getStripPrefix());
+    printer.append(", symlinks = ");
+    printer.repr(getSymlinkBehavior().toString());
+    printer.append(")");
   }
 
   /** SymlinkBehavior decides what to do when a source file of a FilesetEntry is a symlink. */

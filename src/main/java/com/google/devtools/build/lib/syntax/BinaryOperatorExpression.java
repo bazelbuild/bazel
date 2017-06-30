@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.syntax.Concatable.Concatter;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import java.io.IOException;
-import java.util.Collections;
 import java.util.IllegalFormatException;
 
 /**
@@ -336,7 +335,8 @@ public final class BinaryOperatorExpression extends Expression {
   }
 
   /** Implements Operator.PERCENT. */
-  private static Object percent(Object lval, Object rval, Location location) throws EvalException {
+  private static Object percent(Object lval, Object rval, Location location)
+      throws EvalException {
     // int % int
     if (lval instanceof Integer && rval instanceof Integer) {
       if (rval.equals(0)) {
@@ -359,9 +359,9 @@ public final class BinaryOperatorExpression extends Expression {
       String pattern = (String) lval;
       try {
         if (rval instanceof Tuple) {
-          return Printer.formatToString(pattern, (Tuple) rval);
+          return Printer.formatWithList(pattern, (Tuple) rval);
         }
-        return Printer.formatToString(pattern, Collections.singletonList(rval));
+        return Printer.format(pattern, rval);
       } catch (IllegalFormatException e) {
         throw new EvalException(location, e.getMessage());
       }

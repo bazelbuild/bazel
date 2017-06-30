@@ -58,8 +58,8 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.ProguardHelper;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import java.util.List;
@@ -278,8 +278,8 @@ public final class AndroidRuleClasses {
     }
 
     @Override
-    public void write(Appendable buffer, char quotationMark) {
-      Printer.append(buffer, "android_common.multi_cpu_configuration");
+    public void repr(SkylarkPrinter printer) {
+      printer.append("android_common.multi_cpu_configuration");
     }
   }
 

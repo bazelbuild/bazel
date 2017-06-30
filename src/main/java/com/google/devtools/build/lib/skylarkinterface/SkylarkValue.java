@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.skylarkinterface;
 /**
  * Java objects that are also Skylark values.
  *
- * <p>This is used for extending the Skylark interpreted with domain-specific values.
+ * <p>This is used for extending the Skylark interpreter with domain-specific values.
  */
 public interface SkylarkValue {
 
@@ -34,8 +34,7 @@ public interface SkylarkValue {
    *
    * <p>For regular data structures, the value should be parsable back into an equal data structure.
    *
-   * @param buffer the buffer to append the representation to
-   * @param quotationMark The quote style (" or ') to be used
+   * @param printer a printer to be used for formatting nested values.
    */
-  void write(Appendable buffer, char quotationMark);
+  void repr(SkylarkPrinter printer);
 }

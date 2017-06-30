@@ -1613,25 +1613,35 @@ public class MethodLibrary {
         }
       };
 
-  @SkylarkSignature(name = "str", returnType = String.class, doc =
-      "Converts any object to string. This is useful for debugging."
-      + "<pre class=\"language-python\">str(\"ab\") == \"ab\"</pre>",
-      parameters = {@Param(name = "x", doc = "The object to convert.")})
-  private static final BuiltinFunction str = new BuiltinFunction("str") {
-    public String invoke(Object x) {
-      return Printer.str(x);
-    }
-  };
+  @SkylarkSignature(
+    name = "str",
+    returnType = String.class,
+    doc =
+        "Converts any object to string. This is useful for debugging."
+            + "<pre class=\"language-python\">str(\"ab\") == \"ab\"</pre>",
+    parameters = {@Param(name = "x", doc = "The object to convert.")}
+  )
+  private static final BuiltinFunction str =
+      new BuiltinFunction("str") {
+        public String invoke(Object x) {
+          return Printer.getPrinter().str(x).toString();
+        }
+      };
 
-  @SkylarkSignature(name = "repr", returnType = String.class, doc =
-      "Converts any object to a string representation. This is useful for debugging.<br>"
-      + "<pre class=\"language-python\">str(\"ab\") == \\\"ab\\\"</pre>",
-      parameters = {@Param(name = "x", doc = "The object to convert.")})
-  private static final BuiltinFunction repr = new BuiltinFunction("repr") {
-    public String invoke(Object x) {
-      return Printer.repr(x);
-    }
-  };
+  @SkylarkSignature(
+    name = "repr",
+    returnType = String.class,
+    doc =
+        "Converts any object to a string representation. This is useful for debugging.<br>"
+            + "<pre class=\"language-python\">str(\"ab\") == \\\"ab\\\"</pre>",
+    parameters = {@Param(name = "x", doc = "The object to convert.")}
+  )
+  private static final BuiltinFunction repr =
+      new BuiltinFunction("repr") {
+        public String invoke(Object x) {
+          return Printer.getPrinter().repr(x).toString();
+        }
+      };
 
   @SkylarkSignature(name = "bool", returnType = Boolean.class,
       doc = "Constructor for the bool type. "

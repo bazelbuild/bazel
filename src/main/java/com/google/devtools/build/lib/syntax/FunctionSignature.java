@@ -19,6 +19,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.syntax.Printer.BasePrinter;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
@@ -393,6 +394,7 @@ public abstract class FunctionSignature implements Serializable {
         final boolean skipFirstMandatory) {
       FunctionSignature signature = getSignature();
       Shape shape = signature.getShape();
+      final BasePrinter printer = Printer.getPrinter(sb);
       final ImmutableList<String> names = signature.getNames();
       @Nullable final List<V> defaultValues = getDefaultValues();
       @Nullable final List<T> types = getTypes();
@@ -418,7 +420,7 @@ public abstract class FunctionSignature implements Serializable {
 
         public void comma() {
           if (isMore) {
-            sb.append(", ");
+            printer.append(", ");
           }
           isMore = true;
         }
@@ -436,26 +438,26 @@ public abstract class FunctionSignature implements Serializable {
           } else {
             // We only append colons when there is a name.
             if (showNames) {
-              sb.append(": ");
+              printer.append(": ");
             }
-            sb.append(typeString);
+            printer.append(typeString);
           }
         }
         public void mandatory(int i) {
           comma();
           if (showNames) {
-            sb.append(names.get(i));
+            printer.append(names.get(i));
           }
           type(i);
         }
         public void optional(int i) {
           mandatory(i);
           if (showDefaults) {
-            sb.append(" = ");
+            printer.append(" = ");
             if (defaultValues == null) {
-              sb.append("?");
+              printer.append("?");
             } else {
-              Printer.write(sb, defaultValues.get(j++));
+              printer.repr(defaultValues.get(j++));
             }
           }
         }
@@ -472,9 +474,9 @@ public abstract class FunctionSignature implements Serializable {
       }
       if (hasStar) {
         show.comma();
-        sb.append("*");
+        printer.append("*");
         if (starArg && showNames) {
-          sb.append(names.get(iStarArg));
+          printer.append(names.get(iStarArg));
         }
       }
       for (; i < endMandatoryNamedOnly; i++) {
@@ -485,9 +487,9 @@ public abstract class FunctionSignature implements Serializable {
       }
       if (kwArg) {
         show.comma();
-        sb.append("**");
+        printer.append("**");
         if (showNames) {
-          sb.append(names.get(iKwArg));
+          printer.append(names.get(iKwArg));
         }
       }
 

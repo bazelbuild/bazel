@@ -32,10 +32,10 @@ import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
-import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
@@ -877,7 +877,7 @@ public class Artifact
   }
 
   @Override
-  public void write(Appendable buffer, char quotationMark) {
-    Printer.append(buffer, toString()); // TODO(bazel-team): implement a readable representation
+  public void repr(SkylarkPrinter printer) {
+    printer.append(toString()); // TODO(bazel-team): implement a readable representation
   }
 }

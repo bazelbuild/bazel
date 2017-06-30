@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.syntax;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
@@ -583,30 +585,54 @@ public class EvaluationTest extends EvaluationTestCase {
     newTest().testStatement("not 'a' in ['a'] or 0", 0);
   }
 
-  private Object createObjWithStr() {
+  private SkylarkValue createObjWithStr() {
+    return new SkylarkValue() {
+      @Override
+      public void repr(SkylarkPrinter printer) {
+        printer.append("str marker");
+      }
+
+      @Override
+      public boolean isImmutable() {
+        return false;
+      }
+    };
+  }
+
+  private Object createUnknownObj() {
     return new Object() {
       @Override
       public String toString() {
-        return "str marker";
+        return "unknown object";
       }
     };
   }
 
   @Test
   public void testPercOnObject() throws Exception {
-    newTest().update("obj", createObjWithStr()).testStatement("'%s' % obj", "str marker");
+    newTest()
+        .update("obj", createObjWithStr())
+        .testStatement("'%s' % obj", "str marker");
+    newTest()
+        .update("unknown", createUnknownObj())
+        .testStatement("'%s' % unknown", "unknown object");
   }
 
   @Test
   public void testPercOnObjectList() throws Exception {
-    newTest().update("obj", createObjWithStr()).testStatement("'%s %s' % (obj, obj)",
-        "str marker str marker");
+    newTest()
+        .update("obj", createObjWithStr())
+        .testStatement("'%s %s' % (obj, obj)", "str marker str marker");
+    newTest()
+        .update("unknown", createUnknownObj())
+        .testStatement("'%s %s' % (unknown, unknown)", "unknown object unknown object");
   }
 
   @Test
   public void testPercOnObjectInvalidFormat() throws Exception {
-    newTest().update("obj", createObjWithStr()).testIfExactError(
-        "invalid argument str marker for format pattern %d", "'%d' % obj");
+    newTest()
+        .update("obj", createObjWithStr())
+        .testIfExactError("invalid argument str marker for format pattern %d", "'%d' % obj");
   }
 
   @Test

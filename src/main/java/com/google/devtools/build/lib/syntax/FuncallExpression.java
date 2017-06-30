@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException.EvalExceptionWithJavaCause;
+import com.google.devtools.build.lib.syntax.Printer.BasePrinter;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -269,15 +270,15 @@ public final class FuncallExpression extends Expression {
 
   @Override
   public String toString() {
-    StringBuilder sb = new StringBuilder();
+    BasePrinter printer = Printer.getPrinter();
     if (obj != null) {
-      sb.append(obj).append(".");
+      printer.append(obj.toString()).append(".");
     }
-    sb.append(func);
-    Printer.printList(sb, args, "(", ", ", ")", /* singletonTerminator */ null,
+    printer.append(func.toString());
+    printer.printAbbreviatedList(args, "(", ", ", ")", null,
         Printer.SUGGESTED_CRITICAL_LIST_ELEMENTS_COUNT,
         Printer.SUGGESTED_CRITICAL_LIST_ELEMENTS_STRING_LENGTH);
-    return sb.toString();
+    return printer.toString();
   }
 
   /**
@@ -326,7 +327,8 @@ public final class FuncallExpression extends Expression {
               loc,
               "method invocation returned None, please file a bug report: "
                   + methodName
-                  + Printer.listString(ImmutableList.copyOf(args), "(", ", ", ")", null));
+                  + Printer.printAbbreviatedList(
+                      ImmutableList.copyOf(args), "(", ", ", ")", null));
         }
       }
       // TODO(bazel-team): get rid of this, by having everyone use the Skylark data structures

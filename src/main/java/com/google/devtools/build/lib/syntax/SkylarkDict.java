@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.syntax;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.SkylarkMutable.MutableMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -168,8 +169,8 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
 
   // Other methods
   @Override
-  public void write(Appendable buffer, char quotationMark) {
-    Printer.printList(buffer, entrySet(), "{", ", ", "}", null, quotationMark);
+  public void repr(SkylarkPrinter printer) {
+    printer.printList(entrySet(), "{", ", ", "}", null);
   }
 
   /**
@@ -191,7 +192,7 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
     }
     throw new EvalException(
         null,
-        Printer.format(
+        String.format(
             "%s is not of expected type dict or NoneType",
             description == null ? Printer.repr(obj) : String.format("'%s'", description)));
   }

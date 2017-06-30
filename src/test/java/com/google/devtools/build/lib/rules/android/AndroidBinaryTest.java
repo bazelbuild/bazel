@@ -2728,7 +2728,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     assertThat(getConfiguredTarget("//java/com/foo")).isNull();
     assertContainsEvent(
         "in config_feature_flag rule //java/com/foo:flag1: "
-            + "value must be one of ['off', 'on'], but was 'invalid'");
+            + "value must be one of [\"off\", \"on\"], but was \"invalid\"");
   }
 
   @Test
@@ -2757,7 +2757,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     assertThat(getConfiguredTarget("//java/com/foo")).isNull();
     assertContainsEvent(
         "in config_feature_flag rule //java/com/foo:flag1: "
-            + "value must be one of ['off', 'on'], but was 'invalid'");
+            + "value must be one of [\"off\", \"on\"], but was \"invalid\"");
   }
 
   @Test

@@ -14,14 +14,13 @@
 package com.google.devtools.build.lib.skylarkinterface;
 
 /**
- * A Skylark value that is represented by {@code print()} differently than by {@code write()}.
+ * A Skylark value that is represented by {@code str()} differently than by {@code repr()}.
  */
 public interface SkylarkPrintableValue extends SkylarkValue {
   /**
    * Print an informal, human-readable representation of the value.
    *
-   * @param buffer the buffer to append the representation to
-   * @param quotationMark The quote style (" or ') to be used
+   * @param printer a printer to be used for formatting nested values.
    */
-  void print(Appendable buffer, char quotationMark);
+  void str(SkylarkPrinter printer);
 }

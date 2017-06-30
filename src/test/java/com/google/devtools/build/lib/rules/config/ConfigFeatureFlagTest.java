@@ -237,7 +237,7 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
     assertThat(getConfiguredTarget("//test:flag")).isNull();
     assertContainsEvent(
         "in allowed_values attribute of config_feature_flag rule //test:flag: "
-            + "cannot contain duplicates, but contained multiple of ['double']");
+            + "cannot contain duplicates, but contained multiple of [\"double\"]");
   }
 
   @Test
@@ -260,7 +260,7 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
     assertThat(getConfiguredTarget("//test:top")).isNull();
     assertContainsEvent(
         "in default_value attribute of config_feature_flag rule //test:flag: "
-            + "must be one of ['eagle', 'legal'], but was 'beagle'");
+            + "must be one of [\"eagle\", \"legal\"], but was \"beagle\"");
   }
 
   @Test
@@ -284,7 +284,7 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
     // TODO(mstaib): when configurationError is implemented, switch to testing for that
     assertContainsEvent(
         "in config_feature_flag rule //test:flag: "
-            + "value must be one of ['configured', 'default', 'other'], but was 'invalid'");
+            + "value must be one of [\"configured\", \"default\", \"other\"], but was \"invalid\"");
   }
 
   @Test
