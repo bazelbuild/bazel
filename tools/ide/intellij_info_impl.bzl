@@ -23,6 +23,9 @@ DEPS = [
     "_robolectric",  # From android_robolectric_test
     "_android_sdk",  # from android rules
     "aidl_lib",  # from android_sdk
+    "_scala_toolchain",  # From scala rules
+    # All other scala ones besides toolchain can be removed after
+    # https://github.com/bazelbuild/rules_scala/pull/241
     "_scalalib",  # From scala rules
     "_scalacompiler",  # From scala rules
     "_scalareflect",  # From scala rules
