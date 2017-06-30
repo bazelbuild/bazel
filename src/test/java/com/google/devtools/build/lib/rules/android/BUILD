@@ -77,6 +77,48 @@ java_test(
 )
 
 java_test(
+    name = "ResourceFilterTest",
+    srcs = ["ResourceFilterTest.java"],
+    deps = [
+        ":ResourceTestBase",
+        "//src/main/java/com/google/devtools/build/lib:android-rules",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "LocalResourceContainerTest",
+    srcs = ["LocalResourceContainerTest.java"],
+    deps = [
+        ":ResourceTestBase",
+        "//src/main/java/com/google/devtools/build/lib:android-rules",
+        "//src/main/java/com/google/devtools/build/lib:packages-internal",
+        "//src/main/java/com/google/devtools/build/lib:vfs",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_library(
+    name = "ResourceTestBase",
+    srcs = ["ResourceTestBase.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:inmemoryfs",
+        "//src/main/java/com/google/devtools/build/lib:packages-internal",
+        "//src/main/java/com/google/devtools/build/lib:vfs",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "AndroidDeviceScriptFixtureTest",
     srcs = ["AndroidDeviceScriptFixtureTest.java"],
     deps = [

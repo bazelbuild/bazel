@@ -319,7 +319,7 @@ public class AndroidCommon {
   }
 
   static PathFragment getSourceDirectoryRelativePathFromResource(Artifact resource) {
-    PathFragment resourceDir = LocalResourceContainer.Builder.findResourceDir(resource);
+    PathFragment resourceDir = LocalResourceContainer.findResourceDir(resource);
     if (resourceDir == null) {
       return null;
     }

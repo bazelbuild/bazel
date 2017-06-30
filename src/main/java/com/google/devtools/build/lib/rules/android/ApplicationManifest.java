@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidManifestMerger;
 import com.google.devtools.build.lib.rules.android.ResourceContainer.Builder.JavaPackageSource;
 import com.google.devtools.build.lib.rules.android.ResourceContainer.ResourceType;
@@ -387,7 +388,7 @@ public final class ApplicationManifest {
       List<String> uncompressedExtensions,
       boolean crunchPng,
       Artifact proguardCfg)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException {
     LocalResourceContainer data =
         new LocalResourceContainer.Builder(ruleContext)
             .withAssets(
@@ -441,7 +442,7 @@ public final class ApplicationManifest {
       @Nullable Artifact dataBindingInfoZip,
       @Nullable Artifact featureOf,
       @Nullable Artifact featureAfter)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException {
     LocalResourceContainer data = new LocalResourceContainer.Builder(ruleContext)
         .withAssets(
             AndroidCommon.getAssetDir(ruleContext),
@@ -492,7 +493,7 @@ public final class ApplicationManifest {
       Artifact manifestOut,
       Artifact mergedResources,
       Artifact dataBindingInfoZip)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException {
     LocalResourceContainer data =
         new LocalResourceContainer.Builder(ruleContext)
             .withAssets(
