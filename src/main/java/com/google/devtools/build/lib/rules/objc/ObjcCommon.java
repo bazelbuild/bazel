@@ -72,7 +72,6 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -637,25 +636,6 @@ public final class ObjcCommon {
     return Iterables.concat(
         ruleContext.getFragment(ObjcConfiguration.class).getCopts(),
         ruleContext.getTokenizedStringListAttr("copts"));
-  }
-
-  static boolean shouldUseObjcModules(RuleContext ruleContext) {
-    for (String copt : getNonCrosstoolCopts(ruleContext)) {
-      if (copt.contains("-fmodules")) {
-        return true;
-      }
-    }
-
-    if (ruleContext.attributes().has("enable_modules", Type.BOOLEAN)
-        && ruleContext.attributes().get("enable_modules", Type.BOOLEAN)) {
-      return true;
-    }
-
-    if (ruleContext.getFragment(ObjcConfiguration.class).moduleMapsEnabled()) {
-      return true;
-    }
-
-    return false;
   }
 
   static ImmutableSet<PathFragment> userHeaderSearchPaths(
