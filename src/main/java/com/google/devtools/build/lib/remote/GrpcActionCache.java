@@ -21,7 +21,6 @@ import com.google.bytestream.ByteStreamProto.ReadRequest;
 import com.google.bytestream.ByteStreamProto.ReadResponse;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -74,7 +73,6 @@ public class GrpcActionCache implements RemoteActionCache {
   private final ChannelOptions channelOptions;
   private final Channel channel;
 
-  @VisibleForTesting
   public GrpcActionCache(Channel channel, ChannelOptions channelOptions, RemoteOptions options) {
     this.options = options;
     this.channelOptions = channelOptions;
@@ -188,8 +186,7 @@ public class GrpcActionCache implements RemoteActionCache {
           actionInputs.size(),
           new Chunker.Builder()
               .addAllInputs(actionInputs, repository.getInputFileCache(), execRoot)
-              .onlyUseDigests(missingDigests)
-              .build());
+              .onlyUseDigests(missingDigests));
     }
   }
 
@@ -315,7 +312,7 @@ public class GrpcActionCache implements RemoteActionCache {
     }
     ImmutableSet<Digest> missing = getMissingDigests(digests);
     if (!missing.isEmpty()) {
-      uploadChunks(missing.size(), b.onlyUseDigests(missing).build());
+      uploadChunks(missing.size(), b.onlyUseDigests(missing));
     }
     int index = 0;
     for (Path file : files) {
@@ -348,7 +345,7 @@ public class GrpcActionCache implements RemoteActionCache {
     Digest digest = Digests.computeDigest(file);
     ImmutableSet<Digest> missing = getMissingDigests(ImmutableList.of(digest));
     if (!missing.isEmpty()) {
-      uploadChunks(1, Chunker.from(file));
+      uploadChunks(1, new Chunker.Builder().addInput(file));
     }
     return digest;
   }
@@ -365,12 +362,12 @@ public class GrpcActionCache implements RemoteActionCache {
     Digest digest = Digests.getDigestFromInputCache(input, inputCache);
     ImmutableSet<Digest> missing = getMissingDigests(ImmutableList.of(digest));
     if (!missing.isEmpty()) {
-      uploadChunks(1, Chunker.from(input, inputCache, execRoot));
+      uploadChunks(1, new Chunker.Builder().addInput(input, inputCache, execRoot));
     }
     return digest;
   }
 
-  private void uploadChunks(int numItems, Chunker chunker)
+  private void uploadChunks(int numItems, Chunker.Builder chunkerBuilder)
       throws InterruptedException, IOException {
     final CountDownLatch finishLatch = new CountDownLatch(numItems);
     final AtomicReference<RuntimeException> exception = new AtomicReference<>(null);
@@ -379,6 +376,7 @@ public class GrpcActionCache implements RemoteActionCache {
     if (!options.remoteInstanceName.isEmpty()) {
       resourceName += options.remoteInstanceName + "/";
     }
+    Chunker chunker = chunkerBuilder.build();
     while (chunker.hasNext()) {
       Chunker.Chunk chunk = chunker.next();
       final Digest digest = chunk.getDigest();
@@ -449,7 +447,7 @@ public class GrpcActionCache implements RemoteActionCache {
     ImmutableSet<Digest> missing = getMissingDigests(ImmutableList.of(digest));
     try {
       if (!missing.isEmpty()) {
-        uploadChunks(1, Chunker.from(blob));
+        uploadChunks(1, new Chunker.Builder().addInput(blob));
       }
       return digest;
     } catch (IOException e) {

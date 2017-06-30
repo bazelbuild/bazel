@@ -237,45 +237,6 @@ public final class Chunker {
     };
   }
 
-  /**
-   * Create a Chunker from a given ActionInput, taking its digest from the provided
-   * ActionInputFileCache.
-   */
-  public static Chunker from(
-      ActionInput input, int chunkSize, ActionInputFileCache inputCache, Path execRoot)
-      throws IOException {
-    return new Chunker(toItem(input, inputCache, execRoot), chunkSize);
-  }
-
-  /**
-   * Create a Chunker from a given ActionInput, taking its digest from the provided
-   * ActionInputFileCache.
-   */
-  public static Chunker from(ActionInput input, ActionInputFileCache inputCache, Path execRoot)
-      throws IOException {
-    return from(input, getDefaultChunkSize(), inputCache, execRoot);
-  }
-
-  /** Create a Chunker from a given blob and chunkSize. */
-  public static Chunker from(byte[] blob, int chunkSize) throws IOException {
-    return new Chunker(toItem(blob), chunkSize);
-  }
-
-  /** Create a Chunker from a given blob. */
-  public static Chunker from(byte[] blob) throws IOException {
-    return from(blob, getDefaultChunkSize());
-  }
-
-  /** Create a Chunker from a given Path and chunkSize. */
-  public static Chunker from(Path file, int chunkSize) throws IOException {
-    return new Chunker(toItem(file), chunkSize);
-  }
-
-  /** Create a Chunker from a given Path. */
-  public static Chunker from(Path file) throws IOException {
-    return from(file, getDefaultChunkSize());
-  }
-
   private static class MemberOf implements Predicate<Item> {
     private final Set<Digest> digests;
 
