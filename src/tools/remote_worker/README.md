@@ -11,9 +11,13 @@ The simplest setup is as follows:
             --work_path=/tmp/test \
             --listen_port=8080
 
+- Make sure your `~/.bazelrc` file is settings your DigestFunction to SHA1:
+```
+        startup --host_jvm_args=-Dbazel.DigestFunction=SHA1
+```
 - Then you run Bazel pointing to the remote_worker instance.
 
-        bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
+        bazel build \
             --spawn_strategy=remote --remote_cache=localhost:8080 \
             --remote_executor=localhost:8080 src/tools/generate_workspace:all
 
