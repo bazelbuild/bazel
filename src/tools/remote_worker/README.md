@@ -11,7 +11,7 @@ The simplest setup is as follows:
             --work_path=/tmp/test \
             --listen_port=8080
 
-- Make sure your `~/.bazelrc` file is settings your DigestFunction to SHA1:
+- Make sure you set the DigestFunction to SHA1 in your `~/.bazelrc` file:
 ```
         startup --host_jvm_args=-Dbazel.DigestFunction=SHA1
 ```
