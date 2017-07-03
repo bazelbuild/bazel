@@ -69,8 +69,8 @@ public class SkylarkRuleImplementationFunctions {
   @SkylarkSignature(
     name = "action",
     doc =
-        "DEPRECATED. Use <a href=\"acttions.html#run\">ctx.actions.run()</a> or"
-            + " <a href=\"acttions.html#run_shell\">ctx.actions.run_shell()</a>. <br>"
+        "DEPRECATED. Use <a href=\"actions.html#run\">ctx.actions.run()</a> or"
+            + " <a href=\"actions.html#run_shell\">ctx.actions.run_shell()</a>. <br>"
             + "Creates an action that runs an executable or a shell command."
             + " You must specify either <code>command</code> or <code>executable</code>.\n"
             + "Actions and genrules are very similar, but have different use cases. Actions are "
