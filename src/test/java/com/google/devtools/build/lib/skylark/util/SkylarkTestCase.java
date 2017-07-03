@@ -101,7 +101,8 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
   }
 
   protected SkylarkRuleContext createRuleContext(String label) throws Exception {
-    return new SkylarkRuleContext(getRuleContextForSkylark(getConfiguredTarget(label)), null);
+    return new SkylarkRuleContext(getRuleContextForSkylark(getConfiguredTarget(label)), null,
+        getSkylarkSemantics());
   }
 
   protected Object evalRuleContextCode(String... lines) throws Exception {

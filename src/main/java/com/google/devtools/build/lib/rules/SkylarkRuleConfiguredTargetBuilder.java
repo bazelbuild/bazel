@@ -75,7 +75,7 @@ public final class SkylarkRuleConfiguredTargetBuilder {
     String expectFailure = ruleContext.attributes().get("expect_failure", Type.STRING);
     SkylarkRuleContext skylarkRuleContext = null;
     try (Mutability mutability = Mutability.create("configured target")) {
-      skylarkRuleContext = new SkylarkRuleContext(ruleContext, null);
+      skylarkRuleContext = new SkylarkRuleContext(ruleContext, null, skylarkSemantics);
       Environment env = Environment.builder(mutability)
           .setCallerLabel(ruleContext.getLabel())
           .setGlobals(

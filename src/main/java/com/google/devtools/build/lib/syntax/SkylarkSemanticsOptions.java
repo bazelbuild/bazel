@@ -172,4 +172,17 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
     help = "If set to true, the dictionary literal syntax doesn't allow duplicated keys."
   )
   public boolean incompatibleDictLiteralHasNoDuplicates;
+
+  @Option(
+      name = "incompatible_new_actions_api",
+      defaultValue = "false",
+      category = "incompatible changes",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "If set to true, the API to create actions is only avaliable on `ctx.actions`, "
+          + "not on `ctx`."
+  )
+  public boolean incompatibleNewActionsApi;
+
 }

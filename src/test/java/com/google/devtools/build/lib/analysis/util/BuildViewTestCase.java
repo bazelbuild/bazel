@@ -279,6 +279,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return ImmutableList.of();
   }
 
+  protected SkylarkSemanticsOptions getSkylarkSemantics() {
+    return skylarkSemanticsOptions;
+  }
+
   protected ResourceSet getStartingResources() {
     // Effectively disable ResourceManager by default.
     return ResourceSet.createWithRamCpuIo(Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE);

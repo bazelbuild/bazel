@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.syntax.FuncallExpression.FuncallException;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.LabelClass;
@@ -177,6 +178,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
   private FragmentCollection fragments;
   private FragmentCollection hostFragments;
   private AspectDescriptor aspectDescriptor;
+  private final SkylarkSemanticsOptions skylarkSemantics;
 
   private SkylarkDict<String, String> makeVariables;
   private SkylarkRuleAttributesCollection attributesCollection;
@@ -195,7 +197,8 @@ public final class SkylarkRuleContext implements SkylarkValue {
    * @throws InterruptedException
    */
   public SkylarkRuleContext(RuleContext ruleContext,
-      @Nullable AspectDescriptor aspectDescriptor)
+      @Nullable AspectDescriptor aspectDescriptor,
+      SkylarkSemanticsOptions skylarkSemantics)
       throws EvalException, InterruptedException {
     this.actionFactory = new SkylarkActionFactory(this, ruleContext);
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
@@ -203,6 +206,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
     this.fragments = new FragmentCollection(ruleContext, ConfigurationTransition.NONE);
     this.hostFragments = new FragmentCollection(ruleContext, ConfigurationTransition.HOST);
     this.aspectDescriptor = aspectDescriptor;
+    this.skylarkSemantics = skylarkSemantics;
 
     if (aspectDescriptor == null) {
       Collection<Attribute> attributes = ruleContext.getRule().getAttributes();
@@ -899,6 +903,8 @@ public final class SkylarkRuleContext implements SkylarkValue {
     }
   )
   public Artifact newFile(String filename) throws EvalException {
+    SkylarkRuleImplementationFunctions.checkDeprecated(
+        "ctx.actions.declare_file", "ctx.new_file", null, skylarkSemantics);
     checkMutable("new_file");
     return actionFactory.declareFile(filename, Runtime.NONE);
   }
@@ -929,6 +935,8 @@ public final class SkylarkRuleContext implements SkylarkValue {
       }
     )
   public Artifact newFile(Artifact baseArtifact, String newBaseName) throws EvalException {
+    SkylarkRuleImplementationFunctions.checkDeprecated(
+        "ctx.actions.declare_file", "ctx.new_file", null, skylarkSemantics);
     checkMutable("new_file");
     return actionFactory.declareFile(newBaseName, baseArtifact);
   }
@@ -957,6 +965,8 @@ public final class SkylarkRuleContext implements SkylarkValue {
     }
   )
   public Artifact newDirectory(String name, Object siblingArtifactUnchecked) throws EvalException {
+    SkylarkRuleImplementationFunctions.checkDeprecated(
+        "ctx.actions.declare_directory", "ctx.experimental_new_directory", null, skylarkSemantics);
     checkMutable("experimental_new_directory");
     return actionFactory.declareDirectory(name, siblingArtifactUnchecked);
   }

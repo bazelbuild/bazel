@@ -56,13 +56,14 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
     try (Mutability mutability = Mutability.create("aspect")) {
       AspectDescriptor aspectDescriptor = new AspectDescriptor(
           skylarkAspect.getAspectClass(), parameters);
+      AnalysisEnvironment analysisEnv = ruleContext.getAnalysisEnvironment();
       try {
-        skylarkRuleContext = new SkylarkRuleContext(ruleContext, aspectDescriptor);
+        skylarkRuleContext = new SkylarkRuleContext(
+            ruleContext, aspectDescriptor, analysisEnv.getSkylarkSemantics());
       } catch (EvalException e) {
         ruleContext.ruleError(e.getMessage());
         return null;
       }
-      AnalysisEnvironment analysisEnv = ruleContext.getAnalysisEnvironment();
       Environment env =
           Environment.builder(mutability)
               .setGlobals(skylarkAspect.getFuncallEnv().getGlobals())

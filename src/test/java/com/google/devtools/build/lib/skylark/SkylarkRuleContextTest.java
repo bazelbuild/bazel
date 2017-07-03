@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skylark;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -1962,4 +1963,50 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
       }
     }
   }
+
+
+  private static final List<String> deprecatedActionsApi =
+      ImmutableList.of(
+          "new_file('foo.txt')",
+          "experimental_new_directory('foo.txt')",
+          "new_file(file, 'foo.txt')",
+          "action(command = 'foo', outputs = [file])",
+          "file_action(file, 'foo')",
+          "empty_action(mnemonic = 'foo', inputs = [file])",
+          "template_action(template = file, output = file, substitutions = {})"
+      );
+
+  @Test
+  public void testIncompatibleNewActionsApi() throws Exception {
+    scratch.file("test/BUILD",
+        "load('/test/rules', 'main_rule')",
+        "main_rule(name = 'main')");
+    scratch.file("test/rules.bzl");
+
+    for (String actionApi : deprecatedActionsApi) {
+      scratch.overwriteFile("test/rules.bzl",
+          "def _main_impl(ctx):",
+          "  file = ctx.outputs.file",
+          "  foo = ctx." + actionApi,
+          "main_rule = rule(",
+          "  implementation = _main_impl,",
+          "  attrs = {",
+          "    'deps': attr.label_list()",
+          "  },",
+          "  outputs = {'file': 'output.txt'},",
+          ")"
+      );
+      setSkylarkSemanticsOptions("--incompatible_new_actions_api=true");
+      invalidatePackages();
+      try {
+        getConfiguredTarget("//test:main");
+        fail("Should have reported deprecation error for: " + actionApi);
+      } catch (AssertionError e) {
+        assertWithMessage(actionApi + " reported wrong error").that(e)
+            .hasMessageThat()
+            .contains("Use --incompatible_new_actions_api=false");
+      }
+    }
+  }
+
 }
