@@ -85,7 +85,7 @@ simple_aspect = aspect(implementation=_simple_aspect_impl,
 
 def _rule_impl(ctx):
   output = ctx.outputs.out
-  ctx.action(
+  ctx.actions.run_shell(
       inputs=[],
       outputs=[output],
       progress_message="Touching output %s" % output,
@@ -256,11 +256,11 @@ def _create(ctx):
   intemediate_outputs = [ctx.actions.declare_file("bar")]
   intermediate_cmd = "cat %s > %s" % (ctx.attr.name, intemediate_outputs[0].path)
   action_cmd = "touch " + list(files_to_build)[0].path
-  ctx.action(outputs=list(intemediate_outputs),
-             command=intermediate_cmd)
-  ctx.action(inputs=list(intemediate_outputs),
-             outputs=list(files_to_build),
-             command=action_cmd)
+  ctx.actions.run_shell(outputs=list(intemediate_outputs),
+                        command=intermediate_cmd)
+  ctx.actions.run_shell(inputs=list(intemediate_outputs),
+                        outputs=list(files_to_build),
+                        command=action_cmd)
   struct(files=files_to_build,
          data_runfiles=ctx.runfiles(transitive_files=files_to_build))
 

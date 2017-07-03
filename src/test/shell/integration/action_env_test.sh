@@ -48,7 +48,7 @@ EOF
   cat > pkg/build.bzl <<EOF
 def _impl(ctx):
   output = ctx.outputs.out
-  ctx.action(
+  ctx.actions.run_shell(
       inputs=[],
       outputs=[output],
       use_default_shell_env = ctx.attr.env,

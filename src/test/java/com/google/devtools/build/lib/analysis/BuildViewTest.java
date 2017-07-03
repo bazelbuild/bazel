@@ -1305,7 +1305,7 @@ public class BuildViewTest extends BuildViewTestBase {
         "",
         "def _action_rule_impl(ctx):",
         "  out = ctx.actions.declare_file(ctx.label.name)",
-        "  ctx.action(outputs = [out], command = 'dontcare', mnemonic='Mnemonic')",
+        "  ctx.actions.run_shell(outputs = [out], command = 'dontcare', mnemonic='Mnemonic')",
         "  return struct()",
         "action_rule = rule(_action_rule_impl, attrs = { 'deps' : attr.label_list() })");
 

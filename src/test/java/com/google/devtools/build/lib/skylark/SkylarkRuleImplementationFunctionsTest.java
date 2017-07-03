@@ -264,7 +264,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     evalRuleContextCode(
         ruleContext,
-        "ruleContext.action(",
+        "ruleContext.actions.run(",
         "  inputs = ruleContext.files.srcs,",
         "  outputs = ruleContext.files.srcs,",
         "  arguments = ['--a','--b'],",
@@ -284,7 +284,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     evalRuleContextCode(
         ruleContext,
-        "ruleContext.action(",
+        "ruleContext.actions.run(",
         "  inputs = depset(ruleContext.files.srcs),",
         "  outputs = ruleContext.files.srcs,",
         "  arguments = ['--a','--b'],",
@@ -303,7 +303,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     checkErrorContains(
         createRuleContext("//foo:foo"),
         "expected file or PathFragment for executable but got string instead",
-        "ruleContext.action(",
+        "ruleContext.actions.run(",
         "  inputs = ruleContext.files.srcs,",
         "  outputs = ruleContext.files.srcs,",
         "  arguments = ['--a','--b'],",
@@ -315,7 +315,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     evalRuleContextCode(
         ruleContext,
-        "ruleContext.action(",
+        "ruleContext.actions.run_shell(",
         "  inputs = ruleContext.files.srcs,",
         "  outputs = ruleContext.files.srcs,",
         "  mnemonic = 'DummyMnemonic',",
@@ -336,7 +336,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     evalRuleContextCode(
         ruleContext,
         "env = {'a' : 'b'}",
-        "ruleContext.action(",
+        "ruleContext.actions.run_shell(",
         "  inputs = ruleContext.files.srcs,",
         "  outputs = ruleContext.files.srcs,",
         "  env = env,",
@@ -357,8 +357,10 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     checkErrorContains(
         ruleContext,
-        "unexpected keyword 'bad_param' in call to action(self: ctx, *, ",
-        "ruleContext.action(outputs=[], bad_param = 'some text')");
+        "unexpected keyword 'bad_param', in method run("
+            + "list outputs, string bad_param, File executable) of 'actions'",
+        "f = ruleContext.actions.declare_file('foo.sh')",
+        "ruleContext.actions.run(outputs=[], bad_param = 'some text', executable = f)");
   }
 
   @Test
@@ -373,7 +375,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   private Object createTestSpawnAction(SkylarkRuleContext ruleContext) throws Exception {
     return evalRuleContextCode(
         ruleContext,
-        "ruleContext.action(",
+        "ruleContext.actions.run_shell(",
         "  inputs = ruleContext.files.srcs,",
         "  outputs = ruleContext.files.srcs,",
         "  arguments = ['--a','--b'],",
@@ -389,7 +391,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         createRuleContext("//foo:foo"),
         "expected type 'File' for 'outputs' element but got type 'string' instead",
         "l = ['a', 'b']",
-        "ruleContext.action(",
+        "ruleContext.actions.run_shell(",
         "  outputs = l,",
         "  command = 'dummy_command')");
   }
@@ -399,7 +401,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     checkErrorContains(
         createRuleContext("//foo:foo"),
         "'command' list has to be of size at least 3",
-        "ruleContext.action(",
+        "ruleContext.actions.run_shell(",
         "  outputs = ruleContext.files.srcs,",
         "  command = ['dummy_command', '--arg'])");
   }

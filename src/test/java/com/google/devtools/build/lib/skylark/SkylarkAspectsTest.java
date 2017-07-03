@@ -1769,7 +1769,8 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         "test/aspect.bzl",
         "def _aspect_impl(target,ctx):",
         "  f = ctx.actions.declare_file('dummy.txt')",
-        "  ctx.action(outputs = [f], command='echo xxx > $(location f)', mnemonic='AspectAction')",
+        "  ctx.actions.run_shell(outputs = [f], command='echo xxx > $(location f)',",
+        "                        mnemonic='AspectAction')",
         "  return struct()",
         "my_aspect = aspect(implementation = _aspect_impl)"
     );

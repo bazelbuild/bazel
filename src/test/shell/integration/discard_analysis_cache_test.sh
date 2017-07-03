@@ -86,7 +86,7 @@ simple_aspect = aspect(implementation=_simple_aspect_impl,
 
 def _rule_impl(ctx):
   output = ctx.outputs.out
-  ctx.action(
+  ctx.actions.run_shell(
       inputs=[],
       outputs=[output],
       progress_message="Touching output %s" % output,

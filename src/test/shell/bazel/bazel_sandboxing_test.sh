@@ -176,7 +176,7 @@ EOF
   cat << 'EOF' >> examples/genrule/skylark.bzl
 def _skylark_breaks1_impl(ctx):
   print(ctx.outputs.output.path)
-  ctx.action(
+  ctx.actions.run_shell(
     inputs = [ ctx.file.input ],
     outputs = [ ctx.outputs.output ],
     command = "wc %s `dirname %s`/b.txt &> %s" % (ctx.file.input.path,

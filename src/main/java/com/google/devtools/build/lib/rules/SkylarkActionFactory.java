@@ -514,7 +514,6 @@ public class SkylarkActionFactory implements SkylarkValue {
     context.checkMutable("actions.run_shell");
 
     // TODO(bazel-team): builder still makes unnecessary copies of inputs, outputs and args.
-    boolean hasCommand = true;
     SpawnAction.Builder builder = new SpawnAction.Builder();
     if (arguments.size() > 0) {
       // When we use a shell command, add an empty argument before other arguments.
@@ -523,7 +522,10 @@ public class SkylarkActionFactory implements SkylarkValue {
       // arg1 and arg2 will be $1 and $2, as a user expects.
       builder.addArgument("");
     }
-    builder.addArguments(arguments.getContents(String.class, "arguments"));
+
+    @SuppressWarnings("unchecked")
+    List<String> argumentsContents = arguments.getContents(String.class, "arguments");
+    builder.addArguments(argumentsContents);
 
     if (commandUnchecked instanceof String) {
       builder.setShellCommand((String) commandUnchecked);
@@ -532,7 +534,9 @@ public class SkylarkActionFactory implements SkylarkValue {
       if (commandList.size() < 3) {
         throw new EvalException(null, "'command' list has to be of size at least 3");
       }
-      builder.setShellCommand(commandList.getContents(String.class, "command"));
+      @SuppressWarnings("unchecked")
+      List<String> command = commandList.getContents(String.class, "command");
+      builder.setShellCommand(command);
     } else {
       throw new EvalException(
           null,

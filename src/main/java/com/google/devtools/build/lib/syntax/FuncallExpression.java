@@ -21,6 +21,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -39,8 +40,8 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -462,7 +463,7 @@ public final class FuncallExpression extends Expression {
     }
 
     // Then the parameters specified in callable.parameters()
-    Set<String> keys = new HashSet<>(kwargs.keySet());
+    Set<String> keys = new LinkedHashSet<>(kwargs.keySet());
     for (Param param : callable.parameters()) {
       SkylarkType type = getType(param);
       if (param.noneable()) {
@@ -502,8 +503,14 @@ public final class FuncallExpression extends Expression {
             String.format("parameter '%s' cannot be None", param.name()));
       }
     }
-    if (i < args.size() || !keys.isEmpty()) {
+    if (i < args.size()) {
       return ArgumentListConversionResult.fromError("too many arguments");
+    }
+    if (!keys.isEmpty()) {
+      return ArgumentListConversionResult.fromError(
+          String.format("unexpected keyword%s %s",
+          keys.size() > 1 ? "s" : "",
+          Joiner.on(",").join(Iterables.transform(keys, s -> "'" + s + "'"))));
     }
     return ArgumentListConversionResult.fromArgumentList(builder.build());
   }

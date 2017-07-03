@@ -326,7 +326,7 @@ function test_noinput_action() {
   cat > a/rule.bzl <<'EOF'
 def _impl(ctx):
   output = ctx.outputs.out
-  ctx.action(
+  ctx.actions.run_shell(
       outputs=[output],
       command="echo 'Hello World' > %s" % (output.path))
 

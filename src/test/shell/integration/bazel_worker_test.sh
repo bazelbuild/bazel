@@ -123,7 +123,7 @@ def _impl(ctx):
     argfile_inputs.append(argfile)
     argfile_arguments.append("@" + argfile.path)
 
-  ctx.action(
+  ctx.actions.run(
       inputs=argfile_inputs + ctx.files.srcs,
       outputs=[output],
       executable=worker,
