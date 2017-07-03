@@ -89,12 +89,10 @@ public class AndroidMultidexBaseTest extends BuildViewTestCase {
       assertThat(mainDexList).isNull();
     }
 
-    Artifact dexMerger = getFirstArtifactEndingWith(artifacts, "dexmerger");
     Artifact dexMergerInput = getFirstArtifactEndingWith(artifacts, "classes.jar");
     SpawnAction dexMergerAction = getGeneratingSpawnAction(finalDexOutput);
     ImmutableList.Builder<String> argsBuilder = ImmutableList.<String>builder()
         .add(
-            dexMerger.getExecPathString(),
             "--input",
             dexMergerInput.getExecPathString(),
             "--output",
@@ -105,7 +103,9 @@ public class AndroidMultidexBaseTest extends BuildViewTestCase {
     if (multidexMode == MultidexMode.LEGACY || multidexMode == MultidexMode.MANUAL_MAIN_DEX) {
       argsBuilder.add("--main-dex-list", mainDexList.getExecPathString());
     }
-    assertThat(dexMergerAction.getArguments()).containsExactlyElementsIn(argsBuilder.build()).inOrder();
+    assertThat(dexMergerAction.getRemainingArguments())
+        .containsExactlyElementsIn(argsBuilder.build())
+        .inOrder();
   }
 
   /**
@@ -115,19 +115,18 @@ public class AndroidMultidexBaseTest extends BuildViewTestCase {
   protected void internalTestNonMultidexBuildStructure(String ruleLabel) throws Exception {
     ConfiguredTarget binary = getConfiguredTarget(ruleLabel);
     Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(binary));
-    Artifact dexMerger = getFirstArtifactEndingWith(artifacts, "dexmerger");
     Artifact dexInput = getFirstArtifactEndingWith(artifacts, "classes.jar");
     Artifact dexOutput = getFirstArtifactEndingWith(artifacts, "classes.dex.zip");
     SpawnAction dexAction = getGeneratingSpawnAction(dexOutput);
 
-    assertThat(dexAction.getArguments())
+    assertThat(dexAction.getRemainingArguments())
         .containsAllOf(
-            dexMerger.getExecPathString(),
             "--input",
             dexInput.getExecPathString(),
             "--output",
             dexOutput.getExecPathString(),
-            "--multidex=off").inOrder();
+            "--multidex=off")
+        .inOrder();
   }
 }
 

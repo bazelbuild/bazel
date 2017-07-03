@@ -739,6 +739,7 @@ java_library(
         "bazel/rules/java/java_stub_template.txt",
         "bazel/rules/java/java_stub_template_windows.txt",
         "bazel/rules/python/stub_template.txt",
+        "bazel/rules/sh/sh_stub_template_windows.txt",
     ],
     deps = [
         ":bazel",

@@ -1,3 +1,4 @@
+# pylint: disable=g-bad-file-header
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -141,6 +142,8 @@ class TestBase(unittest.TestCase):
         e.g. "foo/bar/BUILD"
       lines: [string]; the contents of the file (newlines are added
         automatically)
+    Returns:
+      The absolute path of the scratch file.
     Raises:
       ArgumentError: if `path` is absolute or contains uplevel references
       IOError: if an I/O error occurs
@@ -156,6 +159,7 @@ class TestBase(unittest.TestCase):
         for l in lines:
           f.write(l)
           f.write('\n')
+    return abspath
 
   def RunBazel(self, args, env_remove=None):
     """Runs "bazel <args>", waits for it to exit.
