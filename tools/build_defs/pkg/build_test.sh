@@ -144,6 +144,9 @@ function test_tar() {
   check_eq "./
 ./etc/
 ./etc/nsswitch.conf" "$(get_tar_listing test-tar-strip_prefix-dot.tar)"
+  check_eq "./
+./not-etc/
+./not-etc/mapped-filename.conf" "$(get_tar_listing test-tar-files_dict.tar)"
 }
 
 function test_deb() {
