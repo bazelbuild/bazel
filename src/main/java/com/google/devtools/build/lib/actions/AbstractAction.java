@@ -580,8 +580,8 @@ public abstract class AbstractAction implements Action, SkylarkValue {
   @SkylarkCallable(
       name = "content",
       doc = "For actions created by <a href=\"actions.html#write\">ctx.actions.write()</a> or "
-          + "<a href=\"ctx.html#template_action\">ctx.template_action()</a>, the contents of the "
-          + "file to be written.",
+          + "<a href=\"actions.html#expand_template\">ctx.actions.expand_template()</a>,"
+          + " the contents of the file to be written.",
       structField = true,
       allowReturnNones = true)
   public String getSkylarkContent() throws IOException {
@@ -590,8 +590,9 @@ public abstract class AbstractAction implements Action, SkylarkValue {
 
   @SkylarkCallable(
       name = "substitutions",
-      doc = "For actions created by <a href=\"ctx.html#template_action\">"
-          + "ctx.template_action()</a>, an immutable dict holding the substitution mapping.",
+      doc = "For actions created by "
+          + "<a href=\"actions.html#expand_template\">ctx.actions.expand_template()</a>,"
+          + " an immutable dict holding the substitution mapping.",
       structField = true,
       allowReturnNones = true)
   public SkylarkDict<String, String> getSkylarkSubstitutions() {

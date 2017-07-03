@@ -634,15 +634,16 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   @Test
   public void testCreateTemplateAction() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
-    TemplateExpansionAction action =
-        (TemplateExpansionAction)
-            evalRuleContextCode(
-                ruleContext,
-                "ruleContext.template_action(",
-                "  template = ruleContext.files.srcs[0],",
-                "  output = ruleContext.files.srcs[1],",
-                "  substitutions = {'a': 'b'},",
-                "  executable = False)");
+    evalRuleContextCode(
+        ruleContext,
+        "ruleContext.actions.expand_template(",
+        "  template = ruleContext.files.srcs[0],",
+        "  output = ruleContext.files.srcs[1],",
+        "  substitutions = {'a': 'b'},",
+        "  executable = False)");
+
+    TemplateExpansionAction action = (TemplateExpansionAction) Iterables.getOnlyElement(
+        ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
     assertThat(Iterables.getOnlyElement(action.getInputs()).getExecPathString())
         .isEqualTo("foo/a.txt");
     assertThat(Iterables.getOnlyElement(action.getOutputs()).getExecPathString())
@@ -669,16 +670,15 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     Charset latin1 = StandardCharsets.ISO_8859_1;
     Charset utf8 = StandardCharsets.UTF_8;
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
-    TemplateExpansionAction action =
-        (TemplateExpansionAction)
-            evalRuleContextCode(
-                ruleContext,
-                "ruleContext.template_action(",
-                "  template = ruleContext.files.srcs[0],",
-                "  output = ruleContext.files.srcs[1],",
-                "  substitutions = {'a': '" + new String(bytesToDecode, latin1) + "'},",
-                "  executable = False)");
-
+    evalRuleContextCode(
+        ruleContext,
+        "ruleContext.actions.expand_template(",
+        "  template = ruleContext.files.srcs[0],",
+        "  output = ruleContext.files.srcs[1],",
+        "  substitutions = {'a': '" + new String(bytesToDecode, latin1) + "'},",
+        "  executable = False)");
+    TemplateExpansionAction action = (TemplateExpansionAction) Iterables.getOnlyElement(
+        ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
     List<Substitution> substitutions = action.getSubstitutions();
     assertThat(substitutions).hasSize(1);
     assertThat(substitutions.get(0).getValue()).isEqualTo(new String(bytesToDecode, utf8));
