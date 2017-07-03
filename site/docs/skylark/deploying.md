@@ -7,22 +7,32 @@ title: Deploying new Skylark rules
 This documentation is for Skylark rule writers who are planning to make their
 rules available to others.
 
-## Where to put new rules
+## Hosting and naming rules
 
-In general, new rules should go into their own GitHub repository under your
-organization. Contact the [bazel-dev mailing
-list](https://groups.google.com/forum/#!forum/bazel-dev) if you feel like your
-rules belong in the bazelbuild organization.
+New rules should go into their own GitHub repository under your organization.
+Contact the [bazel-dev mailing list](https://groups.google.com/forum/#!forum/bazel-dev)
+if you feel like your rules belong in the [bazelbuild](https://github.com/bazelbuild)
+organization.
 
-You can see lots of examples of what your repository should look like on GitHub:
-see all of the repositories named `rules_whatever`.  In particular,
-[rules_scala](https://github.com/bazelbuild/rules_scala) is a nice example of
-how to set up your repo.
+Repository names for Bazel rules are standardized on the following format:
+*<organization>/rules_<name>*.
+See [examples on GitHub](https://github.com/search?q=rules+bazel&type=Repositories).
+For consistency, you must follow this same format when publishing your Bazel rules.
+
+Make sure to use a descriptive GitHub repository description and `README.md`
+title, example:
+
+* Repository: *bazelbuild/rules_go*
+* Repository description: *"Go rules for Bazel"*
+* Repository tags: `golang`, `bazel`
+* `README.md` header: *"Go rules for [Bazel](https://bazel.build)"*
+(note the link to https://bazel.build which will guide users who are unfamiliar
+with Bazel to the right place)
 
 Rules can be grouped either by language (e.g., Scala) or some notion of platform
-(e.g., Android).
+(e.g., Android.
 
-## What a rule repository should contain
+## Rule content
 
 Every rule repository should have a certain layout so that users can quickly
 understand new rules.
@@ -125,7 +135,7 @@ automatically.
 
 ## FAQs
 
-### Why can't we add our rule to the Bazel GitHub repository?
+### Why can't we add our rule to the main Bazel GitHub repository?
 
 We want to decouple rules from Bazel releases as much as possible. It's clearer
 who owns individual rules, reducing the load on Bazel developers. For our users,
