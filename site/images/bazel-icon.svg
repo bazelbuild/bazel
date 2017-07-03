@@ -1,24 +1,15 @@
-<?xml version="1.0" encoding="utf-8"?>
-<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
-	 viewBox="0 0 512 512" style="enable-background:new 0 0 512 512;" xml:space="preserve">
-<style type="text/css">
-	.st0{fill:#43A047;}
-	.st1{fill:#00701A;}
-	.st2{fill:#004300;}
-	.st3{fill:#76D275;}
-	.st4{fill:none;}
-</style>
-<g>
-	<polygon class="st0" points="21.3,139.8 21.3,254.9 138.7,372.2 138.7,257.1 	"/>
-	<polygon class="st1" points="256,374.4 256,489.6 138.7,372.2 138.7,257.1 	"/>
-	<polygon class="st0" points="490.7,139.8 490.7,254.9 373.3,372.2 373.3,257.1 	"/>
-	<polygon class="st2" points="256,374.4 373.3,257.1 373.3,372.2 256,489.6 	"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <style>
+    .regular{fill:#43A047;} .dark-left{fill:#00701A;} .dark-right{fill:#004300;} .light{fill:#76D275;}
+  </style>
 
-		<rect x="55.7" y="56.8" transform="matrix(0.7071 0.7071 -0.7071 0.7071 139.436 -57.119)" class="st3" width="165.9" height="165.9"/>
+  <path class="light"      d="M144 32 l112 112 -112 112 l-112 -112z"/>
+  <path class="regular"    d="M32 144 v112 l112 112 v-112z"/>
 
-		<rect x="173" y="174.1" transform="matrix(0.7071 0.7071 -0.7071 0.7071 256.7693 -105.72)" class="st0" width="165.9" height="165.9"/>
+  <path class="light"      d="M368 32  l112 112 -112 112 -112 -112z"/>
+  <path class="regular"    d="M480 144 v112 l-112 112 v-112z"/>
 
-		<rect x="290.4" y="56.8" transform="matrix(0.7071 0.7071 -0.7071 0.7071 208.1683 -223.0533)" class="st3" width="165.9" height="165.9"/>
-</g>
-<rect x="0" y="0" class="st4" width="512" height="512"/>
+  <path class="regular"    d="M256 144 l112 112 -112 112 -112 -112z"/>
+  <path class="dark-left"  d="M256 368 v112 l-112 -112  v-112z"/>
+  <path class="dark-right" d="M256 368 l112 -112 v112 l-112 112z"/>
 </svg>
