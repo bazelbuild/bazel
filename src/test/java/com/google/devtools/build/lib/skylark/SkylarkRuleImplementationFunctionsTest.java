@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -171,14 +170,6 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
       assertThat(e).hasMessage(errorMsg);
     }
   }
-
-  private static final Function<Object, String> TO_STRING =
-      new Function<Object, String>() {
-        @Override
-        public String apply(Object input) {
-          return String.valueOf(input);
-        }
-      };
 
   @Test
   public void testSkylarkFunctionPosArgs() throws Exception {
@@ -925,7 +916,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     assertThat(
             Iterables.transform(
                 ((Runfiles) configuredTarget.get("rule_data_runfiles")).getAllArtifacts(),
-                TO_STRING))
+                String::valueOf))
         .containsExactly(
             "File:[/workspace[source]]test/run.file", "File:[/workspace[source]]test/run2.file");
 
@@ -933,7 +924,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     assertThat(
             Iterables.transform(
                 ((Runfiles) configuredTarget.get("rule_default_runfiles")).getAllArtifacts(),
-                TO_STRING))
+                String::valueOf))
         .containsExactly(
             "File:[/workspace[source]]test/run.file", "File:[/workspace[source]]test/run2.file");
 
@@ -984,14 +975,14 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     assertThat(
             Iterables.transform(
                 ((Runfiles) configuredTarget.get("file_data_runfiles")).getAllArtifacts(),
-                TO_STRING))
+                String::valueOf))
         .isEmpty();
 
     assertThat(configuredTarget.get("file_default_runfiles")).isInstanceOf(Runfiles.class);
     assertThat(
             Iterables.transform(
                 ((Runfiles) configuredTarget.get("file_default_runfiles")).getAllArtifacts(),
-                TO_STRING))
+                String::valueOf))
         .isEmpty();
 
     assertThat(configuredTarget.get("file_files")).isInstanceOf(SkylarkNestedSet.class);
@@ -1470,9 +1461,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         });
 
     checkEvalErrorContains(
-        "There Is No Message: SkylarkRuleImplementationFunctionsTest$3.invoke() in "
-            + "SkylarkRuleImplementationFunctionsTest.java:",
-        // This test skips the line number since it was not consistent across local tests and TAP.
+        "There Is No Message: SkylarkRuleImplementationFunctionsTest",
         "throw()");
   }
 
