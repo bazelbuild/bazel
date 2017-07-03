@@ -43,7 +43,7 @@ public class BazelStrategyModule extends BlazeModule {
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Specify how spawn actions are executed by default."
-              + "'standalone' means run all of them locally."
+              + "'standalone' means run all of them locally and it disables sandboxing for tests."
               + "'sandboxed' means run them in namespaces based sandbox (available only on Linux)"
     )
     public String spawnStrategy;
