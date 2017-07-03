@@ -144,53 +144,57 @@ public final class BinaryOperatorExpression extends Expression {
 
     Object rval = rhs.eval(env);
 
-    switch (operator) {
-      case PLUS:
-        return plus(lval, rval, env, location, isAugmented);
+    try {
+      switch (operator) {
+        case PLUS:
+          return plus(lval, rval, env, location, isAugmented);
 
-      case PIPE:
-        return pipe(lval, rval, location);
+        case PIPE:
+          return pipe(lval, rval, location);
 
-      case MINUS:
-        return minus(lval, rval, location);
+        case MINUS:
+          return minus(lval, rval, env, location);
 
-      case MULT:
-        return mult(lval, rval, env, location);
+        case MULT:
+          return mult(lval, rval, env, location);
 
-      case DIVIDE:
-      case FLOOR_DIVIDE:
-        return divide(lval, rval, location);
+        case DIVIDE:
+        case FLOOR_DIVIDE:
+          return divide(lval, rval, location);
 
-      case PERCENT:
-        return percent(lval, rval, location);
+        case PERCENT:
+          return percent(lval, rval, location);
 
-      case EQUALS_EQUALS:
-        return lval.equals(rval);
+        case EQUALS_EQUALS:
+          return lval.equals(rval);
 
-      case NOT_EQUALS:
-        return !lval.equals(rval);
+        case NOT_EQUALS:
+          return !lval.equals(rval);
 
-      case LESS:
-        return compare(lval, rval, location) < 0;
+        case LESS:
+          return compare(lval, rval, location) < 0;
 
-      case LESS_EQUALS:
-        return compare(lval, rval, location) <= 0;
+        case LESS_EQUALS:
+          return compare(lval, rval, location) <= 0;
 
-      case GREATER:
-        return compare(lval, rval, location) > 0;
+        case GREATER:
+          return compare(lval, rval, location) > 0;
 
-      case GREATER_EQUALS:
-        return compare(lval, rval, location) >= 0;
+        case GREATER_EQUALS:
+          return compare(lval, rval, location) >= 0;
 
-      case IN:
-        return in(lval, rval, location, env);
+        case IN:
+          return in(lval, rval, location, env);
 
-      case NOT_IN:
-        return !in(lval, rval, location, env);
+        case NOT_IN:
+          return !in(lval, rval, location, env);
 
-      default:
-        throw new AssertionError("Unsupported binary operator: " + operator);
-    } // endswitch
+        default:
+          throw new AssertionError("Unsupported binary operator: " + operator);
+      } // endswitch
+    } catch (ArithmeticException e) {
+      throw new EvalException(location, e.getMessage());
+    }
   }
 
   @Override
@@ -215,7 +219,11 @@ public final class BinaryOperatorExpression extends Expression {
       throws EvalException {
     // int + int
     if (lval instanceof Integer && rval instanceof Integer) {
-      return ((Integer) lval).intValue() + ((Integer) rval).intValue();
+      if (env.getSemantics().incompatibleCheckedArithmetic) {
+        return Math.addExact((Integer) lval, (Integer) rval);
+      } else {
+        return ((Integer) lval).intValue() + ((Integer) rval).intValue();
+      }
     }
 
     // string + string
@@ -281,9 +289,14 @@ public final class BinaryOperatorExpression extends Expression {
   }
 
   /** Implements Operator.MINUS. */
-  private static Object minus(Object lval, Object rval, Location location) throws EvalException {
+  private static Object minus(Object lval, Object rval, Environment env, Location location)
+      throws EvalException {
     if (lval instanceof Integer && rval instanceof Integer) {
-      return ((Integer) lval).intValue() - ((Integer) rval).intValue();
+      if (env.getSemantics().incompatibleCheckedArithmetic) {
+        return Math.subtractExact((Integer) lval, (Integer) rval);
+      } else {
+        return ((Integer) lval).intValue() - ((Integer) rval).intValue();
+      }
     }
     throw typeException(lval, rval, Operator.MINUS, location);
   }
@@ -304,7 +317,11 @@ public final class BinaryOperatorExpression extends Expression {
 
     if (number != null) {
       if (otherFactor instanceof Integer) {
-        return number.intValue() * ((Integer) otherFactor).intValue();
+        if (env.getSemantics().incompatibleCheckedArithmetic) {
+          return Math.multiplyExact(number, (Integer) otherFactor);
+        } else {
+          return number.intValue() * ((Integer) otherFactor).intValue();
+        }
       } else if (otherFactor instanceof String) {
         // Similar to Python, a factor < 1 leads to an empty string.
         return Strings.repeat((String) otherFactor, Math.max(0, number.intValue()));

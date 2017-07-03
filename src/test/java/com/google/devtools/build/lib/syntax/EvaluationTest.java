@@ -217,6 +217,18 @@ public class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testCheckedArithmetic() throws Exception {
+    new SkylarkTest("--incompatible_checked_arithmetic=true")
+        .testIfErrorContains("integer overflow", "2000000000 + 2000000000")
+        .testIfErrorContains("integer overflow", "1234567890 * 987654321")
+        .testIfErrorContains("integer overflow", "- 2000000000 - 2000000000")
+
+        // literal 2147483648 is not allowed, so we compute it
+        .setUp("minint = - 2147483647 - 1")
+        .testIfErrorContains("integer overflow", "-minint");
+  }
+
+  @Test
   public void testOperatorPrecedence() throws Exception {
     newTest()
         .testStatement("2 + 3 * 4", 14)

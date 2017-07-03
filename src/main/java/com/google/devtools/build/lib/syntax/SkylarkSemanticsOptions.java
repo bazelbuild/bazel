@@ -185,4 +185,14 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   )
   public boolean incompatibleNewActionsApi;
 
+  @Option(
+    name = "incompatible_checked_arithmetic",
+    defaultValue = "false",
+    category = "incompatible changes",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+    help = "If set to true, arithmetic operations throw an error in case of overflow/underflow."
+  )
+  public boolean incompatibleCheckedArithmetic;
 }
