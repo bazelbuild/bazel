@@ -107,6 +107,20 @@ def _simple_aspect_impl(target, ctx):
 
 simple_aspect = aspect(implementation=_simple_aspect_impl)
 EOF
+cat > failingaspect.bzl <<EOF
+def _failing_aspect_impl(target, ctx):
+    for orig_out in ctx.rule.attr.outs:
+        aspect_out = ctx.actions.declare_file(orig_out.name + ".aspect")
+        ctx.action(
+            inputs = [],
+            outputs = [aspect_out],
+            command = "false",
+        )
+    return struct(output_groups={
+        "aspect-out" : set([aspect_out]) })
+
+failing_aspect = aspect(implementation=_failing_aspect_impl)
+EOF
 touch BUILD
 cat > sample_workspace_status <<EOF
 #!/bin/sh
@@ -335,6 +349,15 @@ function test_aspect_artifacts() {
   expect_log 'name.*aspect-out'
   expect_log 'name.*out1.txt.aspect'
   expect_not_log 'aborted'
+}
+
+function test_failing_aspect() {
+  (bazel build --build_event_text_file=$TEST_log \
+    --aspects=failingaspect.bzl%failing_aspect \
+    --output_groups=aspect-out \
+    pkg:output_files_and_tags && fail "expected failure") || true
+  expect_log 'aspect.*failing_aspect'
+  expect_log '^finished'
 }
 
 function test_build_only() {
