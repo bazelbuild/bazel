@@ -250,6 +250,9 @@ public final class BuildType {
         return (Label) x;
       }
       try {
+        if (x instanceof String && context == null) {
+          return Label.parseAbsolute((String) x, false);
+        }
         return ((Label) context).getRelative(STRING.convert(x, what, context));
       } catch (LabelSyntaxException e) {
         throw new ConversionException("invalid label '" + x + "' in "
