@@ -103,9 +103,9 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
     // action to enable server-side parallelism (need a different gRPC channel per action).
     if (SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions)) {
       remoteCache = new SimpleBlobStoreActionCache(SimpleBlobStoreFactory.create(remoteOptions));
-    } else if (GrpcActionCache.isRemoteCacheOptions(remoteOptions)) {
+    } else if (GrpcRemoteCache.isRemoteCacheOptions(remoteOptions)) {
       remoteCache =
-          new GrpcActionCache(
+          new GrpcRemoteCache(
               GrpcUtils.createChannel(remoteOptions.remoteCache, channelOptions),
               channelOptions,
               remoteOptions);

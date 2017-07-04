@@ -74,7 +74,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /** A RemoteActionCache implementation that uses gRPC calls to a remote cache server. */
 @ThreadSafe
-public class GrpcActionCache implements RemoteActionCache {
+public class GrpcRemoteCache implements RemoteActionCache {
   private final RemoteOptions options;
   private final ChannelOptions channelOptions;
   private final Channel channel;
@@ -86,7 +86,7 @@ public class GrpcActionCache implements RemoteActionCache {
   private final Supplier<ActionCacheBlockingStub> acBlockingStub;
 
   @VisibleForTesting
-  public GrpcActionCache(Channel channel, ChannelOptions channelOptions, RemoteOptions options) {
+  public GrpcRemoteCache(Channel channel, ChannelOptions channelOptions, RemoteOptions options) {
     this.options = options;
     this.channelOptions = channelOptions;
     this.channel = channel;

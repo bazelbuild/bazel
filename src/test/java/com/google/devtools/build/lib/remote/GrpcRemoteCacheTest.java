@@ -68,9 +68,9 @@ import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
-/** Tests for {@link GrpcActionCache}. */
+/** Tests for {@link GrpcRemoteCache}. */
 @RunWith(JUnit4.class)
-public class GrpcActionCacheTest {
+public class GrpcRemoteCacheTest {
   private FileSystem fs;
   private Path execRoot;
   private FileOutErr outErr;
@@ -123,7 +123,7 @@ public class GrpcActionCacheTest {
     }
   }
 
-  private GrpcActionCache newClient() throws IOException {
+  private GrpcRemoteCache newClient() throws IOException {
     AuthAndTLSOptions authTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
     authTlsOptions.authEnabled = true;
     authTlsOptions.authCredentials = "/exec/root/creds.json";
@@ -140,7 +140,7 @@ public class GrpcActionCacheTest {
     ChannelOptions channelOptions =
         ChannelOptions.create(
             authTlsOptions, scratch.resolve(authTlsOptions.authCredentials).getInputStream());
-    return new GrpcActionCache(
+    return new GrpcRemoteCache(
         ClientInterceptors.intercept(
             InProcessChannelBuilder.forName(fakeServerName).directExecutor().build(),
             ImmutableList.of(new ChannelOptionsInterceptor(channelOptions))),
@@ -150,7 +150,7 @@ public class GrpcActionCacheTest {
 
   @Test
   public void testDownloadEmptyBlob() throws Exception {
-    GrpcActionCache client = newClient();
+    GrpcRemoteCache client = newClient();
     Digest emptyDigest = Digests.computeDigest(new byte[0]);
     // Will not call the mock Bytestream interface at all.
     assertThat(client.downloadBlob(emptyDigest)).isEmpty();
@@ -158,7 +158,7 @@ public class GrpcActionCacheTest {
 
   @Test
   public void testDownloadBlobSingleChunk() throws Exception {
-    final GrpcActionCache client = newClient();
+    final GrpcRemoteCache client = newClient();
     final Digest digest = Digests.computeDigestUtf8("abcdefg");
     serviceRegistry.addService(
         new ByteStreamImplBase() {
@@ -175,7 +175,7 @@ public class GrpcActionCacheTest {
 
   @Test
   public void testDownloadBlobMultipleChunks() throws Exception {
-    final GrpcActionCache client = newClient();
+    final GrpcRemoteCache client = newClient();
     final Digest digest = Digests.computeDigestUtf8("abcdefg");
     serviceRegistry.addService(
         new ByteStreamImplBase() {
@@ -196,7 +196,7 @@ public class GrpcActionCacheTest {
 
   @Test
   public void testDownloadAllResults() throws Exception {
-    GrpcActionCache client = newClient();
+    GrpcRemoteCache client = newClient();
     Digest fooDigest = Digests.computeDigestUtf8("foo-contents");
     Digest barDigest = Digests.computeDigestUtf8("bar-contents");
     Digest emptyDigest = Digests.computeDigest(new byte[0]);
@@ -216,7 +216,7 @@ public class GrpcActionCacheTest {
 
   @Test
   public void testUploadBlobCacheHitWithRetries() throws Exception {
-    final GrpcActionCache client = newClient();
+    final GrpcRemoteCache client = newClient();
     final Digest digest = Digests.computeDigestUtf8("abcdefg");
     serviceRegistry.addService(
         new ContentAddressableStorageImplBase() {
@@ -239,7 +239,7 @@ public class GrpcActionCacheTest {
 
   @Test
   public void testUploadBlobSingleChunk() throws Exception {
-    final GrpcActionCache client = newClient();
+    final GrpcRemoteCache client = newClient();
     final Digest digest = Digests.computeDigestUtf8("abcdefg");
     serviceRegistry.addService(
         new ContentAddressableStorageImplBase() {
@@ -390,7 +390,7 @@ public class GrpcActionCacheTest {
     ByteStreamImplBase mockByteStreamImpl = Mockito.mock(ByteStreamImplBase.class);
     serviceRegistry.addService(mockByteStreamImpl);
     for (int chunkSize = 1; chunkSize <= 6; ++chunkSize) {
-      GrpcActionCache client = newClient();
+      GrpcRemoteCache client = newClient();
       Chunker.setDefaultChunkSizeForTesting(chunkSize);
       when(mockByteStreamImpl.write(Mockito.<StreamObserver<WriteResponse>>anyObject()))
           .thenAnswer(blobChunkedWriteAnswer("abcdef", chunkSize));
@@ -400,7 +400,7 @@ public class GrpcActionCacheTest {
 
   @Test
   public void testUploadCacheHits() throws Exception {
-    final GrpcActionCache client = newClient();
+    final GrpcRemoteCache client = newClient();
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
     final Digest barDigest =
@@ -440,7 +440,7 @@ public class GrpcActionCacheTest {
 
   @Test
   public void testUploadCacheMissesWithRetries() throws Exception {
-    final GrpcActionCache client = newClient();
+    final GrpcRemoteCache client = newClient();
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
     final Digest barDigest =
@@ -509,7 +509,7 @@ public class GrpcActionCacheTest {
 
   @Test
   public void testGetCachedActionResultWithRetries() throws Exception {
-    final GrpcActionCache client = newClient();
+    final GrpcRemoteCache client = newClient();
     ActionKey actionKey = Digests.unsafeActionKeyFromDigest(Digests.computeDigestUtf8("key"));
     serviceRegistry.addService(
         new ActionCacheImplBase() {

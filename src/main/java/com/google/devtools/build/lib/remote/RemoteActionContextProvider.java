@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.standalone.StandaloneSpawnStrategy;
  */
 final class RemoteActionContextProvider extends ActionContextProvider {
   private final CommandEnvironment env;
-  private ActionInputPrefetcher actionInputPrefetcher;
   private RemoteSpawnStrategy spawnStrategy;
 
   RemoteActionContextProvider(CommandEnvironment env) {
@@ -43,7 +42,6 @@ final class RemoteActionContextProvider extends ActionContextProvider {
   @Override
   public void init(
       ActionInputFileCache actionInputFileCache, ActionInputPrefetcher actionInputPrefetcher) {
-    this.actionInputPrefetcher = Preconditions.checkNotNull(actionInputPrefetcher);
     ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);
     LocalExecutionOptions localExecutionOptions =
         env.getOptions().getOptions(LocalExecutionOptions.class);

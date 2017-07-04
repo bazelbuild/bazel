@@ -53,13 +53,13 @@ final class RemoteSpawnRunner implements SpawnRunner {
   private final Platform platform;
 
   private final GrpcRemoteExecutor executor;
-  private final GrpcActionCache remoteCache;
+  private final GrpcRemoteCache remoteCache;
 
   RemoteSpawnRunner(
       Path execRoot,
       RemoteOptions options,
       GrpcRemoteExecutor executor,
-      GrpcActionCache remoteCache) {
+      GrpcRemoteCache remoteCache) {
     this.execRoot = execRoot;
     this.options = options;
     if (options.experimentalRemotePlatformOverride != null) {
