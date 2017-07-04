@@ -68,11 +68,6 @@ final class ByteStreamServer extends ByteStreamImplBase {
               "Failed parsing digest from resource_name:" + request.getResourceName()));
     }
 
-    if (!cache.containsKey(digest)) {
-      responseObserver.onError(StatusUtils.notFoundError(digest));
-      return;
-    }
-
     try {
       // This still relies on the blob size to be small enough to fit in memory.
       // TODO(olaola): refactor to fix this if the need arises.
@@ -83,7 +78,6 @@ final class ByteStreamServer extends ByteStreamImplBase {
       }
       responseObserver.onCompleted();
     } catch (CacheNotFoundException e) {
-      // This can only happen if an item gets evicted right after we check.
       responseObserver.onError(StatusUtils.notFoundError(digest));
     } catch (Exception e) {
       logger.log(WARNING, "Read request failed.", e);

@@ -12,27 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.remote;
+package com.google.devtools.build.lib.remote.blobstore;
+
+import java.io.IOException;
 
 /**
  * A simple interface for storing blobs (in the form of byte arrays) each one indexed by a
  * hexadecimal string. Implementation must be thread-safe.
  */
 public interface SimpleBlobStore {
-  /** Returns true if the provided {@param key} is stored in the blob store. */
-  boolean containsKey(String key);
+  /** Returns true if the provided {@code key} is stored in the blob store. */
+  boolean containsKey(String key) throws IOException, InterruptedException;
 
   /**
-   * Returns the blob (in the form of a byte array) indexed by {@param key}. Returns null if the
-   * {@pram key} cannot be found.
+   * Returns the blob (in the form of a byte array) indexed by {@code key}. Returns null if the
+   * {@code key} cannot be found.
    */
-  byte[] get(String key);
+  byte[] get(String key) throws IOException, InterruptedException;
 
   /**
-   * Uploads a blob (as {@param value}) indexed by {@param key} to the blob store. Existing blob
-   * indexed by the same {@param key} will be overwritten.
+   * Uploads a blob (as {@code value}) indexed by {@code key} to the blob store. Existing blob
+   * indexed by the same {@code key} will be overwritten.
    */
-  void put(String key, byte[] value);
+  void put(String key, byte[] value) throws IOException, InterruptedException;
 
   /** Close resources associated with the blob store. */
   void close();

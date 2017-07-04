@@ -24,9 +24,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.remote.RemoteOptions;
-import com.google.devtools.build.lib.remote.SimpleBlobStore;
 import com.google.devtools.build.lib.remote.SimpleBlobStoreActionCache;
 import com.google.devtools.build.lib.remote.SimpleBlobStoreFactory;
+import com.google.devtools.build.lib.remote.blobstore.ConcurrentMapBlobStore;
+import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
@@ -49,7 +50,9 @@ import io.grpc.netty.NettyServerBuilder;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.PrintWriter;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 
@@ -118,8 +121,10 @@ public final class RemoteWorker {
     }
 
     final Path pidFile = getFileSystem().getPath(workerOptions.pidFile);
-    try (PrintWriter printWriter = new PrintWriter(pidFile.getPathFile())) {
-      printWriter.println(ProcessUtils.getpid());
+    try (Writer writer =
+        new OutputStreamWriter(pidFile.getOutputStream(), StandardCharsets.UTF_8)) {
+      writer.write(Integer.toString(ProcessUtils.getpid()));
+      writer.write("\n");
     }
 
     Runtime.getRuntime()
@@ -164,7 +169,7 @@ public final class RemoteWorker {
     SimpleBlobStore blobStore =
         usingRemoteCache
             ? SimpleBlobStoreFactory.create(remoteOptions)
-            : new SimpleBlobStoreFactory.ConcurrentMapBlobStore(
+            : new ConcurrentMapBlobStore(
                 new ConcurrentHashMap<String, byte[]>());
 
     RemoteWorker worker =

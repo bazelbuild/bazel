@@ -49,6 +49,17 @@ final class StatusUtils {
         .build();
   }
 
+  static StatusRuntimeException interruptedError(Digest digest) {
+    return StatusProto.toStatusRuntimeException(interruptedStatus(digest));
+  }
+
+  static com.google.rpc.Status interruptedStatus(Digest digest) {
+    return Status.newBuilder()
+        .setCode(Code.CANCELLED.getNumber())
+        .setMessage("Server operation was interrupted for " + digest)
+        .build();
+  }
+
   static StatusRuntimeException invalidArgumentError(String field, String desc) {
     return StatusProto.toStatusRuntimeException(invalidArgumentStatus(field, desc));
   }
