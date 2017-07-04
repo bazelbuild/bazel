@@ -339,6 +339,9 @@ message ActionExecuted {
   // Optionally, the label of the owner of the action, for reference.
   string label = 5;
 
+  // Optinally, the id of the configuration of the action owner.
+  BuildEventId.ConfigurationId configuration = 7;
+
   // Primary output; only provided for successful actions.
   File primary_output = 6;
 }
