@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaProtoLibrar
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuleClasses;
+import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuntimeRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyTestRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShBinaryRule;
@@ -541,6 +542,7 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new BazelPyLibraryRule());
           builder.addRuleDefinition(new BazelPyBinaryRule());
           builder.addRuleDefinition(new BazelPyTestRule());
+          builder.addRuleDefinition(new BazelPyRuntimeRule());
         }
 
         @Override
