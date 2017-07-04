@@ -43,6 +43,17 @@ public class RemoteWorkerOptions extends OptionsBase {
   public String workPath;
 
   @Option(
+    name = "cas_path",
+    defaultValue = "null",
+    category = "build_worker",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "A directory for the build worker to store it's files in. If left unset, and if no "
+        + "other store is set, the worker falls back to an in-memory store."
+  )
+  public String casPath;
+
+  @Option(
     name = "debug",
     defaultValue = "false",
     category = "build_worker",

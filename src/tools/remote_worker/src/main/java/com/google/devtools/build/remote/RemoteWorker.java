@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.remote.RemoteOptions;
 import com.google.devtools.build.lib.remote.SimpleBlobStoreActionCache;
 import com.google.devtools.build.lib.remote.SimpleBlobStoreFactory;
 import com.google.devtools.build.lib.remote.blobstore.ConcurrentMapBlobStore;
+import com.google.devtools.build.lib.remote.blobstore.OnDiskBlobStore;
 import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
@@ -39,6 +40,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.remoteexecution.v1test.ActionCacheGrpc.ActionCacheImplBase;
 import com.google.devtools.remoteexecution.v1test.ContentAddressableStorageGrpc.ContentAddressableStorageImplBase;
@@ -165,12 +167,20 @@ public final class RemoteWorker {
     if (!usingRemoteCache) {
       logger.warning("Not using remote cache. This should be used for testing only!");
     }
+    if ((remoteWorkerOptions.casPath != null)
+        && (!PathFragment.create(remoteWorkerOptions.casPath).isAbsolute()
+            || !getFileSystem().getPath(remoteWorkerOptions.casPath).exists())) {
+      logger.severe("--cas_path must refer to an existing, absolute path!");
+      System.exit(1);
+      return;
+    }
 
     SimpleBlobStore blobStore =
         usingRemoteCache
             ? SimpleBlobStoreFactory.create(remoteOptions)
-            : new ConcurrentMapBlobStore(
-                new ConcurrentHashMap<String, byte[]>());
+            : remoteWorkerOptions.casPath != null
+                ? new OnDiskBlobStore(getFileSystem().getPath(remoteWorkerOptions.casPath))
+                : new ConcurrentMapBlobStore(new ConcurrentHashMap<String, byte[]>());
 
     RemoteWorker worker =
         new RemoteWorker(
