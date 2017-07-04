@@ -8,9 +8,9 @@ filegroup(
     srcs = select({
         ":darwin": ["//src/main/native:libunix.dylib"],
         ":darwin_x86_64": ["//src/main/native:libunix.dylib"],
-        ":windows": ["//src/main/native:windows_jni.dll"],
-        ":windows_msys": ["//src/main/native:windows_jni.dll"],
-        ":windows_msvc": ["//src/main/native:windows_jni.dll"],
+        ":windows": ["//src/main/native/windows:windows_jni.dll"],
+        ":windows_msys": ["//src/main/native/windows:windows_jni.dll"],
+        ":windows_msvc": ["//src/main/native/windows:windows_jni.dll"],
         "//conditions:default": ["//src/main/native:libunix.so"],
     }),
     visibility = [

@@ -248,12 +248,12 @@ function build_jni() {
     mkdir -p "$(dirname "$output")"
 
     # Keep this `find` command in sync with the `srcs` of
-    # //src/main/native:windows_jni
+    # //src/main/native/windows:windows_jni
     local srcs=$(find src/main/native/windows -name '*.cc' -o -name '*.h')
     [ -n "$srcs" ] || fail "Could not find sources for Windows JNI library"
 
     # do not quote $srcs because we need to expand it to multiple args
-    src/main/native/build_windows_jni.sh "$tmp_output" ${srcs}
+    src/main/native/windows/build_windows_jni.sh "$tmp_output" ${srcs}
 
     cp "$tmp_output" "$output"
     chmod 0555 "$output"

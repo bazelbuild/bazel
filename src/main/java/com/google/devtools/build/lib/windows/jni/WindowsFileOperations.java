@@ -44,7 +44,7 @@ public class WindowsFileOperations {
 
   private static final int MAX_PATH = 260;
 
-  // Keep IS_JUNCTION_* values in sync with src/main/native/windows_file_operations.cc.
+  // Keep IS_JUNCTION_* values in sync with src/main/native/windows/file.cc.
   private static final int IS_JUNCTION_YES = 0;
   private static final int IS_JUNCTION_NO = 1;
   private static final int IS_JUNCTION_ERROR = 2;

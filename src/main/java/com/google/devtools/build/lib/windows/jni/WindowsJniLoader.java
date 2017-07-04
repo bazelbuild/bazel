@@ -31,7 +31,7 @@ public class WindowsJniLoader {
     } catch (UnsatisfiedLinkError ex) {
       // We are probably in tests, let's try to find the library in the runfiles
       try {
-        System.load(WindowsRunfiles.getRunfile("io_bazel/src/main/native/windows_jni.dll"));
+        System.load(WindowsRunfiles.getRunfile("io_bazel/src/main/native/windows/windows_jni.dll"));
       } catch (IOException e) {
         // We throw the UnsatisfiedLinkError if we cannot find the runfiles
         throw ex;

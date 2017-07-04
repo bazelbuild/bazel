@@ -62,16 +62,6 @@ cc_binary(
     ],
 )
 
-genrule(
-    name = "windows_jni",
-    srcs = ["//src/main/native/windows:raw-sources"],
-    outs = ["windows_jni.dll"],
-    cmd = "$(location build_windows_jni.sh) $@ $(SRCS)",
-    output_to_bindir = 1,
-    tools = ["build_windows_jni.sh"],
-    visibility = ["//src:__subpackages__"],
-)
-
 # TODO(bazel-team): Come up with a way to support platform-specific dynamic
 # library extensions.  This is issue #914.
 genrule(
