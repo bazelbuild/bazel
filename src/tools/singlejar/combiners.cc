@@ -146,7 +146,7 @@ bool XmlCombiner::Merge(const CDH *cdh, const LH *lh) {
   if (strncmp(buf, start_tag_.c_str(), start_tag_.length()) == 0) {
     start_offset = start_tag_.length();
   }
-  int end = bytes_.data_size();
+  uint64_t end = bytes_.data_size();
   while (end >= end_tag_.length() && std::isspace(buf[end - 1])) end--;
   if (strncmp(buf + end - end_tag_.length(), end_tag_.c_str(),
               end_tag_.length()) == 0) {
