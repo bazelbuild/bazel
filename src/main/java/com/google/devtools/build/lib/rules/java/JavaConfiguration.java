@@ -226,6 +226,15 @@ public final class JavaConfiguration extends Fragment {
     return commandLineJavacFlags;
   }
 
+  @SkylarkCallable(
+      name = "strict_java_deps",
+      structField = true,
+      doc = "The value of the strict_java_deps flag."
+  )
+  public String getStrictJavaDepsName() {
+    return strictJavaDeps.name().toLowerCase();
+  }
+
   @Override
   public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions) {
     if ((bundleTranslations == TriState.YES) && translationTargets.isEmpty()) {

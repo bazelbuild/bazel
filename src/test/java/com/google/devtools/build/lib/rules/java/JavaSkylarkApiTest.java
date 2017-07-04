@@ -565,6 +565,53 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     assertThat(directJars).containsExactly("foo/liba.jar", "foo/libb.jar");
   }
 
+  @Test
+  public void strictJavaDepsFlagExposed_default() throws Exception {
+    scratch.file(
+      "foo/rule.bzl",
+      "result = provider()",
+      "def _impl(ctx):",
+      "  return [result(strict_java_deps=ctx.fragments.java.strict_java_deps)]",
+      "myrule = rule(",
+      "  implementation=_impl,",
+      "  fragments = ['java']",
+      ")"
+    );
+    scratch.file(
+        "foo/BUILD",
+        "load(':rule.bzl', 'myrule')",
+        "myrule(name='myrule')"
+    );
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:myrule");
+    SkylarkClassObject skylarkClassObject =
+        configuredTarget.get(new SkylarkKey(Label.parseAbsolute("//foo:rule.bzl"), "result"));
+    assertThat(((String) skylarkClassObject.getValue("strict_java_deps"))).isEqualTo("default");
+  }
+
+  @Test
+  public void strictJavaDepsFlagExposed_error() throws Exception {
+    scratch.file(
+        "foo/rule.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "  return [result(strict_java_deps=ctx.fragments.java.strict_java_deps)]",
+        "myrule = rule(",
+        "  implementation=_impl,",
+        "  fragments = ['java']",
+        ")"
+    );
+    scratch.file(
+        "foo/BUILD",
+        "load(':rule.bzl', 'myrule')",
+        "myrule(name='myrule')"
+    );
+    useConfiguration("--strict_java_deps=ERROR");
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:myrule");
+    SkylarkClassObject skylarkClassObject =
+        configuredTarget.get(new SkylarkKey(Label.parseAbsolute("//foo:rule.bzl"), "result"));
+    assertThat(((String) skylarkClassObject.getValue("strict_java_deps"))).isEqualTo("error");
+  }
+
   private static boolean javaCompilationArgsHaveTheSameParent(
       JavaCompilationArgs args, JavaCompilationArgs otherArgs) {
     if (!nestedSetsOfArtifactHaveTheSameParent(
