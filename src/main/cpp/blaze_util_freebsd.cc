@@ -124,7 +124,11 @@ string GetProcessCWD(int pid) {
     filestat *entry;
     STAILQ_FOREACH(entry, files, next) {
       if (entry->fs_uflags & PS_FST_UFLAG_CDIR) {
-        cwd = entry->fs_path;
+        if (entry->fs_path) {
+          cwd = entry->fs_path;
+        } else {
+          cwd = "";
+        }
       }
     }
     procstat_freefiles(procstat, files);
