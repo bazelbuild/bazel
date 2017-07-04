@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.remote;
 
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -48,10 +46,6 @@ public class GrpcRemoteExecutor {
   private final Channel channel;
   private final Retrier retrier;
 
-  // Reuse the gRPC stubs.
-  private final Supplier<ExecutionBlockingStub> execBlockingStub;
-  private final Supplier<WatcherBlockingStub> watcherBlockingStub;
-
   public static boolean isRemoteExecutionOptions(RemoteOptions options) {
     return options.remoteExecutor != null;
   }
@@ -61,21 +55,17 @@ public class GrpcRemoteExecutor {
     this.channelOptions = channelOptions;
     this.channel = channel;
     this.retrier = new Retrier(options);
-    execBlockingStub =
-        Suppliers.memoize(
-            () ->
-                ExecutionGrpc.newBlockingStub(channel)
-                    .withCallCredentials(channelOptions.getCallCredentials())
-                    .withDeadlineAfter(options.remoteTimeout, TimeUnit.SECONDS));
-    // Do not set a deadline on this call, because it is hard to estimate in
-    // advance how much time we should give the server to execute an action
-    // remotely (scheduling, queing, optional retries, etc.)
-    // It is the server's responsibility to respect the Action timeout field.
-    watcherBlockingStub =
-        Suppliers.memoize(
-            () ->
-                WatcherGrpc.newBlockingStub(channel)
-                    .withCallCredentials(channelOptions.getCallCredentials()));
+  }
+
+  private ExecutionBlockingStub execBlockingStub() {
+    return ExecutionGrpc.newBlockingStub(channel)
+        .withCallCredentials(channelOptions.getCallCredentials())
+        .withDeadlineAfter(options.remoteTimeout, TimeUnit.SECONDS);
+  }
+
+  private WatcherBlockingStub watcherBlockingStub() {
+    return WatcherGrpc.newBlockingStub(channel)
+        .withCallCredentials(channelOptions.getCallCredentials());
   }
 
   private @Nullable ExecuteResponse getOperationResponse(Operation op)
@@ -103,7 +93,7 @@ public class GrpcRemoteExecutor {
 
   public ExecuteResponse executeRemotely(ExecuteRequest request)
       throws InterruptedException, IOException, UserExecException {
-    Operation op = retrier.execute(() -> execBlockingStub.get().execute(request));
+    Operation op = retrier.execute(() -> execBlockingStub().execute(request));
     ExecuteResponse resp = getOperationResponse(op);
     if (resp != null) {
       return resp;
@@ -111,7 +101,7 @@ public class GrpcRemoteExecutor {
     Request wr = Request.newBuilder().setTarget(op.getName()).build();
     return retrier.execute(
         () -> {
-          Iterator<ChangeBatch> replies = watcherBlockingStub.get().watch(wr);
+          Iterator<ChangeBatch> replies = watcherBlockingStub().watch(wr);
           while (replies.hasNext()) {
             ChangeBatch cb = replies.next();
             for (Change ch : cb.getChangesList()) {

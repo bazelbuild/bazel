@@ -22,8 +22,6 @@ import com.google.bytestream.ByteStreamProto.ReadResponse;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -79,11 +77,6 @@ public class GrpcRemoteCache implements RemoteActionCache {
   private final ChannelOptions channelOptions;
   private final Channel channel;
   private final Retrier retrier;
-  // All gRPC stubs are reused.
-  private final Supplier<ContentAddressableStorageBlockingStub> casBlockingStub;
-  private final Supplier<ByteStreamBlockingStub> bsBlockingStub;
-  private final Supplier<ByteStreamStub> bsStub;
-  private final Supplier<ActionCacheBlockingStub> acBlockingStub;
 
   @VisibleForTesting
   public GrpcRemoteCache(Channel channel, ChannelOptions channelOptions, RemoteOptions options) {
@@ -91,30 +84,30 @@ public class GrpcRemoteCache implements RemoteActionCache {
     this.channelOptions = channelOptions;
     this.channel = channel;
     this.retrier = new Retrier(options);
-    casBlockingStub =
-        Suppliers.memoize(
-            () ->
-                ContentAddressableStorageGrpc.newBlockingStub(channel)
-                    .withCallCredentials(channelOptions.getCallCredentials())
-                    .withDeadlineAfter(options.remoteTimeout, TimeUnit.SECONDS));
-    bsBlockingStub =
-        Suppliers.memoize(
-            () ->
-                ByteStreamGrpc.newBlockingStub(channel)
-                    .withCallCredentials(channelOptions.getCallCredentials())
-                    .withDeadlineAfter(options.remoteTimeout, TimeUnit.SECONDS));
-    bsStub =
-        Suppliers.memoize(
-            () ->
-                ByteStreamGrpc.newStub(channel)
-                    .withCallCredentials(channelOptions.getCallCredentials())
-                    .withDeadlineAfter(options.remoteTimeout, TimeUnit.SECONDS));
-    acBlockingStub =
-        Suppliers.memoize(
-            () ->
-                ActionCacheGrpc.newBlockingStub(channel)
-                    .withCallCredentials(channelOptions.getCallCredentials())
-                    .withDeadlineAfter(options.remoteTimeout, TimeUnit.SECONDS));
+  }
+
+  private ContentAddressableStorageBlockingStub casBlockingStub() {
+    return ContentAddressableStorageGrpc.newBlockingStub(channel)
+        .withCallCredentials(channelOptions.getCallCredentials())
+        .withDeadlineAfter(options.remoteTimeout, TimeUnit.SECONDS);
+  }
+
+  private ByteStreamBlockingStub bsBlockingStub() {
+    return ByteStreamGrpc.newBlockingStub(channel)
+        .withCallCredentials(channelOptions.getCallCredentials())
+        .withDeadlineAfter(options.remoteTimeout, TimeUnit.SECONDS);
+  }
+
+  private ByteStreamStub bsStub() {
+    return ByteStreamGrpc.newStub(channel)
+        .withCallCredentials(channelOptions.getCallCredentials())
+        .withDeadlineAfter(options.remoteTimeout, TimeUnit.SECONDS);
+  }
+
+  private ActionCacheBlockingStub acBlockingStub() {
+    return ActionCacheGrpc.newBlockingStub(channel)
+        .withCallCredentials(channelOptions.getCallCredentials())
+        .withDeadlineAfter(options.remoteTimeout, TimeUnit.SECONDS);
   }
 
   @Override
@@ -134,7 +127,7 @@ public class GrpcRemoteCache implements RemoteActionCache {
       return ImmutableSet.of();
     }
     FindMissingBlobsResponse response =
-        retrier.execute(() -> casBlockingStub.get().findMissingBlobs(request.build()));
+        retrier.execute(() -> casBlockingStub().findMissingBlobs(request.build()));
     return ImmutableSet.copyOf(response.getMissingBlobDigestsList());
   }
 
@@ -169,7 +162,7 @@ public class GrpcRemoteCache implements RemoteActionCache {
       retrier.execute(
           () -> {
             BatchUpdateBlobsResponse response =
-                casBlockingStub.get().batchUpdateBlobs(treeBlobRequest.build());
+                casBlockingStub().batchUpdateBlobs(treeBlobRequest.build());
             for (BatchUpdateBlobsResponse.Response r : response.getResponsesList()) {
               if (!Status.fromCodeValue(r.getStatus().getCode()).isOk()) {
                 throw StatusProto.toStatusRuntimeException(r.getStatus());
@@ -264,8 +257,7 @@ public class GrpcRemoteCache implements RemoteActionCache {
     }
     resourceName += "blobs/" + digest.getHash() + "/" + digest.getSizeBytes();
     try {
-      return bsBlockingStub
-          .get()
+      return bsBlockingStub()
           .read(ReadRequest.newBuilder().setResourceName(resourceName).build());
     } catch (StatusRuntimeException e) {
       if (e.getStatus().getCode() == Status.Code.NOT_FOUND) {
@@ -283,8 +275,7 @@ public class GrpcRemoteCache implements RemoteActionCache {
     try {
       retrier.execute(
           () ->
-              acBlockingStub
-                  .get()
+              acBlockingStub()
                   .updateActionResult(
                       UpdateActionResultRequest.newBuilder()
                           .setInstanceName(options.remoteInstanceName)
@@ -398,8 +389,7 @@ public class GrpcRemoteCache implements RemoteActionCache {
                   resourceName, UUID.randomUUID(), digest.getHash(), digest.getSizeBytes()));
           // The batches execute simultaneously.
           requestObserver =
-              bsStub
-                  .get()
+              bsStub()
                   .write(
                       new StreamObserver<WriteResponse>() {
                         private long bytesLeft = digest.getSizeBytes();
@@ -503,8 +493,7 @@ public class GrpcRemoteCache implements RemoteActionCache {
     try {
       return retrier.execute(
           () ->
-              acBlockingStub
-                  .get()
+              acBlockingStub()
                   .getActionResult(
                       GetActionResultRequest.newBuilder()
                           .setInstanceName(options.remoteInstanceName)
