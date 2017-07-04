@@ -98,8 +98,7 @@ final class RemoteSpawnRunner implements SpawnRunner {
               spawn.getOutputFiles(),
               Digests.computeDigest(command),
               repository.getMerkleDigest(inputRoot),
-              // TODO(olaola): set sensible local and remote timouts.
-              Spawns.getTimeoutSeconds(spawn, 120));
+              Spawns.getTimeoutSeconds(spawn));
 
       ActionKey actionKey = Digests.computeActionKey(action);
       ActionResult result =
@@ -144,7 +143,9 @@ final class RemoteSpawnRunner implements SpawnRunner {
     if (platform != null) {
       action.setPlatform(platform);
     }
-    action.setTimeout(Duration.newBuilder().setSeconds(timeoutSeconds));
+    if (timeoutSeconds > 0) {
+      action.setTimeout(Duration.newBuilder().setSeconds(timeoutSeconds));
+    }
     return action.build();
   }
 

@@ -25,21 +25,12 @@ public final class Spawns {
   private Spawns() {}
 
   /**
-   * Parse the timeout key in the spawn execution info, if it exists. Return -1 if the key does not
-   * exist.
+   * Parse the timeout key in the spawn execution info, if it exists. Otherwise, return -1.
    */
   public static int getTimeoutSeconds(Spawn spawn) throws ExecException {
-    return getTimeoutSeconds(spawn, -1);
-  }
-
-  /**
-   * Parse the timeout key in the spawn execution info, if it exists. Otherwise, return the given
-   * default timeout.
-   */
-  public static int getTimeoutSeconds(Spawn spawn, int defaultTimeout) throws ExecException {
     String timeoutStr = spawn.getExecutionInfo().get("timeout");
     if (timeoutStr == null) {
-      return defaultTimeout;
+      return -1;
     }
     try {
       return Integer.parseInt(timeoutStr);

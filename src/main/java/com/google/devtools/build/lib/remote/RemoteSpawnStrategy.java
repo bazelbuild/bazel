@@ -148,7 +148,9 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
     if (platform != null) {
       action.setPlatform(platform);
     }
-    action.setTimeout(Duration.newBuilder().setSeconds(timeoutSeconds));
+    if (timeoutSeconds > 0) {
+      action.setTimeout(Duration.newBuilder().setSeconds(timeoutSeconds));
+    }
     return action.build();
   }
 
@@ -247,8 +249,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
               spawn.getOutputFiles(),
               Digests.computeDigest(command),
               repository.getMerkleDigest(inputRoot),
-              // TODO(olaola): set sensible local and remote timouts.
-              Spawns.getTimeoutSeconds(spawn, 120));
+              Spawns.getTimeoutSeconds(spawn));
 
       // Look up action cache, and reuse the action output if it is found.
       actionKey = Digests.computeActionKey(action);
