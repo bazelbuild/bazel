@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import locale
 import os
 import subprocess
 import sys
@@ -161,13 +162,15 @@ class TestBase(unittest.TestCase):
           f.write('\n')
     return abspath
 
-  def RunBazel(self, args, env_remove=None):
+  def RunBazel(self, args, env_remove=None, env_add=None):
     """Runs "bazel <args>", waits for it to exit.
 
     Args:
       args: [string]; flags to pass to bazel (e.g. ['--batch', 'build', '//x'])
       env_remove: set(string); optional; environment variables to NOT pass to
         Bazel
+      env_add: set(string); optional; environment variables to pass to
+        Bazel, won't be removed by env_remove.
     Returns:
       (int, [string], [string]) tuple: exit code, stdout lines, stderr lines
     """
@@ -175,15 +178,17 @@ class TestBase(unittest.TestCase):
         self.Rlocation('io_bazel/src/bazel'),
         '--bazelrc=/dev/null',
         '--nomaster_bazelrc',
-    ] + args, env_remove)
+    ] + args, env_remove, env_add)
 
-  def RunProgram(self, args, env_remove=None):
+  def RunProgram(self, args, env_remove=None, env_add=None):
     """Runs a program (args[0]), waits for it to exit.
 
     Args:
       args: [string]; the args to run; args[0] should be the program itself
       env_remove: set(string); optional; environment variables to NOT pass to
         the program
+      env_add: set(string); optional; environment variables to pass to
+        the program, won't be removed by env_remove.
     Returns:
       (int, [string], [string]) tuple: exit code, stdout lines, stderr lines
     """
@@ -194,18 +199,24 @@ class TestBase(unittest.TestCase):
             stdout=stdout,
             stderr=stderr,
             cwd=self._test_cwd,
-            env=self._EnvMap(env_remove))
+            env=self._EnvMap(env_remove, env_add))
         exit_code = proc.wait()
 
         stdout.seek(0)
-        stdout_lines = [l.strip() for l in stdout.readlines()]
+        stdout_lines = [
+            l.decode(locale.getpreferredencoding()).strip()
+            for l in stdout.readlines()
+        ]
 
         stderr.seek(0)
-        stderr_lines = [l.strip() for l in stderr.readlines()]
+        stderr_lines = [
+            l.decode(locale.getpreferredencoding()).strip()
+            for l in stderr.readlines()
+        ]
 
         return exit_code, stdout_lines, stderr_lines
 
-  def _EnvMap(self, env_remove=None):
+  def _EnvMap(self, env_remove=None, env_add=None):
     """Returns the environment variable map to run Bazel or other programs."""
     if TestBase.IsWindows():
       result = []
@@ -250,6 +261,9 @@ class TestBase(unittest.TestCase):
     if env_remove:
       for e in env_remove:
         del env[e]
+    if env_add:
+      for e in env_add:
+        env[e] = env_add[e]
     return env
 
   @staticmethod
