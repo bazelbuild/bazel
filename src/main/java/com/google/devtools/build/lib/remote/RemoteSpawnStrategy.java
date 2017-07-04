@@ -306,7 +306,11 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
       if (remoteOptions.remoteLocalFallback) {
         execLocally(spawn, actionExecutionContext, remoteCache, actionKey);
       } else {
-        throw new UserExecException(e.getCause());
+        String cwd = actionExecutionContext.getExecRoot().getPathString();
+        String message =
+            CommandFailureUtils.describeCommandFailure(
+                verboseFailures, spawn.getArguments(), spawn.getEnvironment(), cwd);
+        throw new UserExecException(message, e.getCause());
       }
     } catch (CacheNotFoundException e) {
       // TODO(olaola): handle this exception by reuploading / reexecuting the action remotely.
@@ -314,7 +318,11 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
       if (remoteOptions.remoteLocalFallback) {
         execLocally(spawn, actionExecutionContext, remoteCache, actionKey);
       } else {
-        throw new UserExecException(e);
+        String cwd = actionExecutionContext.getExecRoot().getPathString();
+        String message =
+            CommandFailureUtils.describeCommandFailure(
+                verboseFailures, spawn.getArguments(), spawn.getEnvironment(), cwd);
+        throw new UserExecException(message, e);
       }
     } catch (IOException e) {
       throw new UserExecException("Unexpected IO error.", e);
