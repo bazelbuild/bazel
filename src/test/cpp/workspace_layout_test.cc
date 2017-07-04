@@ -22,6 +22,7 @@
 #include "file/base/path.h"
 #include "strings/strcat.h"
 #include "gtest/gtest.h"
+#include "third_party/bazel/src/main/cpp/blaze_util_platform.h"
 #include "third_party/bazel/src/main/cpp/util/file.h"
 
 namespace blaze {
@@ -41,10 +42,10 @@ class WorkspaceLayoutTest : public ::testing::Test {
     CHECK_OK(file::SetContents(javac, "", file::Defaults()));
     CHECK_GE(chmod(javac.c_str(), 0755), 0);
 
-    string path(getenv("PATH"));
-    string test_tmpdir(getenv("TEST_TMPDIR"));
+    string path = GetEnv("PATH");
+    string test_tmpdir = GetEnv("TEST_TMPDIR");
     path = test_tmpdir + ":" + path;
-    setenv("PATH", path.c_str(), 1);
+    SetEnv("PATH", path);
   }
 
   void TearDown() {

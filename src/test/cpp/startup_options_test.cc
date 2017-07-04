@@ -14,6 +14,7 @@
 
 #include <stdlib.h>
 
+#include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/workspace_layout.h"
 #include "gtest/gtest.h"
@@ -29,15 +30,15 @@ class StartupOptionsTest : public ::testing::Test {
     // This knowingly ignores the possibility of these environment variables
     // being unset because we expect our test runner to set them in all cases.
     // Otherwise, we'll crash here, but this keeps our code simpler.
-    old_home_ = getenv("HOME");
-    old_test_tmpdir_ = getenv("TEST_TMPDIR");
+    old_home_ = GetHomeDir();
+    old_test_tmpdir_ = GetEnv("TEST_TMPDIR");
 
     ReinitStartupOptions();
   }
 
   void TearDown() override {
-    setenv("HOME", old_home_.c_str(), 1);
-    setenv("TEST_TMPDIR", old_test_tmpdir_.c_str(), 1);
+    SetEnv("HOME", old_home_);
+    SetEnv("TEST_TMPDIR", old_test_tmpdir_);
   }
 
   // Recreates startup_options_ after changes to the environment.
@@ -94,30 +95,19 @@ TEST_F(StartupOptionsTest, JavaLoggingOptions) {
 }
 
 TEST_F(StartupOptionsTest, OutputRootPreferTestTmpdirIfSet) {
-  setenv("HOME", "/nonexistent/home", 1);
-  setenv("TEST_TMPDIR", "/nonexistent/tmpdir", 1);
+  SetEnv("HOME", "/nonexistent/home");
+  SetEnv("TEST_TMPDIR", "/nonexistent/tmpdir");
   ReinitStartupOptions();
 
   ASSERT_EQ("/nonexistent/tmpdir", startup_options_->output_root);
 }
 
 TEST_F(StartupOptionsTest, OutputRootUseHomeDirectory) {
-  setenv("HOME", "/nonexistent/home", 1);
-  unsetenv("TEST_TMPDIR");
+  SetEnv("HOME", "/nonexistent/home");
+  UnsetEnv("TEST_TMPDIR");
   ReinitStartupOptions();
 
   ASSERT_EQ("/nonexistent/home/.cache/bazel", startup_options_->output_root);
-}
-
-TEST_F(StartupOptionsTest, OutputRootUseBuiltin) {
-  // We cannot just unsetenv("HOME") because the logic to compute the output
-  // root falls back to using the passwd database if HOME is null... and mocking
-  // that out is hard.
-  setenv("HOME", "", 1);
-  unsetenv("TEST_TMPDIR");
-  ReinitStartupOptions();
-
-  ASSERT_EQ("/tmp", startup_options_->output_root);
 }
 
 TEST_F(StartupOptionsTest, EmptyFlagsAreInvalidTest) {
