@@ -244,6 +244,7 @@ toolchain {
       action: "c++-link-dynamic-library"
       flag_group {
         flag: "%{linkstamp_paths}"
+        iterate_over: "linkstamp_paths"
       }
       expand_if_all_available: "linkstamp_paths"
     }
@@ -340,6 +341,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_flags}"
+        iterate_over: "runtime_root_flags"
       }
       expand_if_all_available: "runtime_root_flags"
     }
@@ -352,6 +354,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_entries}"
+        iterate_over: "runtime_root_entries"
       }
       expand_if_all_available: "runtime_root_entries"
     }
@@ -380,6 +383,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{libopts}"
+        iterate_over: "libopts"
       }
       expand_if_all_available: "libopts"
     }
@@ -392,6 +396,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-force_load,%{whole_archive_linker_params}"
+        iterate_over: "whole_archive_linker_params"
       }
       expand_if_all_available: "whole_archive_linker_params"
     }
@@ -404,6 +409,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{linker_input_params}"
+        iterate_over: "linker_input_params"
       }
       expand_if_all_available: "linker_input_params"
     }
@@ -694,6 +700,7 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-D%{preprocessor_defines}"
+        iterate_over: "preprocessor_defines"
       }
     }
   }
@@ -706,6 +713,7 @@ toolchain {
       action: "objc++-executable"
       flag_group {
         flag: "-F%{framework_paths}"
+        iterate_over: "framework_paths"
       }
     }
   }
@@ -1233,12 +1241,15 @@ toolchain {
       }
       flag_group {
         flag: "-framework %{framework_names}"
+        iterate_over: "framework_names"
       }
       flag_group {
         flag: "-weak_framework %{weak_framework_names}"
+        iterate_over: "weak_framework_names"
       }
       flag_group {
         flag: "-l%{library_names}"
+        iterate_over: "library_names"
       }
       flag_group {
         flag: "-filelist %{filelist}"
@@ -1248,12 +1259,15 @@ toolchain {
       }
       flag_group {
         flag: "-force_load %{force_load_exec_paths}"
+        iterate_over: "force_load_exec_paths"
       }
       flag_group {
         flag: "%{dep_linkopts}"
+        iterate_over: "dep_linkopts"
       }
       flag_group {
         flag: "-Wl,%{attr_linkopts}"
+        iterate_over: "attr_linkopts"
       }
     }
     implies: "include_system_dirs"
@@ -1294,12 +1308,15 @@ toolchain {
       }
       flag_group {
         flag: "-framework %{framework_names}"
+        iterate_over: "framework_names"
       }
       flag_group {
         flag: "-weak_framework %{weak_framework_names}"
+        iterate_over: "weak_framwork_names"
       }
       flag_group {
         flag: "-l%{library_names}"
+        iterate_over: "library_names"
       }
       flag_group {
         flag: "-filelist %{filelist}"
@@ -1309,12 +1326,15 @@ toolchain {
       }
       flag_group {
         flag: "-force_load %{force_load_exec_paths}"
+        iterate_over: "force_load_exec_paths"
       }
       flag_group {
         flag: "%{dep_linkopts}"
+        iterate_over: "dep_linkopts"
       }
       flag_group {
         flag: "-Wl,%{attr_linkopts}"
+        iterate_over: "attr_linkopts"
       }
     }
     implies: "include_system_dirs"
@@ -1445,12 +1465,15 @@ toolchain {
       }
       flag_group {
         flag: "%{objc_library_exec_paths}"
+        iterate_over: "objc_library_exec_paths"
       }
       flag_group {
         flag: "%{cc_library_exec_paths}"
+        iterate_over: "cc_library_exec_paths"
       }
       flag_group {
         flag: "%{imported_library_exec_paths}"
+        iterate_over: "imported_library_exec_paths"
       }
     }
     implies: "apple_env"
@@ -1650,6 +1673,7 @@ toolchain {
       action: "c++-link-dynamic-library"
       flag_group {
         flag: "%{linkstamp_paths}"
+        iterate_over: "linkstamp_paths"
       }
       expand_if_all_available: "linkstamp_paths"
     }
@@ -1746,6 +1770,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_flags}"
+        iterate_over: "runtime_root_flags"
       }
       expand_if_all_available: "runtime_root_flags"
     }
@@ -1758,6 +1783,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_entries}"
+        iterate_over: "runtime_root_entries"
       }
       expand_if_all_available: "runtime_root_entries"
     }
@@ -1786,6 +1812,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{libopts}"
+        iterate_over: "libopts"
       }
       expand_if_all_available: "libopts"
     }
@@ -1798,6 +1825,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-force_load,%{whole_archive_linker_params}"
+        iterate_over: "whole_archive_linker_params"
       }
       expand_if_all_available: "whole_archive_linker_params"
     }
@@ -1810,6 +1838,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{linker_input_params}"
+        iterate_over: "linker_input_params"
       }
       expand_if_all_available: "linker_input_params"
     }
@@ -2100,6 +2129,7 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-D%{preprocessor_defines}"
+        iterate_over: "preprocessor_defines"
       }
     }
   }
@@ -2112,6 +2142,7 @@ toolchain {
       action: "objc++-executable"
       flag_group {
         flag: "-F%{framework_paths}"
+        iterate_over: "framework_paths"
       }
     }
   }
@@ -2646,12 +2677,15 @@ toolchain {
       }
       flag_group {
         flag: "-framework %{framework_names}"
+        iterate_over: "framework_names"
       }
       flag_group {
         flag: "-weak_framework %{weak_framework_names}"
+        iterate_over: "weak_framework_names"
       }
       flag_group {
         flag: "-l%{library_names}"
+        iterate_over: "library_names"
       }
       flag_group {
         flag: "-filelist %{filelist}"
@@ -2661,12 +2695,15 @@ toolchain {
       }
       flag_group {
         flag: "-force_load %{force_load_exec_paths}"
+        iterate_over: "force_load_exec_paths"
       }
       flag_group {
         flag: "%{dep_linkopts}"
+        iterate_over: "dep_linkopts"
       }
       flag_group {
         flag: "-Wl,%{attr_linkopts}"
+        iterate_over: "attr_linkopts"
       }
     }
     implies: "include_system_dirs"
@@ -2707,12 +2744,15 @@ toolchain {
       }
       flag_group {
         flag: "-framework %{framework_names}"
+        iterate_over: "framework_names"
       }
       flag_group {
         flag: "-weak_framework %{weak_framework_names}"
+        iterate_over: "weak_framwork_names"
       }
       flag_group {
         flag: "-l%{library_names}"
+        iterate_over: "library_names"
       }
       flag_group {
         flag: "-filelist %{filelist}"
@@ -2722,12 +2762,15 @@ toolchain {
       }
       flag_group {
         flag: "-force_load %{force_load_exec_paths}"
+        iterate_over: "force_load_exec_paths"
       }
       flag_group {
         flag: "%{dep_linkopts}"
+        iterate_over: "dep_linkopts"
       }
       flag_group {
         flag: "-Wl,%{attr_linkopts}"
+        iterate_over: "attr_linkopts"
       }
     }
     implies: "include_system_dirs"
@@ -2858,12 +2901,15 @@ toolchain {
       }
       flag_group {
         flag: "%{objc_library_exec_paths}"
+        iterate_over: "objc_library_exec_paths"
       }
       flag_group {
         flag: "%{cc_library_exec_paths}"
+        iterate_over: "cc_library_exec_paths"
       }
       flag_group {
         flag: "%{imported_library_exec_paths}"
+        iterate_over: "imported_library_exec_paths"
       }
     }
     implies: "apple_env"
@@ -3063,6 +3109,7 @@ toolchain {
       action: "c++-link-dynamic-library"
       flag_group {
         flag: "%{linkstamp_paths}"
+        iterate_over: "linkstamp_paths"
       }
       expand_if_all_available: "linkstamp_paths"
     }
@@ -3159,6 +3206,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_flags}"
+        iterate_over: "runtime_root_flags"
       }
       expand_if_all_available: "runtime_root_flags"
     }
@@ -3171,6 +3219,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_entries}"
+        iterate_over: "runtime_root_entries"
       }
       expand_if_all_available: "runtime_root_entries"
     }
@@ -3199,6 +3248,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{libopts}"
+        iterate_over: "libopts"
       }
       expand_if_all_available: "libopts"
     }
@@ -3211,6 +3261,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-force_load,%{whole_archive_linker_params}"
+        iterate_over: "whole_archive_linker_params"
       }
       expand_if_all_available: "whole_archive_linker_params"
     }
@@ -3223,6 +3274,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{linker_input_params}"
+        iterate_over: "linker_input_params"
       }
       expand_if_all_available: "linker_input_params"
     }
@@ -3513,6 +3565,7 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-D%{preprocessor_defines}"
+        iterate_over: "preprocessor_defines"
       }
     }
   }
@@ -3525,6 +3578,7 @@ toolchain {
       action: "objc++-executable"
       flag_group {
         flag: "-F%{framework_paths}"
+        iterate_over: "framework_paths"
       }
     }
   }
@@ -4061,12 +4115,15 @@ toolchain {
       }
       flag_group {
         flag: "-framework %{framework_names}"
+        iterate_over: "framework_names"
       }
       flag_group {
         flag: "-weak_framework %{weak_framework_names}"
+        iterate_over: "weak_framework_names"
       }
       flag_group {
         flag: "-l%{library_names}"
+        iterate_over: "library_names"
       }
       flag_group {
         flag: "-filelist %{filelist}"
@@ -4076,12 +4133,15 @@ toolchain {
       }
       flag_group {
         flag: "-force_load %{force_load_exec_paths}"
+        iterate_over: "force_load_exec_paths"
       }
       flag_group {
         flag: "%{dep_linkopts}"
+        iterate_over: "dep_linkopts"
       }
       flag_group {
         flag: "-Wl,%{attr_linkopts}"
+        iterate_over: "attr_linkopts"
       }
     }
     implies: "include_system_dirs"
@@ -4122,12 +4182,15 @@ toolchain {
       }
       flag_group {
         flag: "-framework %{framework_names}"
+        iterate_over: "framework_names"
       }
       flag_group {
         flag: "-weak_framework %{weak_framework_names}"
+        iterate_over: "weak_framwork_names"
       }
       flag_group {
         flag: "-l%{library_names}"
+        iterate_over: "library_names"
       }
       flag_group {
         flag: "-filelist %{filelist}"
@@ -4137,12 +4200,15 @@ toolchain {
       }
       flag_group {
         flag: "-force_load %{force_load_exec_paths}"
+        iterate_over: "force_load_exec_paths"
       }
       flag_group {
         flag: "%{dep_linkopts}"
+        iterate_over: "dep_linkopts"
       }
       flag_group {
         flag: "-Wl,%{attr_linkopts}"
+        iterate_over: "attr_linkopts"
       }
     }
     implies: "include_system_dirs"
@@ -4273,12 +4339,15 @@ toolchain {
       }
       flag_group {
         flag: "%{objc_library_exec_paths}"
+        iterate_over: "objc_library_exec_paths"
       }
       flag_group {
         flag: "%{cc_library_exec_paths}"
+        iterate_over: "cc_library_exec_paths"
       }
       flag_group {
         flag: "%{imported_library_exec_paths}"
+        iterate_over: "imported_library_exec_paths"
       }
     }
     implies: "apple_env"
@@ -4479,6 +4548,7 @@ toolchain {
       action: "c++-link-dynamic-library"
       flag_group {
         flag: "%{linkstamp_paths}"
+        iterate_over: "linkstamp_paths"
       }
       expand_if_all_available: "linkstamp_paths"
     }
@@ -4575,6 +4645,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_flags}"
+        iterate_over: "runtime_root_flags"
       }
       expand_if_all_available: "runtime_root_flags"
     }
@@ -4587,6 +4658,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_entries}"
+        iterate_over: "runtime_root_entries"
       }
       expand_if_all_available: "runtime_root_entries"
     }
@@ -4615,6 +4687,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{libopts}"
+        iterate_over: "libopts"
       }
       expand_if_all_available: "libopts"
     }
@@ -4627,6 +4700,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-force_load,%{whole_archive_linker_params}"
+        iterate_over: "whole_archive_linker_params"
       }
       expand_if_all_available: "whole_archive_linker_params"
     }
@@ -4639,6 +4713,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{linker_input_params}"
+        iterate_over: "linker_input_params"
       }
       expand_if_all_available: "linker_input_params"
     }
@@ -4929,6 +5004,7 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-D%{preprocessor_defines}"
+        iterate_over: "preprocessor_defines"
       }
     }
   }
@@ -4941,6 +5017,7 @@ toolchain {
       action: "objc++-executable"
       flag_group {
         flag: "-F%{framework_paths}"
+        iterate_over: "framework_paths"
       }
     }
   }
@@ -5511,12 +5588,15 @@ toolchain {
       }
       flag_group {
         flag: "-framework %{framework_names}"
+        iterate_over: "framework_names"
       }
       flag_group {
         flag: "-weak_framework %{weak_framework_names}"
+        iterate_over: "weak_framework_names"
       }
       flag_group {
         flag: "-l%{library_names}"
+        iterate_over: "library_names"
       }
       flag_group {
         flag: "-filelist %{filelist}"
@@ -5526,12 +5606,15 @@ toolchain {
       }
       flag_group {
         flag: "-force_load %{force_load_exec_paths}"
+        iterate_over: "force_load_exec_paths"
       }
       flag_group {
         flag: "%{dep_linkopts}"
+        iterate_over: "dep_linkopts"
       }
       flag_group {
         flag: "-Wl,%{attr_linkopts}"
+        iterate_over: "attr_linkopts"
       }
     }
     implies: "include_system_dirs"
@@ -5572,12 +5655,15 @@ toolchain {
       }
       flag_group {
         flag: "-framework %{framework_names}"
+        iterate_over: "framework_names"
       }
       flag_group {
         flag: "-weak_framework %{weak_framework_names}"
+        iterate_over: "weak_framwork_names"
       }
       flag_group {
         flag: "-l%{library_names}"
+        iterate_over: "library_names"
       }
       flag_group {
         flag: "-filelist %{filelist}"
@@ -5587,12 +5673,15 @@ toolchain {
       }
       flag_group {
         flag: "-force_load %{force_load_exec_paths}"
+        iterate_over: "force_load_exec_paths"
       }
       flag_group {
         flag: "%{dep_linkopts}"
+        iterate_over: "dep_linkopts"
       }
       flag_group {
         flag: "-Wl,%{attr_linkopts}"
+        iterate_over: "attr_linkopts"
       }
     }
     implies: "include_system_dirs"
@@ -5725,12 +5814,15 @@ toolchain {
       }
       flag_group {
         flag: "%{objc_library_exec_paths}"
+        iterate_over: "objc_library_exec_paths"
       }
       flag_group {
         flag: "%{cc_library_exec_paths}"
+        iterate_over: "cc_library_exec_paths"
       }
       flag_group {
         flag: "%{imported_library_exec_paths}"
+        iterate_over: "imported_library_exec_paths"
       }
     }
     implies: "apple_env"
@@ -5930,6 +6022,7 @@ toolchain {
       action: "c++-link-dynamic-library"
       flag_group {
         flag: "%{linkstamp_paths}"
+        iterate_over: "linkstamp_paths"
       }
       expand_if_all_available: "linkstamp_paths"
     }
@@ -6026,6 +6119,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_flags}"
+        iterate_over: "runtime_root_flags"
       }
       expand_if_all_available: "runtime_root_flags"
     }
@@ -6038,6 +6132,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_entries}"
+        iterate_over: "runtime_root_entries"
       }
       expand_if_all_available: "runtime_root_entries"
     }
@@ -6066,6 +6161,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{libopts}"
+        iterate_over: "libopts"
       }
       expand_if_all_available: "libopts"
     }
@@ -6078,6 +6174,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-force_load,%{whole_archive_linker_params}"
+        iterate_over: "whole_archive_linker_params"
       }
       expand_if_all_available: "whole_archive_linker_params"
     }
@@ -6090,6 +6187,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{linker_input_params}"
+        iterate_over: "linker_input_params"
       }
       expand_if_all_available: "linker_input_params"
     }
@@ -6380,6 +6478,7 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-D%{preprocessor_defines}"
+        iterate_over: "preprocessor_defines"
       }
     }
   }
@@ -6392,6 +6491,7 @@ toolchain {
       action: "objc++-executable"
       flag_group {
         flag: "-F%{framework_paths}"
+        iterate_over: "framework_paths"
       }
     }
   }
@@ -6926,12 +7026,15 @@ toolchain {
       }
       flag_group {
         flag: "-framework %{framework_names}"
+        iterate_over: "framework_names"
       }
       flag_group {
         flag: "-weak_framework %{weak_framework_names}"
+        iterate_over: "weak_framework_names"
       }
       flag_group {
         flag: "-l%{library_names}"
+        iterate_over: "library_names"
       }
       flag_group {
         flag: "-filelist %{filelist}"
@@ -6941,12 +7044,15 @@ toolchain {
       }
       flag_group {
         flag: "-force_load %{force_load_exec_paths}"
+        iterate_over: "force_load_exec_paths"
       }
       flag_group {
         flag: "%{dep_linkopts}"
+        iterate_over: "dep_linkopts"
       }
       flag_group {
         flag: "-Wl,%{attr_linkopts}"
+        iterate_over: "attr_linkopts"
       }
     }
     implies: "include_system_dirs"
@@ -6987,12 +7093,15 @@ toolchain {
       }
       flag_group {
         flag: "-framework %{framework_names}"
+        iterate_over: "framework_names"
       }
       flag_group {
         flag: "-weak_framework %{weak_framework_names}"
+        iterate_over: "weak_framwork_names"
       }
       flag_group {
         flag: "-l%{library_names}"
+        iterate_over: "library_names"
       }
       flag_group {
         flag: "-filelist %{filelist}"
@@ -7002,12 +7111,15 @@ toolchain {
       }
       flag_group {
         flag: "-force_load %{force_load_exec_paths}"
+        iterate_over: "force_load_exec_paths"
       }
       flag_group {
         flag: "%{dep_linkopts}"
+        iterate_over: "dep_linkopts"
       }
       flag_group {
         flag: "-Wl,%{attr_linkopts}"
+        iterate_over: "attr_linkopts"
       }
     }
     implies: "include_system_dirs"
@@ -7138,12 +7250,15 @@ toolchain {
       }
       flag_group {
         flag: "%{objc_library_exec_paths}"
+        iterate_over: "objc_library_exec_paths"
       }
       flag_group {
         flag: "%{cc_library_exec_paths}"
+        iterate_over: "cc_library_exec_paths"
       }
       flag_group {
         flag: "%{imported_library_exec_paths}"
+        iterate_over: "imported_library_exec_paths"
       }
     }
     implies: "apple_env"
@@ -7343,6 +7458,7 @@ toolchain {
       action: "c++-link-dynamic-library"
       flag_group {
         flag: "%{linkstamp_paths}"
+        iterate_over: "linkstamp_paths"
       }
       expand_if_all_available: "linkstamp_paths"
     }
@@ -7439,6 +7555,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_flags}"
+        iterate_over: "runtime_root_flags"
       }
       expand_if_all_available: "runtime_root_flags"
     }
@@ -7451,6 +7568,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_entries}"
+        iterate_over: "runtime_root_entries"
       }
       expand_if_all_available: "runtime_root_entries"
     }
@@ -7479,6 +7597,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{libopts}"
+        iterate_over: "libopts"
       }
       expand_if_all_available: "libopts"
     }
@@ -7491,6 +7610,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-force_load,%{whole_archive_linker_params}"
+        iterate_over: "whole_archive_linker_params"
       }
       expand_if_all_available: "whole_archive_linker_params"
     }
@@ -7503,6 +7623,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{linker_input_params}"
+        iterate_over: "linker_input_params"
       }
       expand_if_all_available: "linker_input_params"
     }
@@ -7793,6 +7914,7 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-D%{preprocessor_defines}"
+        iterate_over: "preprocessor_defines"
       }
     }
   }
@@ -7805,6 +7927,7 @@ toolchain {
       action: "objc++-executable"
       flag_group {
         flag: "-F%{framework_paths}"
+        iterate_over: "framework_paths"
       }
     }
   }
@@ -8324,12 +8447,15 @@ toolchain {
       }
       flag_group {
         flag: "-framework %{framework_names}"
+        iterate_over: "framework_names"
       }
       flag_group {
         flag: "-weak_framework %{weak_framework_names}"
+        iterate_over: "weak_framework_names"
       }
       flag_group {
         flag: "-l%{library_names}"
+        iterate_over: "library_names"
       }
       flag_group {
         flag: "-filelist %{filelist}"
@@ -8339,12 +8465,15 @@ toolchain {
       }
       flag_group {
         flag: "-force_load %{force_load_exec_paths}"
+        iterate_over: "force_load_exec_paths"
       }
       flag_group {
         flag: "%{dep_linkopts}"
+        iterate_over: "dep_linkopts"
       }
       flag_group {
         flag: "-Wl,%{attr_linkopts}"
+        iterate_over: "attr_linkopts"
       }
     }
     implies: "include_system_dirs"
@@ -8385,12 +8514,15 @@ toolchain {
       }
       flag_group {
         flag: "-framework %{framework_names}"
+        iterate_over: "framework_names"
       }
       flag_group {
         flag: "-weak_framework %{weak_framework_names}"
+        iterate_over: "weak_framwork_names"
       }
       flag_group {
         flag: "-l%{library_names}"
+        iterate_over: "library_names"
       }
       flag_group {
         flag: "-filelist %{filelist}"
@@ -8400,12 +8532,15 @@ toolchain {
       }
       flag_group {
         flag: "-force_load %{force_load_exec_paths}"
+        iterate_over: "force_load_exec_paths"
       }
       flag_group {
         flag: "%{dep_linkopts}"
+        iterate_over: "dep_linkopts"
       }
       flag_group {
         flag: "-Wl,%{attr_linkopts}"
+        iterate_over: "attr_linkopts"
       }
     }
     implies: "include_system_dirs"
@@ -8536,12 +8671,15 @@ toolchain {
       }
       flag_group {
         flag: "%{objc_library_exec_paths}"
+        iterate_over: "objc_library_exec_paths"
       }
       flag_group {
         flag: "%{cc_library_exec_paths}"
+        iterate_over: "cc_library_exec_paths"
       }
       flag_group {
         flag: "%{imported_library_exec_paths}"
+        iterate_over: "imported_library_exec_paths"
       }
     }
     implies: "apple_env"
@@ -8741,6 +8879,7 @@ toolchain {
       action: "c++-link-dynamic-library"
       flag_group {
         flag: "%{linkstamp_paths}"
+        iterate_over: "linkstamp_paths"
       }
       expand_if_all_available: "linkstamp_paths"
     }
@@ -8837,6 +8976,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_flags}"
+        iterate_over: "runtime_root_flags"
       }
       expand_if_all_available: "runtime_root_flags"
     }
@@ -8849,6 +8989,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_entries}"
+        iterate_over: "runtime_root_entries"
       }
       expand_if_all_available: "runtime_root_entries"
     }
@@ -8877,6 +9018,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{libopts}"
+        iterate_over: "libopts"
       }
       expand_if_all_available: "libopts"
     }
@@ -8889,6 +9031,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-force_load,%{whole_archive_linker_params}"
+        iterate_over: "whole_archive_linker_params"
       }
       expand_if_all_available: "whole_archive_linker_params"
     }
@@ -8901,6 +9044,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{linker_input_params}"
+        iterate_over: "linker_input_params"
       }
       expand_if_all_available: "linker_input_params"
     }
@@ -9191,6 +9335,7 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-D%{preprocessor_defines}"
+        iterate_over: "preprocessor_defines"
       }
     }
   }
@@ -9203,6 +9348,7 @@ toolchain {
       action: "objc++-executable"
       flag_group {
         flag: "-F%{framework_paths}"
+        iterate_over: "framework_paths"
       }
     }
   }
@@ -9724,12 +9870,15 @@ toolchain {
       }
       flag_group {
         flag: "-framework %{framework_names}"
+        iterate_over: "framework_names"
       }
       flag_group {
         flag: "-weak_framework %{weak_framework_names}"
+        iterate_over: "weak_framework_names"
       }
       flag_group {
         flag: "-l%{library_names}"
+        iterate_over: "library_names"
       }
       flag_group {
         flag: "-filelist %{filelist}"
@@ -9739,12 +9888,15 @@ toolchain {
       }
       flag_group {
         flag: "-force_load %{force_load_exec_paths}"
+        iterate_over: "force_load_exec_paths"
       }
       flag_group {
         flag: "%{dep_linkopts}"
+        iterate_over: "dep_linkopts"
       }
       flag_group {
         flag: "-Wl,%{attr_linkopts}"
+        iterate_over: "attr_linkopts"
       }
     }
     implies: "include_system_dirs"
@@ -9785,12 +9937,15 @@ toolchain {
       }
       flag_group {
         flag: "-framework %{framework_names}"
+        iterate_over: "framework_names"
       }
       flag_group {
         flag: "-weak_framework %{weak_framework_names}"
+        iterate_over: "weak_framwork_names"
       }
       flag_group {
         flag: "-l%{library_names}"
+        iterate_over: "library_names"
       }
       flag_group {
         flag: "-filelist %{filelist}"
@@ -9800,12 +9955,15 @@ toolchain {
       }
       flag_group {
         flag: "-force_load %{force_load_exec_paths}"
+        iterate_over: "force_load_exec_paths"
       }
       flag_group {
         flag: "%{dep_linkopts}"
+        iterate_over: "dep_linkopts"
       }
       flag_group {
         flag: "-Wl,%{attr_linkopts}"
+        iterate_over: "attr_linkopts"
       }
     }
     implies: "include_system_dirs"
@@ -9936,12 +10094,15 @@ toolchain {
       }
       flag_group {
         flag: "%{objc_library_exec_paths}"
+        iterate_over: "objc_library_exec_paths"
       }
       flag_group {
         flag: "%{cc_library_exec_paths}"
+        iterate_over: "cc_library_exec_paths"
       }
       flag_group {
         flag: "%{imported_library_exec_paths}"
+        iterate_over: "imported_library_exec_paths"
       }
     }
     implies: "apple_env"
@@ -10142,6 +10303,7 @@ toolchain {
       action: "c++-link-dynamic-library"
       flag_group {
         flag: "%{linkstamp_paths}"
+        iterate_over: "linkstamp_paths"
       }
       expand_if_all_available: "linkstamp_paths"
     }
@@ -10238,6 +10400,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_flags}"
+        iterate_over: "runtime_root_flags"
       }
       expand_if_all_available: "runtime_root_flags"
     }
@@ -10250,6 +10413,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_entries}"
+        iterate_over: "runtime_root_entries"
       }
       expand_if_all_available: "runtime_root_entries"
     }
@@ -10278,6 +10442,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{libopts}"
+        iterate_over: "libopts"
       }
       expand_if_all_available: "libopts"
     }
@@ -10290,6 +10455,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-force_load,%{whole_archive_linker_params}"
+        iterate_over: "whole_archive_linker_params"
       }
       expand_if_all_available: "whole_archive_linker_params"
     }
@@ -10302,6 +10468,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{linker_input_params}"
+        iterate_over: "linker_input_params"
       }
       expand_if_all_available: "linker_input_params"
     }
@@ -10592,6 +10759,7 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-D%{preprocessor_defines}"
+        iterate_over: "preprocessor_defines"
       }
     }
   }
@@ -10604,6 +10772,7 @@ toolchain {
       action: "objc++-executable"
       flag_group {
         flag: "-F%{framework_paths}"
+        iterate_over: "framework_paths"
       }
     }
   }
@@ -11159,12 +11328,15 @@ toolchain {
       }
       flag_group {
         flag: "-framework %{framework_names}"
+        iterate_over: "framework_names"
       }
       flag_group {
         flag: "-weak_framework %{weak_framework_names}"
+        iterate_over: "weak_framework_names"
       }
       flag_group {
         flag: "-l%{library_names}"
+        iterate_over: "library_names"
       }
       flag_group {
         flag: "-filelist %{filelist}"
@@ -11174,12 +11346,15 @@ toolchain {
       }
       flag_group {
         flag: "-force_load %{force_load_exec_paths}"
+        iterate_over: "force_load_exec_paths"
       }
       flag_group {
         flag: "%{dep_linkopts}"
+        iterate_over: "dep_linkopts"
       }
       flag_group {
         flag: "-Wl,%{attr_linkopts}"
+        iterate_over: "attr_linkopts"
       }
     }
     implies: "include_system_dirs"
@@ -11220,12 +11395,15 @@ toolchain {
       }
       flag_group {
         flag: "-framework %{framework_names}"
+        iterate_over: "framework_names"
       }
       flag_group {
         flag: "-weak_framework %{weak_framework_names}"
+        iterate_over: "weak_framwork_names"
       }
       flag_group {
         flag: "-l%{library_names}"
+        iterate_over: "library_names"
       }
       flag_group {
         flag: "-filelist %{filelist}"
@@ -11235,12 +11413,15 @@ toolchain {
       }
       flag_group {
         flag: "-force_load %{force_load_exec_paths}"
+        iterate_over: "force_load_exec_paths"
       }
       flag_group {
         flag: "%{dep_linkopts}"
+        iterate_over: "dep_linkopts"
       }
       flag_group {
         flag: "-Wl,%{attr_linkopts}"
+        iterate_over: "attr_linkopts"
       }
     }
     implies: "include_system_dirs"
@@ -11373,12 +11554,15 @@ toolchain {
       }
       flag_group {
         flag: "%{objc_library_exec_paths}"
+        iterate_over: "objc_library_exec_paths"
       }
       flag_group {
         flag: "%{cc_library_exec_paths}"
+        iterate_over: "cc_library_exec_paths"
       }
       flag_group {
         flag: "%{imported_library_exec_paths}"
+        iterate_over: "imported_library_exec_paths"
       }
     }
     implies: "apple_env"
@@ -11578,6 +11762,7 @@ toolchain {
       action: "c++-link-dynamic-library"
       flag_group {
         flag: "%{linkstamp_paths}"
+        iterate_over: "linkstamp_paths"
       }
       expand_if_all_available: "linkstamp_paths"
     }
@@ -11674,6 +11859,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_flags}"
+        iterate_over: "runtime_root_flags"
       }
       expand_if_all_available: "runtime_root_flags"
     }
@@ -11686,6 +11872,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_entries}"
+        iterate_over: "runtime_root_entries"
       }
       expand_if_all_available: "runtime_root_entries"
     }
@@ -11714,6 +11901,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{libopts}"
+        iterate_over: "libopts"
       }
       expand_if_all_available: "libopts"
     }
@@ -11726,6 +11914,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-force_load,%{whole_archive_linker_params}"
+        iterate_over: "whole_archive_linker_params"
       }
       expand_if_all_available: "whole_archive_linker_params"
     }
@@ -11738,6 +11927,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{linker_input_params}"
+        iterate_over: "linker_input_params"
       }
       expand_if_all_available: "linker_input_params"
     }
@@ -12028,6 +12218,7 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-D%{preprocessor_defines}"
+        iterate_over: "preprocessor_defines"
       }
     }
   }
@@ -12040,6 +12231,7 @@ toolchain {
       action: "objc++-executable"
       flag_group {
         flag: "-F%{framework_paths}"
+        iterate_over: "framework_paths"
       }
     }
   }
@@ -12559,12 +12751,15 @@ toolchain {
       }
       flag_group {
         flag: "-framework %{framework_names}"
+        iterate_over: "framework_names"
       }
       flag_group {
         flag: "-weak_framework %{weak_framework_names}"
+        iterate_over: "weak_framework_names"
       }
       flag_group {
         flag: "-l%{library_names}"
+        iterate_over: "library_names"
       }
       flag_group {
         flag: "-filelist %{filelist}"
@@ -12574,12 +12769,15 @@ toolchain {
       }
       flag_group {
         flag: "-force_load %{force_load_exec_paths}"
+        iterate_over: "force_load_exec_paths"
       }
       flag_group {
         flag: "%{dep_linkopts}"
+        iterate_over: "dep_linkopts"
       }
       flag_group {
         flag: "-Wl,%{attr_linkopts}"
+        iterate_over: "attr_linkopts"
       }
     }
     implies: "include_system_dirs"
@@ -12620,12 +12818,15 @@ toolchain {
       }
       flag_group {
         flag: "-framework %{framework_names}"
+        iterate_over: "framework_names"
       }
       flag_group {
         flag: "-weak_framework %{weak_framework_names}"
+        iterate_over: "weak_framwork_names"
       }
       flag_group {
         flag: "-l%{library_names}"
+        iterate_over: "library_names"
       }
       flag_group {
         flag: "-filelist %{filelist}"
@@ -12635,12 +12836,15 @@ toolchain {
       }
       flag_group {
         flag: "-force_load %{force_load_exec_paths}"
+        iterate_over: "force_load_exec_paths"
       }
       flag_group {
         flag: "%{dep_linkopts}"
+        iterate_over: "dep_linkopts"
       }
       flag_group {
         flag: "-Wl,%{attr_linkopts}"
+        iterate_over: "attr_linkopts"
       }
     }
     implies: "include_system_dirs"
@@ -12771,12 +12975,15 @@ toolchain {
       }
       flag_group {
         flag: "%{objc_library_exec_paths}"
+        iterate_over: "objc_library_exec_paths"
       }
       flag_group {
         flag: "%{cc_library_exec_paths}"
+        iterate_over: "cc_library_exec_paths"
       }
       flag_group {
         flag: "%{imported_library_exec_paths}"
+        iterate_over: "imported_library_exec_paths"
       }
     }
     implies: "apple_env"
@@ -12982,6 +13189,7 @@ toolchain {
       action: "c++-link-dynamic-library"
       flag_group {
         flag: "%{linkstamp_paths}"
+        iterate_over: "linkstamp_paths"
       }
       expand_if_all_available: "linkstamp_paths"
     }
@@ -13078,6 +13286,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_flags}"
+        iterate_over: "runtime_root_flags"
       }
       expand_if_all_available: "runtime_root_flags"
     }
@@ -13090,6 +13299,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{runtime_root_entries}"
+        iterate_over: "runtime_root_entries"
       }
       expand_if_all_available: "runtime_root_entries"
     }
@@ -13118,6 +13328,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{libopts}"
+        iterate_over: "libopts"
       }
       expand_if_all_available: "libopts"
     }
@@ -13130,6 +13341,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "-Wl,-force_load,%{whole_archive_linker_params}"
+        iterate_over: "whole_archive_linker_params"
       }
       expand_if_all_available: "whole_archive_linker_params"
     }
@@ -13142,6 +13354,7 @@ toolchain {
       action: "c++-link-alwayslink-pic-static-library"
       flag_group {
         flag: "%{linker_input_params}"
+        iterate_over: "linker_input_params"
       }
       expand_if_all_available: "linker_input_params"
     }
@@ -13432,6 +13645,7 @@ toolchain {
       action: "objc++-compile"
       flag_group {
         flag: "-D%{preprocessor_defines}"
+        iterate_over: "preprocessor_defines"
       }
     }
   }
@@ -13444,6 +13658,7 @@ toolchain {
       action: "objc++-executable"
       flag_group {
         flag: "-F%{framework_paths}"
+        iterate_over: "framework_paths"
       }
     }
   }
@@ -13963,12 +14178,15 @@ toolchain {
       }
       flag_group {
         flag: "-framework %{framework_names}"
+        iterate_over: "framework_names"
       }
       flag_group {
         flag: "-weak_framework %{weak_framework_names}"
+        iterate_over: "weak_framework_names"
       }
       flag_group {
         flag: "-l%{library_names}"
+        iterate_over: "library_names"
       }
       flag_group {
         flag: "-filelist %{filelist}"
@@ -13978,12 +14196,15 @@ toolchain {
       }
       flag_group {
         flag: "-force_load %{force_load_exec_paths}"
+        iterate_over: "force_load_exec_paths"
       }
       flag_group {
         flag: "%{dep_linkopts}"
+        iterate_over: "dep_linkopts"
       }
       flag_group {
         flag: "-Wl,%{attr_linkopts}"
+        iterate_over: "attr_linkopts"
       }
     }
     implies: "include_system_dirs"
@@ -14024,12 +14245,15 @@ toolchain {
       }
       flag_group {
         flag: "-framework %{framework_names}"
+        iterate_over: "framework_names"
       }
       flag_group {
         flag: "-weak_framework %{weak_framework_names}"
+        iterate_over: "weak_framwork_names"
       }
       flag_group {
         flag: "-l%{library_names}"
+        iterate_over: "library_names"
       }
       flag_group {
         flag: "-filelist %{filelist}"
@@ -14039,12 +14263,15 @@ toolchain {
       }
       flag_group {
         flag: "-force_load %{force_load_exec_paths}"
+        iterate_over: "force_load_exec_paths"
       }
       flag_group {
         flag: "%{dep_linkopts}"
+        iterate_over: "dep_linkopts"
       }
       flag_group {
         flag: "-Wl,%{attr_linkopts}"
+        iterate_over: "attr_linkopts"
       }
     }
     implies: "include_system_dirs"
@@ -14175,12 +14402,15 @@ toolchain {
       }
       flag_group {
         flag: "%{objc_library_exec_paths}"
+        iterate_over: "objc_library_exec_paths"
       }
       flag_group {
         flag: "%{cc_library_exec_paths}"
+        iterate_over: "cc_library_exec_paths"
       }
       flag_group {
         flag: "%{imported_library_exec_paths}"
+        iterate_over: "imported_library_exec_paths"
       }
     }
     implies: "apple_env"

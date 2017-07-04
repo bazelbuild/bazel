@@ -773,6 +773,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
                   + "    action: 'c++-module-compile'"
                   + "    action: 'clif-match'"
                   + "    flag_group {"
+                  + "      iterate_over: 'preprocessor_defines'"
                   + "      flag: '-D%{preprocessor_defines}'"
                   + "    }"
                   + "  }"
@@ -795,13 +796,16 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
                   + "    action: 'objc-compile'"
                   + "    action: 'objc++-compile'"
                   + "    flag_group {"
+                  + "      iterate_over: 'quote_include_paths'"
                   + "      flag: '-iquote'"
                   + "      flag: '%{quote_include_paths}'"
                   + "    }"
                   + "    flag_group {"
+                  + "      iterate_over: 'include_paths'"
                   + "      flag: '-I%{include_paths}'"
                   + "    }"
                   + "    flag_group {"
+                  + "      iterate_over: 'system_include_paths'"
                   + "      flag: '-isystem'"
                   + "      flag: '%{system_include_paths}'"
                   + "    }"
@@ -890,11 +894,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
           String linkerFlags;
           if (useLLVMCoverageMap) {
             compileFlags =
-                "flag_group {"
-                    + " flag: '-fprofile-instr-generate'"
-                    + " flag: '-fcoverage-mapping'"
-                    + "}";
-            linkerFlags = "  flag_group {" + "  flag: '-fprofile-instr-generate'" + "}";
+                "flag_group { flag: '-fprofile-instr-generate' flag: '-fcoverage-mapping' }";
+            linkerFlags = "flag_group { flag: '-fprofile-instr-generate' }";
           } else {
             compileFlags =
                 "  expand_if_all_available: 'gcov_gcno_file'"
@@ -902,7 +903,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
                     + "  flag: '-fprofile-arcs'"
                     + "  flag: '-ftest-coverage'"
                     + "}";
-            linkerFlags = "  flag_group {" + "  flag: '-lgcov'" + "}";
+            linkerFlags = "  flag_group { flag: '-lgcov' }";
           }
           TextFormat.merge(
               ""

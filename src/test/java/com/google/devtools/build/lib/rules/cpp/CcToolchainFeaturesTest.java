@@ -272,8 +272,8 @@ public class CcToolchainFeaturesTest {
     assertThat(getFlagParsingError("%{")).contains("expected variable name");
     assertThat(getFlagParsingError("%{}")).contains("expected variable name");
     assertThat(
-            getCommandLineForFlag(
-                "%{v}",
+            getCommandLineForFlagGroups(
+                "flag_group{ iterate_over: 'v' flag: '%{v}' }",
                 new Variables.Builder()
                     .addStringSequenceVariable("v", ImmutableList.<String>of())
                     .build()))
@@ -420,19 +420,6 @@ public class CcToolchainFeaturesTest {
                     .addStringSequenceVariable("other_sequence", ImmutableList.of("foo", "bar"))
                     .build()))
         .containsExactly("-Afirst -Bfoo", "-Afirst -Bbar", "-Asecond -Bfoo", "-Asecond -Bbar");
-  }
-
-  // <p>TODO(b/32655571): Get rid of this test once implicit iteration is not supported.
-  // It's there only to document a known limitation of the system.
-  @Test
-  public void testVariableLookupIsBrokenForImplicitStructFieldIteration() throws Exception {
-    assertThat(
-            getCommandLineForFlagGroups(
-                "flag_group { flag: '-A%{struct.sequence}' }",
-                createStructureVariables(
-                    "struct",
-                    new StructureBuilder().addField("sequence", ImmutableList.of("foo", "bar")))))
-        .containsExactly("-Afoo", "-Abar");
   }
 
   @Test
@@ -660,18 +647,6 @@ public class CcToolchainFeaturesTest {
   }
 
   @Test
-  public void testLegacyListVariableExpansion() throws Exception {
-    assertThat(getCommandLineForFlag("%{v}", createVariables("v", "1", "v", "2")))
-        .containsExactly("1", "2");
-    assertThat(getCommandLineForFlag("%{v1} %{v2}",
-        createVariables("v1", "a1", "v1", "a2", "v2", "b")))
-        .containsExactly("a1 b", "a2 b");
-    assertThat(getFlagExpansionError("%{v1} %{v2}",
-        createVariables("v1", "a1", "v1", "a2", "v2", "b1", "v2", "b2")))
-        .contains("'v1' and 'v2'");
-  }
-
-  @Test
   public void testListVariableExpansion() throws Exception {
     assertThat(
             getCommandLineForFlagGroups(
@@ -715,42 +690,28 @@ public class CcToolchainFeaturesTest {
   }
 
   @Test
-  public void testListVariableExpansionMixedWithImplicitlyAccessedListVariableWithinFlagGroupWorks()
-      throws Exception {
+  public void testFlagGroupVariableExpansion() throws Exception {
     assertThat(
             getCommandLineForFlagGroups(
-                "flag_group {"
-                    + "  iterate_over: 'v1'"
-                    + "  flag_group {"
-                    + "    flag: '-A%{v1} -B%{v2}'"
-                    + "  }"
-                    + "}",
-                createVariables("v1", "a1", "v1", "a2", "v2", "b1", "v2", "b2")))
-        .containsExactly("-Aa1 -Bb1", "-Aa1 -Bb2", "-Aa2 -Bb1", "-Aa2 -Bb2");
-  }
-
-  @Test
-  public void testFlagGroupVariableExpansion() throws Exception {
-    assertThat(getCommandLineForFlagGroups(
-        "flag_group { flag: '-f' flag: '%{v}' } flag_group { flag: '-end' }",
-        createVariables("v", "1", "v", "2")))
+                ""
+                    + "flag_group { iterate_over: 'v' flag: '-f' flag: '%{v}' }"
+                    + "flag_group { flag: '-end' }",
+                createVariables("v", "1", "v", "2")))
         .containsExactly("-f", "1", "-f", "2", "-end");
-    assertThat(getCommandLineForFlagGroups(
-        "flag_group { flag: '-f' flag: '%{v}' } flag_group { flag: '%{v}' }",
-        createVariables("v", "1", "v", "2")))
+    assertThat(
+            getCommandLineForFlagGroups(
+                ""
+                    + "flag_group { iterate_over: 'v' flag: '-f' flag: '%{v}' }"
+                    + "flag_group { iterate_over: 'v' flag: '%{v}' }",
+                createVariables("v", "1", "v", "2")))
         .containsExactly("-f", "1", "-f", "2", "1", "2");
-    assertThat(getCommandLineForFlagGroups(
-        "flag_group { flag: '-f' flag: '%{v}' } flag_group { flag: '%{v}' }",
-        createVariables("v", "1", "v", "2")))
+    assertThat(
+            getCommandLineForFlagGroups(
+                ""
+                    + "flag_group { iterate_over: 'v' flag: '-f' flag: '%{v}' } "
+                    + "flag_group { iterate_over: 'v' flag: '%{v}' }",
+                createVariables("v", "1", "v", "2")))
         .containsExactly("-f", "1", "-f", "2", "1", "2");
-    try {
-      getCommandLineForFlagGroups(
-          "flag_group { flag: '%{v1}' flag: '%{v2}' }",
-          createVariables("v1", "1", "v1", "2", "v2", "1", "v2", "2"));
-      fail("Expected ExpansionException");
-    } catch (ExpansionException e) {
-      assertThat(e).hasMessageThat().contains("'v1' and 'v2'");
-    }
   }
 
   private VariableValueBuilder createNestedSequence(int depth, int count, String prefix) {
@@ -780,20 +741,17 @@ public class CcToolchainFeaturesTest {
   @Test
   public void testFlagTreeVariableExpansion() throws Exception {
     String nestedGroup =
-        "flag_group {"
+        ""
+            + "flag_group {"
+            + "  iterate_over: 'v'"
             + "  flag_group { flag: '-a' }"
-            + "  flag_group {"
-            + "    flag: '%{v}'"
-            + "  }"
+            + "  flag_group { iterate_over: 'v' flag: '%{v}' }"
             + "  flag_group { flag: '-b' }"
             + "}";
     assertThat(getCommandLineForFlagGroups(nestedGroup, createNestedVariables("v", 1, 3)))
         .containsExactly(
             "-a", "00", "01", "02", "-b", "-a", "10", "11", "12", "-b", "-a", "20", "21", "22",
             "-b");
-
-    assertThat(getCommandLineForFlagGroups(nestedGroup, createNestedVariables("v", 0, 3)))
-        .containsExactly("-a", "0", "-b", "-a", "1", "-b", "-a", "2", "-b");
 
     try {
       getCommandLineForFlagGroups(nestedGroup, createNestedVariables("v", 2, 3));
@@ -993,7 +951,29 @@ public class CcToolchainFeaturesTest {
   }
 
   @Test
-  public void testSuppressionViaMissingBuildVariable() throws Exception {
+  public void testFlagSetWithMissingVariableIsNotExpanded() throws Exception {
+    FeatureConfiguration configuration =
+        buildFeatures(
+                "feature {",
+                "  name: 'a'",
+                "  flag_set {",
+                "     action: 'c++-compile'",
+                "     expand_if_all_available: 'v'",
+                "     flag_group { flag: '%{v}' }",
+                "  }",
+                "  flag_set {",
+                "     action: 'c++-compile'",
+                "     flag_group { flag: 'unconditional' }",
+                "  }",
+                "}")
+            .getFeatureConfiguration(assumptionsFor("a"));
+
+    assertThat(configuration.getCommandLine(CppCompileAction.CPP_COMPILE, createVariables()))
+        .containsExactly("unconditional");
+  }
+
+  @Test
+  public void testOnlyFlagSetsWithAllVariablesPresentAreExpanded() throws Exception {
     FeatureConfiguration configuration =
         buildFeatures(
                 "feature {",
@@ -1016,16 +996,66 @@ public class CcToolchainFeaturesTest {
                 "}")
             .getFeatureConfiguration(assumptionsFor("a"));
 
-    assertThat(configuration.getCommandLine(CppCompileAction.CPP_COMPILE, createVariables()))
-        .containsExactly("unconditional");
     assertThat(
             configuration.getCommandLine(CppCompileAction.CPP_COMPILE, createVariables("v", "1")))
         .containsExactly("1", "unconditional");
+  }
+
+  @Test
+  public void testOnlyInnerFlagSetIsIteratedWithSequenceVariable() throws Exception {
+    FeatureConfiguration configuration =
+        buildFeatures(
+                "feature {",
+                "  name: 'a'",
+                "  flag_set {",
+                "     action: 'c++-compile'",
+                "     expand_if_all_available: 'v'",
+                "     flag_group { iterate_over: 'v' flag: '%{v}' }",
+                "  }",
+                "  flag_set {",
+                "     action: 'c++-compile'",
+                "     expand_if_all_available: 'v'",
+                "     expand_if_all_available: 'w'",
+                "     flag_group { iterate_over: 'v' flag: '%{v}%{w}' }",
+                "  }",
+                "  flag_set {",
+                "     action: 'c++-compile'",
+                "     flag_group { flag: 'unconditional' }",
+                "  }",
+                "}")
+            .getFeatureConfiguration(assumptionsFor("a"));
+
     assertThat(
             configuration.getCommandLine(
                 CppCompileAction.CPP_COMPILE, createVariables("v", "1", "v", "2")))
         .containsExactly("1", "2", "unconditional")
         .inOrder();
+  }
+
+  @Test
+  public void testFlagSetsAreIteratedIndividuallyForSequenceVariables() throws Exception {
+    FeatureConfiguration configuration =
+        buildFeatures(
+                "feature {",
+                "  name: 'a'",
+                "  flag_set {",
+                "     action: 'c++-compile'",
+                "     expand_if_all_available: 'v'",
+                "     flag_group { iterate_over: 'v' flag: '%{v}' }",
+                "  }",
+                "  flag_set {",
+                "     action: 'c++-compile'",
+                "     expand_if_all_available: 'v'",
+                "     expand_if_all_available: 'w'",
+                "     flag_group { iterate_over: 'v' flag: '%{v}%{w}' }",
+                "  }",
+                "  flag_set {",
+                "     action: 'c++-compile'",
+                "     flag_group { flag: 'unconditional' }",
+                "  }",
+                "}")
+            .getFeatureConfiguration(assumptionsFor("a"));
+
     assertThat(
             configuration.getCommandLine(
                 CppCompileAction.CPP_COMPILE, createVariables("v", "1", "v", "2", "w", "3")))

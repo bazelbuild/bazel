@@ -303,12 +303,15 @@ toolchain {
       action: 'c++-header-preprocessing'
       action: 'c++-module-compile'
       flag_group {
+        iterate_over: 'quote_include_paths'
         flag: '/I%{quote_include_paths}'
       }
       flag_group {
+        iterate_over: 'include_paths'
         flag: '/I%{include_paths}'
       }
       flag_group {
+        iterate_over: 'system_include_paths'
         flag: '/I%{system_include_paths}'
       }
     }
@@ -544,6 +547,7 @@ toolchain {
       action: 'c++-link-dynamic-library'
       expand_if_all_available: 'linkstamp_paths'
       flag_group {
+        iterate_over: 'linkstamp_paths'
         flag: '%{linkstamp_paths}'
       }
     }
@@ -591,6 +595,7 @@ toolchain {
       action: 'c++-link-executable'
       action: 'c++-link-dynamic-library'
       flag_group {
+        iterate_over: 'libopts'
         flag: '%{libopts}'
       }
     }
@@ -690,6 +695,7 @@ toolchain {
       action: 'c++-link-executable'
       action: 'c++-link-dynamic-library'
       flag_group {
+        iterate_over: 'legacy_link_flags'
         flag: '%{legacy_link_flags}'
       }
     }

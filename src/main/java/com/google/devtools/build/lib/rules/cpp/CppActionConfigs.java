@@ -18,15 +18,15 @@ import com.google.common.collect.ImmutableList;
 import java.util.Set;
 
 /**
- * A helper class for creating action_configs for the c++ link action.
+ * A helper class for creating action_configs for the c++ actions.
  *
  * <p>TODO(b/30109612): Replace this with action_configs in the crosstool instead of putting it in
  * legacy features.
  */
 public class CppActionConfigs {
 
-  /** A platform for linker invocations. */
-  public static enum CppPlatform {
+  /** A platform for C++ tool invocations. */
+  public enum CppPlatform {
     LINUX,
     MAC
   }
@@ -44,15 +44,15 @@ public class CppActionConfigs {
       cppDynamicLibraryLinkerTool =
           ""
               + "feature {"
-              + "   name: 'dynamic_library_linker_tool'"
-              + "   flag_set {"
-              + "       action: 'c++-link-dynamic-library'"
-              + "       flag_group {"
-              + "           flag: '"
+              + "  name: 'dynamic_library_linker_tool'"
+              + "  flag_set {"
+              + "    action: 'c++-link-dynamic-library'"
+              + "    flag_group {"
+              + "      flag: '"
               + cppLinkDynamicLibraryToolPath
               + "'"
-              + "       }"
-              + "   }"
+              + "    }"
+              + "  }"
               + "}";
     }
 
@@ -240,6 +240,7 @@ public class CppActionConfigs {
                 "    action: 'c++-link-dynamic-library'",
                 "    expand_if_all_available: 'linkstamp_paths'",
                 "    flag_group {",
+                "      iterate_over: 'linkstamp_paths'",
                 "      flag: '%{linkstamp_paths}'",
                 "    }",
                 "  }",
@@ -328,7 +329,10 @@ public class CppActionConfigs {
                     "    action: 'c++-link-pic-static-library'",
                     "    action: 'c++-link-alwayslink-pic-static-library'",
                     "    flag_group {",
-                    ifLinux(platform, "  flag: 'rcsD'", "  flag: '%{output_execpath}'"),
+                    ifLinux(
+                        platform,
+                        "  flag: 'rcsD'",
+                        "  flag: '%{output_execpath}'"),
                     ifMac(
                         platform,
                         "  flag: '-static'",

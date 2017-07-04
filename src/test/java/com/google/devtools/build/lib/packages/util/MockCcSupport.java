@@ -76,9 +76,7 @@ public abstract class MockCcSupport {
           + "  }"
           + "}";
 
-  /**
-   * A feature configuration snippet useful for testing the layering check.
-   */
+  /** A feature configuration snippet useful for testing the layering check. */
   public static final String LAYERING_CHECK_FEATURE_CONFIGURATION =
       ""
           + "feature {"
@@ -90,6 +88,7 @@ public abstract class MockCcSupport {
           + "    action: 'c++-header-preprocessing'"
           + "    action: 'c++-module-compile'"
           + "    flag_group {"
+          + "      iterate_over: 'dependent_module_map_files'"
           + "      flag: 'dependent_module_map_file:%{dependent_module_map_files}'"
           + "    }"
           + "  }"
@@ -146,6 +145,7 @@ public abstract class MockCcSupport {
           + "    action: 'c++-header-preprocessing'"
           + "    action: 'c++-modules-compile'"
           + "    flag_group {"
+          + "      iterate_over: 'module_files'"
           + "      flag: 'module_file:%{module_files}'"
           + "    }"
           + "  }"
