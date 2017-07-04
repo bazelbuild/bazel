@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -67,8 +67,7 @@ public final class LTOBackendAction extends SpawnAction {
       ActionOwner owner,
       CommandLine argv,
       boolean isShellCommand,
-      Map<String, String> environment,
-      Set<String> clientEnvironmentVariables,
+      ActionEnvironment env,
       Map<String, String> executionInfo,
       String progressMessage,
       RunfilesSupplier runfilesSupplier,
@@ -81,8 +80,7 @@ public final class LTOBackendAction extends SpawnAction {
         AbstractAction.DEFAULT_RESOURCE_SET,
         argv,
         isShellCommand,
-        ImmutableMap.copyOf(environment),
-        ImmutableSet.copyOf(clientEnvironmentVariables),
+        env,
         ImmutableMap.copyOf(executionInfo),
         progressMessage,
         runfilesSupplier,
@@ -211,8 +209,7 @@ public final class LTOBackendAction extends SpawnAction {
         ResourceSet resourceSet,
         CommandLine actualCommandLine,
         boolean isShellCommand,
-        ImmutableMap<String, String> env,
-        ImmutableSet<String> clientEnvironmentVariables,
+        ActionEnvironment env,
         ImmutableMap<String, String> executionInfo,
         String progressMessage,
         RunfilesSupplier runfilesSupplier,
@@ -226,7 +223,6 @@ public final class LTOBackendAction extends SpawnAction {
           actualCommandLine,
           isShellCommand,
           env,
-          clientEnvironmentVariables,
           executionInfo,
           progressMessage,
           runfilesSupplier,

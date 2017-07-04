@@ -37,6 +37,14 @@ import java.util.TreeSet;
  */
 public final class ActionEnvironment {
   /**
+   * An empty environment, mainly for testing. Production code should never use this, but instead
+   * get the proper environment from the current configuration.
+   */
+  // TODO(ulfjack): Migrate all production code to use the proper action environment, and then make
+  // this @VisibleForTesting or rename it to clarify.
+  public static final ActionEnvironment EMPTY = new ActionEnvironment(ImmutableMap.of());
+
+  /**
    * Splits the given map into a map of variables with a fixed value, and a set of variables that
    * should be inherited, the latter of which are identified by having a {@code null} value in the
    * given map. Returns these two parts as a new {@link ActionEnvironment} instance.
@@ -68,6 +76,10 @@ public final class ActionEnvironment {
   public ActionEnvironment(Map<String, String> fixedEnv, Set<String> inheritedEnv) {
     this.fixedEnv = ImmutableMap.copyOf(fixedEnv);
     this.inheritedEnv = ImmutableSet.copyOf(inheritedEnv);
+  }
+
+  public ActionEnvironment(Map<String, String> fixedEnv) {
+    this(fixedEnv, ImmutableSet.of());
   }
 
   public ImmutableMap<String, String> getFixedEnv() {

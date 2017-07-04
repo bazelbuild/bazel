@@ -102,7 +102,7 @@ public abstract class AbstractAction implements Action, SkylarkValue {
   @GuardedBy("this")
   private Iterable<Artifact> inputs;
 
-  private final Iterable<String> clientEnvironmentVariables;
+  protected final ActionEnvironment env;
   private final RunfilesSupplier runfilesSupplier;
   private final ImmutableSet<Artifact> outputs;
 
@@ -142,22 +142,22 @@ public abstract class AbstractAction implements Action, SkylarkValue {
       Iterable<Artifact> inputs,
       RunfilesSupplier runfilesSupplier,
       Iterable<Artifact> outputs) {
-    this(owner, tools, inputs, ImmutableList.<String>of(), runfilesSupplier, outputs);
+    this(owner, tools, inputs, runfilesSupplier, outputs, ActionEnvironment.EMPTY);
   }
 
   protected AbstractAction(
       ActionOwner owner,
       Iterable<Artifact> tools,
       Iterable<Artifact> inputs,
-      Iterable<String> clientEnvironmentVariables,
       RunfilesSupplier runfilesSupplier,
-      Iterable<Artifact> outputs) {
+      Iterable<Artifact> outputs,
+      ActionEnvironment env) {
     Preconditions.checkNotNull(owner);
     // TODO(bazel-team): Use RuleContext.actionOwner here instead
     this.owner = owner;
     this.tools = CollectionUtils.makeImmutable(tools);
     this.inputs = CollectionUtils.makeImmutable(inputs);
-    this.clientEnvironmentVariables = clientEnvironmentVariables;
+    this.env = env;
     this.outputs = ImmutableSet.copyOf(outputs);
     this.runfilesSupplier = Preconditions.checkNotNull(runfilesSupplier,
         "runfilesSupplier may not be null");
@@ -251,7 +251,7 @@ public abstract class AbstractAction implements Action, SkylarkValue {
 
   @Override
   public Iterable<String> getClientEnvironmentVariables() {
-    return clientEnvironmentVariables;
+    return env.getInheritedEnv();
   }
 
   @Override
@@ -540,6 +540,7 @@ public abstract class AbstractAction implements Action, SkylarkValue {
    *     throws that exception.
    * @throws InterruptedException if interrupted
    */
+  @Override
   public Iterable<Artifact> getInputFilesForExtraAction(
       ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
