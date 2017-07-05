@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.blobstore;
 
-import java.io.ByteArrayOutputStream;
+import com.google.common.io.ByteStreams;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
@@ -79,7 +81,7 @@ public final class RestBlobStore implements SimpleBlobStore {
   }
 
   @Override
-  public byte[] get(String key) throws IOException {
+  public boolean get(String key, OutputStream out) throws IOException {
     HttpClient client = clientFactory.build();
     HttpGet get = new HttpGet(baseUrl + "/" + key);
     return client.execute(
@@ -88,22 +90,23 @@ public final class RestBlobStore implements SimpleBlobStore {
           int statusCode = response.getStatusLine().getStatusCode();
           if (HttpStatus.SC_NOT_FOUND == statusCode
               || HttpStatus.SC_NO_CONTENT == statusCode) {
-            return null;
+            return false;
           }
           if (HttpStatus.SC_OK != statusCode) {
             throw new IOException("GET failed with status code " + statusCode);
           }
-          ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-          response.getEntity().writeTo(buffer);
-          return buffer.toByteArray();
+          response.getEntity().writeTo(out);
+          return true;
         });
   }
 
   @Override
-  public void put(String key, byte[] value) throws IOException {
+  public void put(String key, InputStream in) throws IOException {
     HttpClient client = clientFactory.build();
     HttpPut put = new HttpPut(baseUrl + "/" + key);
-    put.setEntity(new ByteArrayEntity(value));
+    // For now, upload a byte array instead of a stream, due to Hazelcast crashing on the stream.
+    // See https://github.com/hazelcast/hazelcast/issues/10878.
+    put.setEntity(new ByteArrayEntity(ByteStreams.toByteArray(in)));
     put.setHeader("Content-Type", "application/octet-stream");
     client.execute(
         put,

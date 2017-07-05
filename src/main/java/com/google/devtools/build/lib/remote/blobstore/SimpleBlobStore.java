@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.remote.blobstore;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 
 /**
  * A simple interface for storing blobs (in the form of byte arrays) each one indexed by a
@@ -28,13 +30,13 @@ public interface SimpleBlobStore {
    * Returns the blob (in the form of a byte array) indexed by {@code key}. Returns null if the
    * {@code key} cannot be found.
    */
-  byte[] get(String key) throws IOException, InterruptedException;
+  boolean get(String key, OutputStream out) throws IOException, InterruptedException;
 
   /**
    * Uploads a blob (as {@code value}) indexed by {@code key} to the blob store. Existing blob
    * indexed by the same {@code key} will be overwritten.
    */
-  void put(String key, byte[] value) throws IOException, InterruptedException;
+  void put(String key, InputStream in) throws IOException, InterruptedException;
 
   /** Close resources associated with the blob store. */
   void close();
