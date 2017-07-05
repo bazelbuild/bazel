@@ -75,7 +75,6 @@ public enum ProfilerTask {
   SKYFUNCTION("skyfunction", -1, 0xCC6600, 0),
   CRITICAL_PATH("critical path", -1, 0x666699, 0),
   CRITICAL_PATH_COMPONENT("critical path component", -1, 0x666699, 0),
-  IDE_BUILD_INFO("ide_build_info", -1, 0xCC6633, 0),
   HANDLE_GC_NOTIFICATION("gc notification", -1, 0x996633, 0),
   INCLUSION_LOOKUP("inclusion lookup", -1, 0x000000, 0),
   INCLUSION_PARSE("inclusion parse", -1, 0x000000, 0),
