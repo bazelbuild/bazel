@@ -164,6 +164,46 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
   }
 
   @Test
+  public void testLocalRepository_absolutePath() throws Exception {
+    scratch.overwriteFile("WORKSPACE", "local_repository(name='local', path='/abs/local/repo')");
+    scratch.file("/abs/local/repo/WORKSPACE");
+    scratch.file("/abs/local/repo/BUILD");
+
+    LocalRepositoryLookupValue repositoryLookupValue =
+        lookupDirectory(
+            RootedPath.toRootedPath(
+                rootDirectory.getRelative("/abs"), PathFragment.create("local/repo")));
+    assertThat(repositoryLookupValue).isNotNull();
+    assertThat(repositoryLookupValue.getRepository().getName()).isEqualTo("@local");
+  }
+
+  @Test
+  public void testLocalRepository_nonNormalizedPath() throws Exception {
+    scratch.overwriteFile("WORKSPACE", "local_repository(name='local', path='./local/repo')");
+    scratch.file("local/repo/WORKSPACE");
+    scratch.file("local/repo/BUILD");
+
+    LocalRepositoryLookupValue repositoryLookupValue =
+        lookupDirectory(RootedPath.toRootedPath(rootDirectory, PathFragment.create("local/repo")));
+    assertThat(repositoryLookupValue).isNotNull();
+    assertThat(repositoryLookupValue.getRepository().getName()).isEqualTo("@local");
+  }
+
+  @Test
+  public void testLocalRepository_absolutePath_nonNormalized() throws Exception {
+    scratch.overwriteFile("WORKSPACE", "local_repository(name='local', path='/abs/local/./repo')");
+    scratch.file("/abs/local/repo/WORKSPACE");
+    scratch.file("/abs/local/repo/BUILD");
+
+    LocalRepositoryLookupValue repositoryLookupValue =
+        lookupDirectory(
+            RootedPath.toRootedPath(
+                rootDirectory.getRelative("/abs"), PathFragment.create("local/repo")));
+    assertThat(repositoryLookupValue).isNotNull();
+    assertThat(repositoryLookupValue.getRepository().getName()).isEqualTo("@local");
+  }
+
+  @Test
   public void testLocalRepositorySubPackage() throws Exception {
     scratch.overwriteFile("WORKSPACE", "local_repository(name='local', path='local/repo')");
     scratch.file("local/repo/WORKSPACE");
