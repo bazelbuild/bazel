@@ -245,6 +245,7 @@ public final class AndroidRuleClasses {
 
           BuildOptions splitOptions = buildOptions.clone();
           splitOptions.get(CppOptions.class).cppCompiler = androidOptions.cppCompiler;
+          splitOptions.get(CppOptions.class).libcTopLabel = androidOptions.androidLibcTopLabel;
           splitOptions.get(BuildConfiguration.Options.class).cpu = androidOptions.cpu;
           splitOptions.get(CppOptions.class).dynamicMode = androidOptions.dynamicMode;
           setCrosstoolToAndroid(splitOptions, buildOptions);
@@ -264,6 +265,7 @@ public final class AndroidRuleClasses {
           splitOptions.get(AndroidConfiguration.Options.class).cpu = cpu;
           splitOptions.get(BuildConfiguration.Options.class).cpu = cpu;
           splitOptions.get(CppOptions.class).cppCompiler = androidOptions.cppCompiler;
+          splitOptions.get(CppOptions.class).libcTopLabel = androidOptions.androidLibcTopLabel;
           splitOptions.get(CppOptions.class).dynamicMode = androidOptions.dynamicMode;
           setCrosstoolToAndroid(splitOptions, buildOptions);
           result.add(splitOptions);

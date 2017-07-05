@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppOptions.DynamicModeConverter;
+import com.google.devtools.build.lib.rules.cpp.CppOptions.LibcTopLabelConverter;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
@@ -279,6 +280,17 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       help = "The Android target compiler."
     )
     public String cppCompiler;
+
+    @Option(
+      name = "android_grte_top",
+      defaultValue = "null",
+      converter = LibcTopLabelConverter.class,
+      category = "semantics",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help = "The Android target grte_top."
+    )
+    public Label androidLibcTopLabel;
 
     @Option(
       name = "android_dynamic_mode",
