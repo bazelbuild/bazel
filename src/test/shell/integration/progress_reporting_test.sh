@@ -150,7 +150,7 @@ EOF
   # implementation to have a progress message, because it breaks all kinds of
   # things.
   cat >"${pkg}/workspace_status.sh" <<EOF
-#!/bin/bash
+#!/bin/sh
 sleep 5
 EOF
 

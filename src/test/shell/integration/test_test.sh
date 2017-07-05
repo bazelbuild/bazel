@@ -32,7 +32,7 @@ sh_test(
 )
 EOF
   cat >tests/success.sh <<'EOF'
-#!/bin/bash
+#!/bin/sh
 
 echo "success.sh is successful"
 exit 0
@@ -55,7 +55,7 @@ sh_test(
 )
 EOF
   cat >tests/fail.sh <<'EOF'
-#!/bin/bash
+#!/bin/sh
 
 echo "fail.sh is failing"
 exit 42
