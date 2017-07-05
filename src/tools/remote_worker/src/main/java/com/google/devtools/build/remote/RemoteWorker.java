@@ -77,16 +77,32 @@ public final class RemoteWorker {
   }
 
   public RemoteWorker(
-      RemoteWorkerOptions workerOptions, SimpleBlobStoreActionCache cache, Path sandboxPath)
+      FileSystem fs, RemoteWorkerOptions workerOptions, SimpleBlobStoreActionCache cache,
+      Path sandboxPath)
       throws IOException {
     this.workerOptions = workerOptions;
     this.actionCacheServer = new ActionCacheServer(cache);
-    this.bsServer = new ByteStreamServer(cache);
+    Path workPath;
+    if (workerOptions.workPath != null) {
+      workPath = fs.getPath(workerOptions.workPath);
+    } else {
+      // TODO(ulfjack): The plan is to make the on-disk storage the default, so we always need to
+      // provide a path to the remote worker, and we can then also use that as the work path. E.g.:
+      // /given/path/cas/
+      // /given/path/upload/
+      // /given/path/work/
+      // We could technically use a different path for temporary files and execution, but we want
+      // the cas/ directory to be on the same file system as the upload/ and work/ directories so
+      // that we can atomically move files between them, and / or use hard-links for the exec
+      // directories.
+      // For now, we use a temporary path if no work path was provided.
+      workPath = fs.getPath("/tmp/remote-worker");
+    }
+    this.bsServer = new ByteStreamServer(cache, workPath);
     this.casServer = new CasServer(cache);
 
     if (workerOptions.workPath != null) {
       ConcurrentHashMap<String, ExecuteRequest> operationsCache = new ConcurrentHashMap<>();
-      Path workPath = getFileSystem().getPath(workerOptions.workPath);
       FileSystemUtils.createDirectoryAndParents(workPath);
       watchServer = new WatcherServer(workPath, cache, workerOptions, operationsCache, sandboxPath);
       execServer = new ExecutionServer(operationsCache);
@@ -157,9 +173,10 @@ public final class RemoteWorker {
       rootLog.getHandlers()[0].setLevel(FINE);
     }
 
+    FileSystem fs = getFileSystem();
     Path sandboxPath = null;
     if (remoteWorkerOptions.sandboxing) {
-      sandboxPath = prepareSandboxRunner(remoteWorkerOptions);
+      sandboxPath = prepareSandboxRunner(fs, remoteWorkerOptions);
     }
 
     logger.info("Initializing in-memory cache server.");
@@ -169,7 +186,7 @@ public final class RemoteWorker {
     }
     if ((remoteWorkerOptions.casPath != null)
         && (!PathFragment.create(remoteWorkerOptions.casPath).isAbsolute()
-            || !getFileSystem().getPath(remoteWorkerOptions.casPath).exists())) {
+            || !fs.getPath(remoteWorkerOptions.casPath).exists())) {
       logger.severe("--cas_path must refer to an existing, absolute path!");
       System.exit(1);
       return;
@@ -179,19 +196,19 @@ public final class RemoteWorker {
         usingRemoteCache
             ? SimpleBlobStoreFactory.create(remoteOptions)
             : remoteWorkerOptions.casPath != null
-                ? new OnDiskBlobStore(getFileSystem().getPath(remoteWorkerOptions.casPath))
+                ? new OnDiskBlobStore(fs.getPath(remoteWorkerOptions.casPath))
                 : new ConcurrentMapBlobStore(new ConcurrentHashMap<String, byte[]>());
 
     RemoteWorker worker =
         new RemoteWorker(
-            remoteWorkerOptions, new SimpleBlobStoreActionCache(blobStore), sandboxPath);
+            fs, remoteWorkerOptions, new SimpleBlobStoreActionCache(blobStore), sandboxPath);
 
     final Server server = worker.startServer();
     worker.createPidFile();
     server.awaitTermination();
   }
 
-  private static Path prepareSandboxRunner(RemoteWorkerOptions remoteWorkerOptions) {
+  private static Path prepareSandboxRunner(FileSystem fs, RemoteWorkerOptions remoteWorkerOptions) {
     if (OS.getCurrent() != OS.LINUX) {
       logger.severe("Sandboxing requested, but it is currently only available on Linux.");
       System.exit(1);
@@ -212,7 +229,7 @@ public final class RemoteWorker {
 
     Path sandboxPath = null;
     try {
-      sandboxPath = getFileSystem().getPath(remoteWorkerOptions.workPath).getChild("linux-sandbox");
+      sandboxPath = fs.getPath(remoteWorkerOptions.workPath).getChild("linux-sandbox");
       try (FileOutputStream fos = new FileOutputStream(sandboxPath.getPathString())) {
         ByteStreams.copy(sandbox, fos);
       }
