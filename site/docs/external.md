@@ -124,7 +124,8 @@ and `C` to your project's `WORKSPACE` file. This requirement can balloon the
 include `C` at version 1.0 and another include `C` at 2.0.
 
 Large `WORKSPACE` files can be generated using the tool `generate_workspace`.
-For details, see [Generate a WORKSPACE file](/docs/generate-workspace.html).
+For details, see
+[Generate external dependencies from Maven projects](generate-workspace.md).
 
 ## Caching of external dependencies
 

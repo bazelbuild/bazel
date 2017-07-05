@@ -6,17 +6,17 @@ title: Generate external dependencies for a Java project
 # Generate external dependencies from Maven projects
 
 The tool `generate_workspace` helps automate the process of writing
-the `WORKSPACE` file for a Java project. This tool is
+the WORKSPACE file for a Java project. This tool is
 helpful when the list of external dependencies is long, such as when working
-with [external transitive dependnecies](/docs/external.html#external-packages).
+with [external transitive dependnecies](external.html#transitive-dependencies).
 
-The `generate_workspace` tool will generate:
+The `generate_workspace` tool will generate a `generate_workspace.bzl` file
+which includes:
 
-*   a `generate_workspace.bzl` file which includes:
-    *   the `generated_maven_jars` macro that will contain the transitive
-        dependencies, and
-    *   the `generated_java_libraries` macro that will contain a library
-        for each maven_jar.
+*   the `generated_maven_jars` macro that will contain the transitive
+    dependencies, and
+*   the `generated_java_libraries` macro that will contain a library for
+    each maven_jar.
 
 ## Install `generate_workspace`
 
@@ -60,16 +60,18 @@ use this tool:
         dependencies of the given projects and artifacts.
 
         If you specify multiple Maven projects or artifacts,
-        they will all be combined into one `WORKSPACE` file. For example, if
-        an artifact depends on junit and the Maven project also depends
-        on junit, then junit will only appear once as a dependency in the
-        output.
+        they will all be combined into one `generate_workspace.bzl` file. For
+        example, if an artifact depends on junit and the Maven project also
+        depends on junit, then junit will only appear once as a dependency
+        in the output.
 
     2.  The `generated_java_libraries` macro will contain a library
         for each maven_jar.
 
-3.  Copy the `generate_workspace.bzl` file to your workspace, and add the
-    following to your WORKSPACE file:
+3.  Copy the `generate_workspace.bzl` file to your workspace. The `.bzl` file's
+    original location is listed in the commandline output.
+
+    Add the following to your WORKSPACE file:
 
     ```
     load("//:generate_workspace.bzl", "generated_maven_jars")
@@ -81,7 +83,7 @@ use this tool:
 4.  Ensure `generate_workspace.bzl` lists the correct version of each
     dependency.
 
-    If several different versions of an artifact are requested (by
+    If several different versions of an artifact are requested (for example, by
     different libraries that depend on it), then `generate_workspace` chooses
     a version and annotates the `maven_jar` with the other versions requested.
 
@@ -102,6 +104,6 @@ use this tool:
     The example above indicates that `org.springframework:spring:2.5.6`,
     `javax.mail:mail:1.4`, `httpunit:httpunit:1.6`,
     `org.springframework:spring-support:2.0.2`, and `org.slf4j:nlog4j:1.2.24`
-    all depend on javax.activation. However, two of these libraries wanted
-    version 1.1 and three of them wanted 1.0.2. The `WORKSPACE` file is using
+    all depend on `javax.activation`. However, two of these libraries wanted
+    version 1.1 and three of them wanted 1.0.2. The WORKSPACE file is using
     version 1.1, but that might not be the right version to use.
