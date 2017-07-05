@@ -150,9 +150,7 @@ import com.google.devtools.build.lib.rules.objc.ObjcImportRule;
 import com.google.devtools.build.lib.rules.objc.ObjcLibraryRule;
 import com.google.devtools.build.lib.rules.objc.ObjcProtoAspect;
 import com.google.devtools.build.lib.rules.objc.ObjcProtoLibraryRule;
-import com.google.devtools.build.lib.rules.objc.ObjcProvider;
 import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses;
-import com.google.devtools.build.lib.rules.objc.XcTestAppProvider;
 import com.google.devtools.build.lib.rules.platform.ConstraintSettingRule;
 import com.google.devtools.build.lib.rules.platform.ConstraintValueRule;
 import com.google.devtools.build.lib.rules.platform.PlatformCommon;
@@ -558,10 +556,6 @@ public class BazelRuleClassProvider {
           String toolsRepository = checkNotNull(builder.getToolsRepository());
 
           builder.addBuildInfoFactory(new ObjcBuildInfoFactory());
-          builder.registerSkylarkProvider(
-              ObjcProvider.OBJC_SKYLARK_PROVIDER_NAME, ObjcProvider.class);
-          builder.registerSkylarkProvider(
-              XcTestAppProvider.XCTEST_APP_SKYLARK_PROVIDER_NAME, XcTestAppProvider.class);
           builder.addSkylarkAccessibleTopLevels("apple_common", new AppleSkylarkCommon());
 
           builder.addConfig(ObjcCommandLineOptions.class, new ObjcConfigurationLoader());

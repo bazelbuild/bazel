@@ -32,11 +32,17 @@ import com.google.devtools.build.lib.util.Preconditions;
   category = SkylarkModuleCategory.PROVIDER,
   doc = "A provider for XCTest apps for testing."
 )
-public final class XcTestAppProvider extends SkylarkClassObject implements TransitiveInfoProvider {
+public final class XcTestAppProvider extends SkylarkClassObject
+    implements TransitiveInfoProvider, TransitiveInfoProvider.WithLegacySkylarkName {
   /**
    * The skylark struct key name for a rule implementation to use when exporting an ObjcProvider.
    */
   public static final String XCTEST_APP_SKYLARK_PROVIDER_NAME = "xctest_app";
+
+  @Override
+  public String getSkylarkName() {
+    return XCTEST_APP_SKYLARK_PROVIDER_NAME;
+  }
 
   private static final ClassObjectConstructor XCTEST_APP_PROVIDER =
       new NativeClassObjectConstructor("xctest_app_provider") {

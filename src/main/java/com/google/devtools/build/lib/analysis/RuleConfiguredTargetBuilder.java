@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.rules.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Preconditions;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TreeMap;
@@ -60,9 +59,6 @@ public final class RuleConfiguredTargetBuilder {
   private final RuleContext ruleContext;
   private final TransitiveInfoProviderMapBuilder providersBuilder =
       new TransitiveInfoProviderMapBuilder();
-  private final ImmutableMap.Builder<String, Object> skylarkProviders = ImmutableMap.builder();
-  private final ImmutableMap.Builder<ClassObjectConstructor.Key, SkylarkClassObject>
-      skylarkDeclaredProviders = ImmutableMap.builder();
   private final Map<String, NestedSetBuilder<Artifact>> outputGroupBuilders = new TreeMap<>();
 
   /** These are supported by all configured targets and need to be specially handled. */
@@ -135,30 +131,10 @@ public final class RuleConfiguredTargetBuilder {
     }
 
     TransitiveInfoProviderMap providers = providersBuilder.build();
-    addRegisteredProvidersToSkylarkProviders(providers);
 
-    return new RuleConfiguredTarget(
-        ruleContext,
-        providers,
-        skylarkProviders.build(), skylarkDeclaredProviders.build());
+    return new RuleConfiguredTarget(ruleContext, providers);
   }
 
-  /** Adds skylark providers from a skylark provider registry, and checks for collisions. */
-  private void addRegisteredProvidersToSkylarkProviders(TransitiveInfoProviderMap providers) {
-    Map<String, Object> nativeSkylarkProviders = new HashMap<>();
-    for (int i = 0; i < providers.getProviderCount(); ++i) {
-      Class<? extends TransitiveInfoProvider> providerClass = providers.getProviderClassAt(i);
-      if (ruleContext.getSkylarkProviderRegistry().containsValue(providerClass)) {
-        String skylarkName = ruleContext.getSkylarkProviderRegistry().inverse().get(providerClass);
-        nativeSkylarkProviders.put(skylarkName, providers.getProviderAt(i));
-      }
-    }
-    try {
-      skylarkProviders.putAll(nativeSkylarkProviders);
-    } catch (IllegalArgumentException e) {
-      ruleContext.ruleError("Collision caused by duplicate skylark providers: " + e.getMessage());
-    }
-  }
 
   /**
    * Like getFilesToBuild(), except that it also includes the runfiles middleman, if any. Middlemen
@@ -215,9 +191,7 @@ public final class RuleConfiguredTargetBuilder {
 
     TestEnvironmentProvider environmentProvider =
         (TestEnvironmentProvider)
-            skylarkDeclaredProviders
-                .build()
-                .get(TestEnvironmentProvider.SKYLARK_CONSTRUCTOR.getKey());
+            providersBuilder.getProvider(TestEnvironmentProvider.SKYLARK_CONSTRUCTOR.getKey());
     if (environmentProvider != null) {
       testActionBuilder.addExtraEnv(environmentProvider.getEnvironment());
     }
@@ -226,10 +200,8 @@ public final class RuleConfiguredTargetBuilder {
         testActionBuilder
             .setFilesToRunProvider(filesToRunProvider)
             .setExecutionRequirements(
-                (ExecutionInfoProvider)
-                    skylarkDeclaredProviders
-                        .build()
-                        .get(ExecutionInfoProvider.SKYLARK_CONSTRUCTOR.getKey()))
+                (ExecutionInfoProvider) providersBuilder
+                    .getProvider(ExecutionInfoProvider.SKYLARK_CONSTRUCTOR.getKey()))
             .setShardCount(explicitShardCount)
             .build();
     ImmutableList<String> testTags = ImmutableList.copyOf(ruleContext.getRule().getRuleTags());
@@ -240,6 +212,7 @@ public final class RuleConfiguredTargetBuilder {
   public <T extends TransitiveInfoProvider> RuleConfiguredTargetBuilder addProvider(
       TransitiveInfoProvider provider) {
     providersBuilder.add(provider);
+    maybeAddSkylarkProvider(provider);
     return this;
   }
 
@@ -247,6 +220,9 @@ public final class RuleConfiguredTargetBuilder {
   public <T extends TransitiveInfoProvider> RuleConfiguredTargetBuilder addProviders(
       Iterable<TransitiveInfoProvider> providers) {
     providersBuilder.addAll(providers);
+    for (TransitiveInfoProvider provider : providers) {
+      maybeAddSkylarkProvider(provider);
+    }
     return this;
   }
 
@@ -274,7 +250,16 @@ public final class RuleConfiguredTargetBuilder {
     Preconditions.checkNotNull(key);
     Preconditions.checkNotNull(value);
     providersBuilder.put(key, value);
+    maybeAddSkylarkProvider(value);
     return this;
+  }
+
+  protected <T extends TransitiveInfoProvider> void maybeAddSkylarkProvider(T value) {
+    if (value instanceof TransitiveInfoProvider.WithLegacySkylarkName) {
+      addSkylarkTransitiveInfo(
+          ((TransitiveInfoProvider.WithLegacySkylarkName) value).getSkylarkName(),
+          value);
+    }
   }
 
   /**
@@ -285,7 +270,7 @@ public final class RuleConfiguredTargetBuilder {
    */
   public RuleConfiguredTargetBuilder addSkylarkTransitiveInfo(
       String name, Object value, Location loc) throws EvalException {
-    skylarkProviders.put(name, value);
+    providersBuilder.put(name, value);
     return this;
   }
 
@@ -312,7 +297,7 @@ public final class RuleConfiguredTargetBuilder {
         addOutputGroup(outputGroup, outputGroupProvider.getOutputGroup(outputGroup));
       }
     } else {
-      skylarkDeclaredProviders.put(constructor.getKey(), provider);
+      providersBuilder.put(provider);
     }
     return this;
   }
@@ -342,7 +327,7 @@ public final class RuleConfiguredTargetBuilder {
   public RuleConfiguredTargetBuilder addNativeDeclaredProvider(SkylarkClassObject provider) {
     ClassObjectConstructor constructor = provider.getConstructor();
     Preconditions.checkState(constructor.isExported());
-    skylarkDeclaredProviders.put(constructor.getKey(), provider);
+    providersBuilder.put(provider);
     return this;
   }
 
@@ -351,7 +336,7 @@ public final class RuleConfiguredTargetBuilder {
    */
   public RuleConfiguredTargetBuilder addSkylarkTransitiveInfo(
       String name, Object value) {
-    skylarkProviders.put(name, value);
+    providersBuilder.put(name, value);
     return this;
   }
 

@@ -48,5 +48,11 @@ public interface SkylarkProviderCollection {
    * declared provider.
    */
   @Nullable
-  Object get(SkylarkProviderIdentifier id);
+  default Object get(SkylarkProviderIdentifier id) {
+    if (id.isLegacy()) {
+      return this.get(id.getLegacyId());
+    } else {
+      return this.get(id.getKey());
+    }
+  }
 }

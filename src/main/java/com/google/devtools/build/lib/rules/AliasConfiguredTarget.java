@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -81,12 +80,6 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObjec
   @Override
   public SkylarkClassObject get(ClassObjectConstructor.Key providerKey) {
     return actual == null ? null : actual.get(providerKey);
-  }
-
-  @Nullable
-  @Override
-  public Object get(SkylarkProviderIdentifier id) {
-    return actual == null ? null : actual.get(id);
   }
 
   @Override

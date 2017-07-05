@@ -64,7 +64,6 @@ import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
-
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -290,7 +289,6 @@ public final class ConfiguredTargetFactory {
             .setPrerequisites(prerequisiteMap)
             .setConfigConditions(configConditions)
             .setUniversalFragment(ruleClassProvider.getUniversalFragment())
-            .setSkylarkProvidersRegistry(ruleClassProvider.getRegisteredSkylarkProviders())
             // TODO(katre): Populate the actual selected toolchains.
             .setToolchainContext(
                 new ToolchainContext(rule.getRuleClassObject().getRequiredToolchains(), null))
@@ -319,8 +317,8 @@ public final class ConfiguredTargetFactory {
       return SkylarkRuleConfiguredTargetBuilder.buildRule(
           ruleContext,
           rule.getRuleClassObject().getConfiguredTargetFunction(),
-          env.getSkylarkSemantics(),
-          ruleClassProvider.getRegisteredSkylarkProviders());
+          env.getSkylarkSemantics()
+      );
     } else {
       RuleClass.ConfiguredTargetFactory<ConfiguredTarget, RuleContext> factory =
           rule.getRuleClassObject().<ConfiguredTarget, RuleContext>getConfiguredTargetFactory();

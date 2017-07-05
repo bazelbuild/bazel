@@ -56,12 +56,18 @@ import java.util.Map;
   category = SkylarkModuleCategory.PROVIDER,
   doc = "A provider for compilation and linking of objc."
 )
-public final class ObjcProvider extends SkylarkClassObject implements TransitiveInfoProvider {
+public final class ObjcProvider extends SkylarkClassObject
+    implements TransitiveInfoProvider, TransitiveInfoProvider.WithLegacySkylarkName {
 
   /**
    * The skylark struct key name for a rule implementation to use when exporting an ObjcProvider.
    */
   public static final String OBJC_SKYLARK_PROVIDER_NAME = "objc";
+
+  @Override
+  public String getSkylarkName() {
+    return OBJC_SKYLARK_PROVIDER_NAME;
+  }
 
   /**
    * Represents one of the things this provider can provide transitively. Things are provided as

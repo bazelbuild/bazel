@@ -337,16 +337,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     }
 
     /**
-     * Adds a mapping that determines which keys in structs returned by skylark rules should be
-     * interpreted as native TransitiveInfoProvider instances of type (map value).
-     */
-    public Builder registerSkylarkProvider(
-        String name, Class<? extends TransitiveInfoProvider> provider) {
-      this.registeredSkylarkProviders.put(name, provider);
-      return this;
-    }
-
-    /**
      * Do not use - this only exists for backwards compatibility! Platform regexps are part of a
      * legacy mechanism - {@code vardef} - that is not exposed in Bazel.
      *
@@ -442,8 +432,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
           universalFragment,
           prerequisiteValidator,
           skylarkAccessibleTopLevels.build(),
-          skylarkModules.build(),
-          registeredSkylarkProviders.build());
+          skylarkModules.build());
     }
 
     @Override
@@ -551,9 +540,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
   private final Environment.Frame globals;
 
-  private final ImmutableBiMap<String, Class<? extends TransitiveInfoProvider>>
-      registeredSkylarkProviders;
-
   private ConfiguredRuleClassProvider(
       String productName,
       Label preludeLabel,
@@ -571,8 +557,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       Class<? extends BuildConfiguration.Fragment> universalFragment,
       PrerequisiteValidator prerequisiteValidator,
       ImmutableMap<String, Object> skylarkAccessibleJavaClasses,
-      ImmutableList<Class<?>> skylarkModules,
-      ImmutableBiMap<String, Class<? extends TransitiveInfoProvider>> registeredSkylarkProviders) {
+      ImmutableList<Class<?>> skylarkModules) {
     this.productName = productName;
     this.preludeLabel = preludeLabel;
     this.runfilesPrefix = runfilesPrefix;
@@ -589,7 +574,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.universalFragment = universalFragment;
     this.prerequisiteValidator = prerequisiteValidator;
     this.globals = createGlobals(skylarkAccessibleJavaClasses, skylarkModules);
-    this.registeredSkylarkProviders = registeredSkylarkProviders;
   }
 
   public String getProductName() {
@@ -686,19 +670,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   public String getDefaultsPackageContent(OptionsClassProvider optionsProvider) {
     return DefaultsPackage.getDefaultsPackageContent(
         BuildOptions.of(configurationOptions, optionsProvider));
-  }
-
-  /**
-   * Returns a map that indicates which keys in structs returned by skylark rules should be
-   * interpreted as native TransitiveInfoProvider instances of type (map value).
-   *
-   * <p>That is, if this map contains "dummy" -> DummyProvider.class, a "dummy" entry in a skylark
-   * rule implementation's returned struct will be exported from that ConfiguredTarget as a
-   * DummyProvider.
-   */
-  public ImmutableBiMap<String, Class<? extends TransitiveInfoProvider>>
-      getRegisteredSkylarkProviders() {
-    return this.registeredSkylarkProviders;
   }
 
   /**

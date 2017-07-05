@@ -14,19 +14,81 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.devtools.build.lib.packages.ClassObjectConstructor;
+import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
-/** Provides a mapping between a TransitiveInfoProvider class and an instance. */
+/**
+ * Provides a mapping between an identifier for transitive information and its instance.
+ * (between provider identifier and provider instance)
+ *
+ * We have three kinds of provider identifiers:
+ * <ul>
+ *   <li>Declared providers. They are exposed to Skylark and identified by
+ *   {@link ClassObjectConstructor.Key}. Provider instances are {@link SkylarkClassObject}s.</li>
+ *   <li>Native providers. They are identified by their {@link Class} and their instances
+ *   are instances of that class. They should implement {@link TransitiveInfoProvider} marker
+ *   interface.
+ *   </li>
+ *   <li>Legacy Skylark providers (deprecated). They are identified by simple strings,
+ *   and their instances are more-less random objects.</li>
+ * </ul>
+ */
 @Immutable
 public interface TransitiveInfoProviderMap {
-  /** Returns the instance for the provided providerClass, or <tt>null</tt> if not present. */
+  /** Returns the instance for the provided providerClass, or {@code null}  if not present. */
   @Nullable
   <P extends TransitiveInfoProvider> P getProvider(Class<P> providerClass);
 
+  /**
+   * Returns the instance of declared provider with the given {@code key},
+   * or {@code null} if not present.
+   */
+  @Nullable
+  SkylarkClassObject getProvider(ClassObjectConstructor.Key key);
+
+  /**
+   * Returns the instance of a legacy Skylark  with the given name, or {@code null} if not present.
+   *
+   * todo(dslomov,skylark): remove this as part of legacy provider removal.
+   */
+  @Nullable
+  Object getProvider(String legacyKey);
+
+  /**
+   * Helper method to access SKylark provider with a give {@code id} and validate its type.
+   */
+  @Nullable
+  default <T> T getProvider(
+      SkylarkProviderIdentifier id, Class<T> result) {
+    return result.cast(
+        id.isLegacy() ? this.getProvider(id.getLegacyId()) : this.getProvider(id.getKey())
+    );
+  }
+
+  /**
+   * Returns a count of providers.
+   *
+   * Upper bound for {@code index} in {@link #getProviderKeyAt(int index)}
+   * and {@link #getProviderInstanceAt(int index)} }.
+   *
+   * Low-level method, use with care.
+   */
   int getProviderCount();
 
-  Class<? extends TransitiveInfoProvider> getProviderClassAt(int i);
+  /**
+   * Return value is one of:
+   * <ul>
+   *   <li>{@code Class<? extends TransitiveInfoProvider>}</li>
+   *   <li>String</li>
+   *   <li>{@link ClassObjectConstructor.Key}</li>
+   * </ul>
+   *
+   * Low-level method, use with care.
+   */
+  Object getProviderKeyAt(int index);
 
-  TransitiveInfoProvider getProviderAt(int i);
+  Object getProviderInstanceAt(int index);
 }
