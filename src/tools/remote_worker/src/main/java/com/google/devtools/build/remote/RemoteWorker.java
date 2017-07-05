@@ -23,6 +23,7 @@ import com.google.bytestream.ByteStreamGrpc.ByteStreamImplBase;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.remote.RemoteOptions;
 import com.google.devtools.build.lib.remote.SimpleBlobStoreActionCache;
 import com.google.devtools.build.lib.remote.SimpleBlobStoreFactory;
@@ -43,8 +44,8 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.remoteexecution.v1test.ActionCacheGrpc.ActionCacheImplBase;
+import com.google.devtools.remoteexecution.v1test.ActionResult;
 import com.google.devtools.remoteexecution.v1test.ContentAddressableStorageGrpc.ContentAddressableStorageImplBase;
-import com.google.devtools.remoteexecution.v1test.ExecuteRequest;
 import com.google.devtools.remoteexecution.v1test.ExecutionGrpc.ExecutionImplBase;
 import com.google.watcher.v1.WatcherGrpc.WatcherImplBase;
 import io.grpc.Server;
@@ -102,10 +103,12 @@ public final class RemoteWorker {
     this.casServer = new CasServer(cache);
 
     if (workerOptions.workPath != null) {
-      ConcurrentHashMap<String, ExecuteRequest> operationsCache = new ConcurrentHashMap<>();
+      ConcurrentHashMap<String, ListenableFuture<ActionResult>> operationsCache =
+          new ConcurrentHashMap<>();
       FileSystemUtils.createDirectoryAndParents(workPath);
-      watchServer = new WatcherServer(workPath, cache, workerOptions, operationsCache, sandboxPath);
-      execServer = new ExecutionServer(operationsCache);
+      watchServer = new WatcherServer(operationsCache);
+      execServer =
+          new ExecutionServer(workPath, sandboxPath, workerOptions, cache, operationsCache);
     } else {
       watchServer = null;
       execServer = null;
