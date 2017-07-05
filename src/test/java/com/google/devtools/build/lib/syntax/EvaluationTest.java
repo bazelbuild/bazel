@@ -47,8 +47,8 @@ public class EvaluationTest extends EvaluationTestCase {
    * <p>If a test uses this method, it allows potential subclasses to run the very same test in a
    * different mode in subclasses
    */
-  protected ModalTestCase newTest() {
-    return new BuildTest();
+  protected ModalTestCase newTest(String... skylarkOptions) {
+    return new BuildTest(skylarkOptions);
   }
 
   @Test
@@ -601,7 +601,12 @@ public class EvaluationTest extends EvaluationTestCase {
     return new SkylarkValue() {
       @Override
       public void repr(SkylarkPrinter printer) {
-        printer.append("str marker");
+        printer.append("<str marker>");
+      }
+
+      @Override
+      public void reprLegacy(SkylarkPrinter printer) {
+        printer.append("<str legacy marker>");
       }
 
       @Override
@@ -615,36 +620,45 @@ public class EvaluationTest extends EvaluationTestCase {
     return new Object() {
       @Override
       public String toString() {
-        return "unknown object";
+        return "<unknown object>";
       }
     };
   }
 
   @Test
   public void testPercOnObject() throws Exception {
-    newTest()
+    newTest("--incompatible_descriptive_string_representations=true")
         .update("obj", createObjWithStr())
-        .testStatement("'%s' % obj", "str marker");
+        .testStatement("'%s' % obj", "<str marker>");
+    newTest("--incompatible_descriptive_string_representations=false")
+        .update("obj", createObjWithStr())
+        .testStatement("'%s' % obj", "<str legacy marker>");
     newTest()
         .update("unknown", createUnknownObj())
-        .testStatement("'%s' % unknown", "unknown object");
+        .testStatement("'%s' % unknown", "<unknown object>");
   }
 
   @Test
   public void testPercOnObjectList() throws Exception {
-    newTest()
+    newTest("--incompatible_descriptive_string_representations=true")
         .update("obj", createObjWithStr())
-        .testStatement("'%s %s' % (obj, obj)", "str marker str marker");
+        .testStatement("'%s %s' % (obj, obj)", "<str marker> <str marker>");
+    newTest("--incompatible_descriptive_string_representations=false")
+        .update("obj", createObjWithStr())
+        .testStatement("'%s %s' % (obj, obj)", "<str legacy marker> <str legacy marker>");
     newTest()
         .update("unknown", createUnknownObj())
-        .testStatement("'%s %s' % (unknown, unknown)", "unknown object unknown object");
+        .testStatement("'%s %s' % (unknown, unknown)", "<unknown object> <unknown object>");
   }
 
   @Test
   public void testPercOnObjectInvalidFormat() throws Exception {
-    newTest()
+    newTest("--incompatible_descriptive_string_representations=true")
         .update("obj", createObjWithStr())
-        .testIfExactError("invalid argument str marker for format pattern %d", "'%d' % obj");
+        .testIfExactError("invalid argument <str marker> for format pattern %d", "'%d' % obj");
+    newTest("--incompatible_descriptive_string_representations=false")
+        .update("obj", createObjWithStr())
+        .testIfExactError("invalid argument <str marker> for format pattern %d", "'%d' % obj");
   }
 
   @Test

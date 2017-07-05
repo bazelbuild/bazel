@@ -23,8 +23,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrintableValue;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.util.StringUtilities;
@@ -51,7 +51,7 @@ import javax.annotation.Nullable;
 )
 @Immutable
 @ThreadSafe
-public final class Label implements Comparable<Label>, Serializable, SkylarkPrintableValue, SkyKey {
+public final class Label implements Comparable<Label>, Serializable, SkylarkValue, SkyKey {
   public static final PathFragment EXTERNAL_PACKAGE_NAME = PathFragment.create("external");
   public static final PathFragment EXTERNAL_PACKAGE_FILE_NAME = PathFragment.create("WORKSPACE");
   public static final String DEFAULT_REPOSITORY_DIRECTORY = "__main__";
@@ -562,8 +562,20 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
   }
 
   @Override
-  public void repr(SkylarkPrinter printer) {
+  public void reprLegacy(SkylarkPrinter printer) {
     printer.repr(getCanonicalForm());
+  }
+
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    printer.append("Label(");
+    printer.repr(getCanonicalForm());
+    printer.append(")");
+  }
+
+  @Override
+  public void strLegacy(SkylarkPrinter printer) {
+    printer.append(getCanonicalForm());
   }
 
   @Override

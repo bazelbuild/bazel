@@ -84,7 +84,7 @@ public final class BinaryOperatorExpression extends Expression {
   }
 
   /** Implements the "in" operator. */
-  private static boolean in(Object lval, Object rval, Location location, Environment env)
+  private static boolean in(Object lval, Object rval, Environment env, Location location)
       throws EvalException {
     if (env.getSemantics().incompatibleDepsetIsNotIterable && rval instanceof SkylarkNestedSet) {
       throw new EvalException(
@@ -163,7 +163,7 @@ public final class BinaryOperatorExpression extends Expression {
           return divide(lval, rval, location);
 
         case PERCENT:
-          return percent(lval, rval, location);
+          return percent(lval, rval, env, location);
 
         case EQUALS_EQUALS:
           return lval.equals(rval);
@@ -184,10 +184,10 @@ public final class BinaryOperatorExpression extends Expression {
           return compare(lval, rval, location) >= 0;
 
         case IN:
-          return in(lval, rval, location, env);
+          return in(lval, rval, env, location);
 
         case NOT_IN:
-          return !in(lval, rval, location, env);
+          return !in(lval, rval, env, location);
 
         default:
           throw new AssertionError("Unsupported binary operator: " + operator);
@@ -352,7 +352,7 @@ public final class BinaryOperatorExpression extends Expression {
   }
 
   /** Implements Operator.PERCENT. */
-  private static Object percent(Object lval, Object rval, Location location)
+  private static Object percent(Object lval, Object rval, Environment env, Location location)
       throws EvalException {
     // int % int
     if (lval instanceof Integer && rval instanceof Integer) {
@@ -376,9 +376,9 @@ public final class BinaryOperatorExpression extends Expression {
       String pattern = (String) lval;
       try {
         if (rval instanceof Tuple) {
-          return Printer.formatWithList(pattern, (Tuple) rval);
+          return Printer.getPrinter(env).formatWithList(pattern, (Tuple) rval).toString();
         }
-        return Printer.format(pattern, rval);
+        return Printer.getPrinter(env).format(pattern, rval).toString();
       } catch (IllegalFormatException e) {
         throw new EvalException(location, e.getMessage());
       }

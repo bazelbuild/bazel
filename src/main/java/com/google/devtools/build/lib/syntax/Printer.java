@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrintableValue;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
@@ -51,20 +50,51 @@ public class Printer {
   public static final int SUGGESTED_CRITICAL_LIST_ELEMENTS_STRING_LENGTH = 32;
 
   /**
-   * Creates an instance of BasePrinter that wraps an existing buffer.
-   * @param buffer an Appendable
-   * @return new BasePrinter
+   * Creates an instance of {@link BasePrinter} that wraps an existing buffer.
+   *
+   * @param buffer an {@link Appendable}
+   * @return new {@link BasePrinter}
    */
-  public static BasePrinter getPrinter(Appendable buffer) {
+  static BasePrinter getPrinter(Appendable buffer) {
     return new BasePrinter(buffer);
   }
 
   /**
-   * Creates an instance of BasePrinter with an empty buffer.
-   * @return new BasePrinter
+   * Creates an instance of {@link BasePrinter} with an empty buffer.
+   *
+   * @return new {@link BasePrinter}
    */
   public static BasePrinter getPrinter() {
     return getPrinter(new StringBuilder());
+  }
+
+  /**
+   * Creates an instance of BasePrinter with a given buffer.
+   *
+   * @param env {@link Environment}
+   * @param buffer an {@link Appendable}
+   * @return new BasePrinter
+   */
+  static BasePrinter getPrinter(Environment env, Appendable buffer) {
+    if (env.getSemantics().incompatibleDescriptiveStringRepresentations) {
+      return new BasePrinter(buffer);
+    } else {
+      return new LegacyPrinter(buffer);
+    }
+  }
+
+  /**
+   * Creates an instance of BasePrinter with an empty buffer.
+   *
+   * @param env {@link Environment}
+   * @return new BasePrinter
+   */
+  static BasePrinter getPrinter(Environment env) {
+    if (env.getSemantics().incompatibleDescriptiveStringRepresentations) {
+      return new BasePrinter();
+    } else {
+      return new LegacyPrinter();
+    }
   }
 
   private Printer() {}
@@ -111,7 +141,7 @@ public class Printer {
       @Nullable String singletonTerminator,
       int maxItemsToPrint,
       int criticalItemsStringLength) {
-    return getPrinter()
+    return new LengthLimitedPrinter()
         .printAbbreviatedList(
             list,
             before,
@@ -164,7 +194,7 @@ public class Printer {
       boolean isTuple,
       int maxItemsToPrint,
       int criticalItemsStringLength) {
-    return getPrinter()
+    return new LengthLimitedPrinter()
         .printAbbreviatedList(list, isTuple, maxItemsToPrint, criticalItemsStringLength)
         .toString();
   }
@@ -256,156 +286,24 @@ public class Printer {
     }
   }
 
-  /**
-   * Helper class for {@code Appendable}s that want to limit the length of their input.
-   *
-   * <p>Instances of this class act as a proxy for one {@code Appendable} object and decide whether
-   * the given input (or parts of it) can be written to the underlying {@code Appendable}, depending
-   * on whether the specified maximum length has been met or not.
-   */
-  private static final class LengthLimitedAppendable implements Appendable {
-
-    private static final ImmutableSet<Character> SPECIAL_CHARS =
-        ImmutableSet.of(',', ' ', '"', '\'', ':', '(', ')', '[', ']', '{', '}');
-
-    private static final Pattern ARGS_PATTERN = Pattern.compile("<\\d+ more arguments>");
-
-    private final Appendable original;
-    private int limit;
-    private boolean ignoreLimit;
-    private boolean previouslyShortened;
-    
-    private LengthLimitedAppendable(Appendable original, int limit) {
-      this.original = original;
-      this.limit = limit;
-    }
-
-    private static LengthLimitedAppendable create(Appendable original, int limit) {
-      // We don't want to overwrite the limit if original is already an instance of this class.
-      return (original instanceof LengthLimitedAppendable)
-          ? (LengthLimitedAppendable) original : new LengthLimitedAppendable(original, limit);
-    }
-
-    @Override
-    public Appendable append(CharSequence csq) throws IOException {
-      if (ignoreLimit || hasOnlySpecialChars(csq)) {
-        // Don't update limit.
-        original.append(csq);
-        previouslyShortened = false;
-      } else {
-        int length = csq.length();
-        if (length <= limit) {
-          limit -= length;
-          original.append(csq);
-        } else {
-          original.append(csq, 0, limit);
-          // We don't want to append multiple ellipses.
-          if (!previouslyShortened) {
-            original.append("...");
-          }
-          appendTrailingSpecialChars(csq, limit);
-          previouslyShortened = true;
-          limit = 0;
-        }
-      }
-      return this;
-    }
-
-    /**
-     * Appends any trailing "special characters" (e.g. brackets, quotation marks) in the given
-     * sequence to the output buffer, regardless of the limit.
-     *
-     * <p>For example, let's look at foo(['too long']). Without this method, the shortened result
-     * would be foo(['too...) instead of the prettier foo(['too...']).
-     *
-     * <p>If the input string was already shortened and contains "<x more arguments>", this part
-     * will also be appended.
-     */
-    // TODO(bazel-team): Given an input list
-    //
-    //     [1, 2, 3, [10, 20, 30, 40, 50, 60], 4, 5, 6]
-    //
-    // the inner list gets doubly mangled as
-    //
-    //     [1, 2, 3, [10, 20, 30, 40, <2 more argu...<2 more arguments>], <3 more arguments>]
-    private void appendTrailingSpecialChars(CharSequence csq, int limit) throws IOException {
-      int length = csq.length();
-      Matcher matcher = ARGS_PATTERN.matcher(csq);
-      // We assume that everything following the "x more arguments" part has to be copied, too.
-      int start = matcher.find() ? matcher.start() : length;
-      // Find the left-most non-arg char that has to be copied.
-      for (int i = start - 1; i > limit; --i) {
-        if (isSpecialChar(csq.charAt(i))) {
-          start = i;
-        } else {
-          break;
-        }
-      }
-      if (start < length) {
-        original.append(csq, start, csq.length());
-      }
-    }
-
-    /**
-     * Returns whether the given sequence denotes characters that are not part of the value of an
-     * argument.
-     *
-     * <p>Examples are brackets, braces and quotation marks.
-     */
-    private boolean hasOnlySpecialChars(CharSequence csq) {
-      for (int i = 0; i < csq.length(); ++i) {
-        if (!isSpecialChar(csq.charAt(i))) {
-          return false;
-        }
-      }
-      return true;
-    }
-
-    private boolean isSpecialChar(char c)    {
-      return SPECIAL_CHARS.contains(c);
-    }
-
-    @Override
-    public Appendable append(CharSequence csq, int start, int end) throws IOException {
-      return this.append(csq.subSequence(start, end));
-    }
-
-    @Override
-    public Appendable append(char c) throws IOException {
-      return this.append(String.valueOf(c));
-    }
-    
-    public boolean hasHitLimit()  {
-      return limit <= 0;
-    }
-
-    public void enforceLimit()  {
-      ignoreLimit = false;
-    }
-    
-    public void ignoreLimit() {
-      ignoreLimit = true;
-    }
-
-    @Override
-    public String toString() {
-      return original.toString();
-    }
-  }
-
   /** Actual class that implements Printer API */
-  public static final class BasePrinter implements SkylarkPrinter {
+  public static class BasePrinter implements SkylarkPrinter {
     // Methods of this class should not recurse through static methods of Printer
 
-    private final Appendable buffer;
+    protected final Appendable buffer;
 
     /**
      * Creates a printer instance.
      *
-     * @param buffer the Appendable to which to print the representation
+     * @param buffer the {@link Appendable} to which to print the representation
      */
-    private BasePrinter(Appendable buffer) {
+    protected BasePrinter(Appendable buffer) {
       this.buffer = buffer;
+    }
+
+    /** Creates a printer instance with a new StringBuilder. */
+    protected BasePrinter() {
+      this.buffer = new StringBuilder();
     }
 
     @Override
@@ -421,8 +319,8 @@ public class Printer {
      * @return the buffer, in fluent style
      */
     public BasePrinter str(Object o) {
-      if (o instanceof SkylarkPrintableValue) {
-        ((SkylarkPrintableValue) o).str(this);
+      if (o instanceof SkylarkValue) {
+        ((SkylarkValue) o).str(this);
         return this;
       }
 
@@ -496,9 +394,9 @@ public class Printer {
      * Write a properly escaped Skylark representation of a string to a buffer.
      *
      * @param s the string a representation of which to repr.
-     * @return the Appendable, in fluent style.
+     * @return this printer.
      */
-    private BasePrinter writeString(String s) {
+    protected BasePrinter writeString(String s) {
       this.append(SKYLARK_QUOTATION_MARK);
       int len = s.length();
       for (int i = 0; i < len; i++) {
@@ -544,7 +442,7 @@ public class Printer {
      * @param singletonTerminator null or a string to print after the list if it is a singleton The
      *     singleton case is notably relied upon in python syntax to distinguish a tuple of size one
      *     such as ("foo",) from a merely parenthesized object such as ("foo").
-     * @return the BasePrinter.
+     * @return this printer.
      */
     @Override
     public BasePrinter printList(
@@ -553,48 +451,9 @@ public class Printer {
         String separator,
         String after,
         @Nullable String singletonTerminator) {
-      return printAbbreviatedList(list, before, separator, after, singletonTerminator, -1, -1);
-    }
 
-    /**
-     * Print a list of object representations.
-     *
-     * <p>The length of the output will be limited when both {@code maxItemsToPrint} and {@code
-     * criticalItemsStringLength} have values greater than zero.
-     *
-     * @param list the list of objects to repr (each as with repr)
-     * @param before a string to print before the list
-     * @param separator a separator to print between each object
-     * @param after a string to print after the list
-     * @param singletonTerminator null or a string to print after the list if it is a singleton The
-     *     singleton case is notably relied upon in python syntax to distinguish a tuple of size one
-     *     such as ("foo",) from a merely parenthesized object such as ("foo").
-     * @param maxItemsToPrint the maximum number of elements to be printed.
-     * @param criticalItemsStringLength a soft limit for the total string length of all arguments.
-     *     'Soft' means that this limit may be exceeded because of formatting.
-     * @return the BasePrinter.
-     */
-    public BasePrinter printAbbreviatedList(
-        Iterable<?> list,
-        String before,
-        String separator,
-        String after,
-        @Nullable String singletonTerminator,
-        int maxItemsToPrint,
-        int criticalItemsStringLength) {
       this.append(before);
-      int len = 0;
-      // Limits the total length of the string representation of the elements, if specified.
-      if (maxItemsToPrint > 0 && criticalItemsStringLength > 0) {
-        len =
-            appendListElements(
-                LengthLimitedAppendable.create(buffer, criticalItemsStringLength),
-                list,
-                separator,
-                maxItemsToPrint);
-      } else {
-        len = appendListElements(list, separator);
-      }
+      int len = appendListElements(list, separator);
       if (singletonTerminator != null && len == 1) {
         this.append(singletonTerminator);
       }
@@ -620,70 +479,21 @@ public class Printer {
     }
 
     /**
-     * Tries to append the given elements to the specified {@link Appendable} until specific limits
-     * are reached.
-     *
-     * @return the number of appended elements.
-     */
-    private int appendListElements(
-        LengthLimitedAppendable appendable,
-        Iterable<?> list,
-        String separator,
-        int maxItemsToPrint) {
-      boolean printSeparator = false; // don't print the separator before the first element
-      boolean skipArgs = false;
-      int items = Iterables.size(list);
-      int len = 0;
-      // We don't want to print "1 more arguments", hence we don't skip arguments if there is only
-      // one above the limit.
-      int itemsToPrint = (items - maxItemsToPrint == 1) ? items : maxItemsToPrint;
-      appendable.enforceLimit();
-      for (Object o : list) {
-        // We don't want to print "1 more arguments", even if we hit the string limit.
-        if (len == itemsToPrint || (appendable.hasHitLimit() && len < items - 1)) {
-          skipArgs = true;
-          break;
-        }
-        if (printSeparator) {
-          this.append(separator);
-        }
-        Printer.getPrinter(appendable).repr(o);
-        printSeparator = true;
-        len++;
-      }
-      appendable.ignoreLimit();
-      if (skipArgs) {
-        this.append(separator);
-        this.append(String.format("<%d more arguments>", items - len));
-      }
-      return len;
-    }
-
-    /**
      * Print a Skylark list or tuple of object representations
      *
      * @param list the contents of the list or tuple
      * @param isTuple if true the list will be formatted with parentheses and with a trailing comma
-     *     in case of one-element tuples.
-     * @param maxItemsToPrint the maximum number of elements to be printed.
-     * @param criticalItemsStringLength a soft limit for the total string length of all arguments.
-     *     'Soft' means that this limit may be exceeded because of formatting.
-     * @return the Appendable, in fluent style.
+     *     in case of one-element tuples. 'Soft' means that this limit may be exceeded because of
+     *     formatting.
+     * @return this printer.
      */
-    public BasePrinter printAbbreviatedList(
-        Iterable<?> list, boolean isTuple, int maxItemsToPrint, int criticalItemsStringLength) {
-      if (isTuple) {
-        return this.printAbbreviatedList(list, "(", ", ", ")", ",", 
-            maxItemsToPrint, criticalItemsStringLength);
-      } else {
-        return this.printAbbreviatedList(list, "[", ", ", "]", null, 
-            maxItemsToPrint, criticalItemsStringLength);
-      }
-    }
-
     @Override
     public BasePrinter printList(Iterable<?> list, boolean isTuple) {
-      return this.printAbbreviatedList(list, isTuple, -1, -1);
+      if (isTuple) {
+        return this.printList(list, "(", ", ", ")", ",");
+      } else {
+        return this.printList(list, "[", ", ", "]", null);
+      }
     }
 
     /**
@@ -743,9 +553,9 @@ public class Printer {
             if (a >= argLength) {
               throw new MissingFormatWidthException(
                   "not enough arguments for format pattern "
-                      + this.repr(pattern)
+                      + Printer.repr(pattern)
                       + ": "
-                      + this.repr(Tuple.copyOf(arguments)));
+                      + Printer.repr(Tuple.copyOf(arguments)));
             }
             Object argument = arguments.get(a++);
             switch (directive) {
@@ -755,7 +565,7 @@ public class Printer {
                   continue;
                 } else {
                   throw new MissingFormatWidthException(
-                      "invalid argument " + this.repr(argument) + " for format pattern %d");
+                      "invalid argument " + Printer.repr(argument) + " for format pattern %d");
                 }
               case 'r':
                 this.repr(argument);
@@ -790,6 +600,259 @@ public class Printer {
     public BasePrinter append(CharSequence s) {
       Printer.append(buffer, s);
       return this;
+    }
+
+    BasePrinter append(CharSequence sequence, int start, int end) {
+      return this.append(sequence.subSequence(start, end));
+    }
+  }
+
+  /** A version of BasePrinter that renders object in old style for compatibility reasons. */
+  static final class LegacyPrinter extends BasePrinter {
+    protected LegacyPrinter() {
+      super();
+    }
+
+    protected LegacyPrinter(Appendable buffer) {
+      super(buffer);
+    }
+
+    @Override
+    public LegacyPrinter repr(Object o) {
+      if (o instanceof SkylarkValue) {
+        ((SkylarkValue) o).reprLegacy(this);
+      } else {
+        super.repr(o);
+      }
+      return this;
+    }
+
+    @Override
+    public LegacyPrinter str(Object o) {
+      if (o instanceof SkylarkValue) {
+        ((SkylarkValue) o).strLegacy(this);
+      } else {
+        super.str(o);
+      }
+      return this;
+    }
+  }
+
+  /** A version of {@code BasePrinter} that is able to print abbreviated lists. */
+  public static final class LengthLimitedPrinter extends BasePrinter {
+
+    private static final ImmutableSet<Character> SPECIAL_CHARS =
+        ImmutableSet.of(',', ' ', '"', '\'', ':', '(', ')', '[', ']', '{', '}');
+
+    private static final Pattern ARGS_PATTERN = Pattern.compile("<\\d+ more arguments>");
+
+    // Limits can be set several times recursively and then unset the same amount of times.
+    // But in fact they should be set only the first time and unset only the last time.
+    // To achieve that we need to keep track of the recursion depth.
+    private int recursionDepth;
+    // Current limit of symbols to print in the limited mode (`ignoreLimit = false`).
+    private int limit;
+    private boolean ignoreLimit = true;
+    private boolean previouslyShortened;
+
+    /**
+     * Print a list of object representations.
+     *
+     * <p>The length of the output will be limited when both {@code maxItemsToPrint} and {@code
+     * criticalItemsStringLength} have values greater than zero.
+     *
+     * @param list the list of objects to repr (each as with repr)
+     * @param before a string to print before the list
+     * @param separator a separator to print between each object
+     * @param after a string to print after the list
+     * @param singletonTerminator null or a string to print after the list if it is a singleton The
+     *     singleton case is notably relied upon in python syntax to distinguish a tuple of size one
+     *     such as ("foo",) from a merely parenthesized object such as ("foo").
+     * @param maxItemsToPrint the maximum number of elements to be printed.
+     * @param criticalItemsStringLength a soft limit for the total string length of all arguments.
+     *     'Soft' means that this limit may be exceeded because of formatting.
+     * @return the BasePrinter.
+     */
+    LengthLimitedPrinter printAbbreviatedList(
+        Iterable<?> list,
+        String before,
+        String separator,
+        String after,
+        @Nullable String singletonTerminator,
+        int maxItemsToPrint,
+        int criticalItemsStringLength) {
+      this.append(before);
+      int len = appendListElements(list, separator, maxItemsToPrint, criticalItemsStringLength);
+      if (singletonTerminator != null && len == 1) {
+        this.append(singletonTerminator);
+      }
+      return this.append(after);
+    }
+
+    /**
+     * Print a Skylark list or tuple of object representations
+     *
+     * @param list the contents of the list or tuple
+     * @param isTuple if true the list will be formatted with parentheses and with a trailing comma
+     *     in case of one-element tuples.
+     * @param maxItemsToPrint the maximum number of elements to be printed.
+     * @param criticalItemsStringLength a soft limit for the total string length of all arguments.
+     *     'Soft' means that this limit may be exceeded because of formatting.
+     * @return this printer.
+     */
+    public LengthLimitedPrinter printAbbreviatedList(
+        Iterable<?> list, boolean isTuple, int maxItemsToPrint, int criticalItemsStringLength) {
+      if (isTuple) {
+        return this.printAbbreviatedList(
+            list, "(", ", ", ")", ",", maxItemsToPrint, criticalItemsStringLength);
+      } else {
+        return this.printAbbreviatedList(
+            list, "[", ", ", "]", null, maxItemsToPrint, criticalItemsStringLength);
+      }
+    }
+
+    /**
+     * Tries to append the given elements to the specified {@link Appendable} until specific limits
+     * are reached.
+     *
+     * @return the number of appended elements.
+     */
+    private int appendListElements(
+        Iterable<?> list, String separator, int maxItemsToPrint, int criticalItemsStringLength) {
+      boolean printSeparator = false; // don't print the separator before the first element
+      boolean skipArgs = false;
+      int items = Iterables.size(list);
+      int len = 0;
+      // We don't want to print "1 more arguments", hence we don't skip arguments if there is only
+      // one above the limit.
+      int itemsToPrint = (items - maxItemsToPrint == 1) ? items : maxItemsToPrint;
+      enforceLimit(criticalItemsStringLength);
+      for (Object o : list) {
+        // We don't want to print "1 more arguments", even if we hit the string limit.
+        if (len == itemsToPrint || (hasHitLimit() && len < items - 1)) {
+          skipArgs = true;
+          break;
+        }
+        if (printSeparator) {
+          this.append(separator);
+        }
+        this.repr(o);
+        printSeparator = true;
+        len++;
+      }
+      ignoreLimit();
+      if (skipArgs) {
+        this.append(separator);
+        this.append(String.format("<%d more arguments>", items - len));
+      }
+      return len;
+    }
+
+    @Override
+    public LengthLimitedPrinter append(CharSequence csq) {
+      if (ignoreLimit || hasOnlySpecialChars(csq)) {
+        // Don't update limit.
+        Printer.append(buffer, csq);
+        previouslyShortened = false;
+      } else {
+        int length = csq.length();
+        if (length <= limit) {
+          limit -= length;
+          Printer.append(buffer, csq);
+        } else {
+          Printer.append(buffer, csq, 0, limit);
+          // We don't want to append multiple ellipses.
+          if (!previouslyShortened) {
+            Printer.append(buffer, "...");
+          }
+          appendTrailingSpecialChars(csq, limit);
+          previouslyShortened = true;
+          limit = 0;
+        }
+      }
+      return this;
+    }
+
+    @Override
+    public LengthLimitedPrinter append(char c) {
+      // Use the local `append(sequence)` method so that limits can apply
+      return this.append(String.valueOf(c));
+    }
+
+    /**
+     * Appends any trailing "special characters" (e.g. brackets, quotation marks) in the given
+     * sequence to the output buffer, regardless of the limit.
+     *
+     * <p>For example, let's look at foo(['too long']). Without this method, the shortened result
+     * would be foo(['too...) instead of the prettier foo(['too...']).
+     *
+     * <p>If the input string was already shortened and contains "<x more arguments>", this part
+     * will also be appended.
+     */
+    // TODO(bazel-team): Given an input list
+    //
+    //     [1, 2, 3, [10, 20, 30, 40, 50, 60], 4, 5, 6]
+    //
+    // the inner list gets doubly mangled as
+    //
+    //     [1, 2, 3, [10, 20, 30, 40, <2 more argu...<2 more arguments>], <3 more arguments>]
+    private LengthLimitedPrinter appendTrailingSpecialChars(CharSequence csq, int limit) {
+      int length = csq.length();
+      Matcher matcher = ARGS_PATTERN.matcher(csq);
+      // We assume that everything following the "x more arguments" part has to be copied, too.
+      int start = matcher.find() ? matcher.start() : length;
+      // Find the left-most non-arg char that has to be copied.
+      for (int i = start - 1; i > limit; --i) {
+        if (isSpecialChar(csq.charAt(i))) {
+          start = i;
+        } else {
+          break;
+        }
+      }
+      if (start < length) {
+        Printer.append(buffer, csq, start, csq.length());
+      }
+      return this;
+    }
+
+    /**
+     * Returns whether the given sequence denotes characters that are not part of the value of an
+     * argument.
+     *
+     * <p>Examples are brackets, braces and quotation marks.
+     */
+    private boolean hasOnlySpecialChars(CharSequence csq) {
+      for (int i = 0; i < csq.length(); ++i) {
+        if (!isSpecialChar(csq.charAt(i))) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    private boolean isSpecialChar(char c) {
+      return SPECIAL_CHARS.contains(c);
+    }
+
+    boolean hasHitLimit() {
+      return limit <= 0;
+    }
+
+    private void enforceLimit(int limit) {
+      ignoreLimit = false;
+      if (recursionDepth == 0) {
+        this.limit = limit;
+        ++recursionDepth;
+      }
+    }
+
+    private void ignoreLimit() {
+      if (recursionDepth > 0) {
+        --recursionDepth;
+      }
+      if (recursionDepth == 0) {
+        ignoreLimit = true;
+      }
     }
   }
 }

@@ -466,7 +466,8 @@ public abstract class OutputFormatter implements Serializable {
             if (attributeMap.isConfigurable(attr.getName())) {
               // We don't know the actual value for configurable attributes, so we reconstruct
               // the select without trying to resolve it.
-              printStream.printf(outputAttributePattern,
+              printStream.printf(
+                  outputAttributePattern,
                   attr.getPublicName(),
                   outputConfigurableAttrValue(rule, attributeMap, attr));
               continue;
@@ -479,20 +480,17 @@ public abstract class OutputFormatter implements Serializable {
               // Computed defaults that depend on configurable attributes can have multiple values.
               continue;
             }
-            printStream.printf(outputAttributePattern,
+            printStream.printf(
+                outputAttributePattern,
                 attr.getPublicName(),
                 outputAttrValue(Iterables.getOnlyElement(values)));
           }
           printStream.printf(")\n%s", lineTerm);
         }
 
-        /**
-         * Returns the given attribute value with BUILD output syntax. Does not support selects.
-         */
+        /** Returns the given attribute value with BUILD output syntax. Does not support selects. */
         private String outputAttrValue(Object value) {
-          if (value instanceof Label) {
-            value = ((Label) value).getDefaultCanonicalForm();
-          } else if (value instanceof License) {
+          if (value instanceof License) {
             List<String> licenseTypes = new ArrayList<>();
             for (License.LicenseType licenseType : ((License) value).getLicenseTypes()) {
               licenseTypes.add(licenseType.toString().toLowerCase());
@@ -504,7 +502,7 @@ public abstract class OutputFormatter implements Serializable {
           } else if (value instanceof TriState) {
             value = ((TriState) value).toInt();
           }
-          return Printer.repr(value);
+          return new LabelPrinter().repr(value).toString();
         }
 
         /**
@@ -513,14 +511,16 @@ public abstract class OutputFormatter implements Serializable {
          * <p>Since query doesn't know which select path should be chosen, this doesn't try to
          * resolve the final value. Instead it just reconstructs the select.
          */
-        private String outputConfigurableAttrValue(Rule rule, RawAttributeMapper attributeMap,
-            Attribute attr) {
+        private String outputConfigurableAttrValue(
+            Rule rule, RawAttributeMapper attributeMap, Attribute attr) {
           List<String> selectors = new ArrayList<>();
-          for (BuildType.Selector<?> selector : ((BuildType.SelectorList<?>)
-              attributeMap.getRawAttributeValue(rule, attr)).getSelectors()) {
+          for (BuildType.Selector<?> selector :
+              ((BuildType.SelectorList<?>) attributeMap.getRawAttributeValue(rule, attr))
+                  .getSelectors()) {
             if (selector.isUnconditional()) {
-              selectors.add(outputAttrValue(
-                  Iterables.getOnlyElement(selector.getEntries().entrySet()).getValue()));
+              selectors.add(
+                  outputAttrValue(
+                      Iterables.getOnlyElement(selector.getEntries().entrySet()).getValue()));
             } else {
               selectors.add(String.format("select(%s)", outputAttrValue(selector.getEntries())));
             }
@@ -833,5 +833,17 @@ public abstract class OutputFormatter implements Serializable {
         ? location.print(target.getPackage().getPackageDirectory().asFragment(),
             target.getPackage().getNameFragment())
         : location.print();
+  }
+
+  private static class LabelPrinter extends Printer.BasePrinter {
+    @Override
+    public LabelPrinter repr(Object o) {
+      if (o instanceof Label) {
+        writeString(((Label) o).getCanonicalForm());
+      } else {
+        super.repr(o);
+      }
+      return this;
+    }
   }
 }

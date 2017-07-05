@@ -30,9 +30,11 @@ public final class FormatParser {
   private static final ImmutableSet<Character> ILLEGAL_IN_FIELD =
       ImmutableSet.of('.', '[', ']', ',');
 
+  private final Environment environment;
   private final Location location;
 
-  public FormatParser(Location location) {
+  public FormatParser(Environment environment, Location location) {
+    this.environment = environment;
     this.location = location;
   }
 
@@ -91,7 +93,7 @@ public final class FormatParser {
       History history,
       StringBuilder output)
       throws EvalException {
-    BasePrinter printer = Printer.getPrinter(output);
+    BasePrinter printer = Printer.getPrinter(environment, output);
     if (has(chars, pos + 1, '{')) {
       // Escaped brace -> output and move to char after right brace
       printer.append("{");

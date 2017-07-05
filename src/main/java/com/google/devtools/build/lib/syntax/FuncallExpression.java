@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException.EvalExceptionWithJavaCause;
-import com.google.devtools.build.lib.syntax.Printer.BasePrinter;
 import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -271,7 +270,7 @@ public final class FuncallExpression extends Expression {
 
   @Override
   public String toString() {
-    BasePrinter printer = Printer.getPrinter();
+    Printer.LengthLimitedPrinter printer = new Printer.LengthLimitedPrinter();
     if (obj != null) {
       printer.append(obj.toString()).append(".");
     }

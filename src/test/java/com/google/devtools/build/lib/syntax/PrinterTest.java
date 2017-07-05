@@ -21,6 +21,8 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import java.util.Arrays;
@@ -55,7 +57,7 @@ public class PrinterTest {
     assertThat(Printer.repr(Runtime.NONE)).isEqualTo("None");
 
     assertThat(Printer.str(Label.parseAbsolute("//x"))).isEqualTo("//x:x");
-    assertThat(Printer.repr(Label.parseAbsolute("//x"))).isEqualTo("\"//x:x\"");
+    assertThat(Printer.repr(Label.parseAbsolute("//x"))).isEqualTo("Label(\"//x:x\")");
 
     List<?> list = MutableList.of(null, "foo", "bar");
     List<?> tuple = Tuple.of("foo", "bar");
@@ -215,6 +217,14 @@ public class PrinterTest {
     assertThat(Printer.str(list)).isEqualTo(String.format("[%s]", Joiner.on(", ").join(list)));
   }
 
+  @Test
+  public void testLegacyPrinter() throws Exception {
+    assertThat(new Printer.LegacyPrinter().str(createObjWithStr()).toString())
+        .isEqualTo("<str legacy marker>");
+    assertThat(new Printer.LegacyPrinter().repr(createObjWithStr()).toString())
+        .isEqualTo("<repr legacy marker>");
+  }
+
   private String printListWithLimit(List<?> list) {
     return printList(list, Printer.SUGGESTED_CRITICAL_LIST_ELEMENTS_COUNT,
         Printer.SUGGESTED_CRITICAL_LIST_ELEMENTS_STRING_LENGTH);
@@ -223,5 +233,34 @@ public class PrinterTest {
   private String printList(List<?> list, int criticalElementsCount, int criticalStringLength) {
     return Printer.printAbbreviatedList(
         list, "[", ", ", "]", "", criticalElementsCount, criticalStringLength);
+  }
+
+  private SkylarkValue createObjWithStr() {
+    return new SkylarkValue() {
+      @Override
+      public void repr(SkylarkPrinter printer) {
+        printer.append("<repr marker>");
+      }
+
+      @Override
+      public void reprLegacy(SkylarkPrinter printer) {
+        printer.append("<repr legacy marker>");
+      }
+
+      @Override
+      public void str(SkylarkPrinter printer) {
+        printer.append("<str marker>");
+      }
+
+      @Override
+      public void strLegacy(SkylarkPrinter printer) {
+        printer.append("<str legacy marker>");
+      }
+
+      @Override
+      public boolean isImmutable() {
+        return false;
+      }
+    };
   }
 }

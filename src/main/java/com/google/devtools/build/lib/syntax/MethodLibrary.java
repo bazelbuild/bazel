@@ -963,7 +963,7 @@ public class MethodLibrary {
             Location loc,
             Environment env)
             throws EvalException {
-          return new FormatParser(loc)
+          return new FormatParser(env, loc)
               .format(
                   self,
                   args.getImmutableList(),
@@ -1619,12 +1619,13 @@ public class MethodLibrary {
     doc =
         "Converts any object to string. This is useful for debugging."
             + "<pre class=\"language-python\">str(\"ab\") == \"ab\"</pre>",
-    parameters = {@Param(name = "x", doc = "The object to convert.")}
+    parameters = {@Param(name = "x", doc = "The object to convert.")},
+    useEnvironment = true
   )
   private static final BuiltinFunction str =
       new BuiltinFunction("str") {
-        public String invoke(Object x) {
-          return Printer.getPrinter().str(x).toString();
+        public String invoke(Object x, Environment env) {
+          return Printer.getPrinter(env).str(x).toString();
         }
       };
 
@@ -1634,12 +1635,13 @@ public class MethodLibrary {
     doc =
         "Converts any object to a string representation. This is useful for debugging.<br>"
             + "<pre class=\"language-python\">str(\"ab\") == \\\"ab\\\"</pre>",
-    parameters = {@Param(name = "x", doc = "The object to convert.")}
+    parameters = {@Param(name = "x", doc = "The object to convert.")},
+    useEnvironment = true
   )
   private static final BuiltinFunction repr =
       new BuiltinFunction("repr") {
-        public String invoke(Object x) {
-          return Printer.getPrinter().repr(x).toString();
+        public String invoke(Object x, Environment env) {
+          return Printer.getPrinter(env).repr(x).toString();
         }
       };
 
@@ -2104,11 +2106,14 @@ public class MethodLibrary {
         public Runtime.NoneType invoke(
             String sep, SkylarkList<?> starargs, Location loc, Environment env)
             throws EvalException {
-          String msg = starargs.stream().map(Printer::str).collect(joining(sep));
+          String msg =
+              starargs
+                  .stream()
+                  .map((Object o) -> Printer.getPrinter(env).str(o).toString())
+                  .collect(joining(sep));
           // As part of the integration test "skylark_flag_test.sh", if the
           // "--internal_skylark_flag_test_canary" flag is enabled, append an extra marker string to
-          // the
-          // output.
+          // the output.
           if (env.getSemantics().skylarkFlagTestCanary) {
             msg += "<== skylark flag test ==>";
           }

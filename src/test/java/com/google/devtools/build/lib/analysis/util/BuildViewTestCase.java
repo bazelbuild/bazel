@@ -168,7 +168,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected ConfigurationFactory configurationFactory;
   protected BuildView view;
 
-  private SequencedSkyframeExecutor skyframeExecutor;
+  protected SequencedSkyframeExecutor skyframeExecutor;
 
   protected TimestampGranularityMonitor tsgm;
   protected BlazeDirectories directories;

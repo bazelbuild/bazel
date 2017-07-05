@@ -55,8 +55,8 @@ public class SkylarkEvaluationTest extends EvaluationTest {
    * Skylark context
    */
   @Override
-  protected ModalTestCase newTest() {
-    return new SkylarkTest();
+  protected ModalTestCase newTest(String... skylarkOptions) {
+    return new SkylarkTest(skylarkOptions);
   }
 
   @Immutable
