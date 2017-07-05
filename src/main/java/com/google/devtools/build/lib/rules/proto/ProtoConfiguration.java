@@ -154,16 +154,6 @@ public class ProtoConfiguration extends Fragment {
     )
     public List<String> ccProtoLibrarySourceSuffixes;
 
-    @Option(
-      name = "reuseJavaCompileActionsFromProtoLibrary",
-      defaultValue = "true",
-      category = "experimental",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "ignored"
-    )
-    public boolean reuseJavaCompileActionsFromProtoLibrary;
-
     @Override
     public FragmentOptions getHost(boolean fallback) {
       Options host = (Options) super.getHost(fallback);
