@@ -134,6 +134,9 @@ public final class LValue extends ASTNode {
         throw new EvalException(loc, String.format(
             "lvalue has length %d, but rvalue has has length %d", len, rvalue.size()));
       }
+      if (len == 0) {
+        throw new EvalException(loc, "invalid lvalue, expected at least one item");
+      }
       int i = 0;
       for (Object o : rvalue) {
         doAssign(env, loc, variables.getElements().get(i), o);

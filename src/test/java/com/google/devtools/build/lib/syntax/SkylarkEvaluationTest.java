@@ -1377,6 +1377,10 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
     new SkylarkTest()
         .testIfErrorContains("type 'int' is not a collection", "[x2 + y2 for x2, y2 in (1, 2)]");
+
+    new SkylarkTest()
+        // returns [2] in Python, it's an error in Skylark
+        .testIfErrorContains("invalid lvalue", "[2 for [] in [()]]");
   }
 
   @Override
