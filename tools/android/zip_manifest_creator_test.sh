@@ -16,9 +16,22 @@
 
 set -eux
 
-export RUNFILES=${RUNFILES:-$($(cd $(dirname ${BASH_SOURCE[0]})); pwd)}
-CUT="$(cd $(dirname ${BASH_SOURCE[0]}) && pwd)/zip_manifest_creator"
-ZIPPER=$(pwd)/$1
+export RUNFILES=$TEST_SRCDIR
+
+IS_WINDOWS=false
+case "$(uname | tr [:upper:] [:lower:])" in
+msys*|mingw*|cygwin*)
+  IS_WINDOWS=true
+esac
+
+if "$IS_WINDOWS"; then
+  CUT="$(rlocation "[^/]*/tools/android/zip_manifest_creator")"
+  ZIPPER="$(rlocation "[^/]*/$1")"
+else
+  CUT="$(find "${RUNFILES}" -path "*/tools/android/zip_manifest_creator")"
+  ZIPPER="$(find "${RUNFILES}" -path "*/$1")"
+fi
+
 cd $TEST_TMPDIR
 
 touch classes.jar
@@ -27,13 +40,14 @@ mkdir -p res/values
 touch res/values/bar.xml
 touch res/values/baz.xml
 
-$ZIPPER c foo.zip classes.jar AndroidManifest.xml res/values/*
+"$ZIPPER" c foo.zip classes.jar AndroidManifest.xml res/values/*
 
-$CUT 'res/.*' foo.zip actual.manifest
+"$CUT" 'res/.*' foo.zip actual.manifest
 
 cat > expected.manifest <<EOT
 res/values/bar.xml
 res/values/baz.xml
 EOT
 
+# On Windows: you can install `cmp` using `pacman -Syu diffutils`.
 cmp expected.manifest actual.manifest
