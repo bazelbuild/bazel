@@ -195,6 +195,9 @@ public final class BuildTool {
       env.throwPendingException();
 
       // Configuration creation.
+      // TODO(gregce): BuildConfigurationCollection is important for static configs, less so for
+      // dynamic configs. Consider dropping it outright and passing on-the-fly target / host configs
+      // directly when needed (although this could be hard when Skyframe is unavailable).
       BuildConfigurationCollection configurations =
           env.getSkyframeExecutor()
               .createConfigurations(
@@ -251,8 +254,8 @@ public final class BuildTool {
     } catch (RuntimeException e) {
       // Print an error message for unchecked runtime exceptions. This does not concern Error
       // subclasses such as OutOfMemoryError.
-      request.getOutErr().printErrLn("Unhandled exception thrown during build; message: " +
-          e.getMessage());
+      request.getOutErr().printErrLn(
+          "Unhandled exception thrown during build; message: " + e.getMessage());
       catastrophe = true;
       throw e;
     } catch (Error e) {

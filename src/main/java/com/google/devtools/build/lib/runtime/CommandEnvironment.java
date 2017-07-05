@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.devtools.build.lib.profiler.AutoProfiler.profiled;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
@@ -25,10 +24,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.SkyframePackageRootResolver;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.OutputService;
@@ -413,19 +409,6 @@ public final class CommandEnvironment {
     if (crashData != null && crashData.length >= 2) {
       crashData[1] = getCommandId() + " (build id)";
     }
-  }
-
-  /**
-   * This method only exists for the benefit of InfoCommand, which needs to construct a {@link
-   * BuildConfigurationCollection} without running a full loading phase. Don't add any more clients;
-   * instead, we should change info so that it doesn't need the configuration.
-   */
-  public BuildConfigurationCollection getConfigurations(OptionsProvider optionsProvider)
-      throws InvalidConfigurationException, InterruptedException {
-    BuildOptions buildOptions = runtime.createBuildOptions(optionsProvider);
-    boolean keepGoing = optionsProvider.getOptions(BuildView.Options.class).keepGoing;
-    return getSkyframeExecutor().createConfigurations(reporter, runtime.getConfigurationFactory(),
-        buildOptions, ImmutableSet.<String>of(), keepGoing);
   }
 
   /**

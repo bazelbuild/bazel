@@ -41,7 +41,9 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
- * Configuration collection used by the rules Bazel knows.
+ * Configuration collection used by the rules Bazel knows for statically configured builds.
+  *
+  * <p>Dynamically configured builds should never touch this file.
  */
 public class BazelConfigurationCollection implements ConfigurationCollectionFactory {
   @Override
