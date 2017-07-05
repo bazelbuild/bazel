@@ -91,12 +91,6 @@ public class BazelAndroidSemantics implements AndroidSemantics {
   }
 
   @Override
-  public ImmutableList<Artifact> getProguardSpecsForManifest(
-      RuleContext ruleContext, Artifact manifest) {
-    return ImmutableList.of();
-  }
-
-  @Override
   public void addCoverageSupport(RuleContext ruleContext, AndroidCommon common,
       JavaSemantics javaSemantics, boolean forAndroidTest, Builder attributes,
       JavaCompilationArtifacts.Builder artifactsBuilder) {

@@ -97,9 +97,6 @@ public interface AndroidSemantics {
    */
   Artifact getApkDebugSigningKey(RuleContext ruleContext);
 
-  /** Given an Android {@code manifest}, returns a list of relevant Proguard specs. */
-  ImmutableList<Artifact> getProguardSpecsForManifest(RuleContext ruleContext, Artifact manifest);
-
   /**
    * Add coverage instrumentation to the Java compilation of an Android binary.
    * @throws InterruptedException
