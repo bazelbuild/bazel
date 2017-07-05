@@ -1236,7 +1236,7 @@ public class ParserTest extends EvaluationTestCase {
   public void testLoadNotAtTopLevel() throws Exception {
     setFailFast(false);
     parseFileForSkylark("if 1: load(8)\n");
-    assertContainsError("name 'load' is not defined");
+    assertContainsError("syntax error at 'load': expected expression");
   }
 
   @Test
