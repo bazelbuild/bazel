@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.packages.SkylarkAspectClass;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
-import com.google.devtools.build.lib.packages.ToolchainConstructor;
 import com.google.devtools.build.lib.rules.SkylarkAttr;
 import com.google.devtools.build.lib.rules.SkylarkAttr.Descriptor;
 import com.google.devtools.build.lib.rules.SkylarkFileType;
@@ -407,6 +406,15 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "my_aspect = aspect(_impl,",
         "   attrs = { '_extra_deps' : attr.label() }",
         ")");
+  }
+
+  @Test
+  public void testAspectAddToolchain() throws Exception {
+    scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
+    evalAndExport(
+        "def _impl(ctx): pass", "a1 = aspect(_impl, toolchains=['//test:my_toolchain_type'])");
+    SkylarkAspect a = (SkylarkAspect) lookup("a1");
+    assertThat(a.getRequiredToolchains()).containsExactly(makeLabel("//test:my_toolchain_type"));
   }
 
   @Test
@@ -1420,13 +1428,11 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testRuleAddToolchain() throws Exception {
+    scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
     evalAndExport(
-        "my_toolchain_type = platform_common.toolchain_type()",
-        "def impl(ctx): return None",
-        "r1 = rule(impl, toolchains=[my_toolchain_type])");
-    ToolchainConstructor toolchain = (ToolchainConstructor) lookup("my_toolchain_type");
+        "def impl(ctx): return None", "r1 = rule(impl, toolchains=['//test:my_toolchain_type'])");
     RuleClass c = ((RuleFunction) lookup("r1")).getRuleClass();
-    assertThat(c.getRequiredToolchains()).containsExactly(toolchain.getKey());
+    assertThat(c.getRequiredToolchains()).containsExactly(makeLabel("//test:my_toolchain_type"));
   }
 
   @Test

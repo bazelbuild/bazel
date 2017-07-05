@@ -899,7 +899,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
             .setMissingFragmentPolicy(missingFragmentPolicy)
             .build(),
         supportsConstraintChecking,
-        /*requiredToolchains=*/ ImmutableList.<ClassObjectConstructor.Key>of(),
+        /*requiredToolchains=*/ ImmutableList.<Label>of(),
         attributes);
   }
 
@@ -1041,13 +1041,15 @@ public class RuleClassTest extends PackageLoadingTestCase {
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
             .add(attr("tags", STRING_LIST));
 
-    ClassObjectConstructor.Key toolchain1 = new ClassObjectConstructor.Key() {};
-    ClassObjectConstructor.Key toolchain2 = new ClassObjectConstructor.Key() {};
-    ruleClassBuilder.addRequiredToolchain(toolchain1);
-    ruleClassBuilder.addRequiredToolchain(toolchain2);
+    ruleClassBuilder.addRequiredToolchains(
+        ImmutableList.of(
+            Label.parseAbsolute("//toolchain:tc1"), Label.parseAbsolute("//toolchain:tc2")));
 
     RuleClass ruleClass = ruleClassBuilder.build();
 
-    assertThat(ruleClass.getRequiredToolchains()).containsExactly(toolchain1, toolchain2).inOrder();
+    assertThat(ruleClass.getRequiredToolchains())
+        .containsExactly(
+            Label.parseAbsolute("//toolchain:tc1"), Label.parseAbsolute("//toolchain:tc2"))
+        .inOrder();
   }
 }

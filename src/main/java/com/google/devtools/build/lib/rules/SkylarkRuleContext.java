@@ -184,7 +184,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
   private SkylarkRuleAttributesCollection attributesCollection;
   private SkylarkRuleAttributesCollection ruleAttributesCollection;
   private SkylarkClassObject splitAttributes;
-  private SkylarkDict<ClassObjectConstructor.Key, ToolchainInfo> toolchains;
+  private SkylarkDict<Label, ToolchainInfo> toolchains;
 
   // TODO(bazel-team): we only need this because of the css_binary rule.
   private ImmutableMap<Artifact, Label> artifactsLabelMap;
@@ -290,7 +290,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
     makeVariables = ruleContext.getConfigurationMakeVariableContext().collectMakeVariables();
     toolchains =
         ruleContext.getToolchainContext() == null
-            ? SkylarkDict.<ClassObjectConstructor.Key, ToolchainInfo>of(null)
+            ? SkylarkDict.<Label, ToolchainInfo>of(null)
             : ruleContext.getToolchainContext().collectToolchains();
   }
 
@@ -835,7 +835,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
   }
 
   @SkylarkCallable(structField = true, doc = "Toolchains required for this rule.")
-  public SkylarkDict<ClassObjectConstructor.Key, ToolchainInfo> toolchains() throws EvalException {
+  public SkylarkDict<Label, ToolchainInfo> toolchains() throws EvalException {
     checkMutable("toolchains");
     if (ruleAttributesCollection != null) {
       // TODO(katre): Support toolchains on aspects.

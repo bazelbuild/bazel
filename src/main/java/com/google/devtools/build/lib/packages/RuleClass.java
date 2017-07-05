@@ -27,6 +27,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -508,7 +509,7 @@ public class RuleClass {
     private boolean supportsConstraintChecking = true;
 
     private final Map<String, Attribute> attributes = new LinkedHashMap<>();
-    private final List<ClassObjectConstructor.Key> requiredToolchains = new ArrayList<>();
+    private final List<Label> requiredToolchains = new ArrayList<>();
 
     /**
      * Constructs a new {@code RuleClassBuilder} using all attributes from all
@@ -1000,8 +1001,8 @@ public class RuleClass {
       return this;
     }
 
-    public Builder addRequiredToolchain(ClassObjectConstructor.Key toolchain) {
-      this.requiredToolchains.add(toolchain);
+    public Builder addRequiredToolchains(Iterable<Label> toolchainLabels) {
+      Iterables.addAll(this.requiredToolchains, toolchainLabels);
       return this;
     }
 
@@ -1125,7 +1126,7 @@ public class RuleClass {
    */
   private final boolean supportsConstraintChecking;
 
-  private final ImmutableList<ClassObjectConstructor.Key> requiredToolchains;
+  private final ImmutableList<Label> requiredToolchains;
 
   /**
    * Constructs an instance of RuleClass whose name is 'name', attributes are 'attributes'. The
@@ -1173,7 +1174,7 @@ public class RuleClass {
       String ruleDefinitionEnvironmentHashCode,
       ConfigurationFragmentPolicy configurationFragmentPolicy,
       boolean supportsConstraintChecking,
-      List<ClassObjectConstructor.Key> requiredToolchains,
+      List<Label> requiredToolchains,
       Attribute... attributes) {
     this.name = name;
     this.isSkylark = isSkylark;
@@ -2012,7 +2013,7 @@ public class RuleClass {
     return outputsDefaultExecutable;
   }
 
-  public ImmutableList<ClassObjectConstructor.Key> getRequiredToolchains() {
+  public ImmutableList<Label> getRequiredToolchains() {
     return requiredToolchains;
   }
 

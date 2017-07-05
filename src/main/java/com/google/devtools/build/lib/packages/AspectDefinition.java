@@ -60,7 +60,7 @@ public final class AspectDefinition {
   private final RequiredProviders requiredProviders;
   private final RequiredProviders requiredProvidersForAspects;
   private final ImmutableMap<String, Attribute> attributes;
-  private final ImmutableList<ClassObjectConstructor.Key> requiredToolchains;
+  private final ImmutableList<Label> requiredToolchains;
 
   /**
    * Which attributes aspect should propagate along:
@@ -83,7 +83,7 @@ public final class AspectDefinition {
       RequiredProviders requiredProviders,
       RequiredProviders requiredAspectProviders,
       ImmutableMap<String, Attribute> attributes,
-      ImmutableList<ClassObjectConstructor.Key> requiredToolchains,
+      ImmutableList<Label> requiredToolchains,
       @Nullable ImmutableSet<String> restrictToAttributes,
       @Nullable ConfigurationFragmentPolicy configurationFragmentPolicy,
       boolean applyToFiles) {
@@ -117,7 +117,7 @@ public final class AspectDefinition {
   }
 
   /** Returns the required toolchains declared by this aspect. */
-  public ImmutableList<ClassObjectConstructor.Key> getRequiredToolchains() {
+  public ImmutableList<Label> getRequiredToolchains() {
     return requiredToolchains;
   }
 
@@ -265,7 +265,7 @@ public final class AspectDefinition {
     private final ConfigurationFragmentPolicy.Builder configurationFragmentPolicy =
         new ConfigurationFragmentPolicy.Builder();
     private boolean applyToFiles = false;
-    private final List<ClassObjectConstructor.Key> requiredToolchains = new ArrayList<>();
+    private final List<Label> requiredToolchains = new ArrayList<>();
 
     public Builder(AspectClass aspectClass) {
       this.aspectClass = aspectClass;
@@ -467,7 +467,7 @@ public final class AspectDefinition {
     }
 
     /** Adds the given toolchains as requirements for this aspect. */
-    public Builder addRequiredToolchains(List<ClassObjectConstructor.Key> requiredToolchains) {
+    public Builder addRequiredToolchains(List<Label> requiredToolchains) {
       this.requiredToolchains.addAll(requiredToolchains);
       return this;
     }
