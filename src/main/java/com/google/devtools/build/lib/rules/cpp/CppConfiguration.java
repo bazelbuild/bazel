@@ -594,13 +594,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     return result.build();
   }
 
-  private static boolean actionsAreConfigured(CToolchain toolchain) {
-    return toolchain
-        .getActionConfigList()
-        .stream()
-        .anyMatch(actionConfig -> actionConfig.getActionName().contains("c++"));
-  }
-
   // TODO(bazel-team): Remove this once bazel supports all crosstool flags through
   // feature configuration, and all crosstools have been converted.
   private CToolchain addLegacyFeatures(CToolchain toolchain) {
@@ -632,33 +625,31 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     Set<String> features = featuresBuilder.build();
     if (!features.contains(CppRuleClasses.NO_LEGACY_FEATURES)) {
       try {
-        if (!actionsAreConfigured(toolchain)) {
-          String gccToolPath = "DUMMY_GCC_TOOL";
-          String linkerToolPath = "DUMMY_LINKER_TOOL";
-          String arToolPath = "DUMMY_AR_TOOL";
-          for (ToolPath tool : toolchain.getToolPathList()) {
-            if (tool.getName().equals(Tool.GCC.getNamePart())) {
-              gccToolPath = tool.getPath();
-              linkerToolPath =
-                  crosstoolTopPathFragment
-                      .getRelative(PathFragment.create(tool.getPath()))
-                      .getPathString();
-            }
-            if (tool.getName().equals(Tool.AR.getNamePart())) {
-              arToolPath = tool.getPath();
-            }
+        String gccToolPath = "DUMMY_GCC_TOOL";
+        String linkerToolPath = "DUMMY_LINKER_TOOL";
+        String arToolPath = "DUMMY_AR_TOOL";
+        for (ToolPath tool : toolchain.getToolPathList()) {
+          if (tool.getName().equals(Tool.GCC.getNamePart())) {
+            gccToolPath = tool.getPath();
+            linkerToolPath =
+                crosstoolTopPathFragment
+                    .getRelative(PathFragment.create(tool.getPath()))
+                    .getPathString();
           }
-          TextFormat.merge(
-              CppActionConfigs.getCppActionConfigs(
-                  getTargetLibc().equals("macosx") ? CppPlatform.MAC : CppPlatform.LINUX,
-                  features,
-                  gccToolPath,
-                  linkerToolPath,
-                  arToolPath,
-                  supportsEmbeddedRuntimes,
-                  toolchain.getSupportsInterfaceSharedObjects()),
-              toolchainBuilder);
+          if (tool.getName().equals(Tool.AR.getNamePart())) {
+            arToolPath = tool.getPath();
+          }
         }
+        TextFormat.merge(
+            CppActionConfigs.getCppActionConfigs(
+                getTargetLibc().equals("macosx") ? CppPlatform.MAC : CppPlatform.LINUX,
+                features,
+                gccToolPath,
+                linkerToolPath,
+                arToolPath,
+                supportsEmbeddedRuntimes,
+                toolchain.getSupportsInterfaceSharedObjects()),
+            toolchainBuilder);
 
         if (!features.contains("dependency_file")) {
           // Gcc options:

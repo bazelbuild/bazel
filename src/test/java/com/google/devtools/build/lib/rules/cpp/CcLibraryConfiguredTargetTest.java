@@ -19,7 +19,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -277,42 +276,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .containsExactlyElementsIn(buildInfoHeaderArtifacts);
     assertThat(cppLinkInfo.getLinkOptList())
         .containsExactlyElementsIn(action.getLinkCommandLine().getRawLinkArgv());
-  }
-
-  /**
-   * Tests that if a given crosstool defines action configs for all link actions, that the link
-   * action will be configured from the crosstool instead of from hard-coded action_configs in
-   * {@code CppActionConfigs}.
-   */
-  @Test
-  public void testUsesCrosstoolIfLinkActionDefined() throws Exception {
-    String completeBrokenActionConfigs =
-        Joiner.on("\n")
-            .join(
-                MockCcSupport.INCOMPLETE_EXECUTABLE_ACTION_CONFIG,
-                MockCcSupport.INCOMPLETE_DYNAMIC_LIBRARY_ACTION_CONFIG,
-                MockCcSupport.INCOMPLETE_STATIC_LIBRARY_ACTION_CONFIG,
-                MockCcSupport.INCOMPLETE_PIC_STATIC_LIBRARY_ACTION_CONFIG,
-                MockCcSupport.INCOMPLETE_ALWAYS_LINK_STATIC_LIBRARY_ACTION_CONFIG,
-                MockCcSupport.INCOMPLETE_ALWAYS_LINK_PIC_STATIC_LIBRARY_EXECUTABLE_ACTION_CONFIG,
-                MockCcSupport.INCOMPLETE_INTERFACE_DYNAMIC_LIBRARY_ACTION_CONFIG);
-    AnalysisMock.get().ccSupport().setupCrosstool(mockToolsConfig, completeBrokenActionConfigs);
-
-    useConfiguration(
-        "--features=" + Link.LinkTargetType.EXECUTABLE.getActionName(),
-        "--features=" + Link.LinkTargetType.DYNAMIC_LIBRARY.getActionName(),
-        "--features=" + Link.LinkTargetType.STATIC_LIBRARY.getActionName(),
-        "--features=" + Link.LinkTargetType.PIC_STATIC_LIBRARY.getActionName(),
-        "--features=" + Link.LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY.getActionName(),
-        "--features=" + Link.LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY.getActionName(),
-        "--features=" + Link.LinkTargetType.INTERFACE_DYNAMIC_LIBRARY.getActionName());
-
-    ConfiguredTarget hello = getConfiguredTarget("//hello:hello_static");
-    Artifact archive =
-        FileType.filter(getFilesToBuild(hello), CppFileTypes.ARCHIVE).iterator().next();
-    CppLinkAction action = (CppLinkAction) getGeneratingAction(archive);
-
-    assertThat(Joiner.on(" ").join(action.getArgv())).doesNotContain("hello.pic.o");
   }
 
   @Test

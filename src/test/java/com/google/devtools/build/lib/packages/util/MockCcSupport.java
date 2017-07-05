@@ -52,6 +52,27 @@ public abstract class MockCcSupport {
         }
       };
 
+  /** This feature will prevent bazel from patching the crosstool. */
+  public static final String NO_LEGACY_FEATURES_FEATURE = "feature { name: 'no_legacy_features' }";
+
+  /** Feature expected by the C++ rules when pic build is requested */
+  public static final String PIC_FEATURE =
+      ""
+          + "feature {"
+          + "  name: 'pic'"
+          + "  flag_set {"
+          + "    action: 'c-compile'"
+          + "    action: 'c++-compile'"
+          + "    action: 'c++-module-codegen'"
+          + "    action: 'c++-module-compile'"
+          + "    action: 'preprocess-assemble'"
+          + "    expand_if_all_available: 'pic'"
+          + "    flag_group {"
+          + "      flag: '-fPIC'"
+          + "    }"
+          + "  }"
+          + "}";
+
   /**
    * A feature configuration snippet useful for testing header processing.
    */
@@ -306,6 +327,7 @@ public abstract class MockCcSupport {
           + "    action: 'c++-compile'"
           + "    action: 'assemble'"
           + "    action: 'preprocess-assemble'"
+          + "    action: 'c++-module-codegen'"
           + "    action: 'lto-backend'"
           + "    expand_if_all_available: 'per_object_debug_info_file'"
           + "    flag_group {"

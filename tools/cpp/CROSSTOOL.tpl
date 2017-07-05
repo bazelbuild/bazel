@@ -217,6 +217,10 @@ toolchain {
 
   linker_flag: "/SUBSYSTEM:CONSOLE"
 
+  feature {
+    name: "no_legacy_features"
+  }
+
   # Suppress startup banner.
   feature {
     name: "nologo"
