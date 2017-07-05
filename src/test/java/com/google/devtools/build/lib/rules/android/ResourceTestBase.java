@@ -28,7 +28,9 @@ import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import org.junit.After;
 import org.junit.Before;
 
@@ -51,12 +53,16 @@ public abstract class ResourceTestBase {
     private String attributeErrorAttribute = null;
     private String attributeErrorMessage = null;
 
+    private final List<String> ruleWarnings = new ArrayList<>();
+
     // Use an ArrayListMultimap since it allows duplicates - we'll want to know if a warning is
     // reported twice.
     private final Multimap<String, String> attributeWarnings = ArrayListMultimap.create();
 
     @Override
-    public void ruleWarning(String message) {}
+    public void ruleWarning(String message) {
+      ruleWarnings.add(message);
+    }
 
     @Override
     public void ruleError(String message) {
@@ -72,6 +78,16 @@ public abstract class ResourceTestBase {
     public void attributeError(String attrName, String message) {
       attributeErrorAttribute = attrName;
       attributeErrorMessage = message;
+    }
+
+    public Collection<String> getAndClearRuleWarnings() {
+      Collection<String> warnings = ImmutableList.copyOf(ruleWarnings);
+      ruleWarnings.clear();
+      return warnings;
+    }
+
+    public void assertNoRuleWarnings() {
+      assertThat(ruleWarnings).isEmpty();
     }
 
     public Collection<String> getAndClearAttributeWarnings(String attrName) {
