@@ -276,6 +276,7 @@ apple_binary(
     name = "main_binary",
     deps = [":lib_a", ":lib_b"],
     srcs = ["main.m"],
+    platform_type = "ios",
 )
 genrule(
   name = "lipo_run",
@@ -443,6 +444,7 @@ objc_library(
 apple_binary(
     name = "main_binary",
     deps = [":lib_a", ":lib_b"],
+    platform_type = "ios",
 )
 genrule(
   name = "lipo_run",
@@ -934,6 +936,7 @@ apple_binary(
     name = "main_binary",
     deps = [":lib_a", ":lib_b"],
     srcs = ["main.m"],
+    platform_type = "ios",
 )
 genrule(
   name = "lipo_run",

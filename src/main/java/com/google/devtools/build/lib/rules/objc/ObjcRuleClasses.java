@@ -922,7 +922,7 @@ public class ObjcRuleClasses {
           Options are:
           <ul>
             <li>
-              <code>ios</code> (default): architectures gathered from <code>--ios_multi_cpus</code>.
+              <code>ios</code>: architectures gathered from <code>--ios_multi_cpus</code>.
             </li>
             <li>
               <code>macos</code>: architectures gathered from <code>--macos_cpus</code>.
@@ -935,17 +935,15 @@ public class ObjcRuleClasses {
             </li>
           </ul>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          // TODO(b/37635370): Remove the "ios" default and make this mandatory.
           .add(
               attr(PLATFORM_TYPE_ATTR_NAME, STRING)
-                  .value(PlatformType.IOS.toString())
+                  .mandatory()
                   .nonconfigurable("Determines the configuration transition on deps"))
           /* <!-- #BLAZE_RULE($apple_platform_rule).ATTRIBUTE(minimum_os) -->
           The minimum OS version that this target and its dependencies should be built for.
 
           This should be a dotted version string such as "7.3".
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          // TODO(b/37096178): This should be a mandatory attribute.
           .add(
               attr(MINIMUM_OS_VERSION, STRING)
                   .nonconfigurable("Determines the configuration transition on deps"))
