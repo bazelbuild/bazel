@@ -62,11 +62,9 @@ function test_toolchain_rule() {
 
   mkdir -p toolchain
   cat >> toolchain/toolchain.bzl <<EOF
-test_toolchain_type = platform_common.toolchain_type()
 def _test_toolchain_impl(ctx):
-  toolchain = test_toolchain_type(
-      exec_compatible_with = ctx.attr.exec_compatible_with,
-      target_compatible_with = ctx.attr.target_compatible_with,
+  toolchain = platform_common.ToolchainInfo(
+      type = Label('//toolchain:test_toolchain_type'),
       extra_label = ctx.attr.extra_label,
       extra_str = ctx.attr.extra_str)
   return [toolchain]
@@ -74,10 +72,8 @@ def _test_toolchain_impl(ctx):
 test_toolchain = rule(
     _test_toolchain_impl,
     attrs = {
-        'exec_compatible_with': attr.label_list(providers = [platform_common.ConstraintValueInfo]),
-        'target_compatible_with': attr.label_list(providers = [platform_common.ConstraintValueInfo]),
-       'extra_label': attr.label(),
-       'extra_str': attr.string(),
+        'extra_label': attr.label(),
+        'extra_str': attr.string(),
     }
 )
 EOF
@@ -86,25 +82,21 @@ EOF
 load('//report:report.bzl', 'report_toolchain')
 load(':toolchain.bzl', 'test_toolchain')
 filegroup(name = 'dep_rule')
+toolchain_type(name = 'test_toolchain_type')
 test_toolchain(
     name = 'linux_toolchain',
-    exec_compatible_with = [
-      '//constraints:linux',
-    ],
-    target_compatible_with = [
-      '//constraints:mac',
-    ],
     extra_label = ':dep_rule',
     extra_str = 'bar',
 )
 report_toolchain(
   name = 'report',
-  fields = ['extra_label', 'extra_str'],
+  fields = ['type', 'extra_label', 'extra_str'],
   toolchain = ':linux_toolchain',
 )
 EOF
 
   bazel build //toolchain:report &> $TEST_log || fail "Build failed"
+  expect_log 'type = "//toolchain:test_toolchain_type"'
   expect_log 'extra_label = "//toolchain:dep_rule"'
   expect_log 'extra_str = "bar"'
 }

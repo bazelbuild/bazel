@@ -14,12 +14,13 @@
 
 package com.google.devtools.build.lib.analysis.platform;
 
-import com.google.common.collect.ImmutableList;
+import static com.google.common.truth.Truth.assertThat;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -29,55 +30,68 @@ import org.junit.runners.JUnit4;
 public class ToolchainInfoTest extends BuildViewTestCase {
 
   @Test
+  public void toolchainInfoConstructor() throws Exception {
+    scratch.file(
+        "test/toolchain/my_toolchain.bzl",
+        "def _impl(ctx):",
+        "  toolchain = platform_common.ToolchainInfo(",
+        "      type = Label('//test/toolchain:my_toolchain_type'),",
+        "      extra_label = ctx.attr.extra_label,",
+        "      extra_str = ctx.attr.extra_str)",
+        "  return [toolchain]",
+        "my_toolchain = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'extra_label': attr.label(),",
+        "    'extra_str': attr.string(),",
+        "  }",
+        ")");
+    scratch.file(
+        "test/toolchain/BUILD",
+        "load('//test/toolchain:my_toolchain.bzl', 'my_toolchain')",
+        "toolchain_type(name = 'my_toolchain_type')",
+        "filegroup(name = 'dep')",
+        "my_toolchain(name = 'toolchain',",
+        "    extra_label = ':dep',",
+        "    extra_str = 'foo')");
+
+    ConfiguredTarget toolchain = getConfiguredTarget("//test/toolchain:toolchain");
+    assertThat(toolchain).isNotNull();
+
+    ToolchainInfo provider = PlatformProviderUtils.toolchain(toolchain);
+    assertThat(provider).isNotNull();
+
+    assertThat(provider.type()).isEqualTo(makeLabel("//test/toolchain:my_toolchain_type"));
+
+    ConfiguredTarget extraLabel = (ConfiguredTarget) provider.getValue("extra_label");
+    assertThat(extraLabel).isNotNull();
+    assertThat(extraLabel.getLabel()).isEqualTo(makeLabel("//test/toolchain:dep"));
+    assertThat(provider.getValue("extra_str")).isEqualTo("foo");
+  }
+
+  @Test
   public void toolchainInfo_equalsTester() throws Exception {
-    ClassObjectConstructor.Key key = new ClassObjectConstructor.Key() {};
-    ConstraintSettingInfo setting1 = ConstraintSettingInfo.create(makeLabel("//constraint:basic"));
-    ConstraintSettingInfo setting2 = ConstraintSettingInfo.create(makeLabel("//constraint:other"));
-
-    ConstraintValueInfo value1 =
-        ConstraintValueInfo.create(setting1, makeLabel("//constraint:value1"));
-    ConstraintValueInfo value2 =
-        ConstraintValueInfo.create(setting2, makeLabel("//constraint:value2"));
-    ConstraintValueInfo value3 =
-        ConstraintValueInfo.create(setting2, makeLabel("//constraint:value3"));
-
     new EqualsTester()
         .addEqualityGroup(
             // Base case.
-            new ToolchainInfo(
-                key,
-                ImmutableList.of(value1, value2),
-                ImmutableList.of(value1, value3),
+            ToolchainInfo.create(
+                makeLabel("//toolchain:tc1"),
                 ImmutableMap.<String, Object>of("foo", "val1", "bar", "val2"),
                 Location.BUILTIN),
-            new ToolchainInfo(
-                key,
-                ImmutableList.of(value1, value2),
-                ImmutableList.of(value1, value3),
+            ToolchainInfo.create(
+                makeLabel("//toolchain:tc1"),
                 ImmutableMap.<String, Object>of("foo", "val1", "bar", "val2"),
                 Location.BUILTIN))
         .addEqualityGroup(
             // Different type.
-            new ToolchainInfo(
-                new ClassObjectConstructor.Key() {},
-                ImmutableList.of(value1, value2),
-                ImmutableList.of(value1, value3),
-                ImmutableMap.<String, Object>of("foo", "val1", "bar", "val2"),
-                Location.BUILTIN))
-        .addEqualityGroup(
-            // Different target constraints.
-            new ToolchainInfo(
-                key,
-                ImmutableList.of(value1, value2),
-                ImmutableList.of(value1, value2),
+            ToolchainInfo.create(
+                makeLabel("//toolchain:tc2"),
                 ImmutableMap.<String, Object>of("foo", "val1", "bar", "val2"),
                 Location.BUILTIN))
         .addEqualityGroup(
             // Different data.
-            new ToolchainInfo(
-                key,
-                ImmutableList.of(value1, value2),
-                ImmutableList.of(value1, value3),
+            ToolchainInfo.create(
+                makeLabel("//toolchain:tc1"),
                 ImmutableMap.<String, Object>of("foo", "val1", "bar", "val3"),
                 Location.BUILTIN))
         .testEquals();

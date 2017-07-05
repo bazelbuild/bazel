@@ -70,7 +70,13 @@ public class PlatformCommon {
     return ConstraintValueInfo.SKYLARK_CONSTRUCTOR;
   }
 
-  @SkylarkCallable(name = ToolchainInfo.SKYLARK_NAME, documented = false, structField = true)
+  @SkylarkCallable(
+    name = ToolchainInfo.SKYLARK_NAME,
+    doc =
+        "The provider constructor for ToolchainInfo. The constructor takes the type of the "
+            + "toolchain, and a map of the toolchain's data.",
+    structField = true
+  )
   public ClassObjectConstructor getToolchainInfoConstructor() {
     return ToolchainInfo.SKYLARK_CONSTRUCTOR;
   }

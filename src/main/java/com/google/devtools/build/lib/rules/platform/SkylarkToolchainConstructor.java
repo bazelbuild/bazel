@@ -15,9 +15,6 @@ package com.google.devtools.build.lib.rules.platform;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
-import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
-import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.packages.ToolchainConstructor;
@@ -25,12 +22,12 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import javax.annotation.Nullable;
 
 /** Skylark value that can be used to create toolchains. */
+// TODO(katre): Remove this entirely.
 public class SkylarkToolchainConstructor extends SkylarkClassObjectConstructor
     implements ToolchainConstructor {
 
@@ -70,14 +67,6 @@ public class SkylarkToolchainConstructor extends SkylarkClassObjectConstructor
   protected Object call(Object[] args, @Nullable FuncallExpression ast, @Nullable Environment env)
       throws EvalException, InterruptedException {
 
-    // Based on SIGNATURE above, the args are exec (list), target (list), data (map).
-    Iterable<ConstraintValueInfo> execConstraints =
-        PlatformProviderUtils.constraintValues((SkylarkList<TransitiveInfoCollection>) args[0]);
-    Iterable<ConstraintValueInfo> targetConstraints =
-        PlatformProviderUtils.constraintValues((SkylarkList<TransitiveInfoCollection>) args[1]);
-    SkylarkDict<String, Object> toolchainData = (SkylarkDict<String, Object>) args[2];
-    Location loc = ast != null ? ast.getLocation() : Location.BUILTIN;
-
-    return new ToolchainInfo(getKey(), execConstraints, targetConstraints, toolchainData, loc);
+    return null;
   }
 }

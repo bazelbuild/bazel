@@ -17,11 +17,9 @@ package com.google.devtools.build.lib.rules.platform;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
-import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
-import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -31,6 +29,7 @@ import org.junit.runners.JUnit4;
 public class PlatformCommonTest extends SkylarkTestCase {
 
   @Test
+  @Ignore("Remove this test")
   public void testCreateToolchainType() throws Exception {
     scratch.file(
         "test/toolchain_type.bzl",
@@ -79,24 +78,5 @@ public class PlatformCommonTest extends SkylarkTestCase {
     ToolchainInfo toolchainInfo =
         (ToolchainInfo) configuredTarget.get(ToolchainInfo.SKYLARK_IDENTIFIER);
     assertThat(toolchainInfo).isNotNull();
-
-    assertThat(toolchainInfo.toolchainConstructorKey()).isNotNull();
-    assertThat(toolchainInfo.toolchainConstructorKey())
-        .isEqualTo(
-            new SkylarkClassObjectConstructor.SkylarkKey(
-                makeLabel("//test:toolchain_type.bzl"), "test_toolchain_type"));
-
-    assertThat(toolchainInfo.execConstraints())
-        .containsExactly(
-            ConstraintValueInfo.create(
-                ConstraintSettingInfo.create(makeLabel("//test:os")), makeLabel("//test:linux")));
-    assertThat(toolchainInfo.targetConstraints())
-        .containsExactly(
-            ConstraintValueInfo.create(
-                ConstraintSettingInfo.create(makeLabel("//test:os")), makeLabel("//test:mac")));
-
-    assertThat(((ConfiguredTarget) toolchainInfo.getValue("extra_label")).getLabel())
-        .isEqualTo(makeLabel("//test:dep_rule"));
-    assertThat(toolchainInfo.getValue("extra_str")).isEqualTo("bar");
   }
 }

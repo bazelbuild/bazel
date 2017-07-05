@@ -68,4 +68,14 @@ public class PlatformProviderUtils {
       Iterable<? extends SkylarkProviderCollection> targets) {
     return Iterables.transform(targets, PlatformProviderUtils::constraintValue);
   }
+
+  /** Retrieves and casts the {@link ToolchainInfo} provider from the given target. */
+  public static ToolchainInfo toolchain(SkylarkProviderCollection target) {
+    Object provider = target.get(ToolchainInfo.SKYLARK_IDENTIFIER);
+    if (provider == null) {
+      return null;
+    }
+    Preconditions.checkState(provider instanceof ToolchainInfo);
+    return (ToolchainInfo) provider;
+  }
 }
