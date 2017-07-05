@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "src/main/cpp/startup_options.h"
+
 #include <stdlib.h>
 
 #include "src/main/cpp/blaze_util_platform.h"
-#include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/workspace_layout.h"
 #include "gtest/gtest.h"
 
@@ -94,6 +95,9 @@ TEST_F(StartupOptionsTest, JavaLoggingOptions) {
       startup_options_->java_logging_formatter);
 }
 
+// TODO(bazel-team): remove the ifdef guard once the implementation of
+// GetOutputRoot is stable among the different platforms.
+#ifdef __linux
 TEST_F(StartupOptionsTest, OutputRootPreferTestTmpdirIfSet) {
   SetEnv("HOME", "/nonexistent/home");
   SetEnv("TEST_TMPDIR", "/nonexistent/tmpdir");
@@ -109,6 +113,7 @@ TEST_F(StartupOptionsTest, OutputRootUseHomeDirectory) {
 
   ASSERT_EQ("/nonexistent/home/.cache/bazel", startup_options_->output_root);
 }
+#endif  // __linux
 
 TEST_F(StartupOptionsTest, EmptyFlagsAreInvalidTest) {
   EXPECT_FALSE(startup_options_->IsNullary(""));
@@ -148,17 +153,6 @@ TEST_F(StartupOptionsTest, ValidStartupFlagsTest) {
   SuccessfulIsUnaryTest("max_idle_secs");
   SuccessfulIsUnaryTest("output_base");
   SuccessfulIsUnaryTest("output_user_root");
-}
-
-TEST_F(StartupOptionsTest, IsUnaryTest) {
-  EXPECT_FALSE(startup_options_->IsUnary(""));
-  EXPECT_FALSE(startup_options_->IsUnary("--"));
-
-  EXPECT_TRUE(startup_options_->IsUnary("--blazerc=foo"));
-  EXPECT_TRUE(startup_options_->IsUnary("--blazerc"));
-  EXPECT_TRUE(startup_options_->IsUnary("--blazerc="));
-  EXPECT_TRUE(startup_options_->IsUnary("--blazerc"));
-  EXPECT_FALSE(startup_options_->IsUnary("--blazercfooblah"));
 }
 
 }  // namespace blaze

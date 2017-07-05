@@ -32,4 +32,41 @@ cc_test(
     ],
 )
 
+cc_test(
+    name = "option_processor_test",
+    size = "small",
+    srcs = ["option_processor_test.cc"],
+    deps = [
+        "//src/main/cpp:blaze_util",
+        "//src/main/cpp:option_processor",
+        "//src/main/cpp:workspace_layout",
+        "//src/main/cpp/util",
+        "//third_party:gtest",
+    ],
+)
+
+cc_test(
+    name = "startup_options_test",
+    size = "small",
+    srcs = ["startup_options_test.cc"],
+    deps = [
+        "//src/main/cpp:blaze_util",
+        "//src/main/cpp:startup_options",
+        "//src/main/cpp:workspace_layout",
+        "//third_party:gtest",
+    ],
+)
+
+cc_test(
+    name = "workspace_layout_test",
+    size = "small",
+    srcs = ["workspace_layout_test.cc"],
+    deps = [
+        "//src/main/cpp:blaze_util",
+        "//src/main/cpp:workspace_layout",
+        "//src/main/cpp/util",
+        "//third_party:gtest",
+    ],
+)
+
 test_suite(name = "all_tests")

@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef THIRD_PARTY_BAZEL_SRC_MAIN_CPP_OPTION_PROCESSOR_INTERNAL_H_
-#define THIRD_PARTY_BAZEL_SRC_MAIN_CPP_OPTION_PROCESSOR_INTERNAL_H_
+#ifndef BAZEL_SRC_MAIN_CPP_OPTION_PROCESSOR_INTERNAL_H_
+#define BAZEL_SRC_MAIN_CPP_OPTION_PROCESSOR_INTERNAL_H_
 
 #include <algorithm>
 
@@ -22,7 +22,7 @@
 namespace blaze {
 namespace internal {
 
-// Returns the deduped set of blazerc paths (with respect to its canonical form)
+// Returns the deduped set of bazelrc paths (with respect to its canonical form)
 // preserving the original order. The paths that cannot be resolved are
 // omitted.
 std::vector<std::string> DedupeBlazercPaths(
@@ -31,4 +31,4 @@ std::vector<std::string> DedupeBlazercPaths(
 }  // namespace internal
 }  // namespace blaze
 
-#endif  // THIRD_PARTY_BAZEL_SRC_MAIN_CPP_OPTION_PROCESSOR_INTERNAL_H_
+#endif  // BAZEL_SRC_MAIN_CPP_OPTION_PROCESSOR_INTERNAL_H_
