@@ -417,7 +417,7 @@ function test_basic_json() {
   expect_log '"started"'
   expect_log '"id"'
   expect_log '"children" *: *\['
-  expect_log '"overallSuccess": true'
+  expect_log '"overallSuccess": *true'
 }
 
 function test_root_cause_early() {
