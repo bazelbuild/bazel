@@ -41,9 +41,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
 import java.text.MessageFormat;
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
@@ -171,7 +170,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
               ? null
               // we don't use the target mapping for the target, just the missing deps
               : canonicalizeTarget(dependencyModule.getTargetLabel());
-      List<JarOwner> canonicalizedMissing = new ArrayList<>();
+      LinkedHashSet<JarOwner> canonicalizedMissing = new LinkedHashSet<>();
       for (JarOwner owner :
           Ordering.natural().onResultOf(JarOwner.LABEL).immutableSortedCopy(missingTargets)) {
         // for dependencies that are missing we canonicalize and remap the target so we don't
