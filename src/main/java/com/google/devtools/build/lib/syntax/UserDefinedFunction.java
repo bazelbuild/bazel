@@ -15,8 +15,10 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 
 /**
  * The actual function registered in the environment. This function is defined in the
@@ -89,5 +91,16 @@ public class UserDefinedFunction extends BaseFunction {
       Profiler.instance().completeTask(ProfilerTask.SKYLARK_USER_FN);
       env.exitScope();
     }
+  }
+
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    Label label = this.definitionGlobals.getTransitiveLabel();
+
+    printer.append("<function " + getName());
+    if (label != null) {
+      printer.append(" from " + label);
+    }
+    printer.append(">");
   }
 }

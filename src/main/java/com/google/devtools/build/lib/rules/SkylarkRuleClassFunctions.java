@@ -73,6 +73,7 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.rules.SkylarkAttr.Descriptor;
 import com.google.devtools.build.lib.skylarkinterface.Param;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
@@ -814,6 +815,11 @@ public class SkylarkRuleClassFunctions {
     @Override
     public boolean isExported() {
       return skylarkLabel != null;
+    }
+
+    @Override
+    public void repr(SkylarkPrinter printer) {
+      printer.append("<rule>");
     }
   }
 

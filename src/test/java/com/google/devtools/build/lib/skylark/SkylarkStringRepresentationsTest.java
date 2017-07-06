@@ -214,6 +214,23 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
     assertStringRepresentation("struct(d = 4, c = 3)", "struct(c = 3, d = 4)");
   }
 
+
+  @Test
+  public void testStringRepresentations_Functions() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=true");
+
+    assertStringRepresentation("all", "<built-in function all>");
+    assertStringRepresentation("def f(): pass", "f", "<function f from //eval:eval.bzl>");
+  }
+
+  @Test
+  public void testStringRepresentations_Rules() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=true");
+
+    assertStringRepresentation("native.cc_library", "<built-in rule cc_library>");
+    assertStringRepresentation("rule(implementation=str)", "<rule>");
+  }
+
   @Test
   public void testLegacyStringRepresentations_Labels() throws Exception {
     setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=false");
@@ -246,6 +263,12 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
 
     assertStringRepresentation("native.cc_library", "<function cc_library>");
     assertStringRepresentation("rule(implementation=str)", "<function rule>");
+  }
+
+  @Test
+  public void testLegacyStringRepresentations_Aspects() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=false");
+
     assertStringRepresentation("aspect(implementation=str)", "Aspect:<function str>");
   }
 
