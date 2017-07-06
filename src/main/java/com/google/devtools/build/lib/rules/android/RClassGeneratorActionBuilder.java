@@ -74,7 +74,7 @@ public class RClassGeneratorActionBuilder {
 
   public void build() {
     CustomCommandLine.Builder builder = new CustomCommandLine.Builder();
-    
+
     // Set the busybox tool.
     builder.add("--tool").add("GENERATE_BINARY_R").add("--");
 

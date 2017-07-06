@@ -688,6 +688,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return (SpawnAction) getGeneratingAction(artifact);
   }
 
+  protected final List<String> getGeneratingSpawnActionArgs(Artifact artifact) {
+    SpawnAction a = getGeneratingSpawnAction(artifact);
+    ParameterFileWriteAction p = findParamsFileAction(a);
+    return p == null
+        ? a.getArguments()
+        : ImmutableList.copyOf(Iterables.concat(a.getArguments(), p.getContents()));
+  }
+
   protected SpawnAction getGeneratingSpawnAction(ConfiguredTarget target, String outputName) {
     return getGeneratingSpawnAction(
         Iterables.find(getFilesToBuild(target), artifactNamed(outputName)));
