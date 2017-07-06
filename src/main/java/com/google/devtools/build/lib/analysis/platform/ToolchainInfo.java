@@ -67,7 +67,7 @@ public class ToolchainInfo extends SkylarkClassObject {
             throws EvalException {
           // Based on SIGNATURE above, the args are label, map.
           Label type = (Label) args[0];
-          SkylarkDict<String, Object> data =
+          Map<String, Object> data =
               SkylarkDict.castSkylarkDictOrNoneToDict(args[1], String.class, Object.class, "data");
           return ToolchainInfo.create(type, data, loc);
         }
