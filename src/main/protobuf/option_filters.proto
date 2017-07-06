@@ -17,10 +17,10 @@ package options;
 option java_package = "com.google.devtools.common.options.proto";
 
 // IMPORTANT NOTE: Changing this proto has specific compatibility requirements.
-// ** Waved during the transition phase **
+// ** Waived during the transition phase **
 //    This enum is not yet depended on externally and none of these constraints
 //    matter until that flip is switched.
-// TODO(bazel-team) Remove the wave of compatibility requirements after the
+// TODO(bazel-team) Remove the waiving of compatibility requirements after the
 // transition period is over.
 //
 // These tags are used for flag filtering. They are consumed by tools that
@@ -37,7 +37,7 @@ option java_package = "com.google.devtools.common.options.proto";
 //   options that still have this tag. Please try not to do this.
 //   Create a new value and deprecate the old one instead, to avoid confusion.
 
-// These tags should describe the intent and effects of option.
+// These tags should describe the intent and effects of an option.
 //
 // These will be used for filtering noise in long and complex command-lines, to
 // help provide an overview of which options were likely to have an effect on an
@@ -110,6 +110,10 @@ enum OptionEffectTag {
   // but should not be relevant for the majority of Bazel users that aren't also
   // Bazel developers.
   BAZEL_MONITORING = 11;
+
+  // This option affects Bazel's terminal output, but should not affect its
+  // operations. Verbosity and formatting options should have this tag.
+  TERMINAL_OUTPUT = 12;
 }
 
 // On top of categorizing options by their intended purpose, these tags should
