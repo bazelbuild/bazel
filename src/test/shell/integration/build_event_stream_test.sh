@@ -28,13 +28,15 @@ set -e
 function set_up() {
   mkdir -p pkg
   touch pkg/somesourcefile
-  cat > pkg/true.sh <<EOF
+  cat > pkg/true.sh <<'EOF'
 #!/bin/sh
+[ -n "${XML_OUTPUT_FILE}" ] && touch "${XML_OUTPUT_FILE}"
 exit 0
 EOF
   chmod 755 pkg/true.sh
-  cat > pkg/false.sh <<EOF
+  cat > pkg/false.sh <<'EOF'
 #!/bin/sh
+[ -n "${XML_OUTPUT_FILE}" ] && touch "${XML_OUTPUT_FILE}"
 exit 1
 EOF
   chmod 755 pkg/false.sh
@@ -228,8 +230,8 @@ function test_test_attempts() {
   # mentioned in the stream.
   # Moreover, as the test consistently fails, we expect the overall status
   # to be reported as failure.
-  ( bazel test --build_event_text_file=$TEST_log pkg:flaky \
-    && fail "test failure expected" ) || true
+  (bazel test --build_event_text_file=$TEST_log pkg:flaky \
+      && fail "test failure expected" ) || true
   expect_log 'attempt.*1$'
   expect_log 'attempt.*2$'
   expect_log 'attempt.*3$'
@@ -240,8 +242,8 @@ function test_test_attempts() {
   expect_not_log 'aborted'
   expect_log '^test_result'
   expect_log 'test_action_output'
-  expect_log 'flaky/.*attempt_1.xml'
-  expect_log 'flaky/.*attempt_2.xml'
+  expect_log 'flaky/.*_1.xml'
+  expect_log 'flaky/.*_2.xml'
   expect_log 'flaky/.*test.xml'
   expect_log 'name:.*test.log'
   expect_log 'name:.*test.xml'

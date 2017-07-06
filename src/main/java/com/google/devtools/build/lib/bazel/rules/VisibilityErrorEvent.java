@@ -30,7 +30,7 @@ public class VisibilityErrorEvent implements BuildEventWithConfiguration {
   Label label;
   String errorMessage;
 
-  VisibilityErrorEvent(BuildConfiguration configuration, Label label, String errorMessage) {
+  public VisibilityErrorEvent(BuildConfiguration configuration, Label label, String errorMessage) {
     this.configuration = configuration;
     this.label = label;
     this.errorMessage = errorMessage;
