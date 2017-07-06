@@ -18,6 +18,9 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
+import com.google.devtools.remoteexecution.v1test.Platform;
+import com.google.protobuf.TextFormat;
+import com.google.protobuf.TextFormat.ParseException;
 
 /** Options for remote execution and distributed caching. */
 public final class RemoteOptions extends OptionsBase {
@@ -214,4 +217,19 @@ public final class RemoteOptions extends OptionsBase {
     help = "The random factor to apply to retry delays on transient errors."
   )
   public double experimentalRemoteRetryJitter;
+
+  public Platform parseRemotePlatformOverride() {
+    if (experimentalRemotePlatformOverride != null) {
+      Platform.Builder platformBuilder = Platform.newBuilder();
+      try {
+        TextFormat.getParser().merge(experimentalRemotePlatformOverride, platformBuilder);
+      } catch (ParseException e) {
+        throw new IllegalArgumentException(
+            "Failed to parse --experimental_remote_platform_override", e);
+      }
+      return platformBuilder.build();
+    } else {
+      return null;
+    }
+  }
 }

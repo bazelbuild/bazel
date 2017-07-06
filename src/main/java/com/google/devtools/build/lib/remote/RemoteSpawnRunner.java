@@ -35,8 +35,6 @@ import com.google.devtools.remoteexecution.v1test.Digest;
 import com.google.devtools.remoteexecution.v1test.ExecuteRequest;
 import com.google.devtools.remoteexecution.v1test.Platform;
 import com.google.protobuf.Duration;
-import com.google.protobuf.TextFormat;
-import com.google.protobuf.TextFormat.ParseException;
 import io.grpc.StatusRuntimeException;
 import java.io.IOException;
 import java.util.Collection;
@@ -62,17 +60,7 @@ final class RemoteSpawnRunner implements SpawnRunner {
       GrpcRemoteCache remoteCache) {
     this.execRoot = execRoot;
     this.options = options;
-    if (options.experimentalRemotePlatformOverride != null) {
-      Platform.Builder platformBuilder = Platform.newBuilder();
-      try {
-        TextFormat.getParser().merge(options.experimentalRemotePlatformOverride, platformBuilder);
-      } catch (ParseException e) {
-        throw new RuntimeException("Failed to parse --experimental_remote_platform_override", e);
-      }
-      platform = platformBuilder.build();
-    } else {
-      platform = null;
-    }
+    this.platform = options.parseRemotePlatformOverride();
     this.executor = executor;
     this.remoteCache = remoteCache;
   }

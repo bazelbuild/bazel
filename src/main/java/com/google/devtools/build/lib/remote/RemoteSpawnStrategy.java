@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
-import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
@@ -44,8 +43,6 @@ import com.google.devtools.remoteexecution.v1test.ExecuteRequest;
 import com.google.devtools.remoteexecution.v1test.ExecuteResponse;
 import com.google.devtools.remoteexecution.v1test.Platform;
 import com.google.protobuf.Duration;
-import com.google.protobuf.TextFormat;
-import com.google.protobuf.TextFormat.ParseException;
 import io.grpc.StatusRuntimeException;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -69,7 +66,6 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
   private final RemoteOptions remoteOptions;
   // TODO(olaola): This will be set on a per-action basis instead.
   private final Platform platform;
-  private final ChannelOptions channelOptions;
   private final SpawnInputExpander spawnInputExpander = new SpawnInputExpander(/*strict=*/ false);
 
   private final RemoteActionCache remoteCache;
@@ -78,51 +74,17 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
   RemoteSpawnStrategy(
       Path execRoot,
       RemoteOptions remoteOptions,
-      AuthAndTLSOptions authTlsOptions,
+      RemoteActionCache remoteCache,
+      GrpcRemoteExecutor remoteExecutor,
       boolean verboseFailures,
       SpawnActionContext fallbackStrategy) {
     this.execRoot = execRoot;
     this.fallbackStrategy = fallbackStrategy;
     this.verboseFailures = verboseFailures;
     this.remoteOptions = remoteOptions;
-    channelOptions = ChannelOptions.create(authTlsOptions);
-    if (remoteOptions.experimentalRemotePlatformOverride != null) {
-      Platform.Builder platformBuilder = Platform.newBuilder();
-      try {
-        TextFormat.getParser()
-            .merge(remoteOptions.experimentalRemotePlatformOverride, platformBuilder);
-      } catch (ParseException e) {
-        throw new IllegalArgumentException(
-            "Failed to parse --experimental_remote_platform_override", e);
-      }
-      platform = platformBuilder.build();
-    } else {
-      platform = null;
-    }
-    // Initialize remote cache and execution handlers. We use separate handlers for every
-    // action to enable server-side parallelism (need a different gRPC channel per action).
-    if (SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions)) {
-      remoteCache = new SimpleBlobStoreActionCache(SimpleBlobStoreFactory.create(remoteOptions));
-    } else if (GrpcRemoteCache.isRemoteCacheOptions(remoteOptions)) {
-      remoteCache =
-          new GrpcRemoteCache(
-              GrpcUtils.createChannel(remoteOptions.remoteCache, channelOptions),
-              channelOptions,
-              remoteOptions);
-    } else {
-      remoteCache = null;
-    }
-    // Otherwise remoteCache remains null and remote caching/execution are disabled.
-
-    if (remoteCache != null && GrpcRemoteExecutor.isRemoteExecutionOptions(remoteOptions)) {
-      workExecutor =
-          new GrpcRemoteExecutor(
-              GrpcUtils.createChannel(remoteOptions.remoteExecutor, channelOptions),
-              channelOptions,
-              remoteOptions);
-    } else {
-      workExecutor = null;
-    }
+    this.platform = remoteOptions.parseRemotePlatformOverride();
+    this.remoteCache = remoteCache;
+    this.workExecutor = remoteExecutor;
   }
 
   /** Release resources associated with this spawn strategy. */
