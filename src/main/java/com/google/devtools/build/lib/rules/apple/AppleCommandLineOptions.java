@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.apple;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.DefaultLabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -394,14 +393,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
       default:
         throw new IllegalArgumentException("Unhandled platform type " + applePlatformType);
     }
-  }
-
-  @Override
-  public void addAllLabels(Multimap<String, Label> labelMap) {
-    if (getPlatform() == Platform.IOS_DEVICE) {
-      labelMap.put("default_provisioning_profile", defaultProvisioningProfile);
-    }
-    labelMap.put("xcode_version_config", xcodeVersionConfig);
   }
 
   /**

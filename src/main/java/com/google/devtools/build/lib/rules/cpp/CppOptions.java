@@ -17,7 +17,6 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
@@ -867,40 +866,6 @@ public class CppOptions extends FragmentOptions {
     host.inmemoryDotdFiles = inmemoryDotdFiles;
 
     return host;
-  }
-
-  @Override
-  public void addAllLabels(Multimap<String, Label> labelMap) {
-    labelMap.put("crosstool", crosstoolTop);
-    if (hostCrosstoolTop != null) {
-      labelMap.put("crosstool", hostCrosstoolTop);
-    }
-
-    if (libcTopLabel != null) {
-      Label libcLabel = libcTopLabel;
-      if (libcLabel != null) {
-        labelMap.put("crosstool", libcLabel);
-      }
-    }
-    if (hostLibcTopLabel != null) {
-      Label libcLabel = hostLibcTopLabel;
-      if (libcLabel != null) {
-        labelMap.put("crosstool", libcLabel);
-      }
-    }
-    addOptionalLabel(labelMap, "fdo", getFdoOptimize());
-
-    if (stl != null) {
-      labelMap.put("STL", stl);
-    }
-
-    if (customMalloc != null) {
-      labelMap.put("custom_malloc", customMalloc);
-    }
-
-    if (getLipoContext() != null) {
-      labelMap.put("lipo", getLipoContext());
-    }
   }
 
   @Override

@@ -17,7 +17,6 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.EmptyToNullLabelConverter;
@@ -670,15 +669,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
               + " R classes will be used."
     )
     public boolean generateRobolectricRClass;
-
-    @Override
-    public void addAllLabels(Multimap<String, Label> labelMap) {
-      if (androidCrosstoolTop != null) {
-        labelMap.put("android_crosstool_top", androidCrosstoolTop);
-      }
-
-      labelMap.put("android_sdk", sdk);
-    }
 
     @Override
     public FragmentOptions getHost(boolean fallback) {

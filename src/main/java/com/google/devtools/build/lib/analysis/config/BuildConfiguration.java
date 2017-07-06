@@ -29,7 +29,6 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Interners;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
@@ -1180,14 +1179,6 @@ public final class BuildConfiguration implements BuildEvent {
       return host;
     }
 
-    @Override
-    public void addAllLabels(Multimap<String, Label> labelMap) {
-      labelMap.putAll("action_listener", actionListeners);
-      labelMap.putAll("plugins", pluginList);
-      if ((runUnder != null) && (runUnder.getLabel() != null)) {
-        labelMap.put("RunUnder", runUnder.getLabel());
-      }
-    }
     @Override
     public Map<String, Set<Label>> getDefaultsLabels(BuildConfiguration.Options commonOptions) {
       return ImmutableMap.<String, Set<Label>>of(
@@ -2671,10 +2662,6 @@ public final class BuildConfiguration implements BuildEvent {
    */
   public BuildOptions getOptions() {
     return buildOptions;
-  }
-
-  public ListMultimap<String, Label> getAllLabels() {
-    return buildOptions.getAllLabels();
   }
 
   public String getCpu() {

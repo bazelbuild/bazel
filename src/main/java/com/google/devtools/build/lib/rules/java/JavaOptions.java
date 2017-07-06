@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.java;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelMapConverter;
@@ -24,7 +23,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDe
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaOptimizationMode;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
@@ -543,17 +541,6 @@ public class JavaOptions extends FragmentOptions {
   }
 
   @Override
-  public void addAllLabels(Multimap<String, Label> labelMap) {
-    addOptionalLabel(labelMap, "jdk", javaBase);
-    addOptionalLabel(labelMap, "jdk", hostJavaBase);
-    if (javaLauncher != null) {
-      labelMap.put("java_launcher", javaLauncher);
-    }
-    labelMap.put("java_toolchain", javaToolchain);
-    labelMap.putAll("translation", getTranslationLabels());
-  }
-
-  @Override
   public Map<String, Set<Label>> getDefaultsLabels(BuildConfiguration.Options commonOptions) {
     Set<Label> jdkLabels = new LinkedHashSet<>();
     DefaultsPackage.parseAndAdd(jdkLabels, javaBase);
@@ -562,19 +549,6 @@ public class JavaOptions extends FragmentOptions {
     result.put("JDK", jdkLabels);
     result.put("JAVA_TOOLCHAIN", ImmutableSet.of(javaToolchain));
 
-    return result;
-  }
-
-  private Set<Label> getTranslationLabels() {
-    Set<Label> result = new LinkedHashSet<>();
-    for (String s : translationTargets) {
-      try {
-        Label label = Label.parseAbsolute(s);
-        result.add(label);
-      } catch (LabelSyntaxException e) {
-        // We ignore this exception here - it will cause an error message at a later time.
-      }
-    }
     return result;
   }
 }

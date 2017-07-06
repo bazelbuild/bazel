@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -87,7 +86,4 @@ public class J2ObjcCommandLineOptions extends FragmentOptions {
     help = "Whether to generate J2ObjC header map in parallel of J2ObjC transpilation."
   )
   public boolean experimentalJ2ObjcHeaderMap;
-
-  @Override
-  public void addAllLabels(Multimap<String, Label> labelMap) {}
 }
