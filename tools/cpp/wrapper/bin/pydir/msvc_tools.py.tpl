@@ -63,6 +63,21 @@ class ArgParser(object):
     self.enforce_debug_rt = False
     self._ParseArgs(argv)
 
+  def ApplyUndefines(self):
+    """Collapse paired /D and /U arguments.
+
+    cl.exe will emit warning D9025 whenever /U is used and it cannot be
+    silenced. This operation works around that by removing any define that is
+    also undefined in the same command line.
+    """
+    # Remove all /D's that have a matching /U.
+    self.options = [option for option in self.options
+                    if (option[0:2] != '/D' or
+                        '/U%s' % (option[2:]) not in self.options)]
+    # Remove the unneeded /Us.
+    self.options = [option for option in self.options
+                    if option[0:2] != '/U']
+
   def ReplaceLibrary(self, arg):
     """Do the actual replacement if necessary."""
     if arg == "/WHOLEARCHIVE":

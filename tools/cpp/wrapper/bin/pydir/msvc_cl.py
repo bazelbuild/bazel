@@ -94,6 +94,7 @@ class MsvcCompiler(msvc_tools.WindowsRunner):
       ValueError: if target architecture isn't specified
     """
     parser = msvc_tools.ArgParser(self, argv, GCCPATTERNS)
+    parser.ApplyUndefines()
 
     # Select runtime option
     # Find the last runtime option passed
