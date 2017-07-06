@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
@@ -195,6 +196,10 @@ public class ProcessPackageDirectory {
       String basename = dirent.getName();
       if (rootRelativePath.equals(PathFragment.EMPTY_FRAGMENT)
           && PathPackageLocator.DEFAULT_TOP_LEVEL_EXCLUDES.contains(basename)) {
+        continue;
+      }
+      if (basename.equals(Label.EXTERNAL_PACKAGE_NAME.getPathString())) {
+        // Not a real package.
         continue;
       }
       PathFragment subdirectory = rootRelativePath.getRelative(basename);
