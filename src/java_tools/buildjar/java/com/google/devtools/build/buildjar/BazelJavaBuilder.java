@@ -16,6 +16,7 @@ package com.google.devtools.build.buildjar;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.buildjar.javac.BlazeJavacResult;
 import com.google.devtools.build.buildjar.javac.FormattedDiagnostic;
 import com.google.devtools.build.buildjar.javac.JavacOptions;
@@ -30,8 +31,8 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.charset.Charset;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
-import java.util.ListIterator;
 
 /** The JavaBuilder main called by bazel. */
 public abstract class BazelJavaBuilder {
@@ -86,6 +87,16 @@ public abstract class BazelJavaBuilder {
           build.getDependencyModule().reduceClasspath()
               ? new ReducedClasspathJavaLibraryBuilder()
               : new SimpleJavaLibraryBuilder()) {
+
+        // TODO(b/36228287): delete this once the migration to -XepDisableAllChecks is complete
+        if (!Collections.disjoint(
+            build.getJavacOpts(),
+            ImmutableSet.of("-extra_checks", "-extra_checks:on", "-extra_checks:off"))) {
+          throw new InvalidCommandLineException(
+              "-extra_checks is no longer supported;"
+                  + " use -XepDisableAllChecks to disable Error Prone");
+        }
+
         BlazeJavacResult result = builder.run(build);
         for (FormattedDiagnostic d : result.diagnostics()) {
           err.write(d.getFormatted() + "\n");
@@ -102,29 +113,6 @@ public abstract class BazelJavaBuilder {
     }
   }
 
-  private static boolean processAndRemoveExtraChecksOptions(List<String> args) {
-    // error-prone is enabled by default for Bazel.
-    boolean errorProneEnabled = true;
-
-    ListIterator<String> arg = args.listIterator();
-    while (arg.hasNext()) {
-      switch (arg.next()) {
-        case "-extra_checks":
-        case "-extra_checks:on":
-          errorProneEnabled = true;
-          arg.remove();
-          break;
-        case "-extra_checks:off":
-          errorProneEnabled = false;
-          arg.remove();
-          break;
-        default: // fall out
-      }
-    }
-
-    return errorProneEnabled;
-  }
-
   /**
    * Parses the list of arguments into a {@link JavaLibraryBuildRequest}. The returned {@link
    * JavaLibraryBuildRequest} object can be then used to configure the compilation itself.
@@ -137,18 +125,10 @@ public abstract class BazelJavaBuilder {
   public static JavaLibraryBuildRequest parse(List<String> args)
       throws IOException, InvalidCommandLineException {
     OptionsParser optionsParser = new OptionsParser(args);
-    ImmutableList.Builder<BlazeJavaCompilerPlugin> plugins = ImmutableList.builder();
-
-    // Support for -extra_checks:off was removed from ErrorPronePlugin, but Bazel still needs it,
-    // so we'll emulate support for this here by handling the flag ourselves and not loading the
-    // plug-in when it is specified.
-    boolean errorProneEnabled = processAndRemoveExtraChecksOptions(optionsParser.getJavacOpts());
-    if (errorProneEnabled) {
-      plugins.add(new ErrorPronePlugin(optionsParser.testOnly()));
-    }
-
+    ImmutableList<BlazeJavaCompilerPlugin> plugins =
+        ImmutableList.of(new ErrorPronePlugin(optionsParser.testOnly()));
     JavaLibraryBuildRequest build =
-        new JavaLibraryBuildRequest(optionsParser, plugins.build(), new DependencyModule.Builder());
+        new JavaLibraryBuildRequest(optionsParser, plugins, new DependencyModule.Builder());
     build.setJavacOpts(JavacOptions.normalizeOptions(build.getJavacOpts()));
     return build;
   }

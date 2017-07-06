@@ -453,7 +453,7 @@ EOF
 package(default_visibility=['//visibility:public'])
 java_library(name = 'hello_library',
              srcs = ['HelloLibrary.java'],
-             javacopts = ['-extra_checks:off'],);
+             javacopts = ['-XepDisableAllChecks'],);
 EOF
 
   bazel build //java/main:main &> $TEST_log || fail "build failed"
