@@ -528,18 +528,10 @@ swift_library(name = "WatchModule",
 apple_binary(name = "bin",
              deps = [":WatchModule"],
              platform_type = "watchos")
-
-apple_watch2_extension(
-    name = "WatchExtension",
-    app_bundle_id = "com.google.app.watchkit",
-    app_name = "WatchApp",
-    binary = ":bin",
-    ext_bundle_id = "com.google.app.extension",
-)
 EOF
 
   bazel build --verbose_failures --xcode_version=$XCODE_VERSION \
-      //ios:WatchExtension >$TEST_log 2>&1 || fail "should build"
+      //ios:bin >$TEST_log 2>&1 || fail "should build"
 }
 
 function test_host_xcodes() {
