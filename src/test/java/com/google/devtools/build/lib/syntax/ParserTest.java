@@ -1219,16 +1219,23 @@ public class ParserTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testLoadSyntaxError() throws Exception {
+  public void testLoadLabelQuoteError() throws Exception {
     setFailFast(false);
     parseFileForSkylark("load(non_quoted, 'a')\n");
     assertContainsError("syntax error");
   }
 
   @Test
-  public void testLoadSyntaxError2() throws Exception {
+  public void testLoadSymbolQuoteError() throws Exception {
     setFailFast(false);
-    parseFileForSkylark("load('non_quoted', a)\n");
+    parseFileForSkylark("load('label', non_quoted)\n");
+    assertContainsError("syntax error");
+  }
+
+  @Test
+  public void testLoadDisallowSameLine() throws Exception {
+    setFailFast(false);
+    parseFileForSkylark("load('foo.bzl', 'foo') load('bar.bzl', 'bar')");
     assertContainsError("syntax error");
   }
 

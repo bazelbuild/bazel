@@ -1116,6 +1116,7 @@ public class Parser {
 
     LoadStatement stmt = new LoadStatement(importString, symbols);
     list.add(setLocation(stmt, start, token.left));
+    expectAndRecover(TokenKind.NEWLINE);
   }
 
   /**
