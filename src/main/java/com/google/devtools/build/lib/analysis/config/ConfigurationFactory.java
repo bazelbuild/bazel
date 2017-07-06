@@ -110,7 +110,7 @@ public final class ConfigurationFactory {
       return null;
     }
 
-    result = new BuildConfiguration(directories, fragments, buildOptions, repositoryName);
+    result = new BuildConfiguration(directories, fragments, buildOptions, repositoryName, null);
     cache.put(cacheKey, result);
     return result;
   }

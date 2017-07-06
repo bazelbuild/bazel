@@ -1204,7 +1204,7 @@ public final class BuildConfiguration implements BuildEvent {
   private final ImmutableMap<Class<? extends Fragment>, Fragment> fragments;
   private final ImmutableMap<String, Class<? extends Fragment>> skylarkVisibleFragments;
   private final RepositoryName mainRepositoryName;
-
+  private final DynamicTransitionMapper dynamicTransitionMapper;
 
   /**
    * Directories in the output tree.
@@ -1516,11 +1516,15 @@ public final class BuildConfiguration implements BuildEvent {
 
   /**
    * Constructs a new BuildConfiguration instance.
+   *
+   * <p>Callers that pass null for {@code dynamicTransitionMapper} should not use dynamic
+   * configurations.
    */
   public BuildConfiguration(BlazeDirectories directories,
       Map<Class<? extends Fragment>, Fragment> fragmentsMap,
       BuildOptions buildOptions,
-      String repositoryName) {
+      String repositoryName,
+      @Nullable DynamicTransitionMapper dynamicTransitionMapper) {
     this.directories = directories;
     this.fragments = ImmutableSortedMap.copyOf(fragmentsMap, lexicalFragmentSorter);
 
@@ -1530,6 +1534,7 @@ public final class BuildConfiguration implements BuildEvent {
     this.actionsEnabled = buildOptions.enableActions();
     this.options = buildOptions.get(Options.class);
     this.mainRepositoryName = RepositoryName.createFromValidStrippedName(repositoryName);
+    this.dynamicTransitionMapper = dynamicTransitionMapper;
 
     // We can't use an ImmutableMap.Builder here; we need the ability to add entries with keys that
     // are already in the map so that the same define can be specified on the command line twice,
@@ -1612,8 +1617,13 @@ public final class BuildConfiguration implements BuildEvent {
     }
     BuildOptions options = buildOptions.trim(
         getOptionsClasses(fragmentsMap.keySet(), ruleClassProvider));
-    BuildConfiguration newConfig = new BuildConfiguration(
-        directories, fragmentsMap, options, mainRepositoryName.strippedName());
+    BuildConfiguration newConfig =
+        new BuildConfiguration(
+            directories,
+            fragmentsMap,
+            options,
+            mainRepositoryName.strippedName(),
+            dynamicTransitionMapper);
     newConfig.setConfigurationTransitions(this.transitions);
     return newConfig;
   }
@@ -1777,12 +1787,6 @@ public final class BuildConfiguration implements BuildEvent {
    */
   public interface TransitionApplier {
     /**
-     * Creates a new instance of this transition applier bound to the specified source
-     * configuration.
-     */
-    TransitionApplier create(BuildConfiguration config);
-
-    /**
      * Accepts the given configuration transition. The implementation decides how to turn
      * this into an actual configuration. This may be called multiple times (representing a
      * request for a sequence of transitions).
@@ -1835,11 +1839,6 @@ public final class BuildConfiguration implements BuildEvent {
 
     private StaticTransitionApplier(BuildConfiguration originalConfiguration) {
       this.toConfigurations = ImmutableList.<BuildConfiguration>of(originalConfiguration);
-    }
-
-    @Override
-    public TransitionApplier create(BuildConfiguration configuration) {
-      return new StaticTransitionApplier(configuration);
     }
 
     @Override
@@ -1922,8 +1921,8 @@ public final class BuildConfiguration implements BuildEvent {
    * transitions that the caller subsequently creates configurations from.
    */
   private static class DynamicTransitionApplier implements TransitionApplier {
-    private final BuildOptions originalOptions;
     private final Transitions transitionsManager;
+    private final DynamicTransitionMapper dynamicTransitionMapper;
     private boolean splitApplied = false;
 
     // The transition this applier applies to dep rules. When multiple transitions are requested,
@@ -1931,14 +1930,10 @@ public final class BuildConfiguration implements BuildEvent {
     // so calling code doesn't need special logic to support combinations.
     private Transition currentTransition = Attribute.ConfigurationTransition.NONE;
 
-    private DynamicTransitionApplier(BuildConfiguration originalConfiguration) {
-      this.originalOptions = originalConfiguration.getOptions();
-      this.transitionsManager = originalConfiguration.getTransitions();
-    }
-
-    @Override
-    public TransitionApplier create(BuildConfiguration configuration) {
-      return new DynamicTransitionApplier(configuration);
+    private DynamicTransitionApplier(Transitions transitionsManager,
+        DynamicTransitionMapper dynamicTransitionMapper) {
+      this.transitionsManager = transitionsManager;
+      this.dynamicTransitionMapper = dynamicTransitionMapper;
     }
 
     /**
@@ -1973,10 +1968,9 @@ public final class BuildConfiguration implements BuildEvent {
         // in the last segment of a ComposingSplitTransition, those optimizations wouldn't trigger.
         return HostTransition.INSTANCE;
       }
+
       // TODO(gregce): remove this dynamic transition mapping when static configs are removed.
-      Transition dynamicTransition = (transition2 instanceof PatchTransition)
-          ? transition2
-          : transitionsManager.getDynamicTransition(transition2);
+      Transition dynamicTransition = dynamicTransitionMapper.map(transition2);
       return transition1 == Attribute.ConfigurationTransition.NONE
           ? dynamicTransition
           : new ComposingSplitTransition(transition1, dynamicTransition);
@@ -2101,7 +2095,7 @@ public final class BuildConfiguration implements BuildEvent {
    */
   public TransitionApplier getTransitionApplier() {
     return useDynamicConfigurations()
-        ? new DynamicTransitionApplier(this)
+        ? new DynamicTransitionApplier(this.getTransitions(), dynamicTransitionMapper)
         : new StaticTransitionApplier(this);
   }
 

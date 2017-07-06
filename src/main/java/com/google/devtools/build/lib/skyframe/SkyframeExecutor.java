@@ -1114,8 +1114,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // The host configuration inherits the data, not target options. This is so host tools don't
     // apply LIPO.
     BuildConfiguration firstTargetConfig = topLevelTargetConfigs.get(0);
-    Attribute.Transition dataTransition = firstTargetConfig.getTransitions()
-        .getDynamicTransition(Attribute.ConfigurationTransition.DATA);
+    Attribute.Transition dataTransition =
+        ((ConfiguredRuleClassProvider) ruleClassProvider)
+            .getDynamicTransitionMapper()
+            .map(Attribute.ConfigurationTransition.DATA);
     BuildOptions dataOptions = dataTransition != Attribute.ConfigurationTransition.NONE
         ? ((PatchTransition) dataTransition).apply(firstTargetConfig.getOptions())
         : firstTargetConfig.getOptions();

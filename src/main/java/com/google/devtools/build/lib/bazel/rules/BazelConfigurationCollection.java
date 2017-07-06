@@ -100,12 +100,11 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
     }
 
     @Override
+    @Deprecated
     public Transition getDynamicTransition(Transition configurationTransition) {
-      if (configurationTransition == ConfigurationTransition.DATA) {
-        return ConfigurationTransition.NONE;
-      } else {
-        return super.getDynamicTransition(configurationTransition);
-      }
+      // Keep this interface for now because some other dead code is still calling it.
+      throw new UnsupportedOperationException(
+          "This interface is no longer supported and will be removed soon.");
     }
   }
 

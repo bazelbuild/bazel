@@ -106,6 +106,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainSuiteRule;
 import com.google.devtools.build.lib.rules.cpp.CppBuildInfo;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
+import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoAspect;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoLibraryRule;
 import com.google.devtools.build.lib.rules.extra.ActionListenerRule;
@@ -233,6 +234,7 @@ public class BazelRuleClassProvider {
         public void init(Builder builder) {
           builder.addConfigurationOptions(FeaturePolicyOptions.class);
           builder.addConfigurationFragment(new FeaturePolicyLoader(FEATURE_POLICY_FEATURES));
+          builder.addDynamicTransitionMaps(BaseRuleClasses.DYNAMIC_TRANSITIONS_MAP);
 
           builder.addRuleDefinition(new BaseRuleClasses.RootRule());
           builder.addRuleDefinition(new BaseRuleClasses.BaseRule());
@@ -381,6 +383,7 @@ public class BazelRuleClassProvider {
               CppOptions.class, new CppConfigurationLoader(Functions.<String>identity()));
 
           builder.addBuildInfoFactory(new CppBuildInfo());
+          builder.addDynamicTransitionMaps(CppRuleClasses.DYNAMIC_TRANSITIONS_MAP);
 
           builder.addRuleDefinition(new CcToolchainRule());
           builder.addRuleDefinition(new CcToolchainSuiteRule());

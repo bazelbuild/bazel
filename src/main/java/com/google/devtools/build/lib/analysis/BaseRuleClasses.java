@@ -29,14 +29,19 @@ import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.DynamicTransitionMapper;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.constraints.EnvironmentRule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabelList;
+import com.google.devtools.build.lib.packages.Attribute.Transition;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -327,4 +332,21 @@ public class BaseRuleClasses {
           .build();
     }
   }
+
+  /**
+   * Declares the implementations for {@link Attribute.ConfigurationTransition} enums.
+   *
+   * <p>We can't put this in {@link Attribute} because that's in the {@code lib.packages} package,
+   * which has no access to configuration classes.
+   *
+   * <p>New transitions should extend {@link PatchTransition}, which avoids the need for this map.
+   */
+  public static final ImmutableMap<Transition, Transition> DYNAMIC_TRANSITIONS_MAP =
+      ImmutableMap.of(
+          Attribute.ConfigurationTransition.NONE, DynamicTransitionMapper.SELF,
+          Attribute.ConfigurationTransition.NULL, DynamicTransitionMapper.SELF,
+          Attribute.ConfigurationTransition.HOST, HostTransition.INSTANCE
+          // Attribute.ConfigurationTransition.DATA is skipped because it's C++-specific.
+          // The C++ rule definitions handle its mapping.
+      );
 }
