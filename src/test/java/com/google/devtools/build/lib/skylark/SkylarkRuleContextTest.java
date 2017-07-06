@@ -509,7 +509,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         "macro()",
         "cc_library(name = 'a', srcs = [])");
     getConfiguredTarget("//test:a");
-    assertContainsEvent("selector({Label(\"//foo:foo\"): [Label(\"//bar:bar\")]})");
+    assertContainsEvent("selector({\"//foo:foo\": [\"//bar:bar\"]})");
   }
 
   @Test

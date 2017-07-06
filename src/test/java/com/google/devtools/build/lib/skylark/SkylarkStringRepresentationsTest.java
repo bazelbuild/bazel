@@ -239,6 +239,15 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testStringRepresentations_Select() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=true");
+
+    assertStringRepresentation(
+        "select({'//foo': ['//bar']}) + select({'//foo2': ['//bar2']})",
+        "select({\"//foo\": [\"//bar\"]}) + select({\"//foo2\": [\"//bar2\"]})");
+  }
+
+  @Test
   public void testLegacyStringRepresentations_Labels() throws Exception {
     setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=false");
 
