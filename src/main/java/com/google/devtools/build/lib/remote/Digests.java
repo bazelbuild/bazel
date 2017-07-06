@@ -20,6 +20,7 @@ import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
+import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -103,6 +104,7 @@ public final class Digests {
 
   public static Digest getDigestFromInputCache(ActionInput input, ActionInputFileCache cache)
       throws IOException {
-    return buildDigest(cache.getDigest(input), cache.getSizeInBytes(input));
+    Metadata metadata = cache.getMetadata(input);
+    return buildDigest(metadata.getDigest(), metadata.getSize());
   }
 }

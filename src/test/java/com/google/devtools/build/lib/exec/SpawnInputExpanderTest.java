@@ -18,7 +18,6 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
@@ -26,6 +25,8 @@ import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
+import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
+import com.google.devtools.build.lib.skyframe.FileArtifactValue;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -38,13 +39,14 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.Mockito;
 
 /**
  * Tests for {@link SpawnInputExpander}.
  */
 @RunWith(JUnit4.class)
 public class SpawnInputExpanderTest {
+  private static final byte[] FAKE_DIGEST = new byte[] {1, 2, 3, 4};
+
   private FileSystem fs;
   private SpawnInputExpander expander;
   private Map<PathFragment, ActionInput> inputMappings;
@@ -75,8 +77,8 @@ public class SpawnInputExpanderTest {
         new Artifact(fs.getPath("/root/dir/file"), Root.asSourceRoot(fs.getPath("/root")));
     Runfiles runfiles = new Runfiles.Builder("workspace").addArtifact(artifact).build();
     RunfilesSupplier supplier = new RunfilesSupplierImpl(PathFragment.create("runfiles"), runfiles);
-    ActionInputFileCache mockCache = Mockito.mock(ActionInputFileCache.class);
-    Mockito.when(mockCache.isFile(artifact)).thenReturn(true);
+    FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
+    mockCache.put(artifact, FileArtifactValue.createNormalFile(FAKE_DIGEST, 0));
 
     expander.addRunfilesToInputs(inputMappings, supplier, mockCache);
     assertThat(inputMappings).hasSize(1);
@@ -90,8 +92,8 @@ public class SpawnInputExpanderTest {
         new Artifact(fs.getPath("/root/dir/file"), Root.asSourceRoot(fs.getPath("/root")));
     Runfiles runfiles = new Runfiles.Builder("workspace").addArtifact(artifact).build();
     RunfilesSupplier supplier = new RunfilesSupplierImpl(PathFragment.create("runfiles"), runfiles);
-    ActionInputFileCache mockCache = Mockito.mock(ActionInputFileCache.class);
-    Mockito.when(mockCache.isFile(artifact)).thenReturn(false);
+    FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
+    mockCache.put(artifact, FileArtifactValue.createDirectory(-1));
 
     try {
       expander.addRunfilesToInputs(inputMappings, supplier, mockCache);
@@ -107,8 +109,8 @@ public class SpawnInputExpanderTest {
         new Artifact(fs.getPath("/root/dir/file"), Root.asSourceRoot(fs.getPath("/root")));
     Runfiles runfiles = new Runfiles.Builder("workspace").addArtifact(artifact).build();
     RunfilesSupplier supplier = new RunfilesSupplierImpl(PathFragment.create("runfiles"), runfiles);
-    ActionInputFileCache mockCache = Mockito.mock(ActionInputFileCache.class);
-    Mockito.when(mockCache.isFile(artifact)).thenReturn(false);
+    FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
+    mockCache.put(artifact, FileArtifactValue.createDirectory(-1));
 
     expander = new SpawnInputExpander(/*strict=*/false);
     expander.addRunfilesToInputs(inputMappings, supplier, mockCache);
@@ -128,9 +130,9 @@ public class SpawnInputExpanderTest {
         .addArtifact(artifact2)
         .build();
     RunfilesSupplier supplier = new RunfilesSupplierImpl(PathFragment.create("runfiles"), runfiles);
-    ActionInputFileCache mockCache = Mockito.mock(ActionInputFileCache.class);
-    Mockito.when(mockCache.isFile(artifact1)).thenReturn(true);
-    Mockito.when(mockCache.isFile(artifact2)).thenReturn(true);
+    FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
+    mockCache.put(artifact1, FileArtifactValue.createNormalFile(FAKE_DIGEST, 1));
+    mockCache.put(artifact2, FileArtifactValue.createNormalFile(FAKE_DIGEST, 2));
 
     expander.addRunfilesToInputs(inputMappings, supplier, mockCache);
     assertThat(inputMappings).hasSize(2);
@@ -147,8 +149,8 @@ public class SpawnInputExpanderTest {
     Runfiles runfiles = new Runfiles.Builder("workspace")
         .addSymlink(PathFragment.create("symlink"), artifact).build();
     RunfilesSupplier supplier = new RunfilesSupplierImpl(PathFragment.create("runfiles"), runfiles);
-    ActionInputFileCache mockCache = Mockito.mock(ActionInputFileCache.class);
-    Mockito.when(mockCache.isFile(artifact)).thenReturn(true);
+    FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
+    mockCache.put(artifact, FileArtifactValue.createNormalFile(FAKE_DIGEST, 1));
 
     expander.addRunfilesToInputs(inputMappings, supplier, mockCache);
     assertThat(inputMappings).hasSize(1);
@@ -163,8 +165,8 @@ public class SpawnInputExpanderTest {
     Runfiles runfiles = new Runfiles.Builder("workspace")
         .addRootSymlink(PathFragment.create("symlink"), artifact).build();
     RunfilesSupplier supplier = new RunfilesSupplierImpl(PathFragment.create("runfiles"), runfiles);
-    ActionInputFileCache mockCache = Mockito.mock(ActionInputFileCache.class);
-    Mockito.when(mockCache.isFile(artifact)).thenReturn(true);
+    FakeActionInputFileCache mockCache = new FakeActionInputFileCache();
+    mockCache.put(artifact, FileArtifactValue.createNormalFile(FAKE_DIGEST, 1));
 
     expander.addRunfilesToInputs(inputMappings, supplier, mockCache);
     assertThat(inputMappings).hasSize(2);

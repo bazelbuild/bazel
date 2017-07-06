@@ -20,10 +20,10 @@ import static org.junit.Assert.fail;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.DigestOfDirectoryException;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.protobuf.ByteString;
@@ -78,38 +78,43 @@ public class SingleBuildFileCacheTest {
   }
 
   @Test
-  public void testExceptionsCached() throws Exception {
+  public void testNonExistentPath() throws Exception {
     ActionInput empty = ActionInputHelper.fromPath("/noexist");
-    IOException caught = null;
     try {
-      underTest.getDigest(empty);
+      underTest.getMetadata(empty);
       fail("non existent file should raise exception");
     } catch (IOException expected) {
-      caught = expected;
     }
+  }
+
+  @Test
+  public void testDirectory() throws Exception {
+    Path file = fs.getPath("/directory");
+    file.createDirectory();
+    ActionInput input = ActionInputHelper.fromPath(file.getPathString());
     try {
-      underTest.getSizeInBytes(empty);
-      fail("non existent file should raise exception.");
-    } catch (IOException expected) {
-      assertThat(expected).isSameAs(caught);
+      underTest.getMetadata(input);
+      fail("directory should raise exception");
+    } catch (DigestOfDirectoryException expected) {
+      assertThat(expected).hasMessageThat().isEqualTo("Input is a directory: /directory");
     }
   }
 
   @Test
   public void testCache() throws Exception {
     ActionInput empty = ActionInputHelper.fromPath("/empty");
-    underTest.getDigest(empty);
+    underTest.getMetadata(empty).getDigest();
     assert(calls.containsKey("/empty"));
     assertThat((int) calls.get("/empty")).isEqualTo(1);
-    underTest.getDigest(empty);
+    underTest.getMetadata(empty).getDigest();
     assertThat((int) calls.get("/empty")).isEqualTo(1);
   }
 
   @Test
   public void testBasic() throws Exception {
     ActionInput empty = ActionInputHelper.fromPath("/empty");
-    assertThat(underTest.getSizeInBytes(empty)).isEqualTo(0);
-    byte[] digestBytes = underTest.getDigest(empty);
+    assertThat(underTest.getMetadata(empty).getSize()).isEqualTo(0);
+    byte[] digestBytes = underTest.getMetadata(empty).getDigest();
     ByteString digest = ByteString.copyFromUtf8(
         BaseEncoding.base16().lowerCase().encode(digestBytes));
 
@@ -133,7 +138,7 @@ public class SingleBuildFileCacheTest {
     Path file = fs.getPath("/unreadable");
     file.getOutputStream().close();
     file.chmod(0);
-    ByteString actualDigest = ByteString.copyFrom(underTest.getDigest(input));
+    ByteString actualDigest = ByteString.copyFrom(underTest.getMetadata(input).getDigest());
     assertThat(expectedDigest).isEqualTo(actualDigest);
   }
 }
