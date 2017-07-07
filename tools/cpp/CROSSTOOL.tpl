@@ -175,19 +175,12 @@ toolchain {
   compiler_flag: "/DOS_WINDOWS=OS_WINDOWS"
   compiler_flag: "/DCOMPILER_MSVC"
 
-  # Don't pollute with GDI macros in windows.h.
-  compiler_flag: "/DNOGDI"
-  # Don't define min/max macros in windows.h.
-  compiler_flag: "/DNOMINMAX"
-  compiler_flag: "/DPRAGMA_SUPPORTED"
   # Platform defines.
   compiler_flag: "/D_WIN32_WINNT=0x0600"
   # Turn off warning messages.
   compiler_flag: "/D_CRT_SECURE_NO_DEPRECATE"
   compiler_flag: "/D_CRT_SECURE_NO_WARNINGS"
   compiler_flag: "/D_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS"
-  # Use math constants (M_PI, etc.) from the math library
-  compiler_flag: "/D_USE_MATH_DEFINES"
 
   # Useful options to have on for compilation.
   # Increase the capacity of object files to 2^32 sections.
