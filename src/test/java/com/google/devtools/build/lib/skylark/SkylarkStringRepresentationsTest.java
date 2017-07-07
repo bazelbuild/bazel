@@ -98,8 +98,8 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
    * strings are available in the configured target for //test/skylark:check
    */
   private void generateFilesToTestStrings() throws Exception {
-    // Generate string representations of Skylark rule contexts and targets. Objects are gathered
-    // in the implementation of the `check` rule.
+    // Generate string representations of Skylark rule contexts, targets, and files.
+    // Objects are gathered in the implementation of the `check` rule.
     // prepare_params(objects) converts a dict of objects to a dict of their string representations.
 
     scratch.file(
@@ -138,7 +138,9 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
         "    'output_target': ctx.attr.srcs[1],",
         "    'rule_ctx': ctx,",
         "    'aspect_ctx': ctx.attr.asp_deps[0][aspect_ctx_provider].ctx,",
-        "    'aspect_ctx.rule': ctx.attr.asp_deps[0][aspect_ctx_provider].rule",
+        "    'aspect_ctx.rule': ctx.attr.asp_deps[0][aspect_ctx_provider].rule,",
+        "    'source_file': ctx.attr.srcs[0].files.to_list()[0],",
+        "    'generated_file': ctx.attr.srcs[1].files.to_list()[0],",
         "  }",
         "  return struct(**prepare_params(objects))",
         "check = rule(",
@@ -269,6 +271,21 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testStringRepresentations_Files() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=true");
+
+    generateFilesToTestStrings();
+    ConfiguredTarget target = getConfiguredTarget("//test/skylark:check");
+
+    for (String suffix : SUFFIXES) {
+      assertThat(target.get("source_file" + suffix))
+          .isEqualTo("<source file test/skylark/input.txt>");
+      assertThat(target.get("generated_file" + suffix))
+          .isEqualTo("<generated file test/skylark/output.txt>");
+    }
+  }
+
+  @Test
   public void testStringRepresentations_Attr() throws Exception {
     setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=true");
 
@@ -379,6 +396,21 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
       assertThat(target.get("aspect_ctx" + suffix)).isEqualTo("//test/skylark:bar");
       assertThat(target.get("aspect_ctx.rule" + suffix))
           .isEqualTo("rule_collection://test/skylark:bar");
+    }
+  }
+
+  @Test
+  public void testLegacyStringRepresentations_Files() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=false");
+
+    generateFilesToTestStrings();
+    ConfiguredTarget target = getConfiguredTarget("//test/skylark:check");
+
+    for (String suffix : SUFFIXES) {
+      assertThat(target.get("source_file" + suffix))
+          .isEqualTo("File:[/workspace[source]]test/skylark/input.txt");
+      assertThat((String) target.get("generated_file" + suffix))
+          .endsWith("test/skylark/output.txt");
     }
   }
 }
