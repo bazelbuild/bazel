@@ -238,6 +238,23 @@ public class SkylarkClassObject implements ClassObject, SkylarkValue, Concatable
   @Override
   public void repr(SkylarkPrinter printer) {
     boolean first = true;
+    printer.append("struct(");
+    // Sort by key to ensure deterministic output.
+    for (String key : Ordering.natural().sortedCopy(values.keySet())) {
+      if (!first) {
+        printer.append(", ");
+      }
+      first = false;
+      printer.append(key);
+      printer.append(" = ");
+      printer.repr(values.get(key));
+    }
+    printer.append(")");
+  }
+
+  @Override
+  public void reprLegacy(SkylarkPrinter printer) {
+    boolean first = true;
     printer.append(constructor.getPrintableName());
     printer.append("(");
     // Sort by key to ensure deterministic output.

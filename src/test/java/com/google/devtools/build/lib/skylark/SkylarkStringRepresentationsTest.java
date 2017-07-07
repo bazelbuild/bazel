@@ -238,6 +238,15 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testStringRepresentations_Providers() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=true");
+
+    assertStringRepresentation("provider()", "<provider>");
+    assertStringRepresentation(
+        "p = provider()", "p(b = 'foo', a = 1)", "struct(a = 1, b = \"foo\")");
+  }
+
+  @Test
   public void testStringRepresentations_Select() throws Exception {
     setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=true");
 
@@ -312,7 +321,7 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
     setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=false");
 
     assertStringRepresentation("provider()", "<function <no name>>");
-    assertStringRepresentation("p = provider()", "p(b = 2, a = 1)", "p(a = 1, b = 2)");
+    assertStringRepresentation("p = provider()", "p(b = 'foo', a = 1)", "p(a = 1, b = \"foo\")");
   }
 
   @Test

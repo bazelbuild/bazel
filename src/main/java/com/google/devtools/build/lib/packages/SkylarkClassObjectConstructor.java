@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.SkylarkType;
@@ -123,6 +124,11 @@ public class SkylarkClassObjectConstructor extends ClassObjectConstructor
     return isExported();
   }
 
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    printer.append("<provider>");
+  }
+
   /**
    * A serializable representation of Skylark-defined {@link SkylarkClassObjectConstructor}
    * that uniquely identifies all {@link SkylarkClassObjectConstructor}s that
@@ -169,5 +175,4 @@ public class SkylarkClassObjectConstructor extends ClassObjectConstructor
           && Objects.equals(this.exportedName, other.exportedName);
     }
   }
-
 }
