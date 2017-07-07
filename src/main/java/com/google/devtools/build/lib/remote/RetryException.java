@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.remote;
 
 import io.grpc.Status.Code;
+import io.grpc.StatusException;
 import io.grpc.StatusRuntimeException;
 import java.io.IOException;
 
@@ -32,8 +33,12 @@ public final class RetryException extends IOException {
   }
 
   public boolean causedByStatusCode(Code code) {
-    return getCause() instanceof StatusRuntimeException
-          && ((StatusRuntimeException) getCause()).getStatus().getCode() == code;
+    if (getCause() instanceof StatusRuntimeException) {
+      return ((StatusRuntimeException) getCause()).getStatus().getCode() == code;
+    } else if (getCause() instanceof StatusException) {
+      return ((StatusException) getCause()).getStatus().getCode() == code;
+    }
+    return false;
   }
 
   @Override
