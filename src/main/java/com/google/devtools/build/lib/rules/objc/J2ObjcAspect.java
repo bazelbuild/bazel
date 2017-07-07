@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.FdoSupportProvider;
+import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaGenJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaHelper;
@@ -476,7 +477,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       JavaCompilationArgsProvider compArgsProvider,
       J2ObjcSource j2ObjcSource) {
     CustomCommandLine.Builder argBuilder = CustomCommandLine.builder();
-    PathFragment javaExecutable = ruleContext.getFragment(Jvm.class, HOST).getJavaExecutable();
+    PathFragment javaExecutable = JavaCommon.getHostJavaExecutable(ruleContext);
     argBuilder.add("--java").add(javaExecutable.getPathString());
 
     Artifact j2ObjcDeployJar = ruleContext.getPrerequisiteArtifact("$j2objc", Mode.HOST);

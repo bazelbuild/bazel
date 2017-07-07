@@ -155,11 +155,16 @@ public abstract class JavaHelper {
     }
 
     TransitiveInfoCollection jvm = ruleContext.getPrerequisite(":jvm", Mode.TARGET);
-    if (jvm == null) {
+    return jvm == null ? null :  jvm.getProvider(JavaRuntimeProvider.class);
+  }
+
+  public static JavaRuntimeProvider getHostJavaRuntime(RuleContext ruleContext) {
+    if (!ruleContext.attributes().has(":host_jdk", BuildType.LABEL)) {
       return null;
     }
 
-    return jvm.getProvider(JavaRuntimeProvider.class);
+    TransitiveInfoCollection jvm = ruleContext.getPrerequisite(":host_jdk", Mode.HOST);
+    return jvm == null ? null :  jvm.getProvider(JavaRuntimeProvider.class);
   }
 
   /**

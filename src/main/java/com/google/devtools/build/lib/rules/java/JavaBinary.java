@@ -232,8 +232,6 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext)
             .getDynamicRuntimeLinkInputs();
 
-    JavaRuntimeProvider javaRuntime = JavaHelper.getJavaRuntime(ruleContext);
-
     Iterables.addAll(jvmFlags,
         semantics.getJvmFlags(ruleContext, common.getSrcsArtifacts(), userJvmFlags));
     if (ruleContext.hasErrors()) {
@@ -250,7 +248,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
               jvmFlags,
               executableForRunfiles,
               mainClass,
-              JavaCommon.getJavaBinSubstitution(ruleContext, javaRuntime, launcher));
+              JavaCommon.getJavaBinSubstitution(ruleContext, launcher));
       if (!executableToRun.equals(executableForRunfiles)) {
         filesBuilder.add(executableToRun);
         runfilesBuilder.addArtifact(executableToRun);

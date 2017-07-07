@@ -92,7 +92,7 @@ public class ResourceJarActionBuilder {
     if (singleJar.getFilename().endsWith(".jar")) {
       builder
           .setJarExecutable(
-              ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable(),
+              JavaCommon.getHostJavaExecutable(ruleContext),
               singleJar,
               javaToolchain.getJvmOptions())
           .addTransitiveInputs(javabase);

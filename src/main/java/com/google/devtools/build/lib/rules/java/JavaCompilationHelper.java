@@ -457,10 +457,7 @@ public final class JavaCompilationHelper {
                 .addOutput(genClassJar)
                 .addTransitiveInputs(getHostJavabaseInputs(getRuleContext()))
                 .setJarExecutable(
-                    getRuleContext()
-                        .getHostConfiguration()
-                        .getFragment(Jvm.class)
-                        .getJavaExecutable(),
+                    JavaCommon.getHostJavaExecutable(ruleContext),
                     getGenClassJar(ruleContext),
                     javaToolchain.getJvmOptions())
                 .setCommandLine(
@@ -543,8 +540,7 @@ public final class JavaCompilationHelper {
   private JavaCompileAction.Builder createJavaCompileActionBuilder(
       JavaSemantics semantics) {
     JavaCompileAction.Builder builder = new JavaCompileAction.Builder(ruleContext, semantics);
-    builder.setJavaExecutable(
-        ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable());
+    builder.setJavaExecutable(JavaCommon.getHostJavaExecutable(ruleContext));
     builder.setJavaBaseInputs(
         NestedSetBuilder
             .fromNestedSet(hostJavabase)

@@ -387,7 +387,7 @@ public class JavaHeaderCompileAction extends SpawnAction {
             .addOutputs(outputs)
             .setCommandLine(commandLine.build())
             .setJarExecutable(
-                ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable(),
+                JavaCommon.getHostJavaExecutable(ruleContext),
                 javaToolchain.getHeaderCompiler(),
                 ImmutableList.<String>builder()
                     .add("-Xbootclasspath/p:" + javacJar.getExecPath())
@@ -486,7 +486,7 @@ public class JavaHeaderCompileAction extends SpawnAction {
 
     private CustomCommandLine.Builder getBaseArgs(JavaToolchainProvider javaToolchain) {
       return CustomCommandLine.builder()
-          .addPath(ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable())
+          .addPath(JavaCommon.getHostJavaExecutable(ruleContext))
           .add("-Xverify:none")
           .add(javaToolchain.getJvmOptions())
           .addPaths("-Xbootclasspath/p:%s", javacJar.getExecPath())

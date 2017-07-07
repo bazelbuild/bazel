@@ -278,7 +278,7 @@ public class DeployArchiveBuilder {
               .addOutput(outputJar)
               .setResources(resourceSet)
               .setJarExecutable(
-                  ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable(),
+                  JavaCommon.getHostJavaExecutable(ruleContext),
                   singlejar,
                   jvmArgs)
               .setCommandLine(commandLine)

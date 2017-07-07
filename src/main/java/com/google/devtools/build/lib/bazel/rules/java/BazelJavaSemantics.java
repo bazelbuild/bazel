@@ -261,7 +261,7 @@ public class BazelJavaSemantics implements JavaSemantics {
     arguments.add(Substitution.of("%workspace_prefix%", workspacePrefix));
     arguments.add(Substitution.of("%javabin%", javaExecutable));
     arguments.add(Substitution.of("%needs_runfiles%",
-        ruleContext.getFragment(Jvm.class).getJavaExecutable().isAbsolute() ? "0" : "1"));
+        JavaCommon.getJavaExecutable(ruleContext).isAbsolute() ? "0" : "1"));
 
     TransitiveInfoCollection testSupport = getTestSupport(ruleContext);
     NestedSet<Artifact> testSupportJars =

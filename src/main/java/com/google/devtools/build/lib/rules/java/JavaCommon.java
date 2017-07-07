@@ -466,14 +466,29 @@ public class JavaCommon {
         .collect(toImmutableList());
   }
 
+  public static PathFragment getHostJavaExecutable(RuleContext ruleContext) {
+    JavaRuntimeProvider javaRuntime = JavaHelper.getHostJavaRuntime(ruleContext);
+    return javaRuntime != null
+        ? javaRuntime.javaBinaryExecPath()
+        : ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable();
+  }
+
+  public static PathFragment getJavaExecutable(RuleContext ruleContext) {
+    JavaRuntimeProvider javaRuntime = JavaHelper.getJavaRuntime(ruleContext);
+    return javaRuntime != null
+        ? javaRuntime.javaBinaryExecPath()
+        : ruleContext.getFragment(Jvm.class).getJavaExecutable();
+  }
+
   /**
    * Returns the string that the stub should use to determine the JVM
    * @param launcher if non-null, the cc_binary used to launch the Java Virtual Machine
    */
   public static String getJavaBinSubstitution(
-      RuleContext ruleContext, JavaRuntimeProvider javaRuntime, @Nullable Artifact launcher) {
+      RuleContext ruleContext, @Nullable Artifact launcher) {
     Preconditions.checkState(ruleContext.getConfiguration().hasFragment(Jvm.class));
     PathFragment javaExecutable;
+    JavaRuntimeProvider javaRuntime = JavaHelper.getJavaRuntime(ruleContext);
 
     if (launcher != null) {
       javaExecutable = launcher.getRootRelativePath();
