@@ -155,6 +155,7 @@ import com.google.devtools.build.lib.rules.platform.ConstraintSettingRule;
 import com.google.devtools.build.lib.rules.platform.ConstraintValueRule;
 import com.google.devtools.build.lib.rules.platform.PlatformCommon;
 import com.google.devtools.build.lib.rules.platform.PlatformRule;
+import com.google.devtools.build.lib.rules.platform.ToolchainRule;
 import com.google.devtools.build.lib.rules.proto.BazelProtoLibraryRule;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainRule;
@@ -260,6 +261,8 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new ConstraintSettingRule());
           builder.addRuleDefinition(new ConstraintValueRule());
           builder.addRuleDefinition(new PlatformRule());
+
+          builder.addRuleDefinition(new ToolchainRule());
 
           builder.addSkylarkAccessibleTopLevels("platform_common", new PlatformCommon());
         }
