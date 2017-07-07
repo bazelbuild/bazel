@@ -42,7 +42,9 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollectio
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ComposingSplitTransition;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.DynamicTransitionMapper;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -893,7 +895,9 @@ public class BuildView {
       if (targetAndConfig.getConfiguration() != null) {
         asDeps.put(targetAndConfig.getConfiguration(),
             Dependency.withTransitionAndAspects(
-                targetAndConfig.getLabel(), getTopLevelTransition(targetAndConfig),
+                targetAndConfig.getLabel(),
+                getTopLevelTransition(targetAndConfig,
+                    ruleClassProvider.getDynamicTransitionMapper()),
                 // TODO(bazel-team): support top-level aspects
                 AspectCollection.EMPTY));
       }
@@ -934,8 +938,8 @@ public class BuildView {
    * Returns the transition to apply to the top-level configuration before applying it to this
    * target. This enables support for rule-triggered top-level configuration hooks.
    */
-  private static Attribute.Transition getTopLevelTransition(
-      TargetAndConfiguration targetAndConfig) {
+  private static Attribute.Transition getTopLevelTransition(TargetAndConfiguration targetAndConfig,
+      DynamicTransitionMapper dynamicTransitionMapper) {
     Target target = targetAndConfig.getTarget();
     BuildConfiguration fromConfig = targetAndConfig.getConfiguration();
     Preconditions.checkArgument(fromConfig.useDynamicConfigurations());
@@ -956,7 +960,11 @@ public class BuildView {
     if (transitionFactory == null) {
       return topLevelTransition;
     }
-    Attribute.Transition ruleClassTransition = transitionFactory.buildTransitionFor(associatedRule);
+    // dynamicTransitionMapper is only needed because of Attribute.ConfigurationTransition.DATA:
+    // this is C++-specific but non-C++ rules declare it. So they can't directly provide the
+    // C++-specific patch transition that implements it.
+    PatchTransition ruleClassTransition = (PatchTransition)
+        dynamicTransitionMapper.map(transitionFactory.buildTransitionFor(associatedRule));
     if (ruleClassTransition == null) {
       return topLevelTransition;
     } else if (topLevelTransition == ConfigurationTransition.NONE) {
@@ -1160,7 +1168,12 @@ public class BuildView {
     if (factory == null) {
       return ConfigurationTransition.NONE;
     }
-    Transition transition = factory.buildTransitionFor(rule);
+
+    // dynamicTransitionMapper is only needed because of Attribute.ConfigurationTransition.DATA:
+    // this is C++-specific but non-C++ rules declare it. So they can't directly provide the
+    // C++-specific patch transition that implements it.
+    PatchTransition transition = (PatchTransition)
+        ruleClassProvider.getDynamicTransitionMapper().map(factory.buildTransitionFor(rule));
     return (transition == null) ? ConfigurationTransition.NONE : transition;
   }
 

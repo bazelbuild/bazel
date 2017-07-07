@@ -1912,7 +1912,6 @@ public final class BuildConfiguration implements BuildEvent {
    * transitions that the caller subsequently creates configurations from.
    */
   private static class DynamicTransitionApplier implements TransitionApplier {
-    private final Transitions transitionsManager;
     private final DynamicTransitionMapper dynamicTransitionMapper;
     private boolean splitApplied = false;
 
@@ -1921,9 +1920,7 @@ public final class BuildConfiguration implements BuildEvent {
     // so calling code doesn't need special logic to support combinations.
     private Transition currentTransition = Attribute.ConfigurationTransition.NONE;
 
-    private DynamicTransitionApplier(Transitions transitionsManager,
-        DynamicTransitionMapper dynamicTransitionMapper) {
-      this.transitionsManager = transitionsManager;
+    private DynamicTransitionApplier(DynamicTransitionMapper dynamicTransitionMapper) {
       this.dynamicTransitionMapper = dynamicTransitionMapper;
     }
 
@@ -2032,14 +2029,15 @@ public final class BuildConfiguration implements BuildEvent {
       if (isFinal(currentTransition)) {
         return;
       }
-      transitionsManager.configurationHook(fromRule, attribute, toTarget, this);
-
       Rule associatedRule = toTarget.getAssociatedRule();
       RuleTransitionFactory transitionFactory =
           associatedRule.getRuleClassObject().getTransitionFactory();
       if (transitionFactory != null) {
+        // dynamicTransitionMapper is only needed because of Attribute.ConfigurationTransition.DATA:
+        // this is C++-specific but non-C++ rules declare it. So they can't directly provide the
+        // C++-specific patch transition that implements it.
         PatchTransition ruleClassTransition = (PatchTransition)
-            transitionFactory.buildTransitionFor(associatedRule);
+            dynamicTransitionMapper.map(transitionFactory.buildTransitionFor(associatedRule));
         if (ruleClassTransition != null) {
           if (currentTransition == ConfigurationTransition.NONE) {
             currentTransition = ruleClassTransition;
@@ -2086,7 +2084,7 @@ public final class BuildConfiguration implements BuildEvent {
    */
   public TransitionApplier getTransitionApplier() {
     return useDynamicConfigurations()
-        ? new DynamicTransitionApplier(this.getTransitions(), dynamicTransitionMapper)
+        ? new DynamicTransitionApplier(dynamicTransitionMapper)
         : new StaticTransitionApplier(this);
   }
 
