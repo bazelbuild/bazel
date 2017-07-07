@@ -206,18 +206,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public String iosSigningCertName;
 
   @Option(
-    name = "objc_includes_prioritize_static_libs",
-    defaultValue = "true",
-    category = "flags",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "If set, the linker invocation will contain static library includes before frameworks"
-            + " and system libraries."
-  )
-  public boolean prioritizeStaticLibs;
-
-  @Option(
     name = "objc_debug_with_GLIBCXX",
     defaultValue = "true",
     optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,

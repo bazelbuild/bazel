@@ -1052,22 +1052,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         getSourceArtifact("fx/fx2.framework/d"));
   }
 
-  protected void checkLinkIncludeOrderFrameworksAndSystemLibsFirst(RuleType ruleType)
-      throws Exception {
-    useConfiguration("--noobjc_includes_prioritize_static_libs");
-    scratch.file("fx/fx1.framework");
-    scratch.file("fx/BUILD", "objc_framework(name = 'fx')");
-    scratch.file("x/a.m");
-    ruleType.scratchTarget(
-        scratch, "srcs", "['a.m']", "sdk_frameworks", "['fx']", "sdk_dylibs", "['libdy1']");
-
-    CommandAction linkAction = linkAction("//x:x");
-    String linkActionArgs = Joiner.on(" ").join(linkAction.getArguments());
-
-    assertThat(linkActionArgs.indexOf("-F")).isLessThan(linkActionArgs.indexOf("-filelist"));
-    assertThat(linkActionArgs.indexOf("-l")).isLessThan(linkActionArgs.indexOf("-filelist"));
-  }
-
   protected void checkLinkIncludeOrderStaticLibsFirst(RuleType ruleType) throws Exception {
     scratch.file("fx/fx1.framework");
     scratch.file("fx/BUILD", "objc_framework(name = 'fx')");

@@ -68,7 +68,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final boolean enableBinaryStripping;
   private final boolean moduleMapsEnabled;
   @Nullable private final String signingCertName;
-  private final boolean prioritizeStaticLibs;
   private final boolean debugWithGlibcxx;
   @Nullable private final Label extraEntitlements;
   private final boolean deviceDebugEntitlements;
@@ -104,7 +103,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.enableBinaryStripping = objcOptions.enableBinaryStripping;
     this.moduleMapsEnabled = objcOptions.enableModuleMaps;
     this.signingCertName = objcOptions.iosSigningCertName;
-    this.prioritizeStaticLibs = objcOptions.prioritizeStaticLibs;
     this.debugWithGlibcxx = objcOptions.debugWithGlibcxx;
     this.extraEntitlements = objcOptions.extraEntitlements;
     this.deviceDebugEntitlements = objcOptions.deviceDebugEntitlements;
@@ -273,14 +271,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
       + "certificate was specified.")
   public String getSigningCertName() {
     return this.signingCertName;
-  }
-
-  /**
-   * Returns true if the linker invocation should contain static library includes before framework
-   * and system library includes.
-   */
-  public boolean shouldPrioritizeStaticLibs() {
-    return this.prioritizeStaticLibs;
   }
 
   /**

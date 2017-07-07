@@ -646,11 +646,6 @@ public class IosTestTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testLinkIncludeOrder_frameworksAndSystemLibsFirst() throws Exception {
-    checkLinkIncludeOrderFrameworksAndSystemLibsFirst(RULE_TYPE);
-  }
-
-  @Test
   public void testMergesActoolPartialInfoplist() throws Exception {
     checkMergesPartialInfoplists(RULE_TYPE);
   }

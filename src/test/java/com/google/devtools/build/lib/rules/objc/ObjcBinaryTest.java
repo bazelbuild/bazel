@@ -555,11 +555,6 @@ public class ObjcBinaryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testLinkIncludeOrder_frameworksAndSystemLibsFirst() throws Exception {
-    checkLinkIncludeOrderFrameworksAndSystemLibsFirst(RULE_TYPE);
-  }
-  
-  @Test
   public void testLinksDylibsTransitively() throws Exception {
     checkLinksDylibsTransitively(RULE_TYPE);
   }
