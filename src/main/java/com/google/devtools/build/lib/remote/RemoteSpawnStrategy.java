@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.remote;
 
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -27,7 +26,6 @@ import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.remote.Digests.ActionKey;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
@@ -43,7 +41,6 @@ import com.google.devtools.remoteexecution.v1test.ExecuteRequest;
 import com.google.devtools.remoteexecution.v1test.ExecuteResponse;
 import com.google.devtools.remoteexecution.v1test.Platform;
 import com.google.protobuf.Duration;
-import io.grpc.StatusRuntimeException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -136,7 +133,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
       ActionExecutionContext actionExecutionContext,
       RemoteActionCache remoteCache,
       ActionKey actionKey)
-      throws ExecException, InterruptedException {
+      throws ExecException, IOException, InterruptedException {
     fallbackStrategy.exec(spawn, actionExecutionContext);
     if (remoteOptions.remoteUploadLocalResults && remoteCache != null && actionKey != null) {
       ArrayList<Path> outputFiles = new ArrayList<>();
@@ -150,22 +147,8 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
         }
         outputFiles.add(outputFile);
       }
-      try {
-        remoteCache.upload(
-            actionKey, execRoot, outputFiles, actionExecutionContext.getFileOutErr());
-      } catch (IOException e) {
-        throw new UserExecException("Unexpected IO error.", e);
-      } catch (UnsupportedOperationException e) {
-        actionExecutionContext
-            .getEventHandler()
-            .handle(
-                Event.warn(
-                    spawn.getMnemonic() + " unsupported operation for action cache (" + e + ")"));
-      } catch (StatusRuntimeException e) {
-        actionExecutionContext
-            .getEventHandler()
-            .handle(Event.warn(spawn.getMnemonic() + " failed uploading results (" + e + ")"));
-      }
+      remoteCache.upload(
+          actionKey, execRoot, outputFiles, actionExecutionContext.getFileOutErr());
     }
   }
 
@@ -178,9 +161,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
   @Override
   public void exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
-    ActionKey actionKey = null;
     String mnemonic = spawn.getMnemonic();
-    EventHandler eventHandler = actionExecutionContext.getEventHandler();
 
     if (!spawn.isRemotable() || remoteCache == null) {
       fallbackStrategy.exec(spawn, actionExecutionContext);
@@ -193,6 +174,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
         .getEventBus()
         .post(ActionStatusMessage.runningStrategy(spawn.getResourceOwner(), "remote"));
 
+    ActionKey actionKey = null;
     try {
       // Temporary hack: the TreeNodeRepository should be created and maintained upstream!
       ActionInputFileCache inputFileCache = actionExecutionContext.getActionInputFileCache();
@@ -260,38 +242,24 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
                 verboseFailures, spawn.getArguments(), spawn.getEnvironment(), cwd);
         throw new UserExecException(message + ": Exit " + result.getExitCode());
       }
-    } catch (RetryException e) {
-      String stackTrace = "";
-      if (verboseFailures) {
-        stackTrace = "\n" + Throwables.getStackTraceAsString(e);
-      }
-      eventHandler.handle(Event.warn(mnemonic + " remote work failed (" + e + ")" + stackTrace));
-      if (remoteOptions.remoteLocalFallback) {
-        execLocally(spawn, actionExecutionContext, remoteCache, actionKey);
-      } else {
-        String cwd = actionExecutionContext.getExecRoot().getPathString();
-        String message =
-            CommandFailureUtils.describeCommandFailure(
-                verboseFailures, spawn.getArguments(), spawn.getEnvironment(), cwd);
-        throw new UserExecException(message, e.getCause());
-      }
-    } catch (CacheNotFoundException e) {
+    } catch (CacheNotFoundException | IOException e) {
+      Exception reportedCause = e;
       // TODO(olaola): handle this exception by reuploading / reexecuting the action remotely.
-      eventHandler.handle(Event.warn(mnemonic + " remote work results cache miss (" + e + ")"));
       if (remoteOptions.remoteLocalFallback) {
-        execLocally(spawn, actionExecutionContext, remoteCache, actionKey);
-      } else {
-        String cwd = actionExecutionContext.getExecRoot().getPathString();
-        String message =
-            CommandFailureUtils.describeCommandFailure(
-                verboseFailures, spawn.getArguments(), spawn.getEnvironment(), cwd);
-        throw new UserExecException(message, e);
+        actionExecutionContext.getEventHandler().handle(
+            Event.warn(mnemonic + " remote work failed (" + e + ")"));
+        try {
+          execLocally(spawn, actionExecutionContext, remoteCache, actionKey);
+          return;
+        } catch (IOException e2) {
+          reportedCause = e2;
+        }
       }
-    } catch (IOException e) {
-      throw new UserExecException("Unexpected IO error.", e);
-    } catch (UnsupportedOperationException e) {
-      eventHandler.handle(
-          Event.warn(mnemonic + " unsupported operation for action cache (" + e + ")"));
+      String cwd = actionExecutionContext.getExecRoot().getPathString();
+      String message =
+          CommandFailureUtils.describeCommandFailure(
+              verboseFailures, spawn.getArguments(), spawn.getEnvironment(), cwd);
+      throw new UserExecException(message, reportedCause);
     }
   }
 

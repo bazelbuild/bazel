@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.remote;
 
-import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.remoteexecution.v1test.ExecuteRequest;
@@ -69,14 +68,14 @@ public class GrpcRemoteExecutor {
   }
 
   private @Nullable ExecuteResponse getOperationResponse(Operation op)
-      throws IOException, UserExecException {
+      throws IOException {
     if (op.getResultCase() == Operation.ResultCase.ERROR) {
       StatusRuntimeException e = StatusProto.toStatusRuntimeException(op.getError());
       if (e.getStatus().getCode() == Code.DEADLINE_EXCEEDED) {
         // This was caused by the command itself exceeding the timeout,
         // therefore it is not retriable.
         // TODO(olaola): this should propagate a timeout SpawnResult instead of raising.
-        throw new UserExecException("Remote execution time out", true);
+        throw new IOException("Remote execution time out");
       }
       throw e;
     }
@@ -92,7 +91,7 @@ public class GrpcRemoteExecutor {
   }
 
   public ExecuteResponse executeRemotely(ExecuteRequest request)
-      throws InterruptedException, IOException, UserExecException {
+      throws IOException, InterruptedException {
     Operation op = retrier.execute(() -> execBlockingStub().execute(request));
     ExecuteResponse resp = getOperationResponse(op);
     if (resp != null) {

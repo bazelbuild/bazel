@@ -19,6 +19,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.collect.Range;
 import io.grpc.Status;
+import java.io.IOException;
 import java.time.Duration;
 import org.junit.Before;
 import org.junit.Test;
@@ -71,7 +72,7 @@ public class RetrierTest {
     assertThat(backoff.nextDelayMillis()).isEqualTo(Retrier.Backoff.STOP);
   }
 
-  void assertThrows(Retrier retrier, int attempts) throws InterruptedException {
+  void assertThrows(Retrier retrier, int attempts) throws InterruptedException, IOException {
     try {
       retrier.execute(() -> fooMock.foo());
       fail();
@@ -108,5 +109,30 @@ public class RetrierTest {
     Mockito.verify(retrier, Mockito.times(2)).sleep(2000);
     Mockito.verify(fooMock, Mockito.times(6)).foo();
   }
-}
 
+  @Test
+  public void testInterruptedExceptionIsPassedThrough() throws Exception {
+    InterruptedException thrown = new InterruptedException();
+    try {
+      Retrier.NO_RETRIES.execute(() -> {
+        throw thrown;
+      });
+      fail();
+    } catch (InterruptedException expected) {
+      assertThat(expected).isSameAs(thrown);
+    }
+  }
+
+  @Test
+  public void testIOExceptionIsPassedThrough() throws Exception {
+    IOException thrown = new IOException();
+    try {
+      Retrier.NO_RETRIES.execute(() -> {
+        throw thrown;
+      });
+      fail();
+    } catch (IOException expected) {
+      assertThat(expected).isSameAs(thrown);
+    }
+  }
+}

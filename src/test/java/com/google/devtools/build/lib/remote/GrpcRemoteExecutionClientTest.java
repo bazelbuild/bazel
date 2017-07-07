@@ -173,7 +173,7 @@ public class GrpcRemoteExecutionClientTest {
     Channel channel = InProcessChannelBuilder.forName(fakeServerName).directExecutor().build();
     GrpcRemoteExecutor executor = new GrpcRemoteExecutor(channel, ChannelOptions.DEFAULT, options);
     GrpcRemoteCache remoteCache = new GrpcRemoteCache(channel, ChannelOptions.DEFAULT, options);
-    client = new RemoteSpawnRunner(execRoot, options, executor, remoteCache);
+    client = new RemoteSpawnRunner(execRoot, options, null, remoteCache, executor);
     inputDigest = fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().get(0), "xyz");
   }
 
