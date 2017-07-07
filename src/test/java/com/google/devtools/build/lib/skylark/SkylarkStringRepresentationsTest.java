@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
@@ -99,11 +98,9 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
    * strings are available in the configured target for //test/skylark:check
    */
   private void generateFilesToTestStrings() throws Exception {
-    // Generate string representations of different Skylark types. Objects are generated in
-    // test/skylark/rules.bzl: the top-level objects dict contains objects
-    // available during the loading phase, and _check_impl(ctx) returns objects that are available
-    // during the analysis phase. prepare_params(objects) converts a list of objects to a list of
-    // their string representations.
+    // Generate string representations of Skylark rule contexts and targets. Objects are gathered
+    // in the implementation of the `check` rule.
+    // prepare_params(objects) converts a dict of objects to a dict of their string representations.
 
     scratch.file(
         "test/skylark/rules.bzl",
@@ -119,7 +116,7 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
         "  return params",
         "",
         "def _impl_aspect(target, ctx):",
-        "  return [aspect_ctx_provider(ctx = ctx)]",
+        "  return [aspect_ctx_provider(ctx = ctx, rule = ctx.rule)]",
         "my_aspect = aspect(implementation = _impl_aspect)",
         "",
         "def _impl(ctx): pass",
@@ -129,9 +126,7 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
         "  ctx.file_action(output = ctx.outputs.my_output, content = 'foo')",
         "genfile = rule(",
         "  implementation = _genfile_impl,",
-        "  outputs = {",
-        "    'my_output': '%{name}.txt',",
-        "  },",
+        "  outputs = {'my_output': '%{name}.txt'},",
         ")",
         "",
         "def _check_impl(ctx):",
@@ -143,6 +138,7 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
         "    'output_target': ctx.attr.srcs[1],",
         "    'rule_ctx': ctx,",
         "    'aspect_ctx': ctx.attr.asp_deps[0][aspect_ctx_provider].ctx,",
+        "    'aspect_ctx.rule': ctx.attr.asp_deps[0][aspect_ctx_provider].rule",
         "  }",
         "  return struct(**prepare_params(objects))",
         "check = rule(",
@@ -256,6 +252,23 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testStringRepresentations_RuleContext() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=true");
+
+    generateFilesToTestStrings();
+    ConfiguredTarget target = getConfiguredTarget("//test/skylark:check");
+
+    for (String suffix : SUFFIXES) {
+      assertThat(target.get("rule_ctx" + suffix))
+          .isEqualTo("<rule context for //test/skylark:check>");
+      assertThat(target.get("aspect_ctx" + suffix))
+          .isEqualTo("<aspect context for //test/skylark:bar>");
+      assertThat(target.get("aspect_ctx.rule" + suffix))
+          .isEqualTo("<rule collection for //test/skylark:bar>");
+    }
+  }
+
+  @Test
   public void testStringRepresentations_Attr() throws Exception {
     setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=true");
 
@@ -334,6 +347,21 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testLegacyStringRepresentations_RuleContext() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=false");
+
+    generateFilesToTestStrings();
+    ConfiguredTarget target = getConfiguredTarget("//test/skylark:check");
+
+    for (String suffix : SUFFIXES) {
+      assertThat(target.get("rule_ctx" + suffix)).isEqualTo("//test/skylark:check");
+      assertThat(target.get("aspect_ctx" + suffix)).isEqualTo("//test/skylark:bar");
+      assertThat(target.get("aspect_ctx.rule" + suffix))
+          .isEqualTo("rule_collection://test/skylark:bar");
+    }
+  }
+
+  @Test
   public void testLegacyStringRepresentations_Targets() throws Exception {
     // alias targets in skylark used to leak their memory addresses in string representations,
     // we don't try to preserve this behaviour as it's harmful.
@@ -345,26 +373,19 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
     generateFilesToTestStrings();
     ConfiguredTarget target = getConfiguredTarget("//test/skylark:check");
 
-
-    ImmutableList<Pair<String, String>> parameters = ImmutableList.of(
-        new Pair<>("rule_ctx", "//test/skylark:check"),
-        new Pair<>("aspect_ctx", "//test/skylark:bar"),
-        new Pair<>("input_target", "InputFileConfiguredTarget(//test/skylark:input.txt)"));
     for (String suffix : SUFFIXES) {
-      for (Pair<String, String > pair : parameters) {
-        assertThat(target.get(pair.getFirst() + suffix)).isEqualTo(pair.getSecond());
-      }
+      assertThat(target.get("input_target" + suffix))
+          .isEqualTo("InputFileConfiguredTarget(//test/skylark:input.txt)");
     }
 
     // Legacy representation of several types of objects may contain nondeterministic chunks
-    parameters = ImmutableList.of(
-        new Pair<>("target", "ConfiguredTarget\\(//test/skylark:foo, [0-9a-f]+\\)"),
-        new Pair<>("aspect_target", "ConfiguredTarget\\(//test/skylark:bar, [0-9a-f]+\\)"),
-        new Pair<>("output_target", "ConfiguredTarget\\(//test/skylark:output.txt, [0-9a-f]+\\)"));
     for (String suffix : SUFFIXES) {
-      for (Pair<String, String > pair : parameters) {
-        assertThat((String) target.get(pair.getFirst() + suffix)).matches(pair.getSecond());
-      }
+      assertThat((String) target.get("target" + suffix))
+          .matches("ConfiguredTarget\\(//test/skylark:foo, [0-9a-f]+\\)");
+      assertThat((String) target.get("aspect_target" + suffix))
+          .matches("ConfiguredTarget\\(//test/skylark:bar, [0-9a-f]+\\)");
+      assertThat((String) target.get("output_target" + suffix))
+          .matches("ConfiguredTarget\\(//test/skylark:output.txt, [0-9a-f]+\\)");
     }
   }
 }

@@ -170,6 +170,8 @@ public final class SkylarkRuleContext implements SkylarkValue {
   // after this object has been nullified.
   private final String ruleLabelCanonicalName;
 
+  private final boolean isForAspect;
+
   private final SkylarkActionFactory actionFactory;
 
   // The fields below intended to be final except that they can be cleared by calling `nullify()`
@@ -209,6 +211,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
     this.skylarkSemantics = skylarkSemantics;
 
     if (aspectDescriptor == null) {
+      this.isForAspect = false;
       Collection<Attribute> attributes = ruleContext.getRule().getAttributes();
       HashMap<String, Object> outputsBuilder = new HashMap<>();
       if (ruleContext.getRule().getRuleClassObject().outputsDefaultExecutable()) {
@@ -270,6 +273,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
       this.splitAttributes = buildSplitAttributeInfo(attributes, ruleContext);
       this.ruleAttributesCollection = null;
     } else { // ASPECT
+      this.isForAspect = true;
       this.artifactsLabelMap = ImmutableMap.of();
       this.outputsObject = null;
       this.attributesCollection =
@@ -581,8 +585,13 @@ public final class SkylarkRuleContext implements SkylarkValue {
 
     @Override
     public void repr(SkylarkPrinter printer) {
+      printer.append("<rule collection for " + skylarkRuleContext.ruleLabelCanonicalName + ">");
+    }
+
+    @Override
+    public void reprLegacy(SkylarkPrinter printer) {
       printer.append("rule_collection:");
-      skylarkRuleContext.repr(printer);
+      printer.repr(skylarkRuleContext);
     }
   }
 
@@ -601,6 +610,14 @@ public final class SkylarkRuleContext implements SkylarkValue {
 
   @Override
   public void repr(SkylarkPrinter printer) {
+    if (isForAspect) {
+      printer.append("<aspect context for " + ruleLabelCanonicalName + ">");
+    } else {
+      printer.append("<rule context for " + ruleLabelCanonicalName + ">");
+    }
+  }
+  @Override
+  public void reprLegacy(SkylarkPrinter printer) {
     printer.append(ruleLabelCanonicalName);
   }
 
@@ -800,7 +817,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
           + " Only available in aspect implementation functions.")
   public SkylarkRuleAttributesCollection rule() throws EvalException {
     checkMutable("rule");
-    if (ruleAttributesCollection == null) {
+    if (!isForAspect) {
       throw new EvalException(
           Location.BUILTIN, "'rule' is only available in aspect implementations");
     }
@@ -813,7 +830,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
       + " Only available in aspect implementation functions.")
   public ImmutableList<String> aspectIds() throws EvalException {
     checkMutable("aspect_ids");
-    if (ruleAttributesCollection == null) {
+    if (!isForAspect) {
       throw new EvalException(
           Location.BUILTIN, "'aspect_ids' is only available in aspect implementations");
     }
@@ -837,7 +854,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
   @SkylarkCallable(structField = true, doc = "Toolchains required for this rule.")
   public SkylarkDict<Label, ToolchainInfo> toolchains() throws EvalException {
     checkMutable("toolchains");
-    if (ruleAttributesCollection != null) {
+    if (isForAspect) {
       // TODO(katre): Support toolchains on aspects.
       throw new EvalException(
           Location.BUILTIN, "'toolchains' is not available in aspect implementations");
@@ -885,7 +902,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
   }
 
   boolean isForAspect() {
-    return ruleAttributesCollection != null;
+    return isForAspect;
   }
 
   @SkylarkCallable(
