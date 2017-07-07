@@ -763,14 +763,13 @@ public final class BuildConfiguration implements BuildEvent {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "If 'auto', Bazel will only rerun a test if any of the following conditions apply: "
-              + "(1) Bazel detects changes in the test or its dependencies "
-              + "(2) the test is marked as external "
-              + "(3) multiple test runs were requested with --runs_per_test "
-              + "(4) the test failed "
-              + "If 'yes', the caching behavior will be the same as 'auto' except that "
-              + "it may cache test failures and test runs with --runs_per_test. "
-              + "If 'no', all tests will be always executed."
+          "If set to 'auto', Bazel reruns a test if and only if: "
+              + "(1) Bazel detects changes in the test or its dependencies, "
+              + "(2) the test is marked as external, "
+              + "(3) multiple test runs were requested with --runs_per_test, or"
+              + "(4) the test previously failed. "
+              + "If set to 'yes', Bazel caches all test results except for tests marked as "
+              + "external. If set to 'no', Bazel does not cache any test results."
     )
     public TriState cacheTestResults;
 

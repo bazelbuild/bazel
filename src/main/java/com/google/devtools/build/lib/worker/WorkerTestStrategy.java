@@ -192,7 +192,6 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
         builder
             .setTestPassed(true)
             .setStatus(BlazeTestStatus.PASSED)
-            .setCachable(true)
             .setPassedLog(testLogPath.getPathString());
       } else {
         builder
