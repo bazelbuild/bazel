@@ -75,6 +75,7 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -676,35 +677,6 @@ public final class ObjcCommon {
             .replace(":", "_");
   }
 
-  }
-
-  /**
-   * Determines clang module name for a rule. The default is the fully qualified label with
-   * underscores replacing reserved characters.
-   *
-   * It can be overridden with the "module_name" attribute of objc_library.
-   *
-   * User-defined module names are not validated since it is legal in the clang modulemap language
-   * to use an arbitrary string literal, however it is not possible to use {@code @import} syntax
-   * for modules names that contain symbols, spaces, etc.
-   */
-  static String getClangModuleName(RuleContext ruleContext) {
-    if (ruleContext.attributes().has("module_name", Type.STRING)) {
-      String moduleName = ruleContext.attributes().get("module_name", Type.STRING);
-      if (!Strings.isNullOrEmpty(moduleName)) {
-        return moduleName;
-      }
-    }
-
-    // Otherwise, just use target name, it doesn't matter.
-    return
-        ruleContext
-            .getLabel()
-            .toString()
-            .replace("//", "")
-            .replace("@", "")
-            .replace("/", "_")
-            .replace(":", "_");
   static ImmutableSet<PathFragment> userHeaderSearchPaths(
       ObjcProvider provider, BuildConfiguration config) {
     return ImmutableSet.<PathFragment>builder()
