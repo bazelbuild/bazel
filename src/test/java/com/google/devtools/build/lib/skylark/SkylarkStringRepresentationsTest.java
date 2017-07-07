@@ -214,7 +214,6 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
     assertStringRepresentation("struct(d = 4, c = 3)", "struct(c = 3, d = 4)");
   }
 
-
   @Test
   public void testStringRepresentations_Functions() throws Exception {
     setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=true");
@@ -245,6 +244,26 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
     assertStringRepresentation(
         "select({'//foo': ['//bar']}) + select({'//foo2': ['//bar2']})",
         "select({\"//foo\": [\"//bar\"]}) + select({\"//foo2\": [\"//bar2\"]})");
+  }
+
+  @Test
+  public void testStringRepresentations_Attr() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=true");
+
+    assertStringRepresentation("attr", "<attr>");
+    assertStringRepresentation("attr.int()", "<attr.int>");
+    assertStringRepresentation("attr.string()", "<attr.string>");
+    assertStringRepresentation("attr.label()", "<attr.label>");
+    assertStringRepresentation("attr.string_list()", "<attr.string_list>");
+    assertStringRepresentation("attr.int_list()", "<attr.int_list>");
+    assertStringRepresentation("attr.label_list()", "<attr.label_list>");
+    assertStringRepresentation("attr.label_keyed_string_dict()", "<attr.label_keyed_string_dict>");
+    assertStringRepresentation("attr.bool()", "<attr.bool>");
+    assertStringRepresentation("attr.output()", "<attr.output>");
+    assertStringRepresentation("attr.output_list()", "<attr.output_list>");
+    assertStringRepresentation("attr.string_dict()", "<attr.string_dict>");
+    assertStringRepresentation("attr.string_list_dict()", "<attr.string_list_dict>");
+    assertStringRepresentation("attr.license()", "<attr.license>");
   }
 
   @Test

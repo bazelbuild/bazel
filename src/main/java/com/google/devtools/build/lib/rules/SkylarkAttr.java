@@ -34,7 +34,9 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -73,7 +75,7 @@ import javax.annotation.Nullable;
           + "They are only for use with <a href=\"globals.html#rule\">rule</a> or "
           + "<a href=\"globals.html#aspect\">aspect</a>."
 )
-public final class SkylarkAttr {
+public final class SkylarkAttr implements SkylarkValue {
 
   // Arguments
 
@@ -389,10 +391,14 @@ public final class SkylarkAttr {
   }
 
   private static Descriptor createAttrDescriptor(
-      SkylarkDict<String, Object> kwargs, Type<?> type, FuncallExpression ast, Environment env)
+      String name,
+      SkylarkDict<String, Object> kwargs,
+      Type<?> type,
+      FuncallExpression ast,
+      Environment env)
       throws EvalException {
     try {
-      return new Descriptor(createAttribute(type, kwargs, ast, env));
+      return new Descriptor(name, createAttribute(type, kwargs, ast, env));
     } catch (ConversionException e) {
       throw new EvalException(ast.getLocation(), e.getMessage());
     }
@@ -415,19 +421,30 @@ public final class SkylarkAttr {
   }
 
   private static Descriptor createNonconfigurableAttrDescriptor(
+      String name,
       SkylarkDict<String, Object> kwargs,
       Type<?> type,
       FuncallExpression ast,
-      Environment env) throws EvalException {
+      Environment env)
+      throws EvalException {
     String whyNotConfigurableReason =
         Preconditions.checkNotNull(maybeGetNonConfigurableReason(type), type);
     try {
       return new Descriptor(
-          createAttribute(type, kwargs, ast, env)
-              .nonconfigurable(whyNotConfigurableReason));
+          name, createAttribute(type, kwargs, ast, env).nonconfigurable(whyNotConfigurableReason));
     } catch (ConversionException e) {
       throw new EvalException(ast.getLocation(), e.getMessage());
     }
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return false;
+  }
+
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    printer.append("<attr>");
   }
 
   @SkylarkSignature(
@@ -477,6 +494,7 @@ public final class SkylarkAttr {
           // TODO(bazel-team): Replace literal strings with constants.
           env.checkLoadingOrWorkspacePhase("attr.int", ast.getLocation());
           return createAttrDescriptor(
+              getName(),
               EvalUtils.<String, Object>optionMap(
                   env, DEFAULT_ARG, defaultInt, MANDATORY_ARG, mandatory, VALUES_ARG, values),
               Type.INTEGER,
@@ -531,6 +549,7 @@ public final class SkylarkAttr {
             throws EvalException {
           env.checkLoadingOrWorkspacePhase("attr.string", ast.getLocation());
           return createAttrDescriptor(
+              getName(),
               EvalUtils.<String, Object>optionMap(
                   env, DEFAULT_ARG, defaultString, MANDATORY_ARG, mandatory, VALUES_ARG, values),
               Type.STRING,
@@ -697,7 +716,7 @@ public final class SkylarkAttr {
                     ast,
                     env,
                     "label");
-            return new Descriptor(attribute);
+            return new Descriptor(getName(), attribute);
           } catch (EvalException e) {
             throw new EvalException(ast.getLocation(), e.getMessage(), e);
           }
@@ -753,6 +772,7 @@ public final class SkylarkAttr {
             throws EvalException {
           env.checkLoadingOrWorkspacePhase("attr.string_list", ast.getLocation());
           return createAttrDescriptor(
+              getName(),
               EvalUtils.<String, Object>optionMap(
                   env,
                   DEFAULT_ARG,
@@ -816,6 +836,7 @@ public final class SkylarkAttr {
             throws EvalException {
           env.checkLoadingOrWorkspacePhase("attr.int_list", ast.getLocation());
           return createAttrDescriptor(
+              getName(),
               EvalUtils.<String, Object>optionMap(
                   env,
                   DEFAULT_ARG,
@@ -976,7 +997,7 @@ public final class SkylarkAttr {
           try {
             Attribute.Builder<?> attribute =
                 createAttribute(BuildType.LABEL_LIST, kwargs, ast, env, "label_list");
-            return new Descriptor(attribute);
+            return new Descriptor(getName(), attribute);
           } catch (EvalException e) {
             throw new EvalException(ast.getLocation(), e.getMessage(), e);
           }
@@ -1129,7 +1150,7 @@ public final class SkylarkAttr {
             Attribute.Builder<?> attribute =
                 createAttribute(
                     BuildType.LABEL_KEYED_STRING_DICT, kwargs, ast, env, "label_keyed_string_dict");
-            return new Descriptor(attribute);
+            return new Descriptor(this.getName(), attribute);
           } catch (EvalException e) {
             throw new EvalException(ast.getLocation(), e.getMessage(), e);
           }
@@ -1169,6 +1190,7 @@ public final class SkylarkAttr {
             throws EvalException {
           env.checkLoadingOrWorkspacePhase("attr.bool", ast.getLocation());
           return createAttrDescriptor(
+              getName(),
               EvalUtils.<String, Object>optionMap(
                   env, DEFAULT_ARG, defaultO, MANDATORY_ARG, mandatory),
               Type.BOOLEAN,
@@ -1214,6 +1236,7 @@ public final class SkylarkAttr {
             throws EvalException {
           env.checkLoadingOrWorkspacePhase("attr.output", ast.getLocation());
           return createNonconfigurableAttrDescriptor(
+              getName(),
               EvalUtils.<String, Object>optionMap(
                   env, DEFAULT_ARG, defaultO, MANDATORY_ARG, mandatory),
               BuildType.OUTPUT,
@@ -1277,6 +1300,7 @@ public final class SkylarkAttr {
             throws EvalException {
           env.checkLoadingOrWorkspacePhase("attr.output_list", ast.getLocation());
           return createAttrDescriptor(
+              getName(),
               EvalUtils.<String, Object>optionMap(
                   env,
                   DEFAULT_ARG,
@@ -1347,6 +1371,7 @@ public final class SkylarkAttr {
             throws EvalException {
           env.checkLoadingOrWorkspacePhase("attr.string_dict", ast.getLocation());
           return createAttrDescriptor(
+              getName(),
               EvalUtils.<String, Object>optionMap(
                   env,
                   DEFAULT_ARG,
@@ -1418,6 +1443,7 @@ public final class SkylarkAttr {
             throws EvalException {
           env.checkLoadingOrWorkspacePhase("attr.string_list_dict", ast.getLocation());
           return createAttrDescriptor(
+              getName(),
               EvalUtils.<String, Object>optionMap(
                   env,
                   DEFAULT_ARG,
@@ -1448,7 +1474,8 @@ public final class SkylarkAttr {
         noneable = true,
         named = true,
         positional = false,
-        doc = DEFAULT_DOC),
+        doc = DEFAULT_DOC
+      ),
       @Param(
         name = MANDATORY_ARG,
         type = Boolean.class,
@@ -1468,6 +1495,7 @@ public final class SkylarkAttr {
             throws EvalException {
           env.checkLoadingOrWorkspacePhase("attr.license", ast.getLocation());
           return createNonconfigurableAttrDescriptor(
+              getName(),
               EvalUtils.<String, Object>optionMap(
                   env, DEFAULT_ARG, defaultO, MANDATORY_ARG, mandatory),
               BuildType.LICENSE,
@@ -1484,9 +1512,8 @@ public final class SkylarkAttr {
         "Representation of a definition of an attribute; constructed by <code>attr.*</code> "
             + "functions. They are only for use with <a href=\"globals.html#rule\">rule</a> or "
             + "<a href=\"globals.html#aspect\">aspect</a>."
-
   )
-  public static final class Descriptor {
+  public static final class Descriptor implements SkylarkValue {
     private final Attribute.Builder<?> attributeBuilder;
 
     /**
@@ -1496,9 +1523,11 @@ public final class SkylarkAttr {
      */
     private final Object lock = new Object();
 
-    public Descriptor(
-        Attribute.Builder<?> attributeBuilder) {
+    private final String name;
+
+    public Descriptor(String name, Attribute.Builder<?> attributeBuilder) {
       this.attributeBuilder = attributeBuilder;
+      this.name = name;
     }
 
     public boolean hasDefault() {
@@ -1517,6 +1546,16 @@ public final class SkylarkAttr {
       synchronized (lock) {
         return attributeBuilder.build(name);
       }
+    }
+
+    @Override
+    public boolean isImmutable() {
+      return false;
+    }
+
+    @Override
+    public void repr(SkylarkPrinter printer) {
+      printer.append("<attr." + name + ">");
     }
   }
 
