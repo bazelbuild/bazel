@@ -218,8 +218,13 @@ public class GrpcRemoteCache implements RemoteActionCache {
                     while (replies.hasNext()) {
                       replies.next().getData().writeTo(stream);
                     }
-                    return null;
                   }
+                  Digest receivedDigest = Digests.computeDigest(path);
+                  if (!receivedDigest.equals(digest)) {
+                    throw new IOException(
+                        "Digest does not match " + receivedDigest + " != " + digest);
+                  }
+                  return null;
                 });
           } catch (RetryException e) {
             Throwables.throwIfInstanceOf(e.getCause(), CacheNotFoundException.class);
