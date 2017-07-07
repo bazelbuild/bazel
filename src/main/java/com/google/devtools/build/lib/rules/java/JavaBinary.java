@@ -24,7 +24,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -233,6 +232,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext)
             .getDynamicRuntimeLinkInputs();
 
+    JavaRuntimeProvider javaRuntime = JavaHelper.getJavaRuntime(ruleContext);
+
     Iterables.addAll(jvmFlags,
         semantics.getJvmFlags(ruleContext, common.getSrcsArtifacts(), userJvmFlags));
     if (ruleContext.hasErrors()) {
@@ -249,7 +250,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
               jvmFlags,
               executableForRunfiles,
               mainClass,
-              JavaCommon.getJavaBinSubstitution(ruleContext, launcher));
+              JavaCommon.getJavaBinSubstitution(ruleContext, javaRuntime, launcher));
       if (!executableToRun.equals(executableForRunfiles)) {
         filesBuilder.add(executableToRun);
         runfilesBuilder.addArtifact(executableToRun);
@@ -508,9 +509,10 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     // Add the JDK files if it comes from the source repository (see java_stub_template.txt).
     TransitiveInfoCollection javabaseTarget = ruleContext.getPrerequisite(":jvm", Mode.TARGET);
+    JavaRuntimeProvider javaRuntime = null;
     if (javabaseTarget != null) {
-      builder.addArtifacts(
-          (Iterable<Artifact>) javabaseTarget.getProvider(FileProvider.class).getFilesToBuild());
+      javaRuntime = javabaseTarget.getProvider(JavaRuntimeProvider.class);
+      builder.addTransitiveArtifacts(javaRuntime.javaBaseInputs());
 
       // Add symlinks to the C++ runtime libraries under a path that can be built
       // into the Java binary without having to embed the crosstool, gcc, and grte

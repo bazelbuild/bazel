@@ -25,16 +25,40 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.util.OsUtils;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 /** Implementation for the {@code java_runtime} rule. */
 public class JavaRuntime implements RuleConfiguredTargetFactory {
+  // TODO(lberki): This is incorrect but that what the Jvm configuration fragment did. We'd have the
+  // the ability to do better if we knew what OS the BuildConfiguration refers to.
+  private static final String BIN_JAVA = "bin/java" + OsUtils.executableExtension();
+
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
     NestedSet<Artifact> filesToBuild =
         PrerequisiteArtifacts.nestedSet(ruleContext, "srcs", Mode.TARGET);
+    PathFragment javaHome = defaultJavaHome(ruleContext.getLabel());
+    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("java_home")) {
+      PathFragment javaHomeAttribute = PathFragment.create(
+          ruleContext.attributes().get("java_home", Type.STRING));
+      if (!filesToBuild.isEmpty() && javaHomeAttribute.isAbsolute()) {
+        ruleContext.ruleError("'java_home' with an absolute path requires 'srcs' to be empty.");
+        return null;
+      }
+
+      javaHome = javaHome.getRelative(javaHomeAttribute);
+    }
+
+    PathFragment javaBinaryExecPath = javaHome.getRelative(BIN_JAVA);
+    PathFragment javaBinaryRunfilesPath = getRunfilesJavaExecutable(
+        javaHome, ruleContext.getLabel());
+
     NestedSet<Artifact> middleman =
         CompilationHelper.getAggregatingMiddleman(
             ruleContext, Actions.escapeLabel(ruleContext.getLabel()), filesToBuild);
@@ -46,8 +70,25 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .setFilesToBuild(filesToBuild)
-        .addProvider(JavaRuntimeProvider.class, JavaRuntimeProvider.create(filesToBuild))
+        .addProvider(JavaRuntimeProvider.class, JavaRuntimeProvider.create(
+            filesToBuild, javaHome, javaBinaryExecPath, javaBinaryRunfilesPath))
         .addProvider(MiddlemanProvider.class, new MiddlemanProvider(middleman))
         .build();
+  }
+
+  static PathFragment defaultJavaHome(Label javabase) {
+    if (javabase.getPackageIdentifier().getRepository().isDefault()) {
+      return javabase.getPackageFragment();
+    }
+    return javabase.getPackageIdentifier().getSourceRoot();
+  }
+
+  private static PathFragment getRunfilesJavaExecutable(PathFragment javaHome, Label javabase) {
+    if (javaHome.isAbsolute() || javabase.getPackageIdentifier().getRepository().isMain()) {
+      return javaHome.getRelative(BIN_JAVA);
+    } else {
+      return javabase.getPackageIdentifier().getRepository().getRunfilesPath()
+          .getRelative(BIN_JAVA);
+    }
   }
 }

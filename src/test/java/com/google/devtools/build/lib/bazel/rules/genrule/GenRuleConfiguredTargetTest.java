@@ -472,7 +472,7 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
     boolean foundSetup = false;
     for (ConfiguredTarget prereq : prereqs) {
       String name = prereq.getLabel().getName();
-      if (name.startsWith("cc-") || name.startsWith("jdk-")) {
+      if (name.contains("cc-") || name.contains("jdk")) {
           // Ignore these, they are present due to the implied genrule dependency on crosstool and
           // JDK.
         continue;

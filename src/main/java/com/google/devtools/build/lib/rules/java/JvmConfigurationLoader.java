@@ -125,7 +125,7 @@ public final class JvmConfigurationLoader implements ConfigurationFragmentFactor
           String.format("Expected a java_runtime rule, was '%s'", javaRuntimeRule.getRuleClass()));
     }
     RawAttributeMapper attributes = RawAttributeMapper.of(javaRuntimeRule);
-    PathFragment javaHomePath = defaultJavaHome(javaRuntimeLabel);
+    PathFragment javaHomePath = JavaRuntime.defaultJavaHome(javaRuntimeLabel);
     if (attributes.isAttributeValueExplicitlySpecified("java_home")) {
       javaHomePath = javaHomePath.getRelative(attributes.get("java_home", Type.STRING));
       List<Label> srcs = attributes.get("srcs", BuildType.LABEL_LIST);
@@ -137,7 +137,7 @@ public final class JvmConfigurationLoader implements ConfigurationFragmentFactor
                 javaHomePath, srcs.toString()));
       }
     }
-    return new Jvm(javaHomePath, javaRuntimeLabel);
+    return new Jvm(javaHomePath, javaRuntimeSuite.getLabel());
   }
 
   private static Label selectRuntime(Rule javaRuntimeSuite, String cpu)
@@ -152,13 +152,6 @@ public final class JvmConfigurationLoader implements ConfigurationFragmentFactor
     }
     throw new InvalidConfigurationException(
         "No JVM target found under " + javaRuntimeSuite + " that would work for " + cpu);
-  }
-
-  private static PathFragment defaultJavaHome(Label javaBase) {
-    if (javaBase.getPackageIdentifier().getRepository().isDefault()) {
-      return javaBase.getPackageFragment();
-    }
-    return javaBase.getPackageIdentifier().getSourceRoot();
   }
 
   private static Jvm createLegacy(String javaHome) throws InvalidConfigurationException {

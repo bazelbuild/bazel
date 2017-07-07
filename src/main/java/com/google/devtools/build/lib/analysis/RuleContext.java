@@ -1053,7 +1053,7 @@ public final class RuleContext extends TargetContext
 
   public ImmutableMap<String, String> getMakeVariables(Iterable<String> attributeNames) {
     // Using an ImmutableBuilder to complain about duplicate keys. This traversal order of
-    // getPrerequisites isn't well-defined, so this makes sure providers don't seceretly stomp on
+    // getPrerequisites isn't well-defined, so this makes sure providers don't secretly stomp on
     // each other.
     ImmutableMap.Builder<String, String> makeVariableBuilder = ImmutableMap.builder();
     ImmutableSet.Builder<MakeVariableProvider> makeVariableProvidersBuilder =

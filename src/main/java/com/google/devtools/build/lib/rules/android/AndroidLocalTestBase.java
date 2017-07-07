@@ -186,7 +186,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
         getJvmFlags(ruleContext, testClass),
         executable,
         mainClass,
-        JavaCommon.getJavaBinSubstitution(ruleContext, launcher));
+        JavaCommon.getJavaBinSubstitution(
+            ruleContext, JavaHelper.getJavaRuntime(ruleContext), launcher));
 
     Artifact deployJar =
         ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_DEPLOY_JAR);

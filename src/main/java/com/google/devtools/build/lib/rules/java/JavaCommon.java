@@ -471,14 +471,16 @@ public class JavaCommon {
    * @param launcher if non-null, the cc_binary used to launch the Java Virtual Machine
    */
   public static String getJavaBinSubstitution(
-      RuleContext ruleContext, @Nullable Artifact launcher) {
+      RuleContext ruleContext, JavaRuntimeProvider javaRuntime, @Nullable Artifact launcher) {
     Preconditions.checkState(ruleContext.getConfiguration().hasFragment(Jvm.class));
     PathFragment javaExecutable;
 
     if (launcher != null) {
       javaExecutable = launcher.getRootRelativePath();
+    } else if (javaRuntime != null) {
+      javaExecutable = javaRuntime.javaBinaryRunfilesPath();
     } else {
-      javaExecutable = ruleContext.getFragment(Jvm.class).getRunfilesJavaExecutable();
+      javaExecutable = ruleContext.getFragment(Jvm.class).getJavaExecutable();
     }
 
     if (!javaExecutable.isAbsolute()) {

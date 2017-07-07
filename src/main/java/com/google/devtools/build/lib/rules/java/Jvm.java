@@ -52,7 +52,7 @@ public final class Jvm extends BuildConfiguration.Fragment {
     Preconditions.checkArgument(javaHome.isAbsolute() || jvmLabel != null);
     this.javaHome = javaHome;
     this.jvmLabel = jvmLabel;
-    this.java = getJavaHome().getRelative(BIN_JAVA);
+    this.java = javaHome.getRelative(BIN_JAVA);
   }
 
   /**
@@ -83,20 +83,9 @@ public final class Jvm extends BuildConfiguration.Fragment {
     return jvmLabel;
   }
 
-  /**
-   * If possible, resolves java relative to the jvmLabel's repository. Otherwise, returns the
-   * same thing as getJavaExecutable().
-   */
-  public PathFragment getRunfilesJavaExecutable() {
-    if (javaHome.isAbsolute() || jvmLabel.getPackageIdentifier().getRepository().isMain()) {
-      return getJavaExecutable();
-    }
-    return jvmLabel.getPackageIdentifier().getRepository().getRunfilesPath().getRelative(BIN_JAVA);
-  }
-
   @Override
   public void addGlobalMakeVariables(Builder<String, String> globalMakeEnvBuilder) {
-    globalMakeEnvBuilder.put("JAVABASE", getJavaHome().getPathString());
-    globalMakeEnvBuilder.put("JAVA", getJavaExecutable().getPathString());
+    globalMakeEnvBuilder.put("JAVABASE", javaHome.getPathString());
+    globalMakeEnvBuilder.put("JAVA", java.getPathString());
   }
 }
