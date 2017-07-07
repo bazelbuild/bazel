@@ -55,7 +55,16 @@ if [ ! -x "$ZIPPER" ]; then
   fi
 fi
 if [ ! -x "$ZIPPER" ]; then
-  echo >&2 "ERROR: $(basename $0): could not find zipper executable"
+  echo >&2 "ERROR: $(basename $0): could not find zipper executable. Additional info:"
+  echo >&2 "  \$0=($0)"
+  echo >&2 "  \$RUNFILES=($RUNFILES)"
+  echo >&2 "  \$RUNFILES_MANIFEST_FILE=($RUNFILES_MANIFEST_FILE)"
+  echo >&2 "  \$IS_WINDOWS=($IS_WINDOWS)"
+  if "$IS_WINDOWS"; then
+    echo >&2 "  grep=($(grep zipper "$RUNFILES_MANIFEST_FILE"))"
+  else
+    echo >&2 "  find=($(find "$RUNFILES" -name "zipper"))"
+  fi
   exit 1
 fi
 
