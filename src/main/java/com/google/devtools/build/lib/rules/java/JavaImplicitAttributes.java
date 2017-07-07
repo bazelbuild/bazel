@@ -19,9 +19,8 @@ package com.google.devtools.build.lib.rules.java;
  */
 public class JavaImplicitAttributes {
   /**
-   * Label of a pseudo-filegroup that contains all jdk files for all
-   * configurations, as specified on the command-line.
+   * Label of a pseudo-filegroup that contains all jdk files for all configurations, as specified on
+   * the command-line.
    */
-  public static final String JDK_LABEL = "//tools/defaults:jdk";
-
+  public static final String JDK_LABEL = "//tools/jdk:jdk";
 }

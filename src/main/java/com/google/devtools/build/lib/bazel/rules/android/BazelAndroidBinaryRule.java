@@ -57,7 +57,7 @@ public class BazelAndroidBinaryRule implements RuleDefinition {
         .add(
             attr(":cc_toolchain_split", BuildType.LABEL)
                 .cfg(AndroidRuleClasses.ANDROID_SPLIT_TRANSITION)
-                .value(CppRuleClasses.CC_TOOLCHAIN))
+                .value(CppRuleClasses.ccToolchainAttribute(environment)))
         /* <!-- #BLAZE_RULE(android_binary).IMPLICIT_OUTPUTS -->
          <ul>
          <li><code><var>name</var>.apk</code>: An Android application

@@ -32,6 +32,7 @@ import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.VERSIONED_SHA
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.LanguageDependentFragment.LibraryLanguage;
+import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -121,7 +122,7 @@ public class CppRuleClasses {
    * Label of a pseudo-filegroup that contains all crosstool and libcfiles for all configurations,
    * as specified on the command-line.
    */
-  public static final String CROSSTOOL_LABEL = "//tools/defaults:crosstool";
+  public static final String CROSSTOOL_LABEL = "//tools/cpp:toolchain";
 
   public static final LateBoundLabel<BuildConfiguration> DEFAULT_MALLOC =
       new LateBoundLabel<BuildConfiguration>() {
@@ -131,13 +132,16 @@ public class CppRuleClasses {
         }
       };
 
-  public static final LateBoundLabel<BuildConfiguration> CC_TOOLCHAIN =
-      new LateBoundLabel<BuildConfiguration>(CROSSTOOL_LABEL, CppConfiguration.class) {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          return configuration.getFragment(CppConfiguration.class).getCcToolchainRuleLabel();
-        }
-      };
+  public static LateBoundLabel<BuildConfiguration> ccToolchainAttribute(
+      RuleDefinitionEnvironment env) {
+    return new LateBoundLabel<BuildConfiguration>(
+        env.getToolsLabel(CROSSTOOL_LABEL), CppConfiguration.class) {
+      @Override
+      public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+        return configuration.getFragment(CppConfiguration.class).getCcToolchainRuleLabel();
+      }
+    };
+  }
 
   // Artifacts of these types are discarded from the 'hdrs' attribute in cc rules
   static final FileTypeSet DISALLOWED_HDRS_FILES = FileTypeSet.of(
