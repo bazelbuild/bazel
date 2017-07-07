@@ -289,6 +289,27 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testStringRepresentations_Targets() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=true");
+
+    generateFilesToTestStrings();
+    ConfiguredTarget target = getConfiguredTarget("//test/skylark:check");
+
+    for (String suffix : SUFFIXES) {
+      assertThat(target.get("target" + suffix))
+          .isEqualTo("<target //test/skylark:foo>");
+      assertThat(target.get("input_target" + suffix))
+          .isEqualTo("<input file target //test/skylark:input.txt>");
+      assertThat(target.get("output_target" + suffix))
+          .isEqualTo("<output file target //test/skylark:output.txt>");
+      assertThat(target.get("alias_target" + suffix))
+          .isEqualTo("<alias target //test/skylark:foobar of //test/skylark:foo>");
+      assertThat(target.get("aspect_target" + suffix))
+          .isEqualTo("<merged target //test/skylark:bar>");
+    }
+  }
+
+  @Test
   public void testLegacyStringRepresentations_Labels() throws Exception {
     setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=false");
 
@@ -358,34 +379,6 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
       assertThat(target.get("aspect_ctx" + suffix)).isEqualTo("//test/skylark:bar");
       assertThat(target.get("aspect_ctx.rule" + suffix))
           .isEqualTo("rule_collection://test/skylark:bar");
-    }
-  }
-
-  @Test
-  public void testLegacyStringRepresentations_Targets() throws Exception {
-    // alias targets in skylark used to leak their memory addresses in string representations,
-    // we don't try to preserve this behaviour as it's harmful.
-    // An example of their legacy representation:
-    // "<com.google.devtools.build.lib.rules.AliasConfiguredTarget@12da9140>"
-
-    setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=false");
-
-    generateFilesToTestStrings();
-    ConfiguredTarget target = getConfiguredTarget("//test/skylark:check");
-
-    for (String suffix : SUFFIXES) {
-      assertThat(target.get("input_target" + suffix))
-          .isEqualTo("InputFileConfiguredTarget(//test/skylark:input.txt)");
-    }
-
-    // Legacy representation of several types of objects may contain nondeterministic chunks
-    for (String suffix : SUFFIXES) {
-      assertThat((String) target.get("target" + suffix))
-          .matches("ConfiguredTarget\\(//test/skylark:foo, [0-9a-f]+\\)");
-      assertThat((String) target.get("aspect_target" + suffix))
-          .matches("ConfiguredTarget\\(//test/skylark:bar, [0-9a-f]+\\)");
-      assertThat((String) target.get("output_target" + suffix))
-          .matches("ConfiguredTarget\\(//test/skylark:output.txt, [0-9a-f]+\\)");
     }
   }
 }

@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.rules.SkylarkApiProvider;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
@@ -134,5 +135,10 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   @Override
   protected Object rawGetSkylarkProvider(String providerKey) {
     return providers.getProvider(providerKey);
+  }
+
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    printer.append("<target " + getLabel() + ">");
   }
 }

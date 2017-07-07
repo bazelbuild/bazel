@@ -18,6 +18,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.ClassObjectConstructor.Key;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -187,5 +188,10 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
       providers.add(aspectProvider);
     }
     return providers;
+  }
+
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    printer.append("<merged target " + getLabel() + ">");
   }
 }
