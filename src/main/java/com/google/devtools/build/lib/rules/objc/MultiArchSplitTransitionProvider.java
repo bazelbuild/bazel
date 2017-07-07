@@ -32,9 +32,9 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
-import com.google.devtools.build.lib.rules.apple.Platform;
-import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PlatformRule;
 import java.util.List;
 
@@ -229,7 +229,7 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
           // This helps users of the iOS rules who do not depend on CC rules as these CPU values
           // require additional flags to work (e.g. a custom crosstool) which now only need to be
           // set if this feature is explicitly requested.
-          String platformCpu = Platform.cpuStringForTarget(platformType, cpu);
+          String platformCpu = ApplePlatform.cpuStringForTarget(platformType, cpu);
           AppleCrosstoolTransition.setAppleCrosstoolTransitionConfiguration(buildOptions,
               splitOptions, platformCpu);
         }

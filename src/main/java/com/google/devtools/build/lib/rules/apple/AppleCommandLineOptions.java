@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
-import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
@@ -358,13 +358,13 @@ public class AppleCommandLineOptions extends FragmentOptions {
   )
   public boolean targetUsesAppleCrosstool;
 
-  private Platform getPlatform() {
+  private ApplePlatform getPlatform() {
     for (String architecture : iosMultiCpus) {
-      if (Platform.forTarget(PlatformType.IOS, architecture) == Platform.IOS_DEVICE) {
-        return Platform.IOS_DEVICE;
+      if (ApplePlatform.forTarget(PlatformType.IOS, architecture) == ApplePlatform.IOS_DEVICE) {
+        return ApplePlatform.IOS_DEVICE;
       }
     }
-    return Platform.forTarget(PlatformType.IOS, iosCpu);
+    return ApplePlatform.forTarget(PlatformType.IOS, iosCpu);
   }
 
   /**

@@ -34,8 +34,7 @@ import javax.annotation.Nullable;
   doc = "Distinguishes between various apple platforms."
 )
 @Immutable
-public enum Platform {
-
+public enum ApplePlatform {
   IOS_DEVICE("ios_device", "iPhoneOS", PlatformType.IOS, true),
   IOS_SIMULATOR("ios_simulator", "iPhoneSimulator", PlatformType.IOS, false),
   MACOS("macos", "MacOSX", PlatformType.MACOS, true),
@@ -64,7 +63,8 @@ public enum Platform {
   private final PlatformType platformType;
   private final boolean isDevice;
 
-  Platform(String skylarkKey, String nameInPlist, PlatformType platformType, boolean isDevice) {
+  ApplePlatform(
+      String skylarkKey, String nameInPlist, PlatformType platformType, boolean isDevice) {
     this.skylarkKey = skylarkKey;
     this.nameInPlist = Preconditions.checkNotNull(nameInPlist);
     this.platformType = platformType;
@@ -114,7 +114,7 @@ public enum Platform {
   }
 
   @Nullable
-  private static Platform forTargetCpuNullable(String targetCpu) {
+  private static ApplePlatform forTargetCpuNullable(String targetCpu) {
     if (IOS_SIMULATOR_TARGET_CPUS.contains(targetCpu)) {
       return IOS_SIMULATOR;
     } else if (IOS_DEVICE_TARGET_CPUS.contains(targetCpu)) {
@@ -157,18 +157,18 @@ public enum Platform {
    * @param arch architecture representation, such as 'arm64'
    * @throws IllegalArgumentException if there is no valid apple platform for the given target cpu
    */
-  public static Platform forTarget(PlatformType platformType, String arch) {
+  public static ApplePlatform forTarget(PlatformType platformType, String arch) {
     return forTargetCpu(cpuStringForTarget(platformType, arch));
   }
 
- /**
-  * Returns the platform for the given target cpu.
-  * 
-  * @param targetCpu cpu value with platform type prefix, such as 'ios_arm64'
-  * @throws IllegalArgumentException if there is no valid apple platform for the given target cpu
-  */
-  public static Platform forTargetCpu(String targetCpu) {
-    Platform platform = forTargetCpuNullable(targetCpu);
+  /**
+   * Returns the platform for the given target cpu.
+   *
+   * @param targetCpu cpu value with platform type prefix, such as 'ios_arm64'
+   * @throws IllegalArgumentException if there is no valid apple platform for the given target cpu
+   */
+  public static ApplePlatform forTargetCpu(String targetCpu) {
+    ApplePlatform platform = forTargetCpuNullable(targetCpu);
     if (platform != null) {
       return platform; 
     } else {
@@ -188,15 +188,15 @@ public enum Platform {
   public static SkylarkClassObject getSkylarkStruct() {
     ClassObjectConstructor constructor = new NativeClassObjectConstructor("platforms") { };
     HashMap<String, Object> fields = new HashMap<>();
-    for (Platform type : values()) {
+    for (ApplePlatform type : values()) {
       fields.put(type.skylarkKey, type);
     }
     return new SkylarkClassObject(constructor, fields);
   }
 
   /**
-   * Value used to describe Apple platform "type". A {@link Platform} is implied from a platform
-   * type (for example, watchOS) together with a cpu value (for example, armv7).
+   * Value used to describe Apple platform "type". A {@link ApplePlatform} is implied from a
+   * platform type (for example, watchOS) together with a cpu value (for example, armv7).
    */
   // TODO(cparsons): Use these values in static retrieval methods in this class.
   @SkylarkModule(

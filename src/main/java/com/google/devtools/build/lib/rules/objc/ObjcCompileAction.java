@@ -43,7 +43,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.apple.Platform;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery;
@@ -337,7 +337,7 @@ public class ObjcCompileAction extends SpawnAction {
      * needed by the apple toolchain.
      */
     public static ObjcCompileAction.Builder createObjcCompileActionBuilderWithAppleEnv(
-        AppleConfiguration appleConfiguration, Platform targetPlatform) {
+        AppleConfiguration appleConfiguration, ApplePlatform targetPlatform) {
       return (Builder)
           new ObjcCompileAction.Builder()
               .setExecutionInfo(ObjcRuleClasses.darwinActionExecutionRequirement())

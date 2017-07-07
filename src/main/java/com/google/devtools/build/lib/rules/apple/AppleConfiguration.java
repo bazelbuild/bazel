@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
-import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -61,8 +61,8 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   public static final String APPLE_SDK_VERSION_ENV_NAME = "APPLE_SDK_VERSION_OVERRIDE";
   /**
    * Environment variable name for the apple SDK platform. This should be set for all actions that
-   * require an apple SDK. The valid values consist of {@link Platform} names.
-   **/
+   * require an apple SDK. The valid values consist of {@link ApplePlatform} names.
+   */
   public static final String APPLE_SDK_PLATFORM_ENV_NAME = "APPLE_SDK_PLATFORM";
 
   private static final DottedVersion MINIMUM_BITCODE_XCODE_VERSION = DottedVersion.fromString("7");
@@ -197,7 +197,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * @deprecated - use {@link #getSdkVersionForPlatform()}
    */
   @Deprecated public DottedVersion getIosSdkVersion() {
-    return getSdkVersionForPlatform(Platform.IOS_DEVICE);
+    return getSdkVersionForPlatform(ApplePlatform.IOS_DEVICE);
   }
 
   /**
@@ -205,7 +205,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * directly derived from command line args.
    */
   @SkylarkCallable(name = "sdk_version_for_platform", doc = "The SDK version given a platform.")
-  public DottedVersion getSdkVersionForPlatform(Platform platform) {
+  public DottedVersion getSdkVersionForPlatform(ApplePlatform platform) {
     switch (platform) {
       case IOS_DEVICE:
       case IOS_SIMULATOR:
@@ -240,7 +240,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * their corresponding values.
    */
   @SkylarkCallable(name = "target_apple_env")
-  public ImmutableMap<String, String> getTargetAppleEnvironment(Platform platform) {
+  public ImmutableMap<String, String> getTargetAppleEnvironment(ApplePlatform platform) {
     ImmutableMap.Builder<String, String> mapBuilder = ImmutableMap.builder();
     mapBuilder.putAll(appleTargetPlatformEnv(platform));
     return mapBuilder.build();
@@ -282,7 +282,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * variables are needed to use apple toolkits. Keys are variable names and values are their
    * corresponding values.
    */
-  public Map<String, String> appleTargetPlatformEnv(Platform platform) {
+  public Map<String, String> appleTargetPlatformEnv(ApplePlatform platform) {
     ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
 
     String sdkVersion = getSdkVersionForPlatform(platform).toStringWithMinimumComponents(2);
@@ -409,64 +409,68 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
             + "cases.",
     structField = true
   )
-  public Platform getSingleArchPlatform() {
-    return Platform.forTarget(applePlatformType, getSingleArchitecture());
+  public ApplePlatform getSingleArchPlatform() {
+    return ApplePlatform.forTarget(applePlatformType, getSingleArchitecture());
   }
-  
+
   /**
-   * Gets the current configuration {@link Platform} for the given {@link PlatformType}. Platform
-   * is determined via a combination between the given platform type and the "effective"
-   * architectures of this configuration, as returned by {@link #getMultiArchitectures}; if any
-   * of the supported architectures are of device type, this will return a device platform.
+   * Gets the current configuration {@link ApplePlatform} for the given {@link PlatformType}.
+   * ApplePlatform is determined via a combination between the given platform type and the
+   * "effective" architectures of this configuration, as returned by {@link #getMultiArchitectures};
+   * if any of the supported architectures are of device type, this will return a device platform.
    * Otherwise, this will return a simulator platform.
    */
   // TODO(bazel-team): This should support returning multiple platforms.
-  @SkylarkCallable(name = "multi_arch_platform", doc = "The platform of the current configuration "
-      + "for the given platform type. This should only be invoked in a context where multiple "
-      + "architectures may be supported; consider single_arch_platform for other cases.")
-  public Platform getMultiArchPlatform(PlatformType platformType) {
+  @SkylarkCallable(
+    name = "multi_arch_platform",
+    doc =
+        "The platform of the current configuration "
+            + "for the given platform type. This should only be invoked in a context where multiple"
+            + " architectures may be supported; consider single_arch_platform for other cases."
+  )
+  public ApplePlatform getMultiArchPlatform(PlatformType platformType) {
     List<String> architectures = getMultiArchitectures(platformType);
     switch (platformType) {
       case IOS:
         for (String arch : architectures) {
-          if (Platform.forTarget(PlatformType.IOS, arch) == Platform.IOS_DEVICE) {
-            return Platform.IOS_DEVICE;
+          if (ApplePlatform.forTarget(PlatformType.IOS, arch) == ApplePlatform.IOS_DEVICE) {
+            return ApplePlatform.IOS_DEVICE;
           }
         }
-        return Platform.IOS_SIMULATOR;
+        return ApplePlatform.IOS_SIMULATOR;
       case WATCHOS:
         for (String arch : architectures) {
-          if (Platform.forTarget(PlatformType.WATCHOS, arch) == Platform.WATCHOS_DEVICE) {
-            return Platform.WATCHOS_DEVICE;
+          if (ApplePlatform.forTarget(PlatformType.WATCHOS, arch) == ApplePlatform.WATCHOS_DEVICE) {
+            return ApplePlatform.WATCHOS_DEVICE;
           }
         }
-        return Platform.WATCHOS_SIMULATOR;
+        return ApplePlatform.WATCHOS_SIMULATOR;
       case TVOS:
         for (String arch : architectures) {
-          if (Platform.forTarget(PlatformType.TVOS, arch) == Platform.TVOS_DEVICE) {
-            return Platform.TVOS_DEVICE;
+          if (ApplePlatform.forTarget(PlatformType.TVOS, arch) == ApplePlatform.TVOS_DEVICE) {
+            return ApplePlatform.TVOS_DEVICE;
           }
         }
-        return Platform.TVOS_SIMULATOR;
+        return ApplePlatform.TVOS_SIMULATOR;
       case MACOS:
-        return Platform.MACOS;
+        return ApplePlatform.MACOS;
       default:
         throw new IllegalArgumentException("Unsupported platform type " + platformType);
     }
   }
 
   /**
-   * Returns the {@link Platform} represented by {@code ios_cpu} (see {@link #getIosCpu}.
-   * (For example, {@code i386} maps to {@link Platform#IOS_SIMULATOR}.) Note that this is not
+   * Returns the {@link ApplePlatform} represented by {@code ios_cpu} (see {@link #getIosCpu}. (For
+   * example, {@code i386} maps to {@link ApplePlatform#IOS_SIMULATOR}.) Note that this is not
    * necessarily the effective platform for all ios actions in the current context: This is
    * typically the correct platform for implicityly-ios compile and link actions in the current
-   * context. For effective platform for bundling actions, see
-   * {@link #getMultiArchPlatform(PlatformType)}.
+   * context. For effective platform for bundling actions, see {@link
+   * #getMultiArchPlatform(PlatformType)}.
    */
   // TODO(b/28754442): Deprecate for more general skylark-exposed platform retrieval.
   @SkylarkCallable(name = "ios_cpu_platform", doc = "The platform given by the ios_cpu flag.")
-  public Platform getIosCpuPlatform() {
-    return Platform.forTarget(PlatformType.IOS, iosCpu);
+  public ApplePlatform getIosCpuPlatform() {
+    return ApplePlatform.forTarget(PlatformType.IOS, iosCpu);
   }
 
   /**

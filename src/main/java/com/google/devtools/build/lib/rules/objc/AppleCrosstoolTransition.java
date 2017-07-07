@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.apple.Platform;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
 
@@ -53,7 +53,7 @@ public class AppleCrosstoolTransition implements PatchTransition {
     BuildConfiguration.Options configOptions = buildOptions.get(BuildConfiguration.Options.class);
 
     String cpu =
-        Platform.cpuStringForTarget(
+        ApplePlatform.cpuStringForTarget(
             appleOptions.applePlatformType,
             determineSingleArchitecture(appleOptions, configOptions));
     setAppleCrosstoolTransitionConfiguration(buildOptions, result, cpu);

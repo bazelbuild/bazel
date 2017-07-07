@@ -46,8 +46,8 @@ import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
-import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -412,8 +412,10 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .containsAllOf("-isysroot", AppleToolchain.sdkDir()).inOrder();
     assertThat(Collections.frequency(compileActionA.getArguments(),
         "-F" + AppleToolchain.sdkDir() + "/Developer/Library/Frameworks")).isEqualTo(1);
-    assertThat(Collections.frequency(compileActionA.getArguments(),
-        "-F" + frameworkDir(Platform.IOS_SIMULATOR))).isEqualTo(1);
+    assertThat(
+            Collections.frequency(
+                compileActionA.getArguments(), "-F" + frameworkDir(ApplePlatform.IOS_SIMULATOR)))
+        .isEqualTo(1);
     assertThat(compileActionA.getArguments())
         .containsAllIn(AppleToolchain.DEFAULT_WARNINGS.values());
     assertThat(compileActionA.getArguments())
@@ -463,8 +465,10 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .containsAllOf("-isysroot", AppleToolchain.sdkDir()).inOrder();
     assertThat(Collections.frequency(compileActionA.getArguments(),
         "-F" + AppleToolchain.sdkDir() + "/Developer/Library/Frameworks")).isEqualTo(1);
-    assertThat(Collections.frequency(compileActionA.getArguments(),
-        "-F" + frameworkDir(Platform.IOS_DEVICE))).isEqualTo(1);
+    assertThat(
+            Collections.frequency(
+                compileActionA.getArguments(), "-F" + frameworkDir(ApplePlatform.IOS_DEVICE)))
+        .isEqualTo(1);
     assertThat(compileActionA.getArguments())
         .containsAllIn(AppleToolchain.DEFAULT_WARNINGS.values());
     assertThat(compileActionA.getArguments())

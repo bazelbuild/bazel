@@ -117,11 +117,9 @@ public class AppleToolchain {
     return platformDir + "/Developer/Library/Frameworks";
   }
 
-  /**
-   * Returns the SDK frameworks directory inside of Xcode for a given configuration.
-   */
-  public static String sdkFrameworkDir(Platform targetPlatform,
-      AppleConfiguration configuration) {
+  /** Returns the SDK frameworks directory inside of Xcode for a given configuration. */
+  public static String sdkFrameworkDir(
+      ApplePlatform targetPlatform, AppleConfiguration configuration) {
     String relativePath;
     switch (targetPlatform) {
       case IOS_DEVICE:

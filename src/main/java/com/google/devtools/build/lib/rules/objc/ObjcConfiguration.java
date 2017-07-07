@@ -21,8 +21,8 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
-import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery;
 import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -150,8 +150,8 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
       case WATCHOS:
         return watchosSimulatorDevice;
       default:
-        throw new IllegalArgumentException("Platform type " + platformType + " does not support "
-            + "simulators.");
+        throw new IllegalArgumentException(
+            "ApplePlatform type " + platformType + " does not support " + "simulators.");
     }
   }
 
@@ -167,8 +167,8 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
       case WATCHOS:
         return watchosSimulatorVersion;
       default:
-        throw new IllegalArgumentException("Platform type " + platformType + " does not support "
-            + "simulators.");
+        throw new IllegalArgumentException(
+            "ApplePlatform type " + platformType + " does not support " + "simulators.");
     }
   }
 

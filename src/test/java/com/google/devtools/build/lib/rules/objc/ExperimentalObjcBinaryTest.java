@@ -26,8 +26,8 @@ import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
-import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
@@ -78,7 +78,7 @@ public class ExperimentalObjcBinaryTest extends ObjcRuleTestCase {
         "--experimental_disable_go",
         "--cpu=ios_armv7",
         "--ios_cpu=armv7");
-    Platform platform = Platform.IOS_DEVICE;
+    ApplePlatform platform = ApplePlatform.IOS_DEVICE;
 
     addMockBinAndLibs(ImmutableList.of("a.m"));
     CommandAction action = linkAction("//bin:bin");
@@ -128,7 +128,7 @@ public class ExperimentalObjcBinaryTest extends ObjcRuleTestCase {
         "--experimental_disable_go",
         "--cpu=ios_x86_64",
         "--ios_cpu=x86_64");
-    Platform platform = Platform.IOS_SIMULATOR;
+    ApplePlatform platform = ApplePlatform.IOS_SIMULATOR;
 
     addMockBinAndLibs(ImmutableList.of("a.m"));
     CommandAction action = linkAction("//bin:bin");

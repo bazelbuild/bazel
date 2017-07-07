@@ -35,8 +35,8 @@ import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
-import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
 import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
@@ -111,7 +111,7 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
   @Test
   public void testCompilationActions_simulator() throws Exception {
     useConfiguration("--cpu=ios_i386", "--ios_minimum_os=1.0");
-    Platform platform = Platform.IOS_SIMULATOR;
+    ApplePlatform platform = ApplePlatform.IOS_SIMULATOR;
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setAndCreateFiles("hdrs", "c.h")
@@ -176,7 +176,7 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
   @Test
   public void testCompilationActions_device() throws Exception {
     useConfiguration("--cpu=ios_armv7", "--ios_minimum_os=1.0");
-    Platform platform = Platform.IOS_DEVICE;
+    ApplePlatform platform = ApplePlatform.IOS_DEVICE;
 
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
@@ -251,7 +251,7 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
 
   @Test
   public void testCompilationActionsWithPch() throws Exception {
-    Platform platform = Platform.IOS_SIMULATOR;
+    ApplePlatform platform = ApplePlatform.IOS_SIMULATOR;
     scratch.file("objc/foo.pch");
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
@@ -298,7 +298,7 @@ public class LegacyObjcLibraryTest extends ObjcLibraryTest {
   @Test
   public void testCompilationActionsWithCopts() throws Exception {
     useConfiguration("--cpu=ios_i386");
-    Platform platform = Platform.IOS_SIMULATOR;
+    ApplePlatform platform = ApplePlatform.IOS_SIMULATOR;
     createLibraryTargetWriter("//objc:lib")
         .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
         .setAndCreateFiles("hdrs", "c.h")
