@@ -22,7 +22,9 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.cpp.ArtifactCategory;
+import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppBuildInfo;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
@@ -200,8 +202,10 @@ public abstract class NativeDepsHelper {
     }
     FdoSupportProvider fdoSupport =
         CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext);
+    FeatureConfiguration featureConfiguration = CcCommon.configureFeatures(ruleContext, toolchain);
     CppLinkActionBuilder builder =
-        new CppLinkActionBuilder(ruleContext, sharedLibrary, configuration, toolchain, fdoSupport);
+        new CppLinkActionBuilder(
+            ruleContext, sharedLibrary, configuration, toolchain, fdoSupport, featureConfiguration);
     if (useDynamicRuntime) {
       builder.setRuntimeInputs(ArtifactCategory.DYNAMIC_LIBRARY,
           toolchain.getDynamicRuntimeLinkMiddleman(), toolchain.getDynamicRuntimeLinkInputs());

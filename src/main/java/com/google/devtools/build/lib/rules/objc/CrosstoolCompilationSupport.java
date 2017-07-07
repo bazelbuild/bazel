@@ -248,7 +248,12 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
             .addVariableCategory(VariableCategory.FULLY_LINK_VARIABLES)
             .build();
     CppLinkAction fullyLinkAction =
-        new CppLinkActionBuilder(ruleContext, outputArchive, ccToolchain, fdoSupport)
+        new CppLinkActionBuilder(
+                ruleContext,
+                outputArchive,
+                ccToolchain,
+                fdoSupport,
+                getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration))
             .addActionInputs(objcProvider.getObjcLibraries())
             .addActionInputs(objcProvider.getCcLibraries())
             .addActionInputs(objcProvider.get(IMPORTED_LIBRARY).toSet())
@@ -257,8 +262,6 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
             .setLinkStaticness(LinkStaticness.FULLY_STATIC)
             .setLibraryIdentifier(libraryIdentifier)
             .addVariablesExtension(extension)
-            .setFeatureConfiguration(
-                getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration))
             .build();
     ruleContext.registerAction(fullyLinkAction);
 
@@ -321,7 +324,12 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
     FdoSupportProvider fdoSupport =
         CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext);
     CppLinkActionBuilder executableLinkAction =
-        new CppLinkActionBuilder(ruleContext, binaryToLink, toolchain, fdoSupport)
+        new CppLinkActionBuilder(
+                ruleContext,
+                binaryToLink,
+                toolchain,
+                fdoSupport,
+                getFeatureConfiguration(ruleContext, toolchain, buildConfiguration))
             .setMnemonic("ObjcLink")
             .addActionInputs(bazelBuiltLibraries)
             .addActionInputs(objcProvider.getCcLibraries())
@@ -334,9 +342,7 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
             .addActionInput(inputFileList)
             .setLinkType(linkType)
             .setLinkStaticness(LinkStaticness.FULLY_STATIC)
-            .addLinkopts(ImmutableList.copyOf(extraLinkArgs))
-            .setFeatureConfiguration(
-                getFeatureConfiguration(ruleContext, toolchain, buildConfiguration));
+            .addLinkopts(ImmutableList.copyOf(extraLinkArgs));
 
     if (objcConfiguration.generateDsym()) {
       Artifact dsymBundleZip = intermediateArtifacts.tempDsymBundleZip(dsymOutputType);

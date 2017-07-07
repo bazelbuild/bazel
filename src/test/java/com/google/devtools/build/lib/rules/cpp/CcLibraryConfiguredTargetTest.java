@@ -90,6 +90,39 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(target.getProvider(CppCompilationContext.class).getCppModuleMap()).isNull();
   }
 
+  @Test
+  public void testMisconfiguredCrosstoolRaisesErrorWhenLinking() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            MockCcSupport.NO_LEGACY_FEATURES_FEATURE,
+            MockCcSupport.INCOMPLETE_COMPILE_ACTION_CONFIG);
+    useConfiguration();
+
+    checkError(
+        "test",
+        "test",
+        "Expected action_config for 'c++-link-static-library' to be configured",
+        "cc_library(name = 'test', srcs = ['test.cc'])");
+  }
+
+  @Test
+  public void testMisconfiguredCrosstoolRaisesErrorWhenCompiling() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            MockCcSupport.NO_LEGACY_FEATURES_FEATURE,
+            MockCcSupport.INCOMPLETE_STATIC_LIBRARY_ACTION_CONFIG);
+    useConfiguration();
+
+    checkError(
+        "test",
+        "test",
+        "Expected action_config for 'c++-compile' to be configured",
+        "cc_library(name = 'test', srcs = ['test.cc'])");
+  }
 
   @Test
   public void testFilesToBuild() throws Exception {
@@ -709,8 +742,11 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   public void testPicNotAvailableError() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig,
-            "feature { name: 'no_legacy_features' }");
+        .setupCrosstool(
+            mockToolsConfig,
+            MockCcSupport.INCOMPLETE_STATIC_LIBRARY_ACTION_CONFIG,
+            MockCcSupport.INCOMPLETE_COMPILE_ACTION_CONFIG,
+            MockCcSupport.NO_LEGACY_FEATURES_FEATURE);
     useConfiguration("--cpu=k8");
     writeSimpleCcLibrary();
     reporter.removeHandler(failFastHandler);
@@ -722,9 +758,14 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   public void testToolchainWithoutPicForNoPicCompilation() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig,
+        .setupCrosstool(
+            mockToolsConfig,
             "needsPic: false",
-            "feature { name: 'no_legacy_features' }");
+            MockCcSupport.INCOMPLETE_COMPILE_ACTION_CONFIG,
+            MockCcSupport.INCOMPLETE_EXECUTABLE_ACTION_CONFIG,
+            MockCcSupport.INCOMPLETE_DYNAMIC_LIBRARY_ACTION_CONFIG,
+            MockCcSupport.INCOMPLETE_STATIC_LIBRARY_ACTION_CONFIG,
+            MockCcSupport.NO_LEGACY_FEATURES_FEATURE);
     useConfiguration();
     scratchConfiguredTarget("a", "a",
         "cc_binary(name='a', srcs=['a.cc'], deps=[':b'])",
@@ -735,9 +776,14 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   public void testNoCppModuleMap() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig,
-            "feature { name: 'no_legacy_features' }",
-            "feature { name: 'pic' }");
+        .setupCrosstool(
+            mockToolsConfig,
+            MockCcSupport.INCOMPLETE_COMPILE_ACTION_CONFIG,
+            MockCcSupport.INCOMPLETE_EXECUTABLE_ACTION_CONFIG,
+            MockCcSupport.INCOMPLETE_STATIC_LIBRARY_ACTION_CONFIG,
+            MockCcSupport.INCOMPLETE_DYNAMIC_LIBRARY_ACTION_CONFIG,
+            MockCcSupport.NO_LEGACY_FEATURES_FEATURE,
+            MockCcSupport.PIC_FEATURE);
     useConfiguration();
     writeSimpleCcLibrary();
     assertNoCppModuleMapAction("//module:map");
@@ -1002,28 +1048,36 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testIncludePathsOutsideExecutionRoot() throws Exception {
-    checkError("root", "a",
+    checkError(
+        "root",
+        "a",
         "The include path 'd/../../somewhere' references a path outside of the execution root.",
         "cc_library(name='a', srcs=['a.cc'], copts=['-Id/../../somewhere'])");
   }
 
   @Test
   public void testAbsoluteIncludePathsOutsideExecutionRoot() throws Exception {
-    checkError("root", "a",
+    checkError(
+        "root",
+        "a",
         "The include path '/somewhere' references a path outside of the execution root.",
         "cc_library(name='a', srcs=['a.cc'], copts=['-I/somewhere'])");
   }
 
   @Test
   public void testSystemIncludePathsOutsideExecutionRoot() throws Exception {
-    checkError("root", "a",
+    checkError(
+        "root",
+        "a",
         "The include path '../system' references a path outside of the execution root.",
         "cc_library(name='a', srcs=['a.cc'], copts=['-isystem../system'])");
   }
 
   @Test
   public void testAbsoluteSystemIncludePathsOutsideExecutionRoot() throws Exception {
-    checkError("root", "a",
+    checkError(
+        "root",
+        "a",
         "The include path '/system' references a path outside of the execution root.",
         "cc_library(name='a', srcs=['a.cc'], copts=['-isystem/system'])");
   }

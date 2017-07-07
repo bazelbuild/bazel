@@ -53,6 +53,15 @@ import com.google.devtools.build.lib.actions.ArtifactOwner;
  * </ol>
  */
 public interface ActionTemplate<T extends Action> extends ActionAnalysisMetadata {
+
+  /** An exception signalling that the template expansion failed during execution phase */
+  class ActionTemplateExpansionException extends Exception {
+
+    public ActionTemplateExpansionException(String cause) {
+      super(cause);
+    }
+  }
+
   /**
    * Given a list of input TreeFileArtifacts resolved at execution time, returns a list of expanded
    * SpawnActions to be executed.
@@ -65,7 +74,8 @@ public interface ActionTemplate<T extends Action> extends ActionAnalysisMetadata
    *     {@link TreeFileArtifact}
    */
   Iterable<T> generateActionForInputArtifacts(
-      Iterable<TreeFileArtifact> inputTreeFileArtifacts, ArtifactOwner artifactOwner);
+      Iterable<TreeFileArtifact> inputTreeFileArtifacts, ArtifactOwner artifactOwner)
+      throws ActionTemplateExpansionException;
 
   /** Returns the input TreeArtifact. */
   Artifact getInputTreeArtifact();
