@@ -371,7 +371,7 @@ public class ObjcRuleClasses {
    * Files that are already compiled.
    */
   static final FileTypeSet PRECOMPILED_SRCS_TYPE = FileTypeSet.of(OBJECT_FILE_SOURCES);
-  
+
   static final FileTypeSet NON_ARC_SRCS_TYPE = FileTypeSet.of(FileType.of(".m", ".mm"));
 
   static final FileTypeSet PLIST_TYPE = FileTypeSet.of(FileType.of(".plist"));
@@ -714,8 +714,13 @@ public class ObjcRuleClasses {
           Setting this to 1 will allow you to @import system headers and other targets:
           @import UIKit;
           @import path_to_package_target;
+          @import module_name;
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("enable_modules", BOOLEAN))
+          /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(module_name) -->
+          Controls clang module name. The default for this is path_to_package_target
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("module_name", STRING))
           /* Provides the label for header_scanner tool that is used to scan inclusions for ObjC
           sources and provide a list of required headers via a .header_list file.
 
