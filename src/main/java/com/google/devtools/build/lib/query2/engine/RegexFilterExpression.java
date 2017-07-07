@@ -54,17 +54,15 @@ public abstract class RegexFilterExpression implements QueryFunction {
 
     // Note that Patttern#matcher is thread-safe and so this Predicate can safely be used
     // concurrently.
-    final Predicate<T> matchFilter = new Predicate<T>() {
-      @Override
-      public boolean apply(T target) {
-        for (String str : getFilterStrings(env, args, target)) {
-          if ((str != null) && compiledPattern.matcher(str).find()) {
-            return true;
+    final Predicate<T> matchFilter =
+        target -> {
+          for (String str : getFilterStrings(env, args, target)) {
+            if ((str != null) && compiledPattern.matcher(str).find()) {
+              return true;
+            }
           }
-        }
-        return false;
-      }
-    };
+          return false;
+        };
 
     return env.eval(
         Iterables.getLast(args).getExpression(),

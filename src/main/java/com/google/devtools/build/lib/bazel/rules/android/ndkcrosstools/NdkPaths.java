@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
@@ -150,18 +149,14 @@ public class NdkPaths {
             + "/lib/gcc/%targetPlatform%/%gccVersion%/%includeFolderName%";
     return Lists.transform(
         ImmutableList.of("include", "include-fixed"),
-        new Function<String, String>() {
-          @Override
-          public String apply(String includeFolderName) {
-            return toolchainIncludePathTemplate
+        includeFolderName ->
+            toolchainIncludePathTemplate
                 .replace("%repositoryName%", repositoryName)
                 .replace("%toolchainName%", toolchainName)
                 .replace("%hostPlatform%", hostPlatform)
                 .replace("%targetPlatform%", targetPlatform)
                 .replace("%gccVersion%", gccVersion)
-                .replace("%includeFolderName%", includeFolderName);
-          }
-        });
+                .replace("%includeFolderName%", includeFolderName));
   }
 
   public String createBuiltinSysroot(String targetCpu) {

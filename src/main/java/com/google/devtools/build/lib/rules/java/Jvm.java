@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import com.google.common.collect.ImmutableMap.Builder;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -41,7 +42,7 @@ public final class Jvm extends BuildConfiguration.Fragment {
   private final Label jvmLabel;
   private final PathFragment java;
 
-  private static final String BIN_JAVA = "bin/java" + OsUtils.executableExtension();
+  public static final String BIN_JAVA = "bin/java" + OsUtils.executableExtension();
 
   /**
    * Creates a Jvm instance. Either the {@code javaHome} parameter is absolute,
@@ -52,19 +53,15 @@ public final class Jvm extends BuildConfiguration.Fragment {
     Preconditions.checkArgument(javaHome.isAbsolute() || jvmLabel != null);
     this.javaHome = javaHome;
     this.jvmLabel = jvmLabel;
-    this.java = getJavaHome().getRelative(BIN_JAVA);
-  }
-
-  /**
-   * Returns a path fragment that determines the path to the installation
-   * directory. It is either absolute or relative to the execution root.
-   */
-  public PathFragment getJavaHome() {
-    return javaHome;
+    this.java = javaHome.getRelative(BIN_JAVA);
   }
 
   /**
    * Returns the path to the java binary.
+   *
+   * <p>Don't use this method because it relies on package loading during configuration creation.
+   * Use {@link JavaCommon#getHostJavaExecutable(RuleContext)} and
+   * {@link JavaCommon#getJavaExecutable(RuleContext)} instead.
    */
   @SkylarkCallable(name = "java_executable", structField = true,
       doc = "The java executable, i.e. bin/java relative to the Java home.")
@@ -83,20 +80,9 @@ public final class Jvm extends BuildConfiguration.Fragment {
     return jvmLabel;
   }
 
-  /**
-   * If possible, resolves java relative to the jvmLabel's repository. Otherwise, returns the
-   * same thing as getJavaExecutable().
-   */
-  public PathFragment getRunfilesJavaExecutable() {
-    if (javaHome.isAbsolute() || jvmLabel.getPackageIdentifier().getRepository().isMain()) {
-      return getJavaExecutable();
-    }
-    return jvmLabel.getPackageIdentifier().getRepository().getRunfilesPath().getRelative(BIN_JAVA);
-  }
-
   @Override
   public void addGlobalMakeVariables(Builder<String, String> globalMakeEnvBuilder) {
-    globalMakeEnvBuilder.put("JAVABASE", getJavaHome().getPathString());
-    globalMakeEnvBuilder.put("JAVA", getJavaExecutable().getPathString());
+    globalMakeEnvBuilder.put("JAVABASE", javaHome.getPathString());
+    globalMakeEnvBuilder.put("JAVA", java.getPathString());
   }
 }

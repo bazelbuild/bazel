@@ -373,7 +373,7 @@ function test_building_deploy_jar_twice_does_not_rebuild() {
   write_hello_library_files "$pkg"
 
   bazel build //$pkg/java/main:main_deploy.jar || fail "build failed"
-  touch old -r ${PRODUCT_NAME}-bin/$pkg/java/main/main_deploy.jar
+  touch -r ${PRODUCT_NAME}-bin/$pkg/java/main/main_deploy.jar old
   bazel build //$pkg/java/main:main_deploy.jar || fail "build failed"
   find ${PRODUCT_NAME}-bin/$pkg/java/main/main_deploy.jar -newer old \
     | grep -q . && fail "file was rebuilt"

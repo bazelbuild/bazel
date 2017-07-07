@@ -75,8 +75,9 @@ public class PlatformInfo extends SkylarkClassObject {
           // Based on SIGNATURE above, the args are label, constraint_values.
 
           Label label = (Label) args[0];
-          SkylarkList<ConstraintValueInfo> constraintValues =
-              (SkylarkList<ConstraintValueInfo>) args[1];
+          List<ConstraintValueInfo> constraintValues =
+              SkylarkList.castSkylarkListOrNoneToList(
+                  args[1], ConstraintValueInfo.class, "constraint_values");
           try {
             return builder()
                 .setLabel(label)

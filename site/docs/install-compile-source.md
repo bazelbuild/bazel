@@ -5,6 +5,8 @@ title: Compile Bazel from Source
 
 # <a name="compiling-from-source"></a>Compile Bazel from source
 
+## <a name="unix"></a> On Linux or macOS
+
 1. Ensure that you have OpenJDK 8 installed on your system.
    For a system based on debian packages (e.g. Debian, Ubuntu), install
    OpenJDK 8 by running the command `sudo apt-get install openjdk-8-jdk`.
@@ -22,37 +24,22 @@ title: Compile Bazel from Source
    binary in `output/bazel`. This binary is self-contained, so it can be copied
    to a directory on the PATH (such as `/usr/local/bin`) or used in-place.
 
-## <a name="compiling-from-source-issues"></a>Known issues when compiling from source
+## <a name="windows"></a> On Windows
 
-### On Windows:
+Windows support is in beta. Known issues are [marked with label
+"Windows"](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+is%3Aopen+label%3A%22category%3A+multi-platform+%3E+windows%22)
+on github issues.
 
-* version 0.4.4 and below: `compile.sh` may fail right after start with an error
-  like this:
+Prerequisites:
 
-    ```
-    File not found - *.jar
-    no error prone jar
-    ```
+*    Follow the [Windows requirements](windows.md#requirements).
+*    Install [Visual C++ Build Tools](http://landinghub.visualstudio.com/visual-cpp-build-tools)
+     or the full [Visual C++](https://www.visualstudio.com/) (as part of Visual
+     Studio; Community Edition is fine) with Windows SDK installed.
 
-    Workaround is to run this (and add it to your `~/.bashrc`):
+To build Bazel on Windows:
 
-    ```
-    export PATH="/bin:/usr/bin:$PATH"
-    ```
-
-* version 0.4.3 and below: `compile.sh` may fail fairly early with many Java
-  compilation errors. The errors look similar to:
-
-    ```
-    C:\...\bazel_VR1HFY7x\src\com\google\devtools\build\lib\remote\ExecuteServiceGrpc.java:11: error: package io.grpc.stub does not exist
-    import static io.grpc.stub.ServerCalls.asyncUnaryCall;
-                              ^
-    ```
-
-    This is caused by a bug in one of the bootstrap scripts
-    (`scripts/bootstrap/compile.sh`). Manually apply this one-line fix if you
-    want to build Bazel purely from source (without using an existing Bazel
-    binary): [5402993a5e9065984a42eca2132ec56ca3aa456f]( https://github.com/bazelbuild/bazel/commit/5402993a5e9065984a42eca2132ec56ca3aa456f).
-
-* version 0.3.2 and below:
-  [github issue #1919](https://github.com/bazelbuild/bazel/issues/1919)
+*    Open the msys2 shell.
+*    Clone the [Bazel git repository](https://github.com/bazelbuild/bazel) as normal.
+*    Run ``compile.sh`` in Bazel directory.
+*    If all works fine, Bazel will be built at ``output\bazel.exe``.

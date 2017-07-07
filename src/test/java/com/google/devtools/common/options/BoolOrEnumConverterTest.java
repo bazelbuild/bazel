@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.common.options.OptionsParser.newOptionsParser;
 import static org.junit.Assert.fail;
 
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -45,9 +46,13 @@ public class BoolOrEnumConverterTest {
    * The test options for the CompilationMode hybrid converter.
    */
   public static class CompilationModeTestOptions extends OptionsBase {
-    @Option(name = "compile_mode",
-            converter = CompilationModeConverter.class,
-            defaultValue = "dbg")
+    @Option(
+      name = "compile_mode",
+      converter = CompilationModeConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "dbg"
+    )
     public CompilationMode compileMode;
   }
 

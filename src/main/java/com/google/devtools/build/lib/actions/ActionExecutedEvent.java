@@ -108,6 +108,14 @@ public class ActionExecutedEvent implements BuildEvent {
     if (action.getOwner() != null && action.getOwner().getLabel() != null) {
       actionBuilder.setLabel(action.getOwner().getLabel().toString());
     }
+    // TODO(aehlig): ensure the configuration is shown in the stream, even if it is not
+    // one of the configurations of a top-level configured target.
+    if (action.getOwner() != null) {
+      actionBuilder.setConfiguration(
+          BuildEventStreamProtos.BuildEventId.ConfigurationId.newBuilder()
+              .setId(action.getOwner().getConfigurationChecksum())
+              .build());
+    }
     if (exception == null) {
       actionBuilder.setPrimaryOutput(
           BuildEventStreamProtos.File.newBuilder()

@@ -19,13 +19,12 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.ProtoDeterministicWriter;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.io.IOException;
-import java.io.OutputStream;
 
 /**
  * Requests extra action info from shadowed action and writes it, in protocol buffer format, to an
@@ -48,18 +47,7 @@ public final class ExtraActionInfoFileWriteAction extends AbstractFileWriteActio
   @Override
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx)
       throws IOException, InterruptedException, ExecException {
-    return new DeterministicWriter() {
-      // Instantiate the extra action info only on execution, so it is computed freshly each
-      // execution, but is constant for the lifetime of this action's execution. These are not
-      // large objects, so keeping them in memory for the duration of a single action's execution
-      // is acceptable.
-      private final ExtraActionInfo extraActionInfo = shadowedAction.getExtraActionInfo().build();
-
-      @Override
-      public void writeOutputFile(OutputStream out) throws IOException {
-        extraActionInfo.writeTo(out);
-      }
-    };
+    return new ProtoDeterministicWriter(shadowedAction.getExtraActionInfo().build());
   }
 
   @Override

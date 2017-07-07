@@ -19,7 +19,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -91,6 +90,39 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(target.getProvider(CppCompilationContext.class).getCppModuleMap()).isNull();
   }
 
+  @Test
+  public void testMisconfiguredCrosstoolRaisesErrorWhenLinking() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            MockCcSupport.NO_LEGACY_FEATURES_FEATURE,
+            MockCcSupport.INCOMPLETE_COMPILE_ACTION_CONFIG);
+    useConfiguration();
+
+    checkError(
+        "test",
+        "test",
+        "Expected action_config for 'c++-link-static-library' to be configured",
+        "cc_library(name = 'test', srcs = ['test.cc'])");
+  }
+
+  @Test
+  public void testMisconfiguredCrosstoolRaisesErrorWhenCompiling() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(
+            mockToolsConfig,
+            MockCcSupport.NO_LEGACY_FEATURES_FEATURE,
+            MockCcSupport.INCOMPLETE_STATIC_LIBRARY_ACTION_CONFIG);
+    useConfiguration();
+
+    checkError(
+        "test",
+        "test",
+        "Expected action_config for 'c++-compile' to be configured",
+        "cc_library(name = 'test', srcs = ['test.cc'])");
+  }
 
   @Test
   public void testFilesToBuild() throws Exception {
@@ -277,42 +309,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .containsExactlyElementsIn(buildInfoHeaderArtifacts);
     assertThat(cppLinkInfo.getLinkOptList())
         .containsExactlyElementsIn(action.getLinkCommandLine().getRawLinkArgv());
-  }
-
-  /**
-   * Tests that if a given crosstool defines action configs for all link actions, that the link
-   * action will be configured from the crosstool instead of from hard-coded action_configs in
-   * {@code CppActionConfigs}.
-   */
-  @Test
-  public void testUsesCrosstoolIfLinkActionDefined() throws Exception {
-    String completeBrokenActionConfigs =
-        Joiner.on("\n")
-            .join(
-                MockCcSupport.INCOMPLETE_EXECUTABLE_ACTION_CONFIG,
-                MockCcSupport.INCOMPLETE_DYNAMIC_LIBRARY_ACTION_CONFIG,
-                MockCcSupport.INCOMPLETE_STATIC_LIBRARY_ACTION_CONFIG,
-                MockCcSupport.INCOMPLETE_PIC_STATIC_LIBRARY_ACTION_CONFIG,
-                MockCcSupport.INCOMPLETE_ALWAYS_LINK_STATIC_LIBRARY_ACTION_CONFIG,
-                MockCcSupport.INCOMPLETE_ALWAYS_LINK_PIC_STATIC_LIBRARY_EXECUTABLE_ACTION_CONFIG,
-                MockCcSupport.INCOMPLETE_INTERFACE_DYNAMIC_LIBRARY_ACTION_CONFIG);
-    AnalysisMock.get().ccSupport().setupCrosstool(mockToolsConfig, completeBrokenActionConfigs);
-
-    useConfiguration(
-        "--features=" + Link.LinkTargetType.EXECUTABLE.getActionName(),
-        "--features=" + Link.LinkTargetType.DYNAMIC_LIBRARY.getActionName(),
-        "--features=" + Link.LinkTargetType.STATIC_LIBRARY.getActionName(),
-        "--features=" + Link.LinkTargetType.PIC_STATIC_LIBRARY.getActionName(),
-        "--features=" + Link.LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY.getActionName(),
-        "--features=" + Link.LinkTargetType.ALWAYS_LINK_PIC_STATIC_LIBRARY.getActionName(),
-        "--features=" + Link.LinkTargetType.INTERFACE_DYNAMIC_LIBRARY.getActionName());
-
-    ConfiguredTarget hello = getConfiguredTarget("//hello:hello_static");
-    Artifact archive =
-        FileType.filter(getFilesToBuild(hello), CppFileTypes.ARCHIVE).iterator().next();
-    CppLinkAction action = (CppLinkAction) getGeneratingAction(archive);
-
-    assertThat(Joiner.on(" ").join(action.getArgv())).doesNotContain("hello.pic.o");
   }
 
   @Test
@@ -746,8 +742,11 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   public void testPicNotAvailableError() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig,
-            "feature { name: 'no_legacy_features' }");
+        .setupCrosstool(
+            mockToolsConfig,
+            MockCcSupport.INCOMPLETE_STATIC_LIBRARY_ACTION_CONFIG,
+            MockCcSupport.INCOMPLETE_COMPILE_ACTION_CONFIG,
+            MockCcSupport.NO_LEGACY_FEATURES_FEATURE);
     useConfiguration("--cpu=k8");
     writeSimpleCcLibrary();
     reporter.removeHandler(failFastHandler);
@@ -759,9 +758,14 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   public void testToolchainWithoutPicForNoPicCompilation() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig,
+        .setupCrosstool(
+            mockToolsConfig,
             "needsPic: false",
-            "feature { name: 'no_legacy_features' }");
+            MockCcSupport.INCOMPLETE_COMPILE_ACTION_CONFIG,
+            MockCcSupport.INCOMPLETE_EXECUTABLE_ACTION_CONFIG,
+            MockCcSupport.INCOMPLETE_DYNAMIC_LIBRARY_ACTION_CONFIG,
+            MockCcSupport.INCOMPLETE_STATIC_LIBRARY_ACTION_CONFIG,
+            MockCcSupport.NO_LEGACY_FEATURES_FEATURE);
     useConfiguration();
     scratchConfiguredTarget("a", "a",
         "cc_binary(name='a', srcs=['a.cc'], deps=[':b'])",
@@ -772,9 +776,14 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   public void testNoCppModuleMap() throws Exception {
     AnalysisMock.get()
         .ccSupport()
-        .setupCrosstool(mockToolsConfig,
-            "feature { name: 'no_legacy_features' }",
-            "feature { name: 'pic' }");
+        .setupCrosstool(
+            mockToolsConfig,
+            MockCcSupport.INCOMPLETE_COMPILE_ACTION_CONFIG,
+            MockCcSupport.INCOMPLETE_EXECUTABLE_ACTION_CONFIG,
+            MockCcSupport.INCOMPLETE_STATIC_LIBRARY_ACTION_CONFIG,
+            MockCcSupport.INCOMPLETE_DYNAMIC_LIBRARY_ACTION_CONFIG,
+            MockCcSupport.NO_LEGACY_FEATURES_FEATURE,
+            MockCcSupport.PIC_FEATURE);
     useConfiguration();
     writeSimpleCcLibrary();
     assertNoCppModuleMapAction("//module:map");
@@ -1039,28 +1048,36 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testIncludePathsOutsideExecutionRoot() throws Exception {
-    checkError("root", "a",
+    checkError(
+        "root",
+        "a",
         "The include path 'd/../../somewhere' references a path outside of the execution root.",
         "cc_library(name='a', srcs=['a.cc'], copts=['-Id/../../somewhere'])");
   }
 
   @Test
   public void testAbsoluteIncludePathsOutsideExecutionRoot() throws Exception {
-    checkError("root", "a",
+    checkError(
+        "root",
+        "a",
         "The include path '/somewhere' references a path outside of the execution root.",
         "cc_library(name='a', srcs=['a.cc'], copts=['-I/somewhere'])");
   }
 
   @Test
   public void testSystemIncludePathsOutsideExecutionRoot() throws Exception {
-    checkError("root", "a",
+    checkError(
+        "root",
+        "a",
         "The include path '../system' references a path outside of the execution root.",
         "cc_library(name='a', srcs=['a.cc'], copts=['-isystem../system'])");
   }
 
   @Test
   public void testAbsoluteSystemIncludePathsOutsideExecutionRoot() throws Exception {
-    checkError("root", "a",
+    checkError(
+        "root",
+        "a",
         "The include path '/system' references a path outside of the execution root.",
         "cc_library(name='a', srcs=['a.cc'], copts=['-isystem/system'])");
   }

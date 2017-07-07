@@ -31,6 +31,8 @@ import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidManifestMerger;
 import com.google.devtools.build.lib.rules.android.ResourceContainer.Builder.JavaPackageSource;
 import com.google.devtools.build.lib.rules.android.ResourceContainer.ResourceType;
@@ -293,15 +295,15 @@ public final class ApplicationManifest {
     return new ApplicationManifest(ruleContext, outputManifest);
   }
 
-  /** Packages up the manifest with assets from the rule and dependent resources.
-   * @throws InterruptedException */
+  /** Packages up the manifest with assets from the rule and dependent resources. */
   public ResourceApk packWithAssets(
       Artifact resourceApk,
       RuleContext ruleContext,
       ResourceDependencies resourceDeps,
       Artifact rTxt,
       boolean incremental,
-      Artifact proguardCfg) throws InterruptedException {
+      Artifact proguardCfg)
+      throws InterruptedException {
     LocalResourceContainer data = new LocalResourceContainer.Builder(ruleContext)
         .withAssets(
             AndroidCommon.getAssetDir(ruleContext),
@@ -336,7 +338,7 @@ public final class ApplicationManifest {
   }
 
   /** Packages up the manifest with resource and assets from the LocalResourceContainer. */
-  public ResourceApk packWithDataAndResources(
+  public ResourceApk packAarWithDataAndResources(
       RuleContext ruleContext,
       LocalResourceContainer data,
       ResourceDependencies resourceDeps,
@@ -344,7 +346,8 @@ public final class ApplicationManifest {
       Artifact symbols,
       Artifact manifestOut,
       Artifact mergedResources,
-      boolean alwaysExportManifest) throws InterruptedException {
+      boolean alwaysExportManifest)
+      throws InterruptedException {
     if (ruleContext.hasErrors()) {
       return null;
     }
@@ -377,26 +380,70 @@ public final class ApplicationManifest {
         null /* Artifact featureAfter */);
   }
 
-  /** Packages up the manifest with resource and assets from the rule and dependent resources. */
-  // TODO(bazel-team): this method calls for some refactoring, 15+ params including some nullables.
-  public ResourceApk packWithDataAndResources(
-      @Nullable Artifact resourceApk,
+  /* Creates an incremental apk from assets and data. */
+  public ResourceApk packIncrementalBinaryWithDataAndResources(
       RuleContext ruleContext,
-      boolean isLibrary,
+      Artifact resourceApk,
       ResourceDependencies resourceDeps,
-      Artifact rTxt,
-      Artifact symbols,
       ResourceFilter resourceFilter,
       List<String> uncompressedExtensions,
       boolean crunchPng,
-      boolean incremental,
+      Artifact proguardCfg)
+      throws InterruptedException, RuleErrorException {
+    LocalResourceContainer data =
+        new LocalResourceContainer.Builder(ruleContext)
+            .withAssets(
+                AndroidCommon.getAssetDir(ruleContext),
+                ruleContext.getPrerequisitesIf(
+                    // TODO(bazel-team): Remove the ResourceType construct.
+                    ResourceType.ASSETS.getAttribute(), Mode.TARGET, FileProvider.class))
+            .withResources(
+                ruleContext.getPrerequisites("resource_files", Mode.TARGET, FileProvider.class))
+            .build();
+    if (ruleContext.hasErrors()) {
+      return null;
+    }
+    return createApk(
+        ruleContext,
+        false /* isLibrary */,
+        resourceDeps,
+        resourceFilter,
+        uncompressedExtensions,
+        crunchPng,
+        true,
+        ResourceContainer.builderFromRule(ruleContext)
+            .setAssetsAndResourcesFrom(data)
+            .setManifest(getManifest())
+            .setApk(resourceApk)
+            .build(),
+        data,
+        proguardCfg,
+        null, /* mainDexProguardCfg */
+        null, /* manifestOut */
+        null, /* mergedResources */
+        null, /* dataBindingInfoZip */
+        null, /* featureOf */
+        null /* featureAfter */);
+  }
+
+  /** Packages up the manifest with resource and assets from the rule and dependent resources. */
+  // TODO(bazel-team): this method calls for some refactoring, 15+ params including some nullables.
+  public ResourceApk packBinaryWithDataAndResources(
+      RuleContext ruleContext,
+      Artifact resourceApk,
+      ResourceDependencies resourceDeps,
+      Artifact rTxt,
+      ResourceFilter resourceFilter,
+      List<String> uncompressedExtensions,
+      boolean crunchPng,
       Artifact proguardCfg,
       @Nullable Artifact mainDexProguardCfg,
       Artifact manifestOut,
       Artifact mergedResources,
-      Artifact dataBindingInfoZip,
+      @Nullable Artifact dataBindingInfoZip,
       @Nullable Artifact featureOf,
-      @Nullable Artifact featureAfter) throws InterruptedException {
+      @Nullable Artifact featureAfter)
+      throws InterruptedException, RuleErrorException {
     LocalResourceContainer data = new LocalResourceContainer.Builder(ruleContext)
         .withAssets(
             AndroidCommon.getAssetDir(ruleContext),
@@ -415,17 +462,16 @@ public final class ApplicationManifest {
     }
     return createApk(
         ruleContext,
-        isLibrary,
+        false /* isLibrary */,
         resourceDeps,
         resourceFilter,
         uncompressedExtensions,
         crunchPng,
-        incremental,
+        false /* incremental */,
         ResourceContainer.builderFromRule(ruleContext)
             .setAssetsAndResourcesFrom(data)
             .setManifest(getManifest())
             .setRTxt(rTxt)
-            .setSymbols(symbols)
             .setApk(resourceApk)
             .build(),
         data,
@@ -436,6 +482,55 @@ public final class ApplicationManifest {
         dataBindingInfoZip,
         featureOf,
         featureAfter);
+  }
+
+  public ResourceApk packLibraryWithDataAndResources(
+      RuleContext ruleContext,
+      @Nullable Artifact resourceApk,
+      ResourceDependencies resourceDeps,
+      Artifact rTxt,
+      Artifact symbols,
+      ResourceFilter resourceFilter,
+      Artifact manifestOut,
+      Artifact mergedResources,
+      Artifact dataBindingInfoZip)
+      throws InterruptedException, RuleErrorException {
+    LocalResourceContainer data =
+        new LocalResourceContainer.Builder(ruleContext)
+            .withAssets(
+                AndroidCommon.getAssetDir(ruleContext),
+                ruleContext.getPrerequisitesIf(
+                    // TODO(bazel-team): Remove the ResourceType construct.
+                    ResourceType.ASSETS.getAttribute(), Mode.TARGET, FileProvider.class))
+            .withResources(
+                ruleContext.getPrerequisites("resource_files", Mode.TARGET, FileProvider.class))
+            .build();
+    if (ruleContext.hasErrors()) {
+      return null;
+    }
+    return createApk(
+        ruleContext,
+        true /* isLibrary */,
+        resourceDeps,
+        resourceFilter,
+        ImmutableList.<String>of() /* uncompressedExtensions */,
+        false /* crunchPng */,
+        false /* incremental */,
+        ResourceContainer.builderFromRule(ruleContext)
+            .setAssetsAndResourcesFrom(data)
+            .setManifest(getManifest())
+            .setRTxt(rTxt)
+            .setSymbols(symbols)
+            .setApk(null)
+            .build(),
+        data,
+        null /* proguardCfg */,
+        null /* mainDexProguardCfg */,
+        manifestOut,
+        mergedResources,
+        dataBindingInfoZip,
+        null /* featureOf */,
+        null /* featureAfter */);
   }
 
   private ResourceApk createApk(
@@ -479,11 +574,24 @@ public final class ApplicationManifest {
           AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR);
 
       if (resourceContainer.getSymbols() != null) {
-        new AndroidResourceParsingActionBuilder(ruleContext)
-            .withPrimary(resourceContainer)
-            .setParse(data)
-            .setOutput(resourceContainer.getSymbols())
-            .build(ruleContext);
+        AndroidResourceParsingActionBuilder parsingBuilder =
+            new AndroidResourceParsingActionBuilder(ruleContext)
+                .withPrimary(resourceContainer)
+                .setParse(data)
+                .setOutput(resourceContainer.getSymbols())
+                .setCompiledSymbolsOutput(resourceContainer.getCompiledSymbols());
+
+        if (dataBindingInfoZip != null && resourceContainer.getCompiledSymbols() != null) {
+          PathFragment unusedInfo = dataBindingInfoZip.getRootRelativePath();
+          // TODO(corysmith): Centralize the data binding processing and zipping into a single
+          // action. Data binding processing needs to be triggered here as well as the merger to
+          // avoid aapt2 from throwing an error during compilation.
+          parsingBuilder.setDataBindingInfoZip(
+              ruleContext.getDerivedArtifact(
+                  unusedInfo.replaceName(unusedInfo.getBaseName() + "_unused.zip"),
+                  dataBindingInfoZip.getRoot()));
+        }
+        resourceContainer = parsingBuilder.build(ruleContext);
       }
 
       AndroidResourceMergingActionBuilder resourcesMergerBuilder =
@@ -491,22 +599,28 @@ public final class ApplicationManifest {
               .setJavaPackage(resourceContainer.getJavaPackage())
               .withPrimary(resourceContainer)
               .withDependencies(resourceDeps)
+              .setDataBindingInfoZip(dataBindingInfoZip)
               .setMergedResourcesOut(mergedResources)
               .setManifestOut(manifestOut)
               .setClassJarOut(rJavaClassJar)
               .setDataBindingInfoZip(dataBindingInfoZip);
       ResourceContainer merged = resourcesMergerBuilder.build(ruleContext);
 
-      AndroidResourceValidatorActionBuilder validatorBuilder =
+      processed =
           new AndroidResourceValidatorActionBuilder(ruleContext)
               .setJavaPackage(merged.getJavaPackage())
-              .setDebug(
-                  ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
+              .setDebug(ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
               .setMergedResources(mergedResources)
               .withPrimary(merged)
+              .setRTxtOut(merged.getRTxt())
               .setSourceJarOut(merged.getJavaSourceJar())
-              .setRTxtOut(merged.getRTxt());
-      processed = validatorBuilder.build(ruleContext);
+              // aapt2 related artifacts. Will be generated if the targetAaptVersion is AAPT2.
+              .withDependencies(resourceDeps)
+              .setCompiledSymbols(merged.getCompiledSymbols())
+              .setAapt2RTxtOut(merged.getAapt2RTxt())
+              .setAapt2SourceJarOut(merged.getAapt2JavaSourceJar())
+              .setStaticLibraryOut(merged.getStaticLibrary())
+              .build(ruleContext);
     } else {
       AndroidResourcesProcessorBuilder builder =
           new AndroidResourcesProcessorBuilder(ruleContext)
@@ -526,11 +640,12 @@ public final class ApplicationManifest {
               .setDataBindingInfoZip(dataBindingInfoZip)
               .setApplicationId(manifestValues.get("applicationId"))
               .setVersionCode(manifestValues.get("versionCode"))
-              .setVersionName(manifestValues.get("versionName"));
-      builder.setFeatureOf(featureOf);
-      builder.setFeatureAfter(featureAfter);
+              .setVersionName(manifestValues.get("versionName"))
+              .setFeatureOf(featureOf)
+              .setFeatureAfter(featureAfter);
       if (!incremental) {
         builder
+            .targetAaptVersion(AndroidAaptVersion.AAPT)
             .setRTxtOut(resourceContainer.getRTxt())
             .setSymbols(resourceContainer.getSymbols())
             .setSourceJarOut(resourceContainer.getJavaSourceJar());
@@ -586,9 +701,10 @@ public final class ApplicationManifest {
 
   /**
    * Packages up the manifest with resources, and generates the R.java.
-   * @throws InterruptedException
    *
-   * @deprecated in favor of {@link ApplicationManifest#packWithDataAndResources}.
+   * @throws InterruptedException
+   * @deprecated in favor of {@link ApplicationManifest#packBinaryWithDataAndResources} and {@link
+   *     ApplicationManifest#packLibraryWithDataAndResources}.
    */
   @Deprecated
   public ResourceApk packWithResources(
@@ -597,7 +713,8 @@ public final class ApplicationManifest {
       ResourceDependencies resourceDeps,
       boolean createSource,
       Artifact proguardCfg,
-      @Nullable Artifact mainDexProguardCfg) throws InterruptedException {
+      @Nullable Artifact mainDexProguardCfg)
+      throws InterruptedException {
 
     TransitiveInfoCollection resourcesPrerequisite =
         ruleContext.getPrerequisite("resources", Mode.TARGET);

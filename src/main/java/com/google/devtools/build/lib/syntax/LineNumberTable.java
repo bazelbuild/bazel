@@ -215,11 +215,7 @@ public abstract class LineNumberTable implements Serializable {
       Map<String, PathFragment> pathCache = new HashMap<>();
       while (m.find()) {
         String pathString = m.group(2);
-        PathFragment pathFragment = pathCache.get(pathString);
-        if (pathFragment == null) {
-          pathFragment = defaultPath.getRelative(pathString);
-          pathCache.put(pathString, pathFragment);
-        }
+        PathFragment pathFragment = pathCache.computeIfAbsent(pathString, defaultPath::getRelative);
         unorderedTable.add(new SingleHashLine(
                 m.start(0) + 1,  //offset (+1 to skip \n in pattern)
                 Integer.parseInt(m.group(1)),  // line number

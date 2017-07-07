@@ -5,9 +5,8 @@ title: Installing Bazel on Windows
 
 # <a name="windows"></a>Install Bazel on Windows
 
-Windows support is highly experimental. Known issues are [marked with
-label "Windows"](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+is%3Aopen+label%3A%22category%3A+multi-platform+%3E+windows%22)
-on GitHub issues.
+Windows support is in beta. Known issues are [marked with label "Windows"](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+is%3Aopen+label%3A%22category%3A+multi-platform+%3E+windows%22)
+on GitHub.
 
 We currently support only 64 bit Windows 7 or higher and we compile Bazel as a
 MSYS2 binary.
@@ -33,7 +32,8 @@ This will install the latest available version of Bazel, and dependencies.
 
 This package is experimental. Please provide feedback to `@petemounce` in GitHub
 issue tracker. See the [Chocolatey installation and package
-maintenance](windows-chocolatey-maintenance.md) guide for more information.
+maintenance](https://bazel.build/windows-chocolatey-maintenance.html) guide for
+more information.
 
 
 ## <a name="download-binary-windows"></a>Install using the binary distribution

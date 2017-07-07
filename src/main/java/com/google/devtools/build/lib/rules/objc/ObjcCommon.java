@@ -54,7 +54,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRA
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCDATAMODEL;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XIB;
-import static com.google.devtools.build.lib.vfs.PathFragment.TO_PATH_FRAGMENT;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
@@ -75,11 +74,9 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -467,7 +464,7 @@ public final class ObjcCommon {
                 Interspersing.prependEach(
                     AppleToolchain.sdkDir() + "/usr/include/",
                     PathFragment.safePathStrings(attributes.sdkIncludes())),
-                TO_PATH_FRAGMENT);
+                PathFragment::create);
         objcProvider
             .addAll(HEADER, filterFileset(attributes.hdrs()))
             .addAll(HEADER, filterFileset(attributes.textualHdrs()))
@@ -648,23 +645,6 @@ public final class ObjcCommon {
         ruleContext.getTokenizedStringListAttr("copts"));
   }
 
-  static boolean shouldUseObjcModules(RuleContext ruleContext) {
-    for (String copt : getNonCrosstoolCopts(ruleContext)) {
-      if (copt.contains("-fmodules")) {
-        return true;
-      }
-    }
-
-    if (ruleContext.attributes().has("enable_modules", Type.BOOLEAN)
-        && ruleContext.attributes().get("enable_modules", Type.BOOLEAN)) {
-      return true;
-    }
-
-    if (ruleContext.getFragment(ObjcConfiguration.class).moduleMapsEnabled()) {
-      return true;
-    }
-
-    return false;
   }
 
   /**
@@ -694,8 +674,6 @@ public final class ObjcCommon {
             .replace("@", "")
             .replace("/", "_")
             .replace(":", "_");
-  }
-
   static ImmutableSet<PathFragment> userHeaderSearchPaths(
       ObjcProvider provider, BuildConfiguration config) {
     return ImmutableSet.<PathFragment>builder()

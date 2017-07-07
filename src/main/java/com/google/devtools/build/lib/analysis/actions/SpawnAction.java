@@ -20,11 +20,11 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -65,7 +65,6 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
 
@@ -98,8 +97,6 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   private final String mnemonic;
 
   private final ResourceSet resourceSet;
-  private final ImmutableMap<String, String> environment;
-  private final ImmutableSet<String> clientEnvironmentVariables;
   private final ImmutableMap<String, String> executionInfo;
 
   private final ExtraActionInfoSupplier<?> extraActionInfoSupplier;
@@ -115,9 +112,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
    *     modified.
    * @param outputs the set of all files written by this action; must not be subsequently modified.
    * @param resourceSet the resources consumed by executing this Action
-   * @param environment the map of environment variables.
-   * @param clientEnvironmentVariables the set of variables to be inherited from the client
-   *     environment.
+   * @param env the action environment
    * @param argv the command line to execute. This is merely a list of options to the executable,
    *     and is uninterpreted by the build tool for the purposes of dependency checking; typically
    *     it may include the names of input and output files, but this is not necessary.
@@ -134,8 +129,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       ResourceSet resourceSet,
       CommandLine argv,
       boolean isShellCommand,
-      Map<String, String> environment,
-      Set<String> clientEnvironmentVariables,
+      ActionEnvironment env,
       String progressMessage,
       String mnemonic) {
     this(
@@ -146,8 +140,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
         resourceSet,
         argv,
         isShellCommand,
-        ImmutableMap.copyOf(environment),
-        ImmutableSet.copyOf(clientEnvironmentVariables),
+        env,
         ImmutableMap.<String, String>of(),
         progressMessage,
         EmptyRunfilesSupplier.INSTANCE,
@@ -161,17 +154,15 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
    *
    * <p>All collections provided must not be subsequently modified.
    *
-   * @param owner the owner of the Action.
+   * @param owner the owner of the Action
    * @param tools the set of files comprising the tool that does the work (e.g. compiler). This is a
-   *     subset of "inputs" and is only used by the WorkerSpawnStrategy.
+   *     subset of "inputs" and is only used by the WorkerSpawnStrategy
    * @param inputs the set of all files potentially read by this action; must not be subsequently
-   *     modified.
+   *     modified
    * @param outputs the set of all files written by this action; must not be subsequently modified.
    * @param resourceSet the resources consumed by executing this Action
-   * @param environment the map of environment variables.
-   * @param clientEnvironmentVariables the set of variables to be inherited from the client
-   *     environment.
-   * @param executionInfo out-of-band information for scheduling the spawn.
+   * @param env the action's environment
+   * @param executionInfo out-of-band information for scheduling the spawn
    * @param argv the argv array (including argv[0]) of arguments to pass. This is merely a list of
    *     options to the executable, and is uninterpreted by the build tool for the purposes of
    *     dependency checking; typically it may include the names of input and output files, but this
@@ -180,7 +171,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
    *     executable. This is used to give better error messages.
    * @param progressMessage the message printed during the progression of the build
    * @param runfilesSupplier {@link RunfilesSupplier}s describing the runfiles for the action
-   * @param mnemonic the mnemonic that is reported in the master log.
+   * @param mnemonic the mnemonic that is reported in the master log
    */
   public SpawnAction(
       ActionOwner owner,
@@ -190,19 +181,16 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       ResourceSet resourceSet,
       CommandLine argv,
       boolean isShellCommand,
-      ImmutableMap<String, String> environment,
-      ImmutableSet<String> clientEnvironmentVariables,
+      ActionEnvironment env,
       ImmutableMap<String, String> executionInfo,
       String progressMessage,
       RunfilesSupplier runfilesSupplier,
       String mnemonic,
       boolean executeUnconditionally,
       ExtraActionInfoSupplier<?> extraActionInfoSupplier) {
-    super(owner, tools, inputs, runfilesSupplier, outputs);
+    super(owner, tools, inputs, runfilesSupplier, outputs, env);
     this.resourceSet = resourceSet;
     this.executionInfo = executionInfo;
-    this.environment = environment;
-    this.clientEnvironmentVariables = clientEnvironmentVariables;
     this.argv = argv;
     this.isShellCommand = isShellCommand;
     this.progressMessage = progressMessage;
@@ -417,12 +405,11 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
 
   @Override
   public ImmutableMap<String, String> getEnvironment() {
-    return environment;
-  }
-
-  @Override
-  public Iterable<String> getClientEnvironmentVariables() {
-    return clientEnvironmentVariables;
+    // TODO(ulfjack): AbstractAction should declare getEnvironment with a return value of type
+    // ActionEnvironment to avoid developers misunderstanding the purpose of this method. That
+    // requires first updating all subclasses and callers to actually handle environments correctly,
+    // so it's not a small change.
+    return env.getFixedEnv();
   }
 
   /**
@@ -511,7 +498,6 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     private final List<RunfilesSupplier> toolRunfilesSuppliers = new ArrayList<>();
     private ResourceSet resourceSet = AbstractAction.DEFAULT_RESOURCE_SET;
     private ImmutableMap<String, String> environment = ImmutableMap.of();
-    private ImmutableSet<String> clientEnvironmentVariables = ImmutableSet.of();
     private ImmutableMap<String, String> executionInfo = ImmutableMap.of();
     private boolean isShellCommand = false;
     private boolean useDefaultShellEnvironment = false;
@@ -544,7 +530,6 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       this.toolRunfilesSuppliers.addAll(other.toolRunfilesSuppliers);
       this.resourceSet = other.resourceSet;
       this.environment = other.environment;
-      this.clientEnvironmentVariables = other.clientEnvironmentVariables;
       this.executionInfo = other.executionInfo;
       this.isShellCommand = other.isShellCommand;
       this.useDefaultShellEnvironment = other.useDefaultShellEnvironment;
@@ -608,8 +593,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       actions.add(
           buildSpawnAction(
               owner,
-              configuration.getLocalShellEnvironment(),
-              configuration.getVariableShellEnvironment(),
+              configuration.getActionEnvironment(),
               configuration.getShellExecutable(),
               paramsFile));
       if (paramFileWriteAction != null) {
@@ -630,18 +614,15 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
      * referenced in this function to prevent them from bleeding into the execution phase.
      *
      * @param owner the {@link ActionOwner} for the SpawnAction
-     * @param defaultShellEnvironment the default shell environment to use. May be null if not used.
+     * @param configEnv the config's action environment to use. May be null if not used.
      * @param defaultShellExecutable the default shell executable path. May be null if not used.
      * @param paramsFile the parameter file for the SpawnAction. May be null if not used.
-     * @param paramFileWriteAction the action generating the parameter file. May be null if not
-     *     used.
      * @return the SpawnAction and any actions required by it, with the first item always being the
      *     SpawnAction itself.
      */
     SpawnAction buildSpawnAction(
         ActionOwner owner,
-        @Nullable Map<String, String> defaultShellEnvironment,
-        @Nullable Set<String> variableShellEnvironment,
+        @Nullable ActionEnvironment configEnv,
         @Nullable PathFragment defaultShellExecutable,
         @Nullable Artifact paramsFile) {
       List<String> argv = buildExecutableArgs(defaultShellExecutable);
@@ -663,14 +644,11 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
               .addTransitive(tools)
               .build();
 
-      Map<String, String> env;
-      Set<String> clientEnv;
+      ActionEnvironment env;
       if (useDefaultShellEnvironment) {
-        env = Preconditions.checkNotNull(defaultShellEnvironment);
-        clientEnv = Preconditions.checkNotNull(variableShellEnvironment);
+        env = Preconditions.checkNotNull(configEnv);
       } else {
-        env = this.environment;
-        clientEnv = this.clientEnvironmentVariables;
+        env = new ActionEnvironment(this.environment);
       }
 
       if (disableSandboxing) {
@@ -688,8 +666,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           resourceSet,
           actualCommandLine,
           isShellCommand,
-          ImmutableMap.copyOf(env),
-          ImmutableSet.copyOf(clientEnv),
+          env,
           ImmutableMap.copyOf(executionInfo),
           progressMessage,
           new CompositeRunfilesSupplier(
@@ -706,8 +683,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
         ResourceSet resourceSet,
         CommandLine actualCommandLine,
         boolean isShellCommand,
-        ImmutableMap<String, String> env,
-        ImmutableSet<String> clientEnvironmentVariables,
+        ActionEnvironment env,
         ImmutableMap<String, String> executionInfo,
         String progressMessage,
         RunfilesSupplier runfilesSupplier,
@@ -721,7 +697,6 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           actualCommandLine,
           isShellCommand,
           env,
-          clientEnvironmentVariables,
           executionInfo,
           progressMessage,
           runfilesSupplier,
@@ -830,17 +805,11 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     }
 
     /**
-     * Sets the map of environment variables.
+     * Sets the map of environment variables. Do not use! This makes the builder ignore the
+     * 'default shell environment', which is computed from the --action_env command line option.
      */
     public Builder setEnvironment(Map<String, String> environment) {
       this.environment = ImmutableMap.copyOf(environment);
-      this.useDefaultShellEnvironment = false;
-      return this;
-    }
-
-    /** Sets the environment variables to be inherited from the client environment. */
-    public Builder setClientEnvironmentVariables(Set<String> clientEnvironmentVariables) {
-      this.clientEnvironmentVariables = ImmutableSet.copyOf(clientEnvironmentVariables);
       this.useDefaultShellEnvironment = false;
       return this;
     }
@@ -859,7 +828,6 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
      */
     public Builder useDefaultShellEnvironment() {
       this.environment = null;
-      this.clientEnvironmentVariables = null;
       this.useDefaultShellEnvironment  = true;
       return this;
     }

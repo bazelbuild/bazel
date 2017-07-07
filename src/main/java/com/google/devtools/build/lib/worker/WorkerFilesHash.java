@@ -34,7 +34,8 @@ public class WorkerFilesHash {
     Hasher hasher = Hashing.sha256().newHasher();
     for (ActionInput tool : toolFiles) {
       hasher.putString(tool.getExecPathString(), Charset.defaultCharset());
-      hasher.putBytes(actionExecutionContext.getActionInputFileCache().getDigest(tool));
+      hasher.putBytes(
+          actionExecutionContext.getActionInputFileCache().getMetadata(tool).getDigest());
     }
     return hasher.hash();
   }

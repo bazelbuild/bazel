@@ -13,11 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
-import com.google.common.base.Function;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
@@ -66,14 +69,6 @@ import javax.annotation.Nullable;
  * A helper class to create configured targets for Java rules.
  */
 public class JavaCommon {
-  private static final Function<TransitiveInfoCollection, Label> GET_COLLECTION_LABEL =
-      new Function<TransitiveInfoCollection, Label>() {
-        @Override
-        public Label apply(TransitiveInfoCollection collection) {
-          return collection.getLabel();
-        }
-      };
-
   public static final InstrumentationSpec JAVA_COLLECTION_SPEC = new InstrumentationSpec(
       FileTypeSet.of(JavaSemantics.JAVA_SOURCE))
       .withSourceAttributes("srcs")
@@ -436,7 +431,7 @@ public class JavaCommon {
     NestedSetBuilder<Label> builder = NestedSetBuilder.stableOrder();
     List<TransitiveInfoCollection> currentRuleExports = getExports(ruleContext);
 
-    builder.addAll(Iterables.transform(currentRuleExports, GET_COLLECTION_LABEL));
+    builder.addAll(Iterables.transform(currentRuleExports, TransitiveInfoCollection::getLabel));
 
     for (TransitiveInfoCollection dep : currentRuleExports) {
       JavaExportsProvider exportsProvider = dep.getProvider(JavaExportsProvider.class);
@@ -464,10 +459,25 @@ public class JavaCommon {
   }
 
   private ImmutableList<String> computeJavacOpts(Iterable<String> extraJavacOpts) {
-    return ImmutableList.copyOf(Iterables.concat(
-        JavaToolchainProvider.fromRuleContext(ruleContext).getJavacOptions(),
-        extraJavacOpts,
-        ruleContext.getTokenizedStringListAttr("javacopts")));
+    return Streams.concat(
+            JavaToolchainProvider.fromRuleContext(ruleContext).getJavacOptions().stream(),
+            Streams.stream(extraJavacOpts),
+            ruleContext.getTokenizedStringListAttr("javacopts").stream())
+        .collect(toImmutableList());
+  }
+
+  public static PathFragment getHostJavaExecutable(RuleContext ruleContext) {
+    JavaRuntimeProvider javaRuntime = JavaHelper.getHostJavaRuntime(ruleContext);
+    return javaRuntime != null
+        ? javaRuntime.javaBinaryExecPath()
+        : ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable();
+  }
+
+  public static PathFragment getJavaExecutable(RuleContext ruleContext) {
+    JavaRuntimeProvider javaRuntime = JavaHelper.getJavaRuntime(ruleContext);
+    return javaRuntime != null
+        ? javaRuntime.javaBinaryExecPath()
+        : ruleContext.getFragment(Jvm.class).getJavaExecutable();
   }
 
   /**
@@ -478,11 +488,14 @@ public class JavaCommon {
       RuleContext ruleContext, @Nullable Artifact launcher) {
     Preconditions.checkState(ruleContext.getConfiguration().hasFragment(Jvm.class));
     PathFragment javaExecutable;
+    JavaRuntimeProvider javaRuntime = JavaHelper.getJavaRuntime(ruleContext);
 
     if (launcher != null) {
       javaExecutable = launcher.getRootRelativePath();
+    } else if (javaRuntime != null) {
+      javaExecutable = javaRuntime.javaBinaryRunfilesPath();
     } else {
-      javaExecutable = ruleContext.getFragment(Jvm.class).getRunfilesJavaExecutable();
+      javaExecutable = ruleContext.getFragment(Jvm.class).getJavaExecutable();
     }
 
     if (!javaExecutable.isAbsolute()) {
@@ -737,6 +750,18 @@ public class JavaCommon {
    * the target attributes.
    */
   private void addPlugins(JavaTargetAttributes.Builder attributes) {
+    addPlugins(attributes, activePlugins);
+  }
+
+  /**
+   * Adds information about the annotation processors that should be run for this java target
+   * retrieved from the given plugins to the target attributes.
+   *
+   * In particular, the processor names/paths and the API generating processor names/paths are added
+   * to the given attributes. Plugins having repetitive names/paths will be added only once.
+   */
+  public static void addPlugins(
+      JavaTargetAttributes.Builder attributes, Iterable<JavaPluginInfoProvider> activePlugins) {
     for (JavaPluginInfoProvider plugin : activePlugins) {
       for (String name : plugin.getProcessorClasses()) {
         attributes.addProcessorName(name);
@@ -764,9 +789,40 @@ public class JavaCommon {
   private static Iterable<JavaPluginInfoProvider> getPluginInfoProvidersForAttribute(
       RuleContext ruleContext, String attribute, Mode mode) {
     if (ruleContext.attributes().has(attribute, BuildType.LABEL_LIST)) {
-      return ruleContext.getPrerequisites(attribute, mode, JavaPluginInfoProvider.class);
+      return JavaProvider.getProvidersFromListOfTargets(
+          JavaPluginInfoProvider.class, ruleContext.getPrerequisites(attribute, mode));
     }
     return ImmutableList.of();
+  }
+
+  JavaPluginInfoProvider getJavaPluginInfoProvider(RuleContext ruleContext) {
+    ImmutableSet<String> processorClasses = getProcessorClasses(ruleContext);
+    NestedSet<Artifact> processorClasspath = getRuntimeClasspath();
+    ImmutableSet<String> apiGeneratingProcessorClasses;
+    NestedSet<Artifact> apiGeneratingProcessorClasspath;
+    if (ruleContext.attributes().get("generates_api", Type.BOOLEAN)) {
+      apiGeneratingProcessorClasses = processorClasses;
+      apiGeneratingProcessorClasspath = processorClasspath;
+    } else {
+      apiGeneratingProcessorClasses = ImmutableSet.of();
+      apiGeneratingProcessorClasspath = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
+    }
+
+    return new JavaPluginInfoProvider(
+        processorClasses,
+        processorClasspath,
+        apiGeneratingProcessorClasses,
+        apiGeneratingProcessorClasspath);
+  }
+
+  /**
+   * Returns the class that should be passed to javac in order to run the annotation processor this
+   * class represents.
+   */
+  private static ImmutableSet<String> getProcessorClasses(RuleContext ruleContext) {
+    return ruleContext.getRule().isAttributeValueExplicitlySpecified("processor_class")
+        ? ImmutableSet.of(ruleContext.attributes().get("processor_class", Type.STRING))
+        : ImmutableSet.<String>of();
   }
 
   public static JavaPluginInfoProvider getTransitivePlugins(RuleContext ruleContext) {

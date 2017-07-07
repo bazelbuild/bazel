@@ -232,14 +232,12 @@ public class StandaloneTestStrategy extends TestStrategy {
   }
 
   private void processLastTestAttempt(int attempt, Builder dataBuilder, TestResultData data) {
-    dataBuilder.setCachable(data.getCachable());
     dataBuilder.setHasCoverage(data.getHasCoverage());
     dataBuilder.setStatus(
         data.getStatus() == BlazeTestStatus.PASSED && attempt > 1
             ? BlazeTestStatus.FLAKY
             : data.getStatus());
     dataBuilder.setTestPassed(data.getTestPassed());
-    dataBuilder.setCachable(data.getCachable());
     for (int i = 0; i < data.getFailedLogsCount(); i++) {
       dataBuilder.addFailedLogs(data.getFailedLogs(i));
     }
@@ -321,13 +319,9 @@ public class StandaloneTestStrategy extends TestStrategy {
         builder
             .setTestPassed(true)
             .setStatus(BlazeTestStatus.PASSED)
-            .setCachable(true)
             .setPassedLog(testLogPath.getPathString());
       } catch (ExecException e) {
         // Execution failed, which we consider a test failure.
-
-        // TODO(bazel-team): set cachable==true for relevant statuses (failure, but not for
-        // timeout, etc.)
         builder
             .setTestPassed(false)
             .setStatus(e.hasTimedOut() ? BlazeTestStatus.TIMEOUT : BlazeTestStatus.FAILED)

@@ -107,7 +107,7 @@ public final class SliceExpression extends Expression {
 
     throw new EvalException(
         loc,
-        Printer.format(
+        String.format(
             "type '%s' has no operator [:](%s, %s, %s)",
             EvalUtils.getDataTypeName(objValue),
             EvalUtils.getDataTypeName(startValue),

@@ -19,7 +19,8 @@ import com.google.common.collect.HashBiMap;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
-import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.cache.Metadata;
+import com.google.devtools.build.lib.skyframe.FileArtifactValue;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.remoteexecution.v1test.Digest;
@@ -36,25 +37,16 @@ final class FakeActionInputFileCache implements ActionInputFileCache {
     this.execRoot = execRoot;
   }
 
+  @Override
+  public Metadata getMetadata(ActionInput input) throws IOException {
+    String hexDigest = Preconditions.checkNotNull(cas.get(input), input);
+    return FileArtifactValue.createNormalFile(
+        HashCode.fromString(hexDigest).asBytes(),
+        execRoot.getRelative(input.getExecPath()).getFileSize());
+  }
+
   void setDigest(ActionInput input, String digest) {
     cas.put(input, digest);
-  }
-
-  @Override
-  @Nullable
-  public byte[] getDigest(ActionInput input) throws IOException {
-    String hexDigest = Preconditions.checkNotNull(cas.get(input), input);
-    return HashCode.fromString(hexDigest).asBytes();
-  }
-
-  @Override
-  public boolean isFile(Artifact input) {
-    return execRoot.getRelative(input.getExecPath()).isFile();
-  }
-
-  @Override
-  public long getSizeInBytes(ActionInput input) throws IOException {
-    return execRoot.getRelative(input.getExecPath()).getFileSize();
   }
 
   @Override

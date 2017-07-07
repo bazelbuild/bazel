@@ -385,6 +385,9 @@ public final class LinkCommandLine extends CommandLine {
     if (forcedToolPath != null) {
       argv.add(forcedToolPath);
     } else {
+      Preconditions.checkArgument(
+          featureConfiguration.actionIsConfigured(actionName),
+          String.format("Expected action_config for '%s' to be configured", actionName));
       argv.add(
           featureConfiguration
               .getToolForAction(linkTargetType.getActionName())
@@ -658,7 +661,7 @@ public final class LinkCommandLine extends CommandLine {
         actualLinkstampCompileOptions = DEFAULT_LINKSTAMP_OPTIONS;
       } else {
         actualLinkstampCompileOptions = ImmutableList.copyOf(
-            Iterables.concat(DEFAULT_LINKSTAMP_OPTIONS, linkstampCompileOptions));
+                Iterables.concat(DEFAULT_LINKSTAMP_OPTIONS, linkstampCompileOptions));
       }
 
       if (toolchain == null) {

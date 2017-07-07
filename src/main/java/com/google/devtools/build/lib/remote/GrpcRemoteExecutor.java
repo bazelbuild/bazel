@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.remote;
 
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.remoteexecution.v1test.ExecuteRequest;
@@ -24,7 +22,6 @@ import com.google.devtools.remoteexecution.v1test.ExecutionGrpc;
 import com.google.devtools.remoteexecution.v1test.ExecutionGrpc.ExecutionBlockingStub;
 import com.google.longrunning.Operation;
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.google.protobuf.util.Durations;
 import com.google.rpc.Status;
 import com.google.watcher.v1.Change;
 import com.google.watcher.v1.ChangeBatch;
@@ -32,7 +29,10 @@ import com.google.watcher.v1.Request;
 import com.google.watcher.v1.WatcherGrpc;
 import com.google.watcher.v1.WatcherGrpc.WatcherBlockingStub;
 import io.grpc.Channel;
+import io.grpc.Status.Code;
+import io.grpc.StatusRuntimeException;
 import io.grpc.protobuf.StatusProto;
+import java.io.IOException;
 import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
@@ -43,18 +43,7 @@ public class GrpcRemoteExecutor {
   private final RemoteOptions options;
   private final ChannelOptions channelOptions;
   private final Channel channel;
-
-  // Reuse the gRPC stub.
-  private final Supplier<ExecutionBlockingStub> execBlockingStub =
-    Suppliers.memoize(
-        new Supplier<ExecutionBlockingStub>() {
-          @Override
-          public ExecutionBlockingStub get() {
-            return ExecutionGrpc.newBlockingStub(channel)
-                .withCallCredentials(channelOptions.getCallCredentials())
-                .withDeadlineAfter(options.remoteTimeout, TimeUnit.SECONDS);
-          }
-        });
+  private final Retrier retrier;
 
   public static boolean isRemoteExecutionOptions(RemoteOptions options) {
     return options.remoteExecutor != null;
@@ -64,68 +53,90 @@ public class GrpcRemoteExecutor {
     this.options = options;
     this.channelOptions = channelOptions;
     this.channel = channel;
+    this.retrier = new Retrier(options);
   }
 
-  private @Nullable ExecuteResponse getOperationResponse(Operation op) {
+  private ExecutionBlockingStub execBlockingStub() {
+    return ExecutionGrpc.newBlockingStub(channel)
+        .withCallCredentials(channelOptions.getCallCredentials())
+        .withDeadlineAfter(options.remoteTimeout, TimeUnit.SECONDS);
+  }
+
+  private WatcherBlockingStub watcherBlockingStub() {
+    return WatcherGrpc.newBlockingStub(channel)
+        .withCallCredentials(channelOptions.getCallCredentials());
+  }
+
+  private @Nullable ExecuteResponse getOperationResponse(Operation op)
+      throws IOException {
     if (op.getResultCase() == Operation.ResultCase.ERROR) {
-      throw StatusProto.toStatusRuntimeException(op.getError());
+      StatusRuntimeException e = StatusProto.toStatusRuntimeException(op.getError());
+      if (e.getStatus().getCode() == Code.DEADLINE_EXCEEDED) {
+        // This was caused by the command itself exceeding the timeout,
+        // therefore it is not retriable.
+        // TODO(olaola): this should propagate a timeout SpawnResult instead of raising.
+        throw new IOException("Remote execution time out");
+      }
+      throw e;
     }
     if (op.getDone()) {
       Preconditions.checkState(op.getResultCase() != Operation.ResultCase.RESULT_NOT_SET);
       try {
         return op.getResponse().unpack(ExecuteResponse.class);
       } catch (InvalidProtocolBufferException e) {
-        throw new RuntimeException(e);
+        throw new IOException(e);
       }
     }
     return null;
   }
 
-  public ExecuteResponse executeRemotely(ExecuteRequest request) {
-    Operation op = execBlockingStub.get().execute(request);
+  public ExecuteResponse executeRemotely(ExecuteRequest request)
+      throws IOException, InterruptedException {
+    Operation op = retrier.execute(() -> execBlockingStub().execute(request));
     ExecuteResponse resp = getOperationResponse(op);
     if (resp != null) {
       return resp;
     }
-    int actionSeconds = (int) Durations.toSeconds(request.getAction().getTimeout());
-    WatcherBlockingStub stub =
-        WatcherGrpc.newBlockingStub(channel)
-            .withCallCredentials(channelOptions.getCallCredentials())
-            .withDeadlineAfter(options.remoteTimeout + actionSeconds, TimeUnit.SECONDS);
     Request wr = Request.newBuilder().setTarget(op.getName()).build();
-    Iterator<ChangeBatch> replies = stub.watch(wr);
-    while (replies.hasNext()) {
-      ChangeBatch cb = replies.next();
-      for (Change ch : cb.getChangesList()) {
-        switch (ch.getState()) {
-          case INITIAL_STATE_SKIPPED:
-            continue;
-          case ERROR:
-            try {
-              throw StatusProto.toStatusRuntimeException(ch.getData().unpack(Status.class));
-            } catch (InvalidProtocolBufferException e) {
-              throw new RuntimeException(e);
+    return retrier.execute(
+        () -> {
+          Iterator<ChangeBatch> replies = watcherBlockingStub().watch(wr);
+          while (replies.hasNext()) {
+            ChangeBatch cb = replies.next();
+            for (Change ch : cb.getChangesList()) {
+              switch (ch.getState()) {
+                case INITIAL_STATE_SKIPPED:
+                  continue;
+                case ERROR:
+                  try {
+                    throw StatusProto.toStatusRuntimeException(ch.getData().unpack(Status.class));
+                  } catch (InvalidProtocolBufferException e) {
+                    throw new RuntimeException(e);
+                  }
+                case DOES_NOT_EXIST:
+                  // TODO(olaola): either make this retriable, or use a different exception.
+                  throw new IOException(
+                      String.format("Operation %s lost on the remote server.", op.getName()));
+                case EXISTS:
+                  Operation o;
+                  try {
+                    o = ch.getData().unpack(Operation.class);
+                  } catch (InvalidProtocolBufferException e) {
+                    throw new RuntimeException(e);
+                  }
+                  ExecuteResponse r = getOperationResponse(o);
+                  if (r != null) {
+                    return r;
+                  }
+                  continue;
+                default:
+                  // This can only happen if the enum gets unexpectedly extended.
+                  throw new IOException(String.format("Illegal change state: %s", ch.getState()));
+              }
             }
-          case DOES_NOT_EXIST:
-            throw new RuntimeException(
-                String.format("Operation %s lost on the remote server.", op.getName()));
-          case EXISTS:
-            try {
-              op = ch.getData().unpack(Operation.class);
-            } catch (InvalidProtocolBufferException e) {
-              throw new RuntimeException(e);
-            }
-            resp = getOperationResponse(op);
-            if (resp != null) {
-              return resp;
-            }
-            continue;
-          default:
-            throw new RuntimeException(String.format("Illegal change state: %s", ch.getState()));
-        }
-      }
-    }
-    throw new RuntimeException(
-        String.format("Watch request for %s terminated with no result.", op.getName()));
+          }
+          throw new IOException(
+              String.format("Watch request for %s terminated with no result.", op.getName()));
+        });
   }
 }

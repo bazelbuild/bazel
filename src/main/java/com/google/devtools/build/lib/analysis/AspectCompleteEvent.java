@@ -111,8 +111,10 @@ public class AspectCompleteEvent
   public Collection<NestedSet<Artifact>> reportedArtifacts() {
     ImmutableSet.Builder<NestedSet<Artifact>> builder =
         new ImmutableSet.Builder<NestedSet<Artifact>>();
-    for (ArtifactsInOutputGroup artifactsInGroup : artifacts.getAllArtifactsByOutputGroup()) {
-      builder.add(artifactsInGroup.getArtifacts());
+    if (artifacts != null) {
+      for (ArtifactsInOutputGroup artifactsInGroup : artifacts.getAllArtifactsByOutputGroup()) {
+        builder.add(artifactsInGroup.getArtifacts());
+      }
     }
     return builder.build();
   }

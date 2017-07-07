@@ -176,50 +176,47 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     shutdownFuture = SettableFuture.create();
 
     uploaderExecutorService.execute(
-        new Runnable() {
-          @Override
-          public void run() {
-            try {
-              sendOrderedBuildEvent(besProtoUtil.streamFinished());
+        () -> {
+          try {
+            sendOrderedBuildEvent(besProtoUtil.streamFinished());
 
-              if (errorsReported) {
-                // If we encountered errors before and have already reported them, then we should
-                // not report them a second time.
-                return;
-              }
-
-              if (bestEffortUpload) {
-                // TODO(buchgr): The code structure currently doesn't allow to enforce a timeout for
-                // best effort upload.
-                if (!uploadComplete.isDone()) {
-                  report(INFO, "Asynchronous Build Event Protocol upload.");
-                } else {
-                  Throwable uploadError = fromFuture(uploadComplete);
-
-                  if (uploadError != null) {
-                    report(WARNING, UPLOAD_FAILED_MESSAGE, uploadError.getMessage());
-                  } else {
-                    report(INFO, UPLOAD_SUCCEEDED_MESSAGE);
-                  }
-                }
-              } else {
-                report(INFO, "Waiting for Build Event Protocol upload to finish.");
-                try {
-                  if (Duration.ZERO.equals(uploadTimeout)) {
-                    uploadComplete.get();
-                  } else {
-                    uploadComplete.get(uploadTimeout.getMillis(), MILLISECONDS);
-                  }
-                  report(INFO, UPLOAD_SUCCEEDED_MESSAGE);
-                } catch (Exception e) {
-                  uploadComplete.cancel(true);
-                  reportErrorAndFailBuild(e);
-                }
-              }
-            } finally {
-              shutdownFuture.set(null);
-              uploaderExecutorService.shutdown();
+            if (errorsReported) {
+              // If we encountered errors before and have already reported them, then we should
+              // not report them a second time.
+              return;
             }
+
+            if (bestEffortUpload) {
+              // TODO(buchgr): The code structure currently doesn't allow to enforce a timeout for
+              // best effort upload.
+              if (!uploadComplete.isDone()) {
+                report(INFO, "Asynchronous Build Event Protocol upload.");
+              } else {
+                Throwable uploadError = fromFuture(uploadComplete);
+
+                if (uploadError != null) {
+                  report(WARNING, UPLOAD_FAILED_MESSAGE, uploadError.getMessage());
+                } else {
+                  report(INFO, UPLOAD_SUCCEEDED_MESSAGE);
+                }
+              }
+            } else {
+              report(INFO, "Waiting for Build Event Protocol upload to finish.");
+              try {
+                if (Duration.ZERO.equals(uploadTimeout)) {
+                  uploadComplete.get();
+                } else {
+                  uploadComplete.get(uploadTimeout.getMillis(), MILLISECONDS);
+                }
+                report(INFO, UPLOAD_SUCCEEDED_MESSAGE);
+              } catch (Exception e) {
+                uploadComplete.cancel(true);
+                reportErrorAndFailBuild(e);
+              }
+            }
+          } finally {
+            shutdownFuture.set(null);
+            uploaderExecutorService.shutdown();
           }
         });
 
@@ -347,53 +344,43 @@ public class BuildEventServiceTransport implements BuildEventTransport {
     }
 
     private void publishBuildEnqueuedEvent() throws Exception {
-      retryOnException(new Callable<Void>() {
-        @Override
-        public Void call() throws Exception {
-          publishLifecycleEvent(besProtoUtil.buildEnqueued());
-          return null;
-        }
-      });
+      retryOnException(
+          () -> {
+            publishLifecycleEvent(besProtoUtil.buildEnqueued());
+            return null;
+          });
     }
 
     private void publishInvocationStartedEvent() throws Exception {
-      retryOnException(new Callable<Void>() {
-        @Override
-        public Void call() throws Exception {
-          publishLifecycleEvent(besProtoUtil.invocationStarted());
-          return null;
-        }
-      });
+      retryOnException(
+          () -> {
+            publishLifecycleEvent(besProtoUtil.invocationStarted());
+            return null;
+          });
     }
 
     private void publishEventStream0() throws Exception {
-      retryOnException(new Callable<Void>() {
-        @Override
-        public Void call() throws Exception {
-          publishEventStream();
-          return null;
-        }
-      });
+      retryOnException(
+          () -> {
+            publishEventStream();
+            return null;
+          });
     }
 
     private void publishInvocationFinishedEvent(final Result result) throws Exception {
-      retryOnException(new Callable<Void>() {
-        @Override
-        public Void call() throws Exception {
-          publishLifecycleEvent(besProtoUtil.invocationFinished(result));
-          return null;
-        }
-      });
+      retryOnException(
+          () -> {
+            publishLifecycleEvent(besProtoUtil.invocationFinished(result));
+            return null;
+          });
     }
 
     private void publishBuildFinishedEvent(final Result result) throws Exception {
-      retryOnException(new Callable<Void>() {
-        @Override
-        public Void call() throws Exception {
-          publishLifecycleEvent(besProtoUtil.buildFinished(result));
-          return null;
-        }
-      });
+      retryOnException(
+          () -> {
+            publishLifecycleEvent(besProtoUtil.buildFinished(result));
+            return null;
+          });
     }
   }
 
@@ -452,20 +439,17 @@ public class BuildEventServiceTransport implements BuildEventTransport {
 
   private static Function<PublishBuildToolEventStreamResponse, Void> ackCallback(
       final Deque<OrderedBuildEvent> pendingAck, final BuildEventServiceClient besClient) {
-    return new Function<PublishBuildToolEventStreamResponse, Void>() {
-      @Override
-      public Void apply(PublishBuildToolEventStreamResponse ack) {
-        long pendingSeq =
-            pendingAck.isEmpty() ? -1 : pendingAck.peekFirst().getSequenceNumber();
-        long ackSeq = ack.getSequenceNumber();
-        if (pendingSeq != ackSeq) {
-          besClient.abortStream(Status.INTERNAL
-              .augmentDescription(format("Expected ack %s but was %s.", pendingSeq, ackSeq)));
-        } else {
-          pendingAck.removeFirst();
-        }
-        return null;
+    return ack -> {
+      long pendingSeq = pendingAck.isEmpty() ? -1 : pendingAck.peekFirst().getSequenceNumber();
+      long ackSeq = ack.getSequenceNumber();
+      if (pendingSeq != ackSeq) {
+        besClient.abortStream(
+            Status.INTERNAL.augmentDescription(
+                format("Expected ack %s but was %s.", pendingSeq, ackSeq)));
+      } else {
+        pendingAck.removeFirst();
       }
+      return null;
     };
   }
 

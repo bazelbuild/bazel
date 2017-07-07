@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Predicate;
 import com.google.common.base.Verify;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
@@ -52,7 +51,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain.ActionConfig;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain.ArtifactNamePattern;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LinkingModeFlags;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
@@ -405,22 +403,19 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       Iterable<Tool> neededTools =
           Iterables.filter(
               EnumSet.allOf(Tool.class),
-              new Predicate<Tool>() {
-                @Override
-                public boolean apply(Tool tool) {
-                  if (tool == Tool.DWP) {
-                    // When fission is unsupported, don't check for the dwp tool.
-                    return supportsFission();
-                  } else if (tool == Tool.LLVM_PROFDATA) {
-                    // TODO(tmsriram): Fix this to check if this is a llvm crosstool
-                    // and return true.  This needs changes to crosstool_config.proto.
-                    return false;
-                  } else if (tool == Tool.GCOVTOOL || tool == Tool.OBJCOPY) {
-                    // gcov-tool and objcopy are optional, don't check whether they're present
-                    return false;
-                  } else {
-                    return true;
-                  }
+              tool -> {
+                if (tool == Tool.DWP) {
+                  // When fission is unsupported, don't check for the dwp tool.
+                  return supportsFission();
+                } else if (tool == Tool.LLVM_PROFDATA) {
+                  // TODO(tmsriram): Fix this to check if this is a llvm crosstool
+                  // and return true.  This needs changes to crosstool_config.proto.
+                  return false;
+                } else if (tool == Tool.GCOVTOOL || tool == Tool.OBJCOPY) {
+                  // gcov-tool and objcopy are optional, don't check whether they're present
+                  return false;
+                } else {
+                  return true;
                 }
               });
       for (Tool tool : neededTools) {
@@ -599,20 +594,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     return result.build();
   }
 
-  private static boolean actionsAreConfigured(CToolchain toolchain) {
-    return Iterables.any(
-        toolchain.getActionConfigList(),
-        new Predicate<ActionConfig>() {
-          @Override
-          public boolean apply(@Nullable ActionConfig actionConfig) {
-            // We cannot assume actions are configured just by presence of any action_config. Some
-            // crosstools specify unrelated action_configs (e.g. clif_match), but C/C++ part is
-            // in fact not configured.
-            return actionConfig.getActionName().contains("c++");
-          }
-        });
-  }
-
   // TODO(bazel-team): Remove this once bazel supports all crosstool flags through
   // feature configuration, and all crosstools have been converted.
   private CToolchain addLegacyFeatures(CToolchain toolchain) {
@@ -644,33 +625,31 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     Set<String> features = featuresBuilder.build();
     if (!features.contains(CppRuleClasses.NO_LEGACY_FEATURES)) {
       try {
-        if (!actionsAreConfigured(toolchain)) {
-          String gccToolPath = "DUMMY_GCC_TOOL";
-          String linkerToolPath = "DUMMY_LINKER_TOOL";
-          String arToolPath = "DUMMY_AR_TOOL";
-          for (ToolPath tool : toolchain.getToolPathList()) {
-            if (tool.getName().equals(Tool.GCC.getNamePart())) {
-              gccToolPath = tool.getPath();
-              linkerToolPath =
-                  crosstoolTopPathFragment
-                      .getRelative(PathFragment.create(tool.getPath()))
-                      .getPathString();
-            }
-            if (tool.getName().equals(Tool.AR.getNamePart())) {
-              arToolPath = tool.getPath();
-            }
+        String gccToolPath = "DUMMY_GCC_TOOL";
+        String linkerToolPath = "DUMMY_LINKER_TOOL";
+        String arToolPath = "DUMMY_AR_TOOL";
+        for (ToolPath tool : toolchain.getToolPathList()) {
+          if (tool.getName().equals(Tool.GCC.getNamePart())) {
+            gccToolPath = tool.getPath();
+            linkerToolPath =
+                crosstoolTopPathFragment
+                    .getRelative(PathFragment.create(tool.getPath()))
+                    .getPathString();
           }
-          TextFormat.merge(
-              CppActionConfigs.getCppActionConfigs(
-                  getTargetLibc().equals("macosx") ? CppPlatform.MAC : CppPlatform.LINUX,
-                  features,
-                  gccToolPath,
-                  linkerToolPath,
-                  arToolPath,
-                  supportsEmbeddedRuntimes,
-                  toolchain.getSupportsInterfaceSharedObjects()),
-              toolchainBuilder);
+          if (tool.getName().equals(Tool.AR.getNamePart())) {
+            arToolPath = tool.getPath();
+          }
         }
+        TextFormat.merge(
+            CppActionConfigs.getCppActionConfigs(
+                getTargetLibc().equals("macosx") ? CppPlatform.MAC : CppPlatform.LINUX,
+                features,
+                gccToolPath,
+                linkerToolPath,
+                arToolPath,
+                supportsEmbeddedRuntimes,
+                toolchain.getSupportsInterfaceSharedObjects()),
+            toolchainBuilder);
 
         if (!features.contains("dependency_file")) {
           // Gcc options:
@@ -785,6 +764,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
                   + "    action: 'c++-module-compile'"
                   + "    action: 'clif-match'"
                   + "    flag_group {"
+                  + "      iterate_over: 'preprocessor_defines'"
                   + "      flag: '-D%{preprocessor_defines}'"
                   + "    }"
                   + "  }"
@@ -807,13 +787,16 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
                   + "    action: 'objc-compile'"
                   + "    action: 'objc++-compile'"
                   + "    flag_group {"
+                  + "      iterate_over: 'quote_include_paths'"
                   + "      flag: '-iquote'"
                   + "      flag: '%{quote_include_paths}'"
                   + "    }"
                   + "    flag_group {"
+                  + "      iterate_over: 'include_paths'"
                   + "      flag: '-I%{include_paths}'"
                   + "    }"
                   + "    flag_group {"
+                  + "      iterate_over: 'system_include_paths'"
                   + "      flag: '-isystem'"
                   + "      flag: '%{system_include_paths}'"
                   + "    }"
@@ -902,11 +885,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
           String linkerFlags;
           if (useLLVMCoverageMap) {
             compileFlags =
-                "flag_group {"
-                    + " flag: '-fprofile-instr-generate'"
-                    + " flag: '-fcoverage-mapping'"
-                    + "}";
-            linkerFlags = "  flag_group {" + "  flag: '-fprofile-instr-generate'" + "}";
+                "flag_group { flag: '-fprofile-instr-generate' flag: '-fcoverage-mapping' }";
+            linkerFlags = "flag_group { flag: '-fprofile-instr-generate' }";
           } else {
             compileFlags =
                 "  expand_if_all_available: 'gcov_gcno_file'"
@@ -914,7 +894,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
                     + "  flag: '-fprofile-arcs'"
                     + "  flag: '-ftest-coverage'"
                     + "}";
-            linkerFlags = "  flag_group {" + "  flag: '-lgcov'" + "}";
+            linkerFlags = "  flag_group { flag: '-lgcov' }";
           }
           TextFormat.merge(
               ""
@@ -2153,6 +2133,11 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     }
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
       requestedFeatures.add(CppRuleClasses.COVERAGE);
+      if (useLLVMCoverageMap) {
+        requestedFeatures.add(CppRuleClasses.LLVM_COVERAGE_MAP_FORMAT);
+      } else {
+        requestedFeatures.add(CppRuleClasses.GCC_COVERAGE_MAP_FORMAT);
+      }
     }
     return requestedFeatures.build();
   }

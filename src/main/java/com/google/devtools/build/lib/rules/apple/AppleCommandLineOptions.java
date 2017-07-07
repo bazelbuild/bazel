@@ -17,14 +17,13 @@ package com.google.devtools.build.lib.rules.apple;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.DefaultLabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
-import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
@@ -39,10 +38,6 @@ import java.util.List;
  * Command-line options for building for Apple platforms.
  */
 public class AppleCommandLineOptions extends FragmentOptions {
-
-  @VisibleForTesting
-  public static final String DEFAULT_MINIMUM_IOS = "7.0";
-  public static final String DEFAULT_MINIMUM_MACOS = "10.10";
 
   @Option(
     name = "xcode_version",
@@ -105,7 +100,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
 
   @Option(
     name = "ios_minimum_os",
-    defaultValue = DEFAULT_MINIMUM_IOS,
+    defaultValue = "null",
     category = "flags",
     converter = DottedVersionConverter.class,
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -138,7 +133,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
 
   @Option(
     name = "macos_minimum_os",
-    defaultValue = DEFAULT_MINIMUM_MACOS,
+    defaultValue = "null",
     category = "flags",
     converter = DottedVersionConverter.class,
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -363,13 +358,13 @@ public class AppleCommandLineOptions extends FragmentOptions {
   )
   public boolean targetUsesAppleCrosstool;
 
-  private Platform getPlatform() {
+  private ApplePlatform getPlatform() {
     for (String architecture : iosMultiCpus) {
-      if (Platform.forTarget(PlatformType.IOS, architecture) == Platform.IOS_DEVICE) {
-        return Platform.IOS_DEVICE;
+      if (ApplePlatform.forTarget(PlatformType.IOS, architecture) == ApplePlatform.IOS_DEVICE) {
+        return ApplePlatform.IOS_DEVICE;
       }
     }
-    return Platform.forTarget(PlatformType.IOS, iosCpu);
+    return ApplePlatform.forTarget(PlatformType.IOS, iosCpu);
   }
 
   /**
@@ -398,14 +393,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
       default:
         throw new IllegalArgumentException("Unhandled platform type " + applePlatformType);
     }
-  }
-
-  @Override
-  public void addAllLabels(Multimap<String, Label> labelMap) {
-    if (getPlatform() == Platform.IOS_DEVICE) {
-      labelMap.put("default_provisioning_profile", defaultProvisioningProfile);
-    }
-    labelMap.put("xcode_version_config", xcodeVersionConfig);
   }
 
   /**

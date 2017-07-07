@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.bazel.rules.android;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -26,7 +25,6 @@ import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider;
 import com.google.devtools.build.lib.rules.android.AndroidSemantics;
 import com.google.devtools.build.lib.rules.android.ApplicationManifest;
 import com.google.devtools.build.lib.rules.android.ResourceApk;
-import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes.Builder;
@@ -45,13 +43,6 @@ public class BazelAndroidSemantics implements AndroidSemantics {
       RuleContext ruleContext,
       ResourceApk resourceApk,
       AndroidIdeInfoProvider.Builder ideInfoProviderBuilder) {}
-
-  @Override
-  public void addTransitiveInfoProviders(
-      RuleConfiguredTargetBuilder builder,
-      RuleContext ruleContext,
-      JavaCommon javaCommon,
-      AndroidCommon androidCommon) {}
 
   @Override
   public ApplicationManifest getManifestForRule(RuleContext ruleContext) throws RuleErrorException {

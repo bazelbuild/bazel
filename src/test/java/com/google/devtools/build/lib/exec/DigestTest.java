@@ -102,6 +102,13 @@ public class DigestTest {
               }
 
               @Override
+              public ByteString getBytes() throws IOException {
+                ByteString.Output out = ByteString.newOutput();
+                writeTo(out);
+                return out.toByteString();
+              }
+
+              @Override
               public String getExecPathString() {
                 throw new UnsupportedOperationException();
               }

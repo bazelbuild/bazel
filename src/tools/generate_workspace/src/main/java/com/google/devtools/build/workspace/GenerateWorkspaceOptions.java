@@ -15,8 +15,9 @@
 package com.google.devtools.build.workspace;
 
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
-
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.List;
 
 /**
@@ -24,51 +25,61 @@ import java.util.List;
  */
 public class GenerateWorkspaceOptions extends OptionsBase {
   @Option(
-      name = "help",
-      abbrev = 'h',
-      help = "Prints usage info.",
-      defaultValue = "true"
+    name = "help",
+    abbrev = 'h',
+    help = "Prints usage info.",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    defaultValue = "true"
   )
   public boolean help;
 
   @Option(
-      name = "bazel_project",
-      abbrev = 'b',
-      help = "Directory contains a Bazel project.",
-      allowMultiple = true,
-      category = "input",
-      defaultValue = ""
+    name = "bazel_project",
+    abbrev = 'b',
+    help = "Directory contains a Bazel project.",
+    allowMultiple = true,
+    category = "input",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    defaultValue = ""
   )
   public List<String> bazelProjects;
 
   @Option(
-      name = "maven_project",
-      abbrev = 'm',
-      help = "Directory containing a Maven project.",
-      allowMultiple = true,
-      category = "input",
-      defaultValue = ""
+    name = "maven_project",
+    abbrev = 'm',
+    help = "Directory containing a Maven project.",
+    allowMultiple = true,
+    category = "input",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    defaultValue = ""
   )
   public List<String> mavenProjects;
 
   @Option(
-      name = "artifact",
-      abbrev = 'a',
-      help = "Maven artifact coordinates (e.g. groupId:artifactId:version).",
-      allowMultiple = true,
-      category = "input",
-      defaultValue = ""
+    name = "artifact",
+    abbrev = 'a',
+    help = "Maven artifact coordinates (e.g. groupId:artifactId:version).",
+    allowMultiple = true,
+    category = "input",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    defaultValue = ""
   )
   public List<String> artifacts;
-  
+
   @Option(
-      name = "output_dir",
-      abbrev = 'o',
-      help = "Output directory to store the WORKSPACE and BUILD files. If unspecified, a temporary"
-          + " directory is used.",
-      category = "output",
-      defaultValue = ""
+    name = "output_dir",
+    abbrev = 'o',
+    help =
+        "Output directory to store the WORKSPACE and BUILD files. If unspecified, a temporary"
+            + " directory is used.",
+    category = "output",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    defaultValue = ""
   )
   public String outputDir;
-
 }

@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.ArrayList;
@@ -321,14 +322,15 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
   }
 
   @Override
-  public void write(Appendable buffer, char quotationMark) {
-    Printer.append(buffer, "depset(");
-    Printer.printList(buffer, set, "[", ", ", "]", null, quotationMark);
+  public void repr(SkylarkPrinter printer) {
+    printer.append("depset(");
+    printer.printList(set, "[", ", ", "]", null);
     Order order = getOrder();
     if (order != Order.STABLE_ORDER) {
-      Printer.append(buffer, ", order = \"" + order.getSkylarkName() + "\"");
+      printer.append(", order = ");
+      printer.repr(order.getSkylarkName());
     }
-    Printer.append(buffer, ")");
+    printer.append(")");
   }
 
   @Override

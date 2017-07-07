@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.rules.repository.WorkspaceBaseRule;
 import com.google.devtools.build.lib.rules.repository.WorkspaceConfiguredTargetFactory;
 import java.util.Map;
-import javax.annotation.Nullable;
 
 /**
  * Definition of the {@code android_ndk_repository} rule.
@@ -39,20 +38,15 @@ public class AndroidNdkRepositoryRule implements RuleDefinition {
   public static final String NAME = "android_ndk_repository";
 
   private static final Function<? super Rule, Map<String, Label>> BINDINGS_FUNCTION =
-      new Function< Rule, Map<String, Label>>() {
-        @Nullable
-        @Override
-        public Map<String, Label> apply(Rule rule) {
+      rule -> {
+        String defaultToolchainName =
+            AndroidNdkRepositoryFunction.createToolchainName(StlImpls.DEFAULT_STL_NAME);
 
-          String defaultToolchainName =
-              AndroidNdkRepositoryFunction.createToolchainName(StlImpls.DEFAULT_STL_NAME);
-
-          return ImmutableMap.of(
-              "android/crosstool",
-              Label.parseAbsoluteUnchecked("@" + rule.getName() + "//:" + defaultToolchainName),
-              "android_ndk_for_testing",
-              Label.parseAbsoluteUnchecked("@" + rule.getName() + "//:files"));
-        }
+        return ImmutableMap.of(
+            "android/crosstool",
+            Label.parseAbsoluteUnchecked("@" + rule.getName() + "//:" + defaultToolchainName),
+            "android_ndk_for_testing",
+            Label.parseAbsoluteUnchecked("@" + rule.getName() + "//:files"));
       };
 
   @Override

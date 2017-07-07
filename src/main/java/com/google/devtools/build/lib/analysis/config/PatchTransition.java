@@ -58,4 +58,18 @@ public interface PatchTransition extends Attribute.Transition {
    * @return the options representing the desired post-transition configuration
    */
   BuildOptions apply(BuildOptions options);
+
+  /**
+   * This method is only needed for static configurations, and will go away with their removal. We
+   * don't want to litter the dynamic configurations API with it, so we define this default to save
+   * transition implementers from having to consider it.
+   *
+   * <p>If you're implementing a dynamic transition, ignore this concept completely. It has no
+   * effect on anything you're doing, and will be removed from the API as soon as it's safe to
+   * retire static configurations.
+   */
+  @Override
+  default boolean defaultsToSelf() {
+    return false;
+  }
 }

@@ -186,7 +186,7 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCommandLineContainsTargetLabelAndRuleKind() throws Exception {
+  public void testCommandLineContainsTargetLabel() throws Exception {
     scratch.file(
         "java/lib/BUILD",
         "load('//tools/build_rules/java_lite_proto_library:java_lite_proto_library.bzl',",
@@ -200,7 +200,6 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
                 getConfiguredTarget("//java/lib:lite_pb2"), "java/lib/libproto-lite.jar");
 
     List<String> commandLine = ImmutableList.copyOf(javacAction.buildCommandLine());
-    MoreAsserts.assertContainsSublist(commandLine, "--rule_kind", "proto_library");
     MoreAsserts.assertContainsSublist(commandLine, "--target_label", "//java/lib:proto");
   }
 

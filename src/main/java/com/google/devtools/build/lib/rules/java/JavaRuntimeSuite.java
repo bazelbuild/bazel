@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.java;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.MiddlemanProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -40,6 +41,7 @@ public class JavaRuntimeSuite implements RuleConfiguredTargetFactory {
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(JavaRuntimeProvider.class, runtime.getProvider(JavaRuntimeProvider.class))
         .addProvider(RunfilesProvider.class, runtime.getProvider(RunfilesProvider.class))
+        .addProvider(MiddlemanProvider.class, runtime.getProvider(MiddlemanProvider.class))
         .setFilesToBuild(runtime.getProvider(FileProvider.class).getFilesToBuild())
         .build();
   }

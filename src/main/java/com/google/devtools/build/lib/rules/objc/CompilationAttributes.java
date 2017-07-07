@@ -212,8 +212,7 @@ final class CompilationAttributes {
         NestedSetBuilder<PathFragment> includes = NestedSetBuilder.stableOrder();
         includes.addAll(
             Iterables.transform(
-                ruleContext.attributes().get("includes", Type.STRING_LIST),
-                PathFragment.TO_PATH_FRAGMENT));
+                ruleContext.attributes().get("includes", Type.STRING_LIST), PathFragment::create));
         builder.addIncludes(includes.build());
       }
 
@@ -222,7 +221,7 @@ final class CompilationAttributes {
         sdkIncludes.addAll(
             Iterables.transform(
                 ruleContext.attributes().get("sdk_includes", Type.STRING_LIST),
-                PathFragment.TO_PATH_FRAGMENT));
+                PathFragment::create));
         builder.addSdkIncludes(sdkIncludes.build());
       }
     }
@@ -400,7 +399,7 @@ final class CompilationAttributes {
               packageFragment.get(), genfilesFragment.getRelative(packageFragment.get()));
 
       Iterable<PathFragment> relativeIncludes =
-          Iterables.filter(includes(), Predicates.not(PathFragment.IS_ABSOLUTE));
+          Iterables.filter(includes(), Predicates.not(PathFragment::isAbsolute));
       for (PathFragment include : relativeIncludes) {
         for (PathFragment rootFragment : rootFragments) {
           paths.add(rootFragment.getRelative(include).normalize());

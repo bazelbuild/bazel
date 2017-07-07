@@ -14,10 +14,12 @@
 
 package com.google.devtools.build.lib.graph;
 
+import static java.util.Comparator.comparing;
+import static java.util.Comparator.comparingLong;
+
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -29,7 +31,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -384,10 +385,7 @@ public final class Digraph<T> implements Cloneable {
     if (label == null) {
       throw new NullPointerException();
     }
-    Node<T> n = nodes.get(label);
-    if (n == null) {
-      nodes.put(label, n = new Node<T>(label, nextHashCode++));
-    }
+    Node<T> n = nodes.computeIfAbsent(label, k -> new Node<T>(k, nextHashCode++));
     return n;
   }
 
@@ -827,14 +825,10 @@ public final class Digraph<T> implements Cloneable {
     // number of paths of high-order nodes making the time consumption explode.
     // For perfect results we should reorder the set each time we add a new edge but this would
     // be too expensive, so this is a good enough approximation.
-    final PriorityQueue<Node<T>> reachables = new PriorityQueue<>(toRemove.size(),
-        new Comparator<Node<T>>() {
-      @Override
-      public int compare(Node<T> o1, Node<T> o2) {
-        return Long.compare((long) o1.numPredecessors() * (long) o1.numSuccessors(),
-            (long) o2.numPredecessors() * (long) o2.numSuccessors());
-      }
-    });
+    final PriorityQueue<Node<T>> reachables =
+        new PriorityQueue<>(
+            toRemove.size(),
+            comparingLong(arg -> (long) arg.numPredecessors() * (long) arg.numSuccessors()));
 
     // Construct the reachables queue with the list of successors and predecessors of keep in
     // toRemove.
@@ -1041,12 +1035,7 @@ public final class Digraph<T> implements Cloneable {
 
   private static <T> Comparator<Node<T>> makeNodeComparator(
       final Comparator<? super T> comparator) {
-    return new Comparator<Node<T>>() {
-      @Override
-      public int compare(Node<T> o1, Node<T> o2) {
-        return comparator.compare(o1.getLabel(), o2.getLabel());
-      }
-    };
+    return comparing(Node::getLabel, comparator::compare);
   }
 
   /**

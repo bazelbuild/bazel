@@ -222,40 +222,22 @@ public class GrpcServerImpl implements RPCServer {
       this.actionQueue = new LinkedBlockingQueue<>();
       this.exchanger = new Exchanger<>();
       this.observer = observer;
-      this.observer.setOnCancelHandler(
-          new Runnable() {
-            @Override
-            public void run() {
-              Thread commandThread = GrpcSink.this.commandThread.get();
-              if (commandThread != null) {
-                log.info(
-                    String.format(
-                        "Interrupting thread %s due to the streaming %s call being cancelled "
-                            + "(likely client hang up or explicit gRPC-level cancellation)",
-                        commandThread.getName(),
-                        rpcCommandName));
-                commandThread.interrupt();
-              }
+      this.observer.setOnCancelHandler(() -> {
+          Thread commandThread = GrpcSink.this.commandThread.get();
+          if (commandThread != null) {
+            log.info(
+                String.format(
+                    "Interrupting thread %s due to the streaming %s call being cancelled "
+                        + "(likely client hang up or explicit gRPC-level cancellation)",
+                    commandThread.getName(),
+                    rpcCommandName));
+            commandThread.interrupt();
+          }
 
-              actionQueue.offer(SinkThreadAction.DISCONNECT);
-            }
-          });
-      this.observer.setOnReadyHandler(
-          new Runnable() {
-            @Override
-            public void run() {
-              actionQueue.offer(SinkThreadAction.READY);
-            }
-          });
-
-      this.future =
-          executor.submit(
-              new Runnable() {
-                @Override
-                public void run() {
-                  GrpcSink.this.call();
-                }
-              });
+          actionQueue.offer(SinkThreadAction.DISCONNECT);
+        });
+      this.observer.setOnReadyHandler(() -> actionQueue.offer(SinkThreadAction.READY));
+      this.future = executor.submit(GrpcSink.this::call);
     }
 
     @VisibleForTesting
@@ -525,12 +507,12 @@ public class GrpcServerImpl implements RPCServer {
   private final PidFileWatcherThread pidFileWatcherThread;
   private final Path pidFile;
   private final String pidInFile;
+  private final List<Path> filesToDeleteAtExit = new ArrayList<>();
+  private final int port;
 
   private Server server;
   private IdleServerTasks idleServerTasks;
-  private final int port;
   boolean serving;
-  private List<Path> filesToDeleteAtExit = new ArrayList<Path>();
 
   public GrpcServerImpl(CommandExecutor commandExecutor, Clock clock, int port,
       Path workspace, Path serverDirectory, int maxIdleSeconds) throws IOException {
@@ -602,12 +584,10 @@ public class GrpcServerImpl implements RPCServer {
       return;
     }
 
-    Runnable interruptWatcher = new Runnable() {
-      @Override
-      public void run() {
+    Runnable interruptWatcher = () -> {
         try {
-          boolean ok;
           Thread.sleep(10 * 1000);
+          boolean ok;
           synchronized (runningCommands) {
             ok = Collections.disjoint(commandIds, runningCommands.keySet());
           }
@@ -618,8 +598,7 @@ public class GrpcServerImpl implements RPCServer {
         } catch (InterruptedException e) {
           // Ignore.
         }
-      }
-    };
+      };
 
     Thread interruptWatcherThread =
         new Thread(interruptWatcher, "interrupt-watcher-" + interruptCounter.incrementAndGet());
@@ -728,15 +707,7 @@ public class GrpcServerImpl implements RPCServer {
     }
 
     if (maxIdleSeconds > 0) {
-      Thread timeoutThread =
-          new Thread(
-              new Runnable() {
-                @Override
-                public void run() {
-                  timeoutThread();
-                }
-              });
-
+      Thread timeoutThread = new Thread(this::timeoutThread);
       timeoutThread.setName("grpc-timeout");
       timeoutThread.setDaemon(true);
       timeoutThread.start();
@@ -916,19 +887,12 @@ public class GrpcServerImpl implements RPCServer {
       new CommandServerGrpc.CommandServerImplBase() {
         @Override
         public void run(final RunRequest request, final StreamObserver<RunResponse> observer) {
-          final GrpcSink sink = new GrpcSink(
-              "Run",
-              (ServerCallStreamObserver<RunResponse>) observer,
-              streamExecutorPool);
+          final GrpcSink sink =
+              new GrpcSink(
+                  "Run", (ServerCallStreamObserver<RunResponse>) observer, streamExecutorPool);
           // Switch to our own threads so that onReadyStateHandler can be called (see class-level
           // comment)
-          commandExecutorPool.execute(
-              new Runnable() {
-                @Override
-                public void run() {
-                  executeCommand(request, observer, sink);
-                }
-              });
+          commandExecutorPool.execute(() -> executeCommand(request, observer, sink));
         }
 
         @Override
@@ -957,12 +921,7 @@ public class GrpcServerImpl implements RPCServer {
 
           // Actually performing the cancellation can result in some blocking which we don't want
           // to do on the dispatcher thread, instead offload to command pool.
-          commandExecutorPool.execute(new Runnable() {
-            @Override
-            public void run() {
-              doCancel(request, streamObserver);
-            }
-          });
+          commandExecutorPool.execute(() -> doCancel(request, streamObserver));
         }
 
         private void doCancel(
@@ -987,8 +946,8 @@ public class GrpcServerImpl implements RPCServer {
               streamObserver.onCompleted();
             } catch (StatusRuntimeException e) {
               // There is no one to report the failure to
-              log.info("Client cancelled RPC of cancellation request for "
-                  + request.getCommandId());
+              log.info(
+                  "Client cancelled RPC of cancellation request for " + request.getCommandId());
             }
           }
         }

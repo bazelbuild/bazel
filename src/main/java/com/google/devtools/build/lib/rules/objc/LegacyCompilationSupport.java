@@ -38,9 +38,9 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
-import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
@@ -123,7 +123,6 @@ public class LegacyCompilationSupport extends CompilationSupport {
         .addPrivateHdrs(srcs.filter(HEADERS).list())
         .addPrecompiledSrcs(srcs.filter(PRECOMPILED_SRCS_TYPE).list())
         .setIntermediateArtifacts(intermediateArtifacts)
-        .setPchFile(Optional.fromNullable(ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET)))
         .build();
   }
 
@@ -147,7 +146,9 @@ public class LegacyCompilationSupport extends CompilationSupport {
       CompilationAttributes compilationAttributes,
       boolean useDeps,
       Map<String, NestedSet<Artifact>> outputGroupCollector,
-      boolean isTestRule) {
+      CcToolchainProvider toolchain,
+      boolean isTestRule,
+      boolean usePch) {
     super(
         ruleContext,
         buildConfiguration,
@@ -155,7 +156,9 @@ public class LegacyCompilationSupport extends CompilationSupport {
         compilationAttributes,
         useDeps,
         outputGroupCollector,
-        isTestRule);
+        toolchain,
+        isTestRule,
+        usePch);
   }
 
   @Override
@@ -312,28 +315,10 @@ public class LegacyCompilationSupport extends CompilationSupport {
 
     // Add input source file arguments
     commandLine.add("-c");
-    if (!sourceFile.getExecPath().isAbsolute()
-        && objcConfiguration.getUseAbsolutePathsForActions()) {
-      String workspaceRoot = objcConfiguration.getXcodeWorkspaceRoot();
-
-      // If the source file is a tree artifact, it means the file is basically a directory that may
-      // contain multiple concrete source files at execution time. When constructing the command
-      // line, we insert the source tree artifact as a placeholder, which will be replaced with
-      // one of its contained source files of type {@link Artifact.TreeFileArtifact} at execution
-      // time.
-      //
-      // We also do something similar for the object file arguments below.
-      if (sourceFile.isTreeArtifact()) {
-        commandLine.addPlaceholderTreeArtifactFormattedExecPath(workspaceRoot + "/%s", sourceFile);
-      } else {
-        commandLine.addPaths(workspaceRoot + "/%s", sourceFile.getExecPath());
-      }
+    if (sourceFile.isTreeArtifact()) {
+      commandLine.addPlaceholderTreeArtifactExecPath(sourceFile);
     } else {
-      if (sourceFile.isTreeArtifact()) {
-        commandLine.addPlaceholderTreeArtifactExecPath(sourceFile);
-      } else {
-        commandLine.addPath(sourceFile.getExecPath());
-      }
+      commandLine.addPath(sourceFile.getExecPath());
     }
 
     // Add output object file arguments.
@@ -414,7 +399,7 @@ public class LegacyCompilationSupport extends CompilationSupport {
             objcProvider,
             priorityHeaders,
             moduleMap,
-            compilationArtifacts.getPchFile(),
+            getPchFile(),
             Optional.of(dotdFile.artifact()),
             otherFlags,
             runCodeCoverage,
@@ -443,7 +428,7 @@ public class LegacyCompilationSupport extends CompilationSupport {
             .addTransitiveMandatoryInputs(objcProvider.get(STATIC_FRAMEWORK_FILE))
             .addTransitiveMandatoryInputs(objcProvider.get(DYNAMIC_FRAMEWORK_FILE))
             .setDotdFile(dotdFile)
-            .addMandatoryInputs(compilationArtifacts.getPchFile().asSet());
+            .addMandatoryInputs(getPchFile().asSet());
 
     Artifact headersListFile = null;
     if (isHeaderThinningEnabled()
@@ -500,14 +485,14 @@ public class LegacyCompilationSupport extends CompilationSupport {
             objcProvider,
             priorityHeaders,
             moduleMap,
-            compilationArtifacts.getPchFile(),
+            getPchFile(),
             Optional.<Artifact>absent(),
             otherFlags,
             /* runCodeCoverage=*/ false,
             /* isCPlusPlusSource=*/ false);
 
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
-    Platform platform = appleConfiguration.getSingleArchPlatform();
+    ApplePlatform platform = appleConfiguration.getSingleArchPlatform();
 
     NestedSet<Artifact> moduleMapInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     if (objcConfiguration.moduleMapsEnabled()) {
@@ -528,7 +513,7 @@ public class LegacyCompilationSupport extends CompilationSupport {
             .addCommonInputs(compilationArtifacts.getPrivateHdrs())
             .addCommonTransitiveInputs(objcProvider.get(STATIC_FRAMEWORK_FILE))
             .addCommonTransitiveInputs(objcProvider.get(DYNAMIC_FRAMEWORK_FILE))
-            .addCommonInputs(compilationArtifacts.getPchFile().asSet())
+            .addCommonInputs(getPchFile().asSet())
             .build(ruleContext.getActionOwner()));
   }
 
@@ -845,7 +830,7 @@ public class LegacyCompilationSupport extends CompilationSupport {
       ObjcProvider provider, ObjcConfiguration objcConfiguration,
       AppleConfiguration appleConfiguration) {
     ImmutableList.Builder<String> builder = new ImmutableList.Builder<>();
-    Platform platform = appleConfiguration.getSingleArchPlatform();
+    ApplePlatform platform = appleConfiguration.getSingleArchPlatform();
     String minOSVersionArg;
     switch (platform) {
       case IOS_SIMULATOR:

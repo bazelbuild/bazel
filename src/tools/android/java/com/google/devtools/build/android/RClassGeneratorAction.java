@@ -24,8 +24,10 @@ import com.google.devtools.build.android.Converters.DependencySymbolFileProvider
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.resources.ResourceSymbols;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -62,41 +64,61 @@ public class RClassGeneratorAction {
    */
   public static final class Options extends OptionsBase {
 
-    @Option(name = "primaryRTxt",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "input",
-        help = "The path to the binary's R.txt file")
+    @Option(
+      name = "primaryRTxt",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "The path to the binary's R.txt file"
+    )
     public Path primaryRTxt;
 
-    @Option(name = "primaryManifest",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "input",
-        help = "The path to the binary's AndroidManifest.xml file. This helps provide the package.")
+    @Option(
+      name = "primaryManifest",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "The path to the binary's AndroidManifest.xml file. This helps provide the package."
+    )
     public Path primaryManifest;
 
-    @Option(name = "packageForR",
-        defaultValue = "null",
-        category = "config",
-        help = "Custom java package to generate the R class files.")
+    @Option(
+      name = "packageForR",
+      defaultValue = "null",
+      category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Custom java package to generate the R class files."
+    )
     public String packageForR;
 
-    @Option(name = "libraries",
-        defaultValue = "",
-        converter = DependencySymbolFileProviderListConverter.class,
-        category = "input",
-        help = "R.txt and manifests for the libraries in this binary's deps. We will write "
-            + "class files for the libraries as well. Expected format: lib1/R.txt[:lib2/R.txt]")
+    @Option(
+      name = "libraries",
+      defaultValue = "",
+      converter = DependencySymbolFileProviderListConverter.class,
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "R.txt and manifests for the libraries in this binary's deps. We will write "
+              + "class files for the libraries as well. Expected format: lib1/R.txt[:lib2/R.txt]"
+    )
     public List<DependencySymbolFileProvider> libraries;
 
-    @Option(name = "classJarOutput",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        help = "Path for the generated jar of R.class files.")
+    @Option(
+      name = "classJarOutput",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path for the generated jar of R.class files."
+    )
     public Path classJarOutput;
-
   }
 
   public static void main(String[] args) throws Exception {

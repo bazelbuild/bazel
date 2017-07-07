@@ -15,58 +15,69 @@
 package com.google.devtools.build.benchmark;
 
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
-
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.List;
 
 /** Class that contains arguments for running the benchmark. */
 public class BenchmarkOptions extends OptionsBase {
 
   @Option(
-      name = "workspace",
-      defaultValue = "",
-      category = "benchmark",
-      valueHelp = "path",
-      help = "Directory where we put all the code and results."
+    name = "workspace",
+    defaultValue = "",
+    category = "benchmark",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    valueHelp = "path",
+    help = "Directory where we put all the code and results."
   )
   public String workspace;
 
   @Option(
-      name = "output",
-      defaultValue = "",
-      category = "benchmark",
-      valueHelp = "path",
-      help = "Path to put benchmark result (json format)."
+    name = "output",
+    defaultValue = "",
+    category = "benchmark",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    valueHelp = "path",
+    help = "Path to put benchmark result (json format)."
   )
   public String output;
 
   @Option(
-      name = "version_between",
-      defaultValue = "",
-      category = "version filter",
-      valueHelp = "string",
-      help = "Use code versions between two versions, eg. 'abcedf..uvwxyz'.",
-      converter = VersionFilterConverter.class
+    name = "version_between",
+    defaultValue = "",
+    category = "version filter",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    valueHelp = "string",
+    help = "Use code versions between two versions, eg. 'abcedf..uvwxyz'.",
+    converter = VersionFilterConverter.class
   )
   public VersionFilter versionFilter;
 
   @Option(
-      name = "time_between",
-      defaultValue = "",
-      category = "time filter",
-      valueHelp = "string",
-      help = "Use code versions between two time, eg. '2017-01-01 13:00..2017-01-02 08:00'.",
-      converter = DateFilterConverter.class
+    name = "time_between",
+    defaultValue = "",
+    category = "time filter",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    valueHelp = "string",
+    help = "Use code versions between two time, eg. '2017-01-01 13:00..2017-01-02 08:00'.",
+    converter = DateFilterConverter.class
   )
   public DateFilter dateFilter;
 
   @Option(
-      name = "versions",
-      defaultValue = "",
-      category = "version",
-      valueHelp = "list of strings",
-      allowMultiple = true,
-      help = "Use code versions as listed."
+    name = "versions",
+    defaultValue = "",
+    category = "version",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    valueHelp = "list of strings",
+    allowMultiple = true,
+    help = "Use code versions as listed."
   )
   public List<String> versions;
 }

@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
+import com.google.devtools.build.lib.analysis.config.DynamicTransitionMapper;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -214,6 +215,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     private final Digraph<Class<? extends RuleDefinition>> dependencyGraph =
         new Digraph<>();
     private ConfigurationCollectionFactory configurationCollectionFactory;
+    private ImmutableMap.Builder<Attribute.Transition, Attribute.Transition> dynamicTransitionMaps
+        = ImmutableMap.builder();
     private Class<? extends BuildConfiguration.Fragment> universalFragment;
     private PrerequisiteValidator prerequisiteValidator;
     private ImmutableMap.Builder<String, Object> skylarkAccessibleTopLevels =
@@ -320,6 +323,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       return this;
     }
 
+    public Builder addDynamicTransitionMaps(Map<Attribute.Transition, Attribute.Transition> maps) {
+      dynamicTransitionMaps.putAll(maps);
+      return this;
+    }
+
     public Builder setUniversalConfigurationFragment(
         Class<? extends BuildConfiguration.Fragment> fragment) {
       this.universalFragment = fragment;
@@ -333,16 +341,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
     public Builder addSkylarkModule(Class<?>... modules) {
       this.skylarkModules.add(modules);
-      return this;
-    }
-
-    /**
-     * Adds a mapping that determines which keys in structs returned by skylark rules should be
-     * interpreted as native TransitiveInfoProvider instances of type (map value).
-     */
-    public Builder registerSkylarkProvider(
-        String name, Class<? extends TransitiveInfoProvider> provider) {
-      this.registeredSkylarkProviders.put(name, provider);
       return this;
     }
 
@@ -439,11 +437,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
           ImmutableList.copyOf(configurationOptions),
           ImmutableList.copyOf(configurationFragmentFactories),
           configurationCollectionFactory,
+          new DynamicTransitionMapper(dynamicTransitionMaps.build()),
           universalFragment,
           prerequisiteValidator,
           skylarkAccessibleTopLevels.build(),
-          skylarkModules.build(),
-          registeredSkylarkProviders.build());
+          skylarkModules.build());
     }
 
     @Override
@@ -540,6 +538,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   private final ConfigurationCollectionFactory configurationCollectionFactory;
 
   /**
+   * The dynamic configuration transition mapper.
+   */
+  private final DynamicTransitionMapper dynamicTransitionMapper;
+
+  /**
    * A configuration fragment that should be available to all rules even when they don't
    * explicitly require it.
    */
@@ -550,9 +553,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   private final PrerequisiteValidator prerequisiteValidator;
 
   private final Environment.Frame globals;
-
-  private final ImmutableBiMap<String, Class<? extends TransitiveInfoProvider>>
-      registeredSkylarkProviders;
 
   private ConfiguredRuleClassProvider(
       String productName,
@@ -568,11 +568,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       ImmutableList<Class<? extends FragmentOptions>> configurationOptions,
       ImmutableList<ConfigurationFragmentFactory> configurationFragments,
       ConfigurationCollectionFactory configurationCollectionFactory,
+      DynamicTransitionMapper dynamicTransitionMapper,
       Class<? extends BuildConfiguration.Fragment> universalFragment,
       PrerequisiteValidator prerequisiteValidator,
       ImmutableMap<String, Object> skylarkAccessibleJavaClasses,
-      ImmutableList<Class<?>> skylarkModules,
-      ImmutableBiMap<String, Class<? extends TransitiveInfoProvider>> registeredSkylarkProviders) {
+      ImmutableList<Class<?>> skylarkModules) {
     this.productName = productName;
     this.preludeLabel = preludeLabel;
     this.runfilesPrefix = runfilesPrefix;
@@ -586,10 +586,10 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.configurationOptions = configurationOptions;
     this.configurationFragmentFactories = configurationFragments;
     this.configurationCollectionFactory = configurationCollectionFactory;
+    this.dynamicTransitionMapper = dynamicTransitionMapper;
     this.universalFragment = universalFragment;
     this.prerequisiteValidator = prerequisiteValidator;
     this.globals = createGlobals(skylarkAccessibleJavaClasses, skylarkModules);
-    this.registeredSkylarkProviders = registeredSkylarkProviders;
   }
 
   public String getProductName() {
@@ -666,6 +666,13 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   }
 
   /**
+   * Returns the dynamic configuration transition mapper.
+   */
+  public DynamicTransitionMapper getDynamicTransitionMapper() {
+    return dynamicTransitionMapper;
+  }
+
+  /**
    * Returns the configuration fragment that should be available to all rules even when they
    * don't explicitly require it.
    */
@@ -686,19 +693,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   public String getDefaultsPackageContent(OptionsClassProvider optionsProvider) {
     return DefaultsPackage.getDefaultsPackageContent(
         BuildOptions.of(configurationOptions, optionsProvider));
-  }
-
-  /**
-   * Returns a map that indicates which keys in structs returned by skylark rules should be
-   * interpreted as native TransitiveInfoProvider instances of type (map value).
-   *
-   * <p>That is, if this map contains "dummy" -> DummyProvider.class, a "dummy" entry in a skylark
-   * rule implementation's returned struct will be exported from that ConfiguredTarget as a
-   * DummyProvider.
-   */
-  public ImmutableBiMap<String, Class<? extends TransitiveInfoProvider>>
-      getRegisteredSkylarkProviders() {
-    return this.registeredSkylarkProviders;
   }
 
   /**

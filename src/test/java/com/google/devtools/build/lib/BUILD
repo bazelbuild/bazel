@@ -22,9 +22,9 @@ WINDOWS_ON_WINDOWS_TESTS = glob(
 ALL_WINDOWS_TESTS = CROSS_PLATFORM_WINDOWS_TESTS + WINDOWS_ON_WINDOWS_TESTS
 
 JNI_LIB = select({
-    "//src:windows": ["//src/main/native:windows_jni.dll"],
-    "//src:windows_msys": ["//src/main/native:windows_jni.dll"],
-    "//src:windows_msvc": ["//src/main/native:windows_jni.dll"],
+    "//src:windows": ["//src/main/native/windows:windows_jni.dll"],
+    "//src:windows_msys": ["//src/main/native/windows:windows_jni.dll"],
+    "//src:windows_msvc": ["//src/main/native/windows:windows_jni.dll"],
     "//conditions:default": [
         "//src/main/native:libunix.dylib",
         "//src/main/native:libunix.so",
@@ -38,6 +38,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/skyframe:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/android:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/config:srcs",
+        "//src/test/java/com/google/devtools/build/lib/analysis/featurecontrol:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/platform:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/platform:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/repository:srcs",
@@ -175,6 +176,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib:vfs",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:option_filters_java_proto",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:joda_time",
@@ -219,6 +221,8 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:vfs",
         "//src/main/java/com/google/devtools/build/lib:windows",
+        "//src/main/java/com/google/devtools/build/lib/windows/jni",
+        "//src/main/java/com/google/devtools/build/lib/windows/runfiles",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:junit4",
@@ -246,6 +250,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:os_util",
         "//src/main/java/com/google/devtools/build/lib:vfs",
         "//src/main/java/com/google/devtools/build/lib:windows",
+        "//src/main/java/com/google/devtools/build/lib/windows/jni",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -359,6 +364,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib:vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis/featurecontrol",
         "//src/main/java/com/google/devtools/build/lib/query2",
         "//src/main/java/com/google/devtools/build/lib/query2:query-output",
         "//src/main/java/com/google/devtools/build/lib/rules/apple",
@@ -372,6 +378,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:extra_actions_base_java_proto",
+        "//src/main/protobuf:option_filters_java_proto",
         "//src/test/java/com/google/devtools/build/lib/skyframe:testutil",
         "//src/test/java/com/google/devtools/build/skyframe:testutil",
         "//third_party:guava",
@@ -380,6 +387,7 @@ java_library(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -451,6 +459,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/rules/objc",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:extra_actions_base_java_proto",
+        "//src/main/protobuf:option_filters_java_proto",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:jsr305",
@@ -542,6 +551,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/protobuf:option_filters_java_proto",
         "//src/test/java/com/google/devtools/build/lib/skyframe:testutil",
         "//third_party:auto_value",
         "//third_party:guava",
@@ -1243,6 +1253,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/protobuf:option_filters_java_proto",
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:junit4",

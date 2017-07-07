@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.rules.apple.Platform;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
@@ -129,7 +129,7 @@ public class MultiArchBinarySupport {
    * @throws RuleErrorException if there are attribute errors in the current rule context
    */
   public void registerActions(
-      Platform platform,
+      ApplePlatform platform,
       ExtraLinkArgs extraLinkArgs,
       Set<DependencySpecificConfiguration> dependencySpecificConfigurations,
       Iterable<Artifact> extraLinkInputs,
@@ -244,7 +244,8 @@ public class MultiArchBinarySupport {
                     protosToAvoid,
                     ImmutableList.<ProtoSourcesProvider>of(),
                     objcProtoProviders,
-                    ProtobufSupport.getTransitivePortableProtoFilters(objcProtoProviders))
+                    ProtobufSupport.getTransitivePortableProtoFilters(objcProtoProviders),
+                    childConfigurationsAndToolchains.get(childConfig))
                 .registerGenerationActions()
                 .registerCompilationActions();
         protosObjcProvider = protoSupport.getObjcProvider();

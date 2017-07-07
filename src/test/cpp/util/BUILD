@@ -43,15 +43,15 @@ cc_test(
     ] + select({
         "//src:windows": [
             ":windows_test_util",
-            "//src/main/native:windows_jni_lib",
+            "//src/main/native/windows:lib-file",
         ],
         "//src:windows_msys": [
             ":windows_test_util",
-            "//src/main/native:windows_jni_lib",
+            "//src/main/native/windows:lib-file",
         ],
         "//src:windows_msvc": [
             ":windows_test_util",
-            "//src/main/native:windows_jni_lib",
+            "//src/main/native/windows:lib-file",
         ],
         "//conditions:default": [],
     }),

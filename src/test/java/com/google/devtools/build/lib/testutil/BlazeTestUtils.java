@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.lib.testutil;
 
-import com.google.common.base.Function;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -98,11 +98,6 @@ public class BlazeTestUtils {
   }
 
   public static List<Label> convertLabels(Iterable<Label> labels) {
-    return ImmutableList.copyOf(Iterables.transform(labels, new Function<Label, Label>() {
-      @Override
-      public Label apply(Label label) {
-        return convertLabel(label);
-      }
-    }));
+    return Streams.stream(labels).map(BlazeTestUtils::convertLabel).collect(toImmutableList());
   }
 }

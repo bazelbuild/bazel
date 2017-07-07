@@ -24,8 +24,10 @@ import com.google.devtools.build.android.Converters.MergeTypeConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.Converters.StringDictionaryConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -65,59 +67,88 @@ import org.xml.sax.SAXException;
 public class ManifestMergerAction {
   /** Flag specifications for this action. */
   public static final class Options extends OptionsBase {
-    @Option(name = "manifest",
-        defaultValue = "null",
-        converter = ExistingPathConverter.class,
-        category = "input",
-        help = "Path of primary manifest.")
+    @Option(
+      name = "manifest",
+      defaultValue = "null",
+      converter = ExistingPathConverter.class,
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path of primary manifest."
+    )
     public Path manifest;
 
-    @Option(name = "mergeeManifests",
-        defaultValue = "",
-        converter = ExistingPathStringDictionaryConverter.class,
-        category = "input",
-        help = "A dictionary of manifests, and originating target, to be merged into manifest.")
+    @Option(
+      name = "mergeeManifests",
+      defaultValue = "",
+      converter = ExistingPathStringDictionaryConverter.class,
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "A dictionary of manifests, and originating target, to be merged into manifest."
+    )
     public Map<Path, String> mergeeManifests;
 
-    @Option(name = "mergeType",
-        defaultValue = "APPLICATION",
-        converter = MergeTypeConverter.class,
-        category = "config",
-        help = "The type of merging to perform.")
+    @Option(
+      name = "mergeType",
+      defaultValue = "APPLICATION",
+      converter = MergeTypeConverter.class,
+      category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "The type of merging to perform."
+    )
     public MergeType mergeType;
 
-    @Option(name = "manifestValues",
-        defaultValue = "",
-        converter = StringDictionaryConverter.class,
-        category = "config",
-        help = "A dictionary string of values to be overridden in the manifest. Any instance of "
-            + "${name} in the manifest will be replaced with the value corresponding to name in "
-            + "this dictionary. applicationId, versionCode, versionName, minSdkVersion, "
-            + "targetSdkVersion and maxSdkVersion have a dual behavior of also overriding the "
-            + "corresponding attributes of the manifest and uses-sdk tags. packageName will be "
-            + "ignored and will be set from either applicationId or the package in manifest. The "
-            + "expected format of this string is: key:value[,key:value]*. The keys and values "
-            + "may contain colons and commas as long as they are escaped with a backslash.")
+    @Option(
+      name = "manifestValues",
+      defaultValue = "",
+      converter = StringDictionaryConverter.class,
+      category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "A dictionary string of values to be overridden in the manifest. Any instance of "
+              + "${name} in the manifest will be replaced with the value corresponding to name in "
+              + "this dictionary. applicationId, versionCode, versionName, minSdkVersion, "
+              + "targetSdkVersion and maxSdkVersion have a dual behavior of also overriding the "
+              + "corresponding attributes of the manifest and uses-sdk tags. packageName will be "
+              + "ignored and will be set from either applicationId or the package in manifest. The "
+              + "expected format of this string is: key:value[,key:value]*. The keys and values "
+              + "may contain colons and commas as long as they are escaped with a backslash."
+    )
     public Map<String, String> manifestValues;
 
-    @Option(name = "customPackage",
-        defaultValue = "null",
-        category = "config",
-        help = "Custom java package to insert in the package attribute of the manifest tag.")
+    @Option(
+      name = "customPackage",
+      defaultValue = "null",
+      category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Custom java package to insert in the package attribute of the manifest tag."
+    )
     public String customPackage;
 
-    @Option(name = "manifestOutput",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        help = "Path for the merged manifest.")
+    @Option(
+      name = "manifestOutput",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path for the merged manifest."
+    )
     public Path manifestOutput;
 
-    @Option(name = "log",
-        defaultValue = "null",
-        category = "output",
-        converter = PathConverter.class,
-        help = "Path to where the merger log should be written.")
+    @Option(
+      name = "log",
+      defaultValue = "null",
+      category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = PathConverter.class,
+      help = "Path to where the merger log should be written."
+    )
     public Path log;
   }
 

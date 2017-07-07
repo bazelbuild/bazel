@@ -57,9 +57,12 @@ public class ResourceContainerConverter {
     private boolean includeManifest;
     private boolean includeRTxt;
     private boolean includeSymbolsBin;
+    private boolean includeStaticLibrary;
+    private boolean includeAapt2RTxt;
     private SeparatorType separatorType;
     private Joiner argJoiner;
     private Function<String, String> escaper = Functions.identity();
+
 
     enum SeparatorType {
       COLON_COMMA,
@@ -67,6 +70,16 @@ public class ResourceContainerConverter {
     }
 
     Builder() {
+    }
+
+    Builder includeAapt2RTxt() {
+      includeAapt2RTxt = true;
+      return this;
+    }
+
+    Builder includeStaticLibrary() {
+      includeStaticLibrary = true;
+      return this;
     }
 
     Builder includeResourceRoots() {
@@ -107,12 +120,7 @@ public class ResourceContainerConverter {
           // arguments in a list of arguments. Those characters require escaping if used in a label
           // (part of the set of allowed characters in a label).
           if (includeLabel) {
-            escaper = new Function<String, String>() {
-              @Override
-              public String apply(String input) {
-                return input.replace(":", "\\:").replace(",", "\\,");
-              }
-            };
+            escaper = (String input) -> input.replace(":", "\\:").replace(",", "\\,");
           }
           break;
         case SEMICOLON_AMPERSAND:
@@ -141,11 +149,21 @@ public class ResourceContainerConverter {
             cmdPieces.add(
                 container.getRTxt() == null ? "" : container.getRTxt().getExecPathString());
           }
+          if (includeAapt2RTxt) {
+            cmdPieces.add(
+                container.getAapt2RTxt() == null
+                    ? ""
+                    : container.getAapt2RTxt().getExecPathString());
+          }
+          if (includeStaticLibrary) {
+            cmdPieces.add(
+                container.getStaticLibrary() == null
+                    ? ""
+                    : container.getStaticLibrary().getExecPathString());
+          }
           if (includeSymbolsBin) {
             cmdPieces.add(
-                container.getSymbols() == null
-                    ? ""
-                    : container.getSymbols().getExecPathString());
+                container.getSymbols() == null ? "" : container.getSymbols().getExecPathString());
           }
           return argJoiner.join(cmdPieces.build());
         }
@@ -181,6 +199,12 @@ public class ResourceContainerConverter {
           }
           if (includeSymbolsBin) {
             addIfNotNull(container.getSymbols(), artifacts);
+          }
+          if (includeAapt2RTxt) {
+            addIfNotNull(container.getAapt2RTxt(), artifacts);
+          }
+          if (includeStaticLibrary) {
+            addIfNotNull(container.getStaticLibrary(), artifacts);
           }
           return artifacts.build();
         }

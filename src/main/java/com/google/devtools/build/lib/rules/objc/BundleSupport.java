@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STRINGS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
 
 import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -34,12 +33,11 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
-import com.google.devtools.build.lib.rules.apple.Platform;
-import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -71,7 +69,7 @@ final class BundleSupport {
   // RuleErrorConsumer).
   private final RuleContext ruleContext;
   private final AppleConfiguration appleConfiguration;
-  private final Platform platform;
+  private final ApplePlatform platform;
   private final ExtraActoolArgs extraActoolArgs;
   private final Bundling bundling;
   private final Attributes attributes;
@@ -85,8 +83,12 @@ final class BundleSupport {
    * @param bundling bundle information as configured for this rule
    * @param extraActoolArgs any additional parameters to be used for invoking {@code actool}
    */
-  public BundleSupport(RuleContext ruleContext, AppleConfiguration appleConfiguration,
-      Platform platform, Bundling bundling, ExtraActoolArgs extraActoolArgs) {
+  public BundleSupport(
+      RuleContext ruleContext,
+      AppleConfiguration appleConfiguration,
+      ApplePlatform platform,
+      Bundling bundling,
+      ExtraActoolArgs extraActoolArgs) {
     this.ruleContext = ruleContext;
     this.appleConfiguration = appleConfiguration;
     this.platform = platform;
@@ -125,11 +127,11 @@ final class BundleSupport {
    * @return this bundle support
    */
   public BundleSupport validatePlatform() {
-    Platform platform = null;
+    ApplePlatform platform = null;
     for (String architecture : appleConfiguration.getIosMultiCpus()) {
       if (platform == null) {
-        platform = Platform.forTarget(PlatformType.IOS, architecture);
-      } else if (platform != Platform.forTarget(PlatformType.IOS, architecture)) {
+        platform = ApplePlatform.forTarget(PlatformType.IOS, architecture);
+      } else if (platform != ApplePlatform.forTarget(PlatformType.IOS, architecture)) {
         ruleContext.ruleError(
             String.format("In builds which require bundling, --ios_multi_cpus does not currently "
                 + "allow values for both simulator and device builds. Flag was %s",
@@ -205,13 +207,13 @@ final class BundleSupport {
    * Returns true if this bundle is targeted to {@link TargetDeviceFamily#WATCH}, false otherwise.
    */
   boolean isBuildingForWatch() {
-    return Iterables.any(targetDeviceFamilies(),
-        new Predicate<TargetDeviceFamily>() {
-      @Override
-      public boolean apply(TargetDeviceFamily targetDeviceFamily) {
-        return targetDeviceFamily.name().equalsIgnoreCase(TargetDeviceFamily.WATCH.getNameInRule());
-      }
-    });
+    return targetDeviceFamilies()
+        .stream()
+        .anyMatch(
+            targetDeviceFamily ->
+                targetDeviceFamily
+                    .name()
+                    .equalsIgnoreCase(TargetDeviceFamily.WATCH.getNameInRule()));
   }
 
   /**

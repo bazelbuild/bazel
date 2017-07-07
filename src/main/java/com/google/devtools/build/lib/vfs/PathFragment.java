@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
-import com.google.common.base.Function;
-import com.google.common.base.Predicate;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -57,30 +57,6 @@ public abstract class PathFragment implements Comparable<PathFragment>, Serializ
 
   /** An empty path fragment. */
   public static final PathFragment EMPTY_FRAGMENT = create("");
-
-  public static final Function<String, PathFragment> TO_PATH_FRAGMENT =
-      new Function<String, PathFragment>() {
-        @Override
-        public PathFragment apply(String str) {
-          return create(str);
-        }
-      };
-
-  public static final Predicate<PathFragment> IS_ABSOLUTE =
-      new Predicate<PathFragment>() {
-        @Override
-        public boolean apply(PathFragment input) {
-          return input.isAbsolute();
-        }
-      };
-
-  private static final Function<PathFragment, String> TO_SAFE_PATH_STRING =
-      new Function<PathFragment, String>() {
-        @Override
-        public String apply(PathFragment path) {
-          return path.getSafePathString();
-        }
-      };
 
   /**
    * A helper object for manipulating the various internal {@link PathFragment} implementations.
@@ -332,22 +308,16 @@ public abstract class PathFragment implements Comparable<PathFragment>, Serializ
    * {@code fragments}.
    */
   public static Iterable<String> safePathStrings(Iterable<PathFragment> fragments) {
-    return Iterables.transform(fragments, TO_SAFE_PATH_STRING);
+    return Iterables.transform(fragments, PathFragment::getSafePathString);
   }
 
   /** Returns the subset of {@code paths} that start with {@code startingWithPath}. */
-  public static ImmutableSet<PathFragment> filterPathsStartingWith(Set<PathFragment> paths,
-      PathFragment startingWithPath) {
-    return ImmutableSet.copyOf(Iterables.filter(paths, startsWithPredicate(startingWithPath)));
-  }
-
-  public static Predicate<PathFragment> startsWithPredicate(final PathFragment prefix) {
-    return new Predicate<PathFragment>() {
-      @Override
-      public boolean apply(PathFragment pathFragment) {
-        return pathFragment.startsWith(prefix);
-      }
-    };
+  public static ImmutableSet<PathFragment> filterPathsStartingWith(
+      Set<PathFragment> paths, PathFragment startingWithPath) {
+    return paths
+        .stream()
+        .filter(pathFragment -> pathFragment.startsWith(startingWithPath))
+        .collect(toImmutableSet());
   }
 
   /**

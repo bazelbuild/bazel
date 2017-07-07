@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import static java.util.Comparator.comparing;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
@@ -137,7 +139,7 @@ public final class ActionExecutionStatusReporter {
     if (actions.isEmpty()) {
       return;
     }
-    Collections.sort(actions, Pair.<Long, ActionExecutionMetadata>compareByFirst());
+    Collections.sort(actions, comparing(arg -> arg.first));
 
     buffer.append("\n      " + status + ":");
 

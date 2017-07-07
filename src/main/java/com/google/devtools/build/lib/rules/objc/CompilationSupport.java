@@ -31,6 +31,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PRECOMPIL
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.STRIP;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.util.stream.Collectors.toCollection;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -65,9 +66,9 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
-import com.google.devtools.build.lib.rules.apple.Platform;
-import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
@@ -85,11 +86,13 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -142,16 +145,11 @@ public abstract class CompilationSupport {
           "-fexceptions", "-fasm-blocks", "-fobjc-abi-version=2", "-fobjc-legacy-dispatch");
 
   private static final String FRAMEWORK_SUFFIX = ".framework";
-  
+
   /** Selects cc libraries that have alwayslink=1. */
   protected static final Predicate<Artifact> ALWAYS_LINKED_CC_LIBRARY =
-      new Predicate<Artifact>() {
-        @Override
-        public boolean apply(Artifact input) {
-          return LINK_LIBRARY_FILETYPES.matches(input.getFilename());
-        }
-      };
-  
+      input -> LINK_LIBRARY_FILETYPES.matches(input.getFilename());
+
   /**
    * Returns the location of the xcrunwrapper tool.
    */
@@ -261,7 +259,6 @@ public abstract class CompilationSupport {
         .addPrivateHdrs(srcs.filter(HEADERS).list())
         .addPrecompiledSrcs(srcs.filter(PRECOMPILED_SRCS_TYPE).list())
         .setIntermediateArtifacts(intermediateArtifacts)
-        .setPchFile(Optional.fromNullable(ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET)))
         .build();
   }
 
@@ -274,7 +271,7 @@ public abstract class CompilationSupport {
   /** Returns a list of frameworks for clang actions. */
   static Iterable<String> commonFrameworkNames(
       ObjcProvider provider, AppleConfiguration appleConfiguration) {
-    Platform platform = appleConfiguration.getSingleArchPlatform();
+    ApplePlatform platform = appleConfiguration.getSingleArchPlatform();
 
     ImmutableList.Builder<String> frameworkNames =
         new ImmutableList.Builder<String>()
@@ -304,7 +301,9 @@ public abstract class CompilationSupport {
   protected final IntermediateArtifacts intermediateArtifacts;
   protected final boolean useDeps;
   protected final Map<String, NestedSet<Artifact>> outputGroupCollector;
+  protected final CcToolchainProvider toolchain;
   protected final boolean isTestRule;
+  protected final boolean usePch;
 
   /**
    * Creates a new compilation support for the given rule and build configuration.
@@ -326,7 +325,9 @@ public abstract class CompilationSupport {
       CompilationAttributes compilationAttributes,
       boolean useDeps,
       Map<String, NestedSet<Artifact>> outputGroupCollector,
-      boolean isTestRule) {
+      CcToolchainProvider toolchain,
+      boolean isTestRule,
+      boolean usePch) {
     this.ruleContext = ruleContext;
     this.buildConfiguration = buildConfiguration;
     this.objcConfiguration = buildConfiguration.getFragment(ObjcConfiguration.class);
@@ -336,6 +337,19 @@ public abstract class CompilationSupport {
     this.useDeps = useDeps;
     this.isTestRule = isTestRule;
     this.outputGroupCollector = outputGroupCollector;
+    this.usePch = usePch;
+    // TODO(b/62143697): Remove this check once all rules are using the crosstool support.
+    if (ruleContext
+        .attributes()
+        .has(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, BuildType.LABEL)) {
+      if (toolchain == null) {
+        toolchain =  CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
+      }
+      this.toolchain = toolchain;
+    } else {
+      // Since the rule context doesn't have a toolchain at all, ignore any provided override.
+      this.toolchain = null;
+    }
   }
 
   /** Builder for {@link CompilationSupport} */
@@ -347,7 +361,9 @@ public abstract class CompilationSupport {
     private boolean useDeps = true;
     private Map<String, NestedSet<Artifact>> outputGroupCollector;
     private boolean isObjcLibrary = false;
+    private CcToolchainProvider toolchain;
     private boolean isTestRule = false;
+    private boolean usePch = true;
 
     /** Sets the {@link RuleContext} for the calling target. */
     public Builder setRuleContext(RuleContext ruleContext) {
@@ -383,6 +399,15 @@ public abstract class CompilationSupport {
     }
 
     /**
+     * Sets that this {@link CompilationSupport} will not use the pch from the rule context in
+     * determining compilation actions.
+     */
+    public Builder doNotUsePch() {
+      this.usePch = false;
+      return this;
+    }
+
+    /**
      * Indicates that this CompilationSupport is for use in an objc_library target. This will cause
      * CrosstoolCompilationSupport to be used if --experimental_objc_crosstool=library
      */
@@ -409,6 +434,17 @@ public abstract class CompilationSupport {
      */
     public Builder setOutputGroupCollector(Map<String, NestedSet<Artifact>> outputGroupCollector) {
       this.outputGroupCollector = outputGroupCollector;
+      return this;
+    }
+
+    /**
+     * Sets {@link CcToolchainProvider} for the calling target.
+     *
+     * <p>This is needed if it can't correctly be inferred directly from the rule context. Setting
+     * to null causes the default to be used as if this was never called.
+     */
+    public Builder setToolchainProvider(CcToolchainProvider toolchain) {
+      this.toolchain = toolchain;
       return this;
     }
 
@@ -448,7 +484,9 @@ public abstract class CompilationSupport {
             compilationAttributes,
             useDeps,
             outputGroupCollector,
-            isTestRule);
+            toolchain,
+            isTestRule,
+            usePch);
       } else {
         return new LegacyCompilationSupport(
             ruleContext,
@@ -457,7 +495,9 @@ public abstract class CompilationSupport {
             compilationAttributes,
             useDeps,
             outputGroupCollector,
-            isTestRule);
+            toolchain,
+            isTestRule,
+            usePch);
       }
     }
   }
@@ -478,7 +518,7 @@ public abstract class CompilationSupport {
         objcProvider,
         ExtraCompileArgs.NONE,
         ImmutableList.<PathFragment>of(),
-        maybeGetCcToolchain(),
+        toolchain,
         maybeGetFdoSupport());
   }
 
@@ -559,7 +599,7 @@ public abstract class CompilationSupport {
     return registerFullyLinkAction(
         objcProvider,
         outputArchive,
-        maybeGetCcToolchain(),
+        toolchain,
         maybeGetFdoSupport());
   }
 
@@ -617,7 +657,7 @@ public abstract class CompilationSupport {
         objcProvider,
         inputArtifacts,
         outputArchive,
-        maybeGetCcToolchain(),
+        toolchain,
         maybeGetFdoSupport());
   }
     
@@ -678,7 +718,7 @@ public abstract class CompilationSupport {
    */
   CompilationSupport validateAttributes() throws RuleErrorException {
     for (PathFragment absoluteInclude :
-        Iterables.filter(attributes.includes(), PathFragment.IS_ABSOLUTE)) {
+        Iterables.filter(attributes.includes(), PathFragment::isAbsolute)) {
       ruleContext.attributeError(
           "includes", String.format(ABSOLUTE_INCLUDES_PATH_FORMAT, absoluteInclude));
     }
@@ -746,7 +786,7 @@ public abstract class CompilationSupport {
           common.getObjcProvider(),
           extraCompileArgs,
           priorityHeaders,
-          maybeGetCcToolchain(),
+          toolchain,
           maybeGetFdoSupport());
     }
     return this;
@@ -825,7 +865,8 @@ public abstract class CompilationSupport {
    */
   protected Iterable<String> getCompileRuleCopts() {
     List<String> copts =
-        Lists.newArrayList(Iterables.concat(objcConfiguration.getCopts(), attributes.copts()));
+        Stream.concat(objcConfiguration.getCopts().stream(), attributes.copts().stream())
+            .collect(toCollection(ArrayList::new));
 
     for (String copt : copts) {
       if (copt.contains("-fmodules-cache-path")) {
@@ -1212,6 +1253,17 @@ public abstract class CompilationSupport {
     return this;
   }
 
+  protected Optional<Artifact> getPchFile() {
+    if (!usePch) {
+      return Optional.absent();
+    }
+    Artifact pchHdr = null;
+    if (ruleContext.attributes().has("pch", BuildType.LABEL)) {
+      pchHdr = ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET);
+    }
+    return Optional.fromNullable(pchHdr);
+  }
+
   /**
    * Registers an action that will generate a clang module map.
    * @param moduleMap the module map to generate
@@ -1380,7 +1432,7 @@ public abstract class CompilationSupport {
             .addInputs(compilationArtifacts.getPrivateHdrs())
             .addTransitiveInputs(attributes.hdrs())
             .addTransitiveInputs(objcProvider.get(ObjcProvider.HEADER))
-            .addInputs(compilationArtifacts.getPchFile().asSet())
+            .addInputs(getPchFile().asSet())
             .addTransitiveInputs(objcProvider.get(ObjcProvider.STATIC_FRAMEWORK_FILE))
             .addTransitiveInputs(objcProvider.get(ObjcProvider.DYNAMIC_FRAMEWORK_FILE))
             .build(ruleContext));
@@ -1419,18 +1471,6 @@ public abstract class CompilationSupport {
       objcHeaderThinningInfoByCommandLine.put(filteredArgumentsBuilder.build(), info);
     }
     return objcHeaderThinningInfoByCommandLine;
-  }
-
-  @Nullable
-  private CcToolchainProvider maybeGetCcToolchain() {
-    // TODO(rduan): Remove this check once all rules are using the crosstool support.
-    if (ruleContext
-        .attributes()
-        .has(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, BuildType.LABEL)) {
-      return CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
-    } else {
-      return null;
-    }
   }
 
   @Nullable

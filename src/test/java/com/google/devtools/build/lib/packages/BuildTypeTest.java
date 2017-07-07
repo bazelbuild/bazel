@@ -530,12 +530,6 @@ public class BuildTypeTest {
   }
 
   @Test
-  public void testSingleQuotes() throws Exception {
-    assertThat(Printer.repr(createTestFilesetEntry(), '\''))
-        .isEqualTo(createExpectedFilesetEntryString('\''));
-  }
-
-  @Test
   public void testFilesetEntrySymlinkAttr() throws Exception {
     FilesetEntry entryDereference =
       createTestFilesetEntry(FilesetEntry.SymlinkBehavior.DEREFERENCE);

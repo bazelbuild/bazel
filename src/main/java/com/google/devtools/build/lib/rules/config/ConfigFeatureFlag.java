@@ -43,6 +43,9 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
+    ConfigFeatureFlagFeatureVisibility.checkAvailable(
+        ruleContext, "the " + ruleContext.getRuleClassNameForLogging() + " rule");
+
     List<String> specifiedValues = ruleContext.attributes().get("allowed_values", STRING_LIST);
     ImmutableSet<String> values = ImmutableSet.copyOf(specifiedValues);
     Predicate<String> isValidValue = Predicates.in(values);
@@ -57,7 +60,7 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
       ruleContext.attributeError(
           "allowed_values",
           "cannot contain duplicates, but contained multiple of "
-              + Printer.repr(duplicates.build(), '\''));
+              + Printer.repr(duplicates.build()));
     }
 
     String defaultValue = ruleContext.attributes().get("default_value", STRING);
@@ -65,9 +68,9 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
       ruleContext.attributeError(
           "default_value",
           "must be one of "
-              + Printer.repr(values.asList(), '\'')
+              + Printer.repr(values.asList())
               + ", but was "
-              + Printer.repr(defaultValue, '\''));
+              + Printer.repr(defaultValue));
     }
 
     if (ruleContext.hasErrors()) {
@@ -86,9 +89,9 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
       // TODO(mstaib): When configurationError is available, use that instead.
       ruleContext.ruleError(
           "value must be one of "
-              + Printer.repr(values.asList(), '\'')
+              + Printer.repr(values.asList())
               + ", but was "
-              + Printer.repr(value, '\''));
+              + Printer.repr(value));
       return null;
     }
 

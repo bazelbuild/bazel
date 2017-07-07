@@ -65,7 +65,7 @@ class BlazeUtilTest : public ::testing::Test {
         || fcntl(fds[1], F_SETFL, O_NONBLOCK) == -1) {
       return -1;
     }
-    if (input2.size() > 0) {
+    if (!input2.empty()) {
       ForkAndWrite(fds, input1, input2);
     } else {
       write(fds[1], input1.c_str(), input1.size());

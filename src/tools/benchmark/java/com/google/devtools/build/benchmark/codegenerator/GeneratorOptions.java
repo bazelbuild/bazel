@@ -15,8 +15,9 @@
 package com.google.devtools.build.benchmark.codegenerator;
 
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
-
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.List;
 
 /** Class that contains arguments for the java files generator. */
@@ -26,6 +27,8 @@ public class GeneratorOptions extends OptionsBase {
     name = "modify",
     defaultValue = "false",
     category = "generator",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.NO_OP},
     help = "if we modify the existing code (or generate new code)."
   )
   public boolean modificationMode;
@@ -34,18 +37,23 @@ public class GeneratorOptions extends OptionsBase {
     name = "output_dir",
     defaultValue = "",
     category = "generator",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.NO_OP},
     valueHelp = "path",
     help = "directory where we put generated code or modify the existing code."
   )
   public String outputDir;
 
   @Option(
-      name = "project_name",
-      defaultValue = "",
-      category = "generator",
-      allowMultiple = true,
-      help = "which project we should generate,"
-          + " available: AFewFiles, ManyFiles, LongChainedDeps, ParallelDeps"
+    name = "project_name",
+    defaultValue = "",
+    category = "generator",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.NO_OP},
+    allowMultiple = true,
+    help =
+        "which project we should generate,"
+            + " available: AFewFiles, ManyFiles, LongChainedDeps, ParallelDeps"
   )
   public List<String> projectNames;
 }

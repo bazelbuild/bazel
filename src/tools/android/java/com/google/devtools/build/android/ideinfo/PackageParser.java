@@ -27,8 +27,10 @@ import com.google.devtools.build.lib.ideinfo.androidstudio.PackageManifestOuterC
 import com.google.devtools.build.lib.ideinfo.androidstudio.PackageManifestOuterClass.JavaSourcePackage;
 import com.google.devtools.build.lib.ideinfo.androidstudio.PackageManifestOuterClass.PackageManifest;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -54,27 +56,41 @@ public class PackageParser {
 
   /** The options for a {@PackageParser} action. */
   public static final class PackageParserOptions extends OptionsBase {
-    @Option(name = "sources",
-        defaultValue = "null",
-        converter = ArtifactLocationListConverter.class,
-        category = "input",
-        help = "The locations of the java source files. The expected format is a "
-            + "colon-separated list.")
+    @Option(
+      name = "sources",
+      defaultValue = "null",
+      converter = ArtifactLocationListConverter.class,
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The locations of the java source files. The expected format is a "
+              + "colon-separated list."
+    )
     public List<ArtifactLocation> sources;
 
-    @Option(name = "output_manifest",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        help = "The path to the manifest file this parser writes to.")
+    @Option(
+      name = "output_manifest",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "The path to the manifest file this parser writes to."
+    )
     public Path outputManifest;
 
-    @Option(name = "sources_execution_paths",
-        defaultValue = "null",
-        converter = PathListConverter.class,
-        category = "input",
-        help = "The execution paths of the java source files. The expected format is a "
-            + "colon-separated list.")
+    @Option(
+      name = "sources_execution_paths",
+      defaultValue = "null",
+      converter = PathListConverter.class,
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The execution paths of the java source files. The expected format is a "
+              + "colon-separated list."
+    )
     public List<Path> sourcesExecutionPaths;
   }
 

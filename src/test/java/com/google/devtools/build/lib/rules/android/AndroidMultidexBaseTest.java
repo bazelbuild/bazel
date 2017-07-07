@@ -58,10 +58,6 @@ public class AndroidMultidexBaseTest extends BuildViewTestCase {
     ConfiguredTarget binary = getConfiguredTarget(ruleLabel);
     Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(binary));
 
-    // Always created:
-    Artifact intermediateDexOutput =
-        getFirstArtifactEndingWith(artifacts, "intermediate_classes.dex.zip");
-    assertThat(intermediateDexOutput).isNotNull();
     Artifact finalDexOutput = getFirstArtifactEndingWith(artifacts, "/classes.dex.zip");
     assertThat(finalDexOutput).isNotNull();
 
@@ -73,13 +69,13 @@ public class AndroidMultidexBaseTest extends BuildViewTestCase {
       // First action: check that the stripped jar is generated through Proguard.
       AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(getRuleContext(binary));
       assertThat(strippedJar).isNotNull();
-      SpawnAction stripAction = (SpawnAction) getGeneratingAction(strippedJar);
+      SpawnAction stripAction = getGeneratingSpawnAction(strippedJar);
       assertThat(stripAction.getCommandFilename())
           .isEqualTo(sdk.getProguard().getExecutable().getExecPathString());
 
       // Second action: The dexer consumes the stripped jar to create the main dex class list.
       assertThat(mainDexList).isNotNull();
-      SpawnAction mainDexAction = (SpawnAction) getGeneratingAction(mainDexList);
+      SpawnAction mainDexAction = getGeneratingSpawnAction(mainDexList);
       assertThat(mainDexAction.getArguments()).containsAllOf(
           mainDexList.getExecPathString(),
           strippedJar.getExecPathString()).inOrder();
@@ -93,57 +89,44 @@ public class AndroidMultidexBaseTest extends BuildViewTestCase {
       assertThat(mainDexList).isNull();
     }
 
-    // Third action: the dexer command consumes the main dex class list to generate the intermediate
-    // dex output.
-    SpawnAction dexAction = (SpawnAction) getGeneratingAction(intermediateDexOutput);
-    ImmutableList.Builder<String> argBuilder = ImmutableList.builder();
-    argBuilder.add("--dex");
-    if (multidexMode == MultidexMode.OFF) {
-      argBuilder.add("--num-threads=5");
-    } else {
-      argBuilder.add("--multi-dex");
-
-      if (multidexMode == MultidexMode.LEGACY || multidexMode == MultidexMode.MANUAL_MAIN_DEX) {
-        argBuilder.add("--main-dex-list=" + mainDexList.getExecPathString());
-      }
-    }
-
-    argBuilder.add("--output=" + intermediateDexOutput.getExecPathString());
-
-    assertThat(dexAction.getArguments()).containsAllIn(argBuilder.build()).inOrder();
-
-    // Final action: the SingleJar command that consumes the intermediate dex out to produce the
-    // final dex out.
-    SpawnAction singleJarAction = getGeneratingSpawnAction(finalDexOutput);
-    assertThat(singleJarAction.getArguments())
-        .containsAllOf(
-            "--exclude_build_data",
-            "--dont_change_compression",
-            "--sources",
-            intermediateDexOutput.getExecPathString(),
+    Artifact dexMergerInput = getFirstArtifactEndingWith(artifacts, "classes.jar");
+    SpawnAction dexMergerAction = getGeneratingSpawnAction(finalDexOutput);
+    ImmutableList.Builder<String> argsBuilder = ImmutableList.<String>builder()
+        .add(
+            "--input",
+            dexMergerInput.getExecPathString(),
             "--output",
-            finalDexOutput.getExecPathString(),
-            "--include_prefixes",
-            "classes")
+            finalDexOutput.getExecPathString());
+    if (multidexMode != MultidexMode.OFF) {
+      argsBuilder.add("--multidex=minimal");
+    }
+    if (multidexMode == MultidexMode.LEGACY || multidexMode == MultidexMode.MANUAL_MAIN_DEX) {
+      argsBuilder.add("--main-dex-list", mainDexList.getExecPathString());
+    }
+    assertThat(dexMergerAction.getRemainingArguments())
+        .containsExactlyElementsIn(argsBuilder.build())
         .inOrder();
   }
-  
+
   /**
-   * Internal helper method: given an android_binary rule label, check that it builds
-   * in non-multidex mode.
+   * Internal helper method: given an android_binary rule label, check that the dex merger
+   * runs is invoked with {@code --multidex=off}.
    */
   protected void internalTestNonMultidexBuildStructure(String ruleLabel) throws Exception {
-
     ConfiguredTarget binary = getConfiguredTarget(ruleLabel);
     Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(getFilesToBuild(binary));
-    Artifact dexOutput = getFirstArtifactEndingWith(artifacts, "classes.dex");
-    SpawnAction dexAction = (SpawnAction) getGeneratingAction(dexOutput);
+    Artifact dexInput = getFirstArtifactEndingWith(artifacts, "classes.jar");
+    Artifact dexOutput = getFirstArtifactEndingWith(artifacts, "classes.dex.zip");
+    SpawnAction dexAction = getGeneratingSpawnAction(dexOutput);
 
-    assertThat(dexAction.getArguments()).doesNotContain("--multi-dex");
-    assertThat(dexAction.getArguments()).containsAllOf(
-            "--dex",
-            "--num-threads=5",
-            "--output=" + dexOutput.getExecPathString()).inOrder();
+    assertThat(dexAction.getRemainingArguments())
+        .containsAllOf(
+            "--input",
+            dexInput.getExecPathString(),
+            "--output",
+            dexOutput.getExecPathString(),
+            "--multidex=off")
+        .inOrder();
   }
 }
 

@@ -30,8 +30,8 @@ public class BuildEventServiceOptions extends OptionsBase {
   @Option(
     name = "bes_backend",
     defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.LOGGING,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
     help =
         "Specifies the build event service (BES) backend endpoint as HOST or HOST:PORT. "
             + "Disabled by default."
@@ -42,8 +42,8 @@ public class BuildEventServiceOptions extends OptionsBase {
     name = "bes_timeout",
     defaultValue = "0s",
     converter = DurationConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.LOGGING,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
     help =
         "Specifies how long bazel should wait for the BES/BEP upload to complete after the "
             + "build and tests have finished. A valid timeout is a natural number followed by a "
@@ -56,8 +56,8 @@ public class BuildEventServiceOptions extends OptionsBase {
   @Option(
     name = "bes_best_effort",
     defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.LOGGING,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
     help =
         "Specifies whether a failure to upload the BES protocol should also result in a build "
             + "failure. If 'true', bazel exits with ExitCode.PUBLISH_ERROR. (defaults to 'true')."
@@ -67,8 +67,8 @@ public class BuildEventServiceOptions extends OptionsBase {
   @Option(
     name = "bes_lifecycle_events",
     defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.LOGGING,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
     help = "Specifies whether to publish BES lifecycle events. (defaults to 'true')."
   )
   public boolean besLifecycleEvents;
@@ -76,8 +76,8 @@ public class BuildEventServiceOptions extends OptionsBase {
   @Option(
     name = "project_id",
     defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.LOGGING,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
     help = "Specifies the BES project identifier. Defaults to null."
   )
   public String projectId;

@@ -52,6 +52,8 @@ public final class JavaLibraryHelper {
    * Contains all the dependencies; these are treated as both compile-time and runtime dependencies.
    */
   private final List<JavaCompilationArgsProvider> deps = new ArrayList<>();
+  private final List<JavaCompilationArgsProvider> exports = new ArrayList<>();
+  private final List<JavaPluginInfoProvider> plugins = new ArrayList<>();
   private ImmutableList<String> javacOpts = ImmutableList.of();
   private ImmutableList<Artifact> sourcePathEntries = ImmutableList.of();
   private StrictDepsMode strictDepsMode = StrictDepsMode.OFF;
@@ -113,6 +115,16 @@ public final class JavaLibraryHelper {
     return this;
   }
 
+  public JavaLibraryHelper addAllExports(Iterable<JavaCompilationArgsProvider> providers) {
+    Iterables.addAll(exports, providers);
+    return this;
+  }
+
+  public JavaLibraryHelper addAllPlugins(Iterable<JavaPluginInfoProvider> providers) {
+    Iterables.addAll(plugins, providers);
+    return this;
+  }
+
   /**
    * Sets the compiler options.
    */
@@ -154,9 +166,9 @@ public final class JavaLibraryHelper {
     attributes.addSourceFiles(sourceFiles);
     addDepsToAttributes(attributes);
     attributes.setStrictJavaDeps(strictDepsMode);
-    attributes.setRuleKind(ruleContext.getRule().getRuleClass());
     attributes.setTargetLabel(ruleContext.getLabel());
     attributes.setSourcePath(sourcePathEntries);
+    JavaCommon.addPlugins(attributes, plugins);
 
     for (Artifact resource : resources) {
       attributes.addResource(
@@ -200,7 +212,10 @@ public final class JavaLibraryHelper {
    */
   public JavaCompilationArgsProvider buildCompilationArgsProvider(
       JavaCompilationArtifacts artifacts, boolean isReportedAsStrict) {
-    JavaCompilationArgs directArgs = JavaCompilationArgs.builder().merge(artifacts).build();
+    JavaCompilationArgs directArgs = JavaCompilationArgs.builder()
+        .merge(artifacts)
+        .addTransitiveDependencies(exports, true /* recursive */)
+        .build();
     JavaCompilationArgs transitiveArgs =
         JavaCompilationArgs.builder()
             .addTransitiveArgs(directArgs, BOTH)

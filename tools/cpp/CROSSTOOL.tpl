@@ -175,19 +175,12 @@ toolchain {
   compiler_flag: "/DOS_WINDOWS=OS_WINDOWS"
   compiler_flag: "/DCOMPILER_MSVC"
 
-  # Don't pollute with GDI macros in windows.h.
-  compiler_flag: "/DNOGDI"
-  # Don't define min/max macros in windows.h.
-  compiler_flag: "/DNOMINMAX"
-  compiler_flag: "/DPRAGMA_SUPPORTED"
   # Platform defines.
   compiler_flag: "/D_WIN32_WINNT=0x0600"
   # Turn off warning messages.
   compiler_flag: "/D_CRT_SECURE_NO_DEPRECATE"
   compiler_flag: "/D_CRT_SECURE_NO_WARNINGS"
   compiler_flag: "/D_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS"
-  # Use math constants (M_PI, etc.) from the math library
-  compiler_flag: "/D_USE_MATH_DEFINES"
 
   # Useful options to have on for compilation.
   # Increase the capacity of object files to 2^32 sections.
@@ -216,6 +209,10 @@ toolchain {
   linker_flag: "/MACHINE:X64"
 
   linker_flag: "/SUBSYSTEM:CONSOLE"
+
+  feature {
+    name: "no_legacy_features"
+  }
 
   # Suppress startup banner.
   feature {
@@ -303,12 +300,15 @@ toolchain {
       action: 'c++-header-preprocessing'
       action: 'c++-module-compile'
       flag_group {
+        iterate_over: 'quote_include_paths'
         flag: '/I%{quote_include_paths}'
       }
       flag_group {
+        iterate_over: 'include_paths'
         flag: '/I%{include_paths}'
       }
       flag_group {
+        iterate_over: 'system_include_paths'
         flag: '/I%{system_include_paths}'
       }
     }
@@ -544,6 +544,7 @@ toolchain {
       action: 'c++-link-dynamic-library'
       expand_if_all_available: 'linkstamp_paths'
       flag_group {
+        iterate_over: 'linkstamp_paths'
         flag: '%{linkstamp_paths}'
       }
     }
@@ -591,6 +592,7 @@ toolchain {
       action: 'c++-link-executable'
       action: 'c++-link-dynamic-library'
       flag_group {
+        iterate_over: 'libopts'
         flag: '%{libopts}'
       }
     }
@@ -690,6 +692,7 @@ toolchain {
       action: 'c++-link-executable'
       action: 'c++-link-dynamic-library'
       flag_group {
+        iterate_over: 'legacy_link_flags'
         flag: '%{legacy_link_flags}'
       }
     }

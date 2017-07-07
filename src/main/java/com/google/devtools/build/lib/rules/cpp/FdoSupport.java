@@ -407,8 +407,6 @@ public class FdoSupport {
               sourceFile.relativeTo(sourceFile.getFileSystem().getRootDirectory()));
         } else if (CppFileTypes.COVERAGE_DATA_IMPORTS.matches(sourceFile)) {
           readCoverageImports(sourceFile, importsBuilder);
-        } else {
-            throw new FdoException("FDO ZIP file contained a file of unknown type: " + sourceFile);
         }
       }
     }

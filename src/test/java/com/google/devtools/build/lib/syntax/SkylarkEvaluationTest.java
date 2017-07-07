@@ -55,8 +55,8 @@ public class SkylarkEvaluationTest extends EvaluationTest {
    * Skylark context
    */
   @Override
-  protected ModalTestCase newTest() {
-    return new SkylarkTest();
+  protected ModalTestCase newTest(String... skylarkOptions) {
+    return new SkylarkTest(skylarkOptions);
   }
 
   @Immutable
@@ -771,7 +771,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "too many arguments, in method with_params(int, bool, bool named, "
+            "unexpected keyword 'n', in method with_params(int, bool, bool named, "
                 + "bool posOrNamed, int n) of 'Mock'",
             "mock.with_params(1, True, named=True, posOrNamed=True, n=2)");
     new SkylarkTest()
@@ -1377,6 +1377,10 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
     new SkylarkTest()
         .testIfErrorContains("type 'int' is not a collection", "[x2 + y2 for x2, y2 in (1, 2)]");
+
+    new SkylarkTest()
+        // returns [2] in Python, it's an error in Skylark
+        .testIfErrorContains("invalid lvalue", "[2 for [] in [()]]");
   }
 
   @Override

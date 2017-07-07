@@ -327,19 +327,20 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
   initialized_ = true;
 
   args_ = args;
-  std::unique_ptr<CommandLine> cmdLine = SplitCommandLine(args, error);
-  if (cmdLine == nullptr) {
+  std::unique_ptr<CommandLine> cmd_line = SplitCommandLine(args, error);
+  if (cmd_line == nullptr) {
     return blaze_exit_code::BAD_ARGV;
   }
+  explicit_command_arguments_ = cmd_line->command_args;
 
-  const char* blazerc = SearchUnaryOption(cmdLine->startup_args, "--blazerc");
+  const char* blazerc = SearchUnaryOption(cmd_line->startup_args, "--blazerc");
   if (blazerc == NULL) {
-    blazerc = SearchUnaryOption(cmdLine->startup_args, "--bazelrc");
+    blazerc = SearchUnaryOption(cmd_line->startup_args, "--bazelrc");
   }
 
   bool use_master_blazerc = true;
-  if (SearchNullaryOption(cmdLine->startup_args, "--nomaster_blazerc") ||
-      SearchNullaryOption(cmdLine->startup_args, "--nomaster_bazelrc")) {
+  if (SearchNullaryOption(cmd_line->startup_args, "--nomaster_blazerc") ||
+      SearchNullaryOption(cmd_line->startup_args, "--nomaster_bazelrc")) {
     use_master_blazerc = false;
   }
 
@@ -349,7 +350,7 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
   vector<string> candidate_blazerc_paths;
   if (use_master_blazerc) {
     workspace_layout_->FindCandidateBlazercPaths(
-        workspace, cwd, cmdLine->path_to_binary, cmdLine->startup_args,
+        workspace, cwd, cmd_line->path_to_binary, cmd_line->startup_args,
         &candidate_blazerc_paths);
   }
 
@@ -586,6 +587,10 @@ void OptionProcessor::GetCommandArguments(vector<string>* result) const {
   result->insert(result->end(),
                  command_arguments_.begin(),
                  command_arguments_.end());
+}
+
+std::vector<std::string> OptionProcessor::GetExplicitCommandArguments() const {
+  return explicit_command_arguments_;
 }
 
 const string& OptionProcessor::GetCommand() const {

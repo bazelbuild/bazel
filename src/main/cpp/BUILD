@@ -67,9 +67,9 @@ cc_library(
         "//src/main/cpp/util",
         "//src/main/cpp/util:blaze_exit_code",
     ] + select({
-        "//src:windows": ["//src/main/native:windows_jni_lib"],
-        "//src:windows_msys": ["//src/main/native:windows_jni_lib"],
-        "//src:windows_msvc": ["//src/main/native:windows_jni_lib"],
+        "//src:windows": ["//src/main/native/windows:lib-file"],
+        "//src:windows_msys": ["//src/main/native/windows:lib-file"],
+        "//src:windows_msvc": ["//src/main/native/windows:lib-file"],
         "//conditions:default": [],
     }),
 )
@@ -82,12 +82,6 @@ cc_binary(
         "global_variables.cc",
         "global_variables.h",
         "main.cc",
-        "option_processor.cc",
-        "option_processor.h",
-        "startup_options.cc",
-        "startup_options.h",
-        "workspace_layout.cc",
-        "workspace_layout.h",
     ],
     copts = select({
         "//src:windows": ["/wd4018"],
@@ -113,12 +107,67 @@ cc_binary(
     visibility = ["//src:__pkg__"],
     deps = [
         ":blaze_util",
+        ":option_processor",
+        ":startup_options",
+        ":workspace_layout",
         "//src/main/cpp/util",
         "//src/main/cpp/util:errors",
         "//src/main/cpp/util:logging",
         "//src/main/cpp/util:strings",
         "//src/main/protobuf:command_server_cc_proto",
         "//third_party/ijar:zip",
+    ],
+)
+
+cc_library(
+    name = "option_processor",
+    srcs = ["option_processor.cc"],
+    hdrs = [
+        "option_processor.h",
+        "option_processor-internal.h",
+    ],
+    visibility = [
+        "//src:__pkg__",
+        "//src/test/cpp:__pkg__",
+    ],
+    deps = [
+        ":blaze_util",
+        ":startup_options",
+        ":workspace_layout",
+        "//src/main/cpp/util",
+        "//src/main/cpp/util:blaze_exit_code",
+        "//src/main/cpp/util:logging",
+    ],
+)
+
+cc_library(
+    name = "startup_options",
+    srcs = ["startup_options.cc"],
+    hdrs = ["startup_options.h"],
+    visibility = [
+        "//src:__pkg__",
+        "//src/test/cpp:__pkg__",
+    ],
+    deps = [
+        ":blaze_util",
+        ":workspace_layout",
+        "//src/main/cpp/util",
+        "//src/main/cpp/util:blaze_exit_code",
+        "//src/main/cpp/util:errors",
+    ],
+)
+
+cc_library(
+    name = "workspace_layout",
+    srcs = ["workspace_layout.cc"],
+    hdrs = ["workspace_layout.h"],
+    visibility = [
+        "//src:__pkg__",
+        "//src/test/cpp:__pkg__",
+    ],
+    deps = [
+        ":blaze_util",
+        "//src/main/cpp/util",
     ],
 )
 

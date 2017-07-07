@@ -41,12 +41,15 @@ fi
 OPTS="--cpu=x64_windows_msys --host_cpu=x64_windows_msys"
 MSVC_LABEL=""
 if [[ $PLATFORM_NAME == windows-msvc-x86_64* ]]; then
-  OPTS="--cpu=x64_windows_msvc --copt=/w"
+  OPTS=""
   MSVC_LABEL="-msvc"
 fi
 
 export MSYS_NO_PATHCONV=1
 export MSYS2_ARG_CONV_EXCL="*"
+
+# TODO(pcloudy): Remove this after wrapper-less CROSSTOOL becomes default
+export NO_MSVC_WRAPPER=1
 
 echo "BOOTSTRAP_BAZEL version:"
 ${BOOTSTRAP_BAZEL} --bazelrc=${BAZELRC:-/dev/null} --nomaster_bazelrc version

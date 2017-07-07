@@ -24,6 +24,7 @@ import com.google.devtools.remoteexecution.v1test.FindMissingBlobsResponse;
 import com.google.devtools.remoteexecution.v1test.UpdateBlobRequest;
 import com.google.rpc.Code;
 import io.grpc.stub.StreamObserver;
+import java.io.IOException;
 
 /** A basic implementation of a {@link ContentAddressableStorageImplBase} service. */
 final class CasServer extends ContentAddressableStorageImplBase {
@@ -38,14 +39,23 @@ final class CasServer extends ContentAddressableStorageImplBase {
       FindMissingBlobsRequest request, StreamObserver<FindMissingBlobsResponse> responseObserver) {
     FindMissingBlobsResponse.Builder response = FindMissingBlobsResponse.newBuilder();
 
-    for (Digest digest : request.getBlobDigestsList()) {
-      if (!cache.containsKey(digest)) {
-        response.addMissingBlobDigests(digest);
+    try {
+      for (Digest digest : request.getBlobDigestsList()) {
+        try {
+          if (!cache.containsKey(digest)) {
+            response.addMissingBlobDigests(digest);
+          }
+         } catch (InterruptedException e) {
+          responseObserver.onError(StatusUtils.interruptedError(digest));
+          Thread.currentThread().interrupt();
+          return;
+         }
       }
+      responseObserver.onNext(response.build());
+      responseObserver.onCompleted();
+    } catch (IOException e) {
+      responseObserver.onError(StatusUtils.internalError(e));
     }
-
-    responseObserver.onNext(response.build());
-    responseObserver.onCompleted();
   }
 
   @Override

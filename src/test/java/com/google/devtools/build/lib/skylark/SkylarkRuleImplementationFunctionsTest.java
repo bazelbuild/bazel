@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -172,14 +171,6 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     }
   }
 
-  private static final Function<Object, String> TO_STRING =
-      new Function<Object, String>() {
-        @Override
-        public String apply(Object input) {
-          return String.valueOf(input);
-        }
-      };
-
   @Test
   public void testSkylarkFunctionPosArgs() throws Exception {
     setupSkylarkFunction("a = mock('a', 'b', mandatory_key='c')");
@@ -264,7 +255,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     evalRuleContextCode(
         ruleContext,
-        "ruleContext.action(",
+        "ruleContext.actions.run(",
         "  inputs = ruleContext.files.srcs,",
         "  outputs = ruleContext.files.srcs,",
         "  arguments = ['--a','--b'],",
@@ -284,7 +275,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     evalRuleContextCode(
         ruleContext,
-        "ruleContext.action(",
+        "ruleContext.actions.run(",
         "  inputs = depset(ruleContext.files.srcs),",
         "  outputs = ruleContext.files.srcs,",
         "  arguments = ['--a','--b'],",
@@ -303,7 +294,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     checkErrorContains(
         createRuleContext("//foo:foo"),
         "expected file or PathFragment for executable but got string instead",
-        "ruleContext.action(",
+        "ruleContext.actions.run(",
         "  inputs = ruleContext.files.srcs,",
         "  outputs = ruleContext.files.srcs,",
         "  arguments = ['--a','--b'],",
@@ -315,7 +306,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     evalRuleContextCode(
         ruleContext,
-        "ruleContext.action(",
+        "ruleContext.actions.run_shell(",
         "  inputs = ruleContext.files.srcs,",
         "  outputs = ruleContext.files.srcs,",
         "  mnemonic = 'DummyMnemonic',",
@@ -336,7 +327,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     evalRuleContextCode(
         ruleContext,
         "env = {'a' : 'b'}",
-        "ruleContext.action(",
+        "ruleContext.actions.run_shell(",
         "  inputs = ruleContext.files.srcs,",
         "  outputs = ruleContext.files.srcs,",
         "  env = env,",
@@ -357,8 +348,10 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     checkErrorContains(
         ruleContext,
-        "unexpected keyword 'bad_param' in call to action(self: ctx, *, ",
-        "ruleContext.action(outputs=[], bad_param = 'some text')");
+        "unexpected keyword 'bad_param', in method run("
+            + "list outputs, string bad_param, File executable) of 'actions'",
+        "f = ruleContext.actions.declare_file('foo.sh')",
+        "ruleContext.actions.run(outputs=[], bad_param = 'some text', executable = f)");
   }
 
   @Test
@@ -373,7 +366,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   private Object createTestSpawnAction(SkylarkRuleContext ruleContext) throws Exception {
     return evalRuleContextCode(
         ruleContext,
-        "ruleContext.action(",
+        "ruleContext.actions.run_shell(",
         "  inputs = ruleContext.files.srcs,",
         "  outputs = ruleContext.files.srcs,",
         "  arguments = ['--a','--b'],",
@@ -389,7 +382,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         createRuleContext("//foo:foo"),
         "expected type 'File' for 'outputs' element but got type 'string' instead",
         "l = ['a', 'b']",
-        "ruleContext.action(",
+        "ruleContext.actions.run_shell(",
         "  outputs = l,",
         "  command = 'dummy_command')");
   }
@@ -399,7 +392,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     checkErrorContains(
         createRuleContext("//foo:foo"),
         "'command' list has to be of size at least 3",
-        "ruleContext.action(",
+        "ruleContext.actions.run_shell(",
         "  outputs = ruleContext.files.srcs,",
         "  command = ['dummy_command', '--arg'])");
   }
@@ -409,10 +402,10 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     evalRuleContextCode(
         ruleContext,
-        "ruleContext.file_action(",
+        "ruleContext.actions.write(",
         "  output = ruleContext.files.srcs[0],",
         "  content = 'hello world',",
-        "  executable = False)");
+        "  is_executable = False)");
     FileWriteAction action =
         (FileWriteAction)
             Iterables.getOnlyElement(
@@ -433,14 +426,14 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
     checkErrorContains(
         ruleContext,
-        "missing mandatory named-only argument 'mnemonic' while calling empty_action",
-        "ruleContext.empty_action(inputs = ruleContext.files.srcs)");
+        "parameter 'mnemonic' has no default value, in method do_nothing(list inputs) of 'actions'",
+        "ruleContext.actions.do_nothing(inputs = ruleContext.files.srcs)");
   }
 
   private void checkEmptyAction(SkylarkRuleContext ruleContext, String namedArgs) throws Exception {
     assertThat(
             evalRuleContextCode(
-                ruleContext, String.format("ruleContext.empty_action(%s)", namedArgs)))
+                ruleContext, String.format("ruleContext.actions.do_nothing(%s)", namedArgs)))
         .isEqualTo(Runtime.NONE);
   }
 
@@ -449,7 +442,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     scratch.file(
         "test/empty.bzl",
         "def _impl(ctx):",
-        "  ctx.empty_action(",
+        "  ctx.actions.do_nothing(",
         "      inputs = ctx.files.srcs,",
         "      mnemonic = 'EA',",
         "  )",
@@ -621,26 +614,27 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     checkErrorContains(
         ruleContext,
-        "method ctx.file_action(output: File, content: string, executable: bool) is not applicable "
-            + "for arguments (File, int, bool): 'content' is 'int', but should be 'string'",
-        "ruleContext.file_action(",
+        "Cannot convert parameter 'content' to type string, in method "
+            + "write(File output, int content, bool is_executable) of 'actions'",
+        "ruleContext.actions.write(",
         "  output = ruleContext.files.srcs[0],",
         "  content = 1,",
-        "  executable = False)");
+        "  is_executable = False)");
   }
 
   @Test
   public void testCreateTemplateAction() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
-    TemplateExpansionAction action =
-        (TemplateExpansionAction)
-            evalRuleContextCode(
-                ruleContext,
-                "ruleContext.template_action(",
-                "  template = ruleContext.files.srcs[0],",
-                "  output = ruleContext.files.srcs[1],",
-                "  substitutions = {'a': 'b'},",
-                "  executable = False)");
+    evalRuleContextCode(
+        ruleContext,
+        "ruleContext.actions.expand_template(",
+        "  template = ruleContext.files.srcs[0],",
+        "  output = ruleContext.files.srcs[1],",
+        "  substitutions = {'a': 'b'},",
+        "  executable = False)");
+
+    TemplateExpansionAction action = (TemplateExpansionAction) Iterables.getOnlyElement(
+        ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
     assertThat(Iterables.getOnlyElement(action.getInputs()).getExecPathString())
         .isEqualTo("foo/a.txt");
     assertThat(Iterables.getOnlyElement(action.getOutputs()).getExecPathString())
@@ -667,16 +661,15 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     Charset latin1 = StandardCharsets.ISO_8859_1;
     Charset utf8 = StandardCharsets.UTF_8;
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
-    TemplateExpansionAction action =
-        (TemplateExpansionAction)
-            evalRuleContextCode(
-                ruleContext,
-                "ruleContext.template_action(",
-                "  template = ruleContext.files.srcs[0],",
-                "  output = ruleContext.files.srcs[1],",
-                "  substitutions = {'a': '" + new String(bytesToDecode, latin1) + "'},",
-                "  executable = False)");
-
+    evalRuleContextCode(
+        ruleContext,
+        "ruleContext.actions.expand_template(",
+        "  template = ruleContext.files.srcs[0],",
+        "  output = ruleContext.files.srcs[1],",
+        "  substitutions = {'a': '" + new String(bytesToDecode, latin1) + "'},",
+        "  executable = False)");
+    TemplateExpansionAction action = (TemplateExpansionAction) Iterables.getOnlyElement(
+        ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
     List<Substitution> substitutions = action.getSubstitutions();
     assertThat(substitutions).hasSize(1);
     assertThat(substitutions.get(0).getValue()).isEqualTo(new String(bytesToDecode, utf8));
@@ -923,7 +916,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     assertThat(
             Iterables.transform(
                 ((Runfiles) configuredTarget.get("rule_data_runfiles")).getAllArtifacts(),
-                TO_STRING))
+                String::valueOf))
         .containsExactly(
             "File:[/workspace[source]]test/run.file", "File:[/workspace[source]]test/run2.file");
 
@@ -931,7 +924,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     assertThat(
             Iterables.transform(
                 ((Runfiles) configuredTarget.get("rule_default_runfiles")).getAllArtifacts(),
-                TO_STRING))
+                String::valueOf))
         .containsExactly(
             "File:[/workspace[source]]test/run.file", "File:[/workspace[source]]test/run2.file");
 
@@ -982,14 +975,14 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     assertThat(
             Iterables.transform(
                 ((Runfiles) configuredTarget.get("file_data_runfiles")).getAllArtifacts(),
-                TO_STRING))
+                String::valueOf))
         .isEmpty();
 
     assertThat(configuredTarget.get("file_default_runfiles")).isInstanceOf(Runfiles.class);
     assertThat(
             Iterables.transform(
                 ((Runfiles) configuredTarget.get("file_default_runfiles")).getAllArtifacts(),
-                TO_STRING))
+                String::valueOf))
         .isEmpty();
 
     assertThat(configuredTarget.get("file_files")).isInstanceOf(SkylarkNestedSet.class);
@@ -1468,9 +1461,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         });
 
     checkEvalErrorContains(
-        "There Is No Message: SkylarkRuleImplementationFunctionsTest$3.invoke() in "
-            + "SkylarkRuleImplementationFunctionsTest.java:",
-        // This test skips the line number since it was not consistent across local tests and TAP.
+        "There Is No Message: SkylarkRuleImplementationFunctionsTest",
         "throw()");
   }
 
@@ -1533,7 +1524,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "  outs = ctx.outputs",
         "  for i in ctx.attr.srcs:",
         "    o = getattr(outs, 'foo_' + i.label.name)",
-        "    ctx.file_action(",
+        "    ctx.actions.write(",
         "      output = o,",
         "      content = 'hoho')",
         "",
@@ -1580,7 +1571,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "silly_rule(name = 'silly')");
     thrown.handleAssertionErrors(); // Compatibility with JUnit 4.11
     thrown.expect(AssertionError.class);
-    thrown.expectMessage("//test:silly is not of type string or int or bool");
+    thrown.expectMessage("<rule context for //test:silly> is not of type string or int or bool");
     getConfiguredTarget("//test:silly");
   }
 

@@ -168,7 +168,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected ConfigurationFactory configurationFactory;
   protected BuildView view;
 
-  private SequencedSkyframeExecutor skyframeExecutor;
+  protected SequencedSkyframeExecutor skyframeExecutor;
 
   protected TimestampGranularityMonitor tsgm;
   protected BlazeDirectories directories;
@@ -277,6 +277,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected ImmutableList<PrecomputedValue.Injected> getPrecomputedValues() {
     return ImmutableList.of();
+  }
+
+  protected SkylarkSemanticsOptions getSkylarkSemantics() {
+    return skylarkSemanticsOptions;
   }
 
   protected ResourceSet getStartingResources() {
@@ -682,6 +686,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected final SpawnAction getGeneratingSpawnAction(Artifact artifact) {
     return (SpawnAction) getGeneratingAction(artifact);
+  }
+
+  protected final List<String> getGeneratingSpawnActionArgs(Artifact artifact) {
+    SpawnAction a = getGeneratingSpawnAction(artifact);
+    ParameterFileWriteAction p = findParamsFileAction(a);
+    return p == null
+        ? a.getArguments()
+        : ImmutableList.copyOf(Iterables.concat(a.getArguments(), p.getContents()));
   }
 
   protected SpawnAction getGeneratingSpawnAction(ConfiguredTarget target, String outputName) {
@@ -1482,9 +1494,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     } else if (!fromConfig.useDynamicConfigurations()) {
       return fromConfig.getConfiguration(transition);
     } else {
-      PatchTransition patchTransition = (transition instanceof PatchTransition)
-          ? (PatchTransition) transition
-          : (PatchTransition) fromConfig.getTransitions().getDynamicTransition(transition);
+      PatchTransition patchTransition =
+          (PatchTransition) ruleClassProvider.getDynamicTransitionMapper().map(transition);
       return skyframeExecutor.getConfigurationForTesting(reporter, fromConfig.fragmentClasses(),
           patchTransition.apply(fromConfig.getOptions()));
     }

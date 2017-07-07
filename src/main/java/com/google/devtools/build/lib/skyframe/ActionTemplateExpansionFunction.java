@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.actions.ActionTemplate;
+import com.google.devtools.build.lib.analysis.actions.ActionTemplate.ActionTemplateExpansionException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -77,6 +78,9 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
     } catch (ArtifactPrefixConflictException e) {
       env.getListener().handle(Event.error(e.getMessage()));
       throw new ActionTemplateExpansionFunctionException(e);
+    } catch (ActionTemplateExpansionException e) {
+      env.getListener().handle(Event.error(e.getMessage()));
+      throw new ActionTemplateExpansionFunctionException(e);
     }
 
     return new ActionTemplateExpansionValue(expandedActions, removeActionsAfterEvaluation.get());
@@ -89,6 +93,10 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
     }
 
     ActionTemplateExpansionFunctionException(ArtifactPrefixConflictException e) {
+      super(e, Transience.PERSISTENT);
+    }
+
+    ActionTemplateExpansionFunctionException(ActionTemplateExpansionException e) {
       super(e, Transience.PERSISTENT);
     }
   }

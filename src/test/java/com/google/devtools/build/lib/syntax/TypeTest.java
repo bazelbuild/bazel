@@ -243,7 +243,7 @@ public class TypeTest {
     try {
       BuildType.LABEL.convert("wiz", null);
       fail();
-    } catch (NullPointerException e) {
+    } catch (ConversionException e) {
       /* ok */
     }
   }

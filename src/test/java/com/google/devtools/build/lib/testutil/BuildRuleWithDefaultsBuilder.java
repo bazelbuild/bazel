@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.syntax.Type.LabelClass;
 import com.google.devtools.build.lib.syntax.Type.ListType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -96,13 +95,16 @@ public class BuildRuleWithDefaultsBuilder extends BuildRuleBuilder {
     String label = null;
     if (attribute.getAllowedFileTypesPredicate() != FileTypeSet.NO_FILE) {
       // Try to populate with files first
-      String extension = null;
+      String extension = "";
       if (attribute.getAllowedFileTypesPredicate() == FileTypeSet.ANY_FILE) {
         extension = ".txt";
-      } else {
+      } else if (attribute.getAllowedFileTypesPredicate() != null) {
         FileTypeSet fileTypes = attribute.getAllowedFileTypesPredicate();
         // This argument should always hold, if not that means a Blaze design/implementation error
-        Preconditions.checkArgument(!fileTypes.getExtensions().isEmpty());
+        Preconditions.checkArgument(
+            !fileTypes.getExtensions().isEmpty(),
+            "Attribute %s does not have any allowed file types",
+            attribute.getName());
         extension = fileTypes.getExtensions().get(0);
       }
       label = getDummyFileLabel(rulePkg, filePkg, extension, attrType);

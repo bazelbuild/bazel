@@ -70,13 +70,16 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollectio
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
+import com.google.devtools.build.lib.events.ErrorSensingEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.OutputService;
@@ -1038,6 +1041,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /**
+   * Sets the configuration factory and known fragment set.
+   */
+  public void setConfigurationFactory(ConfigurationFactory configurationFactory) {
+    this.configurationFactory.set(configurationFactory);
+    this.configurationFragments.set(ImmutableList.copyOf(configurationFactory.getFactories()));
+  }
+
+  /**
    * Asks the Skyframe evaluator to build the value for BuildConfigurationCollection and returns the
    * result. Also invalidates {@link PrecomputedValue#BLAZE_DIRECTORIES} if it has changed.
    */
@@ -1048,9 +1059,24 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Set<String> multiCpu,
       boolean keepGoing)
       throws InvalidConfigurationException, InterruptedException {
-    this.configurationFactory.set(configurationFactory);
-    this.configurationFragments.set(ImmutableList.copyOf(configurationFactory.getFactories()));
+    setConfigurationFactory(configurationFactory);
+    if (buildOptions.get(BuildConfiguration.Options.class).useDynamicConfigurations
+        == BuildConfiguration.Options.DynamicConfigsMode.OFF) {
+      return createStaticConfigurations(eventHandler, buildOptions, multiCpu, keepGoing);
+    } else {
+      return createDynamicConfigurations(eventHandler, buildOptions, multiCpu);
+    }
+  }
 
+  /**
+   * {@link #createConfigurations} implementation that creates the configurations statically.
+   */
+  private BuildConfigurationCollection createStaticConfigurations(
+      ExtendedEventHandler eventHandler,
+      BuildOptions buildOptions,
+      Set<String> multiCpu,
+      boolean keepGoing)
+      throws InvalidConfigurationException, InterruptedException {
     SkyKey skyKey = ConfigurationCollectionValue.key(
         buildOptions, ImmutableSortedSet.copyOf(multiCpu));
     EvaluationResult<ConfigurationCollectionValue> result =
@@ -1072,6 +1098,63 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
     ConfigurationCollectionValue configurationValue = result.get(skyKey);
     return configurationValue.getConfigurationCollection();
+  }
+
+  /**
+   * {@link #createConfigurations} implementation that creates the configurations dynamically.
+   */
+  private BuildConfigurationCollection createDynamicConfigurations(
+      ExtendedEventHandler eventHandler,
+      BuildOptions buildOptions,
+      Set<String> multiCpu)
+      throws InvalidConfigurationException, InterruptedException {
+    List<BuildConfiguration> topLevelTargetConfigs =
+        getConfigurations(eventHandler, getTopLevelBuildOptions(buildOptions, multiCpu));
+
+    // The host configuration inherits the data, not target options. This is so host tools don't
+    // apply LIPO.
+    BuildConfiguration firstTargetConfig = topLevelTargetConfigs.get(0);
+    Attribute.Transition dataTransition =
+        ((ConfiguredRuleClassProvider) ruleClassProvider)
+            .getDynamicTransitionMapper()
+            .map(Attribute.ConfigurationTransition.DATA);
+    BuildOptions dataOptions = dataTransition != Attribute.ConfigurationTransition.NONE
+        ? ((PatchTransition) dataTransition).apply(firstTargetConfig.getOptions())
+        : firstTargetConfig.getOptions();
+
+    BuildOptions hostOptions =
+        dataOptions.get(BuildConfiguration.Options.class).useDistinctHostConfiguration
+            ? HostTransition.INSTANCE.apply(dataOptions)
+            : dataOptions;
+    BuildConfiguration hostConfig = getConfiguration(eventHandler, hostOptions);
+
+    // TODO(gregce): cache invalid option errors in BuildConfigurationFunction, then use a dedicated
+    // accessor (i.e. not the event handler) to trigger the exception below.
+    ErrorSensingEventHandler nosyEventHandler = new ErrorSensingEventHandler(eventHandler);
+    topLevelTargetConfigs.forEach(config -> config.reportInvalidOptions(nosyEventHandler));
+    if (nosyEventHandler.hasErrors()) {
+      throw new InvalidConfigurationException("Build options are invalid");
+    }
+    return new BuildConfigurationCollection(topLevelTargetConfigs, hostConfig);
+  }
+
+  /**
+   * Returns the {@link BuildOptions} to apply to the top-level build configurations. This can be
+   * plural because of {@code multiCpu}.
+   */
+  private static List<BuildOptions> getTopLevelBuildOptions(BuildOptions buildOptions,
+      Set<String> multiCpu) {
+    if (multiCpu.isEmpty()) {
+      return ImmutableList.of(buildOptions);
+    }
+    ImmutableList.Builder<BuildOptions> multiCpuOptions = ImmutableList.builder();
+    for (String cpu : multiCpu) {
+      BuildOptions clonedOptions = buildOptions.clone();
+      clonedOptions.get(BuildConfiguration.Options.class).cpu = cpu;
+      clonedOptions.get(BuildConfiguration.Options.class).experimentalMultiCpuDistinguisher = cpu;
+      multiCpuOptions.add(clonedOptions);
+    }
+    return multiCpuOptions.build();
   }
 
   private Iterable<ActionLookupValue> getActionLookupValues() {
@@ -1297,6 +1380,69 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     return cts.build();
   }
+
+  /**
+   * Returns the configuration corresponding to the given set of build options.
+   *
+   * @throws InvalidConfigurationException if the build options produces an invalid configuration
+   */
+  public BuildConfiguration getConfiguration(ExtendedEventHandler eventHandler,
+      BuildOptions options) throws InvalidConfigurationException {
+    return Iterables.getOnlyElement(
+        getConfigurations(eventHandler, ImmutableList.<BuildOptions>of(options)));
+  }
+
+  /**
+   * Returns the configurations corresponding to the given sets of build options. Output order is
+   * the same as input order.
+   *
+   * @throws InvalidConfigurationException if any build options produces an invalid configuration
+   */
+  public List<BuildConfiguration> getConfigurations(ExtendedEventHandler eventHandler,
+      List<BuildOptions> optionsList) throws InvalidConfigurationException {
+    Preconditions.checkArgument(!Iterables.isEmpty(optionsList));
+
+    // Prepare the Skyframe inputs.
+    // TODO(gregce): support trimmed configs.
+    Set<Class<? extends BuildConfiguration.Fragment>> allFragments =
+        configurationFragments.get()
+            .stream()
+            .map(factory -> factory.creates())
+            .collect(ImmutableSet.toImmutableSet());
+    final ImmutableList<SkyKey> configSkyKeys =
+        optionsList
+            .stream()
+            .map(elem -> BuildConfigurationValue.key(allFragments, elem))
+            .collect(ImmutableList.toImmutableList());
+
+    // Skyframe-evaluate the configurations and throw errors if any.
+    EvaluationResult<SkyValue> evalResult =
+        evaluateSkyKeys(eventHandler, configSkyKeys, /*keepGoing=*/true);
+    if (evalResult.hasError()) {
+      Map.Entry<SkyKey, ErrorInfo> firstError = Iterables.get(evalResult.errorMap().entrySet(), 0);
+      ErrorInfo error = firstError.getValue();
+      Throwable e = error.getException();
+      // Wrap loading failed exceptions
+      if (e instanceof NoSuchThingException) {
+        e = new InvalidConfigurationException(e);
+      } else if (e == null && !Iterables.isEmpty(error.getCycleInfo())) {
+        getCyclesReporter().reportCycles(error.getCycleInfo(), firstError.getKey(), eventHandler);
+        e = new InvalidConfigurationException(
+            "cannot load build configuration because of this cycle");
+      }
+      if (e != null) {
+        Throwables.throwIfInstanceOf(e, InvalidConfigurationException.class);
+      }
+      throw new IllegalStateException(
+          "Unknown error during ConfigurationCollectionValue evaluation", e);
+    }
+
+    // Prepare and return the results.
+    return configSkyKeys
+        .stream()
+        .map(key -> ((BuildConfigurationValue) evalResult.get(key)).getConfiguration())
+        .collect(ImmutableList.toImmutableList());
+}
 
   /**
    * Retrieves the configurations needed for the given deps. If {@link

@@ -126,7 +126,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.annotation.Nullable;
 
 /**
  * {@link AbstractBlazeQueryEnvironment} that introspects the Skyframe graph to find forward and
@@ -610,12 +609,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       final Callback<Target> callback) {
     // TODO(bazel-team): As in here, use concurrency for the async #eval of other QueryEnvironment
     // implementations.
-    Callable<QueryTaskFutureImpl<Void>> task = new Callable<QueryTaskFutureImpl<Void>>() {
-      @Override
-      public QueryTaskFutureImpl<Void> call() {
-        return (QueryTaskFutureImpl<Void>) expr.eval(SkyQueryEnvironment.this, context, callback);
-      }
-    };
+    Callable<QueryTaskFutureImpl<Void>> task =
+        () -> (QueryTaskFutureImpl<Void>) expr.eval(SkyQueryEnvironment.this, context, callback);
     ListenableFuture<QueryTaskFutureImpl<Void>> futureFuture = safeSubmit(task);
     return QueryTaskFutureImpl.ofDelegate(Futures.dereference(futureFuture));
   }
@@ -632,12 +627,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return QueryTaskFutureImpl.ofDelegate(
         Futures.transformAsync(
             (QueryTaskFutureImpl<T1>) future,
-            new AsyncFunction<T1, T2>() {
-              @Override
-              public ListenableFuture<T2> apply(T1 input) {
-                return (QueryTaskFutureImpl<T2>) function.apply(input);
-              }
-            },
+            input -> (QueryTaskFutureImpl<T2>) function.apply(input),
             executor));
   }
 
@@ -721,13 +711,10 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     ImmutableSet<PathFragment> subdirectoriesToExclude =
         patternToEvalAndSubdirectoriesToExclude.getSecond();
     AsyncFunction<TargetParsingException, Void> reportBuildFileErrorAsyncFunction =
-        new AsyncFunction<TargetParsingException, Void>() {
-      @Override
-      public ListenableFuture<Void> apply(TargetParsingException exn) throws QueryException {
-        reportBuildFileError(owner, exn.getMessage());
-        return Futures.immediateFuture(null);
-      }
-    };
+        exn -> {
+          reportBuildFileError(owner, exn.getMessage());
+          return Futures.immediateFuture(null);
+        };
     ListenableFuture<Void> evalFuture = patternToEval.evalAsync(
         resolver,
         subdirectoriesToExclude,
@@ -910,26 +897,17 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   static final Function<SkyKey, Label> SKYKEY_TO_LABEL =
-      new Function<SkyKey, Label>() {
-        @Nullable
-        @Override
-        public Label apply(SkyKey skyKey) {
-          SkyFunctionName functionName = skyKey.functionName();
-          if (!functionName.equals(Label.TRANSITIVE_TRAVERSAL)) {
-            // Skip non-targets.
-            return null;
-          }
-          return (Label) skyKey.argument();
+      skyKey -> {
+        SkyFunctionName functionName = skyKey.functionName();
+        if (!functionName.equals(Label.TRANSITIVE_TRAVERSAL)) {
+          // Skip non-targets.
+          return null;
         }
+        return (Label) skyKey.argument();
       };
 
   static final Function<SkyKey, PackageIdentifier> PACKAGE_SKYKEY_TO_PACKAGE_IDENTIFIER =
-      new Function<SkyKey, PackageIdentifier>() {
-        @Override
-        public PackageIdentifier apply(SkyKey skyKey) {
-          return (PackageIdentifier) skyKey.argument();
-        }
-      };
+      skyKey -> (PackageIdentifier) skyKey.argument();
 
   @ThreadSafe
   Multimap<SkyKey, SkyKey> makePackageKeyToTargetKeyMap(Iterable<SkyKey> keys) {
@@ -975,12 +953,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   static final Function<Target, SkyKey> TARGET_TO_SKY_KEY =
-      new Function<Target, SkyKey>() {
-        @Override
-        public SkyKey apply(Target target) {
-          return TransitiveTraversalValue.key(target.getLabel());
-        }
-      };
+      target -> TransitiveTraversalValue.key(target.getLabel());
 
   /** A strict (i.e. non-lazy) variant of {@link #makeTransitiveTraversalKeys}. */
   public static Iterable<SkyKey> makeTransitiveTraversalKeysStrict(Iterable<Target> targets) {
@@ -1080,49 +1053,26 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     }
     return result;
   }
-
-  private static final Function<SkyValue, Package> EXTRACT_PACKAGE =
-      new Function<SkyValue, Package>() {
-        @Override
-        public Package apply(SkyValue skyValue) {
-          return ((PackageValue) skyValue).getPackage();
-        }
-      };
-
-  private static final Predicate<Package> ERROR_FREE_PACKAGE =
-      new Predicate<Package>() {
-        @Override
-        public boolean apply(Package pkg) {
-          return !pkg.containsErrors();
-        }
-      };
-
-  private static final Function<Package, Target> GET_BUILD_FILE =
-      new Function<Package, Target>() {
-        @Override
-        public Target apply(Package pkg) {
-          return pkg.getBuildFile();
-        }
-      };
-
   static Iterable<Target> getBuildFilesForPackageValues(Iterable<SkyValue> packageValues) {
+    // TODO(laurentlb): Use streams?
     return Iterables.transform(
-        Iterables.filter(Iterables.transform(packageValues, EXTRACT_PACKAGE), ERROR_FREE_PACKAGE),
-        GET_BUILD_FILE);
+        Iterables.filter(
+            Iterables.transform(packageValues, skyValue -> ((PackageValue) skyValue).getPackage()),
+            pkg -> !pkg.containsErrors()),
+        Package::getBuildFile);
   }
 
   @ThreadSafe
   QueryTaskFuture<Void> getRBuildFilesParallel(
       final Collection<PathFragment> fileIdentifiers,
       final Callback<Target> callback) {
-    return QueryTaskFutureImpl.ofDelegate(safeSubmit(new Callable<Void>() {
-      @Override
-      public Void call() throws QueryException, InterruptedException {
-        ParallelSkyQueryUtils.getRBuildFilesParallel(
-            SkyQueryEnvironment.this, fileIdentifiers, callback, packageSemaphore);
-        return null;
-      }
-    }));
+    return QueryTaskFutureImpl.ofDelegate(
+        safeSubmit(
+            () -> {
+              ParallelSkyQueryUtils.getRBuildFilesParallel(
+                  SkyQueryEnvironment.this, fileIdentifiers, callback, packageSemaphore);
+              return null;
+            }));
   }
 
   /**

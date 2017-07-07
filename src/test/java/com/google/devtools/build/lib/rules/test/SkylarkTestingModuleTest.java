@@ -86,7 +86,7 @@ public class SkylarkTestingModuleTest extends BuildViewTestCase {
         "examples/rule/apple_rules.bzl",
         "def my_rule_test_impl(ctx):",
         "  exec_info = testing.ExecutionInfo({'local': ''})",
-        "  ctx.file_action(ctx.outputs.executable, '', True)",
+        "  ctx.actions.write(ctx.outputs.executable, '', True)",
         "  return [exec_info]",
         "my_rule_test = rule(implementation = my_rule_test_impl,",
         "    test = True,",

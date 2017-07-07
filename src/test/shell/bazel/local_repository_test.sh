@@ -716,7 +716,7 @@ sample_bin(
 EOF
   cat > sample.bzl <<EOF
 def impl(ctx):
-    ctx.action(
+    ctx.actions.run_shell(
         command = "cat %s > %s" % (ctx.file._dep.path, ctx.outputs.sh.path),
         inputs = [ctx.file._dep],
         outputs = [ctx.outputs.sh]

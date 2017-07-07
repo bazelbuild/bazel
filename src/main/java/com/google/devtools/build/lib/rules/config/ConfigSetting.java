@@ -69,6 +69,11 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
             .get(
                 ConfigRuleClasses.ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
                 BuildType.LABEL_KEYED_STRING_DICT);
+    if (!flagSettings.isEmpty()) {
+      ConfigFeatureFlagFeatureVisibility.checkAvailable(
+          ruleContext,
+          "the " + ConfigRuleClasses.ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE + " attribute");
+    }
 
     List<? extends TransitiveInfoCollection> flagValues =
         ruleContext.getPrerequisites(
@@ -142,11 +147,8 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
         continue;
       }
 
-      OptionsParser parser = parserCache.get(optionClass);
-      if (parser == null) {
-        parser = OptionsParser.newOptionsParser(optionClass);
-        parserCache.put(optionClass, parser);
-      }
+      OptionsParser parser =
+          parserCache.computeIfAbsent(optionClass, OptionsParser::newOptionsParser);
 
       try {
         parser.parse("--" + optionName + "=" + expectedRawValue);

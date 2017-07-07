@@ -18,6 +18,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
+import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics.EnvironmentLookupException;
 import com.google.devtools.build.lib.analysis.constraints.EnvironmentCollection;
 import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironmentsProvider;
 import com.google.devtools.build.lib.buildtool.BuildRequest.BuildRequestOptions;
@@ -51,6 +53,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.License.DistributionType;
@@ -73,10 +76,12 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collection;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
 /**
  * Provides the bulk of the implementation of the 'blaze build' command.
@@ -190,6 +195,9 @@ public final class BuildTool {
       env.throwPendingException();
 
       // Configuration creation.
+      // TODO(gregce): BuildConfigurationCollection is important for static configs, less so for
+      // dynamic configs. Consider dropping it outright and passing on-the-fly target / host configs
+      // directly when needed (although this could be hard when Skyframe is unavailable).
       BuildConfigurationCollection configurations =
           env.getSkyframeExecutor()
               .createConfigurations(
@@ -246,8 +254,8 @@ public final class BuildTool {
     } catch (RuntimeException e) {
       // Print an error message for unchecked runtime exceptions. This does not concern Error
       // subclasses such as OutOfMemoryError.
-      request.getOutErr().printErrLn("Unhandled exception thrown during build; message: " +
-          e.getMessage());
+      request.getOutErr().printErrLn(
+          "Unhandled exception thrown during build; message: " + e.getMessage());
       catastrophe = true;
       throw e;
     } catch (Error e) {
@@ -300,13 +308,30 @@ public final class BuildTool {
       if (config == null) {
         // TODO(bazel-team): support file targets (they should apply package-default constraints).
         continue;
-      } else if (!config.enforceConstraints() || config.getTargetEnvironments().isEmpty()) {
+      } else if (!config.enforceConstraints()) {
+        continue;
+      }
+
+      List<Label> targetEnvironments = config.getTargetEnvironments();
+      if (targetEnvironments.isEmpty()) {
+        try {
+          targetEnvironments =
+              autoConfigureTargetEnvironments(
+                  packageManager, config, config.getAutoCpuEnvironmentGroup());
+        } catch (NoSuchPackageException
+            | NoSuchTargetException
+            | ConstraintSemantics.EnvironmentLookupException e) {
+          throw new ViewCreationFailedException("invalid target environment", e);
+        }
+      }
+
+      if (targetEnvironments.isEmpty()) {
         continue;
       }
 
       // Parse and collect this configuration's environments.
       EnvironmentCollection.Builder builder = new EnvironmentCollection.Builder();
-      for (Label envLabel : config.getTargetEnvironments()) {
+      for (Label envLabel : targetEnvironments) {
         try {
           Target env = packageManager.getLoadedTarget(envLabel);
           builder.put(ConstraintSemantics.getEnvironmentGroup(env), envLabel);
@@ -339,6 +364,29 @@ public final class BuildTool {
                 Joiner.on(", ").join(missingEnvironments)));
       }
     }
+  }
+
+  private static List<Label> autoConfigureTargetEnvironments(
+      LoadedPackageProvider packageManager,
+      BuildConfiguration config,
+      @Nullable Label environmentGroupLabel)
+      throws InterruptedException, NoSuchTargetException, NoSuchPackageException,
+          EnvironmentLookupException {
+    if (environmentGroupLabel == null) {
+      return ImmutableList.of();
+    }
+
+    EnvironmentGroup environmentGroup =
+        (EnvironmentGroup) packageManager.getLoadedTarget(environmentGroupLabel);
+
+    ImmutableList.Builder<Label> targetEnvironments = new ImmutableList.Builder<>();
+    for (Label environmentLabel : environmentGroup.getEnvironments()) {
+      if (environmentLabel.getName().equals(config.getCpu())) {
+        targetEnvironments.add(environmentLabel);
+      }
+    }
+
+    return targetEnvironments.build();
   }
 
   private void reportExceptionError(Exception e) {

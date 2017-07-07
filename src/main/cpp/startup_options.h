@@ -16,6 +16,7 @@
 
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -24,6 +25,40 @@
 namespace blaze {
 
 class WorkspaceLayout;
+
+// Represents a single startup flag (or startup option).
+class StartupFlag {
+ public:
+  virtual ~StartupFlag() = 0;
+  virtual bool NeedsParameter() const = 0;
+  virtual bool IsValid(const std::string& arg) const = 0;
+};
+
+// A startup flag that doesn't expect a value.
+// For instance, NullaryStartupFlag("master_bazelrc") is used to represent
+// "--master_bazelrc" and "--nomaster_bazelrc".
+class NullaryStartupFlag : public StartupFlag {
+ public:
+  NullaryStartupFlag(const std::string& name) : name_(name) {}
+  bool IsValid(const std::string& arg) const override;
+  bool NeedsParameter() const override;
+
+ private:
+  const std::string name_;
+};
+
+// A startup flag that expects a value.
+// For instance, UnaryStartupFlag("bazelrc") is used to represent
+// "--bazelrc=foo" or "--bazelrc foo".
+class UnaryStartupFlag : public StartupFlag {
+ public:
+  UnaryStartupFlag(const std::string& name) : name_(name) {}
+  bool IsValid(const std::string& arg) const override;
+  bool NeedsParameter() const override;
+
+ private:
+  const std::string name_;
+};
 
 // This class holds the parsed startup options for Blaze.
 // These options and their defaults must be kept in sync with those in
@@ -221,15 +256,15 @@ class StartupOptions {
   explicit StartupOptions(const std::string &product_name,
                           const WorkspaceLayout* workspace_layout);
 
-  // Holds the valid nullary startup options.
-  std::vector<std::string> nullary_options;
+  void RegisterUnaryStartupFlag(const std::string& flag_name);
 
-  // Holds the valid unary startup options.
-  std::vector<std::string> unary_options;
+  void RegisterNullaryStartupFlag(const std::string& flag_name);
 
  private:
   std::string host_javabase;
   std::string default_host_javabase;
+  // Contains the collection of startup flags that Bazel accepts.
+  std::set<std::unique_ptr<StartupFlag>> valid_startup_flags;
 
 #if defined(COMPILER_MSVC) || defined(__CYGWIN__)
   static std::string WindowsUnixRoot(const std::string &bazel_sh);

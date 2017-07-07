@@ -40,8 +40,7 @@ import org.junit.runners.JUnit4;
 public class RuleFactoryTest extends PackageLoadingTestCase {
 
   private ConfiguredRuleClassProvider provider = TestRuleClassProvider.getRuleClassProvider();
-  private RuleFactory ruleFactory =
-      new RuleFactory(provider, AttributeContainer.ATTRIBUTE_CONTAINER_FACTORY);
+  private RuleFactory ruleFactory = new RuleFactory(provider, AttributeContainer::new);
 
   public static final Location LOCATION_42 = Location.fromFileAndOffsets(null, 42, 42);
 

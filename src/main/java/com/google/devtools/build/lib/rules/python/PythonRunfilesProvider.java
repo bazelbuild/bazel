@@ -37,17 +37,12 @@ public final class PythonRunfilesProvider implements TransitiveInfoProvider {
   }
 
   /**
-   * Returns a function that gets the Python runfiles from a {@link TransitiveInfoCollection} or
-   * the empty runfiles instance if it does not contain that provider.
+   * Returns a function that gets the Python runfiles from a {@link TransitiveInfoCollection} or the
+   * empty runfiles instance if it does not contain that provider.
    */
   public static final Function<TransitiveInfoCollection, Runfiles> TO_RUNFILES =
-      new Function<TransitiveInfoCollection, Runfiles>() {
-        @Override
-        public Runfiles apply(TransitiveInfoCollection input) {
-          PythonRunfilesProvider provider = input.getProvider(PythonRunfilesProvider.class);
-          return provider == null
-              ? Runfiles.EMPTY
-              : provider.getPythonRunfiles();
-        }
+      input -> {
+        PythonRunfilesProvider provider = input.getProvider(PythonRunfilesProvider.class);
+        return provider == null ? Runfiles.EMPTY : provider.getPythonRunfiles();
       };
 }

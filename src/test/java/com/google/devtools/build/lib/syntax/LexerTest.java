@@ -356,6 +356,12 @@ public class LexerTest {
   }
 
   @Test
+  public void testIndentationWithTab() throws Exception {
+    tokens("def x():\n\tpass");
+    assertThat(lastError.toString()).contains("Tabulations are not allowed");
+  }
+
+  @Test
   public void testIndentationWithCrLf() throws Exception {
     assertThat(values(tokens("1\r\n  2\r\n")))
         .isEqualTo("INT(1) NEWLINE INDENT INT(2) NEWLINE OUTDENT NEWLINE EOF");

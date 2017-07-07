@@ -14,22 +14,13 @@
 package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
 
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Root;
-import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.android.ResourceFilter.FilterBehavior;
-import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -38,53 +29,7 @@ import org.junit.runners.JUnit4;
 // TODO(asteinb): Test behavior not already covered in this test, and, when practical, move unit
 // tests currently located in {@link AndroidBinaryTest} to this class instead.
 @RunWith(JUnit4.class)
-public class ResourceFilterTest {
-  private FakeRuleErrorConsumer errorConsumer;
-
-  @Before
-  public void setup() {
-    errorConsumer = new FakeRuleErrorConsumer();
-  }
-
-  private static final class FakeRuleErrorConsumer implements RuleErrorConsumer {
-    // Use an ArrayListMultimap since it allows duplicates - we'll want to know if a warning is
-    // reported twice.
-    private final Multimap<String, String> attributeWarnings = ArrayListMultimap.create();
-
-    @Override
-    public void ruleWarning(String message) {}
-
-    @Override
-    public void ruleError(String message) {
-      assertWithMessage(message).fail();
-    }
-
-    @Override
-    public void attributeWarning(String attrName, String message) {
-      attributeWarnings.put(attrName, message);
-    }
-
-    @Override
-    public void attributeError(String attrName, String message) {
-      assertWithMessage(message + " (attribute: " + attrName + ")").fail();
-    }
-
-    public Collection<String> getAndClearAttributeWarnings(String attrName) {
-      if (!attributeWarnings.containsKey(attrName)) {
-        return ImmutableList.of();
-      }
-
-      return attributeWarnings.removeAll(attrName);
-    }
-
-    public void assertNoAttributeWarnings(String attrName) {
-      assertThat(attributeWarnings).doesNotContainKey(attrName);
-    }
-  };
-
-  private static final FileSystem FILE_SYSTEM = new InMemoryFileSystem();
-  private static final Root ROOT = Root.asSourceRoot(FILE_SYSTEM.getRootDirectory());
-
+public class ResourceFilterTest extends ResourceTestBase {
   @Test
   public void testFilterInExecution() {
     testNoopFilter(
@@ -98,10 +43,10 @@ public class ResourceFilterTest {
   @Test
   public void testFilterEmpty() {
     testNoopFilter(
-        ImmutableList.of(),
-        ImmutableList.of(),
+        ImmutableList.<String>of(),
+        ImmutableList.<String>of(),
         FilterBehavior.FILTER_IN_ANALYSIS,
-        ImmutableList.of());
+        ImmutableList.<String>of());
   }
 
   @Test
@@ -128,7 +73,7 @@ public class ResourceFilterTest {
   @Test
   public void testFilterByDensityPersistsOrdering() {
     testFilter(
-        ImmutableList.of(),
+        ImmutableList.<String>of(),
         ImmutableList.of("hdpi", "ldpi"),
         FilterBehavior.FILTER_IN_ANALYSIS,
         // If we add resources to the output list in density order, these resources will be
@@ -209,7 +154,11 @@ public class ResourceFilterTest {
         ImmutableList.of("sr-Latn", "sr-rLatn", "sr_Latn", "b+sr+Latn"),
         ImmutableList.of(),
         FilterBehavior.FILTER_IN_ANALYSIS,
-        ImmutableList.of("values-sr/foo.xml", "values-b+sr+Latn/foo.xml"),
+        ImmutableList.of(
+            "values-sr/foo.xml",
+            "values-b+sr+Latn/foo.xml",
+            "values-sr-Latn/foo.xml",
+            "values-sr-rLatn/foo.xml"),
         // Serbian in explicitly Cyrillic characters should be filtered out.
         ImmutableList.of("values-b+sr+Cyrl/foo.xml"));
 
@@ -226,7 +175,11 @@ public class ResourceFilterTest {
         ImmutableList.of(),
         FilterBehavior.FILTER_IN_ANALYSIS,
         ImmutableList.of(
-            "values-sr/foo.xml", "values-b+sr+Latn/foo.xml", "values-b+sr+Cyrl/foo.xml"));
+            "values-sr/foo.xml",
+            "values-b+sr+Latn/foo.xml",
+            "values-b+sr+Cyrl/foo.xml",
+            "values-sr-Latn/foo.xml",
+            "values-sr-rLatn/foo.xml"));
 
     errorConsumer.assertNoAttributeWarnings(ResourceFilter.RESOURCE_CONFIGURATION_FILTERS_NAME);
   }
@@ -237,7 +190,7 @@ public class ResourceFilterTest {
         ImmutableList.of("es-419", "es_419", "b+es+419"),
         ImmutableList.of(),
         FilterBehavior.FILTER_IN_ANALYSIS,
-        ImmutableList.of("values-es/foo.xml", "values-b+es+419/foo.xml"),
+        ImmutableList.of("values-es/foo.xml", "values-b+es+419/foo.xml", "values-es-419/foo.xml"),
         // Spanish with another region specified should be filtered out.
         ImmutableList.of("values-es-rUS/foo.xml"));
 
@@ -253,7 +206,11 @@ public class ResourceFilterTest {
         ImmutableList.of("es"),
         ImmutableList.of(),
         FilterBehavior.FILTER_IN_ANALYSIS,
-        ImmutableList.of("values-es/foo.xml", "values-b+es+419/foo.xml", "values-es-rUS/foo.xml"));
+        ImmutableList.of(
+            "values-es/foo.xml",
+            "values-b+es+419/foo.xml",
+            "values-es-rUS/foo.xml",
+            "values-es-419/foo.xml"));
 
     errorConsumer.assertNoAttributeWarnings(ResourceFilter.RESOURCE_CONFIGURATION_FILTERS_NAME);
   }
@@ -263,9 +220,9 @@ public class ResourceFilterTest {
    * problem in each resource filter object.
    */
   @Test
-  public void testFilterDeprecatedQualifierFormatsWarnings() {
+  public void testFilterDeprecatedQualifierFormatsAttributeWarnings() {
     ImmutableList<String> badQualifiers =
-        ImmutableList.of("en_US", "sr-Latn", "es-419", "mcc310-en_US", "sr_Latn", "es_419");
+        ImmutableList.of("en_US", "sr-Latn", "es-419", "mcc310-en_US", "sr_rLatn", "es_419");
 
     ImmutableList<String> expectedWarnings =
         ImmutableList.of(
@@ -284,10 +241,12 @@ public class ResourceFilterTest {
             errorConsumer.getAndClearAttributeWarnings(
                 ResourceFilter.RESOURCE_CONFIGURATION_FILTERS_NAME))
         .containsExactlyElementsIn(expectedWarnings);
+    errorConsumer.assertNoRuleWarnings();
 
     // Filtering again with this filter should not produce additional warnings
     filter.filter(errorConsumer, ImmutableList.of());
     errorConsumer.assertNoAttributeWarnings(ResourceFilter.RESOURCE_CONFIGURATION_FILTERS_NAME);
+    errorConsumer.assertNoRuleWarnings();
 
     // Filtering with a new filter should produce warnings again, since it is working on a different
     // target
@@ -298,6 +257,50 @@ public class ResourceFilterTest {
             errorConsumer.getAndClearAttributeWarnings(
                 ResourceFilter.RESOURCE_CONFIGURATION_FILTERS_NAME))
         .containsExactlyElementsIn(expectedWarnings);
+    errorConsumer.assertNoRuleWarnings();
+  }
+
+  @Test
+  public void testFilterDeprecatedQualifierFormatsRuleWarnings() {
+    ImmutableList<Artifact> badResources =
+        getResources(
+            "values-es_US/foo.xml",
+            "drawables-sr-Latn/foo.xml",
+            "stylables-es-419/foo.xml",
+            "values-mcc310-es_US/foo.xml",
+            "values-sr_rLatn/foo.xml",
+            "drawables-es_419/foo.xml");
+
+    ImmutableList<String> expectedWarnings =
+        ImmutableList.of(
+            "For resource folder drawables-sr-Latn, when referring to Serbian in Latin characters, "
+                + "use of qualifier 'sr-Latn' is deprecated. Use 'b+sr+Latn' instead.",
+            "For resource folder stylables-es-419, when referring to Spanish for Latin America and "
+                + "the Caribbean, use of qualifier 'es-419' is deprecated. Use 'b+es+419' instead.",
+            "For resource folder values-es_US, when referring to locale qualifiers with regions, "
+                + "use of qualifier 'es_US' is deprecated. Use 'es-rUS' instead.");
+
+    ResourceFilter filter =
+        new ResourceFilter(
+            ImmutableList.of("en"), ImmutableList.of(), FilterBehavior.FILTER_IN_ANALYSIS);
+
+    filter.filter(errorConsumer, badResources);
+    assertThat(errorConsumer.getAndClearRuleWarnings()).containsExactlyElementsIn(expectedWarnings);
+    errorConsumer.assertNoAttributeWarnings(ResourceFilter.RESOURCE_CONFIGURATION_FILTERS_NAME);
+
+    // Filtering again with this filter should not produce additional warnings
+    filter.filter(errorConsumer, badResources);
+    errorConsumer.assertNoRuleWarnings();
+    errorConsumer.assertNoAttributeWarnings(ResourceFilter.RESOURCE_CONFIGURATION_FILTERS_NAME);
+
+    // Filtering with a new filter should produce warnings again, since it is working on a different
+    // target
+    filter =
+        new ResourceFilter(
+            ImmutableList.of("en"), ImmutableList.of(), FilterBehavior.FILTER_IN_ANALYSIS);
+    filter.filter(errorConsumer, badResources);
+    assertThat(errorConsumer.getAndClearRuleWarnings()).containsExactlyElementsIn(expectedWarnings);
+    errorConsumer.assertNoAttributeWarnings(ResourceFilter.RESOURCE_CONFIGURATION_FILTERS_NAME);
   }
 
   private void testNoopFilter(
@@ -306,7 +309,11 @@ public class ResourceFilterTest {
       FilterBehavior filterBehavior,
       List<String> resources) {
     testFilter(
-        resourceConfigurationFilters, densities, filterBehavior, resources, ImmutableList.of());
+        resourceConfigurationFilters,
+        densities,
+        filterBehavior,
+        resources,
+        ImmutableList.<String>of());
   }
 
   private void testFilter(
@@ -317,12 +324,12 @@ public class ResourceFilterTest {
       List<String> resourcesToDiscard) {
     List<Artifact> unexpectedResources = new ArrayList<>();
     for (String resource : resourcesToDiscard) {
-      unexpectedResources.add(getArtifact(resource));
+      unexpectedResources.add(getResource(resource));
     }
 
     List<Artifact> expectedResources = new ArrayList<>();
     for (String resource : resourcesToKeep) {
-      expectedResources.add(getArtifact(resource));
+      expectedResources.add(getResource(resource));
     }
 
     ImmutableList<Artifact> allArtifacts =
@@ -332,9 +339,5 @@ public class ResourceFilterTest {
             .filter(errorConsumer, allArtifacts);
 
     assertThat(filtered).containsExactlyElementsIn(expectedResources).inOrder();
-  }
-
-  private static Artifact getArtifact(String pathString) {
-    return new Artifact(FILE_SYSTEM.getPath("/java/android/res/" + pathString), ROOT);
   }
 }

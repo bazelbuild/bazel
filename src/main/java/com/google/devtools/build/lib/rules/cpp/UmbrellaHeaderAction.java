@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -50,9 +52,9 @@ public final class UmbrellaHeaderAction extends AbstractFileWriteAction {
       Iterable<PathFragment> additionalExportedHeaders) {
     super(
         owner,
-        ImmutableList.copyOf(Iterables.filter(publicHeaders, Artifact.IS_TREE_ARTIFACT)),
+        Streams.stream(publicHeaders).filter(Artifact::isTreeArtifact).collect(toImmutableList()),
         umbrellaHeader,
-        /*makeExecutable=*/false);
+        /*makeExecutable=*/ false);
     this.umbrellaHeader = umbrellaHeader;
     this.publicHeaders = ImmutableList.copyOf(publicHeaders);
     this.additionalExportedHeaders = ImmutableList.copyOf(additionalExportedHeaders);

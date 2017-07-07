@@ -32,6 +32,7 @@ import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
+import com.google.devtools.common.options.proto.OptionFilters.OptionMetadataTag;
 import java.util.List;
 
 /**
@@ -57,7 +58,7 @@ public class ProtoConfiguration extends Fragment {
       defaultValue = "",
       category = "flags",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help = "Additional options to pass to the protobuf compiler."
     )
     public List<String> protocOpts;
@@ -66,8 +67,9 @@ public class ProtoConfiguration extends Fragment {
       name = "experimental_proto_extra_actions",
       defaultValue = "false",
       category = "experimental",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "Run extra actions for alternative Java api versions in a proto_library."
     )
     public boolean experimentalProtoExtraActions;
@@ -78,7 +80,7 @@ public class ProtoConfiguration extends Fragment {
       category = "flags",
       converter = BuildConfiguration.LabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
       help = "The label of the proto-compiler."
     )
     public Label protoCompiler;
@@ -89,7 +91,7 @@ public class ProtoConfiguration extends Fragment {
       category = "flags",
       converter = BuildConfiguration.EmptyToNullLabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
       help = "Label of proto_lang_toolchain() which describes how to compile JavaLite protos"
     )
     public Label protoToolchainForJavaLite;
@@ -100,7 +102,7 @@ public class ProtoConfiguration extends Fragment {
       category = "flags",
       converter = BuildConfiguration.EmptyToNullLabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
       help = "Label of proto_lang_toolchain() which describes how to compile Java protos"
     )
     public Label protoToolchainForJava;
@@ -111,7 +113,7 @@ public class ProtoConfiguration extends Fragment {
       category = "flags",
       converter = BuildConfiguration.EmptyToNullLabelConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
       help = "Label of proto_lang_toolchain() which describes how to compile C++ protos"
     )
     public Label protoToolchainForCc;
@@ -122,7 +124,8 @@ public class ProtoConfiguration extends Fragment {
       converter = BuildConfiguration.StrictDepsConverter.class,
       category = "semantics",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If true, checks that a proto_library target explicitly declares all directly "
               + "used targets as dependencies."
@@ -133,8 +136,8 @@ public class ProtoConfiguration extends Fragment {
       name = "cc_proto_library_header_suffixes",
       defaultValue = ".pb.h",
       category = "semantics",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
       help = "Sets the prefixes of header files that a cc_proto_library creates.",
       converter = Converters.CommaSeparatedOptionListConverter.class
     )
@@ -144,22 +147,12 @@ public class ProtoConfiguration extends Fragment {
       name = "cc_proto_library_source_suffixes",
       defaultValue = ".pb.cc",
       category = "semantics",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
       help = "Sets the prefixes of source files that a cc_proto_library creates.",
       converter = Converters.CommaSeparatedOptionListConverter.class
     )
     public List<String> ccProtoLibrarySourceSuffixes;
-
-    @Option(
-      name = "reuseJavaCompileActionsFromProtoLibrary",
-      defaultValue = "true",
-      category = "experimental",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "ignored"
-    )
-    public boolean reuseJavaCompileActionsFromProtoLibrary;
 
     @Override
     public FragmentOptions getHost(boolean fallback) {

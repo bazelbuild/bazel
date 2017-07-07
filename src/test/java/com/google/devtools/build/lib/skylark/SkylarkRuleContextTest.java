@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skylark;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -648,7 +649,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:androidlib");
     evalRuleContextCode(
         ruleContext,
-        "ruleContext.action(\n"
+        "ruleContext.actions.run(\n"
             + "  inputs = ruleContext.files.srcs,\n"
             + "  outputs = ruleContext.files.srcs,\n"
             + "  arguments = ['--a','--b'],\n"
@@ -1515,7 +1516,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   public void testDependencyActionsProvider() throws Exception {
     scratch.file("test/rules.bzl",
         getSimpleUnderTestDefinition(
-            "ctx.action(outputs=[out], command='echo foo123 > ' + out.path)"),
+            "ctx.actions.run_shell(outputs=[out], command='echo foo123 > ' + out.path)"),
         testingRuleDefinition);
     scratch.file("test/BUILD",
         simpleBuildDefinition);
@@ -1540,7 +1541,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file("test/rules.bzl",
         getSimpleNontestableUnderTestDefinition(
-            "ctx.action(outputs=[out], command='echo foo123 > ' + out.path)"),
+            "ctx.actions.run_shell(outputs=[out], command='echo foo123 > ' + out.path)"),
         testingRuleDefinition);
     scratch.file("test/BUILD",
         simpleBuildDefinition);
@@ -1561,8 +1562,9 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         "def _undertest_impl(ctx):",
         "  out1 = ctx.outputs.out1",
         "  out2 = ctx.outputs.out2",
-        "  ctx.file_action(output=out1, content='foo123')",
-        "  ctx.action(outputs=[out2], inputs=[out1], command='cp ' + out1.path + ' ' + out2.path)",
+        "  ctx.actions.write(output=out1, content='foo123')",
+        "  ctx.actions.run_shell(outputs=[out2], inputs=[out1],",
+        "                        command='cp ' + out1.path + ' ' + out2.path)",
         "  return struct(out1=out1, out2=out2)",
         "undertest_rule = rule(",
         "  implementation = _undertest_impl,",
@@ -1606,10 +1608,10 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         "def _undertest_impl(ctx):",
         "  out1 = ctx.outputs.out1",
         "  out2 = ctx.outputs.out2",
-        "  ctx.action(outputs=[out1], command='echo foo123 > ' + out1.path,",
-        "             mnemonic='foo')",
+        "  ctx.actions.run_shell(outputs=[out1], command='echo foo123 > ' + out1.path,",
+        "                        mnemonic='foo')",
         "  v = ctx.created_actions().by_file",
-        "  ctx.action(outputs=[out2], command='echo bar123 > ' + out2.path)",
+        "  ctx.actions.run_shell(outputs=[out2], command='echo bar123 > ' + out2.path)",
         "  return struct(v=v, out1=out1, out2=out2)",
         "undertest_rule = rule(",
         "  implementation = _undertest_impl,",
@@ -1640,7 +1642,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   public void testNoAccessToCreatedActionsWithoutSkylarkTest() throws Exception {
     scratch.file("test/rules.bzl",
         getSimpleNontestableUnderTestDefinition(
-            "ctx.action(outputs=[out], command='echo foo123 > ' + out.path)")
+            "ctx.actions.run_shell(outputs=[out], command='echo foo123 > ' + out.path)")
         );
     scratch.file("test/BUILD",
         "load(':rules.bzl', 'undertest_rule')",
@@ -1657,7 +1659,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   public void testSpawnActionInterface() throws Exception {
     scratch.file("test/rules.bzl",
         getSimpleUnderTestDefinition(
-            "ctx.action(outputs=[out], command='echo foo123 > ' + out.path)"),
+            "ctx.actions.run_shell(outputs=[out], command='echo foo123 > ' + out.path)"),
         testingRuleDefinition);
     scratch.file("test/BUILD",
         simpleBuildDefinition);
@@ -1681,7 +1683,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   public void testFileWriteActionInterface() throws Exception {
     scratch.file("test/rules.bzl",
         getSimpleUnderTestDefinition(
-            "ctx.file_action(output=out, content='foo123')"),
+            "ctx.actions.write(output=out, content='foo123')"),
         testingRuleDefinition);
     scratch.file("test/BUILD",
         simpleBuildDefinition);
@@ -1702,7 +1704,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     scratch.file("test/rules.bzl",
         "def _undertest_impl(ctx):",
         "  out = ctx.outputs.out",
-        "  ctx.template_action(output=out, template=ctx.file.template, substitutions={'a': 'b'})",
+        "  ctx.actions.expand_template(output=out,",
+        "                              template=ctx.file.template, substitutions={'a': 'b'})",
         "undertest_rule = rule(",
         "  implementation = _undertest_impl,",
         "  outputs = {'out': '%{name}.txt'},",
@@ -1861,6 +1864,11 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
       "actions.declare_file('foo.txt', sibling = file)",
       "actions.declare_directory('foo.txt')",
       "actions.declare_directory('foo.txt', sibling = file)",
+      "actions.do_nothing(mnemonic = 'foo', inputs = [file])",
+      "actions.expand_template(template = file, output = file, substitutions = {})",
+      "actions.run(executable = file, outputs = [file])",
+      "actions.run_shell(command = 'foo', outputs = [file])",
+      "actions.write(file, 'foo')",
       "check_placeholders('foo', [])",
       "action(command = 'foo', outputs = [file])",
       "file_action(file, 'foo')",
@@ -1955,4 +1963,50 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
       }
     }
   }
+
+
+  private static final List<String> deprecatedActionsApi =
+      ImmutableList.of(
+          "new_file('foo.txt')",
+          "experimental_new_directory('foo.txt')",
+          "new_file(file, 'foo.txt')",
+          "action(command = 'foo', outputs = [file])",
+          "file_action(file, 'foo')",
+          "empty_action(mnemonic = 'foo', inputs = [file])",
+          "template_action(template = file, output = file, substitutions = {})"
+      );
+
+  @Test
+  public void testIncompatibleNewActionsApi() throws Exception {
+    scratch.file("test/BUILD",
+        "load('/test/rules', 'main_rule')",
+        "main_rule(name = 'main')");
+    scratch.file("test/rules.bzl");
+
+    for (String actionApi : deprecatedActionsApi) {
+      scratch.overwriteFile("test/rules.bzl",
+          "def _main_impl(ctx):",
+          "  file = ctx.outputs.file",
+          "  foo = ctx." + actionApi,
+          "main_rule = rule(",
+          "  implementation = _main_impl,",
+          "  attrs = {",
+          "    'deps': attr.label_list()",
+          "  },",
+          "  outputs = {'file': 'output.txt'},",
+          ")"
+      );
+      setSkylarkSemanticsOptions("--incompatible_new_actions_api=true");
+      invalidatePackages();
+      try {
+        getConfiguredTarget("//test:main");
+        fail("Should have reported deprecation error for: " + actionApi);
+      } catch (AssertionError e) {
+        assertWithMessage(actionApi + " reported wrong error").that(e)
+            .hasMessageThat()
+            .contains("Use --incompatible_new_actions_api=false");
+      }
+    }
+  }
+
 }

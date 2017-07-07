@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
-import com.google.common.base.Function;
-import com.google.common.collect.Collections2;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.Callback;
@@ -28,6 +26,7 @@ import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.VariableContext;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * An "rbuildfiles" query expression, which computes the set of packages (as represented by their
@@ -57,14 +56,6 @@ public class RBuildFilesFunction implements QueryFunction {
     return Iterables.cycle(ArgumentType.WORD);
   }
 
-  private static final Function<Argument, PathFragment> ARGUMENT_TO_PATH_FRAGMENT =
-      new Function<Argument, PathFragment>() {
-        @Override
-        public PathFragment apply(Argument argument) {
-          return PathFragment.create(argument.getWord());
-        }
-      };
-
   @Override
   @SuppressWarnings("unchecked") // Cast from <Target> to <T>. This will only be used with <Target>.
   public <T> QueryTaskFuture<Void> eval(
@@ -79,7 +70,9 @@ public class RBuildFilesFunction implements QueryFunction {
     }
     SkyQueryEnvironment skyEnv = ((SkyQueryEnvironment) env);
     return skyEnv.getRBuildFilesParallel(
-        Collections2.transform(args, ARGUMENT_TO_PATH_FRAGMENT),
+        args.stream()
+            .map(argument -> PathFragment.create(argument.getWord()))
+            .collect(Collectors.toList()),
         (Callback<Target>) callback);
   }
 }

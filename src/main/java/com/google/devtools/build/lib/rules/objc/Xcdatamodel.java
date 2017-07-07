@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -96,11 +95,6 @@ class Xcdatamodel extends Value<Xcdatamodel> {
   }
 
   public static Iterable<Artifact> outputZips(Iterable<Xcdatamodel> models) {
-    return Iterables.transform(models, new Function<Xcdatamodel, Artifact>() {
-      @Override
-      public Artifact apply(Xcdatamodel model) {
-        return model.getOutputZip();
-      }
-    });
+    return Iterables.transform(models, Xcdatamodel::getOutputZip);
   }
 }

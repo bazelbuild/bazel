@@ -58,7 +58,7 @@ public class PackageFactoryApparatus {
         new PackageFactory(
             ruleClassProvider,
             null,
-            AttributeContainer.ATTRIBUTE_CONTAINER_FACTORY,
+            AttributeContainer::new,
             ImmutableList.copyOf(environmentExtensions),
             "test",
             Package.Builder.DefaultHelper.INSTANCE);

@@ -22,8 +22,8 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
-import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import java.util.LinkedHashMap;
@@ -62,30 +62,33 @@ public class AppleCcToolchain extends CcToolchain {
       ruleContext.throwWithRuleError("Xcode version must be specified to use an Apple CROSSTOOL");
     }
 
-    Platform platform = appleConfiguration.getSingleArchPlatform();
+    ApplePlatform platform = appleConfiguration.getSingleArchPlatform();
 
     Map<String, String> appleEnv = getEnvironmentBuildVariables(ruleContext);
 
     return ImmutableMap.<String, String>builder()
         .put(
             XCODE_VERSION_KEY,
-            appleConfiguration.getXcodeVersion()
-                .toStringWithMinimumComponents(2))
+            appleConfiguration.getXcodeVersion().toStringWithMinimumComponents(2))
         .put(
             IOS_SDK_VERSION_KEY,
-            appleConfiguration.getSdkVersionForPlatform(Platform.IOS_SIMULATOR)
+            appleConfiguration
+                .getSdkVersionForPlatform(ApplePlatform.IOS_SIMULATOR)
                 .toStringWithMinimumComponents(2))
         .put(
             MACOS_SDK_VERSION_KEY,
-            appleConfiguration.getSdkVersionForPlatform(Platform.MACOS)
+            appleConfiguration
+                .getSdkVersionForPlatform(ApplePlatform.MACOS)
                 .toStringWithMinimumComponents(2))
         .put(
             TVOS_SDK_VERSION_KEY,
-            appleConfiguration.getSdkVersionForPlatform(Platform.TVOS_SIMULATOR)
+            appleConfiguration
+                .getSdkVersionForPlatform(ApplePlatform.TVOS_SIMULATOR)
                 .toStringWithMinimumComponents(2))
         .put(
             WATCHOS_SDK_VERSION_KEY,
-            appleConfiguration.getSdkVersionForPlatform(Platform.WATCHOS_SIMULATOR)
+            appleConfiguration
+                .getSdkVersionForPlatform(ApplePlatform.WATCHOS_SIMULATOR)
                 .toStringWithMinimumComponents(2))
         .put(SDK_DIR_KEY, AppleToolchain.sdkDir())
         .put(SDK_FRAMEWORK_DIR_KEY, AppleToolchain.sdkFrameworkDir(platform, appleConfiguration))
@@ -101,7 +104,8 @@ public class AppleCcToolchain extends CcToolchain {
         .put(
             APPLE_SDK_PLATFORM_VALUE_KEY,
             appleEnv.getOrDefault(AppleConfiguration.APPLE_SDK_PLATFORM_ENV_NAME, ""))
-        .put(VERSION_MIN_KEY,
+        .put(
+            VERSION_MIN_KEY,
             appleConfiguration.getMinimumOsForPlatformType(platform.getType()).toString())
         .build();
   }
@@ -120,9 +124,10 @@ public class AppleCcToolchain extends CcToolchain {
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
     builder.putAll(appleConfiguration.getAppleHostSystemEnv());
-    if (Platform.isApplePlatform(cppConfiguration.getTargetCpu())) {
-      builder.putAll(appleConfiguration.appleTargetPlatformEnv(
-          Platform.forTargetCpu(cppConfiguration.getTargetCpu())));
+    if (ApplePlatform.isApplePlatform(cppConfiguration.getTargetCpu())) {
+      builder.putAll(
+          appleConfiguration.appleTargetPlatformEnv(
+              ApplePlatform.forTargetCpu(cppConfiguration.getTargetCpu())));
     }
     return ImmutableMap.copyOf(builder);
   }

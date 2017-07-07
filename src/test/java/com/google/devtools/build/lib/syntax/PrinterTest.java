@@ -21,6 +21,8 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import java.util.Arrays;
@@ -55,7 +57,7 @@ public class PrinterTest {
     assertThat(Printer.repr(Runtime.NONE)).isEqualTo("None");
 
     assertThat(Printer.str(Label.parseAbsolute("//x"))).isEqualTo("//x:x");
-    assertThat(Printer.repr(Label.parseAbsolute("//x"))).isEqualTo("\"//x:x\"");
+    assertThat(Printer.repr(Label.parseAbsolute("//x"))).isEqualTo("Label(\"//x:x\")");
 
     List<?> list = MutableList.of(null, "foo", "bar");
     List<?> tuple = Tuple.of("foo", "bar");
@@ -98,12 +100,12 @@ public class PrinterTest {
 
   @Test
   public void testFormatPositional() throws Exception {
-    assertThat(Printer.formatToString("%s %d", Tuple.of("foo", 3))).isEqualTo("foo 3");
+    assertThat(Printer.formatWithList("%s %d", Tuple.of("foo", 3))).isEqualTo("foo 3");
     assertThat(Printer.format("%s %d", "foo", 3)).isEqualTo("foo 3");
 
     // Note: formatToString doesn't perform scalar x -> (x) conversion;
     // The %-operator is responsible for that.
-    assertThat(Printer.formatToString("", Tuple.of())).isEmpty();
+    assertThat(Printer.formatWithList("", Tuple.of())).isEmpty();
     assertThat(Printer.format("%s", "foo")).isEqualTo("foo");
     assertThat(Printer.format("%s", 3.14159)).isEqualTo("3.14159");
     checkFormatPositionalFails("not all arguments converted during string formatting",
@@ -128,34 +130,6 @@ public class PrinterTest {
         "%.3g", 1, 2);
     checkFormatPositionalFails("unsupported format character \".\" at index 1 in \"%.s\"",
         "%.s");
-  }
-
-  @Test
-  public void testSingleQuotes() throws Exception {
-    assertThat(Printer.str("test", '\'')).isEqualTo("test");
-    assertThat(Printer.repr("test", '\'')).isEqualTo("'test'");
-
-    assertThat(Printer.repr("'", '\'')).isEqualTo("'\\''");
-    assertThat(Printer.str("\"", '\'')).isEqualTo("\"");
-    assertThat(Printer.repr("\"", '\'')).isEqualTo("'\"'");
-
-    List<?> list = MutableList.of(null, "foo", "bar");
-    List<?> tuple = Tuple.of("foo", "bar");
-
-    assertThat(Printer.str(Tuple.of(1, list, 3), '\'')).isEqualTo("(1, ['foo', 'bar'], 3)");
-    assertThat(Printer.repr(Tuple.of(1, list, 3), '\'')).isEqualTo("(1, ['foo', 'bar'], 3)");
-    assertThat(Printer.str(MutableList.of(null, 1, tuple, 3), '\''))
-        .isEqualTo("[1, ('foo', 'bar'), 3]");
-    assertThat(Printer.repr(MutableList.of(null, 1, tuple, 3), '\''))
-        .isEqualTo("[1, ('foo', 'bar'), 3]");
-
-    Map<Object, Object> dict =
-        ImmutableMap.<Object, Object>of(1, tuple, 2, list, "foo", MutableList.of(null));
-
-    assertThat(Printer.str(dict, '\''))
-        .isEqualTo("{1: ('foo', 'bar'), 2: ['foo', 'bar'], 'foo': []}");
-    assertThat(Printer.repr(dict, '\''))
-        .isEqualTo("{1: ('foo', 'bar'), 2: ['foo', 'bar'], 'foo': []}");
   }
 
   @Test
@@ -243,15 +217,50 @@ public class PrinterTest {
     assertThat(Printer.str(list)).isEqualTo(String.format("[%s]", Joiner.on(", ").join(list)));
   }
 
+  @Test
+  public void testLegacyPrinter() throws Exception {
+    assertThat(new Printer.LegacyPrinter().str(createObjWithStr()).toString())
+        .isEqualTo("<str legacy marker>");
+    assertThat(new Printer.LegacyPrinter().repr(createObjWithStr()).toString())
+        .isEqualTo("<repr legacy marker>");
+  }
+
   private String printListWithLimit(List<?> list) {
     return printList(list, Printer.SUGGESTED_CRITICAL_LIST_ELEMENTS_COUNT,
         Printer.SUGGESTED_CRITICAL_LIST_ELEMENTS_STRING_LENGTH);
   }
 
   private String printList(List<?> list, int criticalElementsCount, int criticalStringLength) {
-    StringBuilder builder = new StringBuilder();
-    Printer.printList(
-        builder, list, "[", ", ", "]", "", '"', criticalElementsCount, criticalStringLength);
-    return builder.toString();
+    return Printer.printAbbreviatedList(
+        list, "[", ", ", "]", "", criticalElementsCount, criticalStringLength);
+  }
+
+  private SkylarkValue createObjWithStr() {
+    return new SkylarkValue() {
+      @Override
+      public void repr(SkylarkPrinter printer) {
+        printer.append("<repr marker>");
+      }
+
+      @Override
+      public void reprLegacy(SkylarkPrinter printer) {
+        printer.append("<repr legacy marker>");
+      }
+
+      @Override
+      public void str(SkylarkPrinter printer) {
+        printer.append("<str marker>");
+      }
+
+      @Override
+      public void strLegacy(SkylarkPrinter printer) {
+        printer.append("<str legacy marker>");
+      }
+
+      @Override
+      public boolean isImmutable() {
+        return false;
+      }
+    };
   }
 }

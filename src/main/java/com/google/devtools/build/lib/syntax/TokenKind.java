@@ -56,6 +56,7 @@ public enum TokenKind {
   LBRACKET("["),
   LESS("<"),
   LESS_EQUALS("<="),
+  LOAD("load"),
   LPAREN("("),
   MINUS("-"),
   MINUS_EQUALS("-="),

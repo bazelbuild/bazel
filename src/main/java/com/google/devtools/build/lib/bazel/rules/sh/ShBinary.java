@@ -23,15 +23,22 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.actions.ExecutableSymlinkAction;
+import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
+import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
+import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Template;
+import com.google.devtools.build.lib.bazel.rules.BazelConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.util.OS;
 
 /**
  * Implementation for the sh_binary rule.
  */
 public class ShBinary implements RuleConfiguredTargetFactory {
+  private static final Template STUB_SCRIPT_WINDOWS =
+      Template.forResource(ShBinary.class, "sh_stub_template_windows.txt");
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) throws RuleErrorException {
@@ -53,21 +60,65 @@ public class ShBinary implements RuleConfiguredTargetFactory {
     ruleContext.registerAction(
         new ExecutableSymlinkAction(ruleContext.getActionOwner(), src, symlink));
 
-    NestedSet<Artifact> filesToBuild = NestedSetBuilder.<Artifact>stableOrder()
-        .add(src)
-        .add(symlink)
-        .build();
-    Runfiles runfiles = new Runfiles.Builder(
-        ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles())
-        .addTransitiveArtifacts(filesToBuild)
-        .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
-        .build();
-    RunfilesSupport runfilesSupport = RunfilesSupport.withExecutable(
-        ruleContext, runfiles, symlink);
+    NestedSetBuilder<Artifact> filesToBuildBuilder =
+        NestedSetBuilder.<Artifact>stableOrder().add(src).add(symlink);
+    Runfiles.Builder runfilesBuilder =
+        new Runfiles.Builder(
+            ruleContext.getWorkspaceName(),
+            ruleContext.getConfiguration().legacyExternalRunfiles());
+
+    Artifact mainExecutable =
+        (OS.getCurrent() == OS.WINDOWS) ? wrapperForWindows(ruleContext, symlink, src) : symlink;
+    if (symlink != mainExecutable) {
+      filesToBuildBuilder.add(mainExecutable);
+      runfilesBuilder.addArtifact(symlink);
+    }
+    NestedSet<Artifact> filesToBuild = filesToBuildBuilder.build();
+    Runfiles runfiles =
+        runfilesBuilder
+            .addTransitiveArtifacts(filesToBuild)
+            .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
+            .build();
+
+    // Create the RunfilesSupport with the symlink's name, even on Windows. This way the runfiles
+    // directory's name is derived from the symlink (yielding "%{name}.runfiles) and not from the
+    // wrapper script (yielding "%{name}.cmd.runfiles").
+    RunfilesSupport runfilesSupport =
+        RunfilesSupport.withExecutable(ruleContext, runfiles, symlink);
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(filesToBuild)
-        .setRunfilesSupport(runfilesSupport, symlink)
+        .setRunfilesSupport(runfilesSupport, mainExecutable)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .build();
+  }
+
+  private static Artifact wrapperForWindows(
+      RuleContext ruleContext, Artifact primaryOutput, Artifact mainFile) {
+    if (primaryOutput.getFilename().endsWith(".exe")
+        || primaryOutput.getFilename().endsWith(".bat")
+        || primaryOutput.getFilename().endsWith(".cmd")) {
+      String suffix =
+          primaryOutput.getFilename().substring(primaryOutput.getFilename().length() - 4);
+      if (mainFile.getFilename().endsWith(suffix)) {
+        return primaryOutput;
+      }
+    }
+
+    Artifact wrapper =
+        ruleContext.getImplicitOutputArtifact(ruleContext.getTarget().getName() + ".cmd");
+    ruleContext.registerAction(
+        new TemplateExpansionAction(
+            ruleContext.getActionOwner(),
+            wrapper,
+            STUB_SCRIPT_WINDOWS,
+            ImmutableList.of(
+                Substitution.of(
+                    "%bash_exe_path%",
+                    ruleContext
+                        .getFragment(BazelConfiguration.class)
+                        .getShellExecutable()
+                        .getPathString())),
+            true));
+    return wrapper;
   }
 }

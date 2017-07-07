@@ -352,7 +352,7 @@ public final class PackageFactory {
     protected Iterable<EnvironmentExtension> environmentExtensions = ImmutableList.of();
     protected Map<String, String> platformSetRegexps = null;
     protected Function<RuleClass, AttributeContainer> attributeContainerFactory =
-        AttributeContainer.ATTRIBUTE_CONTAINER_FACTORY;
+        AttributeContainer::new;
     protected boolean doChecksForTesting = true;
 
     public BuilderForTesting setEnvironmentExtensions(
@@ -1265,10 +1265,12 @@ public final class PackageFactory {
    */
   private static BuiltinFunction newRuleFunction(
       final RuleFactory ruleFactory, final String ruleClass) {
-    return new BuiltinFunction(ruleClass, FunctionSignature.KWARGS, BuiltinFunction.USE_AST_ENV) {
+    return new BuiltinFunction(
+        ruleClass, FunctionSignature.KWARGS, BuiltinFunction.USE_AST_ENV, /*isRule=*/ true) {
+
       @SuppressWarnings({"unchecked", "unused"})
-      public Runtime.NoneType invoke(Map<String, Object> kwargs,
-          FuncallExpression ast, Environment env)
+      public Runtime.NoneType invoke(
+          Map<String, Object> kwargs, FuncallExpression ast, Environment env)
           throws EvalException, InterruptedException {
         env.checkLoadingOrWorkspacePhase(ruleClass, ast.getLocation());
         try {

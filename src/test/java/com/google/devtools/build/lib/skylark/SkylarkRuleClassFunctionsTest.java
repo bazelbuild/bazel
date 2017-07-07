@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.packages.SkylarkAspectClass;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
-import com.google.devtools.build.lib.packages.ToolchainConstructor;
 import com.google.devtools.build.lib.rules.SkylarkAttr;
 import com.google.devtools.build.lib.rules.SkylarkAttr.Descriptor;
 import com.google.devtools.build.lib.rules.SkylarkFileType;
@@ -410,6 +409,15 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testAspectAddToolchain() throws Exception {
+    scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
+    evalAndExport(
+        "def _impl(ctx): pass", "a1 = aspect(_impl, toolchains=['//test:my_toolchain_type'])");
+    SkylarkAspect a = (SkylarkAspect) lookup("a1");
+    assertThat(a.getRequiredToolchains()).containsExactly(makeLabel("//test:my_toolchain_type"));
+  }
+
+  @Test
   public void testNonLabelAttrWithProviders() throws Exception {
     checkErrorContains(
         "unexpected keyword 'providers' in call to string", "attr.string(providers = ['a'])");
@@ -430,6 +438,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         .add(Attribute.attr("tags", Type.STRING_LIST))
         .build();
   }
+
   @Test
   public void testAttrAllowedRuleClassesSpecificRuleClasses() throws Exception {
     Attribute attr = buildAttribute("a",
@@ -437,6 +446,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     assertThat(attr.getAllowedRuleClassesPredicate().apply(ruleClass("java_binary"))).isTrue();
     assertThat(attr.getAllowedRuleClassesPredicate().apply(ruleClass("genrule"))).isFalse();
   }
+
   @Test
   public void testAttrDefaultValue() throws Exception {
     Attribute attr = buildAttribute("a1", "attr.string(default = 'some value')");
@@ -444,11 +454,46 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testLabelAttrDefaultValueAsString() throws Exception {
+    Attribute sligleAttr = buildAttribute("a1", "attr.label(default = '//foo:bar')");
+    assertThat(sligleAttr.getDefaultValueForTesting())
+        .isEqualTo(Label.parseAbsolute("//foo:bar", false));
+
+    Attribute listAttr =
+        buildAttribute("a2", "attr.label_list(default = ['//foo:bar', '//bar:foo'])");
+    assertThat(listAttr.getDefaultValueForTesting())
+        .isEqualTo(
+            ImmutableList.of(
+                Label.parseAbsolute("//foo:bar", false), Label.parseAbsolute("//bar:foo", false)));
+
+    Attribute dictAttr =
+        buildAttribute("a3", "attr.label_keyed_string_dict(default = {'//foo:bar': 'my value'})");
+    assertThat(dictAttr.getDefaultValueForTesting())
+        .isEqualTo(ImmutableMap.of(Label.parseAbsolute("//foo:bar", false), "my value"));
+  }
+
+  @Test
+  public void testLabelAttrDefaultValueAsStringBadValue() throws Exception {
+    checkErrorContains(
+        "invalid label '/foo:bar' in parameter 'default' of attribute 'label': "
+            + "invalid label: /foo:bar",
+        "attr.label(default = '/foo:bar')");
+
+    checkErrorContains(
+        "invalid label '/bar:foo' in element 1 of parameter 'default' of attribute "
+            + "'label_list': invalid label: /bar:foo",
+        "attr.label_list(default = ['//foo:bar', '/bar:foo'])");
+
+    checkErrorContains(
+        "invalid label '/bar:foo' in dict key element: invalid label: /bar:foo",
+        "attr.label_keyed_string_dict(default = {'//foo:bar': 'a', '/bar:foo': 'b'})");
+  }
+
+  @Test
   public void testAttrDefaultValueBadType() throws Exception {
     checkErrorContains(
-        "method attr.string(*, default: string, mandatory: bool, values: sequence of strings) "
-            + "is not applicable for arguments (int, bool, list): 'default' is 'int', "
-            + "but should be 'string'",
+        "argument 'default' has type 'int', but should be 'string'\n"
+            + "in call to builtin function attr.string(*, default, mandatory, values)",
         "attr.string(default = 1)");
   }
 
@@ -523,9 +568,8 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testLateBoundAttrWorksWithOnlyLabel() throws Exception {
     checkEvalError(
-        "method attr.string(*, default: string, mandatory: bool, values: sequence of strings) "
-            + "is not applicable for arguments (function, bool, list): 'default' is 'function', "
-            + "but should be 'string'",
+        "argument 'default' has type 'function', but should be 'string'\n"
+            + "in call to builtin function attr.string(*, default, mandatory, values)",
         "def attr_value(cfg): return 'a'",
         "attr.string(default=attr_value)");
   }
@@ -819,9 +863,9 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testLabelAttrWrongDefault() throws Exception {
     checkErrorContains(
-        "expected Label or Label-returning function or NoneType for 'default' "
-            + "while calling label but got string instead: //foo:bar",
-        "attr.label(default = '//foo:bar')");
+        "expected value of type 'string' for parameter 'default' of attribute 'label', "
+            + "but got 123 (int)",
+        "attr.label(default = 123)");
   }
 
   @Test
@@ -1382,13 +1426,11 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testRuleAddToolchain() throws Exception {
+    scratch.file("test/BUILD", "toolchain_type(name = 'my_toolchain_type')");
     evalAndExport(
-        "my_toolchain_type = platform_common.toolchain_type()",
-        "def impl(ctx): return None",
-        "r1 = rule(impl, toolchains=[my_toolchain_type])");
-    ToolchainConstructor toolchain = (ToolchainConstructor) lookup("my_toolchain_type");
+        "def impl(ctx): return None", "r1 = rule(impl, toolchains=['//test:my_toolchain_type'])");
     RuleClass c = ((RuleFunction) lookup("r1")).getRuleClass();
-    assertThat(c.getRequiredToolchains()).containsExactly(toolchain.getKey());
+    assertThat(c.getRequiredToolchains()).containsExactly(makeLabel("//test:my_toolchain_type"));
   }
 
   @Test

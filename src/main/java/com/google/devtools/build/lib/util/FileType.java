@@ -14,18 +14,15 @@
 
 package com.google.devtools.build.lib.util;
 
-import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -130,14 +127,6 @@ public abstract class FileType implements Predicate<String> {
     String getFilename();
   }
 
-  public static final Function<HasFilename, String> TO_FILENAME =
-      new Function<HasFilename, String>() {
-        @Override
-        public String apply(HasFilename input) {
-          return input.getFilename();
-        }
-      };
-
   /**
    * Checks whether an Iterable<? extends HasFileType> contains any of the specified file types.
    *
@@ -167,32 +156,17 @@ public abstract class FileType implements Predicate<String> {
 
   private static <T extends HasFilename> Predicate<T> typeMatchingPredicateFor(
       final FileType matchingType) {
-    return new Predicate<T>() {
-      @Override
-      public boolean apply(T item) {
-        return matchingType.matches(item.getFilename());
-      }
-    };
+    return item -> matchingType.matches(item.getFilename());
   }
 
   private static <T extends HasFilename> Predicate<T> typeMatchingPredicateFor(
       final FileTypeSet matchingTypes) {
-    return new Predicate<T>() {
-      @Override
-      public boolean apply(T item) {
-        return matchingTypes.matches(item.getFilename());
-      }
-    };
+    return item -> matchingTypes.matches(item.getFilename());
   }
 
   private static <T extends HasFilename> Predicate<T> typeMatchingPredicateFrom(
       final Predicate<String> fileTypePredicate) {
-    return new Predicate<T>() {
-      @Override
-      public boolean apply(T item) {
-        return fileTypePredicate.apply(item.getFilename());
-      }
-    };
+    return item -> fileTypePredicate.apply(item.getFilename());
   }
 
   /**

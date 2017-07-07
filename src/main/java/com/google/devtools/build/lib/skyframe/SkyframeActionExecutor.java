@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit.ActionCachedContext;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.TargetOutOfDateException;
+import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
@@ -1100,21 +1101,11 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     }
 
     @Override
-    public byte[] getDigest(ActionInput actionInput) throws IOException {
-      byte[] digest = perActionCache.getDigest(actionInput);
-      return digest != null ? digest : perBuildFileCache.getDigest(actionInput);
-    }
-
-    @Override
-    public boolean isFile(Artifact input) {
-      // PerActionCache must have a value for all artifacts.
-      return perActionCache.isFile(input);
-    }
-
-    @Override
-    public long getSizeInBytes(ActionInput actionInput) throws IOException {
-      long size = perActionCache.getSizeInBytes(actionInput);
-      return size > -1 ? size : perBuildFileCache.getSizeInBytes(actionInput);
+    public Metadata getMetadata(ActionInput input) throws IOException {
+      Metadata metadata = perActionCache.getMetadata(input);
+      return (metadata != null) && (metadata != FileArtifactValue.MISSING_FILE_MARKER)
+          ? metadata
+          : perBuildFileCache.getMetadata(input);
     }
 
     @Override

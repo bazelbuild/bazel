@@ -10,7 +10,3 @@ targets:
   //src:bazel
   //src/tools/remote_worker
   //src/test/...
-
-# TODO: Remove this once Bazel can use Java 8.
-java_language_level: 7
-

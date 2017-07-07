@@ -62,7 +62,7 @@ public final class SingleJarActionBuilder {
       builder
           .addTransitiveInputs(JavaHelper.getHostJavabaseInputs(ruleContext))
           .setJarExecutable(
-              ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable(),
+              JavaCommon.getHostJavaExecutable(ruleContext),
               singleJar,
               JavaToolchainProvider.fromRuleContext(ruleContext).getJvmOptions())
           .setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED);

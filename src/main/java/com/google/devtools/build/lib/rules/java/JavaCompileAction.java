@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
@@ -193,8 +194,8 @@ public final class JavaCompileAction extends SpawnAction {
         LOCAL_RESOURCES,
         commandLine,
         false,
-        ImmutableMap.copyOf(UTF8_ENVIRONMENT),
-        ImmutableSet.copyOf(ImmutableSet.<String>of()),
+        // TODO(#3320): This is missing the configuration's action environment!
+        new ActionEnvironment(UTF8_ENVIRONMENT),
         ImmutableMap.copyOf(executionInfo),
         progressMessage,
         EmptyRunfilesSupplier.INSTANCE,

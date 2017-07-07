@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.devtools.build.lib.syntax.SkylarkType.castMap;
 import static java.util.Collections.singleton;
+import static java.util.stream.Collectors.toCollection;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -319,26 +319,18 @@ public abstract class ImplicitOutputsFunction {
     } else if (BuildType.LABEL_LIST == attrType) {
       // Labels are most often used to change the extension,
       // e.g. %.foo -> %.java, so we return the basename w/o extension.
-      return Sets.newLinkedHashSet(
-          Iterables.transform(rule.get(attrName, BuildType.LABEL_LIST),
-              new Function<Label, String>() {
-                @Override
-                public String apply(Label label) {
-                  return FileSystemUtils.removeExtension(label.getName());
-                }
-              }));
+      return rule.get(attrName, BuildType.LABEL_LIST)
+          .stream()
+          .map(label -> FileSystemUtils.removeExtension(label.getName()))
+          .collect(toCollection(LinkedHashSet::new));
     } else if (BuildType.OUTPUT == attrType) {
       Label out = rule.get(attrName, BuildType.OUTPUT);
       return singleton(out.getName());
     } else if (BuildType.OUTPUT_LIST == attrType) {
-      return Sets.newLinkedHashSet(
-          Iterables.transform(rule.get(attrName, BuildType.OUTPUT_LIST),
-              new Function<Label, String>() {
-                @Override
-                public String apply(Label label) {
-                  return label.getName();
-                }
-              }));
+      return rule.get(attrName, BuildType.OUTPUT_LIST)
+          .stream()
+          .map(Label::getName)
+          .collect(toCollection(LinkedHashSet::new));
     }
     throw new IllegalArgumentException(
         "Don't know how to handle " + attrName + " : " + attrType);

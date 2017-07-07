@@ -582,7 +582,7 @@ public class AspectTest extends AnalysisTestCase {
     scratch.file(
         "x/extension.bzl",
         "def _aspect_impl(target, ctx):",
-        "  ctx.empty_action(mnemonic='Mnemonic')",
+        "  ctx.actions.do_nothing(mnemonic='Mnemonic')",
         "  return struct()",
         "aspect1 = aspect(_aspect_impl, attr_aspects=['deps'])",
         "aspect2 = aspect(_aspect_impl, attr_aspects=['extra_deps'])",
@@ -647,7 +647,7 @@ public class AspectTest extends AnalysisTestCase {
     scratch.file(
         "x/extension.bzl",
         "def _aspect_impl(target, ctx):",
-        "  ctx.empty_action(mnemonic='Mnemonic')",
+        "  ctx.actions.do_nothing(mnemonic='Mnemonic')",
         "  return struct()",
         "aspect1 = aspect(_aspect_impl, attr_aspects=['deps'], attrs =",
         "    {'param': attr.string(values = ['a', 'b'])})",

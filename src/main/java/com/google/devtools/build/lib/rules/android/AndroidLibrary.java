@@ -91,24 +91,19 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     if (definesLocalResources) {
       ApplicationManifest applicationManifest = androidSemantics.getManifestForRule(ruleContext)
           .renamePackage(ruleContext, AndroidCommon.getJavaPackage(ruleContext));
-      resourceApk = applicationManifest.packWithDataAndResources(
-          null, /* resourceApk -- not needed for library */
-          ruleContext,
-          true, /* isLibrary */
-          ResourceDependencies.fromRuleDeps(ruleContext, JavaCommon.isNeverLink(ruleContext)),
-          ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
-          ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_MERGED_SYMBOLS),
-          ResourceFilter.empty(ruleContext),
-          ImmutableList.<String>of(), /* uncompressedExtensions */
-          false, /* crunchPng */
-          false, /* incremental */
-          null, /* proguardCfgOut */
-          null, /* mainDexProguardCfg */
-          ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST),
-          ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP),
-          DataBinding.isEnabled(ruleContext) ? DataBinding.getLayoutInfoFile(ruleContext) : null,
-          null, /* featureOf */
-          null /* featureAfter */);
+      resourceApk =
+          applicationManifest.packLibraryWithDataAndResources(
+              ruleContext,
+              null /* resourceApk, optional */,
+              ResourceDependencies.fromRuleDeps(ruleContext, JavaCommon.isNeverLink(ruleContext)),
+              ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
+              ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_MERGED_SYMBOLS),
+              ResourceFilter.empty(ruleContext),
+              ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST),
+              ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP),
+              DataBinding.isEnabled(ruleContext)
+                  ? DataBinding.getLayoutInfoFile(ruleContext)
+                  : null);
       if (ruleContext.hasErrors()) {
         return null;
       }
@@ -205,7 +200,6 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
         null,
         ImmutableList.<Artifact>of(),
         NativeLibs.EMPTY);
-    androidSemantics.addTransitiveInfoProviders(builder, ruleContext, javaCommon, androidCommon);
 
     NestedSetBuilder<Artifact> transitiveResourcesJars = collectTransitiveResourceJars(ruleContext);
     if (androidCommon.getResourceClassJar() != null) {

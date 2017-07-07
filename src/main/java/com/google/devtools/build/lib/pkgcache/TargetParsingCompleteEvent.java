@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -78,12 +77,7 @@ public class TargetParsingCompleteEvent implements BuildEvent {
   }
 
   public Iterable<Label> getLabels() {
-    return Iterables.transform(targets, new Function<Target, Label>() {
-      @Override
-      public Label apply(Target input) {
-        return input.getLabel();
-      }
-    });
+    return Iterables.transform(targets, Target::getLabel);
   }
 
   /**

@@ -45,9 +45,9 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
-import com.google.devtools.build.lib.rules.apple.Platform;
-import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
 import com.google.devtools.build.lib.rules.objc.WatchUtils.WatchOSVersion;
 import com.google.devtools.build.lib.syntax.Type;
@@ -174,9 +174,9 @@ final class WatchApplicationSupport {
    * {@code TargetDeviceFamily.WATCH}.
    */
   private ImmutableSet<TargetDeviceFamily> families() {
-    Platform platform =
+    ApplePlatform platform =
         ruleContext.getFragment(AppleConfiguration.class).getMultiArchPlatform(PlatformType.IOS);
-    if (watchOSVersion != WatchOSVersion.OS1 || platform == Platform.IOS_DEVICE) {
+    if (watchOSVersion != WatchOSVersion.OS1 || platform == ApplePlatform.IOS_DEVICE) {
       return ImmutableSet.of(TargetDeviceFamily.WATCH);
     } else {
       return ImmutableSet.of(TargetDeviceFamily.IPHONE, TargetDeviceFamily.WATCH);

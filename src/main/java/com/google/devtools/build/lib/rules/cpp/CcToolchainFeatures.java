@@ -18,7 +18,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -361,7 +360,6 @@ public class CcToolchainFeatures implements Serializable {
   @Immutable
   private static class FlagGroup implements Serializable, Expandable {
     private final ImmutableList<Expandable> expandables;
-    private final ImmutableSet<String> usedVariables;
     private String iterateOverVariable;
     private final ImmutableSet<String> expandIfAllAvailable;
     private final ImmutableSet<String> expandIfNoneAvailable;
@@ -369,15 +367,8 @@ public class CcToolchainFeatures implements Serializable {
     private final String expandIfFalse;
     private final VariableWithValue expandIfEqual;
 
-    /**
-     * TODO(b/32655571): Cleanup and get rid of usedVariables field once implicit iteration is not
-     * needed.
-     *
-     * @throws InvalidConfigurationException
-     */
     private FlagGroup(CToolchain.FlagGroup flagGroup) throws InvalidConfigurationException {
       ImmutableList.Builder<Expandable> expandables = ImmutableList.builder();
-      ImmutableSet.Builder<String> usedVariables = ImmutableSet.builder();
       Collection<String> flags = flagGroup.getFlagList();
       Collection<CToolchain.FlagGroup> groups = flagGroup.getFlagGroupList();
       if (!flags.isEmpty() && !groups.isEmpty()) {
@@ -389,18 +380,14 @@ public class CcToolchainFeatures implements Serializable {
       for (String flag : flags) {
         StringValueParser parser = new StringValueParser(flag);
         expandables.add(new Flag(parser.getChunks()));
-        usedVariables.addAll(parser.getUsedVariables());
       }
       for (CToolchain.FlagGroup group : groups) {
         FlagGroup subgroup = new FlagGroup(group);
         expandables.add(subgroup);
-        usedVariables.addAll(subgroup.getUsedVariables());
       }
       if (flagGroup.hasIterateOver()) {
         this.iterateOverVariable = flagGroup.getIterateOver();
-        usedVariables.add(this.iterateOverVariable);
       }
-      this.usedVariables = usedVariables.build();
       this.expandables = expandables.build();
       this.expandIfAllAvailable = ImmutableSet.copyOf(flagGroup.getExpandIfAllAvailableList());
       this.expandIfNoneAvailable = ImmutableSet.copyOf(flagGroup.getExpandIfNoneAvailableList());
@@ -419,10 +406,6 @@ public class CcToolchainFeatures implements Serializable {
     public void expand(Variables variables, final List<String> commandLine) {
       if (!canBeExpanded(variables)) {
         return;
-      }
-      if (iterateOverVariable == null) {
-        // TODO(b/32655571): Remove branch once implicit iteration is not needed anymore.
-        iterateOverVariable = variables.guessIteratedOverVariable(usedVariables);
       }
       if (iterateOverVariable != null) {
         for (VariableValue variableValue : variables.getSequenceVariable(iterateOverVariable)) {
@@ -468,10 +451,6 @@ public class CcToolchainFeatures implements Serializable {
         return false;
       }
       return true;
-    }
-
-    private Set<String> getUsedVariables() {
-      return usedVariables;
     }
 
     /**
@@ -762,14 +741,9 @@ public class CcToolchainFeatures implements Serializable {
       Optional<CToolchain.Tool> tool =
           Iterables.tryFind(
               tools,
-              new Predicate<CToolchain.Tool>() {
-                // We select the first listed tool for which all specified features are activated
-                // in this configuration
-                @Override
-                public boolean apply(CToolchain.Tool input) {
-                  Collection<String> featureNamesForTool = input.getWithFeature().getFeatureList();
-                  return enabledFeatureNames.containsAll(featureNamesForTool);
-                }
+              input -> {
+                Collection<String> featureNamesForTool = input.getWithFeature().getFeatureList();
+                return enabledFeatureNames.containsAll(featureNamesForTool);
               });
       if (tool.isPresent()) {
         return new Tool(tool.get());
@@ -875,9 +849,6 @@ public class CcToolchainFeatures implements Serializable {
        * @param variableName name of the variable value at hand, for better exception message.
        */
       Iterable<? extends VariableValue> getSequenceValue(String variableName);
-
-      // TODO(b/32655571): Remove once implicit iteration is not needed
-      boolean isSequence();
 
       /**
        * Return value of the field, if the variable is of struct type or throw exception if it is
@@ -1090,11 +1061,6 @@ public class CcToolchainFeatures implements Serializable {
       }
 
       @Override
-      public boolean isSequence() {
-        return false;
-      }
-
-      @Override
       public VariableValue getFieldValue(String variableName, String field) {
         Preconditions.checkNotNull(field);
         if (NAME_FIELD_NAME.equals(field) && !type.equals(Type.OBJECT_FILE_GROUP)) {
@@ -1149,11 +1115,6 @@ public class CcToolchainFeatures implements Serializable {
       }
 
       @Override
-      public boolean isSequence() {
-        return true;
-      }
-
-      @Override
       public VariableValue getFieldValue(String variableName, String field) {
         throw new ExpansionException(
             String.format(
@@ -1202,11 +1163,6 @@ public class CcToolchainFeatures implements Serializable {
       }
 
       @Override
-      public boolean isSequence() {
-        return true;
-      }
-
-      @Override
       public VariableValue getFieldValue(String variableName, String field) {
         throw new ExpansionException(
             String.format(
@@ -1243,11 +1199,6 @@ public class CcToolchainFeatures implements Serializable {
       @Override
       public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
         return values;
-      }
-
-      @Override
-      public boolean isSequence() {
-        return true;
       }
 
       @Override
@@ -1315,11 +1266,6 @@ public class CcToolchainFeatures implements Serializable {
       }
 
       @Override
-      public boolean isSequence() {
-        return false;
-      }
-
-      @Override
       public boolean isTruthy() {
         return !value.isEmpty();
       }
@@ -1363,11 +1309,6 @@ public class CcToolchainFeatures implements Serializable {
       }
 
       @Override
-      public boolean isSequence() {
-        return false;
-      }
-
-      @Override
       public boolean isTruthy() {
         return !value.isEmpty();
       }
@@ -1408,11 +1349,6 @@ public class CcToolchainFeatures implements Serializable {
                 "Invalid toolchain configuration: Cannot expand variable '%s.%s': variable '%s' is "
                     + "integer, expected structure",
                 variableName, field, variableName));
-      }
-
-      @Override
-      public boolean isSequence() {
-        return false;
       }
 
       @Override
@@ -1689,27 +1625,6 @@ public class CcToolchainFeatures implements Serializable {
 
     public Iterable<? extends VariableValue> getSequenceVariable(String variableName) {
       return getVariable(variableName).getSequenceValue(variableName);
-    }
-
-    private String guessIteratedOverVariable(ImmutableSet<String> usedVariables) {
-      String sequenceName = null;
-      for (String usedVariable : usedVariables) {
-        VariableValue variableValue = lookupVariable(usedVariable, false);
-        if (variableValue != null && variableValue.isSequence()) {
-          if (sequenceName != null) {
-            throw new ExpansionException(
-                "Invalid toolchain configuration: trying to expand two variable list in one "
-                    + "flag group: '"
-                    + sequenceName
-                    + "' and '"
-                    + usedVariable
-                    + "'");
-          } else {
-            sequenceName = usedVariable;
-          }
-        }
-      }
-      return sequenceName;
     }
 
     /** Returns whether {@code variable} is set. */

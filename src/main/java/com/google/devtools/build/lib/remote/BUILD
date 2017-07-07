@@ -4,7 +4,7 @@ package(
 
 java_library(
     name = "remote",
-    srcs = glob(["*.java"]),
+    srcs = glob(["**/*.java"]),
     tags = ["bazel"],
     runtime_deps = [
         # This is required for client TLS.

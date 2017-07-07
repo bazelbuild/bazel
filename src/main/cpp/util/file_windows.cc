@@ -24,8 +24,8 @@
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/strings.h"
-#include "src/main/native/windows_file_operations.h"
-#include "src/main/native/windows_util.h"
+#include "src/main/native/windows/file.h"
+#include "src/main/native/windows/util.h"
 
 namespace blaze_util {
 
@@ -34,7 +34,10 @@ using std::pair;
 using std::string;
 using std::unique_ptr;
 using std::wstring;
-using windows_util::HasUncPrefix;
+using bazel::windows::AutoHandle;
+using bazel::windows::GetLongPath;
+using bazel::windows::HasUncPrefix;
+using bazel::windows::OpenDirectory;
 
 // Returns the current working directory as a Windows path.
 // The result may have a UNC prefix.
@@ -108,7 +111,7 @@ static void AddUncPrefixMaybe(wstring* path, size_t max_path = MAX_PATH) {
 }
 
 static const wchar_t* RemoveUncPrefixMaybe(const wchar_t* ptr) {
-  return ptr + (windows_util::HasUncPrefix(ptr) ? 4 : 0);
+  return ptr + (HasUncPrefix(ptr) ? 4 : 0);
 }
 
 class WindowsPipe : public IPipe {
@@ -135,8 +138,8 @@ class WindowsPipe : public IPipe {
   }
 
  private:
-  windows_util::AutoHandle _read_handle;
-  windows_util::AutoHandle _write_handle;
+  AutoHandle _read_handle;
+  AutoHandle _write_handle;
 };
 
 IPipe* CreatePipe() {
@@ -184,13 +187,14 @@ bool WindowsFileMtime::GetIfInDistantFuture(const string& path, bool* result) {
     return false;
   }
 
-  windows_util::AutoHandle handle(::CreateFileW(
+  AutoHandle handle(::CreateFileW(
       /* lpFileName */ wpath.c_str(),
       /* dwDesiredAccess */ GENERIC_READ,
       /* dwShareMode */ FILE_SHARE_READ,
       /* lpSecurityAttributes */ NULL,
       /* dwCreationDisposition */ OPEN_EXISTING,
-      /* dwFlagsAndAttributes */ IsDirectoryW(wpath)
+      /* dwFlagsAndAttributes */
+      IsDirectoryW(wpath)
           ? (FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS)
           : FILE_ATTRIBUTE_NORMAL,
       /* hTemplateFile */ NULL));
@@ -233,13 +237,14 @@ bool WindowsFileMtime::Set(const string& path, const FILETIME& time) {
     return false;
   }
 
-  windows_util::AutoHandle handle(::CreateFileW(
+  AutoHandle handle(::CreateFileW(
       /* lpFileName */ wpath.c_str(),
       /* dwDesiredAccess */ FILE_WRITE_ATTRIBUTES,
       /* dwShareMode */ FILE_SHARE_READ,
       /* lpSecurityAttributes */ NULL,
       /* dwCreationDisposition */ OPEN_EXISTING,
-      /* dwFlagsAndAttributes */ IsDirectoryW(wpath)
+      /* dwFlagsAndAttributes */
+      IsDirectoryW(wpath)
           ? (FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS)
           : FILE_ATTRIBUTE_NORMAL,
       /* hTemplateFile */ NULL));
@@ -611,7 +616,7 @@ bool ReadFile(const string& filename, string* content, int max_size) {
     return false;
   }
 
-  windows_util::AutoHandle autohandle(handle);
+  AutoHandle autohandle(handle);
   if (!autohandle.IsValid()) {
     return false;
   }
@@ -629,7 +634,7 @@ bool ReadFile(const string& filename, void* data, size_t size) {
     return false;
   }
 
-  windows_util::AutoHandle autohandle(handle);
+  AutoHandle autohandle(handle);
   if (!autohandle.IsValid()) {
     return false;
   }
@@ -647,7 +652,7 @@ bool WriteFile(const void* data, size_t size, const string& filename,
   }
 
   UnlinkPathW(wpath);  // We don't care about the success of this.
-  windows_util::AutoHandle handle(::CreateFileW(
+  AutoHandle handle(::CreateFileW(
       /* lpFileName */ wpath.c_str(),
       /* dwDesiredAccess */ GENERIC_WRITE,
       /* dwShareMode */ FILE_SHARE_READ,
@@ -827,8 +832,7 @@ bool JunctionResolver::Resolve(const WCHAR* path, unique_ptr<WCHAR[]>* result,
         return false;
       }
       // Get a handle to the directory.
-      windows_util::AutoHandle handle(
-          windows_util::OpenDirectory(path, /* read_write */ false));
+      AutoHandle handle(OpenDirectory(path, /* read_write */ false));
       if (!handle.IsValid()) {
         // Opening the junction failed for whatever reason. For all intents and
         // purposes we can treat this file as if it didn't exist.
@@ -950,7 +954,7 @@ string MakeCanonical(const char* path) {
     builder << *segment;
   }
   wstring realpath(builder.str());
-  if (windows_util::HasUncPrefix(realpath.c_str())) {
+  if (HasUncPrefix(realpath.c_str())) {
     // `realpath` has an UNC prefix if `path` did, or if `path` contained
     // junctions.
     // In the first case, the UNC prefix is the usual "\\?\", but in the second
@@ -966,13 +970,13 @@ string MakeCanonical(const char* path) {
   // Resolve all 8dot3 style segments of the path, if any. The input path may
   // have had some. Junctions may also refer to 8dot3 names.
   unique_ptr<WCHAR[]> long_realpath;
-  if (!windows_util::GetLongPath(realpath.c_str(), &long_realpath)) {
+  if (!GetLongPath(realpath.c_str(), &long_realpath)) {
     return "";
   }
 
   // Convert the path to lower-case.
-  size_t size = wcslen(long_realpath.get()) -
-                (windows_util::HasUncPrefix(long_realpath.get()) ? 4 : 0);
+  size_t size =
+      wcslen(long_realpath.get()) - (HasUncPrefix(long_realpath.get()) ? 4 : 0);
   unique_ptr<WCHAR[]> lcase_realpath(new WCHAR[size + 1]);
   const WCHAR* p_from = RemoveUncPrefixMaybe(long_realpath.get());
   WCHAR* p_to = lcase_realpath.get();
@@ -992,7 +996,7 @@ static bool CanReadFileW(const wstring& path) {
   }
   // The only easy way to find out if a file is readable is to attempt to open
   // it for reading.
-  windows_util::AutoHandle handle(::CreateFileW(
+  AutoHandle handle(::CreateFileW(
       /* lpFileName */ path.c_str(),
       /* dwDesiredAccess */ GENERIC_READ,
       /* dwShareMode */ FILE_SHARE_READ,
@@ -1188,7 +1192,7 @@ void ForEachDirectoryEntry(const string &path,
   static const wstring kDot(L".");
   static const wstring kDotDot(L"..");
   // Always add an UNC prefix to ensure we can work with long paths.
-  if (!windows_util::HasUncPrefix(wpath.c_str())) {
+  if (!HasUncPrefix(wpath.c_str())) {
     wpath = kUncPrefix + wpath;
   }
   // Unconditionally add a trailing backslash. We know `wpath` has no trailing

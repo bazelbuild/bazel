@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -90,13 +89,7 @@ public final class CcLinkParams {
   }
 
   public ImmutableList<String> flattenedLinkopts() {
-    return ImmutableList.copyOf(Iterables.concat(Iterables.transform(linkOpts,
-        new Function<LinkOptions, ImmutableList<String>>() {
-          @Override
-          public ImmutableList<String> apply(LinkOptions linkOptions) {
-            return linkOptions.get();
-          }
-        })));
+    return ImmutableList.copyOf(Iterables.concat(Iterables.transform(linkOpts, LinkOptions::get)));
   }
 
   /**

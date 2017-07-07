@@ -252,7 +252,8 @@ public final class Lexer {
       } else if (c == '\r') {
         pos++;
       } else if (c == '\t') {
-        indentLen += 8 - indentLen % 8;
+        error("Tabulations are not allowed for identation. Use spaces instead.");
+        indentLen++;
         pos++;
       } else if (c == '\n') { // entirely blank line: discard
         indentLen = 0;
@@ -527,6 +528,7 @@ public final class Lexer {
     keywordMap.put("in", TokenKind.IN);
     keywordMap.put("is", TokenKind.IS);
     keywordMap.put("lambda", TokenKind.LAMBDA);
+    keywordMap.put("load", TokenKind.LOAD);
     keywordMap.put("nonlocal", TokenKind.NONLOCAL);
     keywordMap.put("not", TokenKind.NOT);
     keywordMap.put("or", TokenKind.OR);

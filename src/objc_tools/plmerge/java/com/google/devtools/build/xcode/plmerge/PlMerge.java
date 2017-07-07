@@ -17,11 +17,12 @@ package com.google.devtools.build.xcode.plmerge;
 import com.google.common.base.Strings;
 import com.google.devtools.build.xcode.plmerge.proto.PlMergeProtos.Control;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
-
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.FileSystem;
@@ -44,6 +45,8 @@ public class PlMerge {
     @Option(
       name = "control",
       help = "Absolute path of the Control protobuf.",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       defaultValue = "null"
     )
     public String controlPath;

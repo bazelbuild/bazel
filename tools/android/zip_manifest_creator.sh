@@ -27,20 +27,48 @@ REGEX="$1"
 INPUT_ZIP="$2"
 OUTPUT_MANIFEST="$3"
 
-RUNFILES=${RUNFILES:-$0.runfiles}
+RUNFILES="${RUNFILES:-$0.runfiles}"
+RUNFILES_MANIFEST_FILE="${RUNFILES_MANIFEST_FILE:-$RUNFILES/MANIFEST}"
 
-# For the sh_binary in BUILD.tools, zipper is here.
-ZIPPER=$RUNFILES/*/tools/zip/zipper/zipper
-if [ ! -x $ZIPPER ]; then
-  # For the sh_test in BUILD.oss, zipper is here.
-  ZIPPER=$RUNFILES/third_party/ijar/zipper
+IS_WINDOWS=false
+case "$(uname | tr [:upper:] [:lower:])" in
+msys*|mingw*|cygwin*)
+  IS_WINDOWS=true
+esac
+
+# For @bazel_tools//tools/android:zip_manifest_creator in BUILD.tools, zipper is here:
+#   Windows (in MANIFEST):  <repository_name>/tools/zip/zipper/zipper.exe
+#   Linux/MacOS (symlink):  ${RUNFILES}/<repository_name>/tools/zip/zipper/zipper
+if "$IS_WINDOWS"; then
+  ZIPPER="$(rlocation "[^/]*/tools/zip/zipper/zipper.exe")"
+else
+  ZIPPER="$(find "$RUNFILES" -path "*/tools/zip/zipper/zipper")"
 fi
-if [ ! -x $ZIPPER ]; then
-  echo "zip_manifest_creator could not find zipper executable"
+if [ ! -x "$ZIPPER" ]; then
+  # For //tools/android:zip_manifest_creator_test, zipper is here:
+  #   Windows (in MANIFEST):  <workspace_name>/third_party/ijar/zipper.exe
+  #   Linux/MacOS (symlink):  ${RUNFILES}/<workspace_name>/third_party/ijar/zipper
+  if "$IS_WINDOWS"; then
+    ZIPPER="$(rlocation "[^/]*/third_party/ijar/zipper.exe")"
+  else
+    ZIPPER="$(find "${RUNFILES}" -path "*/third_party/ijar/zipper")"
+  fi
+fi
+if [ ! -x "$ZIPPER" ]; then
+  echo >&2 "ERROR: $(basename $0): could not find zipper executable. Additional info:"
+  echo >&2 "  \$0=($0)"
+  echo >&2 "  \$RUNFILES=($RUNFILES)"
+  echo >&2 "  \$RUNFILES_MANIFEST_FILE=($RUNFILES_MANIFEST_FILE)"
+  echo >&2 "  \$IS_WINDOWS=($IS_WINDOWS)"
+  if "$IS_WINDOWS"; then
+    echo >&2 "  grep=($(grep zipper "$RUNFILES_MANIFEST_FILE"))"
+  else
+    echo >&2 "  find=($(find "$RUNFILES" -name "zipper"))"
+  fi
   exit 1
 fi
 
-$ZIPPER v "$INPUT_ZIP" \
+"$ZIPPER" v "$INPUT_ZIP" \
   | cut -d ' ' -f3 \
   | grep -v \/$ \
   | grep -x "$REGEX" \

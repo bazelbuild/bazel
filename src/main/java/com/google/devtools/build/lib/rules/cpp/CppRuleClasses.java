@@ -30,8 +30,10 @@ import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.PIC_OBJECT_FI
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.SHARED_LIBRARY;
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.VERSIONED_SHARED_LIBRARY;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.LanguageDependentFragment.LibraryLanguage;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
@@ -40,7 +42,9 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionFactory;
+import com.google.devtools.build.lib.rules.cpp.transitions.DisableLipoTransition;
 import com.google.devtools.build.lib.rules.cpp.transitions.EnableLipoTransition;
+import com.google.devtools.build.lib.rules.cpp.transitions.LipoContextCollectorTransition;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
@@ -85,6 +89,19 @@ public class CppRuleClasses {
       return true;
     }
   }
+
+  /**
+   * Declares the implementations for C++ transition enums.
+   *
+   * <p>New transitions should extend {@link PatchTransition}, which avoids the need for this map.
+   */
+  public static final ImmutableMap<Transition, Transition> DYNAMIC_TRANSITIONS_MAP =
+      ImmutableMap.of(
+          Attribute.ConfigurationTransition.DATA, DisableLipoTransition.INSTANCE,
+          LipoTransition.LIPO_COLLECTOR, LipoContextCollectorTransition.INSTANCE
+          // TARGET_CONFIG_FOR_LIPO has no entry because only static configurations use it.
+      );
+
 
   /**
    * Rule transition factory that enables LIPO on the LIPO context binary (i.e. applies a DATA ->
@@ -329,6 +346,12 @@ public class CppRuleClasses {
    * A string constant for the coverage feature.
    */
   public static final String COVERAGE = "coverage";
+
+  /** Produce artifacts for coverage in llvm coverage mapping format. */
+  public static final String LLVM_COVERAGE_MAP_FORMAT = "llvm_coverage_map_format";
+
+  /** Produce artifacts for coverage in gcc coverage mapping format. */
+  public static final String GCC_COVERAGE_MAP_FORMAT = "gcc_coverage_map_format";
 
   /** A string constant for the match-clif feature. */
   public static final String MATCH_CLIF = "match_clif";

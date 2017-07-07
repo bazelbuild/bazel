@@ -25,8 +25,10 @@ import static com.google.devtools.build.android.ziputils.LocalFileHeader.LOCFLG;
 import static com.google.devtools.build.android.ziputils.LocalFileHeader.LOCTIM;
 
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -114,19 +116,27 @@ public class DexReducer implements EntryHandler {
    * Commandline options.
    */
   public static class Options extends OptionsBase {
-    @Option(name = "input_zip",
-        defaultValue = "null",
-        category = "input",
-        allowMultiple = true,
-        abbrev = 'i',
-        help = "Input zip file containing entries to collect and enumerate.")
+    @Option(
+      name = "input_zip",
+      defaultValue = "null",
+      category = "input",
+      allowMultiple = true,
+      abbrev = 'i',
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Input zip file containing entries to collect and enumerate."
+    )
     public List<String> inputZips;
 
-    @Option(name = "output_zip",
-        defaultValue = "null",
-        category = "output",
-        abbrev = 'o',
-        help = "Output zip file, containing enumerated entries.")
+    @Option(
+      name = "output_zip",
+      defaultValue = "null",
+      category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      abbrev = 'o',
+      help = "Output zip file, containing enumerated entries."
+    )
     public String outputZip;
   }
 }

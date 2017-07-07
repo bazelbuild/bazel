@@ -37,11 +37,14 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/rules/genquery:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/genrule:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/objc:srcs",
+        "//src/main/java/com/google/devtools/build/lib/analysis/featurecontrol:srcs",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/platform:srcs",
         "//src/main/java/com/google/devtools/build/lib/sandbox:srcs",
         "//src/main/java/com/google/devtools/build/lib/ssd:srcs",
         "//src/main/java/com/google/devtools/build/lib/standalone:srcs",
+        "//src/main/java/com/google/devtools/build/lib/windows/jni:srcs",
+        "//src/main/java/com/google/devtools/build/lib/windows/runfiles:srcs",
         "//src/main/java/com/google/devtools/build/lib/worker:srcs",
         "//src/main/java/com/google/devtools/build/skyframe:srcs",
         "//src/main/java/com/google/devtools/common/options:srcs",
@@ -102,6 +105,7 @@ java_library(
         ":preconditions",
         ":shell",
         ":vfs",
+        "//src/main/java/com/google/devtools/build/lib/windows/jni",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -258,6 +262,7 @@ java_library(
         ":os_util",
         ":unix",
         ":windows",
+        "//src/main/java/com/google/devtools/build/lib/windows/jni:processes",
     ],
 )
 
@@ -701,6 +706,7 @@ java_library(
         ":util",
         ":vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis/featurecontrol",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/query2:query-output",
         "//src/main/java/com/google/devtools/build/lib/rules/apple",
@@ -733,6 +739,7 @@ java_library(
         "bazel/rules/java/java_stub_template.txt",
         "bazel/rules/java/java_stub_template_windows.txt",
         "bazel/rules/python/stub_template.txt",
+        "bazel/rules/sh/sh_stub_template_windows.txt",
     ],
     deps = [
         ":bazel",
@@ -1056,7 +1063,9 @@ java_library(
     ),
     resources = [
         "rules/android/android_device_stub_template.txt",
+        "rules/android/android_instrumentation_test_template.txt",
         "rules/android/databinding_annotation_template.txt",
+        "rules/android/test_suite_property_name.txt",
     ],
     deps = [
         ":build-base",

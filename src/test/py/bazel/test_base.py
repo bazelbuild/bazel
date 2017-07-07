@@ -1,3 +1,4 @@
+# pylint: disable=g-bad-file-header
 # Copyright 2017 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,9 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import locale
 import os
 import subprocess
 import sys
+import tempfile
 import unittest
 
 
@@ -37,23 +40,21 @@ class EnvVarUndefinedError(Error):
 
 class TestBase(unittest.TestCase):
 
-  _stderr = None
-  _stdout = None
   _runfiles = None
   _temp = None
   _tests_root = None
+  _test_cwd = None
 
   def setUp(self):
     unittest.TestCase.setUp(self)
     if self._runfiles is None:
       self._runfiles = TestBase._LoadRunfiles()
-    test_tmpdir = TestBase.GetEnv('TEST_TMPDIR')
-    self._stdout = os.path.join(test_tmpdir, 'bazel.stdout')
-    self._stderr = os.path.join(test_tmpdir, 'bazel.stderr')
-    self._temp = os.path.join(test_tmpdir, 'tmp')
-    self._tests_root = os.path.join(test_tmpdir, 'tests_root')
-    os.mkdir(self._tests_root)
-    os.chdir(self._tests_root)
+    test_tmpdir = TestBase._CreateDirs(TestBase.GetEnv('TEST_TMPDIR'))
+    self._tests_root = TestBase._CreateDirs(
+        os.path.join(test_tmpdir, 'tests_root'))
+    self._temp = TestBase._CreateDirs(os.path.join(test_tmpdir, 'tmp'))
+    self._test_cwd = tempfile.mkdtemp(dir=self._tests_root)
+    os.chdir(self._test_cwd)
 
   def AssertExitCode(self, actual_exit_code, expected_exit_code, stderr_lines):
     """Assert that `actual_exit_code` == `expected_exit_code`."""
@@ -142,6 +143,8 @@ class TestBase(unittest.TestCase):
         e.g. "foo/bar/BUILD"
       lines: [string]; the contents of the file (newlines are added
         automatically)
+    Returns:
+      The absolute path of the scratch file.
     Raises:
       ArgumentError: if `path` is absolute or contains uplevel references
       IOError: if an I/O error occurs
@@ -157,38 +160,64 @@ class TestBase(unittest.TestCase):
         for l in lines:
           f.write(l)
           f.write('\n')
+    return abspath
 
-  def RunBazel(self, args, env_remove=None):
+  def RunBazel(self, args, env_remove=None, env_add=None):
     """Runs "bazel <args>", waits for it to exit.
 
     Args:
       args: [string]; flags to pass to bazel (e.g. ['--batch', 'build', '//x'])
       env_remove: set(string); optional; environment variables to NOT pass to
         Bazel
+      env_add: set(string); optional; environment variables to pass to
+        Bazel, won't be removed by env_remove.
     Returns:
       (int, [string], [string]) tuple: exit code, stdout lines, stderr lines
     """
-    with open(self._stdout, 'w') as stdout:
-      with open(self._stderr, 'w') as stderr:
+    return self.RunProgram([
+        self.Rlocation('io_bazel/src/bazel'),
+        '--bazelrc=/dev/null',
+        '--nomaster_bazelrc',
+    ] + args, env_remove, env_add)
+
+  def RunProgram(self, args, env_remove=None, env_add=None):
+    """Runs a program (args[0]), waits for it to exit.
+
+    Args:
+      args: [string]; the args to run; args[0] should be the program itself
+      env_remove: set(string); optional; environment variables to NOT pass to
+        the program
+      env_add: set(string); optional; environment variables to pass to
+        the program, won't be removed by env_remove.
+    Returns:
+      (int, [string], [string]) tuple: exit code, stdout lines, stderr lines
+    """
+    with tempfile.TemporaryFile(dir=self._test_cwd) as stdout:
+      with tempfile.TemporaryFile(dir=self._test_cwd) as stderr:
         proc = subprocess.Popen(
-            [
-                self.Rlocation('io_bazel/src/bazel'), '--bazelrc=/dev/null',
-                '--nomaster_bazelrc'
-            ] + args,
+            args,
             stdout=stdout,
             stderr=stderr,
-            cwd=self._tests_root,
-            env=self._BazelEnvMap(env_remove))
+            cwd=self._test_cwd,
+            env=self._EnvMap(env_remove, env_add))
         exit_code = proc.wait()
 
-    with open(self._stdout, 'r') as f:
-      stdout = [l.strip() for l in f.readlines()]
-    with open(self._stderr, 'r') as f:
-      stderr = [l.strip() for l in f.readlines()]
-    return exit_code, stdout, stderr
+        stdout.seek(0)
+        stdout_lines = [
+            l.decode(locale.getpreferredencoding()).strip()
+            for l in stdout.readlines()
+        ]
 
-  def _BazelEnvMap(self, env_remove=None):
-    """Returns the environment variable map to run Bazel."""
+        stderr.seek(0)
+        stderr_lines = [
+            l.decode(locale.getpreferredencoding()).strip()
+            for l in stderr.readlines()
+        ]
+
+        return exit_code, stdout_lines, stderr_lines
+
+  def _EnvMap(self, env_remove=None, env_add=None):
+    """Returns the environment variable map to run Bazel or other programs."""
     if TestBase.IsWindows():
       result = []
       if sys.version_info.major == 3:
@@ -215,6 +244,10 @@ class TestBase(unittest.TestCase):
           # TODO(pcloudy): Remove this after no longer need to debug
           # https://github.com/bazelbuild/bazel/issues/3273
           'CC_CONFIGURE_DEBUG': '1',
+          # TODO(pcloudy): Remove this hardcoded path after resolving
+          # https://github.com/bazelbuild/bazel/issues/3273
+          'BAZEL_VC':
+          'C:\\Program Files (x86)\\Microsoft Visual Studio 14.0\\VC',
       }
     else:
       env = {'HOME': os.path.join(self._temp, 'home')}
@@ -228,6 +261,9 @@ class TestBase(unittest.TestCase):
     if env_remove:
       for e in env_remove:
         del env[e]
+    if env_add:
+      for e in env_add:
+        env[e] = env_add[e]
     return env
 
   @staticmethod
@@ -253,3 +289,12 @@ class TestBase(unittest.TestCase):
         if len(tokens) == 2:
           result[tokens[0]] = tokens[1]
     return result
+
+  @staticmethod
+  def _CreateDirs(path):
+    if not os.path.exists(path):
+      os.makedirs(path)
+    elif not os.path.isdir(path):
+      os.remove(path)
+      os.makedirs(path)
+    return path

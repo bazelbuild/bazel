@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler.statistics;
 
-import com.google.common.base.Predicate;
 import com.google.common.collect.Iterators;
 import com.google.devtools.build.lib.profiler.ProfileInfo;
 import com.google.devtools.build.lib.profiler.ProfileInfo.AggregateAttr;
@@ -21,11 +20,9 @@ import com.google.devtools.build.lib.profiler.ProfileInfo.Task;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.EnumMap;
 import java.util.Iterator;
 import java.util.List;
-
 import javax.annotation.Nullable;
 
 /**
@@ -207,12 +204,7 @@ public final class PhaseStatistics implements Iterable<ProfilerTask> {
   public Iterator<ProfilerTask> iterator() {
     return Iterators.filter(
         taskCounts.keySet().iterator(),
-        new Predicate<ProfilerTask>() {
-          @Override
-          public boolean apply(ProfilerTask taskType) {
-            return getTotalDurationNanos(taskType) > 0 && wasExecuted(taskType);
-          }
-        });
+        taskType -> getTotalDurationNanos(taskType) > 0 && wasExecuted(taskType));
   }
 
   /**

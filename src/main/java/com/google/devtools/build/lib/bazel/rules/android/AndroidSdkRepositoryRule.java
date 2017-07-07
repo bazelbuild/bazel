@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.rules.repository.WorkspaceBaseRule;
 import com.google.devtools.build.lib.rules.repository.WorkspaceConfiguredTargetFactory;
 import java.util.Map;
-import javax.annotation.Nullable;
 
 /**
  * Definition of the {@code android_sdk_repository} rule.
@@ -38,21 +37,17 @@ public class AndroidSdkRepositoryRule implements RuleDefinition {
   public static final String NAME = "android_sdk_repository";
 
   private static final Function<? super Rule, Map<String, Label>> BINDINGS_FUNCTION =
-      new Function<Rule, Map<String, Label>>() {
-        @Nullable
-        @Override
-        public Map<String, Label> apply(Rule rule) {
-          String prefix = "@" + rule.getName() + "//:";
-          ImmutableMap.Builder<String, Label> builder = ImmutableMap.builder();
-          builder.put("android/sdk", Label.parseAbsoluteUnchecked(prefix + "sdk"));
-          builder.put(
-              "android/dx_jar_import", Label.parseAbsoluteUnchecked(prefix + "dx_jar_import"));
-          builder.put("android_sdk_for_testing", Label.parseAbsoluteUnchecked(prefix + "files"));
-          builder.put(
-              "has_androidsdk",
-              Label.parseAbsoluteUnchecked("@bazel_tools//tools/android:always_true"));
-          return builder.build();
-        }
+      rule -> {
+        String prefix = "@" + rule.getName() + "//:";
+        ImmutableMap.Builder<String, Label> builder = ImmutableMap.builder();
+        builder.put("android/sdk", Label.parseAbsoluteUnchecked(prefix + "sdk"));
+        builder.put(
+            "android/dx_jar_import", Label.parseAbsoluteUnchecked(prefix + "dx_jar_import"));
+        builder.put("android_sdk_for_testing", Label.parseAbsoluteUnchecked(prefix + "files"));
+        builder.put(
+            "has_androidsdk",
+            Label.parseAbsoluteUnchecked("@bazel_tools//tools/android:always_true"));
+        return builder.build();
       };
 
   @Override

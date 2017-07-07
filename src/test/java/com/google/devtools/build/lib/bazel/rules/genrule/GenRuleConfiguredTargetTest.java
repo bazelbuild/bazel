@@ -28,12 +28,10 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
-import com.google.devtools.build.lib.rules.java.Jvm;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -335,18 +333,13 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
     Artifact javaOutput = getFileConfiguredTarget("//foo:java.txt").getArtifact();
     Artifact javabaseOutput = getFileConfiguredTarget("//foo:javabase.txt").getArtifact();
 
-    String expectedPattern = "echo %s > %s";
+    String javaCommand =
+        ((SpawnAction) getGeneratingAction(javaOutput)).getArguments().get(2);
+    assertThat(javaCommand).containsMatch("jdk/bin/java(.exe)? >");
 
-    BuildConfiguration hostConfig = getHostConfiguration();
-    String expectedJava = hostConfig.getFragment(Jvm.class).getJavaExecutable().getPathString();
-    String expectedJavabase = hostConfig.getFragment(Jvm.class).getJavaHome().getPathString();
-
-    assertCommandEquals(
-        String.format(expectedPattern, expectedJava, javaOutput.getExecPathString()),
-        ((SpawnAction) getGeneratingAction(javaOutput)).getArguments().get(2));
-    assertCommandEquals(
-        String.format(expectedPattern, expectedJavabase, javabaseOutput.getExecPathString()),
-        ((SpawnAction) getGeneratingAction(javabaseOutput)).getArguments().get(2));
+    String javabaseCommand =
+        ((SpawnAction) getGeneratingAction(javabaseOutput)).getArguments().get(2);
+    assertThat(javabaseCommand).contains("jdk >");
   }
 
   // Returns the expansion of 'cmd' for the specified genrule.
@@ -472,7 +465,7 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
     boolean foundSetup = false;
     for (ConfiguredTarget prereq : prereqs) {
       String name = prereq.getLabel().getName();
-      if (name.startsWith("cc-") || name.startsWith("jdk-")) {
+      if (name.contains("cc-") || name.contains("jdk")) {
           // Ignore these, they are present due to the implied genrule dependency on crosstool and
           // JDK.
         continue;

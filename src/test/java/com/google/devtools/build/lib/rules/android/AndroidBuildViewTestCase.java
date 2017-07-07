@@ -22,6 +22,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.common.truth.Truth;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -42,6 +43,7 @@ import com.google.devtools.build.lib.util.Preconditions;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /** Common methods shared between Android related {@link BuildViewTestCase}s. */
@@ -56,6 +58,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
         .addRuleDefinition(new AndroidDeviceScriptFixtureRule())
         .addRuleDefinition(new AndroidHostServiceFixtureRule())
         .addRuleDefinition(new AndroidInstrumentationRule())
+        .addRuleDefinition(new AndroidInstrumentationTestRule())
         .build();
   }
 
@@ -260,5 +263,10 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
       actualPaths.add(actualFlagValue.split(":")[0].split("#"));
       Truth.assertThat(actualPaths.build()).containsAllIn(expectedPaths);
     }
+  }
+
+  protected static Set<Artifact> getNonToolInputs(Action action) {
+    return Sets.difference(
+        ImmutableSet.copyOf(action.getInputs()), ImmutableSet.copyOf(action.getTools()));
   }
 }

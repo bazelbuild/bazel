@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.genrule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -168,10 +167,6 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
       message = "Executing genrule";
     }
 
-    ImmutableMap<String, String> env = ruleContext.getConfiguration().getLocalShellEnvironment();
-    ImmutableSet<String> clientEnvVars =
-        ruleContext.getConfiguration().getVariableShellEnvironment();
-
     Map<String, String> executionInfo = Maps.newLinkedHashMap();
     executionInfo.putAll(TargetUtils.getExecutionInfo(ruleContext.getRule()));
 
@@ -219,8 +214,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
             inputs.build(),
             filesToBuild,
             argv,
-            env,
-            clientEnvVars,
+            ruleContext.getConfiguration().getActionEnvironment(),
             ImmutableMap.copyOf(executionInfo),
             new CompositeRunfilesSupplier(commandHelper.getToolsRunfilesSuppliers()),
             message + ' ' + ruleContext.getLabel()));

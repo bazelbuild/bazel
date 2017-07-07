@@ -58,8 +58,8 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.ProguardHelper;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import java.util.List;
@@ -245,6 +245,7 @@ public final class AndroidRuleClasses {
 
           BuildOptions splitOptions = buildOptions.clone();
           splitOptions.get(CppOptions.class).cppCompiler = androidOptions.cppCompiler;
+          splitOptions.get(CppOptions.class).libcTopLabel = androidOptions.androidLibcTopLabel;
           splitOptions.get(BuildConfiguration.Options.class).cpu = androidOptions.cpu;
           splitOptions.get(CppOptions.class).dynamicMode = androidOptions.dynamicMode;
           setCrosstoolToAndroid(splitOptions, buildOptions);
@@ -264,6 +265,7 @@ public final class AndroidRuleClasses {
           splitOptions.get(AndroidConfiguration.Options.class).cpu = cpu;
           splitOptions.get(BuildConfiguration.Options.class).cpu = cpu;
           splitOptions.get(CppOptions.class).cppCompiler = androidOptions.cppCompiler;
+          splitOptions.get(CppOptions.class).libcTopLabel = androidOptions.androidLibcTopLabel;
           splitOptions.get(CppOptions.class).dynamicMode = androidOptions.dynamicMode;
           setCrosstoolToAndroid(splitOptions, buildOptions);
           result.add(splitOptions);
@@ -278,8 +280,8 @@ public final class AndroidRuleClasses {
     }
 
     @Override
-    public void write(Appendable buffer, char quotationMark) {
-      Printer.append(buffer, "android_common.multi_cpu_configuration");
+    public void repr(SkylarkPrinter printer) {
+      printer.append("android_common.multi_cpu_configuration");
     }
   }
 
@@ -396,12 +398,7 @@ public final class AndroidRuleClasses {
           .add(attr("apkbuilder", LABEL).cfg(HOST).allowedFileTypes(ANY_FILE).exec())
           .add(attr("apksigner", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE).exec())
           .add(attr("zipalign", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE).exec())
-          .add(
-              attr("resource_extractor", LABEL)
-                  .cfg(HOST)
-                  .allowedFileTypes(ANY_FILE)
-                  .exec()
-                  .mandatory())
+          .add(attr("resource_extractor", LABEL).cfg(HOST).allowedFileTypes(ANY_FILE).exec())
           .add(
               attr(":java_toolchain", LABEL)
                   .useOutputLicenses()
@@ -908,6 +905,13 @@ public final class AndroidRuleClasses {
                   .nonconfigurable("defines an aspect of configuration")
                   .mandatoryProviders(
                       ImmutableList.of(ConfigFeatureFlagProvider.SKYLARK_IDENTIFIER)))
+          // The resource extractor is used at the binary level to extract java resources from the
+          // deploy jar so that they can be added to the APK.
+          .add(
+              attr("$resource_extractor", LABEL)
+                  .cfg(HOST)
+                  .exec()
+                  .value(env.getToolsLabel("//tools/android:resource_extractor")))
           .advertiseProvider(JavaCompilationArgsProvider.class)
           .build();
       }

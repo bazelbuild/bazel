@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.OutputStream;
 
@@ -43,6 +44,11 @@ final class EmptyActionInput implements VirtualActionInput {
   @Override
   public void writeTo(OutputStream out) throws IOException {
     // Write no content - it's an empty file.
+  }
+
+  @Override
+  public ByteString getBytes() throws IOException {
+    return ByteString.EMPTY;
   }
 
   @Override

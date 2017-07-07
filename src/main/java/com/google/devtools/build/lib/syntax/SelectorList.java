@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -152,8 +152,8 @@ public final class SelectorList implements SkylarkValue {
   }
 
   @Override
-  public void write(Appendable buffer, char quotationMark) {
-    Printer.printList(buffer, elements, "", " + ", "", null, quotationMark);
+  public void repr(SkylarkPrinter printer) {
+    printer.printList(elements, "", " + ", "", null);
   }
 
   @Override

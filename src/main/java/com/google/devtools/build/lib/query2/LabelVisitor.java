@@ -317,18 +317,15 @@ final class LabelVisitor {
 
     private Runnable newVisitRunnable(final Target from, final Attribute attr, final Label label,
         final int depth, final int count) {
-      return new Runnable() {
-        @Override
-        public void run() {
+      return () -> {
+        try {
           try {
-            try {
-              visit(from, attr, targetProvider.getTarget(eventHandler, label), depth + 1, count);
-            } catch (NoSuchThingException e) {
-              observeError(from, label, e);
-            }
-          } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+            visit(from, attr, targetProvider.getTarget(eventHandler, label), depth + 1, count);
+          } catch (NoSuchThingException e) {
+            observeError(from, label, e);
           }
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
         }
       };
     }

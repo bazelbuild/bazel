@@ -275,6 +275,15 @@ If you really want to override a value, use a separate statement:
 *   Default: `false`
 
 
+### Checked arithmetic
+
+When set, arithmetic operations (`+`, `-`, `*`) will fail in case of overflow.
+All integers are stored using signed 32 bits.
+
+*   Flag: `--incompatible_incompatible_checked_arithmetic`
+*   Default: `false`
+
+
 ## Profiling the code
 
 To profile your code and analyze the performance, use the `--profile` flag:

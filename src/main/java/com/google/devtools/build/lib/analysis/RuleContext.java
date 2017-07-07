@@ -167,8 +167,6 @@ public final class RuleContext extends TargetContext
   private final ConfigurationFragmentPolicy configurationFragmentPolicy;
   private final Class<? extends BuildConfiguration.Fragment> universalFragment;
   private final ErrorReporter reporter;
-  private final ImmutableBiMap<String, Class<? extends TransitiveInfoProvider>>
-      skylarkProviderRegistry;
   @Nullable private final ToolchainContext toolchainContext;
 
   private ActionOwner actionOwner;
@@ -198,7 +196,6 @@ public final class RuleContext extends TargetContext
     this.attributes = new AspectAwareAttributeMapper(attributes, aspectAttributes);
     this.features = getEnabledFeatures();
     this.ruleClassNameForLogging = ruleClassNameForLogging;
-    this.skylarkProviderRegistry = builder.skylarkProviderRegistry;
     this.hostConfiguration = builder.hostConfiguration;
     reporter = builder.reporter;
     this.toolchainContext = toolchainContext;
@@ -301,15 +298,6 @@ public final class RuleContext extends TargetContext
    */
   public AttributeMap attributes() {
     return attributes;
-  }
-
-  /**
-   * Returns a map that indicates which providers should be exported to skylark under the key
-   * (map key).  These provider types will also be exportable by skylark rules under (map key).
-   */
-  public ImmutableBiMap<String, Class<? extends TransitiveInfoProvider>>
-      getSkylarkProviderRegistry() {
-    return skylarkProviderRegistry;
   }
 
   /**
@@ -1065,7 +1053,7 @@ public final class RuleContext extends TargetContext
 
   public ImmutableMap<String, String> getMakeVariables(Iterable<String> attributeNames) {
     // Using an ImmutableBuilder to complain about duplicate keys. This traversal order of
-    // getPrerequisites isn't well-defined, so this makes sure providers don't seceretly stomp on
+    // getPrerequisites isn't well-defined, so this makes sure providers don't secretly stomp on
     // each other.
     ImmutableMap.Builder<String, String> makeVariableBuilder = ImmutableMap.builder();
     ImmutableSet.Builder<MakeVariableProvider> makeVariableProvidersBuilder =
@@ -1577,7 +1565,6 @@ public final class RuleContext extends TargetContext
     private ImmutableMap<Label, ConfigMatchingProvider> configConditions;
     private NestedSet<PackageSpecification> visibility;
     private ImmutableMap<String, Attribute> aspectAttributes;
-    private ImmutableBiMap<String, Class<? extends TransitiveInfoProvider>> skylarkProviderRegistry;
     private ImmutableList<AspectDescriptor> aspectDescriptors;
     private ToolchainContext toolchainContext;
 
@@ -1673,7 +1660,6 @@ public final class RuleContext extends TargetContext
      */
     Builder setSkylarkProvidersRegistry(
         ImmutableBiMap<String, Class<? extends TransitiveInfoProvider>> skylarkProviderRegistry) {
-      this.skylarkProviderRegistry = skylarkProviderRegistry;
       return this;
     }
 

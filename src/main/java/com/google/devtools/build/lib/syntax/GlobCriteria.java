@@ -14,15 +14,16 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.base.Functions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.List;
-
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -90,8 +91,9 @@ public class GlobCriteria {
   public static GlobCriteria createWithAdditionalExcludes(GlobCriteria base,
       List<String> excludes) {
     Preconditions.checkArgument(base.isGlob());
-    return fromGlobCall(base.include,
-        ImmutableList.copyOf(Iterables.concat(base.exclude, excludes)));
+    return fromGlobCall(
+        base.include,
+        Stream.concat(base.exclude.stream(), excludes.stream()).collect(toImmutableList()));
   }
 
   /**

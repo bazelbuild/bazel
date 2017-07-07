@@ -49,9 +49,11 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -68,12 +70,16 @@ import org.junit.runners.JUnit4;
 public abstract class ConfigurationTestCase extends FoundationTestCase {
 
   public static final class TestOptions extends OptionsBase {
-    @Option(name = "multi_cpu",
-            converter = Converters.CommaSeparatedOptionListConverter.class,
-            allowMultiple = true,
-            defaultValue = "",
-            category = "semantics",
-            help = "Additional target CPUs.")
+    @Option(
+      name = "multi_cpu",
+      converter = Converters.CommaSeparatedOptionListConverter.class,
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "",
+      category = "semantics",
+      help = "Additional target CPUs."
+    )
     public List<String> multiCpus;
   }
 

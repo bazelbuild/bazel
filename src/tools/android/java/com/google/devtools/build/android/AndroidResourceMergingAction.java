@@ -28,8 +28,10 @@ import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.Converters.SerializedAndroidDataConverter;
 import com.google.devtools.build.android.Converters.SerializedAndroidDataListConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.FileSystems;
@@ -63,19 +65,24 @@ public class AndroidResourceMergingAction {
       defaultValue = "null",
       converter = SerializedAndroidDataConverter.class,
       category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "The directory containing the primary resource directory. The contents will override"
               + " the contents of any other resource directories during merging."
-              + " The expected format is " + SerializedAndroidData.EXPECTED_FORMAT
+              + " The expected format is "
+              + SerializedAndroidData.EXPECTED_FORMAT
     )
     public SerializedAndroidData primaryData;
 
     @Option(
-        name = "primaryManifest",
-        defaultValue = "null",
-        converter = ExistingPathConverter.class,
-        category = "input",
-        help = "Path to primary resource's manifest file."
+      name = "primaryManifest",
+      defaultValue = "null",
+      converter = ExistingPathConverter.class,
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to primary resource's manifest file."
     )
     public Path primaryManifest;
 
@@ -84,10 +91,13 @@ public class AndroidResourceMergingAction {
       defaultValue = "",
       converter = SerializedAndroidDataListConverter.class,
       category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Transitive Data dependencies. These values will be used if not defined in the "
               + "primary resources. The expected format is "
-              + SerializedAndroidData.EXPECTED_FORMAT + "[&...]"
+              + SerializedAndroidData.EXPECTED_FORMAT
+              + "[&...]"
     )
     public List<SerializedAndroidData> transitiveData;
 
@@ -96,10 +106,13 @@ public class AndroidResourceMergingAction {
       defaultValue = "",
       converter = SerializedAndroidDataListConverter.class,
       category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Direct Data dependencies. These values will be used if not defined in the "
               + "primary resources. The expected format is "
-              + SerializedAndroidData.EXPECTED_FORMAT + "[&...]"
+              + SerializedAndroidData.EXPECTED_FORMAT
+              + "[&...]"
     )
     public List<SerializedAndroidData> directData;
 
@@ -108,6 +121,8 @@ public class AndroidResourceMergingAction {
       defaultValue = "null",
       converter = PathConverter.class,
       category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Path to the write merged resources archive."
     )
     public Path resourcesOutput;
@@ -117,16 +132,20 @@ public class AndroidResourceMergingAction {
       defaultValue = "null",
       converter = PathConverter.class,
       category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Path for the generated java class jar."
     )
     public Path classJarOutput;
 
     @Option(
-        name = "manifestOutput",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        help = "Path for the output processed AndroidManifest.xml."
+      name = "manifestOutput",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path for the output processed AndroidManifest.xml."
     )
     public Path manifestOutput;
 
@@ -134,6 +153,8 @@ public class AndroidResourceMergingAction {
       name = "packageForR",
       defaultValue = "null",
       category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Custom java package to generate the R symbols files."
     )
     public String packageForR;
@@ -143,15 +164,21 @@ public class AndroidResourceMergingAction {
       defaultValue = "null",
       converter = PathConverter.class,
       category = "config",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Path to write the merged symbols binary."
     )
     public Path symbolsBinOut;
 
-    @Option(name = "dataBindingInfoOut",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        help = "Path to where data binding's layout info output should be written.")
+    @Option(
+      name = "dataBindingInfoOut",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Path to where data binding's layout info output should be written."
+    )
     public Path dataBindingInfoOut;
   }
 

@@ -31,9 +31,11 @@ import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -66,6 +68,8 @@ class DexFileMerger {
       name = "input",
       defaultValue = "null",
       category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       converter = ExistingPathConverter.class,
       abbrev = 'i',
       help = "Input file to read to aggregate."
@@ -76,6 +80,8 @@ class DexFileMerger {
       name = "output",
       defaultValue = "classes.dex.jar",
       category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       converter = PathConverter.class,
       abbrev = 'o',
       help = "Output archive to write."
@@ -86,6 +92,8 @@ class DexFileMerger {
       name = "multidex",
       defaultValue = "off",
       category = "multidex",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       converter = MultidexStrategyConverter.class,
       help = "Allow more than one .dex file in the output."
     )
@@ -95,6 +103,8 @@ class DexFileMerger {
       name = "main-dex-list",
       defaultValue = "null",
       category = "multidex",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       converter = ExistingPathConverter.class,
       help = "List of classes to be placed into \"main\" classes.dex file."
     )
@@ -104,6 +114,8 @@ class DexFileMerger {
       name = "minimal-main-dex",
       defaultValue = "false",
       category = "multidex",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "If true, *only* classes listed in --main_dex_list file are placed into \"main\" "
               + "classes.dex file."
@@ -114,6 +126,8 @@ class DexFileMerger {
       name = "verbose",
       defaultValue = "false",
       category = "misc",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "If true, print information about the merged files and resulting files to stdout."
     )
     public boolean verbose;
@@ -122,6 +136,8 @@ class DexFileMerger {
       name = "max-bytes-wasted-per-file",
       defaultValue = "0",
       category = "misc",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Limit on conservatively allocated but unused bytes per dex file, which can enable "
               + "faster merging."
@@ -132,6 +148,8 @@ class DexFileMerger {
     @Option(
       name = "set-max-idx-number",
       defaultValue = "" + (DexFormat.MAX_MEMBER_IDX + 1),
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       help = "Limit on fields and methods in a single dex file."
     )

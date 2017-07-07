@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.JRE_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -92,12 +91,12 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
     CompilationArtifacts moduleMapCompilationArtifacts =
         new CompilationArtifacts.Builder()
             .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
-            .setPchFile(Optional.<Artifact>absent())
             .build();
 
     new CompilationSupport.Builder()
         .setRuleContext(ruleContext)
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
+        .doNotUsePch()
         .build()
         .registerFullyLinkAction(
             common.getObjcProvider(),

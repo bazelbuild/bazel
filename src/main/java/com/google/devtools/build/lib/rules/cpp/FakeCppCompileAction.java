@@ -15,13 +15,11 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.util.stream.Collectors.joining;
 
-import com.google.common.base.Function;
-import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -207,24 +205,26 @@ public class FakeCppCompileAction extends CppCompileAction {
     // runfiles directory (where writing is forbidden), we patch the command
     // line to write to $TEST_TMPDIR instead.
     final String outputPrefix = "$TEST_TMPDIR/";
-    String argv = Joiner.on(' ').join(
-      Iterables.transform(getArgv(outputFile.getExecPath()), new Function<String, String>() {
-        @Override
-        public String apply(String input) {
-          String result = ShellEscaper.escapeString(input);
-          // Once -c and -o options are added into action_config, the argument of
-          // getArgv(outputFile.getExecPath()) won't be used anymore. There will always be
-          // -c <tempOutputFile>, but here it has to be outputFile, so we replace it.
-          if (input.equals(tempOutputFile.getPathString())) {
-            result = outputPrefix + ShellEscaper.escapeString(outputFile.getExecPathString());
-          }
-          if (input.equals(outputFile.getExecPathString())
-              || input.equals(getDotdFile().getSafeExecPath().getPathString())) {
-            result = outputPrefix + ShellEscaper.escapeString(input);
-          }
-          return result;
-        }
-      }));
+    String argv =
+        getArgv(outputFile.getExecPath())
+            .stream()
+            .map(
+                input -> {
+                  String result = ShellEscaper.escapeString(input);
+                  // Once -c and -o options are added into action_config, the argument of
+                  // getArgv(outputFile.getExecPath()) won't be used anymore. There will always be
+                  // -c <tempOutputFile>, but here it has to be outputFile, so we replace it.
+                  if (input.equals(tempOutputFile.getPathString())) {
+                    result =
+                        outputPrefix + ShellEscaper.escapeString(outputFile.getExecPathString());
+                  }
+                  if (input.equals(outputFile.getExecPathString())
+                      || input.equals(getDotdFile().getSafeExecPath().getPathString())) {
+                    result = outputPrefix + ShellEscaper.escapeString(input);
+                  }
+                  return result;
+                })
+            .collect(joining(" "));
 
     // Write the command needed to build the real .o file to the fake .o file.
     // Generate a command to ensure that the output directory exists; otherwise

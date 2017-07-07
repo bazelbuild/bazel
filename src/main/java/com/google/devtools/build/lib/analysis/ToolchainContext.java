@@ -17,31 +17,30 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import java.util.Map;
 import javax.annotation.Nullable;
 
 /** Contains toolchain-related information needed for a {@link RuleContext}. */
 public class ToolchainContext {
-  private final ImmutableList<ClassObjectConstructor.Key> requiredToolchains;
-  private final ImmutableMap<ClassObjectConstructor.Key, ToolchainInfo> toolchains;
+  private final ImmutableList<Label> requiredToolchains;
+  private final ImmutableMap<Label, ToolchainInfo> toolchains;
 
   public ToolchainContext(
-      ImmutableList<ClassObjectConstructor.Key> requiredToolchains,
-      @Nullable Map<ClassObjectConstructor.Key, ToolchainInfo> toolchains) {
+      ImmutableList<Label> requiredToolchains, @Nullable Map<Label, ToolchainInfo> toolchains) {
     this.requiredToolchains = requiredToolchains;
     this.toolchains =
         toolchains == null
-            ? ImmutableMap.<ClassObjectConstructor.Key, ToolchainInfo>of()
+            ? ImmutableMap.<Label, ToolchainInfo>of()
             : ImmutableMap.copyOf(toolchains);
   }
 
-  public ImmutableList<ClassObjectConstructor.Key> getRequiredToolchains() {
+  public ImmutableList<Label> getRequiredToolchains() {
     return requiredToolchains;
   }
 
-  public SkylarkDict<ClassObjectConstructor.Key, ToolchainInfo> collectToolchains() {
-    return SkylarkDict.<ClassObjectConstructor.Key, ToolchainInfo>copyOf(null, toolchains);
+  public SkylarkDict<Label, ToolchainInfo> collectToolchains() {
+    return SkylarkDict.<Label, ToolchainInfo>copyOf(null, toolchains);
   }
 }

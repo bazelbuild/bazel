@@ -13,32 +13,32 @@ cc_test(
     size = "small",
     srcs = select({
         "//src:windows": [
-            "windows_util_test.cc",
-            "windows_file_operations_test.cc",
+            "windows/util_test.cc",
+            "windows/file_test.cc",
         ],
         "//src:windows_msys": [
-            "windows_util_test.cc",
-            "windows_file_operations_test.cc",
+            "windows/util_test.cc",
+            "windows/file_test.cc",
         ],
         "//src:windows_msvc": [
-            "windows_util_test.cc",
-            "windows_file_operations_test.cc",
+            "windows/util_test.cc",
+            "windows/file_test.cc",
         ],
         "//conditions:default": ["dummy_test.cc"],
     }),
     deps = select({
         "//src:windows": [
-            "//src/main/native:windows_jni_lib",
+            "//src/main/native/windows:lib-file",
             "//src/test/cpp/util:windows_test_util",
             "//third_party:gtest",
         ],
         "//src:windows_msys": [
-            "//src/main/native:windows_jni_lib",
+            "//src/main/native/windows:lib-file",
             "//src/test/cpp/util:windows_test_util",
             "//third_party:gtest",
         ],
         "//src:windows_msvc": [
-            "//src/main/native:windows_jni_lib",
+            "//src/main/native/windows:lib-file",
             "//src/test/cpp/util:windows_test_util",
             "//third_party:gtest",
         ],

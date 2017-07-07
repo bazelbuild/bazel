@@ -20,10 +20,12 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.util.OptionsUtils.PathFragmentListConverter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionPriority;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.Test;
@@ -37,19 +39,29 @@ import org.junit.runners.JUnit4;
 public class OptionsUtilsTest {
 
   public static class IntrospectionExample extends OptionsBase {
-    @Option(name = "alpha",
-            category = "one",
-            defaultValue = "alpha")
+    @Option(
+      name = "alpha",
+      category = "one",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "alpha"
+    )
     public String alpha;
 
-    @Option(name = "beta",
-            category = "one",
-            defaultValue = "beta")
+    @Option(
+      name = "beta",
+      category = "one",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "beta"
+    )
     public String beta;
 
     @Option(
       name = "gamma",
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "gamma"
     )
     public String gamma;
@@ -57,6 +69,8 @@ public class OptionsUtilsTest {
     @Option(
       name = "delta",
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "delta"
     )
     public String delta;
@@ -64,6 +78,8 @@ public class OptionsUtilsTest {
     @Option(
       name = "echo",
       optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "echo"
     )
     public String echo;
@@ -91,14 +107,22 @@ public class OptionsUtilsTest {
   }
 
   public static class BooleanOpts extends OptionsBase {
-    @Option(name = "b_one",
-        category = "xyz",
-        defaultValue = "true")
+    @Option(
+      name = "b_one",
+      category = "xyz",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "true"
+    )
     public boolean bOne;
 
-    @Option(name = "b_two",
-        category = "123", // Not printed in usage messages!
-        defaultValue = "false")
+    @Option(
+      name = "b_two",
+      category = "123", // Not printed in usage messages!
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "false"
+    )
     public boolean bTwo;
   }
 

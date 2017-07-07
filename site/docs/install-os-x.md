@@ -73,27 +73,21 @@ sudo gcc --version
 
 Go to Bazel's [GitHub releases page](https://github.com/bazelbuild/bazel/releases).
 
-Download the binary installer `bazel-0.5.1-installer-darwin-x86_64.sh`. This
+Download the binary installer `bazel-0.5.2-installer-darwin-x86_64.sh`. This
 installer contains the Bazel binary and the required JDK, and can be used even
 if a JDK is already installed.
 
-Note that `bazel-0.5.1-without-jdk-installer-darwin-x86_64.sh` is a version of
+Note that `bazel-0.5.2-without-jdk-installer-darwin-x86_64.sh` is a version of
 the installer without embedded JDK 8. Only use this installer if you already
 have JDK 8 installed.
-
-Note that two other versions of the installer exist:
-*   `bazel-0.5.1-without-jdk-installer-darwin-x86_64.sh`: version without
-    embedded JDK 8. Only use this installer if you already have JDK 8 installed.
-*   `bazel-0.5.1-jdk7-installer-darwin-x86_64.sh`: last release compatible
-    with JDK 7.
 
 ### 3. Run the installer
 
 Run the installer:
 
 <pre>
-chmod +x bazel-0.5.1-installer-darwin-x86_64.sh
-./bazel-0.5.1-installer-darwin-x86_64.sh --user
+chmod +x bazel-0.5.2-installer-darwin-x86_64.sh
+./bazel-0.5.2-installer-darwin-x86_64.sh --user
 </pre>
 
 The `--user` flag installs Bazel to the `$HOME/bin` directory on your system and

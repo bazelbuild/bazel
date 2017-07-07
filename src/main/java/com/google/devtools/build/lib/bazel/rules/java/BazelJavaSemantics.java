@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.bazel.rules.java;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -262,7 +261,7 @@ public class BazelJavaSemantics implements JavaSemantics {
     arguments.add(Substitution.of("%workspace_prefix%", workspacePrefix));
     arguments.add(Substitution.of("%javabin%", javaExecutable));
     arguments.add(Substitution.of("%needs_runfiles%",
-        ruleContext.getFragment(Jvm.class).getJavaExecutable().isAbsolute() ? "0" : "1"));
+        JavaCommon.getJavaExecutable(ruleContext).isAbsolute() ? "0" : "1"));
 
     TransitiveInfoCollection testSupport = getTestSupport(ruleContext);
     NestedSet<Artifact> testSupportJars =
@@ -354,15 +353,6 @@ public class BazelJavaSemantics implements JavaSemantics {
    */
   private static class ComputedRelativeClasspathsSubstitution extends ComputedSubstitution {
     private final JavaCommon javaCommon;
-    private static final Function<Artifact, String> PATHS_FROM_ARTIFACTS =
-        new Function<Artifact, String>() {
-          @Nullable
-          @Override
-          public String apply(@Nullable Artifact artifact) {
-            return artifact == null ? null : artifact.getRunfilesPathString();
-          }
-        };
-
     public ComputedRelativeClasspathsSubstitution(JavaCommon javaCommon) {
       super(RELATIVE_CLASSPATHS_PLACEHOLDER);
       this.javaCommon = javaCommon;
@@ -372,7 +362,9 @@ public class BazelJavaSemantics implements JavaSemantics {
     public String getValue() {
       // TODO(kush): Get this to work when runfilesEnabled=false, like in windows.
       Iterable<String> paths =
-          Iterables.transform(javaCommon.getRuntimeClasspath(), PATHS_FROM_ARTIFACTS);
+          Iterables.transform(
+              javaCommon.getRuntimeClasspath(),
+              artifact -> artifact == null ? null : artifact.getRunfilesPathString());
       return Joiner.on(File.pathSeparatorChar).skipNulls().join(paths);
     }
   }

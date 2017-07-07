@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
-import com.google.common.base.Function;
+import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
+
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
@@ -319,19 +319,11 @@ final class HttpConnectorMultiplexer {
   }
 
   private static String describeErrors(Collection<Throwable> errors) {
-    return
-        FluentIterable
-            .from(errors)
-            .transform(
-                new Function<Throwable, String>() {
-                  @Nullable
-                  @Override
-                  public String apply(Throwable workerError) {
-                    return workerError.getMessage();
-                  }
-                })
-            .filter(Predicates.notNull())
-            .toSortedSet(Ordering.natural())
-            .toString();
+    return errors
+        .stream()
+        .map(Throwable::getMessage)
+        .filter(Predicates.notNull())
+        .collect(toImmutableSortedSet(Ordering.natural()))
+        .toString();
   }
 }

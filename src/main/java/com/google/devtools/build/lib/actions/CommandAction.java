@@ -24,11 +24,11 @@ import java.util.List;
 public interface CommandAction extends Action, ExecutionInfoSpecifier {
 
   /** Returns a list of command line arguments that implements this action. */
-  public List<String> getArguments();
+  List<String> getArguments();
 
   /** 
    * Returns a map of command line variables to their values that constitute the environment
    * in which this action should be run.
    */
-  public ImmutableMap<String, String> getEnvironment();
+  ImmutableMap<String, String> getEnvironment();
 }

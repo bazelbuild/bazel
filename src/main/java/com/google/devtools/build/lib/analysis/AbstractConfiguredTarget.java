@@ -25,12 +25,13 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /**
@@ -159,10 +160,11 @@ public abstract class AbstractConfiguredTarget
     if (getProvider(OutputGroupProvider.class) != null) {
       result.add(OutputGroupProvider.SKYLARK_NAME);
     }
-    if (getProvider(SkylarkProviders.class) != null) {
-      result.addAll(getProvider(SkylarkProviders.class).getKeys());
-    }
+    addExtraSkylarkKeys(result::add);
     return result.build();
+  }
+
+  protected void addExtraSkylarkKeys(Consumer<String> result) {
   }
 
   private DefaultProvider getDefaultProvider() {
@@ -177,16 +179,6 @@ public abstract class AbstractConfiguredTarget
     return defaultProvider.get();
   }
 
-  @Nullable
-  @Override
-  public final Object get(SkylarkProviderIdentifier id) {
-    if (id.isLegacy()) {
-      return get(id.getLegacyId());
-    }
-    return get(id.getKey());
-  }
-
-
   /** Returns a declared provider provided by this target. Only meant to use from Skylark. */
   @Nullable
   @Override
@@ -197,12 +189,13 @@ public abstract class AbstractConfiguredTarget
     if (providerKey.equals(OutputGroupProvider.SKYLARK_CONSTRUCTOR.getKey())) {
       return OutputGroupProvider.get(this);
     }
-    SkylarkProviders skylarkProviders = getProvider(SkylarkProviders.class);
-    if (skylarkProviders != null) {
-      return skylarkProviders.getDeclaredProvider(providerKey);
-    }
-    return null;
+    return rawGetSkylarkProvider(providerKey);
   }
+
+  /** Implement in subclasses to get a skylark provider for a given {@code providerKey}. */
+  @Nullable
+  protected abstract SkylarkClassObject rawGetSkylarkProvider(
+      ClassObjectConstructor.Key providerKey);
 
   /**
    * Returns a value provided by this target. Only meant to use from Skylark.
@@ -212,8 +205,21 @@ public abstract class AbstractConfiguredTarget
     if (OutputGroupProvider.SKYLARK_NAME.equals(providerKey)) {
       return getProvider(OutputGroupProvider.class);
     }
-    SkylarkProviders skylarkProviders = getProvider(SkylarkProviders.class);
-    return skylarkProviders != null ? skylarkProviders.getValue(providerKey) : null;
+    return rawGetSkylarkProvider(providerKey);
   }
 
+  /** Implement in subclasses to get a skylark provider for a given {@code providerKey}. */
+  protected abstract Object rawGetSkylarkProvider(String providerKey);
+
+  @Override
+  public boolean isImmutable() {
+    return false;
+  }
+
+  // All main target classes must override this method to provide more descriptive strings.
+  // Exceptions are currently EnvironmentGroupConfiguredTarget and PackageGroupConfiguredTarget.
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    printer.append("<unknown target " + getTarget().getLabel() + ">");
+  }
 }

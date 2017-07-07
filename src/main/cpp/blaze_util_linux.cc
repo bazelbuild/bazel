@@ -43,12 +43,12 @@ using std::string;
 using std::vector;
 
 string GetOutputRoot() {
-  char buf[2048];
   string base;
-  const char* home = getenv("HOME");
-  if (home != NULL) {
+  string home = GetHomeDir();
+  if (!home.empty()) {
     base = home;
   } else {
+    char buf[2048];
     struct passwd pwbuf;
     struct passwd *pw = NULL;
     int uid = getuid();
@@ -58,7 +58,7 @@ string GetOutputRoot() {
     }
   }
 
-  if (base != "") {
+  if (!base.empty()) {
     return blaze_util::JoinPath(base, ".cache/bazel");
   }
 
@@ -151,7 +151,7 @@ static string Which(const string &executable) {
         "Could not get PATH to find %s", executable.c_str());
   }
 
-  std::vector<std::string> pieces = blaze_util::Split(path, ':');
+  vector<string> pieces = blaze_util::Split(path, ':');
   for (auto piece : pieces) {
     if (piece.empty()) {
       piece = ".";
@@ -170,9 +170,9 @@ static string Which(const string &executable) {
 
 string GetDefaultHostJavabase() {
   // if JAVA_HOME is defined, then use it as default.
-  const char *javahome = getenv("JAVA_HOME");
-  if (javahome != NULL) {
-    return string(javahome);
+  string javahome = GetEnv("JAVA_HOME");
+  if (!javahome.empty()) {
+    return javahome;
   }
 
   // which javac

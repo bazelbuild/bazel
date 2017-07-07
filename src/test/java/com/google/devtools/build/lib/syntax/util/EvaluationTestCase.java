@@ -579,11 +579,15 @@ public class EvaluationTestCase {
    * A class that runs all tests in Build mode
    */
   protected class BuildTest extends ModalTestCase {
-    public BuildTest() {}
+    private final String[] skylarkOptions;
+
+    public BuildTest(String... skylarkOptions) {
+      this.skylarkOptions = skylarkOptions;
+    }
 
     @Override
     protected void run(Testable testable) throws Exception {
-      enableBuildMode();
+      enableBuildMode(skylarkOptions);
       testable.run();
     }
   }

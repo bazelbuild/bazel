@@ -18,15 +18,9 @@ import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.ClassObjectConstructor;
-import com.google.devtools.build.lib.packages.ToolchainConstructor;
-import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
-import com.google.devtools.build.lib.syntax.BuiltinFunction;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 
 /** Skylark namespace used to interact with the platform APIs. */
@@ -70,32 +64,16 @@ public class PlatformCommon {
     return ConstraintValueInfo.SKYLARK_CONSTRUCTOR;
   }
 
-  @SkylarkCallable(name = ToolchainInfo.SKYLARK_NAME, documented = false, structField = true)
+  @SkylarkCallable(
+    name = ToolchainInfo.SKYLARK_NAME,
+    doc =
+        "The provider constructor for ToolchainInfo. The constructor takes the type of the "
+            + "toolchain, and a map of the toolchain's data.",
+    structField = true
+  )
   public ClassObjectConstructor getToolchainInfoConstructor() {
     return ToolchainInfo.SKYLARK_CONSTRUCTOR;
   }
-
-  @SkylarkSignature(
-    name = "toolchain_type",
-    doc =
-        "Creates a new ToolchainConstructor instance, which can be used to create new "
-            + "ToolchainInfo instances. The constructor takes a list of execution constraints, a "
-            + "list of target constraints, and then other data which may be used by a rule author.",
-    documented = false,
-    objectType = PlatformCommon.class,
-    returnType = ToolchainConstructor.class,
-    parameters = {
-      @Param(name = "self", type = PlatformCommon.class, doc = "the platform_rules instance"),
-    },
-    useLocation = true
-  )
-  private static final BuiltinFunction createToolchainType =
-      new BuiltinFunction("toolchain_type") {
-        @SuppressWarnings("unchecked")
-        public ToolchainConstructor invoke(PlatformCommon self, Location loc) throws EvalException {
-          return new SkylarkToolchainConstructor(loc);
-        }
-      };
 
   static {
     SkylarkSignatureProcessor.configureSkylarkFunctions(PlatformCommon.class);

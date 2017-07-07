@@ -45,8 +45,7 @@ public abstract class AndroidSdkProvider implements TransitiveInfoProvider {
       @Nullable FilesToRunProvider apkBuilder,
       FilesToRunProvider apkSigner,
       FilesToRunProvider proguard,
-      FilesToRunProvider zipalign,
-      FilesToRunProvider resourceExtractor) {
+      FilesToRunProvider zipalign) {
 
     return new AutoValue_AndroidSdkProvider(
         buildToolsVersion,
@@ -65,8 +64,7 @@ public abstract class AndroidSdkProvider implements TransitiveInfoProvider {
         apkBuilder,
         apkSigner,
         proguard,
-        zipalign,
-        resourceExtractor);
+        zipalign);
   }
 
   /**
@@ -132,8 +130,6 @@ public abstract class AndroidSdkProvider implements TransitiveInfoProvider {
   public abstract FilesToRunProvider getProguard();
 
   public abstract FilesToRunProvider getZipalign();
-
-  public abstract FilesToRunProvider getResourceExtractor();
 
   AndroidSdkProvider() {}
 }

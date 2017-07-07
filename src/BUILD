@@ -8,9 +8,9 @@ filegroup(
     srcs = select({
         ":darwin": ["//src/main/native:libunix.dylib"],
         ":darwin_x86_64": ["//src/main/native:libunix.dylib"],
-        ":windows": ["//src/main/native:windows_jni.dll"],
-        ":windows_msys": ["//src/main/native:windows_jni.dll"],
-        ":windows_msvc": ["//src/main/native:windows_jni.dll"],
+        ":windows": ["//src/main/native/windows:windows_jni.dll"],
+        ":windows_msys": ["//src/main/native/windows:windows_jni.dll"],
+        ":windows_msvc": ["//src/main/native/windows:windows_jni.dll"],
         "//conditions:default": ["//src/main/native:libunix.so"],
     }),
     visibility = [
@@ -197,6 +197,9 @@ filegroup(
             "@openjdk_win//file",
         ],
         ":windows_msvc": [
+            "@openjdk_win//file",
+        ],
+        ":windows": [
             "@openjdk_win//file",
         ],
         "//conditions:default": [
@@ -396,7 +399,7 @@ genrule(
         "@googleapis//:dist_jars",
     ],
     outs = ["derived_java_srcs.zip"],
-    cmd = "$(location :combine_derived_java_srcs.sh) $@ $(SRCS)",
+    cmd = "$(location :combine_derived_java_srcs.sh) $(JAVABASE) $@ $(SRCS)",
     tools = ["combine_derived_java_srcs.sh"],
     visibility = ["//:__pkg__"],
 )

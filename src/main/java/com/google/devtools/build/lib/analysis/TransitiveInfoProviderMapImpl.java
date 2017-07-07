@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.collect.ImmutableSharedKeyMap;
+import com.google.devtools.build.lib.packages.ClassObjectConstructor;
+import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -23,11 +25,10 @@ import javax.annotation.Nullable;
  * memory efficiency, inheritance is used instead of aggregation as an implementation detail.
  */
 class TransitiveInfoProviderMapImpl
-    extends ImmutableSharedKeyMap<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>
+    extends ImmutableSharedKeyMap<Object, Object>
     implements TransitiveInfoProviderMap {
 
-  TransitiveInfoProviderMapImpl(
-      Map<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> map) {
+  TransitiveInfoProviderMapImpl(Map<Object, Object> map) {
     super(map);
   }
 
@@ -40,18 +41,30 @@ class TransitiveInfoProviderMapImpl
     return (P) get(effectiveClass);
   }
 
+  @Nullable
+  @Override
+  public SkylarkClassObject getProvider(ClassObjectConstructor.Key key) {
+    return (SkylarkClassObject) get(key);
+  }
+
+  @Nullable
+  @Override
+  public Object getProvider(String legacyKey) {
+    return get(legacyKey);
+  }
+
   @Override
   public int getProviderCount() {
     return size();
   }
 
   @Override
-  public Class<? extends TransitiveInfoProvider> getProviderClassAt(int i) {
+  public Object getProviderKeyAt(int i) {
     return keyAt(i);
   }
 
   @Override
-  public TransitiveInfoProvider getProviderAt(int i) {
+  public Object getProviderInstanceAt(int i) {
     return valueAt(i);
   }
 }

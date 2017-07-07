@@ -55,9 +55,9 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplic
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
-import com.google.devtools.build.lib.rules.apple.Platform;
-import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.objc.BundleSupport.ExtraActoolArgs;
 import com.google.devtools.build.lib.rules.objc.Bundling.Builder;
 import com.google.devtools.build.lib.shell.ShellUtils;
@@ -123,7 +123,7 @@ public final class ReleaseBundlingSupport {
   private final LinkedBinary linkedBinary;
   private final IntermediateArtifacts intermediateArtifacts;
   private final ReleaseBundling releaseBundling;
-  private final Platform platform;
+  private final ApplePlatform platform;
 
   /**
    * Indicator as to whether this rule generates a binary directly or whether only dependencies
@@ -147,17 +147,17 @@ public final class ReleaseBundlingSupport {
    *
    * @param ruleContext context for the application-generating rule
    * @param objcProvider provider containing all dependencies' information as well as some of this
-   *    rule's
+   *     rule's
    * @param linkedBinary whether to look for a linked binary from this rule and dependencies or just
-   *    the latter
+   *     the latter
    * @param bundleDirFormat format string representing the bundle's directory with a single
-   *    placeholder for the target name (e.g. {@code "Payload/%s.app"})
+   *     placeholder for the target name (e.g. {@code "Payload/%s.app"})
    * @param bundleName name of the bundle, used with bundleDirFormat
    * @param bundleMinimumOsVersion the minimum OS version this bundle's plist should be generated
-   *    for (<b>not</b> the minimum OS version its binary is compiled with, that needs to be set
-   *    through the configuration)
+   *     for (<b>not</b> the minimum OS version its binary is compiled with, that needs to be set
+   *     through the configuration)
    * @param releaseBundling the {@link ReleaseBundling} containing information for creating a
-   *    releaseable bundle.
+   *     releaseable bundle.
    * @param platform the platform that bundles will be created for using this support
    */
   ReleaseBundlingSupport(
@@ -168,7 +168,7 @@ public final class ReleaseBundlingSupport {
       String bundleName,
       DottedVersion bundleMinimumOsVersion,
       ReleaseBundling releaseBundling,
-      Platform platform) {
+      ApplePlatform platform) {
     this.platform = platform;
     this.linkedBinary = linkedBinary;
     this.attributes = new Attributes(ruleContext);
@@ -189,11 +189,11 @@ public final class ReleaseBundlingSupport {
    *
    * @param ruleContext context for the application-generating rule
    * @param objcProvider provider containing all dependencies' information as well as some of this
-   *    rule's
+   *     rule's
    * @param linkedBinary whether to look for a linked binary from this rule and dependencies or just
-   *    the latter
+   *     the latter
    * @param bundleDirFormat format string representing the bundle's directory with a single
-   *    placeholder for the target name (e.g. {@code "Payload/%s.app"})
+   *     placeholder for the target name (e.g. {@code "Payload/%s.app"})
    * @param bundleName name of the bundle, used with bundleDirFormat
    * @param platform the platform that bundles will be created for using this support
    */
@@ -204,7 +204,8 @@ public final class ReleaseBundlingSupport {
       String bundleDirFormat,
       String bundleName,
       DottedVersion bundleMinimumOsVersion,
-      Platform platform) throws InterruptedException {
+      ApplePlatform platform)
+      throws InterruptedException {
     this(
         ruleContext,
         objcProvider,
@@ -219,18 +220,18 @@ public final class ReleaseBundlingSupport {
   /**
    * Creates a new application support within the given rule context.
    *
-   * {@code bundleName} defaults to label name
+   * <p>{@code bundleName} defaults to label name
    *
    * @param ruleContext context for the application-generating rule
    * @param objcProvider provider containing all dependencies' information as well as some of this
-   *    rule's
+   *     rule's
    * @param linkedBinary whether to look for a linked binary from this rule and dependencies or just
-   *    the latter
+   *     the latter
    * @param bundleDirFormat format string representing the bundle's directory with a single
-   *    placeholder for the target name (e.g. {@code "Payload/%s.app"})
+   *     placeholder for the target name (e.g. {@code "Payload/%s.app"})
    * @param bundleMinimumOsVersion the minimum OS version this bundle's plist should be generated
-   *    for (<b>not</b> the minimum OS version its binary is compiled with, that needs to be set
-   *    through the configuration)
+   *     for (<b>not</b> the minimum OS version its binary is compiled with, that needs to be set
+   *     through the configuration)
    * @param platform the platform that bundles will be created for using this support
    * @throws InterruptedException
    */
@@ -240,7 +241,8 @@ public final class ReleaseBundlingSupport {
       LinkedBinary linkedBinary,
       String bundleDirFormat,
       DottedVersion bundleMinimumOsVersion,
-      Platform platform) throws InterruptedException {
+      ApplePlatform platform)
+      throws InterruptedException {
     this(ruleContext, objcProvider, linkedBinary, bundleDirFormat, ruleContext.getLabel().getName(),
         bundleMinimumOsVersion, platform);
   }

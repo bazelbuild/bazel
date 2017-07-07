@@ -104,6 +104,6 @@ public final class RemoteModule extends BlazeModule {
 
   public static boolean remoteEnabled(RemoteOptions options) {
     return SimpleBlobStoreFactory.isRemoteCacheOptions(options)
-        || GrpcActionCache.isRemoteCacheOptions(options);
+        || GrpcRemoteCache.isRemoteCacheOptions(options);
   }
 }

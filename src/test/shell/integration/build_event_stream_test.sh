@@ -28,13 +28,15 @@ set -e
 function set_up() {
   mkdir -p pkg
   touch pkg/somesourcefile
-  cat > pkg/true.sh <<EOF
+  cat > pkg/true.sh <<'EOF'
 #!/bin/sh
+[ -n "${XML_OUTPUT_FILE}" ] && touch "${XML_OUTPUT_FILE}"
 exit 0
 EOF
   chmod 755 pkg/true.sh
-  cat > pkg/false.sh <<EOF
+  cat > pkg/false.sh <<'EOF'
 #!/bin/sh
+[ -n "${XML_OUTPUT_FILE}" ] && touch "${XML_OUTPUT_FILE}"
 exit 1
 EOF
   chmod 755 pkg/false.sh
@@ -99,13 +101,27 @@ cat > simpleaspect.bzl <<EOF
 def _simple_aspect_impl(target, ctx):
     for orig_out in ctx.rule.attr.outs:
         aspect_out = ctx.actions.declare_file(orig_out.name + ".aspect")
-        ctx.file_action(
+        ctx.actions.write(
             output=aspect_out,
             content = "Hello from aspect")
     return struct(output_groups={
         "aspect-out" : set([aspect_out]) })
 
 simple_aspect = aspect(implementation=_simple_aspect_impl)
+EOF
+cat > failingaspect.bzl <<EOF
+def _failing_aspect_impl(target, ctx):
+    for orig_out in ctx.rule.attr.outs:
+        aspect_out = ctx.actions.declare_file(orig_out.name + ".aspect")
+        ctx.action(
+            inputs = [],
+            outputs = [aspect_out],
+            command = "false",
+        )
+    return struct(output_groups={
+        "aspect-out" : set([aspect_out]) })
+
+failing_aspect = aspect(implementation=_failing_aspect_impl)
 EOF
 touch BUILD
 cat > sample_workspace_status <<EOF
@@ -214,8 +230,8 @@ function test_test_attempts() {
   # mentioned in the stream.
   # Moreover, as the test consistently fails, we expect the overall status
   # to be reported as failure.
-  ( bazel test --build_event_text_file=$TEST_log pkg:flaky \
-    && fail "test failure expected" ) || true
+  (bazel test --build_event_text_file=$TEST_log pkg:flaky \
+      && fail "test failure expected" ) || true
   expect_log 'attempt.*1$'
   expect_log 'attempt.*2$'
   expect_log 'attempt.*3$'
@@ -226,8 +242,8 @@ function test_test_attempts() {
   expect_not_log 'aborted'
   expect_log '^test_result'
   expect_log 'test_action_output'
-  expect_log 'flaky/.*attempt_1.xml'
-  expect_log 'flaky/.*attempt_2.xml'
+  expect_log 'flaky/.*_1.xml'
+  expect_log 'flaky/.*_2.xml'
   expect_log 'flaky/.*test.xml'
   expect_log 'name:.*test.log'
   expect_log 'name:.*test.xml'
@@ -321,7 +337,7 @@ function test_extra_action() {
     pkg:output_files_and_tags || fail "bazel build failed"
   expect_not_log '^action'
   bazel build --build_event_text_file=$TEST_log \
-    --action_listener=pkg:listener \
+    --experimental_action_listener=pkg:listener \
     pkg:output_files_and_tags || fail "bazel build with listener failed"
   expect_log '^action'
 }
@@ -335,6 +351,15 @@ function test_aspect_artifacts() {
   expect_log 'name.*aspect-out'
   expect_log 'name.*out1.txt.aspect'
   expect_not_log 'aborted'
+}
+
+function test_failing_aspect() {
+  (bazel build --build_event_text_file=$TEST_log \
+    --aspects=failingaspect.bzl%failing_aspect \
+    --output_groups=aspect-out \
+    pkg:output_files_and_tags && fail "expected failure") || true
+  expect_log 'aspect.*failing_aspect'
+  expect_log '^finished'
 }
 
 function test_build_only() {
@@ -354,9 +379,6 @@ function test_build_only() {
 function test_query() {
   # Verify that at least a minimally meaningful event stream is generated
   # for non-build. In particular, we expect bazel not to crash.
-  bazel version --build_event_text_file=$TEST_log \
-    || fail "bazel version failed"
-  expect_log '^started'
   bazel query --build_event_text_file=$TEST_log 'tests(//...)' \
     || fail "bazel query failed"
   expect_log '^started'
@@ -370,6 +392,20 @@ function test_query() {
   expect_log '//pkg:slow'
   expect_log '^finished'
   expect_log 'name: "SUCCESS"'
+}
+
+function test_command_whitelisting() {
+  # We expect the "help" command to not generate a build-event stream,
+  # but the "build" command to do.
+  rm -f bep.txt
+  bazel help --build_event_text_file=bep.txt || fail "bazel help failed"
+  ( [ -f bep.txt ] && fail "bazel help generated a build-event file" ) || :
+  bazel version --build_event_text_file=bep.txt || fail "bazel help failed"
+  ( [ -f bep.txt ] && fail "bazel version generated a build-event file" ) || :
+  bazel build --build_event_text_file=bep.txt //pkg:true \
+      || fail "bazel build failed"
+  [ -f bep.txt ] || fail "build did not generate requested build-event file"
+  rm -f bep.txt
 }
 
 function test_multiple_transports() {
@@ -394,7 +430,7 @@ function test_basic_json() {
   expect_log '"started"'
   expect_log '"id"'
   expect_log '"children" *: *\['
-  expect_log '"overallSuccess": true'
+  expect_log '"overallSuccess": *true'
 }
 
 function test_root_cause_early() {

@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.Lists;
-
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -79,9 +78,7 @@ public final class ExtraLinkTimeLibraries {
     public final Builder addTransitive(ExtraLinkTimeLibraries dep) {
       for (ExtraLinkTimeLibrary depLibrary : dep.getExtraLibraries()) {
         Class<? extends ExtraLinkTimeLibrary> c = depLibrary.getClass();
-        if (!libraries.containsKey(c)) {
-          libraries.put(c, depLibrary.getBuilder());
-        }
+        libraries.computeIfAbsent(c, k -> depLibrary.getBuilder());
         libraries.get(c).addTransitive(depLibrary);
       }
       return this;
@@ -92,9 +89,7 @@ public final class ExtraLinkTimeLibraries {
      */
     public final Builder add(ExtraLinkTimeLibrary b) {
       Class<? extends ExtraLinkTimeLibrary> c = b.getClass();
-      if (!libraries.containsKey(c)) {
-        libraries.put(c, b.getBuilder());
-      }
+      libraries.computeIfAbsent(c, k -> b.getBuilder());
       libraries.get(c).addTransitive(b);
       return this;
     }

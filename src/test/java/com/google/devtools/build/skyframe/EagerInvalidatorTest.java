@@ -467,10 +467,11 @@ public class EagerInvalidatorTest {
             }
           });
       try {
-        invalidate(graph, receiver,
-            Sets.newHashSet(
-                Iterables.transform(valuesToInvalidate,
-                    Pair.<SkyKey, InvalidationType>firstFunction())).toArray(new SkyKey[0]));
+        invalidate(
+            graph,
+            receiver,
+            Sets.newHashSet(Iterables.transform(valuesToInvalidate, pair -> pair.first))
+                .toArray(new SkyKey[0]));
         assertThat(state.getInvalidationsForTesting()).isEmpty();
       } catch (InterruptedException e) {
         // Expected.

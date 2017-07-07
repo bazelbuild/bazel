@@ -16,11 +16,9 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
@@ -39,17 +37,6 @@ public interface AndroidSemantics {
    */
   String IDL_JARS_OUTPUT_GROUP =
       OutputGroupProvider.HIDDEN_OUTPUT_GROUP_PREFIX + "idl_jars";
-
-  /**
-   * Adds transitive info providers for {@code android_binary} and {@code android_library} rules.
-   * @throws InterruptedException
-   */
-  void addTransitiveInfoProviders(
-      RuleConfiguredTargetBuilder builder,
-      RuleContext ruleContext,
-      JavaCommon javaCommon,
-      AndroidCommon androidCommon)
-      throws InterruptedException;
 
   /**
    * Add additional resources to IDE info for {@code android_binary} and {@code android_library}

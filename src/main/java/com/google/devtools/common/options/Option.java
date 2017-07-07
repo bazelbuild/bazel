@@ -92,24 +92,23 @@ public @interface Option {
    *
    * <p>For undocumented flags that aren't listed anywhere, this is currently a no-op. Feel free to
    * set the value that it would have if it were documented, which might be helpful if a flag is
-   * part of an experimental feature that might become documented in the future, or just leave it
-   * unset as the default.
+   * part of an experimental feature that might become documented in the future, or just leave it as
+   * OptionDocumentationCategory.UNCATEGORIZED.
    *
    * <p>For hidden or internal options, use the category field only if it is helpful for yourself or
    * other Bazel developers.
    */
-  OptionDocumentationCategory documentationCategory() default
-      OptionDocumentationCategory.UNCATEGORIZED;
+  OptionDocumentationCategory documentationCategory();
 
   /**
    * Tag about the intent or effect of this option. Unless this option is a no-op (and the reason
    * for this should be documented) all options should have some effect, so this needs to have at
    * least one value.
    *
-   * <p>No option should list NO_OP_OR_UNKNOWN with other effects listed, but all other combinations
+   * <p>No option should list NO_OP or UNKNOWN with other effects listed, but all other combinations
    * are allowed.
    */
-  OptionEffectTag[] effectTags() default {OptionEffectTag.UNKNOWN};
+  OptionEffectTag[] effectTags();
 
   /**
    * Tag about the state of this option, such as if it gates an experimental feature, or is

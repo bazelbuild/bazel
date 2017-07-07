@@ -26,7 +26,9 @@ import com.android.dx.util.ByteArray;
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 
 /**
  * Common helper class that encodes Java classes into {@link DexFile}s.
@@ -38,25 +40,37 @@ class Dexing {
    */
   public static class DexingOptions extends OptionsBase {
 
-    @Option(name = "locals",
-        defaultValue = "true", // dx's default
-        category = "semantics",
-        allowMultiple = false,
-        help = "Whether to include local variable tables (useful for debugging).")
+    @Option(
+      name = "locals",
+      defaultValue = "true", // dx's default
+      category = "semantics",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      allowMultiple = false,
+      help = "Whether to include local variable tables (useful for debugging)."
+    )
     public boolean localInfo;
 
-    @Option(name = "optimize",
-        defaultValue = "true", // dx's default
-        category = "semantics",
-        allowMultiple = false,
-        help = "Whether to do SSA/register optimization.")
+    @Option(
+      name = "optimize",
+      defaultValue = "true", // dx's default
+      category = "semantics",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      allowMultiple = false,
+      help = "Whether to do SSA/register optimization."
+    )
     public boolean optimize;
 
-    @Option(name = "warning",
-        defaultValue = "true", // dx's default
-        category = "misc",
-        allowMultiple = false,
-        help = "Whether to print warnings.")
+    @Option(
+      name = "warning",
+      defaultValue = "true", // dx's default
+      category = "misc",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      allowMultiple = false,
+      help = "Whether to print warnings."
+    )
     public boolean printWarnings;
 
     public CfOptions toCfOptions() {

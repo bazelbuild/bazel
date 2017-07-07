@@ -21,9 +21,8 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.windows.WindowsFileOperations;
-import com.google.devtools.build.lib.windows.WindowsJniLoader;
-import com.google.devtools.build.lib.windows.WindowsRunfiles;
+import com.google.devtools.build.lib.windows.jni.WindowsFileOperations;
+import com.google.devtools.build.lib.windows.runfiles.WindowsRunfiles;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -40,11 +39,6 @@ public final class WindowsTestUtil {
 
   public WindowsTestUtil(String scratchRoot) {
     this.scratchRoot = scratchRoot;
-  }
-
-  /** Ensure the actual JNI DLL is loaded. */
-  public static void loadJni() {
-    WindowsJniLoader.loadJni();
   }
 
   /**

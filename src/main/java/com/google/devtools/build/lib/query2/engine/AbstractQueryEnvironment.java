@@ -19,7 +19,6 @@ import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.util.concurrent.CancellationException;
@@ -186,24 +185,12 @@ public abstract class AbstractQueryEnvironment<T> implements QueryEnvironment<T>
     return QueryTaskFutureImpl.ofDelegate(
         Futures.transformAsync(
             (QueryTaskFutureImpl<T1>) future,
-            new AsyncFunction<T1, T2>() {
-              @Override
-              public ListenableFuture<T2> apply(T1 input) throws Exception {
-                return (QueryTaskFutureImpl<T2>) function.apply(input);
-              }
-            },
+            input -> (QueryTaskFutureImpl<T2>) function.apply(input),
             directExecutor()));
   }
 
   protected static Iterable<QueryTaskFutureImpl<?>> cast(
       Iterable<? extends QueryTaskFuture<?>> futures) {
-    return Iterables.transform(
-        futures,
-        new Function<QueryTaskFuture<?>, QueryTaskFutureImpl<?>>() {
-          @Override
-          public QueryTaskFutureImpl<?> apply(QueryTaskFuture<?> future) {
-            return (QueryTaskFutureImpl<?>) future;
-          }
-        });
+    return Iterables.transform(futures, future -> (QueryTaskFutureImpl<?>) future);
   }
 }

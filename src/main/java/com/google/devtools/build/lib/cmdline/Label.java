@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.cmdline;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
@@ -24,14 +23,14 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkPrintableValue;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import java.io.IOException;
 import java.io.InvalidObjectException;
 import java.io.ObjectInputStream;
 import java.io.Serializable;
@@ -52,7 +51,7 @@ import javax.annotation.Nullable;
 )
 @Immutable
 @ThreadSafe
-public final class Label implements Comparable<Label>, Serializable, SkylarkPrintableValue, SkyKey {
+public final class Label implements Comparable<Label>, Serializable, SkylarkValue, SkyKey {
   public static final PathFragment EXTERNAL_PACKAGE_NAME = PathFragment.create("external");
   public static final PathFragment EXTERNAL_PACKAGE_FILE_NAME = PathFragment.create("WORKSPACE");
   public static final String DEFAULT_REPOSITORY_DIRECTORY = "__main__";
@@ -152,15 +151,6 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
   public static Label parseAbsoluteUnchecked(String absName) {
     return parseAbsoluteUnchecked(absName, true);
   }
-
-  /** A long way to say '(String) s -> parseAbsoluteUnchecked(s)'. */
-  public static final Function<String, Label> PARSE_ABSOLUTE_UNCHECKED =
-      new Function<String, Label>() {
-        @Override
-        public Label apply(@Nullable String s) {
-          return s == null ? null : parseAbsoluteUnchecked(s);
-        }
-      };
 
   /**
    * Factory for Labels from separate components.
@@ -572,34 +562,24 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
   }
 
   @Override
-  public void write(Appendable buffer, char quotationMark) {
-    // We don't use the Skylark Printer class here to avoid creating a circular dependency.
-    //
-    // TODO(bazel-team): make the representation readable Label(//foo),
-    // and isolate the legacy functions that want the unreadable variant.
-    try {
-      // There is no need to escape the contents of the Label since characters that might otherwise
-      // require escaping are disallowed.
-      buffer.append(quotationMark);
-      buffer.append(toString());
-      buffer.append(quotationMark);
-    } catch (IOException e) {
-      // This function will only be used with in-memory Appendables, hence we should never get here.
-      throw new AssertionError(e);
-    }
+  public void reprLegacy(SkylarkPrinter printer) {
+    printer.repr(getCanonicalForm());
   }
 
   @Override
-  public void print(Appendable buffer, char quotationMark) {
-    // We don't use the Skylark Printer class here to avoid creating a circular dependency.
-    //
-    // TODO(bazel-team): make the representation readable Label(//foo),
-    // and isolate the legacy functions that want the unreadable variant.
-    try {
-      buffer.append(toString());
-    } catch (IOException e) {
-      // This function will only be used with in-memory Appendables, hence we should never get here.
-      throw new AssertionError(e);
-    }
+  public void repr(SkylarkPrinter printer) {
+    printer.append("Label(");
+    printer.repr(getCanonicalForm());
+    printer.append(")");
+  }
+
+  @Override
+  public void strLegacy(SkylarkPrinter printer) {
+    printer.append(getCanonicalForm());
+  }
+
+  @Override
+  public void str(SkylarkPrinter printer) {
+    printer.append(getCanonicalForm());
   }
 }

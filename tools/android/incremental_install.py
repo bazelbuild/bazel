@@ -1,3 +1,4 @@
+# pylint: disable=g-bad-file-header
 # Copyright 2015 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,6 +19,7 @@ import collections
 import hashlib
 import logging
 import os
+import posixpath
 import re
 import shutil
 import subprocess
@@ -111,6 +113,10 @@ class OldSdkException(Exception):
   """Raised when the SDK on the target device is older than the app allows."""
 
 
+hostpath = os.path
+targetpath = posixpath
+
+
 class Adb(object):
   """A class to handle interaction with adb."""
 
@@ -174,7 +180,7 @@ class Adb(object):
 
   def _CreateLocalFile(self):
     """Returns a path to a temporary local file in the temp directory."""
-    local = os.path.join(self._temp_dir, "adbfile_%d" % self._file_counter)
+    local = hostpath.join(self._temp_dir, "adbfile_%d" % self._file_counter)
     self._file_counter += 1
     return local
 
@@ -336,14 +342,14 @@ def UploadDexes(adb, execroot, app_dir, temp_dir, dexmanifest, full_install):
   """
 
   # Fetch the manifest on the device
-  dex_dir = os.path.join(app_dir, "dex")
+  dex_dir = targetpath.join(app_dir, "dex")
   adb.Mkdir(dex_dir)
 
   old_manifest = None
 
   if not full_install:
     logging.info("Fetching dex manifest from device...")
-    old_manifest_contents = adb.Pull("%s/manifest" % dex_dir)
+    old_manifest_contents = adb.Pull(targetpath.join(dex_dir, "manifest"))
     if old_manifest_contents:
       old_manifest = ParseManifest(old_manifest_contents)
     else:
@@ -354,7 +360,7 @@ def UploadDexes(adb, execroot, app_dir, temp_dir, dexmanifest, full_install):
     # was interrupted. Wipe the slate clean. Do this also in case we do a full
     # installation.
     old_manifest = {}
-    adb.Delete("%s/*" % dex_dir)
+    adb.Delete(targetpath.join(dex_dir, "*"))
 
   new_manifest = ParseManifest(dexmanifest)
   dexes_to_delete = set(old_manifest) - set(new_manifest)
@@ -373,7 +379,7 @@ def UploadDexes(adb, execroot, app_dir, temp_dir, dexmanifest, full_install):
 
   # Delete the manifest so that we know how to get back to a consistent state
   # if we are interrupted.
-  adb.Delete("%s/manifest" % dex_dir)
+  adb.Delete(targetpath.join(dex_dir, "manifest"))
 
   # Tuple of (local, remote) files to push to the device.
   files_to_push = []
@@ -385,26 +391,26 @@ def UploadDexes(adb, execroot, app_dir, temp_dir, dexmanifest, full_install):
   for i, dexzip_name in enumerate(dexzips_in_upload):
     zip_dexes = [
         d for d in dexes_to_upload if new_manifest[d].input_file == dexzip_name]
-    dexzip_tempdir = os.path.join(temp_dir, "dex", str(i))
-    with zipfile.ZipFile(os.path.join(execroot, dexzip_name)) as dexzip:
+    dexzip_tempdir = hostpath.join(temp_dir, "dex", str(i))
+    with zipfile.ZipFile(hostpath.join(execroot, dexzip_name)) as dexzip:
       for dex in zip_dexes:
         zippath = new_manifest[dex].zippath
         dexzip.extract(zippath, dexzip_tempdir)
-        files_to_push.append(
-            (os.path.join(dexzip_tempdir, zippath), "%s/%s" % (dex_dir, dex)))
+        files_to_push.append((hostpath.join(dexzip_tempdir, zippath),
+                              targetpath.join(dex_dir, dex)))
 
   # Now gather all the dexes that are not within a .zip file.
   dexes_to_upload = set(
       d for d in dexes_to_upload if new_manifest[d].zippath == "-")
   for dex in dexes_to_upload:
-    files_to_push.append(
-        (new_manifest[dex].input_file, "%s/%s" % (dex_dir, dex)))
+    files_to_push.append((new_manifest[dex].input_file, targetpath.join(
+        dex_dir, dex)))
 
   num_files = len(dexes_to_delete) + len(files_to_push)
   logging.info("Updating %d dex%s...", num_files, "es" if num_files > 1 else "")
 
   # Delete the dexes that are not in the new manifest
-  adb.DeleteMultiple(os.path.join(dex_dir, dex) for dex in dexes_to_delete)
+  adb.DeleteMultiple(targetpath.join(dex_dir, dex) for dex in dexes_to_delete)
 
   # Upload all the files.
   upload_walltime_start = time.time()
@@ -426,7 +432,7 @@ def UploadDexes(adb, execroot, app_dir, temp_dir, dexmanifest, full_install):
   # If no dex upload failed, upload the manifest. If any upload failed, the
   # exception should have been re-raised above.
   # Call result() to raise the exception if there was one.
-  adb.PushString(dexmanifest, "%s/manifest" % dex_dir).result()
+  adb.PushString(dexmanifest, targetpath.join(dex_dir, "manifest")).result()
 
 
 def Checksum(filename):
@@ -459,7 +465,7 @@ def UploadResources(adb, resource_apk, app_dir):
   new_checksum = Checksum(resource_apk)
 
   # Fetch the checksum of the resources file on the device, if it exists
-  device_checksum_file = "%s/%s" % (app_dir, "resources_checksum")
+  device_checksum_file = targetpath.join(app_dir, "resources_checksum")
   old_checksum = adb.Pull(device_checksum_file)
   if old_checksum == new_checksum:
     logging.info("Application resources up-to-date")
@@ -469,7 +475,7 @@ def UploadResources(adb, resource_apk, app_dir):
   # Remove the checksum file on the device so that if the transfer is
   # interrupted, we know how to get the device back to a consistent state.
   adb.Delete(device_checksum_file)
-  adb.Push(resource_apk, "%s/%s" % (app_dir, "resources.ap_")).result()
+  adb.Push(resource_apk, targetpath.join(app_dir, "resources.ap_")).result()
 
   # Write the new checksum to the device.
   adb.PushString(new_checksum, device_checksum_file).result()
@@ -524,13 +530,14 @@ def UploadNativeLibs(adb, native_lib_args, app_dir, full_install):
 
   device_manifest = None
   if not full_install:
-    device_manifest = adb.Pull("%s/native/native_manifest" % app_dir)
+    device_manifest = adb.Pull(
+        targetpath.join(app_dir, "native", "native_manifest"))
 
   device_checksums = {}
   if device_manifest is None:
     # If we couldn't fetch the device manifest or if this is a non-incremental
     # install, wipe the slate clean
-    adb.Delete("%s/native" % app_dir)
+    adb.Delete(targetpath.join(app_dir, "native"))
   else:
     # Otherwise, parse the manifest. Note that this branch is also taken if the
     # manifest is empty.
@@ -545,8 +552,8 @@ def UploadNativeLibs(adb, native_lib_args, app_dir, full_install):
   libs_to_upload.update([l for l in common_libs
                          if install_checksums[l] != device_checksums[l]])
 
-  libs_to_push = [(basename_to_path[lib], "%s/native/%s" % (app_dir, lib))
-                  for lib in libs_to_upload]
+  libs_to_push = [(basename_to_path[lib], targetpath.join(
+      app_dir, "native", lib)) for lib in libs_to_upload]
 
   if not libs_to_delete and not libs_to_push and device_manifest is not None:
     logging.info("Native libs up-to-date")
@@ -556,11 +563,11 @@ def UploadNativeLibs(adb, native_lib_args, app_dir, full_install):
   logging.info("Updating %d native lib%s...",
                num_files, "s" if num_files != 1 else "")
 
-  adb.Delete("%s/native/native_manifest" % app_dir)
+  adb.Delete(targetpath.join(app_dir, "native", "native_manifest"))
 
   if libs_to_delete:
-    adb.DeleteMultiple([
-        "%s/native/%s" % (app_dir, lib) for lib in libs_to_delete])
+    adb.DeleteMultiple(
+        [targetpath.join(app_dir, "native", lib) for lib in libs_to_delete])
 
   upload_walltime_start = time.time()
   fs = [adb.Push(local, remote) for local, remote in libs_to_push]
@@ -581,13 +588,14 @@ def UploadNativeLibs(adb, native_lib_args, app_dir, full_install):
   install_manifest = [
       name + " " + checksum for name, checksum in install_checksums.iteritems()]
   adb.PushString("\n".join(install_manifest),
-                 "%s/native/native_manifest" % app_dir).result()
+                 targetpath.join(app_dir, "native",
+                                 "native_manifest")).result()
 
 
 def VerifyInstallTimestamp(adb, app_package):
   """Verifies that the app is unchanged since the last mobile-install."""
-  expected_timestamp = adb.Pull("%s/%s/install_timestamp" % (
-      DEVICE_DIRECTORY, app_package))
+  expected_timestamp = adb.Pull(
+      targetpath.join(DEVICE_DIRECTORY, app_package, "install_timestamp"))
   if not expected_timestamp:
     raise TimestampException(
         "Cannot verify last mobile install. At least one non-incremental "
@@ -609,10 +617,10 @@ def VerifyInstallTimestamp(adb, app_package):
 def SplitIncrementalInstall(adb, app_package, execroot, split_main_apk,
                             split_apks):
   """Does incremental installation using split packages."""
-  app_dir = os.path.join(DEVICE_DIRECTORY, app_package)
-  device_manifest_path = "%s/split_manifest" % app_dir
+  app_dir = targetpath.join(DEVICE_DIRECTORY, app_package)
+  device_manifest_path = targetpath.join(app_dir, "split_manifest")
   device_manifest = adb.Pull(device_manifest_path)
-  expected_timestamp = adb.Pull("%s/install_timestamp" % app_dir)
+  expected_timestamp = adb.Pull(targetpath.join(app_dir, "install_timestamp"))
   actual_timestamp = adb.GetInstallTime(app_package)
   device_checksums = {}
   if device_manifest is not None:
@@ -623,9 +631,9 @@ def SplitIncrementalInstall(adb, app_package, execroot, split_main_apk,
 
   install_checksums = {}
   install_checksums["__MAIN__"] = Checksum(
-      os.path.join(execroot, split_main_apk))
+      hostpath.join(execroot, split_main_apk))
   for apk in split_apks:
-    install_checksums[apk] = Checksum(os.path.join(execroot, apk))
+    install_checksums[apk] = Checksum(hostpath.join(execroot, apk))
 
   reinstall_main = False
   if (device_manifest is None or actual_timestamp is None or
@@ -655,20 +663,20 @@ def SplitIncrementalInstall(adb, app_package, execroot, split_main_apk,
   if reinstall_main:
     logging.info("Installing main APK...")
     adb.Uninstall(app_package)
-    adb.InstallMultiple(os.path.join(execroot, split_main_apk))
+    adb.InstallMultiple(targetpath.join(execroot, split_main_apk))
     adb.PushString(
         adb.GetInstallTime(app_package),
-        "%s/install_timestamp" % app_dir).result()
+        targetpath.join(app_dir, "install_timestamp")).result()
 
   logging.info("Reinstalling %s APKs...", len(apks_to_update))
 
   for apk in apks_to_update:
-    adb.InstallMultiple(os.path.join(execroot, apk), app_package)
+    adb.InstallMultiple(targetpath.join(execroot, apk), app_package)
 
   install_manifest = [
       name + " " + checksum for name, checksum in install_checksums.iteritems()]
   adb.PushString("\n".join(install_manifest),
-                 "%s/split_manifest" % app_dir).result()
+                 targetpath.join(app_dir, "split_manifest")).result()
 
 
 def IncrementalInstall(adb_path, execroot, stub_datafile, output_marker,
@@ -697,8 +705,8 @@ def IncrementalInstall(adb_path, execroot, stub_datafile, output_marker,
   temp_dir = tempfile.mkdtemp()
   try:
     adb = Adb(adb_path, temp_dir, adb_jobs, user_home_dir)
-    app_package = GetAppPackage(os.path.join(execroot, stub_datafile))
-    app_dir = os.path.join(DEVICE_DIRECTORY, app_package)
+    app_package = GetAppPackage(hostpath.join(execroot, stub_datafile))
+    app_dir = targetpath.join(DEVICE_DIRECTORY, app_package)
     if split_main_apk:
       SplitIncrementalInstall(adb, app_package, execroot, split_main_apk,
                               split_apks)
@@ -706,20 +714,20 @@ def IncrementalInstall(adb_path, execroot, stub_datafile, output_marker,
       if not apk:
         VerifyInstallTimestamp(adb, app_package)
 
-      with file(os.path.join(execroot, dexmanifest)) as f:
+      with file(hostpath.join(execroot, dexmanifest)) as f:
         dexmanifest = f.read()
       UploadDexes(adb, execroot, app_dir, temp_dir, dexmanifest, bool(apk))
       # TODO(ahumesky): UploadDexes waits for all the dexes to be uploaded, and
       # then UploadResources is called. We could instead enqueue everything
       # onto the threadpool so that uploading resources happens sooner.
-      UploadResources(adb, os.path.join(execroot, resource_apk), app_dir)
+      UploadResources(adb, hostpath.join(execroot, resource_apk), app_dir)
       UploadNativeLibs(adb, native_libs, app_dir, bool(apk))
       if apk:
-        apk_path = os.path.join(execroot, apk)
+        apk_path = targetpath.join(execroot, apk)
         adb.Install(apk_path)
         future = adb.PushString(
             adb.GetInstallTime(app_package),
-            "%s/%s/install_timestamp" % (DEVICE_DIRECTORY, app_package))
+            targetpath.join(DEVICE_DIRECTORY, app_package, "install_timestamp"))
         future.result()
       else:
         if start_type == "warm":

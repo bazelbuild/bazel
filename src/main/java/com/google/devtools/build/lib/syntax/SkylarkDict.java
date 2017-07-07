@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.syntax;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.SkylarkMutable.MutableMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -168,8 +169,8 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
 
   // Other methods
   @Override
-  public void write(Appendable buffer, char quotationMark) {
-    Printer.printList(buffer, entrySet(), "{", ", ", "}", null, quotationMark);
+  public void repr(SkylarkPrinter printer) {
+    printer.printList(entrySet(), "{", ", ", "}", null);
   }
 
   /**
@@ -180,7 +181,7 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
    * @param valueType the expected class of values
    * @param description a description of the argument being converted, or null, for debugging
    */
-  public static <K, V> SkylarkDict<K, V> castSkylarkDictOrNoneToDict(
+  public static <K, V> Map<K, V> castSkylarkDictOrNoneToDict(
       Object obj, Class<K> keyType, Class<V> valueType, @Nullable String description)
       throws EvalException {
     if (EvalUtils.isNullOrNone(obj)) {
@@ -191,7 +192,7 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
     }
     throw new EvalException(
         null,
-        Printer.format(
+        String.format(
             "%s is not of expected type dict or NoneType",
             description == null ? Printer.repr(obj) : String.format("'%s'", description)));
   }

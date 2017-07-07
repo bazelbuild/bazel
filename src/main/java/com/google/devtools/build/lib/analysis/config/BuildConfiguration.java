@@ -29,7 +29,6 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Interners;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
@@ -84,6 +83,7 @@ import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
 import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
+import com.google.devtools.common.options.proto.OptionFilters.OptionMetadataTag;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -763,14 +763,13 @@ public final class BuildConfiguration implements BuildEvent {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "If 'auto', Bazel will only rerun a test if any of the following conditions apply: "
-              + "(1) Bazel detects changes in the test or its dependencies "
-              + "(2) the test is marked as external "
-              + "(3) multiple test runs were requested with --runs_per_test "
-              + "(4) the test failed "
-              + "If 'yes', the caching behavior will be the same as 'auto' except that "
-              + "it may cache test failures and test runs with --runs_per_test. "
-              + "If 'no', all tests will be always executed."
+          "If set to 'auto', Bazel reruns a test if and only if: "
+              + "(1) Bazel detects changes in the test or its dependencies, "
+              + "(2) the test is marked as external, "
+              + "(3) multiple test runs were requested with --runs_per_test, or"
+              + "(4) the test previously failed. "
+              + "If set to 'yes', Bazel caches all test results except for tests marked as "
+              + "external. If set to 'no', Bazel does not cache any test results."
     )
     public TriState cacheTestResults;
 
@@ -1045,14 +1044,29 @@ public final class BuildConfiguration implements BuildEvent {
       allowMultiple = true,
       defaultValue = "",
       category = "flags",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
           "Declares this build's target environment. Must be a label reference to an "
               + "\"environment\" rule. If specified, all top-level targets must be "
               + "compatible with this environment."
     )
     public List<Label> targetEnvironments;
+
+    @Option(
+      name = "experimental_auto_cpu_environment_group",
+      converter = EmptyToNullLabelConverter.class,
+      defaultValue = "",
+      category = "flags",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      help =
+          "Declare the environment_group to use for automatically mapping cpu values to "
+              + "target_environment values."
+    )
+    public Label autoCpuEnvironmentGroup;
 
     /**
      * Values for --experimental_dynamic_configs.
@@ -1165,14 +1179,6 @@ public final class BuildConfiguration implements BuildEvent {
     }
 
     @Override
-    public void addAllLabels(Multimap<String, Label> labelMap) {
-      labelMap.putAll("action_listener", actionListeners);
-      labelMap.putAll("plugins", pluginList);
-      if ((runUnder != null) && (runUnder.getLabel() != null)) {
-        labelMap.put("RunUnder", runUnder.getLabel());
-      }
-    }
-    @Override
     public Map<String, Set<Label>> getDefaultsLabels(BuildConfiguration.Options commonOptions) {
       return ImmutableMap.<String, Set<Label>>of(
           "coverage_support", ImmutableSet.of(coverageSupport),
@@ -1188,7 +1194,7 @@ public final class BuildConfiguration implements BuildEvent {
   private final ImmutableMap<Class<? extends Fragment>, Fragment> fragments;
   private final ImmutableMap<String, Class<? extends Fragment>> skylarkVisibleFragments;
   private final RepositoryName mainRepositoryName;
-
+  private final DynamicTransitionMapper dynamicTransitionMapper;
 
   /**
    * Directories in the output tree.
@@ -1500,11 +1506,15 @@ public final class BuildConfiguration implements BuildEvent {
 
   /**
    * Constructs a new BuildConfiguration instance.
+   *
+   * <p>Callers that pass null for {@code dynamicTransitionMapper} should not use dynamic
+   * configurations.
    */
   public BuildConfiguration(BlazeDirectories directories,
       Map<Class<? extends Fragment>, Fragment> fragmentsMap,
       BuildOptions buildOptions,
-      String repositoryName) {
+      String repositoryName,
+      @Nullable DynamicTransitionMapper dynamicTransitionMapper) {
     this.directories = directories;
     this.fragments = ImmutableSortedMap.copyOf(fragmentsMap, lexicalFragmentSorter);
 
@@ -1514,6 +1524,7 @@ public final class BuildConfiguration implements BuildEvent {
     this.actionsEnabled = buildOptions.enableActions();
     this.options = buildOptions.get(Options.class);
     this.mainRepositoryName = RepositoryName.createFromValidStrippedName(repositoryName);
+    this.dynamicTransitionMapper = dynamicTransitionMapper;
 
     // We can't use an ImmutableMap.Builder here; we need the ability to add entries with keys that
     // are already in the map so that the same define can be specified on the command line twice,
@@ -1596,8 +1607,13 @@ public final class BuildConfiguration implements BuildEvent {
     }
     BuildOptions options = buildOptions.trim(
         getOptionsClasses(fragmentsMap.keySet(), ruleClassProvider));
-    BuildConfiguration newConfig = new BuildConfiguration(
-        directories, fragmentsMap, options, mainRepositoryName.strippedName());
+    BuildConfiguration newConfig =
+        new BuildConfiguration(
+            directories,
+            fragmentsMap,
+            options,
+            mainRepositoryName.strippedName(),
+            dynamicTransitionMapper);
     newConfig.setConfigurationTransitions(this.transitions);
     return newConfig;
   }
@@ -1761,12 +1777,6 @@ public final class BuildConfiguration implements BuildEvent {
    */
   public interface TransitionApplier {
     /**
-     * Creates a new instance of this transition applier bound to the specified source
-     * configuration.
-     */
-    TransitionApplier create(BuildConfiguration config);
-
-    /**
      * Accepts the given configuration transition. The implementation decides how to turn
      * this into an actual configuration. This may be called multiple times (representing a
      * request for a sequence of transitions).
@@ -1819,11 +1829,6 @@ public final class BuildConfiguration implements BuildEvent {
 
     private StaticTransitionApplier(BuildConfiguration originalConfiguration) {
       this.toConfigurations = ImmutableList.<BuildConfiguration>of(originalConfiguration);
-    }
-
-    @Override
-    public TransitionApplier create(BuildConfiguration configuration) {
-      return new StaticTransitionApplier(configuration);
     }
 
     @Override
@@ -1906,8 +1911,7 @@ public final class BuildConfiguration implements BuildEvent {
    * transitions that the caller subsequently creates configurations from.
    */
   private static class DynamicTransitionApplier implements TransitionApplier {
-    private final BuildOptions originalOptions;
-    private final Transitions transitionsManager;
+    private final DynamicTransitionMapper dynamicTransitionMapper;
     private boolean splitApplied = false;
 
     // The transition this applier applies to dep rules. When multiple transitions are requested,
@@ -1915,14 +1919,8 @@ public final class BuildConfiguration implements BuildEvent {
     // so calling code doesn't need special logic to support combinations.
     private Transition currentTransition = Attribute.ConfigurationTransition.NONE;
 
-    private DynamicTransitionApplier(BuildConfiguration originalConfiguration) {
-      this.originalOptions = originalConfiguration.getOptions();
-      this.transitionsManager = originalConfiguration.getTransitions();
-    }
-
-    @Override
-    public TransitionApplier create(BuildConfiguration configuration) {
-      return new DynamicTransitionApplier(configuration);
+    private DynamicTransitionApplier(DynamicTransitionMapper dynamicTransitionMapper) {
+      this.dynamicTransitionMapper = dynamicTransitionMapper;
     }
 
     /**
@@ -1957,10 +1955,9 @@ public final class BuildConfiguration implements BuildEvent {
         // in the last segment of a ComposingSplitTransition, those optimizations wouldn't trigger.
         return HostTransition.INSTANCE;
       }
+
       // TODO(gregce): remove this dynamic transition mapping when static configs are removed.
-      Transition dynamicTransition = (transition2 instanceof PatchTransition)
-          ? transition2
-          : transitionsManager.getDynamicTransition(transition2);
+      Transition dynamicTransition = dynamicTransitionMapper.map(transition2);
       return transition1 == Attribute.ConfigurationTransition.NONE
           ? dynamicTransition
           : new ComposingSplitTransition(transition1, dynamicTransition);
@@ -2031,14 +2028,15 @@ public final class BuildConfiguration implements BuildEvent {
       if (isFinal(currentTransition)) {
         return;
       }
-      transitionsManager.configurationHook(fromRule, attribute, toTarget, this);
-
       Rule associatedRule = toTarget.getAssociatedRule();
       RuleTransitionFactory transitionFactory =
           associatedRule.getRuleClassObject().getTransitionFactory();
       if (transitionFactory != null) {
+        // dynamicTransitionMapper is only needed because of Attribute.ConfigurationTransition.DATA:
+        // this is C++-specific but non-C++ rules declare it. So they can't directly provide the
+        // C++-specific patch transition that implements it.
         PatchTransition ruleClassTransition = (PatchTransition)
-            transitionFactory.buildTransitionFor(associatedRule);
+            dynamicTransitionMapper.map(transitionFactory.buildTransitionFor(associatedRule));
         if (ruleClassTransition != null) {
           if (currentTransition == ConfigurationTransition.NONE) {
             currentTransition = ruleClassTransition;
@@ -2085,7 +2083,7 @@ public final class BuildConfiguration implements BuildEvent {
    */
   public TransitionApplier getTransitionApplier() {
     return useDynamicConfigurations()
-        ? new DynamicTransitionApplier(this)
+        ? new DynamicTransitionApplier(dynamicTransitionMapper)
         : new StaticTransitionApplier(this);
   }
 
@@ -2663,10 +2661,6 @@ public final class BuildConfiguration implements BuildEvent {
     return buildOptions;
   }
 
-  public ListMultimap<String, Label> getAllLabels() {
-    return buildOptions.getAllLabels();
-  }
-
   public String getCpu() {
     return options.cpu;
   }
@@ -2762,6 +2756,14 @@ public final class BuildConfiguration implements BuildEvent {
    */
   public List<Label> getTargetEnvironments() {
     return options.targetEnvironments;
+  }
+
+  /**
+   * Returns the {@link Label} of the {@code environment_group} target that will be used to find the
+   * target environment during auto-population.
+   */
+  public Label getAutoCpuEnvironmentGroup() {
+    return options.autoCpuEnvironmentGroup;
   }
 
   public Class<? extends Fragment> getSkylarkFragmentByName(String name) {

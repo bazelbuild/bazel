@@ -169,20 +169,17 @@ public final class CppFileTypes {
 
   /** Predicate that matches all artifacts that can be used in an objc Clang module map. */
   public static final Predicate<Artifact> MODULE_MAP_HEADER =
-      new Predicate<Artifact>() {
-        @Override
-        public boolean apply(Artifact artifact) {
-          if (artifact.isTreeArtifact()) {
-            // Tree artifact is basically a directory, which does not have any information about
-            // the contained files and their extensions. Here we assume the passed in tree artifact
-            // contains proper header files with .h extension.
-            return true;
-          } else {
-            // The current clang (clang-600.0.57) on Darwin doesn't support 'textual', so we can't
-            // have '.inc' files in the module map (since they're implictly textual).
-            // TODO(bazel-team): Use HEADERS file type once clang-700 is the base clang we support.
-            return artifact.getFilename().endsWith(".h");
-          }
+      artifact -> {
+        if (artifact.isTreeArtifact()) {
+          // Tree artifact is basically a directory, which does not have any information about
+          // the contained files and their extensions. Here we assume the passed in tree artifact
+          // contains proper header files with .h extension.
+          return true;
+        } else {
+          // The current clang (clang-600.0.57) on Darwin doesn't support 'textual', so we can't
+          // have '.inc' files in the module map (since they're implictly textual).
+          // TODO(bazel-team): Use HEADERS file type once clang-700 is the base clang we support.
+          return artifact.getFilename().endsWith(".h");
         }
       };
 

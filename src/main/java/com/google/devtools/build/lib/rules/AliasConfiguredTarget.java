@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -28,8 +29,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
@@ -44,16 +45,18 @@ import javax.annotation.Nullable;
  */
 @Immutable
 public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObject {
+  private final Label label;
   private final BuildConfiguration configuration;
   private final ConfiguredTarget actual;
   private final ImmutableMap<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>
       overrides;
 
   public AliasConfiguredTarget(
-      BuildConfiguration configuration,
+      RuleContext ruleContext,
       @Nullable ConfiguredTarget actual,
       ImmutableMap<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> overrides) {
-    this.configuration = Preconditions.checkNotNull(configuration);
+    this.label = ruleContext.getLabel();
+    this.configuration = Preconditions.checkNotNull(ruleContext.getConfiguration());
     this.actual = actual;
     this.overrides = Preconditions.checkNotNull(overrides);
   }
@@ -81,12 +84,6 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObjec
   @Override
   public SkylarkClassObject get(ClassObjectConstructor.Key providerKey) {
     return actual == null ? null : actual.get(providerKey);
-  }
-
-  @Nullable
-  @Override
-  public Object get(SkylarkProviderIdentifier id) {
-    return actual == null ? null : actual.get(id);
   }
 
   @Override
@@ -149,5 +146,19 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObjec
   @Nullable
   public ConfiguredTarget getActual() {
     return actual;
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return false;
+  }
+
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    printer.append("<alias target " + label);
+    if (actual != null) {
+      printer.append(" of " + actual.getLabel());
+    }
+    printer.append(">");
   }
 }

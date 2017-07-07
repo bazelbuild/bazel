@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.platform;
 
-import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.SkylarkProviderCollection;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -35,14 +34,7 @@ public class PlatformProviderUtils {
   /** Retrieves and casts {@link PlatformInfo} providers from the given targets. */
   public static Iterable<PlatformInfo> platforms(
       Iterable<? extends SkylarkProviderCollection> targets) {
-    return Iterables.transform(
-        targets,
-        new Function<SkylarkProviderCollection, PlatformInfo>() {
-          @Override
-          public PlatformInfo apply(SkylarkProviderCollection target) {
-            return platform(target);
-          }
-        });
+    return Iterables.transform(targets, PlatformProviderUtils::platform);
   }
 
   /** Retrieves and casts the {@link ConstraintSettingInfo} provider from the given target. */
@@ -58,14 +50,7 @@ public class PlatformProviderUtils {
   /** Retrieves and casts {@link ConstraintSettingInfo} providers from the given targets. */
   public static Iterable<ConstraintSettingInfo> constraintSettings(
       Iterable<? extends SkylarkProviderCollection> targets) {
-    return Iterables.transform(
-        targets,
-        new Function<SkylarkProviderCollection, ConstraintSettingInfo>() {
-          @Override
-          public ConstraintSettingInfo apply(SkylarkProviderCollection target) {
-            return constraintSetting(target);
-          }
-        });
+    return Iterables.transform(targets, PlatformProviderUtils::constraintSetting);
   }
 
   /** Retrieves and casts the {@link ConstraintValueInfo} provider from the given target. */
@@ -81,13 +66,16 @@ public class PlatformProviderUtils {
   /** Retrieves and casts {@link ConstraintValueInfo} providers from the given targets. */
   public static Iterable<ConstraintValueInfo> constraintValues(
       Iterable<? extends SkylarkProviderCollection> targets) {
-    return Iterables.transform(
-        targets,
-        new Function<SkylarkProviderCollection, ConstraintValueInfo>() {
-          @Override
-          public ConstraintValueInfo apply(SkylarkProviderCollection target) {
-            return constraintValue(target);
-          }
-        });
+    return Iterables.transform(targets, PlatformProviderUtils::constraintValue);
+  }
+
+  /** Retrieves and casts the {@link ToolchainInfo} provider from the given target. */
+  public static ToolchainInfo toolchain(SkylarkProviderCollection target) {
+    Object provider = target.get(ToolchainInfo.SKYLARK_IDENTIFIER);
+    if (provider == null) {
+      return null;
+    }
+    Preconditions.checkState(provider instanceof ToolchainInfo);
+    return (ToolchainInfo) provider;
   }
 }

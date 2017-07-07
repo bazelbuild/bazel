@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.standalone.StandaloneSpawnStrategy;
  */
 final class RemoteActionContextProvider extends ActionContextProvider {
   private final CommandEnvironment env;
-  private ActionInputPrefetcher actionInputPrefetcher;
   private RemoteSpawnStrategy spawnStrategy;
 
   RemoteActionContextProvider(CommandEnvironment env) {
@@ -43,7 +42,6 @@ final class RemoteActionContextProvider extends ActionContextProvider {
   @Override
   public void init(
       ActionInputFileCache actionInputFileCache, ActionInputPrefetcher actionInputPrefetcher) {
-    this.actionInputPrefetcher = Preconditions.checkNotNull(actionInputPrefetcher);
     ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);
     LocalExecutionOptions localExecutionOptions =
         env.getOptions().getOptions(LocalExecutionOptions.class);
@@ -55,11 +53,43 @@ final class RemoteActionContextProvider extends ActionContextProvider {
             executionOptions.verboseFailures,
             env.getRuntime().getProductName(),
             ResourceManager.instance());
+
+    RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
+    AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
+    ChannelOptions channelOptions = ChannelOptions.create(authAndTlsOptions);
+
+    // Initialize remote cache and execution handlers. We use separate handlers for every
+    // action to enable server-side parallelism (need a different gRPC channel per action).
+    RemoteActionCache remoteCache;
+    if (SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions)) {
+      remoteCache = new SimpleBlobStoreActionCache(SimpleBlobStoreFactory.create(remoteOptions));
+    } else if (GrpcRemoteCache.isRemoteCacheOptions(remoteOptions)) {
+      remoteCache =
+          new GrpcRemoteCache(
+              GrpcUtils.createChannel(remoteOptions.remoteCache, channelOptions),
+              channelOptions,
+              remoteOptions);
+    } else {
+      remoteCache = null;
+    }
+
+    // Otherwise remoteCache remains null and remote caching/execution are disabled.
+    GrpcRemoteExecutor remoteExecutor;
+    if (remoteCache != null && GrpcRemoteExecutor.isRemoteExecutionOptions(remoteOptions)) {
+      remoteExecutor =
+          new GrpcRemoteExecutor(
+              GrpcUtils.createChannel(remoteOptions.remoteExecutor, channelOptions),
+              channelOptions,
+              remoteOptions);
+    } else {
+      remoteExecutor = null;
+    }
     spawnStrategy =
         new RemoteSpawnStrategy(
             env.getExecRoot(),
-            env.getOptions().getOptions(RemoteOptions.class),
-            env.getOptions().getOptions(AuthAndTLSOptions.class),
+            remoteOptions,
+            remoteCache,
+            remoteExecutor,
             executionOptions.verboseFailures,
             fallbackStrategy);
   }

@@ -17,7 +17,6 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.EmptyToNullLabelConverter;
@@ -33,6 +32,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppOptions.DynamicModeConverter;
+import com.google.devtools.build.lib.rules.cpp.CppOptions.LibcTopLabelConverter;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
@@ -281,6 +281,17 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     public String cppCompiler;
 
     @Option(
+      name = "android_grte_top",
+      defaultValue = "null",
+      converter = LibcTopLabelConverter.class,
+      category = "semantics",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help = "The Android target grte_top."
+    )
+    public Label androidLibcTopLabel;
+
+    @Option(
       name = "android_dynamic_mode",
       defaultValue = "off",
       converter = DynamicModeConverter.class,
@@ -340,7 +351,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
     @Option(
       name = "incremental_dexing",
-      defaultValue = "false",
+      defaultValue = "true",
       category = "semantics",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -523,6 +534,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       defaultValue = "aapt",
       category = "semantics",
       optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       converter = AndroidAaptConverter.class,
       help =
           "Selects the version of androidAaptVersion to use for android_binary rules."
@@ -656,15 +669,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
               + " R classes will be used."
     )
     public boolean generateRobolectricRClass;
-
-    @Override
-    public void addAllLabels(Multimap<String, Label> labelMap) {
-      if (androidCrosstoolTop != null) {
-        labelMap.put("android_crosstool_top", androidCrosstoolTop);
-      }
-
-      labelMap.put("android_sdk", sdk);
-    }
 
     @Override
     public FragmentOptions getHost(boolean fallback) {

@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.devtools.build.lib.events.Location;
-
 import java.io.IOException;
 
 /** Syntax node for a unary operator expression. */
@@ -72,10 +71,19 @@ public final class UnaryOperatorExpression extends Expression {
         if (!(value instanceof Integer)) {
           throw new EvalException(
               loc,
-              String.format("unsupported operand type for -: '%s'",
-                  EvalUtils.getDataTypeName(value)));
+              String.format(
+                  "unsupported operand type for -: '%s'", EvalUtils.getDataTypeName(value)));
         }
-        return -((Integer) value);
+        if (env.getSemantics().incompatibleCheckedArithmetic) {
+          try {
+            return Math.negateExact((Integer) value);
+          } catch (ArithmeticException e) {
+            // Fails for -MIN_INT.
+            throw new EvalException(loc, e.getMessage());
+          }
+        } else {
+          return -((Integer) value);
+        }
 
       default:
         throw new AssertionError("Unsupported unary operator: " + operator);

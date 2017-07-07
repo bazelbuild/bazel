@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.remote;
 
+import static com.google.devtools.build.lib.util.Preconditions.checkArgument;
+import static com.google.devtools.build.lib.util.Preconditions.checkState;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
@@ -237,45 +240,6 @@ public final class Chunker {
     };
   }
 
-  /**
-   * Create a Chunker from a given ActionInput, taking its digest from the provided
-   * ActionInputFileCache.
-   */
-  public static Chunker from(
-      ActionInput input, int chunkSize, ActionInputFileCache inputCache, Path execRoot)
-      throws IOException {
-    return new Chunker(toItem(input, inputCache, execRoot), chunkSize);
-  }
-
-  /**
-   * Create a Chunker from a given ActionInput, taking its digest from the provided
-   * ActionInputFileCache.
-   */
-  public static Chunker from(ActionInput input, ActionInputFileCache inputCache, Path execRoot)
-      throws IOException {
-    return from(input, getDefaultChunkSize(), inputCache, execRoot);
-  }
-
-  /** Create a Chunker from a given blob and chunkSize. */
-  public static Chunker from(byte[] blob, int chunkSize) throws IOException {
-    return new Chunker(toItem(blob), chunkSize);
-  }
-
-  /** Create a Chunker from a given blob. */
-  public static Chunker from(byte[] blob) throws IOException {
-    return from(blob, getDefaultChunkSize());
-  }
-
-  /** Create a Chunker from a given Path and chunkSize. */
-  public static Chunker from(Path file, int chunkSize) throws IOException {
-    return new Chunker(toItem(file), chunkSize);
-  }
-
-  /** Create a Chunker from a given Path. */
-  public static Chunker from(Path file) throws IOException {
-    return from(file, getDefaultChunkSize());
-  }
-
   private static class MemberOf implements Predicate<Item> {
     private final Set<Digest> digests;
 
@@ -294,9 +258,53 @@ public final class Chunker {
   }
 
   /**
+   * Creates a Chunker from a single input source.
+   *
+   * <p>As we phase out usages of multiple input sources, this will soon completely replace the
+   * multiple inputs Builder.
+   */
+  public static final class SingleSourceBuilder {
+    private Item item;
+    private int chunkSize = getDefaultChunkSize();
+
+    public SingleSourceBuilder chunkSize(int chunkSize) {
+      checkArgument(chunkSize > 0, "chunkSize must be gt 0.");
+      this.chunkSize = chunkSize;
+      return this;
+    }
+
+    public SingleSourceBuilder input(byte[] blob) {
+      item = toItem(blob);
+      return this;
+    }
+
+    public SingleSourceBuilder input(Path file) {
+      item = toItem(file);
+      return this;
+    }
+
+    public SingleSourceBuilder input(ActionInput input, ActionInputFileCache inputCache,
+        Path execRoot) {
+      item = toItem(input, inputCache, execRoot);
+      return this;
+    }
+
+    public Digest getDigest() throws IOException {
+      checkState(item != null, "Need to specify an input source first.");
+      return item.getDigest();
+    }
+
+    public Chunker build() throws IOException {
+      checkState(item != null, "No input source provided.");
+      return new Chunker(item, chunkSize);
+    }
+  }
+
+  /**
    * Create a Chunker from multiple input sources. The order of the sources provided to the Builder
    * will be the same order they will be chunked by.
    */
+  @Deprecated
   public static final class Builder {
     private final ImmutableList.Builder<Item> items = ImmutableList.builder();
     private Set<Digest> digests = null;

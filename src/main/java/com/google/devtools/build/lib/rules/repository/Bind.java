@@ -44,12 +44,13 @@ public class Bind implements RuleConfiguredTargetFactory {
 
     ConfiguredTarget actual = (ConfiguredTarget) ruleContext.getPrerequisite("actual", Mode.TARGET);
     return new AliasConfiguredTarget(
-        ruleContext.getConfiguration(),
+        ruleContext,
         actual,
         ImmutableMap.<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>of(
-            AliasProvider.class, AliasProvider.fromAliasRule(ruleContext.getLabel(), actual),
-            VisibilityProvider.class, new VisibilityProviderImpl(
+            AliasProvider.class,
+            AliasProvider.fromAliasRule(ruleContext.getLabel(), actual),
+            VisibilityProvider.class,
+            new VisibilityProviderImpl(
                 NestedSetBuilder.create(Order.STABLE_ORDER, PackageSpecification.everything()))));
-
   }
 }

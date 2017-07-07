@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -245,12 +244,8 @@ public final class Mutability implements AutoCloseable, Serializable {
     }
 
     if (env.mutability().isLocked(object)) {
-      Iterable<String> locs = Iterables.transform(env.mutability().getLockLocations(object),
-          new Function<Location, String>() {
-              @Override
-              public String apply(Location loc) {
-                return loc.print();
-              }});
+      Iterable<String> locs =
+          Iterables.transform(env.mutability().getLockLocations(object), Location::print);
       throw new MutabilityException(
           "trying to mutate a locked object (is it currently being iterated over by a for loop "
           + "or comprehension?)\n"

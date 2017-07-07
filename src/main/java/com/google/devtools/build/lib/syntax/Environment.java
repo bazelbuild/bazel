@@ -698,8 +698,8 @@ public final class Environment implements Freezable {
       // End users don't have access to setupDynamic, and it is an implementation error
       // if we encounter a mutability exception.
       throw new AssertionError(
-          Printer.format(
-              "Trying to bind dynamic variable '%s' in frozen environment %r", varname, this),
+          String.format(
+              "Trying to bind dynamic variable '%s' in frozen environment %s", varname, this),
           e);
     }
     return this;

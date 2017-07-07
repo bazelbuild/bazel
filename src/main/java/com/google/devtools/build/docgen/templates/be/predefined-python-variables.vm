@@ -20,8 +20,10 @@ title: Predefined Python Variables
 #end
 <h3 id="packagename">PACKAGE_NAME</h3>
 <p>
-  This is a string variable with the name
-  of the package being evaluated. The value is unaffected by subinclude.
+  This is a string variable with the name of the package being evaluated. In
+  particular, when <code>PACKAGE_NAME</code> appears in a <code>.bzl</code>
+  file, its value will be the package that <i>uses</i> the .bzl file, not the
+  package that contains it.
 </p>
 
 #if (!$singlePage)

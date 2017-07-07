@@ -29,19 +29,6 @@ Extras:
 For more information on using Bazel, see
 [Getting Started with Bazel](getting-started.html).
 
-
-## <a name="jdk7"></a>Using Bazel with JDK 7
-
-Bazel version _0.5.1_ does run with JDK 7. However, starting with version
-_0.5.2_ Bazel must use JDK 8.
-
-The installers available for _0.5.1_ are:
-
-*  `bazel-0.5.1-installer.sh`: default version with embedded JDK
-*  `bazel-0.5.1-without-jdk-installer.sh`: version without embedded JDK
-*  `bazel-0.5.1-jdk7-installer.sh`: version compatible with JDK 7, will not be
-   available in later releases
-
 ## <a name="bash"></a>Getting bash completion
 
 Bazel comes with a bash completion script, which the installer copies into the

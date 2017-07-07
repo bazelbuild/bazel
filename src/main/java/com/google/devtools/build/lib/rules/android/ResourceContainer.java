@@ -98,6 +98,18 @@ public abstract class ResourceContainer {
   @Nullable
   public abstract Artifact getSymbols();
 
+  @Nullable
+  public abstract Artifact getCompiledSymbols();
+
+  @Nullable
+  public abstract Artifact getStaticLibrary();
+
+  @Nullable
+  public abstract Artifact getAapt2RTxt();
+
+  @Nullable
+  public abstract Artifact getAapt2JavaSourceJar();
+
   // The limited hashCode and equals behavior is necessary to avoid duplication when building with
   // fat_apk_cpu set. Artifacts generated in different configurations will naturally be different
   // and non-equal objects, causing the ResourceContainer not to be automatically deduplicated at
@@ -283,6 +295,14 @@ public abstract class ResourceContainer {
     public abstract Builder setRTxt(@Nullable Artifact rTxt);
 
     public abstract Builder setSymbols(@Nullable Artifact symbols);
+
+    public abstract Builder setCompiledSymbols(@Nullable Artifact compiledSymbols);
+
+    public abstract Builder setStaticLibrary(@Nullable Artifact staticLibrary);
+
+    public abstract Builder setAapt2JavaSourceJar(@Nullable Artifact javaSourceJar);
+
+    public abstract Builder setAapt2RTxt(@Nullable Artifact rTxt);
 
     abstract ResourceContainer autoBuild();
 

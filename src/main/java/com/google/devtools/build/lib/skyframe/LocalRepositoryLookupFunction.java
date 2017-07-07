@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.skyframe.PackageFunction.PackageFunctionException;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -208,8 +209,10 @@ public class LocalRepositoryLookupFunction implements SkyFunction {
                 @Override
                 public boolean apply(@Nullable Rule rule) {
                   AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
-                  PathFragment pathAttr = PathFragment.create(mapper.get("path", Type.STRING));
-                  return directory.getRelativePath().equals(pathAttr);
+                  // Construct the path. If not absolute, it will be relative to the workspace.
+                  Path localPath =
+                      workspacePath.getRoot().getRelative(mapper.get("path", Type.STRING));
+                  return directory.asPath().equals(localPath);
                 }
               },
               null);

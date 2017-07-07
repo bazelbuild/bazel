@@ -127,7 +127,7 @@ sh_test(name='test',
 EOF
 
   cat >foo/bar/test.sh <<EOF
-#!/bin/bash
+#!/bin/sh
 exit 0
 EOF
 
@@ -226,13 +226,13 @@ sh_test(name='hummingbird', srcs=['hummingbird.sh'])
 EOF
 
   cat >geflugel/mockingbird.sh <<EOF
-#!/bin/bash
+#!/bin/sh
 echo "To kill -9 a mockingbird"
 exit 1
 EOF
 
   cat >geflugel/hummingbird.sh <<EOF
-#!/bin/bash
+#!/bin/sh
 echo "To kill -9 a hummingbird"
 exit 1
 EOF
