@@ -492,9 +492,8 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testAttrDefaultValueBadType() throws Exception {
     checkErrorContains(
-        "method attr.string(*, default: string, mandatory: bool, values: sequence of strings) "
-            + "is not applicable for arguments (int, bool, list): 'default' is 'int', "
-            + "but should be 'string'",
+        "argument 'default' has type 'int', but should be 'string'\n"
+            + "in call to builtin function attr.string(*, default, mandatory, values)",
         "attr.string(default = 1)");
   }
 
@@ -569,9 +568,8 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testLateBoundAttrWorksWithOnlyLabel() throws Exception {
     checkEvalError(
-        "method attr.string(*, default: string, mandatory: bool, values: sequence of strings) "
-            + "is not applicable for arguments (function, bool, list): 'default' is 'function', "
-            + "but should be 'string'",
+        "argument 'default' has type 'function', but should be 'string'\n"
+            + "in call to builtin function attr.string(*, default, mandatory, values)",
         "def attr_value(cfg): return 'a'",
         "attr.string(default=attr_value)");
   }

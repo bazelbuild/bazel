@@ -186,17 +186,15 @@ public class BuiltinFunction extends BaseFunction {
         if (args[i] != null && !types[i].isAssignableFrom(args[i].getClass())) {
           String paramName =
               i < len ? signature.getSignature().getNames().get(i) : extraArgs[i - len].name();
-          int extraArgsCount = (extraArgs == null) ? 0 : extraArgs.length;
           throw new EvalException(
               loc,
               String.format(
-                  "method %s is not applicable for arguments %s: "
-                      + "'%s' is '%s', but should be '%s'",
-                  getShortSignature(),
-                  printTypeString(args, args.length - extraArgsCount),
+                  "argument '%s' has type '%s', but should be '%s'\nin call to builtin %s %s",
                   paramName,
                   EvalUtils.getDataTypeName(args[i]),
-                  EvalUtils.getDataTypeNameFromClass(types[i])));
+                  EvalUtils.getDataTypeNameFromClass(types[i]),
+                  hasSelfArgument() ? "method" : "function",
+                  getShortSignature()));
         }
       }
       throw badCallException(loc, e, args);

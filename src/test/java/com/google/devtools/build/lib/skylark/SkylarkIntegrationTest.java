@@ -337,9 +337,8 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "str",
         "\t\tstr.index(1)"
             + System.lineSeparator()
-            + "method string.index(sub: string, start: int, end: int or NoneType) is not "
-            + "applicable for arguments (int, int, NoneType): 'sub' is 'int', "
-            + "but should be 'string'");
+            + "argument 'sub' has type 'int', but should be 'string'\n"
+            + "in call to builtin method string.index(sub, start, end)");
   }
 
   @Test

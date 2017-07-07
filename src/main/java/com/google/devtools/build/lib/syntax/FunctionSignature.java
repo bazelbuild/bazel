@@ -391,7 +391,7 @@ public abstract class FunctionSignature implements Serializable {
     public StringBuilder toStringBuilder(
         final StringBuilder sb,
         final boolean showDefaults,
-        final boolean skipMissingTypeNames,
+        final boolean showTypes,
         final boolean skipFirstMandatory) {
       FunctionSignature signature = getSignature();
       Shape shape = signature.getShape();
@@ -431,9 +431,9 @@ public abstract class FunctionSignature implements Serializable {
           // a) there is no type defined (such as in user-defined functions) or
           // b) the type is java.lang.Object.
           boolean typeDefined = types != null && types.get(i) != null;
-          if (typeDefined || !skipMissingTypeNames) {
+          if (typeDefined && showTypes) {
             printer.append(": ");
-            printer.append(typeDefined ? types.get(i).toString() : "object");
+            printer.append(types.get(i).toString());
           }
         }
         public void mandatory(int i) {
