@@ -539,11 +539,11 @@ static void PreprocessEnvString(const string* env_str) {
 void OptionProcessor::AddRcfileArgsAndOptions(const string& cwd) {
   // Provide terminal options as coming from the least important rc file.
   command_arguments_.push_back("--rc_source=client");
-  command_arguments_.push_back("--default_override=0:common=--isatty=" +
-                               ToString(IsStandardTerminal()));
+  command_arguments_.push_back("--default_override=0:common=--is_stderr_atty=" +
+                               ToString(IsStderrStandardTerminal()));
   command_arguments_.push_back(
       "--default_override=0:common=--terminal_columns=" +
-      ToString(GetTerminalColumns()));
+      ToString(GetStderrTerminalColumns()));
 
   // Push the options mapping .blazerc numbers to filenames.
   for (int i_blazerc = 0; i_blazerc < blazercs_.size(); i_blazerc++) {
