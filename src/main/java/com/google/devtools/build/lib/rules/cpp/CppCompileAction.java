@@ -64,6 +64,8 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -874,40 +876,40 @@ public class CppCompileAction extends AbstractAction
       }
     }
     if (VALIDATION_DEBUG_WARN) {
-      synchronized (System.err) {
-        if (VALIDATION_DEBUG >= 2 || errors.hasProblems() || warnings.hasProblems()) {
-          if (errors.hasProblems()) {
-            System.err.println("ERROR: Include(s) were not in declared srcs:");
-          } else if (warnings.hasProblems()) {
-            System.err.println("WARN: Include(s) were not in declared srcs:");
-          } else {
-            System.err.println("INFO: Include(s) were OK for '" + getSourceFile()
-                + "', declared srcs:");
-          }
-          for (Artifact a : context.getDeclaredIncludeSrcs()) {
-            System.err.println("  '" + a.toDetailString() + "'");
-          }
-          System.err.println(" or under declared dirs:");
-          for (PathFragment f : Sets.newTreeSet(context.getDeclaredIncludeDirs())) {
-            System.err.println("  '" + f + "'");
-          }
-          System.err.println(" or under declared warn dirs:");
-          for (PathFragment f : Sets.newTreeSet(context.getDeclaredIncludeWarnDirs())) {
-            System.err.println("  '" + f + "'");
-          }
-          System.err.println(" with prefixes:");
-          for (PathFragment dirpath : context.getQuoteIncludeDirs()) {
-            System.err.println("  '" + dirpath + "'");
-          }
+      if (VALIDATION_DEBUG >= 2 || errors.hasProblems() || warnings.hasProblems()) {
+        StringWriter buffer = new StringWriter();
+        PrintWriter out = new PrintWriter(buffer);
+        if (errors.hasProblems()) {
+          out.println("ERROR: Include(s) were not in declared srcs:");
+        } else if (warnings.hasProblems()) {
+          out.println("WARN: Include(s) were not in declared srcs:");
+        } else {
+          out.println("INFO: Include(s) were OK for '" + getSourceFile()
+              + "', declared srcs:");
         }
+        for (Artifact a : context.getDeclaredIncludeSrcs()) {
+          out.println("  '" + a.toDetailString() + "'");
+        }
+        out.println(" or under declared dirs:");
+        for (PathFragment f : Sets.newTreeSet(context.getDeclaredIncludeDirs())) {
+          out.println("  '" + f + "'");
+        }
+        out.println(" or under declared warn dirs:");
+        for (PathFragment f : Sets.newTreeSet(context.getDeclaredIncludeWarnDirs())) {
+          out.println("  '" + f + "'");
+        }
+        out.println(" with prefixes:");
+        for (PathFragment dirpath : context.getQuoteIncludeDirs()) {
+          out.println("  '" + dirpath + "'");
+        }
+        eventHandler.handle(
+            Event.warn(buffer.toString()).withTag(Label.print(getOwner().getLabel())));
       }
     }
 
     if (warnings.hasProblems()) {
       eventHandler.handle(
-          Event.warn(
-              getOwner().getLocation(),
-              warnings.getMessage(this, getSourceFile()))
+          Event.warn(getOwner().getLocation(), warnings.getMessage(this, getSourceFile()))
               .withTag(Label.print(getOwner().getLabel())));
     }
     errors.assertProblemFree(this, getSourceFile());

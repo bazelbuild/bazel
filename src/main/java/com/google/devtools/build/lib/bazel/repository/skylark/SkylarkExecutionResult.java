@@ -107,7 +107,7 @@ final class SkylarkExecutionResult {
     private final Map<String, String> envBuilder = Maps.newLinkedHashMap();
     private long timeout = -1;
     private boolean executed = false;
-    private boolean quiet;
+    private OutErr outErr;
 
     private Builder(Map<String, String> environment) {
       envBuilder.putAll(environment);
@@ -162,8 +162,8 @@ final class SkylarkExecutionResult {
       return this;
     }
 
-    Builder setQuiet(boolean quiet) {
-      this.quiet = quiet;
+    Builder setOutErr(OutErr outErr) {
+      this.outErr = outErr;
       return this;
     }
 
@@ -183,8 +183,8 @@ final class SkylarkExecutionResult {
       // Bazel will crash. Maybe we should use custom output streams that throw an appropriate
       // exception when reaching a specific size.
       delegator.addSink(recorder);
-      if (!quiet) {
-        delegator.addSink(OutErr.create(System.out, System.err));
+      if (outErr != null) {
+        delegator.addSink(outErr);
       }
       try {
         String[] argsArray = new String[args.size()];
