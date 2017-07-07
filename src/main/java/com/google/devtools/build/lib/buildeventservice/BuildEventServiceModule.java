@@ -47,6 +47,7 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
@@ -66,6 +67,7 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
   private CommandEnvironment commandEnvironment;
   private SynchronizedOutputStream out;
   private SynchronizedOutputStream err;
+  private boolean disabled;
 
   private static class BuildEventRecorder {
     private final List<BuildEvent> events = new ArrayList<>();
@@ -90,6 +92,11 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
   @Override
   public void beforeCommand(CommandEnvironment commandEnvironment)
       throws AbruptExitException {
+    disabled = false;
+    if (!whitelistedCommands().contains(commandEnvironment.getCommandName())) {
+      disabled = true;
+      return;
+    }
     this.commandEnvironment = commandEnvironment;
     this.buildEventRecorder = new BuildEventRecorder();
     commandEnvironment.getEventBus().register(buildEventRecorder);
@@ -97,6 +104,9 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
 
   @Override
   public void handleOptions(OptionsProvider optionsProvider) {
+    if (disabled) {
+      return;
+    }
     checkState(commandEnvironment != null, "Methods called out of order");
     BuildEventStreamer streamer =
         tryCreateStreamer(
@@ -158,6 +168,9 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
 
   @Override
   public OutErr getOutputListener() {
+    if (disabled) {
+      return null;
+    }
     this.out = new SynchronizedOutputStream();
     this.err = new SynchronizedOutputStream();
     return OutErr.create(this.out, this.err);
@@ -266,4 +279,6 @@ public abstract class BuildEventServiceModule<T extends BuildEventServiceOptions
 
   protected abstract BuildEventServiceClient createBesClient(T besOptions,
       AuthAndTLSOptions authAndTLSOptions);
+
+  protected abstract Set<String> whitelistedCommands();
 }

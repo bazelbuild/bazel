@@ -379,9 +379,6 @@ function test_build_only() {
 function test_query() {
   # Verify that at least a minimally meaningful event stream is generated
   # for non-build. In particular, we expect bazel not to crash.
-  bazel version --build_event_text_file=$TEST_log \
-    || fail "bazel version failed"
-  expect_log '^started'
   bazel query --build_event_text_file=$TEST_log 'tests(//...)' \
     || fail "bazel query failed"
   expect_log '^started'
@@ -395,6 +392,20 @@ function test_query() {
   expect_log '//pkg:slow'
   expect_log '^finished'
   expect_log 'name: "SUCCESS"'
+}
+
+function test_command_whitelisting() {
+  # We expect the "help" command to not generate a build-event stream,
+  # but the "build" command to do.
+  rm -f bep.txt
+  bazel help --build_event_text_file=bep.txt || fail "bazel help failed"
+  ( [ -f bep.txt ] && fail "bazel help generated a build-event file" ) || :
+  bazel version --build_event_text_file=bep.txt || fail "bazel help failed"
+  ( [ -f bep.txt ] && fail "bazel version generated a build-event file" ) || :
+  bazel build --build_event_text_file=bep.txt //pkg:true \
+      || fail "bazel build failed"
+  [ -f bep.txt ] || fail "build did not generate requested build-event file"
+  rm -f bep.txt
 }
 
 function test_multiple_transports() {
