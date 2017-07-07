@@ -123,7 +123,6 @@ public class LegacyCompilationSupport extends CompilationSupport {
         .addPrivateHdrs(srcs.filter(HEADERS).list())
         .addPrecompiledSrcs(srcs.filter(PRECOMPILED_SRCS_TYPE).list())
         .setIntermediateArtifacts(intermediateArtifacts)
-        .setPchFile(Optional.fromNullable(ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET)))
         .build();
   }
 
@@ -147,7 +146,8 @@ public class LegacyCompilationSupport extends CompilationSupport {
       CompilationAttributes compilationAttributes,
       boolean useDeps,
       Map<String, NestedSet<Artifact>> outputGroupCollector,
-      boolean isTestRule) {
+      boolean isTestRule,
+      boolean usePch) {
     super(
         ruleContext,
         buildConfiguration,
@@ -155,7 +155,8 @@ public class LegacyCompilationSupport extends CompilationSupport {
         compilationAttributes,
         useDeps,
         outputGroupCollector,
-        isTestRule);
+        isTestRule,
+        usePch);
   }
 
   @Override
@@ -371,7 +372,7 @@ public class LegacyCompilationSupport extends CompilationSupport {
             objcProvider,
             priorityHeaders,
             moduleMap,
-            compilationArtifacts.getPchFile(),
+            getPchFile(),
             Optional.of(dotdFile.artifact()),
             otherFlags,
             runCodeCoverage,
@@ -399,7 +400,7 @@ public class LegacyCompilationSupport extends CompilationSupport {
             .addTransitiveMandatoryInputs(objcProvider.get(STATIC_FRAMEWORK_FILE))
             .addTransitiveMandatoryInputs(objcProvider.get(DYNAMIC_FRAMEWORK_FILE))
             .setDotdFile(dotdFile)
-            .addMandatoryInputs(compilationArtifacts.getPchFile().asSet());
+            .addMandatoryInputs(getPchFile().asSet());
 
     Artifact headersListFile = null;
     if (isHeaderThinningEnabled()
@@ -456,7 +457,7 @@ public class LegacyCompilationSupport extends CompilationSupport {
             objcProvider,
             priorityHeaders,
             moduleMap,
-            compilationArtifacts.getPchFile(),
+            getPchFile(),
             Optional.<Artifact>absent(),
             otherFlags,
             /* runCodeCoverage=*/ false,
@@ -483,7 +484,7 @@ public class LegacyCompilationSupport extends CompilationSupport {
             .addCommonInputs(compilationArtifacts.getPrivateHdrs())
             .addCommonTransitiveInputs(objcProvider.get(STATIC_FRAMEWORK_FILE))
             .addCommonTransitiveInputs(objcProvider.get(DYNAMIC_FRAMEWORK_FILE))
-            .addCommonInputs(compilationArtifacts.getPchFile().asSet())
+            .addCommonInputs(getPchFile().asSet())
             .build(ruleContext.getActionOwner()));
   }
 

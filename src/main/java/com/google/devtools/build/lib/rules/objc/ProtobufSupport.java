@@ -172,7 +172,6 @@ final class ProtobufSupport {
     CompilationArtifacts.Builder moduleMapCompilationArtifacts =
         new CompilationArtifacts.Builder()
             .setIntermediateArtifacts(intermediateArtifacts)
-            .setPchFile(Optional.<Artifact>absent())
             .addAdditionalHdrs(getProtobufHeaders())
             .addAdditionalHdrs(
                 getGeneratedProtoOutputs(inputsToOutputsMap.values(), HEADER_SUFFIX));
@@ -181,6 +180,7 @@ final class ProtobufSupport {
         new CompilationSupport.Builder()
             .setRuleContext(ruleContext)
             .setCompilationAttributes(new CompilationAttributes.Builder().build())
+            .doNotUsePch()
             .build();
 
     compilationSupport.registerGenerateModuleMapAction(moduleMapCompilationArtifacts.build());
@@ -211,7 +211,8 @@ final class ProtobufSupport {
               new CompilationAttributes.Builder().build(),
               /*useDeps=*/ false,
               new TreeMap<String, NestedSet<Artifact>>(),
-              /*isTestRule=*/ false)
+              /*isTestRule=*/ false,
+              /*usePch=*/ false)
           .registerCompileAndArchiveActions(common, userHeaderSearchPaths);
 
       actionId++;
@@ -399,7 +400,6 @@ final class ProtobufSupport {
     CompilationArtifacts.Builder compilationArtifacts =
         new CompilationArtifacts.Builder()
             .setIntermediateArtifacts(intermediateArtifacts)
-            .setPchFile(Optional.<Artifact>absent())
             .addAdditionalHdrs(getGeneratedProtoOutputs(filteredInputProtos, HEADER_SUFFIX))
             .addAdditionalHdrs(getProtobufHeaders());
 

@@ -259,7 +259,6 @@ public abstract class CompilationSupport {
         .addPrivateHdrs(srcs.filter(HEADERS).list())
         .addPrecompiledSrcs(srcs.filter(PRECOMPILED_SRCS_TYPE).list())
         .setIntermediateArtifacts(intermediateArtifacts)
-        .setPchFile(Optional.fromNullable(ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET)))
         .build();
   }
 
@@ -303,6 +302,7 @@ public abstract class CompilationSupport {
   protected final boolean useDeps;
   protected final Map<String, NestedSet<Artifact>> outputGroupCollector;
   protected final boolean isTestRule;
+  protected final boolean usePch;
 
   /**
    * Creates a new compilation support for the given rule and build configuration.
@@ -324,7 +324,8 @@ public abstract class CompilationSupport {
       CompilationAttributes compilationAttributes,
       boolean useDeps,
       Map<String, NestedSet<Artifact>> outputGroupCollector,
-      boolean isTestRule) {
+      boolean isTestRule,
+      boolean usePch) {
     this.ruleContext = ruleContext;
     this.buildConfiguration = buildConfiguration;
     this.objcConfiguration = buildConfiguration.getFragment(ObjcConfiguration.class);
@@ -334,6 +335,7 @@ public abstract class CompilationSupport {
     this.useDeps = useDeps;
     this.isTestRule = isTestRule;
     this.outputGroupCollector = outputGroupCollector;
+    this.usePch = usePch;
   }
 
   /** Builder for {@link CompilationSupport} */
@@ -346,6 +348,7 @@ public abstract class CompilationSupport {
     private Map<String, NestedSet<Artifact>> outputGroupCollector;
     private boolean isObjcLibrary = false;
     private boolean isTestRule = false;
+    private boolean usePch = true;
 
     /** Sets the {@link RuleContext} for the calling target. */
     public Builder setRuleContext(RuleContext ruleContext) {
@@ -377,6 +380,15 @@ public abstract class CompilationSupport {
      */
     public Builder doNotUseDeps() {
       this.useDeps = false;
+      return this;
+    }
+
+    /**
+     * Sets that this {@link CompilationSupport} will not use the pch from the rule context in
+     * determining compilation actions.
+     */
+    public Builder doNotUsePch() {
+      this.usePch = false;
       return this;
     }
 
@@ -446,7 +458,8 @@ public abstract class CompilationSupport {
             compilationAttributes,
             useDeps,
             outputGroupCollector,
-            isTestRule);
+            isTestRule,
+            usePch);
       } else {
         return new LegacyCompilationSupport(
             ruleContext,
@@ -455,7 +468,8 @@ public abstract class CompilationSupport {
             compilationAttributes,
             useDeps,
             outputGroupCollector,
-            isTestRule);
+            isTestRule,
+            usePch);
       }
     }
   }
@@ -1211,6 +1225,17 @@ public abstract class CompilationSupport {
     return this;
   }
 
+  protected Optional<Artifact> getPchFile() {
+    if (!usePch) {
+      return Optional.absent();
+    }
+    Artifact pchHdr = null;
+    if (ruleContext.attributes().has("pch", BuildType.LABEL)) {
+      pchHdr = ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET);
+    }
+    return Optional.fromNullable(pchHdr);
+  }
+
   /**
    * Registers an action that will generate a clang module map.
    * @param moduleMap the module map to generate
@@ -1379,7 +1404,7 @@ public abstract class CompilationSupport {
             .addInputs(compilationArtifacts.getPrivateHdrs())
             .addTransitiveInputs(attributes.hdrs())
             .addTransitiveInputs(objcProvider.get(ObjcProvider.HEADER))
-            .addInputs(compilationArtifacts.getPchFile().asSet())
+            .addInputs(getPchFile().asSet())
             .addTransitiveInputs(objcProvider.get(ObjcProvider.STATIC_FRAMEWORK_FILE))
             .addTransitiveInputs(objcProvider.get(ObjcProvider.DYNAMIC_FRAMEWORK_FILE))
             .build(ruleContext));

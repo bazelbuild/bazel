@@ -271,6 +271,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
             new CompilationSupport.Builder()
                 .setRuleContext(ruleContext)
                 .setIntermediateArtifacts(ObjcRuleClasses.j2objcIntermediateArtifacts(ruleContext))
+                .doNotUsePch()
                 .build();
 
         compilationSupport
@@ -792,7 +793,6 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       CompilationArtifacts compilationArtifacts = new CompilationArtifacts.Builder()
           .addNonArcSrcs(transpiledSources)
           .setIntermediateArtifacts(intermediateArtifacts)
-          .setPchFile(Optional.<Artifact>absent())
           .addAdditionalHdrs(transpiledHeaders)
           .build();
       builder.setCompilationArtifacts(compilationArtifacts);
