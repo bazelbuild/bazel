@@ -277,6 +277,13 @@ public class Retrier {
   }
 
   /**
+   * Returns {@code true} if the {@link Status} is retriable.
+   */
+  public boolean isRetriable(Status s) {
+    return isRetriable.apply(s);
+  }
+
+  /**
    * Executes the given callable in a loop, retrying on retryable errors, as defined by the current
    * backoff/retry policy. Will raise the last encountered retriable error, or the first
    * non-retriable error.
