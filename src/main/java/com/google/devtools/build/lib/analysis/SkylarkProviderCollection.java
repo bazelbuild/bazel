@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.packages.ClassObjectConstructor;
+import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import javax.annotation.Nullable;
@@ -33,11 +34,22 @@ public interface SkylarkProviderCollection {
   Object get(String providerKey);
 
   /**
-   * Returns the declared provider requested, or null, if the information is not found. The
-   * transitive information has to have been added using the Skylark framework.
+   * Returns the declared provider requested, or null, if the information is not found.
+   *
+   * Use {@link #get(NativeClassObjectConstructor)} for native providers.
    */
   @Nullable
   SkylarkClassObject get(ClassObjectConstructor.Key providerKey);
+
+  /**
+   * Returns the native declared provider requested, or null, if the information is not found.
+   *
+   * Type-safe version of {@link #get(ClassObjectConstructor.Key)} for native providers.
+   */
+  @Nullable
+  default <T extends SkylarkClassObject> T get(NativeClassObjectConstructor<T> provider) {
+    return provider.getValueClass().cast(get(provider.getKey()));
+  }
 
   /**
    * Returns the provider defined in Skylark, or null, if the information is not found. The

@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -45,8 +44,9 @@ public final class CcToolchainProvider
     extends SkylarkClassObject implements TransitiveInfoProvider {
   public static final String SKYLARK_NAME = "CcToolchainInfo";
 
-  public static final ClassObjectConstructor SKYLARK_CONSTRUCTOR =
-      new NativeClassObjectConstructor(SKYLARK_NAME) {};
+  public static final NativeClassObjectConstructor<CcToolchainProvider> SKYLARK_CONSTRUCTOR =
+      new NativeClassObjectConstructor<CcToolchainProvider>(
+          CcToolchainProvider.class, SKYLARK_NAME) {};
 
   /** An empty toolchain to be returned in the error case (instead of null). */
   public static final CcToolchainProvider EMPTY_TOOLCHAIN_IS_ERROR =

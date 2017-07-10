@@ -180,8 +180,7 @@ public class Watch2ExtensionSupport {
     Iterable<ObjcProvider> binaryDependencies() {
       TransitiveInfoCollection info = ruleContext.getPrerequisite("binary", Mode.TARGET);
       AppleExecutableBinaryProvider binaryProvider =
-          (AppleExecutableBinaryProvider) info.get(
-              AppleExecutableBinaryProvider.SKYLARK_CONSTRUCTOR.getKey());
+          info.get(AppleExecutableBinaryProvider.SKYLARK_CONSTRUCTOR);
       return ImmutableList.of(binaryProvider.getDepsObjcProvider());
     }
 

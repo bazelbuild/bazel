@@ -31,7 +31,8 @@ public final class MakeVariableProvider extends SkylarkClassObject
   public static final String SKYLARK_NAME = "MakeVariableInfo";
 
   public static final ClassObjectConstructor SKYLARK_CONSTRUCTOR =
-      new NativeClassObjectConstructor(SKYLARK_NAME) {};
+      new NativeClassObjectConstructor<MakeVariableProvider>(
+          MakeVariableProvider.class, SKYLARK_NAME) {};
 
   private final ImmutableMap<String, String> makeVariables;
 

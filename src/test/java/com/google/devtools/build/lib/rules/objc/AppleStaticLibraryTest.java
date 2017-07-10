@@ -532,8 +532,7 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
         ")");
     ConfiguredTarget binTarget = getConfiguredTarget("//lib:applelib");
     AppleStaticLibraryProvider provider =
-        (AppleStaticLibraryProvider) binTarget.get(
-            AppleStaticLibraryProvider.SKYLARK_CONSTRUCTOR.getKey());
+        binTarget.get(AppleStaticLibraryProvider.SKYLARK_CONSTRUCTOR);
     assertThat(provider).isNotNull();
     assertThat(provider.getMultiArchArchive()).isNotNull();
     assertThat(provider.getDepsObjcProvider()).isNotNull();

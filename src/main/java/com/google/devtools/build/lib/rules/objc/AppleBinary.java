@@ -259,9 +259,8 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
   private static Iterable<ObjcProvider> getDylibProviders(RuleContext ruleContext) {
     ImmutableList.Builder<ObjcProvider> dylibProviders = ImmutableList.builder();
     Iterable<AppleDynamicFrameworkProvider> frameworkProviders =
-        ruleContext.getPrerequisites(DYLIBS_ATTR_NAME, Mode.TARGET,
-            AppleDynamicFrameworkProvider.SKYLARK_CONSTRUCTOR.getKey(),
-            AppleDynamicFrameworkProvider.class);
+        ruleContext.getPrerequisites(
+            DYLIBS_ATTR_NAME, Mode.TARGET, AppleDynamicFrameworkProvider.SKYLARK_CONSTRUCTOR);
     for (AppleDynamicFrameworkProvider frameworkProvider : frameworkProviders) {
       dylibProviders.add(frameworkProvider.getDepsObjcProvider());
     }

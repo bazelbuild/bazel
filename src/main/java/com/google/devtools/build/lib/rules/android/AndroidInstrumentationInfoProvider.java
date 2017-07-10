@@ -29,9 +29,10 @@ public class AndroidInstrumentationInfoProvider extends SkylarkClassObject
     implements TransitiveInfoProvider {
 
   private static final String SKYLARK_NAME = "AndroidInstrumentationInfo";
-  static final NativeClassObjectConstructor ANDROID_INSTRUMENTATION_INFO =
-      new NativeClassObjectConstructor(SKYLARK_NAME) {
-      };
+  static final NativeClassObjectConstructor<AndroidInstrumentationInfoProvider>
+      ANDROID_INSTRUMENTATION_INFO =
+          new NativeClassObjectConstructor<AndroidInstrumentationInfoProvider>(
+              AndroidInstrumentationInfoProvider.class, SKYLARK_NAME) {};
 
   private final Artifact targetApk;
   private final Artifact instrumentationApk;

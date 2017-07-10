@@ -186,7 +186,9 @@ public enum ApplePlatform {
 
   /** Returns a Skylark struct that contains the instances of this enum. */
   public static SkylarkClassObject getSkylarkStruct() {
-    ClassObjectConstructor constructor = new NativeClassObjectConstructor("platforms") { };
+    ClassObjectConstructor constructor =
+        new NativeClassObjectConstructor<SkylarkClassObject>(
+            SkylarkClassObject.class, "platforms") {};
     HashMap<String, Object> fields = new HashMap<>();
     for (ApplePlatform type : values()) {
       fields.put(type.skylarkKey, type);
@@ -242,7 +244,9 @@ public enum ApplePlatform {
 
     /** Returns a Skylark struct that contains the instances of this enum. */
     public static SkylarkClassObject getSkylarkStruct() {
-      ClassObjectConstructor constructor = new NativeClassObjectConstructor("platform_types") { };
+      ClassObjectConstructor constructor =
+          new NativeClassObjectConstructor<SkylarkClassObject>(
+              SkylarkClassObject.class, "platform_types") {};
       HashMap<String, Object> fields = new HashMap<>();
       for (PlatformType type : values()) {
         fields.put(type.skylarkKey, type);

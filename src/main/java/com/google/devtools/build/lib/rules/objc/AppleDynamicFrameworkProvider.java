@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -43,9 +42,11 @@ public final class AppleDynamicFrameworkProvider extends SkylarkClassObject
   /** Skylark name for the AppleDynamicFrameworkProvider. */
   public static final String SKYLARK_NAME = "AppleDynamicFramework";
 
- /** Skylark constructor and identifier for AppleDynamicFrameworkProvider. */
-  public static final ClassObjectConstructor SKYLARK_CONSTRUCTOR =
-      new NativeClassObjectConstructor(SKYLARK_NAME) {};
+  /** Skylark constructor and identifier for AppleDynamicFrameworkProvider. */
+  public static final NativeClassObjectConstructor<AppleDynamicFrameworkProvider>
+      SKYLARK_CONSTRUCTOR =
+          new NativeClassObjectConstructor<AppleDynamicFrameworkProvider>(
+              AppleDynamicFrameworkProvider.class, SKYLARK_NAME) {};
 
   /** Field name for the dylib binary artifact of the dynamic framework. */
   public static final String DYLIB_BINARY_FIELD_NAME = "binary";

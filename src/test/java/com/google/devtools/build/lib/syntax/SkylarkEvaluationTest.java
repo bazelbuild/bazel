@@ -1404,8 +1404,10 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @SkylarkModule(name = "SkylarkClassObjectWithSkylarkCallables", doc = "")
   static final class SkylarkClassObjectWithSkylarkCallables extends SkylarkClassObject {
-    private static final NativeClassObjectConstructor CONSTRUCTOR =
-        new NativeClassObjectConstructor("struct_with_skylark_callables") {};
+    private static final NativeClassObjectConstructor<SkylarkClassObjectWithSkylarkCallables>
+        CONSTRUCTOR =
+            new NativeClassObjectConstructor<SkylarkClassObjectWithSkylarkCallables>(
+                SkylarkClassObjectWithSkylarkCallables.class, "struct_with_skylark_callables") {};
 
     SkylarkClassObjectWithSkylarkCallables() {
       super(

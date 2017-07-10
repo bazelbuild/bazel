@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
+import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -880,12 +880,10 @@ public class JavaCommon {
     return AnalysisUtils.getProviders(getDependencies(), provider);
   }
 
-  /**
-   * Gets all the deps that implement a particular provider.
-   */
+  /** Gets all the deps that implement a particular provider. */
   public final <P extends SkylarkClassObject> Iterable<P> getDependencies(
-      ClassObjectConstructor.Key provider, Class<P> resultClass) {
-    return AnalysisUtils.getProviders(getDependencies(), provider, resultClass);
+      NativeClassObjectConstructor<P> provider) {
+    return AnalysisUtils.getProviders(getDependencies(), provider);
   }
 
 

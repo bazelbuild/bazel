@@ -104,8 +104,7 @@ public class IosDeviceTest extends BuildViewTestCase {
     assertThat(view.hasErrors(getConfiguredTarget("//test:foo"))).isFalse();
 
     ConfiguredTarget target = getConfiguredTarget("//test:foo");
-    IosDeviceProvider provider =
-        (IosDeviceProvider) target.get(IosDeviceProvider.SKYLARK_CONSTRUCTOR.getKey());
+    IosDeviceProvider provider = target.get(IosDeviceProvider.SKYLARK_CONSTRUCTOR);
     assertThat(provider.getType()).isEqualTo("IPHONE_6");
   }
 
@@ -156,8 +155,7 @@ public class IosDeviceTest extends BuildViewTestCase {
     assertThat(view.hasErrors(getConfiguredTarget(label))).isFalse();
 
     ConfiguredTarget target = getConfiguredTarget(label);
-    IosDeviceProvider provider =
-        (IosDeviceProvider) target.get(IosDeviceProvider.SKYLARK_CONSTRUCTOR.getKey());
+    IosDeviceProvider provider = target.get(IosDeviceProvider.SKYLARK_CONSTRUCTOR);
     assertThat(provider.getXcodeVersion()).isEqualTo(DottedVersion.fromString(version));
   }
 
@@ -165,8 +163,7 @@ public class IosDeviceTest extends BuildViewTestCase {
     assertThat(view.hasErrors(getConfiguredTarget(label))).isFalse();
 
     ConfiguredTarget target = getConfiguredTarget(label);
-    IosDeviceProvider provider =
-        (IosDeviceProvider) target.get(IosDeviceProvider.SKYLARK_CONSTRUCTOR.getKey());
+    IosDeviceProvider provider = target.get(IosDeviceProvider.SKYLARK_CONSTRUCTOR);
     assertThat(provider.getIosVersion()).isEqualTo(DottedVersion.fromString(version));
   }
 }

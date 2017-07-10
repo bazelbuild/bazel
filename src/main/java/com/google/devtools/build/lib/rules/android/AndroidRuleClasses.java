@@ -904,7 +904,7 @@ public final class AndroidRuleClasses {
                   .allowedFileTypes()
                   .nonconfigurable("defines an aspect of configuration")
                   .mandatoryProviders(
-                      ImmutableList.of(ConfigFeatureFlagProvider.SKYLARK_IDENTIFIER)))
+                      ImmutableList.of(ConfigFeatureFlagProvider.SKYLARK_CONSTRUCTOR.id())))
           // The resource extractor is used at the binary level to extract java resources from the
           // deploy jar so that they can be added to the APK.
           .add(

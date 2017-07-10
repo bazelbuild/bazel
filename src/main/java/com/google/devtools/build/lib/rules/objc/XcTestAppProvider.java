@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -44,8 +43,9 @@ public final class XcTestAppProvider extends SkylarkClassObject
     return XCTEST_APP_SKYLARK_PROVIDER_NAME;
   }
 
-  private static final ClassObjectConstructor XCTEST_APP_PROVIDER =
-      new NativeClassObjectConstructor("xctest_app_provider") {
+  private static final NativeClassObjectConstructor<XcTestAppProvider> XCTEST_APP_PROVIDER =
+      new NativeClassObjectConstructor<XcTestAppProvider>(
+          XcTestAppProvider.class, "xctest_app_provider") {
         @Override
         public String getErrorMessageFormatForInstances() {
           return "XcTestAppProvider field %s could not be instantiated";

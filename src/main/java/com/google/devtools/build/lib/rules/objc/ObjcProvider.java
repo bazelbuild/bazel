@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
@@ -507,8 +506,8 @@ public final class ObjcProvider extends SkylarkClassObject
   // Items which should be passed to strictly direct dependers, but not transitive dependers.
   private final ImmutableMap<Key<?>, NestedSet<?>> strictDependencyItems;
 
-  private static final ClassObjectConstructor OBJC_PROVIDER =
-      new NativeClassObjectConstructor("objc_provider") {
+  private static final NativeClassObjectConstructor<ObjcProvider> OBJC_PROVIDER =
+      new NativeClassObjectConstructor<ObjcProvider>(ObjcProvider.class, "objc_provider") {
         @Override
         public String getErrorMessageFormatForInstances() {
           return "ObjcProvider field %s could not be instantiated";

@@ -154,7 +154,7 @@ public class ConfigRuleClasses {
                   .undocumented("the feature flag feature has not yet been launched")
                   .allowedFileTypes()
                   .mandatoryProviders(
-                      ImmutableList.of(ConfigFeatureFlagProvider.SKYLARK_IDENTIFIER))
+                      ImmutableList.of(ConfigFeatureFlagProvider.SKYLARK_CONSTRUCTOR.id()))
                   .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
           .requiresConfigurationFragments(FeaturePolicyConfiguration.class)
           .setIsConfigMatcherForConfigSettingOnly()
