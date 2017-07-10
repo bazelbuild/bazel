@@ -211,11 +211,6 @@ public abstract class AbstractConfiguredTarget
   /** Implement in subclasses to get a skylark provider for a given {@code providerKey}. */
   protected abstract Object rawGetSkylarkProvider(String providerKey);
 
-  @Override
-  public boolean isImmutable() {
-    return false;
-  }
-
   // All main target classes must override this method to provide more descriptive strings.
   // Exceptions are currently EnvironmentGroupConfiguredTarget and PackageGroupConfiguredTarget.
   @Override

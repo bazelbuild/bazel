@@ -442,11 +442,6 @@ public final class SkylarkAttr implements SkylarkValue {
   }
 
   @Override
-  public boolean isImmutable() {
-    return false;
-  }
-
-  @Override
   public void repr(SkylarkPrinter printer) {
     printer.append("<attr>");
   }
@@ -1664,11 +1659,6 @@ public final class SkylarkAttr implements SkylarkValue {
       synchronized (lock) {
         return attributeBuilder.build(name);
       }
-    }
-
-    @Override
-    public boolean isImmutable() {
-      return false;
     }
 
     @Override

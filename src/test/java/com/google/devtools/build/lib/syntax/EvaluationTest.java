@@ -608,11 +608,6 @@ public class EvaluationTest extends EvaluationTestCase {
       public void reprLegacy(SkylarkPrinter printer) {
         printer.append("<str legacy marker>");
       }
-
-      @Override
-      public boolean isImmutable() {
-        return false;
-      }
     };
   }
 

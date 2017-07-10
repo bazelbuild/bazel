@@ -256,11 +256,6 @@ public class PrinterTest {
       public void strLegacy(SkylarkPrinter printer) {
         printer.append("<str legacy marker>");
       }
-
-      @Override
-      public boolean isImmutable() {
-        return false;
-      }
     };
   }
 }

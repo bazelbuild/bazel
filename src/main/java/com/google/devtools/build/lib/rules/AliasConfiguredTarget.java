@@ -140,11 +140,6 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObjec
   }
 
   @Override
-  public boolean isImmutable() {
-    return false;
-  }
-
-  @Override
   public void repr(SkylarkPrinter printer) {
     printer.append("<alias target " + label + " of " + actual.getLabel() + ">");
   }
