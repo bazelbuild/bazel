@@ -18,7 +18,6 @@ import com.google.common.cache.Cache;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
@@ -106,12 +105,6 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
       throw new UnsupportedOperationException(
           "This interface is no longer supported and will be removed soon.");
     }
-  }
-
-  @Override
-  public Transitions getDynamicTransitionLogic(BuildConfiguration config)  {
-    return new BazelTransitions(config, ImmutableMap.<Transition, ConfigurationHolder>of(),
-          ImmutableListMultimap.<SplitTransition<?>, BuildConfiguration>of());
   }
 
   /**

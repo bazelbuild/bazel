@@ -81,12 +81,6 @@ public class BuildConfigurationFunction implements SkyFunction {
             key.getBuildOptions(),
             workspaceNameValue.getName(),
             ruleClassProvider.getDynamicTransitionMapper());
-    // Unlike static configurations, dynamic configurations don't need to embed transition logic
-    // in the configuration itself. However we still use this interface to supply
-    // BuildConfigurationCollection.Transitions.configurationHook. Once we remove that dependency
-    // we can remove the below completely.
-    config.setConfigurationTransitions(collectionFactory.getDynamicTransitionLogic(config));
-
     return new BuildConfigurationValue(config);
   }
 

@@ -1614,7 +1614,6 @@ public final class BuildConfiguration implements BuildEvent {
             options,
             mainRepositoryName.strippedName(),
             dynamicTransitionMapper);
-    newConfig.setConfigurationTransitions(this.transitions);
     return newConfig;
   }
 
@@ -1711,8 +1710,11 @@ public final class BuildConfiguration implements BuildEvent {
   }
 
   /**
-   * Returns all configurations that can be reached from this configuration through any kind of
-   * configuration transition.
+   * For static configurations, returns all configurations that can be reached from this one through
+   * any kind of configuration transition.
+   *
+   * <p>For dynamic configurations, returns the current configuration (since configurations aren't
+   * reached through other configurations).
    */
   public synchronized Collection<BuildConfiguration> getAllReachableConfigurations() {
     if (allReachableConfigurations == null) {
@@ -1723,11 +1725,10 @@ public final class BuildConfiguration implements BuildEvent {
     return allReachableConfigurations;
   }
 
-  /**
-   * Returns all configurations that can be reached from this configuration through any kind of
-   * configuration transition.
-   */
   private Set<BuildConfiguration> computeAllReachableConfigurations() {
+    if (useDynamicConfigurations()) {
+      return ImmutableSet.of(this);
+    }
     Set<BuildConfiguration> result = new LinkedHashSet<>();
     Queue<BuildConfiguration> queue = new LinkedList<>();
     queue.add(this);
