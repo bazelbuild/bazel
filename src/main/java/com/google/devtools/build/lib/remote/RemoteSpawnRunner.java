@@ -42,6 +42,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.TreeSet;
+import javax.annotation.Nullable;
 
 /** A client for the remote execution service. */
 @ThreadSafe
@@ -52,15 +53,15 @@ final class RemoteSpawnRunner implements SpawnRunner {
   private final Platform platform;
   private final SpawnRunner fallbackRunner;
 
-  private final RemoteActionCache remoteCache;
-  private final GrpcRemoteExecutor remoteExecutor;
+  @Nullable private final RemoteActionCache remoteCache;
+  @Nullable private final GrpcRemoteExecutor remoteExecutor;
 
   RemoteSpawnRunner(
       Path execRoot,
       RemoteOptions options,
       SpawnRunner fallbackRunner,
-      RemoteActionCache remoteCache,
-      GrpcRemoteExecutor remoteExecutor) {
+      @Nullable RemoteActionCache remoteCache,
+      @Nullable GrpcRemoteExecutor remoteExecutor) {
     this.execRoot = execRoot;
     this.options = options;
     this.platform = options.parseRemotePlatformOverride();
@@ -209,5 +210,12 @@ final class RemoteSpawnRunner implements SpawnRunner {
       remoteCache.upload(actionKey, execRoot, outputFiles, policy.getFileOutErr());
     }
     return result;
+  }
+
+  /** Release resources associated with this spawn runner. */
+  public void close() {
+    if (remoteCache != null) {
+      remoteCache.close();
+    }
   }
 }

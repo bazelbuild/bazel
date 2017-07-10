@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.remote;
 
 import com.google.common.base.Preconditions;
@@ -19,20 +18,24 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ResourceManager;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.exec.ActionContextProvider;
 import com.google.devtools.build.lib.exec.ActionInputPrefetcher;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.SpawnRunner;
+import com.google.devtools.build.lib.exec.apple.XCodeLocalEnvProvider;
+import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
+import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.standalone.StandaloneSpawnStrategy;
+import com.google.devtools.build.lib.util.OS;
 
 /**
  * Provide a remote execution context.
  */
 final class RemoteActionContextProvider extends ActionContextProvider {
   private final CommandEnvironment env;
+  private RemoteSpawnRunner spawnRunner;
   private RemoteSpawnStrategy spawnStrategy;
 
   RemoteActionContextProvider(CommandEnvironment env) {
@@ -43,17 +46,6 @@ final class RemoteActionContextProvider extends ActionContextProvider {
   public void init(
       ActionInputFileCache actionInputFileCache, ActionInputPrefetcher actionInputPrefetcher) {
     ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);
-    LocalExecutionOptions localExecutionOptions =
-        env.getOptions().getOptions(LocalExecutionOptions.class);
-    SpawnActionContext fallbackStrategy =
-        new StandaloneSpawnStrategy(
-            env.getExecRoot(),
-            actionInputPrefetcher,
-            localExecutionOptions,
-            executionOptions.verboseFailures,
-            env.getRuntime().getProductName(),
-            ResourceManager.instance());
-
     RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
     AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
     ChannelOptions channelOptions = ChannelOptions.create(authAndTlsOptions);
@@ -84,14 +76,33 @@ final class RemoteActionContextProvider extends ActionContextProvider {
     } else {
       remoteExecutor = null;
     }
+    spawnRunner = new RemoteSpawnRunner(
+        env.getExecRoot(),
+        remoteOptions,
+        createFallbackRunner(actionInputPrefetcher),
+        remoteCache,
+        remoteExecutor);
     spawnStrategy =
         new RemoteSpawnStrategy(
+            "remote",
+            spawnRunner,
+            executionOptions.verboseFailures);
+  }
+
+  private SpawnRunner createFallbackRunner(ActionInputPrefetcher actionInputPrefetcher) {
+    LocalExecutionOptions localExecutionOptions =
+        env.getOptions().getOptions(LocalExecutionOptions.class);
+    LocalEnvProvider localEnvProvider = OS.getCurrent() == OS.DARWIN
+        ? new XCodeLocalEnvProvider()
+        : LocalEnvProvider.UNMODIFIED;
+    return
+        new LocalSpawnRunner(
             env.getExecRoot(),
-            remoteOptions,
-            remoteCache,
-            remoteExecutor,
-            executionOptions.verboseFailures,
-            fallbackStrategy);
+            actionInputPrefetcher,
+            localExecutionOptions,
+            ResourceManager.instance(),
+            env.getRuntime().getProductName(),
+            localEnvProvider);
   }
 
   @Override
@@ -101,9 +112,10 @@ final class RemoteActionContextProvider extends ActionContextProvider {
 
   @Override
   public void executionPhaseEnding() {
-    if (spawnStrategy != null) {
-      spawnStrategy.close();
-      spawnStrategy = null;
+    if (spawnRunner != null) {
+      spawnRunner.close();
     }
+    spawnRunner = null;
+    spawnStrategy = null;
   }
 }
