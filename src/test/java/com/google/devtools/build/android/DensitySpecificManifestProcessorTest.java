@@ -191,8 +191,7 @@ public class DensitySpecificManifestProcessorTest {
   @Before
   public void setUpEnvironment() throws Exception {
     fs = Jimfs.newFileSystem();
-    tmp = fs.getPath("/tmp");
-    Files.createDirectory(tmp);
+    tmp = Files.createTempDirectory(this.getClass().getSimpleName());
   }
 
   @After

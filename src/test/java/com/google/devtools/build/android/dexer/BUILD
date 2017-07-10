@@ -31,6 +31,7 @@ java_library(
 
 java_test(
     name = "AllTests",
+    size = "small",
     data = [
         "test_main_dex_list.txt",
         ":tests",

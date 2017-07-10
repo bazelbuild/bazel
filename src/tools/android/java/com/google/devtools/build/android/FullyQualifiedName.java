@@ -377,8 +377,9 @@ public class FullyQualifiedName implements DataKey {
                     + "The path is expected to be <resource type>/<file name>.",
                 source));
       }
-      String pathWithExtension =
-          source.subpath(source.getNameCount() - 2, source.getNameCount()).toString();
+      // Compose the `pathWithExtension` manually to ensure it uses a forward slash.
+      // Using Path.subpath would return a backslash-using path on Windows.
+      String pathWithExtension = source.getParent().getFileName() + "/" + source.getFileName();
       int extensionStart = pathWithExtension.indexOf('.');
       if (extensionStart > 0) {
         return pathWithExtension.substring(0, extensionStart);

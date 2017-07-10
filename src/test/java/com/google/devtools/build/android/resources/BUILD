@@ -6,7 +6,7 @@ filegroup(
 
 java_test(
     name = "RClassGeneratorTest",
-    size = "medium",
+    size = "small",
     srcs = glob(["*.java"]),
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android/resources",
