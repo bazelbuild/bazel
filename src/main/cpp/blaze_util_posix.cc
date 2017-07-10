@@ -15,6 +15,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <limits.h>  // PATH_MAX
 #include <poll.h>
 #include <pwd.h>
@@ -26,8 +27,11 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/resource.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
+#include <cassert>
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
@@ -682,6 +686,60 @@ int GetStderrTerminalColumns() {
     }
   }
   return 80;  // default if not a terminal.
+}
+
+// Raises a resource limit to the maximum allowed value.
+//
+// This function raises the limit of the resource given in "resource" from its
+// soft limit to its hard limit. If the hard limit is unlimited, uses the
+// kernel-level limit fetched from the sysctl property given in "sysctl_name"
+// because setting the soft limit to unlimited may not work.
+//
+// Note that this is a best-effort operation. Any failure during this process
+// will result in a warning but execution will continue.
+static bool UnlimitResource(const int resource) {
+  struct rlimit rl;
+  if (getrlimit(resource, &rl) == -1) {
+    fprintf(stderr, "Warning: failed to get resource limit %d: %s\n", resource,
+            strerror(errno));
+    return false;
+  }
+
+  if (rl.rlim_cur == rl.rlim_max) {
+    // Nothing to do. Return early to prevent triggering any warnings caused by
+    // the code below. This way, we will only show warnings the first time the
+    // Blaze server is started and not on each command invocation.
+    return true;
+  }
+
+  rl.rlim_cur = rl.rlim_max;
+  if (rl.rlim_cur == RLIM_INFINITY) {
+    const rlim_t explicit_limit = GetExplicitSystemLimit(resource);
+    if (explicit_limit <= 0) {
+      // If not implemented (-1) or on an error (0), do nothing and try to
+      // increase the soft limit to the hard one. This might fail, but it's good
+      // to try anyway.
+      assert(rl.rlim_cur == rl.rlim_max);
+    } else {
+      rl.rlim_cur = explicit_limit;
+    }
+  }
+
+  if (setrlimit(resource, &rl) == -1) {
+    fprintf(stderr, "Warning: failed to raise resource limit %d to %" PRIdMAX
+            ": %s\n", resource, static_cast<intmax_t>(rl.rlim_cur),
+            strerror(errno));
+    return false;
+  }
+
+  return true;
+}
+
+bool UnlimitResources() {
+  bool success = true;
+  success &= UnlimitResource(RLIMIT_NOFILE);
+  success &= UnlimitResource(RLIMIT_NPROC);
+  return success;
 }
 
 }   // namespace blaze.

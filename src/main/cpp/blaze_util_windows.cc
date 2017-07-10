@@ -1435,4 +1435,8 @@ int GetStderrTerminalColumns() {
   return 80;  // default if not a terminal.
 }
 
+bool UnlimitResources() {
+  return true;  // Nothing to do so assume success.
+}
+
 }  // namespace blaze

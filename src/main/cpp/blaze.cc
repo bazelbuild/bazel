@@ -1334,6 +1334,12 @@ int Main(int argc, const char *argv[], WorkspaceLayout *workspace_layout,
   globals = new GlobalVariables(option_processor);
   blaze::SetupStdStreams();
 
+  // Best-effort operation to raise the resource limits from soft to hard.  We
+  // do this early during the main program instead of just before execing the
+  // Blaze server binary, because it's easier (for testing purposes) and because
+  // the Blaze client also benefits from this (e.g. during installation).
+  UnlimitResources();
+
   // Must be done before command line parsing.
   ComputeWorkspace(workspace_layout);
   globals->binary_path = CheckAndGetBinaryPath(argv[0]);

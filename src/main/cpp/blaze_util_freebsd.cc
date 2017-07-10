@@ -168,4 +168,8 @@ bool KillServerProcess(int pid) {
 void ExcludePathFromBackup(const string &path) {
 }
 
+int32_t GetExplicitSystemLimit(const int resource) {
+  return -1;
+}
+
 }  // namespace blaze
