@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -440,27 +441,37 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkValu
    * Resolves a relative or absolute label name. If given name is absolute, then this method calls
    * {@link #parseAbsolute}. Otherwise, it calls {@link #getLocalTargetLabel}.
    *
-   * <p>For example:
-   * {@code :quux} relative to {@code //foo/bar:baz} is {@code //foo/bar:quux};
+   * <p>For example: {@code :quux} relative to {@code //foo/bar:baz} is {@code //foo/bar:quux};
    * {@code //wiz:quux} relative to {@code //foo/bar:baz} is {@code //wiz:quux}.
    *
    * @param relName the relative label name; must be non-empty.
    */
-  @SkylarkCallable(name = "relative", doc =
+  @SkylarkCallable(
+    name = "relative",
+    doc =
         "Resolves a label that is either absolute (starts with <code>//</code>) or relative to the"
-      + " current package. If this label is in a remote repository, the argument will be resolved "
-      + "relative to that repository. If the argument contains a repository, it will be returned "
-      + "as-is. Reserved labels will also be returned as-is.<br>"
-      + "For example:<br>"
-      + "<pre class=language-python>\n"
-      + "Label(\"//foo/bar:baz\").relative(\":quux\") == Label(\"//foo/bar:quux\")\n"
-      + "Label(\"//foo/bar:baz\").relative(\"//wiz:quux\") == Label(\"//wiz:quux\")\n"
-      + "Label(\"@repo//foo/bar:baz\").relative(\"//wiz:quux\") == Label(\"@repo//wiz:quux\")\n"
-      + "Label(\"@repo//foo/bar:baz\").relative(\"//visibility:public\") == "
-      + "Label(\"//visibility:public\")\n"
-      + "Label(\"@repo//foo/bar:baz\").relative(\"@other//wiz:quux\") == "
-      + "Label(\"@other//wiz:quux\")\n"
-      + "</pre>")
+            + " current package. If this label is in a remote repository, the argument will be "
+            + " resolved relative to that repository. If the argument contains a repository, it"
+            + " will be returned as-is. Reserved labels will also be returned as-is.<br>"
+            + "For example:<br>"
+            + "<pre class=language-python>\n"
+            + "Label(\"//foo/bar:baz\").relative(\":quux\") == Label(\"//foo/bar:quux\")\n"
+            + "Label(\"//foo/bar:baz\").relative(\"//wiz:quux\") == Label(\"//wiz:quux\")\n"
+            + "Label(\"@repo//foo/bar:baz\").relative(\"//wiz:quux\") == "
+            + "Label(\"@repo//wiz:quux\")\n"
+            + "Label(\"@repo//foo/bar:baz\").relative(\"//visibility:public\") == "
+            + "Label(\"//visibility:public\")\n"
+            + "Label(\"@repo//foo/bar:baz\").relative(\"@other//wiz:quux\") == "
+            + "Label(\"@other//wiz:quux\")\n"
+            + "</pre>",
+    parameters = {
+      @Param(
+        name = "relName",
+        type = String.class,
+        doc = "The label that will be resolved relative to this one."
+      )
+    }
+  )
   public Label getRelative(String relName) throws LabelSyntaxException {
     if (relName.length() == 0) {
       throw new LabelSyntaxException("empty package-relative label");
