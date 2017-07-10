@@ -42,7 +42,7 @@ esac
 if "$IS_WINDOWS"; then
   ZIPPER="$(rlocation "[^/]*/tools/zip/zipper/zipper.exe")"
 else
-  ZIPPER="$(find "$RUNFILES" -path "*/tools/zip/zipper/zipper")"
+  ZIPPER="$(find "$RUNFILES" -path "*/tools/zip/zipper/zipper" | head -1)"
 fi
 if [ ! -x "$ZIPPER" ]; then
   # For //tools/android:zip_manifest_creator_test, zipper is here:
@@ -51,7 +51,7 @@ if [ ! -x "$ZIPPER" ]; then
   if "$IS_WINDOWS"; then
     ZIPPER="$(rlocation "[^/]*/third_party/ijar/zipper.exe")"
   else
-    ZIPPER="$(find "${RUNFILES}" -path "*/third_party/ijar/zipper")"
+    ZIPPER="$(find "${RUNFILES}" -path "*/third_party/ijar/zipper" | head -1)"
   fi
 fi
 if [ ! -x "$ZIPPER" ]; then
@@ -63,7 +63,7 @@ if [ ! -x "$ZIPPER" ]; then
   if "$IS_WINDOWS"; then
     echo >&2 "  grep=($(grep zipper "$RUNFILES_MANIFEST_FILE"))"
   else
-    echo >&2 "  find=($(find "$RUNFILES" -name "zipper"))"
+    echo >&2 "  find=($(find "$RUNFILES" -name "zipper" | head -1))"
   fi
   exit 1
 fi
