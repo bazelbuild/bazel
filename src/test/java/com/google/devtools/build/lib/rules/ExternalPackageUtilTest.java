@@ -130,6 +130,9 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
 
   @Test
   public void getRuleByName() throws Exception {
+    if (!analysisMock.isThisBazel()) {
+      return;
+    }
     scratch.overwriteFile("WORKSPACE", "http_archive(name = 'foo', url = 'http://foo')");
     invalidatePackages(false);
 
@@ -145,6 +148,9 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
 
   @Test
   public void getRuleByName_missing() throws Exception {
+    if (!analysisMock.isThisBazel()) {
+      return;
+    }
     scratch.overwriteFile("WORKSPACE", "http_archive(name = 'foo', url = 'http://foo')");
     invalidatePackages(false);
 
@@ -160,6 +166,9 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
 
   @Test
   public void getRuleByRuleClass() throws Exception {
+    if (!analysisMock.isThisBazel()) {
+      return;
+    }
     scratch.overwriteFile(
         "WORKSPACE",
         "http_archive(name = 'foo', url = 'http://foo')",
@@ -185,6 +194,9 @@ public class ExternalPackageUtilTest extends BuildViewTestCase {
 
   @Test
   public void getRuleByRuleClass_none() throws Exception {
+    if (!analysisMock.isThisBazel()) {
+      return;
+    }
     scratch.overwriteFile(
         "WORKSPACE",
         "http_archive(name = 'foo', url = 'http://foo')",
