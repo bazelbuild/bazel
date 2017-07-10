@@ -118,9 +118,7 @@ public class SkylarkActionFactory implements SkylarkValue {
       name = "declare_directory",
       doc =
           "Declares that rule or aspect create a directory with the given name, in the "
-              + "current package. You must create an action that generates the file. <br>"
-              + "Files that are specified in rule's outputs do not need to be declared and are "
-              + "available through  <a href=\"ctx.html#outputs\">ctx.outputs</a>.",
+              + "current package. You must create an action that generates the directory.",
       parameters = {
           @Param(
               name = "filename",
