@@ -454,7 +454,7 @@ public class ObjcCompileAction extends SpawnAction {
           actualCommandLine,
           isShellCommand,
           // TODO(#3320): This is missing the inherited action env from --action_env.
-          new ActionEnvironment(env.getFixedEnv()),
+          ActionEnvironment.create(env.getFixedEnv()),
           executionInfo,
           progressMessage,
           runfilesSupplier,

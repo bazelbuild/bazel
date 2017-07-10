@@ -79,6 +79,10 @@ public final class JavaCompileAction extends SpawnAction {
   static final ImmutableMap<String, String> UTF8_ENVIRONMENT =
       ImmutableMap.of("LC_CTYPE", "en_US.UTF-8");
 
+  // TODO(#3320): This is missing the configuration's action environment!
+  static final ActionEnvironment UTF8_ACTION_ENVIRONMENT =
+      ActionEnvironment.create(UTF8_ENVIRONMENT);
+
   private final CommandLine javaCompileCommandLine;
   private final CommandLine commandLine;
 
@@ -195,7 +199,7 @@ public final class JavaCompileAction extends SpawnAction {
         commandLine,
         false,
         // TODO(#3320): This is missing the configuration's action environment!
-        new ActionEnvironment(UTF8_ENVIRONMENT),
+        UTF8_ACTION_ENVIRONMENT,
         ImmutableMap.copyOf(executionInfo),
         progressMessage,
         EmptyRunfilesSupplier.INSTANCE,

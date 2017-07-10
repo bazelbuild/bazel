@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -113,7 +112,7 @@ public class JavaHeaderCompileAction extends SpawnAction {
         transitiveCommandLine,
         false,
         // TODO(#3320): This is missing the config's action environment.
-        new ActionEnvironment(JavaCompileAction.UTF8_ENVIRONMENT),
+        JavaCompileAction.UTF8_ACTION_ENVIRONMENT,
         progressMessage,
         "Turbine");
     this.directInputs = checkNotNull(directInputs);
@@ -436,7 +435,7 @@ public class JavaHeaderCompileAction extends SpawnAction {
               transitiveCommandLine,
               false,
               // TODO(b/63280599): This is missing the config's action environment.
-              new ActionEnvironment(JavaCompileAction.UTF8_ENVIRONMENT),
+              JavaCompileAction.UTF8_ACTION_ENVIRONMENT,
               getProgressMessageWithAnnotationProcessors(),
               "JavacTurbine")
         };
