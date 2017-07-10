@@ -45,10 +45,13 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
         PrerequisiteArtifacts.nestedSet(ruleContext, "srcs", Mode.TARGET);
     PathFragment javaHome = defaultJavaHome(ruleContext.getLabel());
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("java_home")) {
-      PathFragment javaHomeAttribute = PathFragment.create(
-          ruleContext.attributes().get("java_home", Type.STRING));
+      PathFragment javaHomeAttribute = PathFragment.create(ruleContext.expandMakeVariables(
+          "java_home", ruleContext.attributes().get("java_home", Type.STRING)));
       if (!filesToBuild.isEmpty() && javaHomeAttribute.isAbsolute()) {
         ruleContext.ruleError("'java_home' with an absolute path requires 'srcs' to be empty.");
+      }
+
+      if (ruleContext.hasErrors()) {
         return null;
       }
 

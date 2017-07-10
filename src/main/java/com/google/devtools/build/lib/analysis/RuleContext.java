@@ -1108,11 +1108,12 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Return a context that maps Make variable names (string) to values (string).
+   * Expands the make variables in {@code expression}.
    *
-   * <p>Uses {@NoopExpansionInterceptor}.
-   *
-   * @return a ConfigurationMakeVariableContext.
+   * @param attributeName the name of the attribute from which "expression" comes; used for error
+   *     reporting.
+   * @param expression the string to expand.
+   * @return the expanded string.
    */
   public String expandMakeVariables(String attributeName, String expression) {
     return expandMakeVariables(attributeName, expression, ImmutableList.<MakeVariableSupplier>of());
