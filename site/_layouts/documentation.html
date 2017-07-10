@@ -115,9 +115,10 @@ nav: docs
             // if there is an edit button and we are not in the Build Encyclopedia
             if (editButton
                 && window.location.pathname.match(versionDocsURLRegex)
-                && window.location.pathname.lastIndexOf('/be/') == -1) {
+                && window.location.pathname.lastIndexOf('/be/') == -1
+                && window.location.pathname.lastIndexOf('/skylark/lib/') == -1) {
               var docFile = window.location.pathname.match(versionDocsURLRegex)[1];
-              // some pages are now using markdown :(
+              // some pages are not using markdown :(
               if (docFile !== 'bazel-user-manual.html'
                   && docFile !== 'build-ref.html'
                   && docFile !== 'query.html'
