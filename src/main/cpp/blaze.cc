@@ -640,8 +640,8 @@ static void StartStandalone(const WorkspaceLayout *workspace_layout,
             globals->options->product_name.c_str());
   }
   string command = globals->option_processor->GetCommand();
-  vector<string> command_arguments;
-  globals->option_processor->GetCommandArguments(&command_arguments);
+  const vector<string> command_arguments =
+      globals->option_processor->GetCommandArguments();
 
   if (!command_arguments.empty() && command == "shutdown") {
     string product = globals->options->product_name;
@@ -1604,7 +1604,13 @@ unsigned int GrpcBlazeServer::Communicate() {
     AddLoggingArgs(&arg_vector);
   }
 
-  globals->option_processor->GetCommandArguments(&arg_vector);
+  const vector<string> command_args =
+      globals->option_processor->GetCommandArguments();
+  if (!command_args.empty()) {
+    arg_vector.insert(arg_vector.end(),
+                      command_args.begin(),
+                      command_args.end());
+  }
 
   command_server::RunRequest request;
   request.set_cookie(request_cookie_);

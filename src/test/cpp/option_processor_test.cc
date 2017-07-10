@@ -59,8 +59,8 @@ class OptionProcessorTest : public ::testing::Test {
     std::string error;
     const std::unique_ptr<CommandLine> result =
         option_processor_->SplitCommandLine(args, &error);
-    ASSERT_EQ(nullptr, result);
     ASSERT_EQ(expected_error, error);
+    ASSERT_EQ(nullptr, result);
   }
 
   void SuccessfulSplitStartupOptionsTest(const std::vector<std::string>& args,
@@ -90,7 +90,8 @@ TEST_F(OptionProcessorTest, CanParseOptions) {
        "--flag", "//my:target", "--flag2=42"};
   std::string error;
   ASSERT_EQ(blaze_exit_code::SUCCESS,
-            option_processor_->ParseOptions(args, workspace_, cwd_, &error));
+            option_processor_->ParseOptions(args, workspace_, cwd_, &error))
+                << error;
 
   ASSERT_EQ("", error);
   ASSERT_EQ(1,
@@ -113,8 +114,10 @@ TEST_F(OptionProcessorTest, CanParseHelpArgs) {
        "--flag", "//my:target", "--flag2=42"};
   std::string error;
   ASSERT_EQ(blaze_exit_code::SUCCESS,
-            option_processor_->ParseOptions(args, workspace_, cwd_, &error));
+            option_processor_->ParseOptions(args, workspace_, cwd_, &error))
+                << error;
 
+  ASSERT_EQ("", error);
   ASSERT_EQ(1,
             option_processor_->GetParsedStartupOptions()->host_jvm_args.size());
   EXPECT_EQ("MyParam",
@@ -131,7 +134,9 @@ TEST_F(OptionProcessorTest, CanParseEmptyArgs) {
   const std::vector<std::string> args = {"bazel"};
   std::string error;
   ASSERT_EQ(blaze_exit_code::SUCCESS,
-            option_processor_->ParseOptions(args, workspace_, cwd_, &error));
+            option_processor_->ParseOptions(args, workspace_, cwd_, &error))
+                << error;
+  ASSERT_EQ("", error);
 
   EXPECT_EQ("", option_processor_->GetCommand());
 
@@ -145,7 +150,9 @@ TEST_F(OptionProcessorTest, CanParseDifferentStartupArgs) {
        "--nobatch", "--host_jvm_args=MyParam", "--host_jvm_args", "42"};
   std::string error;
   ASSERT_EQ(blaze_exit_code::SUCCESS,
-            option_processor_->ParseOptions(args, workspace_, cwd_, &error));
+            option_processor_->ParseOptions(args, workspace_, cwd_, &error))
+                << error;
+  ASSERT_EQ("", error);
 
   ASSERT_EQ(2,
             option_processor_->GetParsedStartupOptions()->host_jvm_args.size());
@@ -175,7 +182,8 @@ TEST_F(OptionProcessorTest, CommandLineBlazercTest) {
           "  For more info, run 'bazel help startup_options'.";
   std::string error;
   ASSERT_NE(blaze_exit_code::SUCCESS,
-            option_processor_->ParseOptions(args, workspace_, cwd_, &error));
+            option_processor_->ParseOptions(args, workspace_, cwd_, &error))
+                << error;
   ASSERT_EQ(expected_error, error);
 }
 
@@ -199,7 +207,8 @@ TEST_F(OptionProcessorTest, NoMasterBlazercAndBlazercWorkTogetherCorrectly) {
        "build"};
   std::string error;
   ASSERT_EQ(blaze_exit_code::SUCCESS,
-            option_processor_->ParseOptions(args, workspace_, cwd_, &error));
+            option_processor_->ParseOptions(args, workspace_, cwd_, &error))
+                << error;
 
   EXPECT_EQ(123, option_processor_->GetParsedStartupOptions()->max_idle_secs);
 }
