@@ -486,6 +486,7 @@ message BuildFinished {
 message BuildEvent {
   BuildEventId id = 1;
   repeated BuildEventId children = 2;
+  bool last_message = 20;
   oneof payload {
     Progress progress = 3;
     Aborted aborted = 4;

@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransportClosedEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
+import com.google.devtools.build.lib.buildeventstream.LastBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.buildeventstream.ProgressEvent;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -172,14 +173,22 @@ public class BuildEventStreamer implements EventHandler {
     BuildEvent linkEvent = null;
     BuildEventId id = event.getEventId();
     List<BuildEvent> flushEvents = null;
+    boolean lastEvent = false;
 
     synchronized (this) {
       if (announcedEvents == null) {
         announcedEvents = new HashSet<>();
+        // The very first event of a stream is implicitly announced by the convention that
+        // a complete stream has to have at least one entry. In this way we keep the invariant
+        // that the set of posted events is always a subset of the set of announced events.
+        announcedEvents.add(id);
         if (!event.getChildrenEvents().contains(ProgressEvent.INITIAL_PROGRESS_UPDATE)) {
           linkEvent = ProgressEvent.progressChainIn(progressCount, event.getEventId());
           progressCount++;
           announcedEvents.addAll(linkEvent.getChildrenEvents());
+          // the new first event in the stream, implicitly announced by the fact that complete
+          // stream may not be empty.
+          announcedEvents.add(linkEvent.getEventId());
           postedEvents.add(linkEvent.getEventId());
         }
 
@@ -219,13 +228,23 @@ public class BuildEventStreamer implements EventHandler {
 
       postedEvents.add(id);
       announcedEvents.addAll(event.getChildrenEvents());
+      // We keep as an invariant that postedEvents is a subset of announced events, so this is a
+      // cheaper test for equality
+      if (announcedEvents.size() == postedEvents.size()) {
+        lastEvent = true;
+      }
+    }
+
+    BuildEvent mainEvent = event;
+    if (lastEvent) {
+      mainEvent = new LastBuildEvent(event);
     }
 
     for (BuildEventTransport transport : transports) {
       if (linkEvent != null) {
         transport.sendBuildEvent(linkEvent, artifactGroupNamer);
       }
-      transport.sendBuildEvent(event, artifactGroupNamer);
+      transport.sendBuildEvent(mainEvent, artifactGroupNamer);
     }
 
     if (flushEvents != null) {
