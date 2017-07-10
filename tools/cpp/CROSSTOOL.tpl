@@ -175,6 +175,9 @@ toolchain {
   compiler_flag: "/DOS_WINDOWS=OS_WINDOWS"
   compiler_flag: "/DCOMPILER_MSVC"
 
+  # Don't define min/max macros in windows.h.
+  compiler_flag: "/DNOMINMAX"
+
   # Platform defines.
   compiler_flag: "/D_WIN32_WINNT=0x0600"
   # Turn off warning messages.
