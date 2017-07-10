@@ -1372,20 +1372,22 @@ bool IsEmacsTerminal() {
   return emacs == "t" || !inside_emacs.empty();
 }
 
-// Returns true if stderr is connected to a terminal, and it can support color
-// and cursor movement (this is computed heuristically based on the values of
-// environment variables).  Blaze only outputs control characters into stderr,
-// we only care for the stderr descriptor type.
-bool IsStderrStandardTerminal() {
+// Returns true iff both stdout and stderr are connected to a
+// terminal, and it can support color and cursor movement
+// (this is computed heuristically based on the values of
+// environment variables).
+bool IsStandardTerminal() {
 #ifdef COMPILER_MSVC
-  DWORD mode = 0;
-  HANDLE handle = ::GetStdHandle(STD_ERROR_HANDLE);
-  // handle may be invalid when stderr is redirected
-  if (handle == INVALID_HANDLE_VALUE || !::GetConsoleMode(handle, &mode) ||
-      !(mode & ENABLE_PROCESSED_OUTPUT) ||
-      !(mode & ENABLE_WRAP_AT_EOL_OUTPUT) ||
-      !(mode & ENABLE_VIRTUAL_TERMINAL_PROCESSING)) {
-    return false;
+  for (DWORD i : {STD_OUTPUT_HANDLE, STD_ERROR_HANDLE}) {
+    DWORD mode = 0;
+    HANDLE handle = ::GetStdHandle(i);
+    // handle may be invalid when std{out,err} is redirected
+    if (handle == INVALID_HANDLE_VALUE || !::GetConsoleMode(handle, &mode) ||
+        !(mode & ENABLE_PROCESSED_OUTPUT) ||
+        !(mode & ENABLE_WRAP_AT_EOL_OUTPUT) ||
+        !(mode & ENABLE_VIRTUAL_TERMINAL_PROCESSING)) {
+      return false;
+    }
   }
   return true;
 #else  // not COMPILER_MSVC
@@ -1395,18 +1397,16 @@ bool IsStderrStandardTerminal() {
       IsEmacsTerminal()) {
     return false;
   }
-  return isatty(STDERR_FILENO);
+  return isatty(STDOUT_FILENO) && isatty(STDERR_FILENO);
 #endif  // COMPILER_MSVC
 }
 
-// Returns the number of columns of the terminal to which stderr is connected,
-// or $COLUMNS (default 80) if there is no such terminal.  Blaze only outputs
-// formatted messages to stderr, so we only care for width of a terminal
-// connected to the stderr descriptor.
-int GetStderrTerminalColumns() {
+// Returns the number of columns of the terminal to which stdout is
+// connected, or $COLUMNS (default 80) if there is no such terminal.
+int GetTerminalColumns() {
 #ifndef COMPILER_MSVC
   struct winsize ws;
-  if (ioctl(STDERR_FILENO, TIOCGWINSZ, &ws) != -1) {
+  if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) != -1) {
     return ws.ws_col;
   }
 #endif  // not COMPILER_MSVC
@@ -1420,7 +1420,7 @@ int GetStderrTerminalColumns() {
     }
   }
 
-  HANDLE stdout_handle = ::GetStdHandle(STD_ERROR_HANDLE);
+  HANDLE stdout_handle = ::GetStdHandle(STD_OUTPUT_HANDLE);
   if (stdout_handle != INVALID_HANDLE_VALUE) {
     // stdout_handle may be invalid when stdout is redirected.
     CONSOLE_SCREEN_BUFFER_INFO screen_info;

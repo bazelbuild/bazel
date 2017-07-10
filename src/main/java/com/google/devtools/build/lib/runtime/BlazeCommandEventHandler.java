@@ -96,7 +96,7 @@ public class BlazeCommandEventHandler implements EventHandler {
       category = "verbosity",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Use terminal controls to colorize output going to stderr."
+      help = "Use terminal controls to colorize output."
     )
     public UseColor useColorEnum;
 
@@ -107,7 +107,7 @@ public class BlazeCommandEventHandler implements EventHandler {
       category = "verbosity",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Use terminal cursor controls to minimize scrolling output going to stderr."
+      help = "Use terminal cursor controls to minimize scrolling output"
     )
     public UseCurses useCursesEnum;
 
@@ -122,21 +122,18 @@ public class BlazeCommandEventHandler implements EventHandler {
     public int terminalColumns;
 
     @Option(
-      name = "is_stderr_atty",
-      // TODO(laszlocsomor): Old name should be removed after 2017-12-28.
-      oldName = "isatty",
+      name = "isatty",
       defaultValue = "false",
       optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "A system-generated parameter which is used to notify the server whether this client is"
-              + " running in a terminal.  If this is set to false, then '--color=auto' will be"
-              + " treated as '--color=no'.  If this is set to true, then '--color=auto' will be"
-              + " treated as '--color=yes'.  As we only treat the stderr as a terminal, we only"
-              + " care that file descriptor is connected to a TTY."
+          "A system-generated parameter which is used to notify the "
+              + "server whether this client is running in a terminal. "
+              + "If this is set to false, then '--color=auto' will be treated as '--color=no'. "
+              + "If this is set to true, then '--color=auto' will be treated as '--color=yes'."
     )
-    public boolean isStderrATty;
+    public boolean isATty;
 
     // This lives here (as opposed to the more logical BuildRequest.Options)
     // because the client passes it to the server *always*.  We don't want the
@@ -247,11 +244,11 @@ public class BlazeCommandEventHandler implements EventHandler {
     public int experimentalUiLimitConsoleOutput;
 
     public boolean useColor() {
-      return useColorEnum == UseColor.YES || (useColorEnum == UseColor.AUTO && isStderrATty);
+      return useColorEnum == UseColor.YES || (useColorEnum == UseColor.AUTO && isATty);
     }
 
     public boolean useCursorControl() {
-      return useCursesEnum == UseCurses.YES || (useCursesEnum == UseCurses.AUTO && isStderrATty);
+      return useCursesEnum == UseCurses.YES || (useCursesEnum == UseCurses.AUTO && isATty);
     }
   }
 
