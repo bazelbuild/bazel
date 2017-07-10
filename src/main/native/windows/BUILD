@@ -45,5 +45,6 @@ genrule(
     visibility = [
         "//src:__pkg__",
         "//src/test/java/com/google/devtools/build/lib:__subpackages__",
+        "//src/tools/android/java/com/google/devtools/build/android:__subpackages__",
     ],
 )
