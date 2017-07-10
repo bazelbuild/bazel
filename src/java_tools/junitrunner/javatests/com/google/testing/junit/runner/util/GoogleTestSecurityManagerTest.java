@@ -14,9 +14,8 @@
 
 package com.google.testing.junit.runner.util;
 
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
 import java.security.Permission;
@@ -57,7 +56,7 @@ public class GoogleTestSecurityManagerTest {
 
   private void installTestSecurityManager() {
     SecurityManager previousSecurityManager = System.getSecurityManager();
-    assertNull(previousSecurityManager);
+    assertThat(previousSecurityManager).isNull();
 
     installedSecurityManager = new GoogleTestSecurityManager();
     System.setSecurityManager(installedSecurityManager);
@@ -96,7 +95,7 @@ public class GoogleTestSecurityManagerTest {
     // create a security manager to use, but don't install it.
     GoogleTestSecurityManager sm = new GoogleTestSecurityManager();
 
-    assertTrue(sm.isEnabled());
+    assertThat(sm.isEnabled()).isTrue();
     try {
       sm.checkExit(0);
       fail("GoogleTestSecurityManager allowed exit while enabled.");
@@ -105,12 +104,12 @@ public class GoogleTestSecurityManagerTest {
     }
 
     sm.setEnabled(false);
-    assertTrue(!sm.isEnabled());
+    assertThat(!sm.isEnabled()).isTrue();
 
     sm.checkExit(0); // should allow
 
     sm.setEnabled(true);
-    assertTrue(sm.isEnabled());
+    assertThat(sm.isEnabled()).isTrue();
     try {
       sm.checkExit(0);
       fail("GoogleTestSecurityManager allowed exit while enabled.");
@@ -123,16 +122,22 @@ public class GoogleTestSecurityManagerTest {
   public void testUninstallIfInstalled_whenInstalled() {
     installTestSecurityManager();
     GoogleTestSecurityManager.uninstallIfInstalled();
-    
-    assertTrue("Security manager should be enabled", installedSecurityManager.isEnabled());
-    assertNull("Security manager should be uninstalled", System.getSecurityManager());
+
+    assertWithMessage("Security manager should be enabled")
+        .that(installedSecurityManager.isEnabled())
+        .isTrue();
+    assertWithMessage("Security manager should be uninstalled")
+        .that(System.getSecurityManager())
+        .isNull();
   }
   
   @Test
   public void testUninstallIfInstalled_whenNoSecurityManagerInstalled() {
     GoogleTestSecurityManager.uninstallIfInstalled();
-    
-    assertNull("No security manager should be uninstalled", System.getSecurityManager());
+
+    assertWithMessage("No security manager should be uninstalled")
+        .that(System.getSecurityManager())
+        .isNull();
   }
   
   @Test
@@ -140,8 +145,8 @@ public class GoogleTestSecurityManagerTest {
     PermissiveSecurityManager otherSecurityManager = new PermissiveSecurityManager();
     System.setSecurityManager(otherSecurityManager);
     GoogleTestSecurityManager.uninstallIfInstalled();
-    
-    assertSame(otherSecurityManager, System.getSecurityManager());
+
+    assertThat(System.getSecurityManager()).isSameAs(otherSecurityManager);
     System.setSecurityManager(null);
   }
 

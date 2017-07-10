@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContextFactory;
@@ -51,15 +52,17 @@ import com.google.devtools.build.lib.actions.MapBasedActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
-import com.google.devtools.build.lib.actions.PackageRootResolutionException;
+import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit.ActionCachedContext;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.TargetOutOfDateException;
+import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.Sharder;
 import com.google.devtools.build.lib.concurrent.ThrowableRecordingRunnableWrapper;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.OutputService;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -487,7 +490,28 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
 
       if (action instanceof NotifyOnActionCacheHit) {
         NotifyOnActionCacheHit notify = (NotifyOnActionCacheHit) action;
-        notify.actionCacheHit(executorEngine);
+        ActionCachedContext context = new ActionCachedContext() {
+          @Override
+          public EventHandler getEventHandler() {
+            return executorEngine.getEventHandler();
+          }
+
+          @Override
+          public EventBus getEventBus() {
+            return executorEngine.getEventBus();
+          }
+
+          @Override
+          public Path getExecRoot() {
+            return executorEngine.getExecRoot();
+          }
+
+          @Override
+          public <T extends ActionContext> T getContext(Class<? extends T> type) {
+            return executorEngine.getContext(type);
+          }
+        };
+        notify.actionCacheHit(context);
       }
 
       // We still need to check the outputs so that output file data is available to the value.
@@ -524,7 +548,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
 
   @Nullable
   Iterable<Artifact> getActionCachedInputs(Action action, PackageRootResolver resolver)
-      throws PackageRootResolutionException, InterruptedException {
+      throws InterruptedException {
     return actionCacheChecker.getCachedInputs(action, resolver);
   }
 
@@ -709,7 +733,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     // Delete the outputs before executing the action, just to ensure that
     // the action really does produce the outputs.
     try {
-      action.prepare(context.getExecutor().getExecRoot());
+      action.prepare(context.getExecRoot());
       createOutputDirectories(action);
     } catch (IOException e) {
       reportError("failed to delete output files before executing action", e, action, null);
@@ -1077,21 +1101,11 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     }
 
     @Override
-    public byte[] getDigest(ActionInput actionInput) throws IOException {
-      byte[] digest = perActionCache.getDigest(actionInput);
-      return digest != null ? digest : perBuildFileCache.getDigest(actionInput);
-    }
-
-    @Override
-    public boolean isFile(Artifact input) {
-      // PerActionCache must have a value for all artifacts.
-      return perActionCache.isFile(input);
-    }
-
-    @Override
-    public long getSizeInBytes(ActionInput actionInput) throws IOException {
-      long size = perActionCache.getSizeInBytes(actionInput);
-      return size > -1 ? size : perBuildFileCache.getSizeInBytes(actionInput);
+    public Metadata getMetadata(ActionInput input) throws IOException {
+      Metadata metadata = perActionCache.getMetadata(input);
+      return (metadata != null) && (metadata != FileArtifactValue.MISSING_FILE_MARKER)
+          ? metadata
+          : perBuildFileCache.getMetadata(input);
     }
 
     @Override

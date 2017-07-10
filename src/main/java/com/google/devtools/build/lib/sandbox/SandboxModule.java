@@ -43,9 +43,10 @@ public final class SandboxModule extends BlazeModule {
   }
 
   @Override
-  public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
-    BlazeDirectories blazeDirs = env.getDirectories();
-    String productName = env.getRuntime().getProductName();
+  public void executorInit(
+      CommandEnvironment cmdEnv, BuildRequest request, ExecutorBuilder builder) {
+    BlazeDirectories blazeDirs = cmdEnv.getDirectories();
+    String productName = cmdEnv.getRuntime().getProductName();
     SandboxOptions sandboxOptions = request.getOptions(SandboxOptions.class);
     FileSystem fs = blazeDirs.getFileSystem();
 
@@ -64,11 +65,11 @@ public final class SandboxModule extends BlazeModule {
     try {
       FileSystemUtils.createDirectoryAndParents(sandboxBase);
       builder.addActionContextProvider(
-          SandboxActionContextProvider.create(env, request, sandboxBase));
+          SandboxActionContextProvider.create(cmdEnv, request, sandboxBase));
     } catch (IOException e) {
       throw new IllegalStateException(e);
     }
-    builder.addActionContextConsumer(new SandboxActionContextConsumer(env));
+    builder.addActionContextConsumer(new SandboxActionContextConsumer(cmdEnv));
   }
 
   @Override

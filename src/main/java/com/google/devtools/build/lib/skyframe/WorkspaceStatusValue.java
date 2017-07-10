@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 
@@ -32,7 +33,7 @@ public class WorkspaceStatusValue extends ActionLookupValue {
 
   // There should only ever be one BuildInfo value in the graph.
   static final ArtifactOwner ARTIFACT_OWNER = new BuildInfoKey();
-  public static final SkyKey SKY_KEY = SkyKey.create(SkyFunctions.BUILD_INFO, ARTIFACT_OWNER);
+  public static final SkyKey SKY_KEY = LegacySkyKey.create(SkyFunctions.BUILD_INFO, ARTIFACT_OWNER);
 
   WorkspaceStatusValue(
       Artifact stableArtifact,

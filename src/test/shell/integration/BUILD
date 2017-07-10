@@ -57,7 +57,7 @@ sh_test(
     size = "large",
     srcs = ["experimental_ui_test.sh"],
     data = [":test-deps"],
-    shard_count = 6,
+    shard_count = 11,
 )
 
 sh_test(
@@ -181,6 +181,15 @@ sh_test(
 )
 
 sh_test(
+    name = "skylark_flag_test",
+    size = "small",
+    srcs = ["skylark_flag_test.sh"],
+    data = [":test-deps"],
+    # TODO(brandjon): Fix GitHub issue #3072 and remove the "manual" tag.
+    tags = ["manual"],
+)
+
+sh_test(
     name = "ui_test",
     size = "medium",
     srcs = ["ui_test.sh"],
@@ -256,6 +265,19 @@ sh_test(
     flaky = 1,
     shard_count = 3,
     tags = ["jdk8"],
+)
+
+sh_test(
+    name = "logging_test",
+    size = "medium",
+    srcs = ["logging_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
+    name = "test_test",
+    srcs = ["test_test.sh"],
+    data = [":test-deps"],
 )
 
 test_suite(

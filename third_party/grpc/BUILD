@@ -7,15 +7,35 @@ filegroup(
     srcs = glob(["**"]),
 )
 
+config_setting(
+    name = "windows",
+    values = { "cpu": "x64_windows" },
+)
+
+config_setting(
+    name = "windows_msvc",
+    values = { "cpu": "x64_windows_msvc" },
+)
+
+filegroup(
+    name = "bootstrap-grpc-jars",
+    srcs = [
+        "grpc-auth-1.3.0.jar",
+        "grpc-netty-1.3.0.jar",
+        "grpc-protobuf-1.3.0.jar",
+        "grpc-protobuf-lite-1.3.0.jar",
+        "grpc-stub-1.3.0.jar",
+        "grpc-core-1.3.0.jar",
+        "grpc-context-1.3.0.jar",
+    ],
+)
+
 java_import(
     name = "grpc-jar",
-    jars = [
-        "grpc-auth-0.15.0.jar",
-        "grpc-netty-0.15.0.jar",
-        "grpc-protobuf-0.15.0.jar",
-        "grpc-protobuf-lite-0.15.0.jar",
-        "grpc-stub-0.15.0.jar",
-        "grpc-core-0.15.0.jar",
+    jars = [":bootstrap-grpc-jars"],
+    deps = [
+      "//third_party:guava",
+      "//third_party:instrumentation",
     ],
     runtime_deps = ["//third_party:netty"],
 )
@@ -413,10 +433,14 @@ cc_library(
         "include/grpc/support/tls_pthread.h",
         "include/grpc/support/useful.h",
     ],
-    copts = [
-        "-std=gnu99",
-        "-Wimplicit-function-declaration",
-    ],
+    copts = select({
+        "//conditions:default": [
+            "-std=gnu99",
+            "-Wimplicit-function-declaration",
+        ],
+        ":windows": ["/we4013"],
+        ":windows_msvc": ["/we4013"],
+    }),
     includes = [
         ".",
         "include",

@@ -19,6 +19,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Maps.EntryTransformer;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.GroupedList;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -135,6 +136,12 @@ public class NotifyingHelper {
       return Maps.transformEntries(
           delegate.createIfAbsentBatch(requestor, reason, keys),
           notifyingHelper.wrapEntry);
+    }
+
+    @Override
+    public DepsReport analyzeDepsDoneness(SkyKey parent, Collection<SkyKey> deps)
+        throws InterruptedException {
+      return delegate.analyzeDepsDoneness(parent, deps);
     }
   }
 

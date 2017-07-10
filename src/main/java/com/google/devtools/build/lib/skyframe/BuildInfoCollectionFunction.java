@@ -64,7 +64,7 @@ public class BuildInfoCollectionFunction implements SkyFunction {
       return null;
     }
     RepositoryName repositoryName = RepositoryName.createFromValidStrippedName(
-        nameValue.maybeGetName());
+        nameValue.getName());
 
     final ArtifactFactory factory = artifactFactory.get();
     BuildInfoContext context = new BuildInfoContext() {

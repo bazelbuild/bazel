@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.rules.apple.swift;
 
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.List;
 
 /** Command-line options for building with Swift tools. */
@@ -26,6 +28,8 @@ public class SwiftCommandLineOptions extends FragmentOptions {
     allowMultiple = true,
     defaultValue = "",
     category = "flags",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "Additional options to pass to Swift compilation."
   )
   public List<String> copts;
@@ -34,6 +38,8 @@ public class SwiftCommandLineOptions extends FragmentOptions {
     name = "swift_whole_module_optimization",
     defaultValue = "false",
     category = "flags",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "Whether to enable Whole Module Optimization"
   )
   public boolean enableWholeModuleOptimization;

@@ -127,6 +127,11 @@ public class AndroidIdlHelper {
     return getIdlParcelables(ruleContext);
   }
 
+  /** Returns the idl_preprocessed. */
+  public Collection<Artifact> getIdlPreprocessed() {
+    return getIdlPreprocessed(ruleContext);
+  }
+
   /**
    * Returns the generated Java sources created from the idl_srcs.
    */
@@ -283,8 +288,11 @@ public class AndroidIdlHelper {
     for (String idlImport : transitiveIdlImportData.getTransitiveIdlImportRoots()) {
       preprocessedArgs.add("-I" + idlImport);
     }
-
+    // add preprocessed aidl files
     preprocessedArgs.add("-p" + sdk.getFrameworkAidl().getExecPathString());
+    for (Artifact idlPreprocessed : transitiveIdlImportData.getTransitiveIdlPreprocessed()) {
+      preprocessedArgs.add("-p" + idlPreprocessed.getExecPathString());
+    }
 
     for (Entry<Artifact, Artifact> entry : translatedIdlSources.entrySet()) {
       createAndroidIdlAction(ruleContext, entry.getKey(),
@@ -351,19 +359,21 @@ public class AndroidIdlHelper {
       Artifact idl, NestedSet<Artifact> idlImports,
       Artifact output, List<String> importArgs) {
     AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
-    ruleContext.registerAction(new SpawnAction.Builder()
-        .setExecutable(sdk.getAidl())
-        .addInput(idl)
-        .addTransitiveInputs(idlImports)
-        .addInput(sdk.getFrameworkAidl())
-        .addOutput(output)
-        .addArgument("-b") // Fail if trying to compile a parcelable.
-        .addArguments(importArgs)
-        .addArgument(idl.getExecPathString())
-        .addArgument(output.getExecPathString())
-        .setProgressMessage("Android IDL generation")
-        .setMnemonic("AndroidIDLGnerate")
-        .build(ruleContext));
+    ruleContext.registerAction(
+        new SpawnAction.Builder()
+            .setExecutable(sdk.getAidl())
+            .addInput(idl)
+            .addTransitiveInputs(idlImports)
+            .addInput(sdk.getFrameworkAidl())
+            .addInputs(getIdlPreprocessed(ruleContext))
+            .addOutput(output)
+            .addArgument("-b") // Fail if trying to compile a parcelable.
+            .addArguments(importArgs)
+            .addArgument(idl.getExecPathString())
+            .addArgument(output.getExecPathString())
+            .setProgressMessage("Android IDL generation")
+            .setMnemonic("AndroidIDLGnerate")
+            .build(ruleContext));
   }
 
   /**
@@ -374,6 +384,7 @@ public class AndroidIdlHelper {
     return ImmutableList.<Artifact>builder()
         .addAll(getIdlParcelables(ruleContext))
         .addAll(getIdlSrcs(ruleContext))
+        .addAll(getIdlPreprocessed(ruleContext))
         .build();
   }
 
@@ -393,6 +404,7 @@ public class AndroidIdlHelper {
     NestedSetBuilder<String> rootsBuilder = NestedSetBuilder.naiveLinkOrder();
     NestedSetBuilder<Artifact> importsBuilder = NestedSetBuilder.naiveLinkOrder();
     NestedSetBuilder<Artifact> jarsBuilder = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> preprocessedBuilder = NestedSetBuilder.naiveLinkOrder();
     if (idlClassJar != null) {
       jarsBuilder.add(idlClassJar);
     }
@@ -404,6 +416,7 @@ public class AndroidIdlHelper {
         ruleContext, Mode.TARGET, AndroidIdlProvider.class)) {
       rootsBuilder.addTransitive(dep.getTransitiveIdlImportRoots());
       importsBuilder.addTransitive(dep.getTransitiveIdlImports());
+      preprocessedBuilder.addTransitive(dep.getTransitiveIdlPreprocessed());
       jarsBuilder.addTransitive(dep.getTransitiveIdlJars());
     }
 
@@ -432,8 +445,14 @@ public class AndroidIdlHelper {
     }
     importsBuilder.addAll(idlImports);
 
+    Collection<Artifact> idlPreprocessed = getIdlPreprocessed(ruleContext);
+    preprocessedBuilder.addAll(idlPreprocessed);
+
     return AndroidIdlProvider.create(
-        rootsBuilder.build(), importsBuilder.build(), jarsBuilder.build());
+        rootsBuilder.build(),
+        importsBuilder.build(),
+        jarsBuilder.build(),
+        preprocessedBuilder.build());
   }
 
   /**
@@ -459,5 +478,12 @@ public class AndroidIdlHelper {
 
   private static String getIdlImportRoot(RuleContext ruleContext) {
     return ruleContext.attributes().get("idl_import_root", Type.STRING);
+  }
+
+  /** Returns the idl_preprocessed defined on the given rule. */
+  private static Collection<Artifact> getIdlPreprocessed(RuleContext ruleContext) {
+    return ruleContext.isAttrDefined("idl_preprocessed", BuildType.LABEL_LIST)
+        ? ruleContext.getPrerequisiteArtifacts("idl_preprocessed", Mode.TARGET).list()
+        : ImmutableList.<Artifact>of();
   }
 }

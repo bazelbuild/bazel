@@ -13,9 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.unix;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -44,7 +42,7 @@ public class UnixFileSystemTest extends SymlinkAwareFileSystemTest {
 
   @Override
   protected void expectNotFound(Path path) throws IOException {
-    assertNull(path.statIfFound());
+    assertThat(path.statIfFound()).isNull();
   }
 
   // Most tests are just inherited from FileSystemTest.
@@ -55,7 +53,7 @@ public class UnixFileSystemTest extends SymlinkAwareFileSystemTest {
     Path linkB = absolutize("link-b");
     linkA.createSymbolicLink(linkB);
     linkB.createSymbolicLink(linkA);
-    assertFalse(linkA.exists(Symlinks.FOLLOW));
+    assertThat(linkA.exists(Symlinks.FOLLOW)).isFalse();
     try {
       linkA.statIfFound(Symlinks.FOLLOW);
       fail();
@@ -70,13 +68,13 @@ public class UnixFileSystemTest extends SymlinkAwareFileSystemTest {
     Path fifo = absolutize("fifo");
     FileSystemUtils.createEmptyFile(regular);
     NativePosixFiles.mkfifo(fifo.toString(), 0777);
-    assertTrue(regular.isFile());
-    assertFalse(regular.isSpecialFile());
-    assertTrue(regular.stat().isFile());
-    assertFalse(regular.stat().isSpecialFile());
-    assertTrue(fifo.isFile());
-    assertTrue(fifo.isSpecialFile());
-    assertTrue(fifo.stat().isFile());
-    assertTrue(fifo.stat().isSpecialFile());
+    assertThat(regular.isFile()).isTrue();
+    assertThat(regular.isSpecialFile()).isFalse();
+    assertThat(regular.stat().isFile()).isTrue();
+    assertThat(regular.stat().isSpecialFile()).isFalse();
+    assertThat(fifo.isFile()).isTrue();
+    assertThat(fifo.isSpecialFile()).isTrue();
+    assertThat(fifo.stat().isFile()).isTrue();
+    assertThat(fifo.stat().isSpecialFile()).isTrue();
   }
 }

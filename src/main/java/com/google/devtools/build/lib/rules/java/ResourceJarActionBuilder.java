@@ -18,7 +18,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -89,9 +92,9 @@ public class ResourceJarActionBuilder {
     if (singleJar.getFilename().endsWith(".jar")) {
       builder
           .setJarExecutable(
-              ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable(),
+              JavaCommon.getHostJavaExecutable(ruleContext),
               singleJar,
-              JavaToolchainProvider.fromRuleContext(ruleContext).getJvmOptions())
+              javaToolchain.getJvmOptions())
           .addTransitiveInputs(javabase);
     } else {
       builder.setExecutable(singleJar);
@@ -118,6 +121,17 @@ public class ResourceJarActionBuilder {
     if (!classpathResources.isEmpty()) {
       command.addExecPaths("--classpath_resources", classpathResources);
     }
+    // TODO(b/37444705): remove this logic and always call useParameterFile once the bug is fixed
+    // Most resource jar actions are very small and expanding the argument list for
+    // ParamFileHelper#getParamsFileMaybe is expensive, so avoid doing that work if
+    // we definitely don't need a params file.
+    // This heuristic could be much more aggressive, but we don't ever want to skip
+    // the params file in situations where it is required for --min_param_file_size.
+    if (sizeGreaterThanOrEqual(
+            Iterables.concat(messages, resources.values(), resourceJars, classpathResources), 10)
+        || ruleContext.getConfiguration().getMinParamFileSize() < 10000) {
+      builder.useParameterFile(ParameterFileType.SHELL_QUOTED);
+    }
     ruleContext.registerAction(
         builder
             .addOutput(outputJar)
@@ -129,6 +143,10 @@ public class ResourceJarActionBuilder {
             .setProgressMessage("Building Java resource jar")
             .setMnemonic("JavaResourceJar")
             .build(ruleContext));
+  }
+
+  boolean sizeGreaterThanOrEqual(Iterable<?> elements, int size) {
+    return Streams.stream(elements).limit(size).count() == size;
   }
 
   private static void addAsResourcePrefixedExecPath(

@@ -17,6 +17,7 @@ import com.google.common.base.Throwables;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -62,6 +63,8 @@ public class BuiltinFunction extends BaseFunction {
   // The returnType of the method.
   private Class<?> returnType;
 
+  // True if the function is a rule class
+  private boolean isRule;
 
   /** Create unconfigured function from its name */
   public BuiltinFunction(String name) {
@@ -93,6 +96,15 @@ public class BuiltinFunction extends BaseFunction {
     configure();
   }
 
+  /** Creates a BuiltinFunction with the given name, signature, extra arguments, and a rule flag */
+  public BuiltinFunction(
+      String name, FunctionSignature signature, ExtraArgKind[] extraArgs, boolean isRule) {
+    super(name, signature);
+    this.extraArgs = extraArgs;
+    this.isRule = isRule;
+    configure();
+  }
+
   /** Creates a BuiltinFunction with the given name, signature with values, and extra arguments */
   public BuiltinFunction(String name,
       FunctionSignature.WithValues<Object, SkylarkType> signature, ExtraArgKind[] extraArgs) {
@@ -100,7 +112,6 @@ public class BuiltinFunction extends BaseFunction {
     this.extraArgs = extraArgs;
     configure();
   }
-
 
   /** Creates a BuiltinFunction from the given name and a Factory */
   public BuiltinFunction(String name, Factory factory) {
@@ -175,17 +186,15 @@ public class BuiltinFunction extends BaseFunction {
         if (args[i] != null && !types[i].isAssignableFrom(args[i].getClass())) {
           String paramName =
               i < len ? signature.getSignature().getNames().get(i) : extraArgs[i - len].name();
-          int extraArgsCount = (extraArgs == null) ? 0 : extraArgs.length;
           throw new EvalException(
               loc,
               String.format(
-                  "method %s is not applicable for arguments %s: "
-                      + "'%s' is '%s', but should be '%s'",
-                  getShortSignature(true),
-                  printTypeString(args, args.length - extraArgsCount),
+                  "argument '%s' has type '%s', but should be '%s'\nin call to builtin %s %s",
                   paramName,
                   EvalUtils.getDataTypeName(args[i]),
-                  EvalUtils.getDataTypeNameFromClass(types[i])));
+                  EvalUtils.getDataTypeNameFromClass(types[i]),
+                  hasSelfArgument() ? "method" : "function",
+                  getShortSignature()));
         }
       }
       throw badCallException(loc, e, args);
@@ -369,6 +378,15 @@ public class BuiltinFunction extends BaseFunction {
             "Exception while applying BuiltinFunction.Factory %s: %s",
             this, e.getMessage()), e);
       }
+    }
+  }
+
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    if (isRule) {
+      printer.append("<built-in rule " + getName() + ">");
+    } else {
+      printer.append("<built-in function " + getName() + ">");
     }
   }
 }

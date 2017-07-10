@@ -14,19 +14,19 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_STATIC;
-
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
-import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.syntax.Type;
+import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * Implementation for {@code objc_library}.
@@ -58,49 +58,37 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
-    // Support treating objc_library as experimental_objc_library
-    // TODO(b/34260565): Deprecate ExperimentalObjcLibrary in favor of ObjcLibrary with
-    // CrosstoolCompilationSupport.
-    if (ruleContext.getFragment(ObjcConfiguration.class).getObjcCrosstoolMode()
-        != ObjcCrosstoolMode.OFF) {
-      return ExperimentalObjcLibrary.configureExperimentalObjcLibrary(ruleContext);
-    }
-    
+    validateAttributes(ruleContext);
+
     ObjcCommon common = common(ruleContext);
 
-    XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.<Artifact>stableOrder()
         .addAll(common.getCompiledArchive().asSet());
 
+    Map<String, NestedSet<Artifact>> outputGroupCollector = new TreeMap<>();
     CompilationSupport compilationSupport =
-        CompilationSupport.create(ruleContext)
-            .registerCompileAndArchiveActions(common)
-            .registerFullyLinkAction(common.getObjcProvider(),
-                ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB))
-            .addXcodeSettings(xcodeProviderBuilder, common)
-            .validateAttributes();
+        new CompilationSupport.Builder()
+            .setRuleContext(ruleContext)
+            .setOutputGroupCollector(outputGroupCollector)
+            .setIsObjcLibrary()
+            .build();
 
-    new ResourceSupport(ruleContext)
-        .validateAttributes()
-        .addXcodeSettings(xcodeProviderBuilder);
+    compilationSupport
+        .registerCompileAndArchiveActions(common)
+        .registerFullyLinkAction(
+            common.getObjcProvider(),
+            ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB))
+        .validateAttributes();
 
-    new XcodeSupport(ruleContext)
-        .addFilesToBuild(filesToBuild)
-        .addXcodeSettings(xcodeProviderBuilder, common.getObjcProvider(), LIBRARY_STATIC)
-        .addDependencies(xcodeProviderBuilder, new Attribute("bundles", Mode.TARGET))
-        .addDependencies(xcodeProviderBuilder, new Attribute("deps", Mode.TARGET))
-        .addNonPropagatedDependencies(
-            xcodeProviderBuilder, new Attribute("non_propagated_deps", Mode.TARGET))
-        .registerActions(xcodeProviderBuilder.build());
+    new ResourceSupport(ruleContext).validateAttributes();
 
     J2ObjcMappingFileProvider j2ObjcMappingFileProvider = J2ObjcMappingFileProvider.union(
-        ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcMappingFileProvider.class));
+            ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcMappingFileProvider.class));
     J2ObjcEntryClassProvider j2ObjcEntryClassProvider = new J2ObjcEntryClassProvider.Builder()
-        .addTransitive(ruleContext.getPrerequisites("deps", Mode.TARGET,
-            J2ObjcEntryClassProvider.class)).build();
+      .addTransitive(ruleContext.getPrerequisites("deps", Mode.TARGET,
+          J2ObjcEntryClassProvider.class)).build();
 
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
-        .addProvider(XcodeProvider.class, xcodeProviderBuilder.build())
         .addProvider(ObjcProvider.class, common.getObjcProvider())
         .addProvider(J2ObjcEntryClassProvider.class, j2ObjcEntryClassProvider)
         .addProvider(J2ObjcMappingFileProvider.class, j2ObjcMappingFileProvider)
@@ -110,6 +98,16 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         .addProvider(
             CcLinkParamsProvider.class,
             new CcLinkParamsProvider(new ObjcLibraryCcLinkParamsStore(common)))
+        .addOutputGroups(outputGroupCollector)
         .build();
+  }
+
+  /** Throws errors or warnings for bad attribute state. */
+  private static void validateAttributes(RuleContext ruleContext) {
+    for (String copt : ObjcCommon.getNonCrosstoolCopts(ruleContext)) {
+      if (copt.contains("-fmodules-cache-path")) {
+        ruleContext.ruleWarning(CompilationSupport.MODULES_CACHE_PATH_WARNING);
+      }
+    }
   }
 }

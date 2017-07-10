@@ -15,10 +15,9 @@ package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.collect.CompactHashSet;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * A loadfiles(x) query expression, which computes the set of .bzl files
@@ -28,7 +27,7 @@ import java.util.Set;
  *
  * <pre>expr ::= LOADFILES '(' expr ')'</pre>
  */
-class LoadFilesFunction implements QueryEnvironment.QueryFunction {
+public class LoadFilesFunction implements QueryEnvironment.QueryFunction {
   LoadFilesFunction() {}
 
   @Override
@@ -51,7 +50,7 @@ class LoadFilesFunction implements QueryEnvironment.QueryFunction {
           @Override
           public void process(Iterable<T> partialResult)
               throws QueryException, InterruptedException {
-            Set<T> result = CompactHashSet.create();
+            ThreadSafeMutableSet<T> result = env.createThreadSafeMutableSet();
             Iterables.addAll(result, partialResult);
             callback.process(uniquifier.unique(
                 env.getBuildFiles(

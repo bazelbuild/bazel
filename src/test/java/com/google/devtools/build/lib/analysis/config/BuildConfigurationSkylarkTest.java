@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.config;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.SkylarkProviders;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import org.junit.Test;
@@ -48,8 +47,7 @@ public final class BuildConfigurationSkylarkTest extends BuildViewTestCase {
         ")");
 
     ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/config_skylark:my_target");
-    SkylarkProviders skylarkProviders = skylarkTarget.getProvider(SkylarkProviders.class);
-    assertThat(skylarkProviders.getValue("test_env", SkylarkDict.class).get("TEST_ENV_VAR"))
+    assertThat(((SkylarkDict) skylarkTarget.get("test_env")).get("TEST_ENV_VAR"))
         .isEqualTo("my_value");
   }
 }

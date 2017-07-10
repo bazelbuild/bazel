@@ -18,17 +18,20 @@ import com.google.common.base.Splitter;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
-import com.google.devtools.build.lib.actions.Executor.ActionContext;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
@@ -55,29 +58,40 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
    * Options controlling the workspace status command.
    */
   public static class Options extends OptionsBase {
-    @Option(name = "embed_label",
-        defaultValue = "",
-        category = "misc",
-        valueHelp = "<string>",
-        help = "Embed source control revision or release label in binary")
+    @Option(
+      name = "embed_label",
+      defaultValue = "",
+      category = "misc",
+      valueHelp = "<string>",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Embed source control revision or release label in binary"
+    )
     public String embedLabel;
 
     @Option(
       name = "experimental_embed_timestamp_epoch",
       defaultValue = "-1",
-      category = "undocumented",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Alternative timestamp to be used in stamping the binary"
     )
     public long embedTimestampEpoch;
 
-    @Option(name = "workspace_status_command",
-        defaultValue = "",
-        category = "misc",
-        converter = OptionsUtils.PathFragmentConverter.class,
-        valueHelp = "<path>",
-        help = "A command invoked at the beginning of the build to provide status "
-            + "information about the workspace in the form of key/value pairs.  "
-            + "See the User's Manual for the full specification.")
+    @Option(
+      name = "workspace_status_command",
+      defaultValue = "",
+      category = "misc",
+      converter = OptionsUtils.PathFragmentConverter.class,
+      valueHelp = "<path>",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "A command invoked at the beginning of the build to provide status "
+              + "information about the workspace in the form of key/value pairs.  "
+              + "See the User's Manual for the full specification."
+    )
     public PathFragment workspaceStatusCommand;
   }
 

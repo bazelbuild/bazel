@@ -15,13 +15,12 @@ package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.collect.CompactHashSet;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * A buildfiles(x) query expression, which computes the set of BUILD files and
@@ -31,7 +30,7 @@ import java.util.Set;
  *
  * <pre>expr ::= BUILDFILES '(' expr ')'</pre>
  */
-class BuildFilesFunction implements QueryFunction {
+public class BuildFilesFunction implements QueryFunction {
   BuildFilesFunction() {
   }
 
@@ -55,7 +54,7 @@ class BuildFilesFunction implements QueryFunction {
           @Override
           public void process(Iterable<T> partialResult)
               throws QueryException, InterruptedException {
-            Set<T> result = CompactHashSet.create();
+            ThreadSafeMutableSet<T> result = env.createThreadSafeMutableSet();
             Iterables.addAll(result, partialResult);
             callback.process(uniquifier.unique(
                 env.getBuildFiles(

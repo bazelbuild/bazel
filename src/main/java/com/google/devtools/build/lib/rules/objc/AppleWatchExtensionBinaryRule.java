@@ -35,13 +35,6 @@ public class AppleWatchExtensionBinaryRule implements RuleDefinition {
     return builder
         .requiresConfigurationFragments(ObjcConfiguration.class, J2ObjcConfiguration.class,
             AppleConfiguration.class, CppConfiguration.class)
-        /*<!-- #BLAZE_RULE(apple_watch_extension_binary).IMPLICIT_OUTPUTS -->
-        <ul>
-         <li><code><var>name</var>.xcodeproj/project.pbxproj</code>: An Xcode project file which
-             can be used to develop or build on a Mac.</li>
-        </ul>
-        <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
-        .setImplicitOutputsFunction(XcodeSupport.PBXPROJ)
         .cfg(AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION)
         .build();
   }
@@ -51,8 +44,7 @@ public class AppleWatchExtensionBinaryRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("apple_watch_extension_binary")
         .factoryClass(AppleWatchExtensionBinary.class)
-        .ancestors(BaseRuleClasses.BaseRule.class, ObjcRuleClasses.LinkingRule.class,
-            ObjcRuleClasses.XcodegenRule.class)
+        .ancestors(BaseRuleClasses.BaseRule.class, ObjcRuleClasses.LinkingRule.class)
         .build();
   }
 }

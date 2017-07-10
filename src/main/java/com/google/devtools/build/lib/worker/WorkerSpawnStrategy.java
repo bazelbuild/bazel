@@ -15,9 +15,7 @@ package com.google.devtools.build.lib.worker;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.base.Charsets;
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -31,19 +29,17 @@ import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
-import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.SandboxedSpawnActionContext;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.UserExecException;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
-import com.google.devtools.build.lib.sandbox.SpawnHelpers;
 import com.google.devtools.build.lib.standalone.StandaloneSpawnStrategy;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -53,12 +49,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.protobuf.ByteString;
-import java.io.ByteArrayOutputStream;
-import java.io.FilterInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
-import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -78,93 +69,6 @@ import java.util.regex.Pattern;
 )
 public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
 
-  /**
-   * An input stream filter that records the first X bytes read from its wrapped stream.
-   *
-   * <p>The number bytes to record can be set via {@link #startRecording(int)}}, which also discards
-   * any already recorded data. The recorded data can be retrieved via {@link
-   * #getRecordedDataAsString(Charset)}.
-   */
-  private static final class RecordingInputStream extends FilterInputStream {
-    private static final Pattern NON_PRINTABLE_CHARS =
-        Pattern.compile("[^\\p{Print}\\t\\r\\n]", Pattern.UNICODE_CHARACTER_CLASS);
-
-    private ByteArrayOutputStream recordedData;
-    private int maxRecordedSize;
-
-    protected RecordingInputStream(InputStream in) {
-      super(in);
-    }
-
-    /**
-     * Returns the maximum number of bytes that can still be recorded in our buffer (but not more
-     * than {@code size}).
-     */
-    private int getRecordableBytes(int size) {
-      if (recordedData == null) {
-        return 0;
-      }
-      return Math.min(maxRecordedSize - recordedData.size(), size);
-    }
-
-    @Override
-    public int read() throws IOException {
-      int bytesRead = super.read();
-      if (getRecordableBytes(bytesRead) > 0) {
-        recordedData.write(bytesRead);
-      }
-      return bytesRead;
-    }
-
-    @Override
-    public int read(byte[] b) throws IOException {
-      int bytesRead = super.read(b);
-      int recordableBytes = getRecordableBytes(bytesRead);
-      if (recordableBytes > 0) {
-        recordedData.write(b, 0, recordableBytes);
-      }
-      return bytesRead;
-    }
-
-    @Override
-    public int read(byte[] b, int off, int len) throws IOException {
-      int bytesRead = super.read(b, off, len);
-      int recordableBytes = getRecordableBytes(bytesRead);
-      if (recordableBytes > 0) {
-        recordedData.write(b, off, recordableBytes);
-      }
-      return bytesRead;
-    }
-
-    public void startRecording(int maxSize) {
-      recordedData = new ByteArrayOutputStream(maxSize);
-      maxRecordedSize = maxSize;
-    }
-
-    /**
-     * Reads whatever remaining data is available on the input stream if we still have space left in
-     * the recording buffer, in order to maximize the usefulness of the recorded data for the
-     * caller.
-     */
-    public void readRemaining() {
-      try {
-        byte[] dummy = new byte[getRecordableBytes(available())];
-        read(dummy);
-      } catch (IOException e) {
-        // Ignore.
-      }
-    }
-
-    /**
-     * Returns the recorded data as a string, where non-printable characters are replaced with a '?'
-     * symbol.
-     */
-    public String getRecordedDataAsString(Charset charsetName) throws UnsupportedEncodingException {
-      String recordedString = recordedData.toString(charsetName.name());
-      return NON_PRINTABLE_CHARS.matcher(recordedString).replaceAll("?").trim();
-    }
-  }
-
   public static final String ERROR_MESSAGE_PREFIX =
       "Worker strategy cannot execute this %s action, ";
   public static final String REASON_NO_FLAGFILE =
@@ -179,24 +83,20 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
   private final WorkerPool workers;
   private final Path execRoot;
   private final boolean verboseFailures;
-  private final int maxRetries;
   private final Multimap<String, String> extraFlags;
-  private final boolean workerVerbose;
+  private final SpawnInputExpander spawnInputExpander;
 
   public WorkerSpawnStrategy(
-      BlazeDirectories blazeDirs,
+      Path execRoot,
       WorkerPool workers,
       boolean verboseFailures,
-      int maxRetries,
-      boolean workerVerbose,
       Multimap<String, String> extraFlags) {
     Preconditions.checkNotNull(workers);
     this.workers = Preconditions.checkNotNull(workers);
-    this.execRoot = blazeDirs.getExecRoot();
+    this.execRoot = execRoot;
     this.verboseFailures = verboseFailures;
-    this.maxRetries = maxRetries;
-    this.workerVerbose = workerVerbose;
     this.extraFlags = extraFlags;
+    this.spawnInputExpander = new SpawnInputExpander(false);
   }
 
   @Override
@@ -211,19 +111,19 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
       ActionExecutionContext actionExecutionContext,
       AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles)
       throws ExecException, InterruptedException {
-    Executor executor = actionExecutionContext.getExecutor();
-    if (!spawn.getExecutionInfo().containsKey("supports-workers")
-        || !spawn.getExecutionInfo().get("supports-workers").equals("1")) {
+    if (!spawn.getExecutionInfo().containsKey(ExecutionRequirements.SUPPORTS_WORKERS)
+        || !spawn.getExecutionInfo().get(ExecutionRequirements.SUPPORTS_WORKERS).equals("1")) {
       StandaloneSpawnStrategy standaloneStrategy =
-          Preconditions.checkNotNull(executor.getContext(StandaloneSpawnStrategy.class));
-      executor.getEventHandler().handle(
+          Preconditions.checkNotNull(
+              actionExecutionContext.getContext(StandaloneSpawnStrategy.class));
+      actionExecutionContext.getEventHandler().handle(
           Event.warn(
               String.format(ERROR_MESSAGE_PREFIX + REASON_NO_EXECUTION_INFO, spawn.getMnemonic())));
       standaloneStrategy.exec(spawn, actionExecutionContext);
       return;
     }
 
-    EventBus eventBus = actionExecutionContext.getExecutor().getEventBus();
+    EventBus eventBus = actionExecutionContext.getEventBus();
     ActionExecutionMetadata owner = spawn.getResourceOwner();
     eventBus.post(ActionStatusMessage.schedulingStrategy(owner));
     try (ResourceHandle handle =
@@ -238,31 +138,8 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
       ActionExecutionContext actionExecutionContext,
       AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles)
       throws ExecException, InterruptedException {
-    Executor executor = actionExecutionContext.getExecutor();
-    EventHandler eventHandler = executor.getEventHandler();
-
-    if (executor.reportsSubcommands()) {
-      executor.reportSubcommand(spawn);
-    }
-
-    // We assume that the spawn to be executed always gets at least one @flagfile.txt or
-    // --flagfile=flagfile.txt argument, which contains the flags related to the work itself (as
-    // opposed to start-up options for the executed tool). Thus, we can extract those elements from
-    // its args and put them into the WorkRequest instead.
-    List<String> flagfiles = new ArrayList<>();
-    List<String> startupArgs = new ArrayList<>();
-
-    for (String arg : spawn.getArguments()) {
-      if (FLAG_FILE_PATTERN.matcher(arg).matches()) {
-        flagfiles.add(arg);
-      } else {
-        startupArgs.add(arg);
-      }
-    }
-
-    if (flagfiles.isEmpty()) {
-      throw new UserExecException(
-          String.format(ERROR_MESSAGE_PREFIX + REASON_NO_FLAGFILE, spawn.getMnemonic()));
+    if (actionExecutionContext.reportsSubcommands()) {
+      actionExecutionContext.reportSubcommand(spawn);
     }
 
     if (Iterables.isEmpty(spawn.getToolFiles())) {
@@ -270,16 +147,12 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
           String.format(ERROR_MESSAGE_PREFIX + REASON_NO_TOOLS, spawn.getMnemonic()));
     }
 
-    FileOutErr outErr = actionExecutionContext.getFileOutErr();
-
-    ImmutableList<String> args =
-        ImmutableList.<String>builder()
-            .addAll(startupArgs)
-            .add("--persistent_worker")
-            .addAll(
-                MoreObjects.firstNonNull(
-                    extraFlags.get(spawn.getMnemonic()), ImmutableList.<String>of()))
-            .build();
+    // We assume that the spawn to be executed always gets at least one @flagfile.txt or
+    // --flagfile=flagfile.txt argument, which contains the flags related to the work itself (as
+    // opposed to start-up options for the executed tool). Thus, we can extract those elements from
+    // its args and put them into the WorkRequest instead.
+    List<String> flagFiles = new ArrayList<>();
+    ImmutableList<String> workerArgs = splitSpawnArgsIntoWorkerArgsAndFlagFiles(spawn, flagFiles);
     ImmutableMap<String, String> env = spawn.getEnvironment();
 
     try {
@@ -288,11 +161,12 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
       HashCode workerFilesHash = WorkerFilesHash.getWorkerFilesHash(
           spawn.getToolFiles(), actionExecutionContext);
       Map<PathFragment, Path> inputFiles =
-          new SpawnHelpers(execRoot).getMounts(spawn, actionExecutionContext);
+          SandboxHelpers.getInputFiles(spawnInputExpander, execRoot, spawn, actionExecutionContext);
       Set<PathFragment> outputFiles = SandboxHelpers.getOutputFiles(spawn);
+
       WorkerKey key =
           new WorkerKey(
-              args,
+              workerArgs,
               env,
               execRoot,
               spawn.getMnemonic(),
@@ -301,35 +175,13 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
               outputFiles,
               writeOutputFiles != null);
 
-      WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
-      for (String flagfile : flagfiles) {
-        expandArgument(requestBuilder, flagfile);
-      }
+      WorkRequest workRequest =
+          createWorkRequest(spawn, actionExecutionContext, flagFiles, inputFileCache);
 
-      List<ActionInput> inputs =
-          ActionInputHelper.expandArtifacts(
-              spawn.getInputFiles(), actionExecutionContext.getArtifactExpander());
+      WorkResponse response = execInWorker(key, workRequest, writeOutputFiles);
 
-      for (ActionInput input : inputs) {
-        byte[] digestBytes = inputFileCache.getDigest(input);
-        ByteString digest;
-        if (digestBytes == null) {
-          digest = ByteString.EMPTY;
-        } else {
-          digest = ByteString.copyFromUtf8(HashCode.fromBytes(digestBytes).toString());
-        }
-
-        requestBuilder
-            .addInputsBuilder()
-            .setPath(input.getExecPathString())
-            .setDigest(digest)
-            .build();
-      }
-
-      WorkResponse response =
-          execInWorker(eventHandler, key, requestBuilder.build(), maxRetries, writeOutputFiles);
-
-      outErr.getErrorStream().write(response.getOutputBytes().toByteArray());
+      FileOutErr outErr = actionExecutionContext.getFileOutErr();
+      response.getOutputBytes().writeTo(outErr.getErrorStream());
 
       if (response.getExitCode() != 0) {
         throw new UserExecException(
@@ -340,8 +192,71 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
       String message =
           CommandFailureUtils.describeCommandFailure(
               verboseFailures, spawn.getArguments(), env, execRoot.getPathString());
-      throw new UserExecException(message, e);
+      throw new UserExecException(
+          ErrorMessage.builder().message(message).exception(e).build().toString());
     }
+  }
+
+  /**
+   * Splits the command-line arguments of the {@code Spawn} into the part that is used to start the
+   * persistent worker ({@code workerArgs}) and the part that goes into the {@code WorkRequest}
+   * protobuf ({@code flagFiles}).
+   */
+  private ImmutableList<String> splitSpawnArgsIntoWorkerArgsAndFlagFiles(
+      Spawn spawn, List<String> flagFiles) throws UserExecException {
+    ImmutableList.Builder<String> workerArgs = ImmutableList.builder();
+    for (String arg : spawn.getArguments()) {
+      if (FLAG_FILE_PATTERN.matcher(arg).matches()) {
+        flagFiles.add(arg);
+      } else {
+        workerArgs.add(arg);
+      }
+    }
+
+    if (flagFiles.isEmpty()) {
+      throw new UserExecException(
+          String.format(ERROR_MESSAGE_PREFIX + REASON_NO_FLAGFILE, spawn.getMnemonic()));
+    }
+
+    return workerArgs
+        .add("--persistent_worker")
+        .addAll(
+            MoreObjects.firstNonNull(
+                extraFlags.get(spawn.getMnemonic()), ImmutableList.<String>of()))
+        .build();
+  }
+
+  private WorkRequest createWorkRequest(
+      Spawn spawn,
+      ActionExecutionContext actionExecutionContext,
+      List<String> flagfiles,
+      ActionInputFileCache inputFileCache)
+      throws IOException {
+    WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
+    for (String flagfile : flagfiles) {
+      expandArgument(requestBuilder, flagfile);
+    }
+
+    List<ActionInput> inputs =
+        ActionInputHelper.expandArtifacts(
+            spawn.getInputFiles(), actionExecutionContext.getArtifactExpander());
+
+    for (ActionInput input : inputs) {
+      byte[] digestBytes = inputFileCache.getMetadata(input).getDigest();
+      ByteString digest;
+      if (digestBytes == null) {
+        digest = ByteString.EMPTY;
+      } else {
+        digest = ByteString.copyFromUtf8(HashCode.fromBytes(digestBytes).toString());
+      }
+
+      requestBuilder
+          .addInputsBuilder()
+          .setPath(input.getExecPathString())
+          .setDigest(digest)
+          .build();
+    }
+    return requestBuilder.build();
   }
 
   /**
@@ -367,35 +282,70 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
   }
 
   private WorkResponse execInWorker(
-      EventHandler eventHandler,
       WorkerKey key,
       WorkRequest request,
-      int retriesLeft,
       AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles)
-      throws IOException, InterruptedException, UserExecException {
+      throws InterruptedException, ExecException {
     Worker worker = null;
-    WorkResponse response = null;
+    WorkResponse response;
 
     try {
-      worker = workers.borrowObject(key);
-      worker.prepareExecution(key);
+      try {
+        worker = workers.borrowObject(key);
+      } catch (IOException e) {
+        throw new UserExecException(
+            ErrorMessage.builder()
+                .message("IOException while borrowing a worker from the pool:")
+                .exception(e)
+                .build()
+                .toString());
+      }
 
-      request.writeDelimitedTo(worker.getOutputStream());
-      worker.getOutputStream().flush();
+      try {
+        worker.prepareExecution(key);
+      } catch (IOException e) {
+        throw new UserExecException(
+            ErrorMessage.builder()
+                .message("IOException while preparing the execution environment of a worker:")
+                .logFile(worker.getLogFile())
+                .exception(e)
+                .build()
+                .toString());
+      }
+
+      try {
+        request.writeDelimitedTo(worker.getOutputStream());
+        worker.getOutputStream().flush();
+      } catch (IOException e) {
+        throw new UserExecException(
+            ErrorMessage.builder()
+                .message(
+                    "Worker process quit or closed its stdin stream when we tried to send a"
+                        + " WorkRequest:")
+                .logFile(worker.getLogFile())
+                .exception(e)
+                .build()
+                .toString());
+      }
 
       RecordingInputStream recordingStream = new RecordingInputStream(worker.getInputStream());
       recordingStream.startRecording(4096);
       try {
+        // response can be null when the worker has already closed stdout at this point and thus the
+        // InputStream is at EOF.
         response = WorkResponse.parseDelimitedFrom(recordingStream);
-      } catch (IOException e2) {
+      } catch (IOException e) {
         // If protobuf couldn't parse the response, try to print whatever the failing worker wrote
         // to stdout - it's probably a stack trace or some kind of error message that will help the
         // user figure out why the compiler is failing.
         recordingStream.readRemaining();
-        String data = recordingStream.getRecordedDataAsString(Charsets.UTF_8);
-        eventHandler.handle(
-            Event.warn("Worker process returned an unparseable WorkResponse:\n" + data));
-        throw e2;
+        throw new UserExecException(
+            ErrorMessage.builder()
+                .message("Worker process returned an unparseable WorkResponse:")
+                .logText(recordingStream.getRecordedDataAsString())
+                .exception(e)
+                .build()
+                .toString());
       }
 
       if (writeOutputFiles != null
@@ -403,44 +353,43 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
         throw new InterruptedException();
       }
 
-      worker.finishExecution(key);
-
       if (response == null) {
         throw new UserExecException(
-            "Worker process did not return a WorkResponse. This is probably caused by a "
-                + "bug in the worker, writing unexpected other data to stdout.");
+            ErrorMessage.builder()
+                .message("Worker process did not return a WorkResponse:")
+                .logFile(worker.getLogFile())
+                .logSizeLimit(4096)
+                .build()
+                .toString());
       }
-    } catch (IOException e) {
+
+      try {
+        worker.finishExecution(key);
+      } catch (IOException e) {
+        throw new UserExecException(
+            ErrorMessage.builder()
+                .message("IOException while finishing worker execution:")
+                .exception(e)
+                .build()
+                .toString());
+      }
+    } catch (ExecException e) {
       if (worker != null) {
-        workers.invalidateObject(key, worker);
+        try {
+          workers.invalidateObject(key, worker);
+        } catch (IOException e1) {
+          // The original exception is more important / helpful, so we'll just ignore this one.
+        }
         worker = null;
       }
 
-      if (retriesLeft > 0) {
-        // The worker process failed, but we still have some retries left. Let's retry with a fresh
-        // worker.
-        if (workerVerbose) {
-          eventHandler.handle(
-              Event.warn(
-                  key.getMnemonic()
-                      + " worker failed ("
-                      + Throwables.getStackTraceAsString(e)
-                      + "), invalidating and retrying with new worker..."));
-        } else {
-          eventHandler.handle(
-              Event.warn(
-                  key.getMnemonic()
-                      + " worker failed, invalidating and retrying with new worker..."));
-        }
-        return execInWorker(eventHandler, key, request, retriesLeft - 1, writeOutputFiles);
-      } else {
-        throw e;
-      }
+      throw e;
     } finally {
       if (worker != null) {
         workers.returnObject(key, worker);
       }
     }
+
     return response;
   }
 

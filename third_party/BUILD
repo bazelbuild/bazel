@@ -17,6 +17,7 @@ filegroup(
         "//third_party/java/jacoco:srcs",
         "//third_party/java/jarjar:srcs",
         "//third_party/java/javapoet:srcs",
+        "//third_party/java/jopt-simple:srcs",
         "//third_party/java/jdk/langtools:srcs",
         "//third_party/java/jdk/javabuilder:srcs",
         "//third_party/javascript/bootstrap:srcs",
@@ -30,6 +31,7 @@ filegroup(
         "//third_party/py/six:srcs",
         "//third_party/zlib:srcs",
         "//third_party/nanopb:srcs",
+        "//third_party/googleapis:srcs",
     ],
 )
 
@@ -128,12 +130,13 @@ java_import(
 
 java_import(
     name = "apache_httpclient",
-    jars = ["apache_httpclient/httpclient-4.2.5.jar"],
+    jars = ["apache_httpclient/httpclient-4.5.3.jar"],
+    deps = [":apache_commons_logging"],
 )
 
 java_import(
     name = "apache_httpcore",
-    jars = ["apache_httpcore/httpcore-4.2.4.jar"],
+    jars = ["apache_httpcore/httpcore-4.4.6.jar"],
 )
 
 java_import(
@@ -335,10 +338,10 @@ java_import(
 java_import(
     name = "error_prone",
     jars = [
-        "error_prone/error_prone_check_api-2.0.19.jar",
-        "error_prone/error_prone_core-2.0.19.jar",
-        "error_prone/error_prone_annotations-2.0.19.jar",
-        "error_prone/error_prone_annotation-2.0.19.jar",
+        "error_prone/error_prone_check_api-2.0.20-SNAPSHOT.jar",
+        "error_prone/error_prone_core-2.0.20-SNAPSHOT.jar",
+        "error_prone/error_prone_annotations-2.0.20-SNAPSHOT.jar",
+        "error_prone/error_prone_annotation-2.0.20-SNAPSHOT.jar",
     ],
     exports = [
         ":auto_common",
@@ -377,10 +380,10 @@ filegroup(
     name = "bootstrap_guava_and_error_prone-jars",
     srcs = [
         "auto/auto-common-0.3.jar",
-        "error_prone/error_prone_annotation-2.0.19.jar",
-        "error_prone/error_prone_annotations-2.0.19.jar",
-        "error_prone/error_prone_check_api-2.0.19.jar",
-        "error_prone/error_prone_core-2.0.19.jar",
+        "error_prone/error_prone_annotation-2.0.20-SNAPSHOT.jar",
+        "error_prone/error_prone_annotations-2.0.20-SNAPSHOT.jar",
+        "error_prone/error_prone_check_api-2.0.20-SNAPSHOT.jar",
+        "error_prone/error_prone_core-2.0.20-SNAPSHOT.jar",
         "guava/guava-21.0.jar",
         "jcip_annotations/jcip-annotations-1.0-1.jar",
         "jsr305/jsr-305.jar",
@@ -406,6 +409,13 @@ java_import(
         "//tools/jdk:jdk7": ["guava/guava-21.0-20161101.jar"],
         "//conditions:default": ["guava/guava-21.0.jar"],
     }),
+)
+
+java_import(
+    name = "instrumentation",
+    jars = [
+        "instrumentation/instrumentation-api-0.3.0.jar",
+    ],
 )
 
 # For bootstrapping JavaBuilder
@@ -467,7 +477,7 @@ java_import(
 
 java_import(
     name = "netty",
-    jars = ["netty/netty-all-4.1.0.CR6.jar"],
+    jars = ["netty/netty-all-4.1.8.Final.jar"],
 )
 
 java_import(
@@ -528,7 +538,7 @@ java_import(
 
 java_import(
     name = "turbine",
-    jars = ["turbine/turbine-0.1-20170218.jar"],
+    jars = ["turbine/turbine-0.1-20170503.jar"],
 )
 
 java_import(

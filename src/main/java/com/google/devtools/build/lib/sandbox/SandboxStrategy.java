@@ -15,16 +15,11 @@
 package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSet.Builder;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.SandboxedSpawnActionContext;
@@ -32,45 +27,56 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.exec.SpawnInputExpander;
-import com.google.devtools.build.lib.rules.fileset.FilesetActionContext;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.io.OutErr;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** Abstract common ancestor for sandbox strategies implementing the common parts. */
 abstract class SandboxStrategy implements SandboxedSpawnActionContext {
 
+  private final CommandEnvironment cmdEnv;
   private final BuildRequest buildRequest;
   private final Path execRoot;
+  private final Path sandboxBase;
   private final boolean verboseFailures;
   private final SandboxOptions sandboxOptions;
-  private final SpawnInputExpander spawnInputExpander;
-  private final Path sandboxBase;
+  private final ImmutableSet<Path> inaccessiblePaths;
 
   public SandboxStrategy(
+      CommandEnvironment cmdEnv,
       BuildRequest buildRequest,
-      BlazeDirectories blazeDirs,
       Path sandboxBase,
       boolean verboseFailures,
       SandboxOptions sandboxOptions) {
+    this.cmdEnv = cmdEnv;
     this.buildRequest = buildRequest;
-    this.execRoot = blazeDirs.getExecRoot();
+    this.execRoot = cmdEnv.getExecRoot();
     this.sandboxBase = sandboxBase;
     this.verboseFailures = verboseFailures;
     this.sandboxOptions = sandboxOptions;
-    this.spawnInputExpander = new SpawnInputExpander(/*strict=*/false);
+
+    ImmutableSet.Builder<Path> inaccessiblePaths = ImmutableSet.builder();
+    FileSystem fileSystem = cmdEnv.getDirectories().getFileSystem();
+    for (String path : sandboxOptions.sandboxBlockPath) {
+      Path blockedPath = fileSystem.getPath(path);
+      try {
+        inaccessiblePaths.add(blockedPath.resolveSymbolicLinks());
+      } catch (IOException e) {
+        // It's OK to block access to an invalid symlink. In this case we'll just make the symlink
+        // itself inaccessible, instead of the target, though.
+        inaccessiblePaths.add(blockedPath);
+      }
+    }
+    this.inaccessiblePaths = inaccessiblePaths.build();
   }
 
   /** Executes the given {@code spawn}. */
@@ -86,14 +92,13 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
       ActionExecutionContext actionExecutionContext,
       AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles)
       throws ExecException, InterruptedException {
-    Executor executor = actionExecutionContext.getExecutor();
     // Certain actions can't run remotely or in a sandbox - pass them on to the standalone strategy.
     if (!spawn.isRemotable() || spawn.hasNoSandbox()) {
-      SandboxHelpers.fallbackToNonSandboxedExecution(spawn, actionExecutionContext, executor);
+      SandboxHelpers.fallbackToNonSandboxedExecution(spawn, actionExecutionContext);
       return;
     }
 
-    EventBus eventBus = actionExecutionContext.getExecutor().getEventBus();
+    EventBus eventBus = actionExecutionContext.getEventBus();
     ActionExecutionMetadata owner = spawn.getResourceOwner();
     eventBus.post(ActionStatusMessage.schedulingStrategy(owner));
     try (ResourceHandle ignored =
@@ -119,11 +124,12 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
       SandboxRunner runner,
       AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles)
       throws ExecException, InterruptedException {
-    EventHandler eventHandler = actionExecutionContext.getExecutor().getEventHandler();
+    EventHandler eventHandler = actionExecutionContext.getEventHandler();
     ExecException execException = null;
     OutErr outErr = actionExecutionContext.getFileOutErr();
     try {
       runner.run(
+          cmdEnv,
           spawn.getArguments(),
           spawnEnvironment,
           outErr,
@@ -184,12 +190,26 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
    */
   protected ImmutableSet<Path> getWritableDirs(Path sandboxExecRoot, Map<String, String> env)
       throws IOException {
-    Builder<Path> writableDirs = ImmutableSet.builder();
     // We have to make the TEST_TMPDIR directory writable if it is specified.
+    ImmutableSet.Builder<Path> writablePaths = ImmutableSet.builder();
+    writablePaths.add(sandboxExecRoot);
     if (env.containsKey("TEST_TMPDIR")) {
-      writableDirs.add(sandboxExecRoot.getRelative(env.get("TEST_TMPDIR")));
+      // We add this even though it may be below sandboxExecRoot (and thus would already be writable
+      // as a subpath) to take advantage of the side-effect that SymlinkedExecRoot also creates this
+      // needed directory if it doesn't exist yet.
+      writablePaths.add(sandboxExecRoot.getRelative(env.get("TEST_TMPDIR")));
     }
-    return writableDirs.build();
+
+    FileSystem fileSystem = sandboxExecRoot.getFileSystem();
+    for (String writablePath : sandboxOptions.sandboxWritablePath) {
+      writablePaths.add(fileSystem.getPath(writablePath));
+    }
+
+    return writablePaths.build();
+  }
+
+  protected ImmutableSet<Path> getInaccessiblePaths() {
+    return inaccessiblePaths;
   }
 
   @Override
@@ -201,44 +221,4 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
   public boolean shouldPropagateExecException() {
     return verboseFailures && sandboxOptions.sandboxDebug;
   }
-
-  public Map<PathFragment, Path> getMounts(Spawn spawn, ActionExecutionContext executionContext)
-      throws ExecException {
-    try {
-      Map<PathFragment, ActionInput> inputMap = spawnInputExpander
-          .getInputMapping(
-              spawn,
-              executionContext.getArtifactExpander(),
-              executionContext.getActionInputFileCache(),
-              executionContext.getExecutor().getContext(FilesetActionContext.class));
-      // SpawnInputExpander#getInputMapping uses ArtifactExpander#expandArtifacts to expand
-      // middlemen and tree artifacts, which expands empty tree artifacts to no entry. However,
-      // actions that accept TreeArtifacts as inputs generally expect that the empty directory is
-      // created. So we add those explicitly here.
-      // TODO(ulfjack): Move this code to SpawnInputExpander.
-      for (ActionInput input : spawn.getInputFiles()) {
-        if (input instanceof Artifact && ((Artifact) input).isTreeArtifact()) {
-          List<Artifact> containedArtifacts = new ArrayList<>();
-          executionContext.getArtifactExpander().expand((Artifact) input, containedArtifacts);
-          // Attempting to mount a non-empty directory results in ERR_DIRECTORY_NOT_EMPTY, so we
-          // only mount empty TreeArtifacts as directories.
-          if (containedArtifacts.isEmpty()) {
-            inputMap.put(input.getExecPath(), input);
-          }
-        }
-      }
-
-      Map<PathFragment, Path> mounts = new TreeMap<>();
-      for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {
-        Path inputPath = e.getValue() == SpawnInputExpander.EMPTY_FILE
-            ? null
-            : execRoot.getRelative(e.getValue().getExecPath());
-        mounts.put(e.getKey(), inputPath);
-      }
-      return mounts;
-    } catch (IOException e) {
-      throw new EnvironmentalExecException("Could not prepare mounts for sandbox execution", e);
-    }
-  }
-
 }

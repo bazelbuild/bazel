@@ -29,11 +29,6 @@ namespace blaze {
 
 extern const char kServerPidFile[];
 
-// TODO(laszlocsomor) 2016-11-21: remove kServerPidSymlink after 2017-05-01
-// (~half a year from writing this comment). By that time old Bazel clients that
-// used to write PID symlinks will probably no longer be in use.
-extern const char kServerPidSymlink[];
-
 // Returns the given path in absolute form.  Does not change paths that are
 // already absolute.
 //

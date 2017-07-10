@@ -15,8 +15,6 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -52,7 +50,7 @@ public class WorkspaceFactoryTest {
   @Test
   public void testWorkspaceName() throws Exception {
     WorkspaceFactoryHelper helper = parse("workspace(name = 'my_ws')");
-    assertEquals("my_ws", helper.getPackage().getWorkspaceName());
+    assertThat(helper.getPackage().getWorkspaceName()).isEqualTo("my_ws");
   }
 
   @Test
@@ -140,12 +138,12 @@ public class WorkspaceFactoryTest {
     }
 
     public void assertLexingExceptionThrown() {
-      assertNotNull(exception);
-      assertThat(exception.getMessage()).contains("Failed to parse /workspace/WORKSPACE");
+      assertThat(exception).isNotNull();
+      assertThat(exception).hasMessageThat().contains("Failed to parse /workspace/WORKSPACE");
     }
 
     public String getLexerError() {
-      assertEquals(1, events.size());
+      assertThat(events).hasSize(1);
       return events.get(0).getMessage();
     }
 

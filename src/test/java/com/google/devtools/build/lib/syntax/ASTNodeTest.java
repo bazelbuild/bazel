@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.syntax;
 
 import static org.junit.Assert.fail;
 
+import java.io.IOException;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -31,6 +32,8 @@ public class ASTNodeTest {
   @Before
   public final void createNode() throws Exception  {
     node = new ASTNode() {
+      @Override
+      public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {}
       @Override
       public String toString() {
         return null;

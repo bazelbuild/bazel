@@ -19,9 +19,9 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.Serializable;
 import java.util.Objects;
 
@@ -44,7 +44,7 @@ public class ConfigurationCollectionValue implements SkyValue {
 
   @ThreadSafe
   public static SkyKey key(BuildOptions buildOptions, ImmutableSet<String> multiCpu) {
-    return SkyKey.create(
+    return LegacySkyKey.create(
         SkyFunctions.CONFIGURATION_COLLECTION,
         new ConfigurationCollectionKey(buildOptions, multiCpu));
   }

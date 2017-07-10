@@ -353,15 +353,17 @@ public abstract class DependencyResolver {
 
       Collection<BuildOptions> splitOptions =
           getSplitOptions(depResolver.rule, attribute, ruleConfig);
-      if (!splitOptions.isEmpty()) {
+      if (!splitOptions.isEmpty() && !ruleConfig.isHostConfiguration()) {
         // Late-bound attribute with a split transition:
         // Since we want to get the same results as BuildConfiguration.evaluateTransition (but
         // skip it since we've already applied the split), we want to make sure this logic
         // doesn't do anything differently. evaluateTransition has additional logic
-        // for host configs and attributes with configurators. So we check here that neither of
-        // of those apply, in the name of keeping the fork as simple as possible.
+        // for host configs and attributes with configurators. To keep the fork as simple as
+        // possible, we don't support the configurator case. And when we're in the host
+        // configuration, we fall back to the non-split branch, which calls
+        // BuildConfiguration.evaluateTransition, which returns its "host mode" result without
+        // ever looking at the split.
         Verify.verify(attribute.getConfigurator() == null);
-        Verify.verify(!lateBoundDefault.useHostConfiguration());
 
         Iterable<BuildConfiguration> splitConfigs;
         if (!ruleConfig.useDynamicConfigurations()) {
@@ -374,8 +376,8 @@ public abstract class DependencyResolver {
           }
         }
         for (BuildConfiguration splitConfig : splitConfigs) {
-          for (Label dep : resolveLateBoundAttribute(
-              depResolver.rule, attribute, splitConfig, attributeMap)) {
+          for (Label dep : resolveLateBoundAttribute(depResolver.rule, attribute,
+              lateBoundDefault.useHostConfiguration() ? hostConfig : splitConfig, attributeMap)) {
             // Skip the normal config transition pipeline and directly feed the split config. This
             // is because the split already had to be applied to determine the attribute's value.
             // This makes the split logic in the normal pipeline redundant and potentially

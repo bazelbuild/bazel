@@ -152,6 +152,56 @@ public class RClassGeneratorActionTest {
               Paths.get("META-INF/MANIFEST.MF").toString());
     }
   }
+  
+  @Test
+  public void withNoBinaryAndLibraries() throws Exception {
+    Path libFooManifest =
+        ManifestBuilder.of(tempDir.resolve("libFoo"))
+            .createManifest("AndroidManifest.xml", "com.google.foo", "");
+    Path libBarManifest =
+        ManifestBuilder.of(tempDir.resolve("libBar"))
+            .createManifest("AndroidManifest.xml", "com.google.bar", "");
+
+    Path libFooSymbols =
+        createFile(
+            "libFoo.R.txt", "int attr agility 0x1", "int id someTextView 0x1", "int string ok 0x1");
+    Path libBarSymbols =
+        createFile("libBar.R.txt", "int attr dexterity 0x1", "int drawable heart 0x1");
+
+    Path jarPath = tempDir.resolve("app_resources.jar");
+
+    RClassGeneratorAction.main(
+        ImmutableList.<String>of(
+                "--libraries",
+                libFooSymbols
+                    + File.pathSeparator
+                    + libFooManifest
+                    + ","
+                    + libBarSymbols
+                    + File.pathSeparator
+                    + libBarManifest,
+                "--classJarOutput",
+                jarPath.toString())
+            .toArray(new String[0]));
+
+    assertThat(Files.exists(jarPath)).isTrue();
+    assertThat(Files.getLastModifiedTime(jarPath)).isEqualTo(FileTime.fromMillis(0));
+
+    try (ZipFile zip = new ZipFile(jarPath.toFile())) {
+      List<? extends ZipEntry> zipEntries = Collections.list(zip.entries());
+      Iterable<String> entries = getZipFilenames(zipEntries);
+      assertThat(entries)
+          .containsExactly(
+              Paths.get("com/google/foo/R$attr.class").toString(),
+              Paths.get("com/google/foo/R$id.class").toString(),
+              Paths.get("com/google/foo/R$string.class").toString(),
+              Paths.get("com/google/foo/R.class").toString(),
+              Paths.get("com/google/bar/R$attr.class").toString(),
+              Paths.get("com/google/bar/R$drawable.class").toString(),
+              Paths.get("com/google/bar/R.class").toString(),
+              Paths.get("META-INF/MANIFEST.MF").toString());
+    }
+  }
 
   @Test
   public void withBinaryNoLibraries() throws Exception {

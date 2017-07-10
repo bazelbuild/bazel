@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.Builder;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
  * Implementation for the {@code objc_framework} rule.
@@ -58,9 +59,17 @@ public class ObjcFramework implements RuleConfiguredTargetFactory {
       ruleContext.attributeError("framework_imports", error);
     }
 
+    ObjcProvider objcProvider = commonBuilder.build().getObjcProvider();
+    Iterable<PathFragment> frameworkDirs =
+        ObjcCommon.uniqueContainers(frameworkImports, ObjcCommon.FRAMEWORK_CONTAINER_TYPE);
+    AppleDynamicFrameworkProvider frameworkProvider =
+        new AppleDynamicFrameworkProvider((Artifact) null, objcProvider,
+            NestedSetBuilder.<PathFragment>linkOrder().addAll(frameworkDirs).build(),
+            NestedSetBuilder.<Artifact>linkOrder().addAll(frameworkImports).build());
     NestedSet<Artifact> filesToBuild = NestedSetBuilder.emptySet(STABLE_ORDER);
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild)
-        .addProvider(ObjcProvider.class, commonBuilder.build().getObjcProvider())
+        .addProvider(ObjcProvider.class, objcProvider)
+        .addNativeDeclaredProvider(frameworkProvider)
         .build();
   }
 }

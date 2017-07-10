@@ -78,15 +78,16 @@ public class OutputDirectoryLinksUtils {
     }
 
     // Points to execroot
-    createLink(workspace, execRootSymlink(symlinkPrefix, workspaceName), execRoot, failures);
-
+    createLink(workspace, execRootSymlink(
+        symlinkPrefix, workspace.getBaseName()), execRoot, failures);
+    RepositoryName repositoryName = RepositoryName.createFromValidStrippedName(workspaceName);
     if (targetConfig != null) {
       createLink(workspace, symlinkPrefix + "bin",
-          targetConfig.getBinDirectory(RepositoryName.MAIN).getPath(), failures);
+          targetConfig.getBinDirectory(repositoryName).getPath(), failures);
       createLink(workspace, symlinkPrefix + "testlogs",
-          targetConfig.getTestLogsDirectory(RepositoryName.MAIN).getPath(), failures);
+          targetConfig.getTestLogsDirectory(repositoryName).getPath(), failures);
       createLink(workspace, symlinkPrefix + "genfiles",
-          targetConfig.getGenfilesDirectory(RepositoryName.MAIN).getPath(), failures);
+          targetConfig.getGenfilesDirectory(repositoryName).getPath(), failures);
     }
 
     if (!failures.isEmpty()) {
@@ -168,6 +169,7 @@ public class OutputDirectoryLinksUtils {
       removeLink(workspace, outputSymlinkName, failures);
     }
     removeLink(workspace, execRootSymlink(symlinkPrefix, workspaceName), failures);
+    removeLink(workspace, execRootSymlink(symlinkPrefix, workspace.getBaseName()), failures);
     removeLink(workspace, symlinkPrefix + "bin", failures);
     removeLink(workspace, symlinkPrefix + "testlogs", failures);
     removeLink(workspace, symlinkPrefix + "genfiles", failures);

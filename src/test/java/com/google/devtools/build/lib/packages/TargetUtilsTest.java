@@ -14,9 +14,6 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.Lists;
@@ -33,8 +30,8 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
 
   @Test
   public void getRuleLanguage() {
-    assertEquals("java", TargetUtils.getRuleLanguage("java_binary"));
-    assertEquals("foobar", TargetUtils.getRuleLanguage("foobar"));
+    assertThat(TargetUtils.getRuleLanguage("java_binary")).isEqualTo("java");
+    assertThat(TargetUtils.getRuleLanguage("foobar")).isEqualTo("foobar");
     assertThat(TargetUtils.getRuleLanguage("")).isEmpty();
   }
 
@@ -51,31 +48,31 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
     Target  tag1b = getTarget("//tests:tag1b");
 
     Predicate<Target> tagFilter = TargetUtils.tagFilter(Lists.<String>newArrayList());
-    assertTrue(tagFilter.apply(tag1));
-    assertTrue(tagFilter.apply(tag2));
-    assertTrue(tagFilter.apply(tag1b));
+    assertThat(tagFilter.apply(tag1)).isTrue();
+    assertThat(tagFilter.apply(tag2)).isTrue();
+    assertThat(tagFilter.apply(tag1b)).isTrue();
     tagFilter = TargetUtils.tagFilter(Lists.newArrayList("tag1", "tag2"));
-    assertTrue(tagFilter.apply(tag1));
-    assertTrue(tagFilter.apply(tag2));
-    assertTrue(tagFilter.apply(tag1b));
+    assertThat(tagFilter.apply(tag1)).isTrue();
+    assertThat(tagFilter.apply(tag2)).isTrue();
+    assertThat(tagFilter.apply(tag1b)).isTrue();
     tagFilter = TargetUtils.tagFilter(Lists.newArrayList("tag1"));
-    assertTrue(tagFilter.apply(tag1));
-    assertFalse(tagFilter.apply(tag2));
-    assertTrue(tagFilter.apply(tag1b));
+    assertThat(tagFilter.apply(tag1)).isTrue();
+    assertThat(tagFilter.apply(tag2)).isFalse();
+    assertThat(tagFilter.apply(tag1b)).isTrue();
     tagFilter = TargetUtils.tagFilter(Lists.newArrayList("-tag2"));
-    assertTrue(tagFilter.apply(tag1));
-    assertFalse(tagFilter.apply(tag2));
-    assertTrue(tagFilter.apply(tag1b));
+    assertThat(tagFilter.apply(tag1)).isTrue();
+    assertThat(tagFilter.apply(tag2)).isFalse();
+    assertThat(tagFilter.apply(tag1b)).isTrue();
     // Applying same tag as positive and negative filter produces an empty
     // result because the negative filter is applied first and positive filter will
     // not match anything.
     tagFilter = TargetUtils.tagFilter(Lists.newArrayList("tag2", "-tag2"));
-    assertFalse(tagFilter.apply(tag1));
-    assertFalse(tagFilter.apply(tag2));
-    assertFalse(tagFilter.apply(tag1b));
+    assertThat(tagFilter.apply(tag1)).isFalse();
+    assertThat(tagFilter.apply(tag2)).isFalse();
+    assertThat(tagFilter.apply(tag1b)).isFalse();
     tagFilter = TargetUtils.tagFilter(Lists.newArrayList("tag2", "-tag1"));
-    assertFalse(tagFilter.apply(tag1));
-    assertTrue(tagFilter.apply(tag2));
-    assertFalse(tagFilter.apply(tag1b));
+    assertThat(tagFilter.apply(tag1)).isFalse();
+    assertThat(tagFilter.apply(tag2)).isTrue();
+    assertThat(tagFilter.apply(tag1b)).isFalse();
   }
 }

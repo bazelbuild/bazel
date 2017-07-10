@@ -25,14 +25,17 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.io.Flushables;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
+import com.google.devtools.build.lib.events.PrintingEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.runtime.commands.ProjectFileSupport;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -46,10 +49,12 @@ import com.google.devtools.build.lib.util.io.DelegatingOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.OpaqueOptionsData;
 import com.google.devtools.common.options.OptionPriority;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
@@ -60,6 +65,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import javax.annotation.Nullable;
 
@@ -156,54 +162,57 @@ public class BlazeCommandDispatcher {
    * Only some commands work if cwd != workspaceSuffix in Blaze. In that case, also check if Blaze
    * was called from the output directory and fail if it was.
    */
-  private ExitCode checkCwdInWorkspace(CommandEnvironment env, Command commandAnnotation,
-      String commandName, OutErr outErr) {
+  private ExitCode checkCwdInWorkspace(BlazeWorkspace workspace, Command commandAnnotation,
+      String commandName, EventHandler eventHandler) {
     if (!commandAnnotation.mustRunInWorkspace()) {
       return ExitCode.SUCCESS;
     }
 
-    if (!env.inWorkspace()) {
-      outErr.printErrLn(
-          "The '" + commandName + "' command is only supported from within a workspace.");
+    if (!workspace.getDirectories().inWorkspace()) {
+      eventHandler.handle(
+          Event.error(
+              "The '" + commandName + "' command is only supported from within a workspace."));
       return ExitCode.COMMAND_LINE_ERROR;
     }
 
-    Path workspace = env.getWorkspace();
+    Path workspacePath = workspace.getWorkspace();
     // TODO(kchodorow): Remove this once spaces are supported.
-    if (workspace.getPathString().contains(" ")) {
-      outErr.printErrLn(runtime.getProductName() + " does not currently work properly from paths "
-          + "containing spaces (" + workspace + ").");
+    if (workspacePath.getPathString().contains(" ")) {
+      eventHandler.handle(
+          Event.error(
+              runtime.getProductName() + " does not currently work properly from paths "
+                  + "containing spaces (" + workspace + ")."));
       return ExitCode.LOCAL_ENVIRONMENTAL_ERROR;
     }
 
-    Path doNotBuild = workspace.getParentDirectory().getRelative(
+    Path doNotBuild = workspacePath.getParentDirectory().getRelative(
         BlazeWorkspace.DO_NOT_BUILD_FILE_NAME);
 
     if (doNotBuild.exists()) {
       if (!commandAnnotation.canRunInOutputDirectory()) {
-        outErr.printErrLn(getNotInRealWorkspaceError(doNotBuild));
+        eventHandler.handle(Event.error(getNotInRealWorkspaceError(doNotBuild)));
         return ExitCode.COMMAND_LINE_ERROR;
       } else {
-        outErr.printErrLn("WARNING: Blaze is run from output directory. This is unsound.");
+        eventHandler.handle(
+            Event.warn(
+                runtime.getProductName() + " is run from output directory. This is unsound."));
       }
     }
     return ExitCode.SUCCESS;
   }
 
-  private void parseArgsAndConfigs(CommandEnvironment env, OptionsParser optionsParser,
-      Command commandAnnotation, List<String> args, List<String> rcfileNotes, OutErr outErr)
-      throws OptionsParsingException {
-
-    Function<String, String> commandOptionSourceFunction = new Function<String, String>() {
-      @Override
-      public String apply(String input) {
-        if (INTERNAL_COMMAND_OPTIONS.contains(input)) {
-          return "options generated by Blaze launcher";
-        } else {
-          return "command line options";
-        }
-      }
-    };
+  private void parseArgsAndConfigs(Path workspaceDirectory, Path workingDirectory,
+      OptionsParser optionsParser, Command commandAnnotation, List<String> args,
+      List<String> rcfileNotes, ExtendedEventHandler eventHandler)
+          throws OptionsParsingException {
+    Function<String, String> commandOptionSourceFunction =
+        input -> {
+          if (INTERNAL_COMMAND_OPTIONS.contains(input)) {
+            return "options generated by " + runtime.getProductName() + " launcher";
+          } else {
+            return "command line options";
+          }
+        };
 
     // Explicit command-line options:
     List<String> cmdLineAfterCommand = args.subList(1, args.size());
@@ -214,12 +223,14 @@ public class BlazeCommandDispatcher {
     // and --rc_source. A no-op if none are provided.
     CommonCommandOptions rcFileOptions = optionsParser.getOptions(CommonCommandOptions.class);
     List<Pair<String, ListMultimap<String, String>>> optionsMap =
-        getOptionsMap(outErr, rcFileOptions.rcSource, rcFileOptions.optionsOverrides,
+        getOptionsMap(eventHandler, rcFileOptions.rcSource, rcFileOptions.optionsOverrides,
             runtime.getCommandMap().keySet());
 
     parseOptionsForCommand(rcfileNotes, commandAnnotation, optionsParser, optionsMap, null, null);
     if (commandAnnotation.builds()) {
-      ProjectFileSupport.handleProjectFiles(env, optionsParser, commandAnnotation.name());
+      ProjectFileSupport.handleProjectFiles(
+          eventHandler, runtime.getProjectFileProvider(), workspaceDirectory, workingDirectory,
+          optionsParser, commandAnnotation.name());
     }
 
     // Fix-point iteration until all configs are loaded.
@@ -235,8 +246,16 @@ public class BlazeCommandDispatcher {
       commonOptions = optionsParser.getOptions(CommonCommandOptions.class);
     }
     if (!unknownConfigs.isEmpty()) {
-      outErr.printErrLn("WARNING: Config values are not defined in any .rc file: "
-          + Joiner.on(", ").join(unknownConfigs));
+      if (commonOptions.allowUndefinedConfigs) {
+        eventHandler.handle(
+            Event.warn(
+                "Config values are not defined in any .rc file: "
+                    + Joiner.on(", ").join(unknownConfigs)));
+      } else {
+        throw new OptionsParsingException(
+            "Config values are not defined in any .rc file: "
+                + Joiner.on(", ").join(unknownConfigs));
+      }
     }
   }
 
@@ -330,91 +349,72 @@ public class BlazeCommandDispatcher {
       BlazeCommand command,
       long waitTimeInMs)
       throws ShutdownBlazeServerException {
-    Command commandAnnotation = command.getClass().getAnnotation(Command.class);
-
     // Record the start time for the profiler. Do not put anything before this!
     long execStartTimeNanos = runtime.getClock().nanoTime();
 
+    Command commandAnnotation = command.getClass().getAnnotation(Command.class);
+    BlazeWorkspace workspace = runtime.getWorkspace();
+
+    StoredEventHandler eventHandler = new StoredEventHandler();
+    AtomicReference<OptionsProvider> optionsResult = new AtomicReference<>();
+    // Delay output of notes regarding the parsed rc file, so it's possible to disable this in the
+    // rc file.
+    List<String> rcfileNotes = new ArrayList<>();
+    ExitCode earlyExitCode = parseOptions(
+        eventHandler, workspace, command, commandAnnotation, commandName, invocationPolicy, args,
+        optionsResult, rcfileNotes);
+    OptionsProvider options = optionsResult.get();
+
     // The initCommand call also records the start time for the timestamp granularity monitor.
-    CommandEnvironment env = runtime.getWorkspace().initCommand();
+    CommandEnvironment env = workspace.initCommand(commandAnnotation);
     // Record the command's starting time for use by the commands themselves.
     env.recordCommandStartTime(firstContactTime);
 
-    AbruptExitException exitCausingException = null;
     for (BlazeModule module : runtime.getBlazeModules()) {
       try {
-        module.beforeCommand(commandAnnotation, env);
+        module.beforeCommand(env);
       } catch (AbruptExitException e) {
         // Don't let one module's complaints prevent the other modules from doing necessary
         // setup. We promised to call beforeCommand exactly once per-module before each command
         // and will be calling afterCommand soon in the future - a module's afterCommand might
         // rightfully assume its beforeCommand has already been called.
-        outErr.printErrLn(e.getMessage());
+        eventHandler.handle(Event.error(e.getMessage()));
         // It's not ideal but we can only return one exit code, so we just pick the code of the
         // last exception.
-        exitCausingException = e;
+        earlyExitCode = e.getExitCode();
       }
     }
-    if (exitCausingException != null) {
-      return exitCausingException.getExitCode().getNumericExitCode();
-    }
 
-    try {
-      Path commandLog = getCommandLogPath(env.getOutputBase());
-
-      // Unlink old command log from previous build, if present, so scripts
-      // reading it don't conflate it with the command log we're about to write.
-      closeSilently(logOutputStream);
-      logOutputStream = null;
-      commandLog.delete();
-
-      if (env.getRuntime().writeCommandLog() && commandAnnotation.writeCommandLog()) {
-        logOutputStream = commandLog.getOutputStream();
-        outErr = tee(outErr, OutErr.create(logOutputStream, logOutputStream));
+    // We may only start writing to outErr once we've given the modules the chance to hook into it.
+    for (BlazeModule module : runtime.getBlazeModules()) {
+      OutErr listener = module.getOutputListener();
+      if (listener != null) {
+        outErr = tee(outErr, listener);
       }
-    } catch (IOException ioException) {
-      LoggingUtil.logToRemote(Level.WARNING, "Unable to delete or open command.log", ioException);
     }
 
-    ExitCode result = checkCwdInWorkspace(env, commandAnnotation, commandName, outErr);
-    if (!result.equals(ExitCode.SUCCESS)) {
-      return result.getNumericExitCode();
-    }
-
-    OptionsParser optionsParser;
-    // Delay output of notes regarding the parsed rc file, so it's possible to disable this in the
-    // rc file.
-    List<String> rcfileNotes = new ArrayList<>();
-    try {
-      optionsParser = createOptionsParser(command);
-    } catch (OptionsParser.ConstructionException e) {
-      outErr.printErrLn("Internal error while constructing options parser: " + e.getMessage());
-      return ExitCode.BLAZE_INTERNAL_ERROR.getNumericExitCode();
-    }
-    try {
-      parseArgsAndConfigs(env, optionsParser, commandAnnotation, args, rcfileNotes, outErr);
-
-      // Merge the invocation policy that is user-supplied, from the command line, and any
-      // invocation policy that was added by a module. The module one goes 'first,' so the user
-      // one has priority.
-      InvocationPolicy combinedPolicy =
-          InvocationPolicy.newBuilder()
-              .mergeFrom(runtime.getModuleInvocationPolicy())
-              .mergeFrom(invocationPolicy)
-              .build();
-      InvocationPolicyEnforcer optionsPolicyEnforcer = new InvocationPolicyEnforcer(combinedPolicy);
-      optionsPolicyEnforcer.enforce(optionsParser, commandName);
-    } catch (OptionsParsingException e) {
+    // Early exit. We need to guarantee that the ErrOut and Reporter setup below never error out, so
+    // any invariants they need must be checked before this point.
+    if (!earlyExitCode.equals(ExitCode.SUCCESS)) {
+      // Partial replay of the printed events before we exit.
+      PrintingEventHandler printingEventHandler =
+          new PrintingEventHandler(outErr, EventKind.ALL_EVENTS);
       for (String note : rcfileNotes) {
-        outErr.printErrLn("INFO: " + note);
+        printingEventHandler.handle(Event.info(note));
       }
-      outErr.printErrLn(e.getMessage());
-      return ExitCode.COMMAND_LINE_ERROR.getNumericExitCode();
+      for (Event event : eventHandler.getEvents()) {
+        printingEventHandler.handle(event);
+      }
+      for (Postable post : eventHandler.getPosts()) {
+        env.getEventBus().post(post);
+      }
+      // TODO(ulfjack): We're not calling BlazeModule.afterCommand here, even though we should.
+      return earlyExitCode.getNumericExitCode();
     }
 
     // Setup log filtering
     BlazeCommandEventHandler.Options eventHandlerOptions =
-        optionsParser.getOptions(BlazeCommandEventHandler.Options.class);
+        options.getOptions(BlazeCommandEventHandler.Options.class);
     OutErr colorfulOutErr = outErr;
 
     if (!eventHandlerOptions.useColor()) {
@@ -435,7 +435,7 @@ public class BlazeCommandDispatcher {
       outErr = lineBufferErr(outErr);
     }
 
-    CommonCommandOptions commonOptions = optionsParser.getOptions(CommonCommandOptions.class);
+    CommonCommandOptions commonOptions = options.getOptions(CommonCommandOptions.class);
     if (!commonOptions.verbosity.equals(lastLogVerbosityLevel)) {
       BlazeRuntime.setupLogging(commonOptions.verbosity);
       lastLogVerbosityLevel = commonOptions.verbosity;
@@ -469,6 +469,9 @@ public class BlazeCommandDispatcher {
       }
     }
 
+    // Now we're ready to replay the events.
+    eventHandler.replayOn(reporter);
+
     try {
       // While a Blaze command is active, direct all errors to the client's
       // event handler (and out/err streams).
@@ -488,26 +491,27 @@ public class BlazeCommandDispatcher {
 
       try {
         // Notify the BlazeRuntime, so it can do some initial setup.
-        env.beforeCommand(commandAnnotation, optionsParser, commonOptions, execStartTimeNanos,
-            waitTimeInMs);
-        // Allow the command to edit options after parsing:
-        command.editOptions(env, optionsParser);
+        env.beforeCommand(
+            options,
+            commonOptions,
+            execStartTimeNanos,
+            waitTimeInMs,
+            invocationPolicy);
       } catch (AbruptExitException e) {
         reporter.handle(Event.error(e.getMessage()));
         return e.getExitCode().getNumericExitCode();
       }
       for (BlazeModule module : runtime.getBlazeModules()) {
-        module.handleOptions(optionsParser);
-      }
-
-      // Print warnings for odd options usage
-      for (String warning : optionsParser.getWarnings()) {
-        reporter.handle(Event.warn(warning));
+        module.handleOptions(options);
       }
 
       env.getEventBus().post(originalCommandLine);
 
-      ExitCode outcome = command.exec(env, optionsParser);
+      for (BlazeModule module : runtime.getBlazeModules()) {
+        env.getSkyframeExecutor().injectExtraPrecomputedValues(module.getPrecomputedValues());
+      }
+
+      ExitCode outcome = command.exec(env, options);
       outcome = env.precompleteCommand(outcome);
       numericExitCode = outcome.getNumericExitCode();
       return numericExitCode;
@@ -530,10 +534,10 @@ public class BlazeCommandDispatcher {
       System.setOut(savedOut);
       System.setErr(savedErr);
       reporter.removeHandler(handler);
-      releaseHandler(handler);
+      releaseHandler(handler, eventHandlerOptions);
       if (!eventHandlerOptions.useColor()) {
         reporter.removeHandler(ansiAllowingHandler);
-        releaseHandler(ansiAllowingHandler);
+        releaseHandler(ansiAllowingHandler, eventHandlerOptions);
       }
       env.getTimestampGranularityMonitor().waitForTimestampGranularity(outErr);
     }
@@ -548,6 +552,86 @@ public class BlazeCommandDispatcher {
       OutErr originalOutErr) throws ShutdownBlazeServerException, InterruptedException {
     return exec(InvocationPolicy.getDefaultInstance(), args, originalOutErr, LockingMode.ERROR_OUT,
         clientDescription, runtime.getClock().currentTimeMillis());
+  }
+
+  /**
+   * Parses the options, taking care not to generate any output to outErr, return, or throw an
+   * exception.
+   *
+   * @return ExitCode.SUCCESS if everything went well, or some other value if not
+   */
+  private ExitCode parseOptions(
+      ExtendedEventHandler eventHandler,
+      BlazeWorkspace workspace,
+      BlazeCommand command,
+      Command commandAnnotation,
+      String commandName,
+      InvocationPolicy invocationPolicy,
+      List<String> args,
+      // Declare options as OptionsProvider so the options can't be easily modified after we've
+      // applied the invocation policy.
+      AtomicReference<OptionsProvider> parsedOptions,
+      List<String> rcfileNotes) {
+    // The initialization code here was carefully written to parse the options early before we call
+    // into the BlazeModule APIs, which means we must not generate any output to outErr, return, or
+    // throw an exception. All the events happening here are instead stored in a temporary event
+    // handler, and later replayed.
+    ExitCode earlyExitCode =
+        checkCwdInWorkspace(workspace, commandAnnotation, commandName, eventHandler);
+    if (earlyExitCode != ExitCode.SUCCESS) {
+      return earlyExitCode;
+    }
+
+    try {
+      OptionsParser optionsParser = createOptionsParser(command);
+
+      // TODO(ulfjack): The second parameter is supposed to be the working directory, except that
+      // the client passes that as part of CommonCommandOptions, and we can't know those until
+      // after we've parsed them.
+      parseArgsAndConfigs(
+          workspace.getWorkspace(), /*workingDirectory=*/workspace.getWorkspace(), optionsParser,
+          commandAnnotation, args, rcfileNotes, eventHandler);
+      // Allow the command to edit the options.
+      command.editOptions(optionsParser);
+      // Migration of --watchfs to a command option.
+      // TODO(ulfjack): Get rid of the startup option and drop this code.
+      if (runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).watchFS) {
+        try {
+          optionsParser.parse("--watchfs");
+        } catch (OptionsParsingException e) {
+          // This should never happen.
+          throw new IllegalStateException(e);
+        }
+      }
+      // Merge the invocation policy that is user-supplied, from the command line, and any
+      // invocation policy that was added by a module. The module one goes 'first,' so the user
+      // one has priority.
+      InvocationPolicy combinedPolicy =
+          InvocationPolicy.newBuilder()
+              .mergeFrom(runtime.getModuleInvocationPolicy())
+              .mergeFrom(invocationPolicy)
+              .build();
+      InvocationPolicyEnforcer optionsPolicyEnforcer = new InvocationPolicyEnforcer(combinedPolicy);
+      // Enforce the invocation policy. It is intentional that this is the last step in preparing
+      // the options. The invocation policy is used in security-critical contexts, and may be used
+      // as a last resort to override flags. That means that the policy can override flags set in
+      // BlazeCommand.editOptions, so the code needs to be safe regardless of the actual flag
+      // values. At the time of this writing, editOptions was only used as a convenience feature or
+      // to improve the user experience, but not required for safety or correctness.
+      optionsPolicyEnforcer.enforce(optionsParser, commandName);
+      // Print warnings for odd options usage
+      for (String warning : optionsParser.getWarnings()) {
+        eventHandler.handle(Event.warn(warning));
+      }
+      parsedOptions.set(optionsParser);
+    } catch (OptionsParser.ConstructionException e) {
+      // This should never happen.
+      throw new IllegalStateException(e);
+    } catch (OptionsParsingException e) {
+      eventHandler.handle(Event.error(e.getMessage()));
+      return ExitCode.COMMAND_LINE_ERROR;
+    }
+    return ExitCode.SUCCESS;
   }
 
   /**
@@ -602,9 +686,10 @@ public class BlazeCommandDispatcher {
       }
     }
     if (unknownConfigs != null && configs != null && configs.size() > knownConfigs.size()) {
-      Iterables.addAll(
-          unknownConfigs,
-          Iterables.filter(configs, Predicates.not(Predicates.in(knownConfigs))));
+      configs
+          .stream()
+          .filter(Predicates.not(Predicates.in(knownConfigs)))
+          .forEachOrdered(unknownConfigs::add);
     }
   }
 
@@ -659,7 +744,9 @@ public class BlazeCommandDispatcher {
   }
 
   private String getNotInRealWorkspaceError(Path doNotBuildFile) {
-    String message = "Blaze should not be called from a Blaze output directory. ";
+    String message =
+        String.format(
+            "%1$s should not be called from a %1$s output directory. ", runtime.getProductName());
     try {
       String realWorkspace =
           new String(FileSystemUtils.readContentAsLatin1(doNotBuildFile));
@@ -670,13 +757,6 @@ public class BlazeCommandDispatcher {
     }
 
     return message;
-  }
-
-  /**
-   * For a given output_base directory, returns the command log file path.
-   */
-  public static Path getCommandLogPath(Path outputBase) {
-    return outputBase.getRelative("command.log");
   }
 
   private OutErr tee(OutErr outErr1, OutErr outErr2) {
@@ -726,7 +806,7 @@ public class BlazeCommandDispatcher {
    */
   @VisibleForTesting
   static List<Pair<String, ListMultimap<String, String>>> getOptionsMap(
-      OutErr outErr,
+      EventHandler eventHandler,
       List<String> rcFiles,
       List<CommonCommandOptions.OptionOverride> overrides,
       Set<String> validCommands) {
@@ -736,8 +816,8 @@ public class BlazeCommandDispatcher {
     ListMultimap<String, String> lastMap = null;
     for (CommonCommandOptions.OptionOverride override : overrides) {
       if (override.blazeRc < 0 || override.blazeRc >= rcFiles.size()) {
-        outErr.printErrLn("WARNING: inconsistency in generated command line "
-            + "args. Ignoring bogus argument\n");
+        eventHandler.handle(
+            Event.warn("inconsistency in generated command line args. Ignoring bogus argument\n"));
         continue;
       }
       String rcFile = rcFiles.get(override.blazeRc);
@@ -748,9 +828,10 @@ public class BlazeCommandDispatcher {
         command = command.substring(0, index);
       }
       if (!validCommands.contains(command) && !command.equals("common")) {
-        outErr.printErrLn("WARNING: while reading option defaults file '"
-            + rcFile + "':\n"
-            + "  invalid command name '" + override.command + "'.");
+        eventHandler.handle(
+            Event.warn(
+                "while reading option defaults file '" + rcFile + "':\n"
+                    + "  invalid command name '" + override.command + "'."));
         continue;
       }
 
@@ -791,13 +872,15 @@ public class BlazeCommandDispatcher {
   /**
    * Unsets the event handler.
    */
-  private void releaseHandler(EventHandler eventHandler) {
+  private void releaseHandler(EventHandler eventHandler,
+      BlazeCommandEventHandler.Options eventOptions) {
     if (eventHandler instanceof FancyTerminalEventHandler) {
       // Make sure that the terminal state of the old event handler is clear
       // before creating a new one.
       ((FancyTerminalEventHandler) eventHandler).resetTerminal();
     }
-    if (eventHandler instanceof ExperimentalEventHandler) {
+    if ((eventHandler instanceof ExperimentalEventHandler)
+        && (eventOptions.useColor())) {
       ((ExperimentalEventHandler) eventHandler).resetTerminal();
     }
   }
@@ -820,4 +903,3 @@ public class BlazeCommandDispatcher {
     logOutputStream = null;
   }
 }
-

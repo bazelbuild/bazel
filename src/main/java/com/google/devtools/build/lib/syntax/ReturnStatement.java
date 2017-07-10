@@ -14,11 +14,12 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.devtools.build.lib.events.Location;
+import java.io.IOException;
 
 /**
  * A wrapper Statement class for return expressions.
  */
-public class ReturnStatement extends Statement {
+public final class ReturnStatement extends Statement {
 
   /**
    * Exception sent by the return statement, to be caught by the function body.
@@ -56,13 +57,21 @@ public class ReturnStatement extends Statement {
     throw new ReturnException(returnExpression.getLocation(), returnExpression.eval(env));
   }
 
-  Expression getReturnExpression() {
+  public Expression getReturnExpression() {
     return returnExpression;
   }
 
   @Override
-  public String toString() {
-    return "return " + returnExpression;
+  public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
+    printIndent(buffer, indentLevel);
+    buffer.append("return");
+    // "return" with no arg is represented internally as returning the None identifier.
+    if (!(returnExpression instanceof Identifier
+          && ((Identifier) returnExpression).getName().equals("None"))) {
+      buffer.append(' ');
+      returnExpression.prettyPrint(buffer, indentLevel);
+    }
+    buffer.append('\n');
   }
 
   @Override

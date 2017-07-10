@@ -15,10 +15,8 @@
 package com.google.devtools.build.benchmark.codegenerator;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertNotNull;
 
 import com.google.common.collect.ImmutableSet;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -47,7 +45,7 @@ public class JavaCodeGeneratorTest {
 
     // Check dir contains 4 project directories
     File[] filesList = dir.toFile().listFiles();
-    assertNotNull(filesList);
+    assertThat(filesList).isNotNull();
     ImmutableSet<String> filenames = fileArrayToImmutableSet(filesList);
     assertThat(filenames).containsExactly(
         JavaCodeGenerator.TARGET_A_FEW_FILES,
@@ -88,13 +86,13 @@ public class JavaCodeGeneratorTest {
   private static void checkProjectPathContains(Path root, String targetName) {
     // Check project dir contains BUILD and com
     File[] filesList = root.resolve(targetName).toFile().listFiles();
-    assertNotNull(filesList);
+    assertThat(filesList).isNotNull();
     ImmutableSet<String> filenames = fileArrayToImmutableSet(filesList);
     assertThat(filenames).containsExactly("BUILD", "com");
 
     // Check project dir contains com/example
     filesList = root.resolve(targetName).resolve("com").toFile().listFiles();
-    assertNotNull(filesList);
+    assertThat(filesList).isNotNull();
     filenames = fileArrayToImmutableSet(filesList);
     assertThat(filenames).containsExactly("example");
   }
@@ -103,7 +101,7 @@ public class JavaCodeGeneratorTest {
     // Check Java files
     File[] filesList =
         root.resolve(targetName).resolve("com/example/generated").toFile().listFiles();
-    assertNotNull(filesList);
+    assertThat(filesList).isNotNull();
     ImmutableSet<String> filenames = fileArrayToImmutableSet(filesList);
     ImmutableSet.Builder<String> randomClassNames = ImmutableSet.builder();
     randomClassNames.add("Main.java");
@@ -118,13 +116,13 @@ public class JavaCodeGeneratorTest {
     for (int i = 1; i < targetSize; ++i) {
       File[] filesList =
           root.resolve(targetName).resolve("com/example/deps" + i).toFile().listFiles();
-      assertNotNull(filesList);
+      assertThat(filesList).isNotNull();
       ImmutableSet<String> filenames = fileArrayToImmutableSet(filesList);
       assertThat(filenames).containsExactly("Deps" + i + ".java");
     }
     File[] filesList =
         root.resolve(targetName).resolve("com/example/generated").toFile().listFiles();
-    assertNotNull(filesList);
+    assertThat(filesList).isNotNull();
     ImmutableSet<String> filenames = fileArrayToImmutableSet(filesList);
     assertThat(filenames).containsExactly("Main.java");
   }

@@ -35,7 +35,7 @@ import com.google.devtools.common.options.OptionsProvider;
          shortDescription = "Prints version information for %{product}.")
 public final class VersionCommand implements BlazeCommand {
   @Override
-  public void editOptions(CommandEnvironment env, OptionsParser optionsParser) {}
+  public void editOptions(OptionsParser optionsParser) {}
 
   @Override
   public ExitCode exec(CommandEnvironment env, OptionsProvider options) {

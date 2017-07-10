@@ -22,9 +22,9 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
@@ -70,7 +70,7 @@ public final class TestSuiteExpansionValue implements SkyValue {
    */
   @ThreadSafe
   public static SkyKey key(Collection<Label> targets) {
-    return SkyKey.create(
+    return LegacySkyKey.create(
         SkyFunctions.TEST_SUITE_EXPANSION,
         new TestSuiteExpansion(ImmutableSortedSet.copyOf(targets)));
   }

@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.Concatable.Concatter;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
-import java.util.Collections;
+import java.io.IOException;
 import java.util.IllegalFormatException;
 
 /**
@@ -55,7 +55,22 @@ public final class BinaryOperatorExpression extends Expression {
   }
 
   @Override
+  public void prettyPrint(Appendable buffer) throws IOException {
+    // TODO(bazel-team): Possibly omit parentheses when they are not needed according to operator
+    // precedence rules. This requires passing down more contextual information.
+    buffer.append('(');
+    lhs.prettyPrint(buffer);
+    buffer.append(' ');
+    buffer.append(operator.toString());
+    buffer.append(' ');
+    rhs.prettyPrint(buffer);
+    buffer.append(')');
+  }
+
+  @Override
   public String toString() {
+    // This omits the parentheses for brevity, but is not correct in general due to operator
+    // precedence rules.
     return lhs + " " + operator + " " + rhs;
   }
 
@@ -69,8 +84,18 @@ public final class BinaryOperatorExpression extends Expression {
   }
 
   /** Implements the "in" operator. */
-  private static boolean in(Object lval, Object rval, Location location) throws EvalException {
-    if (rval instanceof SkylarkQueryable) {
+  private static boolean in(Object lval, Object rval, Environment env, Location location)
+      throws EvalException {
+    if (env.getSemantics().incompatibleDepsetIsNotIterable && rval instanceof SkylarkNestedSet) {
+      throw new EvalException(
+          location,
+          "argument of type '"
+              + EvalUtils.getDataTypeName(rval)
+              + "' is not iterable. "
+              + "in operator only works on lists, tuples, dicts and strings. "
+              + "Use --incompatible_depset_is_not_iterable=false to temporarily disable "
+              + "this check.");
+    } else if (rval instanceof SkylarkQueryable) {
       return ((SkylarkQueryable) rval).containsKey(lval, location);
     } else if (rval instanceof String) {
       if (lval instanceof String) {
@@ -92,19 +117,13 @@ public final class BinaryOperatorExpression extends Expression {
     }
   }
 
-  /**
-   * Helper method. Reused from AugmentedAssignmentStatement class which falls back to this method
-   * in most of the cases.
-   */
   public static Object evaluate(
-      Operator operator, Expression lhs, Expression rhs, Environment env, Location location)
-      throws EvalException, InterruptedException {
-    Object lval = lhs.eval(env);
-    return evaluate(operator, lval, rhs, env, location);
-  }
-
-  public static Object evaluate(
-      Operator operator, Object lval, Expression rhs, Environment env, Location location)
+      Operator operator,
+      Object lval,
+      Expression rhs,
+      Environment env,
+      Location location,
+      boolean isAugmented)
       throws EvalException, InterruptedException {
     // Short-circuit operators
     if (operator == Operator.AND) {
@@ -125,57 +144,62 @@ public final class BinaryOperatorExpression extends Expression {
 
     Object rval = rhs.eval(env);
 
-    switch (operator) {
-      case PLUS:
-        return plus(lval, rval, env, location);
+    try {
+      switch (operator) {
+        case PLUS:
+          return plus(lval, rval, env, location, isAugmented);
 
-      case PIPE:
-        return pipe(lval, rval, location);
+        case PIPE:
+          return pipe(lval, rval, location);
 
-      case MINUS:
-        return minus(lval, rval, location);
+        case MINUS:
+          return minus(lval, rval, env, location);
 
-      case MULT:
-        return mult(lval, rval, env, location);
+        case MULT:
+          return mult(lval, rval, env, location);
 
-      case DIVIDE:
-        return divide(lval, rval, location);
+        case DIVIDE:
+        case FLOOR_DIVIDE:
+          return divide(lval, rval, location);
 
-      case PERCENT:
-        return percent(lval, rval, location);
+        case PERCENT:
+          return percent(lval, rval, env, location);
 
-      case EQUALS_EQUALS:
-        return lval.equals(rval);
+        case EQUALS_EQUALS:
+          return lval.equals(rval);
 
-      case NOT_EQUALS:
-        return !lval.equals(rval);
+        case NOT_EQUALS:
+          return !lval.equals(rval);
 
-      case LESS:
-        return compare(lval, rval, location) < 0;
+        case LESS:
+          return compare(lval, rval, location) < 0;
 
-      case LESS_EQUALS:
-        return compare(lval, rval, location) <= 0;
+        case LESS_EQUALS:
+          return compare(lval, rval, location) <= 0;
 
-      case GREATER:
-        return compare(lval, rval, location) > 0;
+        case GREATER:
+          return compare(lval, rval, location) > 0;
 
-      case GREATER_EQUALS:
-        return compare(lval, rval, location) >= 0;
+        case GREATER_EQUALS:
+          return compare(lval, rval, location) >= 0;
 
-      case IN:
-        return in(lval, rval, location);
+        case IN:
+          return in(lval, rval, env, location);
 
-      case NOT_IN:
-        return !in(lval, rval, location);
+        case NOT_IN:
+          return !in(lval, rval, env, location);
 
-      default:
-        throw new AssertionError("Unsupported binary operator: " + operator);
-    } // endswitch
+        default:
+          throw new AssertionError("Unsupported binary operator: " + operator);
+      } // endswitch
+    } catch (ArithmeticException e) {
+      throw new EvalException(location, e.getMessage());
+    }
   }
 
   @Override
   Object doEval(Environment env) throws EvalException, InterruptedException {
-    return evaluate(operator, lhs, rhs, env, getLocation());
+    return evaluate(operator, lhs.eval(env), rhs, env, getLocation(), false);
   }
 
   @Override
@@ -190,11 +214,16 @@ public final class BinaryOperatorExpression extends Expression {
   }
 
   /** Implements Operator.PLUS. */
-  private static Object plus(Object lval, Object rval, Environment env, Location location)
+  private static Object plus(
+      Object lval, Object rval, Environment env, Location location, boolean isAugmented)
       throws EvalException {
     // int + int
     if (lval instanceof Integer && rval instanceof Integer) {
-      return ((Integer) lval).intValue() + ((Integer) rval).intValue();
+      if (env.getSemantics().incompatibleCheckedArithmetic) {
+        return Math.addExact((Integer) lval, (Integer) rval);
+      } else {
+        return ((Integer) lval).intValue() + ((Integer) rval).intValue();
+      }
     }
 
     // string + string
@@ -213,10 +242,23 @@ public final class BinaryOperatorExpression extends Expression {
     }
 
     if ((lval instanceof MutableList) && (rval instanceof MutableList)) {
+      if (isAugmented && env.getSemantics().incompatibleListPlusEqualsInplace) {
+        @SuppressWarnings("unchecked")
+        MutableList<Object> list = (MutableList) lval;
+        list.addAll((MutableList<?>) rval, location, env);
+        return list;
+      }
       return MutableList.concat((MutableList) lval, (MutableList) rval, env);
     }
 
     if (lval instanceof SkylarkDict && rval instanceof SkylarkDict) {
+      if (env.getSemantics().incompatibleDisallowDictPlus) {
+        throw new EvalException(
+            location,
+            "The `+` operator for dicts is deprecated and no longer supported. Please use the "
+                + "`update` method instead. You can temporarily enable the `+` operator by passing "
+                + "the flag --incompatible_disallow_dict_plus=false");
+      }
       return SkylarkDict.plus((SkylarkDict<?, ?>) lval, (SkylarkDict<?, ?>) rval, env);
     }
 
@@ -247,9 +289,14 @@ public final class BinaryOperatorExpression extends Expression {
   }
 
   /** Implements Operator.MINUS. */
-  private static Object minus(Object lval, Object rval, Location location) throws EvalException {
+  private static Object minus(Object lval, Object rval, Environment env, Location location)
+      throws EvalException {
     if (lval instanceof Integer && rval instanceof Integer) {
-      return ((Integer) lval).intValue() - ((Integer) rval).intValue();
+      if (env.getSemantics().incompatibleCheckedArithmetic) {
+        return Math.subtractExact((Integer) lval, (Integer) rval);
+      } else {
+        return ((Integer) lval).intValue() - ((Integer) rval).intValue();
+      }
     }
     throw typeException(lval, rval, Operator.MINUS, location);
   }
@@ -270,7 +317,11 @@ public final class BinaryOperatorExpression extends Expression {
 
     if (number != null) {
       if (otherFactor instanceof Integer) {
-        return number.intValue() * ((Integer) otherFactor).intValue();
+        if (env.getSemantics().incompatibleCheckedArithmetic) {
+          return Math.multiplyExact(number, (Integer) otherFactor);
+        } else {
+          return number.intValue() * ((Integer) otherFactor).intValue();
+        }
       } else if (otherFactor instanceof String) {
         // Similar to Python, a factor < 1 leads to an empty string.
         return Strings.repeat((String) otherFactor, Math.max(0, number.intValue()));
@@ -301,7 +352,8 @@ public final class BinaryOperatorExpression extends Expression {
   }
 
   /** Implements Operator.PERCENT. */
-  private static Object percent(Object lval, Object rval, Location location) throws EvalException {
+  private static Object percent(Object lval, Object rval, Environment env, Location location)
+      throws EvalException {
     // int % int
     if (lval instanceof Integer && rval instanceof Integer) {
       if (rval.equals(0)) {
@@ -324,9 +376,9 @@ public final class BinaryOperatorExpression extends Expression {
       String pattern = (String) lval;
       try {
         if (rval instanceof Tuple) {
-          return Printer.formatToString(pattern, (Tuple) rval);
+          return Printer.getPrinter(env).formatWithList(pattern, (Tuple) rval).toString();
         }
-        return Printer.formatToString(pattern, Collections.singletonList(rval));
+        return Printer.getPrinter(env).format(pattern, rval).toString();
       } catch (IllegalFormatException e) {
         throw new EvalException(location, e.getMessage());
       }

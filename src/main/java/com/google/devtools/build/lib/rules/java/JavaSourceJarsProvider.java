@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import java.util.List;
 
 /** The collection of source jars from the transitive closure. */
 @AutoValue
@@ -45,7 +46,10 @@ public abstract class JavaSourceJarsProvider implements TransitiveInfoProvider {
   /** Return the source jars that are to be built when the target is on the command line. */
   public abstract ImmutableList<Artifact> getSourceJars();
 
-  public static JavaSourceJarsProvider merge(Iterable<JavaSourceJarsProvider> providers) {
+  public static JavaSourceJarsProvider merge(List<JavaSourceJarsProvider> providers) {
+    if (providers.size() == 1) {
+      return providers.get(0);
+    }
     JavaSourceJarsProvider.Builder result = builder();
     for (JavaSourceJarsProvider provider : providers) {
       result.mergeFrom(provider);

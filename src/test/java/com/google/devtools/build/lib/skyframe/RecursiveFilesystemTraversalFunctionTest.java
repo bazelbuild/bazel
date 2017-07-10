@@ -120,8 +120,8 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         new WorkspaceFileFunction(
             ruleClassProvider,
             analysisMock
-                .getPackageFactoryForTesting()
-                .create(ruleClassProvider, scratch.getFileSystem()),
+                .getPackageFactoryBuilderForTesting()
+                .build(ruleClassProvider, scratch.getFileSystem()),
             directories));
     skyFunctions.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction());
     skyFunctions.put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction());
@@ -285,7 +285,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
   }
 
   private static final class RecordingEvaluationProgressReceiver
-      implements EvaluationProgressReceiver {
+      extends EvaluationProgressReceiver.NullEvaluationProgressReceiver {
     Set<SkyKey> invalidations;
     Set<SkyValue> evaluations;
 
@@ -302,12 +302,6 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     public void invalidated(SkyKey skyKey, InvalidationState state) {
       invalidations.add(skyKey);
     }
-
-    @Override
-    public void enqueueing(SkyKey skyKey) {}
-
-    @Override
-    public void computed(SkyKey skyKey, long elapsedTimeNanos) {}
 
     @Override
     public void evaluated(
@@ -642,7 +636,8 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         SkyKey key = rftvSkyKey(traversalRoot);
         EvaluationResult<SkyValue> result = eval(key);
         assertThat(result.hasError()).isTrue();
-        assertThat(result.getError().getException().getMessage())
+        assertThat(result.getError().getException())
+            .hasMessageThat()
             .contains("crosses package boundary into package rooted at");
         break;
       default:
@@ -816,8 +811,9 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     EvaluationResult<SkyValue> result = eval(key);
     assertThat(result.hasError()).isTrue();
     ErrorInfo error = result.getError(key);
-    assertThat(error.isTransient()).isFalse();
-    assertThat(error.getException().getMessage())
+    assertThat(error.isTransitivelyTransient()).isFalse();
+    assertThat(error.getException())
+        .hasMessageThat()
         .contains("Generated directory a/b/c conflicts with package under the same path.");
   }
 }

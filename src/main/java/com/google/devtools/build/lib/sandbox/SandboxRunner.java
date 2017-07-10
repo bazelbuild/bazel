@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.sandbox;
 
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
@@ -43,6 +44,7 @@ abstract class SandboxRunner {
   /**
    * Runs the command specified via {@code arguments} and {@code env} inside the sandbox.
    *
+   * @param cmdEnv - the current command environment.
    * @param arguments - arguments of spawn to run inside the sandbox.
    * @param environment - environment variables to pass to the spawn.
    * @param outErr - error output to capture sandbox's and command's stderr.
@@ -53,6 +55,7 @@ abstract class SandboxRunner {
    * @param useFakeUsername - whether the username should be set to 'nobody' inside the sandbox.
    */
   void run(
+      CommandEnvironment cmdEnv,
       List<String> arguments,
       Map<String, String> environment,
       OutErr outErr,
@@ -66,7 +69,13 @@ abstract class SandboxRunner {
     try {
       cmd =
           getCommand(
-              arguments, environment, timeout, allowNetwork, useFakeHostname, useFakeUsername);
+              cmdEnv,
+              arguments,
+              environment,
+              timeout,
+              allowNetwork,
+              useFakeHostname,
+              useFakeUsername);
     } catch (IOException e) {
       throw new UserExecException("I/O error during sandboxed execution", e);
     }
@@ -114,6 +123,7 @@ abstract class SandboxRunner {
   /**
    * Returns the {@link Command} that the {@link #run} method will execute inside the sandbox.
    *
+   * @param cmdEnv - the current command environment.
    * @param arguments - arguments of spawn to run inside the sandbox.
    * @param environment - environment variables to pass to the spawn.
    * @param timeout - after how many seconds should the process be killed.
@@ -122,6 +132,7 @@ abstract class SandboxRunner {
    * @param useFakeUsername - whether the username should be set to 'nobody' inside the sandbox.
    */
   protected abstract Command getCommand(
+      CommandEnvironment cmdEnv,
       List<String> arguments,
       Map<String, String> environment,
       int timeout,

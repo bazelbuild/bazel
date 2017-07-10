@@ -192,7 +192,7 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
     } else {
       RepositoryDirectoryValue repositoryValue =
           (RepositoryDirectoryValue) graph.getValue(RepositoryDirectoryValue.key(repository));
-      if (repositoryValue == null) {
+      if (repositoryValue == null || !repositoryValue.repositoryExists()) {
         // If this key doesn't exist, the repository is outside the universe, so we return
         // "nothing".
         return ImmutableList.of();

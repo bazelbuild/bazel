@@ -100,21 +100,30 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
       // BUILD file.
       eventHandler.handle(Event.error(null, cycleMessage.toString()));
       return true;
-    } else if (Iterables.any(cycle, IS_PACKAGE_LOOKUP) && Iterables.any(cycle, IS_WORKSPACE_FILE)
-        && (IS_REPOSITORY_DIRECTORY.apply(lastPathElement)
+    } else if (Iterables.any(cycle, IS_WORKSPACE_FILE)
+        || IS_REPOSITORY_DIRECTORY.apply(lastPathElement)
         || IS_PACKAGE_SKY_KEY.apply(lastPathElement)
         || IS_EXTERNAL_PACKAGE.apply(lastPathElement)
-        || IS_LOCAL_REPOSITORY_LOOKUP.apply(lastPathElement))) {
+        || IS_LOCAL_REPOSITORY_LOOKUP.apply(lastPathElement)) {
       // We have a cycle in the workspace file, report as such.
-      Label fileLabel =
-          (Label) Iterables.getLast(Iterables.filter(cycle, IS_AST_FILE_LOOKUP)).argument();
-      String repositoryName = fileLabel.getPackageIdentifier().getRepository().strippedName();
-      eventHandler.handle(Event.error(null,
-          "Failed to load Skylark extension '" + fileLabel.toString() + "'.\n"
-              + "It usually happens when the repository is not defined prior to being used.\n"
-              + "Maybe repository '" + repositoryName
-              + "' was defined later in your WORKSPACE file?"));
-      return true;
+      if (Iterables.any(cycle, IS_AST_FILE_LOOKUP)) {
+        Label fileLabel =
+            (Label) Iterables.getLast(Iterables.filter(cycle, IS_AST_FILE_LOOKUP)).argument();
+        String repositoryName = fileLabel.getPackageIdentifier().getRepository().strippedName();
+        eventHandler.handle(Event.error(null,
+            "Failed to load Skylark extension '" + fileLabel.toString() + "'.\n"
+                + "It usually happens when the repository is not defined prior to being used.\n"
+                + "Maybe repository '" + repositoryName
+                + "' was defined later in your WORKSPACE file?"));
+        return true;
+      } else if (Iterables.any(cycle, IS_PACKAGE_LOOKUP)) {
+        eventHandler.handle(
+            Event.error(null, "cycle detected loading "
+                + String.join(
+                    " ", lastPathElement.functionName().toString().toLowerCase().split("_"))
+                + " '" + lastPathElement.argument().toString() + "'"));
+        return true;
+      }
     }
     return false;
   }

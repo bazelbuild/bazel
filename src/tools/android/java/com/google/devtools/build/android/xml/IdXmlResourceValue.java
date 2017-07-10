@@ -16,7 +16,7 @@ package com.google.devtools.build.android.xml;
 import com.google.common.base.MoreObjects;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.AndroidDataWritingVisitor.StartTag;
-import com.google.devtools.build.android.AndroidResourceClassWriter;
+import com.google.devtools.build.android.AndroidResourceSymbolSink;
 import com.google.devtools.build.android.DataSource;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
@@ -89,9 +89,8 @@ public class IdXmlResourceValue implements XmlResourceValue {
   }
 
   @Override
-  public void writeResourceToClass(FullyQualifiedName key,
-      AndroidResourceClassWriter resourceClassWriter) {
-    resourceClassWriter.writeSimpleResource(key.type(), key.name());
+  public void writeResourceToClass(FullyQualifiedName key, AndroidResourceSymbolSink sink) {
+    sink.acceptSimpleResource(key.type(), key.name());
   }
 
   @Override

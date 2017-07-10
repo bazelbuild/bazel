@@ -21,7 +21,7 @@ filegroup(
     name = "bazel_toolchain_test_project_pkg",
     testonly = 1,
     srcs = [
-        "bazel_toolchain_test_data",
+        "//src/test/shell/bazel/testdata/bazel_toolchain_test_data:srcs",
     ],
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )

@@ -25,21 +25,9 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import javax.annotation.Nullable;
 
 /** Declaration part of cc_proto_library. */
 public class CcProtoLibraryRule implements RuleDefinition {
-
-  private static final Function<Rule, AspectParameters> ASPECT_PARAMETERS =
-      new Function<Rule, AspectParameters>() {
-        @Nullable
-        @Override
-        public AspectParameters apply(@Nullable Rule rule) {
-          return new AspectParameters.Builder()
-              .addAttribute(INJECTING_RULE_KIND_PARAMETER_KEY, "cc_proto_library")
-              .build();
-        }
-      };
 
   private final CcProtoAspect ccProtoAspect;
 
@@ -49,6 +37,12 @@ public class CcProtoLibraryRule implements RuleDefinition {
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
+    Function<Rule, AspectParameters> aspectParameters =
+        rule ->
+            new AspectParameters.Builder()
+                .addAttribute(INJECTING_RULE_KIND_PARAMETER_KEY, "cc_proto_library")
+                .build();
+
     return builder
         /* <!-- #BLAZE_RULE(cc_proto_library).ATTRIBUTE(deps) -->
         The list of <a href="protocol-buffer.html#proto_library"><code>proto_library</code></a>
@@ -58,7 +52,7 @@ public class CcProtoLibraryRule implements RuleDefinition {
             attr("deps", LABEL_LIST)
                 .allowedRuleClasses("proto_library")
                 .allowedFileTypes()
-                .aspect(ccProtoAspect, ASPECT_PARAMETERS))
+                .aspect(ccProtoAspect, aspectParameters))
         .build();
   }
 

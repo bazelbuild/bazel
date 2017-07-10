@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Throwables;
 import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
@@ -27,8 +28,10 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.packages.AstAfterPreprocessing;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
@@ -38,8 +41,6 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.LegacyGlobber;
-import com.google.devtools.build.lib.packages.Preprocessor;
-import com.google.devtools.build.lib.packages.Preprocessor.AstAfterPreprocessing;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -51,6 +52,7 @@ import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.SkylarkImport;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -101,6 +103,8 @@ public class PackageFunction implements SkyFunction {
   // Not final only for testing.
   @Nullable private SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining;
 
+  private final ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile;
+
   static final PathFragment DEFAULTS_PACKAGE_NAME = PathFragment.create("tools/defaults");
 
   public PackageFunction(
@@ -111,7 +115,8 @@ public class PackageFunction implements SkyFunction {
       Cache<PackageIdentifier, CacheEntryWithGlobDeps<AstAfterPreprocessing>> astCache,
       AtomicInteger numPackagesLoaded,
       @Nullable SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining,
-      @Nullable PackageProgressReceiver packageProgress) {
+      @Nullable PackageProgressReceiver packageProgress,
+      ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile) {
     this.skylarkImportLookupFunctionForInlining = skylarkImportLookupFunctionForInlining;
     // Can be null in tests.
     this.preludeLabel = packageFactory == null
@@ -124,6 +129,7 @@ public class PackageFunction implements SkyFunction {
     this.astCache = astCache;
     this.numPackagesLoaded = numPackagesLoaded;
     this.packageProgress = packageProgress;
+    this.actionOnIOExceptionReadingBuildFile = actionOnIOExceptionReadingBuildFile;
   }
 
   public PackageFunction(
@@ -142,12 +148,52 @@ public class PackageFunction implements SkyFunction {
         astCache,
         numPackagesLoaded,
         skylarkImportLookupFunctionForInlining,
-        null);
+        null,
+        ActionOnIOExceptionReadingBuildFile.UseOriginalIOException.INSTANCE);
   }
 
   public void setSkylarkImportLookupFunctionForInliningForTesting(
       SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining) {
     this.skylarkImportLookupFunctionForInlining = skylarkImportLookupFunctionForInlining;
+  }
+
+  /**
+   * What to do when encountering an {@link IOException} trying to read the contents of a BUILD
+   * file.
+   *
+   * <p>Any choice besides
+   * {@link ActionOnIOExceptionReadingBuildFile.UseOriginalIOException#INSTANCE} is potentially
+   * incrementally unsound: if the initial {@link IOException} is transient, then Blaze will
+   * "incorrectly" not attempt to redo package loading for this BUILD file on incremental builds.
+   *
+   * <p>The fact that this behavior is configurable and potentially unsound is a concession to
+   * certain desired use cases with fancy filesystems.
+   */
+  public interface ActionOnIOExceptionReadingBuildFile {
+    /**
+     * Given the {@link IOException} encountered when reading the contents of a BUILD file,
+     * returns the contents that should be used, or {@code null} if the original {@link IOException}
+     * should be respected (that is, we should error-out with a package loading error).
+     */
+    @Nullable
+    byte[] maybeGetBuildFileContentsToUse(IOException originalExn);
+
+    /**
+     * A {@link ActionOnIOExceptionReadingBuildFile} whose {@link #maybeGetBuildFileContentsToUse}
+     * has the sensible behavior of always respecting the initial {@link IOException}.
+     */
+    public static class UseOriginalIOException implements ActionOnIOExceptionReadingBuildFile {
+      public static final UseOriginalIOException INSTANCE = new UseOriginalIOException();
+
+      private UseOriginalIOException() {
+      }
+
+      @Override
+      @Nullable
+      public byte[] maybeGetBuildFileContentsToUse(IOException originalExn) {
+        return null;
+      }
+    }
   }
 
   /** An entry in {@link PackageFunction}'s internal caches. */
@@ -403,6 +449,9 @@ public class PackageFunction implements SkyFunction {
 
     Package pkg = workspace.getPackage();
     Event.replayEventsOn(env.getListener(), pkg.getEvents());
+    for (Postable post : pkg.getPosts()) {
+      env.getListener().post(post);
+    }
 
     packageFactory.afterDoneLoadingPackage(pkg);
     return new PackageValue(pkg);
@@ -434,6 +483,7 @@ public class PackageFunction implements SkyFunction {
       switch (packageLookupValue.getErrorReason()) {
         case NO_BUILD_FILE:
         case DELETED_PACKAGE:
+        case REPOSITORY_NOT_FOUND:
           throw new PackageFunctionException(new BuildFileNotFoundException(packageId,
               packageLookupValue.getErrorMsg()), Transience.PERSISTENT);
         case INVALID_PACKAGE_NAME:
@@ -453,13 +503,7 @@ public class PackageFunction implements SkyFunction {
     if (workspaceNameValue == null) {
       return null;
     }
-    String workspaceName = workspaceNameValue.maybeGetName();
-    if (workspaceName == null) {
-      throw new PackageFunctionException(
-          new BuildFileContainsErrorsException(Label.EXTERNAL_PACKAGE_IDENTIFIER),
-          Transience.PERSISTENT);
-    }
-
+    String workspaceName = workspaceNameValue.getName();
     RootedPath buildFileRootedPath = packageLookupValue.getRootedPath(packageId);
     FileValue buildFileValue = null;
     Path buildFilePath = buildFileRootedPath.asPath();
@@ -479,6 +523,11 @@ public class PackageFunction implements SkyFunction {
 
     RuleVisibility defaultVisibility = PrecomputedValue.DEFAULT_VISIBILITY.get(env);
     if (defaultVisibility == null) {
+      return null;
+    }
+
+    SkylarkSemanticsOptions skylarkSemantics = PrecomputedValue.SKYLARK_SEMANTICS.get(env);
+    if (skylarkSemantics == null) {
       return null;
     }
 
@@ -508,6 +557,7 @@ public class PackageFunction implements SkyFunction {
             buildFilePath,
             buildFileValue,
             defaultVisibility,
+            skylarkSemantics,
             preludeStatements,
             packageLookupValue.getRoot(),
             env);
@@ -549,6 +599,9 @@ public class PackageFunction implements SkyFunction {
     }
 
     Event.replayEventsOn(env.getListener(), pkgBuilder.getEvents());
+    for (Postable post : pkgBuilder.getPosts()) {
+      env.getListener().post(post);
+    }
 
     if (packageShouldBeConsideredInError) {
       pkgBuilder.setContainsErrors();
@@ -579,6 +632,16 @@ public class PackageFunction implements SkyFunction {
     Preconditions.checkState(buildFileValue.exists(),
         "Package lookup succeeded but BUILD file doesn't exist");
     return buildFileValue;
+  }
+
+  private static BuildFileContainsErrorsException propagateSkylarkImportFailedException(
+      PackageIdentifier packageId, SkylarkImportFailedException e)
+          throws BuildFileContainsErrorsException {
+    Throwable rootCause = Throwables.getRootCause(e);
+    throw (rootCause instanceof IOException)
+        ? new BuildFileContainsErrorsException(
+            packageId, e.getMessage(), (IOException) rootCause)
+        : new BuildFileContainsErrorsException(packageId, e.getMessage());
   }
 
   /**
@@ -615,7 +678,7 @@ public class PackageFunction implements SkyFunction {
         return null;
       }
     } catch (SkylarkImportFailedException e) {
-      throw new BuildFileContainsErrorsException(packageId, e.getMessage());
+      throw propagateSkylarkImportFailedException(packageId, e);
     }
 
     // Look up and load the imports.
@@ -669,7 +732,7 @@ public class PackageFunction implements SkyFunction {
 
       }
     } catch (SkylarkImportFailedException e) {
-      throw new BuildFileContainsErrorsException(packageId, e.getMessage());
+      throw propagateSkylarkImportFailedException(packageId, e);
     } catch (InconsistentFilesystemException e) {
       throw new NoSuchPackageException(packageId, e.getMessage(), e);
     }
@@ -1113,6 +1176,7 @@ public class PackageFunction implements SkyFunction {
       Path buildFilePath,
       @Nullable FileValue buildFileValue,
       RuleVisibility defaultVisibility,
+      SkylarkSemanticsOptions skylarkSemantics,
       List<Statement> preludeStatements,
       Path packageRoot,
       Environment env)
@@ -1137,44 +1201,49 @@ public class PackageFunction implements SkyFunction {
               buildFilePath.getParentDirectory(), packageId, packageLocator);
           SkyframeHybridGlobber skyframeGlobber = new SkyframeHybridGlobber(packageId, packageRoot,
               env, legacyGlobber);
-          Preprocessor.Result preprocessingResult;
+          ParserInputSource input;
           if (replacementContents == null) {
             Preconditions.checkNotNull(buildFileValue, packageId);
-            byte[] buildFileBytes;
+            byte[] buildFileBytes = null;
             try {
-              buildFileBytes = buildFileValue.isSpecialFile()
-                  ? FileSystemUtils.readContent(buildFilePath)
-                  : FileSystemUtils.readWithKnownFileSize(buildFilePath, buildFileValue.getSize());
+              buildFileBytes =
+                  buildFileValue.isSpecialFile()
+                      ? FileSystemUtils.readContent(buildFilePath)
+                      : FileSystemUtils.readWithKnownFileSize(
+                          buildFilePath, buildFileValue.getSize());
             } catch (IOException e) {
-              // Note that we did this work, so we should conservatively report this error as
-              // transient.
-              throw new PackageFunctionException(new BuildFileContainsErrorsException(
-                  packageId, e.getMessage()), Transience.TRANSIENT);
+              buildFileBytes =
+                  actionOnIOExceptionReadingBuildFile.maybeGetBuildFileContentsToUse(e);
+              if (buildFileBytes == null) {
+                // Note that we did the work that led to this IOException, so we should
+                // conservatively report this error as transient.
+                throw new PackageFunctionException(new BuildFileContainsErrorsException(
+                    packageId, e.getMessage(), e), Transience.TRANSIENT);
+              }
+              // If control flow reaches here, we're in territory that is deliberately unsound.
+              // See the javadoc for ActionOnIOExceptionReadingBuildFile.
             }
-            try {
-              preprocessingResult = packageFactory.preprocess(buildFilePath, packageId,
-                  buildFileBytes, skyframeGlobber);
-            } catch (IOException e) {
-              throw new PackageFunctionException(
-                  new BuildFileContainsErrorsException(
-                      packageId, "preprocessing failed" + e.getMessage(), e), Transience.TRANSIENT);
-            }
+            input =
+                ParserInputSource.create(
+                    FileSystemUtils.convertFromLatin1(buildFileBytes),
+                    buildFilePath.asFragment());
           } else {
-            ParserInputSource replacementSource =
-                ParserInputSource.create(replacementContents, buildFilePath.asFragment());
-            preprocessingResult = Preprocessor.Result.noPreprocessing(replacementSource);
+            input = ParserInputSource.create(replacementContents, buildFilePath.asFragment());
           }
           StoredEventHandler astParsingEventHandler = new StoredEventHandler();
-          BuildFileAST ast = PackageFactory.parseBuildFile(packageId, preprocessingResult.result,
-              preludeStatements, astParsingEventHandler);
+          BuildFileAST ast =
+              PackageFactory.parseBuildFile(
+                  packageId, input, preludeStatements, astParsingEventHandler);
           // If no globs were fetched during preprocessing, then there's no need to reuse the
           // legacy globber instance during BUILD file evaluation since the performance argument
           // below does not apply.
           Set<SkyKey> globDepsRequested = skyframeGlobber.getGlobDepsRequested();
           LegacyGlobber legacyGlobberToStore = globDepsRequested.isEmpty() ? null : legacyGlobber;
-          astCacheEntry = new CacheEntryWithGlobDeps<>(
-              new AstAfterPreprocessing(preprocessingResult, ast, astParsingEventHandler),
-              globDepsRequested, legacyGlobberToStore);
+          astCacheEntry =
+              new CacheEntryWithGlobDeps<>(
+                  new AstAfterPreprocessing(ast, astParsingEventHandler),
+                  globDepsRequested,
+                  legacyGlobberToStore);
           astCache.put(packageId, astCacheEntry);
         }
         AstAfterPreprocessing astAfterPreprocessing = astCacheEntry.value;
@@ -1208,8 +1277,15 @@ public class PackageFunction implements SkyFunction {
         SkyframeHybridGlobber skyframeGlobber = new SkyframeHybridGlobber(packageId, packageRoot,
             env, legacyGlobber);
         Package.Builder pkgBuilder = packageFactory.createPackageFromPreprocessingAst(
-            workspaceName, packageId, buildFilePath, astAfterPreprocessing, importResult.importMap,
-            importResult.fileDependencies, defaultVisibility, skyframeGlobber);
+            workspaceName,
+            packageId,
+            buildFilePath,
+            astAfterPreprocessing,
+            importResult.importMap,
+            importResult.fileDependencies,
+            defaultVisibility,
+            skylarkSemantics,
+            skyframeGlobber);
         Set<SkyKey> globDepsRequested = ImmutableSet.<SkyKey>builder()
             .addAll(globDepsRequestedDuringPreprocessing)
             .addAll(skyframeGlobber.getGlobDepsRequested())
@@ -1284,7 +1360,7 @@ public class PackageFunction implements SkyFunction {
     }
   }
 
-  static boolean isDefaultsPackage(PackageIdentifier packageIdentifier) {
+  public static boolean isDefaultsPackage(PackageIdentifier packageIdentifier) {
     return packageIdentifier.getRepository().isMain()
         && packageIdentifier.getPackageFragment().equals(DEFAULTS_PACKAGE_NAME);
   }

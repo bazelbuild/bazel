@@ -41,14 +41,13 @@ message AndroidSdk {
   string main_dex_classes = 11;
   string main_dex_list_creator = 12;
   string proguard = 13;
-  string resource_extractor = 14;
   string shrinked_android_jar = 15;
   string zipalign = 16;
   string build_tools_version = 17; // assume latest if not set
   string apksigner = 18;
 
   // Deprecated tag numbers.
-  reserved 6, 9, 10;
+  reserved 6, 9, 10, 14;
 }
 
 // Information about a resource referenced from AndroidManifest.xml.

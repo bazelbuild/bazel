@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -66,8 +66,8 @@ public final class LTOBackendAction extends SpawnAction {
       Collection<Artifact> outputs,
       ActionOwner owner,
       CommandLine argv,
-      Map<String, String> environment,
-      Set<String> clientEnvironmentVariables,
+      boolean isShellCommand,
+      ActionEnvironment env,
       Map<String, String> executionInfo,
       String progressMessage,
       RunfilesSupplier runfilesSupplier,
@@ -79,8 +79,8 @@ public final class LTOBackendAction extends SpawnAction {
         outputs,
         AbstractAction.DEFAULT_RESOURCE_SET,
         argv,
-        ImmutableMap.copyOf(environment),
-        ImmutableSet.copyOf(clientEnvironmentVariables),
+        isShellCommand,
+        env,
         ImmutableMap.copyOf(executionInfo),
         progressMessage,
         runfilesSupplier,
@@ -208,8 +208,8 @@ public final class LTOBackendAction extends SpawnAction {
         ImmutableList<Artifact> outputs,
         ResourceSet resourceSet,
         CommandLine actualCommandLine,
-        ImmutableMap<String, String> env,
-        ImmutableSet<String> clientEnvironmentVariables,
+        boolean isShellCommand,
+        ActionEnvironment env,
         ImmutableMap<String, String> executionInfo,
         String progressMessage,
         RunfilesSupplier runfilesSupplier,
@@ -221,8 +221,8 @@ public final class LTOBackendAction extends SpawnAction {
           outputs,
           owner,
           actualCommandLine,
+          isShellCommand,
           env,
-          clientEnvironmentVariables,
           executionInfo,
           progressMessage,
           runfilesSupplier,

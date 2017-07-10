@@ -20,15 +20,6 @@ import static org.junit.Assert.fail;
 
 import com.google.common.primitives.Bytes;
 import com.google.devtools.build.zip.ZipFileEntry.Compression;
-
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
-import org.junit.rules.TemporaryFolder;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -39,6 +30,13 @@ import java.util.zip.Deflater;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.ExpectedException;
+import org.junit.rules.TemporaryFolder;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class ZipWriterTest {
@@ -92,8 +90,11 @@ public class ZipWriterTest {
       writer.write(new byte[] { 0xf, 0xa, 0xb });
       fail("Expected ZipException");
     } catch (ZipException e) {
-      assertThat(e.getMessage()).contains("Cannot write zip contents without first setting a"
-          + " ZipEntry or starting a prefix file.");
+      assertThat(e)
+          .hasMessageThat()
+          .contains(
+              "Cannot write zip contents without first setting a"
+                  + " ZipEntry or starting a prefix file.");
     }
 
     try (ZipFile zipFile = new ZipFile(test)) {

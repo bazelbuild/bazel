@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.devtools.build.lib.events.Location;
 import java.util.Arrays;
 import javax.annotation.Nullable;
@@ -225,12 +224,4 @@ public class AttributeContainer {
     Integer index = ruleClass.getAttributeIndex(attribute.getName());
     setAttributeLocation(index, location);
   }
-
-  public static final Function<RuleClass, AttributeContainer> ATTRIBUTE_CONTAINER_FACTORY =
-      new Function<RuleClass, AttributeContainer>() {
-        @Override
-        public AttributeContainer apply(RuleClass ruleClass) {
-          return new AttributeContainer(ruleClass);
-        }
-      };
 }

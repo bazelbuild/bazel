@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.bazel.repository.skylark;
 
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.shell.BadExitStatusException;
 import com.google.devtools.build.lib.shell.Command;
@@ -25,7 +26,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import com.google.devtools.build.lib.util.io.DelegatingOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
@@ -47,6 +47,7 @@ import java.util.Map;
           + " output stream content, the standard error stream content and the execution return"
           + " code."
 )
+@Immutable
 final class SkylarkExecutionResult {
   private final int returnCode;
   private final String stdout;
@@ -106,7 +107,7 @@ final class SkylarkExecutionResult {
     private final Map<String, String> envBuilder = Maps.newLinkedHashMap();
     private long timeout = -1;
     private boolean executed = false;
-    private boolean quiet;
+    private OutErr outErr;
 
     private Builder(Map<String, String> environment) {
       envBuilder.putAll(environment);
@@ -161,8 +162,8 @@ final class SkylarkExecutionResult {
       return this;
     }
 
-    Builder setQuiet(boolean quiet) {
-      this.quiet = quiet;
+    Builder setOutErr(OutErr outErr) {
+      this.outErr = outErr;
       return this;
     }
 
@@ -182,8 +183,8 @@ final class SkylarkExecutionResult {
       // Bazel will crash. Maybe we should use custom output streams that throw an appropriate
       // exception when reaching a specific size.
       delegator.addSink(recorder);
-      if (!quiet) {
-        delegator.addSink(OutErr.create(System.out, System.err));
+      if (outErr != null) {
+        delegator.addSink(outErr);
       }
       try {
         String[] argsArray = new String[args.size()];

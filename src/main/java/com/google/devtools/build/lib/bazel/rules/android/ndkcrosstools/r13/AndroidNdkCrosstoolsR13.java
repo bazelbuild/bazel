@@ -27,8 +27,6 @@ import java.util.Map.Entry;
 
 /** Generates a CrosstoolRelease proto for the Android NDK. */
 final class AndroidNdkCrosstoolsR13 {
-  /** {@code ./ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/clang --version} */
-  static final String CLANG_VERSION = "3.8.256229";
 
   /**
    * Creates a CrosstoolRelease proto for the Android NDK, given the API level to use and the
@@ -40,23 +38,25 @@ final class AndroidNdkCrosstoolsR13 {
    *
    * @return A CrosstoolRelease for the Android NDK.
    */
-  static CrosstoolRelease create(NdkPaths ndkPaths, StlImpl stlImpl, String hostPlatform) {
+  static CrosstoolRelease create(
+      NdkPaths ndkPaths, StlImpl stlImpl, String hostPlatform, String clangVersion) {
     return CrosstoolRelease.newBuilder()
         .setMajorVersion("android")
         .setMinorVersion("")
         .setDefaultTargetCpu("armeabi")
         .addAllDefaultToolchain(getDefaultCpuToolchains(stlImpl))
-        .addAllToolchain(createToolchains(ndkPaths, stlImpl, hostPlatform))
+        .addAllToolchain(createToolchains(ndkPaths, stlImpl, hostPlatform, clangVersion))
         .build();
   }
 
   private static ImmutableList<CToolchain> createToolchains(
-      NdkPaths ndkPaths, StlImpl stlImpl, String hostPlatform) {
+      NdkPaths ndkPaths, StlImpl stlImpl, String hostPlatform, String clangVersion) {
 
     List<CToolchain.Builder> toolchainBuilders = new ArrayList<>();
-    toolchainBuilders.addAll(new ArmCrosstools(ndkPaths, stlImpl).createCrosstools());
-    toolchainBuilders.addAll(new MipsCrosstools(ndkPaths, stlImpl).createCrosstools());
-    toolchainBuilders.addAll(new X86Crosstools(ndkPaths, stlImpl).createCrosstools());
+    toolchainBuilders.addAll(new ArmCrosstools(ndkPaths, stlImpl, clangVersion).createCrosstools());
+    toolchainBuilders.addAll(
+        new MipsCrosstools(ndkPaths, stlImpl, clangVersion).createCrosstools());
+    toolchainBuilders.addAll(new X86Crosstools(ndkPaths, stlImpl, clangVersion).createCrosstools());
 
     ImmutableList.Builder<CToolchain> toolchains = new ImmutableList.Builder<>();
 

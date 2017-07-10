@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.genrule;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -43,8 +43,7 @@ public class GenRuleAction extends SpawnAction {
       Iterable<Artifact> inputs,
       Iterable<Artifact> outputs,
       List<String> argv,
-      ImmutableMap<String, String> environment,
-      ImmutableSet<String> clientEnvironmentVariables,
+      ActionEnvironment env,
       ImmutableMap<String, String> executionInfo,
       RunfilesSupplier runfilesSupplier,
       String progressMessage) {
@@ -54,9 +53,9 @@ public class GenRuleAction extends SpawnAction {
         inputs,
         outputs,
         GENRULE_RESOURCES,
-        CommandLine.of(argv, false),
-        environment,
-        clientEnvironmentVariables,
+        CommandLine.of(argv),
+        false,
+        env,
         executionInfo,
         progressMessage,
         runfilesSupplier,
@@ -68,7 +67,7 @@ public class GenRuleAction extends SpawnAction {
   @Override
   protected void internalExecute(
       ActionExecutionContext actionExecutionContext) throws ExecException, InterruptedException {
-    EventHandler reporter = actionExecutionContext.getExecutor().getEventHandler();
+    EventHandler reporter = actionExecutionContext.getEventHandler();
     checkInputsForDirectories(reporter, actionExecutionContext.getMetadataHandler());
     super.internalExecute(actionExecutionContext);
     checkOutputsForDirectories(reporter);

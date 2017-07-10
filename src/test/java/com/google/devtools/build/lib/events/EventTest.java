@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.events;
 
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.assertEquals;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -29,18 +28,18 @@ public class EventTest extends EventTestTemplate {
 
   @Test
   public void eventRetainsEventKind() {
-    assertEquals(EventKind.WARNING, event.getKind());
+    assertThat(event.getKind()).isEqualTo(EventKind.WARNING);
   }
 
   @Test
   public void eventRetainsMessage() {
-    assertEquals("This is not an error message.", event.getMessage());
+    assertThat(event.getMessage()).isEqualTo("This is not an error message.");
   }
 
   @Test
   public void eventRetainsLocation() {
-    assertEquals(21, event.getLocation().getStartOffset());
-    assertEquals(31, event.getLocation().getEndOffset());
+    assertThat(event.getLocation().getStartOffset()).isEqualTo(21);
+    assertThat(event.getLocation().getEndOffset()).isEqualTo(31);
   }
 
   @Test

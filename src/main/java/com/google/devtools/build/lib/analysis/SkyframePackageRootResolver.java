@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.devtools.build.lib.actions.PackageRootResolutionException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -39,14 +38,14 @@ public final class SkyframePackageRootResolver implements PackageRootResolver {
 
   @Override
   public Map<PathFragment, Root> findPackageRootsForFiles(Iterable<PathFragment> execPaths)
-      throws PackageRootResolutionException, InterruptedException {
+      throws InterruptedException {
     return executor.getArtifactRootsForFiles(eventHandler, execPaths);
   }
   
   @Override
   @Nullable
   public Map<PathFragment, Root> findPackageRoots(Iterable<PathFragment> execPaths)
-      throws PackageRootResolutionException, InterruptedException {
+      throws InterruptedException {
     return executor.getArtifactRoots(eventHandler, execPaths);
   }
 }

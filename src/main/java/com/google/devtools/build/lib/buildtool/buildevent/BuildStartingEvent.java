@@ -84,6 +84,7 @@ public final class BuildStartingEvent implements BuildEvent {
         ProgressEvent.INITIAL_PROGRESS_UPDATE,
         BuildEventId.commandlineId(),
         BuildEventId.optionsParsedId(),
+        BuildEventId.workspaceStatusId(),
         BuildEventId.targetPatternExpanded(request.getTargets()),
         BuildEventId.buildFinished());
   }

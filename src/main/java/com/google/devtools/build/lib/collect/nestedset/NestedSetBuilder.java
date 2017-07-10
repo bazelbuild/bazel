@@ -20,7 +20,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.MapMaker;
 import com.google.devtools.build.lib.collect.CompactHashSet;
 import com.google.devtools.build.lib.util.Preconditions;
-
+import com.google.errorprone.annotations.DoNotCall;
 import java.util.concurrent.ConcurrentMap;
 
 /**
@@ -81,16 +81,11 @@ public final class NestedSetBuilder<E> {
     return this;
   }
 
-  /**
-   * @deprecated Use {@link #addTransitive} to avoid excessive memory use.
-   */
+  /** @deprecated Use {@link #addTransitive} to avoid excessive memory use. */
   @Deprecated
+  @DoNotCall
   public NestedSetBuilder<E> addAll(NestedSet<? extends E> elements) {
-    // Do not delete this method, or else addAll(Iterable) calls with a NestedSet argument
-    // will not be flagged.
-    Iterable<? extends E> it = elements;
-    addAll(it);
-    return this;
+    throw new UnsupportedOperationException();
   }
 
   /**

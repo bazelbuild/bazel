@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.AbstractFileSystemWithCustomStat;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -402,11 +403,14 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  protected byte[] getMD5Digest(Path path) throws IOException {
+  protected byte[] getDigest(Path path, HashFunction hashFunction) throws IOException {
     String name = path.toString();
     long startTime = Profiler.nanoTimeMaybe();
     try {
-      return NativePosixFiles.md5sum(name).asBytes();
+      if (hashFunction == HashFunction.MD5) {
+        return NativePosixFiles.md5sum(name).asBytes();
+      }
+      return super.getDigest(path, hashFunction);
     } finally {
       profiler.logSimpleTask(startTime, ProfilerTask.VFS_MD5, name);
     }

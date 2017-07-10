@@ -15,38 +15,31 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
-import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
+import com.google.devtools.build.lib.rules.MakeVariableProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
-import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsParsingException;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -58,30 +51,22 @@ import org.junit.runners.JUnit4;
 public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
   private static final Collection<String> NO_FEATURES = Collections.emptySet();
 
-  private BuildOptions createBuildOptionsForTest(String... args) {
-    ImmutableList<Class<? extends FragmentOptions>> testFragments =
-        TestRuleClassProvider.getRuleClassProvider().getConfigurationOptions();
-    OptionsParser optionsParser = OptionsParser.newOptionsParser(testFragments);
-    try {
-      optionsParser.parse(args);
-      InvocationPolicyEnforcer optionsPolicyEnforcer = analysisMock.getInvocationPolicyEnforcer();
-      optionsPolicyEnforcer.enforce(optionsParser);
-    } catch (OptionsParsingException e) {
-      throw new IllegalStateException(e);
-    }
-    return BuildOptions.applyStaticConfigOverride(BuildOptions.of(testFragments, optionsParser));
-  }
-
   private CppConfiguration create(CppConfigurationLoader loader, String... args) throws Exception {
+    useConfiguration(args);
     ConfigurationEnvironment env =
         new ConfigurationEnvironment.TargetProviderEnvironment(
             skyframeExecutor.getPackageManager(), reporter, directories);
-    return loader.create(env, createBuildOptionsForTest(args));
+    return loader.create(env, buildOptions);
   }
 
   private CppConfigurationLoader loader(String crosstoolFileContents) throws IOException {
     getAnalysisMock().ccSupport().setupCrosstoolWithRelease(mockToolsConfig, crosstoolFileContents);
     return new CppConfigurationLoader(Functions.<String>identity());
+  }
+
+  @Before
+  public void setupTests() throws Exception {
+    useRuleClassProvider(TestRuleClassProvider.getRuleClassProvider());
   }
 
   private CppConfigurationLoader loaderWithOptionalTool(String optionalTool) throws IOException {
@@ -167,6 +152,18 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
             + "}");
   }
 
+  private ConfiguredTarget getCcToolchainTarget(CppConfiguration cppConfiguration)
+      throws Exception {
+    update(cppConfiguration.getCcToolchainRuleLabel().toString());
+    return Preconditions.checkNotNull(
+        getConfiguredTarget(cppConfiguration.getCcToolchainRuleLabel().toString()));
+  }
+
+  private CcToolchainProvider getCcToolchainProvider(CppConfiguration cppConfiguration)
+      throws Exception {
+    return getCcToolchainTarget(cppConfiguration).getProvider(CcToolchainProvider.class);
+  }
+
   /**
    * Checks that we do not accidentally change the proto format in incompatible
    * ways. Do not modify the configuration file in this test, except if you are
@@ -176,54 +173,61 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
   public void testSimpleCompleteConfiguration() throws Exception {
     CppConfigurationLoader loader = loaderWithOptionalTool("");
 
-    CppConfiguration toolchain = create(loader, "--cpu=cpu");
-    assertEquals("toolchain-identifier", toolchain.getToolchainIdentifier());
+    // Need to clear out the android cpu options to avoid this split transition in Bazel.
+    CppConfiguration toolchain =
+        create(loader, "--cpu=cpu", "--host_cpu=cpu", "--android_cpu=", "--fat_apk_cpu=");
+    CcToolchainProvider ccProvider = getCcToolchainProvider(toolchain);
+    assertThat(toolchain.getToolchainIdentifier()).isEqualTo("toolchain-identifier");
 
-    assertEquals("host-system-name", toolchain.getHostSystemName());
-    assertEquals("compiler", toolchain.getCompiler());
-    assertEquals("target-libc", toolchain.getTargetLibc());
-    assertEquals("piii", toolchain.getTargetCpu());
-    assertEquals("target-system-name", toolchain.getTargetGnuSystemName());
+    assertThat(toolchain.getHostSystemName()).isEqualTo("host-system-name");
+    assertThat(toolchain.getCompiler()).isEqualTo("compiler");
+    assertThat(toolchain.getTargetLibc()).isEqualTo("target-libc");
+    assertThat(toolchain.getTargetCpu()).isEqualTo("piii");
+    assertThat(toolchain.getTargetGnuSystemName()).isEqualTo("target-system-name");
 
-    assertEquals(getToolPath("/path-to-ar"), toolchain.getToolPathFragment(Tool.AR));
+    assertThat(toolchain.getToolPathFragment(Tool.AR)).isEqualTo(getToolPath("/path-to-ar"));
 
-    assertEquals("abi-version", toolchain.getAbi());
-    assertEquals("abi-libc-version", toolchain.getAbiGlibcVersion());
+    assertThat(toolchain.getAbi()).isEqualTo("abi-version");
+    assertThat(toolchain.getAbiGlibcVersion()).isEqualTo("abi-libc-version");
 
-    assertTrue(toolchain.supportsGoldLinker());
-    assertFalse(toolchain.supportsStartEndLib());
-    assertFalse(toolchain.supportsInterfaceSharedObjects());
-    assertFalse(toolchain.supportsEmbeddedRuntimes());
-    assertFalse(toolchain.toolchainNeedsPic());
-    assertTrue(toolchain.supportsFission());
+    assertThat(toolchain.supportsGoldLinker()).isTrue();
+    assertThat(toolchain.supportsStartEndLib()).isFalse();
+    assertThat(toolchain.supportsInterfaceSharedObjects()).isFalse();
+    assertThat(toolchain.supportsEmbeddedRuntimes()).isFalse();
+    assertThat(toolchain.toolchainNeedsPic()).isFalse();
+    assertThat(toolchain.supportsFission()).isTrue();
 
-    assertEquals(
-        ImmutableList.of(getToolPath("/system-include-dir")),
-        toolchain.getBuiltInIncludeDirectories());
-    assertNull(toolchain.getSysroot());
+    assertThat(ccProvider.getBuiltInIncludeDirectories())
+        .containsExactly(getToolPath("/system-include-dir"));
+    assertThat(ccProvider.getSysroot()).isNull();
 
-    assertEquals(Arrays.asList("c", "fastbuild"), toolchain.getCompilerOptions(NO_FEATURES));
-    assertEquals(Arrays.<String>asList(), toolchain.getCOptions());
-    assertEquals(Arrays.asList("cxx", "cxx-fastbuild"), toolchain.getCxxOptions(NO_FEATURES));
-    assertEquals(Arrays.asList("unfiltered"), toolchain.getUnfilteredCompilerOptions(NO_FEATURES));
+    assertThat(toolchain.getCompilerOptions(NO_FEATURES))
+        .containsExactly("c", "fastbuild")
+        .inOrder();
+    assertThat(toolchain.getCOptions()).isEmpty();
+    assertThat(toolchain.getCxxOptions(NO_FEATURES))
+        .containsExactly("cxx", "cxx-fastbuild")
+        .inOrder();
+    assertThat(ccProvider.getUnfilteredCompilerOptions(NO_FEATURES))
+        .containsExactly("unfiltered")
+        .inOrder();
 
-    assertEquals(Arrays.<String>asList(), toolchain.getLinkOptions());
-    assertEquals(
-        Arrays.asList("linker", "linker-fastbuild", "fully static"),
-        toolchain.getFullyStaticLinkOptions(NO_FEATURES, false));
-    assertEquals(
-        Arrays.asList("linker", "linker-fastbuild", "dynamic"),
-        toolchain.getDynamicLinkOptions(NO_FEATURES, false));
-    assertEquals(
-        Arrays.asList("linker", "linker-fastbuild", "mostly static", "solinker"),
-        toolchain.getFullyStaticLinkOptions(NO_FEATURES, true));
-    assertEquals(
-        Arrays.asList("linker", "linker-fastbuild", "dynamic", "solinker"),
-        toolchain.getDynamicLinkOptions(NO_FEATURES, true));
+    assertThat(ccProvider.getLinkOptions()).isEmpty();
+    assertThat(toolchain.getFullyStaticLinkOptions(NO_FEATURES, false))
+        .containsExactly("linker", "linker-fastbuild", "fully static")
+        .inOrder();
+    assertThat(toolchain.getDynamicLinkOptions(NO_FEATURES, false))
+        .containsExactly("linker", "linker-fastbuild", "dynamic")
+        .inOrder();
+    assertThat(toolchain.getFullyStaticLinkOptions(NO_FEATURES, true))
+        .containsExactly("linker", "linker-fastbuild", "mostly static", "solinker")
+        .inOrder();
+    assertThat(toolchain.getDynamicLinkOptions(NO_FEATURES, true))
+        .containsExactly("linker", "linker-fastbuild", "dynamic", "solinker")
+        .inOrder();
 
-    assertEquals(Arrays.asList("objcopy"), toolchain.getObjCopyOptionsForEmbedding());
-    assertEquals(Arrays.<String>asList(), toolchain.getLdOptionsForEmbedding());
-    assertEquals(Arrays.asList("rcsD"), toolchain.getArFlags());
+    assertThat(toolchain.getObjCopyOptionsForEmbedding()).containsExactly("objcopy").inOrder();
+    assertThat(toolchain.getLdOptionsForEmbedding()).isEmpty();
 
     assertThat(toolchain.getAdditionalMakeVariables().entrySet())
         .containsExactlyElementsIn(
@@ -233,8 +237,8 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                     "CC_FLAGS", "")
                 .entrySet());
 
-    assertEquals(getToolPath("/path-to-ld"), toolchain.getLdExecutable());
-    assertEquals(getToolPath("/path-to-dwp"), toolchain.getToolPathFragment(Tool.DWP));
+    assertThat(toolchain.getLdExecutable()).isEqualTo(getToolPath("/path-to-ld"));
+    assertThat(toolchain.getToolPathFragment(Tool.DWP)).isEqualTo(getToolPath("/path-to-dwp"));
   }
 
   /**
@@ -297,7 +301,6 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                 + "  objcopy_embed_flag: \"objcopy-embed-flag-A-2\"\n"
                 + "  ld_embed_flag: \"ld-embed-flag-A-1\"\n"
                 + "  ld_embed_flag: \"ld-embed-flag-A-2\"\n"
-                + "  ar_flag : \"ar-flag-A\"\n"
                 + "  compilation_mode_flags {\n"
                 + "    mode: FASTBUILD\n"
                 + "    compiler_flag: \"fastbuild-flag-A-1\"\n"
@@ -389,7 +392,6 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                 + "  objcopy_embed_flag: \"objcopy-embed-flag-B-2\"\n"
                 + "  ld_embed_flag: \"ld-embed-flag-B-1\"\n"
                 + "  ld_embed_flag: \"ld-embed-flag-B-2\"\n"
-                + "  ar_flag : \"ar-flag-B\"\n"
                 + "  compilation_mode_flags {\n"
                 + "    mode: FASTBUILD\n"
                 + "    compiler_flag: \"fastbuild-flag-B-1\"\n"
@@ -482,109 +484,111 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
         "licenses(['unencumbered'])",
         "filegroup(name = 'everything')");
 
-    CppConfiguration toolchainA = create(loader, "--cpu=piii");
-    assertEquals("toolchain-identifier-A", toolchainA.getToolchainIdentifier());
-    assertEquals("host-system-name-A", toolchainA.getHostSystemName());
-    assertEquals("target-system-name-A", toolchainA.getTargetGnuSystemName());
-    assertEquals("piii", toolchainA.getTargetCpu());
-    assertEquals("target-libc-A", toolchainA.getTargetLibc());
-    assertEquals("compiler-A", toolchainA.getCompiler());
-    assertEquals("abi-version-A", toolchainA.getAbi());
-    assertEquals("abi-libc-version-A", toolchainA.getAbiGlibcVersion());
-    assertEquals(getToolPath("path/to/ar-A"), toolchainA.getToolPathFragment(Tool.AR));
-    assertEquals(getToolPath("path/to/cpp-A"), toolchainA.getToolPathFragment(Tool.CPP));
-    assertEquals(getToolPath("path/to/gcc-A"), toolchainA.getToolPathFragment(Tool.GCC));
-    assertEquals(getToolPath("path/to/gcov-A"), toolchainA.getToolPathFragment(Tool.GCOV));
-    assertEquals(getToolPath("path/to/ld-A"), toolchainA.getToolPathFragment(Tool.LD));
-    assertEquals(getToolPath("path/to/nm-A"), toolchainA.getToolPathFragment(Tool.NM));
-    assertEquals(getToolPath("path/to/objcopy-A"), toolchainA.getToolPathFragment(Tool.OBJCOPY));
-    assertEquals(getToolPath("path/to/objdump-A"), toolchainA.getToolPathFragment(Tool.OBJDUMP));
-    assertEquals(getToolPath("path/to/strip-A"), toolchainA.getToolPathFragment(Tool.STRIP));
-    assertTrue(toolchainA.supportsGoldLinker());
-    assertTrue(toolchainA.supportsStartEndLib());
-    assertTrue(toolchainA.supportsEmbeddedRuntimes());
-    assertTrue(toolchainA.toolchainNeedsPic());
+    // Need to clear out the android cpu options to avoid this split transition in Bazel.
+    CppConfiguration toolchainA =
+        create(loader, "--cpu=piii", "--host_cpu=piii", "--android_cpu=", "--fat_apk_cpu=");
+    ConfiguredTarget ccToolchainA = getCcToolchainTarget(toolchainA);
+    CcToolchainProvider ccProviderA = ccToolchainA.getProvider(CcToolchainProvider.class);
+    MakeVariableProvider makeProviderA = ccToolchainA.getProvider(MakeVariableProvider.class);
+    assertThat(toolchainA.getToolchainIdentifier()).isEqualTo("toolchain-identifier-A");
+    assertThat(toolchainA.getHostSystemName()).isEqualTo("host-system-name-A");
+    assertThat(toolchainA.getTargetGnuSystemName()).isEqualTo("target-system-name-A");
+    assertThat(toolchainA.getTargetCpu()).isEqualTo("piii");
+    assertThat(toolchainA.getTargetLibc()).isEqualTo("target-libc-A");
+    assertThat(toolchainA.getCompiler()).isEqualTo("compiler-A");
+    assertThat(toolchainA.getAbi()).isEqualTo("abi-version-A");
+    assertThat(toolchainA.getAbiGlibcVersion()).isEqualTo("abi-libc-version-A");
+    assertThat(toolchainA.getToolPathFragment(Tool.AR)).isEqualTo(getToolPath("path/to/ar-A"));
+    assertThat(toolchainA.getToolPathFragment(Tool.CPP)).isEqualTo(getToolPath("path/to/cpp-A"));
+    assertThat(toolchainA.getToolPathFragment(Tool.GCC)).isEqualTo(getToolPath("path/to/gcc-A"));
+    assertThat(toolchainA.getToolPathFragment(Tool.GCOV)).isEqualTo(getToolPath("path/to/gcov-A"));
+    assertThat(toolchainA.getToolPathFragment(Tool.LD)).isEqualTo(getToolPath("path/to/ld-A"));
+    assertThat(toolchainA.getToolPathFragment(Tool.NM)).isEqualTo(getToolPath("path/to/nm-A"));
+    assertThat(toolchainA.getToolPathFragment(Tool.OBJCOPY))
+        .isEqualTo(getToolPath("path/to/objcopy-A"));
+    assertThat(toolchainA.getToolPathFragment(Tool.OBJDUMP))
+        .isEqualTo(getToolPath("path/to/objdump-A"));
+    assertThat(toolchainA.getToolPathFragment(Tool.STRIP))
+        .isEqualTo(getToolPath("path/to/strip-A"));
+    assertThat(toolchainA.supportsGoldLinker()).isTrue();
+    assertThat(toolchainA.supportsStartEndLib()).isTrue();
+    assertThat(toolchainA.supportsEmbeddedRuntimes()).isTrue();
+    assertThat(toolchainA.toolchainNeedsPic()).isTrue();
 
-    assertEquals(
-        Arrays.asList(
-            "compiler-flag-A-1", "compiler-flag-A-2", "fastbuild-flag-A-1", "fastbuild-flag-A-2"),
-        toolchainA.getCompilerOptions(NO_FEATURES));
-    assertEquals(
-        Arrays.asList(
-            "cxx-flag-A-1", "cxx-flag-A-2", "cxx-fastbuild-flag-A-1", "cxx-fastbuild-flag-A-2"),
-        toolchainA.getCxxOptions(NO_FEATURES));
-    assertEquals(
-        Arrays.asList("--sysroot=some", "unfiltered-flag-A-1", "unfiltered-flag-A-2"),
-        toolchainA.getUnfilteredCompilerOptions(NO_FEATURES));
-    assertEquals(
-        Arrays.asList(
+    assertThat(toolchainA.getCompilerOptions(NO_FEATURES))
+        .containsExactly(
+            "compiler-flag-A-1", "compiler-flag-A-2", "fastbuild-flag-A-1", "fastbuild-flag-A-2")
+        .inOrder();
+    assertThat(toolchainA.getCxxOptions(NO_FEATURES))
+        .containsExactly(
+            "cxx-flag-A-1", "cxx-flag-A-2", "cxx-fastbuild-flag-A-1", "cxx-fastbuild-flag-A-2")
+        .inOrder();
+    assertThat(ccProviderA.getUnfilteredCompilerOptions(NO_FEATURES))
+        .containsExactly("--sysroot=some", "unfiltered-flag-A-1", "unfiltered-flag-A-2")
+        .inOrder();
+    assertThat(toolchainA.getDynamicLinkOptions(NO_FEATURES, true))
+        .containsExactly(
             "linker-flag-A-1",
             "linker-flag-A-2",
             "linker-fastbuild-flag-A-1",
             "linker-fastbuild-flag-A-2",
             "solinker-flag-A-1",
-            "solinker-flag-A-2"),
-        toolchainA.getDynamicLinkOptions(NO_FEATURES, true));
+            "solinker-flag-A-2")
+        .inOrder();
 
     // Only test a couple of compilation/lipo/linking mode combinations
     // (but test each mode at least once.)
-    assertEquals(
-        Arrays.asList(
+    assertThat(
+            toolchainA.configureLinkerOptions(
+                CompilationMode.FASTBUILD,
+                LipoMode.OFF,
+                LinkingMode.FULLY_STATIC,
+                PathFragment.create("hello-world/ld")))
+        .containsExactly(
             "linker-flag-A-1",
             "linker-flag-A-2",
             "linker-fastbuild-flag-A-1",
             "linker-fastbuild-flag-A-2",
             "fully-static-flag-A-1",
-            "fully-static-flag-A-2"),
-        toolchainA.configureLinkerOptions(
-            CompilationMode.FASTBUILD,
-            LipoMode.OFF,
-            LinkingMode.FULLY_STATIC,
-            PathFragment.create("hello-world/ld")));
-    assertEquals(
-        Arrays.asList(
-            "linker-flag-A-1",
-            "linker-flag-A-2",
-            "linker-dbg-flag-A-1",
-            "linker-dbg-flag-A-2"),
-        toolchainA.configureLinkerOptions(
-            CompilationMode.DBG,
-            LipoMode.OFF,
-            LinkingMode.DYNAMIC,
-            PathFragment.create("hello-world/ld")));
-    assertEquals(
-        Arrays.asList(
-            "linker-flag-A-1",
-            "linker-flag-A-2",
-            "fully-static-flag-A-1",
-            "fully-static-flag-A-2"),
-        toolchainA.configureLinkerOptions(
-            CompilationMode.OPT,
-            LipoMode.OFF,
-            LinkingMode.FULLY_STATIC,
-            PathFragment.create("hello-world/ld")));
+            "fully-static-flag-A-2")
+        .inOrder();
+    assertThat(
+            toolchainA.configureLinkerOptions(
+                CompilationMode.DBG,
+                LipoMode.OFF,
+                LinkingMode.DYNAMIC,
+                PathFragment.create("hello-world/ld")))
+        .containsExactly(
+            "linker-flag-A-1", "linker-flag-A-2", "linker-dbg-flag-A-1", "linker-dbg-flag-A-2")
+        .inOrder();
+    assertThat(
+            toolchainA.configureLinkerOptions(
+                CompilationMode.OPT,
+                LipoMode.OFF,
+                LinkingMode.FULLY_STATIC,
+                PathFragment.create("hello-world/ld")))
+        .containsExactly(
+            "linker-flag-A-1", "linker-flag-A-2", "fully-static-flag-A-1", "fully-static-flag-A-2")
+        .inOrder();
 
-    assertEquals(
-        Arrays.asList(
-            "linker-flag-A-1",
-            "linker-flag-A-2",
-            "fully-static-flag-A-1",
-            "fully-static-flag-A-2"),
-        toolchainA.configureLinkerOptions(
-            CompilationMode.OPT,
-            LipoMode.BINARY,
-            LinkingMode.FULLY_STATIC,
-            PathFragment.create("hello-world/ld")));
+    assertThat(
+            toolchainA.configureLinkerOptions(
+                CompilationMode.OPT,
+                LipoMode.BINARY,
+                LinkingMode.FULLY_STATIC,
+                PathFragment.create("hello-world/ld")))
+        .containsExactly(
+            "linker-flag-A-1", "linker-flag-A-2", "fully-static-flag-A-1", "fully-static-flag-A-2")
+        .inOrder();
 
-    assertEquals(
-        Arrays.asList("objcopy-embed-flag-A-1", "objcopy-embed-flag-A-2"),
-        toolchainA.getObjCopyOptionsForEmbedding());
-    assertEquals(
-        Arrays.asList("ld-embed-flag-A-1", "ld-embed-flag-A-2"),
-        toolchainA.getLdOptionsForEmbedding());
-    assertEquals(Arrays.asList("ar-flag-A"), toolchainA.getArFlags());
+    assertThat(toolchainA.getObjCopyOptionsForEmbedding())
+        .containsExactly("objcopy-embed-flag-A-1", "objcopy-embed-flag-A-2")
+        .inOrder();
+    assertThat(toolchainA.getLdOptionsForEmbedding())
+        .containsExactly("ld-embed-flag-A-1", "ld-embed-flag-A-2")
+        .inOrder();
 
-    assertThat(toolchainA.getAdditionalMakeVariables().entrySet())
+    assertThat(makeProviderA.getMakeVariables().entrySet())
         .containsExactlyElementsIn(
             ImmutableMap.<String, String>builder()
                 .put("SOME_MAKE_VARIABLE-A-1", "make-variable-value-A-1")
@@ -593,11 +597,11 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                 .put("STACK_FRAME_UNLIMITED", "")
                 .build()
                 .entrySet());
-    assertEquals(
-        Arrays.asList(
-            getToolPath("/system-include-dir-A-1"), getToolPath("/system-include-dir-A-2")),
-        toolchainA.getBuiltInIncludeDirectories());
-    assertEquals(PathFragment.create("some"), toolchainA.getSysroot());
+    assertThat(ccProviderA.getBuiltInIncludeDirectories())
+        .containsExactly(
+            getToolPath("/system-include-dir-A-1"), getToolPath("/system-include-dir-A-2"))
+        .inOrder();
+    assertThat(ccProviderA.getSysroot()).isEqualTo(PathFragment.create("some"));
 
     // Cursory testing of the "B" toolchain only; assume that if none of
     // toolchain B bled through into toolchain A, the reverse also didn't occur. And
@@ -607,62 +611,67 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
 
     // Make sure nothing bled through to the nearly-empty "C" toolchain. This is also testing for
     // all the defaults.
+    // Need to clear out the android cpu options to avoid this split transition in Bazel.
     CppConfiguration toolchainC =
-        create(loader, "--compiler=compiler-C", "--glibc=target-libc-C", "--cpu=piii");
-    assertEquals("toolchain-identifier-C", toolchainC.getToolchainIdentifier());
-    assertEquals("host-system-name-C", toolchainC.getHostSystemName());
-    assertEquals("target-system-name-C", toolchainC.getTargetGnuSystemName());
-    assertEquals("piii", toolchainC.getTargetCpu());
-    assertEquals("target-libc-C", toolchainC.getTargetLibc());
-    assertEquals("compiler-C", toolchainC.getCompiler());
-    assertEquals("abi-version-C", toolchainC.getAbi());
-    assertEquals("abi-libc-version-C", toolchainC.getAbiGlibcVersion());
+        create(
+            loader,
+            "--compiler=compiler-C",
+            "--glibc=target-libc-C",
+            "--cpu=piii",
+            "--host_cpu=piii",
+            "--android_cpu=",
+            "--fat_apk_cpu=");
+    CcToolchainProvider ccProviderC = getCcToolchainProvider(toolchainC);
+    assertThat(toolchainC.getToolchainIdentifier()).isEqualTo("toolchain-identifier-C");
+    assertThat(toolchainC.getHostSystemName()).isEqualTo("host-system-name-C");
+    assertThat(toolchainC.getTargetGnuSystemName()).isEqualTo("target-system-name-C");
+    assertThat(toolchainC.getTargetCpu()).isEqualTo("piii");
+    assertThat(toolchainC.getTargetLibc()).isEqualTo("target-libc-C");
+    assertThat(toolchainC.getCompiler()).isEqualTo("compiler-C");
+    assertThat(toolchainC.getAbi()).isEqualTo("abi-version-C");
+    assertThat(toolchainC.getAbiGlibcVersion()).isEqualTo("abi-libc-version-C");
     // Don't bother with testing the list of tools again.
-    assertFalse(toolchainC.supportsGoldLinker());
-    assertFalse(toolchainC.supportsStartEndLib());
-    assertFalse(toolchainC.supportsInterfaceSharedObjects());
-    assertFalse(toolchainC.supportsEmbeddedRuntimes());
-    assertFalse(toolchainC.toolchainNeedsPic());
-    assertFalse(toolchainC.supportsFission());
+    assertThat(toolchainC.supportsGoldLinker()).isFalse();
+    assertThat(toolchainC.supportsStartEndLib()).isFalse();
+    assertThat(toolchainC.supportsInterfaceSharedObjects()).isFalse();
+    assertThat(toolchainC.supportsEmbeddedRuntimes()).isFalse();
+    assertThat(toolchainC.toolchainNeedsPic()).isFalse();
+    assertThat(toolchainC.supportsFission()).isFalse();
 
     assertThat(toolchainC.getCompilerOptions(NO_FEATURES)).isEmpty();
     assertThat(toolchainC.getCOptions()).isEmpty();
     assertThat(toolchainC.getCxxOptions(NO_FEATURES)).isEmpty();
-    assertThat(toolchainC.getUnfilteredCompilerOptions(NO_FEATURES)).isEmpty();
-    assertEquals(Collections.EMPTY_LIST, toolchainC.getDynamicLinkOptions(NO_FEATURES, true));
-    assertEquals(
-        Collections.EMPTY_LIST,
-        toolchainC.configureLinkerOptions(
-            CompilationMode.FASTBUILD,
-            LipoMode.OFF,
-            LinkingMode.FULLY_STATIC,
-            PathFragment.create("hello-world/ld")));
-    assertEquals(
-        Collections.EMPTY_LIST,
-        toolchainC.configureLinkerOptions(
-            CompilationMode.DBG,
-            LipoMode.OFF,
-            LinkingMode.DYNAMIC,
-            PathFragment.create("hello-world/ld")));
-    assertEquals(
-        Collections.EMPTY_LIST,
-        toolchainC.configureLinkerOptions(
-            CompilationMode.OPT,
-            LipoMode.OFF,
-            LinkingMode.FULLY_STATIC,
-            PathFragment.create("hello-world/ld")));
+    assertThat(ccProviderC.getUnfilteredCompilerOptions(NO_FEATURES)).isEmpty();
+    assertThat(toolchainC.getDynamicLinkOptions(NO_FEATURES, true)).isEmpty();
+    assertThat(
+            toolchainC.configureLinkerOptions(
+                CompilationMode.FASTBUILD,
+                LipoMode.OFF,
+                LinkingMode.FULLY_STATIC,
+                PathFragment.create("hello-world/ld")))
+        .isEmpty();
+    assertThat(
+            toolchainC.configureLinkerOptions(
+                CompilationMode.DBG,
+                LipoMode.OFF,
+                LinkingMode.DYNAMIC,
+                PathFragment.create("hello-world/ld")))
+        .isEmpty();
+    assertThat(
+            toolchainC.configureLinkerOptions(
+                CompilationMode.OPT,
+                LipoMode.OFF,
+                LinkingMode.FULLY_STATIC,
+                PathFragment.create("hello-world/ld")))
+        .isEmpty();
     assertThat(toolchainC.getObjCopyOptionsForEmbedding()).isEmpty();
     assertThat(toolchainC.getLdOptionsForEmbedding()).isEmpty();
 
-    assertThat(toolchainC.getAdditionalMakeVariables().entrySet())
-        .containsExactlyElementsIn(
-            ImmutableMap.<String, String>builder()
-                .put("CC_FLAGS", "")
-                .put("STACK_FRAME_UNLIMITED", "")
-                .build()
-                .entrySet());
-    assertThat(toolchainC.getBuiltInIncludeDirectories()).isEmpty();
-    assertNull(toolchainC.getSysroot());
+    assertThat(toolchainC.getAdditionalMakeVariables()).containsExactlyEntriesIn(ImmutableMap.of(
+        "CC_FLAGS", "",
+        "STACK_FRAME_UNLIMITED", ""));
+    assertThat(ccProviderC.getBuiltInIncludeDirectories()).isEmpty();
+    assertThat(ccProviderC.getSysroot()).isNull();
   }
 
   protected PathFragment getToolPath(String path) throws LabelSyntaxException {
@@ -679,28 +688,29 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
       throws Exception {
     String lipoSuffix = lipoMode.toString().toLowerCase();
     CppConfiguration toolchainB = create(loader, args);
-    assertEquals("toolchain-identifier-B", toolchainB.getToolchainIdentifier());
-    assertEquals(
-        Arrays.asList(
+    assertThat(toolchainB.getToolchainIdentifier()).isEqualTo("toolchain-identifier-B");
+    assertThat(
+            toolchainB.configureLinkerOptions(
+                CompilationMode.DBG,
+                lipoMode,
+                LinkingMode.DYNAMIC,
+                PathFragment.create("hello-world/ld")))
+        .containsExactly(
             "linker-flag-B-1",
             "linker-flag-B-2",
             "linker-dbg-flag-B-1",
             "linker-dbg-flag-B-2",
-            "linker-lipo_" + lipoSuffix),
-        toolchainB.configureLinkerOptions(
-            CompilationMode.DBG,
-            lipoMode,
-            LinkingMode.DYNAMIC,
-            PathFragment.create("hello-world/ld")));
-    assertEquals(
-        ImmutableList.<String>of(
+            "linker-lipo_" + lipoSuffix)
+        .inOrder();
+    assertThat(toolchainB.getCompilerOptions(ImmutableList.of("crosstool_fig")))
+        .containsExactly(
             "compiler-flag-B-1",
             "compiler-flag-B-2",
             "fastbuild-flag-B-1",
             "fastbuild-flag-B-2",
             "lipo_" + lipoSuffix,
-            "-Wfig"),
-        toolchainB.getCompilerOptions(ImmutableList.of("crosstool_fig")));
+            "-Wfig")
+        .inOrder();
   }
 
   /**
@@ -787,28 +797,26 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                 + "}");
 
     // Uses the default toolchain for k8.
-    assertEquals("toolchain-identifier-BB", create(loader, "--cpu=k8").getToolchainIdentifier());
+    assertThat(create(loader, "--cpu=k8").getToolchainIdentifier())
+        .isEqualTo("toolchain-identifier-BB");
     // Does not default to --cpu=k8; if no --cpu flag is present, Bazel defaults to the host cpu!
-    assertEquals(
-        "toolchain-identifier-BA",
-        create(loader, "--cpu=k8", "--compiler=compiler-A", "--glibc=target-libc-B")
-            .getToolchainIdentifier());
+    assertThat(
+            create(loader, "--cpu=k8", "--compiler=compiler-A", "--glibc=target-libc-B")
+                .getToolchainIdentifier())
+        .isEqualTo("toolchain-identifier-BA");
     // Uses the default toolchain for piii.
-    assertEquals(
-        "toolchain-identifier-AA-piii", create(loader, "--cpu=piii").getToolchainIdentifier());
+    assertThat(create(loader, "--cpu=piii").getToolchainIdentifier())
+        .isEqualTo("toolchain-identifier-AA-piii");
 
     // We can select the unique piii toolchain with either its compiler or glibc.
-    assertEquals(
-        "toolchain-identifier-AA-piii",
-        create(loader, "--cpu=piii", "--compiler=compiler-A").getToolchainIdentifier());
-    assertEquals(
-        "toolchain-identifier-AA-piii",
-        create(loader, "--cpu=piii", "--glibc=target-libc-A").getToolchainIdentifier());
+    assertThat(create(loader, "--cpu=piii", "--compiler=compiler-A").getToolchainIdentifier())
+        .isEqualTo("toolchain-identifier-AA-piii");
+    assertThat(create(loader, "--cpu=piii", "--glibc=target-libc-A").getToolchainIdentifier())
+        .isEqualTo("toolchain-identifier-AA-piii");
 
     // compiler-C uniquely identifies a toolchain, so we can use it.
-    assertEquals(
-        "toolchain-identifier-BC",
-        create(loader, "--cpu=k8", "--compiler=compiler-C").getToolchainIdentifier());
+    assertThat(create(loader, "--cpu=k8", "--compiler=compiler-C").getToolchainIdentifier())
+        .isEqualTo("toolchain-identifier-BC");
 
     try {
       create(loader, "--cpu=k8", "--compiler=nonexistent-compiler");
@@ -903,7 +911,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
       create(loader, "--cpu=cpu");
       fail();
     } catch (IllegalArgumentException e) {
-      assertThat(e.getMessage()).contains("Tool path for 'strip' is missing");
+      assertThat(e).hasMessageThat().contains("Tool path for 'strip' is missing");
     }
   }
 
@@ -918,7 +926,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
       create(loader, "--cpu=cpu");
       fail("Expected failed check on 'dwp' tool path");
     } catch (IllegalArgumentException e) {
-      assertThat(e.getMessage()).contains("Tool path for 'dwp' is missing");
+      assertThat(e).hasMessageThat().contains("Tool path for 'dwp' is missing");
     }
   }
 
@@ -994,14 +1002,16 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
       ctTop = PackageIdentifier.createInMainRepo(ctTop.getPackageFragment());
     }
     CppConfiguration defaultLibs = create(loader, "--cpu=piii");
-    assertEquals(
-        Label.create(ctTop, "static-runtime-libs-piii"), defaultLibs.getStaticRuntimeLibsLabel());
-    assertEquals(
-        Label.create(ctTop, "dynamic-runtime-libs-piii"), defaultLibs.getDynamicRuntimeLibsLabel());
+    assertThat(defaultLibs.getStaticRuntimeLibsLabel())
+        .isEqualTo(Label.create(ctTop, "static-runtime-libs-piii"));
+    assertThat(defaultLibs.getDynamicRuntimeLibsLabel())
+        .isEqualTo(Label.create(ctTop, "dynamic-runtime-libs-piii"));
 
     CppConfiguration customLibs = create(loader, "--cpu=k8");
-    assertEquals(Label.create(ctTop, "static-group"), customLibs.getStaticRuntimeLibsLabel());
-    assertEquals(Label.create(ctTop, "dynamic-group"), customLibs.getDynamicRuntimeLibsLabel());
+    assertThat(customLibs.getStaticRuntimeLibsLabel())
+        .isEqualTo(Label.create(ctTop, "static-group"));
+    assertThat(customLibs.getDynamicRuntimeLibsLabel())
+        .isEqualTo(Label.create(ctTop, "dynamic-group"));
   }
 
   /*
@@ -1016,7 +1026,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     CppConfiguration cppConfig = create(loader, "--cpu=cpu");
     ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
     cppConfig.addGlobalMakeVariables(builder);
-    assertNotNull(builder.build().get("GCOVTOOL"));
+    assertThat(builder.build().get("GCOVTOOL")).isNotNull();
 
     // Crosstool without gcov-tool
     loader = loaderWithOptionalTool("");

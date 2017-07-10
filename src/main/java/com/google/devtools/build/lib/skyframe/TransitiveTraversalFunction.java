@@ -81,8 +81,13 @@ public class TransitiveTraversalFunction
     }
   }
 
-  protected Collection<Label> getAspectLabels(Rule fromRule, Attribute attr, Label toLabel,
-      ValueOrException2<NoSuchPackageException, NoSuchTargetException> toVal, Environment env) {
+  @Override
+  protected Collection<Label> getAspectLabels(
+      Rule fromRule,
+      Attribute attr,
+      Label toLabel,
+      ValueOrException2<NoSuchPackageException, NoSuchTargetException> toVal,
+      Environment env) {
     try {
       if (toVal == null) {
         return ImmutableList.of();
@@ -110,7 +115,8 @@ public class TransitiveTraversalFunction
     String firstErrorMessage = accumulator.getFirstErrorMessage();
     return targetLoadedSuccessfully
         ? TransitiveTraversalValue.forTarget(targetAndErrorIfAny.getTarget(), firstErrorMessage)
-        : TransitiveTraversalValue.unsuccessfulTransitiveTraversal(firstErrorMessage);
+        : TransitiveTraversalValue.unsuccessfulTransitiveTraversal(
+            firstErrorMessage, targetAndErrorIfAny.getTarget());
   }
 
   @Override

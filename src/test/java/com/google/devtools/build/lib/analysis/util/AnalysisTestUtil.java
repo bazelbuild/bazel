@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollectio
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -157,6 +158,11 @@ public final class AnalysisTestUtil {
     }
 
     @Override
+    public SkylarkSemanticsOptions getSkylarkSemantics() throws InterruptedException {
+      return original.getSkylarkSemantics();
+    }
+
+    @Override
     public Artifact getStableWorkspaceStatusArtifact() throws InterruptedException {
       return original.getStableWorkspaceStatusArtifact();
     }
@@ -240,6 +246,11 @@ public final class AnalysisTestUtil {
 
       DummyWorkspaceStatusAction that = (DummyWorkspaceStatusAction) o;
       return that.key.equals(this.key);
+    }
+
+    @Override
+    public int hashCode() {
+      return key.hashCode();
     }
   }
 
@@ -335,6 +346,11 @@ public final class AnalysisTestUtil {
 
     @Override
     public SkyFunction.Environment getSkyframeEnv() {
+      return null;
+    }
+
+    @Override
+    public SkylarkSemanticsOptions getSkylarkSemantics() throws InterruptedException {
       return null;
     }
 

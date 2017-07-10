@@ -64,6 +64,7 @@ public class BazelPythonSemantics implements PythonSemantics {
 
   @Override
   public void collectRunfilesForBinary(RuleContext ruleContext, Builder builder, PyCommon common) {
+    addRuntime(ruleContext, builder);
   }
 
   @Override
@@ -131,13 +132,7 @@ public class BazelPythonSemantics implements PythonSemantics {
     String main = common.determineMainExecutableSource(/*withWorkspaceName=*/ true);
     Artifact executable = common.getExecutable();
     BazelPythonConfiguration config = ruleContext.getFragment(BazelPythonConfiguration.class);
-    String pythonBinary;
-
-    switch (common.getVersion()) {
-      case PY2: pythonBinary = config.getPython2Path(); break;
-      case PY3: pythonBinary = config.getPython3Path(); break;
-      default: throw new IllegalStateException();
-    }
+    String pythonBinary = getPythonBinary(ruleContext, config);
 
     if (!ruleContext.getConfiguration().buildPythonZip()) {
       ruleContext.registerAction(
@@ -207,7 +202,7 @@ public class BazelPythonSemantics implements PythonSemantics {
   }
 
   private static boolean isUnderWorkspace(PathFragment path) {
-    return !path.startsWith(PathFragment.create(Label.EXTERNAL_PATH_PREFIX));
+    return !path.startsWith(Label.EXTERNAL_PATH_PREFIX);
   }
 
   private static String getZipRunfilesPath(PathFragment path, PathFragment workspaceName) {
@@ -217,7 +212,7 @@ public class BazelPythonSemantics implements PythonSemantics {
       zipRunfilesPath = workspaceName.getRelative(path).normalize().toString();
     } else {
       // If the file is in external package, strip "external"
-      zipRunfilesPath = path.relativeTo(Label.EXTERNAL_PACKAGE_NAME).normalize().toString();
+      zipRunfilesPath = path.relativeTo(Label.EXTERNAL_PATH_PREFIX).normalize().toString();
     }
     // We put the whole runfiles tree under the ZIP_RUNFILES_DIRECTORY_NAME directory, by doing this
     // , we avoid the conflict between default workspace name "__main__" and __main__.py file.
@@ -289,4 +284,46 @@ public class BazelPythonSemantics implements PythonSemantics {
             .setMnemonic("PythonZipper")
             .build(ruleContext));
   }
+
+  private static void addRuntime(RuleContext ruleContext, Builder builder) {
+    BazelPyRuntimeProvider provider = ruleContext.getPrerequisite(
+        ":py_interpreter", Mode.TARGET, BazelPyRuntimeProvider.class);
+    if (provider != null && provider.interpreter() != null) {
+      builder.addArtifact(provider.interpreter());
+      // WARNING: we are adding the all Python runtime files here,
+      // and it would fail if the filenames of them contain spaces.
+      // Currently, we need to exclude them in py_runtime rules.
+      // Possible files in Python runtime which contain spaces in filenames:
+      // - https://github.com/pypa/setuptools/blob/master/setuptools/script%20(dev).tmpl
+      // - https://github.com/pypa/setuptools/blob/master/setuptools/command/launcher%20manifest.xml
+      builder.addTransitiveArtifacts(provider.files());
+    }
+  }
+
+  private static String getPythonBinary(
+      RuleContext ruleContext,
+      BazelPythonConfiguration config) {
+
+    String pythonBinary;
+
+    BazelPyRuntimeProvider provider = ruleContext.getPrerequisite(
+        ":py_interpreter", Mode.TARGET, BazelPyRuntimeProvider.class);
+
+    if (provider != null) {
+      // make use of py_runtime defined by --python_top
+      if (!provider.interpreterPath().isEmpty()) {
+        // absolute Python path in py_runtime
+        pythonBinary = provider.interpreterPath();
+      } else {
+        // checked in Python interpreter in py_runtime
+        pythonBinary = provider.interpreter().getExecPathString();
+      }
+    } else  {
+      // make use of the Python interpreter in an absolute path
+      pythonBinary = config.getPythonPath();
+    }
+
+    return pythonBinary;
+  }
+
 }

@@ -17,16 +17,17 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
-import static org.junit.Assert.assertNotNull;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.common.truth.Truth;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.OutputFileConfiguredTarget;
@@ -37,14 +38,30 @@ import com.google.devtools.build.lib.rules.android.deployinfo.AndroidDeployInfoO
 import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /** Common methods shared between Android related {@link BuildViewTestCase}s. */
 public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
+
+  @Override
+  protected ConfiguredRuleClassProvider getRuleClassProvider() {
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+    TestRuleClassProvider.addStandardRules(builder);
+    return builder
+        // TODO(b/35097211): Remove this once the new testing rules are released.
+        .addRuleDefinition(new AndroidDeviceScriptFixtureRule())
+        .addRuleDefinition(new AndroidHostServiceFixtureRule())
+        .addRuleDefinition(new AndroidInstrumentationRule())
+        .addRuleDefinition(new AndroidInstrumentationTestRule())
+        .build();
+  }
+
   protected Iterable<Artifact> getNativeLibrariesInApk(ConfiguredTarget target) {
     SpawnAction compressedUnsignedApkaction = getCompressedUnsignedApkAction(target);
     ImmutableList.Builder<Artifact> result = ImmutableList.builder();
@@ -117,9 +134,11 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
   }
 
   protected void assertProguardUsed(ConfiguredTarget binary) {
-    assertNotNull("proguard.jar is not in the rule output",
-        actionsTestUtil().getActionForArtifactEndingWith(
-            getFilesToBuild(binary), "_proguard.jar"));
+    assertWithMessage("proguard.jar is not in the rule output")
+        .that(
+            actionsTestUtil()
+                .getActionForArtifactEndingWith(getFilesToBuild(binary), "_proguard.jar"))
+        .isNotNull();
   }
 
   protected List<String> resourceArguments(ResourceContainer resource) {
@@ -244,5 +263,10 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
       actualPaths.add(actualFlagValue.split(":")[0].split("#"));
       Truth.assertThat(actualPaths.build()).containsAllIn(expectedPaths);
     }
+  }
+
+  protected static Set<Artifact> getNonToolInputs(Action action) {
+    return Sets.difference(
+        ImmutableSet.copyOf(action.getInputs()), ImmutableSet.copyOf(action.getTools()));
   }
 }

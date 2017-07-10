@@ -26,16 +26,13 @@ java_library(
 java_library(
     name = "javac",
     srcs = glob(
-        [
-            "javac/*.java",
-        ],
+        ["javac/*.java"],
         exclude = [
             "javac/JavacOptions.java",
         ],
     ),
     deps = [
         ":invalid_command_line_exception",
-        ":javac_options",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins",
         "//third_party:auto_value",
         "//third_party:guava",
@@ -128,19 +125,16 @@ load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library", "bo
 
 bootstrap_java_library(
     name = "skylark-deps",
+    srcs = ["//:bootstrap-derived-java-srcs"],
     jars = [
         "//third_party:auto_value-jars",
         "//third_party:bootstrap_guava_and_error_prone-jars",
         "//third_party:jsr305-jars",
         "//third_party/protobuf:protobuf-jars",
         "//third_party/java/jacoco:core-jars",
+        "//third_party/grpc:bootstrap-grpc-jars",
     ],
     neverlink_jars = ["//third_party/java/jdk/langtools:javac_jar"],
-    srcjars = [
-        "//src/main/protobuf:deps_java_proto_srcjar",
-        "//src/main/protobuf:worker_protocol_java_proto_srcjar",
-        "//src/main/protobuf:java_compilation_java_proto_srcjar",
-    ],
 )
 
 bootstrap_java_library(
@@ -189,7 +183,6 @@ bootstrap_java_binary(
     deps = [
         ":skylark-deps",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:bootstrap_jarhelper",
-        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/resourcejar:bootstrap_resourcejar",
     ],
 )
 
@@ -206,7 +199,6 @@ java_library(
         ":javac_options",
         ":optionsparser",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper",
-        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/resourcejar",
         "//src/main/protobuf:deps_java_proto",
         "//src/main/protobuf:java_compilation_java_proto",
         "//src/main/protobuf:worker_protocol_java_proto",
@@ -219,7 +211,6 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:srcs",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
-        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/resourcejar:srcs",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:srcs",
     ],
     visibility = ["//src/java_tools/buildjar:__pkg__"],

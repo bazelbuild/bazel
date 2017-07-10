@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.common.collect.ImmutableList;
@@ -24,6 +23,7 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -156,14 +156,7 @@ public class ActionLookupValue implements SkyValue {
   public static Map<Artifact, ActionAnalysisMetadata> getMapForConsistencyCheck(
       Map<Artifact, Integer> generatingActionIndex,
       final List<? extends ActionAnalysisMetadata> actions) {
-    return Maps.transformValues(
-        generatingActionIndex,
-        new Function<Integer, ActionAnalysisMetadata>() {
-          @Override
-          public ActionAnalysisMetadata apply(Integer index) {
-            return actions.get(index);
-          }
-        });
+    return Maps.transformValues(generatingActionIndex, actions::get);
   }
 
   /**
@@ -210,7 +203,7 @@ public class ActionLookupValue implements SkyValue {
     protected abstract SkyFunctionName getType();
 
     protected SkyKey getSkyKeyInternal() {
-      return SkyKey.create(getType(), this);
+      return LegacySkyKey.create(getType(), this);
     }
 
     /**

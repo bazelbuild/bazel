@@ -28,7 +28,6 @@ public class ForkJoinQuiescingExecutor extends AbstractQueueVisitor {
   private ForkJoinQuiescingExecutor(
       ForkJoinPool forkJoinPool, ErrorClassifier errorClassifier, boolean shutdownOnCompletion) {
     super(
-        /*concurrent=*/ true,
         forkJoinPool,
         shutdownOnCompletion,
         /*failFastOnException=*/ true,

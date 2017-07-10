@@ -36,7 +36,7 @@ public class RequiredProvidersTest {
   private static final class P3 {}
 
   private static final ClassObjectConstructor P_NATIVE =
-      new NativeClassObjectConstructor("p_native") {};
+      new NativeClassObjectConstructor<SkylarkClassObject>(SkylarkClassObject.class, "p_native") {};
 
   private static final SkylarkClassObjectConstructor P_SKYLARK =
       new SkylarkClassObjectConstructor("p_skylark", Location.BUILTIN);

@@ -13,12 +13,9 @@
 // limitations under the License.
 
 package com.google.devtools.build.lib.analysis;
+
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNotSame;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -51,8 +48,8 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         "          srcs = ['A.java'])");
     update("//java/a:A");
     ConfiguredTarget javaTest = getConfiguredTarget("//java/a:A");
-    assertNotNull(javaTest);
-    assertNotNull(javaTest.getProvider(JavaSourceJarsProvider.class));
+    assertThat(javaTest).isNotNull();
+    assertThat(javaTest.getProvider(JavaSourceJarsProvider.class)).isNotNull();
   }
 
   @Test
@@ -76,7 +73,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     ConfiguredTarget old = getConfiguredTarget("//java/a:A");
     update("//java/a:A");
     ConfiguredTarget current = getConfiguredTarget("//java/a:A");
-    assertSame(old, current);
+    assertThat(current).isSameAs(old);
   }
 
   @Test
@@ -90,7 +87,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     ConfiguredTarget old = getConfiguredTarget("//java/a:A");
     update("//java/a:A");
     ConfiguredTarget current = getConfiguredTarget("//java/a:A");
-    assertSame(old, current);
+    assertThat(current).isSameAs(old);
   }
 
   @Test
@@ -109,7 +106,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         "             srcs = ['C.java'])");
     update("//java/a:A");
     ConfiguredTarget current = getConfiguredTarget("//java/a:A");
-    assertNotSame(old, current);
+    assertThat(current).isNotSameAs(old);
   }
 
   @Test
@@ -128,7 +125,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         "          srcs = ['A.java'])");
     update("//java/a:A");
     ConfiguredTarget current = getConfiguredTarget("//java/a:A");
-    assertNotSame(old, current);
+    assertThat(current).isNotSameAs(old);
   }
 
   // Regression test for:
@@ -164,7 +161,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     update("//conflict:x");
     ConfiguredTarget conflict = getConfiguredTarget("//conflict:x");
     Action oldAction = getGeneratingAction(getBinArtifact("_objs/x/conflict/foo.pic.o", conflict));
-    assertEquals("//conflict:x", oldAction.getOwner().getLabel().toString());
+    assertThat(oldAction.getOwner().getLabel().toString()).isEqualTo("//conflict:x");
     scratch.overwriteFile("conflict/BUILD",
         "cc_library(name='newx', srcs=['foo.cc'])", // Rename target.
         "cc_binary(name='_objs/x/conflict/foo.pic.o', srcs=['bar.cc'])");
@@ -172,8 +169,8 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     ConfiguredTarget objsConflict = getConfiguredTarget("//conflict:_objs/x/conflict/foo.pic.o");
     Action newAction =
         getGeneratingAction(getBinArtifact("_objs/x/conflict/foo.pic.o", objsConflict));
-    assertEquals("//conflict:_objs/x/conflict/foo.pic.o",
-        newAction.getOwner().getLabel().toString());
+    assertThat(newAction.getOwner().getLabel().toString())
+        .isEqualTo("//conflict:_objs/x/conflict/foo.pic.o");
   }
 
   /**
@@ -265,7 +262,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
       matchCount++;
     }
 
-    assertEquals(5, matchCount);
+    assertThat(matchCount).isEqualTo(5);
   }
 
   /**
@@ -283,7 +280,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         "//conflict:x", "//conflict:_objs/x/conflict/foo.pic.o");
     ConfiguredTarget a = getConfiguredTarget("//conflict:x");
     ConfiguredTarget b = getConfiguredTarget("//conflict:_objs/x/conflict/foo.pic.o");
-    assertTrue(hasTopLevelAnalysisError(a) ^ hasTopLevelAnalysisError(b));
+    assertThat(hasTopLevelAnalysisError(a) ^ hasTopLevelAnalysisError(b)).isTrue();
   }
 
   /**
@@ -315,12 +312,12 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     reporter.addHandler(failFastHandler);
     update("//java/a:A");
     ConfiguredTarget current = getConfiguredTarget("//java/a:A");
-    assertNotSame(old, current);
+    assertThat(current).isNotSameAs(old);
   }
 
   private void assertNoTargetsVisited() {
     Set<?> analyzedTargets = getSkyframeEvaluatedTargetKeys();
-    assertEquals(analyzedTargets.toString(), 0, analyzedTargets.size());
+    assertWithMessage(analyzedTargets.toString()).that(analyzedTargets.size()).isEqualTo(0);
   }
 
   @Test
@@ -340,9 +337,9 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         "java_library(name = 'y', srcs = ['B.java'])");
     update("//java/a:x");
     Set<?> oldAnalyzedTargets = getSkyframeEvaluatedTargetKeys();
-    assertTrue(oldAnalyzedTargets.size() >= 2);  // could be greater due to implicit deps
-    assertEquals(1, countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:x"));
-    assertEquals(1, countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:y"));
+    assertThat(oldAnalyzedTargets.size()).isAtLeast(2); // could be greater due to implicit deps
+    assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:x")).isEqualTo(1);
+    assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:y")).isEqualTo(1);
     update("//java/a:y");
     assertNoTargetsVisited();
   }
@@ -357,14 +354,14 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         "java_library(name = 'z', srcs = ['C.java'])");
     update("//java/a:y");
     Set<?> oldAnalyzedTargets = getSkyframeEvaluatedTargetKeys();
-    assertTrue(oldAnalyzedTargets.size() >= 3);  // could be greater due to implicit deps
-    assertEquals(0, countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:x"));
-    assertEquals(1, countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:y"));
+    assertThat(oldAnalyzedTargets.size()).isAtLeast(3); // could be greater due to implicit deps
+    assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:x")).isEqualTo(0);
+    assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:y")).isEqualTo(1);
     update("//java/a:x");
     Set<?> newAnalyzedTargets = getSkyframeEvaluatedTargetKeys();
-    assertTrue(newAnalyzedTargets.size() >= 1);  // could be greater due to implicit deps
-    assertEquals(1, countObjectsPartiallyMatchingRegex(newAnalyzedTargets, "//java/a:x"));
-    assertEquals(0, countObjectsPartiallyMatchingRegex(newAnalyzedTargets, "//java/a:y"));
+    assertThat(newAnalyzedTargets).isNotEmpty(); // could be greater due to implicit deps
+    assertThat(countObjectsPartiallyMatchingRegex(newAnalyzedTargets, "//java/a:x")).isEqualTo(1);
+    assertThat(countObjectsPartiallyMatchingRegex(newAnalyzedTargets, "//java/a:y")).isEqualTo(0);
   }
 
   @Test
@@ -411,7 +408,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
       update("//java/a:a");
       fail();
     } catch (ViewCreationFailedException e) {
-      assertThat(e.getMessage()).contains("Analysis of target '//java/a:a' failed");
+      assertThat(e).hasMessageThat().contains("Analysis of target '//java/a:a' failed");
       assertContainsEvent("Unable to expand make variables: $(BUG)");
     }
   }
@@ -430,12 +427,12 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   public void testWorkspaceStatusCommandIsNotCachedForNullBuild() throws Exception {
     update();
     WorkspaceStatusAction actionA = getView().getLastWorkspaceBuildInfoActionForTesting();
-    assertEquals("DummyBuildInfoAction", actionA.getMnemonic());
+    assertThat(actionA.getMnemonic()).isEqualTo("DummyBuildInfoAction");
 
     workspaceStatusActionFactory.setKey("Second");
     update();
     WorkspaceStatusAction actionB = getView().getLastWorkspaceBuildInfoActionForTesting();
-    assertEquals("DummyBuildInfoActionSecond", actionB.getMnemonic());
+    assertThat(actionB.getMnemonic()).isEqualTo("DummyBuildInfoActionSecond");
   }
 
   @Test
@@ -453,11 +450,11 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
 
     update(aTarget);
     ConfiguredTarget updatedCT = getConfiguredTarget(aTarget);
-    assertNotSame(firstCT, updatedCT);
+    assertThat(updatedCT).isNotSameAs(firstCT);
 
     update(aTarget);
     ConfiguredTarget updated2CT = getConfiguredTarget(aTarget);
-    assertSame(updatedCT, updated2CT);
+    assertThat(updated2CT).isSameAs(updatedCT);
   }
 
   @Test
@@ -486,8 +483,8 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     ConfiguredTarget newAConfTarget = getConfiguredTarget(aTarget);
     ConfiguredTarget newBConfTarget = getConfiguredTarget(bTarget);
 
-    assertSame(oldAConfTarget, newAConfTarget);
-    assertNotSame(oldBConfTarget, newBConfTarget);
+    assertThat(newAConfTarget).isSameAs(oldAConfTarget);
+    assertThat(newBConfTarget).isNotSameAs(oldBConfTarget);
   }
 
   private int countObjectsPartiallyMatchingRegex(Iterable<? extends Object> elements,
@@ -512,11 +509,11 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
 
     update("//java/a:x");
     Set<?> oldAnalyzedTargets = getSkyframeEvaluatedTargetKeys();
-    assertTrue(oldAnalyzedTargets.size() >= 2);  // could be greater due to implicit deps
-    assertEquals(1, countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:x"));
-    assertEquals(0, countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:y"));
-    assertEquals(1, countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:z"));
-    assertEquals(1, countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:w"));
+    assertThat(oldAnalyzedTargets.size()).isAtLeast(2); // could be greater due to implicit deps
+    assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:x")).isEqualTo(1);
+    assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:y")).isEqualTo(0);
+    assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:z")).isEqualTo(1);
+    assertThat(countObjectsPartiallyMatchingRegex(oldAnalyzedTargets, "//java/a:w")).isEqualTo(1);
 
     // Unless the build is not fully cached, we get notified about newly evaluated targets, as well
     // as cached top-level targets. For the two tests above to work correctly, we need to ensure
@@ -524,7 +521,8 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     update("//java/a:x", "//java/a:y", "//java/a:z");
     Set<?> newAnalyzedTargets = getSkyframeEvaluatedTargetKeys();
     assertThat(newAnalyzedTargets).hasSize(2);
-    assertEquals(1, countObjectsPartiallyMatchingRegex(newAnalyzedTargets, "//java/a:B.java"));
-    assertEquals(1, countObjectsPartiallyMatchingRegex(newAnalyzedTargets, "//java/a:y"));
+    assertThat(countObjectsPartiallyMatchingRegex(newAnalyzedTargets, "//java/a:B.java"))
+        .isEqualTo(1);
+    assertThat(countObjectsPartiallyMatchingRegex(newAnalyzedTargets, "//java/a:y")).isEqualTo(1);
   }
 }

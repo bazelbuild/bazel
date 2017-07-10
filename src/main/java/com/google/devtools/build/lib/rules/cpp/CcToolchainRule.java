@@ -51,14 +51,14 @@ public final class CcToolchainRule implements RuleDefinition {
   private static final LateBoundLabel<BuildConfiguration> LIBC_TOP =
       new LateBoundLabel<BuildConfiguration>(CppConfiguration.class) {
         @Override
-        public Label resolve(
-            Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          return configuration.getFragment(CppConfiguration.class).getLibcLabel();
+        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+          return configuration.getFragment(CppConfiguration.class).getSysrootLabel();
         }
       };
 
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+    final Label zipper = env.getToolsLabel("//tools/zip:zipper");
     return builder
         .setUndocumented()
         .requiresConfigurationFragments(CppConfiguration.class)
@@ -86,8 +86,25 @@ public final class CcToolchainRule implements RuleDefinition {
                 .cfg(HOST)
                 .singleArtifact()
                 .value(env.getToolsLabel("//tools/cpp:link_dynamic_library")))
-        // TODO(bazel-team): Should be using the TARGET configuration.
-        .add(attr(":libc_top", LABEL).cfg(HOST).value(LIBC_TOP))
+        .add(
+            attr(":zipper", LABEL)
+                .cfg(HOST)
+                .singleArtifact()
+                .value(
+                    new LateBoundLabel<BuildConfiguration>() {
+                      @Override
+                      public Label resolve(
+                          Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+                        CppConfiguration cppConfiguration =
+                            configuration.getFragment(CppConfiguration.class);
+                        if (cppConfiguration.isLLVMOptimizedFdo()) {
+                          return zipper;
+                        } else {
+                          return null;
+                        }
+                      }
+                    }))
+        .add(attr(":libc_top", LABEL).value(LIBC_TOP))
         .add(
             attr(":lipo_context_collector", LABEL)
                 .cfg(LipoTransition.LIPO_COLLECTOR)

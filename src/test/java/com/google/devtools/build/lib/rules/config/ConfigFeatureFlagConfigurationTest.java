@@ -217,6 +217,20 @@ public final class ConfigFeatureFlagConfigurationTest {
   }
 
   @Test
+  public void getOutputDirectoryName_differentiatesLabelAndValue() throws Exception {
+    Map<Label, String> someFlags =
+        ImmutableMap.of(
+            Label.parseAbsoluteUnchecked("//a:a"), "firestarter",
+            Label.parseAbsoluteUnchecked("//b:b"), "second");
+    Map<Label, String> otherFlags =
+        ImmutableMap.of(
+            Label.parseAbsoluteUnchecked("//a:afire"), "starter",
+            Label.parseAbsoluteUnchecked("//b:b"), "second");
+    assertThat(getConfigurationWithFlags(otherFlags).getOutputDirectoryName())
+        .isNotEqualTo(getConfigurationWithFlags(someFlags).getOutputDirectoryName());
+  }
+
+  @Test
   public void getOutputDirectoryName_returnsDifferentValueForSubsetOfFlagValuePairs()
       throws Exception {
     Map<Label, String> someFlags = ImmutableMap.of(Label.parseAbsoluteUnchecked("//a:a"), "first");

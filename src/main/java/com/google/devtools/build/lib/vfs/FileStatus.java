@@ -65,14 +65,15 @@ public interface FileStatus {
   /**
    * Returns the last modified time of this file's data (milliseconds since
    * UNIX epoch).
+   *
+   * TODO(bazel-team): Unix actually gives us nanosecond resolution for mtime and ctime. Consider
+   * making use of this.
    */
   long getLastModifiedTime() throws IOException;
 
   /**
    * Returns the last change time of this file, where change means any change
    * to the file, including metadata changes (milliseconds since UNIX epoch).
-   *
-   * Note: UNIX uses seconds!
    */
   long getLastChangeTime() throws IOException;
 
@@ -83,5 +84,5 @@ public interface FileStatus {
    * <p>Think of this value as a reference to the underlying inode. "mv"ing file a to file b
    * ought to cause the node ID of b to change, but appending / modifying b should not.
    */
-  public long getNodeId() throws IOException;
+  long getNodeId() throws IOException;
 }

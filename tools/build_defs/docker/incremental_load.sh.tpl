@@ -68,7 +68,7 @@ function tag_layer() {
   if [ "$LEGACY_DOCKER" = true ]; then
     "${DOCKER}" tag -f ${name} ${TAG}
   else
-    "${DOCKER}" tag ${name} ${TAG}
+    "${DOCKER}" tag sha256:${name} ${TAG}
   fi
 }
 

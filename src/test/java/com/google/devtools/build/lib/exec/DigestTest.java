@@ -14,10 +14,8 @@
 
 package com.google.devtools.build.lib.exec;
 
+import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.testutil.Suite;
@@ -46,51 +44,51 @@ public class DigestTest {
 
   @Test
   public void testFromString() {
-    assertEquals(
-        "d41d8cd98f00b204e9800998ecf8427e", Digest.fromContent("".getBytes(UTF_8)).toStringUtf8());
-    assertEquals("d41d8cd98f00b204e9800998ecf8427e",
-        Digest.fromBuffer(ByteBuffer.wrap(new byte[]{})).toStringUtf8());
+    assertThat(Digest.fromContent("".getBytes(UTF_8)).toStringUtf8())
+        .isEqualTo("d41d8cd98f00b204e9800998ecf8427e");
+    assertThat(Digest.fromBuffer(ByteBuffer.wrap(new byte[] {})).toStringUtf8())
+        .isEqualTo("d41d8cd98f00b204e9800998ecf8427e");
 
     // Whitespace counts.
-    assertEquals(
-        "7215ee9c7d9dc229d2921a40e899ec5f", Digest.fromContent(" ".getBytes(UTF_8)).toStringUtf8());
-    assertEquals(
-        "23b58def11b45727d3351702515f86af",
-        Digest.fromContent("  ".getBytes(UTF_8)).toStringUtf8());
+    assertThat(Digest.fromContent(" ".getBytes(UTF_8)).toStringUtf8())
+        .isEqualTo("7215ee9c7d9dc229d2921a40e899ec5f");
+    assertThat(Digest.fromContent("  ".getBytes(UTF_8)).toStringUtf8())
+        .isEqualTo("23b58def11b45727d3351702515f86af");
 
-    assertEquals(
-        "8b1a9953c4611296a827abf8c47804d7",
-        Digest.fromContent("Hello".getBytes(UTF_8)).toStringUtf8());
+    assertThat(Digest.fromContent("Hello".getBytes(UTF_8)).toStringUtf8())
+        .isEqualTo("8b1a9953c4611296a827abf8c47804d7");
 
-    assertEquals(UGLY_DIGEST, Digest.fromContent(UGLY.getBytes(UTF_8)).toStringUtf8());
+    assertThat(Digest.fromContent(UGLY.getBytes(UTF_8)).toStringUtf8()).isEqualTo(UGLY_DIGEST);
 
     // ByteBuffer digest not idempotent because ByteBuffer manages a "position" internally.
     ByteBuffer buffer = ByteBuffer.wrap(UGLY.getBytes(UTF_8));
-    assertEquals(UGLY_DIGEST, Digest.fromBuffer(buffer).toStringUtf8());
-    assertEquals("d41d8cd98f00b204e9800998ecf8427e",
-        Digest.fromBuffer(buffer).toStringUtf8());
+    assertThat(Digest.fromBuffer(buffer).toStringUtf8()).isEqualTo(UGLY_DIGEST);
+    assertThat(Digest.fromBuffer(buffer).toStringUtf8())
+        .isEqualTo("d41d8cd98f00b204e9800998ecf8427e");
     buffer.rewind();
-    assertEquals("e5df5a39f2b8cb71b24e1d8038f93131",
-                 Digest.fromBuffer(buffer).toStringUtf8());
+    assertThat(Digest.fromBuffer(buffer).toStringUtf8())
+        .isEqualTo("e5df5a39f2b8cb71b24e1d8038f93131");
   }
 
   @Test
   public void testEmpty() {
-    assertFalse(Digest.isEmpty(ByteString.EMPTY));
-    assertTrue(Digest.isEmpty(ByteString.copyFromUtf8("d41d8cd98f00b204e9800998ecf8427e")));
-    assertTrue(Digest.isEmpty(Digest.EMPTY_DIGEST));
-    assertFalse(Digest.isEmpty(ByteString.copyFromUtf8("xyz")));
-    assertFalse(Digest.isEmpty(Digest.fromContent(" ".getBytes(UTF_8))));
-    assertEquals("d41d8cd98f00b204e9800998ecf8427e", Digest.EMPTY_DIGEST.toStringUtf8());
+    assertThat(Digest.isEmpty(ByteString.EMPTY)).isFalse();
+    assertThat(Digest.isEmpty(ByteString.copyFromUtf8("d41d8cd98f00b204e9800998ecf8427e")))
+        .isTrue();
+    assertThat(Digest.isEmpty(Digest.EMPTY_DIGEST)).isTrue();
+    assertThat(Digest.isEmpty(ByteString.copyFromUtf8("xyz"))).isFalse();
+    assertThat(Digest.isEmpty(Digest.fromContent(" ".getBytes(UTF_8)))).isFalse();
+    assertThat(Digest.EMPTY_DIGEST.toStringUtf8()).isEqualTo("d41d8cd98f00b204e9800998ecf8427e");
   }
 
   @Test
   public void testIsDigest() {
-    assertFalse(Digest.isDigest(null));
-    assertFalse(Digest.isDigest(ByteString.EMPTY));
-    assertFalse(Digest.isDigest(ByteString.copyFromUtf8("a")));
-    assertFalse(Digest.isDigest(ByteString.copyFromUtf8("xyz")));
-    assertTrue(Digest.isDigest(ByteString.copyFromUtf8("8b1a9953c4611296a827abf8c47804d7")));
+    assertThat(Digest.isDigest(null)).isFalse();
+    assertThat(Digest.isDigest(ByteString.EMPTY)).isFalse();
+    assertThat(Digest.isDigest(ByteString.copyFromUtf8("a"))).isFalse();
+    assertThat(Digest.isDigest(ByteString.copyFromUtf8("xyz"))).isFalse();
+    assertThat(Digest.isDigest(ByteString.copyFromUtf8("8b1a9953c4611296a827abf8c47804d7")))
+        .isTrue();
   }
 
   @Test
@@ -104,6 +102,13 @@ public class DigestTest {
               }
 
               @Override
+              public ByteString getBytes() throws IOException {
+                ByteString.Output out = ByteString.newOutput();
+                writeTo(out);
+                return out.toByteString();
+              }
+
+              @Override
               public String getExecPathString() {
                 throw new UnsupportedOperationException();
               }
@@ -113,8 +118,8 @@ public class DigestTest {
                 throw new UnsupportedOperationException();
               }
             });
-    assertEquals(UGLY_DIGEST, result.first.toStringUtf8());
-    assertEquals(UGLY.length(), result.second.longValue());
+    assertThat(result.first.toStringUtf8()).isEqualTo(UGLY_DIGEST);
+    assertThat(result.second.longValue()).isEqualTo(UGLY.length());
   }
 }
 

@@ -13,12 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNotSame;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Strings;
@@ -62,31 +57,17 @@ public class DigestUtilsTest {
 
     FileSystem myfs = new InMemoryFileSystem(BlazeClock.instance()) {
         @Override
-        protected byte[] getMD5Digest(Path path) throws IOException {
+        protected byte[] getDigest(Path path, HashFunction hashFunction) throws IOException {
           try {
             barrierLatch.countDown();
             readyLatch.countDown();
-            // Either both threads will be inside getMD5Digest at the same time or they
+            // Either both threads will be inside getDigest at the same time or they
             // both will be blocked.
             barrierLatch.await();
           } catch (Exception e) {
             throw new IOException(e);
           }
-          return super.getMD5Digest(path);
-        }
-
-        @Override
-        protected byte[] getSHA1Digest(Path path) throws IOException {
-          try {
-            barrierLatch.countDown();
-            readyLatch.countDown();
-            // Either both threads will be inside getSHA1Digest at the same time or they
-            // both will be blocked.
-            barrierLatch.await();
-          } catch (Exception e) {
-            throw new IOException(e);
-          }
-          return super.getSHA1Digest(path);
+          return super.getDigest(path, hashFunction);
         }
 
         @Override
@@ -116,10 +97,10 @@ public class DigestUtilsTest {
      thread1.start();
      thread2.start();
      if (!expectConcurrent) { // Synchronized case.
-       // Wait until at least one thread reached getMD5Digest().
-       assertTrue(readyLatch.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS));
-       // Only 1 thread should be inside getMD5Digest().
-       assertEquals(1, barrierLatch.getCount());
+      // Wait until at least one thread reached getDigest().
+      assertThat(readyLatch.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)).isTrue();
+      // Only 1 thread should be inside getDigest().
+      assertThat(barrierLatch.getCount()).isEqualTo(1);
        barrierLatch.countDown(); // Release barrier latch, allowing both threads to proceed.
      }
      // Test successful execution within 5 seconds.
@@ -128,8 +109,8 @@ public class DigestUtilsTest {
   }
 
   /**
-   * Ensures that MD5 calculation is synchronized for files
-   * greater than 4096 bytes if MD5 is not available cheaply,
+   * Ensures that digest calculation is synchronized for files
+   * greater than 4096 bytes if the digest is not available cheaply,
    * so machines with rotating drives don't become unusable.
    */
   @Test
@@ -158,9 +139,9 @@ public class DigestUtilsTest {
     for (HashFunction hf : hashFunctions) {
       FileSystem.setDigestFunctionForTesting(hf);
       byte[] result = DigestUtils.getDigestOrFail(path, 1);
-      assertArrayEquals(path.getDigest(), result);
-      assertNotSame(malformed, result);
-      assertTrue(path.isValidDigest(result));
+      assertThat(result).isEqualTo(path.getDigest());
+      assertThat(result).isNotSameAs(malformed);
+      assertThat(path.isValidDigest(result)).isTrue();
     }
   }
 
@@ -182,7 +163,7 @@ public class DigestUtilsTest {
   @Test
   public void testRecoverFromMalformedDigestWithCache() throws Exception {
     DigestUtils.configureCache(10);
-    assertNotNull(DigestUtils.getCacheStats()); // Ensure the cache is enabled.
+    assertThat(DigestUtils.getCacheStats()).isNotNull(); // Ensure the cache is enabled.
 
     // When using the cache, we cannot run our test using different hash functions because the
     // hash function is not part of the cache key. This is intentional: the hash function is
@@ -190,7 +171,7 @@ public class DigestUtilsTest {
     // function twice to further exercise the cache code.
     assertRecoverFromMalformedDigest(HashFunction.MD5, HashFunction.MD5);
 
-    assertNotNull(DigestUtils.getCacheStats()); // Ensure the cache remains enabled.
+    assertThat(DigestUtils.getCacheStats()).isNotNull(); // Ensure the cache remains enabled.
   }
 
   /** Helper class to assert the cache statistics. */
@@ -225,9 +206,9 @@ public class DigestUtilsTest {
     }
 
     void check() throws Exception {
-      assertEquals(expectedEvictionCount, stats.evictionCount());
-      assertEquals(expectedHitCount, stats.hitCount());
-      assertEquals(expectedMissCount, stats.missCount());
+      assertThat(stats.evictionCount()).isEqualTo(expectedEvictionCount);
+      assertThat(stats.hitCount()).isEqualTo(expectedHitCount);
+      assertThat(stats.missCount()).isEqualTo(expectedMissCount);
     }
   }
 
@@ -245,9 +226,9 @@ public class DigestUtilsTest {
           }
 
           @Override
-          protected byte[] getDigest(Path path) throws IOException {
+          protected byte[] getDigest(Path path, HashFunction hashFunction) throws IOException {
             getDigestCounter.incrementAndGet();
-            return super.getDigest(path);
+            return super.getDigest(path, hashFunction);
           }
         };
 
@@ -261,16 +242,16 @@ public class DigestUtilsTest {
     FileSystemUtils.writeContentAsLatin1(file3, "and something else");
 
     byte[] digest1 = DigestUtils.getDigestOrFail(file1, file1.getFileSize());
-    assertEquals(1, getFastDigestCounter.get());
-    assertEquals(1, getDigestCounter.get());
+    assertThat(getFastDigestCounter.get()).isEqualTo(1);
+    assertThat(getDigestCounter.get()).isEqualTo(1);
     new CacheStatsChecker().evictionCount(0).hitCount(0).missCount(1).check();
 
     byte[] digest2 = DigestUtils.getDigestOrFail(file1, file1.getFileSize());
-    assertEquals(2, getFastDigestCounter.get());
-    assertEquals(1, getDigestCounter.get());
+    assertThat(getFastDigestCounter.get()).isEqualTo(2);
+    assertThat(getDigestCounter.get()).isEqualTo(1);
     new CacheStatsChecker().evictionCount(0).hitCount(1).missCount(1).check();
 
-    assertArrayEquals(digest1, digest2);
+    assertThat(digest2).isEqualTo(digest1);
 
     // Evict the digest for the previous file.
     DigestUtils.getDigestOrFail(file2, file2.getFileSize());
@@ -281,6 +262,6 @@ public class DigestUtilsTest {
     byte[] digest3 = DigestUtils.getDigestOrFail(file1, file1.getFileSize());
     new CacheStatsChecker().evictionCount(2).hitCount(1).missCount(4).check();
 
-    assertArrayEquals(digest1, digest3);
+    assertThat(digest3).isEqualTo(digest1);
   }
 }

@@ -17,15 +17,12 @@ package com.google.devtools.build.buildjar;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.buildjar.jarhelper.JarCreator;
 import com.google.devtools.build.buildjar.javac.JavacOptions;
 import com.google.devtools.build.buildjar.proto.JavaCompilation.Manifest;
-import com.google.devtools.build.buildjar.resourcejar.ResourceJarBuilder;
-import com.google.devtools.build.buildjar.resourcejar.ResourceJarOptions;
 import com.google.devtools.build.lib.view.proto.Deps;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
@@ -244,17 +241,17 @@ public class VanillaJavaBuilder implements Closeable {
     fileManager.setLocation(
         StandardLocation.PLATFORM_CLASS_PATH,
         Iterables.concat(
-            toFiles(optionsParser.getBootClassPath()), toFiles(optionsParser.getExtdir())));
+            toFiles(optionsParser.getBootClassPath()), toFiles(optionsParser.getExtClassPath())));
     fileManager.setLocation(
         StandardLocation.ANNOTATION_PROCESSOR_PATH, toFiles(optionsParser.getProcessorPath()));
     if (optionsParser.getSourceGenDir() != null) {
       Path sourceGenDir = Paths.get(optionsParser.getSourceGenDir());
-      Files.createDirectories(sourceGenDir);
+      createOutputDirectory(sourceGenDir);
       fileManager.setLocation(
           StandardLocation.SOURCE_OUTPUT, ImmutableList.of(sourceGenDir.toFile()));
     }
     Path classDir = Paths.get(optionsParser.getClassDir());
-    Files.createDirectories(classDir);
+    createOutputDirectory(classDir);
     fileManager.setLocation(StandardLocation.CLASS_OUTPUT, ImmutableList.of(classDir.toFile()));
   }
 
@@ -293,26 +290,15 @@ public class VanillaJavaBuilder implements Closeable {
     jar.setNormalize(true);
     jar.setCompression(optionsParser.compressJar());
     jar.addDirectory(optionsParser.getClassDir());
-    // TODO(cushon): kill this once resource jar creation is decoupled from JavaBuilder
-    try (ResourceJarBuilder resourceBuilder =
-        new ResourceJarBuilder(
-            ResourceJarOptions.builder()
-                .setMessages(ImmutableList.copyOf(optionsParser.getMessageFiles()))
-                .setResourceJars(ImmutableList.copyOf(optionsParser.getResourceJars()))
-                .setResources(ImmutableList.copyOf(optionsParser.getResourceFiles()))
-                .setClasspathResources(ImmutableList.copyOf(optionsParser.getRootResourceFiles()))
-                .build())) {
-      resourceBuilder.build(jar);
-    }
     jar.execute();
   }
 
-  private static ImmutableList<File> toFiles(String classPath) {
+  private static ImmutableList<File> toFiles(List<String> classPath) {
     if (classPath == null) {
       return ImmutableList.of();
     }
     ImmutableList.Builder<File> files = ImmutableList.builder();
-    for (String path : Splitter.on(File.pathSeparatorChar).split(classPath)) {
+    for (String path : classPath) {
       files.add(new File(path));
     }
     return files.build();
@@ -341,5 +327,33 @@ public class VanillaJavaBuilder implements Closeable {
     public CharSequence getCharContent(boolean ignoreEncodingErrors) throws IOException {
       return new String(Files.readAllBytes(path), UTF_8);
     }
+  }
+
+  private static void createOutputDirectory(Path dir) throws IOException {
+    if (Files.exists(dir)) {
+      try {
+        // TODO(b/27069912): handle symlinks
+        Files.walkFileTree(
+            dir,
+            new SimpleFileVisitor<Path>() {
+              @Override
+              public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
+                  throws IOException {
+                Files.delete(file);
+                return FileVisitResult.CONTINUE;
+              }
+
+              @Override
+              public FileVisitResult postVisitDirectory(Path dir, IOException exc)
+                  throws IOException {
+                Files.delete(dir);
+                return FileVisitResult.CONTINUE;
+              }
+            });
+      } catch (IOException e) {
+        throw new IOException("Cannot clean output directory '" + dir + "'", e);
+      }
+    }
+    Files.createDirectories(dir);
   }
 }

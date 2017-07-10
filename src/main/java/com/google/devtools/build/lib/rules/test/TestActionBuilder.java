@@ -17,15 +17,18 @@ package com.google.devtools.build.lib.rules.test;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
+import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -198,7 +201,7 @@ public final class TestActionBuilder {
     final boolean collectCodeCoverage = config.isCodeCoverageEnabled()
         && instrumentedFiles != null;
 
-    TreeMap<String, String> testEnv = new TreeMap<>();
+    TreeMap<String, String> extraTestEnv = new TreeMap<>();
 
     TestTargetExecutionSettings executionSettings;
     if (collectCodeCoverage) {
@@ -211,12 +214,24 @@ public final class TestActionBuilder {
           ruleContext, "$coverage_support", Mode.DONT_CHECK));
       // We don't add this attribute to non-supported test target
       if (ruleContext.isAttrDefined("$lcov_merger", LABEL)) {
-        Artifact lcovMerger = ruleContext.getPrerequisiteArtifact("$lcov_merger", Mode.TARGET);
-        if (lcovMerger != null) {
-          inputsBuilder.addTransitive(
-              PrerequisiteArtifacts.nestedSet(ruleContext, "$lcov_merger", Mode.TARGET));
-          // Pass this LcovMerger_deploy.jar path to collect_coverage.sh
-          testEnv.put("LCOV_MERGER", lcovMerger.getExecPathString());
+        TransitiveInfoCollection lcovMerger =
+            ruleContext.getPrerequisite("$lcov_merger", Mode.TARGET);
+        FilesToRunProvider lcovFilesToRun = lcovMerger.getProvider(FilesToRunProvider.class);
+        if (lcovFilesToRun != null) {
+          extraTestEnv.put("LCOV_MERGER", lcovFilesToRun.getExecutable().getExecPathString());
+          inputsBuilder.addTransitive(lcovFilesToRun.getFilesToRun());
+        } else {
+          NestedSet<Artifact> filesToBuild =
+              lcovMerger.getProvider(FileProvider.class).getFilesToBuild();
+
+          if (Iterables.size(filesToBuild) == 1) {
+            Artifact lcovMergerArtifact = Iterables.getOnlyElement(filesToBuild);
+            extraTestEnv.put("LCOV_MERGER", lcovMergerArtifact.getExecPathString());
+            inputsBuilder.add(lcovMergerArtifact);
+          } else {
+            ruleContext.attributeError("$lcov_merger",
+                "the LCOV merger should be either an executable or a single artifact");
+          }
         }
       }
 
@@ -226,15 +241,16 @@ public final class TestActionBuilder {
       executionSettings = new TestTargetExecutionSettings(ruleContext, runfilesSupport,
           executable, instrumentedFileManifest, shards);
       inputsBuilder.add(instrumentedFileManifest);
+      // TODO(ulfjack): Is this even ever set? If yes, does this cost us a lot of memory?
       for (Pair<String, String> coverageEnvEntry : instrumentedFiles.getCoverageEnvironment()) {
-        testEnv.put(coverageEnvEntry.getFirst(), coverageEnvEntry.getSecond());
+        extraTestEnv.put(coverageEnvEntry.getFirst(), coverageEnvEntry.getSecond());
       }
     } else {
       executionSettings = new TestTargetExecutionSettings(ruleContext, runfilesSupport,
           executable, null, shards);
     }
 
-    testEnv.putAll(extraEnv);
+    extraTestEnv.putAll(extraEnv);
 
     if (config.getRunUnder() != null) {
       Artifact runUnderExecutable = executionSettings.getRunUnderExecutable();
@@ -282,17 +298,11 @@ public final class TestActionBuilder {
           coverageArtifacts.add(coverageArtifact);
         }
 
-        Artifact microCoverageArtifact = null;
-        if (collectCodeCoverage && config.isMicroCoverageEnabled()) {
-          microCoverageArtifact = ruleContext.getPackageRelativeArtifact(
-              targetName.getRelative(shardRunDir + "coverage.micro.dat"), root);
-        }
-
         env.registerAction(new TestRunnerAction(
             ruleContext.getActionOwner(), inputs, testRuntime,
             testLog, cacheStatus,
-            coverageArtifact, microCoverageArtifact,
-            testProperties, testEnv, executionSettings,
+            coverageArtifact,
+            testProperties, extraTestEnv, executionSettings,
             shard, run, config, ruleContext.getWorkspaceName(),
             useTestRunner));
         results.add(cacheStatus);

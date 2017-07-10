@@ -35,13 +35,14 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
+import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.buildtool.BuildRequest.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
+import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
@@ -50,15 +51,15 @@ import com.google.devtools.build.lib.pkgcache.LoadingResult;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
-import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
-import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.BlazeClock;
@@ -67,6 +68,7 @@ import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import java.util.Arrays;
@@ -122,6 +124,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   protected MockToolsConfig mockToolsConfig;
 
   protected AnalysisMock analysisMock;
+  protected BuildOptions buildOptions;
   private OptionsParser optionsParser;
   protected PackageManager packageManager;
   private LoadingPhaseRunner loadingPhaseRunner;
@@ -161,13 +164,17 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   protected void useRuleClassProvider(ConfiguredRuleClassProvider ruleClassProvider)
       throws Exception {
     this.ruleClassProvider = ruleClassProvider;
+    useConfigurationFactory(
+        new ConfigurationFactory(
+            ruleClassProvider.getConfigurationCollectionFactory(),
+            ruleClassProvider.getConfigurationFragments()));
     PackageFactory pkgFactory =
         analysisMock
-            .getPackageFactoryForTesting()
-            .create(ruleClassProvider, scratch.getFileSystem());
+            .getPackageFactoryBuilderForTesting()
+            .build(ruleClassProvider, scratch.getFileSystem());
     BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
     skyframeExecutor =
-        SequencedSkyframeExecutor.create(
+        SequencedSkyframeExecutor.createForTesting(
             pkgFactory,
             directories,
             binTools,
@@ -175,25 +182,26 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             ruleClassProvider.getBuildInfoFactories(),
             ImmutableList.<DiffAwareness.Factory>of(),
             Predicates.<PathFragment>alwaysFalse(),
-            Preprocessor.Factory.Supplier.NullSupplier.INSTANCE,
             analysisMock.getSkyFunctions(),
             getPrecomputedValues(),
             ImmutableList.<SkyValueDirtinessChecker>of(),
-            analysisMock.getProductName(),
-            CrossRepositoryLabelViolationStrategy.ERROR,
-            ImmutableList.of(BuildFileName.BUILD_DOT_BAZEL, BuildFileName.BUILD));
+            analysisMock.getProductName());
     PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
     packageCacheOptions.showLoadingProgress = true;
     packageCacheOptions.globbingThreads = 3;
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageCacheOptions,
+        Options.getDefaults(SkylarkSemanticsOptions.class),
         ruleClassProvider.getDefaultsPackageContent(
             analysisMock.getInvocationPolicyEnforcer().getInvocationPolicy()),
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
+    skyframeExecutor.injectExtraPrecomputedValues(ImmutableList.of(PrecomputedValue.injected(
+        RepositoryDelegatorFunction.REPOSITORY_OVERRIDES,
+        ImmutableMap.<RepositoryName, PathFragment>of())));
     packageManager = skyframeExecutor.getPackageManager();
     loadingPhaseRunner = skyframeExecutor.getLoadingPhaseRunner(
         pkgFactory.getRuleClassNames(), defaultFlags().contains(Flag.SKYFRAME_LOADING_PHASE));
@@ -221,6 +229,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     optionsParser = OptionsParser.newOptionsParser(Iterables.concat(Arrays.asList(
         ExecutionOptions.class,
         PackageCacheOptions.class,
+        SkylarkSemanticsOptions.class,
         BuildRequestOptions.class,
         BuildView.Options.class),
         ruleClassProvider.getConfigurationOptions()));
@@ -234,6 +243,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
 
     InvocationPolicyEnforcer optionsPolicyEnforcer = analysisMock.getInvocationPolicyEnforcer();
     optionsPolicyEnforcer.enforce(optionsParser);
+
+    buildOptions = ruleClassProvider.createBuildOptions(optionsParser);
   }
 
   protected FlagBuilder defaultFlags() {
@@ -309,16 +320,19 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     viewOptions.keepGoing = flags.contains(Flag.KEEP_GOING);
     viewOptions.loadingPhaseThreads = LOADING_PHASE_THREADS;
 
-    BuildOptions buildOptions = ruleClassProvider.createBuildOptions(optionsParser);
     PackageCacheOptions packageCacheOptions = optionsParser.getOptions(PackageCacheOptions.class);
-
     PathPackageLocator pathPackageLocator = PathPackageLocator.create(
         outputBase, packageCacheOptions.packagePath, reporter, rootDirectory, rootDirectory);
     packageCacheOptions.showLoadingProgress = true;
     packageCacheOptions.globbingThreads = 7;
+
+    SkylarkSemanticsOptions skylarkSemanticsOptions =
+        optionsParser.getOptions(SkylarkSemanticsOptions.class);
+
     skyframeExecutor.preparePackageLoading(
         pathPackageLocator,
         packageCacheOptions,
+        skylarkSemanticsOptions,
         ruleClassProvider.getDefaultsPackageContent(
             analysisMock.getInvocationPolicyEnforcer().getInvocationPolicy()),
         UUID.randomUUID(),
@@ -462,11 +476,28 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   /**
    * Makes {@code rules} available in tests, in addition to all the rules available to Blaze at
    * running time (e.g., java_library).
+   *
+   * Also see {@link AnalysisTestCase#setRulesAndAspectsAvailableInTests(Iterable, Iterable)}.
    */
   protected final void setRulesAvailableInTests(RuleDefinition... rules) throws Exception {
+    setRulesAndAspectsAvailableInTests(
+        ImmutableList.<NativeAspectClass>of(),
+        ImmutableList.copyOf(rules));
+  }
+
+  /**
+   * Makes {@code aspects} and {@code rules} available in tests, in addition to
+   * all the rules available to Blaze at running time (e.g., java_library).
+   */
+  protected final void setRulesAndAspectsAvailableInTests(
+      Iterable<NativeAspectClass> aspects,
+      Iterable<RuleDefinition> rules) throws Exception {
     ConfiguredRuleClassProvider.Builder builder =
         new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
+    for (NativeAspectClass aspect : aspects) {
+      builder.addNativeAspectClass(aspect);
+    }
     for (RuleDefinition rule : rules) {
       builder.addRuleDefinition(rule);
     }
@@ -475,4 +506,16 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     update();
   }
 
+  /**
+   * Makes custom configuration fragments available in tests.
+   */
+  protected final void setConfigFragmentsAvailableInTests(
+      ConfigurationFragmentFactory... factories) throws Exception {
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+    TestRuleClassProvider.addStandardRules(builder);
+    for (ConfigurationFragmentFactory factory : factories) {
+      builder.addConfigurationFragment(factory);
+    }
+    useRuleClassProvider(builder.build());
+  }
 }

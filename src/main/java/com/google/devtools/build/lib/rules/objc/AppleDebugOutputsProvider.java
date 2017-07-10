@@ -18,7 +18,6 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import java.util.HashMap;
@@ -64,8 +63,9 @@ public final class AppleDebugOutputsProvider extends SkylarkClassObject
   public static final String SKYLARK_NAME = "AppleDebugOutputs";
 
   /** Skylark constructor and identifier for AppleDebugOutputsProvider. */
-  public static final ClassObjectConstructor SKYLARK_CONSTRUCTOR =
-      new NativeClassObjectConstructor(SKYLARK_NAME) { };
+  public static final NativeClassObjectConstructor<AppleDebugOutputsProvider> SKYLARK_CONSTRUCTOR =
+      new NativeClassObjectConstructor<AppleDebugOutputsProvider>(
+          AppleDebugOutputsProvider.class, SKYLARK_NAME) {};
 
   /**
    * Creates a new provider instance.
@@ -105,9 +105,7 @@ public final class AppleDebugOutputsProvider extends SkylarkClassObject
      * @return this builder.
      */
     public Builder addOutput(String arch, OutputType outputType, Artifact artifact) {
-      if (!outputsByArch.containsKey(arch)) {
-        outputsByArch.put(arch, new HashMap<String, Artifact>());
-      }
+      outputsByArch.computeIfAbsent(arch, k -> new HashMap<String, Artifact>());
 
       outputsByArch.get(arch).put(outputType.toString(), artifact);
       return this;

@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.base.Function;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
 import java.util.Collection;
-import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -74,15 +74,13 @@ class LetExpression extends QueryExpression {
       return env.immediateFailedFuture(
           new QueryException(this, "invalid variable name '" + varName + "' in let expression"));
     }
-    QueryTaskFuture<Set<T>> varValueFuture = QueryUtil.evalAll(env, context, varExpr);
-    Function<Set<T>, QueryTaskFuture<Void>> evalBodyAsyncFunction =
-        new Function<Set<T>, QueryTaskFuture<Void>>() {
-          @Override
-          public QueryTaskFuture<Void> apply(Set<T> varValue) {
-            VariableContext<T> bodyContext = VariableContext.with(context, varName, varValue);
-            return env.eval(bodyExpr, bodyContext, callback);
-          }
-    };
+    QueryTaskFuture<ThreadSafeMutableSet<T>> varValueFuture =
+        QueryUtil.evalAll(env, context, varExpr);
+    Function<ThreadSafeMutableSet<T>, QueryTaskFuture<Void>> evalBodyAsyncFunction =
+        varValue -> {
+          VariableContext<T> bodyContext = VariableContext.with(context, varName, varValue);
+          return env.eval(bodyExpr, bodyContext, callback);
+        };
     return env.transformAsync(varValueFuture, evalBodyAsyncFunction);
   }
 

@@ -1,7 +1,9 @@
 package(default_visibility = ["//visibility:public"])
 
+# This target is named "Desugar_embedded" instead of "Desugar" so as to avoid
+# a naming conflict with the existing Desugar_deploy.jar that it depends on.
 java_binary(
-    name = "Desugar",
+    name = "Desugar_embedded",
     main_class = "com.google.devtools.build.android.desugar.Desugar",
-    runtime_deps = [":desugar_bin_deploy.jar"],
+    runtime_deps = [":Desugar_deploy.jar"],
 )

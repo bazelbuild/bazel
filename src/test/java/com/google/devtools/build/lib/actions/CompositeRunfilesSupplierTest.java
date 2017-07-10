@@ -69,8 +69,7 @@ public class CompositeRunfilesSupplierTest {
     when(mockSecond.getRunfilesDirs()).thenReturn(ImmutableSet.of(second, shared));
 
     CompositeRunfilesSupplier underTest = new CompositeRunfilesSupplier(mockFirst, mockSecond);
-    assertThat(underTest.getRunfilesDirs()).containsExactlyElementsIn(
-        ImmutableSet.of(first, second, shared));
+    assertThat(underTest.getRunfilesDirs()).containsExactly(first, second, shared);
   }
 
   @Test

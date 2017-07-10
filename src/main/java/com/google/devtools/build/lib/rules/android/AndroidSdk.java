@@ -46,6 +46,7 @@ public class AndroidSdk implements RuleConfiguredTargetFactory {
         .get("build_tools_version", Type.STRING);
     FilesToRunProvider aidl = ruleContext.getExecutablePrerequisite("aidl", Mode.HOST);
     FilesToRunProvider aapt = ruleContext.getExecutablePrerequisite("aapt", Mode.HOST);
+    FilesToRunProvider aapt2 = ruleContext.getExecutablePrerequisite("aapt2", Mode.HOST);
     FilesToRunProvider apkBuilder = ruleContext.getExecutablePrerequisite(
         "apkbuilder", Mode.HOST);
     FilesToRunProvider apkSigner = ruleContext.getExecutablePrerequisite("apksigner", Mode.HOST);
@@ -55,8 +56,6 @@ public class AndroidSdk implements RuleConfiguredTargetFactory {
     FilesToRunProvider mainDexListCreator = ruleContext.getExecutablePrerequisite(
         "main_dex_list_creator", Mode.HOST);
     FilesToRunProvider zipalign = ruleContext.getExecutablePrerequisite("zipalign", Mode.HOST);
-    FilesToRunProvider resourceExtractor =
-        ruleContext.getExecutablePrerequisite("resource_extractor", Mode.HOST);
     Artifact frameworkAidl = ruleContext.getPrerequisiteArtifact("framework_aidl", Mode.HOST);
     TransitiveInfoCollection aidlLib = ruleContext.getPrerequisite("aidl_lib", Mode.TARGET);
     Artifact androidJar = ruleContext.getPrerequisiteArtifact("android_jar", Mode.HOST);
@@ -85,11 +84,11 @@ public class AndroidSdk implements RuleConfiguredTargetFactory {
                 mainDexListCreator,
                 aidl,
                 aapt,
+                aapt2,
                 apkBuilder,
                 apkSigner,
                 proguard,
-                zipalign,
-                resourceExtractor))
+                zipalign))
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
         .setFilesToBuild(NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER))
         .build();

@@ -145,7 +145,7 @@ public class DependencyTest extends AnalysisTestCase {
     assertThat(targetDep.hasStaticConfiguration()).isTrue();
     assertThat(targetDep.getConfiguration()).isEqualTo(getTargetConfiguration());
     assertThat(targetDep.getAspects().getAllAspects())
-        .containsExactlyElementsIn(ImmutableSet.of(simpleAspect, attributeAspect));
+        .containsExactly(simpleAspect, attributeAspect);
     assertThat(targetDep.getAspectConfiguration(simpleAspect)).isEqualTo(getTargetConfiguration());
     assertThat(targetDep.getAspectConfiguration(attributeAspect))
         .isEqualTo(getHostConfiguration());

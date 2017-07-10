@@ -29,10 +29,12 @@ import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.Compi
 final class MipsCrosstools {
   private final NdkPaths ndkPaths;
   private final StlImpl stlImpl;
+  private final String clangVersion;
 
-  MipsCrosstools(NdkPaths ndkPaths, StlImpl stlImpl) {
+  MipsCrosstools(NdkPaths ndkPaths, StlImpl stlImpl, String clangVersion) {
     this.ndkPaths = ndkPaths;
     this.stlImpl = stlImpl;
+    this.clangVersion = clangVersion;
   }
 
   ImmutableList<CToolchain.Builder> createCrosstools() {
@@ -87,8 +89,7 @@ final class MipsCrosstools {
     return CToolchain.newBuilder()
         .setCompiler("clang3.8")
         .addCxxBuiltinIncludeDirectory(
-            ndkPaths.createClangToolchainBuiltinIncludeDirectory(
-                AndroidNdkCrosstoolsR13.CLANG_VERSION))
+            ndkPaths.createClangToolchainBuiltinIncludeDirectory(clangVersion))
 
         // Compiler flags
         .addCompilerFlag("-gcc-toolchain")

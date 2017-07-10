@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.analysis.actions;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -83,7 +82,7 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
     ActionExecutionContext context = actionExecutionContext();
     action.execute(context);
     String content = new String(FileSystemUtils.readContentAsLatin1(outputArtifact.getPath()));
-    assertEquals("--flag1\n--flag2\n--flag3\nvalue1\nvalue2", content.trim());
+    assertThat(content.trim()).isEqualTo("--flag1\n--flag2\n--flag3\nvalue1\nvalue2");
   }
 
   @Test
@@ -94,11 +93,11 @@ public class ParamFileWriteActionTest extends BuildViewTestCase {
     ActionExecutionContext context = actionExecutionContext();
     action.execute(context);
     String content = new String(FileSystemUtils.readContentAsLatin1(outputArtifact.getPath()));
-    assertEquals(
-        "--flag1\n"
-        + "artifact/myTreeFileArtifact/artifacts/treeFileArtifact1:"
-        + "artifact/myTreeFileArtifact/artifacts/treeFileArtifact2",
-        content.trim());
+    assertThat(content.trim())
+        .isEqualTo(
+            "--flag1\n"
+                + "artifact/myTreeFileArtifact/artifacts/treeFileArtifact1:"
+                + "artifact/myTreeFileArtifact/artifacts/treeFileArtifact2");
   }
 
   private Artifact createTreeArtifact(String rootRelativePath) {

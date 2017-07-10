@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.skyframe.WalkableGraphUtils.exists;
-import static org.junit.Assert.assertNotSame;
 
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
@@ -31,10 +30,8 @@ import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
-import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
-import com.google.devtools.build.lib.packages.util.PreprocessorUtils;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -62,13 +59,6 @@ abstract public class SkyframeLabelVisitorTestCase extends PackageLoadingTestCas
   protected static final boolean EXPECT_ERROR = true;
   protected TransitivePackageLoader visitor = null;
   protected CustomInMemoryFs fs = new CustomInMemoryFs(new ManualClock());
-  protected PreprocessorUtils.MutableFactorySupplier preprocessorFactorySupplier =
-      new PreprocessorUtils.MutableFactorySupplier(null);
-
-  @Override
-  protected Preprocessor.Factory.Supplier getPreprocessorFactorySupplier() {
-    return preprocessorFactorySupplier;
-  }
 
   @Override
   protected FileSystem createFileSystem() {
@@ -144,7 +134,7 @@ abstract public class SkyframeLabelVisitorTestCase extends PackageLoadingTestCas
     // Spawn a lot of threads to help uncover concurrency issues
     boolean result = visitor.sync(reporter, startingLabels, keepGoing, /*parallelThreads=*/ 200);
 
-    assertNotSame(expectError, result);
+    assertThat(result).isNotSameAs(expectError);
     assertExpectedTargets(expectedLabels, startingLabels);
   }
 
@@ -218,7 +208,7 @@ abstract public class SkyframeLabelVisitorTestCase extends PackageLoadingTestCas
 
     // Spawn a lot of threads to help uncover concurrency issues
     boolean result = visitor.sync(reporter, labels, keepGoing, 200);
-    assertNotSame(expectError, result);
+    assertThat(result).isNotSameAs(expectError);
     assertThat(getVisitedLabels(asLabelSet(startingLabels), skyframeExecutor))
         .containsAllIn(asLabelSet(expectedLabels));
   }

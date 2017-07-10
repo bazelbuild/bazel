@@ -139,8 +139,8 @@ public class SyntaxTreeVisitor {
     visit(node.getValue());
   }
 
-  public void visit(NotExpression node) {
-    visit(node.getExpression());
+  public void visit(UnaryOperatorExpression node) {
+    visit(node.getOperand());
   }
 
   public void visit(DotExpression node) {

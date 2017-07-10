@@ -16,7 +16,7 @@ java_library(
     name = "J2ObjcExample-Java",
     srcs = glob(["src/main/java/**/*.java"]),
     deps = [
-        "//third_party/java/j2objc:annotations",
+        "@bazel_j2objc//:annotations",
     ],
 )
 

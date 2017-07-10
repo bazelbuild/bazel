@@ -28,9 +28,11 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.LabelClass;
 import com.google.devtools.build.lib.syntax.Type.LabelVisitor;
 import com.google.devtools.build.lib.util.Preconditions;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -58,6 +60,7 @@ public final class AspectDefinition {
   private final RequiredProviders requiredProviders;
   private final RequiredProviders requiredProvidersForAspects;
   private final ImmutableMap<String, Attribute> attributes;
+  private final ImmutableList<Label> requiredToolchains;
 
   /**
    * Which attributes aspect should propagate along:
@@ -68,11 +71,11 @@ public final class AspectDefinition {
    */
   @Nullable private final ImmutableSet<String> restrictToAttributes;
   @Nullable private final ConfigurationFragmentPolicy configurationFragmentPolicy;
+  private final boolean applyToFiles;
 
   public AdvertisedProviderSet getAdvertisedProviders() {
     return advertisedProviders;
   }
-
 
   private AspectDefinition(
       AspectClass aspectClass,
@@ -80,16 +83,20 @@ public final class AspectDefinition {
       RequiredProviders requiredProviders,
       RequiredProviders requiredAspectProviders,
       ImmutableMap<String, Attribute> attributes,
+      ImmutableList<Label> requiredToolchains,
       @Nullable ImmutableSet<String> restrictToAttributes,
-      @Nullable ConfigurationFragmentPolicy configurationFragmentPolicy) {
+      @Nullable ConfigurationFragmentPolicy configurationFragmentPolicy,
+      boolean applyToFiles) {
     this.aspectClass = aspectClass;
     this.advertisedProviders = advertisedProviders;
     this.requiredProviders = requiredProviders;
     this.requiredProvidersForAspects = requiredAspectProviders;
 
     this.attributes = attributes;
+    this.requiredToolchains = requiredToolchains;
     this.restrictToAttributes = restrictToAttributes;
     this.configurationFragmentPolicy = configurationFragmentPolicy;
+    this.applyToFiles = applyToFiles;
   }
 
   public String getName() {
@@ -107,6 +114,11 @@ public final class AspectDefinition {
    */
   public ImmutableMap<String, Attribute> getAttributes() {
     return attributes;
+  }
+
+  /** Returns the required toolchains declared by this aspect. */
+  public ImmutableList<Label> getRequiredToolchains() {
+    return requiredToolchains;
   }
 
   /**
@@ -144,6 +156,15 @@ public final class AspectDefinition {
    */
   public ConfigurationFragmentPolicy getConfigurationFragmentPolicy() {
     return configurationFragmentPolicy;
+  }
+
+  /**
+   * Returns whether this aspect applies to files.
+   *
+   * Currently only supported for top-level aspects and targets.
+   */
+  public boolean applyToFiles() {
+    return applyToFiles;
   }
 
   /**
@@ -243,6 +264,8 @@ public final class AspectDefinition {
     private LinkedHashSet<String> propagateAlongAttributes = new LinkedHashSet<>();
     private final ConfigurationFragmentPolicy.Builder configurationFragmentPolicy =
         new ConfigurationFragmentPolicy.Builder();
+    private boolean applyToFiles = false;
+    private final List<Label> requiredToolchains = new ArrayList<>();
 
     public Builder(AspectClass aspectClass) {
       this.aspectClass = aspectClass;
@@ -432,22 +455,38 @@ public final class AspectDefinition {
       return this;
     }
 
+    /**
+     * Sets whether this aspect should apply to files.
+     *
+     * Default is <code>false</code>.
+     * Currently only supported for top-level aspects and targets.
+     */
+    public Builder applyToFiles(boolean propagateOverGeneratedFiles) {
+      this.applyToFiles = propagateOverGeneratedFiles;
+      return this;
+    }
 
+    /** Adds the given toolchains as requirements for this aspect. */
+    public Builder addRequiredToolchains(List<Label> requiredToolchains) {
+      this.requiredToolchains.addAll(requiredToolchains);
+      return this;
+    }
     /**
      * Builds the aspect definition.
      *
      * <p>The builder object is reusable afterwards.
      */
     public AspectDefinition build() {
-      return new AspectDefinition(aspectClass,
+      return new AspectDefinition(
+          aspectClass,
           advertisedProviders.build(),
           requiredProviders.build(),
           requiredAspectProviders.build(),
           ImmutableMap.copyOf(attributes),
-          propagateAlongAttributes == null
-              ? null
-              : ImmutableSet.copyOf(propagateAlongAttributes),
-          configurationFragmentPolicy.build());
+          ImmutableList.copyOf(requiredToolchains),
+          propagateAlongAttributes == null ? null : ImmutableSet.copyOf(propagateAlongAttributes),
+          configurationFragmentPolicy.build(),
+          applyToFiles);
     }
   }
 }

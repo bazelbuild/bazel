@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -39,7 +40,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -72,8 +72,7 @@ public final class ExtraAction extends SpawnAction {
       Action shadowedAction,
       boolean createDummyOutput,
       CommandLine argv,
-      Map<String, String> environment,
-      Set<String> clientEnvironmentVariables,
+      ActionEnvironment env,
       Map<String, String> executionInfo,
       String progressMessage,
       String mnemonic) {
@@ -81,13 +80,15 @@ public final class ExtraAction extends SpawnAction {
         shadowedAction.getOwner(),
         ImmutableList.<Artifact>of(),
         createInputs(
-            shadowedAction.getInputs(), ImmutableList.<Artifact>of(), extraActionInputs,
+            shadowedAction.getInputs(),
+            ImmutableList.<Artifact>of(),
+            extraActionInputs,
             runfilesSupplier),
         outputs,
         AbstractAction.DEFAULT_RESOURCE_SET,
         argv,
-        ImmutableMap.copyOf(environment),
-        ImmutableSet.copyOf(clientEnvironmentVariables),
+        false,
+        env,
         ImmutableMap.copyOf(executionInfo),
         progressMessage,
         // TODO(michajlo): Do we need the runfiles manifest as an input / should this be composite?

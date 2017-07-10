@@ -58,13 +58,6 @@ class DexFileAggregator implements Closeable {
   private DexFileArchive dest;
   private int nextDexFileIndex = 0;
 
-  public DexFileAggregator(DexFileArchive dest, MultidexStrategy multidex) {
-    this(dest,
-        multidex,
-        DexFormat.MAX_MEMBER_IDX + 1,
-        1024 * 1024 /* DexMerger's default wasteThreshold */);
-  }
-
   public DexFileAggregator(
       DexFileArchive dest,
       MultidexStrategy multidex,

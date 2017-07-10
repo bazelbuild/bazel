@@ -28,10 +28,12 @@ import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.Compi
 final class X86Crosstools {
   private final NdkPaths ndkPaths;
   private final StlImpl stlImpl;
+  private final String clangVersion;
 
-  X86Crosstools(NdkPaths ndkPaths, StlImpl stlImpl) {
+  X86Crosstools(NdkPaths ndkPaths, StlImpl stlImpl, String clangVersion) {
     this.ndkPaths = ndkPaths;
     this.stlImpl = stlImpl;
+    this.clangVersion = clangVersion;
   }
 
   ImmutableList<CToolchain.Builder> createCrosstools() {
@@ -70,8 +72,7 @@ final class X86Crosstools {
         .setCompiler("clang3.8")
 
         .addCxxBuiltinIncludeDirectory(
-            ndkPaths.createClangToolchainBuiltinIncludeDirectory(
-                AndroidNdkCrosstoolsR13.CLANG_VERSION))
+            ndkPaths.createClangToolchainBuiltinIncludeDirectory(clangVersion))
 
         // Compiler flags
         .addCompilerFlag("-gcc-toolchain")
@@ -107,7 +108,6 @@ final class X86Crosstools {
                 .setMode(CompilationMode.DBG)
                 .addCompilerFlag("-O0")
                 .addCompilerFlag("-g"))
-
         .setTargetSystemName("x86-linux-android");
   }
 }

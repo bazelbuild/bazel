@@ -55,8 +55,9 @@ public class WorkspaceNameFunctionTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.overwriteFile("WORKSPACE", "workspace(bad)");
     assertThatEvaluationResult(eval())
-        .hasEntryThat(key)
-        .isEqualTo(WorkspaceNameValue.withError());
+        .hasErrorEntryForKeyThat(key)
+        .hasExceptionThat()
+        .isInstanceOf(NoSuchPackageException.class);
     assertContainsEvent("name 'bad' is not defined");
   }
 
@@ -76,9 +77,6 @@ public class WorkspaceNameFunctionTest extends BuildViewTestCase {
   @Test
   public void testEqualsAndHashCode(){
     new EqualsTester()
-        .addEqualityGroup(
-            WorkspaceNameValue.withError(),
-            WorkspaceNameValue.withError())
         .addEqualityGroup(
             WorkspaceNameValue.withName("foo"),
             WorkspaceNameValue.withName("foo"))

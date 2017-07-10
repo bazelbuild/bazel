@@ -59,7 +59,7 @@ class NamedArtifactGroup implements BuildEvent {
         BuildEventStreamProtos.NamedSetOfFiles.newBuilder();
     for (Artifact artifact : view.directs()) {
       BuildEventStreamProtos.File.Builder fileBuilder = BuildEventStreamProtos.File.newBuilder();
-      String name = artifact.getFilename();
+      String name = artifact.getPath().relativeTo(artifact.getRoot().getPath()).getPathString();
       String uri = pathConverter.apply(artifact.getPath());
       builder.addFiles(fileBuilder.setName(name).setUri(uri).build());
     }

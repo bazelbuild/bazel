@@ -24,8 +24,6 @@ import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
-import java.util.List;
-
 /** A wrapper class for FileType and FileTypeSet functionality in Skylark. */
 @SkylarkModule(
   name = "FileType",
@@ -60,11 +58,10 @@ public class SkylarkFileType {
   // Skylark interface framework. If there's a dynamic type error on a non-Artifact element, the
   // error will also be handled by the Skylark interface framework.
   @SuppressWarnings("unchecked")
-  public List<Artifact> filter(Object filesUnchecked) throws EvalException {
+  public ImmutableList<Artifact> filter(Object filesUnchecked) throws EvalException {
     return ImmutableList.copyOf(
         FileType.filter(
-            (Iterable<Artifact>) EvalUtils.toIterableStrict(filesUnchecked, null),
-            fileType));
+            (Iterable<Artifact>) EvalUtils.toIterableStrict(filesUnchecked, null, null), fileType));
   }
 
   @VisibleForTesting

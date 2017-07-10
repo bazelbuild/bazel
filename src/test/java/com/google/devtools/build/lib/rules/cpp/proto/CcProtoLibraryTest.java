@@ -34,6 +34,7 @@ import org.junit.runners.JUnit4;
 public class CcProtoLibraryTest extends BuildViewTestCase {
   @Before
   public void setUp() throws Exception {
+    scratch.file("protobuf/WORKSPACE");
     scratch.file(
         "protobuf/BUILD",
         "package(default_visibility=['//visibility:public'])",
@@ -148,6 +149,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
     scratch.file(
         "x/BUILD", "cc_proto_library(name = 'foo_cc_proto', deps = ['@bla//foo:bar_proto'])");
 
+    scratch.file("/bla/WORKSPACE");
     // Create the rule '@bla//foo:bar_proto'.
     scratch.file(
         "/bla/foo/BUILD",

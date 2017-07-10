@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.WorkspaceStatusValue;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -277,6 +278,11 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   @Override
   public SkyFunction.Environment getSkyframeEnv() {
     return skyframeEnv;
+  }
+
+  @Override
+  public SkylarkSemanticsOptions getSkylarkSemantics() throws InterruptedException {
+    return PrecomputedValue.SKYLARK_SEMANTICS.get(skyframeEnv);
   }
 
   @Override

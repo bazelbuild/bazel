@@ -30,9 +30,7 @@ import com.google.devtools.build.lib.rules.test.TestResult;
 import com.google.devtools.build.lib.runtime.TerminalTestResultNotifier.TestSummaryOptions;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -45,7 +43,6 @@ import java.util.Set;
  */
 @ThreadCompatible
 public class TestResultAnalyzer {
-  private final Path execRoot;
   private final TestSummaryOptions summaryOptions;
   private final ExecutionOptions executionOptions;
   private final EventBus eventBus;
@@ -59,11 +56,9 @@ public class TestResultAnalyzer {
    * @param executionOptions Parsed build/test execution options.
    * @param eventBus For reporting failed to build and cached tests.
    */
-  public TestResultAnalyzer(Path execRoot,
-                            TestSummaryOptions summaryOptions,
+  public TestResultAnalyzer(TestSummaryOptions summaryOptions,
                             ExecutionOptions executionOptions,
                             EventBus eventBus) {
-    this.execRoot = execRoot;
     this.summaryOptions = summaryOptions;
     this.executionOptions = executionOptions;
     this.eventBus = eventBus;
@@ -211,10 +206,9 @@ public class TestResultAnalyzer {
       numLocalActionCached++;
     }
     
-    PathFragment coverageData = result.getCoverageData();
+    Path coverageData = result.getCoverageData();
     if (coverageData != null) {
-      summaryBuilder.addCoverageFiles(
-          Collections.singletonList(execRoot.getRelative(coverageData)));
+      summaryBuilder.addCoverageFiles(Collections.singletonList(coverageData));
     }
 
     if (!executionOptions.runsPerTestDetectsFlakes) {
@@ -305,14 +299,16 @@ public class TestResultAnalyzer {
   }
 
   /**
-   * Checks whether the specified test timeout could have been smaller and adds
-   * a warning message if verbose is true.
+   * Checks whether the specified test timeout could have been smaller or is too small and adds a
+   * warning message if verbose is true.
    *
-   * <p>Returns true if there was a test with the wrong timeout, but if was not
-   * reported.
+   * <p>Returns true if there was a test with the wrong timeout, but if was not reported.
    */
-  private static boolean shouldEmitTestSizeWarningInSummary(boolean verbose,
-      List<String> warnings, List<Long> testTimes, TransitiveInfoCollection target) {
+  private static boolean shouldEmitTestSizeWarningInSummary(
+      boolean verbose,
+      List<String> warnings,
+      List<Long> testTimes,
+      TransitiveInfoCollection target) {
 
     TestTimeout specifiedTimeout =
         target.getProvider(TestProvider.class).getTestParams().getTimeout();

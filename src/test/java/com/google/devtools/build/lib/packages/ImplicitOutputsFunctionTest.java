@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -22,11 +21,6 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.AttributeV
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.Preconditions;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -34,6 +28,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests for {@link ImplicitOutputsFunction}.
@@ -44,10 +41,10 @@ public final class ImplicitOutputsFunctionTest {
   private void assertPlaceholderCollection(
       String template, String expectedTemplate, String... expectedPlaceholders) throws Exception {
     List<String> actualPlaceholders = new ArrayList<>();
-    assertEquals(
-        expectedTemplate,
-        ImplicitOutputsFunction.createPlaceholderSubstitutionFormatString(
-            template, actualPlaceholders));
+    assertThat(
+            ImplicitOutputsFunction.createPlaceholderSubstitutionFormatString(
+                template, actualPlaceholders))
+        .isEqualTo(expectedTemplate);
     assertThat(actualPlaceholders)
         .containsExactlyElementsIn(Arrays.asList(expectedPlaceholders))
         .inOrder();
@@ -146,7 +143,8 @@ public final class ImplicitOutputsFunctionTest {
     assertThat(foundAttributes)
         .containsExactlyElementsIn(Arrays.asList(expectedFoundPlaceholders))
         .inOrder();
-    assertThat(substitutions).containsExactlyElementsIn(Arrays.asList(expectedSubstitutions));
+    assertThat(substitutions)
+        .containsExactlyElementsIn(Arrays.asList(expectedSubstitutions));
   }
 
   @Test

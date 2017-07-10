@@ -13,23 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.android.ziputils;
 
+import static com.google.common.truth.Truth.assertWithMessage;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertSame;
 import static org.junit.Assert.fail;
 
-import org.junit.Assert;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
-
-/**
- * Unit tests for {@link View}.
- */
+/** Unit tests for {@link View}. */
 @RunWith(JUnit4.class)
 public class ViewTest {
 
@@ -44,10 +38,10 @@ public class ViewTest {
     buffer.putInt(12345678);
     int fromBuf = buffer.getInt(0);
     int fromView = instance.getInt(0);
-    assertEquals("must assume buffer ownership", fromBuf, fromView);
+    assertWithMessage("must assume buffer ownership").that(fromView).isEqualTo(fromBuf);
     int posBuf = buffer.position();
     int posView = instance.buffer.position();
-    assertEquals("must assume buffer ownership", posBuf, posView);
+    assertWithMessage("must assume buffer ownership").that(posView).isEqualTo(posBuf);
   }
 
   @Test
@@ -56,10 +50,10 @@ public class ViewTest {
     ByteBuffer buffer = ByteBuffer.allocate(100);
     TestView instance = new TestView(buffer);
     View<TestView> result = instance.at(fileOffset);
-    assertSame("didn't return this", instance, result);
+    assertWithMessage("didn't return this").that(result).isSameAs(instance);
 
     long resultValue = instance.fileOffset();
-    assertEquals("didn't return set value", fileOffset, resultValue);
+    assertWithMessage("didn't return set value").that(resultValue).isEqualTo(fileOffset);
   }
 
   @Test
@@ -68,7 +62,7 @@ public class ViewTest {
     TestView instance = new TestView(buffer);
     long expResult = -1L;
     long result = instance.fileOffset();
-    assertEquals("default file offset should be -1", expResult, result);
+    assertWithMessage("default file offset should be -1").that(result).isEqualTo(expResult);
   }
 
   @Test
@@ -77,18 +71,18 @@ public class ViewTest {
     TestView instance = new TestView(buffer);
     int limit = instance.buffer.limit();
     int pos = instance.buffer.position();
-    assertEquals("initial limit", 100, limit);
-    assertEquals("initial position", 0, pos);
+    assertWithMessage("initial limit").that(limit).isEqualTo(100);
+    assertWithMessage("initial position").that(pos).isEqualTo(0);
     instance.putInt(1234);
     limit = instance.buffer.limit();
     pos = instance.buffer.position();
-    assertEquals("limit unchanged", 100, limit);
-    assertEquals("position advanced", 4, pos);
+    assertWithMessage("limit unchanged").that(limit).isEqualTo(100);
+    assertWithMessage("position advanced").that(pos).isEqualTo(4);
     instance.buffer.flip();
     int finishedLimit = instance.buffer.limit();
     int finishedPos = instance.buffer.position();
-    assertEquals("must set limit to position", pos, finishedLimit);
-    assertEquals("must set position to 0", 0, finishedPos);
+    assertWithMessage("must set limit to position").that(finishedLimit).isEqualTo(pos);
+    assertWithMessage("must set position to 0").that(finishedPos).isEqualTo(0);
   }
 
   @Test
@@ -101,9 +95,9 @@ public class ViewTest {
     instance.buffer.rewind();
     int result = file.write(instance.buffer);
     file.close();
-    assertEquals("incorrect number of bytes written", expResult, result);
+    assertWithMessage("incorrect number of bytes written").that(result).isEqualTo(expResult);
     byte[] bytesWritten = fileSystem.toByteArray("hello");
-    Assert.assertArrayEquals("incorrect bytes written", bytes, bytesWritten);
+    assertWithMessage("incorrect bytes written").that(bytesWritten).isEqualTo(bytes);
   }
 
   @Test
@@ -115,7 +109,7 @@ public class ViewTest {
     TestView instance = new TestView(buffer);
     byte[] expResult = "lo wo".getBytes(UTF_8);
     byte[] result = instance.getBytes(off, len);
-    assertArrayEquals("incorrect bytes returned", expResult, result);
+    assertWithMessage("incorrect bytes returned").that(result).isEqualTo(expResult);
     try {
       instance.getBytes(bytes.length - len + 1, len);
       fail("expected Exception");
@@ -139,7 +133,7 @@ public class ViewTest {
     TestView instance = new TestView(buffer);
     String expResult = "world";
     String result = instance.getString(off, len);
-    assertEquals("didn't return this", expResult, result);
+    assertWithMessage("didn't return this").that(result).isEqualTo(expResult);
     try {
       instance.getString(off + 1, len);
       fail("expected Exception");
@@ -160,7 +154,7 @@ public class ViewTest {
     TestView instance = new TestView(ByteBuffer.wrap(bytes));
     int expValue = 0x08070605;
     int value = instance.getInt(4);
-    assertEquals("Byte order incorrect", expValue, value);
+    assertWithMessage("Byte order incorrect").that(value).isEqualTo(expValue);
   }
 
   static class TestView extends View<TestView> {

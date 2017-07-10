@@ -59,9 +59,9 @@ cc_library(
         ":errors",
         ":strings",
     ] + select({
-        "//src:windows": ["//src/main/native:windows_jni_lib"],
-        "//src:windows_msys": ["//src/main/native:windows_jni_lib"],
-        "//src:windows_msvc": ["//src/main/native:windows_jni_lib"],
+        "//src:windows": ["//src/main/native/windows:lib-file"],
+        "//src:windows_msys": ["//src/main/native/windows:lib-file"],
+        "//src:windows_msvc": ["//src/main/native/windows:lib-file"],
         "//conditions:default": [],
     }),
 )
@@ -145,4 +145,10 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]),
     visibility = ["//src/main/cpp:__pkg__"],
+)
+
+filegroup(
+    name = "embedded_tools",
+    srcs = glob(["*.cc"]) + glob(["*.h"]) + ["BUILD"],
+    visibility = ["//visibility:public"],
 )

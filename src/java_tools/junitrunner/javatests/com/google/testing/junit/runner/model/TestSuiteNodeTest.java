@@ -14,11 +14,12 @@
 
 package com.google.testing.junit.runner.model;
 
-import static org.junit.Assert.assertFalse;
+import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyZeroInteractions;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.Description;
@@ -45,7 +46,7 @@ public class TestSuiteNodeTest {
 
   @Test
   public void testIsTestCase() {
-    assertFalse(testSuiteNode.isTestCase());
+    assertThat(testSuiteNode.isTestCase()).isFalse();
     verifyZeroInteractions(testCaseNode);
   }
 

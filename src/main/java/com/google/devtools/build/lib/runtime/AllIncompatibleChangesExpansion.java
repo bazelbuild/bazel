@@ -14,13 +14,15 @@
 
 package com.google.devtools.build.lib.runtime;
 
-import com.google.common.collect.Iterables;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.common.options.Converter;
+import com.google.devtools.common.options.ExpansionContext;
 import com.google.devtools.common.options.ExpansionFunction;
 import com.google.devtools.common.options.IsolatedOptionsData;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.proto.OptionFilters.OptionMetadataTag;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Map;
@@ -66,11 +68,18 @@ import java.util.Map;
  * aware that an error in the specification of the {@code @Option} will exercise failure code paths
  * in the early part of the Bazel server execution.
  *
- * <p>After the breaking change has been enabled unconditionally, it is recommended (required?) that
- * its corresponding incompatible change option be left as a valid no-op option, rather than
- * removed. This helps avoid breaking invocations of Bazel upon upgrading to a new release. Just as
- * for other options, names of incompatible change options must never be reused for a different
- * option.
+ * <p>After the breaking change has been enabled by default, it is recommended (required?) that the
+ * flag stick around for a few releases, to provide users the flexibility to opt out. Even after
+ * enabling the behavior unconditionally, it can still be useful to keep the flag around as a valid
+ * no-op so that Bazel invocations are not immediately broken.
+ *
+ * <p>Generally speaking, we should never reuse names for multiple options. Therefore, when choosing
+ * a name for a new incompatible change, try to describe not just the affected feature, but what the
+ * change to that feature is. This avoids conflicts in case the feature changes multiple times. For
+ * example, {@code "--incompatible_depset_constructor"} is ambiguous because it only communicates
+ * that there is a change to how depsets are constructed, but {@code
+ * "--incompatible_disallow_set_constructor"} uniquely says that the {@code set} alias for the
+ * depset constructor is being disallowed.
  */
 // Javadoc can't resolve inner classes.
 @SuppressWarnings("javadoc")
@@ -125,6 +134,11 @@ public class AllIncompatibleChangesExpansion implements ExpansionFunction {
     if (!annotation.category().equals(INCOMPATIBLE_CATEGORY)) {
       throw new IllegalArgumentException(prefix + "must have category \"incompatible changes\"");
     }
+    if (!ImmutableList.copyOf(annotation.metadataTags())
+        .contains(OptionMetadataTag.INCOMPATIBLE_CHANGE)) {
+      throw new IllegalArgumentException(
+          prefix + "must have metadata tag \"OptionMetadataTag.INCOMPATIBLE_CHANGE\"");
+    }
     if (!IsolatedOptionsData.isExpansionOption(annotation)) {
       if (!field.getType().equals(Boolean.TYPE)) {
         throw new IllegalArgumentException(
@@ -140,11 +154,11 @@ public class AllIncompatibleChangesExpansion implements ExpansionFunction {
   }
 
   @Override
-  public String[] getExpansion(IsolatedOptionsData optionsData) {
+  public ImmutableList<String> getExpansion(ExpansionContext context) {
     // Grab all registered options that are identified as incompatible changes by either name or
     // by category. Ensure they satisfy our requirements.
     ArrayList<String> incompatibleChanges = new ArrayList<>();
-    for (Map.Entry<String, Field> entry : optionsData.getAllNamedFields()) {
+    for (Map.Entry<String, Field> entry : context.getOptionsData().getAllNamedFields()) {
       Field field = entry.getValue();
       Option annotation = field.getAnnotation(Option.class);
       if (annotation.name().startsWith(INCOMPATIBLE_NAME_PREFIX)
@@ -156,6 +170,6 @@ public class AllIncompatibleChangesExpansion implements ExpansionFunction {
     // Sort to get a deterministic canonical order. This probably isn't necessary because the
     // options parser will do its own sorting when canonicalizing, but it seems like it can't hurt.
     incompatibleChanges.sort(null);
-    return Iterables.toArray(incompatibleChanges, String.class);
+    return ImmutableList.copyOf(incompatibleChanges);
   }
 }

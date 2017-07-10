@@ -13,9 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect.nestedset;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableSet;
 import java.util.Set;
@@ -36,20 +34,18 @@ public class NestedSetViewTest {
         NestedSetBuilder.<String>stableOrder().add("a").add("b").add("c").build();
 
     // The identifier should be independent of the view instance.
-    assertEquals(
-        (new NestedSetView<String>(inner)).identifier(),
-        (new NestedSetView<String>(inner)).identifier());
+    assertThat((new NestedSetView<String>(inner)).identifier())
+        .isEqualTo((new NestedSetView<String>(inner)).identifier());
 
     // Sets with different internal structure should have different identifiers
-    assertNotEquals(
-        (new NestedSetView<String>(outer)).identifier(),
-        (new NestedSetView<String>(flat)).identifier());
+    assertThat((new NestedSetView<String>(flat)).identifier())
+        .isNotEqualTo((new NestedSetView<String>(outer)).identifier());
 
     // Decomposing a set, the transitive sets should be correctly identified.
     Set<NestedSetView<String>> transitives = (new NestedSetView<String>(outer)).transitives();
-    assertEquals(1, transitives.size());
+    assertThat(transitives).hasSize(1);
     NestedSetView<String> extracted = transitives.iterator().next();
-    assertEquals((new NestedSetView<String>(inner)).identifier(), extracted.identifier());
+    assertThat(extracted.identifier()).isEqualTo((new NestedSetView<String>(inner)).identifier());
   }
 
   @Test
@@ -64,7 +60,7 @@ public class NestedSetViewTest {
             .build();
 
     // The direct members should correctly be identified.
-    assertEquals(ImmutableSet.of("c", "d", "e"), (new NestedSetView<String>(outer)).directs());
+    assertThat((new NestedSetView<String>(outer)).directs()).containsExactly("c", "d", "e");
   }
 
   @Test
@@ -94,7 +90,7 @@ public class NestedSetViewTest {
     for (NestedSetView<String> transitive : (new NestedSetView<String>(outer)).transitives()) {
       found.add(transitive.identifier());
     }
-    assertEquals(expected, found.build());
+    assertThat(found.build()).isEqualTo(expected);
   }
 
   /** Naively traverse a view and collect all elements reachable. */
@@ -133,8 +129,8 @@ public class NestedSetViewTest {
             .build();
 
     NestedSetView<String> view = new NestedSetView<String>(outer);
-    assertEquals(ImmutableSet.of("a", "b", "c1", "c2", "x", "y", "z"), contents(view));
-    assertTrue(
-        identifiers(view.transitives()).contains((new NestedSetView<String>(multi)).identifier()));
+    assertThat(contents(view)).containsExactly("a", "b", "c1", "c2", "x", "y", "z");
+    assertThat(identifiers(view.transitives()))
+        .contains((new NestedSetView<String>(multi)).identifier());
   }
 }

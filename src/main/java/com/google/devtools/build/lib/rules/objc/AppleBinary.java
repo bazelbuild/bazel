@@ -33,16 +33,21 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.apple.Platform;
-import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.objc.AppleDebugOutputsProvider.OutputType;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.MultiArchBinarySupport.DependencySpecificConfiguration;
+import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
+import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
+import java.util.Map;
+import java.util.TreeMap;
 
 /** Implementation for the "apple_binary" rule. */
 public class AppleBinary implements RuleConfiguredTargetFactory {
@@ -108,10 +113,12 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
   @Override
   public final ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
+    MultiArchSplitTransitionProvider.validateMinimumOs(ruleContext);
     PlatformType platformType = MultiArchSplitTransitionProvider.getPlatformType(ruleContext);
+
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
 
-    Platform platform = appleConfiguration.getMultiArchPlatform(platformType);
+    ApplePlatform platform = appleConfiguration.getMultiArchPlatform(platformType);
     ImmutableListMultimap<BuildConfiguration, ObjcProvider> configurationToNonPropagatedObjcMap =
         ruleContext.getPrerequisitesByConfiguration(
             "non_propagated_deps", Mode.SPLIT, ObjcProvider.class);
@@ -119,7 +126,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
         ruleContext.getPrerequisitesByConfiguration("deps", Mode.SPLIT);
 
     ImmutableMap<BuildConfiguration, CcToolchainProvider> childConfigurations =
-        getChildConfigurationsAndToolchains(ruleContext);
+        MultiArchBinarySupport.getChildConfigurationsAndToolchains(ruleContext);
     Artifact outputArtifact =
         ObjcRuleClasses.intermediateArtifacts(ruleContext).combinedArchitectureBinary();
 
@@ -133,13 +140,15 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
             getDylibProviders(ruleContext),
             getDylibProtoProviders(ruleContext));
 
+    Map<String, NestedSet<Artifact>> outputGroupCollector = new TreeMap<>();
     multiArchBinarySupport.registerActions(
         platform,
         getExtraLinkArgs(ruleContext),
         dependencySpecificConfigurations,
         getExtraLinkInputs(ruleContext),
         configToDepsCollectionMap,
-        outputArtifact);
+        outputArtifact,
+        outputGroupCollector);
 
     NestedSetBuilder<Artifact> filesToBuild =
         NestedSetBuilder.<Artifact>stableOrder().add(outputArtifact);
@@ -149,7 +158,8 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     ObjcProvider.Builder objcProviderBuilder = new ObjcProvider.Builder();
     for (DependencySpecificConfiguration dependencySpecificConfiguration :
         dependencySpecificConfigurations) {
-      objcProviderBuilder.addTransitiveAndPropagate(dependencySpecificConfiguration.objcProvider());
+      objcProviderBuilder.addTransitiveAndPropagate(
+          dependencySpecificConfiguration.objcProviderWithDylibSymbols());
     }
     objcProviderBuilder.add(MULTI_ARCH_LINKED_BINARIES, outputArtifact);
 
@@ -202,7 +212,11 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
       }
     }
 
-    targetBuilder.addNativeDeclaredProvider(builder.build());
+    targetBuilder.addNativeDeclaredProvider(builder.build()).addOutputGroups(outputGroupCollector);
+
+    InstrumentedFilesProvider instrumentedFilesProvider =
+        InstrumentedFilesCollector.forward(ruleContext, "deps", "bundle_loader");
+    targetBuilder.addProvider(InstrumentedFilesProvider.class, instrumentedFilesProvider);
 
     return targetBuilder.build();
   }
@@ -222,6 +236,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     switch (binaryType) {
       case LOADABLE_BUNDLE:
         extraLinkArgs.add("-bundle");
+        extraLinkArgs.add("-Xlinker", "-rpath", "-Xlinker", "@loader_path/Frameworks");
         if (didProvideBundleLoader) {
           AppleExecutableBinaryProvider executableProvider =
               (AppleExecutableBinaryProvider) ruleContext.getPrerequisite(
@@ -229,7 +244,6 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
                   AppleExecutableBinaryProvider.SKYLARK_CONSTRUCTOR.getKey());
           extraLinkArgs.add(
               "-bundle_loader", executableProvider.getAppleExecutableBinary().getExecPathString());
-          extraLinkArgs.add("-Xlinker", "-rpath", "-Xlinker", "@loader_path/Frameworks");
         }
         break;
       case DYLIB:
@@ -243,16 +257,21 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
   }
 
   private static Iterable<ObjcProvider> getDylibProviders(RuleContext ruleContext) {
-    Iterable<ObjcProvider> dylibProviders =
-        ruleContext.getPrerequisites(DYLIBS_ATTR_NAME, Mode.TARGET, ObjcProvider.class);
+    ImmutableList.Builder<ObjcProvider> dylibProviders = ImmutableList.builder();
+    Iterable<AppleDynamicFrameworkProvider> frameworkProviders =
+        ruleContext.getPrerequisites(
+            DYLIBS_ATTR_NAME, Mode.TARGET, AppleDynamicFrameworkProvider.SKYLARK_CONSTRUCTOR);
+    for (AppleDynamicFrameworkProvider frameworkProvider : frameworkProviders) {
+      dylibProviders.add(frameworkProvider.getDepsObjcProvider());
+    }
 
     ObjcProvider bundleLoaderObjcProvider =
         ruleContext.getPrerequisite(BUNDLE_LOADER_ATTR_NAME, Mode.TARGET, ObjcProvider.class);
 
     if (bundleLoaderObjcProvider != null) {
-      dylibProviders = Iterables.concat(dylibProviders, ImmutableList.of(bundleLoaderObjcProvider));
+      dylibProviders.add(bundleLoaderObjcProvider);
     }
-    return dylibProviders;
+    return dylibProviders.build();
   }
 
   private static Iterable<ObjcProtoProvider> getDylibProtoProviders(RuleContext ruleContext) {
@@ -278,24 +297,6 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
       return ImmutableSet.<Artifact>of(executableProvider.getAppleExecutableBinary());
     }
     return ImmutableSet.<Artifact>of();
-  }
-
-  private ImmutableMap<BuildConfiguration, CcToolchainProvider> getChildConfigurationsAndToolchains(
-      RuleContext ruleContext) {
-    // This is currently a hack to obtain all child configurations regardless of the attribute
-    // values of this rule -- this rule does not currently use the actual info provided by
-    // this attribute. b/28403953 tracks cc toolchain usage.
-    ImmutableListMultimap<BuildConfiguration, CcToolchainProvider> configToProvider =
-        ruleContext.getPrerequisitesByConfiguration(
-            ObjcRuleClasses.CHILD_CONFIG_ATTR, Mode.SPLIT, CcToolchainProvider.class);
-
-    ImmutableMap.Builder<BuildConfiguration, CcToolchainProvider> result = ImmutableMap.builder();
-    for (BuildConfiguration config : configToProvider.keySet()) {
-      CcToolchainProvider toolchain = Iterables.getOnlyElement(configToProvider.get(config));
-      result.put(config, toolchain);
-    }
-
-    return result.build();
   }
 
   private static BinaryType getBinaryType(RuleContext ruleContext) {

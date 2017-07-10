@@ -12,16 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "linux-sandbox-options.h"
-#include "linux-sandbox-utils.h"
-
-#define DIE(args...)                                     \
-  {                                                      \
-    fprintf(stderr, __FILE__ ":" S__LINE__ ": \"" args); \
-    fprintf(stderr, "\": ");                             \
-    perror(NULL);                                        \
-    exit(EXIT_FAILURE);                                  \
-  }
+#include "src/main/tools/linux-sandbox-options.h"
 
 #include <errno.h>
 #include <sched.h>
@@ -32,12 +23,14 @@
 #include <string.h>
 #include <sys/wait.h>
 #include <unistd.h>
-
 #include <fstream>
 #include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
+
+#include "src/main/tools/logging.h"
+#include "src/main/tools/process-tools.h"
 
 using std::ifstream;
 using std::unique_ptr;
@@ -94,7 +87,7 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
   extern char *optarg;
   extern int optind, optopt;
   int c;
-  bool source_specified;
+  bool source_specified = false;
 
   while ((c = getopt(args->size(), args->data(), ":W:T:t:l:L:w:e:M:m:HNRUD")) !=
          -1) {
@@ -207,8 +200,8 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
 
 // Expands a single argument, expanding options @filename to read in the content
 // of the file and add it to the list of processed arguments.
-unique_ptr<vector<char *>> ExpandArgument(unique_ptr<vector<char *>> expanded,
-                                          char *arg) {
+static unique_ptr<vector<char *>> ExpandArgument(
+    unique_ptr<vector<char *>> expanded, char *arg) {
   if (arg[0] == '@') {
     const char *filename = arg + 1;  // strip off the '@'.
     ifstream f(filename);
@@ -236,7 +229,7 @@ unique_ptr<vector<char *>> ExpandArgument(unique_ptr<vector<char *>> expanded,
 // Pre-processes an argument list, expanding options @filename to read in the
 // content of the file and add it to the list of arguments. Stops expanding
 // arguments once it encounters "--".
-unique_ptr<vector<char *>> ExpandArguments(const vector<char *> &args) {
+static unique_ptr<vector<char *>> ExpandArguments(const vector<char *> &args) {
   unique_ptr<vector<char *>> expanded(new vector<char *>());
   expanded->reserve(args.size());
   for (auto arg = args.begin(); arg != args.end(); ++arg) {
@@ -250,7 +243,6 @@ unique_ptr<vector<char *>> ExpandArguments(const vector<char *> &args) {
   return expanded;
 }
 
-// Handles parsing all command line flags and populates the global opt struct.
 void ParseOptions(int argc, char *argv[]) {
   vector<char *> args(argv, argv + argc);
   ParseCommandLine(ExpandArguments(args));
@@ -260,6 +252,6 @@ void ParseOptions(int argc, char *argv[]) {
   }
 
   if (opt.working_dir.empty()) {
-    opt.working_dir = getcwd(NULL, 0);
+    opt.working_dir = getcwd(nullptr, 0);
   }
 }

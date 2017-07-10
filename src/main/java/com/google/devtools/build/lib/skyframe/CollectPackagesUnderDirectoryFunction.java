@@ -19,7 +19,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.RecursivePkgValue.RecursivePkgKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -49,15 +48,16 @@ public class CollectPackagesUnderDirectoryFunction implements SkyFunction {
   }
 
   private class MyTraversalFunction
-      extends RecursiveDirectoryTraversalFunction<MyVisitor, CollectPackagesUnderDirectoryValue> {
+      extends RecursiveDirectoryTraversalFunction<
+          MyPackageDirectoryConsumer, CollectPackagesUnderDirectoryValue> {
 
     private MyTraversalFunction() {
       super(directories);
     }
 
     @Override
-    protected MyVisitor getInitialVisitor() {
-      return new MyVisitor();
+    protected MyPackageDirectoryConsumer getInitialConsumer() {
+      return new MyPackageDirectoryConsumer();
     }
 
     @Override
@@ -71,7 +71,7 @@ public class CollectPackagesUnderDirectoryFunction implements SkyFunction {
 
     @Override
     protected CollectPackagesUnderDirectoryValue aggregateWithSubdirectorySkyValues(
-        MyVisitor visitor, Map<SkyKey, SkyValue> subdirectorySkyValues) {
+        MyPackageDirectoryConsumer consumer, Map<SkyKey, SkyValue> subdirectorySkyValues) {
       // Aggregate the child subdirectory package state.
       ImmutableMap.Builder<RootedPath, Boolean> builder = ImmutableMap.builder();
       for (SkyKey key : subdirectorySkyValues.keySet()) {
@@ -91,30 +91,30 @@ public class CollectPackagesUnderDirectoryFunction implements SkyFunction {
         builder.put(recursivePkgKey.getRootedPath(), packagesOrErrorsInSubdirectory);
       }
       ImmutableMap<RootedPath, Boolean> subdirectories = builder.build();
-      String errorMessage = visitor.getErrorMessage();
+      String errorMessage = consumer.getErrorMessage();
       if (errorMessage != null) {
         return CollectPackagesUnderDirectoryValue.ofError(errorMessage, subdirectories);
       }
       return CollectPackagesUnderDirectoryValue.ofNoError(
-          visitor.isDirectoryPackage(), subdirectories);
+          consumer.isDirectoryPackage(), subdirectories);
     }
   }
 
-  private static class MyVisitor implements RecursiveDirectoryTraversalFunction.Visitor {
+  private static class MyPackageDirectoryConsumer
+      implements RecursiveDirectoryTraversalFunction.PackageDirectoryConsumer {
 
     private boolean isDirectoryPackage;
     @Nullable private String errorMessage;
 
-    private MyVisitor() {}
+    private MyPackageDirectoryConsumer() {}
 
     @Override
-    public void visitPackageValue(Package pkg, Environment env) {
+    public void notePackage(PathFragment pkgPath) {
       isDirectoryPackage = true;
     }
 
     @Override
-    public void visitPackageError(NoSuchPackageException e, Environment env)
-        throws InterruptedException {
+    public void notePackageError(NoSuchPackageException e) {
       errorMessage = e.getMessage();
     }
 

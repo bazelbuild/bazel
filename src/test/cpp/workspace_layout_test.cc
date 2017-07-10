@@ -12,52 +12,50 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "third_party/bazel/src/main/cpp/workspace_layout.h"
+#include "src/main/cpp/workspace_layout.h"
 
 #include <fcntl.h>
 
-#include "file/base/file.h"
-#include "file/base/filesystem.h"
-#include "file/base/helpers.h"
-#include "file/base/path.h"
-#include "strings/strcat.h"
+#include <memory>
+
+#include "src/main/cpp/blaze_util_platform.h"
+#include "src/main/cpp/util/file.h"
 #include "gtest/gtest.h"
-#include "third_party/bazel/src/main/cpp/util/file.h"
 
 namespace blaze {
 
 class WorkspaceLayoutTest : public ::testing::Test {
  protected:
-  WorkspaceLayoutTest() : workspace_layout_(new WorkspaceLayout()) {}
+  WorkspaceLayoutTest() :
+      build_root_(blaze_util::JoinPath(
+          blaze::GetEnv("TEST_TMPDIR"), "build_root")),
+      workspace_layout_(new WorkspaceLayout()) {}
 
-  void SetUp() {
-    build_root_ = file::JoinPath(FLAGS_test_tmpdir, "build_root");
-    CHECK_OK(RecursivelyCreateDir(build_root_, file::Defaults()));
-    CHECK_OK(file::SetContents(
-        file::JoinPath(build_root_, "WORKSPACE"), "", file::Defaults()));
-
-    // Create fake javac so that Blaze can find the javabase
-    string javac = file::JoinPath(FLAGS_test_tmpdir, "javac");
-    CHECK_OK(file::SetContents(javac, "", file::Defaults()));
-    CHECK_GE(chmod(javac.c_str(), 0755), 0);
-
-    string path(getenv("PATH"));
-    string test_tmpdir(getenv("TEST_TMPDIR"));
-    path = test_tmpdir + ":" + path;
-    setenv("PATH", path.c_str(), 1);
+  void SetUp() override {
+    ASSERT_TRUE(blaze_util::MakeDirectories(build_root_, 0755));
+    ASSERT_TRUE(blaze_util::WriteFile(
+        "", blaze_util::JoinPath(build_root_, "WORKSPACE"), 0755));
   }
 
-  void TearDown() {
-    file::RecursivelyDelete(build_root_, file::Defaults()).IgnoreError();
+  void TearDown() override {
+    // TODO(bazel-team): The code below deletes all the files in the workspace
+    // but it intentionally skips directories. As a consequence, there may be
+    // empty directories from test to test. Remove this once
+    // blaze_util::DeleteDirectories(path) exists.
+    std::vector<std::string> files_in_workspace;
+    blaze_util::GetAllFilesUnder(build_root_, &files_in_workspace);
+    for (const std::string& file : files_in_workspace) {
+      blaze_util::UnlinkPath(file);
+    }
   }
 
-  string build_root_;
+  const std::string build_root_;
   const std::unique_ptr<WorkspaceLayout> workspace_layout_;
 };
 
 TEST_F(WorkspaceLayoutTest, GetWorkspace) {
   // "" is returned when there's no workspace path.
-  string cwd = "foo/bar";
+  std::string cwd = "foo/bar";
   ASSERT_EQ("", workspace_layout_->GetWorkspace(cwd));
   ASSERT_FALSE(workspace_layout_->InWorkspace(cwd));
 
@@ -65,7 +63,7 @@ TEST_F(WorkspaceLayoutTest, GetWorkspace) {
   ASSERT_EQ(build_root_, workspace_layout_->GetWorkspace(cwd));
   ASSERT_TRUE(workspace_layout_->InWorkspace(build_root_));
 
-  cwd = file::JoinPath(build_root_, "foo/bar");
+  cwd = blaze_util::JoinPath(build_root_, cwd);
   ASSERT_EQ(build_root_, workspace_layout_->GetWorkspace(cwd));
 }
 

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -40,7 +41,7 @@ class PostConfiguredTargetValue implements SkyValue {
   }
 
   public static SkyKey key(ConfiguredTargetKey lac) {
-    return SkyKey.create(SkyFunctions.POST_CONFIGURED_TARGET, lac);
+    return LegacySkyKey.create(SkyFunctions.POST_CONFIGURED_TARGET, lac);
   }
 
   public ConfiguredTarget getCt() {

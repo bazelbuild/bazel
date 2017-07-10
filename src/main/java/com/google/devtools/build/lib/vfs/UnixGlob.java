@@ -131,15 +131,6 @@ public final class UnixGlob {
     if (pattern.charAt(0) == '/') {
       return "pattern cannot be absolute";
     }
-    for (int i = 0; i < pattern.length(); i++) {
-      char c = pattern.charAt(i);
-      switch (c) {
-        case '(': case ')':
-        case '{': case '}':
-        case '[': case ']':
-        return "illegal character '" + c + "'";
-      }
-    }
     Iterable<String> segments = Splitter.on('/').split(pattern);
     for (String segment : segments) {
       if (segment.isEmpty()) {
@@ -272,7 +263,7 @@ public final class UnixGlob {
     /**
      * Return the stat() for the given path, or null.
      */
-    FileStatus statNullable(Path path, Symlinks symlinks);
+    FileStatus statIfFound(Path path, Symlinks symlinks) throws IOException;
   }
 
   public static FilesystemCalls DEFAULT_SYSCALLS = new FilesystemCalls() {
@@ -282,8 +273,8 @@ public final class UnixGlob {
     }
 
     @Override
-    public FileStatus statNullable(Path path, Symlinks symlinks) {
-      return path.statNullable(symlinks);
+    public FileStatus statIfFound(Path path, Symlinks symlinks) throws IOException {
+      return path.statIfFound(symlinks);
     }
   };
 
@@ -548,14 +539,19 @@ public final class UnixGlob {
      * Same as {@link #glob}, except does so asynchronously and returns a {@link Future} for the
      * result.
      */
-    public Future<List<Path>> globAsync(
+    Future<List<Path>> globAsync(
         Path base,
         Collection<String> patterns,
         boolean excludeDirectories,
         Predicate<Path> dirPred,
         FilesystemCalls syscalls) {
 
-      FileStatus baseStat = syscalls.statNullable(base, Symlinks.FOLLOW);
+      FileStatus baseStat;
+      try {
+        baseStat = syscalls.statIfFound(base, Symlinks.FOLLOW);
+      } catch (IOException e) {
+        return Futures.immediateFailedFuture(e);
+      }
       if (baseStat == null || patterns.isEmpty()) {
         return Futures.immediateFuture(Collections.<Path>emptyList());
       }
@@ -619,18 +615,16 @@ public final class UnixGlob {
       totalOps.incrementAndGet();
       pendingOps.incrementAndGet();
 
-      Runnable wrapped = new Runnable() {
-        @Override
-        public void run() {
-          try {
-            if (!canceled && failure.get() == null) {
-              r.run();
+      Runnable wrapped =
+          () -> {
+            try {
+              if (!canceled && failure.get() == null) {
+                r.run();
+              }
+            } finally {
+              decrementAndCheckDone();
             }
-          } finally {
-            decrementAndCheckDone();
-          }
-        }
-      };
+          };
 
       if (executor == null) {
         wrapped.run();
@@ -783,7 +777,7 @@ public final class UnixGlob {
       if (!pattern.contains("*") && !pattern.contains("?")) {
         // We do not need to do a readdir in this case, just a stat.
         Path child = base.getChild(pattern);
-        FileStatus status = context.syscalls.statNullable(child, Symlinks.FOLLOW);
+        FileStatus status = context.syscalls.statIfFound(child, Symlinks.FOLLOW);
         if (status == null || (!status.isDirectory() && !status.isFile())) {
           // The file is a dangling symlink, fifo, does not exist, etc.
           return;

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.SkylarkType;
@@ -25,13 +26,12 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
- *  Declared provider defined in Skylark.
+ * Declared provider defined in Skylark.
  *
- *  This is a result of calling {@code provider()} function from Skylark
- *  ({@link com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions#provider}).
+ * <p>This is a result of calling {@code provider()} function from Skylark ({@link
+ * com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions#provider}).
  */
-public final class SkylarkClassObjectConstructor
-    extends ClassObjectConstructor
+public class SkylarkClassObjectConstructor extends ClassObjectConstructor
     implements SkylarkExportable {
 
   private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
@@ -50,7 +50,12 @@ public final class SkylarkClassObjectConstructor
    * Needs to be exported later.
    */
   public SkylarkClassObjectConstructor(String name, Location location) {
-    super(name, SIGNATURE, location);
+    this(name, SIGNATURE, location);
+  }
+
+  public SkylarkClassObjectConstructor(
+      String name, FunctionSignature.WithValues<Object, SkylarkType> signature, Location location) {
+    super(name, signature, location);
     this.errorMessageFormatForInstances = DEFAULT_ERROR_MESSAFE;
   }
 
@@ -119,6 +124,11 @@ public final class SkylarkClassObjectConstructor
     return isExported();
   }
 
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    printer.append("<provider>");
+  }
+
   /**
    * A serializable representation of Skylark-defined {@link SkylarkClassObjectConstructor}
    * that uniquely identifies all {@link SkylarkClassObjectConstructor}s that
@@ -165,5 +175,4 @@ public final class SkylarkClassObjectConstructor
           && Objects.equals(this.exportedName, other.exportedName);
     }
   }
-
 }

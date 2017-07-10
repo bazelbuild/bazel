@@ -14,8 +14,8 @@
 
 package com.google.testing.junit.runner.internal.junit4;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 import static org.mockito.Matchers.any;
@@ -77,13 +77,17 @@ public class JUnit4TestXmlListenerTest {
     when(mockModelSupplier.get()).thenReturn(mockModel);
 
     listener.testRunStarted(suiteDescription);
-    assertEquals(1, fakeSignalHandlers.handlers.size());
+    assertThat(fakeSignalHandlers.handlers).hasSize(1);
 
     fakeSignalHandlers.handlers.get(0).handle(new Signal("TERM"));
 
     String errOutput = errStream.toString(CHARSET);
-    assertTrue("expected signal name in stderr", errOutput.contains("SIGTERM"));
-    assertTrue("expected message in stderr", errOutput.contains("Done writing test XML"));
+    assertWithMessage("expected signal name in stderr")
+        .that(errOutput.contains("SIGTERM"))
+        .isTrue();
+    assertWithMessage("expected message in stderr")
+        .that(errOutput.contains("Done writing test XML"))
+        .isTrue();
 
     InOrder inOrder = inOrder(mockRequestFactory, mockModel);
     inOrder.verify(mockRequestFactory).cancelRun();
@@ -106,7 +110,7 @@ public class JUnit4TestXmlListenerTest {
     core.addListener(listener);
     core.run(Request.classWithoutSuiteMethod(PassingTest.class));
 
-    assertEquals("no output to stderr expected", 0, errStream.size());
+    assertWithMessage("no output to stderr expected").that(errStream.size()).isEqualTo(0);
     verify(mockModel).writeAsXml(mockXmlStream);
     verify(mockRequestFactory, never()).cancelRun();
   }
@@ -130,7 +134,7 @@ public class JUnit4TestXmlListenerTest {
     core.addListener(listener);
     core.run(request);
 
-    assertEquals("no output to stderr expected", 0, errStream.size());
+    assertWithMessage("no output to stderr expected").that(errStream.size()).isEqualTo(0);
     InOrder inOrder = inOrder(mockModel);
     inOrder.verify(mockModel).testSkipped(testDescription);
     inOrder.verify(mockModel).writeAsXml(mockXmlStream);
@@ -156,7 +160,7 @@ public class JUnit4TestXmlListenerTest {
     core.addListener(listener);
     core.run(request);
 
-    assertEquals("no output to stderr expected", 0, errStream.size());
+    assertWithMessage("no output to stderr expected").that(errStream.size()).isEqualTo(0);
     InOrder inOrder = inOrder(mockModel);
     inOrder.verify(mockModel).testSkipped(suiteDescription);
     inOrder.verify(mockModel).writeAsXml(mockXmlStream);
@@ -182,7 +186,7 @@ public class JUnit4TestXmlListenerTest {
     core.addListener(listener);
     core.run(request);
 
-    assertEquals("no output to stderr expected", 0, errStream.size());
+    assertWithMessage("no output to stderr expected").that(errStream.size()).isEqualTo(0);
     InOrder inOrder = inOrder(mockModel);
     inOrder.verify(mockModel).testFailure(eq(testDescription), any(Throwable.class));
     inOrder.verify(mockModel).writeAsXml(mockXmlStream);
@@ -208,7 +212,7 @@ public class JUnit4TestXmlListenerTest {
     core.addListener(listener);
     core.run(request);
 
-    assertEquals("no output to stderr expected", 0, errStream.size());
+    assertWithMessage("no output to stderr expected").that(errStream.size()).isEqualTo(0);
     InOrder inOrder = inOrder(mockModel);
     inOrder.verify(mockModel).testSuppressed(testDescription);
     inOrder.verify(mockModel).writeAsXml(mockXmlStream);

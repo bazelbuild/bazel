@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.testutil;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.PackageFactory.BuilderFactoryForTesting;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 
 /**
@@ -67,6 +67,8 @@ public class TestConstants {
 
   public static final ImmutableList<String> IGNORED_MESSAGE_PREFIXES = ImmutableList.<String>of();
 
+  public static final String WORKSPACE_CONTENT = "";
+
   public static final String GCC_INCLUDE_PATH = "external/bazel_tools/tools/cpp/gcc3";
 
   public static final String TOOLS_REPOSITORY = "@bazel_tools";
@@ -83,6 +85,6 @@ public class TestConstants {
   public static final InvocationPolicy TEST_INVOCATION_POLICY =
       InvocationPolicy.getDefaultInstance();
 
-  public static final PackageFactory.FactoryForTesting PACKAGE_FACTORY_FACTORY_FOR_TESTING =
-      PackageFactoryFactoryForBazelUnitTests.INSTANCE;
+  public static final BuilderFactoryForTesting PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING =
+      PackageFactoryBuilderFactoryForBazelUnitTests.INSTANCE;
 }

@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -51,6 +52,27 @@ public abstract class MockCcSupport {
         }
       };
 
+  /** This feature will prevent bazel from patching the crosstool. */
+  public static final String NO_LEGACY_FEATURES_FEATURE = "feature { name: 'no_legacy_features' }";
+
+  /** Feature expected by the C++ rules when pic build is requested */
+  public static final String PIC_FEATURE =
+      ""
+          + "feature {"
+          + "  name: 'pic'"
+          + "  flag_set {"
+          + "    action: 'c-compile'"
+          + "    action: 'c++-compile'"
+          + "    action: 'c++-module-codegen'"
+          + "    action: 'c++-module-compile'"
+          + "    action: 'preprocess-assemble'"
+          + "    expand_if_all_available: 'pic'"
+          + "    flag_group {"
+          + "      flag: '-fPIC'"
+          + "    }"
+          + "  }"
+          + "}";
+
   /**
    * A feature configuration snippet useful for testing header processing.
    */
@@ -75,9 +97,7 @@ public abstract class MockCcSupport {
           + "  }"
           + "}";
 
-  /**
-   * A feature configuration snippet useful for testing the layering check.
-   */
+  /** A feature configuration snippet useful for testing the layering check. */
   public static final String LAYERING_CHECK_FEATURE_CONFIGURATION =
       ""
           + "feature {"
@@ -89,6 +109,7 @@ public abstract class MockCcSupport {
           + "    action: 'c++-header-preprocessing'"
           + "    action: 'c++-module-compile'"
           + "    flag_group {"
+          + "      iterate_over: 'dependent_module_map_files'"
           + "      flag: 'dependent_module_map_file:%{dependent_module_map_files}'"
           + "    }"
           + "  }"
@@ -145,6 +166,7 @@ public abstract class MockCcSupport {
           + "    action: 'c++-header-preprocessing'"
           + "    action: 'c++-modules-compile'"
           + "    flag_group {"
+          + "      iterate_over: 'module_files'"
           + "      flag: 'module_file:%{module_files}'"
           + "    }"
           + "  }"
@@ -235,12 +257,20 @@ public abstract class MockCcSupport {
           + "    flag_group {"
           + "      flag: '-flto=thin'"
           + "    }"
+          + "    flag_group {"
+          + "      expand_if_all_available: 'lto_indexing_bitcode_file'"
+          + "      flag: 'lto_indexing_bitcode=%{lto_indexing_bitcode_file}'"
+          + "    }"
           + "  }"
           + "  flag_set {"
           + "    action: 'lto-indexing'"
           + "    flag_group {"
           + "      flag: 'param_file=%{thinlto_indexing_param_file}'"
           + "      flag: 'prefix_replace=%{thinlto_prefix_replace}'"
+          + "    }"
+          + "    flag_group {"
+          + "      expand_if_all_available: 'thinlto_object_suffix_replace'"
+          + "      flag: 'object_suffix_replace=%{thinlto_object_suffix_replace}'"
           + "    }"
           + "  }"
           + "  flag_set {"
@@ -297,6 +327,7 @@ public abstract class MockCcSupport {
           + "    action: 'c++-compile'"
           + "    action: 'assemble'"
           + "    action: 'preprocess-assemble'"
+          + "    action: 'c++-module-codegen'"
           + "    action: 'lto-backend'"
           + "    expand_if_all_available: 'per_object_debug_info_file'"
           + "    flag_group {"
@@ -324,6 +355,57 @@ public abstract class MockCcSupport {
           + "artifact_name_pattern {"
           + "   category_name: 'static_library'"
           + "   pattern: 'foo%{bad_variable}bar'"
+          + "}";
+
+  /** An action_config for 'c++-compile action using DUMMY_TOOL that doesn't imply any features. */
+  public static final String INCOMPLETE_COMPILE_ACTION_CONFIG =
+      ""
+          + "action_config {"
+          + "   config_name: '"
+          + CppCompileAction.CPP_COMPILE
+          + "'"
+          + "   action_name: '"
+          + CppCompileAction.CPP_COMPILE
+          + "'"
+          + "   tool {"
+          + "      tool_path: 'DUMMY_TOOL'"
+          + "   }"
+          + "}";
+
+  /**
+   * An action_config for 'c++-module-codegen action using DUMMY_TOOL that doesn't imply any
+   * features.
+   */
+  public static final String INCOMPLETE_MODULE_CODEGEN_ACTION_CONFIG =
+      ""
+          + "action_config {"
+          + "   config_name: '"
+          + CppCompileAction.CPP_MODULE_CODEGEN
+          + "'"
+          + "   action_name: '"
+          + CppCompileAction.CPP_MODULE_CODEGEN
+          + "'"
+          + "   tool {"
+          + "      tool_path: 'DUMMY_TOOL'"
+          + "   }"
+          + "}";
+
+  /**
+   * An action_config for 'c++-module-compile action using DUMMY_TOOL that doesn't imply any
+   * features.
+   */
+  public static final String INCOMPLETE_MODULE_COMPILE_ACTION_CONFIG =
+      ""
+          + "action_config {"
+          + "   config_name: '"
+          + CppCompileAction.CPP_MODULE_COMPILE
+          + "'"
+          + "   action_name: '"
+          + CppCompileAction.CPP_MODULE_COMPILE
+          + "'"
+          + "   tool {"
+          + "      tool_path: 'DUMMY_TOOL'"
+          + "   }"
           + "}";
 
   public static final String INCOMPLETE_EXECUTABLE_ACTION_CONFIG =
@@ -413,6 +495,21 @@ public abstract class MockCcSupport {
           + "'"
           + "   action_name: '"
           + LinkTargetType.INTERFACE_DYNAMIC_LIBRARY.getActionName()
+          + "'"
+          + "   tool {"
+          + "      tool_path: 'DUMMY_TOOL'"
+          + "   }"
+          + "}";
+
+  /** An action_config for clif-match action using DUMMY_TOOL that doesn't imply any features. */
+  public static final String INCOMPLETE_CLIF_MATCH_ACTION_CONFIG =
+      ""
+          + "action_config {"
+          + "   config_name: '"
+          + CppCompileAction.CLIF_MATCH
+          + "'"
+          + "   action_name: '"
+          + CppCompileAction.CLIF_MATCH
           + "'"
           + "   tool {"
           + "      tool_path: 'DUMMY_TOOL'"

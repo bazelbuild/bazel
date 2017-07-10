@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -27,6 +26,7 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -73,7 +73,7 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
     scratch.file("unrelated/BUILD", "sh_library(name = 'unrelated')");
     assertLabelsVisited(
         ImmutableSet.of("//bar:foo"), ImmutableSet.of("//bar:foo"), !EXPECT_ERROR, !KEEP_GOING);
-    assertTrue(sym1.delete());
+    assertThat(sym1.delete()).isTrue();
     FileSystemUtils.ensureSymbolicLink(sym1, sym2);
     syncPackages();
     assertLabelsVisited(
@@ -81,9 +81,9 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
         ImmutableSet.of("//unrelated:unrelated"),
         !EXPECT_ERROR,
         !KEEP_GOING);
-    assertTrue(sym1.delete());
+    assertThat(sym1.delete()).isTrue();
     FileSystemUtils.ensureSymbolicLink(sym1, path);
-    assertTrue(symlink.delete());
+    assertThat(symlink.delete()).isTrue();
     symlink = scratch.file("bar/BUILD", "sh_library(name = 'bar')");
     syncPackages();
     assertLabelsVisited(
@@ -348,7 +348,7 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
       // This is expected for legacy blaze.
     } catch (RuntimeException re) {
       // This is expected for Skyframe blaze.
-      assertThat(re.getCause()).isInstanceOf(NullPointerException.class);
+      assertThat(re).hasCauseThat().isInstanceOf(NullPointerException.class);
     }
   }
 
@@ -407,6 +407,7 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
         .preparePackageLoading(
             new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
             packageCacheOptions,
+            Options.getDefaults(SkylarkSemanticsOptions.class),
             loadingMock.getDefaultsPackageContent(),
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),

@@ -18,17 +18,13 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
-import static com.google.devtools.build.lib.syntax.Type.STRING;
-import static com.google.devtools.build.lib.syntax.Type.STRING_DICT;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TriState;
-import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidManifestMerger;
 
 /**
  * Attributes for {@code android_binary} that are not present on {@code android_test}.
@@ -37,40 +33,6 @@ public final class AndroidBinaryOnlyRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, final RuleDefinitionEnvironment env) {
     return builder
-        /* <!-- #BLAZE_RULE(android_binary).ATTRIBUTE(manifest_merger) -->
-        Select the manifest merger to use for this rule.<br/>
-        Possible values:
-        <ul>
-            <li><code>manifest_merger = "legacy"</code>: Use the legacy manifest merger. Does not
-              allow features of the android merger like placeholder substitution and tools
-              attributes for defining merge behavior. Removes all
-              <code>&lt;uses-permission&gt;</code> and <code>&lt;uses-permission-sdk-23&gt;</code>
-              tags. Performs a tag-level merge.</li>
-            <li><code>manifest_merger = "android"</code>: Use the android manifest merger. Allows
-              features like placeholder substitution and tools attributes for defining merge
-              behavior. Follows the semantics from
-              <a href="http://tools.android.com/tech-docs/new-build-system/user-guide/manifest-merger">
-              the documentation</a> except it has been modified to also remove all
-              <code>&lt;uses-permission&gt;</code> and <code>&lt;uses-permission-sdk-23&gt;</code>
-              tags. Performs an attribute-level merge.</li>
-            <li><code>manifest_merger = "auto"</code>: Merger is controlled by the
-              <a href="../blaze-user-manual.html#flag--android_manifest_merger">
-              --android_manifest_merger</a> flag.</li>
-        </ul>
-        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("manifest_merger", STRING)
-            .allowedValues(new AllowedValueSet(AndroidManifestMerger.getAttributeValues()))
-            .value(AndroidManifestMerger.getRuleAttributeDefault()))
-        /* <!-- #BLAZE_RULE(android_binary).ATTRIBUTE(manifest_values) -->
-        A dictionary of values to be overridden in the manifest. Any instance of ${name} in the
-        manifest will be replaced with the value corresponding to name in this dictionary.
-        applicationId, versionCode, versionName, minSdkVersion, targetSdkVersion and
-        maxSdkVersion will also override the corresponding attributes of the manifest and
-        uses-sdk tags. packageName will be ignored and will be set from either applicationId if
-        specified or the package in manifest. When manifest_merger is set to legacy, only
-        applicationId, versionCode and versionName will have any effect.
-        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("manifest_values", STRING_DICT))
         /* <!-- #BLAZE_RULE(android_binary).ATTRIBUTE(nocompress_extensions) -->
         A list of file extension to leave uncompressed in apk.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

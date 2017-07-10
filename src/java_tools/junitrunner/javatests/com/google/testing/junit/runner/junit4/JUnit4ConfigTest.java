@@ -14,11 +14,9 @@
 
 package com.google.testing.junit.runner.junit4;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.testing.junit.runner.junit4.JUnit4Config.JUNIT_API_VERSION_PROPERTY;
 import static com.google.testing.junit.runner.junit4.JUnit4Config.SHOULD_INSTALL_SECURITY_MANAGER_PROPERTY;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.testing.junit.runner.util.GoogleTestSecurityManager;
@@ -46,7 +44,7 @@ public class JUnit4ConfigTest {
   @Test
   public void testGetJUnitRunnerApiVersion_defaultValue() {
     JUnit4Config config = createConfigWithApiVersion("1");
-    assertEquals(1, config.getJUnitRunnerApiVersion());
+    assertThat(config.getJUnitRunnerApiVersion()).isEqualTo(1);
   }
 
   @Test
@@ -57,7 +55,7 @@ public class JUnit4ConfigTest {
       config.getJUnitRunnerApiVersion();
       fail("exception expected");
     } catch (IllegalStateException expected) {
-      assertTrue(expected.getMessage().contains("I love pesto"));
+      assertThat(expected).hasMessageThat().contains("I love pesto");
     }
   }
 
@@ -69,7 +67,7 @@ public class JUnit4ConfigTest {
       config.getJUnitRunnerApiVersion();
       fail("exception expected");
     } catch (IllegalStateException expected) {
-      assertTrue(expected.getMessage().contains("3.14"));
+      assertThat(expected).hasMessageThat().contains("3.14");
     }
   }
 
@@ -81,14 +79,14 @@ public class JUnit4ConfigTest {
       config.getJUnitRunnerApiVersion();
       fail("exception expected");
     } catch (IllegalStateException expected) {
-      assertTrue(expected.getMessage().contains("13"));
+      assertThat(expected).hasMessageThat().contains("13");
     }
   }
 
   @Test
   public void testGetJUnitRunnerApiVersion_oneIsValid() {
     JUnit4Config config = createConfigWithApiVersion("1");
-    assertEquals(1, config.getJUnitRunnerApiVersion());
+    assertThat(config.getJUnitRunnerApiVersion()).isEqualTo(1);
   }
 
   @Test
@@ -96,7 +94,7 @@ public class JUnit4ConfigTest {
     GoogleTestSecurityManager.uninstallIfInstalled();
 
     JUnit4Config config = createConfigWithProperties(new Properties());
-    assertTrue(config.shouldInstallSecurityManager());
+    assertThat(config.shouldInstallSecurityManager()).isTrue();
   }
 
   @Test
@@ -105,7 +103,7 @@ public class JUnit4ConfigTest {
     properties.put("java.security.manager", "MySecurityManager");
     properties.put(SHOULD_INSTALL_SECURITY_MANAGER_PROPERTY, "true");
     JUnit4Config config = createConfigWithProperties(properties);
-    assertFalse(config.shouldInstallSecurityManager());
+    assertThat(config.shouldInstallSecurityManager()).isFalse();
   }
 
   @Test
@@ -113,6 +111,6 @@ public class JUnit4ConfigTest {
     Properties properties = new Properties();
     properties.put(SHOULD_INSTALL_SECURITY_MANAGER_PROPERTY, "false");
     JUnit4Config config = createConfigWithProperties(properties);
-    assertFalse(config.shouldInstallSecurityManager());
+    assertThat(config.shouldInstallSecurityManager()).isFalse();
   }
 }

@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
@@ -51,7 +50,6 @@ public final class WorkspaceBuilder {
   private final ImmutableList.Builder<DiffAwareness.Factory> diffAwarenessFactories =
       ImmutableList.builder();
   private Predicate<PathFragment> allowedMissingInputs;
-  private Preprocessor.Factory.Supplier preprocessorFactorySupplier;
   // We use an immutable map builder for the nice side effect that it throws if a duplicate key
   // is inserted.
   private final ImmutableMap.Builder<SkyFunctionName, SkyFunction> skyFunctions =
@@ -79,9 +77,6 @@ public final class WorkspaceBuilder {
     if (allowedMissingInputs == null) {
       allowedMissingInputs = Predicates.alwaysFalse();
     }
-    if (preprocessorFactorySupplier == null) {
-      preprocessorFactorySupplier = Preprocessor.Factory.Supplier.NullSupplier.INSTANCE;
-    }
 
     SkyframeExecutor skyframeExecutor = skyframeExecutorFactory.create(
         packageFactory,
@@ -91,7 +86,6 @@ public final class WorkspaceBuilder {
         ruleClassProvider.getBuildInfoFactories(),
         diffAwarenessFactories.build(),
         allowedMissingInputs,
-        preprocessorFactorySupplier,
         skyFunctions.build(),
         precomputedValues.build(),
         customDirtinessCheckers.build(),
@@ -147,23 +141,6 @@ public final class WorkspaceBuilder {
         "At most one module may set allowed missing inputs. But found two: %s and %s",
         this.allowedMissingInputs, allowedMissingInputs);
     this.allowedMissingInputs = Preconditions.checkNotNull(allowedMissingInputs);
-    return this;
-  }
-
-  /**
-   * Sets a supplier that provides factories for the Preprocessor to apply. Only one factory per
-   * workspace is allowed.
-   *
-   * <p>The factory yielded by the supplier will be checked with
-   * {@link Preprocessor.Factory#isStillValid} at the beginning of each incremental build. This
-   * allows modules to have preprocessors customizable by flags.
-   */
-  public WorkspaceBuilder setPreprocessorFactorySupplier(
-      Preprocessor.Factory.Supplier preprocessorFactorySupplier) {
-    Preconditions.checkState(this.preprocessorFactorySupplier == null,
-        "At most one module defines a preprocessor factory supplier. But found two: %s and %s",
-        this.preprocessorFactorySupplier, preprocessorFactorySupplier);
-    this.preprocessorFactorySupplier = Preconditions.checkNotNull(preprocessorFactorySupplier);
     return this;
   }
 

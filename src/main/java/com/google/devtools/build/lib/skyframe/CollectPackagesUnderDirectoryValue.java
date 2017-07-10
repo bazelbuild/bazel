@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.RecursivePkgValue.RecursivePkgKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Objects;
@@ -230,6 +231,6 @@ public abstract class CollectPackagesUnderDirectoryValue implements SkyValue {
   }
 
   static SkyKey key(RecursivePkgKey recursivePkgKey) {
-    return SkyKey.create(SkyFunctions.COLLECT_PACKAGES_UNDER_DIRECTORY, recursivePkgKey);
+    return LegacySkyKey.create(SkyFunctions.COLLECT_PACKAGES_UNDER_DIRECTORY, recursivePkgKey);
   }
 }

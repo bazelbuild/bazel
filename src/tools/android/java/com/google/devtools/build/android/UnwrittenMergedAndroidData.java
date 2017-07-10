@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import com.android.ide.common.res2.MergingException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
+import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Map.Entry;

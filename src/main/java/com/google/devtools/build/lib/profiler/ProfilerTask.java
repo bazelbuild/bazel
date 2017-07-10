@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.profiler;
 
 import com.google.common.base.Predicate;
-
 import java.util.EnumSet;
 
 /**
@@ -57,6 +56,7 @@ public enum ProfilerTask {
   VFS_STAT("VFS stat", 10000000, 0x9999FF, 30, true),
   VFS_DIR("VFS readdir", 10000000, 0x0066CC, 30, true),
   VFS_READLINK("VFS readlink", 10000000, 0x99CCCC, 30, true),
+  // TODO(olaola): rename to VFS_DIGEST. This refers to all digest function computations.
   VFS_MD5("VFS md5", 10000000, 0x999999, 30, true),
   VFS_XATTR("VFS xattr", 10000000, 0x9999DD, 30, true),
   VFS_DELETE("VFS delete", 10000000, 0xFFCC00, 0, true),
@@ -75,7 +75,6 @@ public enum ProfilerTask {
   SKYFUNCTION("skyfunction", -1, 0xCC6600, 0),
   CRITICAL_PATH("critical path", -1, 0x666699, 0),
   CRITICAL_PATH_COMPONENT("critical path component", -1, 0x666699, 0),
-  IDE_BUILD_INFO("ide_build_info", -1, 0xCC6633, 0),
   HANDLE_GC_NOTIFICATION("gc notification", -1, 0x996633, 0),
   INCLUSION_LOOKUP("inclusion lookup", -1, 0x000000, 0),
   INCLUSION_PARSE("inclusion parse", -1, 0x000000, 0),

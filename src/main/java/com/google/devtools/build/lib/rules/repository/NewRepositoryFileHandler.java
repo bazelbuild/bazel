@@ -32,6 +32,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
+import java.util.Map;
 
 /**
  * Encapsulates the 2-step behavior of creating workspace and build files for the new_*_repository
@@ -59,9 +60,10 @@ public class NewRepositoryFileHandler {
     return true;
   }
 
-  public void finishFile(Path outputDirectory) throws RepositoryFunctionException {
-    this.workspaceFileHandler.finishFile(outputDirectory);
-    this.buildFileHandler.finishFile(outputDirectory);
+  public void finishFile(Rule rule, Path outputDirectory, Map<String, String> markerData)
+      throws RepositoryFunctionException {
+    this.workspaceFileHandler.finishFile(rule, outputDirectory, markerData);
+    this.buildFileHandler.finishFile(rule, outputDirectory, markerData);
   }
 
   /**
@@ -142,10 +144,21 @@ public class NewRepositoryFileHandler {
      * @throws IllegalStateException if {@link #prepareFile} was not called before this, or if
      *     {@link #prepareFile} failed and this was called.
      */
-    public void finishFile(Path outputDirectory) throws RepositoryFunctionException {
+    public void finishFile(Rule rule, Path outputDirectory, Map<String, String> markerData)
+        throws RepositoryFunctionException {
       if (fileValue != null) {
         // Link x/FILENAME to <build_root>/x.FILENAME.
         symlinkFile(fileValue, filename, outputDirectory);
+        String fileAttribute = getFileAttributeValue(rule);
+        String fileKey;
+        if (LabelValidator.isAbsolute(fileAttribute)) {
+          fileKey = getFileAttributeAsLabel(rule).toString();
+        } else {
+          // TODO(pcloudy): Don't add absolute path into markerData once it's not supported
+          fileKey = fileValue.realRootedPath().asPath().getPathString();
+        }
+        markerData.put(
+            "FILE:" + fileKey, Integer.toString(fileValue.realFileStateValue().hashCode()));
       } else if (fileContent != null) {
         RepositoryFunction.writeFile(outputDirectory, filename, fileContent);
       } else {
@@ -153,8 +166,7 @@ public class NewRepositoryFileHandler {
       }
     }
 
-    private FileValue getFileValue(Rule rule, Environment env)
-        throws RepositoryFunctionException, InterruptedException {
+    private String getFileAttributeValue(Rule rule) throws RepositoryFunctionException {
       WorkspaceAttributeMapper mapper = WorkspaceAttributeMapper.of(rule);
       String fileAttribute;
       try {
@@ -162,37 +174,49 @@ public class NewRepositoryFileHandler {
       } catch (EvalException e) {
         throw new RepositoryFunctionException(e, Transience.PERSISTENT);
       }
+      return fileAttribute;
+    }
+
+    private Label getFileAttributeAsLabel(Rule rule) throws RepositoryFunctionException {
+      Label label;
+      try {
+        // Parse a label
+        label = Label.parseAbsolute(getFileAttributeValue(rule));
+      } catch (LabelSyntaxException ex) {
+        throw new RepositoryFunctionException(
+            new EvalException(
+                rule.getLocation(),
+                String.format(
+                    "In %s the '%s' attribute does not specify a valid label: %s",
+                    rule, getFileAttrName(), ex.getMessage())),
+            Transience.PERSISTENT);
+      }
+      return label;
+    }
+
+    private FileValue getFileValue(Rule rule, Environment env)
+        throws RepositoryFunctionException, InterruptedException {
+      String fileAttribute = getFileAttributeValue(rule);
       RootedPath rootedFile;
 
       if (LabelValidator.isAbsolute(fileAttribute)) {
-        try {
-          // Parse a label
-          Label label = Label.parseAbsolute(fileAttribute);
-          SkyKey pkgSkyKey = PackageLookupValue.key(label.getPackageIdentifier());
-          PackageLookupValue pkgLookupValue = (PackageLookupValue) env.getValue(pkgSkyKey);
-          if (pkgLookupValue == null) {
-            return null;
-          }
-          if (!pkgLookupValue.packageExists()) {
-            throw new RepositoryFunctionException(
-                new EvalException(
-                    rule.getLocation(),
-                    "Unable to load package for " + fileAttribute + ": not found."),
-                Transience.PERSISTENT);
-          }
-
-          // And now for the file
-          Path packageRoot = pkgLookupValue.getRoot();
-          rootedFile = RootedPath.toRootedPath(packageRoot, label.toPathFragment());
-        } catch (LabelSyntaxException ex) {
+        Label label = getFileAttributeAsLabel(rule);
+        SkyKey pkgSkyKey = PackageLookupValue.key(label.getPackageIdentifier());
+        PackageLookupValue pkgLookupValue = (PackageLookupValue) env.getValue(pkgSkyKey);
+        if (pkgLookupValue == null) {
+          return null;
+        }
+        if (!pkgLookupValue.packageExists()) {
           throw new RepositoryFunctionException(
               new EvalException(
                   rule.getLocation(),
-                  String.format(
-                      "In %s the '%s' attribute does not specify a valid label: %s",
-                      rule, getFileAttrName(), ex.getMessage())),
+                  "Unable to load package for " + fileAttribute + ": not found."),
               Transience.PERSISTENT);
         }
+
+        // And now for the file
+        Path packageRoot = pkgLookupValue.getRoot();
+        rootedFile = RootedPath.toRootedPath(packageRoot, label.toPathFragment());
       } else {
         // TODO(dmarting): deprecate using a path for the workspace_file attribute.
         PathFragment file = PathFragment.create(fileAttribute);

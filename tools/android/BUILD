@@ -18,6 +18,23 @@ py_test(
 )
 
 py_binary(
+    name = "build_incremental_dexmanifest",
+    srcs = [":build_incremental_dexmanifest.py"],
+)
+
+sh_test(
+    name = "build_incremental_dexmanifest_test",
+    srcs = [
+        "build_incremental_dexmanifest_test.sh",
+    ],
+    args = ["$(location //tools/zip:zipper)"],
+    data = [
+        ":build_incremental_dexmanifest",
+        "//tools/zip:zipper",
+    ],
+)
+
+py_binary(
     name = "build_split_manifest",
     srcs = ["build_split_manifest.py"],
     deps = [
@@ -48,6 +65,22 @@ py_test(
     deps = [
         ":incremental_install",
         "//third_party/py/mock",
+    ],
+)
+
+py_binary(
+    name = "strip_resources",
+    srcs = ["strip_resources.py"],
+    deps = ["//third_party/py/gflags"],
+)
+
+sh_test(
+    name = "strip_resources_test",
+    srcs = ["strip_resources_test.sh"],
+    args = ["$(location //tools/zip:zipper)"],
+    data = [
+        ":strip_resources",
+        "//tools/zip:zipper",
     ],
 )
 
@@ -97,7 +130,11 @@ sh_test(
     name = "zip_manifest_creator_test",
     size = "small",
     srcs = ["zip_manifest_creator_test.sh"],
-    data = [":zip_manifest_creator"],
+    args = ["$(location //tools/zip:zipper)"],
+    data = [
+        ":zip_manifest_creator",
+        "//tools/zip:zipper",
+    ],
 )
 
 py_binary(

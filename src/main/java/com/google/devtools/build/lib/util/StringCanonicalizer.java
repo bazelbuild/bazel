@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
-import com.google.common.base.Function;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 
@@ -24,14 +23,6 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 public final class StringCanonicalizer {
 
   private static final Interner<String> interner = BlazeInterners.newWeakInterner();
-
-  /** Functional interface, for use with e.g. transform */
-  public static final Function<String, String> INTERN = new Function<String, String>() {
-    @Override
-    public String apply(String x) {
-      return intern(x);
-    }
-  };
 
   private StringCanonicalizer() {
   }

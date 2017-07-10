@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "src/main/cpp/blaze_util.h"
@@ -36,7 +37,8 @@ class BlazeUtilTest : public ::testing::Test {
   virtual ~BlazeUtilTest() {
   }
 
-  static void ForkAndWrite(int fds[], string input1, string input2) {
+  static void ForkAndWrite(int fds[], const string& input1,
+                           const string& input2) {
     int r = fork();
     if (r == 0) {
       close(fds[0]);
@@ -53,7 +55,7 @@ class BlazeUtilTest : public ::testing::Test {
     }
   }
 
-  static int WriteFileDescriptor2(string input1, string input2) {
+  static int WriteFileDescriptor2(const string& input1, const string& input2) {
     // create a fd for the input string
     int fds[2];
     if (pipe(fds) == -1) {
@@ -63,7 +65,7 @@ class BlazeUtilTest : public ::testing::Test {
         || fcntl(fds[1], F_SETFL, O_NONBLOCK) == -1) {
       return -1;
     }
-    if (input2.size() > 0) {
+    if (!input2.empty()) {
       ForkAndWrite(fds, input1, input2);
     } else {
       write(fds[1], input1.c_str(), input1.size());
@@ -72,7 +74,7 @@ class BlazeUtilTest : public ::testing::Test {
     return fds[0];
   }
 
-  static void AssertReadFrom2(string input1, string input2) {
+  static void AssertReadFrom2(const string& input1, const string& input2) {
     int fd = WriteFileDescriptor2(input1, input2);
     if (fd < 0) {
       FAIL() << "Unable to create a pipe!";
@@ -89,9 +91,11 @@ class BlazeUtilTest : public ::testing::Test {
     }
   }
 
-  static void AssertReadFrom(string input) { AssertReadFrom2(input, ""); }
+  static void AssertReadFrom(string input) {
+    AssertReadFrom2(std::move(input), "");
+  }
 
-  static void AssertReadJvmVersion(string expected, string input) {
+  static void AssertReadJvmVersion(string expected, const string& input) {
     ASSERT_EQ(expected, ReadJvmVersion(input));
   }
 
@@ -245,6 +249,21 @@ TEST_F(BlazeUtilTest, TestSearchUnarySkipsAfterDashDashWithoutEquals) {
                SearchUnaryOption(
                    {"bazel", "build", ":target", "--", "--flag=value"},
                    "--flag"));
+}
+
+TEST_F(BlazeUtilTest, MakeAbsolute) {
+#if defined(WIN32)
+  EXPECT_EQ(MakeAbsolute("C:\\foo\\bar"), "C:\\foo\\bar");
+  EXPECT_EQ(MakeAbsolute("C:/foo/bar"), "C:\\foo\\bar");
+  EXPECT_EQ(MakeAbsolute("C:\\foo\\bar\\"), "C:\\foo\\bar\\");
+  EXPECT_EQ(MakeAbsolute("C:/foo/bar/"), "C:\\foo\\bar\\");
+  EXPECT_EQ(MakeAbsolute("foo"), blaze_util::GetCwd() + "\\foo");
+#else
+  EXPECT_EQ(MakeAbsolute("/foo/bar"), "/foo/bar");
+  EXPECT_EQ(MakeAbsolute("/foo/bar/"), "/foo/bar/");
+  EXPECT_EQ(MakeAbsolute("foo"), blaze_util::GetCwd() + "/foo");
+#endif
+  EXPECT_EQ(MakeAbsolute(std::string()), blaze_util::GetCwd());
 }
 
 }  // namespace blaze

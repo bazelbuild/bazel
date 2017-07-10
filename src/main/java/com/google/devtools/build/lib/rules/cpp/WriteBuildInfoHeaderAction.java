@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
@@ -83,8 +82,7 @@ public final class WriteBuildInfoHeaderAction extends AbstractFileWriteAction {
   @Override
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx)
       throws IOException {
-    WorkspaceStatusAction.Context context =
-        ctx.getExecutor().getContext(WorkspaceStatusAction.Context.class);
+    WorkspaceStatusAction.Context context = ctx.getContext(WorkspaceStatusAction.Context.class);
 
     final Map<String, WorkspaceStatusAction.Key> keys = new LinkedHashMap<>();
     if (writeVolatileInfo) {

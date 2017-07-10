@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.MakeVariableSupplier;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -37,6 +38,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
+import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext.Builder;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
@@ -60,6 +62,9 @@ import javax.annotation.Nullable;
  * <p>This class can be used only after the loading phase.
  */
 public class CppHelper {
+
+  static final PathFragment OBJS = PathFragment.create("_objs");
+
   private static final String GREPPED_INCLUDES_SUFFIX = ".includes";
 
   // TODO(bazel-team): should this use Link.SHARED_LIBRARY_FILETYPES?
@@ -133,17 +138,22 @@ public class CppHelper {
         !ruleContext.getFeatures().contains("no_copts_tokenization");
 
     List<String> tokens = new ArrayList<>();
+    ImmutableList<? extends MakeVariableSupplier> makeVariableSuppliers =
+        ImmutableList.of(new CcFlagsSupplier(ruleContext));
     for (String token : input) {
       try {
         // Legacy behavior: tokenize all items.
         if (tokenization) {
-          ruleContext.tokenizeAndExpandMakeVars(tokens, attributeName, token);
+          ruleContext.tokenizeAndExpandMakeVars(
+              tokens, attributeName, token, makeVariableSuppliers);
         } else {
-          String exp = ruleContext.expandSingleMakeVariable(attributeName, token);
+          String exp =
+              ruleContext.expandSingleMakeVariable(attributeName, token, makeVariableSuppliers);
           if (exp != null) {
             ShellUtils.tokenize(tokens, exp);
           } else {
-            tokens.add(ruleContext.expandMakeVariables(attributeName, token));
+            tokens.add(
+                ruleContext.expandMakeVariables(attributeName, token, makeVariableSuppliers));
           }
         }
       } catch (ShellUtils.TokenizationException e) {
@@ -175,7 +185,11 @@ public class CppHelper {
         ruleContext.attributeError(attrName, "could not resolve label '" + attrValue + "'");
       }
     } else {
-      ruleContext.tokenizeAndExpandMakeVars(values, attrName, attrValue);
+      ruleContext.tokenizeAndExpandMakeVars(
+          values,
+          attrName,
+          attrValue,
+          ImmutableList.of(new CcFlagsSupplier(ruleContext)));
     }
   }
 
@@ -222,6 +236,18 @@ public class CppHelper {
     return false;
   }
 
+  /**
+   * Return {@link FdoSupportProvider} using default cc_toolchain attribute name.
+   *
+   * <p>Be careful to provide explicit attribute name if the rule doesn't store cc_toolchain under
+   * the default name.
+   */
+  @Nullable
+  public static FdoSupportProvider getFdoSupportUsingDefaultCcToolchainAttribute(
+      RuleContext ruleContext) {
+    return getFdoSupport(ruleContext, CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME);
+  }
+
   @Nullable public static FdoSupportProvider getFdoSupport(RuleContext ruleContext,
       String ccToolchainAttribute) {
     return ruleContext
@@ -245,6 +271,21 @@ public class CppHelper {
     } else {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
+  }
+
+  /**
+   * This almost trivial method looks up the default cc toolchain attribute on the rule context,
+   * makes sure that it refers to a rule that has a {@link CcToolchainProvider} (gives an error
+   * otherwise), and returns a reference to that {@link CcToolchainProvider}. The method only
+   * returns {@code null} if there is no such attribute (this is currently not an error).
+   *
+   * <p>Be careful to provide explicit attribute name if the rule doesn't store cc_toolchain under
+   * the default name.
+   */
+  @Nullable
+  public static CcToolchainProvider getToolchainUsingDefaultCcToolchainAttribute(
+      RuleContext ruleContext) {
+    return getToolchain(ruleContext, CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME);
   }
 
   /**
@@ -283,7 +324,7 @@ public class CppHelper {
    * Returns the directory where object files are created.
    */
   public static PathFragment getObjDirectory(Label ruleLabel) {
-    return AnalysisUtils.getUniqueDirectory(ruleLabel, PathFragment.create("_objs"));
+    return AnalysisUtils.getUniqueDirectory(ruleLabel, OBJS);
   }
 
   /**
@@ -590,7 +631,7 @@ public class CppHelper {
   public static void maybeAddStaticLinkMarkerProvider(RuleConfiguredTargetBuilder builder,
       RuleContext ruleContext) {
     boolean staticallyLinked = false;
-    if (ruleContext.getFragment(CppConfiguration.class).getLinkOptions().contains("-static")) {
+    if (ruleContext.getFragment(CppConfiguration.class).hasStaticLinkOption()) {
       staticallyLinked = true;
     } else if (ruleContext.attributes().has("linkopts", Type.STRING_LIST)
         && ruleContext.attributes().get("linkopts", Type.STRING_LIST).contains("-static")) {

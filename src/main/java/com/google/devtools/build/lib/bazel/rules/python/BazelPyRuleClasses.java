@@ -26,7 +26,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
+import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TriState;
@@ -40,6 +45,14 @@ import com.google.devtools.build.lib.util.FileType;
  */
 public final class BazelPyRuleClasses {
   public static final FileType PYTHON_SOURCE = FileType.of(".py");
+
+  public static final LateBoundLabel<BuildConfiguration> PY_INTERPRETER =
+      new LateBoundLabel<BuildConfiguration>() {
+        @Override
+        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+          return configuration.getFragment(BazelPythonConfiguration.class).getPythonTop();
+        }
+      };
 
   /**
    * Base class for Python rule definitions.
@@ -92,6 +105,7 @@ public final class BazelPyRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("srcs_version", STRING)
               .value(PythonVersion.defaultValue().toString()))
+          .add(attr(":py_interpreter", LABEL).value(PY_INTERPRETER))
           // do not depend on lib2to3:2to3 rule, because it creates circular dependencies
           // 2to3 is itself written in Python and depends on many libraries.
           .add(attr("$python2to3", LABEL).cfg(HOST).exec()

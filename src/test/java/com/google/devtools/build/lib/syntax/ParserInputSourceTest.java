@@ -15,23 +15,18 @@ package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.util.StringUtilities.joinLines;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-
-/**
- * A test case for {@link ParserInputSource}.
- */
+/** A test case for {@link ParserInputSource}. */
 @RunWith(JUnit4.class)
 public class ParserInputSourceTest {
 
@@ -42,8 +37,8 @@ public class ParserInputSourceTest {
     String content = joinLines("Line 1", "Line 2", "Line 3", "");
     Path file = scratch.file("/tmp/my/file.txt", content.getBytes(StandardCharsets.UTF_8));
     ParserInputSource input = ParserInputSource.create(file);
-    assertEquals(content, new String(input.getContent()));
-    assertEquals("/tmp/my/file.txt", input.getPath().toString());
+    assertThat(new String(input.getContent())).isEqualTo(content);
+    assertThat(input.getPath().toString()).isEqualTo("/tmp/my/file.txt");
   }
 
   @Test
@@ -51,8 +46,8 @@ public class ParserInputSourceTest {
     String content = "Content provided as a string.";
     String pathName = "/the/name/of/the/content.txt";
     ParserInputSource input = ParserInputSource.create(content, PathFragment.create(pathName));
-    assertEquals(content, new String(input.getContent()));
-    assertEquals(pathName, input.getPath().toString());
+    assertThat(new String(input.getContent())).isEqualTo(content);
+    assertThat(input.getPath().toString()).isEqualTo(pathName);
   }
 
   @Test
@@ -61,8 +56,8 @@ public class ParserInputSourceTest {
     String pathName = "/the/name/of/the/content.txt";
     char[] contentChars = content.toCharArray();
     ParserInputSource input = ParserInputSource.create(contentChars, PathFragment.create(pathName));
-    assertEquals(content, new String(input.getContent()));
-    assertEquals(pathName, input.getPath().toString());
+    assertThat(new String(input.getContent())).isEqualTo(content);
+    assertThat(input.getPath().toString()).isEqualTo(pathName);
   }
 
 

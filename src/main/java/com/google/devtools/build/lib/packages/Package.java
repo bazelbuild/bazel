@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -31,6 +30,7 @@ import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyMap;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AttributeMap.AcceptsLabelAttribute;
 import com.google.devtools.build.lib.packages.License.DistributionType;
@@ -114,10 +114,8 @@ public class Package {
    */
   private MakeEnvironment makeEnv;
 
-  /**
-   * The collection of all targets defined in this package, indexed by name.
-   */
-  protected Map<String, Target> targets;
+  /** The collection of all targets defined in this package, indexed by name. */
+  protected ImmutableSortedKeyMap<String, Target> targets;
 
   /**
    * Default visibility for rules that do not specify it.
@@ -193,6 +191,7 @@ public class Package {
   private ImmutableSet<String> features;
 
   private ImmutableList<Event> events;
+  private ImmutableList<Postable> posts;
 
   /**
    * Package initialization, part 1 of 3: instantiates a new package with the
@@ -317,6 +316,7 @@ public class Package {
     this.defaultDistributionSet = builder.defaultDistributionSet;
     this.features = ImmutableSortedSet.copyOf(builder.features);
     this.events = ImmutableList.copyOf(builder.events);
+    this.posts = ImmutableList.copyOf(builder.posts);
   }
 
   /**
@@ -392,7 +392,7 @@ public class Package {
   /**
    * Returns all make variables for a given platform.
    */
-  public Map<String, String> getAllMakeVariables(String platform) {
+  public ImmutableMap<String, String> getAllMakeVariables(String platform) {
     ImmutableMap.Builder<String, String> map = ImmutableMap.builder();
     for (String var : makeEnv.getBindings().keySet()) {
       String value = makeEnv.lookup(var, platform);
@@ -432,20 +432,21 @@ public class Package {
     return containsErrors;
   }
 
+  public List<Postable> getPosts() {
+    return posts;
+  }
+
   public List<Event> getEvents() {
     return events;
   }
 
-  /**
-   * Returns an (immutable, unordered) view of all the targets belonging to this package.
-   */
-  public Collection<Target> getTargets() {
-    return getTargets(targets);
+  /** Returns an (immutable, unordered) view of all the targets belonging to this package. */
+  public ImmutableSortedKeyMap<String, Target> getTargets() {
+    return targets;
   }
 
   /**
-   * Common getTargets implementation, accessible by both {@link Package} and
-   * {@link Package.Builder}.
+   * Common getTargets implementation, accessible by {@link Package.Builder}.
    */
   private static Collection<Target> getTargets(Map<String, Target> targetMap) {
     return Collections.unmodifiableCollection(targetMap.values());
@@ -481,14 +482,7 @@ public class Package {
   /** Returns all rules in the package that match the given rule class. */
   public Iterable<Rule> getRulesMatchingRuleClass(final String ruleClass) {
     Iterable<Rule> targets = getTargets(Rule.class);
-    return Iterables.filter(
-        targets,
-        new Predicate<Rule>() {
-          @Override
-          public boolean apply(@Nullable Rule rule) {
-            return rule.getRuleClass().equals(ruleClass);
-          }
-        });
+    return Iterables.filter(targets, rule -> rule.getRuleClass().equals(ruleClass));
   }
 
   /**
@@ -748,6 +742,7 @@ public class Package {
     private List<String> defaultCopts = null;
     private List<String> features = new ArrayList<>();
     private List<Event> events = Lists.newArrayList();
+    private List<Postable> posts = Lists.newArrayList();
     private boolean containsErrors = false;
 
     private License defaultLicense = License.NO_LICENSE;
@@ -827,6 +822,10 @@ public class Package {
 
     Path getFilename() {
       return filename;
+    }
+
+    public List<Postable> getPosts() {
+      return posts;
     }
 
     public List<Event> getEvents() {
@@ -929,6 +928,18 @@ public class Package {
 
     public boolean containsErrors() {
       return containsErrors;
+    }
+
+    public Builder addPosts(Iterable<Postable> posts) {
+      for (Postable post : posts) {
+        addPost(post);
+      }
+      return this;
+    }
+
+    public Builder addPost(Postable post) {
+      this.posts.add(post);
+      return this;
     }
 
     public Builder addEvents(Iterable<Event> events) {
@@ -1245,9 +1256,7 @@ public class Package {
         PathFragment outputFileFragment = PathFragment.create(outputFile.getName());
         for (int i = 1; i < outputFileFragment.segmentCount(); i++) {
           String prefix = outputFileFragment.subFragment(0, i).toString();
-          if (!outputFilePrefixes.containsKey(prefix)) {
-            outputFilePrefixes.put(prefix, outputFile);
-          }
+          outputFilePrefixes.putIfAbsent(prefix, outputFile);
         }
       }
       targets.put(rule.getName(), rule);
@@ -1441,9 +1450,7 @@ public class Package {
             throw conflictingOutputFile(outputFile, (OutputFile) targets.get(prefix));
           }
 
-          if (!outputFilePrefixes.containsKey(prefix)) {
-            outputFilePrefixes.put(prefix, outputFile);
-          }
+          outputFilePrefixes.putIfAbsent(prefix, outputFile);
         }
       }
 

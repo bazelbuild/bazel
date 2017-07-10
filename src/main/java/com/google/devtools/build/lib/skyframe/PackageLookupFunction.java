@@ -307,11 +307,15 @@ public class PackageLookupFunction implements SkyFunction {
       throw new PackageLookupFunctionException(new BuildFileNotFoundException(id, e.getMessage()),
           Transience.PERSISTENT);
     }
+    if (!repositoryValue.repositoryExists()) {
+      // TODO(ulfjack): Maybe propagate the error message from the repository delegator function?
+      return PackageLookupValue.NO_SUCH_REPOSITORY_VALUE;
+    }
 
     // This checks for the build file names in the correct precedence order.
     for (BuildFileName buildFileName : buildFilesByPriority) {
       PathFragment buildFileFragment =
-          id.getPackageFragment().getChild(buildFileName.getFilename());
+          id.getPackageFragment().getRelative(buildFileName.getFilenameFragment());
       RootedPath buildFileRootedPath =
           RootedPath.toRootedPath(repositoryValue.getPath(), buildFileFragment);
       FileValue fileValue = getFileValue(buildFileRootedPath, env, packageIdentifier);

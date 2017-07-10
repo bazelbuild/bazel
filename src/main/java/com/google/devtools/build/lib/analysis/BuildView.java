@@ -40,8 +40,11 @@ import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAsp
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.ComposingSplitTransition;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.DynamicTransitionMapper;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -94,8 +97,11 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -156,9 +162,9 @@ import javax.annotation.Nullable;
 public class BuildView {
 
   /**
-   * Options that affect the <i>mechanism</i> of analysis.  These are distinct from {@link
-   * com.google.devtools.build.lib.analysis.config.BuildOptions}, which affect the <i>value</i>
-   * of a BuildConfiguration.
+   * Options that affect the <i>mechanism</i> of analysis. These are distinct from {@link
+   * com.google.devtools.build.lib.analysis.config.BuildOptions}, which affect the <i>value</i> of a
+   * BuildConfiguration.
    */
   public static class Options extends OptionsBase {
     @Option(
@@ -166,66 +172,83 @@ public class BuildView {
       defaultValue = "-1",
       category = "what",
       converter = LoadingPhaseThreadCountConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "Number of parallel threads to use for the loading/analysis phase."
     )
     public int loadingPhaseThreads;
 
-    @Option(name = "keep_going",
-            abbrev = 'k',
-            defaultValue = "false",
-            category = "strategy",
-            help = "Continue as much as possible after an error.  While the"
-                + " target that failed, and those that depend on it, cannot be"
-                + " analyzed (or built), the other prerequisites of these"
-                + " targets can be analyzed (or built) all the same.")
+    @Option(
+      name = "keep_going",
+      abbrev = 'k',
+      defaultValue = "false",
+      category = "strategy",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Continue as much as possible after an error.  While the target that failed, and those "
+              + "that depend on it, cannot be analyzed (or built), the other prerequisites of "
+              + "these targets can be analyzed (or built) all the same."
+    )
     public boolean keepGoing;
 
-    @Option(name = "analysis_warnings_as_errors",
-            deprecationWarning = "analysis_warnings_as_errors is now a no-op and will be removed in"
-                              + " an upcoming Blaze release",
-            defaultValue = "false",
-            category = "strategy",
-            help = "Treat visible analysis warnings as errors.")
+    @Option(
+      name = "analysis_warnings_as_errors",
+      deprecationWarning =
+          "analysis_warnings_as_errors is now a no-op and will be removed in"
+              + " an upcoming Blaze release",
+      defaultValue = "false",
+      category = "strategy",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Treat visible analysis warnings as errors."
+    )
     public boolean analysisWarningsAsErrors;
 
-    @Option(name = "discard_analysis_cache",
-            defaultValue = "false",
-            category = "strategy",
-            help = "Discard the analysis cache immediately after the analysis phase completes."
-                + " Reduces memory usage by ~10%, but makes further incremental builds slower.")
+    @Option(
+      name = "discard_analysis_cache",
+      defaultValue = "false",
+      category = "strategy",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Discard the analysis cache immediately after the analysis phase completes."
+              + " Reduces memory usage by ~10%, but makes further incremental builds slower."
+    )
     public boolean discardAnalysisCache;
 
-    @Option(name = "experimental_extra_action_filter",
-            defaultValue = "",
-            category = "experimental",
-            converter = RegexFilter.RegexFilterConverter.class,
-            help = "Filters set of targets to schedule extra_actions for.")
+    @Option(
+      name = "experimental_extra_action_filter",
+      defaultValue = "",
+      category = "experimental",
+      converter = RegexFilter.RegexFilterConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Filters set of targets to schedule extra_actions for."
+    )
     public RegexFilter extraActionFilter;
 
-    @Option(name = "experimental_extra_action_top_level_only",
-            defaultValue = "false",
-            category = "experimental",
-            help = "Only schedules extra_actions for top level targets.")
+    @Option(
+      name = "experimental_extra_action_top_level_only",
+      defaultValue = "false",
+      category = "experimental",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Only schedules extra_actions for top level targets."
+    )
     public boolean extraActionTopLevelOnly;
 
     @Option(
-      name = "experimental_extra_action_top_level_only_with_aspects",
-      defaultValue = "true",
-      category = "experimental",
+      name = "version_window_for_dirty_node_gc",
+      defaultValue = "0",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "If true and --experimental_extra_action_top_level_only=true, will include actions "
-              + "from aspects injected by top-level rules. "
-              + "This is an escape hatch in case commit df9e5e16c370391098c4432779ad4d1c9dd693ca "
-              + "breaks something."
+          "Nodes that have been dirty for more than this many versions will be deleted"
+              + " from the graph upon the next update. Values must be non-negative long integers,"
+              + " or -1 indicating the maximum possible window."
     )
-    public boolean extraActionTopLevelOnlyWithAspects;
-
-    @Option(name = "version_window_for_dirty_node_gc",
-            defaultValue = "0",
-            category = "undocumented",
-            help = "Nodes that have been dirty for more than this many versions will be deleted"
-                + " from the graph upon the next update. Values must be non-negative long integers,"
-                + " or -1 indicating the maximum possible window.")
     public long versionWindowForDirtyNodeGc;
 
     @Deprecated
@@ -233,6 +256,8 @@ public class BuildView {
       name = "experimental_interleave_loading_and_analysis",
       defaultValue = "true",
       category = "experimental",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "No-op."
     )
     public boolean interleaveLoadingAndAnalysis;
@@ -459,6 +484,16 @@ public class BuildView {
     List<TargetAndConfiguration> topLevelTargetsWithConfigs =
         nodesForTopLevelTargets(configurations, targets, eventHandler);
 
+    // Report the generated association of targets to configurations
+    Multimap<Label, BuildConfiguration> byLabel =
+        ArrayListMultimap.<Label, BuildConfiguration>create();
+    for (TargetAndConfiguration pair : topLevelTargetsWithConfigs) {
+      byLabel.put(pair.getLabel(), pair.getConfiguration());
+    }
+    for (Label label : byLabel.keySet()) {
+      eventBus.post(new TargetConfiguredEvent(label, byLabel.get(label)));
+    }
+
     List<ConfiguredTargetKey> topLevelCtKeys = Lists.transform(topLevelTargetsWithConfigs,
         new Function<TargetAndConfiguration, ConfiguredTargetKey>() {
           @Override
@@ -466,6 +501,7 @@ public class BuildView {
             return new ConfiguredTargetKey(node.getLabel(), node.getConfiguration());
           }
         });
+
 
     List<AspectValueKey> aspectKeys = new ArrayList<>();
     for (String aspect : aspects) {
@@ -494,9 +530,6 @@ public class BuildView {
 
         String skylarkFunctionName = aspect.substring(delimiterPosition + 1);
         for (TargetAndConfiguration targetSpec : topLevelTargetsWithConfigs) {
-          if (!(targetSpec.getTarget() instanceof Rule)) {
-            continue;
-          }
           aspectKeys.add(
               AspectValue.createSkylarkAspectKey(
                   targetSpec.getLabel(),
@@ -510,11 +543,9 @@ public class BuildView {
       } else {
         final NativeAspectClass aspectFactoryClass =
             ruleClassProvider.getNativeAspectClassMap().get(aspect);
+
         if (aspectFactoryClass != null) {
           for (TargetAndConfiguration targetSpec : topLevelTargetsWithConfigs) {
-            if (!(targetSpec.getTarget() instanceof Rule)) {
-              continue;
-            }
             // For invoking top-level aspects, use the top-level configuration for both the
             // aspect and the base target while the top-level configuration is untrimmed.
             BuildConfiguration configuration = targetSpec.getConfiguration();
@@ -712,19 +743,15 @@ public class BuildView {
           target.getProvider(ExtraActionArtifactsProvider.class);
       if (provider != null) {
         if (viewOptions.extraActionTopLevelOnly) {
-          if (!viewOptions.extraActionTopLevelOnlyWithAspects) {
-            builder.addTransitive(provider.getExtraActionArtifacts());
-          } else {
-            // Collect all aspect-classes that topLevel might inject.
-            Set<AspectClass> aspectClasses = new HashSet<>();
-            for (Attribute attr : target.getTarget().getAssociatedRule().getAttributes()) {
-              aspectClasses.addAll(attr.getAspectClasses());
-            }
+          // Collect all aspect-classes that topLevel might inject.
+          Set<AspectClass> aspectClasses = new HashSet<>();
+          for (Attribute attr : target.getTarget().getAssociatedRule().getAttributes()) {
+            aspectClasses.addAll(attr.getAspectClasses());
+          }
 
-            builder.addTransitive(provider.getExtraActionArtifacts());
-            if (!aspectClasses.isEmpty()) {
-              builder.addAll(filterTransitiveExtraActions(provider, aspectClasses));
-            }
+          builder.addTransitive(provider.getExtraActionArtifacts());
+          if (!aspectClasses.isEmpty()) {
+            builder.addAll(filterTransitiveExtraActions(provider, aspectClasses));
           }
         } else {
           builder.addTransitive(provider.getTransitiveExtraActionArtifacts());
@@ -821,12 +848,19 @@ public class BuildView {
     for (BuildConfiguration config : configurations.getTargetConfigurations()) {
       for (Target target : targets) {
         nodes.add(new TargetAndConfiguration(target,
-            BuildConfigurationCollection.configureTopLevelTarget(config, target)));
+            config.useDynamicConfigurations()
+                // Dynamic configurations apply top-level transitions through a different code path:
+                // BuildConfiguration#topLevelConfigurationHook. That path has the advantages of a)
+                // not requiring a global transitions table and b) making its choices outside core
+                // Bazel code.
+                ? (target.isConfigurable() ? config : null)
+                : BuildConfigurationCollection.configureTopLevelTarget(config, target)));
       }
     }
-    return configurations.useDynamicConfigurations()
-        ? getDynamicConfigurations(nodes, eventHandler)
-        : ImmutableList.copyOf(nodes);
+    return ImmutableList.copyOf(
+        configurations.useDynamicConfigurations()
+            ? getDynamicConfigurations(nodes, eventHandler)
+            : nodes);
   }
 
   /**
@@ -836,7 +870,8 @@ public class BuildView {
    *
    * <p>Else returns configurations that unconditionally include all fragments.
    *
-   * <p>Preserves the original input order. Uses original (untrimmed) configurations for targets
+   * <p>Preserves the original input order (but merges duplicate nodes that might occur due to
+   * top-level configuration transitions) . Uses original (untrimmed) configurations for targets
    * that can't be evaluated (e.g. due to loading phase errors).
    *
    * <p>This is suitable for feeding {@link ConfiguredTargetValue} keys: as general principle {@link
@@ -845,7 +880,7 @@ public class BuildView {
    */
   // TODO(bazel-team): error out early for targets that fail - untrimmed configurations should
   // never make it through analysis (and especially not seed ConfiguredTargetValues)
-  private List<TargetAndConfiguration> getDynamicConfigurations(
+  private LinkedHashSet<TargetAndConfiguration> getDynamicConfigurations(
       Iterable<TargetAndConfiguration> inputs, ExtendedEventHandler eventHandler)
       throws InterruptedException {
     Map<Label, Target> labelsToTargets = new LinkedHashMap<>();
@@ -857,23 +892,12 @@ public class BuildView {
 
     for (TargetAndConfiguration targetAndConfig : inputs) {
       labelsToTargets.put(targetAndConfig.getLabel(), targetAndConfig.getTarget());
-
-      Attribute.Transition ruleclassTransition = null;
-      if (targetAndConfig.getTarget().getAssociatedRule() != null) {
-        Rule associatedRule = targetAndConfig.getTarget().getAssociatedRule();
-        RuleTransitionFactory transitionFactory =
-            associatedRule.getRuleClassObject().getTransitionFactory();
-        if (transitionFactory != null) {
-          ruleclassTransition = transitionFactory.buildTransitionFor(associatedRule);
-        }
-      }
       if (targetAndConfig.getConfiguration() != null) {
         asDeps.put(targetAndConfig.getConfiguration(),
             Dependency.withTransitionAndAspects(
                 targetAndConfig.getLabel(),
-                ruleclassTransition == null
-                  ? Attribute.ConfigurationTransition.NONE
-                  : ruleclassTransition,
+                getTopLevelTransition(targetAndConfig,
+                    ruleClassProvider.getDynamicTransitionMapper()),
                 // TODO(bazel-team): support top-level aspects
                 AspectCollection.EMPTY));
       }
@@ -897,8 +921,7 @@ public class BuildView {
       }
     }
 
-    ImmutableList.Builder<TargetAndConfiguration> result =
-        ImmutableList.<TargetAndConfiguration>builder();
+    LinkedHashSet<TargetAndConfiguration> result = new LinkedHashSet<>();
     for (TargetAndConfiguration originalInput : inputs) {
       if (successfullyEvaluatedTargets.containsKey(originalInput)) {
         // The configuration was successfully trimmed.
@@ -908,8 +931,49 @@ public class BuildView {
         result.add(originalInput);
       }
     }
-    return result.build();
+    return result;
   }
+
+  /**
+   * Returns the transition to apply to the top-level configuration before applying it to this
+   * target. This enables support for rule-triggered top-level configuration hooks.
+   */
+  private static Attribute.Transition getTopLevelTransition(TargetAndConfiguration targetAndConfig,
+      DynamicTransitionMapper dynamicTransitionMapper) {
+    Target target = targetAndConfig.getTarget();
+    BuildConfiguration fromConfig = targetAndConfig.getConfiguration();
+    Preconditions.checkArgument(fromConfig.useDynamicConfigurations());
+
+    // Top-level transitions (chosen by configuration fragments):
+    Transition topLevelTransition = fromConfig.topLevelConfigurationHook(target);
+    if (topLevelTransition == null) {
+      topLevelTransition = ConfigurationTransition.NONE;
+    }
+
+    // Rule class transitions (chosen by rule class definitions):
+    if (target.getAssociatedRule() == null) {
+      return topLevelTransition;
+    }
+    Rule associatedRule = target.getAssociatedRule();
+    RuleTransitionFactory transitionFactory =
+        associatedRule.getRuleClassObject().getTransitionFactory();
+    if (transitionFactory == null) {
+      return topLevelTransition;
+    }
+    // dynamicTransitionMapper is only needed because of Attribute.ConfigurationTransition.DATA:
+    // this is C++-specific but non-C++ rules declare it. So they can't directly provide the
+    // C++-specific patch transition that implements it.
+    PatchTransition ruleClassTransition = (PatchTransition)
+        dynamicTransitionMapper.map(transitionFactory.buildTransitionFor(associatedRule));
+    if (ruleClassTransition == null) {
+      return topLevelTransition;
+    } else if (topLevelTransition == ConfigurationTransition.NONE) {
+      return ruleClassTransition;
+    } else {
+      return new ComposingSplitTransition(topLevelTransition, ruleClassTransition);
+    }
+  }
+
 
   /**
    * Gets a dynamic configuration for the given target.
@@ -1104,7 +1168,12 @@ public class BuildView {
     if (factory == null) {
       return ConfigurationTransition.NONE;
     }
-    Transition transition = factory.buildTransitionFor(rule);
+
+    // dynamicTransitionMapper is only needed because of Attribute.ConfigurationTransition.DATA:
+    // this is C++-specific but non-C++ rules declare it. So they can't directly provide the
+    // C++-specific patch transition that implements it.
+    PatchTransition transition = (PatchTransition)
+        ruleClassProvider.getDynamicTransitionMapper().map(factory.buildTransitionFor(rule));
     return (transition == null) ? ConfigurationTransition.NONE : transition;
   }
 

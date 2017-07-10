@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
@@ -213,25 +214,16 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     return eventBuilder.build();
   }
 
-  /**
-   * If this node has an error, that is, if errorInfo is non-null, do nothing. Otherwise, set
-   * errorInfo to the union of the child errors that were recorded earlier by getValueOrException,
-   * if there are any.
-   *
-   * <p>Child errors are remembered, if there are any and yet the parent recovered without error, so
-   * that subsequent noKeepGoing evaluations can stop as soon as they encounter a node whose
-   * (transitive) children had experienced an error, even if that (transitive) parent node had been
-   * able to recover from it during a keepGoing build. This behavior can be suppressed by setting
-   * {@link ParallelEvaluatorContext#storeErrorsAlongsideValues} to false, which will cause nodes
-   * with values to have no stored error info. This may be useful if this graph will only ever be
-   * used for keepGoing builds, since in that case storing errors from recovered nodes is pointless.
-   */
-  private void finalizeErrorInfo() {
-    if (errorInfo == null
-        && (evaluatorContext.storeErrorsAlongsideValues() || value == null)
-        && !childErrorInfos.isEmpty()) {
-      errorInfo = ErrorInfo.fromChildErrors(skyKey, childErrorInfos);
+  NestedSet<Postable> buildPosts(NodeEntry entry) throws InterruptedException {
+    NestedSetBuilder<Postable> postBuilder = NestedSetBuilder.stableOrder();
+    postBuilder.addAll(eventHandler.getPosts());
+
+    GroupedList<SkyKey> depKeys = entry.getTemporaryDirectDeps();
+    Collection<SkyValue> deps = getDepValuesForDoneNodeMaybeFromError(depKeys);
+    for (SkyValue value : deps) {
+      postBuilder.addTransitive(ValueWithMetadata.getPosts(value));
     }
+    return postBuilder.build();
   }
 
   void setValue(SkyValue newValue) {
@@ -251,12 +243,11 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
    * dependencies of this node <i>must</i> already have been registered, since this method may
    * register a dependence on the error transience node, which should always be the last dep.
    */
-  void setError(NodeEntry state, ErrorInfo errorInfo, boolean isDirectlyTransient)
-      throws InterruptedException {
+  void setError(NodeEntry state, ErrorInfo errorInfo)  throws InterruptedException {
     Preconditions.checkState(value == null, "%s %s %s", skyKey, value, errorInfo);
     Preconditions.checkState(this.errorInfo == null, "%s %s %s", skyKey, this.errorInfo, errorInfo);
 
-    if (isDirectlyTransient) {
+    if (errorInfo.isDirectlyTransient()) {
       NodeEntry errorTransienceNode =
           Preconditions.checkNotNull(
               evaluatorContext
@@ -396,6 +387,9 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         if (bubbleErrorInfo == null) {
           addDep(depKey);
         }
+        for (Postable post : ValueWithMetadata.getPosts(depValue)) {
+          evaluatorContext.getReporter().post(post);
+        }
         evaluatorContext
             .getReplayingNestedSetEventVisitor()
             .visit(ValueWithMetadata.getEvents(depValue));
@@ -525,7 +519,10 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   void commit(NodeEntry primaryEntry, EnqueueParentBehavior enqueueParents)
       throws InterruptedException {
     // Construct the definitive error info, if there is one.
-    finalizeErrorInfo();
+    if (errorInfo == null) {
+      errorInfo = evaluatorContext.getErrorInfoManager().getErrorInfoToUse(
+          skyKey, value != null, childErrorInfos);
+    }
 
     // We have the following implications:
     // errorInfo == null => value != null => enqueueParents.
@@ -534,17 +531,22 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     // (2) value == null && enqueueParents happens for values that are found to have errors
     // during a --keep_going build.
 
+    NestedSet<Postable> posts = buildPosts(primaryEntry);
     NestedSet<TaggedEvents> events = buildEvents(primaryEntry, /*missingChildren=*/ false);
+    for (ExtendedEventHandler.Postable post : posts) {
+      evaluatorContext.getReporter().post(post);
+    }
+
     Version valueVersion;
     SkyValue valueWithMetadata;
     if (value == null) {
       Preconditions.checkNotNull(errorInfo, "%s %s", skyKey, primaryEntry);
-      valueWithMetadata = ValueWithMetadata.error(errorInfo, events);
+      valueWithMetadata = ValueWithMetadata.error(errorInfo, events, posts);
     } else {
       // We must be enqueueing parents if we have a value.
       Preconditions.checkState(
           enqueueParents == EnqueueParentBehavior.ENQUEUE, "%s %s", skyKey, primaryEntry);
-      valueWithMetadata = ValueWithMetadata.normal(value, errorInfo, events);
+      valueWithMetadata = ValueWithMetadata.normal(value, errorInfo, events, posts);
     }
     if (!oldDeps.isEmpty()) {
       // Remove the rdep on this entry for each of its old deps that is no longer a direct dep.
@@ -590,6 +592,9 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
     evaluatorContext.signalValuesAndEnqueueIfReady(
         skyKey, reverseDeps, valueVersion, enqueueParents);
 
+    for (Postable post : posts) {
+      evaluatorContext.getReporter().post(post);
+    }
     evaluatorContext.getReplayingNestedSetEventVisitor().visit(events);
   }
 

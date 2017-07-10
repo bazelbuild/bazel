@@ -313,7 +313,7 @@ public class LocationExpander {
       if (executableArtifact != null) {
         mapGet(locationMap, label).add(executableArtifact);
       } else {
-        mapGet(locationMap, label).addAll(filesToRun.getFilesToRun());
+        Iterables.addAll(mapGet(locationMap, label), filesToRun.getFilesToRun());
       }
     }
     return locationMap;

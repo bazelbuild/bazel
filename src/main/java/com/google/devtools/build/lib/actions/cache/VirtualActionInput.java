@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.actions.cache;
 
 import com.google.devtools.build.lib.actions.ActionInput;
-
+import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.OutputStream;
 
@@ -24,8 +24,14 @@ import java.io.OutputStream;
  */
 public interface VirtualActionInput extends ActionInput {
   /**
-   * Writes the the fake file to an OutputStream. MUST be deterministic, in that multiple calls
-   * to write the same VirtualActionInput must write identical bytes.
+   * Writes the fake file to an OutputStream. MUST be deterministic, in that multiple calls to write
+   * the same VirtualActionInput must write identical bytes.
    */
   void writeTo(OutputStream out) throws IOException;
+
+  /**
+   * Gets a {@link ByteString} representation of the fake file. Used to avoid copying if the fake
+   * file is internally represented as a {@link ByteString}.
+   */
+  ByteString getBytes() throws IOException;
 }

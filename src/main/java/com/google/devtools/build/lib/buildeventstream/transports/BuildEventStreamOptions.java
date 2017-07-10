@@ -15,28 +15,83 @@
 package com.google.devtools.build.lib.buildeventstream.transports;
 
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 
 /** Options used to configure BuildEventStreamer and its BuildEventTransports. */
 public class BuildEventStreamOptions extends OptionsBase {
 
   @Option(
-    name = "experimental_build_event_text_file",
+    name = "build_event_text_file",
+    oldName = "experimental_build_event_text_file",
     defaultValue = "",
-    category = "hidden",
+    documentationCategory = OptionDocumentationCategory.LOGGING,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
     help = "If non-empty, write a textual representation of the build event protocol to that file"
   )
   public String buildEventTextFile;
 
   @Option(
-    name = "experimental_build_event_binary_file",
+    name = "build_event_binary_file",
+    oldName = "experimental_build_event_binary_file",
     defaultValue = "",
-    category = "hidden",
+    documentationCategory = OptionDocumentationCategory.LOGGING,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
     help =
         "If non-empty, write a varint delimited binary representation of representation of the"
             + " build event protocol to that file."
   )
   public String buildEventBinaryFile;
+
+  @Option(
+    name = "build_event_json_file",
+    oldName = "experimental_build_event_json_file",
+    defaultValue = "",
+    documentationCategory = OptionDocumentationCategory.LOGGING,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+    help = "If non-empty, write a JSON serialisation of the build event protocol to that file."
+  )
+  public String buildEventJsonFile;
+
+  @Option(
+    name = "build_event_text_file_path_conversion",
+    oldName = "experimental_build_event_text_file_path_conversion",
+    defaultValue = "true",
+    documentationCategory = OptionDocumentationCategory.LOGGING,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+    help =
+        "Convert paths in the text file representation of the build event protocol to more "
+            + "globally valid URIs whenever possible; if disabled, the file:// uri scheme will "
+            + "always be used"
+  )
+  public boolean buildEventTextFilePathConversion;
+
+  @Option(
+    name = "build_event_binary_file_path_conversion",
+    oldName = "experimental_build_event_binary_file_path_conversion",
+    defaultValue = "true",
+    documentationCategory = OptionDocumentationCategory.LOGGING,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+    help =
+        "Convert paths in the binary file representation of the build event protocol to more "
+            + "globally valid URIs whenever possible; if disabled, the file:// uri scheme will "
+            + "always be used"
+  )
+  public boolean buildEventBinaryFilePathConversion;
+
+  @Option(
+    name = "experimental_build_event_json_file_path_conversion",
+    oldName = "build_event_json_file_path_conversion",
+    defaultValue = "true",
+    documentationCategory = OptionDocumentationCategory.LOGGING,
+    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+    help =
+        "Convert paths in the json file representation of the build event protocol to more "
+            + "globally valid URIs whenever possible; if disabled, the file:// uri scheme will "
+            + "always be used"
+  )
+  public boolean buildEventJsonFilePathConversion;
 
   public String getBuildEventTextFile() {
     return buildEventTextFile;
@@ -44,5 +99,21 @@ public class BuildEventStreamOptions extends OptionsBase {
 
   public String getBuildEventBinaryFile() {
     return buildEventBinaryFile;
+  }
+
+  public String getBuildEventJsonFile() {
+    return buildEventJsonFile;
+  }
+
+  public boolean getBuildEventTextFilePathConversion() {
+    return buildEventTextFilePathConversion;
+  }
+
+  public boolean getBuildEventBinaryFilePathConversion() {
+    return buildEventBinaryFilePathConversion;
+  }
+
+  public boolean getBuildEventJsonFilePathConversion() {
+    return buildEventJsonFilePathConversion;
   }
 }

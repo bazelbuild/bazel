@@ -20,9 +20,8 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.common.escape.Escaper;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.nio.file.FileSystem;
 import java.util.ArrayList;
@@ -30,6 +29,9 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -93,7 +95,7 @@ public class OptionsParser implements OptionsProvider {
    * options classes on the classpath.
    */
   private static final Map<ImmutableList<Class<? extends OptionsBase>>, OptionsData> optionsData =
-      Maps.newHashMap();
+      new HashMap<>();
 
   /**
    * Returns {@link OpaqueOptionsData} suitable for passing along to {@link
@@ -104,32 +106,35 @@ public class OptionsParser implements OptionsProvider {
    * construct lots of different {@link OptionsParser} instances).
    */
   public static OpaqueOptionsData getOptionsData(
-      ImmutableList<Class<? extends OptionsBase>> optionsClasses) throws ConstructionException {
+      List<Class<? extends OptionsBase>> optionsClasses) throws ConstructionException {
     return getOptionsDataInternal(optionsClasses);
   }
 
-  private static synchronized OptionsData getOptionsDataInternal(
-      ImmutableList<Class<? extends OptionsBase>> optionsClasses) throws ConstructionException {
-    OptionsData result = optionsData.get(optionsClasses);
+  /**
+   * Returns the {@link OptionsData} associated with the given list of options classes.
+   */
+  static synchronized OptionsData getOptionsDataInternal(
+      List<Class<? extends OptionsBase>> optionsClasses) throws ConstructionException {
+    ImmutableList<Class<? extends OptionsBase>> immutableOptionsClasses =
+        ImmutableList.copyOf(optionsClasses);
+    OptionsData result = optionsData.get(immutableOptionsClasses);
     if (result == null) {
       try {
-        result = OptionsData.from(optionsClasses);
+        result = OptionsData.from(immutableOptionsClasses);
       } catch (Exception e) {
         throw new ConstructionException(e.getMessage(), e);
       }
-      optionsData.put(optionsClasses, result);
+      optionsData.put(immutableOptionsClasses, result);
     }
     return result;
   }
 
   /**
-   * Returns all the annotated fields for the given class, including inherited
-   * ones.
+   * Returns the {@link OptionsData} associated with the given options class.
    */
-  static Collection<Field> getAllAnnotatedFields(Class<? extends OptionsBase> optionsClass) {
-    OptionsData data = getOptionsDataInternal(
-        ImmutableList.<Class<? extends OptionsBase>>of(optionsClass));
-    return data.getFieldsForClass(optionsClass);
+  static OptionsData getOptionsDataInternal(Class<? extends OptionsBase> optionsClass)
+      throws ConstructionException {
+    return getOptionsDataInternal(ImmutableList.<Class<? extends OptionsBase>>of(optionsClass));
   }
 
   /**
@@ -234,7 +239,7 @@ public class OptionsParser implements OptionsProvider {
     private final Converter<?> converter;
     private final boolean allowMultiple;
 
-    private final ImmutableList<OptionValueDescription> expansions;
+    private final OptionsData.ExpansionData expansionData;
     private final ImmutableList<OptionValueDescription> implicitRequirements;
 
     OptionDescription(
@@ -242,13 +247,13 @@ public class OptionsParser implements OptionsProvider {
         Object defaultValue,
         Converter<?> converter,
         boolean allowMultiple,
-        ImmutableList<OptionValueDescription> expansions,
+        OptionsData.ExpansionData expansionData,
         ImmutableList<OptionValueDescription> implicitRequirements) {
       this.name = name;
       this.defaultValue = defaultValue;
       this.converter = converter;
       this.allowMultiple = allowMultiple;
-      this.expansions = expansions;
+      this.expansionData = expansionData;
       this.implicitRequirements = implicitRequirements;
     }
 
@@ -272,8 +277,14 @@ public class OptionsParser implements OptionsProvider {
       return implicitRequirements;
     }
 
-    public ImmutableList<OptionValueDescription> getExpansions() {
-      return expansions;
+    public boolean isExpansion() {
+      return !expansionData.isEmpty();
+    }
+
+    /** Return a list of flags that this option expands to. */
+    public ImmutableList<String> getExpansion(ExpansionContext context)
+        throws OptionsParsingException {
+      return expansionData.getExpansion(context);
     }
   }
 
@@ -328,7 +339,7 @@ public class OptionsParser implements OptionsProvider {
         // The generic type of the list is not known at runtime, so we can't
         // use it here. It was already checked in the constructor, so this is
         // type-safe.
-        List result = Lists.newArrayList();
+        List result = new ArrayList<>();
         ListMultimap realValue = (ListMultimap) value;
         for (OptionPriority priority : OptionPriority.values()) {
           // If there is no mapping for this key, this check avoids object creation (because
@@ -370,6 +381,10 @@ public class OptionsParser implements OptionsProvider {
 
     public boolean isExpansion() {
       return expandedFrom != null;
+    }
+
+    public boolean getAllowMultiple() {
+      return allowMultiple;
     }
 
     @Override
@@ -438,18 +453,17 @@ public class OptionsParser implements OptionsProvider {
       return field.getType().equals(boolean.class);
     }
 
-    private DocumentationLevel documentationLevel() {
-      Option option = field.getAnnotation(Option.class);
-      return OptionsParser.documentationLevel(option.category());
+    private OptionUsageRestrictions optionUsageRestrictions() {
+      return field.getAnnotation(Option.class).optionUsageRestrictions();
     }
 
     public boolean isDocumented() {
-      return documentationLevel() == DocumentationLevel.DOCUMENTED;
+      return optionUsageRestrictions() == OptionUsageRestrictions.DOCUMENTED;
     }
 
     public boolean isHidden() {
-      return documentationLevel() == DocumentationLevel.HIDDEN
-          || documentationLevel() == DocumentationLevel.INTERNAL;
+      return optionUsageRestrictions() == OptionUsageRestrictions.HIDDEN
+          || optionUsageRestrictions() == OptionUsageRestrictions.INTERNAL;
     }
 
     boolean isExpansion() {
@@ -503,15 +517,18 @@ public class OptionsParser implements OptionsProvider {
   public enum HelpVerbosity { LONG, MEDIUM, SHORT }
 
   /**
-   * The level of documentation. Only documented options are output as part of
-   * the help.
+   * The restrictions on an option. Only documented options are output as part of the help and are
+   * intended for general user use. Undocumented options can be used by any user but aren't
+   * advertised and in practice should be used by bazel developers or early adopters helping to test
+   * a feature.
    *
-   * <p>We use 'hidden' so that options that form the protocol between the
-   * client and the server are not logged.
+   * <p>We use HIDDEN so that options that form the protocol between the client and the server are
+   * not logged. These are flags, but should never be set by a user.
    *
-   * <p>Options which are 'internal' are not recognized by the parser at all.
+   * <p>Options which are INTERNAL are not recognized by the parser at all, and so cannot be used as
+   * flags.
    */
-  enum DocumentationLevel {
+  public enum OptionUsageRestrictions {
     DOCUMENTED, UNDOCUMENTED, HIDDEN, INTERNAL
   }
 
@@ -529,29 +546,30 @@ public class OptionsParser implements OptionsProvider {
    */
   public String describeOptions(
       Map<String, String> categoryDescriptions, HelpVerbosity helpVerbosity) {
+    OptionsData data = impl.getOptionsData();
     StringBuilder desc = new StringBuilder();
-    if (!impl.getOptionsClasses().isEmpty()) {
-      List<Field> allFields = Lists.newArrayList();
-      for (Class<? extends OptionsBase> optionsClass : impl.getOptionsClasses()) {
-        allFields.addAll(impl.getAnnotatedFieldsFor(optionsClass));
+    if (!data.getOptionsClasses().isEmpty()) {
+      List<Field> allFields = new ArrayList<>();
+      for (Class<? extends OptionsBase> optionsClass : data.getOptionsClasses()) {
+        allFields.addAll(data.getFieldsForClass(optionsClass));
       }
       Collections.sort(allFields, OptionsUsage.BY_CATEGORY);
       String prevCategory = null;
 
       for (Field optionField : allFields) {
-        String category = optionField.getAnnotation(Option.class).category();
-        if (!category.equals(prevCategory)) {
-          prevCategory = category;
+        Option option = optionField.getAnnotation(Option.class);
+        String category = option.category();
+        if (!category.equals(prevCategory)
+            && option.optionUsageRestrictions() == OptionUsageRestrictions.DOCUMENTED) {
           String description = categoryDescriptions.get(category);
           if (description == null) {
             description = "Options category '" + category + "'";
           }
-          if (documentationLevel(category) == DocumentationLevel.DOCUMENTED) {
-            desc.append("\n").append(description).append(":\n");
-          }
+          desc.append("\n").append(description).append(":\n");
+          prevCategory = category;
         }
 
-        if (documentationLevel(prevCategory) == DocumentationLevel.DOCUMENTED) {
+        if (option.optionUsageRestrictions() == OptionUsageRestrictions.DOCUMENTED) {
           OptionsUsage.getUsage(optionField, desc, helpVerbosity, impl.getOptionsData());
         }
       }
@@ -571,19 +589,21 @@ public class OptionsParser implements OptionsProvider {
    *   of the category.
    */
   public String describeOptionsHtml(Map<String, String> categoryDescriptions, Escaper escaper) {
+    OptionsData data = impl.getOptionsData();
     StringBuilder desc = new StringBuilder();
-    if (!impl.getOptionsClasses().isEmpty()) {
-      List<Field> allFields = Lists.newArrayList();
-      for (Class<? extends OptionsBase> optionsClass : impl.getOptionsClasses()) {
-        allFields.addAll(impl.getAnnotatedFieldsFor(optionsClass));
+    if (!data.getOptionsClasses().isEmpty()) {
+      List<Field> allFields = new ArrayList<>();
+      for (Class<? extends OptionsBase> optionsClass : data.getOptionsClasses()) {
+        allFields.addAll(data.getFieldsForClass(optionsClass));
       }
       Collections.sort(allFields, OptionsUsage.BY_CATEGORY);
       String prevCategory = null;
 
       for (Field optionField : allFields) {
-        String category = optionField.getAnnotation(Option.class).category();
-        DocumentationLevel level = documentationLevel(category);
-        if (!category.equals(prevCategory) && level == DocumentationLevel.DOCUMENTED) {
+        Option option = optionField.getAnnotation(Option.class);
+        String category = option.category();
+        if (!category.equals(prevCategory)
+            && option.optionUsageRestrictions() == OptionUsageRestrictions.DOCUMENTED) {
           String description = categoryDescriptions.get(category);
           if (description == null) {
             description = "Options category '" + category + "'";
@@ -596,7 +616,7 @@ public class OptionsParser implements OptionsProvider {
           prevCategory = category;
         }
 
-        if (level == DocumentationLevel.DOCUMENTED) {
+        if (option.optionUsageRestrictions() == OptionUsageRestrictions.DOCUMENTED) {
           OptionsUsage.getUsageHtml(optionField, desc, escaper, impl.getOptionsData());
         }
       }
@@ -611,12 +631,13 @@ public class OptionsParser implements OptionsProvider {
    * details on the format for the flag completion.
    */
   public String getOptionsCompletion() {
+    OptionsData data = impl.getOptionsData();
     StringBuilder desc = new StringBuilder();
 
     // List all options
-    List<Field> allFields = Lists.newArrayList();
-    for (Class<? extends OptionsBase> optionsClass : impl.getOptionsClasses()) {
-      allFields.addAll(impl.getAnnotatedFieldsFor(optionsClass));
+    List<Field> allFields = new ArrayList<>();
+    for (Class<? extends OptionsBase> optionsClass : data.getOptionsClasses()) {
+      allFields.addAll(data.getFieldsForClass(optionsClass));
     }
     // Sort field for deterministic ordering
     Collections.sort(allFields, new Comparator<Field>() {
@@ -628,8 +649,8 @@ public class OptionsParser implements OptionsProvider {
       }
     });
     for (Field optionField : allFields) {
-      String category = optionField.getAnnotation(Option.class).category();
-      if (documentationLevel(category) == DocumentationLevel.DOCUMENTED) {
+      Option option = optionField.getAnnotation(Option.class);
+      if (option.optionUsageRestrictions() == OptionUsageRestrictions.DOCUMENTED) {
         OptionsUsage.getCompletion(optionField, desc);
       }
     }
@@ -643,34 +664,34 @@ public class OptionsParser implements OptionsProvider {
    * @return The {@link OptionDescription} for the option, or null if there is no option by the
    *     given name.
    */
-  public OptionDescription getOptionDescription(String name) throws OptionsParsingException {
+  OptionDescription getOptionDescription(String name) throws OptionsParsingException {
     return impl.getOptionDescription(name);
   }
 
   /**
-   * Returns a description of the option value set by the last previous call to
-   * {@link #parse(OptionPriority, String, List)} that successfully set the given
-   * option. If the option is of type {@link List}, the description will
-   * correspond to any one of the calls, but not necessarily the last.
+   * Returns a description of the options values that get expanded from this flag with the given
+   * flag value.
    *
-   * @return The {@link OptionValueDescription} for the option, or null if the value has not been
-   *        set.
-   * @throws IllegalArgumentException if there is no option by the given name.
+   * @return The {@link ImmutableList<OptionValueDescription>} for the option, or null if there is
+   *     no option by the given name.
    */
-  public OptionValueDescription getOptionValueDescription(String name) {
-    return impl.getOptionValueDescription(name);
+  ImmutableList<OptionValueDescription> getExpansionOptionValueDescriptions(
+      String flagName, @Nullable String flagValue) throws OptionsParsingException {
+    return impl.getExpansionOptionValueDescriptions(flagName, flagValue);
   }
 
-  static DocumentationLevel documentationLevel(String category) {
-    if ("undocumented".equals(category)) {
-      return DocumentationLevel.UNDOCUMENTED;
-    } else if ("hidden".equals(category)) {
-      return DocumentationLevel.HIDDEN;
-    } else if ("internal".equals(category)) {
-      return DocumentationLevel.INTERNAL;
-    } else {
-      return DocumentationLevel.DOCUMENTED;
-    }
+  /**
+   * Returns a description of the option value set by the last previous call to {@link
+   * #parse(OptionPriority, String, List)} that successfully set the given option. If the option is
+   * of type {@link List}, the description will correspond to any one of the calls, but not
+   * necessarily the last.
+   *
+   * @return The {@link OptionValueDescription} for the option, or null if the value has not been
+   *     set.
+   * @throws IllegalArgumentException if there is no option by the given name.
+   */
+  OptionValueDescription getOptionValueDescription(String name) {
+    return impl.getOptionValueDescription(name);
   }
 
   /**
@@ -780,5 +801,125 @@ public class OptionsParser implements OptionsProvider {
   @Override
   public List<String> canonicalize() {
     return impl.asCanonicalizedList();
+  }
+
+  /** Returns all options fields of the given options class, in alphabetic order. */
+  public static Collection<Field> getFields(Class<? extends OptionsBase> optionsClass) {
+    OptionsData data = OptionsParser.getOptionsDataInternal(optionsClass);
+    return data.getFieldsForClass(optionsClass);
+  }
+
+  /**
+   * Returns whether the given options class uses only the core types listed in {@link
+   * OptionsBase#coreTypes}. These are guaranteed to be deeply immutable and serializable.
+   */
+  public static boolean getUsesOnlyCoreTypes(Class<? extends OptionsBase> optionsClass) {
+    OptionsData data = OptionsParser.getOptionsDataInternal(optionsClass);
+    return data.getUsesOnlyCoreTypes(optionsClass);
+  }
+
+  /**
+   * Returns a mapping from each option {@link Field} in {@code optionsClass} (including inherited
+   * ones) to its value in {@code options}.
+   *
+   * <p>The map is a mutable copy; changing the map won't affect {@code options} and vice versa.
+   * The map entries appear sorted alphabetically by option name.
+   *
+   * If {@code options} is an instance of a subclass of {@code optionsClass}, any options defined
+   * by the subclass are not included in the map.
+   *
+   * @throws IllegalArgumentException if {@code options} is not an instance of {@code optionsClass}
+   */
+  public static <O extends OptionsBase> Map<Field, Object> toMap(Class<O> optionsClass, O options) {
+    OptionsData data = getOptionsDataInternal(optionsClass);
+    // Alphabetized due to getFieldsForClass()'s order.
+    Map<Field, Object> map = new LinkedHashMap<>();
+    for (Field field : data.getFieldsForClass(optionsClass)) {
+      try {
+        map.put(field, field.get(options));
+      } catch (IllegalAccessException e) {
+        // All options fields of options classes should be public.
+        throw new IllegalStateException(e);
+      } catch (IllegalArgumentException e) {
+        // This would indicate an inconsistency in the cached OptionsData.
+        throw new IllegalStateException(e);
+      }
+    }
+    return map;
+  }
+
+  /**
+   * Given a mapping as returned by {@link #toMap}, and the options class it that its entries
+   * correspond to, this constructs the corresponding instance of the options class.
+   *
+   * @throws IllegalArgumentException if {@code map} does not contain exactly the fields of {@code
+   *     optionsClass}, with values of the appropriate type
+   */
+  public static <O extends OptionsBase> O fromMap(Class<O> optionsClass, Map<Field, Object> map) {
+    // Instantiate the options class.
+    OptionsData data = getOptionsDataInternal(optionsClass);
+    O optionsInstance;
+    try {
+      Constructor<O> constructor = data.getConstructor(optionsClass);
+      Preconditions.checkNotNull(constructor, "No options class constructor available");
+      optionsInstance = constructor.newInstance();
+    } catch (ReflectiveOperationException e) {
+      throw new IllegalStateException("Error while instantiating options class", e);
+    }
+
+    List<Field> fields = data.getFieldsForClass(optionsClass);
+    // Ensure all fields are covered, no extraneous fields.
+    validateFieldsSets(new LinkedHashSet<>(fields), new LinkedHashSet<>(map.keySet()));
+    // Populate the instance.
+    for (Field field : fields) {
+      // Non-null as per above check.
+      Object value = map.get(field);
+      try {
+        field.set(optionsInstance, value);
+      } catch (IllegalAccessException e) {
+        throw new IllegalStateException(e);
+      }
+      // May also throw IllegalArgumentException if map value is ill typed.
+    }
+    return optionsInstance;
+  }
+
+  /**
+   * Raises a pretty {@link IllegalArgumentException} if the two sets of fields are not equal.
+   *
+   * <p>The entries in {@code fieldsFromMap} may be ill formed by being null or lacking an {@link
+   * Option} annotation. (This isn't done for {@code fieldsFromClass} because they come from an
+   * {@link OptionsData} object.)
+   */
+  private static void validateFieldsSets(
+      LinkedHashSet<Field> fieldsFromClass, LinkedHashSet<Field> fieldsFromMap) {
+    if (!fieldsFromClass.equals(fieldsFromMap)) {
+      List<String> extraNamesFromClass = new ArrayList<>();
+      List<String> extraNamesFromMap = new ArrayList<>();
+      for (Field field : fieldsFromClass) {
+        if (!fieldsFromMap.contains(field)) {
+          extraNamesFromClass.add("'" + field.getAnnotation(Option.class).name() + "'");
+        }
+      }
+      for (Field field : fieldsFromMap) {
+        // Extra validation on the map keys since they don't come from OptionsData.
+        if (!fieldsFromClass.contains(field)) {
+          if (field == null) {
+            extraNamesFromMap.add("<null field>");
+          } else {
+            Option annotation = field.getAnnotation(Option.class);
+            if (annotation == null) {
+              extraNamesFromMap.add("<non-Option field>");
+            } else {
+              extraNamesFromMap.add("'" + annotation.name() + "'");
+            }
+          }
+        }
+      }
+      throw new IllegalArgumentException(
+          "Map keys do not match fields of options class; extra map keys: {"
+          + Joiner.on(", ").join(extraNamesFromMap) + "}; extra options class options: {"
+          + Joiner.on(", ").join(extraNamesFromClass) + "}");
+    }
   }
 }

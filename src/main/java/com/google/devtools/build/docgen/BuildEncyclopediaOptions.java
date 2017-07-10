@@ -14,7 +14,9 @@
 package com.google.devtools.build.docgen;
 
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.List;
 
 /**
@@ -26,6 +28,8 @@ public class BuildEncyclopediaOptions extends OptionsBase {
     abbrev = 'i',
     defaultValue = "",
     allowMultiple = true,
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "An input directory to read source files"
   )
   public List<String> inputDirs;
@@ -34,6 +38,8 @@ public class BuildEncyclopediaOptions extends OptionsBase {
     name = "provider",
     abbrev = 'p',
     defaultValue = "",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "The name of the rule class provider"
   )
   public String provider;
@@ -42,6 +48,8 @@ public class BuildEncyclopediaOptions extends OptionsBase {
     name = "output_dir",
     abbrev = 'o',
     defaultValue = ".",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "An output directory."
   )
   public String outputDir;
@@ -50,6 +58,8 @@ public class BuildEncyclopediaOptions extends OptionsBase {
     name = "blacklist",
     abbrev = 'b',
     defaultValue = "",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "A path to a file listing rules not to document."
   )
   public String blacklist;
@@ -58,6 +68,8 @@ public class BuildEncyclopediaOptions extends OptionsBase {
     name = "single_page",
     abbrev = '1',
     defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "Whether to generate the BE as a single HTML page or one page per rule family."
   )
   public boolean singlePage;
@@ -66,6 +78,8 @@ public class BuildEncyclopediaOptions extends OptionsBase {
     name = "help",
     abbrev = 'h',
     defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "Prints the help string."
   )
   public boolean help;

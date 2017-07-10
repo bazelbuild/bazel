@@ -15,14 +15,10 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 
 import com.google.common.base.Optional;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -35,18 +31,18 @@ public class StripPrefixedPathTest {
   @Test
   public void testStrip() {
     StripPrefixedPath result = StripPrefixedPath.maybeDeprefix("foo/bar", Optional.of("foo"));
-    assertEquals(result.getPathFragment(), PathFragment.create("bar"));
-    assertTrue(result.foundPrefix());
-    assertFalse(result.skip());
+    assertThat(PathFragment.create("bar")).isEqualTo(result.getPathFragment());
+    assertThat(result.foundPrefix()).isTrue();
+    assertThat(result.skip()).isFalse();
 
     result = StripPrefixedPath.maybeDeprefix("foo", Optional.of("foo"));
-    assertTrue(result.skip());
+    assertThat(result.skip()).isTrue();
 
     result = StripPrefixedPath.maybeDeprefix("bar/baz", Optional.of("foo"));
-    assertFalse(result.foundPrefix());
+    assertThat(result.foundPrefix()).isFalse();
 
     result = StripPrefixedPath.maybeDeprefix("foof/bar", Optional.of("foo"));
-    assertFalse(result.foundPrefix());
+    assertThat(result.foundPrefix()).isFalse();
   }
 
   @Test

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -95,6 +96,6 @@ public abstract class ASTFileLookupValue implements SkyValue {
   }
 
   public static SkyKey key(Label astFileLabel) {
-    return SkyKey.create(SkyFunctions.AST_FILE_LOOKUP, astFileLabel);
+    return LegacySkyKey.create(SkyFunctions.AST_FILE_LOOKUP, astFileLabel);
   }
 }

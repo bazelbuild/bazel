@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER
 import static com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoAspect.PROTO_TOOLCHAIN_ATTR;
 
 import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
@@ -30,17 +29,19 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.WrappingProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
+import com.google.devtools.build.lib.rules.java.JavaProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRunfilesProvider;
 import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.ProguardLibrary;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
+import com.google.devtools.build.lib.rules.java.ProtoJavaApiInfoAspectProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 
 /** Implementation of the java_lite_proto_library rule. */
@@ -50,59 +51,68 @@ public class JavaLiteProtoLibrary implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(final RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
 
+    Iterable<JavaProtoLibraryAspectProvider> javaProtoLibraryAspectProviders =
+        ruleContext.getPrerequisites("deps", Mode.TARGET, JavaProtoLibraryAspectProvider.class);
+
     JavaCompilationArgsProvider dependencyArgsProviders =
         JavaCompilationArgsProvider.merge(
-            Iterables.<JavaCompilationArgsAspectProvider, JavaCompilationArgsProvider>transform(
-                getDeps(ruleContext, JavaCompilationArgsAspectProvider.class),
-                JavaCompilationArgsAspectProvider.GET_PROVIDER));
+            WrappingProvider.Helper.unwrapProviders(
+                javaProtoLibraryAspectProviders, JavaCompilationArgsProvider.class));
 
     if (!StrictDepsUtils.isStrictDepsJavaProtoLibrary(ruleContext)) {
       dependencyArgsProviders = StrictDepsUtils.makeNonStrict(dependencyArgsProviders);
     }
 
-    Runfiles runfiles = new Runfiles.Builder(ruleContext.getWorkspaceName()).addArtifacts(
-        dependencyArgsProviders.getRecursiveJavaCompilationArgs().getRuntimeJars()).build();
+    Runfiles runfiles =
+        new Runfiles.Builder(ruleContext.getWorkspaceName())
+            .addArtifacts(
+                dependencyArgsProviders.getRecursiveJavaCompilationArgs().getRuntimeJars())
+            .build();
 
     JavaSourceJarsProvider sourceJarsProvider =
         JavaSourceJarsProvider.merge(
-            Iterables.<JavaSourceJarsAspectProvider, JavaSourceJarsProvider>transform(
-                getDeps(ruleContext, JavaSourceJarsAspectProvider.class),
-                JavaSourceJarsAspectProvider.GET_PROVIDER));
+            WrappingProvider.Helper.unwrapProviders(
+                javaProtoLibraryAspectProviders, JavaSourceJarsProvider.class));
 
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
 
     filesToBuild.addAll(sourceJarsProvider.getSourceJars());
 
-    for (JavaProtoLibraryTransitiveFilesToBuildProvider provider : ruleContext.getPrerequisites(
-        "deps", Mode.TARGET, JavaProtoLibraryTransitiveFilesToBuildProvider.class)) {
+    for (JavaProtoLibraryAspectProvider provider : javaProtoLibraryAspectProviders) {
       filesToBuild.addTransitive(provider.getJars());
     }
 
-    JavaRuleOutputJarsProvider javaRuleOutputJarsProvider =
-        JavaRuleOutputJarsProvider.builder().build();
-    JavaSkylarkApiProvider.Builder skylarkApiProvider =
-        JavaSkylarkApiProvider.builder()
-            .setRuleOutputJarsProvider(javaRuleOutputJarsProvider)
-            .setSourceJarsProvider(sourceJarsProvider)
-            .setCompilationArgsProvider(dependencyArgsProviders);
+    JavaRunfilesProvider javaRunfilesProvider = new JavaRunfilesProvider(runfiles);
+
+    JavaProvider javaProvider =
+        JavaProvider.Builder.create()
+            .addProvider(JavaCompilationArgsProvider.class, dependencyArgsProviders)
+            .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
+            .addProvider(
+                ProtoJavaApiInfoAspectProvider.class,
+                ProtoJavaApiInfoAspectProvider.merge(
+                    JavaProvider.getProvidersFromListOfTargets(
+                        ProtoJavaApiInfoAspectProvider.class,
+                        ruleContext.getPrerequisites("deps", TARGET))))
+            .addProvider(JavaRuleOutputJarsProvider.class, JavaRuleOutputJarsProvider.EMPTY)
+            .addProvider(JavaRunfilesProvider.class, javaRunfilesProvider)
+            .build();
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(filesToBuild.build())
-        .addSkylarkTransitiveInfo(JavaSkylarkApiProvider.NAME, skylarkApiProvider.build())
-        .addProvider(RunfilesProvider.class, RunfilesProvider.withData(Runfiles.EMPTY, runfiles))
+        .addSkylarkTransitiveInfo(
+            JavaSkylarkApiProvider.NAME, JavaSkylarkApiProvider.fromRuleContext())
+        .addProvider(RunfilesProvider.withData(Runfiles.EMPTY, runfiles))
         .addOutputGroup(
             OutputGroupProvider.DEFAULT, NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
-        .add(JavaCompilationArgsProvider.class, dependencyArgsProviders)
-        .add(JavaSourceJarsProvider.class, sourceJarsProvider)
-        .add(JavaRunfilesProvider.class, new JavaRunfilesProvider(runfiles))
-        .add(ProguardSpecProvider.class, getJavaLiteRuntimeSpec(ruleContext))
-        .add(JavaRuleOutputJarsProvider.class, javaRuleOutputJarsProvider)
+        .addProvider(dependencyArgsProviders)
+        .addProvider(sourceJarsProvider)
+        .addProvider(javaRunfilesProvider)
+        .addProvider(getJavaLiteRuntimeSpec(ruleContext))
+        .addProvider(JavaRuleOutputJarsProvider.EMPTY)
+        .addProvider(javaProvider)
+        .addNativeDeclaredProvider(javaProvider)
         .build();
-  }
-
-  private <C extends TransitiveInfoProvider> Iterable<C> getDeps(
-      RuleContext ruleContext, Class<C> clazz) {
-    return ruleContext.getPrerequisites("deps", TARGET, clazz);
   }
 
   private ProguardSpecProvider getJavaLiteRuntimeSpec(RuleContext ruleContext) {

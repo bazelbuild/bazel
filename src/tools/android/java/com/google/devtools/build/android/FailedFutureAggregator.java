@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import com.android.ide.common.res2.MergingException;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -43,11 +43,11 @@ class FailedFutureAggregator<T extends Throwable> {
 
   public static FailedFutureAggregator<MergingException> createForMergingExceptionWithMessage(
       final String message) {
-    return new FailedFutureAggregator<MergingException>(
+    return new FailedFutureAggregator<>(
         new ExceptionFactory<MergingException>() {
           @Override
           public MergingException create() {
-            return MergingException.withMessage(message).build();
+            return MergingException.withMessage(message);
           }
         });
   }
@@ -56,11 +56,12 @@ class FailedFutureAggregator<T extends Throwable> {
     this.exceptionFactory = exceptionFactory;
   }
 
-  /** Iterates throw a list of futures, throwing an Exception if any have failed. */
-  public void aggregateAndMaybeThrow(List<ListenableFuture<Boolean>> tasks) throws T {
+  /** Iterates a list of futures, throwing an Exception if any have failed. */
+  public <V> void aggregateAndMaybeThrow(List<? extends ListenableFuture<? extends V>> tasks)
+      throws T {
     // Retrieve all the exceptions and wrap them in an IOException.
     T exception = null;
-    for (ListenableFuture<Boolean> task : tasks) {
+    for (ListenableFuture<?> task : tasks) {
       try {
         task.get();
       } catch (ExecutionException | InterruptedException e) {

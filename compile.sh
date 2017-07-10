@@ -26,7 +26,7 @@ set -o errexit
 # etc, leading to confusing errors.
 export BAZEL_OLD_PATH=$PATH
 case "$(uname -s | tr [:upper:] [:lower:])" in
-msys*|mingw*)
+msys*|mingw*|cygwin*)
   # Check that the PATH is set up correctly by attempting to locate `[`.
   # This ensures that `which` is installed correctly and can succeed, while
   # also avoids accidentally locating a tool that exists in plain Windows too
@@ -114,10 +114,9 @@ if [[ $PLATFORM == "darwin" ]] && \
   EXTRA_BAZEL_ARGS="${EXTRA_BAZEL_ARGS-} --define IPHONE_SDK=1"
 fi
 
-case "${PLATFORM}" in
-msys*|mingw*)
+if [[ $PLATFORM == "windows" ]]; then
   EXTRA_BAZEL_ARGS="${EXTRA_BAZEL_ARGS-} --cpu=x64_windows_msys --host_cpu=x64_windows_msys"
-esac
+fi
 
 source scripts/bootstrap/bootstrap.sh
 
@@ -204,7 +203,7 @@ if [ $DO_TESTS ]; then
 
   ndk_target="$(get_bind_target //external:android_ndk_for_testing)"
   sdk_target="$(get_bind_target //external:android_sdk_for_testing)"
-  if [ "$ndk_target" = "//:dummy" -o "$sdk_target" = "//:dummy" ]; then
+  if [ "$ndk_target" = "//:dummy" ] || [ "$sdk_target" = "//:dummy" ]; then
     display "$WARNING Android SDK or NDK are not set in the WORKSPACE file. Android tests will not be run."
   fi
 

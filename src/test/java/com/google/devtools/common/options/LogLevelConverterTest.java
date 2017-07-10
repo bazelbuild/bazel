@@ -13,20 +13,16 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.devtools.common.options.Converters.LogLevelConverter;
-
+import java.util.logging.Level;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.util.logging.Level;
-
-/**
- * A test for {@link LogLevelConverter}.
- */
+/** A test for {@link LogLevelConverter}. */
 @RunWith(JUnit4.class)
 public class LogLevelConverterTest {
 
@@ -36,7 +32,7 @@ public class LogLevelConverterTest {
   public void convertsIntsToLevels() throws OptionsParsingException {
     int levelId = 0;
     for (Level level : LogLevelConverter.LEVELS) {
-      assertEquals(level, converter.convert(Integer.toString(levelId++)));
+      assertThat(converter.convert(Integer.toString(levelId++))).isEqualTo(level);
     }
   }
 
@@ -46,7 +42,7 @@ public class LogLevelConverterTest {
       converter.convert("oops - not a number.");
       fail();
     } catch (OptionsParsingException e) {
-      assertEquals("Not a log level: oops - not a number.", e.getMessage());
+      assertThat(e).hasMessageThat().isEqualTo("Not a log level: oops - not a number.");
     }
   }
 
@@ -58,7 +54,7 @@ public class LogLevelConverterTest {
         fail();
       } catch (OptionsParsingException e) {
         String expected = "Not a log level: " + Integer.toString(example);
-        assertEquals(expected, e.getMessage());
+        assertThat(e).hasMessageThat().isEqualTo(expected);
       }
     }
   }

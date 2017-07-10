@@ -32,13 +32,9 @@ public abstract class AndroidCcLinkParamsProvider implements TransitiveInfoProvi
   public abstract CcLinkParamsStore getLinkParams();
 
   public static final Function<TransitiveInfoCollection, CcLinkParamsStore> TO_LINK_PARAMS =
-      new Function<TransitiveInfoCollection, CcLinkParamsStore>() {
-        @Override
-        public CcLinkParamsStore apply(TransitiveInfoCollection input) {
-          AndroidCcLinkParamsProvider provider = input.getProvider(
-              AndroidCcLinkParamsProvider.class);
-          return provider == null ? null : provider.getLinkParams();
-        }
+      (TransitiveInfoCollection input) -> {
+        AndroidCcLinkParamsProvider provider = input.getProvider(AndroidCcLinkParamsProvider.class);
+        return provider == null ? null : provider.getLinkParams();
       };
 
   AndroidCcLinkParamsProvider() {}

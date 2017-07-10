@@ -14,16 +14,16 @@
 package com.google.devtools.build.lib.rules.java;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.SkylarkProviders;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
@@ -36,8 +36,8 @@ import javax.annotation.Nullable;
 @Immutable
 public final class JavaProvider extends SkylarkClassObject implements TransitiveInfoProvider {
 
-  public static final ClassObjectConstructor JAVA_PROVIDER =
-      new NativeClassObjectConstructor("java_common.provider") { };
+  public static final NativeClassObjectConstructor<JavaProvider> JAVA_PROVIDER =
+      new NativeClassObjectConstructor<JavaProvider>(JavaProvider.class, "java_common.provider") {};
 
   private static final ImmutableSet<Class<? extends TransitiveInfoProvider>> ALLOWED_PROVIDERS =
       ImmutableSet.of(
@@ -45,7 +45,8 @@ public final class JavaProvider extends SkylarkClassObject implements Transitive
         JavaSourceJarsProvider.class,
         ProtoJavaApiInfoAspectProvider.class,
         JavaRuleOutputJarsProvider.class,
-        JavaRunfilesProvider.class
+        JavaRunfilesProvider.class,
+        JavaPluginInfoProvider.class
       );
 
   private final TransitiveInfoProviderMap providers;
@@ -74,6 +75,8 @@ public final class JavaProvider extends SkylarkClassObject implements Transitive
         JavaProvider.fetchProvidersFromList(providers, ProtoJavaApiInfoAspectProvider.class);
     List<JavaRunfilesProvider> javaRunfilesProviders =
         JavaProvider.fetchProvidersFromList(providers, JavaRunfilesProvider.class);
+    List<JavaPluginInfoProvider> javaPluginInfoProviders =
+        JavaProvider.fetchProvidersFromList(providers, JavaPluginInfoProvider.class);
 
     Runfiles mergedRunfiles = Runfiles.EMPTY;
     for (JavaRunfilesProvider javaRunfilesProvider : javaRunfilesProviders) {
@@ -94,6 +97,8 @@ public final class JavaProvider extends SkylarkClassObject implements Transitive
         // it doesn't have any output jars.
         .addProvider(JavaRuleOutputJarsProvider.class, JavaRuleOutputJarsProvider.builder().build())
         .addProvider(JavaRunfilesProvider.class, new JavaRunfilesProvider(mergedRunfiles))
+        .addProvider(
+            JavaPluginInfoProvider.class, JavaPluginInfoProvider.merge(javaPluginInfoProviders))
         .build();
   }
 
@@ -132,12 +137,8 @@ public final class JavaProvider extends SkylarkClassObject implements Transitive
     if (provider != null) {
       return provider;
     }
-    SkylarkProviders skylarkProviders = target.getProvider(SkylarkProviders.class);
-    if (skylarkProviders == null) {
-      return null;
-    }
     JavaProvider javaProvider =
-        (JavaProvider) skylarkProviders.getDeclaredProvider(JavaProvider.JAVA_PROVIDER.getKey());
+        (JavaProvider) target.get(JavaProvider.JAVA_PROVIDER.getKey());
     if (javaProvider == null) {
       return null;
     }
@@ -156,12 +157,33 @@ public final class JavaProvider extends SkylarkClassObject implements Transitive
     return providersList;
   }
 
+  /**
+   * Returns a list of the given provider class with all the said providers retrieved from the
+   * given {@link JavaProvider}s.
+   */
+  public static <T extends TransitiveInfoProvider> ImmutableList<T>
+      getProvidersFromListOfJavaProviders(
+          Class<T> providerClass, Iterable<JavaProvider> javaProviders) {
+    ImmutableList.Builder<T> providersList = new ImmutableList.Builder<>();
+    for (JavaProvider javaProvider : javaProviders) {
+      T provider = javaProvider.getProvider(providerClass);
+      if (provider != null) {
+        providersList.add(provider);
+      }
+    }
+    return providersList.build();
+  }
+
   private JavaProvider(TransitiveInfoProviderMap providers) {
     super(JAVA_PROVIDER, ImmutableMap.<String, Object>of(
         "transitive_runtime_jars", SkylarkNestedSet.of(
             Artifact.class,
             providers.getProvider(JavaCompilationArgsProvider.class)
-                .getRecursiveJavaCompilationArgs().getRuntimeJars())
+                .getRecursiveJavaCompilationArgs().getRuntimeJars()),
+        "compile_jars", SkylarkNestedSet.of(
+            Artifact.class,
+            providers.getProvider(JavaCompilationArgsProvider.class)
+                .getJavaCompilationArgs().getCompileTimeJars())
     ));
     this.providers = providers;
   }
@@ -170,18 +192,19 @@ public final class JavaProvider extends SkylarkClassObject implements Transitive
    * A Builder for {@link JavaProvider}.
    */
   public static class Builder {
-    TransitiveInfoProviderMap.Builder providerMap;
-   
-    private Builder(TransitiveInfoProviderMap.Builder providerMap) {
+    TransitiveInfoProviderMapBuilder providerMap;
+
+    private Builder(TransitiveInfoProviderMapBuilder providerMap) {
       this.providerMap = providerMap;
     }
 
     public static Builder create() {
-      return new Builder(new TransitiveInfoProviderMap.Builder());
+      return new Builder(new TransitiveInfoProviderMapBuilder());
     }
 
     public static Builder copyOf(JavaProvider javaProvider) {
-      return new Builder(javaProvider.getProviders().toBuilder());
+      return new Builder(
+          new TransitiveInfoProviderMapBuilder().addAll(javaProvider.getProviders()));
     }
 
     public <P extends TransitiveInfoProvider> Builder addProvider(

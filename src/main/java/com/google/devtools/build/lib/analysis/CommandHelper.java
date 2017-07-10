@@ -21,8 +21,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
-import com.google.devtools.build.lib.analysis.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -115,7 +115,7 @@ public final class CommandHelper {
         continue;
       }
 
-      Collection<Artifact> files = tool.getFilesToRun();
+      Iterable<Artifact> files = tool.getFilesToRun();
       resolvedToolsBuilder.addAll(files);
       Artifact executableArtifact = tool.getExecutable();
       // If the label has an executable artifact add that to the multimaps.
@@ -125,7 +125,7 @@ public final class CommandHelper {
         toolsRunfilesBuilder.add(tool.getRunfilesSupplier());
       } else {
         // Map all depArtifacts to the respective label using the multimaps.
-        mapGet(tempLabelMap, label).addAll(files);
+        Iterables.addAll(mapGet(tempLabelMap, label), files);
       }
     }
 

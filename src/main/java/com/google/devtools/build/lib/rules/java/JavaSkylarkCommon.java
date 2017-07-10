@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -30,10 +28,12 @@ import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext;
 import com.google.devtools.build.lib.rules.java.proto.StrictDepsUtils;
 import com.google.devtools.build.lib.skylarkinterface.Param;
+import com.google.devtools.build.lib.skylarkinterface.ParamType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import java.util.List;
 
 /** A module that contains Skylark utilities for Java support. */
@@ -55,42 +55,125 @@ public class JavaSkylarkCommon {
   }
 
   @SkylarkCallable(
-      name = "create_provider",
-      documented = false,
-      parameters = {
-          @Param(
-              name = "compile_time_jars",
-              positional = false,
-              named = true,
-              type = SkylarkList.class,
-              generic1 = Artifact.class,
-              defaultValue = "[]"
-          ),
-          @Param(
-              name = "runtime_jars",
-              positional = false,
-              named = true,
-              type = SkylarkList.class,
-              generic1 = Artifact.class,
-              defaultValue = "[]"
-          )
-      }
+    name = "create_provider",
+    documented = false,
+    doc = "Create a java_common.provider from pre-built jars. Note that compile_time_jars and "
+        + "runtime_jars are not automatically merged into the recursive jars - if this is the "
+        + "desired behaviour the user should merge the jars before creating the provider. "
+        + "The recursive (compile/runtime) jars are the jars usually collected transitively from "
+        + "dependencies.",
+    parameters = {
+      @Param(
+        name = "compile_time_jars",
+        positional = false,
+        named = true,
+        allowedTypes = {
+          @ParamType(type = SkylarkList.class),
+          @ParamType(type = SkylarkNestedSet.class),
+        },
+        generic1 = Artifact.class,
+        defaultValue = "[]"
+      ),
+      @Param(
+        name = "runtime_jars",
+        positional = false,
+        named = true,
+        allowedTypes = {
+          @ParamType(type = SkylarkList.class),
+          @ParamType(type = SkylarkNestedSet.class),
+        },
+        generic1 = Artifact.class,
+        defaultValue = "[]"
+      ),
+      @Param(
+          name = "transitive_compile_time_jars",
+          positional = false,
+          named = true,
+          allowedTypes = {
+              @ParamType(type = SkylarkList.class),
+              @ParamType(type = SkylarkNestedSet.class),
+          },
+          generic1 = Artifact.class,
+          defaultValue = "[]"
+      ),
+      @Param(
+          name = "transitive_runtime_jars",
+          positional = false,
+          named = true,
+          allowedTypes = {
+              @ParamType(type = SkylarkList.class),
+              @ParamType(type = SkylarkNestedSet.class),
+          },
+          generic1 = Artifact.class,
+          defaultValue = "[]"
+      ),
+      @Param(
+        name = "source_jars",
+        positional = false,
+        named = true,
+        allowedTypes = {
+          @ParamType(type = SkylarkList.class),
+          @ParamType(type = SkylarkNestedSet.class),
+        },
+        generic1 = Artifact.class,
+        defaultValue = "[]"
+      )
+    }
   )
   public JavaProvider create(
-      SkylarkList<Artifact> compileTimeJars,
-      SkylarkList<Artifact> runtimeJars) {
-    JavaCompilationArgs javaCompilationArgs = JavaCompilationArgs.builder()
-        .addCompileTimeJars(compileTimeJars)
-        .addRuntimeJars(runtimeJars)
+      Object compileTimeJars,
+      Object runtimeJars,
+      Object transitiveCompileTimeJars,
+      Object transitiveRuntimeJars,
+      Object sourceJars)
+      throws EvalException {
+    NestedSet<Artifact> compileTimeJarsNestedSet = asArtifactNestedSet(compileTimeJars);
+    NestedSet<Artifact> runtimeJarsNestedSet = asArtifactNestedSet(runtimeJars);
+    NestedSet<Artifact> transitiveCompileTimeJarsNestedSet =
+        asArtifactNestedSet(transitiveCompileTimeJars);
+    NestedSet<Artifact> transitiveRuntimeJarsNestedSet = asArtifactNestedSet(transitiveRuntimeJars);
+
+    JavaCompilationArgs javaCompilationArgs =
+        JavaCompilationArgs.builder()
+            .addTransitiveCompileTimeJars(compileTimeJarsNestedSet)
+            .addTransitiveRuntimeJars(runtimeJarsNestedSet)
         .build();
-    JavaCompilationArgs recursiveJavaCompilationArgs = JavaCompilationArgs.builder()
-        .addCompileTimeJars(compileTimeJars)
-        .addRuntimeJars(runtimeJars).build();
-    JavaProvider javaProvider = JavaProvider.Builder.create().addProvider(
-              JavaCompilationArgsProvider.class,
-              JavaCompilationArgsProvider.create(javaCompilationArgs, recursiveJavaCompilationArgs))
-          .build();
+    JavaCompilationArgs.Builder recursiveJavaCompilationArgs = JavaCompilationArgs.builder();
+    if (transitiveCompileTimeJarsNestedSet.isEmpty() && transitiveRuntimeJarsNestedSet.isEmpty()) {
+      recursiveJavaCompilationArgs
+          .addTransitiveCompileTimeJars(compileTimeJarsNestedSet)
+          .addTransitiveRuntimeJars(runtimeJarsNestedSet);
+    } else {
+      recursiveJavaCompilationArgs
+          .addTransitiveCompileTimeJars(transitiveCompileTimeJarsNestedSet)
+          .addTransitiveRuntimeJars(transitiveRuntimeJarsNestedSet);
+    }
+
+    JavaProvider javaProvider =
+        JavaProvider.Builder.create()
+            .addProvider(
+                JavaCompilationArgsProvider.class,
+                JavaCompilationArgsProvider.create(
+                    javaCompilationArgs, recursiveJavaCompilationArgs.build()))
+            .addProvider(
+                JavaSourceJarsProvider.class,
+                JavaSourceJarsProvider.create(
+                    NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+                    asArtifactNestedSet(sourceJars)))
+            .build();
     return javaProvider;
+  }
+
+  /**
+   * Takes an Object that is either a SkylarkNestedSet or a SkylarkList of Artifacts and returns it
+   * as a NestedSet.
+   */
+  private static NestedSet<Artifact> asArtifactNestedSet(Object o) throws EvalException {
+    return o instanceof SkylarkNestedSet
+        ? ((SkylarkNestedSet) o).getSet(Artifact.class)
+        : NestedSetBuilder.<Artifact>naiveLinkOrder()
+            .addAll(((SkylarkList<?>) o).getContents(Artifact.class, null))
+            .build();
   }
 
   @SkylarkCallable(
@@ -121,7 +204,12 @@ public class JavaSkylarkCommon {
         doc = "A list of the Java source files to be compiled. At least one of source_jars or "
           + "source_files should be specified."
       ),
-      @Param(name = "output", positional = false, named = true, type = Artifact.class),
+      @Param(
+        name = "output",
+        positional = false,
+        named = true,
+        type = Artifact.class
+      ),
       @Param(
         name = "javac_opts",
         positional = false,
@@ -139,6 +227,33 @@ public class JavaSkylarkCommon {
         generic1 = JavaProvider.class,
         defaultValue = "[]",
         doc = "A list of dependencies. Optional."
+      ),
+      @Param(
+          name = "exports",
+          positional = false,
+          named = true,
+          type = SkylarkList.class,
+          generic1 = JavaProvider.class,
+          defaultValue = "[]",
+          doc = "A list of exports. Optional."
+      ),
+      @Param(
+          name = "plugins",
+          positional = false,
+          named = true,
+          type = SkylarkList.class,
+          generic1 = JavaProvider.class,
+          defaultValue = "[]",
+          doc = "A list of plugins. Optional."
+      ),
+      @Param(
+          name = "exported_plugins",
+          positional = false,
+          named = true,
+          type = SkylarkList.class,
+          generic1 = JavaProvider.class,
+          defaultValue = "[]",
+          doc = "A list of exported plugins. Optional."
       ),
       @Param(
         name = "strict_deps",
@@ -172,6 +287,14 @@ public class JavaSkylarkCommon {
         type = SkylarkList.class,
         generic1 = Artifact.class,
         defaultValue = "[]"
+      ),
+      @Param(
+          name = "resources",
+          positional = false,
+          named = true,
+          type = SkylarkList.class,
+          generic1 = Artifact.class,
+          defaultValue = "[]"
       )
     }
   )
@@ -182,32 +305,47 @@ public class JavaSkylarkCommon {
       Artifact outputJar,
       SkylarkList<String> javacOpts,
       SkylarkList<JavaProvider> deps,
+      SkylarkList<JavaProvider> exports,
+      SkylarkList<JavaProvider> plugins,
+      SkylarkList<JavaProvider> exportedPlugins,
       String strictDepsMode,
       ConfiguredTarget javaToolchain,
       ConfiguredTarget hostJavabase,
-      SkylarkList<Artifact> sourcepathEntries) throws EvalException {
+      SkylarkList<Artifact> sourcepathEntries,
+      SkylarkList<Artifact> resources) throws EvalException {
 
     JavaLibraryHelper helper =
         new JavaLibraryHelper(skylarkRuleContext.getRuleContext())
             .setOutput(outputJar)
             .addSourceJars(sourceJars)
             .addSourceFiles(sourceFiles)
+            .addResources(resources)
             .setSourcePathEntries(sourcepathEntries)
             .setJavacOpts(javacOpts);
 
-    List<JavaCompilationArgsProvider> compilationArgsProviders =
+    List<JavaCompilationArgsProvider> depsCompilationArgsProviders =
         JavaProvider.fetchProvidersFromList(deps, JavaCompilationArgsProvider.class);
-    helper.addAllDeps(compilationArgsProviders);
+    List<JavaCompilationArgsProvider> exportsCompilationArgsProviders =
+        JavaProvider.fetchProvidersFromList(exports, JavaCompilationArgsProvider.class);
+    helper.addAllDeps(depsCompilationArgsProviders);
+    helper.addAllExports(exportsCompilationArgsProviders);
     helper.setCompilationStrictDepsMode(getStrictDepsMode(strictDepsMode));
     MiddlemanProvider hostJavabaseProvider = hostJavabase.getProvider(MiddlemanProvider.class);
+
+    helper.addAllPlugins(
+        JavaProvider.fetchProvidersFromList(plugins, JavaPluginInfoProvider.class));
+    helper.addAllPlugins(JavaProvider.fetchProvidersFromList(deps, JavaPluginInfoProvider.class));
 
     NestedSet<Artifact> hostJavabaseArtifacts =
         hostJavabaseProvider == null
             ? NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER)
             : hostJavabaseProvider.getMiddlemanArtifact();
     JavaToolchainProvider javaToolchainProvider =
-        checkNotNull(javaToolchain.getProvider(JavaToolchainProvider.class));
-    JavaCompilationArgs artifacts =
+        javaToolchain.getProvider(JavaToolchainProvider.class);
+    if (javaToolchain == null) {
+      throw new EvalException(null, javaToolchain.getLabel() + " is not a java_toolchain rule.");
+    }
+    JavaCompilationArtifacts artifacts =
         helper.build(
             javaSemantics,
             javaToolchainProvider,
@@ -221,11 +359,21 @@ public class JavaSkylarkCommon {
         helper.buildCompilationArgsProvider(artifacts, true);
     Runfiles runfiles = new Runfiles.Builder(skylarkRuleContext.getWorkspaceName()).addArtifacts(
         javaCompilationArgsProvider.getRecursiveJavaCompilationArgs().getRuntimeJars()).build();
+
+    JavaPluginInfoProvider transitivePluginsProvider =
+        JavaPluginInfoProvider.merge(Iterables.concat(
+          JavaProvider.getProvidersFromListOfJavaProviders(
+              JavaPluginInfoProvider.class, exportedPlugins),
+          JavaProvider.getProvidersFromListOfJavaProviders(
+              JavaPluginInfoProvider.class, exports)
+        ));
+
     return JavaProvider.Builder.create()
              .addProvider(JavaCompilationArgsProvider.class, javaCompilationArgsProvider)
              .addProvider(JavaSourceJarsProvider.class, createJavaSourceJarsProvider(sourceJars))
              .addProvider(JavaRuleOutputJarsProvider.class, javaRuleOutputJarsProvider)
              .addProvider(JavaRunfilesProvider.class, new JavaRunfilesProvider(runfiles))
+             .addProvider(JavaPluginInfoProvider.class, transitivePluginsProvider)
              .build();
   }
 
@@ -249,13 +397,16 @@ public class JavaSkylarkCommon {
         @Param(name = "java_toolchain_attr", positional = false, named = true, type = String.class)
       }
   )
-  public static List<String> getDefaultJavacOpts(
+  public static ImmutableList<String> getDefaultJavacOpts(
       SkylarkRuleContext skylarkRuleContext, String javaToolchainAttr) throws EvalException {
     RuleContext ruleContext = skylarkRuleContext.getRuleContext();
     ConfiguredTarget javaToolchainConfigTarget =
-        (ConfiguredTarget) checkNotNull(skylarkRuleContext.getAttr().getValue(javaToolchainAttr));
+        (ConfiguredTarget) skylarkRuleContext.getAttr().getValue(javaToolchainAttr);
     JavaToolchainProvider toolchain =
-        checkNotNull(javaToolchainConfigTarget.getProvider(JavaToolchainProvider.class));
+        javaToolchainConfigTarget.getProvider(JavaToolchainProvider.class);
+    if (toolchain == null) {
+      throw new EvalException(null, javaToolchainAttr + " is not a java_toolchain rule label");
+    }
     return ImmutableList.copyOf(Iterables.concat(
         toolchain.getJavacOptions(), ruleContext.getTokenizedStringListAttr("javacopts")));
   }

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.devtools.build.lib.events.Location;
+import java.io.IOException;
 
 /** Syntax node for an index expression. e.g. obj[field], but not obj[from:to] */
 public final class IndexExpression extends Expression {
@@ -36,8 +37,11 @@ public final class IndexExpression extends Expression {
   }
 
   @Override
-  public String toString() {
-    return String.format("%s[%s]", obj, key);
+  public void prettyPrint(Appendable buffer) throws IOException {
+    obj.prettyPrint(buffer);
+    buffer.append('[');
+    key.prettyPrint(buffer);
+    buffer.append(']');
   }
 
   @Override

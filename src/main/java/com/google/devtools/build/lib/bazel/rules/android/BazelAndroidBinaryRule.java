@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.featurecontrol.FeaturePolicyConfiguration;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -25,10 +26,13 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.android.AndroidBinaryOnlyRule;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
+import com.google.devtools.build.lib.rules.android.AndroidFeatureFlagSetProvider;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses;
+import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagTransitionFactory;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
+import com.google.devtools.build.lib.util.FileType;
 
 /**
  * Rule class definition for {@code android_binary}.
@@ -39,14 +43,21 @@ public class BazelAndroidBinaryRule implements RuleDefinition {
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder
         .requiresConfigurationFragments(
-            AndroidConfiguration.class, JavaConfiguration.class, CppConfiguration.class)
-        .add(attr("$debug_keystore", BuildType.LABEL)
-            .cfg(HOST)
-            .singleArtifact()
-            .value(environment.getToolsLabel("//tools/android:debug_keystore")))
-        .add(attr(":cc_toolchain_split", BuildType.LABEL)
-            .cfg(AndroidRuleClasses.ANDROID_SPLIT_TRANSITION)
-            .value(CppRuleClasses.CC_TOOLCHAIN))
+            AndroidConfiguration.class,
+            JavaConfiguration.class,
+            FeaturePolicyConfiguration.class,
+            CppConfiguration.class)
+        .override(
+            attr("manifest", BuildType.LABEL).mandatory().allowedFileTypes(FileType.of(".xml")))
+        .add(
+            attr("$debug_keystore", BuildType.LABEL)
+                .cfg(HOST)
+                .singleArtifact()
+                .value(environment.getToolsLabel("//tools/android:debug_keystore")))
+        .add(
+            attr(":cc_toolchain_split", BuildType.LABEL)
+                .cfg(AndroidRuleClasses.ANDROID_SPLIT_TRANSITION)
+                .value(CppRuleClasses.ccToolchainAttribute(environment)))
         /* <!-- #BLAZE_RULE(android_binary).IMPLICIT_OUTPUTS -->
          <ul>
          <li><code><var>name</var>.apk</code>: An Android application
@@ -82,6 +93,8 @@ public class BazelAndroidBinaryRule implements RuleDefinition {
         </ul>
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS --> */
         .setImplicitOutputsFunction(AndroidRuleClasses.ANDROID_BINARY_IMPLICIT_OUTPUTS)
+        .cfg(
+            new ConfigFeatureFlagTransitionFactory(AndroidFeatureFlagSetProvider.FEATURE_FLAG_ATTR))
         .build();
   }
 

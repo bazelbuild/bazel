@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.ByteStringDeterministicWriter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
@@ -55,6 +56,7 @@ import com.google.devtools.build.lib.query2.engine.DigraphQueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryException;
+import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.SkyframeRestartQueryException;
@@ -73,14 +75,14 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.ValueOrException;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
-import java.io.ByteArrayOutputStream;
+import com.google.protobuf.ByteString;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.channels.ClosedByInterruptException;
 import java.util.Collection;
 import java.util.HashSet;
@@ -96,7 +98,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
   private static final QueryEnvironmentFactory QUERY_ENVIRONMENT_FACTORY =
       new QueryEnvironmentFactory();
   public static final Precomputed<ImmutableList<OutputFormatter>> QUERY_OUTPUT_FORMATTERS =
-      new Precomputed<>(SkyKey.create(SkyFunctions.PRECOMPUTED, "query_output_formatters"));
+      new Precomputed<>(LegacySkyKey.create(SkyFunctions.PRECOMPUTED, "query_output_formatters"));
 
   @Override
   @Nullable
@@ -144,7 +146,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     // force relative_locations to true so it has a deterministic output across machines.
     queryOptions.relativeLocations = true;
 
-    final byte[] result = executeQuery(ruleContext, queryOptions, getScope(ruleContext), query);
+    ByteString result = executeQuery(ruleContext, queryOptions, getScope(ruleContext), query);
     if (result == null || ruleContext.hasErrors()) {
       return null;
     }
@@ -250,8 +252,9 @@ public class GenQuery implements RuleConfiguredTargetFactory {
   }
 
   @Nullable
-  private byte[] executeQuery(RuleContext ruleContext, QueryOptions queryOptions,
-      Set<Target> scope, String query) throws InterruptedException {
+  private ByteString executeQuery(
+      RuleContext ruleContext, QueryOptions queryOptions, Set<Target> scope, String query)
+      throws InterruptedException {
     SkyFunction.Environment env = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
     Pair<ImmutableMap<PackageIdentifier, Package>, ImmutableMap<Label, Target>> closureInfo;
     try {
@@ -275,15 +278,18 @@ public class GenQuery implements RuleConfiguredTargetFactory {
 
   @SuppressWarnings("unchecked")
   @Nullable
-  private byte[] doQuery(QueryOptions queryOptions, PackageProvider packageProvider,
-                         Predicate<Label> labelFilter, TargetPatternEvaluator evaluator,
-                         String query, RuleContext ruleContext)
+  private ByteString doQuery(
+      QueryOptions queryOptions,
+      PackageProvider packageProvider,
+      Predicate<Label> labelFilter,
+      TargetPatternEvaluator evaluator,
+      String query,
+      RuleContext ruleContext)
       throws InterruptedException {
 
     DigraphQueryEvalResult<Target> queryResult;
     OutputFormatter formatter;
-    AggregateAllOutputFormatterCallback<Target> targets =
-        QueryUtil.newOrderedAggregateAllOutputFormatterCallback();
+    AggregateAllOutputFormatterCallback<Target, ?> targets;
     try {
       Set<Setting> settings = queryOptions.toSettings();
 
@@ -299,7 +305,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
           ruleContext.getAnalysisEnvironment().getSkyframeEnv());
       // This is a precomputed value so it should have been injected by the rules module by the
       // time we get there.
-      formatter =  OutputFormatter.getFormatter(
+      formatter = OutputFormatter.getFormatter(
           Preconditions.checkNotNull(outputFormatters), queryOptions.outputFormat);
       // All the packages are already loaded at this point, so there is no need
       // to start up many threads. 4 are started up to make good use of multiple
@@ -323,7 +329,10 @@ public class GenQuery implements RuleConfiguredTargetFactory {
                   ImmutableList.<QueryFunction>of(),
                   /*packagePath=*/ null,
                   /*blockUniverseEvaluationErrors=*/ false);
-      queryResult = (DigraphQueryEvalResult<Target>) queryEnvironment.evaluateQuery(query, targets);
+      QueryExpression expr = QueryExpression.parse(query, queryEnvironment);
+      formatter.verifyCompatible(queryEnvironment, expr);
+      targets = QueryUtil.newOrderedAggregateAllOutputFormatterCallback(queryEnvironment);
+      queryResult = queryEnvironment.evaluateQuery(expr, targets);
     } catch (SkyframeRestartQueryException e) {
       // Do not emit errors for skyframe restarts. They make output of the ConfiguredTargetFunction
       // inconsistent from run to run, and make detecting legitimate errors more difficult.
@@ -335,7 +344,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       throw new RuntimeException(e);
     }
 
-    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    ByteString.Output outputStream = ByteString.newOutput();
     try {
       QueryOutputUtils
           .output(queryOptions, queryResult, targets.getResult(), formatter, outputStream,
@@ -346,32 +355,27 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       throw new RuntimeException(e);
     }
 
-    return outputStream.toByteArray();
+    return outputStream.toByteString();
   }
 
   @Immutable // assuming no other reference to result
   private static final class QueryResultAction extends AbstractFileWriteAction {
-    private final byte[] result;
+    private final ByteString result;
 
-    private QueryResultAction(ActionOwner owner, Artifact output, byte[] result) {
+    private QueryResultAction(ActionOwner owner, Artifact output, ByteString result) {
       super(owner, ImmutableList.<Artifact>of(), output, /*makeExecutable=*/false);
       this.result = result;
     }
 
     @Override
     public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
-      return new DeterministicWriter() {
-        @Override
-        public void writeOutputFile(OutputStream out) throws IOException {
-          out.write(result);
-        }
-      };
+      return new ByteStringDeterministicWriter(result);
     }
 
     @Override
     protected String computeKey() {
       Fingerprint f = new Fingerprint();
-      f.addBytes(result);
+      f.addBytes(result.toByteArray());
       return f.hexDigestAndReset();
     }
   }

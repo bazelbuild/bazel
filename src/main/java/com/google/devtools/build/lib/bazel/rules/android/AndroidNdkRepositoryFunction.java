@@ -238,6 +238,7 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
     String ccToolchainSuiteTemplate = getTemplate("android_ndk_cc_toolchain_suite_template.txt");
     String ccToolchainTemplate = getTemplate("android_ndk_cc_toolchain_template.txt");
     String stlFilegroupTemplate = getTemplate("android_ndk_stl_filegroup_template.txt");
+    String miscLibrariesTemplate = getTemplate("android_ndk_misc_libraries_template.txt");
 
     StringBuilder ccToolchainSuites = new StringBuilder();
     StringBuilder ccToolchainRules = new StringBuilder();
@@ -281,7 +282,8 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
         .replace("%ruleName%", ruleName)
         .replace("%ccToolchainSuites%", ccToolchainSuites)
         .replace("%ccToolchainRules%", ccToolchainRules)
-        .replace("%stlFilegroups%", stlFilegroups);
+        .replace("%stlFilegroups%", stlFilegroups)
+        .replace("%miscLibraries%", miscLibrariesTemplate);
   }
 
   static String createToolchainName(String stlName) {

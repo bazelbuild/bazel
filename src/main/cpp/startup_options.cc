@@ -23,7 +23,6 @@
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
-#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/workspace_layout.h"
@@ -33,8 +32,43 @@ namespace blaze {
 using std::string;
 using std::vector;
 
+StartupFlag::~StartupFlag() {}
+
+bool UnaryStartupFlag::NeedsParameter() const {
+  return true;
+}
+
+bool UnaryStartupFlag::IsValid(const std::string &arg) const {
+  // The second argument of GetUnaryOption is not relevant to determine
+  // whether the option is unary or not, hence we set it to the empty string
+  // by default.
+  //
+  // TODO(lpino): Improve GetUnaryOption to only require the arg and the
+  // option we are looking for.
+  return GetUnaryOption(arg.c_str(), "", ("--" + name_).c_str()) != NULL;
+}
+
+bool NullaryStartupFlag::NeedsParameter() const {
+  return false;
+}
+
+bool NullaryStartupFlag::IsValid(const std::string &arg) const {
+  return GetNullaryOption(arg.c_str(), ("--" + name_).c_str()) ||
+      GetNullaryOption(arg.c_str(), ("--no" + name_).c_str());
+}
+
 StartupOptions::StartupOptions(const WorkspaceLayout* workspace_layout)
     : StartupOptions("Bazel", workspace_layout) {}
+
+void StartupOptions::RegisterNullaryStartupFlag(const std::string &flag_name) {
+  valid_startup_flags.insert(std::unique_ptr<NullaryStartupFlag>(
+      new NullaryStartupFlag(flag_name)));
+}
+
+void StartupOptions::RegisterUnaryStartupFlag(const std::string &flag_name) {
+  valid_startup_flags.insert(std::unique_ptr<UnaryStartupFlag>(
+      new UnaryStartupFlag(flag_name)));
+}
 
 StartupOptions::StartupOptions(const string &product_name,
                                const WorkspaceLayout *workspace_layout)
@@ -55,7 +89,8 @@ StartupOptions::StartupOptions(const string &product_name,
       connect_timeout_secs(10),
       invocation_policy(NULL),
       client_debug(false),
-      java_logging_formatter("java.util.logging.SimpleFormatter") {
+      java_logging_formatter(
+          "com.google.devtools.build.lib.util.SingleLineFormatter") {
   bool testing = !blaze::GetEnv("TEST_TMPDIR").empty();
   if (testing) {
     output_root = MakeAbsolute(blaze::GetEnv("TEST_TMPDIR"));
@@ -63,29 +98,50 @@ StartupOptions::StartupOptions(const string &product_name,
     output_root = workspace_layout->GetOutputRoot();
   }
 
+#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+  string windows_unix_root = WindowsUnixRoot(blaze::GetEnv("BAZEL_SH"));
+  if (!windows_unix_root.empty()) {
+    host_jvm_args.push_back(string("-Dbazel.windows_unix_root=") +
+                            windows_unix_root);
+  }
+#endif  // defined(COMPILER_MSVC) || defined(__CYGWIN__)
+
   const string product_name_lower = GetLowercaseProductName();
   output_user_root = blaze_util::JoinPath(
       output_root, "_" + product_name_lower + "_" + GetUserName());
   // 3 hours (but only 15 seconds if used within a test)
   max_idle_secs = testing ? 15 : (3 * 3600);
-  nullary_options = {"deep_execroot",
-                     "block_for_lock",
-                     "host_jvm_debug",
-                     "master_blazerc",
-                     "master_bazelrc",
-                     "batch",
-                     "batch_cpu_scheduling",
-                     "allow_configurable_attributes",
-                     "fatal_event_bus_exceptions",
-                     "experimental_oom_more_eagerly",
-                     "write_command_log",
-                     "watchfs",
-                     "client_debug"};
-  unary_options = {"output_base", "install_base",
-      "output_user_root", "host_jvm_profile", "host_javabase",
-      "host_jvm_args", "bazelrc", "blazerc", "io_nice_level",
-      "max_idle_secs", "experimental_oom_more_eagerly_threshold",
-      "command_port", "invocation_policy", "connect_timeout_secs"};
+
+  // IMPORTANT: Before modifying the statements below please contact a Bazel
+  // core team member that knows the internal procedure for adding/deprecating
+  // startup flags.
+  RegisterNullaryStartupFlag("allow_configurable_attributes");
+  RegisterNullaryStartupFlag("batch");
+  RegisterNullaryStartupFlag("batch_cpu_scheduling");
+  RegisterNullaryStartupFlag("block_for_lock");
+  RegisterNullaryStartupFlag("client_debug");
+  RegisterNullaryStartupFlag("deep_execroot");
+  RegisterNullaryStartupFlag("experimental_oom_more_eagerly");
+  RegisterNullaryStartupFlag("fatal_event_bus_exceptions");
+  RegisterNullaryStartupFlag("host_jvm_debug");
+  RegisterNullaryStartupFlag("master_bazelrc");
+  RegisterNullaryStartupFlag("master_blazerc");
+  RegisterNullaryStartupFlag("watchfs");
+  RegisterNullaryStartupFlag("write_command_log");
+  RegisterUnaryStartupFlag("bazelrc");
+  RegisterUnaryStartupFlag("blazerc");
+  RegisterUnaryStartupFlag("command_port");
+  RegisterUnaryStartupFlag("connect_timeout_secs");
+  RegisterUnaryStartupFlag("experimental_oom_more_eagerly_threshold");
+  RegisterUnaryStartupFlag("host_javabase");
+  RegisterUnaryStartupFlag("host_jvm_args");
+  RegisterUnaryStartupFlag("host_jvm_profile");
+  RegisterUnaryStartupFlag("invocation_policy");
+  RegisterUnaryStartupFlag("io_nice_level");
+  RegisterUnaryStartupFlag("install_base");
+  RegisterUnaryStartupFlag("max_idle_secs");
+  RegisterUnaryStartupFlag("output_base");
+  RegisterUnaryStartupFlag("output_user_root");
 }
 
 StartupOptions::~StartupOptions() {}
@@ -97,9 +153,8 @@ string StartupOptions::GetLowercaseProductName() const {
 }
 
 bool StartupOptions::IsNullary(const string& arg) const {
-  for (string option : nullary_options) {
-    if (GetNullaryOption(arg.c_str(), ("--" + option).c_str()) ||
-        GetNullaryOption(arg.c_str(), ("--no" + option).c_str())) {
+  for (const auto& flag : valid_startup_flags) {
+    if (!flag->NeedsParameter() && flag->IsValid(arg)) {
       return true;
     }
   }
@@ -107,14 +162,8 @@ bool StartupOptions::IsNullary(const string& arg) const {
 }
 
 bool StartupOptions::IsUnary(const string& arg) const {
-  for (string option : unary_options) {
-    // The second argument of GetUnaryOption is not relevant to determine
-    // whether the option is unary or not, hence we set it to the empty string
-    // by default.
-    //
-    // TODO(lpino): Improve GetUnaryOption to only require the arg and the
-    // option we are looking for.
-    if (GetUnaryOption(arg.c_str(), "", ("--" + option).c_str()) != NULL) {
+  for (const auto& flag : valid_startup_flags) {
+    if (flag->NeedsParameter() && flag->IsValid(arg)) {
       return true;
     }
   }
@@ -171,25 +220,25 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
     host_jvm_args.push_back(value);
     option_sources["host_jvm_args"] = rcfile;  // NB: This is incorrect
   } else if ((value = GetUnaryOption(arg, next_arg, "--bazelrc")) != NULL) {
-    if (rcfile != "") {
+    if (!rcfile.empty()) {
       *error = "Can't specify --bazelrc in the .bazelrc file.";
       return blaze_exit_code::BAD_ARGV;
     }
   } else if ((value = GetUnaryOption(arg, next_arg, "--blazerc")) != NULL) {
-    if (rcfile != "") {
+    if (!rcfile.empty()) {
       *error = "Can't specify --blazerc in the .blazerc file.";
       return blaze_exit_code::BAD_ARGV;
     }
   } else if (GetNullaryOption(arg, "--nomaster_blazerc") ||
              GetNullaryOption(arg, "--master_blazerc")) {
-    if (rcfile != "") {
+    if (!rcfile.empty()) {
       *error = "Can't specify --[no]master_blazerc in .blazerc file.";
       return blaze_exit_code::BAD_ARGV;
     }
     option_sources["blazerc"] = rcfile;
   } else if (GetNullaryOption(arg, "--nomaster_bazelrc") ||
              GetNullaryOption(arg, "--master_bazelrc")) {
-    if (rcfile != "") {
+    if (!rcfile.empty()) {
       *error = "Can't specify --[no]master_bazelrc in .bazelrc file.";
       return blaze_exit_code::BAD_ARGV;
     }
@@ -430,5 +479,33 @@ blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(
   }
   return blaze_exit_code::SUCCESS;
 }
+
+#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+// Extract the Windows path of "/" from $BAZEL_SH.
+// $BAZEL_SH usually has the form `<prefix>/usr/bin/bash.exe` or
+// `<prefix>/bin/bash.exe`, and this method returns that `<prefix>` part.
+// If $BAZEL_SH doesn't end with "usr/bin/bash.exe" or "bin/bash.exe" then this
+// method returns an empty string.
+string StartupOptions::WindowsUnixRoot(const string &bazel_sh) {
+  if (bazel_sh.empty()) {
+    return string();
+  }
+  std::pair<string, string> split = blaze_util::SplitPath(bazel_sh);
+  if (blaze_util::AsLower(split.second) != "bash.exe") {
+    return string();
+  }
+  split = blaze_util::SplitPath(split.first);
+  if (blaze_util::AsLower(split.second) != "bin") {
+    return string();
+  }
+
+  std::pair<string, string> split2 = blaze_util::SplitPath(split.first);
+  if (blaze_util::AsLower(split2.second) == "usr") {
+    return split2.first;
+  } else {
+    return split.first;
+  }
+}
+#endif  // defined(COMPILER_MSVC) || defined(__CYGWIN__)
 
 }  // namespace blaze

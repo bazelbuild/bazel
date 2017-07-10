@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import java.io.IOException;
+
 /**
  * Syntax node for an integer literal.
  */
@@ -20,6 +22,11 @@ public final class IntegerLiteral extends Literal<Integer> {
 
   public IntegerLiteral(Integer value) {
     super(value);
+  }
+
+  @Override
+  public void prettyPrint(Appendable buffer) throws IOException {
+    buffer.append(value.toString());
   }
 
   @Override

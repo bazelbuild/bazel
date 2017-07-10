@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.commands.CleanCommand.CleanStartingEvent;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
@@ -48,9 +49,19 @@ public class WorkerModule extends BlazeModule {
   }
 
   @Override
-  public void beforeCommand(Command command, CommandEnvironment env) {
+  public void beforeCommand(CommandEnvironment env) {
     this.env = env;
     env.getEventBus().register(this);
+  }
+
+  @Subscribe
+  public void cleanStarting(CleanStartingEvent event) {
+    if (workerPool != null) {
+      this.options = event.getOptionsProvider().getOptions(WorkerOptions.class);
+      workerFactory.setReporter(env.getReporter());
+      workerFactory.setOptions(options);
+      shutdownPool("Clean command is running, shutting down worker pool...");
+    }
   }
 
   @Subscribe

@@ -17,12 +17,40 @@ filegroup(
     visibility = ["//src:__pkg__"],
 )
 
+filegroup(
+    name = "embedded_tools",
+    srcs = [
+        "BUILD",
+        "combiners.cc",
+        "combiners.h",
+        "diag.h",
+        "input_jar.cc",
+        "input_jar.h",
+        "mapped_file.h",
+        "options.cc",
+        "options.h",
+        "output_jar.cc",
+        "output_jar.h",
+        "singlejar_main.cc",
+        "token_stream.h",
+        "transient_bytes.h",
+        "zip_headers.h",
+        "zlib_interface.h",
+    ],
+    visibility = ["//visibility:public"],
+)
+
 cc_binary(
     name = "singlejar",
     srcs = [
         "singlejar_main.cc",
     ],
+    linkopts = select({
+        "//src:freebsd": ["-lm"],
+        "//conditions:default": [],
+    }),
     linkstatic = 1,
+    visibility = ["//visibility:public"],
     deps = [
         "options",
         "output_jar",

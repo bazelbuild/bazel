@@ -14,7 +14,9 @@
 package com.google.devtools.build.lib.ssd;
 
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 
 /**
  * Options that tune Bazel's performance in order to increase performance on workstations with an
@@ -24,6 +26,8 @@ public class SsdOptions extends OptionsBase {
   @Option(
     name = "experimental_multi_threaded_digest",
     defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Whether to always compute MD5 digests of files with multiple threads. Might improve "
             + "performance when using an SSD."

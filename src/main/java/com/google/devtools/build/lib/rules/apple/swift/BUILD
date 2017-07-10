@@ -13,6 +13,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:concurrent",
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:option_filters_java_proto",
         "//third_party:guava",
     ],
 )

@@ -31,8 +31,11 @@ import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -61,63 +64,95 @@ class DexFileMerger {
    * Commandline options.
    */
   public static class Options extends OptionsBase {
-    @Option(name = "input",
-        defaultValue = "null",
-        category = "input",
-        converter = ExistingPathConverter.class,
-        abbrev = 'i',
-        help = "Input file to read to aggregate.")
+    @Option(
+      name = "input",
+      defaultValue = "null",
+      category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = ExistingPathConverter.class,
+      abbrev = 'i',
+      help = "Input file to read to aggregate."
+    )
     public Path inputArchive;
 
-    @Option(name = "output",
-        defaultValue = "classes.dex.jar",
-        category = "output",
-        converter = PathConverter.class,
-        abbrev = 'o',
-        help = "Output archive to write.")
+    @Option(
+      name = "output",
+      defaultValue = "classes.dex.jar",
+      category = "output",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = PathConverter.class,
+      abbrev = 'o',
+      help = "Output archive to write."
+    )
     public Path outputArchive;
 
-    @Option(name = "multidex",
-        defaultValue = "off",
-        category = "multidex",
-        converter = MultidexStrategyConverter.class,
-        help = "Allow more than one .dex file in the output.")
+    @Option(
+      name = "multidex",
+      defaultValue = "off",
+      category = "multidex",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = MultidexStrategyConverter.class,
+      help = "Allow more than one .dex file in the output."
+    )
     public MultidexStrategy multidexMode;
 
-    @Option(name = "main-dex-list",
-        defaultValue = "null",
-        category = "multidex",
-        converter = ExistingPathConverter.class,
-        implicitRequirements = "--multidex=minimal",
-        help = "List of classes to be placed into \"main\" classes.dex file.")
+    @Option(
+      name = "main-dex-list",
+      defaultValue = "null",
+      category = "multidex",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = ExistingPathConverter.class,
+      help = "List of classes to be placed into \"main\" classes.dex file."
+    )
     public Path mainDexListFile;
 
-    @Option(name = "minimal-main-dex",
-        defaultValue = "false",
-        category = "multidex",
-        implicitRequirements = "--multidex=minimal",
-        help = "If true, *only* classes listed in --main_dex_list file are placed into \"main\" "
-            + "classes.dex file.")
+    @Option(
+      name = "minimal-main-dex",
+      defaultValue = "false",
+      category = "multidex",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If true, *only* classes listed in --main_dex_list file are placed into \"main\" "
+              + "classes.dex file."
+    )
     public boolean minimalMainDex;
 
-    @Option(name = "verbose",
-        defaultValue = "false",
-        category = "misc",
-        help = "If true, print information about the merged files and resulting files to stdout.")
+    @Option(
+      name = "verbose",
+      defaultValue = "false",
+      category = "misc",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "If true, print information about the merged files and resulting files to stdout."
+    )
     public boolean verbose;
 
-    @Option(name = "max-bytes-wasted-per-file",
-        defaultValue = "0",
-        category = "misc",
-        help = "Limit on conservatively allocated but unused bytes per dex file, which can enable "
-            + "faster merging.")
+    @Option(
+      name = "max-bytes-wasted-per-file",
+      defaultValue = "0",
+      category = "misc",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Limit on conservatively allocated but unused bytes per dex file, which can enable "
+              + "faster merging."
+    )
     public int wasteThresholdPerDex;
 
     // Undocumented dx option for testing multidex logic
-    @Option(name = "set-max-idx-number",
-        defaultValue = "" + (DexFormat.MAX_MEMBER_IDX + 1),
-        category = "undocumented",
-        help = "Limit on fields and methods in a single dex file.")
+    @Option(
+      name = "set-max-idx-number",
+      defaultValue = "" + (DexFormat.MAX_MEMBER_IDX + 1),
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      help = "Limit on fields and methods in a single dex file."
+    )
     public int maxNumberOfIdxPerDex;
   }
 
@@ -137,6 +172,16 @@ class DexFileMerger {
 
   @VisibleForTesting
   static void buildMergedDexFiles(Options options) throws IOException {
+    if (!options.multidexMode.isMultidexAllowed()) {
+      checkArgument(
+          options.mainDexListFile == null,
+          "--main-dex-list is only supported with multidex enabled, but mode is: %s",
+          options.multidexMode);
+      checkArgument(
+          !options.minimalMainDex,
+          "--minimal-main-dex is only supported with multidex enabled, but mode is: %s",
+          options.multidexMode);
+    }
     ImmutableSet<String> classesInMainDex = options.mainDexListFile != null
         ? ImmutableSet.copyOf(Files.readAllLines(options.mainDexListFile, UTF_8))
         : null;
@@ -153,10 +198,6 @@ class DexFileMerger {
       if (classesInMainDex == null) {
         processDexFiles(zip, out, Predicates.<ZipEntry>alwaysTrue());
       } else {
-        // Options parser should be making sure of this but let's be extra-safe as other modes
-        // might result in classes from main dex list ending up in files other than classes.dex
-        checkArgument(options.multidexMode == MultidexStrategy.MINIMAL, "Only minimal multidex "
-            + "mode is supported with --main_dex_list, but mode is: %s", options.multidexMode);
         // To honor --main_dex_list make two passes:
         // 1. process only the classes listed in the given file
         // 2. process the remaining files

@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.skyframe.Dirents;
+import com.google.devtools.build.lib.skyframe.FileSymlinkException;
+import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.InconsistentFilesystemException;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Path;
@@ -34,15 +36,41 @@ import java.util.regex.Pattern;
 final class AndroidRepositoryUtils {
   private static final Pattern PLATFORMS_API_LEVEL_PATTERN = Pattern.compile("android-(\\d+)");
 
-  /** Gets a DirectoryListingValue for {@code dirPath} or returns null. */
+  /**
+   * Gets a {@link DirectoryListingValue} for {@code dirPath} or returns null.
+   *
+   * <p>First, we get a {@link FileValue} to check the the {@code dirPath} exists and is a
+   * directory. If not, we throw an exception.
+   */
   static DirectoryListingValue getDirectoryListing(Path root, PathFragment dirPath, Environment env)
       throws RepositoryFunctionException, InterruptedException {
+    RootedPath rootedPath = RootedPath.toRootedPath(root, dirPath);
     try {
+      FileValue dirFileValue =
+          (FileValue)
+              env.getValueOrThrow(
+                  FileValue.key(rootedPath),
+                  IOException.class,
+                  FileSymlinkException.class,
+                  InconsistentFilesystemException.class);
+      if (dirFileValue == null) {
+        return null;
+      }
+      if (!dirFileValue.exists() || !dirFileValue.isDirectory()) {
+        throw new RepositoryFunctionException(
+            new IOException(
+                String.format(
+                    "Expected directory at %s but it is not a directory or it does not exist.",
+                    rootedPath.asPath().getPathString())),
+            Transience.PERSISTENT);
+      }
       return (DirectoryListingValue)
           env.getValueOrThrow(
               DirectoryListingValue.key(RootedPath.toRootedPath(root, dirPath)),
               InconsistentFilesystemException.class);
-    } catch (InconsistentFilesystemException e) {
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.PERSISTENT);
+    } catch (FileSymlinkException | InconsistentFilesystemException e) {
       throw new RepositoryFunctionException(new IOException(e), Transience.PERSISTENT);
     }
   }

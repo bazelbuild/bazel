@@ -19,17 +19,20 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 import static com.google.devtools.build.lib.rules.android.AndroidCommon.getAndroidConfig;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.util.stream.Collectors.toCollection;
 
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
+import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
@@ -37,6 +40,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.WrappingProvider;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -54,12 +58,13 @@ import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeJarProvider;
-import com.google.devtools.build.lib.rules.java.proto.JavaCompilationArgsAspectProvider;
 import com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoAspect;
+import com.google.devtools.build.lib.rules.java.proto.JavaProtoLibraryAspectProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -74,15 +79,12 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
    * aspect. Must be provided when attaching this aspect to a target.
    */
   public static final Function<Rule, AspectParameters> PARAM_EXTRACTOR =
-      new Function<Rule, AspectParameters>() {
-        @Override
-        public AspectParameters apply(Rule rule) {
-          AttributeMap attributes = NonconfigurableAttributeMapper.of(rule);
-          AspectParameters.Builder result = new AspectParameters.Builder();
-          TriState incrementalAttr = attributes.get("incremental_dexing", TRISTATE);
-          result.addAttribute("incremental_dexing", incrementalAttr.name());
-          return result.build();
-        }
+      (Rule rule) -> {
+        AttributeMap attributes = NonconfigurableAttributeMapper.of(rule);
+        AspectParameters.Builder result = new AspectParameters.Builder();
+        TriState incrementalAttr = attributes.get("incremental_dexing", TRISTATE);
+        result.addAttribute("incremental_dexing", incrementalAttr.name());
+        return result.build();
       };
   /**
    * Function that limits this aspect to Java 8 desugaring (disabling incremental dexing) when
@@ -90,15 +92,10 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
    * for {@code blaze mobile-install}.
    */
   static final Function<Rule, AspectParameters> ONLY_DESUGAR_JAVA8 =
-      new Function<Rule, AspectParameters>() {
-        @Override
-        public AspectParameters apply(Rule rule) {
-          return new AspectParameters.Builder()
+      (Rule rule) ->
+          new AspectParameters.Builder()
               .addAttribute("incremental_dexing", TriState.NO.name())
               .build();
-        }
-      };
-
   /** Aspect-only label for dexbuidler executable, to avoid name clashes with labels on rules. */
   private static final String ASPECT_DEXBUILDER_PREREQ = "$dex_archive_dexbuilder";
   /** Aspect-only label for desugaring executable, to avoid name clashes with labels on rules. */
@@ -119,27 +116,39 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
 
   @Override
   public AspectDefinition getDefinition(AspectParameters params) {
-    AspectDefinition.Builder result = new AspectDefinition.Builder(this)
-        .requireProviderSets(
-            ImmutableList.of(
-                // We care about JavaRuntimeJarProvider, but rules don't advertise that provider.
-                ImmutableSet.<Class<?>>of(JavaCompilationArgsProvider.class),
-                // For proto_library rules, where we care about JavaCompilationArgsAspectProvider.
-                ImmutableSet.<Class<?>>of(ProtoSourcesProvider.class),
-                // For proto_lang_toolchain rules, where we just want to get at their runtime deps.
-                ImmutableSet.<Class<?>>of(ProtoLangToolchainProvider.class),
-                // For android_sdk rules, where we just want to get at aidl runtime deps.
-                ImmutableSet.<Class<?>>of(AndroidSdkProvider.class)))
-        // Parse labels since we don't have RuleDefinitionEnvironment.getLabel like in a rule
-        .add(attr(ASPECT_DESUGAR_PREREQ, LABEL).cfg(HOST).exec()
-            .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/android:desugar_java8")))
-        // Access to --android_sdk so we can stub in a bootclasspath for desugaring if missing
-        .add(attr(":dex_archive_android_sdk", LABEL)
-            .allowedRuleClasses("android_sdk", "filegroup")
-            .value(new AndroidRuleClasses.AndroidSdkLabel(
-                Label.parseAbsoluteUnchecked(toolsRepository + AndroidRuleClasses.DEFAULT_SDK))))
-        .requiresConfigurationFragments(AndroidConfiguration.class)
-        .requireAspectsWithNativeProviders(JavaCompilationArgsAspectProvider.class);
+    AspectDefinition.Builder result =
+        new AspectDefinition.Builder(this)
+            .requireProviderSets(
+                ImmutableList.of(
+                    // We care about JavaRuntimeJarProvider, but rules don't advertise that
+                    // provider.
+                    ImmutableSet.<Class<?>>of(JavaCompilationArgsProvider.class),
+                    // For proto_library rules, where we care about
+                    // JavaCompilationArgsAspectProvider.
+                    ImmutableSet.<Class<?>>of(ProtoSourcesProvider.class),
+                    // For proto_lang_toolchain rules, where we just want to get at their runtime
+                    // deps.
+                    ImmutableSet.<Class<?>>of(ProtoLangToolchainProvider.class),
+                    // For android_sdk rules, where we just want to get at aidl runtime deps.
+                    ImmutableSet.<Class<?>>of(AndroidSdkProvider.class)))
+            // Parse labels since we don't have RuleDefinitionEnvironment.getLabel like in a rule
+            .add(
+                attr(ASPECT_DESUGAR_PREREQ, LABEL)
+                    .cfg(HOST)
+                    .exec()
+                    .value(
+                        Label.parseAbsoluteUnchecked(
+                            toolsRepository + "//tools/android:desugar_java8")))
+            // Access to --android_sdk so we can stub in a bootclasspath for desugaring if missing
+            .add(
+                attr(":dex_archive_android_sdk", LABEL)
+                    .allowedRuleClasses("android_sdk", "filegroup")
+                    .value(
+                        new AndroidRuleClasses.AndroidSdkLabel(
+                            Label.parseAbsoluteUnchecked(
+                                toolsRepository + AndroidRuleClasses.DEFAULT_SDK))))
+            .requiresConfigurationFragments(AndroidConfiguration.class)
+            .requireAspectsWithNativeProviders(JavaProtoLibraryAspectProvider.class);
     if (TriState.valueOf(params.getOnlyValueOfAttribute("incremental_dexing")) != TriState.NO) {
       // Marginally improves "query2" precision for targets that disable incremental dexing
       result.add(attr(ASPECT_DEXBUILDER_PREREQ, LABEL).cfg(HOST).exec()
@@ -249,10 +258,13 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
       RuleContext ruleContext) {
     if (isProtoLibrary(ruleContext)
         && getAndroidConfig(ruleContext).incrementalDexingForLiteProtos()) {
-      JavaCompilationArgsAspectProvider javaProtos =
-          base.getProvider(JavaCompilationArgsAspectProvider.class);
-      if (javaProtos != null && !ruleContext.getPrerequisites("srcs", Mode.TARGET).isEmpty()) {
-        return javaProtos.provider.getJavaCompilationArgs().getRuntimeJars();
+      if (!ruleContext.getPrerequisites("srcs", Mode.TARGET).isEmpty()) {
+        JavaCompilationArgsProvider javaCompilationArgsProvider =
+            WrappingProvider.Helper.getWrappedProvider(
+                base, JavaProtoLibraryAspectProvider.class, JavaCompilationArgsProvider.class);
+        if (javaCompilationArgsProvider != null) {
+          return javaCompilationArgsProvider.getJavaCompilationArgs().getRuntimeJars();
+        }
       }
     } else {
       JavaRuntimeJarProvider jarProvider = base.getProvider(JavaRuntimeJarProvider.class);
@@ -266,7 +278,8 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   private static JavaCompilationArgsProvider getJavaCompilationArgsProvider(ConfiguredTarget base,
       RuleContext ruleContext) {
     if (isProtoLibrary(ruleContext)) {
-      return base.getProvider(JavaCompilationArgsAspectProvider.class).provider;
+      return WrappingProvider.Helper.getWrappedProvider(
+          base, JavaProtoLibraryAspectProvider.class, JavaCompilationArgsProvider.class);
     } else {
       return base.getProvider(JavaCompilationArgsProvider.class);
     }
@@ -433,7 +446,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
             .addInput(paramFile)
             .addOutput(dexArchive)
             .setMnemonic("DexBuilder")
-            .setExecutionInfo(ImmutableMap.of("supports-workers", "1"))
+            .setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED)
             .setProgressMessage(
                 "Dexing " + jar.prettyPrint() + " with applicable dexopts " + incrementalDexopts);
     ruleContext.registerAction(dexbuilder.build(ruleContext));
@@ -442,9 +455,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
 
   private static Set<Set<String>> aspectDexopts(RuleContext ruleContext) {
     return Sets.powerSet(
-        normalizeDexopts(
-            ruleContext,
-            getAndroidConfig(ruleContext).getDexoptsSupportedInIncrementalDexing()));
+        normalizeDexopts(getAndroidConfig(ruleContext).getDexoptsSupportedInIncrementalDexing()));
   }
 
   /**
@@ -455,25 +466,70 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
    */
   static ImmutableSet<String> incrementalDexopts(RuleContext ruleContext,
       Iterable<String> tokenizedDexopts) {
+    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
+      // TODO(bazel-team): Still needed? No longer done in AndroidCommon.createDexAction
+      tokenizedDexopts = Iterables.concat(tokenizedDexopts, ImmutableList.of("--no-locals"));
+    }
     return normalizeDexopts(
-        ruleContext,
         Iterables.filter(
             tokenizedDexopts,
+            // dexopts have to match exactly since aspect only creates archives for listed ones
             Predicates.in(getAndroidConfig(ruleContext).getDexoptsSupportedInIncrementalDexing())));
   }
 
-  private static ImmutableSet<String> normalizeDexopts(
-      RuleContext ruleContext, Iterable<String> tokenizedDexopts) {
+  /**
+   * Returns the subset of the given dexopts that are blacklisted from using incremental dexing
+   * by default.
+   */
+  static Iterable<String> blacklistedDexopts(
+      RuleContext ruleContext, List<String> dexopts) {
+    return Iterables.filter(
+        dexopts,
+        new FlagMatcher(
+            getAndroidConfig(ruleContext).getTargetDexoptsThatPreventIncrementalDexing()));
+  }
+
+  /**
+   * Derives options to use in DexFileMerger actions from the given context and dx flags, where the
+   * latter typically come from a {@code dexopts} attribute on a top-level target.
+   */
+  static ImmutableSet<String> mergerDexopts(RuleContext ruleContext,
+      Iterable<String> tokenizedDexopts) {
+    // We don't need an ordered set but might as well.  Note we don't need to worry about coverage
+    // builds since the merger doesn't use --no-locals.
+    return normalizeDexopts(
+        Iterables.filter(
+            tokenizedDexopts,
+            new FlagMatcher(getAndroidConfig(ruleContext).getDexoptsSupportedInDexMerger())));
+  }
+
+  private static ImmutableSet<String> normalizeDexopts(Iterable<String> tokenizedDexopts) {
     // Use TreeSet to drop duplicates and get fixed (sorted) order.  Fixed order is important so
     // we generate one dex archive per set of flag in create() method, regardless of how those flags
     // are listed in all the top-level targets being built.
-    Set<String> args = new TreeSet<>();
-    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
-      // Match what we do in AndroidCommon.createDexAction
-      args.add("--nolocals"); // TODO(bazel-team): Still needed? See createDexAction
+    return ImmutableSet.copyOf(
+        Streams.stream(tokenizedDexopts)
+            .map(FlagConverter.DX_TO_DEXBUILDER)
+            .collect(toCollection(TreeSet::new))
+            .iterator());
+  }
+
+  private static class FlagMatcher implements Predicate<String> {
+    private final ImmutableList<String> matching;
+
+    FlagMatcher(ImmutableList<String> matching) {
+      this.matching = matching;
     }
-    Iterables.addAll(args, Iterables.transform(tokenizedDexopts, FlagConverter.DX_TO_DEXBUILDER));
-    return ImmutableSet.copyOf(args);
+
+    @Override
+    public boolean apply(String input) {
+      for (String match : matching) {
+        if (input.contains(match)) {
+          return true;
+        }
+      }
+      return false;
+    }
   }
 
   private enum FlagConverter implements Function<String, String> {

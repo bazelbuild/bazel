@@ -15,6 +15,8 @@
 #ifndef BAZEL_SRC_TOOLS_SINGLEJAR_INPUT_JAR_H_
 #define BAZEL_SRC_TOOLS_SINGLEJAR_INPUT_JAR_H_ 1
 
+#define __STDC_FORMAT_MACROS 1
+
 #include <inttypes.h>
 #include <stdlib.h>
 

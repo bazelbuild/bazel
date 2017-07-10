@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.devtools.build.lib.util.SpellChecker;
+import java.io.IOException;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -26,7 +27,11 @@ import javax.annotation.Nullable;
 // into array reference with a constant index. Variable lookups are currently a speed bottleneck,
 // as previously measured in an experiment.
 /**
- *  Syntax node for an identifier.
+ * Syntax node for an identifier.
+ *
+ * Unlike most {@link ASTNode} subclasses, this one supports {@link Object#equals} and {@link
+ * Object#hashCode} (but note that these methods ignore location information). They are needed
+ * because {@code Identifier}s are stored in maps when constructing {@link LoadStatement}.
  */
 public final class Identifier extends Expression {
 
@@ -48,8 +53,8 @@ public final class Identifier extends Expression {
   }
 
   @Override
-  public String toString() {
-    return name;
+  public void prettyPrint(Appendable buffer) throws IOException {
+    buffer.append(name);
   }
 
   @Override

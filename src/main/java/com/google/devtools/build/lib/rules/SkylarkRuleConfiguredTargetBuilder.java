@@ -13,12 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.DefaultProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
@@ -61,23 +62,22 @@ import java.util.Map;
 public final class SkylarkRuleConfiguredTargetBuilder {
 
   /**
-   * Create a Rule Configured Target from the ruleContext and the ruleImplementation.  The
-   * registeredProviderTypes map indicates which keys in structs returned by skylark rules
-   * should be interpreted as native TransitiveInfoProvider instances of type (map value).
+   * Create a Rule Configured Target from the ruleContext and the ruleImplementation.
    */
   public static ConfiguredTarget buildRule(
       RuleContext ruleContext,
       BaseFunction ruleImplementation,
-      Map<String, Class<? extends TransitiveInfoProvider>> registeredProviderTypes)
+      SkylarkSemanticsOptions skylarkSemantics)
       throws InterruptedException {
     String expectFailure = ruleContext.attributes().get("expect_failure", Type.STRING);
     SkylarkRuleContext skylarkRuleContext = null;
     try (Mutability mutability = Mutability.create("configured target")) {
-      skylarkRuleContext = new SkylarkRuleContext(ruleContext, null);
+      skylarkRuleContext = new SkylarkRuleContext(ruleContext, null, skylarkSemantics);
       Environment env = Environment.builder(mutability)
           .setCallerLabel(ruleContext.getLabel())
           .setGlobals(
               ruleContext.getRule().getRuleClassObject().getRuleDefinitionEnvironment().getGlobals())
+          .setSemantics(skylarkSemantics)
           .setEventHandler(ruleContext.getAnalysisEnvironment().getEventHandler())
           .build(); // NB: loading phase functions are not available: this is analysis already,
                     // so we do *not* setLoadingPhase().
@@ -100,8 +100,7 @@ public final class SkylarkRuleConfiguredTargetBuilder {
         ruleContext.ruleError("Expected failure not found: " + expectFailure);
         return null;
       }
-      ConfiguredTarget configuredTarget =
-          createTarget(ruleContext, target, registeredProviderTypes);
+      ConfiguredTarget configuredTarget = createTarget(ruleContext, target);
       SkylarkProviderValidationUtil.checkOrphanArtifacts(ruleContext);
       return configuredTarget;
     } catch (EvalException e) {
@@ -146,10 +145,7 @@ public final class SkylarkRuleConfiguredTargetBuilder {
 
   // TODO(bazel-team): this whole defaulting - overriding executable, runfiles and files_to_build
   // is getting out of hand. Clean this whole mess up.
-  private static ConfiguredTarget createTarget(
-      RuleContext ruleContext,
-      Object target,
-      Map<String, Class<? extends TransitiveInfoProvider>> registeredProviderTypes)
+  private static ConfiguredTarget createTarget(RuleContext ruleContext, Object target)
       throws EvalException {
     Artifact executable = getExecutable(ruleContext, target);
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
@@ -161,7 +157,7 @@ public final class SkylarkRuleConfiguredTargetBuilder {
     }
     builder.setFilesToBuild(filesToBuild.build());
     return addStructFieldsAndBuild(
-        ruleContext, builder, target, executable, registeredProviderTypes);
+        ruleContext, builder, target, executable);
   }
 
   private static Artifact getExecutable(RuleContext ruleContext, Object target)
@@ -194,7 +190,7 @@ public final class SkylarkRuleConfiguredTargetBuilder {
   }
 
   public static NestedSet<Artifact> convertToOutputGroupValue(Location loc, String outputGroup,
-      SkylarkValue objects) throws EvalException {
+      Object objects) throws EvalException {
     NestedSet<Artifact> artifacts;
 
     String typeErrorMessage =
@@ -235,15 +231,14 @@ public final class SkylarkRuleConfiguredTargetBuilder {
       RuleContext ruleContext,
       RuleConfiguredTargetBuilder builder,
       Object target,
-      Artifact executable,
-      Map<String, Class<? extends TransitiveInfoProvider>> registeredProviderTypes)
+      Artifact executable)
       throws EvalException {
     Location loc = null;
     Boolean isParsed = false;
     if (target instanceof SkylarkClassObject) {
       SkylarkClassObject struct = (SkylarkClassObject) target;
       loc = struct.getCreationLoc();
-      parseProviderKeys(struct, false, ruleContext, loc, executable, registeredProviderTypes,
+      parseProviderKeys(struct, false, ruleContext, loc, executable,
           builder);
       isParsed = true;
     } else if (target instanceof Iterable) {
@@ -257,9 +252,9 @@ public final class SkylarkRuleConfiguredTargetBuilder {
                 "A return value of a rule implementation function should be "
                     + "a sequence of declared providers");
         if (declaredProvider.getConstructor().getKey().equals(
-            SkylarkRuleContext.getDefaultProvider().getKey())) {
+            DefaultProvider.SKYLARK_CONSTRUCTOR.getKey())) {
           parseProviderKeys(declaredProvider, true, ruleContext, loc, executable,
-              registeredProviderTypes, builder);
+              builder);
           isParsed = true;
         } else {
           Location creationLoc = declaredProvider.getCreationLocOrNull();
@@ -270,7 +265,7 @@ public final class SkylarkRuleConfiguredTargetBuilder {
     }
 
     if (!isParsed) {
-      addSimpleProviders(builder, ruleContext, loc, executable, null, null, null, null);
+      addSimpleProviders(builder, ruleContext, loc, executable, null, null, null);
     }
 
     try {
@@ -286,7 +281,6 @@ public final class SkylarkRuleConfiguredTargetBuilder {
       RuleContext ruleContext,
       Location loc,
       Artifact executable,
-      Map<String, Class<? extends TransitiveInfoProvider>> registeredProviderTypes,
       RuleConfiguredTargetBuilder builder) throws EvalException {
     Runfiles statelessRunfiles = null;
     Runfiles dataRunfiles = null;
@@ -303,9 +297,9 @@ public final class SkylarkRuleConfiguredTargetBuilder {
         dataRunfiles = cast("data_runfiles", provider, Runfiles.class, loc);
       } else if (key.equals("default_runfiles")) {
         defaultRunfiles = cast("default_runfiles", provider, Runfiles.class, loc);
-      } else if (key.equals("output_groups")) {
+      } else if (key.equals("output_groups") && !isDefaultProvider) {
         addOutputGroups(provider.getValue(key), loc, builder);
-      } else if (key.equals("instrumented_files")) {
+      } else if (key.equals("instrumented_files") && !isDefaultProvider) {
         SkylarkClassObject insStruct =
             cast("instrumented_files", provider, SkylarkClassObject.class, loc);
         Location insLoc = insStruct.getCreationLoc();
@@ -345,10 +339,8 @@ public final class SkylarkRuleConfiguredTargetBuilder {
                 InstrumentedFilesCollector.NO_METADATA_COLLECTOR,
                 Collections.<Artifact>emptySet());
         builder.addProvider(InstrumentedFilesProvider.class, instrumentedFilesProvider);
-      } else if (registeredProviderTypes.containsKey(key)) {
-        Class<? extends TransitiveInfoProvider> providerType = registeredProviderTypes.get(key);
-        TransitiveInfoProvider providerField = cast(key, provider, providerType, loc);
-        builder.addProvider(providerType, providerField);
+      } else if (provider.getValue(key) instanceof TransitiveInfoProvider.WithLegacySkylarkName) {
+        builder.addProvider((TransitiveInfoProvider) provider.getValue(key));
       } else if (isDefaultProvider) {
         // Custom keys are not allowed for default providers
         throw new EvalException(loc, "Invalid key for default provider: " + key);
@@ -365,18 +357,19 @@ public final class SkylarkRuleConfiguredTargetBuilder {
       }
     }
 
-    addSimpleProviders(builder, ruleContext, loc, executable, statelessRunfiles, dataRunfiles,
-        defaultRunfiles, (isDefaultProvider ? provider : null));
+    addSimpleProviders(
+        builder, ruleContext, loc, executable, statelessRunfiles, dataRunfiles, defaultRunfiles);
   }
 
-  private static void addSimpleProviders(RuleConfiguredTargetBuilder builder,
+  private static void addSimpleProviders(
+      RuleConfiguredTargetBuilder builder,
       RuleContext ruleContext,
       Location loc,
       Artifact executable,
       Runfiles statelessRunfiles,
       Runfiles dataRunfiles,
-      Runfiles defaultRunfiles,
-      SkylarkClassObject defaultProvider) throws EvalException {
+      Runfiles defaultRunfiles)
+      throws EvalException {
 
     if ((statelessRunfiles != null) && (dataRunfiles != null || defaultRunfiles != null)) {
       throw new EvalException(loc, "Cannot specify the provider 'runfiles' "
@@ -414,19 +407,6 @@ public final class SkylarkRuleConfiguredTargetBuilder {
           ruleContext.getAnalysisEnvironment().getRegisteredActions());
       builder.addSkylarkDeclaredProvider(actions, loc);
     }
-
-    // Populate default provider fields and build it
-    ImmutableMap.Builder<String, Object> attrBuilder = new ImmutableMap.Builder<>();
-    // TODO: Add actual attributes that users expect to access from default providers
-    attrBuilder.put("runfiles", runfilesProvider);
-    SkylarkClassObject statelessDefaultProvider =
-        new SkylarkClassObject(
-            SkylarkRuleContext.getDefaultProvider(),
-            attrBuilder.build());
-
-    // Add the default provider
-    builder.addSkylarkDeclaredProvider(statelessDefaultProvider, (defaultProvider == null) ? loc
-        : Optional.fromNullable(defaultProvider.getCreationLocOrNull()).or(loc));
   }
 
   private static <T> T cast(String paramName, ClassObject struct, Class<T> expectedGenericType,

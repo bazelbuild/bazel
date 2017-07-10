@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import com.android.ide.common.res2.MergingException;
 import com.google.common.base.MoreObjects;
+import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -116,9 +116,8 @@ public class DataValueFile implements DataResource, DataAsset {
   }
 
   @Override
-  public void writeResourceToClass(FullyQualifiedName key,
-      AndroidResourceClassWriter resourceClassWriter) {
-    resourceClassWriter.writeSimpleResource(key.type(), key.name());
+  public void writeResourceToClass(FullyQualifiedName key, AndroidResourceSymbolSink sink) {
+    sink.acceptSimpleResource(key.type(), key.name());
   }
 
   @Override

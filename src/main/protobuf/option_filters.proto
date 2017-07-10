@@ -1,0 +1,142 @@
+// Copyright 2017 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+syntax = "proto3";
+package options;
+
+option java_package = "com.google.devtools.common.options.proto";
+
+// IMPORTANT NOTE: Changing this proto has specific compatibility requirements.
+// ** Waived during the transition phase **
+//    This enum is not yet depended on externally and none of these constraints
+//    matter until that flip is switched.
+// TODO(bazel-team) Remove the waiving of compatibility requirements after the
+// transition period is over.
+//
+// These tags are used for flag filtering. They are consumed by tools that
+// process bazel's output, and for this reason must be kept backwards compatible
+// until the build horizon has passed.
+// - To add a new tag, add it here and to all flags it applies to. If you cannot
+//   do this in a single change, mark it as "deprecated" until it has been
+//   applied everywhere. Once it can be relied upon, remove the deprecation
+//   mark.
+// - To remove a tag, remove it from all flags and mark it as deprecated for 6
+//   months before removing it entirely from the list below.
+// - To change the intent of a tag (i.e. to tighten or loosen its definition),
+//   make sure that the new scope doesn't include untagged options or exclude
+//   options that still have this tag. Please try not to do this.
+//   Create a new value and deprecate the old one instead, to avoid confusion.
+
+// These tags should describe the intent and effects of an option.
+//
+// These will be used for filtering noise in long and complex command-lines, to
+// help provide an overview of which options were likely to have an effect on an
+// issue. This would be mostly useful while debugging, to help identify a
+// command line capable of reproducing an error, so the lists of options tagged
+// with each EffectTag should be as close to complete and correct as we can
+// keep them.
+enum OptionEffectTag {
+  // This option's effect or intent is unknown.
+  //
+  // Please do not use this value for new flags. This is meant to aid transition
+  // and for a very specific set of flags that actually have unknown effect,
+  // such as --config and --all_incompatible_changes, where the effect depends
+  // on what other options are triggered.
+  UNKNOWN = 0;
+
+  // This flag has literally no effect. Kept here for completeness and for
+  // deprecated flags. No new flag should set this tag.
+  NO_OP = 1;
+
+  // Using this option causes blaze to lose potentially significant incremental
+  // state, which may make this or following builds slower. State could be lost
+  // due to a server restart or to invalidation of a large part of the
+  // dependency graph.
+  LOSES_INCREMENTAL_STATE = 2;
+
+  // This option affects the inputs to the command. For example, it might affect
+  // Bazel's interaction with repository versions, or be a meta-option that
+  // affects the options set for a given invocation.
+  //
+  // Yes, all options are technically inputs, but only options that affect
+  // inputs other than itself should be tagged.
+  CHANGES_INPUTS = 3;
+
+  // This option affects bazel's outputs. Which outputs exist and where they
+  // go are both relevant here.
+  //
+  // This tag is intentionally broad, as many different types of flags will
+  // affect the output of the invocation.
+  AFFECTS_OUTPUTS = 4;
+
+  // This option affects the semantics of BUILD or bzl files.
+  BUILD_FILE_SEMANTICS = 5;
+
+  // This option affects settings of Bazel-internal machinery. This tag does
+  // not, on its own, mean that external artifacts are affected, but the route
+  // taken to make them might have differed.
+  BAZEL_INTERNAL_CONFIGURATION = 6;
+
+  // This option affects the loading and analysis of dependencies, and the
+  // building of the dependency graph.
+  LOADING_AND_ANALYSIS = 7;
+
+  // This option affects the execution phase. Sandboxing or remote execution
+  // related options should use this category.
+  EXECUTION = 8;
+
+  // This option triggers an optimization that may be machine specific and is
+  // not guaranteed to work on all machines. Depending on what is being
+  // optimized for, this could be a tradeoff with other aspects of performance,
+  // such as memory or cpu cost.
+  HOST_MACHINE_RESOURCE_OPTIMIZATIONS = 9;
+
+  // This option changes how eagerly a Bazel invocation will exit from a
+  // failure.
+  EAGERNESS_TO_EXIT = 10;
+
+  // This option is used for the purposes of monitoring Bazel behavior or
+  // performance. The information collected might have effect on logging output,
+  // but should not be relevant for the majority of Bazel users that aren't also
+  // Bazel developers.
+  BAZEL_MONITORING = 11;
+
+  // This option affects Bazel's terminal output, but should not affect its
+  // operations. Verbosity and formatting options should have this tag.
+  TERMINAL_OUTPUT = 12;
+}
+
+// On top of categorizing options by their intended purpose, these tags should
+// identify options that are either not supported or are intended to break old
+// behavior.
+enum OptionMetadataTag {
+  // This option triggers an experimental feature with no guarantees of
+  // functionality
+  //
+  // Note: this is separate from UNDOCUMENTED flags, which are flags we don't
+  // want listed and shouldn't be widely used. Experimental flags should
+  // probably also be undocumented, but not all undocumented flags should be
+  // labeled experimental.
+  EXPERIMENTAL = 0;
+
+  // This option triggers a backwards-incompatible change. It will be off by
+  // default when the option is first introduced, and later switched on by
+  // default on a major Blaze release. Use this option to test your
+  // migration readiness or get early access to the feature.
+  // The option may be deprecated some time after the feature's release.
+  INCOMPATIBLE_CHANGE = 1;
+
+  // This flag is deprecated. It might either no longer have any effect, or
+  // might no longer be supported.
+  DEPRECATED = 2;
+}

@@ -1,33 +1,8 @@
+# Bazel - Google's Build System
+
 package(default_visibility = ["//scripts/release:__pkg__"])
 
 exports_files(["LICENSE"])
-
-filegroup(
-    name = "git",
-    srcs = glob([".git/**"]),
-)
-
-filegroup(
-    name = "dummy",
-    visibility = ["//visibility:public"],
-)
-
-filegroup(
-    name = "workspace-file",
-    srcs = [":WORKSPACE"],
-    visibility = [
-        "//src/test/shell/bazel:__subpackages__",
-        "//tools/cpp/test:__pkg__",
-    ],
-)
-
-filegroup(
-    name = "changelog-file",
-    srcs = [":CHANGELOG.md"],
-    visibility = [
-        "//scripts/packages:__subpackages__",
-    ],
-)
 
 filegroup(
     name = "srcs",
@@ -48,6 +23,39 @@ filegroup(
         "//third_party:srcs",
     ],
     visibility = ["//visibility:private"],
+)
+
+filegroup(
+    name = "git",
+    srcs = glob([".git/**"]),
+)
+
+filegroup(
+    name = "dummy",
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "workspace-file",
+    srcs = [":WORKSPACE"],
+    visibility = [
+        "//src/test/shell/bazel:__subpackages__",
+        "//src/test/docker:__pkg__",
+    ],
+)
+
+filegroup(
+    name = "changelog-file",
+    srcs = [":CHANGELOG.md"],
+    visibility = [
+        "//scripts/packages:__subpackages__",
+    ],
+)
+
+filegroup(
+    name = "bootstrap-derived-java-srcs",
+    srcs = glob(["derived/**/*.java"]),
+    visibility = ["//:__subpackages__"],
 )
 
 load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar")

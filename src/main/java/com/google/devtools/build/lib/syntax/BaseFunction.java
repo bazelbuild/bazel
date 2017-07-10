@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
@@ -507,14 +508,13 @@ public abstract class BaseFunction implements SkylarkValue {
 
   /**
    * Returns the signature as "[className.]methodName(name1: paramType1, name2: paramType2, ...)"
-   * or "[className.]methodName(paramType1, paramType2, ...)", depending on the value of showNames.
    */
-  public String getShortSignature(boolean showNames) {
+  public String getShortSignature() {
     StringBuilder builder = new StringBuilder();
     boolean hasSelf = hasSelfArgument();
 
     builder.append(getFullName()).append("(");
-    signature.toStringBuilder(builder, showNames, false, false, hasSelf);
+    signature.toStringBuilder(builder, false, false, hasSelf);
     builder.append(")");
 
     return builder.toString();
@@ -567,7 +567,12 @@ public abstract class BaseFunction implements SkylarkValue {
   }
 
   @Override
-  public void write(Appendable buffer, char quotationMark) {
-    Printer.append(buffer, "<function " + getName() + ">");
+  public void repr(SkylarkPrinter printer) {
+    printer.append("<function " + getName() + ">");
+  }
+
+  @Override
+  public void reprLegacy(SkylarkPrinter printer) {
+    printer.append("<function " + getName() + ">");
   }
 }

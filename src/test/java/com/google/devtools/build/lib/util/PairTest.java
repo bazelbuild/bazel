@@ -13,10 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
+import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.testing.EqualsTester;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -32,18 +31,18 @@ public class PairTest {
     Object a = new Object();
     Object b = new Object();
     Pair<Object, Object> p = Pair.of(a, b);
-    assertSame(a, p.first);
-    assertSame(b, p.second);
-    assertEquals(Pair.of(a, b), p);
-    assertEquals(31 * a.hashCode() + b.hashCode(), p.hashCode());
+    assertThat(p.first).isSameAs(a);
+    assertThat(p.second).isSameAs(b);
+    assertThat(p).isEqualTo(Pair.of(a, b));
+    assertThat(p.hashCode()).isEqualTo(31 * a.hashCode() + b.hashCode());
   }
 
   @Test
   public void nullable() {
     Pair<Object, Object> p = Pair.of(null, null);
-    assertNull(p.first);
-    assertNull(p.second);
+    assertThat(p.first).isNull();
+    assertThat(p.second).isNull();
     p.hashCode(); // Should not throw.
-    assertEquals(p, p);
+    new EqualsTester().addEqualityGroup(p).testEquals();
   }
 }

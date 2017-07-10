@@ -16,7 +16,7 @@ java_test(
     srcs = ["BazelBuildCaseTest.java"],
     deps = [
         "//src/tools/benchmark/java/com/google/devtools/build/benchmark:benchmark_lib",
-        "//src/tools/benchmark/java/com/google/devtools/build/benchmark:build_data_proto",
+        "//src/tools/benchmark/java/com/google/devtools/build/benchmark:build_data_java_proto",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -29,7 +29,7 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:shell",
         "//src/tools/benchmark/java/com/google/devtools/build/benchmark:benchmark_lib",
-        "//src/tools/benchmark/java/com/google/devtools/build/benchmark:build_data_proto",
+        "//src/tools/benchmark/java/com/google/devtools/build/benchmark:build_data_java_proto",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",

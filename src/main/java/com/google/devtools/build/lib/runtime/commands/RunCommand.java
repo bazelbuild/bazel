@@ -16,11 +16,13 @@ package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
+import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -60,9 +62,11 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -90,6 +94,8 @@ public class RunCommand implements BlazeCommand  {
       name = "script_path",
       category = "run",
       defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       converter = OptionsUtils.PathFragmentConverter.class,
       help =
           "If set, write a shell script to the given file which invokes the "
@@ -126,7 +132,7 @@ public class RunCommand implements BlazeCommand  {
   }
 
   @Override
-  public void editOptions(CommandEnvironment env, OptionsParser optionsParser) { }
+  public void editOptions(OptionsParser optionsParser) { }
 
   @Override
   public ExitCode exec(CommandEnvironment env, OptionsProvider options) {
@@ -224,18 +230,15 @@ public class RunCommand implements BlazeCommand  {
       return ExitCode.LOCAL_ENVIRONMENTAL_ERROR;
     }
 
-    List<String> args = runTargetArgs;
+    List<String> args = Lists.newArrayList();
 
     FilesToRunProvider provider = targetToRun.getProvider(FilesToRunProvider.class);
     RunfilesSupport runfilesSupport = provider == null ? null : provider.getRunfilesSupport();
     if (runfilesSupport != null && runfilesSupport.getArgs() != null) {
-      List<String> targetArgs = runfilesSupport.getArgs();
-      if (!targetArgs.isEmpty()) {
-        args = Lists.newArrayListWithCapacity(targetArgs.size() + runTargetArgs.size());
-        args.addAll(targetArgs);
-        args.addAll(runTargetArgs);
-      }
+      CommandLine targetArgs = runfilesSupport.getArgs();
+      Iterables.addAll(args, targetArgs.arguments());
     }
+    args.addAll(runTargetArgs);
 
     String productName = env.getRuntime().getProductName();
     //
@@ -256,10 +259,6 @@ public class RunCommand implements BlazeCommand  {
       Preconditions.checkNotNull(
           processWrapperPath, PROCESS_WRAPPER + " not found in embedded tools");
       cmdLine.add(env.getExecRoot().getRelative(processWrapperPath).getPathString());
-      cmdLine.add("-1");
-      cmdLine.add("15");
-      cmdLine.add("-");
-      cmdLine.add("-");
     }
     List<String> prettyCmdLine = new ArrayList<>();
     // Insert the command prefix specified by the "--run_under=<command-prefix>" option

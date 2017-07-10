@@ -18,6 +18,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
+import com.google.common.collect.Iterables;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -27,6 +29,7 @@ import java.util.Collection;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -58,17 +61,13 @@ public final class OptionsParser {
 
   private final List<String> sourceFiles = new ArrayList<>();
   private final List<String> sourceJars = new ArrayList<>();
-  private final List<String> messageFiles = new ArrayList<>();
-  private final List<String> resourceFiles = new ArrayList<>();
-  private final List<String> resourceJars = new ArrayList<>();
-  private final List<String> rootResourceFiles = new ArrayList<>();
 
-  private String classPath = "";
-  private String sourcePath;
-  private String bootClassPath;
-  private String extdir;
+  private final List<String> classPath = new ArrayList<>();
+  private final List<String> sourcePath = new ArrayList<>();
+  private final List<String> bootClassPath = new ArrayList<>();
+  private final List<String> extClassPath = new ArrayList<>();
 
-  private String processorPath = "";
+  private final List<String> processorPath = new ArrayList<>();
   private final List<String> processorNames = new ArrayList<>();
 
   private String outputJar;
@@ -82,6 +81,8 @@ public final class OptionsParser {
 
   private String ruleKind;
   private String targetLabel;
+  
+  private boolean testOnly;
 
   /**
    * Constructs an {@code OptionsParser} from a list of command args. Sets the same JavacRunner for
@@ -108,6 +109,7 @@ public final class OptionsParser {
           // otherwise we have to do something like adding a "--"
           // terminator to the passed arguments.
           collectFlagArguments(javacOpts, argQueue, "--");
+          sourcePathFromJavacOpts();
           break;
         case "--direct_dependency":
           {
@@ -153,36 +155,25 @@ public final class OptionsParser {
         case "--source_jars":
           collectFlagArguments(sourceJars, argQueue, "-");
           break;
-        case "--messages":
-          collectFlagArguments(messageFiles, argQueue, "-");
-          break;
-        case "--resources":
-          collectFlagArguments(resourceFiles, argQueue, "-");
-          break;
-        case "--resource_jars":
-          collectFlagArguments(resourceJars, argQueue, "-");
-          break;
-        case "--classpath_resources":
-          collectFlagArguments(rootResourceFiles, argQueue, "-");
-          break;
         case "--classpath":
-          classPath = getArgument(argQueue, arg);
+          collectClassPathArguments(classPath, argQueue);
           break;
           // TODO(#970): Consider wether we want to use --sourcepath for resolving of #970.
         case "--sourcepath":
-          sourcePath = getArgument(argQueue, arg);
+          collectClassPathArguments(sourcePath, argQueue);
           break;
         case "--bootclasspath":
-          bootClassPath = getArgument(argQueue, arg);
+          collectClassPathArguments(bootClassPath, argQueue);
           break;
         case "--processorpath":
-          processorPath = getArgument(argQueue, arg);
+          collectClassPathArguments(processorPath, argQueue);
           break;
         case "--processors":
           collectProcessorArguments(processorNames, argQueue, "-");
           break;
+        case "--extclasspath":
         case "--extdir":
-          extdir = getArgument(argQueue, arg);
+          collectClassPathArguments(extClassPath, argQueue);
           break;
         case "--output":
           outputJar = getArgument(argQueue, arg);
@@ -209,8 +200,23 @@ public final class OptionsParser {
         case "--target_label":
           targetLabel = getArgument(argQueue, arg);
           break;
+        case "--testonly":
+          testOnly = true;
+          break;
         default:
           throw new InvalidCommandLineException("unknown option : '" + arg + "'");
+      }
+    }
+  }
+
+  private void sourcePathFromJavacOpts() {
+    Iterator<String> it = javacOpts.iterator();
+    while (it.hasNext()) {
+      String curr = it.next();
+      if (curr.equals("-sourcepath") && it.hasNext()) {
+        it.remove();
+        Iterables.addAll(sourcePath, CLASSPATH_SPLITTER.split(it.next()));
+        it.remove();
       }
     }
   }
@@ -252,7 +258,9 @@ public final class OptionsParser {
    * @throws java.io.IOException if one of the files containing options cannot be read.
    */
   private static void expandArgument(Deque<String> expanded, String arg) throws IOException {
-    if (arg.startsWith("@") && !arg.startsWith("@@")) {
+    if (arg.startsWith("@@")) {
+      expanded.add(arg.substring(1));
+    } else if (arg.startsWith("@")) {
       for (String line : Files.readAllLines(Paths.get(arg.substring(1)), UTF_8)) {
         if (line.length() > 0) {
           expandArgument(expanded, line);
@@ -279,6 +287,20 @@ public final class OptionsParser {
         break;
       }
       output.add(arg);
+    }
+  }
+
+  private static final Splitter CLASSPATH_SPLITTER =
+      Splitter.on(File.pathSeparatorChar).trimResults().omitEmptyStrings();
+
+  // TODO(cushon): stop splitting classpaths once cl/127006119 is released
+  private static void collectClassPathArguments(Collection<String> output, Deque<String> args) {
+    for (String arg = args.pollFirst(); arg != null; arg = args.pollFirst()) {
+      if (arg.startsWith("-")) {
+        args.addFirst(arg);
+        break;
+      }
+      Iterables.addAll(output, CLASSPATH_SPLITTER.split(arg));
     }
   }
 
@@ -374,39 +396,23 @@ public final class OptionsParser {
     return sourceJars;
   }
 
-  public List<String> getMessageFiles() {
-    return messageFiles;
-  }
-
-  public List<String> getResourceFiles() {
-    return resourceFiles;
-  }
-
-  public List<String> getResourceJars() {
-    return resourceJars;
-  }
-
-  public List<String> getRootResourceFiles() {
-    return rootResourceFiles;
-  }
-
-  public String getClassPath() {
+  public List<String> getClassPath() {
     return classPath;
   }
 
-  public String getBootClassPath() {
+  public List<String> getBootClassPath() {
     return bootClassPath;
   }
 
-  public String getSourcePath() {
+  public List<String> getSourcePath() {
     return sourcePath;
   }
 
-  public String getExtdir() {
-    return extdir;
+  public List<String> getExtClassPath() {
+    return extClassPath;
   }
 
-  public String getProcessorPath() {
+  public List<String> getProcessorPath() {
     return processorPath;
   }
 
@@ -440,5 +446,9 @@ public final class OptionsParser {
 
   public String getTargetLabel() {
     return targetLabel;
+  }
+  
+  public boolean testOnly() {
+    return testOnly;
   }
 }

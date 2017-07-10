@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.apple;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Strings;
@@ -29,7 +30,7 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
-import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -60,41 +61,17 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   public static final String APPLE_SDK_VERSION_ENV_NAME = "APPLE_SDK_VERSION_OVERRIDE";
   /**
    * Environment variable name for the apple SDK platform. This should be set for all actions that
-   * require an apple SDK. The valid values consist of {@link Platform} names.
-   **/
+   * require an apple SDK. The valid values consist of {@link ApplePlatform} names.
+   */
   public static final String APPLE_SDK_PLATFORM_ENV_NAME = "APPLE_SDK_PLATFORM";
 
-  /**
-   * Rule classes that need a top level transition to the apple crosstool if static configurations
-   * are being used.
-   *
-   * <p>This list must not contain any rule classes that require some other split transition, as
-   * that transition would be suppressed by the top level transition to the apple crosstool. For
-   * example, if "apple_binary" were in this list, the multi-arch transition would not occur.
-   */
-  public static final ImmutableList<String> APPLE_CROSSTOOL_RULE_CLASSES_FOR_STATIC_CONFIGS =
-      ImmutableList.of(
-          "objc_library",
-          "objc_binary",
-          "experimental_objc_library");
-
-  /**
-   * Rule classes that need a top level transition to the apple crosstool.  Dynamic configurations
-   * must be in place until these can be used - for static configurations, use
-   * {@code APPLE_CROSSTOOL_RULE_CLASSES_FOR_STATIC_CONFIGS}.
-   */
-  public static final ImmutableList<String> APPLE_CROSSTOOL_RULE_CLASSES =
-      ImmutableList.of(
-          "apple_binary",
-          "apple_static_library",
-          "apple_watch_extension_binary",
-          "experimental_objc_library",
-          "ios_extension_binary",
-          "ios_test",
-          "objc_binary",
-          "objc_library");
-
   private static final DottedVersion MINIMUM_BITCODE_XCODE_VERSION = DottedVersion.fromString("7");
+
+  /** Prefix for iOS cpu values. */
+  public static final String IOS_CPU_PREFIX = "ios_";
+
+  /** Default cpu for iOS builds. */
+  @VisibleForTesting static final String DEFAULT_IOS_CPU = "x86_64";
 
   @Nullable private final DottedVersion xcodeVersion;
   private final DottedVersion iosSdkVersion;
@@ -119,9 +96,12 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   @Nullable private final String xcodeToolchain;
   @Nullable private final Label defaultProvisioningProfileLabel;
 
-  AppleConfiguration(AppleCommandLineOptions appleOptions,
+  AppleConfiguration(
+      AppleCommandLineOptions appleOptions,
+      String cpu,
       @Nullable DottedVersion xcodeVersion,
       DottedVersion iosSdkVersion,
+      DottedVersion iosMinimumOs,
       DottedVersion watchosSdkVersion,
       DottedVersion watchosMinimumOs,
       DottedVersion tvosSdkVersion,
@@ -129,7 +109,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
       DottedVersion macosSdkVersion,
       DottedVersion macosMinimumOs) {
     this.iosSdkVersion = Preconditions.checkNotNull(iosSdkVersion, "iosSdkVersion");
-    this.iosMinimumOs = Preconditions.checkNotNull(appleOptions.iosMinimumOs, "iosMinimumOs");
+    this.iosMinimumOs = Preconditions.checkNotNull(iosMinimumOs, "iosMinimumOs");
     this.watchosSdkVersion =
         Preconditions.checkNotNull(watchosSdkVersion, "watchOsSdkVersion");
     this.watchosMinimumOs =
@@ -143,7 +123,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     this.macosMinimumOs = Preconditions.checkNotNull(macosMinimumOs, "macOsMinimumOs");
 
     this.xcodeVersion = xcodeVersion;
-    this.iosCpu = Preconditions.checkNotNull(appleOptions.iosCpu, "iosCpu");
+    this.iosCpu = iosCpuFromCpu(cpu);
     this.appleSplitCpu = Preconditions.checkNotNull(appleOptions.appleSplitCpu, "appleSplitCpu");
     this.applePlatformType =
         Preconditions.checkNotNull(appleOptions.applePlatformType, "applePlatformType");
@@ -167,6 +147,15 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     this.xcodeToolchain = appleOptions.xcodeToolchain;
   }
 
+  /** Determines cpu value from apple-specific toolchain identifier. */
+  public static String iosCpuFromCpu(String cpu) {
+    if (cpu.startsWith(IOS_CPU_PREFIX)) {
+      return cpu.substring(IOS_CPU_PREFIX.length());
+    } else {
+      return DEFAULT_IOS_CPU;
+    }
+  }
+
   /**
    * Returns the minimum iOS version supported by binaries and libraries. Any dependencies on newer
    * iOS version features or libraries will become weak dependencies which are only loaded if the
@@ -184,6 +173,8 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
       doc = "The minimum compatible OS version for target simulator and devices for a particular "
           + "platform type.")
   public DottedVersion getMinimumOsForPlatformType(PlatformType platformType) {
+    // TODO(b/37240784): Look into using only a single minimum OS flag tied to the current
+    // apple_platform_type.
     switch (platformType) {
       case IOS:
         return iosMinimumOs;
@@ -206,7 +197,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * @deprecated - use {@link #getSdkVersionForPlatform()}
    */
   @Deprecated public DottedVersion getIosSdkVersion() {
-    return getSdkVersionForPlatform(Platform.IOS_DEVICE);
+    return getSdkVersionForPlatform(ApplePlatform.IOS_DEVICE);
   }
 
   /**
@@ -214,7 +205,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * directly derived from command line args.
    */
   @SkylarkCallable(name = "sdk_version_for_platform", doc = "The SDK version given a platform.")
-  public DottedVersion getSdkVersionForPlatform(Platform platform) {
+  public DottedVersion getSdkVersionForPlatform(ApplePlatform platform) {
     switch (platform) {
       case IOS_DEVICE:
       case IOS_SIMULATOR:
@@ -249,7 +240,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * their corresponding values.
    */
   @SkylarkCallable(name = "target_apple_env")
-  public Map<String, String> getTargetAppleEnvironment(Platform platform) {
+  public ImmutableMap<String, String> getTargetAppleEnvironment(ApplePlatform platform) {
     ImmutableMap.Builder<String, String> mapBuilder = ImmutableMap.builder();
     mapBuilder.putAll(appleTargetPlatformEnv(platform));
     return mapBuilder.build();
@@ -267,7 +258,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
           + "build on an apple host system. These environment variables are needed by the apple "
           + "toolchain. Keys are variable names and values are their corresponding values."
     )
-  public Map<String, String> getAppleHostSystemEnv() {
+  public ImmutableMap<String, String> getAppleHostSystemEnv() {
     DottedVersion xcodeVersion = getXcodeVersion();
     if (xcodeVersion != null) {
       return getXcodeVersionEnv(xcodeVersion);
@@ -281,7 +272,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * a version of xcode to be explicitly declared. Keys are variable names and values are their
    * corresponding values.
    */
-  public Map<String, String> getXcodeVersionEnv(DottedVersion xcodeVersion) {
+  public ImmutableMap<String, String> getXcodeVersionEnv(DottedVersion xcodeVersion) {
     return ImmutableMap.of(AppleConfiguration.XCODE_VERSION_ENV_NAME, xcodeVersion.toString());
   }
 
@@ -291,7 +282,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * variables are needed to use apple toolkits. Keys are variable names and values are their
    * corresponding values.
    */
-  public Map<String, String> appleTargetPlatformEnv(Platform platform) {
+  public Map<String, String> appleTargetPlatformEnv(ApplePlatform platform) {
     ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
 
     String sdkVersion = getSdkVersionForPlatform(platform).toStringWithMinimumComponents(2);
@@ -418,64 +409,68 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
             + "cases.",
     structField = true
   )
-  public Platform getSingleArchPlatform() {
-    return Platform.forTarget(applePlatformType, getSingleArchitecture());
+  public ApplePlatform getSingleArchPlatform() {
+    return ApplePlatform.forTarget(applePlatformType, getSingleArchitecture());
   }
-  
+
   /**
-   * Gets the current configuration {@link Platform} for the given {@link PlatformType}. Platform
-   * is determined via a combination between the given platform type and the "effective"
-   * architectures of this configuration, as returned by {@link #getMultiArchitectures}; if any
-   * of the supported architectures are of device type, this will return a device platform.
+   * Gets the current configuration {@link ApplePlatform} for the given {@link PlatformType}.
+   * ApplePlatform is determined via a combination between the given platform type and the
+   * "effective" architectures of this configuration, as returned by {@link #getMultiArchitectures};
+   * if any of the supported architectures are of device type, this will return a device platform.
    * Otherwise, this will return a simulator platform.
    */
   // TODO(bazel-team): This should support returning multiple platforms.
-  @SkylarkCallable(name = "multi_arch_platform", doc = "The platform of the current configuration "
-      + "for the given platform type. This should only be invoked in a context where multiple "
-      + "architectures may be supported; consider single_arch_platform for other cases.")
-  public Platform getMultiArchPlatform(PlatformType platformType) {
+  @SkylarkCallable(
+    name = "multi_arch_platform",
+    doc =
+        "The platform of the current configuration "
+            + "for the given platform type. This should only be invoked in a context where multiple"
+            + " architectures may be supported; consider single_arch_platform for other cases."
+  )
+  public ApplePlatform getMultiArchPlatform(PlatformType platformType) {
     List<String> architectures = getMultiArchitectures(platformType);
     switch (platformType) {
       case IOS:
         for (String arch : architectures) {
-          if (Platform.forTarget(PlatformType.IOS, arch) == Platform.IOS_DEVICE) {
-            return Platform.IOS_DEVICE;
+          if (ApplePlatform.forTarget(PlatformType.IOS, arch) == ApplePlatform.IOS_DEVICE) {
+            return ApplePlatform.IOS_DEVICE;
           }
         }
-        return Platform.IOS_SIMULATOR;
+        return ApplePlatform.IOS_SIMULATOR;
       case WATCHOS:
         for (String arch : architectures) {
-          if (Platform.forTarget(PlatformType.WATCHOS, arch) == Platform.WATCHOS_DEVICE) {
-            return Platform.WATCHOS_DEVICE;
+          if (ApplePlatform.forTarget(PlatformType.WATCHOS, arch) == ApplePlatform.WATCHOS_DEVICE) {
+            return ApplePlatform.WATCHOS_DEVICE;
           }
         }
-        return Platform.WATCHOS_SIMULATOR;
+        return ApplePlatform.WATCHOS_SIMULATOR;
       case TVOS:
         for (String arch : architectures) {
-          if (Platform.forTarget(PlatformType.TVOS, arch) == Platform.TVOS_DEVICE) {
-            return Platform.TVOS_DEVICE;
+          if (ApplePlatform.forTarget(PlatformType.TVOS, arch) == ApplePlatform.TVOS_DEVICE) {
+            return ApplePlatform.TVOS_DEVICE;
           }
         }
-        return Platform.TVOS_SIMULATOR;
+        return ApplePlatform.TVOS_SIMULATOR;
       case MACOS:
-        return Platform.MACOS;
+        return ApplePlatform.MACOS;
       default:
         throw new IllegalArgumentException("Unsupported platform type " + platformType);
     }
   }
 
   /**
-   * Returns the {@link Platform} represented by {@code ios_cpu} (see {@link #getIosCpu}.
-   * (For example, {@code i386} maps to {@link Platform#IOS_SIMULATOR}.) Note that this is not
+   * Returns the {@link ApplePlatform} represented by {@code ios_cpu} (see {@link #getIosCpu}. (For
+   * example, {@code i386} maps to {@link ApplePlatform#IOS_SIMULATOR}.) Note that this is not
    * necessarily the effective platform for all ios actions in the current context: This is
    * typically the correct platform for implicityly-ios compile and link actions in the current
-   * context. For effective platform for bundling actions, see
-   * {@link #getMultiArchPlatform(PlatformType)}.
+   * context. For effective platform for bundling actions, see {@link
+   * #getMultiArchPlatform(PlatformType)}.
    */
   // TODO(b/28754442): Deprecate for more general skylark-exposed platform retrieval.
   @SkylarkCallable(name = "ios_cpu_platform", doc = "The platform given by the ios_cpu flag.")
-  public Platform getIosCpuPlatform() {
-    return Platform.forTarget(PlatformType.IOS, iosCpu);
+  public ApplePlatform getIosCpuPlatform() {
+    return ApplePlatform.forTarget(PlatformType.IOS, iosCpu);
   }
 
   /**
@@ -568,6 +563,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     if (!appleSplitCpu.isEmpty()) {
       components.add(applePlatformType.toString().toLowerCase());
       components.add(appleSplitCpu);
+      components.add("min" + getMinimumOsForPlatformType(applePlatformType));
     }
     if (shouldDistinguishOutputDirectory()) {
       components.add(configurationDistinguisher.getFileSystemName());
@@ -620,12 +616,13 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     public AppleConfiguration create(ConfigurationEnvironment env, BuildOptions buildOptions)
         throws InvalidConfigurationException, InterruptedException {
       AppleCommandLineOptions appleOptions = buildOptions.get(AppleCommandLineOptions.class);
+      String cpu = buildOptions.get(BuildConfiguration.Options.class).cpu;
       XcodeVersionProperties xcodeVersionProperties = getXcodeVersionProperties(env, appleOptions);
 
       DottedVersion iosSdkVersion = (appleOptions.iosSdkVersion != null)
           ? appleOptions.iosSdkVersion : xcodeVersionProperties.getDefaultIosSdkVersion();
-      // TODO(cparsons): Look into ios_minimum_os matching the defaulting behavior of the other
-      // platforms.
+      DottedVersion iosMinimumOsVersion = (appleOptions.iosMinimumOs != null)
+          ? appleOptions.iosMinimumOs : iosSdkVersion;
       DottedVersion watchosSdkVersion = (appleOptions.watchOsSdkVersion != null)
           ? appleOptions.watchOsSdkVersion : xcodeVersionProperties.getDefaultWatchosSdkVersion();
       DottedVersion watchosMinimumOsVersion = (appleOptions.watchosMinimumOs != null)
@@ -639,9 +636,18 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
       DottedVersion macosMinimumOsVersion = (appleOptions.macosMinimumOs != null)
           ? appleOptions.macosMinimumOs : macosSdkVersion;
       AppleConfiguration configuration =
-          new AppleConfiguration(appleOptions, xcodeVersionProperties.getXcodeVersion().orNull(),
-              iosSdkVersion, watchosSdkVersion, watchosMinimumOsVersion,
-              tvosSdkVersion, tvosMinimumOsVersion, macosSdkVersion, macosMinimumOsVersion);
+          new AppleConfiguration(
+              appleOptions,
+              cpu,
+              xcodeVersionProperties.getXcodeVersion().orNull(),
+              iosSdkVersion,
+              iosMinimumOsVersion,
+              watchosSdkVersion,
+              watchosMinimumOsVersion,
+              tvosSdkVersion,
+              tvosMinimumOsVersion,
+              macosSdkVersion,
+              macosMinimumOsVersion);
 
       validate(configuration);
       return configuration;
@@ -714,6 +720,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     APPLEBIN_TVOS("applebin_tvos"),
     /** Distinguisher for {@code apple_binary} rule with "macos" platform_type. */
     APPLEBIN_MACOS("applebin_macos"),
+
     /**
      * Distinguisher for the apple crosstool configuration.  We use "apl" for output directory
      * names instead of "apple_crosstool" to avoid oversized path names, which can be problematic

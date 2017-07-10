@@ -175,6 +175,7 @@ public class SkylarkSignatureProcessor {
       return Runtime.NONE;
     } else {
       try (Mutability mutability = Mutability.create("initialization")) {
+        // Note that this Skylark environment ignores command line flags.
         Environment env =
             Environment.builder(mutability)
                 .setGlobals(Environment.CONSTANTS_ONLY)

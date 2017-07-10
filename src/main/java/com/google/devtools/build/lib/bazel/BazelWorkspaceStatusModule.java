@@ -15,13 +15,11 @@ package com.google.devtools.build.lib.bazel;
 
 import static com.google.common.base.StandardSystemProperty.USER_NAME;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.stream.Collectors.joining;
 
-import com.google.common.base.Function;
-import com.google.common.base.Joiner;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -33,6 +31,7 @@ import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildInfo;
+import com.google.devtools.build.lib.analysis.BuildInfoEvent;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Key;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.KeyType;
@@ -40,6 +39,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.runtime.BlazeModule;
+import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.GotOptionsEvent;
@@ -57,11 +57,9 @@ import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.TreeMap;
 import java.util.UUID;
-import javax.annotation.Nullable;
 
 /**
  * Provides information about the workspace (e.g. source control context, current machine, current
@@ -114,7 +112,6 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
       try {
         if (this.getWorkspaceStatusCommand != null) {
           actionExecutionContext
-              .getExecutor()
               .getEventHandler()
               .handle(
                   Event.progress(
@@ -163,16 +160,10 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
 
     private static byte[] printStatusMap(Map<String, String> map) {
       String s =
-          Joiner.on("\n")
-              .join(
-                  Iterables.transform(
-                      map.entrySet(),
-                      new Function<Map.Entry<String, String>, String>() {
-                        @Override
-                        public String apply(@Nullable Entry<String, String> entry) {
-                          return entry.getKey() + " " + entry.getValue();
-                        }
-                      }));
+          map.entrySet()
+              .stream()
+              .map(entry -> entry.getKey() + " " + entry.getValue())
+              .collect(joining("\n"));
       s += "\n";
       return s.getBytes(StandardCharsets.UTF_8);
     }
@@ -218,6 +209,11 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
           stableMap.put(BuildInfo.SOURCE_DATE_EPOCH, Long.toString(options.embedTimestampEpoch));
         }
         volatileMap.put(BuildInfo.BUILD_TIMESTAMP, Long.toString(System.currentTimeMillis()));
+
+        Map<String, String> overallMap = new TreeMap<>();
+        overallMap.putAll(volatileMap);
+        overallMap.putAll(stableMap);
+        actionExecutionContext.getEventBus().post(new BuildInfoEvent(overallMap));
 
         // Only update the stableStatus contents if they are different than what we have on disk.
         // This is to preserve the old file's mtime so that we do not generate an unnecessary dirty
@@ -364,7 +360,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
   private WorkspaceStatusAction.Options options;
 
   @Override
-  public void beforeCommand(Command command, CommandEnvironment env) {
+  public void beforeCommand(CommandEnvironment env) {
     this.env = env;
     env.getEventBus().register(this);
   }
@@ -388,7 +384,8 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
   }
 
   @Override
-  public void workspaceInit(BlazeDirectories directories, WorkspaceBuilder builder) {
+  public void workspaceInit(
+      BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
     builder.setWorkspaceStatusActionFactory(new BazelStatusActionFactory());
   }
 

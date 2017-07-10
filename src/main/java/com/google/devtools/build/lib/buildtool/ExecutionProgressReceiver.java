@@ -48,7 +48,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * accurate set of successfully run actions and built artifacts, even if the build is interrupted.
  */
 public final class ExecutionProgressReceiver
-    implements EvaluationProgressReceiver, SkyframeActionExecutor.ProgressSupplier,
+    extends EvaluationProgressReceiver.NullEvaluationProgressReceiver
+    implements SkyframeActionExecutor.ProgressSupplier,
         SkyframeActionExecutor.ActionCompletedReceiver {
   private static final NumberFormat PROGRESS_MESSAGE_NUMBER_FORMATTER;
 
@@ -88,9 +89,6 @@ public final class ExecutionProgressReceiver
   }
 
   @Override
-  public void invalidated(SkyKey skyKey, InvalidationState state) {}
-
-  @Override
   public void enqueueing(SkyKey skyKey) {
     if (skyKey.functionName().equals(SkyFunctions.ACTION_EXECUTION)) {
       ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
@@ -113,9 +111,6 @@ public final class ExecutionProgressReceiver
       enqueuedActions.remove(actionLookupData);
     }
   }
-
-  @Override
-  public void computed(SkyKey skyKey, long elapsedTimeNanos) {}
 
   @Override
   public void evaluated(SkyKey skyKey, Supplier<SkyValue> skyValueSupplier, EvaluationState state) {

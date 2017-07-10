@@ -13,14 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.SkylarkApiProvider;
 import com.google.devtools.build.lib.rules.android.ResourceContainer.ResourceType;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
@@ -42,6 +43,7 @@ import javax.annotation.Nullable;
       "Provides access to information about Android rules. Every Android-related target provides "
           + "this struct, accessible as a 'android' field on a Target struct."
 )
+@Immutable
 public class AndroidSkylarkApiProvider extends SkylarkApiProvider {
   /** The name of the field in Skylark used to access this class. */
   public static final String NAME = "android";
@@ -90,6 +92,27 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider {
   )
   public Artifact getMergedManifest() {
     return getIdeInfoProvider().getGeneratedManifest();
+  }
+
+  @SkylarkCallable(
+    name = "native_libs",
+    structField = true,
+    doc =
+        "Returns the native libraries as a map of the libraries' architecture as a String to a "
+            + "set of the native library artifacts, or the empty map if there are no native "
+            + "libraries."
+  )
+  public ImmutableMap<String, NestedSet<Artifact>> getNativeLibs() {
+    return getIdeInfoProvider().getNativeLibs();
+  }
+
+  @SkylarkCallable(
+    name = "resource_apk",
+    structField = true,
+    doc = "Returns the resources container for the target."
+  )
+  public Artifact getResourceApk() {
+    return getIdeInfoProvider().getResourceApk();
   }
 
   @SkylarkCallable(
@@ -163,12 +186,8 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider {
         Iterables.concat(
             Iterables.transform(
                 provider.getDirectAndroidResources(),
-                new Function<ResourceContainer, Iterable<Artifact>>() {
-                  @Override
-                  public Iterable<Artifact> apply(ResourceContainer resourceContainer) {
-                    return resourceContainer.getArtifacts(resources);
-                  }
-                })));
+                (ResourceContainer resourceContainer) ->
+                    resourceContainer.getArtifacts(resources))));
   }
 
   /** Helper class to provide information about IDLs related to this rule. */
@@ -177,6 +196,7 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider {
     category = SkylarkModuleCategory.NONE,
     doc = "Provides access to information about Android rules."
   )
+  @Immutable
   public class IdlInfo {
     @SkylarkCallable(
         name = "import_root",

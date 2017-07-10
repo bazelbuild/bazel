@@ -23,9 +23,9 @@ import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternSkyKeyOrException;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.util.List;
 
 /**
@@ -209,7 +209,7 @@ public class PrepareDepsOfPatternValue implements SkyValue {
 
     @Override
     public SkyKey getSkyKey() throws TargetParsingException {
-      return SkyKey.create(SkyFunctions.PREPARE_DEPS_OF_PATTERN, targetPatternKey);
+      return LegacySkyKey.create(SkyFunctions.PREPARE_DEPS_OF_PATTERN, targetPatternKey);
     }
 
     @Override

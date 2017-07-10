@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.events.Location;
+import java.io.IOException;
 
 /** Syntax node for an augmented assignment statement. */
 public final class AugmentedAssignmentStatement extends Statement {
@@ -26,9 +26,9 @@ public final class AugmentedAssignmentStatement extends Statement {
   private final Expression expression;
 
   /** Constructs an augmented assignment: "lvalue ::= value". */
-  AugmentedAssignmentStatement(Operator operator, Expression lhs, Expression expression) {
+  public AugmentedAssignmentStatement(Operator operator, LValue lvalue, Expression expression) {
     this.operator = operator;
-    this.lvalue = new LValue(lhs);
+    this.lvalue = lvalue;
     this.expression = expression;
   }
 
@@ -48,14 +48,19 @@ public final class AugmentedAssignmentStatement extends Statement {
   }
 
   @Override
-  public String toString() {
-    return String.format("%s %s= %s\n", lvalue, operator, expression);
+  public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
+    printIndent(buffer, indentLevel);
+    lvalue.prettyPrint(buffer);
+    buffer.append(' ');
+    buffer.append(operator.toString());
+    buffer.append("= ");
+    expression.prettyPrint(buffer);
+    buffer.append('\n');
   }
 
   @Override
   void doExec(Environment env) throws EvalException, InterruptedException {
-    Location loc = getLocation();
-    lvalue.assign(env, loc, expression, operator);
+    lvalue.assign(env, getLocation(), expression, operator);
   }
 
   @Override

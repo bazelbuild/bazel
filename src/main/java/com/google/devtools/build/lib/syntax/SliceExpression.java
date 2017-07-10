@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.devtools.build.lib.events.Location;
+import java.io.IOException;
 import java.util.List;
 
 /** Syntax node for an index expression. e.g. obj[field], but not obj[from:to] */
@@ -48,16 +49,34 @@ public final class SliceExpression extends Expression {
   }
 
   @Override
-  public String toString() {
-    return String.format("%s[%s:%s%s]",
-        obj,
-        start,
-        // Omit `end` if it's a literal `None` (default value)
-        ((end instanceof Identifier) && (((Identifier) end).getName().equals("None"))) ? "" : end,
-        // Omit `step` if it's an integer literal `1` (default value)
-        ((step instanceof IntegerLiteral) && (((IntegerLiteral) step).value.equals(1)))
-            ? "" : ":" + step
-    );
+  public void prettyPrint(Appendable buffer) throws IOException {
+    boolean startIsDefault =
+        (start instanceof Identifier) && ((Identifier) start).getName().equals("None");
+    boolean endIsDefault =
+        (end instanceof Identifier) && ((Identifier) end).getName().equals("None");
+    boolean stepIsDefault =
+        (step instanceof IntegerLiteral) && ((IntegerLiteral) step).getValue().equals(1);
+
+    obj.prettyPrint(buffer);
+    buffer.append('[');
+    // Start and end are omitted if they are the literal identifier None, which is the default value
+    // inserted by the parser if no bound is given. Likewise, step is omitted if it is the literal
+    // integer 1.
+    //
+    // The first separator colon is unconditional. The second separator appears only if step is
+    // printed.
+    if (!startIsDefault) {
+      start.prettyPrint(buffer);
+    }
+    buffer.append(':');
+    if (!endIsDefault) {
+      end.prettyPrint(buffer);
+    }
+    if (!stepIsDefault) {
+      buffer.append(':');
+      step.prettyPrint(buffer);
+    }
+    buffer.append(']');
   }
 
   @Override
@@ -88,7 +107,7 @@ public final class SliceExpression extends Expression {
 
     throw new EvalException(
         loc,
-        Printer.format(
+        String.format(
             "type '%s' has no operator [:](%s, %s, %s)",
             EvalUtils.getDataTypeName(objValue),
             EvalUtils.getDataTypeName(startValue),

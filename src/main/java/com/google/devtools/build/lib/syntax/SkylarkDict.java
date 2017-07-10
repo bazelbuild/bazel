@@ -17,34 +17,35 @@ package com.google.devtools.build.lib.syntax;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.syntax.SkylarkMutable.MutableMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-/**
- * Skylark Dict module.
- */
-@SkylarkModule(name = "dict",
-    category = SkylarkModuleCategory.BUILTIN,
-    doc = "A language built-in type representating a dictionary (associative mapping). "
-    + "Dictionaries may be constructed with a special literal syntax:<br>"
-    + "<pre class=\"language-python\">d = {\"a\": 2, \"b\": 5}</pre>"
-    + "Use square brackets to access elements:<br>"
-    + "<pre class=\"language-python\">e = d[\"a\"]   # e == 2</pre>"
-    + "Like lists, they can also be constructed using a comprehension syntax:<br>"
-    + "<pre class=\"language-python\">d = {i: 2*i for i in range(20)}\n"
-    + "e = d[8]       # e == 16</pre>"
-    + "See also the <a href=\"globals.html#dict\">dict()</a> constructor function. "
-    + "<p>Iterating over a dict is equivalent to iterating over its keys. The <code>in</code> "
-    + "operator tests for membership in the keyset of the dict.<br>"
-    + "<pre class=\"language-python\">\"a\" in {\"a\" : 2, \"b\" : 5}   # evaluates as True</pre>"
-    + "The iteration order for a dict is deterministic but not specified. When constructing a dict "
-    + "using any of the above methods, if there are two identical keys with conflicting values "
-    + "then the last value takes precedence."
+/** Skylark Dict module. */
+@SkylarkModule(
+  name = "dict",
+  category = SkylarkModuleCategory.BUILTIN,
+  doc =
+      "A language built-in type representating a dictionary (associative mapping). "
+          + "Dictionaries may be constructed with a special literal syntax:<br>"
+          + "<pre class=\"language-python\">d = {\"a\": 2, \"b\": 5}</pre>"
+          + "When using the literal syntax, it is an error to have duplicated keys. "
+          + "Use square brackets to access elements:<br>"
+          + "<pre class=\"language-python\">e = d[\"a\"]   # e == 2</pre>"
+          + "Like lists, they can also be constructed using a comprehension syntax:<br>"
+          + "<pre class=\"language-python\">d = {i: 2*i for i in range(20)}\n"
+          + "e = d[8]       # e == 16</pre>"
+          + "See also the <a href=\"globals.html#dict\">dict()</a> constructor function. "
+          + "<p>Iterating over a dict is equivalent to iterating over its keys. The "
+          + "<code>in</code> operator tests for membership in the keyset of the dict.<br>"
+          + "<pre class=\"language-python\">\"a\" in {\"a\" : 2, \"b\" : 5} "
+          + "# evaluates as True</pre>"
+          + "The iteration order for a dict is deterministic but not specified."
 )
-public final class SkylarkDict<K, V>
-    extends MutableMap<K, V> implements Map<K, V>, SkylarkIndexable {
+public final class SkylarkDict<K, V> extends MutableMap<K, V>
+    implements Map<K, V>, SkylarkIndexable {
 
   private final LinkedHashMap<K, V> contents = new LinkedHashMap<>();
 
@@ -168,8 +169,8 @@ public final class SkylarkDict<K, V>
 
   // Other methods
   @Override
-  public void write(Appendable buffer, char quotationMark) {
-    Printer.printList(buffer, entrySet(), "{", ", ", "}", null, quotationMark);
+  public void repr(SkylarkPrinter printer) {
+    printer.printList(entrySet(), "{", ", ", "}", null);
   }
 
   /**
@@ -180,7 +181,7 @@ public final class SkylarkDict<K, V>
    * @param valueType the expected class of values
    * @param description a description of the argument being converted, or null, for debugging
    */
-  public static <K, V> SkylarkDict<K, V> castSkylarkDictOrNoneToDict(
+  public static <K, V> Map<K, V> castSkylarkDictOrNoneToDict(
       Object obj, Class<K> keyType, Class<V> valueType, @Nullable String description)
       throws EvalException {
     if (EvalUtils.isNullOrNone(obj)) {
@@ -191,7 +192,7 @@ public final class SkylarkDict<K, V>
     }
     throw new EvalException(
         null,
-        Printer.format(
+        String.format(
             "%s is not of expected type dict or NoneType",
             description == null ? Printer.repr(obj) : String.format("'%s'", description)));
   }

@@ -38,7 +38,8 @@ public class MainTest {
       Main.parseArgs(new String[] {"--workspace=workspace", "--version_between=1..2"});
       fail("Should throw IllegalArgumentException");
     } catch (IllegalArgumentException e) {
-      assertThat(e.getMessage())
+      assertThat(e)
+          .hasMessageThat()
           .isEqualTo("Argument --workspace and --output should not be empty.");
     }
   }
@@ -51,7 +52,8 @@ public class MainTest {
           "--version_between=1..2", "--time_between=" + TIME_BETWEEN});
       fail("Should throw IllegalArgumentException");
     } catch (IllegalArgumentException e) {
-      assertThat(e.getMessage())
+      assertThat(e)
+          .hasMessageThat()
           .isEqualTo("Please use exact one type of version filter at a time.");
     }
   }
@@ -63,9 +65,11 @@ public class MainTest {
           new String[]{"--output=output", "--workspace=workspace", "--version_between=1.3"});
       fail("Should throw OptionsParsingException");
     } catch (OptionsParsingException e) {
-      assertThat(e.getMessage())
-          .isEqualTo("While parsing option --version_between=1.3: "
-              + "Error parsing version_filter option: no '..' found.");
+      assertThat(e)
+          .hasMessageThat()
+          .isEqualTo(
+              "While parsing option --version_between=1.3: "
+                  + "Error parsing version_filter option: no '..' found.");
     }
   }
 
@@ -88,9 +92,12 @@ public class MainTest {
               "--time_between=" + TIME_BETWEEN_WRONG_FORMAT});
       fail("Should throw OptionsParsingException");
     } catch (OptionsParsingException e) {
-      assertThat(e.getMessage())
-          .isEqualTo("While parsing option --time_between=" + TIME_BETWEEN_WRONG_FORMAT
-              + ": Error parsing datetime, format should be: yyyy-MM-ddTHH:mm:ss");
+      assertThat(e)
+          .hasMessageThat()
+          .isEqualTo(
+              "While parsing option --time_between="
+                  + TIME_BETWEEN_WRONG_FORMAT
+                  + ": Error parsing datetime, format should be: yyyy-MM-ddTHH:mm:ss");
     }
   }
 

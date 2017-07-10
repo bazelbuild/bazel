@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.actions.cache;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.MiddlemanAction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import java.io.IOException;
 
@@ -29,18 +28,6 @@ import java.io.IOException;
  * {@link #discardOutputMetadata} has been called.
  */
 public interface MetadataHandler {
-  /**
-   * Returns metadata for the given artifact or null if it does not exist or is intentionally
-   * omitted.
-   *
-   * <p>This should always be used for the inputs to {@link MiddlemanAction}s instead of {@link
-   * #getMetadata(Artifact)} since we may allow non-existent inputs to middlemen.
-   *
-   * @param artifact artifact
-   * @return metadata instance or null if metadata cannot be obtained.
-   */
-  Metadata getMetadataMaybe(Artifact artifact);
-
   /**
    * Returns metadata for the given artifact or throws an exception if the metadata could not be
    * obtained.

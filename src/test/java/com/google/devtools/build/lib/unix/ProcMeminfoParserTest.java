@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.unix;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.util.StringUtilities;
@@ -72,9 +72,9 @@ public class ProcMeminfoParserTest {
     String meminfoFile = scratch.file("test_meminfo", meminfoContent).getPathString();
     ProcMeminfoParser memInfo = new ProcMeminfoParser(meminfoFile);
 
-    assertEquals(2356756, memInfo.getFreeRamKb());
-    assertEquals(509940, memInfo.getRamKb("Cached"));
-    assertEquals(3091732, memInfo.getTotalKb());
+    assertThat(memInfo.getFreeRamKb()).isEqualTo(2356756);
+    assertThat(memInfo.getRamKb("Cached")).isEqualTo(509940);
+    assertThat(memInfo.getTotalKb()).isEqualTo(3091732);
     assertNotAvailable("Bogus", memInfo);
     assertNotAvailable("Bogus2", memInfo);
   }

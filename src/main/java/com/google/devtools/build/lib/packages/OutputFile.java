@@ -52,7 +52,7 @@ public final class OutputFile extends FileTarget {
 
   @Override
   public String getTargetKind() {
-    return "generated file";
+    return targetKind();
   }
 
   @Override
@@ -63,5 +63,10 @@ public final class OutputFile extends FileTarget {
   @Override
   public Location getLocation() {
     return generatingRule.getLocation();
+  }
+
+  /** Returns the target kind for all output files. */
+  public static String targetKind() {
+    return "generated file";
   }
 }

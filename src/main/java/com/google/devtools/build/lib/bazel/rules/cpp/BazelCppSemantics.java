@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
+import com.google.devtools.build.lib.rules.cpp.FeatureSpecification;
 import com.google.devtools.build.lib.rules.cpp.IncludeProcessing;
 import com.google.devtools.build.lib.rules.cpp.NoProcessing;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -48,7 +49,9 @@ public class BazelCppSemantics implements CppSemantics {
 
   @Override
   public void finalizeCompileActionBuilder(
-      RuleContext ruleContext, CppCompileActionBuilder actionBuilder) {
+      RuleContext ruleContext,
+      CppCompileActionBuilder actionBuilder,
+      FeatureSpecification featureSpecification) {
     actionBuilder.setCppConfiguration(ruleContext.getFragment(CppConfiguration.class));
     actionBuilder.setActionContext(CppCompileActionContext.class);
     // Because Bazel does not support include scanning, we need the entire crosstool filegroup,

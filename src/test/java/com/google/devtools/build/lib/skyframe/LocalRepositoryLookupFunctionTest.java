@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
@@ -94,10 +95,12 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
         new WorkspaceFileFunction(
             ruleClassProvider,
             analysisMock
-                .getPackageFactoryForTesting()
-                .create(
+                .getPackageFactoryBuilderForTesting()
+                .setEnvironmentExtensions(
+                    ImmutableList.<EnvironmentExtension>of(
+                        new PackageFactory.EmptyEnvironmentExtension()))
+                .build(
                     ruleClassProvider,
-                    new PackageFactory.EmptyEnvironmentExtension(),
                     scratch.getFileSystem()),
             directories));
     skyFunctions.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction());
@@ -156,6 +159,46 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
 
     LocalRepositoryLookupValue repositoryLookupValue =
         lookupDirectory(RootedPath.toRootedPath(rootDirectory, PathFragment.create("local/repo")));
+    assertThat(repositoryLookupValue).isNotNull();
+    assertThat(repositoryLookupValue.getRepository().getName()).isEqualTo("@local");
+  }
+
+  @Test
+  public void testLocalRepository_absolutePath() throws Exception {
+    scratch.overwriteFile("WORKSPACE", "local_repository(name='local', path='/abs/local/repo')");
+    scratch.file("/abs/local/repo/WORKSPACE");
+    scratch.file("/abs/local/repo/BUILD");
+
+    LocalRepositoryLookupValue repositoryLookupValue =
+        lookupDirectory(
+            RootedPath.toRootedPath(
+                rootDirectory.getRelative("/abs"), PathFragment.create("local/repo")));
+    assertThat(repositoryLookupValue).isNotNull();
+    assertThat(repositoryLookupValue.getRepository().getName()).isEqualTo("@local");
+  }
+
+  @Test
+  public void testLocalRepository_nonNormalizedPath() throws Exception {
+    scratch.overwriteFile("WORKSPACE", "local_repository(name='local', path='./local/repo')");
+    scratch.file("local/repo/WORKSPACE");
+    scratch.file("local/repo/BUILD");
+
+    LocalRepositoryLookupValue repositoryLookupValue =
+        lookupDirectory(RootedPath.toRootedPath(rootDirectory, PathFragment.create("local/repo")));
+    assertThat(repositoryLookupValue).isNotNull();
+    assertThat(repositoryLookupValue.getRepository().getName()).isEqualTo("@local");
+  }
+
+  @Test
+  public void testLocalRepository_absolutePath_nonNormalized() throws Exception {
+    scratch.overwriteFile("WORKSPACE", "local_repository(name='local', path='/abs/local/./repo')");
+    scratch.file("/abs/local/repo/WORKSPACE");
+    scratch.file("/abs/local/repo/BUILD");
+
+    LocalRepositoryLookupValue repositoryLookupValue =
+        lookupDirectory(
+            RootedPath.toRootedPath(
+                rootDirectory.getRelative("/abs"), PathFragment.create("local/repo")));
     assertThat(repositoryLookupValue).isNotNull();
     assertThat(repositoryLookupValue.getRepository().getName()).isEqualTo("@local");
   }

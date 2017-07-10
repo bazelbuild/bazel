@@ -21,15 +21,14 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
-import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery;
 import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.Preconditions;
-import com.google.devtools.build.lib.vfs.Path;
 import javax.annotation.Nullable;
 
 /** A compiler configuration containing flags required for Objective-C compilation. */
@@ -69,18 +68,14 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final boolean enableBinaryStripping;
   private final boolean moduleMapsEnabled;
   @Nullable private final String signingCertName;
-  @Nullable private final Path clientWorkspaceRoot;
-  private final String xcodeOverrideWorkspaceRoot;
-  private final boolean useAbsolutePathsForActions;
-  private final boolean prioritizeStaticLibs;
   private final boolean debugWithGlibcxx;
   @Nullable private final Label extraEntitlements;
   private final boolean deviceDebugEntitlements;
   private final ObjcCrosstoolMode objcCrosstoolMode;
-  private final boolean experimentalObjcLibrary;
   private final boolean enableAppleBinaryNativeProtos;
   private final HeaderDiscovery.DotdPruningMode dotdPruningPlan;
   private final boolean experimentalHeaderThinning;
+  private final int objcHeaderThinningPartitionSize;
   private final Label objcHeaderScannerTool;
   private final Label appleSdk;
   private final boolean generateXcodeProject;
@@ -107,22 +102,18 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.fastbuildOptions = ImmutableList.copyOf(objcOptions.fastbuildOptions);
     this.enableBinaryStripping = objcOptions.enableBinaryStripping;
     this.moduleMapsEnabled = objcOptions.enableModuleMaps;
-    this.clientWorkspaceRoot = directories != null ? directories.getWorkspace() : null;
     this.signingCertName = objcOptions.iosSigningCertName;
-    this.xcodeOverrideWorkspaceRoot = objcOptions.xcodeOverrideWorkspaceRoot;
-    this.useAbsolutePathsForActions = objcOptions.useAbsolutePathsForActions;
-    this.prioritizeStaticLibs = objcOptions.prioritizeStaticLibs;
     this.debugWithGlibcxx = objcOptions.debugWithGlibcxx;
     this.extraEntitlements = objcOptions.extraEntitlements;
     this.deviceDebugEntitlements = objcOptions.deviceDebugEntitlements;
     this.objcCrosstoolMode = objcOptions.objcCrosstoolMode;
-    this.experimentalObjcLibrary = objcOptions.experimentalObjcLibrary;
     this.enableAppleBinaryNativeProtos = objcOptions.enableAppleBinaryNativeProtos;
     this.dotdPruningPlan =
         objcOptions.useDotdPruning
             ? HeaderDiscovery.DotdPruningMode.USE
             : HeaderDiscovery.DotdPruningMode.DO_NOT_USE;
     this.experimentalHeaderThinning = objcOptions.experimentalObjcHeaderThinning;
+    this.objcHeaderThinningPartitionSize = objcOptions.objcHeaderThinningPartitionSize;
     this.objcHeaderScannerTool = objcOptions.objcHeaderScannerTool;
     this.appleSdk = objcOptions.appleSdk;
     this.generateXcodeProject = objcOptions.generateXcodeProject;
@@ -157,8 +148,8 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
       case WATCHOS:
         return watchosSimulatorDevice;
       default:
-        throw new IllegalArgumentException("Platform type " + platformType + " does not support "
-            + "simulators.");
+        throw new IllegalArgumentException(
+            "ApplePlatform type " + platformType + " does not support " + "simulators.");
     }
   }
 
@@ -174,8 +165,8 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
       case WATCHOS:
         return watchosSimulatorVersion;
       default:
-        throw new IllegalArgumentException("Platform type " + platformType + " does not support "
-            + "simulators.");
+        throw new IllegalArgumentException(
+            "ApplePlatform type " + platformType + " does not support " + "simulators.");
     }
   }
 
@@ -271,32 +262,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * If true, all calls to actions are done with absolute paths instead of relative paths.
-   * Using absolute paths allows Xcode to debug and deal with blaze errors in the GUI properly.
-   */
-  public boolean getUseAbsolutePathsForActions() {
-    return this.useAbsolutePathsForActions;
-  }
-
-  /**
-   * Returns the path to be used for workspace_root (and path of pbxGroup mainGroup) in xcodeproj.
-   * This usually will be the absolute path of the root of Bazel client workspace or null if
-   * passed-in {@link BlazeDirectories} is null or Bazel fails to find the workspace root directory.
-   * It can also be overridden by the {@code --xcode_override_workspace_root} flag, in which case
-   * the path can be absolute or relative.
-   */
-  @Nullable
-  public String getXcodeWorkspaceRoot() {
-    if (!this.xcodeOverrideWorkspaceRoot.isEmpty()) {
-      return this.xcodeOverrideWorkspaceRoot;
-    }
-    if (this.clientWorkspaceRoot == null) {
-      return null;
-    }
-    return this.clientWorkspaceRoot.getPathString();
-  }
-
-  /**
    * Returns the flag-supplied certificate name to be used in signing or {@code null} if no such
    * certificate was specified.
    */
@@ -306,14 +271,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
       + "certificate was specified.")
   public String getSigningCertName() {
     return this.signingCertName;
-  }
-
-  /**
-   * Returns true if the linker invocation should contain static library includes before framework
-   * and system library includes.
-   */
-  public boolean shouldPrioritizeStaticLibs() {
-    return this.prioritizeStaticLibs;
   }
 
   /**
@@ -342,7 +299,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
    * CROSSTOOL is used for objc in this configuration.
    */
   public ObjcCrosstoolMode getObjcCrosstoolMode() {
-    return experimentalObjcLibrary ? ObjcCrosstoolMode.LIBRARY : objcCrosstoolMode;
+    return objcCrosstoolMode;
   }
 
   /** Returns true if apple_binary targets should generate and link Objc protos. */
@@ -360,6 +317,11 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   /** Returns true if header thinning of ObjcCompile actions is enabled to reduce action inputs. */
   public boolean useExperimentalHeaderThinning() {
     return experimentalHeaderThinning;
+  }
+
+  /** Returns the max number of source files to add to each header scanning action. */
+  public int objcHeaderThinningPartitionSize() {
+    return objcHeaderThinningPartitionSize;
   }
 
   /** Returns the label for the ObjC header scanner tool. */

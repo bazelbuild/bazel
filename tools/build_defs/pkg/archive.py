@@ -13,8 +13,12 @@
 # limitations under the License.
 """Archive manipulation library for the Docker rules."""
 
+# pylint: disable=g-import-not-at-top
 import os
-from StringIO import StringIO
+try:
+  from StringIO import StringIO
+except ImportError:
+  from io import StringIO
 import subprocess
 import tarfile
 

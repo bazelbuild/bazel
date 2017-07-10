@@ -17,7 +17,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multimap;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
@@ -32,11 +32,15 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppOptions.DynamicModeConverter;
+import com.google.devtools.build.lib.rules.cpp.CppOptions.LibcTopLabelConverter;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.OptionsParsingException;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.List;
 import java.util.Set;
 
@@ -102,6 +106,13 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       extends EnumConverter<AndroidManifestMerger> {
     public AndroidManifestMergerConverter() {
       super(AndroidManifestMerger.class, "android manifest merger");
+    }
+  }
+
+  /** Converter for {@link AndroidAaptVersion} */
+  public static final class AndroidAaptConverter extends EnumConverter<AndroidAaptVersion> {
+    public AndroidAaptConverter() {
+      super(AndroidAaptVersion.class, "android androidAaptVersion");
     }
   }
 
@@ -189,122 +200,205 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     }
   }
 
-  /**
-   * Android configuration options.
-   */
+  /** Types of android manifest mergers. */
+  public enum AndroidAaptVersion {
+    AAPT,
+    AAPT2,
+    AUTO;
+
+    public static List<String> getAttributeValues() {
+      return ImmutableList.of(
+          AAPT.name().toLowerCase(), AAPT2.name().toLowerCase(), getRuleAttributeDefault());
+    }
+
+    public static String getRuleAttributeDefault() {
+      return AUTO.name().toLowerCase();
+    }
+
+    public static AndroidAaptVersion fromString(String value) {
+      for (AndroidAaptVersion version : AndroidAaptVersion.values()) {
+        if (version.name().equalsIgnoreCase(value)) {
+          return version;
+        }
+      }
+      return null;
+    }
+  }
+
+  /** Android configuration options. */
   public static class Options extends FragmentOptions {
-    @Option(name = "Android configuration distinguisher",
-        defaultValue = "MAIN",
-        converter = ConfigurationDistinguisherConverter.class,
-        category = "internal")
+    @Option(
+      name = "Android configuration distinguisher",
+      defaultValue = "MAIN",
+      converter = ConfigurationDistinguisherConverter.class,
+      optionUsageRestrictions = OptionUsageRestrictions.INTERNAL,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN}
+    )
     public ConfigurationDistinguisher configurationDistinguisher;
 
     // For deploying incremental installation of native libraries. Do not use on the command line.
     // The idea is that once this option works, we'll flip the default value in a config file, then
     // once it is proven that it works, remove it from Bazel and said config file.
-    @Option(name = "android_incremental_native_libs",
-        defaultValue = "false",
-        category = "undocumented")
+    @Option(
+      name = "android_incremental_native_libs",
+      defaultValue = "false",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN}
+    )
     public boolean incrementalNativeLibs;
 
-    @Option(name = "android_crosstool_top",
-        defaultValue = "//external:android/crosstool",
-        category = "semantics",
-        converter = EmptyToNullLabelConverter.class,
-        help = "The location of the C++ compiler used for Android builds.")
+    @Option(
+      name = "android_crosstool_top",
+      defaultValue = "//external:android/crosstool",
+      category = "semantics",
+      converter = EmptyToNullLabelConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "The location of the C++ compiler used for Android builds."
+    )
     public Label androidCrosstoolTop;
 
-    @Option(name = "android_cpu",
-        defaultValue = "armeabi",
-        category = "semantics",
-        help = "The Android target CPU.")
+    @Option(
+      name = "android_cpu",
+      defaultValue = "armeabi",
+      category = "semantics",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "The Android target CPU."
+    )
     public String cpu;
 
     @Option(
       name = "android_compiler",
       defaultValue = "null",
       category = "semantics",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "The Android target compiler."
     )
     public String cppCompiler;
 
     @Option(
+      name = "android_grte_top",
+      defaultValue = "null",
+      converter = LibcTopLabelConverter.class,
+      category = "semantics",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help = "The Android target grte_top."
+    )
+    public Label androidLibcTopLabel;
+
+    @Option(
       name = "android_dynamic_mode",
       defaultValue = "off",
       converter = DynamicModeConverter.class,
-      category = "undocumented",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
-        "Determines whether C++ deps of Android rules will be linked dynamically when a cc_binary "
-            + "does not explicitly create a shared library. 'default' means blaze will choose "
-            + "whether to link dynamically.  'fully' means all libraries will be linked "
-            + "dynamically. 'off' means that all libraries will be linked in mostly static mode."
+          "Determines whether C++ deps of Android rules will be linked dynamically when a "
+              + "cc_binary does not explicitly create a shared library. "
+              + "'default' means blaze will choose whether to link dynamically.  "
+              + "'fully' means all libraries will be linked dynamically. "
+              + "'off' means that all libraries will be linked in mostly static mode."
     )
     public DynamicMode dynamicMode;
 
     // Label of filegroup combining all Android tools used as implicit dependencies of
     // android_* rules
-    @Option(name = "android_sdk",
-            defaultValue = "@bazel_tools//tools/android:sdk",
-            category = "version",
-            converter = LabelConverter.class,
-            help = "Specifies Android SDK/platform that is used to build Android applications.")
+    @Option(
+      name = "android_sdk",
+      defaultValue = "@bazel_tools//tools/android:sdk",
+      category = "version",
+      converter = LabelConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Specifies Android SDK/platform that is used to build Android applications."
+    )
     public Label sdk;
 
     // TODO(bazel-team): Maybe merge this with --android_cpu above.
-    @Option(name = "fat_apk_cpu",
-            converter = Converters.CommaSeparatedOptionListConverter.class,
-            defaultValue = "armeabi-v7a",
-            category = "semantics",
-            help = "Setting this option enables fat APKs, which contain native binaries for all "
-                + "specified target architectures, e.g., --fat_apk_cpu=x86,armeabi-v7a. If this "
-                + "flag is specified, then --android_cpu is ignored for dependencies of "
-                + "android_binary rules.")
+    @Option(
+      name = "fat_apk_cpu",
+      converter = Converters.CommaSeparatedOptionListConverter.class,
+      defaultValue = "armeabi-v7a",
+      category = "semantics",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Setting this option enables fat APKs, which contain native binaries for all "
+              + "specified target architectures, e.g., --fat_apk_cpu=x86,armeabi-v7a. If this "
+              + "flag is specified, then --android_cpu is ignored for dependencies of "
+              + "android_binary rules."
+    )
     public List<String> fatApkCpus;
 
     // For desugaring lambdas when compiling Java 8 sources. Do not use on the command line.
     // The idea is that once this option works, we'll flip the default value in a config file, then
     // once it is proven that it works, remove it from Bazel and said config file.
-    @Option(name = "experimental_desugar_for_android",
-        defaultValue = "false",
-        category = "undocumented",
-        help = "Whether to desugar Java 8 bytecode before dexing.")
+    @Option(
+      name = "experimental_desugar_for_android",
+      defaultValue = "false",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Whether to desugar Java 8 bytecode before dexing."
+    )
     public boolean desugarJava8;
 
-    @Option(name = "incremental_dexing",
-        defaultValue = "false",
-        category = "semantics",
-        help = "Does most of the work for dexing separately for each Jar file.")
+    @Option(
+      name = "incremental_dexing",
+      defaultValue = "true",
+      category = "semantics",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Does most of the work for dexing separately for each Jar file."
+    )
     public boolean incrementalDexing;
 
     // TODO(b/31711689): remove this flag from config files and here
-    @Option(name = "host_incremental_dexing",
-        defaultValue = "false",
-        category = "hidden",
-        help = "This flag is deprecated in favor of applying --incremental_dexing to both host "
-            + "and target configuration.  This flag will be removed in a future release.")
+    @Option(
+      name = "host_incremental_dexing",
+      defaultValue = "false",
+      optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "This flag is deprecated in favor of applying --incremental_dexing to both host "
+              + "and target configuration.  This flag will be removed in a future release."
+    )
     public boolean hostIncrementalDexing;
 
     // Do not use on the command line.
     // The idea is that this option lets us gradually turn on incremental dexing for different
     // binaries.  Users should rely on --noincremental_dexing to turn it off.
     // TODO(b/31711689): remove this flag from config files and here
-    @Option(name = "incremental_dexing_binary_types",
-        defaultValue = "all",
-        category = "undocumented",
-        converter = AndroidBinaryTypesConverter.class,
-        implicitRequirements = "--incremental_dexing",
-        help = "Kinds of binaries to incrementally dex if --incremental_dexing is true.")
+    @Option(
+      name = "incremental_dexing_binary_types",
+      defaultValue = "all",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      converter = AndroidBinaryTypesConverter.class,
+      implicitRequirements = "--incremental_dexing",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Kinds of binaries to incrementally dex if --incremental_dexing is true."
+    )
     public Set<AndroidBinaryType> incrementalDexingBinaries;
 
-    /**
-     * Whether to look for incrementally dex protos built with java_lite_proto_library.
-     */
+    /** Whether to look for incrementally dex protos built with java_lite_proto_library. */
     // TODO(b/31711689): remove this flag from config files and here
     @Option(
       name = "experimental_incremental_dexing_for_lite_protos",
       defaultValue = "true",
       category = "experimental",
-      help = "Do not use.")
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Do not use."
+    )
     public boolean incrementalDexingForLiteProtos;
 
     /**
@@ -315,131 +409,266 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       name = "experimental_incremental_dexing_error_on_missed_jars",
       defaultValue = "true",
       category = "experimental",
-      help = "Do not use.")
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Do not use."
+    )
     public boolean incrementalDexingErrorOnMissedJars;
 
-    @Option(name = "non_incremental_per_target_dexopts",
-        converter = Converters.CommaSeparatedOptionListConverter.class,
-        defaultValue = "--set-max-idx-number,--positions",
-        category = "semantics",
-        help = "dx flags that that prevent incremental dexing for binary targets that list any of "
-            + "the flags listed here in their 'dexopts' attribute, which are ignored with "
-            + "incremental dexing (superseding --dexopts_supported_in_incremental_dexing).  "
-            + "Defaults to --no-locals for safety but can in general be used "
-            + "to make sure the listed dx flags are honored, with additional build latency.  "
-            + "Please notify us if you find yourself needing this flag.")
+    @Option(
+      name = "experimental_android_use_parallel_dex2oat",
+      category = "experimental",
+      defaultValue = "false",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Use dex2oat in parallel to possibly speed up android_test."
+    )
+    public boolean useParallelDex2Oat;
+
+    // Do not use on the command line.
+    // This flag is intended to be updated as we add supported flags to the incremental dexing tools
+    @Option(
+      name = "non_incremental_per_target_dexopts",
+      converter = Converters.CommaSeparatedOptionListConverter.class,
+      defaultValue = "--positions",
+      category = "semantics",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "dx flags that that prevent incremental dexing for binary targets that list any of "
+              + "the flags listed here in their 'dexopts' attribute, which are ignored with "
+              + "incremental dexing (superseding --dexopts_supported_in_incremental_dexing).  "
+              + "Defaults to --no-locals for safety but can in general be used "
+              + "to make sure the listed dx flags are honored, with additional build latency.  "
+              + "Please notify us if you find yourself needing this flag."
+    )
     public List<String> nonIncrementalPerTargetDexopts;
 
     // Do not use on the command line.
     // This flag is intended to be updated as we add supported flags to the incremental dexing tools
-    @Option(name = "dexopts_supported_in_incremental_dexing",
-        converter = Converters.CommaSeparatedOptionListConverter.class,
-        defaultValue = "--no-optimize,--no-locals",
-        category = "hidden",
-        help = "dx flags supported in incremental dexing.")
+    @Option(
+      name = "dexopts_supported_in_incremental_dexing",
+      converter = Converters.CommaSeparatedOptionListConverter.class,
+      defaultValue = "--no-optimize,--no-locals",
+      optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "dx flags supported when converting Jars to dex archives incrementally."
+    )
     public List<String> dexoptsSupportedInIncrementalDexing;
+
+    // Do not use on the command line.
+    // This flag is intended to be updated as we add supported flags to the incremental dexing tools
+    // TODO(b/31711689): remove --no-optimize and --no-locals as DexFileMerger no longer needs them
+    @Option(
+      name = "dexopts_supported_in_dexmerger",
+      converter = Converters.CommaSeparatedOptionListConverter.class,
+      defaultValue = "--no-optimize,--no-locals,--minimal-main-dex,--set-max-idx-number",
+      optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "dx flags supported in tool that merges dex archives into final classes.dex files."
+    )
+    public List<String> dexoptsSupportedInDexMerger;
 
     @Option(
       name = "experimental_android_rewrite_dexes_with_rex",
       defaultValue = "false",
-      category = "undocumented",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help = "use rex tool to rewrite dex files"
     )
     public boolean useRexToCompressDexFiles;
 
-    @Option(name = "experimental_allow_android_library_deps_without_srcs",
-        defaultValue = "true",
-        category = "undocumented",
-        help = "Flag to help transition from allowing to disallowing srcs-less android_library"
-            + " rules with deps. The depot needs to be cleaned up to roll this out by default.")
+    @Option(
+      name = "experimental_allow_android_library_deps_without_srcs",
+      defaultValue = "true",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Flag to help transition from allowing to disallowing srcs-less android_library"
+              + " rules with deps. The depot needs to be cleaned up to roll this out by default."
+    )
     public boolean allowAndroidLibraryDepsWithoutSrcs;
 
-    @Option(name = "experimental_android_resource_shrinking",
-        defaultValue = "false",
-        category = "undocumented",
-        help = "Enables resource shrinking for android_binary APKs that use ProGuard.")
+    @Option(
+      name = "experimental_android_resource_shrinking",
+      defaultValue = "false",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Enables resource shrinking for android_binary APKs that use ProGuard."
+    )
     public boolean useExperimentalAndroidResourceShrinking;
 
-    @Option(name = "android_resource_shrinking",
-        defaultValue = "false",
-        category = "semantics",
-        help = "Enables resource shrinking for android_binary APKs that use ProGuard.")
+    @Option(
+      name = "android_resource_shrinking",
+      defaultValue = "false",
+      category = "semantics",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Enables resource shrinking for android_binary APKs that use ProGuard."
+    )
     public boolean useAndroidResourceShrinking;
 
-    @Option(name = "android_manifest_merger",
-        defaultValue = "android",
-        category = "semantics",
-        converter = AndroidManifestMergerConverter.class,
-        help = "Selects the manifest merger to use for android_binary rules. Flag to help the"
-            + "transition to the Android manifest merger from the legacy merger.")
+    @Option(
+      name = "android_manifest_merger",
+      defaultValue = "android",
+      category = "semantics",
+      converter = AndroidManifestMergerConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Selects the manifest merger to use for android_binary rules. Flag to help the"
+              + "transition to the Android manifest merger from the legacy merger."
+    )
     public AndroidManifestMerger manifestMerger;
 
+    @Option(
+      name = "android_aapt",
+      defaultValue = "aapt",
+      category = "semantics",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = AndroidAaptConverter.class,
+      help =
+          "Selects the version of androidAaptVersion to use for android_binary rules."
+              + "Flag to help the test and transition to aapt2."
+    )
+    public AndroidAaptVersion androidAaptVersion;
+
     // Do not use on the command line.
-    @Option(name = "experimental_use_parallel_android_resource_processing",
+    @Option(
+      name = "experimental_use_parallel_android_resource_processing",
       defaultValue = "true",
-      category = "undocumented",
-      help = "Process android_library resources with higher parallelism. Generates library "
-              + "R classes from a merge action, separately from aapt.")
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Process android_library resources with higher parallelism. Generates library "
+              + "R classes from a merge action, separately from aapt."
+    )
     public boolean useParallelResourceProcessing;
 
-    @Option(name = "apk_signing_method",
-        converter = ApkSigningMethodConverter.class,
-        defaultValue = "v1_v2",
-        category = "undocumented",
-        help = "Implementation to use to sign APKs")
+    @Option(
+      name = "apk_signing_method",
+      converter = ApkSigningMethodConverter.class,
+      defaultValue = "v1_v2",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Implementation to use to sign APKs"
+    )
     public ApkSigningMethod apkSigningMethod;
 
-    @Option(name = "use_singlejar_apkbuilder",
-        defaultValue = "true",
-        category = "undocumented",
-        help = "Build Android APKs with SingleJar.")
+    @Option(
+      name = "use_singlejar_apkbuilder",
+      defaultValue = "true",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Build Android APKs with SingleJar."
+    )
     public boolean useSingleJarApkBuilder;
 
-    @Option(name = "experimental_android_use_singlejar_for_multidex",
-        defaultValue = "false",
-        category = "undocumented",
-        help = "Use SingleJar for multidex dex extraction.")
+    @Option(
+      name = "experimental_android_use_singlejar_for_multidex",
+      defaultValue = "true",
+      optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+      deprecationWarning =
+          "This flag is deprecated and is a no-op. It will be removed in a future release.",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "This flag is deprecated and is a no-op. It will be removed in a future release."
+    )
     public boolean useSingleJarForMultidex;
 
-    @Option(name = "experimental_android_resource_filtering_method",
+    @Option(
+      name = "experimental_android_resource_filtering_method",
       converter = ResourceFilter.Converter.class,
       defaultValue = "filter_in_execution",
-      category = "undocumented",
-      help = "Determines when resource filtering attributes, such as the android_binary "
-          + "'resource_configuration_filters' and 'densities' attributes, are applied. By default, "
-          + "bazel will 'filter_in_execution'. The experimental 'filter_in_analysis' option "
-          + "instead applies these filters earlier in the build process, with corresponding gains "
-          + "in speed. The experimental 'filter_in_analysis_with_dynamic_configuration' option "
-          + "also passes these options to the android_binary's dependencies, which also filter "
-          + "their internal resources in analysis, possibly making the build even faster "
-          + "(especially in systems that do not cache the results of those dependencies)."
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Determines when resource filtering attributes, such as the android_binary "
+              + "'resource_configuration_filters' and 'densities' attributes, are applied. "
+              + "By default, bazel will 'filter_in_execution'. The experimental "
+              + "'filter_in_analysis' option instead applies these filters earlier in the build "
+              + "process, with corresponding gains in speed. The experimental "
+              + "'filter_in_analysis_with_dynamic_configuration' option also passes these options "
+              + "to the android_binary's dependencies, which also filter their internal resources "
+              + "in analysis, possibly making the build even faster (especially in systems that "
+              + "do not cache the results of those dependencies)."
     )
     // The ResourceFilter object holds the filtering behavior as well as settings for which
     // resources should be filtered. The filtering behavior is set from the command line, but the
     // other settings default to empty and are set or modified via dynamic configuration.
     public ResourceFilter resourceFilter;
 
-    @Option(name = "use_singlejar_for_proguard_libraryjars",
-        defaultValue = "false",
-        category = "undocumented",
-        help = "Use SingleJar to combine all ProGuard library jars.")
-    public boolean useSingleJarForProguardLibraryJars;
-
-    @Option(name = "experimental_android_compress_java_resources",
-        defaultValue = "false",
-        category = "undocumented",
-        implicitRequirements = "--use_singlejar_apkbuilder",
-        help = "Compress Java resources in APKs")
+    @Option(
+      name = "experimental_android_compress_java_resources",
+      defaultValue = "false",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Compress Java resources in APKs"
+    )
     public boolean compressJavaResources;
 
-    @Override
-    public void addAllLabels(Multimap<String, Label> labelMap) {
-      if (androidCrosstoolTop != null) {
-        labelMap.put("android_crosstool_top", androidCrosstoolTop);
-      }
+    @Option(
+      name = "experimental_android_include_library_resource_jars",
+      defaultValue = "true",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specifies whether resource JAR files for android_library targets should be included"
+              + " as runtime dependencies. Defaults to the old behavior, including them. These JARs"
+              + " are not nessecary for normal use as all required resources are included in the"
+              + " top-level android_binary resource JAR."
+    )
+    public boolean includeLibraryResourceJars;
 
-      labelMap.put("android_sdk", sdk);
-    }
+    @Option(
+      name = "experimental_android_use_nocompress_extensions_on_apk",
+      defaultValue = "false",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Use the value of nocompress_extensions attribute with the SingleJar "
+              + "--nocompress_suffixes flag when building the APK."
+    )
+    public boolean useNocompressExtensionsOnApk;
+
+    @Option(
+      name = "experimental_android_library_exports_manifest_default",
+      defaultValue = "false",
+      optionUsageRestrictions = OptionUsageRestrictions.DOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "The default value of the exports_manifest attribute on android_library."
+    )
+    public boolean exportsManifestDefault;
+
+    @Option(
+      name = "experimental_android_generate_robolectric_r_class",
+      defaultValue = "false",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If passed, R classes will be generated for Robolectric tests. Otherwise, only inherited"
+              + " R classes will be used."
+    )
+    public boolean generateRobolectricRClass;
 
     @Override
     public FragmentOptions getHost(boolean fallback) {
@@ -455,7 +684,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       host.incrementalDexingErrorOnMissedJars = incrementalDexingErrorOnMissedJars;
       host.nonIncrementalPerTargetDexopts = nonIncrementalPerTargetDexopts;
       host.dexoptsSupportedInIncrementalDexing = dexoptsSupportedInIncrementalDexing;
+      host.dexoptsSupportedInDexMerger = dexoptsSupportedInDexMerger;
       host.manifestMerger = manifestMerger;
+      host.androidAaptVersion = androidAaptVersion;
       return host;
     }
 
@@ -502,6 +733,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean incrementalDexingErrorOnMissedJars;
   private final ImmutableList<String> dexoptsSupportedInIncrementalDexing;
   private final ImmutableList<String> targetDexoptsThatPreventIncrementalDexing;
+  private final ImmutableList<String> dexoptsSupportedInDexMerger;
   private final boolean desugarJava8;
   private final boolean useRexToCompressDexFiles;
   private final boolean allowAndroidLibraryDepsWithoutSrcs;
@@ -510,12 +742,16 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final AndroidManifestMerger manifestMerger;
   private final ApkSigningMethod apkSigningMethod;
   private final boolean useSingleJarApkBuilder;
-  private final boolean useSingleJarForMultidex;
   private final ResourceFilter resourceFilter;
-  private final boolean useSingleJarForProguardLibraryJars;
   private final boolean compressJavaResources;
+  private final boolean includeLibraryResourceJars;
+  private final boolean useNocompressExtensionsOnApk;
+  private final boolean exportsManifestDefault;
+  private final AndroidAaptVersion androidAaptVersion;
+  private final boolean generateRobolectricRClass;
+  private final boolean useParallelDex2Oat;
 
-  AndroidConfiguration(Options options, Label androidSdk) {
+  AndroidConfiguration(Options options, Label androidSdk) throws InvalidConfigurationException {
     this.sdk = androidSdk;
     this.incrementalNativeLibs = options.incrementalNativeLibs;
     this.cpu = options.cpu;
@@ -531,6 +767,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
         ImmutableList.copyOf(options.dexoptsSupportedInIncrementalDexing);
     this.targetDexoptsThatPreventIncrementalDexing =
         ImmutableList.copyOf(options.nonIncrementalPerTargetDexopts);
+    this.dexoptsSupportedInDexMerger = ImmutableList.copyOf(options.dexoptsSupportedInDexMerger);
     this.desugarJava8 = options.desugarJava8;
     this.allowAndroidLibraryDepsWithoutSrcs = options.allowAndroidLibraryDepsWithoutSrcs;
     this.useAndroidResourceShrinking = options.useAndroidResourceShrinking
@@ -539,11 +776,21 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.manifestMerger = options.manifestMerger;
     this.apkSigningMethod = options.apkSigningMethod;
     this.useSingleJarApkBuilder = options.useSingleJarApkBuilder;
-    this.useSingleJarForMultidex = options.useSingleJarForMultidex;
-    this.useSingleJarForProguardLibraryJars = options.useSingleJarForProguardLibraryJars;
     this.useRexToCompressDexFiles = options.useRexToCompressDexFiles;
     this.resourceFilter = options.resourceFilter;
     this.compressJavaResources = options.compressJavaResources;
+    this.includeLibraryResourceJars = options.includeLibraryResourceJars;
+    this.useNocompressExtensionsOnApk = options.useNocompressExtensionsOnApk;
+    this.exportsManifestDefault = options.exportsManifestDefault;
+    this.androidAaptVersion = options.androidAaptVersion;
+    this.generateRobolectricRClass = options.generateRobolectricRClass;
+    this.useParallelDex2Oat = options.useParallelDex2Oat;
+
+    if (!dexoptsSupportedInIncrementalDexing.contains("--no-locals")) {
+      // TODO(bazel-team): Still needed? See DexArchiveAspect
+      throw new InvalidConfigurationException("--dexopts_supported_in_incremental_dexing must "
+          + "include '--no-locals' to enable coverage builds");
+    }
   }
 
   public String getCpu() {
@@ -588,6 +835,13 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
+   * dx flags supported in dexmerger actions.
+   */
+  public ImmutableList<String> getDexoptsSupportedInDexMerger() {
+    return dexoptsSupportedInDexMerger;
+  }
+
+  /**
    * Regardless of {@link #getIncrementalDexingBinaries}, incremental dexing must not be used for
    * binaries that list any of these flags in their {@code dexopts} attribute.
    */
@@ -615,6 +869,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     return useParallelResourceProcessing;
   }
 
+  public AndroidAaptVersion getAndroidAaptVersion() {
+    return androidAaptVersion;
+  }
+
   public AndroidManifestMerger getManifestMerger() {
     return manifestMerger;
   }
@@ -627,20 +885,32 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     return useSingleJarApkBuilder;
   }
 
-  public boolean useSingleJarForMultidex() {
-    return useSingleJarForMultidex;
-  }
-
   public ResourceFilter getResourceFilter() {
     return resourceFilter;
   }
 
-  public boolean useSingleJarForProguardLibraryJars() {
-    return useSingleJarForProguardLibraryJars;
+  public boolean useParallelDex2Oat() {
+    return useParallelDex2Oat;
   }
 
   boolean compressJavaResources() {
     return compressJavaResources;
+  }
+
+  public boolean includeLibraryResourceJars() {
+    return includeLibraryResourceJars;
+  }
+
+  boolean useNocompressExtensionsOnApk() {
+    return useNocompressExtensionsOnApk;
+  }
+
+  boolean getExportsManifestDefault(RuleContext ruleContext) {
+    return exportsManifestDefault;
+  }
+
+  boolean generateRobolectricRClass() {
+    return generateRobolectricRClass;
   }
 
   @Override

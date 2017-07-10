@@ -36,7 +36,6 @@ import java.util.Set;
 final class LinuxSandboxRunner extends SandboxRunner {
   private static final String LINUX_SANDBOX = "linux-sandbox" + OsUtils.executableExtension();
 
-  private final Path execRoot;
   private final Path sandboxExecRoot;
   private final Set<Path> writableDirs;
   private final Set<Path> tmpfsPaths;
@@ -45,7 +44,6 @@ final class LinuxSandboxRunner extends SandboxRunner {
   private final boolean sandboxDebug;
 
   LinuxSandboxRunner(
-      Path execRoot,
       Path sandboxExecRoot,
       Set<Path> writableDirs,
       Set<Path> tmpfsPaths,
@@ -53,7 +51,6 @@ final class LinuxSandboxRunner extends SandboxRunner {
       boolean verboseFailures,
       boolean sandboxDebug) {
     super(verboseFailures);
-    this.execRoot = execRoot;
     this.sandboxExecRoot = sandboxExecRoot;
     this.writableDirs = writableDirs;
     this.tmpfsPaths = tmpfsPaths;
@@ -61,19 +58,18 @@ final class LinuxSandboxRunner extends SandboxRunner {
     this.sandboxDebug = sandboxDebug;
   }
 
-  static boolean isSupported(CommandEnvironment commandEnv) {
-    PathFragment embeddedTool =
-        commandEnv.getBlazeWorkspace().getBinTools().getExecPath(LINUX_SANDBOX);
+  static boolean isSupported(CommandEnvironment cmdEnv) {
+    Path embeddedTool = getLinuxSandbox(cmdEnv);
     if (embeddedTool == null) {
       // The embedded tool does not exist, meaning that we don't support sandboxing (e.g., while
       // bootstrapping).
       return false;
     }
 
-    Path execRoot = commandEnv.getExecRoot();
+    Path execRoot = cmdEnv.getExecRoot();
 
     List<String> args = new ArrayList<>();
-    args.add(execRoot.getRelative(embeddedTool).getPathString());
+    args.add(embeddedTool.getPathString());
     args.add("--");
     args.add("/bin/true");
 
@@ -95,8 +91,14 @@ final class LinuxSandboxRunner extends SandboxRunner {
     return true;
   }
 
+  private static Path getLinuxSandbox(CommandEnvironment cmdEnv) {
+    PathFragment execPath = cmdEnv.getBlazeWorkspace().getBinTools().getExecPath(LINUX_SANDBOX);
+    return execPath != null ? cmdEnv.getExecRoot().getRelative(execPath) : null;
+  }
+
   @Override
   protected Command getCommand(
+      CommandEnvironment cmdEnv,
       List<String> spawnArguments,
       Map<String, String> env,
       int timeout,
@@ -105,7 +107,7 @@ final class LinuxSandboxRunner extends SandboxRunner {
       boolean useFakeUsername)
       throws IOException {
     List<String> commandLineArgs = new ArrayList<>();
-    commandLineArgs.add(execRoot.getRelative("_bin/linux-sandbox").getPathString());
+    commandLineArgs.add(getLinuxSandbox(cmdEnv).getPathString());
 
     if (sandboxDebug) {
       commandLineArgs.add("-D");

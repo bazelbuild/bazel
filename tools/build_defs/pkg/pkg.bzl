@@ -28,11 +28,18 @@ def _pkg_tar_impl(ctx):
       "--output=" + ctx.outputs.out.path,
       "--directory=" + ctx.attr.package_dir,
       "--mode=" + ctx.attr.mode,
+      "--owner=" + ctx.attr.owner,
+      "--owner_name=" + ctx.attr.ownername,
       ]
   args += ["--file=%s=%s" % (f.path, dest_path(f, data_path))
            for f in ctx.files.files]
   if ctx.attr.modes:
     args += ["--modes=%s=%s" % (key, ctx.attr.modes[key]) for key in ctx.attr.modes]
+  if ctx.attr.owners:
+    args += ["--owners=%s=%s" % (key, ctx.attr.owners[key]) for key in ctx.attr.owners]
+  if ctx.attr.ownernames:
+    args += ["--owner_names=%s=%s" % (key, ctx.attr.ownernames[key])
+             for key in ctx.attr.ownernames]
   if ctx.attr.extension:
     dotPos = ctx.attr.extension.find('.')
     if dotPos > 0:
@@ -154,11 +161,15 @@ pkg_tar = rule(
         "files": attr.label_list(allow_files=True),
         "mode": attr.string(default="0555"),
         "modes": attr.string_dict(),
+        "owner": attr.string(default="0.0"),
+        "ownername": attr.string(default="."),
+        "owners": attr.string_dict(),
+        "ownernames": attr.string_dict(),
         "extension": attr.string(default="tar"),
         "symlinks": attr.string_dict(),
         # Implicit dependencies.
         "build_tar": attr.label(
-            default=Label("@bazel_tools//tools/build_defs/pkg:build_tar"),
+            default=Label("//tools/build_defs/pkg:build_tar"),
             cfg="host",
             executable=True,
             allow_files=True)
@@ -202,7 +213,7 @@ pkg_deb = rule(
         "recommends": attr.string_list(default=[]),
         # Implicit dependencies.
         "make_deb": attr.label(
-            default=Label("@bazel_tools//tools/build_defs/pkg:make_deb"),
+            default=Label("//tools/build_defs/pkg:make_deb"),
             cfg="host",
             executable=True,
             allow_files=True)

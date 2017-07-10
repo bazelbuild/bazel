@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
@@ -37,9 +38,6 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.rules.MakeVariableProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
-import com.google.devtools.build.lib.rules.java.JavaImplicitAttributes;
-import com.google.devtools.build.lib.rules.java.JavaSemantics;
-import com.google.devtools.build.lib.rules.java.Jvm;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
@@ -49,38 +47,23 @@ import com.google.devtools.build.lib.util.FileTypeSet;
  * as a setup script target.
  */
 public class GenRuleBaseRule implements RuleDefinition {
-
   /**
    * Late-bound dependency on the C++ toolchain <i>iff</i> the genrule has make variables that need
    * that toolchain.
    */
-  public static final Attribute.LateBoundLabel<BuildConfiguration> CC_TOOLCHAIN =
-      new Attribute.LateBoundLabel<BuildConfiguration>(
-          CppRuleClasses.CROSSTOOL_LABEL, CppConfiguration.class) {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          return attributes != null
-              && GenRuleBase.requiresCrosstool(attributes.get("cmd", Type.STRING))
-              ? CppRuleClasses.CC_TOOLCHAIN.resolve(rule, attributes, configuration)
-              : null;
-        }
-      };
-
-  /**
-   * Late-bound dependency on the host JDK <i>iff</i> the genrule has make variables that need
-   * that rule.
-   */
-  public static final Attribute.LateBoundLabel<BuildConfiguration> HOST_JDK =
-      new Attribute.LateBoundLabel<BuildConfiguration>(
-          JavaImplicitAttributes.JDK_LABEL, Jvm.class) {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          return attributes != null
-              && GenRuleBase.requiresJdk(attributes.get("cmd", Type.STRING))
-              ? JavaSemantics.HOST_JDK.resolve(rule, attributes, configuration)
-              : null;
-        }
-      };
+  public static Attribute.LateBoundLabel<BuildConfiguration> ccToolchainAttribute(
+      RuleDefinitionEnvironment env) {
+    return new LateBoundLabel<BuildConfiguration>(
+        env.getToolsLabel(CppRuleClasses.CROSSTOOL_LABEL), CppConfiguration.class) {
+      @Override
+      public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+        return attributes != null
+                && GenRuleBase.requiresCrosstool(attributes.get("cmd", Type.STRING))
+            ? CppRuleClasses.ccToolchainAttribute(env).resolve(rule, attributes, configuration)
+            : null;
+      }
+    };
+  }
 
   @Override
   public RuleClass build(

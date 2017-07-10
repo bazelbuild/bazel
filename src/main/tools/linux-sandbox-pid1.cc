@@ -17,20 +17,7 @@
  * mount, UTS, IPC and PID namespace.
  */
 
-#include "linux-sandbox-options.h"
-#include "linux-sandbox-utils.h"
-#include "linux-sandbox.h"
-
-// Note that we define DIE() here and not in a shared header, because we want to
-// use _exit() in the
-// pid1 child, but exit() in the parent.
-#define DIE(args...)                                     \
-  {                                                      \
-    fprintf(stderr, __FILE__ ":" S__LINE__ ": \"" args); \
-    fprintf(stderr, "\": ");                             \
-    perror(NULL);                                        \
-    _exit(EXIT_FAILURE);                                 \
-  }
+#include "src/main/tools/linux-sandbox-pid1.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -53,8 +40,12 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-
 #include <string>
+
+#include "src/main/tools/linux-sandbox-options.h"
+#include "src/main/tools/linux-sandbox.h"
+#include "src/main/tools/logging.h"
+#include "src/main/tools/process-tools.h"
 
 static int global_child_pid;
 
@@ -66,6 +57,13 @@ static void SetupSelfDestruction(int *sync_pipe) {
   // almost as obscure as this prctl.
   if (prctl(PR_SET_PDEATHSIG, SIGKILL) < 0) {
     DIE("prctl");
+  }
+
+  // Switch to a new process group, otherwise our process group will still refer
+  // to the outer PID namespace. We might then accidentally kill our parent by a
+  // call to e.g. `kill(0, sig)`.
+  if (setpgid(0, 0) < 0) {
+    DIE("setpgid");
   }
 
   // Verify that the parent still lives.
@@ -84,14 +82,14 @@ static void SetupSelfDestruction(int *sync_pipe) {
 static void SetupMountNamespace() {
   // Fully isolate our mount namespace private from outside events, so that
   // mounts in the outside environment do not affect our sandbox.
-  if (mount(NULL, "/", NULL, MS_REC | MS_PRIVATE, NULL) < 0) {
+  if (mount(nullptr, "/", nullptr, MS_REC | MS_PRIVATE, nullptr) < 0) {
     DIE("mount");
   }
 }
 
 static void WriteFile(const std::string &filename, const char *fmt, ...) {
   FILE *stream = fopen(filename.c_str(), "w");
-  if (stream == NULL) {
+  if (stream == nullptr) {
     DIE("fopen(%s)", filename.c_str());
   }
 
@@ -130,7 +128,7 @@ static void SetupUserNamespace() {
   } else if (opt.fake_username) {
     // Change our username to 'nobody'.
     struct passwd *pwd = getpwnam("nobody");
-    if (pwd == NULL) {
+    if (pwd == nullptr) {
       DIE("unable to find passwd entry for user nobody")
     }
 
@@ -160,8 +158,8 @@ static void MountFilesystems() {
   for (const std::string &tmpfs_dir : opt.tmpfs_dirs) {
     PRINT_DEBUG("tmpfs: %s", tmpfs_dir.c_str());
     if (mount("tmpfs", tmpfs_dir.c_str(), "tmpfs",
-              MS_NOSUID | MS_NODEV | MS_NOATIME, NULL) < 0) {
-      DIE("mount(tmpfs, %s, tmpfs, MS_NOSUID | MS_NODEV | MS_NOATIME, NULL)",
+              MS_NOSUID | MS_NODEV | MS_NOATIME, nullptr) < 0) {
+      DIE("mount(tmpfs, %s, tmpfs, MS_NOSUID | MS_NODEV | MS_NOATIME, nullptr)",
           tmpfs_dir.c_str());
     }
   }
@@ -170,27 +168,28 @@ static void MountFilesystems() {
   // do this is by bind-mounting it upon itself.
   PRINT_DEBUG("working dir: %s", opt.working_dir.c_str());
 
-  if (mount(opt.working_dir.c_str(), opt.working_dir.c_str(), NULL, MS_BIND,
-            NULL) < 0) {
-    DIE("mount(%s, %s, NULL, MS_BIND, NULL)", opt.working_dir.c_str(),
+  if (mount(opt.working_dir.c_str(), opt.working_dir.c_str(), nullptr, MS_BIND,
+            nullptr) < 0) {
+    DIE("mount(%s, %s, nullptr, MS_BIND, nullptr)", opt.working_dir.c_str(),
         opt.working_dir.c_str());
   }
 
   for (size_t i = 0; i < opt.bind_mount_sources.size(); i++) {
-    std::string source = opt.bind_mount_sources.at(i);
-    std::string target = opt.bind_mount_targets.at(i);
+    const std::string& source = opt.bind_mount_sources.at(i);
+    const std::string& target = opt.bind_mount_targets.at(i);
     PRINT_DEBUG("bind mount: %s -> %s", source.c_str(), target.c_str());
-    if (mount(source.c_str(), target.c_str(), NULL, MS_BIND, NULL) < 0) {
-      DIE("mount(%s, %s, NULL, MS_BIND, NULL)", source.c_str(), target.c_str());
+    if (mount(source.c_str(), target.c_str(), nullptr, MS_BIND, nullptr) < 0) {
+      DIE("mount(%s, %s, nullptr, MS_BIND, nullptr)", source.c_str(),
+          target.c_str());
     }
   }
 
   for (const std::string &writable_file : opt.writable_files) {
     PRINT_DEBUG("writable: %s", writable_file.c_str());
-    if (mount(writable_file.c_str(), writable_file.c_str(), NULL, MS_BIND,
-              NULL) < 0) {
-      DIE("mount(%s, %s, NULL, MS_BIND, NULL)", writable_file.c_str(),
-          writable_file.c_str());
+    if (mount(writable_file.c_str(), writable_file.c_str(), nullptr,
+              MS_BIND | MS_REC, nullptr) < 0) {
+      DIE("mount(%s, %s, nullptr, MS_BIND | MS_REC, nullptr)",
+          writable_file.c_str(), writable_file.c_str());
     }
   }
 }
@@ -221,34 +220,34 @@ static bool ShouldBeWritable(const std::string &mnt_dir) {
 // ShouldBeWritable returns true.
 static void MakeFilesystemMostlyReadOnly() {
   FILE *mounts = setmntent("/proc/self/mounts", "r");
-  if (mounts == NULL) {
+  if (mounts == nullptr) {
     DIE("setmntent");
   }
 
   struct mntent *ent;
-  while ((ent = getmntent(mounts)) != NULL) {
+  while ((ent = getmntent(mounts)) != nullptr) {
     int mountFlags = MS_BIND | MS_REMOUNT;
 
     // MS_REMOUNT does not allow us to change certain flags. This means, we have
     // to first read them out and then pass them in back again. There seems to
     // be no better way than this (an API for just getting the mount flags of a
     // mount entry as a bitmask would be great).
-    if (hasmntopt(ent, "nodev") != NULL) {
+    if (hasmntopt(ent, "nodev") != nullptr) {
       mountFlags |= MS_NODEV;
     }
-    if (hasmntopt(ent, "noexec") != NULL) {
+    if (hasmntopt(ent, "noexec") != nullptr) {
       mountFlags |= MS_NOEXEC;
     }
-    if (hasmntopt(ent, "nosuid") != NULL) {
+    if (hasmntopt(ent, "nosuid") != nullptr) {
       mountFlags |= MS_NOSUID;
     }
-    if (hasmntopt(ent, "noatime") != NULL) {
+    if (hasmntopt(ent, "noatime") != nullptr) {
       mountFlags |= MS_NOATIME;
     }
-    if (hasmntopt(ent, "nodiratime") != NULL) {
+    if (hasmntopt(ent, "nodiratime") != nullptr) {
       mountFlags |= MS_NODIRATIME;
     }
-    if (hasmntopt(ent, "relatime") != NULL) {
+    if (hasmntopt(ent, "relatime") != nullptr) {
       mountFlags |= MS_RELATIME;
     }
 
@@ -258,7 +257,7 @@ static void MakeFilesystemMostlyReadOnly() {
 
     PRINT_DEBUG("remount %s: %s", (mountFlags & MS_RDONLY) ? "ro" : "rw",
                 ent->mnt_dir);
-    if (mount(NULL, ent->mnt_dir, NULL, mountFlags, NULL) < 0) {
+    if (mount(nullptr, ent->mnt_dir, nullptr, mountFlags, nullptr) < 0) {
       // If we get EACCES or EPERM, this might be a mount-point for which we
       // don't have read access. Not much we can do about this, but it also
       // won't do any harm, so let's go on. The same goes for EINVAL or ENOENT,
@@ -272,7 +271,8 @@ static void MakeFilesystemMostlyReadOnly() {
       // should just ignore it.
       if (errno != EACCES && errno != EPERM && errno != EINVAL &&
           errno != ENOENT && errno != ESTALE) {
-        DIE("remount(NULL, %s, NULL, %d, NULL)", ent->mnt_dir, mountFlags);
+        DIE("remount(nullptr, %s, nullptr, %d, nullptr)", ent->mnt_dir,
+            mountFlags);
       }
     }
   }
@@ -283,8 +283,8 @@ static void MakeFilesystemMostlyReadOnly() {
 static void MountProc() {
   // Mount a new proc on top of the old one, because the old one still refers to
   // our parent PID namespace.
-  if (mount("/proc", "/proc", "proc", MS_NODEV | MS_NOEXEC | MS_NOSUID, NULL) <
-      0) {
+  if (mount("/proc", "/proc", "proc", MS_NODEV | MS_NOEXEC | MS_NOSUID,
+            nullptr) < 0) {
     DIE("mount");
   }
 }
@@ -299,8 +299,7 @@ static void SetupNetworking() {
       DIE("socket");
     }
 
-    struct ifreq ifr;
-    memset(&ifr, 0, sizeof(ifr));
+    struct ifreq ifr = {};
     strncpy(ifr.ifr_name, "lo", IF_NAMESIZE);
 
     // Verify that name is valid.
@@ -326,32 +325,6 @@ static void EnterSandbox() {
   }
 }
 
-static void InstallSignalHandler(int signum, void (*handler)(int)) {
-  struct sigaction sa;
-  memset(&sa, 0, sizeof(sa));
-  sa.sa_handler = handler;
-  if (handler == SIG_IGN || handler == SIG_DFL) {
-    // No point in blocking signals when using the default handler or ignoring
-    // the signal.
-    if (sigemptyset(&sa.sa_mask) < 0) {
-      DIE("sigemptyset");
-    }
-  } else {
-    // When using a custom handler, block all signals from firing while the
-    // handler is running.
-    if (sigfillset(&sa.sa_mask) < 0) {
-      DIE("sigfillset");
-    }
-  }
-  // sigaction may fail for certain reserved signals. Ignore failure in this
-  // case, but report it in debug mode, just in case.
-  if (sigaction(signum, &sa, NULL) < 0) {
-    PRINT_DEBUG("sigaction(%d, &sa, NULL) failed", signum);
-  }
-}
-
-static void IgnoreSignal(int signum) { InstallSignalHandler(signum, SIG_IGN); }
-
 // Reset the signal mask and restore the default handler for all signals.
 static void RestoreSignalHandlersAndMask() {
   // Use an empty signal mask for the process (= unblock all signals).
@@ -364,8 +337,7 @@ static void RestoreSignalHandlersAndMask() {
   }
 
   // Set the default signal handler for all signals.
-  struct sigaction sa;
-  memset(&sa, 0, sizeof(sa));
+  struct sigaction sa = {};
   if (sigemptyset(&sa.sa_mask) < 0) {
     DIE("sigemptyset");
   }

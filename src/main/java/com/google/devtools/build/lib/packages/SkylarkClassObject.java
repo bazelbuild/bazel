@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor.StructConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Concatable;
@@ -231,25 +232,42 @@ public class SkylarkClassObject implements ClassObject, SkylarkValue, Concatable
   }
 
   /**
-   * Convert the object to string using Skylark syntax. The output tries to be
-   * reversible (but there is no guarantee, it depends on the actual values).
+   * Convert the object to string using Skylark syntax. The output tries to be reversible (but there
+   * is no guarantee, it depends on the actual values).
    */
   @Override
-  public void write(Appendable buffer, char quotationMark) {
+  public void repr(SkylarkPrinter printer) {
     boolean first = true;
-    Printer.append(buffer, constructor.getPrintableName());
-    Printer.append(buffer, "(");
+    printer.append("struct(");
     // Sort by key to ensure deterministic output.
     for (String key : Ordering.natural().sortedCopy(values.keySet())) {
       if (!first) {
-        Printer.append(buffer, ", ");
+        printer.append(", ");
       }
       first = false;
-      Printer.append(buffer, key);
-      Printer.append(buffer, " = ");
-      Printer.write(buffer, values.get(key), quotationMark);
+      printer.append(key);
+      printer.append(" = ");
+      printer.repr(values.get(key));
     }
-    Printer.append(buffer, ")");
+    printer.append(")");
+  }
+
+  @Override
+  public void reprLegacy(SkylarkPrinter printer) {
+    boolean first = true;
+    printer.append(constructor.getPrintableName());
+    printer.append("(");
+    // Sort by key to ensure deterministic output.
+    for (String key : Ordering.natural().sortedCopy(values.keySet())) {
+      if (!first) {
+        printer.append(", ");
+      }
+      first = false;
+      printer.append(key);
+      printer.append(" = ");
+      printer.repr(values.get(key));
+    }
+    printer.append(")");
   }
 
   @Override

@@ -15,30 +15,12 @@
 package com.google.devtools.build.lib.rules.config;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
-import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL_KEYED_STRING_DICT;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
-import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.RuleDefinition;
-import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -51,55 +33,6 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class ConfigFeatureFlagTest extends SkylarkTestCase {
 
-  /** Rule introducing a transition to set feature flags for dependencies. */
-  public static final class FeatureFlagSetter
-      implements RuleDefinition, RuleConfiguredTargetFactory {
-
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .requiresConfigurationFragments(ConfigFeatureFlagConfiguration.class)
-          .cfg(new ConfigFeatureFlagTransitionFactory("flag_values"))
-          .add(attr("deps", LABEL_LIST).allowedFileTypes())
-          .add(
-              attr("exports_flag", LABEL)
-                  .allowedRuleClasses("config_feature_flag")
-                  .allowedFileTypes())
-          .add(
-              attr("flag_values", LABEL_KEYED_STRING_DICT)
-                  .allowedRuleClasses("config_feature_flag")
-                  .allowedFileTypes()
-                  .nonconfigurable("used in RuleTransitionFactory")
-                  .value(ImmutableMap.<Label, String>of()))
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("feature_flag_setter")
-          .ancestors(BaseRuleClasses.BaseRule.class)
-          .factoryClass(FeatureFlagSetter.class)
-          .build();
-    }
-
-    @Override
-    public ConfiguredTarget create(RuleContext ruleContext)
-        throws InterruptedException, RuleErrorException {
-      TransitiveInfoCollection dep = ruleContext.getPrerequisite("exports_flag", Mode.TARGET);
-      ConfigFeatureFlagProvider exportedProvider =
-          dep != null ? ConfigFeatureFlagProvider.fromTarget(dep) : null;
-      RuleConfiguredTargetBuilder builder =
-          new RuleConfiguredTargetBuilder(ruleContext)
-              .setFilesToBuild(NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
-              .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY);
-      if (exportedProvider != null) {
-        builder.addNativeDeclaredProvider(exportedProvider);
-      }
-      return builder.build();
-    }
-  }
-
   @Before
   public void useDynamicConfigurations() throws Exception {
     useConfiguration("--experimental_dynamic_configs=on");
@@ -108,7 +41,7 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
   @Override
   protected ConfiguredRuleClassProvider getRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder =
-        new ConfiguredRuleClassProvider.Builder().addRuleDefinition(new FeatureFlagSetter());
+        new ConfiguredRuleClassProvider.Builder().addRuleDefinition(new FeatureFlagSetterRule());
     TestRuleClassProvider.addStandardRules(builder);
     return builder.build();
   }
@@ -178,7 +111,8 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
     ConfiguredTarget top = getConfiguredTarget("//test:top");
     ConfiguredTarget wrapper =
         (ConfiguredTarget) Iterables.getOnlyElement(getPrerequisites(top, "deps"));
-    SkylarkRuleContext ctx = new SkylarkRuleContext(getRuleContextForSkylark(wrapper), null);
+    SkylarkRuleContext ctx = new SkylarkRuleContext(getRuleContextForSkylark(wrapper), null,
+        getSkylarkSemantics());
     update("ruleContext", ctx);
     update("config_common", new ConfigSkylarkCommon());
     String value = (String) eval("ruleContext.attr.flag[config_common.FeatureFlagInfo].value");
@@ -304,7 +238,7 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
     assertThat(getConfiguredTarget("//test:flag")).isNull();
     assertContainsEvent(
         "in allowed_values attribute of config_feature_flag rule //test:flag: "
-            + "cannot contain duplicates, but contained multiple of ['double']");
+            + "cannot contain duplicates, but contained multiple of [\"double\"]");
   }
 
   @Test
@@ -327,7 +261,7 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
     assertThat(getConfiguredTarget("//test:top")).isNull();
     assertContainsEvent(
         "in default_value attribute of config_feature_flag rule //test:flag: "
-            + "must be one of ['eagle', 'legal'], but was 'beagle'");
+            + "must be one of [\"eagle\", \"legal\"], but was \"beagle\"");
   }
 
   @Test
@@ -351,6 +285,62 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
     // TODO(mstaib): when configurationError is implemented, switch to testing for that
     assertContainsEvent(
         "in config_feature_flag rule //test:flag: "
-            + "value must be one of ['configured', 'default', 'other'], but was 'invalid'");
+            + "value must be one of [\"configured\", \"default\", \"other\"], but was \"invalid\"");
+  }
+
+  @Test
+  public void policy_mustContainRulesPackage() throws Exception {
+    reporter.removeHandler(failFastHandler); // expecting an error
+    scratch.file(
+        "policy/BUILD",
+        "package_group(name = 'feature_flag_users', packages = ['//some/other'])");
+    scratch.file(
+        "test/BUILD",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['default', 'configured', 'other'],",
+        "    default_value = 'default',",
+        ")");
+    useConfiguration(
+        "--experimental_dynamic_configs=on",
+        "--feature_control_policy=config_feature_flag=//policy:feature_flag_users");
+    assertThat(getConfiguredTarget("//test:flag")).isNull();
+    assertContainsEvent(
+        "in config_feature_flag rule //test:flag: the config_feature_flag rule is not available in "
+        + "package 'test' according to policy '//policy:feature_flag_users'");
+  }
+
+  @Test
+  public void policy_doesNotBlockRuleIfInPackageGroup() throws Exception {
+    scratch.file(
+        "policy/BUILD",
+        "package_group(name = 'feature_flag_users', packages = ['//test'])");
+    scratch.file(
+        "test/BUILD",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['default', 'configured', 'other'],",
+        "    default_value = 'default',",
+        ")");
+    useConfiguration(
+        "--experimental_dynamic_configs=on",
+        "--feature_control_policy=config_feature_flag=//policy:feature_flag_users");
+    assertThat(getConfiguredTarget("//test:flag")).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
+  public void equalsTester() {
+    new EqualsTester()
+        .addEqualityGroup(
+            // Basic case.
+            ConfigFeatureFlagProvider.create("flag1", Predicates.<String>alwaysTrue()))
+        .addEqualityGroup(
+            // Will be distinct from the first group because CFFP instances are all distinct.
+            ConfigFeatureFlagProvider.create("flag1", Predicates.<String>alwaysTrue()))
+        .addEqualityGroup(
+            // Change the value, still distinct from the above.
+            ConfigFeatureFlagProvider.create("flag2", Predicates.<String>alwaysTrue()))
+        .testEquals();
   }
 }

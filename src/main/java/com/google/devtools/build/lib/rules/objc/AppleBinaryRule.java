@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
-import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 
@@ -26,7 +25,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
@@ -40,6 +38,7 @@ public class AppleBinaryRule implements RuleDefinition {
 
   public static final String BINARY_TYPE_ATTR = "binary_type";
   public static final String BUNDLE_LOADER_ATTR_NAME = "bundle_loader";
+  public static final String EXTENSION_SAFE_ATTR_NAME = "extension_safe";
 
   private final ObjcProtoAspect objcProtoAspect;
 
@@ -49,12 +48,6 @@ public class AppleBinaryRule implements RuleDefinition {
   public AppleBinaryRule(ObjcProtoAspect objcProtoAspect) {
     this.objcProtoAspect = objcProtoAspect;
   }
-
-  /**
-   * Template for the fat binary output (using Apple's "lipo" tool to combine binaries of
-   * multiple architectures).
-   */
-  private static final SafeImplicitOutputsFunction LIPOBIN = fromTemplates("%{name}_lipobin");
 
   /**
    * There are 3 classes of fully linked binaries in Mach: executable, dynamic library, and
@@ -88,7 +81,9 @@ public class AppleBinaryRule implements RuleDefinition {
         new MultiArchSplitTransitionProvider();
     return builder
         .requiresConfigurationFragments(
-            ObjcConfiguration.class, J2ObjcConfiguration.class, AppleConfiguration.class,
+            ObjcConfiguration.class,
+            J2ObjcConfiguration.class,
+            AppleConfiguration.class,
             CppConfiguration.class)
         .add(
             attr("$is_executable", BOOLEAN)
@@ -118,6 +113,14 @@ public class AppleBinaryRule implements RuleDefinition {
             attr(BINARY_TYPE_ATTR, STRING)
                 .value(AppleBinary.BinaryType.EXECUTABLE.toString())
                 .allowedValues(new AllowedValueSet(AppleBinary.BinaryType.getValues())))
+        /* <!-- #BLAZE_RULE(apple_binary).ATTRIBUTE(extension_safe) -->
+        This attribute is deprecated and will be removed soon. It currently has no effect.
+        "Extension-safe" link options may be added using the <code>linkopts</code> attribute.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr(EXTENSION_SAFE_ATTR_NAME, BOOLEAN)
+                .value(false)
+                .nonconfigurable("Determines the configuration transition on deps"))
         .add(
             attr(BUNDLE_LOADER_ATTR_NAME, LABEL)
                 .direct_compile_time_input()
@@ -136,7 +139,8 @@ public class AppleBinaryRule implements RuleDefinition {
              binary. All transitive dependencies and <code>srcs</code> are linked.</li>
         </ul>
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
-        .setImplicitOutputsFunction(ImplicitOutputsFunction.fromFunctions(LIPOBIN))
+        .setImplicitOutputsFunction(
+            ImplicitOutputsFunction.fromFunctions(ObjcRuleClasses.LIPOBIN_OUTPUT))
         .cfg(AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION)
         .build();
   }

@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -25,11 +25,9 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -42,9 +40,10 @@ public class RunfilesTest extends FoundationTestCase {
 
   private void checkWarning() {
     assertContainsEvent("obscured by a -> /workspace/a");
-    assertEquals("Runfiles.filterListForObscuringSymlinks should have warned once",
-        1, eventCollector.count());
-    assertEquals(EventKind.WARNING, Iterables.getOnlyElement(eventCollector).getKind());
+    assertWithMessage("Runfiles.filterListForObscuringSymlinks should have warned once")
+        .that(eventCollector.count())
+        .isEqualTo(1);
+    assertThat(Iterables.getOnlyElement(eventCollector).getKind()).isEqualTo(EventKind.WARNING);
   }
 
   @Test
@@ -126,14 +125,18 @@ public class RunfilesTest extends FoundationTestCase {
 
   private void checkConflictWarning() {
     assertContainsEvent("overwrote runfile");
-    assertEquals("ConflictChecker.put should have warned once", 1, eventCollector.count());
-    assertEquals(EventKind.WARNING, Iterables.getOnlyElement(eventCollector).getKind());
+    assertWithMessage("ConflictChecker.put should have warned once")
+        .that(eventCollector.count())
+        .isEqualTo(1);
+    assertThat(Iterables.getOnlyElement(eventCollector).getKind()).isEqualTo(EventKind.WARNING);
   }
 
   private void checkConflictError() {
     assertContainsEvent("overwrote runfile");
-    assertEquals("ConflictChecker.put should have errored once", 1, eventCollector.count());
-    assertEquals(EventKind.ERROR, Iterables.getOnlyElement(eventCollector).getKind());
+    assertWithMessage("ConflictChecker.put should have errored once")
+        .that(eventCollector.count())
+        .isEqualTo(1);
+    assertThat(Iterables.getOnlyElement(eventCollector).getKind()).isEqualTo(EventKind.ERROR);
   }
 
   @Test
@@ -240,7 +243,7 @@ public class RunfilesTest extends FoundationTestCase {
     PathFragment pathA = PathFragment.create("a");
     Artifact artifactB = new Artifact(PathFragment.create("b"), root);
     Artifact artifactB2 = new Artifact(PathFragment.create("b"), root);
-    assertEquals(artifactB, artifactB2);
+    assertThat(artifactB2).isEqualTo(artifactB);
     Map<PathFragment, Artifact> map = new LinkedHashMap<>();
 
     Runfiles.ConflictChecker checker =
@@ -295,7 +298,7 @@ public class RunfilesTest extends FoundationTestCase {
   public void testBuilderMergeConflictPolicyDefault() {
     Runfiles r1 = new Runfiles.Builder("TESTING").build();
     Runfiles r2 = new Runfiles.Builder("TESTING").merge(r1).build();
-    assertEquals(Runfiles.ConflictPolicy.IGNORE, r2.getConflictPolicy());
+    assertThat(r2.getConflictPolicy()).isEqualTo(Runfiles.ConflictPolicy.IGNORE);
   }
 
   @Test
@@ -303,7 +306,7 @@ public class RunfilesTest extends FoundationTestCase {
     Runfiles r1 = new Runfiles.Builder("TESTING").build()
         .setConflictPolicy(Runfiles.ConflictPolicy.WARN);
     Runfiles r2 = new Runfiles.Builder("TESTING").merge(r1).build();
-    assertEquals(Runfiles.ConflictPolicy.WARN, r2.getConflictPolicy());
+    assertThat(r2.getConflictPolicy()).isEqualTo(Runfiles.ConflictPolicy.WARN);
   }
 
   @Test
@@ -313,10 +316,10 @@ public class RunfilesTest extends FoundationTestCase {
     Runfiles r2 = new Runfiles.Builder("TESTING").build()
         .setConflictPolicy(Runfiles.ConflictPolicy.ERROR);
     Runfiles r3 = new Runfiles.Builder("TESTING").merge(r1).merge(r2).build();
-    assertEquals(Runfiles.ConflictPolicy.ERROR, r3.getConflictPolicy());
+    assertThat(r3.getConflictPolicy()).isEqualTo(Runfiles.ConflictPolicy.ERROR);
     // Swap ordering
     Runfiles r4 = new Runfiles.Builder("TESTING").merge(r2).merge(r1).build();
-    assertEquals(Runfiles.ConflictPolicy.ERROR, r4.getConflictPolicy());
+    assertThat(r4.getConflictPolicy()).isEqualTo(Runfiles.ConflictPolicy.ERROR);
   }
 
   @Test

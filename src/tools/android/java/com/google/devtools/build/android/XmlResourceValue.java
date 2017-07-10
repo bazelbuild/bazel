@@ -43,16 +43,13 @@ public interface XmlResourceValue {
   XmlResourceValue combineWith(XmlResourceValue value);
 
   /**
-   * Queue up writing the resource to the given {@link AndroidResourceClassWriter}.
-   * Each resource can generate one or more (in the case of styleable) fields and inner classes
-   * in the R class.
+   * Queue up writing the resource to the given {@link AndroidResourceClassWriter}. Each resource
+   * can generate one or more (in the case of styleable) fields and inner classes in the R class.
    *
    * @param key The FullyQualifiedName of the resource
-   * @param resourceClassWriter the R java class writer
+   * @param sink the symbol sink for producing source and classes
    */
-  void writeResourceToClass(
-      FullyQualifiedName key,
-      AndroidResourceClassWriter resourceClassWriter);
+  void writeResourceToClass(FullyQualifiedName key, AndroidResourceSymbolSink sink);
 
   /** Returns a representation of the xml value as a string suitable for conflict messages. */
   String asConflictStringWith(DataSource source);

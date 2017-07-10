@@ -70,15 +70,13 @@
 
 using blaze_util::die;
 using blaze_util::pdie;
+using blaze_util::PrintWarning;
 
 namespace blaze {
 
 using std::set;
 using std::string;
 using std::vector;
-
-static int GetServerPid(const string &server_dir);
-static void VerifyJavaVersionAndSetJvm();
 
 // The following is a treatise on how the interaction between the client and the
 // server works.
@@ -377,7 +375,7 @@ static vector<string> GetArgumentArray() {
   for (const auto &it : globals->extracted_binaries) {
     if (IsSharedLibrary(it)) {
       if (!first) {
-        java_library_path += blaze::ListSeparator();
+        java_library_path += kListSeparator;
       }
       first = false;
       java_library_path += blaze::PathAsJvmFlag(
@@ -399,8 +397,8 @@ static vector<string> GetArgumentArray() {
   }
   result.insert(result.end(), user_options.begin(), user_options.end());
 
-  globals->options->AddJVMArgumentSuffix(
-      real_install_dir, globals->extracted_binaries[0], &result);
+  globals->options->AddJVMArgumentSuffix(real_install_dir,
+                                         globals->ServerJarPath(), &result);
 
   // JVM arguments are complete. Now pass in Blaze startup options.
   // Note that we always use the --flag=ARG form (instead of the --flag ARG one)
@@ -533,8 +531,13 @@ static void AddLoggingArgs(vector<string> *args) {
                     ToString(globals->extract_data_time));
   }
   if (globals->restart_reason != NO_RESTART) {
-    const char *reasons[] = {"no_restart", "no_daemon", "new_version",
-                             "new_options"};
+    const char *reasons[] = {"no_restart",
+                             "no_daemon",
+                             "new_version",
+                             "new_options",
+                             "pid_file_but_no_server",
+                             "server_vanished",
+                             "server_unresponsive"};
     args->push_back(string("--restart_reason=") +
                     reasons[globals->restart_reason]);
   }
@@ -588,8 +591,7 @@ static void VerifyJavaVersionAndSetJvm() {
   globals->jvm_path = exe;
 }
 
-// Starts the Blaze server.  Returns a readable fd connected to the server.
-// This is currently used only to detect liveness.
+// Starts the Blaze server.
 static void StartServer(const WorkspaceLayout *workspace_layout,
                         BlazeServerStartup **server_startup) {
   vector<string> jvm_args_vector = GetArgumentArray();
@@ -609,8 +611,8 @@ static void StartServer(const WorkspaceLayout *workspace_layout,
     globals->restart_reason = NO_DAEMON;
   }
 
-  string exe = globals->options->GetExe(globals->jvm_path,
-                                        globals->extracted_binaries[0]);
+  string exe =
+      globals->options->GetExe(globals->jvm_path, globals->ServerJarPath());
   // Go to the workspace before we daemonize, so
   // we can still print errors to the terminal.
   GoToWorkspace(workspace_layout);
@@ -644,13 +646,13 @@ static void StartStandalone(const WorkspaceLayout *workspace_layout,
   if (!command_arguments.empty() && command == "shutdown") {
     string product = globals->options->product_name;
     blaze_util::ToLower(&product);
-    fprintf(stderr,
-            "WARNING: Running command \"shutdown\" in batch mode.  Batch mode "
-            "is triggered\nwhen not running %s within a workspace. If you "
-            "intend to shutdown an\nexisting %s server, run \"%s "
-            "shutdown\" from the directory where\nit was started.\n",
-            globals->options->product_name.c_str(),
-            globals->options->product_name.c_str(), product.c_str());
+    PrintWarning(
+        "Running command \"shutdown\" in batch mode.  Batch mode "
+        "is triggered\nwhen not running %s within a workspace. If you "
+        "intend to shutdown an\nexisting %s server, run \"%s "
+        "shutdown\" from the directory where\nit was started.",
+        globals->options->product_name.c_str(),
+        globals->options->product_name.c_str(), product.c_str());
   }
   vector<string> jvm_args_vector = GetArgumentArray();
   if (command != "") {
@@ -663,8 +665,8 @@ static void StartStandalone(const WorkspaceLayout *workspace_layout,
 
   GoToWorkspace(workspace_layout);
 
-  string exe = globals->options->GetExe(globals->jvm_path,
-                                        globals->extracted_binaries[0]);
+  string exe =
+      globals->options->GetExe(globals->jvm_path, globals->ServerJarPath());
   ExecuteProgram(exe, jvm_args_vector);
   pdie(blaze_exit_code::INTERNAL_ERROR, "execv of '%s' failed", exe.c_str());
 }
@@ -703,7 +705,13 @@ static int GetServerPid(const string &server_dir) {
   return result;
 }
 
-// Starts up a new server and connects to it. Exits if it didn't work not.
+static void SetRestartReasonIfNotSet(RestartReason restart_reason) {
+  if (globals->restart_reason == NO_RESTART) {
+    globals->restart_reason = restart_reason;
+  }
+}
+
+// Starts up a new server and connects to it. Exits if it didn't work out.
 static void StartServerAndConnect(const WorkspaceLayout *workspace_layout,
                                   BlazeServer *server) {
   string server_dir =
@@ -716,15 +724,6 @@ static void StartServerAndConnect(const WorkspaceLayout *workspace_layout,
          "server directory '%s' could not be created", server_dir.c_str());
   }
 
-  // TODO(laszlocsomor) 2016-11-21: remove `pid_symlink` and the `remove` call
-  // after 2017-05-01 (~half a year from writing this comment). By that time old
-  // Bazel clients that used to write PID symlinks will probably no longer be in
-  // use.
-  // Until then, defensively delete old PID symlinks that older clients may have
-  // left behind.
-  string pid_symlink = blaze_util::JoinPath(server_dir, kServerPidSymlink);
-  remove(pid_symlink.c_str());
-
   // If we couldn't connect to the server check if there is still a PID file
   // and if so, kill the server that wrote it. This can happen e.g. if the
   // server is in a GC pause and therefore cannot respond to ping requests and
@@ -733,10 +732,16 @@ static void StartServerAndConnect(const WorkspaceLayout *workspace_layout,
   int server_pid = GetServerPid(server_dir);
   if (server_pid > 0) {
     if (VerifyServerProcess(server_pid, globals->options->output_base,
-                            globals->options->install_base) &&
-        KillServerProcess(server_pid)) {
-      fprintf(stderr, "Killed non-responsive server process (pid=%d)\n",
-              server_pid);
+                            globals->options->install_base)) {
+      if (KillServerProcess(server_pid)) {
+        fprintf(stderr, "Killed non-responsive server process (pid=%d)\n",
+                server_pid);
+        SetRestartReasonIfNotSet(SERVER_UNRESPONSIVE);
+      } else {
+        SetRestartReasonIfNotSet(SERVER_VANISHED);
+      }
+    } else {
+      SetRestartReasonIfNotSet(PID_FILE_BUT_NO_SERVER);
     }
   }
 
@@ -803,7 +808,7 @@ class ExtractBlazeZipProcessor : public devtools_ijar::ZipExtractorProcessor {
            path.c_str());
     }
 
-    if (!blaze_util::WriteFile(data, size, path)) {
+    if (!blaze_util::WriteFile(data, size, path, 0755)) {
       die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
           "\nFailed to write zipped file \"%s\": %s", path.c_str(),
           blaze_util::GetLastErrorString().c_str());
@@ -1045,10 +1050,10 @@ static void KillRunningServerIfDifferentStartupOptions(BlazeServer *server) {
   // mortal coil.
   if (ServerNeedsToBeKilled(arguments, GetArgumentArray())) {
     globals->restart_reason = NEW_OPTIONS;
-    fprintf(stderr,
-            "WARNING: Running %s server needs to be killed, because the "
-            "startup options are different.\n",
-            globals->options->product_name.c_str());
+    PrintWarning(
+        "Running %s server needs to be killed, because the "
+        "startup options are different.",
+        globals->options->product_name.c_str());
     server->KillRunningServer();
   }
 }
@@ -1072,9 +1077,9 @@ static void EnsureCorrectRunningVersion(BlazeServer *server) {
                                    globals->options->install_base)) {
     if (server->Connected()) {
       server->KillRunningServer();
+      globals->restart_reason = NEW_VERSION;
     }
 
-    globals->restart_reason = NEW_VERSION;
     blaze_util::UnlinkPath(installation_path);
     if (!SymlinkDirectories(globals->options->install_base,
                             installation_path)) {
@@ -1236,7 +1241,7 @@ static void ComputeBaseDirectories(const WorkspaceLayout *workspace_layout,
 
 static void CheckEnvironment() {
   if (!blaze::GetEnv("http_proxy").empty()) {
-    fprintf(stderr, "Warning: ignoring http_proxy in environment.\n");
+    PrintWarning("ignoring http_proxy in environment.");
     blaze::UnsetEnv("http_proxy");
   }
 
@@ -1245,18 +1250,18 @@ static void CheckEnvironment() {
     // specified, the JVM fails to create threads.  See thread_stack_regtest.
     // This is also provoked by LD_LIBRARY_PATH=/usr/lib/debug,
     // or anything else that causes the JVM to use LinuxThreads.
-    fprintf(stderr, "Warning: ignoring LD_ASSUME_KERNEL in environment.\n");
+    PrintWarning("ignoring LD_ASSUME_KERNEL in environment.");
     blaze::UnsetEnv("LD_ASSUME_KERNEL");
   }
 
   if (!blaze::GetEnv("LD_PRELOAD").empty()) {
-    fprintf(stderr, "Warning: ignoring LD_PRELOAD in environment.\n");
+    PrintWarning("ignoring LD_PRELOAD in environment.");
     blaze::UnsetEnv("LD_PRELOAD");
   }
 
   if (!blaze::GetEnv("_JAVA_OPTIONS").empty()) {
     // This would override --host_jvm_args
-    fprintf(stderr, "Warning: ignoring _JAVA_OPTIONS in environment.\n");
+    PrintWarning("ignoring _JAVA_OPTIONS in environment.");
     blaze::UnsetEnv("_JAVA_OPTIONS");
   }
 
@@ -1439,6 +1444,16 @@ bool GrpcBlazeServer::Connect() {
     return false;
   }
 
+  pid_t server_pid = GetServerPid(server_dir);
+  if (server_pid < 0) {
+    return false;
+  }
+
+  if (!VerifyServerProcess(server_pid, globals->options->output_base,
+      globals->options->install_base)) {
+    return false;
+  }
+
   std::shared_ptr<grpc::Channel> channel(
       grpc::CreateChannel(port, grpc::InsecureChannelCredentials()));
   std::unique_ptr<command_server::CommandServer::Stub> client(
@@ -1450,29 +1465,7 @@ bool GrpcBlazeServer::Connect() {
 
   this->client_ = std::move(client);
   connected_ = true;
-
-  globals->server_pid = GetServerPid(server_dir);
-  if (globals->server_pid <= 0) {
-    fprintf(stderr,
-            "Can't get PID of existing server (server dir=%s). "
-            "Shutting it down and starting a new one...\n",
-            server_dir.c_str());
-    // This means that we have a server we could connect to but without a PID
-    // file, which in turn means that something went wrong before. Kill the
-    // server so that we can start with as clean a slate as possible. This may
-    // happen if someone (e.g. a client or server that's very old and uses an
-    // AF_UNIX socket instead of gRPC) deletes the server.pid.txt file.
-    KillRunningServer();
-    // Then wait until it actually dies
-    do {
-      auto next_attempt_time(std::chrono::system_clock::now() +
-                             std::chrono::milliseconds(1000));
-      std::this_thread::sleep_until(next_attempt_time);
-    } while (TryConnect(client_.get()));
-
-    return false;
-  }
-
+  globals->server_pid = server_pid;
   return true;
 }
 
@@ -1647,8 +1640,7 @@ unsigned int GrpcBlazeServer::Communicate() {
       return blaze_exit_code::INTERNAL_ERROR;
     }
 
-    bool pipe_broken_now = false;
-    const char *broken_pipe_name;
+    const char *broken_pipe_name = nullptr;
 
     if (response.finished()) {
       exit_code = response.exit_code();
@@ -1660,7 +1652,6 @@ unsigned int GrpcBlazeServer::Communicate() {
       if (blaze_util::WriteToStdOutErr(response.standard_output().c_str(), size,
                                        /* to_stdout */ true) ==
           blaze_util::WriteResult::BROKEN_PIPE) {
-        pipe_broken_now = true;
         broken_pipe_name = "standard output";
       }
     }
@@ -1670,12 +1661,11 @@ unsigned int GrpcBlazeServer::Communicate() {
       if (blaze_util::WriteToStdOutErr(response.standard_error().c_str(), size,
                                        /* to_stdout */ false) ==
           blaze_util::WriteResult::BROKEN_PIPE) {
-        pipe_broken_now = true;
         broken_pipe_name = "standard error";
       }
     }
 
-    if (pipe_broken_now && !pipe_broken) {
+    if (broken_pipe_name != nullptr && !pipe_broken) {
       pipe_broken = true;
       fprintf(stderr, "\nCannot write to %s; exiting...\n\n", broken_pipe_name);
       Cancel();

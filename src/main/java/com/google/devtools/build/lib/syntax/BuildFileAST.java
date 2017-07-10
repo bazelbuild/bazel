@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import static com.google.devtools.build.lib.syntax.Parser.Dialect.BUILD;
+import static com.google.devtools.build.lib.syntax.Parser.Dialect.SKYLARK;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -33,6 +36,9 @@ import javax.annotation.Nullable;
 /**
  * Abstract syntax node for an entire BUILD file.
  */
+// TODO(bazel-team): Consider breaking this up into two classes: One that extends ASTNode and does
+// not include import info; and one that wraps that object with additional import info but that
+// does not itself extend ASTNode. This would help keep the AST minimalistic.
 public class BuildFileAST extends ASTNode {
 
   private final ImmutableList<Statement> stmts;
@@ -241,8 +247,16 @@ public class BuildFileAST extends ASTNode {
   }
 
   @Override
+  public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
+    // Only statements are printed, not comments and processed import data.
+    for (Statement stmt : stmts) {
+      stmt.prettyPrint(buffer, indentLevel);
+    }
+  }
+
+  @Override
   public String toString() {
-    return "BuildFileAST" + getStatements();
+    return "<BuildFileAST with " + stmts.size() + " statements>";
   }
 
   @Override
@@ -257,12 +271,12 @@ public class BuildFileAST extends ASTNode {
   public static BuildFileAST parseBuildFile(ParserInputSource input,
                                             List<Statement> preludeStatements,
                                             EventHandler eventHandler) {
-    Parser.ParseResult result = Parser.parseFile(input, eventHandler);
+    Parser.ParseResult result = Parser.parseFile(input, eventHandler, BUILD);
     return create(preludeStatements, result, /*contentHashCode=*/ null, eventHandler);
   }
 
   public static BuildFileAST parseBuildFile(ParserInputSource input, EventHandler eventHandler) {
-    Parser.ParseResult result = Parser.parseFile(input, eventHandler);
+    Parser.ParseResult result = Parser.parseFile(input, eventHandler, BUILD);
     return create(ImmutableList.<Statement>of(), result, /*contentHashCode=*/ null, eventHandler);
   }
 
@@ -280,7 +294,7 @@ public class BuildFileAST extends ASTNode {
   public static BuildFileAST parseSkylarkFile(Path file, long fileSize, EventHandler eventHandler)
       throws IOException {
     ParserInputSource input = ParserInputSource.create(file, fileSize);
-    Parser.ParseResult result = Parser.parseFileForSkylark(input, eventHandler);
+    Parser.ParseResult result = Parser.parseFile(input, eventHandler, SKYLARK);
     return create(
         ImmutableList.<Statement>of(), result,
         HashCode.fromBytes(file.getDigest()).toString(), eventHandler);
@@ -292,22 +306,20 @@ public class BuildFileAST extends ASTNode {
    *
    * <p>This method should not be used in Bazel code, since it doesn't validate that the imports are
    * syntactically valid.
-   *
-   * @throws IOException if the file cannot not be read.
    */
   public static BuildFileAST parseSkylarkFileWithoutImports(
-      ParserInputSource input, EventHandler eventHandler) throws IOException {
-    ParseResult result = Parser.parseFileForSkylark(input, eventHandler);
+      ParserInputSource input, EventHandler eventHandler) {
+    ParseResult result = Parser.parseFile(input, eventHandler, SKYLARK);
     return new BuildFileAST(
         ImmutableList.<Statement>builder()
             .addAll(ImmutableList.<Statement>of())
             .addAll(result.statements)
             .build(),
-        result.containsErrors, /*contentHashCode=*/
-        null,
+        result.containsErrors,
+        /*contentHashCode=*/null,
         result.location,
-        ImmutableList.copyOf(result.comments), /*imports=*/
-        null);
+        ImmutableList.copyOf(result.comments),
+        /*imports=*/null);
   }
 
   /**
@@ -315,27 +327,28 @@ public class BuildFileAST extends ASTNode {
    *
    * @return a new AST (or the same), with the containsErrors flag updated.
    */
-  public BuildFileAST validate(ValidationEnvironment validationEnv, EventHandler eventHandler) {
-    boolean valid = validationEnv.validateAst(stmts, eventHandler);
+  public BuildFileAST validate(Environment env, EventHandler eventHandler) {
+    boolean valid = ValidationEnvironment.validateAst(env, stmts, eventHandler);
     if (valid || containsErrors) {
       return this;
     }
     return new BuildFileAST(stmts, true, contentHashCode, getLocation(), comments, imports);
   }
 
-  public static BuildFileAST parseBuildString(EventHandler eventHandler, String... content) {
+  private static BuildFileAST parseString(
+      Parser.Dialect dialect, EventHandler eventHandler, String... content) {
     String str = Joiner.on("\n").join(content);
     ParserInputSource input = ParserInputSource.create(str, PathFragment.EMPTY_FRAGMENT);
-    Parser.ParseResult result = Parser.parseFile(input, eventHandler);
+    Parser.ParseResult result = Parser.parseFile(input, eventHandler, dialect);
     return create(ImmutableList.<Statement>of(), result, null, eventHandler);
   }
 
-  // TODO(laurentlb): Merge parseSkylarkString and parseBuildString.
+  public static BuildFileAST parseBuildString(EventHandler eventHandler, String... content) {
+    return parseString(BUILD, eventHandler, content);
+  }
+
   public static BuildFileAST parseSkylarkString(EventHandler eventHandler, String... content) {
-    String str = Joiner.on("\n").join(content);
-    ParserInputSource input = ParserInputSource.create(str, PathFragment.EMPTY_FRAGMENT);
-    Parser.ParseResult result = Parser.parseFileForSkylark(input, eventHandler);
-    return create(ImmutableList.<Statement>of(), result, null, eventHandler);
+    return parseString(SKYLARK, eventHandler, content);
   }
 
   /**
@@ -344,7 +357,7 @@ public class BuildFileAST extends ASTNode {
    * @return true if the input file is syntactically valid
    */
   public static boolean checkSyntax(ParserInputSource input, EventHandler eventHandler) {
-    Parser.ParseResult result = Parser.parseFile(input, eventHandler);
+    Parser.ParseResult result = Parser.parseFile(input, eventHandler, BUILD);
     return !result.containsErrors;
   }
 
@@ -384,8 +397,7 @@ public class BuildFileAST extends ASTNode {
   public static BuildFileAST parseAndValidateSkylarkString(Environment env, String[] input)
       throws EvalException {
     BuildFileAST ast = parseSkylarkString(env.getEventHandler(), input);
-    ValidationEnvironment valid = new ValidationEnvironment(env);
-    valid.validateAst(ast.getStatements());
+    ValidationEnvironment.validateAst(env, ast.getStatements());
     return ast;
   }
 

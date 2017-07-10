@@ -13,8 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.pkgcache;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Function;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -105,7 +104,7 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
         return null;
       }
     };
-    assertFalse(visitTransitively(Label.parseAbsolute("//pkg:x")));
+    assertThat(visitTransitively(Label.parseAbsolute("//pkg:x"))).isFalse();
     scratch.overwriteFile("pkg/BUILD",
         "# another comment to force reload",
         "sh_library(name = 'x')");
@@ -113,7 +112,7 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
     syncPackages();
     eventCollector.clear();
     reporter.addHandler(failFastHandler);
-    assertTrue(visitTransitively(Label.parseAbsolute("//pkg:x")));
+    assertThat(visitTransitively(Label.parseAbsolute("//pkg:x"))).isTrue();
     assertNoEvents();
   }
 
@@ -134,7 +133,7 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
         return null;
       }
     };
-    assertFalse(visitTransitively(Label.parseAbsolute("//top:top")));
+    assertThat(visitTransitively(Label.parseAbsolute("//top:top"))).isFalse();
     assertContainsEvent("no such package 'pkg'");
     // The traditional label visitor does not propagate the original IOException message.
     // assertContainsEvent("custom crash");
@@ -148,7 +147,7 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
     syncPackages();
     eventCollector.clear();
     reporter.addHandler(failFastHandler);
-    assertTrue(visitTransitively(Label.parseAbsolute("//top:top")));
+    assertThat(visitTransitively(Label.parseAbsolute("//top:top"))).isTrue();
     assertNoEvents();
   }
 
@@ -167,6 +166,6 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
         return null;
       }
     };
-    assertFalse(visitTransitively(Label.parseAbsolute("//top/pkg:x")));
+    assertThat(visitTransitively(Label.parseAbsolute("//top/pkg:x"))).isFalse();
   }
 }

@@ -13,8 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
+import static com.google.common.truth.Truth.assertThat;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -28,43 +27,43 @@ public class TestSizeTest {
 
   @Test
   public void testBasicConversion() {
-    assertEquals(TestSize.valueOf("SMALL"), TestSize.SMALL);
-    assertEquals(TestSize.valueOf("MEDIUM"), TestSize.MEDIUM);
-    assertEquals(TestSize.valueOf("LARGE"), TestSize.LARGE);
-    assertEquals(TestSize.valueOf("ENORMOUS"), TestSize.ENORMOUS);
+    assertThat(TestSize.valueOf("SMALL")).isEqualTo(TestSize.SMALL);
+    assertThat(TestSize.valueOf("MEDIUM")).isEqualTo(TestSize.MEDIUM);
+    assertThat(TestSize.valueOf("LARGE")).isEqualTo(TestSize.LARGE);
+    assertThat(TestSize.valueOf("ENORMOUS")).isEqualTo(TestSize.ENORMOUS);
   }
 
   @Test
   public void testGetDefaultTimeout() {
-    assertEquals(TestTimeout.SHORT, TestSize.SMALL.getDefaultTimeout());
-    assertEquals(TestTimeout.MODERATE, TestSize.MEDIUM.getDefaultTimeout());
-    assertEquals(TestTimeout.LONG, TestSize.LARGE.getDefaultTimeout());
-    assertEquals(TestTimeout.ETERNAL, TestSize.ENORMOUS.getDefaultTimeout());
+    assertThat(TestSize.SMALL.getDefaultTimeout()).isEqualTo(TestTimeout.SHORT);
+    assertThat(TestSize.MEDIUM.getDefaultTimeout()).isEqualTo(TestTimeout.MODERATE);
+    assertThat(TestSize.LARGE.getDefaultTimeout()).isEqualTo(TestTimeout.LONG);
+    assertThat(TestSize.ENORMOUS.getDefaultTimeout()).isEqualTo(TestTimeout.ETERNAL);
   }
 
   @Test
   public void testGetDefaultShards() {
-    assertEquals(2, TestSize.SMALL.getDefaultShards());
-    assertEquals(10, TestSize.MEDIUM.getDefaultShards());
-    assertEquals(20, TestSize.LARGE.getDefaultShards());
-    assertEquals(30, TestSize.ENORMOUS.getDefaultShards());
+    assertThat(TestSize.SMALL.getDefaultShards()).isEqualTo(2);
+    assertThat(TestSize.MEDIUM.getDefaultShards()).isEqualTo(10);
+    assertThat(TestSize.LARGE.getDefaultShards()).isEqualTo(20);
+    assertThat(TestSize.ENORMOUS.getDefaultShards()).isEqualTo(30);
   }
 
   @Test
   public void testGetTestSizeFromString() {
-    assertNull(TestSize.getTestSize("Small"));
-    assertNull(TestSize.getTestSize("Koala"));
-    assertEquals(TestSize.SMALL, TestSize.getTestSize("small"));
-    assertEquals(TestSize.MEDIUM, TestSize.getTestSize("medium"));
-    assertEquals(TestSize.LARGE, TestSize.getTestSize("large"));
-    assertEquals(TestSize.ENORMOUS, TestSize.getTestSize("enormous"));
+    assertThat(TestSize.getTestSize("Small")).isNull();
+    assertThat(TestSize.getTestSize("Koala")).isNull();
+    assertThat(TestSize.getTestSize("small")).isEqualTo(TestSize.SMALL);
+    assertThat(TestSize.getTestSize("medium")).isEqualTo(TestSize.MEDIUM);
+    assertThat(TestSize.getTestSize("large")).isEqualTo(TestSize.LARGE);
+    assertThat(TestSize.getTestSize("enormous")).isEqualTo(TestSize.ENORMOUS);
   }
 
   @Test
   public void testGetTestSizeFromDefaultTimeout() {
-    assertEquals(TestSize.SMALL, TestSize.getTestSize(TestTimeout.SHORT));
-    assertEquals(TestSize.MEDIUM, TestSize.getTestSize(TestTimeout.MODERATE));
-    assertEquals(TestSize.LARGE, TestSize.getTestSize(TestTimeout.LONG));
-    assertEquals(TestSize.ENORMOUS, TestSize.getTestSize(TestTimeout.ETERNAL));
+    assertThat(TestSize.getTestSize(TestTimeout.SHORT)).isEqualTo(TestSize.SMALL);
+    assertThat(TestSize.getTestSize(TestTimeout.MODERATE)).isEqualTo(TestSize.MEDIUM);
+    assertThat(TestSize.getTestSize(TestTimeout.LONG)).isEqualTo(TestSize.LARGE);
+    assertThat(TestSize.getTestSize(TestTimeout.ETERNAL)).isEqualTo(TestSize.ENORMOUS);
   }
 }

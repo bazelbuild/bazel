@@ -13,10 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Executor.ActionContext;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 
 /**
@@ -31,7 +31,7 @@ public abstract class ActionContextProvider {
    * <p>These may or may not actually end up in the executor depending on the command line options
    * and other factors influencing how the executor is set up.
    */
-  public abstract Iterable<ActionContext> getActionContexts();
+  public abstract Iterable<? extends ActionContext> getActionContexts();
 
   /**
    * Two-phase initialization. The input file cache and the input prefetcher usually come from a

@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
-import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.actions.extra.CppLinkInfo;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.analysis.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -296,13 +295,11 @@ public final class CppLinkAction extends AbstractAction
 
   @Override
   @ThreadCompatible
-  public void execute(
-      ActionExecutionContext actionExecutionContext)
-          throws ActionExecutionException, InterruptedException {
+  public void execute(ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException, InterruptedException {
     if (fake) {
       executeFake();
     } else {
-      Executor executor = actionExecutionContext.getExecutor();
       try {
         // Collect input files
         List<ActionInput> allInputs = new ArrayList<>();
@@ -322,11 +319,13 @@ public final class CppLinkAction extends AbstractAction
             ImmutableList.copyOf(allInputs),
             getOutputs().asList(),
             estimateResourceConsumptionLocal());
-        executor.getSpawnActionContext(getMnemonic()).exec(
-            spawn, actionExecutionContext);
+        actionExecutionContext.getSpawnActionContext(getMnemonic())
+            .exec(spawn, actionExecutionContext);
       } catch (ExecException e) {
-        throw e.toActionExecutionException("Linking of rule '" + getOwner().getLabel() + "'",
-            executor.getVerboseFailures(), this);
+        throw e.toActionExecutionException(
+            "Linking of rule '" + getOwner().getLabel() + "'",
+            actionExecutionContext.getVerboseFailures(),
+            this);
       }
     }
   }
@@ -552,7 +551,7 @@ public final class CppLinkAction extends AbstractAction
     final ImmutableSet<Artifact> nonCodeInputs;
     final NestedSet<LibraryToLink> libraries;
     final NestedSet<Artifact> crosstoolInputs;
-    final ImmutableList<Artifact> ltoBitcodeFiles;
+    final ImmutableMap<Artifact, Artifact> ltoBitcodeFiles;
     final Artifact runtimeMiddleman;
     final NestedSet<Artifact> runtimeInputs;
     final ArtifactCategory runtimeType;
@@ -578,7 +577,7 @@ public final class CppLinkAction extends AbstractAction
           .addTransitive(builder.getLibraries().build()).build();
       this.crosstoolInputs =
           NestedSetBuilder.<Artifact>stableOrder().addTransitive(builder.getCrosstoolInputs()).build();
-      this.ltoBitcodeFiles = ImmutableList.copyOf(builder.getLtoBitcodeFiles());
+      this.ltoBitcodeFiles = ImmutableMap.copyOf(builder.getLtoBitcodeFiles());
       this.runtimeMiddleman = builder.getRuntimeMiddleman();
       this.runtimeInputs =
           NestedSetBuilder.<Artifact>stableOrder().addTransitive(builder.getRuntimeInputs()).build();
@@ -613,11 +612,6 @@ public final class CppLinkAction extends AbstractAction
      */
     public NestedSet<Artifact> getCrosstoolInputs() {
       return this.crosstoolInputs;
-    }
-    
-    /** Returns linker inputs that are lto bitcode files. */
-    public ImmutableList<Artifact> getLtoBitcodeFiles() {
-      return this.ltoBitcodeFiles;
     }
     
     /**

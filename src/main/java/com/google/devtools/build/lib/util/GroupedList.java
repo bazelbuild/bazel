@@ -432,6 +432,16 @@ public class GroupedList<T> implements Iterable<Collection<T>> {
       currentGroup = new ArrayList<>();
     }
 
+    /**
+     * Starts a group with an initial capacity. All elements added until {@link #endGroup} will be
+     * in the same group. Each call of startGroup must be paired with a following {@link #endGroup}
+     * call. Any duplicate elements added to this group will be silently deduplicated.
+     */
+    public void startGroup(int expectedGroupSize) {
+      Preconditions.checkState(currentGroup == null, this);
+      currentGroup = new ArrayList<>(expectedGroupSize);
+    }
+
     /** Ends a group started with {@link #startGroup}. */
     public void endGroup() {
       Preconditions.checkNotNull(currentGroup);

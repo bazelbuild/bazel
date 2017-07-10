@@ -13,15 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect.nestedset;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -42,15 +38,15 @@ public class NestedSetImplTest {
   public void simple() {
     NestedSet<String> set = nestedSetBuilder("a").build();
 
-    assertEquals(ImmutableList.of("a"), set.toList());
-    assertFalse(set.isEmpty());
+    assertThat(set.toList()).containsExactly("a");
+    assertThat(set.isEmpty()).isFalse();
   }
 
   @Test
   public void flatToString() {
-    assertEquals("{}", nestedSetBuilder().build().toString());
-    assertEquals("{a}", nestedSetBuilder("a").build().toString());
-    assertEquals("{a, b}", nestedSetBuilder("a", "b").build().toString());
+    assertThat(nestedSetBuilder().build().toString()).isEqualTo("{}");
+    assertThat(nestedSetBuilder("a").build().toString()).isEqualTo("{a}");
+    assertThat(nestedSetBuilder("a", "b").build().toString()).isEqualTo("{a, b}");
   }
 
   @Test
@@ -58,33 +54,33 @@ public class NestedSetImplTest {
     NestedSet<String> b = nestedSetBuilder("b1", "b2").build();
     NestedSet<String> c = nestedSetBuilder("c1", "c2").build();
 
-    assertEquals("{{b1, b2}, a}",
-      nestedSetBuilder("a").addTransitive(b).build().toString());
-    assertEquals("{{b1, b2}, {c1, c2}, a}",
-      nestedSetBuilder("a").addTransitive(b).addTransitive(c).build().toString());
+    assertThat(nestedSetBuilder("a").addTransitive(b).build().toString())
+        .isEqualTo("{{b1, b2}, a}");
+    assertThat(nestedSetBuilder("a").addTransitive(b).addTransitive(c).build().toString())
+        .isEqualTo("{{b1, b2}, {c1, c2}, a}");
 
-    assertEquals("{b1, b2}", nestedSetBuilder().addTransitive(b).build().toString());
+    assertThat(nestedSetBuilder().addTransitive(b).build().toString()).isEqualTo("{b1, b2}");
   }
 
   @Test
   public void isEmpty() {
     NestedSet<String> triviallyEmpty = nestedSetBuilder().build();
-    assertTrue(triviallyEmpty.isEmpty());
+    assertThat(triviallyEmpty.isEmpty()).isTrue();
 
     NestedSet<String> emptyLevel1 = nestedSetBuilder().addTransitive(triviallyEmpty).build();
-    assertTrue(emptyLevel1.isEmpty());
+    assertThat(emptyLevel1.isEmpty()).isTrue();
 
     NestedSet<String> emptyLevel2 = nestedSetBuilder().addTransitive(emptyLevel1).build();
-    assertTrue(emptyLevel2.isEmpty());
+    assertThat(emptyLevel2.isEmpty()).isTrue();
 
     NestedSet<String> triviallyNonEmpty = nestedSetBuilder("mango").build();
-    assertFalse(triviallyNonEmpty.isEmpty());
+    assertThat(triviallyNonEmpty.isEmpty()).isFalse();
 
     NestedSet<String> nonEmptyLevel1 = nestedSetBuilder().addTransitive(triviallyNonEmpty).build();
-    assertFalse(nonEmptyLevel1.isEmpty());
+    assertThat(nonEmptyLevel1.isEmpty()).isFalse();
 
     NestedSet<String> nonEmptyLevel2 = nestedSetBuilder().addTransitive(nonEmptyLevel1).build();
-    assertFalse(nonEmptyLevel2.isEmpty());
+    assertThat(nonEmptyLevel2.isEmpty()).isFalse();
   }
 
   @Test
@@ -208,11 +204,13 @@ public class NestedSetImplTest {
     for (Order order : Order.values()) {
       for (int numDirects = 0; numDirects < 3; numDirects++) {
         for (int numTransitives = 0; numTransitives < 3; numTransitives++) {
-          assertEquals(order, createNestedSet(order, numDirects, numTransitives, order).getOrder());
+          assertThat(createNestedSet(order, numDirects, numTransitives, order).getOrder())
+              .isEqualTo(order);
           // We allow mixing orders if one of them is stable. This tests that the top level order is
           // the correct one.
-          assertEquals(order,
-              createNestedSet(order, numDirects, numTransitives, Order.STABLE_ORDER).getOrder());
+          assertThat(
+                  createNestedSet(order, numDirects, numTransitives, Order.STABLE_ORDER).getOrder())
+              .isEqualTo(order);
         }
       }
     }

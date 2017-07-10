@@ -14,8 +14,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
@@ -26,12 +24,14 @@ import com.google.devtools.build.lib.analysis.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.testutil.TestMode;
 import org.junit.Before;
@@ -55,10 +55,11 @@ public class SkylarkEvaluationTest extends EvaluationTest {
    * Skylark context
    */
   @Override
-  protected ModalTestCase newTest() {
-    return new SkylarkTest();
+  protected ModalTestCase newTest(String... skylarkOptions) {
+    return new SkylarkTest(skylarkOptions);
   }
 
+  @Immutable
   static class Bad {
     Bad () {
     }
@@ -100,11 +101,11 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     }
     @SuppressWarnings("unused")
     @SkylarkCallable(name = "nullfunc_failing", doc = "", allowReturnNones = false)
-    public Object nullfuncFailing(String p1, Integer p2) {
+    public SkylarkValue nullfuncFailing(String p1, Integer p2) {
       return null;
     }
     @SkylarkCallable(name = "nullfunc_working", doc = "", allowReturnNones = true)
-    public Object nullfuncWorking() {
+    public SkylarkValue nullfuncWorking() {
       return null;
     }
     @SkylarkCallable(name = "voidfunc", doc = "")
@@ -213,8 +214,8 @@ public class SkylarkEvaluationTest extends EvaluationTest {
       switch (name) {
         case "field": return "a";
         case "nset": return NestedSetBuilder.stableOrder().build();
+        default: return null;
       }
-      return null;
     }
 
     @Override
@@ -770,7 +771,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "too many arguments, in method with_params(int, bool, bool named, "
+            "unexpected keyword 'n', in method with_params(int, bool, bool named, "
                 + "bool posOrNamed, int n) of 'Mock'",
             "mock.with_params(1, True, named=True, posOrNamed=True, n=2)");
     new SkylarkTest()
@@ -879,6 +880,30 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
+  public void testSetIsNotIterable() throws Exception {
+    new SkylarkTest("--incompatible_depset_is_not_iterable=true")
+        .testIfErrorContains("not iterable", "list(depset(['a', 'b']))")
+        .testIfErrorContains("not iterable", "max(depset([1, 2, 3]))")
+        .testIfErrorContains("not iterable", "1 in depset([1, 2, 3])")
+        .testIfErrorContains("not iterable", "sorted(depset(['a', 'b']))")
+        .testIfErrorContains("not iterable", "tuple(depset(['a', 'b']))")
+        .testIfErrorContains("not iterable", "[x for x in depset()]")
+        .testIfErrorContains("not iterable", "len(depset(['a']))");
+  }
+
+  @Test
+  public void testSetIsIterable() throws Exception {
+    new SkylarkTest("--incompatible_depset_is_not_iterable=false")
+        .testStatement("str(list(depset(['a', 'b'])))", "[\"a\", \"b\"]")
+        .testStatement("max(depset([1, 2, 3]))", 3)
+        .testStatement("1 in depset([1, 2, 3])", true)
+        .testStatement("str(sorted(depset(['b', 'a'])))", "[\"a\", \"b\"]")
+        .testStatement("str(tuple(depset(['a', 'b'])))", "(\"a\", \"b\")")
+        .testStatement("str([x for x in depset()])", "[]")
+        .testStatement("len(depset(['a']))", 1);
+  }
+
+  @Test
   public void testClassObjectCannotAccessNestedSet() throws Exception {
     new SkylarkTest()
         .update("mock", new MockClassObject())
@@ -984,6 +1009,74 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
+  public void testPlusEqualsOnListCopying() throws Exception {
+    new SkylarkTest("--incompatible_list_plus_equals_inplace=false")
+        .setUp(
+            "def func():",
+            "  l1 = [1, 2]",
+            "  l2 = l1",
+            "  l2 += [3, 4]",
+            "  return l1, l2",
+            "lists = str(func())")
+        .testLookup("lists", "([1, 2], [1, 2, 3, 4])");
+  }
+
+  @Test
+  public void testPlusEqualsOnListMutating() throws Exception {
+    new SkylarkTest("--incompatible_list_plus_equals_inplace=true")
+        .setUp(
+            "def func():",
+            "  l1 = [1, 2]",
+            "  l2 = l1",
+            "  l2 += [3, 4]",
+            "  return l1, l2",
+            "lists = str(func())")
+        .testLookup("lists", "([1, 2, 3, 4], [1, 2, 3, 4])");
+
+    // The same but with += after an IndexExpression
+    new SkylarkTest("--incompatible_list_plus_equals_inplace=true")
+        .setUp(
+            "def func():",
+            "  l = [1, 2]",
+            "  d = {0: l}",
+            "  d[0] += [3, 4]",
+            "  return l, d[0]",
+            "lists = str(func())")
+        .testLookup("lists", "([1, 2, 3, 4], [1, 2, 3, 4])");
+  }
+
+  @Test
+  public void testPlusEqualsOnTuple() throws Exception {
+    new SkylarkTest("--incompatible_list_plus_equals_inplace=false")
+        .setUp(
+            "def func():",
+            "  t1 = (1, 2)",
+            "  t2 = t1",
+            "  t2 += (3, 4)",
+            "  return t1, t2",
+            "tuples = func()")
+        .testLookup("tuples", SkylarkList.Tuple.of(
+            SkylarkList.Tuple.of(1, 2),
+            SkylarkList.Tuple.of(1, 2, 3, 4)
+        ));
+
+    // This behavior should remain the same regardless of the
+    // --incompatible_list_plus_equals_inplace flag
+    new SkylarkTest("--incompatible_list_plus_equals_inplace=true")
+        .setUp(
+            "def func():",
+            "  t1 = (1, 2)",
+            "  t2 = t1",
+            "  t2 += (3, 4)",
+            "  return t1, t2",
+            "tuples = func()")
+        .testLookup("tuples", SkylarkList.Tuple.of(
+            SkylarkList.Tuple.of(1, 2),
+            SkylarkList.Tuple.of(1, 2, 3, 4)
+        ));
+  }
+
+  @Test
   public void testPlusEqualsOnDict() throws Exception {
     new SkylarkTest().setUp("def func():",
         "  d = {'a' : 1}",
@@ -991,6 +1084,20 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         "  return d",
         "d = func()")
         .testLookup("d", ImmutableMap.of("a", 1, "b", 2));
+  }
+
+  @Test
+  public void testPlusOnDictDeprecated() throws Exception {
+    new SkylarkTest("--incompatible_disallow_dict_plus=true")
+        .testIfErrorContains(
+            "The `+` operator for dicts is deprecated and no longer supported.", "{1: 2} + {3: 4}");
+    new SkylarkTest("--incompatible_disallow_dict_plus=true")
+        .testIfErrorContains(
+            "The `+` operator for dicts is deprecated and no longer supported.",
+            "def func():",
+            "  d = {1: 2}",
+            "  d += {3: 4}",
+            "func()");
   }
 
   @Test
@@ -1208,11 +1315,11 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testSkylarkTypes() {
-    assertEquals(TransitiveInfoCollection.class,
-        EvalUtils.getSkylarkType(FileConfiguredTarget.class));
-    assertEquals(TransitiveInfoCollection.class,
-        EvalUtils.getSkylarkType(RuleConfiguredTarget.class));
-    assertEquals(Artifact.class, EvalUtils.getSkylarkType(SpecialArtifact.class));
+    assertThat(EvalUtils.getSkylarkType(FileConfiguredTarget.class))
+        .isEqualTo(TransitiveInfoCollection.class);
+    assertThat(EvalUtils.getSkylarkType(RuleConfiguredTarget.class))
+        .isEqualTo(TransitiveInfoCollection.class);
+    assertThat(EvalUtils.getSkylarkType(SpecialArtifact.class)).isEqualTo(Artifact.class);
   }
 
   // Override tests in EvaluationTest incompatible with Skylark
@@ -1232,11 +1339,11 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     // tuple
     x = eval("(1,2)");
     assertThat((Iterable<Object>) x).containsExactly(1, 2).inOrder();
-    assertTrue(((SkylarkList) x).isTuple());
+    assertThat(((SkylarkList) x).isTuple()).isTrue();
 
     x = eval("(1,2) + (3,4)");
     assertThat((Iterable<Object>) x).containsExactly(1, 2, 3, 4).inOrder();
-    assertTrue(((SkylarkList) x).isTuple());
+    assertThat(((SkylarkList) x).isTuple()).isTrue();
   }
 
   @Override
@@ -1270,6 +1377,10 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
     new SkylarkTest()
         .testIfErrorContains("type 'int' is not a collection", "[x2 + y2 for x2, y2 in (1, 2)]");
+
+    new SkylarkTest()
+        // returns [2] in Python, it's an error in Skylark
+        .testIfErrorContains("invalid lvalue", "[2 for [] in [()]]");
   }
 
   @Override
@@ -1293,8 +1404,10 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @SkylarkModule(name = "SkylarkClassObjectWithSkylarkCallables", doc = "")
   static final class SkylarkClassObjectWithSkylarkCallables extends SkylarkClassObject {
-    private static final NativeClassObjectConstructor CONSTRUCTOR =
-        new NativeClassObjectConstructor("struct_with_skylark_callables") {};
+    private static final NativeClassObjectConstructor<SkylarkClassObjectWithSkylarkCallables>
+        CONSTRUCTOR =
+            new NativeClassObjectConstructor<SkylarkClassObjectWithSkylarkCallables>(
+                SkylarkClassObjectWithSkylarkCallables.class, "struct_with_skylark_callables") {};
 
     SkylarkClassObjectWithSkylarkCallables() {
       super(
@@ -1406,5 +1519,51 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         .testIfExactError(
             // TODO(bazel-team): This should probably match the error above better.
             "struct has no method 'nonexistent_method'", "v = val.nonexistent_method()");
+  }
+
+  @Test
+  public void testListComprehensionsDoNotLeakVariables() throws Exception {
+    env =
+        newEnvironmentWithSkylarkOptions("--incompatible_comprehension_variables_do_not_leak=true");
+    checkEvalErrorContains(
+        "name 'a' is not defined",
+        "def foo():",
+        "  a = 10",
+        "  b = [a for a in range(3)]",
+        "  return a",
+        "x = foo()");
+  }
+
+  @Test
+  public void testListComprehensionsShadowGlobalVariable() throws Exception {
+    env =
+        newEnvironmentWithSkylarkOptions("--incompatible_comprehension_variables_do_not_leak=true");
+    eval("a = 18", "def foo():", "  b = [a for a in range(3)]", "  return a", "x = foo()");
+    assertThat(lookup("x")).isEqualTo(18);
+  }
+
+  @Test
+  public void testListComprehensionsLeakVariables() throws Exception {
+    env =
+        newEnvironmentWithSkylarkOptions(
+            "--incompatible_comprehension_variables_do_not_leak=false");
+    eval("def foo():", "  a = 10", "  b = [a for a in range(3)]", "  return a", "x = foo()");
+    assertThat(lookup("x")).isEqualTo(2);
+  }
+
+  @Test
+  public void testLoadStatementWithAbsolutePath() throws Exception {
+    env = newEnvironmentWithSkylarkOptions("--incompatible_load_argument_is_label");
+    checkEvalErrorContains(
+        "First argument of 'load' must be a label and start with either '//' or ':'",
+        "load('/tmp/foo', 'arg')");
+  }
+
+  @Test
+  public void testLoadStatementWithRelativePath() throws Exception {
+    env = newEnvironmentWithSkylarkOptions("--incompatible_load_argument_is_label");
+    checkEvalErrorContains(
+        "First argument of 'load' must be a label and start with either '//' or ':'",
+        "load('foo', 'arg')");
   }
 }

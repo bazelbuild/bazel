@@ -14,12 +14,8 @@
 package com.google.devtools.build.lib.analysis.util;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Function;
@@ -72,6 +68,7 @@ import com.google.devtools.build.lib.analysis.SourceManifestAction;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
+import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
@@ -81,6 +78,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options.
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
+import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -93,10 +91,10 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
@@ -107,7 +105,6 @@ import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
-import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
@@ -119,17 +116,17 @@ import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.extra.ExtraAction;
+import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.test.BaselineCoverageAction;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.LegacyLoadingPhaseRunner;
-import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
-import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.BlazeClock;
@@ -142,6 +139,7 @@ import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.ByteArrayOutputStream;
@@ -156,6 +154,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import javax.annotation.Nullable;
 import org.junit.Before;
 
 /**
@@ -169,7 +168,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected ConfigurationFactory configurationFactory;
   protected BuildView view;
 
-  private SequencedSkyframeExecutor skyframeExecutor;
+  protected SequencedSkyframeExecutor skyframeExecutor;
 
   protected TimestampGranularityMonitor tsgm;
   protected BlazeDirectories directories;
@@ -183,6 +182,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected OptionsParser optionsParser;
   private PackageCacheOptions packageCacheOptions;
+  private SkylarkSemanticsOptions skylarkSemanticsOptions;
   protected PackageFactory pkgFactory;
 
   protected MockToolsConfig mockToolsConfig;
@@ -202,6 +202,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
 
     packageCacheOptions = parsePackageCacheOptions();
+    skylarkSemanticsOptions = parseSkylarkSemanticsOptions();
     workspaceStatusActionFactory =
         new AnalysisTestUtil.DummyWorkspaceStatusActionFactory(directories);
     mutableActionGraph = new MapBasedActionGraph();
@@ -209,17 +210,20 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     configurationFactory =
         analysisMock.createConfigurationFactory(ruleClassProvider.getConfigurationFragments());
 
+    ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues = ImmutableList.of(
+        PrecomputedValue.injected(
+            RepositoryDelegatorFunction.REPOSITORY_OVERRIDES,
+            ImmutableMap.<RepositoryName, PathFragment>of()));
     pkgFactory =
         analysisMock
-            .getPackageFactoryForTesting()
-            .create(
-                ruleClassProvider,
-                getPlatformSetRegexps(),
-                getEnvironmentExtensions(),
-                scratch.getFileSystem());
+            .getPackageFactoryBuilderForTesting()
+            .setExtraPrecomputeValues(extraPrecomputedValues)
+            .setEnvironmentExtensions(getEnvironmentExtensions())
+            .setPlatformSetRegexps(getPlatformSetRegexps())
+            .build(ruleClassProvider, scratch.getFileSystem());
     tsgm = new TimestampGranularityMonitor(BlazeClock.instance());
     skyframeExecutor =
-        SequencedSkyframeExecutor.create(
+        SequencedSkyframeExecutor.createForTesting(
             pkgFactory,
             directories,
             binTools,
@@ -227,19 +231,18 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             ruleClassProvider.getBuildInfoFactories(),
             ImmutableList.<DiffAwareness.Factory>of(),
             Predicates.<PathFragment>alwaysFalse(),
-            getPreprocessorFactorySupplier(),
             analysisMock.getSkyFunctions(),
             getPrecomputedValues(),
             ImmutableList.<SkyValueDirtinessChecker>of(),
-            analysisMock.getProductName(),
-            CrossRepositoryLabelViolationStrategy.ERROR,
-            ImmutableList.of(BuildFileName.BUILD_DOT_BAZEL, BuildFileName.BUILD));
+            analysisMock.getProductName());
+    skyframeExecutor.injectExtraPrecomputedValues(extraPrecomputedValues);
     packageCacheOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
     packageCacheOptions.showLoadingProgress = true;
     packageCacheOptions.globbingThreads = 7;
     skyframeExecutor.preparePackageLoading(
         new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
         packageCacheOptions,
+        skylarkSemanticsOptions,
         "",
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
@@ -276,8 +279,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return ImmutableList.of();
   }
 
-  protected Preprocessor.Factory.Supplier getPreprocessorFactorySupplier() {
-    return Preprocessor.Factory.Supplier.NullSupplier.INSTANCE;
+  protected SkylarkSemanticsOptions getSkylarkSemantics() {
+    return skylarkSemanticsOptions;
   }
 
   protected ResourceSet getStartingResources() {
@@ -349,6 +352,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageCacheOptions,
+        skylarkSemanticsOptions,
         ruleClassProvider.getDefaultsPackageContent(optionsParser),
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
@@ -362,11 +366,23 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     setUpSkyframe();
   }
 
-  private PackageCacheOptions parsePackageCacheOptions(String... options) throws Exception {
+  protected void setSkylarkSemanticsOptions(String... options) throws Exception {
+    skylarkSemanticsOptions = parseSkylarkSemanticsOptions(options);
+    setUpSkyframe();
+  }
+
+  private static PackageCacheOptions parsePackageCacheOptions(String... options) throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(PackageCacheOptions.class);
     parser.parse("--default_visibility=public");
     parser.parse(options);
     return parser.getOptions(PackageCacheOptions.class);
+  }
+
+  private static SkylarkSemanticsOptions parseSkylarkSemanticsOptions(String... options)
+      throws Exception {
+    OptionsParser parser = OptionsParser.newOptionsParser(SkylarkSemanticsOptions.class);
+    parser.parse(options);
+    return parser.getOptions(SkylarkSemanticsOptions.class);
   }
 
   /** Used by skyframe-only tests. */
@@ -532,7 +548,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected void assertConfigurationsEqual(BuildConfiguration config1, BuildConfiguration config2) {
     // BuildOptions and crosstool files determine a configuration's content. Within the context
     // of these tests only the former actually change.
-    assertEquals(config1.cloneOptions(), config2.cloneOptions());
+    assertThat(config2.cloneOptions()).isEqualTo(config1.cloneOptions());
   }
 
   /**
@@ -630,6 +646,17 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
   }
 
+  @Nullable
+  protected final ParameterFileWriteAction findParamsFileAction(SpawnAction spawnAction) {
+    for (Artifact input : spawnAction.getInputs()) {
+      Action generatingAction = getGeneratingAction(input);
+      if (generatingAction instanceof ParameterFileWriteAction) {
+        return (ParameterFileWriteAction) generatingAction;
+      }
+    }
+    return null;
+  }
+
   protected Action getGeneratingAction(ConfiguredTarget target, String outputName) {
     NestedSet<Artifact> filesToBuild = getFilesToBuild(target);
     return getGeneratingAction(outputName, filesToBuild, "filesToBuild");
@@ -649,7 +676,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected Action getGeneratingActionInOutputGroup(
       ConfiguredTarget target, String outputName, String outputGroupName) {
     NestedSet<Artifact> outputGroup =
-        target.getProvider(OutputGroupProvider.class).getOutputGroup(outputGroupName);
+        OutputGroupProvider.get(target).getOutputGroup(outputGroupName);
     return getGeneratingAction(outputName, outputGroup, "outputGroup/" + outputGroupName);
   }
 
@@ -659,6 +686,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected final SpawnAction getGeneratingSpawnAction(Artifact artifact) {
     return (SpawnAction) getGeneratingAction(artifact);
+  }
+
+  protected final List<String> getGeneratingSpawnActionArgs(Artifact artifact) {
+    SpawnAction a = getGeneratingSpawnAction(artifact);
+    ParameterFileWriteAction p = findParamsFileAction(a);
+    return p == null
+        ? a.getArguments()
+        : ImmutableList.copyOf(Iterables.concat(a.getArguments(), p.getContents()));
   }
 
   protected SpawnAction getGeneratingSpawnAction(ConfiguredTarget target, String outputName) {
@@ -817,8 +852,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     reporter.removeHandler(failFastHandler); // expect errors
     ConfiguredTarget target = scratchConfiguredTarget(packageName, ruleName, lines);
     if (target != null) {
-      assertTrue("Rule '" + "//" + packageName + ":" + ruleName + "' did not contain an error",
-          view.hasErrors(target));
+      assertWithMessage(
+              "Rule '" + "//" + packageName + ":" + ruleName + "' did not contain an error")
+          .that(view.hasErrors(target))
+          .isTrue();
     }
     return assertContainsEvent(expectedErrorMessage);
   }
@@ -861,9 +898,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     eventCollector.clear();
     ConfiguredTarget target = scratchConfiguredTarget(packageName, ruleName,
         lines);
-    assertFalse(
-        "Rule '" + "//" + packageName + ":" + ruleName + "' did contain an error",
-        view.hasErrors(target));
+    assertWithMessage("Rule '" + "//" + packageName + ":" + ruleName + "' did contain an error")
+        .that(view.hasErrors(target))
+        .isFalse();
     return assertContainsEvent(expectedWarningMessage);
   }
 
@@ -890,21 +927,23 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       Target outTarget = getTarget(expectedOut);
       if (!(outTarget instanceof OutputFile)) {
         fail("Target " + outTarget + " is not an output");
-        assertSame(ruleTarget, ((OutputFile) outTarget).getGeneratingRule());
+        assertThat(((OutputFile) outTarget).getGeneratingRule()).isSameAs(ruleTarget);
         // This ensures that the output artifact is wired up in the action graph
         getConfiguredTarget(expectedOut);
       }
     }
 
     Collection<OutputFile> outs = ruleTarget.getOutputFiles();
-    assertEquals("Mismatched outputs: " + outs, expectedOuts.length, outs.size());
+    assertWithMessage("Mismatched outputs: " + outs)
+        .that(outs.size())
+        .isEqualTo(expectedOuts.length);
   }
 
   /**
    * Asserts that there exists a configured target file for the given label.
    */
   protected void assertConfiguredTargetExists(String label) throws Exception {
-    assertNotNull(getFileConfiguredTarget(label));
+    assertThat(getFileConfiguredTarget(label)).isNotNull();
   }
 
   /**
@@ -913,10 +952,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected void assertSameGeneratingAction(String labelA, String labelB)
       throws Exception {
-    assertSame(
-        "Action for " + labelA + " did not match " + labelB,
-        getGeneratingActionForLabel(labelA),
-        getGeneratingActionForLabel(labelB));
+    assertWithMessage("Action for " + labelA + " did not match " + labelB)
+        .that(getGeneratingActionForLabel(labelB))
+        .isSameAs(getGeneratingActionForLabel(labelA));
   }
 
   protected Artifact getSourceArtifact(PathFragment rootRelativePath, Root root) {
@@ -1217,14 +1255,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       String... expectedMessages) throws Exception{
     ConfiguredTarget target = getConfiguredTarget(targetName);
     if (expectedError) {
-      assertTrue(view.hasErrors(target));
+      assertThat(view.hasErrors(target)).isTrue();
       for (String expectedMessage : expectedMessages) {
         String message = "in srcs attribute of " + ruleType + " rule " + targetName + ": "
             + expectedMessage;
         assertContainsEvent(message);
       }
     } else {
-      assertFalse(view.hasErrors(target));
+      assertThat(view.hasErrors(target)).isFalse();
       for (String expectedMessage : expectedMessages) {
         String message = "in srcs attribute of " + ruleType + " rule " + target.getLabel() + ": "
             + expectedMessage;
@@ -1384,7 +1422,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected NestedSet<Artifact> getOutputGroup(
       TransitiveInfoCollection target, String outputGroup) {
-    OutputGroupProvider provider = target.getProvider(OutputGroupProvider.class);
+    OutputGroupProvider provider = OutputGroupProvider.get(target);
     return provider == null
         ? NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER)
         : provider.getOutputGroup(outputGroup);
@@ -1402,16 +1440,16 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return target.getProvider(FilesToRunProvider.class).getExecutable();
   }
 
-  protected ImmutableList<Artifact> getFilesToRun(TransitiveInfoCollection target) {
+  protected NestedSet<Artifact> getFilesToRun(TransitiveInfoCollection target) {
     return target.getProvider(FilesToRunProvider.class).getFilesToRun();
   }
 
-  protected ImmutableList<Artifact> getFilesToRun(Label label) throws Exception {
+  protected NestedSet<Artifact> getFilesToRun(Label label) throws Exception {
     return getConfiguredTarget(label, targetConfig)
         .getProvider(FilesToRunProvider.class).getFilesToRun();
   }
 
-  protected ImmutableList<Artifact> getFilesToRun(String label) throws Exception {
+  protected NestedSet<Artifact> getFilesToRun(String label) throws Exception {
     return getConfiguredTarget(label).getProvider(FilesToRunProvider.class).getFilesToRun();
   }
 
@@ -1435,12 +1473,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return Iterables.getOnlyElement(masterConfig.getTargetConfigurations());
   }
 
-  protected BuildConfiguration getDataConfiguration() {
-    BuildConfiguration targetConfig = getTargetConfiguration();
-    // TODO(bazel-team): do a proper data transition for dynamic configurations.
-    return targetConfig.useDynamicConfigurations()
-        ? targetConfig
-        : targetConfig.getConfiguration(ConfigurationTransition.DATA);
+  protected BuildConfiguration getDataConfiguration() throws InterruptedException {
+    return getConfiguration(getTargetConfiguration(), ConfigurationTransition.DATA);
   }
 
   protected BuildConfiguration getHostConfiguration() {
@@ -1448,8 +1482,27 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
-   * Returns an attribute value retriever for the given rule for the target configuration.
+   * Returns the configuration created by applying the given transition to the source
+   * configuration. Works for both static and dynamic configuration tests.
+   */
+  protected BuildConfiguration getConfiguration(BuildConfiguration fromConfig,
+      Attribute.Transition transition) throws InterruptedException {
+    if (transition == ConfigurationTransition.NONE) {
+      return fromConfig;
+    } else if (transition == ConfigurationTransition.NULL) {
+      return null;
+    } else if (!fromConfig.useDynamicConfigurations()) {
+      return fromConfig.getConfiguration(transition);
+    } else {
+      PatchTransition patchTransition =
+          (PatchTransition) ruleClassProvider.getDynamicTransitionMapper().map(transition);
+      return skyframeExecutor.getConfigurationForTesting(reporter, fromConfig.fragmentClasses(),
+          patchTransition.apply(fromConfig.getOptions()));
+    }
+  }
 
+  /**
+   * Returns an attribute value retriever for the given rule for the target configuration.
    */
   protected AttributeMap attributes(RuleConfiguredTarget ct) {
     return ConfiguredAttributeMapper.of(ct);
@@ -1666,6 +1719,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
 
     @Override
+    public SkylarkSemanticsOptions getSkylarkSemantics() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Artifact getFilesetArtifact(PathFragment rootRelativePath, Root root) {
       throw new UnsupportedOperationException();
     }
@@ -1767,7 +1825,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     ConfiguredTarget target = getConfiguredTarget(targetLabel);
     List<Action> actions = getExtraActionActions(target);
 
-    assertNotNull(actions);
+    assertThat(actions).isNotNull();
     assertThat(actions).hasSize(2);
 
     ExtraAction extraAction = null;
@@ -1779,15 +1837,16 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       }
     }
 
-    assertNotNull(actions.toString(), extraAction);
+    assertWithMessage(actions.toString()).that(extraAction).isNotNull();
 
     Action pseudoAction = extraAction.getShadowedAction();
 
     assertThat(pseudoAction).isInstanceOf(PseudoAction.class);
-    assertEquals(
-        String.format("%s%s.extra_action_dummy", targetConfig.getGenfilesFragment(),
-            convertLabelToPath(targetLabel)),
-        pseudoAction.getPrimaryOutput().getExecPathString());
+    assertThat(pseudoAction.getPrimaryOutput().getExecPathString())
+        .isEqualTo(
+            String.format(
+                "%s%s.extra_action_dummy",
+                targetConfig.getGenfilesFragment(), convertLabelToPath(targetLabel)));
 
     return (PseudoAction<?>) pseudoAction;
   }

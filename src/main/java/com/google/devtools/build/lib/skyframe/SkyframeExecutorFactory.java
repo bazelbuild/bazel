@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -43,7 +42,6 @@ public interface SkyframeExecutorFactory {
    * @param buildInfoFactories list of BuildInfoFactories
    * @param diffAwarenessFactories
    * @param allowedMissingInputs
-   * @param preprocessorFactorySupplier
    * @param extraSkyFunctions
    * @param extraPrecomputedValues
    * @param customDirtinessCheckers
@@ -59,7 +57,6 @@ public interface SkyframeExecutorFactory {
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
       Predicate<PathFragment> allowedMissingInputs,
-      Preprocessor.Factory.Supplier preprocessorFactorySupplier,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
       ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues,
       Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,

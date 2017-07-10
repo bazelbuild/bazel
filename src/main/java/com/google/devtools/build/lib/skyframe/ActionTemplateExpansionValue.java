@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.analysis.actions.ActionTemplate;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 
@@ -36,9 +37,8 @@ public final class ActionTemplateExpansionValue extends ActionLookupValue {
   }
 
   static SkyKey key(ActionTemplate<?> actionTemplate) {
-    return SkyKey.create(
-        SkyFunctions.ACTION_TEMPLATE_EXPANSION,
-        createActionTemplateExpansionKey(actionTemplate));
+    return LegacySkyKey.create(
+        SkyFunctions.ACTION_TEMPLATE_EXPANSION, createActionTemplateExpansionKey(actionTemplate));
   }
 
   static ActionTemplateExpansionKey createActionTemplateExpansionKey(

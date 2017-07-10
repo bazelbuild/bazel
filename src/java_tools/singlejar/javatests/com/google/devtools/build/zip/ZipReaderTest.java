@@ -21,15 +21,6 @@ import static org.junit.Assert.fail;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.zip.ZipFileEntry.Compression;
 import com.google.devtools.build.zip.ZipFileEntry.Feature;
-
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
-import org.junit.rules.TemporaryFolder;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -45,6 +36,13 @@ import java.util.zip.Deflater;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
 import java.util.zip.ZipOutputStream;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.ExpectedException;
+import org.junit.rules.TemporaryFolder;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class ZipReaderTest {
@@ -467,7 +465,7 @@ public class ZipReaderTest {
       fooIn.read(fooData);
       assertThat(fooData).isEqualTo(expectedFooData);
       assertThat(fooEntry.getName()).isEqualTo("entry");
-      assertThat(fooEntry.getComment()).isEqualTo("");
+      assertThat(fooEntry.getComment()).isEmpty();
       assertThat(fooEntry.getMethod()).isEqualTo(Compression.STORED);
       assertThat(fooEntry.getVersionNeeded()).isEqualTo(Feature.ZIP64_SIZE.getMinVersion());
       assertThat(fooEntry.getSize()).isEqualTo(expectedFooData.length);

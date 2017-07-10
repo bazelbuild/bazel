@@ -64,27 +64,22 @@ public class AppleWatch1Extension implements RuleConfiguredTargetFactory {
             + "(https://github.com/bazelbuild/rules_apple) to build Apple targets.");
 
     ObjcProvider.Builder extensionObjcProviderBuilder = new ObjcProvider.Builder();
-    XcodeProvider.Builder applicationXcodeProviderBuilder = new XcodeProvider.Builder();
-    XcodeProvider.Builder extensionXcodeProviderBuilder = new XcodeProvider.Builder();
     NestedSetBuilder<Artifact> applicationFilesToBuild = NestedSetBuilder.stableOrder();
     NestedSetBuilder<Artifact> extensionfilesToBuild = NestedSetBuilder.stableOrder();
 
     // 1. Build watch application bundle.
     createWatchApplicationBundle(
         ruleContext,
-        applicationXcodeProviderBuilder,
         applicationFilesToBuild);
 
     // 2. Build watch extension bundle.
-    createWatchExtensionBundle(ruleContext, extensionXcodeProviderBuilder,
-        applicationXcodeProviderBuilder, extensionObjcProviderBuilder, extensionfilesToBuild);
+    createWatchExtensionBundle(ruleContext, extensionObjcProviderBuilder, extensionfilesToBuild);
 
     // 3. Extract the watch application bundle into the extension bundle.
     registerWatchApplicationUnBundlingAction(ruleContext);
 
     RuleConfiguredTargetBuilder targetBuilder =
         ObjcRuleClasses.ruleConfiguredTarget(ruleContext, extensionfilesToBuild.build())
-            .addProvider(XcodeProvider.class, extensionXcodeProviderBuilder.build())
             .addProvider(
                 InstrumentedFilesProvider.class,
                 InstrumentedFilesCollector.forward(ruleContext, "binary"));
@@ -119,37 +114,30 @@ public class AppleWatch1Extension implements RuleConfiguredTargetFactory {
    * Creates a watch extension bundle.
    *
    * @param ruleContext rule context in which to create the bundle
-   * @param extensionXcodeProviderBuilder {@link XcodeProvider.Builder} for the extension
-   * @param applicationXcodeProviderBuilder {@link XcodeProvider.Builder} for the watch application
    *    which is added as a dependency to the extension
    * @param objcProviderBuilder {@link ObjcProvider.Builder} for the extension
    * @param filesToBuild the list to contain the files to be built for this extension bundle
    */
   private void createWatchExtensionBundle(RuleContext ruleContext,
-      XcodeProvider.Builder extensionXcodeProviderBuilder,
-      XcodeProvider.Builder applicationXcodeProviderBuilder,
       ObjcProvider.Builder objcProviderBuilder,
       NestedSetBuilder<Artifact> filesToBuild) throws InterruptedException {
-    new WatchExtensionSupport(ruleContext,
-        extensionDependencyAttributes,
-        ObjcRuleClasses.intermediateArtifacts(ruleContext),
-        watchExtensionBundleName(ruleContext),
-        watchExtensionIpaArtifact(ruleContext),
-        watchApplicationBundle(ruleContext),
-        applicationXcodeProviderBuilder.build(),
-        ConfigurationDistinguisher.WATCH_OS1_EXTENSION)
-    .createBundle(filesToBuild, objcProviderBuilder, extensionXcodeProviderBuilder);
+    new WatchExtensionSupport(
+            ruleContext,
+            extensionDependencyAttributes,
+            ObjcRuleClasses.intermediateArtifacts(ruleContext),
+            watchExtensionBundleName(ruleContext),
+            watchExtensionIpaArtifact(ruleContext),
+            watchApplicationBundle(ruleContext))
+        .createBundle(filesToBuild, objcProviderBuilder);
   }
 
   /**
    * Creates a watch application bundle.
    * @param ruleContext rule context in which to create the bundle
-   * @param xcodeProviderBuilder {@link XcodeProvider.Builder} for the application
    * @param filesToBuild the list to contain the files to be built for this bundle
    */
   private void createWatchApplicationBundle(
       RuleContext ruleContext,
-      XcodeProvider.Builder xcodeProviderBuilder,
       NestedSetBuilder<Artifact> filesToBuild)
       throws InterruptedException {
     new WatchApplicationSupport(
@@ -160,10 +148,7 @@ public class AppleWatch1Extension implements RuleConfiguredTargetFactory {
             watchApplicationBundleName(ruleContext),
             watchApplicationIpaArtifact(ruleContext),
             watchApplicationBundleName(ruleContext))
-        .createBundleAndXcodeproj(
-            xcodeProviderBuilder,
-            ImmutableList.<Artifact>of(),
-            filesToBuild);
+        .createBundle(ImmutableList.<Artifact>of(), filesToBuild);
   }
 
   /**

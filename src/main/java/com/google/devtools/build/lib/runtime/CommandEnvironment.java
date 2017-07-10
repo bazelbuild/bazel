@@ -17,8 +17,6 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.devtools.build.lib.profiler.AutoProfiler.profiled;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
@@ -26,10 +24,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.SkyframePackageRootResolver;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.OutputService;
@@ -40,8 +35,10 @@ import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -49,10 +46,7 @@ import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.common.options.OptionPriority;
 import com.google.devtools.common.options.OptionsClassProvider;
-import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
 import java.util.Collection;
@@ -80,10 +74,12 @@ public final class CommandEnvironment {
   private final EventBus eventBus;
   private final BlazeModule.ModuleEnvironment blazeModuleEnvironment;
   private final Map<String, String> clientEnv = new TreeMap<>();
-  private final Set<String> visibleClientEnv = new TreeSet<>();
+  private final Set<String> visibleActionEnv = new TreeSet<>();
+  private final Set<String> visibleTestEnv = new TreeSet<>();
   private final Map<String, String> actionClientEnv = new TreeMap<>();
   private final TimestampGranularityMonitor timestampGranularityMonitor;
   private final Thread commandThread;
+  private final Command command;
 
   private String[] crashData;
 
@@ -91,8 +87,8 @@ public final class CommandEnvironment {
   private long commandStartTime;
   private OutputService outputService;
   private Path workingDirectory;
+  private String workspaceName;
 
-  private String commandName;
   private OptionsProvider options;
 
   private AtomicReference<AbruptExitException> pendingException = new AtomicReference<>();
@@ -124,7 +120,8 @@ public final class CommandEnvironment {
    * commandThread passed is interrupted when a module requests an early exit.
    */
   CommandEnvironment(
-      BlazeRuntime runtime, BlazeWorkspace workspace, EventBus eventBus, Thread commandThread) {
+      BlazeRuntime runtime, BlazeWorkspace workspace, EventBus eventBus, Thread commandThread,
+      Command command) {
     this.runtime = runtime;
     this.workspace = workspace;
     this.directories = workspace.getDirectories();
@@ -132,6 +129,7 @@ public final class CommandEnvironment {
     this.reporter = new Reporter(eventBus);
     this.eventBus = eventBus;
     this.commandThread = commandThread;
+    this.command = command;
     this.blazeModuleEnvironment = new BlazeModuleEnvironment();
     this.timestampGranularityMonitor = new TimestampGranularityMonitor(runtime.getClock());
     // Record the command's starting time again, for use by
@@ -143,6 +141,7 @@ public final class CommandEnvironment {
     // TODO(ulfjack): We don't call beforeCommand() in tests, but rely on workingDirectory being set
     // in setupPackageCache(). This leads to NPE if we don't set it here.
     this.workingDirectory = directories.getWorkspace();
+    this.workspaceName = null;
 
     workspace.getSkyframeExecutor().setEventBus(eventBus);
   }
@@ -156,12 +155,10 @@ public final class CommandEnvironment {
   @VisibleForTesting
   CommandEnvironment(
       BlazeRuntime runtime, BlazeWorkspace workspace, EventBus eventBus, Thread commandThread,
-      String commandNameForTesting, OptionsProvider optionsForTesting) {
-    this(runtime, workspace, eventBus, commandThread);
-    // Both commandName and options are normally set by beforeCommand(); however this method is not
-    // called in tests (i.e. tests use BlazeRuntimeWrapper). These fields should only be set for
-    // testing.
-    this.commandName = commandNameForTesting;
+      Command command, OptionsProvider optionsForTesting) {
+    this(runtime, workspace, eventBus, commandThread, command);
+    // Options are normally set by beforeCommand(); however this method is not called in tests (i.e.
+    // tests use BlazeRuntimeWrapper). These fields should only be set for testing.
     this.options = optionsForTesting;
   }
 
@@ -200,8 +197,12 @@ public final class CommandEnvironment {
     return Collections.unmodifiableMap(clientEnv);
   }
 
+  public Command getCommand() {
+    return command;
+  }
+
   public String getCommandName() {
-    return commandName;
+    return command.name();
   }
 
   public OptionsProvider getOptions() {
@@ -212,15 +213,27 @@ public final class CommandEnvironment {
    * Return an ordered version of the client environment restricted to those variables whitelisted
    * by the command-line options to be inheritable by actions.
    */
-  public Map<String, String> getWhitelistedClientEnv() {
-    Map<String, String> visibleEnv = new TreeMap<>();
-    for (String var : visibleClientEnv) {
+  public Map<String, String> getWhitelistedActionEnv() {
+    return filterClientEnv(visibleActionEnv);
+  }
+
+  /**
+   * Return an ordered version of the client environment restricted to those variables whitelisted
+   * by the command-line options to be inheritable by actions.
+   */
+  public Map<String, String> getWhitelistedTestEnv() {
+    return filterClientEnv(visibleTestEnv);
+  }
+
+  private Map<String, String> filterClientEnv(Set<String> vars) {
+    Map<String, String> result = new TreeMap<>();
+    for (String var : vars) {
       String value = clientEnv.get(var);
       if (value != null) {
-        visibleEnv.put(var, value);
+        result.put(var, value);
       }
     }
-    return Collections.unmodifiableMap(visibleEnv);
+    return Collections.unmodifiableMap(result);
   }
 
   @VisibleForTesting
@@ -310,13 +323,14 @@ public final class CommandEnvironment {
   }
 
   public String getWorkspaceName() {
-    Path workspace = getDirectories().getWorkspace();
-    if (workspace == null) {
-      return "";
-    }
-    return workspace.getBaseName();
+    Preconditions.checkNotNull(workspaceName);
+    return workspaceName;
   }
 
+  public void setWorkspaceName(String workspaceName) {
+    Preconditions.checkState(this.workspaceName == null, "workspace name can only be set once");
+    this.workspaceName = workspaceName;
+  }
   /**
    * Returns if the client passed a valid workspace to be used for the build.
    */
@@ -339,7 +353,8 @@ public final class CommandEnvironment {
    * build reside.
    */
   public Path getExecRoot() {
-    return getDirectories().getExecRoot();
+    Preconditions.checkNotNull(workspaceName);
+    return getDirectories().getExecRoot(workspaceName);
   }
 
   /**
@@ -394,19 +409,6 @@ public final class CommandEnvironment {
     if (crashData != null && crashData.length >= 2) {
       crashData[1] = getCommandId() + " (build id)";
     }
-  }
-
-  /**
-   * This method only exists for the benefit of InfoCommand, which needs to construct a {@link
-   * BuildConfigurationCollection} without running a full loading phase. Don't add any more clients;
-   * instead, we should change info so that it doesn't need the configuration.
-   */
-  public BuildConfigurationCollection getConfigurations(OptionsProvider optionsProvider)
-      throws InvalidConfigurationException, InterruptedException {
-    BuildOptions buildOptions = runtime.createBuildOptions(optionsProvider);
-    boolean keepGoing = optionsProvider.getOptions(BuildView.Options.class).keepGoing;
-    return getSkyframeExecutor().createConfigurations(reporter, runtime.getConfigurationFactory(),
-        buildOptions, ImmutableSet.<String>of(), keepGoing);
   }
 
   /**
@@ -485,7 +487,8 @@ public final class CommandEnvironment {
 
   /**
    * Initializes the package cache using the given options, and syncs the package cache. Also
-   * injects a defaults package using the options for the {@link BuildConfiguration}.
+   * injects a defaults package and the skylark semantics using the options for the {@link
+   * BuildConfiguration}.
    *
    * @see DefaultsPackage
    */
@@ -495,9 +498,14 @@ public final class CommandEnvironment {
     if (!skyframeExecutor.hasIncrementalState()) {
       skyframeExecutor.resetEvaluator();
     }
+
+    for (BlazeModule module : runtime.getBlazeModules()) {
+      skyframeExecutor.injectExtraPrecomputedValues(module.getPrecomputedValues());
+    }
     skyframeExecutor.sync(
         reporter,
         options.getOptions(PackageCacheOptions.class),
+        options.getOptions(SkylarkSemanticsOptions.class),
         getOutputBase(),
         getWorkingDirectory(),
         defaultsPackageContents,
@@ -524,29 +532,23 @@ public final class CommandEnvironment {
   }
 
   /**
-   * Hook method called by the BlazeCommandDispatcher prior to the dispatch of
-   * each command.
+   * Hook method called by the BlazeCommandDispatcher prior to the dispatch of each command.
    *
-   * @param options The CommonCommandOptions used by every command.
+   * @param commonOptions The CommonCommandOptions used by every command.
    * @throws AbruptExitException if this command is unsuitable to be run as specified
    */
-  void beforeCommand(Command command, OptionsParser optionsParser,
-      CommonCommandOptions options, long execStartTimeNanos, long waitTimeInMs)
+  void beforeCommand(
+      OptionsProvider options,
+      CommonCommandOptions commonOptions,
+      long execStartTimeNanos,
+      long waitTimeInMs,
+      InvocationPolicy invocationPolicy)
       throws AbruptExitException {
-    commandStartTime -= options.startupTime;
-    if (runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).watchFS) {
-      try {
-        // TODO(ulfjack): Get rid of the startup option and drop this code.
-        optionsParser.parse("--watchfs");
-      } catch (OptionsParsingException e) {
-        // This should never happen.
-        throw new IllegalStateException(e);
-      }
-    }
-    this.commandName = command.name();
-    this.options = optionsParser;
+    commandStartTime -= commonOptions.startupTime;
+    this.options = options;
 
-    eventBus.post(new GotOptionsEvent(runtime.getStartupOptionsProvider(), optionsParser));
+    eventBus.post(
+        new GotOptionsEvent(runtime.getStartupOptionsProvider(), options, invocationPolicy));
     throwPendingException();
 
     outputService = null;
@@ -574,7 +576,7 @@ public final class CommandEnvironment {
     Path workspace = getWorkspace();
     Path workingDirectory;
     if (inWorkspace()) {
-      workingDirectory = workspace.getRelative(options.clientCwd);
+      workingDirectory = workspace.getRelative(commonOptions.clientCwd);
     } else {
       workspace = FileSystemUtils.getWorkingDirectory(getDirectories().getFileSystem());
       workingDirectory = workspace;
@@ -582,62 +584,44 @@ public final class CommandEnvironment {
     this.relativeWorkingDirectory = workingDirectory.relativeTo(workspace);
     this.workingDirectory = workingDirectory;
 
-    updateClientEnv(options.clientEnv);
+    updateClientEnv(commonOptions.clientEnv);
 
     // Fail fast in the case where a Blaze command forgets to install the package path correctly.
     skyframeExecutor.setActive(false);
     // Let skyframe figure out if it needs to store graph edges for this build.
     skyframeExecutor.decideKeepIncrementalState(
         runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).batch,
-        optionsParser.getOptions(BuildView.Options.class));
+        options.getOptions(BuildView.Options.class));
 
     // Start the performance and memory profilers.
-    runtime.beforeCommand(this, options, execStartTimeNanos);
+    runtime.beforeCommand(this, commonOptions, execStartTimeNanos);
 
-    // actionClientEnv contains the environment where values from actionEnvironment are
-    // overridden.
-    actionClientEnv.clear();
+    // actionClientEnv contains the environment where values from actionEnvironment are overridden.
     actionClientEnv.putAll(clientEnv);
 
     if (command.builds()) {
-      Map<String, String> testEnv = new TreeMap<>();
-      for (Map.Entry<String, String> entry :
-          optionsParser.getOptions(BuildConfiguration.Options.class).testEnvironment) {
-        testEnv.put(entry.getKey(), entry.getValue());
-      }
-
       // Compute the set of environment variables that are whitelisted on the commandline
-      // for inheritence.
+      // for inheritance.
       for (Map.Entry<String, String> entry :
-             optionsParser.getOptions(BuildConfiguration.Options.class).actionEnvironment) {
+          options.getOptions(BuildConfiguration.Options.class).actionEnvironment) {
         if (entry.getValue() == null) {
-          visibleClientEnv.add(entry.getKey());
+          visibleActionEnv.add(entry.getKey());
         } else {
-          visibleClientEnv.remove(entry.getKey());
+          visibleActionEnv.remove(entry.getKey());
           actionClientEnv.put(entry.getKey(), entry.getValue());
         }
       }
-
-      try {
-        for (Map.Entry<String, String> entry : testEnv.entrySet()) {
-          if (entry.getValue() == null) {
-            String clientValue = clientEnv.get(entry.getKey());
-            if (clientValue != null) {
-              optionsParser.parse(OptionPriority.SOFTWARE_REQUIREMENT,
-                  "test environment variable from client environment",
-                  ImmutableList.of(
-                      "--test_env=" + entry.getKey() + "=" + clientEnv.get(entry.getKey())));
-            }
-          }
+      for (Map.Entry<String, String> entry :
+          options.getOptions(BuildConfiguration.Options.class).testEnvironment) {
+        if (entry.getValue() == null) {
+          visibleTestEnv.add(entry.getKey());
         }
-      } catch (OptionsParsingException e) {
-        throw new IllegalStateException(e);
       }
     }
 
     eventBus.post(new CommandStartEvent(
         command.name(), getCommandId(), getClientEnv(), workingDirectory, getDirectories(),
-        waitTimeInMs + options.waitTime));
+        waitTimeInMs + commonOptions.waitTime));
   }
 
   /** Returns the name of the file system we are writing output to. */
@@ -654,8 +638,7 @@ public final class CommandEnvironment {
   }
 
   /**
-   * Returns the client environment for which value specified in the command line with the flag
-   * --action_env have been enforced.
+   * Returns the client environment combined with all fixed env var settings from --action_env.
    */
   public Map<String, String> getActionClientEnv() {
     return Collections.unmodifiableMap(actionClientEnv);

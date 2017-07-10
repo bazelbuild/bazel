@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -40,7 +40,6 @@ import java.io.ObjectInputStream;
 import java.io.Serializable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -83,9 +82,22 @@ public class CcToolchainFeatures implements Serializable {
     }
   }
 
+  /**
+   * Thrown when multiple features provide the same string symbol.
+   */
+  public static class CollidingProvidesException extends RuntimeException {
+    CollidingProvidesException(String message) {
+      super(message);
+    }
+  }
+
   /** Error message thrown when a toolchain does not provide a required artifact_name_pattern. */
   public static final String MISSING_ARTIFACT_NAME_PATTERN_ERROR_TEMPLATE =
       "Toolchain must provide artifact_name_pattern for category %s";
+
+  /** Error message thrown when a toolchain enables two features that provide the same string. */
+  @VisibleForTesting static final String COLLIDING_PROVIDES_ERROR =
+      "Symbol %s is provided by all of the following features: %s";
 
   /**
    * A piece of a single string value.
@@ -348,7 +360,6 @@ public class CcToolchainFeatures implements Serializable {
   @Immutable
   private static class FlagGroup implements Serializable, Expandable {
     private final ImmutableList<Expandable> expandables;
-    private final ImmutableSet<String> usedVariables;
     private String iterateOverVariable;
     private final ImmutableSet<String> expandIfAllAvailable;
     private final ImmutableSet<String> expandIfNoneAvailable;
@@ -356,15 +367,8 @@ public class CcToolchainFeatures implements Serializable {
     private final String expandIfFalse;
     private final VariableWithValue expandIfEqual;
 
-    /**
-     * TODO(b/32655571): Cleanup and get rid of usedVariables field once implicit iteration is not
-     * needed.
-     *
-     * @throws InvalidConfigurationException
-     */
     private FlagGroup(CToolchain.FlagGroup flagGroup) throws InvalidConfigurationException {
       ImmutableList.Builder<Expandable> expandables = ImmutableList.builder();
-      ImmutableSet.Builder<String> usedVariables = ImmutableSet.builder();
       Collection<String> flags = flagGroup.getFlagList();
       Collection<CToolchain.FlagGroup> groups = flagGroup.getFlagGroupList();
       if (!flags.isEmpty() && !groups.isEmpty()) {
@@ -376,18 +380,14 @@ public class CcToolchainFeatures implements Serializable {
       for (String flag : flags) {
         StringValueParser parser = new StringValueParser(flag);
         expandables.add(new Flag(parser.getChunks()));
-        usedVariables.addAll(parser.getUsedVariables());
       }
       for (CToolchain.FlagGroup group : groups) {
         FlagGroup subgroup = new FlagGroup(group);
         expandables.add(subgroup);
-        usedVariables.addAll(subgroup.getUsedVariables());
       }
       if (flagGroup.hasIterateOver()) {
         this.iterateOverVariable = flagGroup.getIterateOver();
-        usedVariables.add(this.iterateOverVariable);
       }
-      this.usedVariables = usedVariables.build();
       this.expandables = expandables.build();
       this.expandIfAllAvailable = ImmutableSet.copyOf(flagGroup.getExpandIfAllAvailableList());
       this.expandIfNoneAvailable = ImmutableSet.copyOf(flagGroup.getExpandIfNoneAvailableList());
@@ -406,10 +406,6 @@ public class CcToolchainFeatures implements Serializable {
     public void expand(Variables variables, final List<String> commandLine) {
       if (!canBeExpanded(variables)) {
         return;
-      }
-      if (iterateOverVariable == null) {
-        // TODO(b/32655571): Remove branch once implicit iteration is not needed anymore.
-        iterateOverVariable = variables.guessIteratedOverVariable(usedVariables);
       }
       if (iterateOverVariable != null) {
         for (VariableValue variableValue : variables.getSequenceVariable(iterateOverVariable)) {
@@ -455,10 +451,6 @@ public class CcToolchainFeatures implements Serializable {
         return false;
       }
       return true;
-    }
-
-    private Set<String> getUsedVariables() {
-      return usedVariables;
     }
 
     /**
@@ -749,14 +741,9 @@ public class CcToolchainFeatures implements Serializable {
       Optional<CToolchain.Tool> tool =
           Iterables.tryFind(
               tools,
-              new Predicate<CToolchain.Tool>() {
-                // We select the first listed tool for which all specified features are activated
-                // in this configuration
-                @Override
-                public boolean apply(CToolchain.Tool input) {
-                  Collection<String> featureNamesForTool = input.getWithFeature().getFeatureList();
-                  return enabledFeatureNames.containsAll(featureNamesForTool);
-                }
+              input -> {
+                Collection<String> featureNamesForTool = input.getWithFeature().getFeatureList();
+                return enabledFeatureNames.containsAll(featureNamesForTool);
               });
       if (tool.isPresent()) {
         return new Tool(tool.get());
@@ -862,9 +849,6 @@ public class CcToolchainFeatures implements Serializable {
        * @param variableName name of the variable value at hand, for better exception message.
        */
       Iterable<? extends VariableValue> getSequenceValue(String variableName);
-
-      // TODO(b/32655571): Remove once implicit iteration is not needed
-      boolean isSequence();
 
       /**
        * Return value of the field, if the variable is of struct type or throw exception if it is
@@ -1033,17 +1017,17 @@ public class CcToolchainFeatures implements Serializable {
       private final boolean isWholeArchive;
       private final Type type;
 
-      public static LibraryToLinkValue forDynamicLibrary(String name, boolean isWholeArchive) {
-        return new LibraryToLinkValue(name, null, isWholeArchive, Type.DYNAMIC_LIBRARY);
+      public static LibraryToLinkValue forDynamicLibrary(String name) {
+        return new LibraryToLinkValue(name, null, false, Type.DYNAMIC_LIBRARY);
       }
 
       public static LibraryToLinkValue forVersionedDynamicLibrary(
-          String name, boolean isWholeArchive) {
-        return new LibraryToLinkValue(name, null, isWholeArchive, Type.VERSIONED_DYNAMIC_LIBRARY);
+          String name) {
+        return new LibraryToLinkValue(name, null, false, Type.VERSIONED_DYNAMIC_LIBRARY);
       }
 
-      public static LibraryToLinkValue forInterfaceLibrary(String name, boolean isWholeArchive) {
-        return new LibraryToLinkValue(name, null, isWholeArchive, Type.INTERFACE_LIBRARY);
+      public static LibraryToLinkValue forInterfaceLibrary(String name) {
+        return new LibraryToLinkValue(name, null, false, Type.INTERFACE_LIBRARY);
       }
 
       public static LibraryToLinkValue forStaticLibrary(String name, boolean isWholeArchive) {
@@ -1074,11 +1058,6 @@ public class CcToolchainFeatures implements Serializable {
                 "Invalid toolchain configuration: Cannot expand variable '%s': expected sequence, "
                     + "found structure (LibraryToLink)",
                 variableName));
-      }
-
-      @Override
-      public boolean isSequence() {
-        return false;
       }
 
       @Override
@@ -1136,11 +1115,6 @@ public class CcToolchainFeatures implements Serializable {
       }
 
       @Override
-      public boolean isSequence() {
-        return true;
-      }
-
-      @Override
       public VariableValue getFieldValue(String variableName, String field) {
         throw new ExpansionException(
             String.format(
@@ -1189,11 +1163,6 @@ public class CcToolchainFeatures implements Serializable {
       }
 
       @Override
-      public boolean isSequence() {
-        return true;
-      }
-
-      @Override
       public VariableValue getFieldValue(String variableName, String field) {
         throw new ExpansionException(
             String.format(
@@ -1230,11 +1199,6 @@ public class CcToolchainFeatures implements Serializable {
       @Override
       public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
         return values;
-      }
-
-      @Override
-      public boolean isSequence() {
-        return true;
       }
 
       @Override
@@ -1302,11 +1266,6 @@ public class CcToolchainFeatures implements Serializable {
       }
 
       @Override
-      public boolean isSequence() {
-        return false;
-      }
-
-      @Override
       public boolean isTruthy() {
         return !value.isEmpty();
       }
@@ -1347,11 +1306,6 @@ public class CcToolchainFeatures implements Serializable {
                 "Invalid toolchain configuration: Cannot expand variable '%s.%s': variable '%s' is "
                     + "string, expected structure",
                 variableName, field, variableName));
-      }
-
-      @Override
-      public boolean isSequence() {
-        return false;
       }
 
       @Override
@@ -1398,11 +1352,6 @@ public class CcToolchainFeatures implements Serializable {
       }
 
       @Override
-      public boolean isSequence() {
-        return false;
-      }
-
-      @Override
       public boolean isTruthy() {
         return value != 0;
       }
@@ -1422,7 +1371,13 @@ public class CcToolchainFeatures implements Serializable {
         stringVariablesMap.putAll(variables.stringVariablesMap);
       }
 
-      /** Add a variable that expands {@code name} to {@code value}. */
+      /** Add an integer variable that expands {@code name} to {@code value}. */
+      public Builder addIntegerVariable(String name, int value) {
+        variablesMap.put(name, new IntegerValue(value));
+        return this;
+      }
+
+      /** Add a string variable that expands {@code name} to {@code value}. */
       public Builder addStringVariable(String name, String value) {
         Preconditions.checkArgument(
             !variablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
@@ -1672,27 +1627,6 @@ public class CcToolchainFeatures implements Serializable {
       return getVariable(variableName).getSequenceValue(variableName);
     }
 
-    private String guessIteratedOverVariable(ImmutableSet<String> usedVariables) {
-      String sequenceName = null;
-      for (String usedVariable : usedVariables) {
-        VariableValue variableValue = lookupVariable(usedVariable, false);
-        if (variableValue != null && variableValue.isSequence()) {
-          if (sequenceName != null) {
-            throw new ExpansionException(
-                "Invalid toolchain configuration: trying to expand two variable list in one "
-                    + "flag group: '"
-                    + sequenceName
-                    + "' and '"
-                    + usedVariable
-                    + "'");
-          } else {
-            sequenceName = usedVariable;
-          }
-        }
-      }
-      return sequenceName;
-    }
-
     /** Returns whether {@code variable} is set. */
     boolean isAvailable(String variable) {
       return lookupVariable(variable, false) != null;
@@ -1704,23 +1638,27 @@ public class CcToolchainFeatures implements Serializable {
    */
   @Immutable
   public static class FeatureConfiguration {
+    private final FeatureSpecification featureSpecification;
     private final ImmutableSet<String> enabledFeatureNames;
     private final Iterable<Feature> enabledFeatures;
     private final ImmutableSet<String> enabledActionConfigActionNames;
     
     private final ImmutableMap<String, ActionConfig> actionConfigByActionName;
-    
+
     public FeatureConfiguration() {
       this(
+          FeatureSpecification.EMPTY,
           ImmutableList.<Feature>of(),
           ImmutableList.<ActionConfig>of(),
           ImmutableMap.<String, ActionConfig>of());
     }
 
     private FeatureConfiguration(
+        FeatureSpecification featureSpecification,
         Iterable<Feature> enabledFeatures,
         Iterable<ActionConfig> enabledActionConfigs,
         ImmutableMap<String, ActionConfig> actionConfigByActionName) {
+      this.featureSpecification = featureSpecification;
       this.enabledFeatures = enabledFeatures;
       
       this.actionConfigByActionName = actionConfigByActionName;
@@ -1792,6 +1730,10 @@ public class CcToolchainFeatures implements Serializable {
       ActionConfig actionConfig = actionConfigByActionName.get(actionName);
       return actionConfig.getTool(enabledFeatureNames);
     }
+
+    public FeatureSpecification getFeatureSpecification() {
+      return featureSpecification;
+    }
   }
 
   /** All artifact name patterns defined in this feature configuration. */
@@ -1839,6 +1781,11 @@ public class CcToolchainFeatures implements Serializable {
       requires;
 
   /**
+   * Maps from a string to the set of selectables that 'provide' it.
+   */
+  private final ImmutableMultimap<String, CrosstoolSelectable> provides;
+
+  /**
    * Maps from a selectable to all selectables that have a requirement referencing it.
    *
    * <p>This will be used to determine which selectables need to be re-checked after a selectable
@@ -1852,7 +1799,7 @@ public class CcToolchainFeatures implements Serializable {
    * A cache of feature selection results, so we do not recalculate the feature selection for all
    * actions.
    */
-  private transient LoadingCache<Collection<String>, FeatureConfiguration> configurationCache =
+  private transient LoadingCache<FeatureSpecification, FeatureConfiguration> configurationCache =
       buildConfigurationCache();
 
   /**
@@ -1907,11 +1854,12 @@ public class CcToolchainFeatures implements Serializable {
     }
     this.artifactNamePatterns = artifactNamePatternsBuilder.build();
 
-    // Next, we build up all forward references for 'implies' and 'requires' edges.
+    // Next, we build up all forward references for 'implies', 'requires', and 'provides' edges.
     ImmutableMultimap.Builder<CrosstoolSelectable, CrosstoolSelectable> implies =
         ImmutableMultimap.builder();
     ImmutableMultimap.Builder<CrosstoolSelectable, ImmutableSet<CrosstoolSelectable>> requires =
         ImmutableMultimap.builder();
+    ImmutableMultimap.Builder<CrosstoolSelectable, String> provides = ImmutableMultimap.builder();
     // We also store the reverse 'implied by' and 'required by' edges during this pass.
     ImmutableMultimap.Builder<CrosstoolSelectable, CrosstoolSelectable> impliedBy =
         ImmutableMultimap.builder();
@@ -1935,6 +1883,9 @@ public class CcToolchainFeatures implements Serializable {
         impliedBy.put(implied, selectable);
         implies.put(selectable, implied);
       }
+      for (String providesName : toolchainFeature.getProvidesList()) {
+        provides.put(selectable, providesName);
+      }
     }
 
     for (CToolchain.ActionConfig toolchainActionConfig : toolchain.getActionConfigList()) {
@@ -1949,6 +1900,7 @@ public class CcToolchainFeatures implements Serializable {
 
     this.implies = implies.build();
     this.requires = requires.build();
+    this.provides = provides.build().inverse();
     this.impliedBy = impliedBy.build();
     this.requiredBy = requiredBy.build();
   }
@@ -1980,7 +1932,7 @@ public class CcToolchainFeatures implements Serializable {
       }
     }
   }
- 
+
   /**
    * Assign an empty cache after default-deserializing all non-transient members.
    */
@@ -1989,19 +1941,18 @@ public class CcToolchainFeatures implements Serializable {
     this.configurationCache = buildConfigurationCache();
   }
   
-  /**
-   * @return an empty {@code FeatureConfiguration} cache. 
-   */
-  private LoadingCache<Collection<String>, FeatureConfiguration> buildConfigurationCache() {
+  /** @return an empty {@code FeatureConfiguration} cache. */
+  private LoadingCache<FeatureSpecification, FeatureConfiguration> buildConfigurationCache() {
     return CacheBuilder.newBuilder()
-        // TODO(klimek): Benchmark and tweak once we support a larger configuration. 
+        // TODO(klimek): Benchmark and tweak once we support a larger configuration.
         .maximumSize(10000)
-        .build(new CacheLoader<Collection<String>, FeatureConfiguration>() {
-          @Override
-          public FeatureConfiguration load(Collection<String> requestedFeatures) {
-            return computeFeatureConfiguration(requestedFeatures);
-          }
-        });
+        .build(
+            new CacheLoader<FeatureSpecification, FeatureConfiguration>() {
+              @Override
+              public FeatureConfiguration load(FeatureSpecification featureSpecification) {
+                return computeFeatureConfiguration(featureSpecification);
+              }
+            });
   }
 
   /**
@@ -2014,28 +1965,25 @@ public class CcToolchainFeatures implements Serializable {
    * <p>Additional features will be enabled if the toolchain supports them and they are implied by
    * requested features.
    */
-  public FeatureConfiguration getFeatureConfiguration(Collection<String> requestedFeatures) {
-    return configurationCache.getUnchecked(requestedFeatures);
+  public FeatureConfiguration getFeatureConfiguration(FeatureSpecification featureSpecification) {
+    return configurationCache.getUnchecked(featureSpecification);
   }
-      
-  private FeatureConfiguration computeFeatureConfiguration(Collection<String> requestedFeatures) { 
-    // Command line flags will be output in the order in which they are specified in the toolchain
-    // configuration.
-    return new FeatureSelection(requestedFeatures).run();
-  }
-  
+
   /**
-   * Given a list of {@code requestedFeatures}, returns all features that are enabled by the
-   * toolchain configuration.
+   * Given {@code featureSpecification}, returns a FeatureConfiguration with all requested features
+   * enabled.
    *
    * <p>A requested feature will not be enabled if the toolchain does not support it (which may
    * depend on other requested features).
    *
    * <p>Additional features will be enabled if the toolchain supports them and they are implied by
    * requested features.
-   */ 
-  public FeatureConfiguration getFeatureConfiguration(String... requestedFeatures) {
-    return getFeatureConfiguration(Arrays.asList(requestedFeatures));
+   */
+  public FeatureConfiguration computeFeatureConfiguration(
+      FeatureSpecification featureSpecification) {
+    // Command line flags will be output in the order in which they are specified in the toolchain
+    // configuration.
+    return new FeatureSelection(featureSpecification).run();
   }
 
   /** Returns the list of features that specify themselves as enabled by default. */
@@ -2122,10 +2070,12 @@ public class CcToolchainFeatures implements Serializable {
      * from selectables that have unmet requirements.
      */
     private final Set<CrosstoolSelectable> enabled = new HashSet<>();
-    
-    private FeatureSelection(Collection<String> requestedSelectables) {
+    private final FeatureSpecification featureSpecification;
+
+    private FeatureSelection(FeatureSpecification featureSpecification) {
+      this.featureSpecification = featureSpecification;
       ImmutableSet.Builder<CrosstoolSelectable> builder = ImmutableSet.builder();
-      for (String name : requestedSelectables) {
+      for (String name : featureSpecification.getRequestedFeatures()) {
         if (selectablesByName.containsKey(name)) {
           builder.add(selectablesByName.get(name));
         }
@@ -2150,7 +2100,7 @@ public class CcToolchainFeatures implements Serializable {
           enabledActivatablesInOrderBuilder.add(selectable);
         }
       }
-      
+
       ImmutableList<CrosstoolSelectable> enabledActivatablesInOrder =
           enabledActivatablesInOrderBuilder.build();
       Iterable<Feature> enabledFeaturesInOrder =
@@ -2158,10 +2108,27 @@ public class CcToolchainFeatures implements Serializable {
       Iterable<ActionConfig> enabledActionConfigsInOrder =
           Iterables.filter(enabledActivatablesInOrder, ActionConfig.class);
 
+      for (String provided : provides.keys()) {
+        List<String> conflicts = new ArrayList<>();
+        for (CrosstoolSelectable selectableProvidingString : provides.get(provided)) {
+          if (enabledActivatablesInOrder.contains(selectableProvidingString)) {
+            conflicts.add(selectableProvidingString.getName());
+          }
+        }
+
+        if (conflicts.size() > 1) {
+          throw new CollidingProvidesException(String.format(COLLIDING_PROVIDES_ERROR,
+              provided, Joiner.on(" ").join(conflicts)));
+        }
+      }
+
       return new FeatureConfiguration(
-          enabledFeaturesInOrder, enabledActionConfigsInOrder, actionConfigsByActionName);
+          featureSpecification,
+          enabledFeaturesInOrder,
+          enabledActionConfigsInOrder,
+          actionConfigsByActionName);
     }
-    
+
     /**
      * Transitively and unconditionally enable all selectables implied by the given selectable
      * and the selectable itself to the enabled selectable set.

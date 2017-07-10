@@ -37,7 +37,10 @@ public final class AndroidNdkCrosstools {
           "10", new NdkMajorRevisionR10(),
           "11", new NdkMajorRevisionR11(),
           "12", new NdkMajorRevisionR12(),
-          "13", new NdkMajorRevisionR13());
+          "13", new NdkMajorRevisionR13("3.8.256229"),
+          // The only difference between the NDK13 and NDK14 CROSSTOOLs is the version of clang in
+          // built-in includes paths, so we can reuse everything else.
+          "14", new NdkMajorRevisionR13("3.8.275480"));
   public static final Map.Entry<String, NdkMajorRevision> LATEST_KNOWN_REVISION =
       Iterables.getLast(KNOWN_NDK_MAJOR_REVISIONS.entrySet());
 

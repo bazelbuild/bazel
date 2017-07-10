@@ -23,11 +23,11 @@ import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
-import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.StandaloneTestStrategy;
 import com.google.devtools.build.lib.rules.test.TestActionContext;
 import com.google.devtools.build.lib.rules.test.TestRunnerAction;
@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.devtools.common.options.OptionsClassProvider;
+import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -58,22 +59,18 @@ import java.util.Map;
 @ExecutionStrategy(contextType = TestActionContext.class, name = { "experimental_worker" })
 public class WorkerTestStrategy extends StandaloneTestStrategy {
   private final WorkerPool workerPool;
-  private final int maxRetries;
   private final Multimap<String, String> extraFlags;
 
   public WorkerTestStrategy(
       CommandEnvironment env,
       OptionsClassProvider requestOptions,
       WorkerPool workerPool,
-      int maxRetries,
       Multimap<String, String> extraFlags) {
     super(
-        requestOptions,
+        requestOptions.getOptions(ExecutionOptions.class),
         env.getBlazeWorkspace().getBinTools(),
-        env.getClientEnv(),
         env.getWorkspace());
     this.workerPool = workerPool;
-    this.maxRetries = maxRetries;
     this.extraFlags = extraFlags;
   }
 
@@ -106,8 +103,7 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
         actionExecutionContext,
         addPersistentRunnerVars(spawn.getEnvironment()),
         startupArgs,
-        actionExecutionContext.getExecutor().getExecRoot(),
-        maxRetries);
+        actionExecutionContext.getExecRoot());
   }
 
   private TestResultData execInWorker(
@@ -115,13 +111,10 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
       ActionExecutionContext actionExecutionContext,
       Map<String, String> environment,
       List<String> startupArgs,
-      Path execRoot,
-      int retriesLeft)
+      Path execRoot)
       throws ExecException, InterruptedException, IOException {
-    Executor executor = actionExecutionContext.getExecutor();
-
     // TODO(kush): Remove once we're out of the experimental phase.
-    executor
+    actionExecutionContext
         .getEventHandler()
         .handle(
             Event.warn(
@@ -132,7 +125,7 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
     Path testLogPath = action.getTestLog().getPath();
     Worker worker = null;
     WorkerKey key = null;
-    long startTime = executor.getClock().currentTimeMillis();
+    long startTime = actionExecutionContext.getClock().currentTimeMillis();
     try {
       HashCode workerFilesHash = WorkerFilesHash.getWorkerFilesHash(
           action.getTools(), actionExecutionContext);
@@ -152,18 +145,53 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
       request.writeDelimitedTo(worker.getOutputStream());
       worker.getOutputStream().flush();
 
-      WorkResponse response = WorkResponse.parseDelimitedFrom(worker.getInputStream());
+      RecordingInputStream recordingStream = new RecordingInputStream(worker.getInputStream());
+      recordingStream.startRecording(4096);
+      WorkResponse response;
+      try {
+        // response can be null when the worker has already closed stdout at this point and thus the
+        // InputStream is at EOF.
+        response = WorkResponse.parseDelimitedFrom(recordingStream);
+      } catch (InvalidProtocolBufferException e) {
+        // If protobuf couldn't parse the response, try to print whatever the failing worker wrote
+        // to stdout - it's probably a stack trace or some kind of error message that will help the
+        // user figure out why the compiler is failing.
+        recordingStream.readRemaining();
+        String data = recordingStream.getRecordedDataAsString();
+        ErrorMessage errorMessage =
+            ErrorMessage.builder()
+                .message("Worker process returned an unparseable WorkResponse:")
+                .exception(e)
+                .logText(data)
+                .build();
+        actionExecutionContext.getEventHandler().handle(Event.warn(errorMessage.toString()));
+        throw e;
+      }
+
+      worker.finishExecution(key);
+
+      if (response == null) {
+        throw new UserExecException(
+            ErrorMessage.builder()
+                .message(
+                    "Worker process did not return a WorkResponse. This is usually caused by a bug"
+                        + " in the worker, thus dumping its log file for debugging purposes:")
+                .logFile(worker.getLogFile())
+                .logSizeLimit(4096)
+                .build()
+                .toString());
+      }
+
       actionExecutionContext.getFileOutErr().getErrorStream().write(
           response.getOutputBytes().toByteArray());
 
-      long duration = executor.getClock().currentTimeMillis() - startTime;
+      long duration = actionExecutionContext.getClock().currentTimeMillis() - startTime;
       builder.addTestTimes(duration);
       builder.setRunDurationMillis(duration);
       if (response.getExitCode() == 0) {
         builder
             .setTestPassed(true)
             .setStatus(BlazeTestStatus.PASSED)
-            .setCachable(true)
             .setPassedLog(testLogPath.getPathString());
       } else {
         builder
@@ -172,38 +200,19 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
             .addFailedLogs(testLogPath.getPathString());
       }
       TestCase details = parseTestResult(
-          action.resolve(actionExecutionContext.getExecutor().getExecRoot()).getXmlOutputPath());
+          action.resolve(actionExecutionContext.getExecRoot()).getXmlOutputPath());
       if (details != null) {
         builder.setTestCase(details);
       }
 
       return builder.build();
     } catch (IOException | InterruptedException e) {
-      if (e instanceof InterruptedException) {
-        // The user pressed Ctrl-C. Get out here quick.
-        retriesLeft = 0;
-      }
-
       if (worker != null) {
         workerPool.invalidateObject(key, worker);
         worker = null;
       }
-      if (retriesLeft > 0) {
-        // The worker process failed, but we still have some retries left. Let's retry with a fresh
-        // worker.
-        executor
-            .getEventHandler()
-            .handle(
-                Event.warn(
-                    key.getMnemonic()
-                        + " worker failed ("
-                        + e
-                        + "), invalidating and retrying with new worker..."));
-        return execInWorker(
-            action, actionExecutionContext, environment, startupArgs, execRoot, retriesLeft - 1);
-      } else {
-        throw new TestExecException(e.getMessage());
-      }
+
+      throw new TestExecException(e.getMessage());
     } finally {
       if (worker != null) {
         workerPool.returnObject(key, worker);

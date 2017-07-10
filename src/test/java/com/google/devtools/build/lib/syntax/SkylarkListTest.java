@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
@@ -165,10 +164,10 @@ public class SkylarkListTest extends EvaluationTestCase {
         "e1 = l[1]",
         "e2 = l[2]",
         "e3 = l[3]");
-    assertEquals(1, lookup("e0"));
-    assertEquals(2, lookup("e1"));
-    assertEquals(3, lookup("e2"));
-    assertEquals(4, lookup("e3"));
+    assertThat(lookup("e0")).isEqualTo(1);
+    assertThat(lookup("e1")).isEqualTo(2);
+    assertThat(lookup("e2")).isEqualTo(3);
+    assertThat(lookup("e3")).isEqualTo(4);
   }
 
   @Test
@@ -179,37 +178,37 @@ public class SkylarkListTest extends EvaluationTestCase {
          "e2 = l[2]",
          "e3 = l[3]",
          "e4 = l[4]");
-    assertEquals(1, lookup("e0"));
-    assertEquals(2, lookup("e1"));
-    assertEquals(3, lookup("e2"));
-    assertEquals(4, lookup("e3"));
-    assertEquals(5, lookup("e4"));
+    assertThat(lookup("e0")).isEqualTo(1);
+    assertThat(lookup("e1")).isEqualTo(2);
+    assertThat(lookup("e2")).isEqualTo(3);
+    assertThat(lookup("e3")).isEqualTo(4);
+    assertThat(lookup("e4")).isEqualTo(5);
   }
 
   @Test
   public void testConcatListSize() throws Exception {
-    assertEquals(4, eval("len([1, 2] + [3, 4])"));
+    assertThat(eval("len([1, 2] + [3, 4])")).isEqualTo(4);
   }
 
   @Test
   public void testAppend() throws Exception {
     eval("l = [1, 2]");
-    assertEquals(eval("l.append([3, 4])"), Runtime.NONE);
-    assertEquals(lookup("l"), eval("[1, 2, [3, 4]]"));
+    assertThat(Runtime.NONE).isEqualTo(eval("l.append([3, 4])"));
+    assertThat(eval("[1, 2, [3, 4]]")).isEqualTo(lookup("l"));
   }
 
   @Test
   public void testExtend() throws Exception {
     eval("l = [1, 2]");
-    assertEquals(eval("l.extend([3, 4])"), Runtime.NONE);
-    assertEquals(lookup("l"), eval("[1, 2, 3, 4]"));
+    assertThat(Runtime.NONE).isEqualTo(eval("l.extend([3, 4])"));
+    assertThat(eval("[1, 2, 3, 4]")).isEqualTo(lookup("l"));
   }
 
   @Test
   public void testConcatListToString() throws Exception {
     eval("l = [1, 2] + [3, 4]",
          "s = str(l)");
-    assertEquals("[1, 2, 3, 4]", lookup("s"));
+    assertThat(lookup("s")).isEqualTo("[1, 2, 3, 4]");
   }
 
   @Test
@@ -219,7 +218,7 @@ public class SkylarkListTest extends EvaluationTestCase {
         "  v = 1",
         "else:",
         "  v = 0");
-    assertEquals(1, lookup("v"));
+    assertThat(lookup("v")).isEqualTo(1);
   }
 
   @Test
@@ -229,18 +228,18 @@ public class SkylarkListTest extends EvaluationTestCase {
         "  v = 1",
         "else:",
         "  v = 0");
-    assertEquals(0, lookup("v"));
+    assertThat(lookup("v")).isEqualTo(0);
   }
 
   @Test
   public void testListComparison() throws Exception {
-    assertEquals(true, eval("(1, 'two', [3, 4]) == (1, 'two', [3, 4])"));
-    assertEquals(true, eval("[1, 2, 3, 4] == [1, 2] + [3, 4]"));
-    assertEquals(false, eval("[1, 2, 3, 4] == (1, 2, 3, 4)"));
-    assertEquals(false, eval("[1, 2] == [1, 2, 3]"));
-    assertEquals(true, eval("[] == []"));
-    assertEquals(true, eval("() == ()"));
-    assertEquals(false, eval("() == (1,)"));
-    assertEquals(false, eval("(1) == (1,)"));
+    assertThat(eval("(1, 'two', [3, 4]) == (1, 'two', [3, 4])")).isEqualTo(true);
+    assertThat(eval("[1, 2, 3, 4] == [1, 2] + [3, 4]")).isEqualTo(true);
+    assertThat(eval("[1, 2, 3, 4] == (1, 2, 3, 4)")).isEqualTo(false);
+    assertThat(eval("[1, 2] == [1, 2, 3]")).isEqualTo(false);
+    assertThat(eval("[] == []")).isEqualTo(true);
+    assertThat(eval("() == ()")).isEqualTo(true);
+    assertThat(eval("() == (1,)")).isEqualTo(false);
+    assertThat(eval("(1) == (1,)")).isEqualTo(false);
   }
 }

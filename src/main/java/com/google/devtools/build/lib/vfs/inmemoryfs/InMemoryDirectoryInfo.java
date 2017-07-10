@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs.inmemoryfs;
 
-import com.google.common.base.Function;
 import com.google.common.collect.Collections2;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -29,13 +28,6 @@ import java.util.concurrent.ConcurrentMap;
  */
 @ThreadSafe
 class InMemoryDirectoryInfo extends InMemoryContentInfo {
-  private static final Function<InMemoryFileName, String> FILENAME_TO_STRING =
-      new Function<InMemoryFileName, String>() {
-        @Override
-        public String apply(InMemoryFileName inMemoryFileName) {
-          return inMemoryFileName.value;
-        }
-      };
   private final ConcurrentMap<InMemoryFileName, InMemoryContentInfo> directoryContent =
       new ConcurrentHashMap<>();
 
@@ -88,7 +80,8 @@ class InMemoryDirectoryInfo extends InMemoryContentInfo {
    * changed later.
    */
   Collection<String> getAllChildren() {
-    return Collections2.transform(directoryContent.keySet(), FILENAME_TO_STRING);
+    return Collections2.transform(
+        directoryContent.keySet(), inMemoryFileName -> inMemoryFileName.value);
   }
 
   @Override

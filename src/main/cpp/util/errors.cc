@@ -43,12 +43,22 @@ void pdie(const int exit_status, const char *format, ...) {
 
 void PrintError(const char *format, ...) {
   const char *errormsg = GetLastErrorString().c_str();
-  fprintf(stderr, "Error: ");
+  fprintf(stderr, "ERROR: ");
   va_list ap;
   va_start(ap, format);
   vfprintf(stderr, format, ap);
   va_end(ap);
   fprintf(stderr, ": %s\n", errormsg);
+}
+
+void PrintWarning(const char *format, ...) {
+  va_list args;
+
+  va_start(args, format);
+  fputs("WARNING: ", stderr);
+  vfprintf(stderr, format, args);
+  fputc('\n', stderr);
+  va_end(args);
 }
 
 }  // namespace blaze_util

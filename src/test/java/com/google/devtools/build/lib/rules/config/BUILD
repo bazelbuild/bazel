@@ -23,6 +23,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/rules/config",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:option_filters_java_proto",
         "//src/test/java/com/google/devtools/build/lib:actions_testutil",
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
         "//src/test/java/com/google/devtools/build/lib:testutil",

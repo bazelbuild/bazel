@@ -37,7 +37,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.DefaultProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.PlatformSemantics;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -71,6 +73,7 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.rules.SkylarkAttr.Descriptor;
 import com.google.devtools.build.lib.skylarkinterface.Param;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
@@ -123,10 +126,11 @@ public class SkylarkRuleClassFunctions {
   /** Parent rule class for non-executable non-test Skylark rules. */
   public static final RuleClass baseRule =
       BaseRuleClasses.commonCoreAndSkylarkAttributes(
-          BaseRuleClasses.nameAttribute(
-            new RuleClass.Builder("$base_rule", RuleClassType.ABSTRACT, true))
-            .add(attr("expect_failure", STRING)))
-            .build();
+              PlatformSemantics.platformAttributes(
+                  BaseRuleClasses.nameAttribute(
+                          new RuleClass.Builder("$base_rule", RuleClassType.ABSTRACT, true))
+                      .add(attr("expect_failure", STRING))))
+          .build();
 
   /** Parent rule class for executable non-test Skylark rules. */
   public static final RuleClass binaryBaseRule =
@@ -190,6 +194,42 @@ public class SkylarkRuleClassFunctions {
   )
   private static final ClassObjectConstructor struct = NativeClassObjectConstructor.STRUCT;
 
+  @SkylarkSignature(
+    name = "DefaultInfo",
+    returnType = ClassObjectConstructor.class,
+    doc =
+        "A provider that is provided by every rule, even if it is not returned explicitly. "
+            + "A <code>DefaultInfo</code> accepts the following parameters:"
+            + "<ul>"
+            + "<li><code>files</code></li>"
+            + "<li><code>runfiles</code></li>"
+            + "<li><code>data_runfiles</code></li>"
+            + "<li><code>default_runfiles</code></li>"
+            + "</ul>"
+            + "Each instance of the default provider contains the following standard "
+            + "fields: "
+            + "<ul>"
+            + "<li><code>files</code></li>"
+            + "<li><code>files_to_run</code></li>"
+            + "<li><code>data_runfiles</code></li>"
+            + "<li><code>default_runfiles</code></li>"
+            + "</ul>"
+  )
+  private static final ClassObjectConstructor defaultInfo = DefaultProvider.SKYLARK_CONSTRUCTOR;
+
+  @SkylarkSignature(
+    name = "OutputGroupInfo",
+    returnType = ClassObjectConstructor.class,
+    doc =
+        "Provides information about output groups the rule provides.<br>"
+            + "Instantiate this provider with <br>"
+            + "<pre class=language-python>"
+            + "OutputGroupInfo(group1 = &lt;files&gt;, group2 = &lt;files&gt;...)</pre>"
+            + "See <a href=\"../rules.html#output-groups\">Output Groups</a> for more information"
+  )
+  private static final ClassObjectConstructor outputGroupInfo =
+      OutputGroupProvider.SKYLARK_CONSTRUCTOR;
+
   // TODO(bazel-team): Move to a "testing" namespace module. Normally we'd pass an objectType
   // to @SkylarkSignature to do this, but that doesn't work here because we're exposing an already-
   // configured BaseFunction, rather than defining a new BuiltinFunction. This should wait for
@@ -209,139 +249,167 @@ public class SkylarkRuleClassFunctions {
   )
   private static final ClassObjectConstructor actions = ActionsProvider.SKYLARK_CONSTRUCTOR;
 
-  @SkylarkSignature(name = "provider", returnType = SkylarkClassObjectConstructor.class, doc =
-      "Creates a declared provider 'constructor'. The return value of this"
-          + "function can be used to create \"struct-like\" values. Example:<br>"
-          + "<pre class=\"language-python\">data = provider()\n"
-          + "d = data(x = 2, y = 3)\n"
-          + "return d.x + d.y # returns 5</pre>",
-      useLocation = true
+  @SkylarkSignature(
+    name = "provider",
+    returnType = ClassObjectConstructor.class,
+    doc =
+        "Creates a declared provider 'constructor'. The return value of this "
+            + "function can be used to create \"struct-like\" values. Example:<br>"
+            + "<pre class=\"language-python\">data = provider()\n"
+            + "d = data(x = 2, y = 3)\n"
+            + "print(d.x + d.y) # prints 5</pre>",
+    parameters = {
+      @Param(
+        name = "doc",
+        type = String.class,
+        defaultValue = "''",
+        doc =
+            "A description of the provider that can be extracted by documentation generating tools."
+      )
+    },
+    useLocation = true
   )
   private static final BuiltinFunction provider =
       new BuiltinFunction("provider") {
-        public SkylarkClassObjectConstructor invoke(Location location) {
+        public ClassObjectConstructor invoke(String doc, Location location) {
           return new SkylarkClassObjectConstructor(
               "<no name>", // name is set on export.
               location);
         }
       };
 
-
   // TODO(bazel-team): implement attribute copy and other rule properties
   @SkylarkSignature(
-      name = "rule",
-      doc =
-          "Creates a new rule. Store it in a global value, so that it can be loaded and called "
-              + "from BUILD files.",
-      returnType = BaseFunction.class,
-      parameters = {
-          @Param(
-              name = "implementation",
-              type = BaseFunction.class,
-              doc =
-                  "the function implementing this rule, must have exactly one parameter: "
-                      + "<a href=\"ctx.html\">ctx</a>. The function is called during the analysis "
-                      + "phase for each instance of the rule. It can access the attributes "
-                      + "provided by the user. It must create actions to generate all the declared "
-                      + "outputs."
-          ),
-          @Param(
-              name = "test",
-              type = Boolean.class,
-              defaultValue = "False",
-              doc =
-                  "Whether this rule is a test rule. "
-                      + "If True, the rule must end with <code>_test</code> (otherwise it must "
-                      + "not), and there must be an action that generates "
-                      + "<code>ctx.outputs.executable</code>."
-          ),
-          @Param(
-              name = "attrs",
-              type = SkylarkDict.class,
-              noneable = true,
-              defaultValue = "None",
-              doc =
-                  "dictionary to declare all the attributes of the rule. It maps from an attribute "
-                      + "name to an attribute object (see <a href=\"attr.html\">attr</a> module). "
-                      + "Attributes starting with <code>_</code> are private, and can be used to "
-                      + "add an implicit dependency on a label. The attribute <code>name</code> is "
-                      + "implicitly added and must not be specified. Attributes "
-                      + "<code>visibility</code>, <code>deprecation</code>, <code>tags</code>, "
-                      + "<code>testonly</code>, and <code>features</code> are implicitly added and "
-                      + "cannot be overriden."
-          ),
-          // TODO(bazel-team): need to give the types of these builtin attributes
-          @Param(
-              name = "outputs",
-              type = SkylarkDict.class,
-              callbackEnabled = true,
-              noneable = true,
-              defaultValue = "None",
-              doc =
-                  "outputs of this rule. "
-                      + "It is a dictionary mapping from string to a template name. "
-                      + "For example: <code>{\"ext\": \"%{name}.ext\"}</code>. <br>"
-                      + "The dictionary key becomes an attribute in <code>ctx.outputs</code>. "
-                      + "Similar to computed dependency rule attributes, you can also specify the "
-                      + "name of a function that returns the dictionary. This function can access "
-                      + "all rule attributes that are listed as parameters in its function "
-                      + "signature. For example, <code>outputs = _my_func</code> with "
-                      + "<code>def _my_func(srcs, deps):</code> has access to the attributes "
-                      + "'srcs' and 'deps' (if defined)."
-          ),
-          @Param(
-              name = "executable",
-              type = Boolean.class,
-              defaultValue = "False",
-              doc =
-                  "whether this rule is marked as executable or not. If True, "
-                      + "there must be an action that generates "
-                      + "<code>ctx.outputs.executable</code>."
-          ),
-          @Param(
-              name = "output_to_genfiles",
-              type = Boolean.class,
-              defaultValue = "False",
-              doc =
-                  "If true, the files will be generated in the genfiles directory instead of the "
-                      + "bin directory. Unless you need it for compatibility with existing rules "
-                      + "(e.g. when generating header files for C++), do not set this flag."
-          ),
-          @Param(
-              name = "fragments",
-              type = SkylarkList.class,
-              generic1 = String.class,
-              defaultValue = "[]",
-              doc =
-                  "List of names of configuration fragments that the rule requires "
-                      + "in target configuration."
-          ),
-          @Param(
-              name = "host_fragments",
-              type = SkylarkList.class,
-              generic1 = String.class,
-              defaultValue = "[]",
-              doc =
-                  "List of names of configuration fragments that the rule requires "
-                      + "in host configuration."
-          ),
-          @Param(
-              name = "_skylark_testable",
-              type = Boolean.class,
-              defaultValue = "False",
-              doc =
-                  "<i>(Experimental)</i><br/><br/>"
-                      + "If true, this rule will expose its actions for inspection by rules that "
-                      + "depend on it via an <a href=\"globals.html#Actions\">Actions</a> "
-                      + "provider. The provider is also available to the rule itself by calling "
-                      + "<a href=\"ctx.html#created_actions\">ctx.created_actions()</a>."
-                      + "<br/><br/>"
-                      + "This should only be used for testing the analysis-time behavior of "
-                      + "Skylark rules. This flag may be removed in the future."
-          )
-      },
-      useAst = true,
-      useEnvironment = true
+    name = "rule",
+    doc =
+        "Creates a new rule. Store it in a global value, so that it can be loaded and called "
+            + "from BUILD files.",
+    returnType = BaseFunction.class,
+    parameters = {
+      @Param(
+        name = "implementation",
+        type = BaseFunction.class,
+        doc =
+            "the function implementing this rule, must have exactly one parameter: "
+                + "<a href=\"ctx.html\">ctx</a>. The function is called during the analysis "
+                + "phase for each instance of the rule. It can access the attributes "
+                + "provided by the user. It must create actions to generate all the declared "
+                + "outputs."
+      ),
+      @Param(
+        name = "test",
+        type = Boolean.class,
+        defaultValue = "False",
+        doc =
+            "Whether this rule is a test rule. "
+                + "If True, the rule must end with <code>_test</code> (otherwise it must "
+                + "not), and there must be an action that generates "
+                + "<code>ctx.outputs.executable</code>."
+      ),
+      @Param(
+        name = "attrs",
+        type = SkylarkDict.class,
+        noneable = true,
+        defaultValue = "None",
+        doc =
+            "dictionary to declare all the attributes of the rule. It maps from an attribute "
+                + "name to an attribute object (see <a href=\"attr.html\">attr</a> module). "
+                + "Attributes starting with <code>_</code> are private, and can be used to "
+                + "add an implicit dependency on a label. The attribute <code>name</code> is "
+                + "implicitly added and must not be specified. Attributes "
+                + "<code>visibility</code>, <code>deprecation</code>, <code>tags</code>, "
+                + "<code>testonly</code>, and <code>features</code> are implicitly added and "
+                + "cannot be overriden."
+      ),
+      // TODO(bazel-team): need to give the types of these builtin attributes
+      @Param(
+        name = "outputs",
+        type = SkylarkDict.class,
+        callbackEnabled = true,
+        noneable = true,
+        defaultValue = "None",
+        doc =
+            "outputs of this rule. "
+                + "It is a dictionary mapping from string to a template name. "
+                + "For example: <code>{\"ext\": \"%{name}.ext\"}</code>. <br>"
+                + "The dictionary key becomes an attribute in <code>ctx.outputs</code>. "
+                + "Similar to computed dependency rule attributes, you can also specify the "
+                + "name of a function that returns the dictionary. This function can access "
+                + "all rule attributes that are listed as parameters in its function "
+                + "signature. For example, <code>outputs = _my_func</code> with "
+                + "<code>def _my_func(srcs, deps):</code> has access to the attributes "
+                + "'srcs' and 'deps' (if defined)."
+      ),
+      @Param(
+        name = "executable",
+        type = Boolean.class,
+        defaultValue = "False",
+        doc =
+            "whether this rule is marked as executable or not. If True, "
+                + "there must be an action that generates "
+                + "<code>ctx.outputs.executable</code>."
+      ),
+      @Param(
+        name = "output_to_genfiles",
+        type = Boolean.class,
+        defaultValue = "False",
+        doc =
+            "If true, the files will be generated in the genfiles directory instead of the "
+                + "bin directory. Unless you need it for compatibility with existing rules "
+                + "(e.g. when generating header files for C++), do not set this flag."
+      ),
+      @Param(
+        name = "fragments",
+        type = SkylarkList.class,
+        generic1 = String.class,
+        defaultValue = "[]",
+        doc =
+            "List of names of configuration fragments that the rule requires "
+                + "in target configuration."
+      ),
+      @Param(
+        name = "host_fragments",
+        type = SkylarkList.class,
+        generic1 = String.class,
+        defaultValue = "[]",
+        doc =
+            "List of names of configuration fragments that the rule requires "
+                + "in host configuration."
+      ),
+      @Param(
+        name = "_skylark_testable",
+        type = Boolean.class,
+        defaultValue = "False",
+        doc =
+            "<i>(Experimental)</i><br/><br/>"
+                + "If true, this rule will expose its actions for inspection by rules that "
+                + "depend on it via an <a href=\"globals.html#Actions\">Actions</a> "
+                + "provider. The provider is also available to the rule itself by calling "
+                + "<a href=\"ctx.html#created_actions\">ctx.created_actions()</a>."
+                + "<br/><br/>"
+                + "This should only be used for testing the analysis-time behavior of "
+                + "Skylark rules. This flag may be removed in the future."
+      ),
+      @Param(
+        name = "toolchains",
+        type = SkylarkList.class,
+        generic1 = String.class,
+        defaultValue = "[]",
+        doc =
+            "<i>(Experimental)</i><br/><br/>"
+                + "If set, the set of toolchains this rule requires. Toolchains will be "
+                + "found by checking the current platform, and provided to the rule "
+                + "implementation via <code>ctx.toolchain</code>."
+      ),
+      @Param(
+        name = "doc",
+        type = String.class,
+        defaultValue = "''",
+        doc = "A description of the rule that can be extracted by documentation generating tools."
+      )
+    },
+    useAst = true,
+    useEnvironment = true
   )
   private static final BuiltinFunction rule =
       new BuiltinFunction("rule") {
@@ -357,6 +425,8 @@ public class SkylarkRuleClassFunctions {
             SkylarkList fragments,
             SkylarkList hostFragments,
             Boolean skylarkTestable,
+            SkylarkList<String> toolchains,
+            String doc,
             FuncallExpression ast,
             Environment funcallEnv)
             throws EvalException, ConversionException {
@@ -415,6 +485,8 @@ public class SkylarkRuleClassFunctions {
               hostFragments.getContents(String.class, "host_fragments"));
           builder.setConfiguredTargetFunction(implementation);
           builder.setRuleDefinitionEnvironment(funcallEnv);
+          builder.addRequiredToolchains(collectToolchainLabels(toolchains, ast));
+
           return new RuleFunction(builder, type, attributes, ast.getLocation());
         }
       };
@@ -444,71 +516,121 @@ public class SkylarkRuleClassFunctions {
     }
   }
 
+  private static ImmutableList<Label> collectToolchainLabels(
+      Iterable<String> rawLabels, FuncallExpression ast) throws EvalException {
+    ImmutableList.Builder<Label> requiredToolchains = new ImmutableList.Builder<>();
+    for (String rawLabel : rawLabels) {
+      try {
+        Label toolchainLabel = Label.parseAbsolute(rawLabel);
+        requiredToolchains.add(toolchainLabel);
+      } catch (LabelSyntaxException e) {
+        throw new EvalException(
+            ast.getLocation(),
+            String.format("Unable to parse toolchain %s: %s", rawLabel, e.getMessage()),
+            e);
+      }
+    }
 
-  @SkylarkSignature(name = "aspect", doc =
-      "Creates a new aspect. The result of this function must be stored in a global value. "
-          + "Please see the <a href=\"../aspects.md\">introduction to Aspects</a> for more "
-          + "details.",
-      returnType = SkylarkAspect.class,
-      parameters = {
-          @Param(name = "implementation", type = BaseFunction.class,
-              doc = "the function implementing this aspect. Must have two parameters: "
-                  + "<a href=\"Target.html\">Target</a> (the target to which the aspect is "
-                  + "applied) and <a href=\"ctx.html\">ctx</a>. Attributes of the target are "
-                  + "available via ctx.rule field. The function is called during the analysis "
-                  + "phase for each application of an aspect to a target."
-          ),
-          @Param(name = "attr_aspects", type = SkylarkList.class, generic1 = String.class,
-              defaultValue = "[]",
-              doc = "List of attribute names.  The aspect propagates along dependencies specified "
-                  + "by attributes of a target with this name. The list can also contain a single "
-                  + "string '*': in that case aspect propagates along all dependencies of a target."
-          ),
-          @Param(name = "attrs", type = SkylarkDict.class, noneable = true, defaultValue = "None",
-              doc = "dictionary to declare all the attributes of the aspect.  "
-                  + "It maps from an attribute name to an attribute object "
-                  + "(see <a href=\"attr.html\">attr</a> module). "
-                  + "Aspect attributes are available to implementation function as fields of ctx "
-                  + "parameter. Implicit attributes starting with <code>_</code> must have default "
-                  + "values, and have type <code>label</code> or <code>label_list</code>. "
-                  + "Explicit attributes must have type <code>string</code>, and must use the "
-                  + "<code>values</code> restriction. If explicit attributes are present, the "
-                  + "aspect can only be used with rules that have attributes of the same name and "
-                  + "type, with valid values."
-          ),
-          @Param(name = "required_aspect_providers",
-              type = SkylarkList.class,
-              defaultValue = "[]",
-              // todo(dslomov): Document once it works.
-              doc = "<not available>"
-          ),
-          @Param(name = "provides",
-              type = SkylarkList.class,
-              defaultValue = "[]",
-              // todo(dslomov): Document once it works.
-              doc = "<not available>"
-          ),
-          @Param(
-              name = "fragments",
-              type = SkylarkList.class,
-              generic1 = String.class,
-              defaultValue = "[]",
-              doc =
-                  "List of names of configuration fragments that the aspect requires "
-                      + "in target configuration."
-          ),
-          @Param(
-              name = "host_fragments",
-              type = SkylarkList.class,
-              generic1 = String.class,
-              defaultValue = "[]",
-              doc =
-                  "List of names of configuration fragments that the aspect requires "
-                      + "in host configuration."
-          )
-      },
-      useEnvironment = true,
-      useAst = true
+    return requiredToolchains.build();
+  }
+
+  @SkylarkSignature(
+    name = "aspect",
+    doc =
+        "Creates a new aspect. The result of this function must be stored in a global value. "
+            + "Please see the <a href=\"../aspects.md\">introduction to Aspects</a> for more "
+            + "details.",
+    returnType = SkylarkAspect.class,
+    parameters = {
+      @Param(
+        name = "implementation",
+        type = BaseFunction.class,
+        doc =
+            "the function implementing this aspect. Must have two parameters: "
+                + "<a href=\"Target.html\">Target</a> (the target to which the aspect is "
+                + "applied) and <a href=\"ctx.html\">ctx</a>. Attributes of the target are "
+                + "available via ctx.rule field. The function is called during the analysis "
+                + "phase for each application of an aspect to a target."
+      ),
+      @Param(
+        name = "attr_aspects",
+        type = SkylarkList.class,
+        generic1 = String.class,
+        defaultValue = "[]",
+        doc =
+            "List of attribute names.  The aspect propagates along dependencies specified "
+                + "by attributes of a target with this name. The list can also contain a single "
+                + "string '*': in that case aspect propagates along all dependencies of a target."
+      ),
+      @Param(
+        name = "attrs",
+        type = SkylarkDict.class,
+        noneable = true,
+        defaultValue = "None",
+        doc =
+            "dictionary to declare all the attributes of the aspect.  "
+                + "It maps from an attribute name to an attribute object "
+                + "(see <a href=\"attr.html\">attr</a> module). "
+                + "Aspect attributes are available to implementation function as fields of ctx "
+                + "parameter. Implicit attributes starting with <code>_</code> must have default "
+                + "values, and have type <code>label</code> or <code>label_list</code>. "
+                + "Explicit attributes must have type <code>string</code>, and must use the "
+                + "<code>values</code> restriction. If explicit attributes are present, the "
+                + "aspect can only be used with rules that have attributes of the same name and "
+                + "type, with valid values."
+      ),
+      @Param(
+        name = "required_aspect_providers",
+        type = SkylarkList.class,
+        defaultValue = "[]",
+        // todo(dslomov): Document once it works.
+        doc = "<not available>"
+      ),
+      @Param(
+        name = "provides",
+        type = SkylarkList.class,
+        defaultValue = "[]",
+        // todo(dslomov): Document once it works.
+        doc = "<not available>"
+      ),
+      @Param(
+        name = "fragments",
+        type = SkylarkList.class,
+        generic1 = String.class,
+        defaultValue = "[]",
+        doc =
+            "List of names of configuration fragments that the aspect requires "
+                + "in target configuration."
+      ),
+      @Param(
+        name = "host_fragments",
+        type = SkylarkList.class,
+        generic1 = String.class,
+        defaultValue = "[]",
+        doc =
+            "List of names of configuration fragments that the aspect requires "
+                + "in host configuration."
+      ),
+      @Param(
+        name = "toolchains",
+        type = SkylarkList.class,
+        generic1 = String.class,
+        defaultValue = "[]",
+        doc =
+            "<i>(Experimental)</i><br/><br/>"
+                + "If set, the set of toolchains this rule requires. Toolchains will be "
+                + "found by checking the current platform, and provided to the rule "
+                + "implementation via <code>ctx.toolchain</code>."
+      ),
+      @Param(
+        name = "doc",
+        type = String.class,
+        defaultValue = "''",
+        doc = "A description of the aspect that can be extracted by documentation generating tools."
+      )
+    },
+    useEnvironment = true,
+    useAst = true
   )
   private static final BuiltinFunction aspect =
       new BuiltinFunction("aspect") {
@@ -520,6 +642,8 @@ public class SkylarkRuleClassFunctions {
             SkylarkList providesArg,
             SkylarkList fragments,
             SkylarkList hostFragments,
+            SkylarkList<String> toolchains,
+            String doc,
             FuncallExpression ast,
             Environment funcallEnv)
             throws EvalException {
@@ -529,14 +653,12 @@ public class SkylarkRuleClassFunctions {
 
             if (attrName.equals("*") && attributeAspects.size() != 1) {
               throw new EvalException(
-                  ast.getLocation(),
-                  "'*' must be the only string in 'attr_aspects' list"
-              );
+                  ast.getLocation(), "'*' must be the only string in 'attr_aspects' list");
             }
 
             if (!attrName.startsWith("_")) {
               attrAspects.add(attrName);
-            } else  {
+            } else {
               // Implicit attribute names mean either implicit or late-bound attributes
               // (``$attr`` or ``:attr``). Depend on both.
               attrAspects.add(
@@ -556,7 +678,7 @@ public class SkylarkRuleClassFunctions {
             Attribute attribute = nameDescriptorPair.second.build(nameDescriptorPair.first);
             if (attribute.getType() == Type.STRING
                 && ((String) attribute.getDefaultValue(null)).isEmpty()) {
-              hasDefault = false;  // isValueSet() is always true for attr.string.
+              hasDefault = false; // isValueSet() is always true for attr.string.
             }
             if (!Attribute.isImplicit(nativeName)) {
               if (!attribute.checkAllowedValues() || attribute.getType() != Type.STRING) {
@@ -577,11 +699,10 @@ public class SkylarkRuleClassFunctions {
                       ast.getLocation(),
                       String.format(
                           "Aspect parameter attribute '%s' has a bad default value: %s",
-                          nativeName,
-                          allowed.getErrorReason(defaultVal)));
+                          nativeName, allowed.getErrorReason(defaultVal)));
                 }
               }
-            } else if (!hasDefault) {  // Implicit attribute
+            } else if (!hasDefault) { // Implicit attribute
               String skylarkName = "_" + nativeName.substring(1);
               throw new EvalException(
                   ast.getLocation(),
@@ -592,9 +713,11 @@ public class SkylarkRuleClassFunctions {
 
           for (Object o : providesArg) {
             if (!SkylarkAttr.isProvider(o)) {
-              throw new EvalException(ast.getLocation(),
-                  String.format("Illegal argument: element in 'provides' is of unexpected type. "
-                      + "Should be list of providers, but got %s. ",
+              throw new EvalException(
+                  ast.getLocation(),
+                  String.format(
+                      "Illegal argument: element in 'provides' is of unexpected type. "
+                          + "Should be list of providers, but got %s. ",
                       EvalUtils.getDataTypeName(o, true)));
             }
           }
@@ -603,17 +726,16 @@ public class SkylarkRuleClassFunctions {
               implementation,
               attrAspects.build(),
               attributes.build(),
-              SkylarkAttr.buildProviderPredicate(requiredAspectProvidersArg,
-                  "required_aspect_providers", ast.getLocation()
-              ),
+              SkylarkAttr.buildProviderPredicate(
+                  requiredAspectProvidersArg, "required_aspect_providers", ast.getLocation()),
               SkylarkAttr.getSkylarkProviderIdentifiers(providesArg, ast.getLocation()),
               requiredParams.build(),
               ImmutableSet.copyOf(fragments.getContents(String.class, "fragments")),
               ImmutableSet.copyOf(hostFragments.getContents(String.class, "host_fragments")),
+              collectToolchainLabels(toolchains, ast),
               funcallEnv);
         }
       };
-
 
   /** The implementation for the magic function "rule" that creates Skylark rule classes */
   public static final class RuleFunction extends BaseFunction implements SkylarkExportable {
@@ -672,13 +794,14 @@ public class SkylarkRuleClassFunctions {
               "Cannot instantiate a rule when loading a .bzl file. Rules can only be called from "
                   + "a BUILD file (possibly via a macro).");
         }
-        return RuleFactory.createAndAddRule(
+        RuleFactory.createAndAddRule(
             pkgContext,
             ruleClass,
             attributeValues,
             ast,
             env,
             pkgContext.getAttributeContainerFactory().apply(ruleClass));
+        return Runtime.NONE;
       } catch (InvalidRuleException | NameConflictException e) {
         throw new EvalException(ast.getLocation(), e.getMessage());
       }
@@ -716,20 +839,23 @@ public class SkylarkRuleClassFunctions {
     public boolean isExported() {
       return skylarkLabel != null;
     }
+
+    @Override
+    public void repr(SkylarkPrinter printer) {
+      printer.append("<rule>");
+    }
   }
 
   /**
-   * All classes of values that need special processing after they are exported
-   * from an extension file.
+   * All classes of values that need special processing after they are exported from an extension
+   * file.
    *
-   * Order in list is significant: all {@link SkylarkAspect}s need to be exported
-   * before {@link RuleFunction}s etc.
+   * <p>Order in list is significant: all {@link SkylarkAspect}s need to be exported before {@link
+   * RuleFunction}s etc.
    */
-  private static final List<Class<? extends SkylarkExportable>> EXPORTABLES =
+  private static final ImmutableList<Class<? extends SkylarkExportable>> EXPORTABLES =
       ImmutableList.of(
-          SkylarkClassObjectConstructor.class,
-          SkylarkAspect.class,
-          RuleFunction.class);
+          SkylarkClassObjectConstructor.class, SkylarkAspect.class, RuleFunction.class);
 
   @SkylarkSignature(
     name = "Label",
@@ -766,7 +892,7 @@ public class SkylarkRuleClassFunctions {
           if (relativeToCallerRepository) {
             parentLabel = env.getCallerLabel();
           } else {
-            parentLabel = env.getGlobals().label();
+            parentLabel = env.getGlobals().getTransitiveLabel();
           }
           try {
             if (parentLabel != null) {
@@ -1028,7 +1154,7 @@ public class SkylarkRuleClassFunctions {
   )
   private static final BuiltinFunction output_group = new BuiltinFunction("output_group") {
     public SkylarkNestedSet invoke(TransitiveInfoCollection self, String group) {
-      OutputGroupProvider provider = self.getProvider(OutputGroupProvider.class);
+      OutputGroupProvider provider = OutputGroupProvider.get(self);
       NestedSet<Artifact> result = provider != null
           ? provider.getOutputGroup(group)
           : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);

@@ -21,8 +21,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * An "rdeps" query expression, which computes the reverse dependencies of the argument within the
@@ -62,24 +62,21 @@ public final class RdepsFunction extends AllRdepsFunction {
       final QueryExpression expression,
       final List<Argument> args,
       final Callback<T> callback) {
-    QueryTaskFuture<Set<T>> universeValueFuture =
+    QueryTaskFuture<ThreadSafeMutableSet<T>> universeValueFuture =
         QueryUtil.evalAll(env, context, args.get(0).getExpression());
-    Function<Set<T>, QueryTaskFuture<Void>> evalInUniverseAsyncFunction =
-        new Function<Set<T>, QueryTaskFuture<Void>>() {
-          @Override
-          public QueryTaskFuture<Void> apply(Set<T> universeValue) {
-            Predicate<T> universe;
-            try {
-              env.buildTransitiveClosure(expression, universeValue, Integer.MAX_VALUE);
-              universe = Predicates.in(env.getTransitiveClosure(universeValue));
-            } catch (InterruptedException e) {
-              return env.immediateCancelledFuture();
-            } catch (QueryException e) {
-              return env.immediateFailedFuture(e);
-            }
-            return RdepsFunction.this.eval(
-                env, context, args.subList(1, args.size()), callback, Optional.of(universe));
+    Function<ThreadSafeMutableSet<T>, QueryTaskFuture<Void>> evalInUniverseAsyncFunction =
+        universeValue -> {
+          Predicate<T> universe;
+          try {
+            env.buildTransitiveClosure(expression, universeValue, Integer.MAX_VALUE);
+            universe = Predicates.in(env.getTransitiveClosure(universeValue));
+          } catch (InterruptedException e) {
+            return env.immediateCancelledFuture();
+          } catch (QueryException e) {
+            return env.immediateFailedFuture(e);
           }
+          return RdepsFunction.this.eval(
+              env, context, args.subList(1, args.size()), callback, Optional.of(universe));
         };
     return env.transformAsync(universeValueFuture, evalInUniverseAsyncFunction);
   }

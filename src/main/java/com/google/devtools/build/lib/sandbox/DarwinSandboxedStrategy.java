@@ -16,114 +16,131 @@ package com.google.devtools.build.lib.sandbox;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
-import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
-import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.rules.test.TestRunnerAction;
+import com.google.devtools.build.lib.exec.SpawnInputExpander;
+import com.google.devtools.build.lib.exec.apple.XCodeLocalEnvProvider;
+import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
-import com.google.devtools.build.lib.standalone.StandaloneSpawnStrategy;
-import com.google.devtools.build.lib.util.Preconditions;
-import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.SearchPath;
-import com.google.devtools.build.lib.vfs.Symlinks;
-import java.io.BufferedWriter;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
-import java.util.HashMap;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** Strategy that uses sandboxing to execute a process, for Darwin */
 @ExecutionStrategy(
-  name = {"sandboxed"},
+  name = {"sandboxed", "darwin-sandbox"},
   contextType = SpawnActionContext.class
 )
 public class DarwinSandboxedStrategy extends SandboxStrategy {
 
-  private final ImmutableMap<String, String> clientEnv;
-  private final BlazeDirectories blazeDirs;
+  public static boolean isSupported(CommandEnvironment cmdEnv) {
+    return OS.getCurrent() == OS.DARWIN && DarwinSandboxRunner.isSupported(cmdEnv);
+  }
+
   private final Path execRoot;
   private final boolean sandboxDebug;
   private final boolean verboseFailures;
   private final String productName;
-  private final ImmutableList<Path> confPaths;
-  private final SpawnHelpers spawnHelpers;
+  private final SpawnInputExpander spawnInputExpander;
+
+  /**
+   * The set of directories that always should be writable, independent of the Spawn itself.
+   *
+   * <p>We cache this, because creating it involves executing {@code getconf}, which is expensive.
+   */
+  private final ImmutableSet<Path> alwaysWritableDirs;
+  private final LocalEnvProvider localEnvProvider;
 
   private DarwinSandboxedStrategy(
+      CommandEnvironment cmdEnv,
       BuildRequest buildRequest,
-      Map<String, String> clientEnv,
-      BlazeDirectories blazeDirs,
       Path sandboxBase,
       boolean verboseFailures,
       String productName,
-      ImmutableList<Path> confPaths,
-      SpawnHelpers spawnHelpers) {
+      ImmutableSet<Path> alwaysWritableDirs) {
     super(
+        cmdEnv,
         buildRequest,
-        blazeDirs,
         sandboxBase,
         verboseFailures,
         buildRequest.getOptions(SandboxOptions.class));
-    this.clientEnv = ImmutableMap.copyOf(clientEnv);
-    this.blazeDirs = blazeDirs;
-    this.execRoot = blazeDirs.getExecRoot();
+    this.execRoot = cmdEnv.getExecRoot();
     this.sandboxDebug = buildRequest.getOptions(SandboxOptions.class).sandboxDebug;
     this.verboseFailures = verboseFailures;
     this.productName = productName;
-    this.confPaths = confPaths;
-    this.spawnHelpers = spawnHelpers;
+    this.alwaysWritableDirs = alwaysWritableDirs;
+    this.spawnInputExpander = new SpawnInputExpander(false);
+    this.localEnvProvider = new XCodeLocalEnvProvider();
   }
 
   public static DarwinSandboxedStrategy create(
+      CommandEnvironment cmdEnv,
       BuildRequest buildRequest,
-      Map<String, String> clientEnv,
-      BlazeDirectories blazeDirs,
       Path sandboxBase,
       boolean verboseFailures,
       String productName)
       throws IOException {
-    // On OS X, in addition to what is specified in $TMPDIR, two other temporary directories may be
-    // written to by processes. We have to get their location by calling "getconf".
-    List<String> confVars = ImmutableList.of("DARWIN_USER_TEMP_DIR", "DARWIN_USER_CACHE_DIR");
-    ImmutableList.Builder<Path> writablePaths = ImmutableList.builder();
-    for (String confVar : confVars) {
-      Path path = blazeDirs.getFileSystem().getPath(getConfStr(confVar));
-      if (path.exists()) {
-        writablePaths.add(path);
-      }
-    }
-
     return new DarwinSandboxedStrategy(
+        cmdEnv,
         buildRequest,
-        clientEnv,
-        blazeDirs,
         sandboxBase,
         verboseFailures,
         productName,
-        writablePaths.build(),
-        new SpawnHelpers(blazeDirs.getExecRoot()));
+        getAlwaysWritableDirs(cmdEnv.getDirectories().getFileSystem()));
+  }
+
+  private static void addPathToSetIfExists(FileSystem fs, Set<Path> paths, String path)
+      throws IOException {
+    if (path != null) {
+      addPathToSetIfExists(paths, fs.getPath(path));
+    }
+  }
+
+  private static void addPathToSetIfExists(Set<Path> paths, Path path) throws IOException {
+    if (path.exists()) {
+      paths.add(path.resolveSymbolicLinks());
+    }
+  }
+
+  private static ImmutableSet<Path> getAlwaysWritableDirs(FileSystem fs) throws IOException {
+    HashSet<Path> writableDirs = new HashSet<>();
+
+    addPathToSetIfExists(fs, writableDirs, "/dev");
+    addPathToSetIfExists(fs, writableDirs, System.getenv("TMPDIR"));
+    addPathToSetIfExists(fs, writableDirs, "/tmp");
+    addPathToSetIfExists(fs, writableDirs, "/private/tmp");
+    addPathToSetIfExists(fs, writableDirs, "/private/var/tmp");
+
+    // On macOS, in addition to what is specified in $TMPDIR, two other temporary directories may be
+    // written to by processes. We have to get their location by calling "getconf".
+    addPathToSetIfExists(fs, writableDirs, getConfStr("DARWIN_USER_TEMP_DIR"));
+    addPathToSetIfExists(fs, writableDirs, getConfStr("DARWIN_USER_CACHE_DIR"));
+
+    // ~/Library/Cache and ~/Library/Logs need to be writable (cf. issue #2231).
+    Path homeDir = fs.getPath(System.getProperty("user.home"));
+    addPathToSetIfExists(writableDirs, homeDir.getRelative("Library/Cache"));
+    addPathToSetIfExists(writableDirs, homeDir.getRelative("Library/Logs"));
+
+    // Certain Xcode tools expect to be able to write to this path.
+    addPathToSetIfExists(writableDirs, homeDir.getRelative("Library/Developer"));
+
+    return ImmutableSet.copyOf(writableDirs);
   }
 
   /**
@@ -131,7 +148,7 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
    */
   private static String getConfStr(String confVar) throws IOException {
     String[] commandArr = new String[2];
-    commandArr[0] = "getconf";
+    commandArr[0] = "/usr/bin/getconf";
     commandArr[1] = confVar;
     Command cmd = new Command(commandArr);
     CommandResult res;
@@ -149,55 +166,45 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
       ActionExecutionContext actionExecutionContext,
       AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles)
       throws ExecException, InterruptedException, IOException {
-    Executor executor = actionExecutionContext.getExecutor();
-    executor
+    actionExecutionContext
         .getEventBus()
         .post(ActionStatusMessage.runningStrategy(spawn.getResourceOwner(), "darwin-sandbox"));
-    SandboxHelpers.reportSubcommand(executor, spawn);
-
-    PrintWriter errWriter = null;
-    if (sandboxDebug) {
-      errWriter =
-          new PrintWriter(
-              new BufferedWriter(
-                  new OutputStreamWriter(
-                      actionExecutionContext.getFileOutErr().getErrorStream(), UTF_8)));
-    }
+    SandboxHelpers.reportSubcommand(actionExecutionContext, spawn);
 
     // Each invocation of "exec" gets its own sandbox.
     Path sandboxPath = getSandboxRoot();
     Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
 
-    if (errWriter != null) {
-      errWriter.printf("sandbox root is %s\n", sandboxPath.toString());
-      errWriter.printf("working dir is %s\n", sandboxExecRoot.toString());
-    }
+    Map<String, String> spawnEnvironment =
+        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), execRoot, productName);
 
-    ImmutableMap<String, String> spawnEnvironment =
-        StandaloneSpawnStrategy.locallyDeterminedEnv(execRoot, productName, spawn.getEnvironment());
+    HashSet<Path> writableDirs = new HashSet<>(alwaysWritableDirs);
+    ImmutableSet<Path> extraWritableDirs = getWritableDirs(sandboxExecRoot, spawnEnvironment);
+    writableDirs.addAll(extraWritableDirs);
 
-    Set<Path> writableDirs = getWritableDirs(sandboxExecRoot, spawn.getEnvironment());
-    Path runUnderPath = getRunUnderPath(spawn);
-    HardlinkedExecRoot hardlinkedExecRoot =
-        new HardlinkedExecRoot(execRoot, sandboxPath, sandboxExecRoot, errWriter);
+    SymlinkedExecRoot symlinkedExecRoot = new SymlinkedExecRoot(sandboxExecRoot);
     ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);
-    hardlinkedExecRoot.createFileSystem(
-        getMounts(spawn, actionExecutionContext), outputs, writableDirs);
+    symlinkedExecRoot.createFileSystem(
+        SandboxHelpers.getInputFiles(
+            spawnInputExpander, this.execRoot, spawn, actionExecutionContext),
+        outputs,
+        writableDirs);
 
-    // Flush our logs before executing the spawn, otherwise they might get overwritten.
-    if (errWriter != null) {
-      errWriter.flush();
+    // This will add the resolved versions of the spawn-dependant writable paths (e.g. its execroot
+    // or TEST_TMPDIR) to the set, now that they have been created by the SymlinkedExecRoot.
+    for (Path extraWritableDir : extraWritableDirs) {
+      addPathToSetIfExists(writableDirs, extraWritableDir);
     }
 
     DarwinSandboxRunner runner =
         new DarwinSandboxRunner(
-            sandboxPath, sandboxExecRoot, writableDirs, runUnderPath, verboseFailures);
+            sandboxPath, sandboxExecRoot, writableDirs, getInaccessiblePaths(), verboseFailures);
     try {
       runSpawn(
           spawn,
           actionExecutionContext,
           spawnEnvironment,
-          hardlinkedExecRoot,
+          symlinkedExecRoot,
           outputs,
           runner,
           writeOutputFiles);
@@ -206,134 +213,15 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
         try {
           FileSystemUtils.deleteTree(sandboxPath);
         } catch (IOException e) {
-          executor
-              .getEventHandler()
-              .handle(
-                  Event.warn(
-                      String.format(
-                          "Cannot delete sandbox directory after action execution: %s (%s)",
-                          sandboxPath.getPathString(), e)));
+          // This usually means that the Spawn itself exited, but still has children running that
+          // we couldn't wait for, which now block deletion of the sandbox directory. On Linux this
+          // should never happen, as we use PID namespaces and where they are not available the
+          // subreaper feature to make sure all children have been reliably killed before returning,
+          // but on other OS this might not always work. The SandboxModule will try to delete them
+          // again when the build is all done, at which point it hopefully works, so let's just go
+          // on here.
         }
       }
     }
-  }
-
-  @Override
-  protected ImmutableSet<Path> getWritableDirs(Path sandboxExecRoot, Map<String, String> env)
-      throws IOException {
-    ImmutableSet.Builder<Path> writableDirs = ImmutableSet.builder();
-    writableDirs.addAll(super.getWritableDirs(sandboxExecRoot, env));
-
-    FileSystem fs = sandboxExecRoot.getFileSystem();
-    writableDirs.add(fs.getPath("/dev"));
-
-    String sysTmpDir = System.getenv("TMPDIR");
-    if (sysTmpDir != null) {
-      writableDirs.add(fs.getPath(sysTmpDir));
-    }
-
-    writableDirs.add(fs.getPath("/tmp"));
-
-    // ~/Library/Cache and ~/Library/Logs need to be writable (cf. issue #2231).
-    Path homeDir = fs.getPath(System.getProperty("user.home"));
-    writableDirs.add(homeDir.getRelative("Library/Cache"));
-    writableDirs.add(homeDir.getRelative("Library/Logs"));
-
-    // Other temporary directories from getconf.
-    for (Path path : confPaths) {
-      if (path.exists()) {
-        writableDirs.add(path);
-      }
-    }
-
-    return writableDirs.build();
-  }
-
-  @Override
-  public Map<PathFragment, Path> getMounts(Spawn spawn, ActionExecutionContext executionContext)
-      throws ExecException {
-    try {
-      Map<PathFragment, Path> mounts = new HashMap<>();
-      spawnHelpers.mountInputs(mounts, spawn, executionContext);
-
-      Map<PathFragment, Path> unfinalized = new HashMap<>();
-      spawnHelpers.mountRunfilesFromSuppliers(unfinalized, spawn);
-      spawnHelpers.mountFilesFromFilesetManifests(unfinalized, spawn, executionContext);
-      mounts.putAll(finalizeLinks(unfinalized));
-
-      return mounts;
-    } catch (IllegalArgumentException | IOException e) {
-      throw new EnvironmentalExecException("Could not prepare mounts for sandbox execution", e);
-    }
-  }
-
-  private Map<PathFragment, Path> finalizeLinks(Map<PathFragment, Path> unfinalized)
-      throws IOException {
-    HashMap<PathFragment, Path> finalizedLinks = new HashMap<>();
-    for (Map.Entry<PathFragment, Path> mount : unfinalized.entrySet()) {
-      PathFragment target = mount.getKey();
-      Path source = mount.getValue();
-
-      // If the source is null, the target is supposed to be an empty file. In this case we don't
-      // have to deal with finalizing the link.
-      if (source == null) {
-        finalizedLinks.put(target, source);
-        continue;
-      }
-
-      FileStatus stat = source.statNullable(Symlinks.NOFOLLOW);
-
-      if (stat != null && stat.isDirectory()) {
-        for (Path subSource : FileSystemUtils.traverseTree(source, Predicates.alwaysTrue())) {
-          PathFragment subTarget = target.getRelative(subSource.relativeTo(source));
-          finalizeLinksPath(
-              finalizedLinks, subTarget, subSource, subSource.statNullable(Symlinks.NOFOLLOW));
-        }
-      } else {
-        finalizeLinksPath(finalizedLinks, target, source, stat);
-      }
-    }
-    return finalizedLinks;
-  }
-
-  private void finalizeLinksPath(
-      Map<PathFragment, Path> finalizedMounts, PathFragment target, Path source, FileStatus stat) {
-    // The source must exist.
-    Preconditions.checkArgument(stat != null, "%s does not exist", source.toString());
-    finalizedMounts.put(target, source);
-  }
-
-  /**
-   * If a --run_under= option is set and refers to a command via its path (as opposed to via its
-   * label), we have to mount this. Note that this is best effort and works fine for shell scripts
-   * and small binaries, but we can't track any further dependencies of this command.
-   *
-   * <p>If --run_under= refers to a label, it is automatically provided in the spawn's input files,
-   * so mountInputs() will catch that case.
-   */
-  private Path getRunUnderPath(Spawn spawn) {
-    if (spawn.getResourceOwner() instanceof TestRunnerAction) {
-      TestRunnerAction testRunnerAction = ((TestRunnerAction) spawn.getResourceOwner());
-      RunUnder runUnder = testRunnerAction.getExecutionSettings().getRunUnder();
-      if (runUnder != null && runUnder.getCommand() != null) {
-        PathFragment sourceFragment = PathFragment.create(runUnder.getCommand());
-        Path mount;
-        if (sourceFragment.isAbsolute()) {
-          mount = blazeDirs.getFileSystem().getPath(sourceFragment);
-        } else if (blazeDirs.getExecRoot().getRelative(sourceFragment).exists()) {
-          mount = blazeDirs.getExecRoot().getRelative(sourceFragment);
-        } else {
-          List<Path> searchPath =
-              SearchPath.parse(blazeDirs.getFileSystem(), clientEnv.get("PATH"));
-          mount = SearchPath.which(searchPath, runUnder.getCommand());
-        }
-        // only need to hardlink when under workspace
-        Path workspace = blazeDirs.getWorkspace();
-        if (mount != null && mount.startsWith(workspace)) {
-          return mount;
-        }
-      }
-    }
-    return null;
   }
 }

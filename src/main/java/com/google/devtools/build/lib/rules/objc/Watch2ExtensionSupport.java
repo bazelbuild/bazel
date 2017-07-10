@@ -35,9 +35,10 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
 import com.google.devtools.build.lib.syntax.Type;
 import javax.annotation.Nullable;
@@ -177,7 +178,10 @@ public class Watch2ExtensionSupport {
     }
 
     Iterable<ObjcProvider> binaryDependencies() {
-      return ruleContext.getPrerequisites("binary", Mode.TARGET, ObjcProvider.class);
+      TransitiveInfoCollection info = ruleContext.getPrerequisite("binary", Mode.TARGET);
+      AppleExecutableBinaryProvider binaryProvider =
+          info.get(AppleExecutableBinaryProvider.SKYLARK_CONSTRUCTOR);
+      return ImmutableList.of(binaryProvider.getDepsObjcProvider());
     }
 
     @Nullable

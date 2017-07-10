@@ -14,7 +14,7 @@
 
 package com.google.testing.junit.runner.internal;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -40,7 +40,9 @@ public class SignalHandlersTest {
     @Override
     public SignalHandler install(Signal signal, SignalHandler handler) {
       SignalHandler previousHandler = currentHandler;
-      assertEquals("This fake only supports the TERM signal", TERM_SIGNAL, signal);
+      assertWithMessage("This fake only supports the TERM signal")
+          .that(signal)
+          .isEqualTo(TERM_SIGNAL);
       currentHandler = handler;
       return previousHandler;
     }

@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
+import com.google.devtools.build.lib.analysis.DefaultProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.LabelExpander;
 import com.google.devtools.build.lib.analysis.LabelExpander.NotUniqueExpansionException;
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
+import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Location;
@@ -58,13 +60,14 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression.FuncallException;
-import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.LabelClass;
@@ -167,17 +170,23 @@ public final class SkylarkRuleContext implements SkylarkValue {
   // after this object has been nullified.
   private final String ruleLabelCanonicalName;
 
+  private final boolean isForAspect;
+
+  private final SkylarkActionFactory actionFactory;
+
   // The fields below intended to be final except that they can be cleared by calling `nullify()`
   // when the object becomes featureless.
   private RuleContext ruleContext;
   private FragmentCollection fragments;
   private FragmentCollection hostFragments;
   private AspectDescriptor aspectDescriptor;
+  private final SkylarkSemanticsOptions skylarkSemantics;
 
   private SkylarkDict<String, String> makeVariables;
   private SkylarkRuleAttributesCollection attributesCollection;
   private SkylarkRuleAttributesCollection ruleAttributesCollection;
   private SkylarkClassObject splitAttributes;
+  private SkylarkDict<Label, ToolchainInfo> toolchains;
 
   // TODO(bazel-team): we only need this because of the css_binary rule.
   private ImmutableMap<Artifact, Label> artifactsLabelMap;
@@ -190,15 +199,19 @@ public final class SkylarkRuleContext implements SkylarkValue {
    * @throws InterruptedException
    */
   public SkylarkRuleContext(RuleContext ruleContext,
-      @Nullable AspectDescriptor aspectDescriptor)
+      @Nullable AspectDescriptor aspectDescriptor,
+      SkylarkSemanticsOptions skylarkSemantics)
       throws EvalException, InterruptedException {
+    this.actionFactory = new SkylarkActionFactory(this, ruleContext);
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
     this.ruleLabelCanonicalName = ruleContext.getLabel().getCanonicalForm();
     this.fragments = new FragmentCollection(ruleContext, ConfigurationTransition.NONE);
     this.hostFragments = new FragmentCollection(ruleContext, ConfigurationTransition.HOST);
     this.aspectDescriptor = aspectDescriptor;
+    this.skylarkSemantics = skylarkSemantics;
 
     if (aspectDescriptor == null) {
+      this.isForAspect = false;
       Collection<Attribute> attributes = ruleContext.getRule().getAttributes();
       HashMap<String, Object> outputsBuilder = new HashMap<>();
       if (ruleContext.getRule().getRuleClassObject().outputsDefaultExecutable()) {
@@ -260,6 +273,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
       this.splitAttributes = buildSplitAttributeInfo(attributes, ruleContext);
       this.ruleAttributesCollection = null;
     } else { // ASPECT
+      this.isForAspect = true;
       this.artifactsLabelMap = ImmutableMap.of();
       this.outputsObject = null;
       this.attributesCollection =
@@ -278,6 +292,10 @@ public final class SkylarkRuleContext implements SkylarkValue {
     }
 
     makeVariables = ruleContext.getConfigurationMakeVariableContext().collectMakeVariables();
+    toolchains =
+        ruleContext.getToolchainContext() == null
+            ? SkylarkDict.<Label, ToolchainInfo>of(null)
+            : ruleContext.getToolchainContext().collectToolchains();
   }
 
   /**
@@ -286,6 +304,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
    * rule implementation function has exited).
    */
   public void nullify() {
+    actionFactory.nullify();
     ruleContext = null;
     fragments = null;
     hostFragments = null;
@@ -296,6 +315,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
     splitAttributes = null;
     artifactsLabelMap = null;
     outputsObject = null;
+    toolchains = null;
   }
 
   public void checkMutable(String attrName) throws EvalException {
@@ -396,7 +416,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
         List<? extends TransitiveInfoCollection> allPrereq =
             ruleContext.getPrerequisites(a.getName(), Mode.DONT_CHECK);
         for (TransitiveInfoCollection prereq : allPrereq) {
-          builder.put(prereq, original.get(prereq.getLabel()));
+          builder.put(prereq, original.get(AliasProvider.getDependencyLabel(prereq)));
         }
         attrBuilder.put(skyname, SkylarkType.convertToSkylark(builder.build(), null));
       } else if (type == BuildType.LABEL_DICT_UNARY) {
@@ -479,7 +499,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
     category = SkylarkModuleCategory.NONE,
     doc = "Information about attributes of a rule an aspect is applied to."
   )
-  private static class SkylarkRuleAttributesCollection {
+  private static class SkylarkRuleAttributesCollection implements SkylarkValue {
     private final SkylarkRuleContext skylarkRuleContext;
     private final SkylarkClassObject attrObject;
     private final SkylarkClassObject executableObject;
@@ -557,6 +577,22 @@ public final class SkylarkRuleContext implements SkylarkValue {
     public ImmutableMap<Artifact, FilesToRunProvider> getExecutableRunfilesMap() {
       return executableRunfilesMap;
     }
+
+    @Override
+    public boolean isImmutable() {
+      return skylarkRuleContext.isImmutable();
+    }
+
+    @Override
+    public void repr(SkylarkPrinter printer) {
+      printer.append("<rule collection for " + skylarkRuleContext.ruleLabelCanonicalName + ">");
+    }
+
+    @Override
+    public void reprLegacy(SkylarkPrinter printer) {
+      printer.append("rule_collection:");
+      printer.repr(skylarkRuleContext);
+    }
   }
 
   private void addOutput(HashMap<String, Object> outputsBuilder, String key, Object value)
@@ -573,8 +609,16 @@ public final class SkylarkRuleContext implements SkylarkValue {
   }
 
   @Override
-  public void write(Appendable buffer, char quotationMark) {
-    Printer.append(buffer, ruleLabelCanonicalName);
+  public void repr(SkylarkPrinter printer) {
+    if (isForAspect) {
+      printer.append("<aspect context for " + ruleLabelCanonicalName + ">");
+    } else {
+      printer.append("<rule context for " + ruleLabelCanonicalName + ">");
+    }
+  }
+  @Override
+  public void reprLegacy(SkylarkPrinter printer) {
+    printer.append(ruleLabelCanonicalName);
   }
 
   /**
@@ -584,25 +628,21 @@ public final class SkylarkRuleContext implements SkylarkValue {
     return ruleContext;
   }
 
-  private static final ClassObjectConstructor DEFAULT_PROVIDER =
-      new NativeClassObjectConstructor("default_provider") {
-        @Override
-        protected SkylarkClassObject createInstanceFromSkylark(Object[] args, Location loc) {
-          @SuppressWarnings("unchecked")
-          Map<String, Object> kwargs = (Map<String, Object>) args[0];
-          return new SkylarkClassObject(this, kwargs, loc);
-        }
-      };
-
-  @SkylarkCallable(name = "default_provider", structField = true,
-      doc = "A provider that's provided by every rule, even if it's not returned explicitly. "
-          + "A <code>default_provider</code> accepts all special parameters that can be returned "
-          + "from rule implementation function in a struct, which are <code>runfiles</code>, "
-          + "<code>data_runfiles</code>, <code>default_runfiles</code>, "
-          + "<code>output_groups</code>, <code>instrumented_files</code>, and all "
-          + "<a href=\"skylark-provider.html\">providers</a> that are available on built-in rules.")
+  @SkylarkCallable(
+    name = "default_provider",
+    structField = true,
+    doc = "Deprecated. Use <a href=\"globals.html#DefaultInfo\">DefaultInfo</a> instead.")
   public static ClassObjectConstructor getDefaultProvider() {
-    return DEFAULT_PROVIDER;
+    return DefaultProvider.SKYLARK_CONSTRUCTOR;
+  }
+
+  @SkylarkCallable(
+      name = "actions",
+      structField = true,
+      doc = "Functions to declare files and create actions."
+  )
+  public SkylarkActionFactory actions() {
+    return actionFactory;
   }
 
   @SkylarkCallable(name = "created_actions",
@@ -615,7 +655,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
           + "<br/><br/>"
           + "This is intended to help write tests for rule-implementation helper functions, which "
           + "may take in a <code>ctx</code> object and create actions on it.")
-  public Object createdActions() throws EvalException {
+  public SkylarkValue createdActions() throws EvalException {
     checkMutable("created_actions");
     if (ruleContext.getRule().getRuleClassObject().isSkylarkTestable()) {
       return ActionsProvider.create(
@@ -777,7 +817,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
           + " Only available in aspect implementation functions.")
   public SkylarkRuleAttributesCollection rule() throws EvalException {
     checkMutable("rule");
-    if (ruleAttributesCollection == null) {
+    if (!isForAspect) {
       throw new EvalException(
           Location.BUILTIN, "'rule' is only available in aspect implementations");
     }
@@ -790,7 +830,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
       + " Only available in aspect implementation functions.")
   public ImmutableList<String> aspectIds() throws EvalException {
     checkMutable("aspect_ids");
-    if (ruleAttributesCollection == null) {
+    if (!isForAspect) {
       throw new EvalException(
           Location.BUILTIN, "'aspect_ids' is only available in aspect implementations");
     }
@@ -809,6 +849,17 @@ public final class SkylarkRuleContext implements SkylarkValue {
   public SkylarkDict<String, String> var() throws EvalException {
     checkMutable("var");
     return makeVariables;
+  }
+
+  @SkylarkCallable(structField = true, doc = "Toolchains required for this rule.")
+  public SkylarkDict<Label, ToolchainInfo> toolchains() throws EvalException {
+    checkMutable("toolchains");
+    if (isForAspect) {
+      // TODO(katre): Support toolchains on aspects.
+      throw new EvalException(
+          Location.BUILTIN, "'toolchains' is not available in aspect implementations");
+    }
+    return toolchains;
   }
 
   @Override
@@ -850,14 +901,15 @@ public final class SkylarkRuleContext implements SkylarkValue {
     }
   }
 
-  private boolean isForAspect() {
-    return ruleAttributesCollection != null;
+  boolean isForAspect() {
+    return isForAspect;
   }
 
   @SkylarkCallable(
     name = "new_file",
     doc =
-        "Creates a file object with the given filename, in the current package. "
+        "DEPRECATED. Use <a href=\"actions.html#declare_file\">ctx.actions.declare_file</a>. <br>"
+            + "Creates a file object with the given filename, in the current package. "
             + DOC_NEW_FILE_TAIL,
     parameters = {
       @Param(
@@ -868,14 +920,10 @@ public final class SkylarkRuleContext implements SkylarkValue {
     }
   )
   public Artifact newFile(String filename) throws EvalException {
+    SkylarkRuleImplementationFunctions.checkDeprecated(
+        "ctx.actions.declare_file", "ctx.new_file", null, skylarkSemantics);
     checkMutable("new_file");
-    return newFile(newFileRoot(), filename);
-  }
-
-  private Root newFileRoot() throws EvalException {
-    return isForAspect()
-        ? getConfiguration().getBinDirectory(ruleContext.getRule().getRepository())
-        : ruleContext.getBinOrGenfilesDirectory();
+    return actionFactory.declareFile(filename, Runtime.NONE);
   }
 
   // Kept for compatibility with old code.
@@ -904,10 +952,10 @@ public final class SkylarkRuleContext implements SkylarkValue {
       }
     )
   public Artifact newFile(Artifact baseArtifact, String newBaseName) throws EvalException {
+    SkylarkRuleImplementationFunctions.checkDeprecated(
+        "ctx.actions.declare_file", "ctx.new_file", null, skylarkSemantics);
     checkMutable("new_file");
-    PathFragment original = baseArtifact.getRootRelativePath();
-    PathFragment fragment = original.replaceName(newBaseName);
-    return ruleContext.getDerivedArtifact(fragment, newFileRoot());
+    return actionFactory.declareFile(newBaseName, baseArtifact);
   }
 
   // Kept for compatibility with old code.
@@ -919,7 +967,6 @@ public final class SkylarkRuleContext implements SkylarkValue {
     return ruleContext.getDerivedArtifact(fragment, root);
   }
 
-  // TODO(b/36548861): Document this when it's ready to be made publicly available.
   @SkylarkCallable(
     name = "experimental_new_directory",
     documented = false,
@@ -935,20 +982,16 @@ public final class SkylarkRuleContext implements SkylarkValue {
     }
   )
   public Artifact newDirectory(String name, Object siblingArtifactUnchecked) throws EvalException {
+    SkylarkRuleImplementationFunctions.checkDeprecated(
+        "ctx.actions.declare_directory", "ctx.experimental_new_directory", null, skylarkSemantics);
     checkMutable("experimental_new_directory");
-    if (siblingArtifactUnchecked == Runtime.NONE) {
-      return ruleContext.getPackageRelativeTreeArtifact(PathFragment.create(name), newFileRoot());
-    }
-    Artifact siblingArtifact = (Artifact) siblingArtifactUnchecked;
-    PathFragment original = siblingArtifact.getRootRelativePath();
-    PathFragment fragment = original.replaceName(name);
-    return ruleContext.getTreeArtifact(fragment, newFileRoot());
+    return actionFactory.declareDirectory(name, siblingArtifactUnchecked);
   }
 
   @SkylarkCallable(documented = false)
   public NestedSet<Artifact> middleMan(String attribute) throws EvalException {
     checkMutable("middle_man");
-    return AnalysisUtils.getMiddlemanFor(ruleContext, attribute);
+    return AnalysisUtils.getMiddlemanFor(ruleContext, attribute, Mode.HOST);
   }
 
   @SkylarkCallable(documented = false)
@@ -968,7 +1011,8 @@ public final class SkylarkRuleContext implements SkylarkValue {
   }
 
   @SkylarkCallable(doc =
-        "Returns a string after expanding all references to \"Make variables\". The variables "
+        "<b>Deprecated.</b> Use <code>ctx.var</code> to access the variables instead.<br>"
+      + "Returns a string after expanding all references to \"Make variables\". The variables "
       + "must have the following format: <code>$(VAR_NAME)</code>. Also, <code>$$VAR_NAME"
       + "</code> expands to <code>$VAR_NAME</code>. Parameters:"
       + "<ul><li>The name of the attribute (<code>string</code>). It's only used for error "
@@ -987,15 +1031,17 @@ public final class SkylarkRuleContext implements SkylarkValue {
   public String expandMakeVariables(String attributeName, String command,
       final Map<String, String> additionalSubstitutions) throws EvalException {
     checkMutable("expand_make_variables");
-    return ruleContext.expandMakeVariables(attributeName,
-        command, new ConfigurationMakeVariableContext(ruleContext.getRule().getPackage(),
-            ruleContext.getConfiguration()) {
+    return ruleContext.expandMakeVariables(
+        attributeName,
+        command,
+        new ConfigurationMakeVariableContext(
+            ruleContext, ruleContext.getRule().getPackage(), ruleContext.getConfiguration()) {
           @Override
-          public String lookupMakeVariable(String name) throws ExpansionException {
-            if (additionalSubstitutions.containsKey(name)) {
-              return additionalSubstitutions.get(name);
+          public String lookupMakeVariable(String variableName) throws ExpansionException {
+            if (additionalSubstitutions.containsKey(variableName)) {
+              return additionalSubstitutions.get(variableName);
             } else {
-              return super.lookupMakeVariable(name);
+              return super.lookupMakeVariable(variableName);
             }
           }
         });

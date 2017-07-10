@@ -12,36 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef PROCESS_TOOLS_H__
-#define PROCESS_TOOLS_H__
+#ifndef SRC_MAIN_TOOLS_PROCESS_TOOLS_H_
+#define SRC_MAIN_TOOLS_PROCESS_TOOLS_H_
 
-#include <sys/types.h>
 #include <stdbool.h>
-
-// see
-// http://stackoverflow.com/questions/5641427/how-to-make-preprocessor-generate-a-string-for-line-keyword
-#define S(x) #x
-#define S_(x) S(x)
-#define S__LINE__ S_(__LINE__)
-
-#define DIE(args...)                                   \
-  {                                                    \
-    fprintf(stderr, __FILE__ ":" S__LINE__ ": " args); \
-    exit(EXIT_FAILURE);                                \
-  }
-
-#define CHECK_CALL(x)                             \
-  if ((x) == -1) {                                \
-    fprintf(stderr, __FILE__ ":" S__LINE__ ": "); \
-    perror(#x);                                   \
-    exit(EXIT_FAILURE);                           \
-  }
-
-#define CHECK_NOT_NULL(x) \
-  if (x == NULL) {        \
-    perror(#x);           \
-    exit(EXIT_FAILURE);   \
-  }
+#include <sys/types.h>
+#include <string>
 
 // Switch completely to the effective uid.
 // Some programs (notably, bash) ignore the euid and just use the uid. This
@@ -52,23 +28,23 @@ int SwitchToEuid();
 // Switch completely to the effective gid.
 int SwitchToEgid();
 
-// Redirect stdout to the file stdout_path (but not if stdout_path is "-").
-void RedirectStdout(const char *stdout_path);
-
-// Redirect stderr to the file stdout_path (but not if stderr_path is "-").
-void RedirectStderr(const char *stderr_path);
+// Redirect fd to the file target_path (but not if target_path is empty or "-").
+void Redirect(const std::string &target_path, int fd);
 
 // Make sure the process group "pgrp" and all its subprocesses are killed.
 // If "gracefully" is true, sends SIGTERM first and after a timeout of
 // "graceful_kill_delay" seconds, sends SIGKILL.
 // If not, send SIGKILL immediately.
-void KillEverything(int pgrp, bool gracefully, double graceful_kill_delay);
+void KillEverything(pid_t pgrp, bool gracefully, double graceful_kill_delay);
 
 // Set up a signal handler for a signal.
-void HandleSignal(int sig, void (*handler)(int));
+void InstallSignalHandler(int signum, void (*handler)(int));
 
-// Revert signal handler for a signal to the default.
-void UnHandle(int sig);
+// Set the signal handler for `signum` to SIG_IGN (ignore).
+void IgnoreSignal(int signum);
+
+// Set the signal handler for `signum` to SIG_DFL (default).
+void InstallDefaultSignalHandler(int sig);
 
 // Use an empty signal mask for the process and set all signal handlers to their
 // default.
@@ -80,6 +56,6 @@ void SetTimeout(double timeout_secs);
 
 // Wait for "pid" to exit and return its exit code.
 // "name" is used for the error message only.
-int WaitChild(pid_t pid, const char *name);
+int WaitChild(pid_t pid);
 
 #endif  // PROCESS_TOOLS_H__

@@ -89,7 +89,7 @@ class CoreLibraryRewriter {
 
   /** Prefixes core library class names with prefix */
   public String prefix(String typeName) {
-    if (prefix.length() >  0 && shouldPrefix(typeName)) {
+    if (prefix.length() > 0 && shouldPrefix(typeName)) {
       return prefix + typeName;
     }
     return typeName;
@@ -103,9 +103,7 @@ class CoreLibraryRewriter {
     return typeName.substring(prefix.length());
   }
 
-  /**
-   * ClassReader that prefixes core library class names as they are read
-   */
+  /** ClassReader that prefixes core library class names as they are read */
   private class PrefixingClassReader extends ClassReader {
     PrefixingClassReader(InputStream content) throws IOException {
       super(content);
@@ -165,25 +163,43 @@ class CoreLibraryRewriter {
     @Override
     protected MethodVisitor createMethodRemapper(MethodVisitor mv) {
       return new MethodRemapper(mv, this.remapper) {
-        private final boolean isArrayNullOrEmpty(Object[] array) {
-          return array == null || array.length == 0;
-        }
 
         @Override
         public void visitFrame(int type, int nLocal, Object[] local, int nStack, Object[] stack) {
-          if (isArrayNullOrEmpty(local)) {
-            nLocal = 0;
+          if (this.mv != null) {
+            mv.visitFrame(
+                type,
+                nLocal,
+                remapEntriesWithBugfix(nLocal, local),
+                nStack,
+                remapEntriesWithBugfix(nStack, stack));
           }
-          if (isArrayNullOrEmpty(stack)) {
-            nStack = 0;
+        }
+
+        /**
+         * In {@code FrameNode.accept(MethodVisitor)}, when the frame is Opcodes.F_CHOP, it is
+         * possible that nLocal is greater than 0, and local is null, which causes MethodRemapper to
+         * throw a NPE. So the patch is to make sure that the {@code nLocal<=local.length} and
+         * {@code nStack<=stack.length}
+         */
+        private Object[] remapEntriesWithBugfix(int n, Object[] entries) {
+          if (entries == null || entries.length == 0) {
+            return entries;
           }
-          /*
-           * In {@code FrameNode.accept(MethodVisitor)}, when the frame is Opcodes.F_CHOP,
-           * it is possible that nLocal is greater than 0, and local is null, which causes
-           * MethodRemapper to throw a NPE. So the patch is to make sure that the
-           * {@code nLocal<=local.length} and {@code nStack<=stack.length}
-           */
-          super.visitFrame(type, nLocal, local, nStack, stack);
+          for (int i = 0; i < n; i++) {
+            if (entries[i] instanceof String) {
+              Object[] newEntries = new Object[n];
+              if (i > 0) {
+                System.arraycopy(entries, 0, newEntries, 0, i);
+              }
+              do {
+                Object t = entries[i];
+                newEntries[i++] = t instanceof String ? remapper.mapType((String) t) : t;
+              } while (i < n);
+              return newEntries;
+            }
+          }
+          return entries;
         }
       };
     }

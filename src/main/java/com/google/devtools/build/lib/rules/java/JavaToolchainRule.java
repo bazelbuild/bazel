@@ -98,7 +98,11 @@ public final class JavaToolchainRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(javac) -->
         Label of the javac jar.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("javac", LABEL_LIST).mandatory().cfg(HOST).allowedFileTypes(FileTypeSet.ANY_FILE))
+        .add(attr("javac", LABEL_LIST)
+            .mandatory()
+            .cfg(HOST)
+            .singleArtifact()
+            .allowedFileTypes(FileTypeSet.ANY_FILE))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(javabuilder) -->
         Label of the JavaBuilder deploy jar.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -106,6 +110,7 @@ public final class JavaToolchainRule implements RuleDefinition {
             attr("javabuilder", LABEL_LIST)
                 .mandatory()
                 .cfg(HOST)
+                .singleArtifact()
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .exec())
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(singlejar) -->
@@ -115,6 +120,7 @@ public final class JavaToolchainRule implements RuleDefinition {
             attr("singlejar", LABEL_LIST)
                 .mandatory()
                 .cfg(HOST)
+                .singleArtifact()
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .exec())
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(genclass) -->
@@ -123,6 +129,7 @@ public final class JavaToolchainRule implements RuleDefinition {
         .add(
             attr("genclass", LABEL_LIST)
                 .mandatory()
+                .singleArtifact()
                 .cfg(HOST)
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .exec())
@@ -130,12 +137,20 @@ public final class JavaToolchainRule implements RuleDefinition {
         Label of the resource jar builder executable.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
-            attr("resourcejar", LABEL_LIST).cfg(HOST).allowedFileTypes(FileTypeSet.ANY_FILE).exec())
+            attr("resourcejar", LABEL_LIST)
+                .cfg(HOST)
+                .singleArtifact()
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .exec())
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(timezone_data) -->
         Label of a resource jar containing timezone data. If set, the timezone data is added as an
         implicitly runtime dependency of all java_binary rules.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("timezone_data", LABEL).cfg(HOST).allowedFileTypes(FileTypeSet.ANY_FILE).exec())
+        .add(attr("timezone_data", LABEL)
+            .cfg(HOST)
+            .singleArtifact()
+            .allowedFileTypes(FileTypeSet.ANY_FILE)
+            .exec())
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(ijar) -->
         Label of the ijar executable.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -151,18 +166,24 @@ public final class JavaToolchainRule implements RuleDefinition {
         .add(
             attr("header_compiler", LABEL_LIST)
                 .cfg(HOST)
+                .singleArtifact()
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .exec())
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(oneversion) -->
         Label of the one-version enforcement binary.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("oneversion", LABEL).cfg(HOST).allowedFileTypes(FileTypeSet.ANY_FILE).exec())
+        .add(attr("oneversion", LABEL)
+            .cfg(HOST)
+            .singleArtifact()
+            .allowedFileTypes(FileTypeSet.ANY_FILE)
+            .exec())
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(oneversion_whitelist) -->
         Label of the one-version whitelist.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr("oneversion_whitelist", LABEL)
                 .cfg(HOST)
+                .singleArtifact()
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .exec())
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(forcibly_disable_header_compilation) -->

@@ -115,12 +115,6 @@ py_test(
 )
 
 py_binary(
-    name = "sha256",
-    srcs = ["sha256.py"],
-    visibility = ["//visibility:public"],
-)
-
-py_binary(
     name = "create_image",
     srcs = ["create_image.py"],
     visibility = ["//visibility:public"],

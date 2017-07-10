@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.buildeventstream;
 
 import com.google.common.collect.ImmutableList;
 import java.util.Collection;
+import javax.annotation.Nullable;
 
 /**
  * A {@link BuildEvent} reporting about progress.
@@ -26,40 +27,65 @@ import java.util.Collection;
  */
 public final class ProgressEvent extends GenericBuildEvent {
 
-  /** The {@link BuildEventId} of the first progress event to be reported. */
-  public static BuildEventId INITIAL_PROGRESS_UPDATE = BuildEventId.progressId(0);
+  @Nullable private final String out;
+  @Nullable private final String err;
 
-  private ProgressEvent(BuildEventId id, Collection<BuildEventId> children) {
+  /** The {@link BuildEventId} of the first progress event to be reported. */
+  public static final BuildEventId INITIAL_PROGRESS_UPDATE = BuildEventId.progressId(0);
+
+  private ProgressEvent(
+      BuildEventId id, Collection<BuildEventId> children, String out, String err) {
     super(id, children);
+    this.out = out;
+    this.err = err;
   }
 
   @Override
   public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
-    return GenericBuildEvent.protoChaining(this)
-        .setProgress(BuildEventStreamProtos.Progress.newBuilder().build())
-        .build();
+    BuildEventStreamProtos.Progress.Builder builder = BuildEventStreamProtos.Progress.newBuilder();
+    if (out != null) {
+      builder.setStdout(out);
+    }
+    if (err != null) {
+      builder.setStderr(err);
+    }
+    return GenericBuildEvent.protoChaining(this).setProgress(builder.build()).build();
   }
 
   /** Create a regular progress update with the given running number. */
-  public static BuildEvent progressUpdate(int number) {
+  public static BuildEvent progressUpdate(int number, String out, String err) {
     BuildEventId id = BuildEventId.progressId(number);
     BuildEventId next = BuildEventId.progressId(number + 1);
-    return new ProgressEvent(id, ImmutableList.of(next));
+    return new ProgressEvent(id, ImmutableList.of(next), out, err);
+  }
+
+  public static BuildEvent progressUpdate(int number) {
+    return progressUpdate(number, null, null);
   }
 
   /** Create a progress update event also chaining in a given id. */
-  public static BuildEvent progressChainIn(int number, BuildEventId chainIn) {
+  public static BuildEvent progressChainIn(
+      int number, BuildEventId chainIn, String out, String err) {
     BuildEventId id = BuildEventId.progressId(number);
     BuildEventId next = BuildEventId.progressId(number + 1);
-    return new ProgressEvent(id, ImmutableList.of(next, chainIn));
+    return new ProgressEvent(id, ImmutableList.of(next, chainIn), out, err);
+  }
+
+  public static BuildEvent progressChainIn(int number, BuildEventId chainIn) {
+    return progressChainIn(number, chainIn, null, null);
   }
 
   /**
    * A progress update event with a given id, that has no children (and hence usually is the last
    * progress event in the stream).
    */
-  public static BuildEvent finalProgressUpdate(int number) {
+  public static BuildEvent finalProgressUpdate(
+      int number, @Nullable String out, @Nullable String err) {
     BuildEventId id = BuildEventId.progressId(number);
-    return new ProgressEvent(id, ImmutableList.<BuildEventId>of());
+    return new ProgressEvent(id, ImmutableList.<BuildEventId>of(), out, err);
+  }
+
+  public static BuildEvent finalProgressUpdate(int number) {
+    return finalProgressUpdate(number, null, null);
   }
 }

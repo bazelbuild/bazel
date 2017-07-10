@@ -62,9 +62,7 @@ public final class ServerBuilder {
   }
 
   Function<RuleClass, AttributeContainer> getAttributeContainerFactory() {
-    return attributeContainerFactory == null
-        ? AttributeContainer.ATTRIBUTE_CONTAINER_FACTORY
-        : attributeContainerFactory;
+    return attributeContainerFactory == null ? AttributeContainer::new : attributeContainerFactory;
   }
 
   ImmutableMap<String, InfoItem> getInfoItems() {

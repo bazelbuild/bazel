@@ -16,15 +16,14 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoException;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.WorkspaceNameValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.IOException;
-
 import javax.annotation.Nullable;
 
 /**
@@ -46,17 +45,24 @@ public class FdoSupportFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws FdoSkyException, InterruptedException {
     BlazeDirectories blazeDirectories = PrecomputedValue.BLAZE_DIRECTORIES.get(env);
+    WorkspaceNameValue workspaceNameValue = (WorkspaceNameValue) env.getValue(
+        WorkspaceNameValue.key());
     if (env.valuesMissing()) {
       return null;
     }
 
-    // TODO(kchodorow): create a SkyFunction to get the main repository name and pass it in here.
-    Path execRoot = blazeDirectories.getExecRoot();
+    Path execRoot = blazeDirectories.getExecRoot(workspaceNameValue.getName());
     FdoSupportValue.Key key = (FdoSupportValue.Key) skyKey.argument();
     FdoSupport fdoSupport;
     try {
-      fdoSupport = FdoSupport.create(env,
-        key.getFdoInstrument(), key.getFdoZip(), key.getLipoMode(), execRoot);
+      fdoSupport =
+          FdoSupport.create(
+              env,
+              key.getFdoInstrument(),
+              key.getFdoZip(),
+              key.getLipoMode(),
+              key.getLLVMFdo(),
+              execRoot);
       if (env.valuesMissing()) {
         return null;
       }

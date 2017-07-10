@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.buildjar;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.buildjar.javac.BlazeJavacResult;
 import com.google.devtools.build.buildjar.javac.FormattedDiagnostic;
 import com.google.devtools.build.buildjar.javac.JavacRunner;
@@ -41,7 +42,7 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
       throws IOException {
     // Minimize classpath, but only if we're actually compiling some sources (some invocations of
     // JavaBuilder are only building resource jars).
-    String compressedClasspath = build.getClassPath();
+    ImmutableList<String> compressedClasspath = build.getClassPath();
     if (!build.getSourceFiles().isEmpty()) {
       compressedClasspath =
           build.getDependencyModule().computeStrictClasspath(build.getClassPath());

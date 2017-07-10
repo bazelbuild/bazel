@@ -169,7 +169,7 @@ public final class TopLevelArtifactHelper {
   public static ArtifactsToBuild getAllArtifactsToBuild(TransitiveInfoCollection target,
       TopLevelArtifactContext context) {
     return getAllArtifactsToBuild(
-        target.getProvider(OutputGroupProvider.class),
+        OutputGroupProvider.get(target),
         target.getProvider(FileProvider.class),
         context
     );
@@ -179,7 +179,7 @@ public final class TopLevelArtifactHelper {
       AspectValue aspectValue, TopLevelArtifactContext context) {
     ConfiguredAspect configuredAspect = aspectValue.getConfiguredAspect();
     return getAllArtifactsToBuild(
-        configuredAspect.getProvider(OutputGroupProvider.class),
+        OutputGroupProvider.get(configuredAspect),
         configuredAspect.getProvider(FileProvider.class),
         context);
   }

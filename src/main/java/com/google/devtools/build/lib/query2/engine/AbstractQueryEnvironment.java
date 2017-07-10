@@ -19,12 +19,8 @@ import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskCallable;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
-import com.google.devtools.build.lib.util.Preconditions;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -84,10 +80,9 @@ public abstract class AbstractQueryEnvironment<T> implements QueryEnvironment<T>
 
     @Override
     public T getIfSuccessful() {
-      Preconditions.checkState(delegate.isDone());
       try {
-        return delegate.get();
-      } catch (CancellationException | InterruptedException | ExecutionException e) {
+        return Futures.getDone(delegate);
+      } catch (CancellationException | ExecutionException e) {
         throw new IllegalStateException(e);
       }
     }
@@ -129,8 +124,8 @@ public abstract class AbstractQueryEnvironment<T> implements QueryEnvironment<T>
     // QueryEnvironment#buildTransitiveClosure. So if the implementation of that method does some
     // heavyweight blocking work, then it's best to do this blocking work in a single batch.
     // Importantly, the callback we pass in needs to maintain order.
-    final QueryUtil.AggregateAllCallback<T> aggregateAllCallback =
-        QueryUtil.newOrderedAggregateAllOutputFormatterCallback();
+    final QueryUtil.AggregateAllCallback<T, ?> aggregateAllCallback =
+        QueryUtil.newOrderedAggregateAllOutputFormatterCallback(this);
     QueryTaskFuture<Void> evalAllFuture = expr.eval(this, context, aggregateAllCallback);
     return whenSucceedsCall(
         evalAllFuture,
@@ -190,24 +185,12 @@ public abstract class AbstractQueryEnvironment<T> implements QueryEnvironment<T>
     return QueryTaskFutureImpl.ofDelegate(
         Futures.transformAsync(
             (QueryTaskFutureImpl<T1>) future,
-            new AsyncFunction<T1, T2>() {
-              @Override
-              public ListenableFuture<T2> apply(T1 input) throws Exception {
-                return (QueryTaskFutureImpl<T2>) function.apply(input);
-              }
-            },
+            input -> (QueryTaskFutureImpl<T2>) function.apply(input),
             directExecutor()));
   }
 
   protected static Iterable<QueryTaskFutureImpl<?>> cast(
       Iterable<? extends QueryTaskFuture<?>> futures) {
-    return Iterables.transform(
-        futures,
-        new Function<QueryTaskFuture<?>, QueryTaskFutureImpl<?>>() {
-          @Override
-          public QueryTaskFutureImpl<?> apply(QueryTaskFuture<?> future) {
-            return (QueryTaskFutureImpl<?>) future;
-          }
-        });
+    return Iterables.transform(futures, future -> (QueryTaskFutureImpl<?>) future);
   }
 }

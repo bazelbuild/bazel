@@ -327,19 +327,20 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
   initialized_ = true;
 
   args_ = args;
-  std::unique_ptr<CommandLine> cmdLine = SplitCommandLine(args, error);
-  if (cmdLine == nullptr) {
+  std::unique_ptr<CommandLine> cmd_line = SplitCommandLine(args, error);
+  if (cmd_line == nullptr) {
     return blaze_exit_code::BAD_ARGV;
   }
+  explicit_command_arguments_ = cmd_line->command_args;
 
-  const char* blazerc = SearchUnaryOption(cmdLine->startup_args, "--blazerc");
+  const char* blazerc = SearchUnaryOption(cmd_line->startup_args, "--blazerc");
   if (blazerc == NULL) {
-    blazerc = SearchUnaryOption(cmdLine->startup_args, "--bazelrc");
+    blazerc = SearchUnaryOption(cmd_line->startup_args, "--bazelrc");
   }
 
   bool use_master_blazerc = true;
-  if (SearchNullaryOption(cmdLine->startup_args, "--nomaster_blazerc") ||
-      SearchNullaryOption(cmdLine->startup_args, "--nomaster_bazelrc")) {
+  if (SearchNullaryOption(cmd_line->startup_args, "--nomaster_blazerc") ||
+      SearchNullaryOption(cmd_line->startup_args, "--nomaster_bazelrc")) {
     use_master_blazerc = false;
   }
 
@@ -349,7 +350,7 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
   vector<string> candidate_blazerc_paths;
   if (use_master_blazerc) {
     workspace_layout_->FindCandidateBlazercPaths(
-        workspace, cwd, cmdLine->path_to_binary, cmdLine->startup_args,
+        workspace, cwd, cmd_line->path_to_binary, cmd_line->startup_args,
         &candidate_blazerc_paths);
   }
 
@@ -359,10 +360,13 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
   if (find_blazerc_exit_code != blaze_exit_code::SUCCESS) {
     return find_blazerc_exit_code;
   }
-  candidate_blazerc_paths.push_back(user_blazerc_path);
 
   vector<string> deduped_blazerc_paths =
       internal::DedupeBlazercPaths(candidate_blazerc_paths);
+  // TODO(b/37731193): Decide whether the user blazerc should be included in
+  // the deduplication process. If so then we need to handle all cases
+  // (e.g. user rc coming from process substitution).
+  deduped_blazerc_paths.push_back(user_blazerc_path);
 
   for (const auto& blazerc_path : deduped_blazerc_paths) {
     if (!blazerc_path.empty()) {
@@ -478,6 +482,18 @@ blaze_exit_code::ExitCode OptionProcessor::ParseStartupOptions(string *error) {
   return blaze_exit_code::SUCCESS;
 }
 
+static bool IsValidEnvName(const char* p) {
+#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+  for (; *p && *p != '='; ++p) {
+    if (!((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') ||
+          (*p >= '0' && *p <= '9') || *p == '_')) {
+      return false;
+    }
+  }
+#endif
+  return true;
+}
+
 #if defined(COMPILER_MSVC)
 static void PreprocessEnvString(string* env_str) {
   static std::set<string> vars_to_uppercase = {"PATH", "TMP", "TEMP", "TEMPDIR",
@@ -523,11 +539,11 @@ static void PreprocessEnvString(const string* env_str) {
 void OptionProcessor::AddRcfileArgsAndOptions(const string& cwd) {
   // Provide terminal options as coming from the least important rc file.
   command_arguments_.push_back("--rc_source=client");
-  command_arguments_.push_back("--default_override=0:common=--isatty=" +
-                               ToString(IsStandardTerminal()));
+  command_arguments_.push_back("--default_override=0:common=--is_stderr_atty=" +
+                               ToString(IsStderrStandardTerminal()));
   command_arguments_.push_back(
       "--default_override=0:common=--terminal_columns=" +
-      ToString(GetTerminalColumns()));
+      ToString(GetStderrTerminalColumns()));
 
   // Push the options mapping .blazerc numbers to filenames.
   for (int i_blazerc = 0; i_blazerc < blazercs_.size(); i_blazerc++) {
@@ -555,8 +571,10 @@ void OptionProcessor::AddRcfileArgsAndOptions(const string& cwd) {
   // Pass the client environment to the server.
   for (char** env = environ; *env != NULL; env++) {
     string env_str(*env);
-    PreprocessEnvString(&env_str);
-    command_arguments_.push_back("--client_env=" + env_str);
+    if (IsValidEnvName(*env)) {
+      PreprocessEnvString(&env_str);
+      command_arguments_.push_back("--client_env=" + env_str);
+    }
   }
   command_arguments_.push_back("--client_cwd=" + blaze::ConvertPath(cwd));
 
@@ -569,6 +587,10 @@ void OptionProcessor::GetCommandArguments(vector<string>* result) const {
   result->insert(result->end(),
                  command_arguments_.begin(),
                  command_arguments_.end());
+}
+
+std::vector<std::string> OptionProcessor::GetExplicitCommandArguments() const {
+  return explicit_command_arguments_;
 }
 
 const string& OptionProcessor::GetCommand() const {

@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import java.io.IOException;
+
 /**
  * Syntax node for a string literal.
  */
@@ -23,8 +25,8 @@ public final class StringLiteral extends Literal<String> {
   }
 
   @Override
-  public String toString() {
-    return Printer.repr(value);
+  public void prettyPrint(Appendable buffer) throws IOException {
+    buffer.append(Printer.repr(value));
   }
 
   @Override

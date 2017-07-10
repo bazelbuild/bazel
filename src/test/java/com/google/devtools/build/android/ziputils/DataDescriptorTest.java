@@ -13,24 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.android.ziputils;
 
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.android.ziputils.DataDescriptor.EXTCRC;
 import static com.google.devtools.build.android.ziputils.DataDescriptor.EXTLEN;
 import static com.google.devtools.build.android.ziputils.DataDescriptor.EXTSIG;
 import static com.google.devtools.build.android.ziputils.DataDescriptor.EXTSIZ;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.zip.ZipInputStream;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
-/**
- * Unit tests for {@link DataDescriptor}.
- */
+/** Unit tests for {@link DataDescriptor}. */
 @RunWith(JUnit4.class)
 public class DataDescriptorTest {
 
@@ -53,10 +49,18 @@ public class DataDescriptorTest {
       int expSize = marker == DataDescriptor.SIGNATURE ? ZipInputStream.EXTHDR
           : ZipInputStream.EXTHDR - 4;
       int expPos = 0;
-      assertEquals("not based at current position[" + marker + "]", expMark, view.get(EXTSIG));
-      assertEquals("Not slice with position 0[" + marker + "]", expPos, view.buffer.position());
-      assertEquals("Not sized with comment[" + marker + "]", expSize, view.getSize());
-      assertEquals("Not limited to size[" + marker + "]", expSize, view.buffer.limit());
+      assertWithMessage("not based at current position[" + marker + "]")
+          .that(view.get(EXTSIG))
+          .isEqualTo(expMark);
+      assertWithMessage("Not slice with position 0[" + marker + "]")
+          .that(view.buffer.position())
+          .isEqualTo(expPos);
+      assertWithMessage("Not sized with comment[" + marker + "]")
+          .that(view.getSize())
+          .isEqualTo(expSize);
+      assertWithMessage("Not limited to size[" + marker + "]")
+          .that(view.buffer.limit())
+          .isEqualTo(expSize);
     }
   }
 
@@ -69,11 +73,11 @@ public class DataDescriptorTest {
     int expSize = ZipInputStream.EXTHDR;
     int expPos = 0;
     int expMarker = (int) ZipInputStream.EXTSIG;
-    assertTrue("no marker", view.hasMarker());
-    assertEquals("No marker", expMarker, view.get(EXTSIG));
-    assertEquals("Not at position 0", expPos, view.buffer.position());
-    assertEquals("Not sized correctly", expSize, view.getSize());
-    assertEquals("Not limited to size", expSize, view.buffer.limit());
+    assertWithMessage("no marker").that(view.hasMarker()).isTrue();
+    assertWithMessage("No marker").that(view.get(EXTSIG)).isEqualTo(expMarker);
+    assertWithMessage("Not at position 0").that(view.buffer.position()).isEqualTo(expPos);
+    assertWithMessage("Not sized correctly").that(view.getSize()).isEqualTo(expSize);
+    assertWithMessage("Not limited to size").that(view.buffer.limit()).isEqualTo(expSize);
   }
 
   /**
@@ -90,10 +94,10 @@ public class DataDescriptorTest {
     int expMark = (int) ZipInputStream.EXTSIG;
     int expSize = ZipInputStream.EXTHDR;
     int expPos = 0;
-    assertEquals("not based at current position", expMark, view.get(EXTSIG));
-    assertEquals("Not slice with position 0", expPos, view.buffer.position());
-    assertEquals("Not sized with comment", expSize, view.getSize());
-    assertEquals("Not limited to size", expSize, view.buffer.limit());
+    assertWithMessage("not based at current position").that(view.get(EXTSIG)).isEqualTo(expMark);
+    assertWithMessage("Not slice with position 0").that(view.buffer.position()).isEqualTo(expPos);
+    assertWithMessage("Not sized with comment").that(view.getSize()).isEqualTo(expSize);
+    assertWithMessage("Not limited to size").that(view.buffer.limit()).isEqualTo(expSize);
   }
 
   /**
@@ -105,10 +109,10 @@ public class DataDescriptorTest {
     DataDescriptor view = DataDescriptor.allocate();
     view.copy(buffer);
     int expSize = view.getSize();
-    assertEquals("buffer not advanced as expected", expSize, buffer.position());
+    assertWithMessage("buffer not advanced as expected").that(buffer.position()).isEqualTo(expSize);
     buffer.position(0);
     DataDescriptor clone = DataDescriptor.viewOf(buffer);
-    assertEquals("Fail to copy mark", view.get(EXTSIG), clone.get(EXTSIG));
+    assertWithMessage("Fail to copy mark").that(clone.get(EXTSIG)).isEqualTo(view.get(EXTSIG));
   }
 
   /**
@@ -123,8 +127,8 @@ public class DataDescriptorTest {
         .set(EXTCRC, crc)
         .set(EXTSIZ, compressed)
         .set(EXTLEN, uncompressed);
-    assertEquals("CRC", crc, view.get(EXTCRC));
-    assertEquals("Compressed size", compressed, view.get(EXTSIZ));
-    assertEquals("Uncompressed size", uncompressed, view.get(EXTLEN));
+    assertWithMessage("CRC").that(view.get(EXTCRC)).isEqualTo(crc);
+    assertWithMessage("Compressed size").that(view.get(EXTSIZ)).isEqualTo(compressed);
+    assertWithMessage("Uncompressed size").that(view.get(EXTLEN)).isEqualTo(uncompressed);
   }
 }

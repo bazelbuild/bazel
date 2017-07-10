@@ -14,8 +14,11 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toCollection;
+
 import com.google.common.base.Function;
-import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -23,6 +26,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -34,6 +38,7 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -50,7 +55,6 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.Staticness;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -99,6 +103,7 @@ public final class CcLibraryHelper {
             CppFileTypes.ASSEMBLER,
             CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR),
         ImmutableSet.<String>of(
+            CppCompileAction.CC_FLAGS_MAKE_VARIABLE_ACTION_NAME,
             CppCompileAction.C_COMPILE,
             CppCompileAction.CPP_COMPILE,
             CppCompileAction.CPP_HEADER_PARSING,
@@ -126,6 +131,7 @@ public final class CcLibraryHelper {
             CppFileTypes.ASSEMBLER,
             CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR),
         ImmutableSet.<String>of(
+            CppCompileAction.CC_FLAGS_MAKE_VARIABLE_ACTION_NAME,
             CppCompileAction.C_COMPILE,
             CppCompileAction.CPP_COMPILE,
             CppCompileAction.OBJC_COMPILE,
@@ -145,9 +151,9 @@ public final class CcLibraryHelper {
             Link.LinkTargetType.EXECUTABLE.getActionName()));
 
     private final FileTypeSet sourceTypeSet;
-    private final Set<String> actionConfigSet;
+    private final ImmutableSet<String> actionConfigSet;
 
-    private SourceCategory(FileTypeSet sourceTypeSet, Set<String> actionConfigSet) {
+    private SourceCategory(FileTypeSet sourceTypeSet, ImmutableSet<String> actionConfigSet) {
       this.sourceTypeSet = sourceTypeSet;
       this.actionConfigSet = actionConfigSet;
     }
@@ -167,21 +173,17 @@ public final class CcLibraryHelper {
 
   /** Function for extracting module maps from CppCompilationDependencies. */
   public static final Function<TransitiveInfoCollection, CppModuleMap> CPP_DEPS_TO_MODULES =
-    new Function<TransitiveInfoCollection, CppModuleMap>() {
-      @Override
-      @Nullable
-      public CppModuleMap apply(TransitiveInfoCollection dep) {
+      dep -> {
         CppCompilationContext context = dep.getProvider(CppCompilationContext.class);
         return context == null ? null : context.getCppModuleMap();
-      }
-    };
+      };
 
   /**
    * Contains the providers as well as the compilation and linking outputs, and the compilation
    * context.
    */
   public static final class Info {
-    private final TransitiveInfoProviderMap.Builder providers;
+    private final TransitiveInfoProviderMapBuilder providers;
     private final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
     private final CcCompilationOutputs compilationOutputs;
     private final CcLinkingOutputs linkingOutputs;
@@ -195,7 +197,7 @@ public final class CcLibraryHelper {
         CcLinkingOutputs linkingOutputs,
         CcLinkingOutputs linkingOutputsExcludingPrecompiledLibraries,
         CppCompilationContext context) {
-      this.providers = providers.toBuilder();
+      this.providers = new TransitiveInfoProviderMapBuilder().addAll(providers);
       this.outputGroups = ImmutableMap.copyOf(outputGroups);
       this.compilationOutputs = compilationOutputs;
       this.linkingOutputs = linkingOutputs;
@@ -938,7 +940,7 @@ public final class CcLibraryHelper {
       for (LanguageDependentFragment dep :
           AnalysisUtils.getProviders(deps, LanguageDependentFragment.class)) {
         LanguageDependentFragment.Checker.depSupportsLanguage(
-            ruleContext, dep, CppRuleClasses.LANGUAGE);
+            ruleContext, dep, CppRuleClasses.LANGUAGE, "deps");
       }
     }
 
@@ -1000,15 +1002,17 @@ public final class CcLibraryHelper {
               LinkerInputs.toNonSolibArtifacts(linkedLibraryMap.get(matchingIdentifier));
           ruleContext.ruleError(
               "Can't put "
-                  + Joiner.on(", ")
-                      .join(Iterables.transform(matchingInputLibs, FileType.TO_FILENAME))
+                  + Streams.stream(matchingInputLibs)
+                      .map(Artifact::getFilename)
+                      .collect(joining(", "))
                   + " into the srcs of a "
                   + ruleContext.getRuleClassNameForLogging()
                   + " with the same name ("
                   + ruleContext.getRule().getName()
                   + ") which also contains other code or objects to link; it shares a name with "
-                  + Joiner.on(", ")
-                      .join(Iterables.transform(matchingOutputLibs, FileType.TO_FILENAME))
+                  + Streams.stream(matchingOutputLibs)
+                      .map(Artifact::getFilename)
+                      .collect(joining(", "))
                   + " (output compiled and linked from the non-library sources of this rule), "
                   + "which could cause confusion");
         }
@@ -1037,8 +1041,8 @@ public final class CcLibraryHelper {
 
     // By very careful when adding new providers here - it can potentially affect a lot of rules.
     // We should consider merging most of these providers into a single provider.
-    TransitiveInfoProviderMap.Builder providers =
-        TransitiveInfoProviderMap.builder()
+    TransitiveInfoProviderMapBuilder providers =
+        new TransitiveInfoProviderMapBuilder()
             .add(
                 new CppRunfilesProvider(cppStaticRunfiles, cppSharedRunfiles),
                 cppCompilationContext,
@@ -1384,6 +1388,11 @@ public final class CcLibraryHelper {
           featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES)
               || featureConfiguration.isEnabled(CppRuleClasses.COMPILE_ALL_MODULES);
       Iterable<CppModuleMap> dependentModuleMaps = collectModuleMaps();
+      Optional<Artifact> umbrellaHeader = cppModuleMap.getUmbrellaHeader();
+      if (umbrellaHeader.isPresent()) {
+        ruleContext.registerAction(
+            createUmbrellaHeaderAction(umbrellaHeader.get(), publicHeaders));
+      }
       ruleContext.registerAction(
           createModuleMapAction(cppModuleMap, publicHeaders, dependentModuleMaps, compiled));
       if (model.getGeneratesPicHeaderModule()) {
@@ -1410,6 +1419,17 @@ public final class CcLibraryHelper {
 
     semantics.setupCompilationContext(ruleContext, contextBuilder);
     return contextBuilder.build();
+  }
+
+  private UmbrellaHeaderAction createUmbrellaHeaderAction(Artifact umbrellaHeader,
+      PublicHeaders publicHeaders) {
+    return new UmbrellaHeaderAction(
+        ruleContext.getActionOwner(),
+        umbrellaHeader,
+        featureConfiguration.isEnabled(CppRuleClasses.ONLY_DOTH_HEADERS_IN_MODULE_MAPS)
+            ? Iterables.filter(publicHeaders.getModuleMapHeaders(), CppFileTypes.MODULE_MAP_HEADER)
+            : publicHeaders.getModuleMapHeaders(),
+        additionalExportedHeaders);
   }
 
   private CppModuleMapAction createModuleMapAction(
@@ -1443,8 +1463,8 @@ public final class CcLibraryHelper {
 
   private Iterable<CppModuleMap> collectModuleMaps() {
     // Cpp module maps may be null for some rules. We filter the nulls out at the end.
-    List<CppModuleMap> result = new ArrayList<>();
-    Iterables.addAll(result, Iterables.transform(deps, CPP_DEPS_TO_MODULES));
+    List<CppModuleMap> result =
+        deps.stream().map(CPP_DEPS_TO_MODULES).collect(toCollection(ArrayList::new));
     if (ruleContext.getRule().getAttributeDefinition(":stl") != null) {
       CppCompilationContext stl =
           ruleContext.getPrerequisite(":stl", Mode.TARGET, CppCompilationContext.class);
@@ -1467,7 +1487,8 @@ public final class CcLibraryHelper {
       RuleContext ruleContext, CcCompilationOutputs ccCompilationOutputs) {
     NestedSetBuilder<Artifact> headerTokens = NestedSetBuilder.stableOrder();
     for (OutputGroupProvider dep :
-        ruleContext.getPrerequisites("deps", Mode.TARGET, OutputGroupProvider.class)) {
+        ruleContext.getPrerequisites(
+            "deps", Mode.TARGET, OutputGroupProvider.SKYLARK_CONSTRUCTOR)) {
       headerTokens.addTransitive(dep.getOutputGroup(CcLibraryHelper.HIDDEN_HEADER_TOKENS));
     }
     if (ruleContext.getFragment(CppConfiguration.class).processHeadersInDependencies()) {

@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.actions;
  * A context that allows execution of {@link Spawn} instances.
  */
 @ActionContextMarker(name = "spawn")
-public interface SpawnActionContext extends Executor.ActionContext {
+public interface SpawnActionContext extends ActionContext {
 
   /** Executes the given spawn. */
   void exec(Spawn spawn, ActionExecutionContext actionExecutionContext)

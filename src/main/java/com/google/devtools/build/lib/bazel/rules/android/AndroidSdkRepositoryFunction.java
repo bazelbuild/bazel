@@ -13,15 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.rules.android;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+
 import com.android.repository.Revision;
-import com.google.common.base.Function;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Maps.EntryTransformer;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.packages.Rule;
@@ -50,7 +50,6 @@ import com.google.devtools.build.skyframe.ValueOrException;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Properties;
-import javax.annotation.Nullable;
 
 /**
  * Implementation of the {@code android_sdk_repository} rule.
@@ -62,6 +61,11 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
   private static final Revision MIN_BUILD_TOOLS_REVISION = new Revision(24, 0, 3);
   private static final String PATH_ENV_VAR = "ANDROID_HOME";
   private static final ImmutableList<String> PATH_ENV_VAR_AS_LIST = ImmutableList.of(PATH_ENV_VAR);
+  private static final ImmutableList<String> LOCAL_MAVEN_REPOSITORIES =
+      ImmutableList.of(
+          "extras/android/m2repository",
+          "extras/google/m2repository",
+          "extras/m2repository");
 
   @Override
   public boolean isLocal(Rule rule) {
@@ -79,7 +83,7 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
   }
 
   @Override
-  public RepositoryDirectoryValue.Builder fetch(Rule rule, Path outputDirectory,
+  public RepositoryDirectoryValue.Builder fetch(Rule rule, final Path outputDirectory,
       BlazeDirectories directories, Environment env, Map<String, String> markerData)
       throws SkyFunctionException, InterruptedException {
     Map<String, String> environ =
@@ -221,17 +225,11 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
 
     // All local maven repositories that are shipped in the Android SDK.
     // TODO(ajmichael): Create SkyKeys so that if the SDK changes, this function will get rerun.
-    Iterable<Path> localMavenRepositories = ImmutableList.of(
-        outputDirectory.getRelative("extras/android/m2repository"),
-        outputDirectory.getRelative("extras/google/m2repository"));
+    Iterable<Path> localMavenRepositories =
+        Lists.transform(LOCAL_MAVEN_REPOSITORIES, outputDirectory::getRelative);
     try {
       SdkMavenRepository sdkExtrasRepository =
-          SdkMavenRepository.create(Iterables.filter(localMavenRepositories, new Predicate<Path>() {
-            @Override
-            public boolean apply(@Nullable Path path) {
-              return path.isDirectory();
-            }
-          }));
+          SdkMavenRepository.create(Iterables.filter(localMavenRepositories, Path::isDirectory));
       sdkExtrasRepository.writeBuildFiles(outputDirectory);
       buildFile = buildFile.replace(
           "%exported_files%", sdkExtrasRepository.getExportsFiles(outputDirectory));
@@ -400,29 +398,15 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
       final Path root, final PathFragment path, DirectoryListingValue directory, Environment env)
       throws RepositoryFunctionException, InterruptedException {
     Map<PathFragment, SkyKey> skyKeysForSubdirectoryLookups =
-        Maps.transformEntries(
-            Maps.uniqueIndex(
-                Iterables.filter(
-                    directory.getDirents(),
-                    new Predicate<Dirent>() {
-                      @Override
-                      public boolean apply(Dirent dirent) {
-                        return dirent.getType().equals(Dirent.Type.DIRECTORY);
-                      }
-                    }),
-                new Function<Dirent, PathFragment>() {
-                  @Override
-                  public PathFragment apply(Dirent input) {
-                    return path.getRelative(input.getName());
-                  }
-                }),
-            new EntryTransformer<PathFragment, Dirent, SkyKey>() {
-              @Override
-              public SkyKey transformEntry(PathFragment key, Dirent value) {
-                return DirectoryListingValue.key(
-                    RootedPath.toRootedPath(root, root.getRelative(key)));
-              }
-            });
+        Streams.stream(directory.getDirents())
+            .filter(dirent -> dirent.getType().equals(Dirent.Type.DIRECTORY))
+            .collect(
+                toImmutableMap(
+                    input -> path.getRelative(input.getName()),
+                    input ->
+                        DirectoryListingValue.key(
+                            RootedPath.toRootedPath(
+                                root, root.getRelative(path).getRelative(input.getName())))));
 
     Map<SkyKey, ValueOrException<InconsistentFilesystemException>> values =
         env.getValuesOrThrow(

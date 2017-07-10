@@ -17,11 +17,11 @@
       // Do a shortcut so that be.bazel.build redirect to the build encyclopedia
       var be_url = new RegExp("^https?://be(\.bazel.build)?/?");
       if (be_url.test(current_url)) {
-        window.location.replace(current_url.replace(be_url, "https://bazel.build/docs/be/overview.html"));
+        window.location.replace(current_url.replace(be_url, "https://docs.bazel.build/be/overview.html"));
       }
       var be_url = new RegExp("^https?://be(\.bazel.build)?/([a-zA-Z0-9_-]+)([/#](.*))?");
       if (be_url.test(current_url)) {
-        window.location.replace(current_url.replace(be_url, "https://bazel.build/docs/be/$2.html#$4"));
+        window.location.replace(current_url.replace(be_url, "https://docs.bazel.build/be/$2.html#$4"));
       }
       // And a short to code reviews
       var cr_url = new RegExp("^https?://cr(\.bazel.build)?/([0-9]+)")

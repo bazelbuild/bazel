@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
+import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import java.util.List;
 
 /**
@@ -118,12 +119,21 @@ public class BazelLibrary {
         doc = "Same as for <a href=\"#depset\">depset</a>."
       )
     },
-    useLocation = true
+    useLocation = true,
+    useEnvironment = true
   )
   private static final BuiltinFunction set =
       new BuiltinFunction("set") {
-        public SkylarkNestedSet invoke(Object items, String order, Location loc)
+        public SkylarkNestedSet invoke(Object items, String order, Location loc, Environment env)
             throws EvalException {
+          if (env.getSemantics().incompatibleDisallowSetConstructor) {
+            throw new EvalException(
+                loc,
+                "The `set` constructor for depsets is deprecated and will be removed. Please use "
+                    + "the `depset` constructor instead. You can temporarily enable the "
+                    + "deprecated `set` constructor by passing the flag "
+                    + "--incompatible_disallow_set_constructor=false");
+          }
           try {
             return new SkylarkNestedSet(Order.parse(order), items, loc);
           } catch (IllegalArgumentException ex) {
@@ -158,13 +168,35 @@ public class BazelLibrary {
         }
       };
 
+  @SkylarkSignature(
+    name = "to_list",
+    objectType = SkylarkNestedSet.class,
+    returnType = MutableList.class,
+    doc =
+        "Returns a list of the elements, without duplicates, in the depset's traversal order. "
+            + "Note that order is unspecified (but deterministic) for elements that were added "
+            + "more than once to the depset. Order is also unspecified for <code>\"default\""
+            + "</code>-ordered depsets, and for elements of child depsets whose order differs "
+            + "from that of the parent depset. The list is a copy; modifying it has no effect "
+            + "on the depset and vice versa.",
+    parameters = {@Param(name = "input", type = SkylarkNestedSet.class, doc = "The input depset.")},
+    useEnvironment = true
+  )
+  private static final BuiltinFunction toList =
+      new BuiltinFunction("to_list") {
+        @SuppressWarnings("unused")
+        public MutableList<Object> invoke(SkylarkNestedSet input, Environment env) {
+          return new MutableList<>(input.toCollection(), env);
+        }
+      };
+
   /**
    * Returns a function-value implementing "select" (i.e. configurable attributes) in the specified
    * package context.
    */
   @SkylarkSignature(
     name = "select",
-    doc = "Creates a SelectorValue from the dict parameter.",
+    doc = "Creates a select from the dict parameter, usable for setting configurable attributes.",
     parameters = {
       @Param(name = "x", type = SkylarkDict.class, doc = "The parameter to convert."),
       @Param(

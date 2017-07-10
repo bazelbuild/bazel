@@ -1080,7 +1080,7 @@ public class JavacTurbineTest {
         new JavacTurbine(new PrintWriter(errOutput, true), optionsBuilder.build())) {
       assertThat(turbine.compile()).isEqualTo(Result.ERROR);
     }
-    assertThat(errOutput.toString()).contains("NoSuchFileException: /classes/NO_SUCH_FILE");
+    assertThat(errOutput.toString()).contains("classes/NO_SUCH_FILE");
   }
 
   @Test
@@ -1322,8 +1322,8 @@ public class JavacTurbineTest {
           + " implements java.util.function.Predicate<java.lang.String>",
       "abstract enum P extends java/lang/Enum  implements java/util/function/Predicate  {",
       "",
-      "  // access flags 0x4000",
-      "  enum INNERCLASS P$1 null null",
+      "  // access flags 0x4010",
+      "  final enum INNERCLASS P$1 null null",
       "",
       "  // access flags 0x4019",
       "  public final static enum LP; INSTANCE",

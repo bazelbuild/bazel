@@ -13,19 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
-
+import java.io.File;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.io.File;
-import java.util.Map;
 
 @RunWith(JUnit4.class)
 public class CommandUtilsTest {
@@ -47,27 +45,27 @@ public class CommandUtilsTest {
     } catch (CommandException exception) {
       String message = CommandUtils.describeCommandError(false, exception.getCommand());
       String verboseMessage = CommandUtils.describeCommandError(true, exception.getCommand());
-      assertEquals(
-          "error executing command this_command_will_not_be_found arg1 "
-          + "arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10 "
-          + "arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 "
-          + "arg19 arg20 arg21 arg22 arg23 arg24 arg25 arg26 "
-          + "arg27 arg28 arg29 arg30 "
-          + "... (remaining 9 argument(s) skipped)",
-          message);
-      assertEquals(
-          "error executing command \n"
-          + "  (cd /tmp && \\\n"
-          + "  exec env - \\\n"
-          + "    FOO=foo \\\n"
-          + "    PATH=/usr/bin:/bin:/sbin \\\n"
-          + "  this_command_will_not_be_found arg1 "
-          + "arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10 "
-          + "arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 "
-          + "arg19 arg20 arg21 arg22 arg23 arg24 arg25 arg26 "
-          + "arg27 arg28 arg29 arg30 arg31 arg32 arg33 arg34 "
-          + "arg35 arg36 arg37 arg38 arg39)",
-          verboseMessage);
+      assertThat(message)
+          .isEqualTo(
+              "error executing command this_command_will_not_be_found arg1 "
+                  + "arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10 "
+                  + "arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 "
+                  + "arg19 arg20 arg21 arg22 arg23 arg24 arg25 arg26 "
+                  + "arg27 arg28 arg29 arg30 "
+                  + "... (remaining 9 argument(s) skipped)");
+      assertThat(verboseMessage)
+          .isEqualTo(
+              "error executing command \n"
+                  + "  (cd /tmp && \\\n"
+                  + "  exec env - \\\n"
+                  + "    FOO=foo \\\n"
+                  + "    PATH=/usr/bin:/bin:/sbin \\\n"
+                  + "  this_command_will_not_be_found arg1 "
+                  + "arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10 "
+                  + "arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 "
+                  + "arg19 arg20 arg21 arg22 arg23 arg24 arg25 arg26 "
+                  + "arg27 arg28 arg29 arg30 arg31 arg32 arg33 arg34 "
+                  + "arg35 arg36 arg37 arg38 arg39)");
     }
   }
 
@@ -86,23 +84,23 @@ public class CommandUtilsTest {
     } catch (CommandException exception) {
       String message = CommandUtils.describeCommandFailure(false, exception);
       String verboseMessage = CommandUtils.describeCommandFailure(true, exception);
-      assertEquals(
-          "sh failed: error executing command " +
-          "/bin/sh -c 'echo Some errors 1>&2; echo Some output; exit 42': " +
-          "Process exited with status 42\n" +
-          "Some output\n" +
-          "Some errors\n",
-          message);
-      assertEquals(
-          "sh failed: error executing command \n" +
-          "  (exec env - \\\n" +
-          "    FOO=foo \\\n" +
-          "    PATH=/usr/bin:/bin:/sbin \\\n" +
-          "  /bin/sh -c 'echo Some errors 1>&2; echo Some output; exit 42'): " +
-          "Process exited with status 42\n" +
-          "Some output\n" +
-          "Some errors\n",
-          verboseMessage);
+      assertThat(message)
+          .isEqualTo(
+              "sh failed: error executing command "
+                  + "/bin/sh -c 'echo Some errors 1>&2; echo Some output; exit 42': "
+                  + "Process exited with status 42\n"
+                  + "Some output\n"
+                  + "Some errors\n");
+      assertThat(verboseMessage)
+          .isEqualTo(
+              "sh failed: error executing command \n"
+                  + "  (exec env - \\\n"
+                  + "    FOO=foo \\\n"
+                  + "    PATH=/usr/bin:/bin:/sbin \\\n"
+                  + "  /bin/sh -c 'echo Some errors 1>&2; echo Some output; exit 42'): "
+                  + "Process exited with status 42\n"
+                  + "Some output\n"
+                  + "Some errors\n");
     }
   }
 }

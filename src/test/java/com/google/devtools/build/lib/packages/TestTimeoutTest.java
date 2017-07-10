@@ -13,16 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.packages.TestTimeout.ETERNAL;
 import static com.google.devtools.build.lib.packages.TestTimeout.LONG;
 import static com.google.devtools.build.lib.packages.TestTimeout.MODERATE;
 import static com.google.devtools.build.lib.packages.TestTimeout.SHORT;
 import static com.google.devtools.build.lib.packages.TestTimeout.getSuggestedTestTimeout;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -35,59 +36,63 @@ public class TestTimeoutTest {
 
   @Test
   public void testBasicConversion() throws Exception {
-    assertSame(SHORT, TestTimeout.valueOf("SHORT"));
-    assertSame(MODERATE, TestTimeout.valueOf("MODERATE"));
-    assertSame(LONG, TestTimeout.valueOf("LONG"));
-    assertSame(ETERNAL, TestTimeout.valueOf("ETERNAL"));
+    assertThat(TestTimeout.valueOf("SHORT")).isSameAs(SHORT);
+    assertThat(TestTimeout.valueOf("MODERATE")).isSameAs(MODERATE);
+    assertThat(TestTimeout.valueOf("LONG")).isSameAs(LONG);
+    assertThat(TestTimeout.valueOf("ETERNAL")).isSameAs(ETERNAL);
   }
 
   @Test
   public void testSuggestedTestSize() throws Exception {
-    assertEquals(SHORT, getSuggestedTestTimeout(0));
-    assertEquals(SHORT, getSuggestedTestTimeout(2));
-    assertEquals(SHORT, getSuggestedTestTimeout(6));
-    assertEquals(SHORT, getSuggestedTestTimeout(59));
-    assertEquals(MODERATE, getSuggestedTestTimeout(60));
-    assertEquals(MODERATE, getSuggestedTestTimeout(299));
-    assertEquals(LONG, getSuggestedTestTimeout(300));
-    assertEquals(LONG, getSuggestedTestTimeout(899));
-    assertEquals(ETERNAL, getSuggestedTestTimeout(900));
-    assertEquals(ETERNAL, getSuggestedTestTimeout(1234567890));
+    assertThat(getSuggestedTestTimeout(0)).isEqualTo(SHORT);
+    assertThat(getSuggestedTestTimeout(30)).isEqualTo(SHORT);
+    assertThat(getSuggestedTestTimeout(50)).isEqualTo(MODERATE);
+    assertThat(getSuggestedTestTimeout(250)).isEqualTo(LONG);
+    assertThat(getSuggestedTestTimeout(700)).isEqualTo(ETERNAL);
+    assertThat(getSuggestedTestTimeout(60 * 60 * 24 * 360)).isEqualTo(ETERNAL);
   }
 
   @Test
-  public void testIsInRangeExact() throws Exception {
-    assertTrue(SHORT.isInRangeExact(0));
-    assertTrue(SHORT.isInRangeExact(1));
-    assertFalse(SHORT.isInRangeExact(60));
-    assertTrue(MODERATE.isInRangeExact(60));
-    assertTrue(MODERATE.isInRangeExact(299));
-    assertFalse(MODERATE.isInRangeExact(300));
-    assertTrue(LONG.isInRangeExact(300));
-    assertTrue(LONG.isInRangeExact(899));
-    assertFalse(LONG.isInRangeExact(900));
-    assertTrue(ETERNAL.isInRangeExact(900));
-    assertFalse(ETERNAL.isInRangeExact(1234567890));
+  public void testAllTimesHaveSuggestions() throws Exception {
+    for (int timeout = 0; timeout < ETERNAL.getTimeout(); timeout++) {
+      TestTimeout suggested = getSuggestedTestTimeout(timeout);
+      assertWithMessage("No suggested TestTimeout found for timeout " + timeout)
+          .that(suggested)
+          .isNotNull();
+      assertWithMessage(
+              "Suggested timeout " + suggested + " is not in the fuzzy range for " + timeout)
+          .that(suggested.isInRangeFuzzy(timeout))
+          .isTrue();
+    }
   }
 
   @Test
   public void testIsInRangeFuzzy() throws Exception {
-    assertFuzzyRange(SHORT, 0, 105);
-    assertFuzzyRange(MODERATE, 8, 525);
-    assertFuzzyRange(LONG, 75, 1575);
-    assertFuzzyRange(ETERNAL, 225, Integer.MAX_VALUE);
+    assertThat(SHORT.isInRangeFuzzy(0)).isTrue();
+    assertThat(SHORT.isInRangeFuzzy(30)).isTrue();
+    assertThat(SHORT.isInRangeFuzzy(55)).isFalse();
+    assertThat(MODERATE.isInRangeFuzzy(10)).isFalse();
+    assertThat(MODERATE.isInRangeFuzzy(40)).isTrue();
+    assertThat(MODERATE.isInRangeFuzzy(290)).isFalse();
+    assertThat(LONG.isInRangeFuzzy(30)).isFalse();
+    assertThat(LONG.isInRangeFuzzy(200)).isTrue();
+    assertThat(LONG.isInRangeFuzzy(890)).isFalse();
+    assertThat(ETERNAL.isInRangeFuzzy(50)).isFalse();
+    assertThat(ETERNAL.isInRangeFuzzy(500)).isTrue();
+    assertThat(ETERNAL.isInRangeFuzzy(3500)).isTrue();
+    assertThat(ETERNAL.isInRangeFuzzy(60 * 60 * 24 * 360)).isTrue();
   }
 
-  private void assertFuzzyRange(TestTimeout timeout, int min, int max) {
-    if (min > 0) {
-      assertFalse(timeout.isInRangeFuzzy(min - 1));
-    }
-    assertTrue(timeout.isInRangeFuzzy(min));
-    assertTrue(timeout.isInRangeFuzzy(min + 1));
-    assertTrue(timeout.isInRangeFuzzy(max - 1));
-    assertTrue(timeout.isInRangeFuzzy(max));
-    if (max < Integer.MAX_VALUE) {
-      assertFalse(timeout.isInRangeFuzzy(max + 1));
+  @Test
+  public void testAllFuzzyRangesCovered() throws Exception {
+    for (int timeout = 0; timeout < ETERNAL.getTimeout(); timeout++) {
+      List<Boolean> truthValues = new ArrayList<>();
+      for (TestTimeout testTimeout : Arrays.asList(SHORT, MODERATE, LONG, ETERNAL)) {
+        truthValues.add(testTimeout.isInRangeFuzzy(timeout));
+      }
+      assertWithMessage("Timeout " + timeout + " is not in any fuzzy range.")
+          .that(truthValues)
+          .contains(true);
     }
   }
 }

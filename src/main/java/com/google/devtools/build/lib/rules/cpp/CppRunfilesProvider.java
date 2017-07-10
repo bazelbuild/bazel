@@ -45,33 +45,23 @@ public final class CppRunfilesProvider implements TransitiveInfoProvider {
   }
 
   /**
-   * Returns a function that gets the static C++ runfiles from a {@link TransitiveInfoCollection}
-   * or the empty runfiles instance if it does not contain that provider.
+   * Returns a function that gets the static C++ runfiles from a {@link TransitiveInfoCollection} or
+   * the empty runfiles instance if it does not contain that provider.
    */
   public static final Function<TransitiveInfoCollection, Runfiles> STATIC_RUNFILES =
-      new Function<TransitiveInfoCollection, Runfiles>() {
-        @Override
-        public Runfiles apply(TransitiveInfoCollection input) {
-          CppRunfilesProvider provider = input.getProvider(CppRunfilesProvider.class);
-          return provider == null
-              ? Runfiles.EMPTY
-              : provider.getStaticRunfiles();
-        }
+      input -> {
+        CppRunfilesProvider provider = input.getProvider(CppRunfilesProvider.class);
+        return provider == null ? Runfiles.EMPTY : provider.getStaticRunfiles();
       };
 
   /**
-   * Returns a function that gets the shared C++ runfiles from a {@link TransitiveInfoCollection}
-   * or the empty runfiles instance if it does not contain that provider.
+   * Returns a function that gets the shared C++ runfiles from a {@link TransitiveInfoCollection} or
+   * the empty runfiles instance if it does not contain that provider.
    */
   public static final Function<TransitiveInfoCollection, Runfiles> SHARED_RUNFILES =
-      new Function<TransitiveInfoCollection, Runfiles>() {
-        @Override
-        public Runfiles apply(TransitiveInfoCollection input) {
-          CppRunfilesProvider provider = input.getProvider(CppRunfilesProvider.class);
-          return provider == null
-              ? Runfiles.EMPTY
-              : provider.getSharedRunfiles();
-        }
+      input -> {
+        CppRunfilesProvider provider = input.getProvider(CppRunfilesProvider.class);
+        return provider == null ? Runfiles.EMPTY : provider.getSharedRunfiles();
       };
 
   /**

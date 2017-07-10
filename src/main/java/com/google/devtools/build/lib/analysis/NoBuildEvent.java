@@ -14,7 +14,60 @@
 
 package com.google.devtools.build.lib.analysis;
 
-/**
- * This event raised to indicate that no build will be happening for the given command.
- */
-public final class NoBuildEvent {}
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
+import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
+import com.google.devtools.build.lib.buildeventstream.ProgressEvent;
+import java.util.Collection;
+
+/** This event raised to indicate that no build will be happening for the given command. */
+public final class NoBuildEvent implements BuildEvent {
+  private final String command;
+  private final Long startTimeMillis;
+  private final boolean separateFinishedEvent;
+
+  public NoBuildEvent(String command, Long startTimeMillis, boolean separateFinishedEvent) {
+    this.command = command;
+    this.startTimeMillis = startTimeMillis;
+    this.separateFinishedEvent = separateFinishedEvent;
+  }
+
+  public NoBuildEvent() {
+    this(null, null, false);
+  }
+
+  @Override
+  public Collection<BuildEventId> getChildrenEvents() {
+    if (separateFinishedEvent) {
+      return ImmutableList.of(ProgressEvent.INITIAL_PROGRESS_UPDATE, BuildEventId.buildFinished());
+    } else {
+      return ImmutableList.of(ProgressEvent.INITIAL_PROGRESS_UPDATE);
+    }
+  }
+
+  @Override
+  public BuildEventId getEventId() {
+    return BuildEventId.buildStartedId();
+  }
+
+  @Override
+  public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
+    BuildEventStreamProtos.BuildStarted.Builder started =
+        BuildEventStreamProtos.BuildStarted.newBuilder()
+            .setBuildToolVersion(BlazeVersionInfo.instance().getVersion());
+    if (command != null) {
+      started.setCommand(command);
+    }
+    if (startTimeMillis != null) {
+      started.setStartTimeMillis(startTimeMillis);
+    }
+    return GenericBuildEvent.protoChaining(this).setStarted(started.build()).build();
+  }
+
+  public boolean separateFinishedEvent() {
+    return separateFinishedEvent;
+  }
+}

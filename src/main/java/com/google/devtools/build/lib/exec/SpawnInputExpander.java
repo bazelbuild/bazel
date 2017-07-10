@@ -93,7 +93,7 @@ public class SpawnInputExpander {
         PathFragment location = root.getRelative(mapping.getKey());
         Artifact localArtifact = mapping.getValue();
         if (localArtifact != null) {
-          if (strict && !actionFileCache.isFile(localArtifact)) {
+          if (strict && !actionFileCache.getMetadata(localArtifact).isFile()) {
             throw new IOException("Not a file: " + localArtifact.getPath().getPathString());
           }
           addMapping(inputMap, location, localArtifact);
@@ -113,7 +113,8 @@ public class SpawnInputExpander {
       Map<PathFragment, ActionInput> inputMappings, Artifact manifest, String workspaceName)
           throws IOException {
     Path file = manifest.getRoot().getPath().getRelative(
-        AnalysisUtils.getManifestPathFromFilesetPath(manifest.getExecPath()).getPathString());
+        AnalysisUtils.getManifestPathFromFilesetPath(
+            manifest.getRootRelativePath()).getPathString());
     FileSystemUtils.asByteSource(file).asCharSource(UTF_8)
         .readLines(new ManifestLineProcessor(inputMappings, workspaceName, manifest.getExecPath()));
   }
@@ -197,7 +198,10 @@ public class SpawnInputExpander {
       FilesetActionContext filesetContext)
           throws IOException {
     return getInputMapping(
-        spawn, artifactExpander, actionInputFileCache, filesetContext.getWorkspaceName());
+        spawn,
+        artifactExpander,
+        actionInputFileCache,
+        filesetContext == null ? null : filesetContext.getWorkspaceName());
   }
 
   /**

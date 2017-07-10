@@ -45,7 +45,11 @@ if is_windows; then
 
   export JAVA_HOME="$(ls -d C:/Program\ Files/Java/jdk* | sort | tail -n 1)"
   export BAZEL_SH="c:/tools/msys64/usr/bin/bash.exe"
-  export BAZEL_VC="c:/Program Files (x86)/Microsoft Visual Studio 14.0/VC"
+  export BAZEL_VC="c:/Program Files (x86)/Microsoft Visual Studio/2017/Professional/VC"
+  if [ ! -d "$BAZEL_VC" ]; then
+    # OK, well, maybe Visual C++ 2015 then?
+    export BAZEL_VC="c:/Program Files (x86)/Microsoft Visual Studio 14.0/VC"
+  fi
   if [ -x /c/Python27/python.exe ]; then
     export BAZEL_PYTHON="C:/Python27/python.exe"
     export PATH="/c/Python27:$PATH"
@@ -118,7 +122,7 @@ python_server="${BAZEL_RUNFILES}/src/test/shell/bazel/testing_server.py"
 # Third-party
 MACHINE_TYPE="$(uname -m)"
 MACHINE_IS_64BIT='no'
-if [ "${MACHINE_TYPE}" = 'amd64' -o "${MACHINE_TYPE}" = 'x86_64' -o "${MACHINE_TYPE}" = 's390x' ]; then
+if [ "${MACHINE_TYPE}" = 'amd64' ] || [ "${MACHINE_TYPE}" = 'x86_64' ] || [ "${MACHINE_TYPE}" = 's390x' ]; then
   MACHINE_IS_64BIT='yes'
 fi
 
@@ -156,10 +160,24 @@ else
   hamcrest_jar=$(rlocation io_bazel/third_party/hamcrest/hamcrest-.*.jar)
 fi
 
+
+function use_bazel_workspace_file() {
+  mkdir -p src/test/docker
+  cat >src/test/docker/docker_repository.bzl <<EOF
+def docker_repository():
+  pass
+EOF
+  touch src/test/docker/BUILD
+  rm -f WORKSPACE
+  ln -sf ${workspace_file} WORKSPACE
+}
+
 # This function copies the tools directory from Bazel.
 function copy_tools_directory() {
   cp -RL ${tools_dir}/* tools
   # tools/jdk/BUILD file for JDK 7 is generated.
+  # Only works if there's 0 or 1 matches.
+  # If there are multiple, the test fails.
   if [ -f tools/jdk/BUILD.* ]; then
     cp tools/jdk/BUILD.* tools/jdk/BUILD
   fi
@@ -292,12 +310,10 @@ function setup_android_sdk_support() {
   for i in $SDK_SRCDIR/*; do
     ln -s "$i" "$ANDROID_SDK/$(basename $i)"
   done
-  ANDROID_SDK_API_LEVEL=$(ls $SDK_SRCDIR/platforms | cut -d '-' -f 2 | sort -n | tail -1)
 cat >> WORKSPACE <<EOF
 android_sdk_repository(
     name = "androidsdk",
     path = "$ANDROID_SDK",
-    api_level = $ANDROID_SDK_API_LEVEL,
 )
 EOF
 }
@@ -311,12 +327,10 @@ function setup_android_ndk_support() {
       ln -s "$i" "$ANDROID_NDK/$(basename $i)"
     fi
   done
-  ANDROID_NDK_API_LEVEL=$(ls $NDK_SRCDIR/platforms | cut -d '-' -f 2 | sort -n | tail -1)
   cat >> WORKSPACE <<EOF
 android_ndk_repository(
     name = "androidndk",
     path = "$ANDROID_NDK",
-    api_level = $ANDROID_NDK_API_LEVEL,
 )
 EOF
 }
@@ -381,8 +395,8 @@ function create_new_workspace() {
 
   copy_tools_directory
 
-  [ -e third_party/java/jdk/langtools/javac-9-dev-r3297-4.jar ] \
-    || ln -s "${langtools_path}"  third_party/java/jdk/langtools/javac-9-dev-r3297-4.jar
+  [ -e third_party/java/jdk/langtools/javac-9-dev-r4023-2.jar ] \
+    || ln -s "${langtools_path}"  third_party/java/jdk/langtools/javac-9-dev-r4023-2.jar
 
   touch WORKSPACE
 }
@@ -418,7 +432,7 @@ function cleanup_workspace() {
     done
     touch WORKSPACE
   fi
-  for i in ${workspaces}; do
+  for i in "${workspaces[@]}"; do
     if [ "$i" != "${WORKSPACE_DIR:-}" ]; then
       rm -fr $i
     fi
@@ -429,7 +443,18 @@ function cleanup_workspace() {
 # Clean-up the bazel install base
 function cleanup() {
   if [ -d "${BAZEL_INSTALL_BASE:-__does_not_exists__}" ]; then
-    rm -fr "${BAZEL_INSTALL_BASE}"
+    # Windows takes its time to shut down Bazel and we can't delete A-server.jar
+    # until then, so just give it time and keep trying for 2 minutes.
+    for i in {1..120}; do
+      if rm -fr "${BAZEL_INSTALL_BASE}" ; then
+        break
+      fi
+      if (( i == 10 )) || (( i == 30 )) || (( i == 60 )) ; then
+        echo "Test cleanup: couldn't delete ${BAZEL_INSTALL_BASE} \ after $i seconds"
+        echo "(Timeout in $((120-i)) seconds.)"
+        sleep 1
+      fi
+    done
   fi
 }
 

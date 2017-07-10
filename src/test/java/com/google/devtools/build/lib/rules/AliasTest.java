@@ -26,14 +26,13 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.License.LicenseType;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
-
-import org.junit.Test;
-
 import java.util.Set;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
-/**
- * Unit tests for the <code>alias</code> rule.
- */
+/** Unit tests for the <code>alias</code> rule. */
+@RunWith(JUnit4.class)
 public class AliasTest extends BuildViewTestCase {
   @Test
   public void smoke() throws Exception {
@@ -247,5 +246,10 @@ public class AliasTest extends BuildViewTestCase {
 
     useConfiguration("--crosstool_top=//a:cc");
     getConfiguredTarget("//a:a");
+  }
+
+  @Test
+  public void testNoActual() throws Exception {
+    checkError("a", "a", "missing value for mandatory attribute 'actual'", "alias(name='a')");
   }
 }

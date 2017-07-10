@@ -14,14 +14,26 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertWithMessage;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildEventWithConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
@@ -29,6 +41,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.NamedSetOfFilesId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
+import com.google.devtools.build.lib.buildeventstream.BuildEventTransportClosedEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
@@ -43,11 +56,18 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
-import java.util.concurrent.Future;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.LockSupport;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mockito;
+import org.mockito.MockitoAnnotations;
 
 /** Tests {@link BuildEventStreamer}. */
 @RunWith(JUnit4.class)
@@ -56,6 +76,11 @@ public class BuildEventStreamerTest extends FoundationTestCase {
   private static class RecordingBuildEventTransport implements BuildEventTransport {
     private final List<BuildEvent> events = new ArrayList<>();
     private final List<BuildEventStreamProtos.BuildEvent> eventsAsProtos = new ArrayList<>();
+
+    @Override
+    public String name() {
+      return this.getClass().getSimpleName();
+    }
 
     @Override
     public void sendBuildEvent(BuildEvent event, final ArtifactGroupNamer namer) {
@@ -81,7 +106,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     }
 
     @Override
-    public Future<Void> close() {
+    public ListenableFuture<Void> close() {
       return Futures.immediateFuture(null);
     }
 
@@ -178,18 +203,83 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     }
   }
 
+  private static class GenericConfigurationEvent implements BuildEventWithConfiguration {
+    private final BuildEventId id;
+    private final Collection<BuildEventId> children;
+    private final Collection<BuildConfiguration> configurations;
+
+    GenericConfigurationEvent(
+        BuildEventId id,
+        Collection<BuildEventId> children,
+        Collection<BuildConfiguration> configurations) {
+      this.id = id;
+      this.children = children;
+      this.configurations = configurations;
+    }
+
+    GenericConfigurationEvent(BuildEventId id, BuildConfiguration configuration) {
+      this(id, ImmutableSet.<BuildEventId>of(), ImmutableSet.of(configuration));
+    }
+
+    @Override
+    public BuildEventId getEventId() {
+      return id;
+    }
+
+    @Override
+    public Collection<BuildEventId> getChildrenEvents() {
+      return children;
+    }
+
+    @Override
+    public Collection<BuildConfiguration> getConfigurations() {
+      return configurations;
+    }
+
+    @Override
+    public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
+      return GenericBuildEvent.protoChaining(this).build();
+    }
+  }
+
   private static BuildEventId testId(String opaque) {
     return BuildEventId.unknownBuildEventId(opaque);
   }
 
-  @Test
+  private static class EventBusHandler {
+
+    Set<BuildEventTransport> transportSet;
+
+    @Subscribe
+    void transportsAnnounced(AnnounceBuildEventTransportsEvent evt) {
+      transportSet = Collections.synchronizedSet(new HashSet<>(evt.transports()));
+    }
+
+    @Subscribe
+    void transportClosed(BuildEventTransportClosedEvent evt) {
+      transportSet.remove(evt.transport());
+    }
+  }
+
+  @Before
+  public void setup() {
+    MockitoAnnotations.initMocks(this);
+  }
+
+  @Test(timeout = 5000)
   public void testSimpleStream() {
     // Verify that a well-formed event is passed through and that completion of the
-    // build clears the pending progress-update event.
+    // build clears the pending progress-update event. However, there is no guarantee
+    // on the order of the flushed events.
+    // Additionally, assert that the actual last event has the last_message flag set.
+
+    EventBusHandler handler = new EventBusHandler();
+    eventBus.register(handler);
+    assertThat(handler.transportSet).isNull();
 
     RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
     BuildEventStreamer streamer =
-        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport));
+        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
 
     BuildEvent startEvent =
         new GenericBuildEvent(
@@ -200,14 +290,25 @@ public class BuildEventStreamerTest extends FoundationTestCase {
 
     List<BuildEvent> afterFirstEvent = transport.getEvents();
     assertThat(afterFirstEvent).hasSize(1);
-    assertEquals(startEvent.getEventId(), afterFirstEvent.get(0).getEventId());
+    assertThat(afterFirstEvent.get(0).getEventId()).isEqualTo(startEvent.getEventId());
+    assertThat(handler.transportSet).hasSize(1);
 
     streamer.buildEvent(new BuildCompleteEvent(new BuildResult(0)));
 
     List<BuildEvent> finalStream = transport.getEvents();
     assertThat(finalStream).hasSize(3);
-    assertEquals(BuildEventId.buildFinished(), finalStream.get(1).getEventId());
-    assertEquals(ProgressEvent.INITIAL_PROGRESS_UPDATE, finalStream.get(2).getEventId());
+    assertThat(ImmutableSet.of(finalStream.get(1).getEventId(), finalStream.get(2).getEventId()))
+        .isEqualTo(
+            ImmutableSet.of(BuildEventId.buildFinished(), ProgressEvent.INITIAL_PROGRESS_UPDATE));
+
+    // verify the "last_message" flag.
+    assertThat(transport.getEventProtos().get(0).getLastMessage()).isFalse();
+    assertThat(transport.getEventProtos().get(1).getLastMessage()).isFalse();
+    assertThat(transport.getEventProtos().get(2).getLastMessage()).isTrue();
+
+    while (!handler.transportSet.isEmpty()) {
+      LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(100));
+    }
   }
 
   @Test
@@ -217,7 +318,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
 
     RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
     BuildEventStreamer streamer =
-        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport));
+        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
 
     BuildEvent startEvent =
         new GenericBuildEvent(
@@ -230,13 +331,13 @@ public class BuildEventStreamerTest extends FoundationTestCase {
 
     List<BuildEvent> eventsSeen = transport.getEvents();
     assertThat(eventsSeen).hasSize(3);
-    assertEquals(startEvent.getEventId(), eventsSeen.get(0).getEventId());
-    assertEquals(unexpectedEvent.getEventId(), eventsSeen.get(2).getEventId());
+    assertThat(eventsSeen.get(0).getEventId()).isEqualTo(startEvent.getEventId());
+    assertThat(eventsSeen.get(2).getEventId()).isEqualTo(unexpectedEvent.getEventId());
     BuildEvent linkEvent = eventsSeen.get(1);
-    assertEquals(ProgressEvent.INITIAL_PROGRESS_UPDATE, linkEvent.getEventId());
-    assertTrue(
-        "Unexpected events should be linked",
-        linkEvent.getChildrenEvents().contains(unexpectedEvent.getEventId()));
+    assertThat(linkEvent.getEventId()).isEqualTo(ProgressEvent.INITIAL_PROGRESS_UPDATE);
+    assertWithMessage("Unexpected events should be linked")
+        .that(linkEvent.getChildrenEvents().contains(unexpectedEvent.getEventId()))
+        .isTrue();
   }
 
   @Test
@@ -247,7 +348,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
 
     RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
     BuildEventStreamer streamer =
-        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport));
+        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
 
     BuildEvent unexpectedStartEvent =
         new GenericBuildEvent(testId("unexpected start"), ImmutableSet.<BuildEventId>of());
@@ -256,12 +357,12 @@ public class BuildEventStreamerTest extends FoundationTestCase {
 
     List<BuildEvent> eventsSeen = transport.getEvents();
     assertThat(eventsSeen).hasSize(2);
-    assertEquals(unexpectedStartEvent.getEventId(), eventsSeen.get(1).getEventId());
+    assertThat(eventsSeen.get(1).getEventId()).isEqualTo(unexpectedStartEvent.getEventId());
     BuildEvent initial = eventsSeen.get(0);
-    assertEquals(ProgressEvent.INITIAL_PROGRESS_UPDATE, initial.getEventId());
-    assertTrue(
-        "Event should be linked",
-        initial.getChildrenEvents().contains(unexpectedStartEvent.getEventId()));
+    assertThat(initial.getEventId()).isEqualTo(ProgressEvent.INITIAL_PROGRESS_UPDATE);
+    assertWithMessage("Event should be linked")
+        .that(initial.getChildrenEvents().contains(unexpectedStartEvent.getEventId()))
+        .isTrue();
 
     // The initial event should also announce a new progress event; we test this
     // by streaming another unannounced event.
@@ -272,14 +373,14 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     streamer.buildEvent(unexpectedEvent);
     List<BuildEvent> allEventsSeen = transport.getEvents();
     assertThat(allEventsSeen).hasSize(4);
-    assertEquals(unexpectedEvent.getEventId(), allEventsSeen.get(3).getEventId());
+    assertThat(allEventsSeen.get(3).getEventId()).isEqualTo(unexpectedEvent.getEventId());
     BuildEvent secondLinkEvent = allEventsSeen.get(2);
-    assertTrue(
-        "Progress should have been announced",
-        initial.getChildrenEvents().contains(secondLinkEvent.getEventId()));
-    assertTrue(
-        "Second event should be linked",
-        secondLinkEvent.getChildrenEvents().contains(unexpectedEvent.getEventId()));
+    assertWithMessage("Progress should have been announced")
+        .that(initial.getChildrenEvents().contains(secondLinkEvent.getEventId()))
+        .isTrue();
+    assertWithMessage("Second event should be linked")
+        .that(secondLinkEvent.getChildrenEvents().contains(unexpectedEvent.getEventId()))
+        .isTrue();
   }
 
   @Test
@@ -288,7 +389,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     // late-referenced event is not expected again.
     RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
     BuildEventStreamer streamer =
-        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport));
+        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
 
     BuildEvent startEvent =
         new GenericBuildEvent(
@@ -313,7 +414,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
       }
     }
     // The early event should be reported precisely once.
-    assertEquals(1, earlyEventCount);
+    assertThat(earlyEventCount).isEqualTo(1);
   }
 
   @Test
@@ -322,7 +423,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
 
     RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
     BuildEventStreamer streamer =
-        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport));
+        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
 
     BuildEventId expectedId = testId("the target");
     BuildEvent startEvent =
@@ -340,11 +441,11 @@ public class BuildEventStreamerTest extends FoundationTestCase {
 
     List<BuildEvent> allEventsSeen = transport.getEvents();
     assertThat(allEventsSeen).hasSize(4);
-    assertEquals(startEvent.getEventId(), allEventsSeen.get(0).getEventId());
+    assertThat(allEventsSeen.get(0).getEventId()).isEqualTo(startEvent.getEventId());
     BuildEvent linkEvent = allEventsSeen.get(1);
-    assertEquals(ProgressEvent.INITIAL_PROGRESS_UPDATE, linkEvent.getEventId());
-    assertEquals(rootCause.getEventId(), allEventsSeen.get(2).getEventId());
-    assertEquals(failedTarget.getEventId(), allEventsSeen.get(3).getEventId());
+    assertThat(linkEvent.getEventId()).isEqualTo(ProgressEvent.INITIAL_PROGRESS_UPDATE);
+    assertThat(allEventsSeen.get(2).getEventId()).isEqualTo(rootCause.getEventId());
+    assertThat(allEventsSeen.get(3).getEventId()).isEqualTo(failedTarget.getEventId());
   }
 
   @Test
@@ -354,7 +455,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
 
     RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
     BuildEventStreamer streamer =
-        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport));
+        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
 
     BuildEventId expectedId = testId("the target");
     BuildEvent startEvent =
@@ -372,12 +473,12 @@ public class BuildEventStreamerTest extends FoundationTestCase {
 
     List<BuildEvent> allEventsSeen = transport.getEvents();
     assertThat(allEventsSeen).hasSize(6);
-    assertEquals(startEvent.getEventId(), allEventsSeen.get(0).getEventId());
-    assertEquals(BuildEventId.buildFinished(), allEventsSeen.get(1).getEventId());
+    assertThat(allEventsSeen.get(0).getEventId()).isEqualTo(startEvent.getEventId());
+    assertThat(allEventsSeen.get(1).getEventId()).isEqualTo(BuildEventId.buildFinished());
     BuildEvent linkEvent = allEventsSeen.get(2);
-    assertEquals(ProgressEvent.INITIAL_PROGRESS_UPDATE, linkEvent.getEventId());
-    assertEquals(rootCauseId, allEventsSeen.get(3).getEventId());
-    assertEquals(failedTarget.getEventId(), allEventsSeen.get(4).getEventId());
+    assertThat(linkEvent.getEventId()).isEqualTo(ProgressEvent.INITIAL_PROGRESS_UPDATE);
+    assertThat(allEventsSeen.get(3).getEventId()).isEqualTo(rootCauseId);
+    assertThat(allEventsSeen.get(4).getEventId()).isEqualTo(failedTarget.getEventId());
   }
 
   @Test
@@ -385,7 +486,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     // Verify that we can handle an first event waiting for another event.
     RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
     BuildEventStreamer streamer =
-        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport));
+        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
 
     BuildEventId initialId = testId("Initial");
     BuildEventId waitId = testId("Waiting for initial event");
@@ -401,8 +502,8 @@ public class BuildEventStreamerTest extends FoundationTestCase {
 
     List<BuildEvent> allEventsSeen = transport.getEvents();
     assertThat(allEventsSeen).hasSize(2);
-    assertEquals(startEvent.getEventId(), allEventsSeen.get(0).getEventId());
-    assertEquals(waitingForStart.getEventId(), allEventsSeen.get(1).getEventId());
+    assertThat(allEventsSeen.get(0).getEventId()).isEqualTo(startEvent.getEventId());
+    assertThat(allEventsSeen.get(1).getEventId()).isEqualTo(waitingForStart.getEventId());
   }
 
   private Artifact makeArtifact(String pathString) {
@@ -415,7 +516,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     // Verify that reported artifacts are correctly unfolded into the stream
     RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
     BuildEventStreamer streamer =
-        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport));
+        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
 
     BuildEvent startEvent =
         new GenericBuildEvent(
@@ -436,22 +537,197 @@ public class BuildEventStreamerTest extends FoundationTestCase {
 
     List<BuildEvent> allEventsSeen = transport.getEvents();
     List<BuildEventStreamProtos.BuildEvent> eventProtos = transport.getEventProtos();
-    assertEquals(7, allEventsSeen.size());
-    assertEquals(startEvent.getEventId(), allEventsSeen.get(0).getEventId());
-    assertEquals(ProgressEvent.INITIAL_PROGRESS_UPDATE, allEventsSeen.get(1).getEventId());
+    assertThat(allEventsSeen).hasSize(7);
+    assertThat(allEventsSeen.get(0).getEventId()).isEqualTo(startEvent.getEventId());
+    assertThat(allEventsSeen.get(1).getEventId()).isEqualTo(ProgressEvent.INITIAL_PROGRESS_UPDATE);
     List<BuildEventStreamProtos.File> firstSetDirects =
         eventProtos.get(2).getNamedSetOfFiles().getFilesList();
-    assertEquals(2, firstSetDirects.size());
-    assertEquals(
-        ImmutableSet.of(a.getPath().toString(), b.getPath().toString()),
-        ImmutableSet.of(firstSetDirects.get(0).getUri(), firstSetDirects.get(1).getUri()));
+    assertThat(firstSetDirects).hasSize(2);
+    assertThat(ImmutableSet.of(firstSetDirects.get(0).getUri(), firstSetDirects.get(1).getUri()))
+        .isEqualTo(ImmutableSet.of(a.getPath().toString(), b.getPath().toString()));
     List<NamedSetOfFilesId> secondSetTransitives =
         eventProtos.get(4).getNamedSetOfFiles().getFileSetsList();
-    assertEquals(1, secondSetTransitives.size());
-    assertEquals(eventProtos.get(2).getId().getNamedSet(), secondSetTransitives.get(0));
+    assertThat(secondSetTransitives).hasSize(1);
+    assertThat(secondSetTransitives.get(0)).isEqualTo(eventProtos.get(2).getId().getNamedSet());
     List<NamedSetOfFilesId> reportedArtifactSets =
         eventProtos.get(6).getNamedSetOfFiles().getFileSetsList();
-    assertEquals(1, reportedArtifactSets.size());
-    assertEquals(eventProtos.get(4).getId().getNamedSet(), reportedArtifactSets.get(0));
+    assertThat(reportedArtifactSets).hasSize(1);
+    assertThat(reportedArtifactSets.get(0)).isEqualTo(eventProtos.get(4).getId().getNamedSet());
+  }
+
+  @Test
+  public void testStdoutReported() {
+    // Verify that stdout and stderr are reported in the build-event stream on progress
+    // events.
+    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
+    BuildEventStreamer streamer =
+        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
+    BuildEventStreamer.OutErrProvider outErr =
+        Mockito.mock(BuildEventStreamer.OutErrProvider.class);
+    String stdoutMsg = "Some text that was written to stdout.";
+    String stderrMsg = "The UI text that bazel wrote to stderr.";
+    when(outErr.getOut()).thenReturn(stdoutMsg);
+    when(outErr.getErr()).thenReturn(stderrMsg);
+    BuildEvent startEvent =
+        new GenericBuildEvent(
+            testId("Initial"),
+            ImmutableSet.<BuildEventId>of(ProgressEvent.INITIAL_PROGRESS_UPDATE));
+    BuildEvent unexpectedEvent =
+        new GenericBuildEvent(testId("unexpected"), ImmutableSet.<BuildEventId>of());
+
+    streamer.registerOutErrProvider(outErr);
+    streamer.buildEvent(startEvent);
+    streamer.buildEvent(unexpectedEvent);
+
+    List<BuildEvent> eventsSeen = transport.getEvents();
+    assertThat(eventsSeen).hasSize(3);
+    assertThat(eventsSeen.get(0).getEventId()).isEqualTo(startEvent.getEventId());
+    assertThat(eventsSeen.get(2).getEventId()).isEqualTo(unexpectedEvent.getEventId());
+    BuildEvent linkEvent = eventsSeen.get(1);
+    BuildEventStreamProtos.BuildEvent linkEventProto = transport.getEventProtos().get(1);
+    assertThat(linkEvent.getEventId()).isEqualTo(ProgressEvent.INITIAL_PROGRESS_UPDATE);
+    assertWithMessage("Unexpected events should be linked")
+        .that(linkEvent.getChildrenEvents().contains(unexpectedEvent.getEventId()))
+        .isTrue();
+    assertThat(linkEventProto.getProgress().getStdout()).isEqualTo(stdoutMsg);
+    assertThat(linkEventProto.getProgress().getStderr()).isEqualTo(stderrMsg);
+
+    // As there is only one progress event, the OutErrProvider should be queried
+    // only once for stdout and stderr.
+    verify(outErr, times(1)).getOut();
+    verify(outErr, times(1)).getErr();
+  }
+
+  @Test
+  public void testReportedConfigurations() throws Exception {
+    // Verify that configuration events are posted, but only once.
+    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
+    BuildEventStreamer streamer =
+        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
+
+    BuildEvent startEvent =
+        new GenericBuildEvent(
+            testId("Initial"),
+            ImmutableSet.<BuildEventId>of(ProgressEvent.INITIAL_PROGRESS_UPDATE));
+    BuildConfiguration configuration =
+        new BuildConfiguration(
+            new BlazeDirectories(outputBase, outputBase, rootDirectory, "productName"),
+            ImmutableMap.<Class<? extends BuildConfiguration.Fragment>,
+                          BuildConfiguration.Fragment>of(),
+            BuildOptions.of(ImmutableList.<Class<? extends FragmentOptions>>of(
+              BuildConfiguration.Options.class)),
+            "workspace",
+            null);
+    BuildEvent firstWithConfiguration =
+        new GenericConfigurationEvent(testId("first"), configuration);
+    BuildEvent secondWithConfiguration =
+        new GenericConfigurationEvent(testId("second"), configuration);
+
+    streamer.buildEvent(startEvent);
+    streamer.buildEvent(firstWithConfiguration);
+    streamer.buildEvent(secondWithConfiguration);
+
+    List<BuildEvent> allEventsSeen = transport.getEvents();
+    assertThat(allEventsSeen).hasSize(7);
+    assertThat(allEventsSeen.get(0).getEventId()).isEqualTo(startEvent.getEventId());
+    assertThat(allEventsSeen.get(1).getEventId()).isEqualTo(ProgressEvent.INITIAL_PROGRESS_UPDATE);
+    assertThat(allEventsSeen.get(2)).isEqualTo(configuration);
+    assertThat(allEventsSeen.get(3).getEventId()).isEqualTo(BuildEventId.progressId(1));
+    assertThat(allEventsSeen.get(4)).isEqualTo(firstWithConfiguration);
+    assertThat(allEventsSeen.get(5).getEventId()).isEqualTo(BuildEventId.progressId(2));
+    assertThat(allEventsSeen.get(6)).isEqualTo(secondWithConfiguration);
+  }
+
+  @Test
+  public void testEarlyFlush() throws Exception {
+    // Verify that the streamer can handle early calls to flush() and still correctly
+    // reports stdout and stderr in the build-event stream.
+    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
+    BuildEventStreamer streamer =
+        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
+    BuildEventStreamer.OutErrProvider outErr =
+        Mockito.mock(BuildEventStreamer.OutErrProvider.class);
+    String firstStdoutMsg = "Some text that was written to stdout.";
+    String firstStderrMsg = "The UI text that bazel wrote to stderr.";
+    String secondStdoutMsg = "More text that was written to stdout, still before the start event.";
+    String secondStderrMsg = "More text written to stderr, still before the start event.";
+    when(outErr.getOut()).thenReturn(firstStdoutMsg).thenReturn(secondStdoutMsg);
+    when(outErr.getErr()).thenReturn(firstStderrMsg).thenReturn(secondStderrMsg);
+    BuildEvent startEvent =
+        new GenericBuildEvent(
+            testId("Initial"),
+            ImmutableSet.<BuildEventId>of(ProgressEvent.INITIAL_PROGRESS_UPDATE));
+
+    streamer.registerOutErrProvider(outErr);
+    streamer.flush();
+    streamer.flush();
+    streamer.buildEvent(startEvent);
+
+    List<BuildEvent> eventsSeen = transport.getEvents();
+    assertThat(eventsSeen).hasSize(3);
+    assertThat(eventsSeen.get(0).getEventId()).isEqualTo(startEvent.getEventId());
+    BuildEvent progressEvent = eventsSeen.get(1);
+    assertThat(progressEvent.getEventId()).isEqualTo(ProgressEvent.INITIAL_PROGRESS_UPDATE);
+    BuildEventStreamProtos.BuildEvent progressEventProto = transport.getEventProtos().get(1);
+    assertThat(progressEventProto.getProgress().getStdout()).isEqualTo(firstStdoutMsg);
+    assertThat(progressEventProto.getProgress().getStderr()).isEqualTo(firstStderrMsg);
+    BuildEventStreamProtos.BuildEvent secondProgressEventProto = transport.getEventProtos().get(2);
+    assertThat(secondProgressEventProto.getProgress().getStdout()).isEqualTo(secondStdoutMsg);
+    assertThat(secondProgressEventProto.getProgress().getStderr()).isEqualTo(secondStderrMsg);
+
+    // As there is only one progress event, the OutErrProvider should be queried
+    // only once per flush() for stdout and stderr.
+    verify(outErr, times(2)).getOut();
+    verify(outErr, times(2)).getErr();
+  }
+
+  @Test
+  public void testEarlyFlushBadInitialEvent() throws Exception {
+    // Verify that an early flush works correctly with an unusual start event.
+    // In this case, we expect 3 events in the stream, in that order:
+    // - an artifical progress event as initial event, to properly link in
+    //   all events
+    // - the unusal first event we have seen, and
+    // - a progress event reporting the flushed messages.
+    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
+    BuildEventStreamer streamer =
+        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport), reporter);
+    BuildEventStreamer.OutErrProvider outErr =
+        Mockito.mock(BuildEventStreamer.OutErrProvider.class);
+    String stdoutMsg = "Some text that was written to stdout.";
+    String stderrMsg = "The UI text that bazel wrote to stderr.";
+    when(outErr.getOut()).thenReturn(stdoutMsg);
+    when(outErr.getErr()).thenReturn(stderrMsg);
+
+    BuildEvent unexpectedStartEvent =
+        new GenericBuildEvent(testId("unexpected start"), ImmutableSet.<BuildEventId>of());
+
+    streamer.registerOutErrProvider(outErr);
+    streamer.flush();
+    streamer.buildEvent(unexpectedStartEvent);
+
+    List<BuildEvent> eventsSeen = transport.getEvents();
+    assertThat(eventsSeen).hasSize(3);
+
+    BuildEvent initial = eventsSeen.get(0);
+    assertThat(initial.getEventId()).isEqualTo(ProgressEvent.INITIAL_PROGRESS_UPDATE);
+    BuildEventStreamProtos.BuildEvent initialProto = transport.getEventProtos().get(0);
+    assertThat(initialProto.getProgress().getStdout()).isEmpty();
+    assertThat(initialProto.getProgress().getStderr()).isEmpty();
+
+    assertThat(eventsSeen.get(1).getEventId()).isEqualTo(unexpectedStartEvent.getEventId());
+    assertWithMessage("Unexpected event should be linked")
+        .that(initial.getChildrenEvents().contains(unexpectedStartEvent.getEventId()))
+        .isTrue();
+
+    BuildEventStreamProtos.BuildEvent progressProto = transport.getEventProtos().get(2);
+    assertThat(progressProto.getProgress().getStdout()).isEqualTo(stdoutMsg);
+    assertThat(progressProto.getProgress().getStderr()).isEqualTo(stderrMsg);
+    assertWithMessage("flushed progress should be linked")
+        .that(initial.getChildrenEvents().contains(eventsSeen.get(2).getEventId()))
+        .isTrue();
+
+    verify(outErr, times(1)).getOut();
+    verify(outErr, times(1)).getErr();
   }
 }

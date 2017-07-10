@@ -14,23 +14,20 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
-
+import java.util.Arrays;
+import java.util.Map;
+import java.util.TreeMap;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.util.Arrays;
-import java.util.Map;
-import java.util.TreeMap;
-
 /**
- * Tests for {@link BaseFunction}.
- * This tests the argument processing by BaseFunction
- * between the outer call(posargs, kwargs, ast, env) and the inner call(args, ast, env).
+ * Tests for {@link BaseFunction}. This tests the argument processing by BaseFunction between the
+ * outer call(posargs, kwargs, ast, env) and the inner call(args, ast, env).
  */
 @RunWith(JUnit4.class)
 public class BaseFunctionTest extends EvaluationTestCase {
@@ -56,16 +53,18 @@ public class BaseFunctionTest extends EvaluationTestCase {
     update(func.getName(), func);
 
     if (expectedOutput.charAt(0) == '[') { // a tuple => expected to pass
-      assertEquals("Wrong output for " + callExpression,
-          expectedOutput, eval(callExpression).toString());
+      assertWithMessage("Wrong output for " + callExpression)
+          .that(eval(callExpression).toString())
+          .isEqualTo(expectedOutput);
 
     } else { // expected to fail with an exception
       try {
         eval(callExpression);
         fail();
       } catch (EvalException e) {
-        assertEquals("Wrong exception for " + callExpression,
-            expectedOutput, e.getMessage());
+        assertWithMessage("Wrong exception for " + callExpression)
+            .that(e.getMessage())
+            .isEqualTo(expectedOutput);
       }
     }
   }

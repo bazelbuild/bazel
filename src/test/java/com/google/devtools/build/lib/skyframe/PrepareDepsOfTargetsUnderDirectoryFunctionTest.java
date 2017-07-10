@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.skyframe.WalkableGraphUtils.exists;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -189,18 +187,21 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
 
     // Also, the computation graph does not contain a cached value for "a/b".
     WalkableGraph graph = Preconditions.checkNotNull(evaluationResult.getWalkableGraph());
-    assertFalse(
-        exists(
-            createPrepDepsKey(rootDirectory, excludedPathFragment, ImmutableSet.<PathFragment>of()),
-            graph));
+    assertThat(
+            exists(
+                createPrepDepsKey(
+                    rootDirectory, excludedPathFragment, ImmutableSet.<PathFragment>of()),
+                graph))
+        .isFalse();
 
     // And the computation graph does contain a cached value for "a/c" with the empty set excluded,
     // because that key was evaluated.
-    assertTrue(
-        exists(
-            createPrepDepsKey(
-                rootDirectory, PathFragment.create("a/c"), ImmutableSet.<PathFragment>of()),
-            graph));
+    assertThat(
+            exists(
+                createPrepDepsKey(
+                    rootDirectory, PathFragment.create("a/c"), ImmutableSet.<PathFragment>of()),
+                graph))
+        .isTrue();
   }
 
   @Test

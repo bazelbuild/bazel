@@ -63,7 +63,7 @@ public final class BazelJavaTestRule implements RuleDefinition {
         // Input files for test actions collecting code coverage
         .add(
             attr("$lcov_merger", LABEL)
-                .value(env.getLabel("@bazel_tools//tools/test:LcovMerger_deploy.jar")))
+                .value(env.getLabel("@bazel_tools//tools/test:LcovMerger")))
         .add(
             attr("$jacocorunner", LABEL)
                 .value(

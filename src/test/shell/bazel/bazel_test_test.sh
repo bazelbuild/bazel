@@ -236,7 +236,7 @@ EOF
 
   bazel test --test_timeout=2 //dir:test &> $TEST_log && fail "should have timed out"
   expect_log "TIMEOUT"
-  bazel test --test_timeout=20 //dir:test || fail "expected success"
+  bazel test --test_timeout=20 //dir:test &> $TEST_log || fail "expected success"
 }
 
 # Makes sure that runs_per_test_detects_flakes detects FLAKY if any of the 5
@@ -300,6 +300,37 @@ EOF
   [ -s $xml_log ] || fail "$xml_log was not present after test"
 }
 
+# Check that fallback xml output is correctly generated for sharded tests.
+function test_xml_fallback_for_sharded_test() {
+  mkdir -p dir
+
+  cat <<EOF > dir/test.sh
+#!/bin/sh
+exit \$((TEST_SHARD_INDEX == 1))
+EOF
+
+  chmod +x dir/test.sh
+
+  cat <<EOF > dir/BUILD
+sh_test(
+  name = "test",
+  srcs = [ "test.sh" ],
+  shard_count = 2,
+)
+EOF
+
+  bazel test //dir:test && fail "should have failed" || true
+
+  cp bazel-testlogs/dir/test/shard_1_of_2/test.xml $TEST_log
+  expect_log "errors=\"0\""
+  expect_log_once "testcase"
+  expect_log "name=\"dir/test_shard_1/2\""
+  cp bazel-testlogs/dir/test/shard_2_of_2/test.xml $TEST_log
+  expect_log "errors=\"1\""
+  expect_log_once "testcase"
+  expect_log "name=\"dir/test_shard_2/2\""
+}
+
 # Simple test that we actually enforce testonly, see #1923.
 function test_testonly_is_enforced() {
   mkdir -p testonly
@@ -357,10 +388,12 @@ EOF
   cat bazel-testlogs/dir/success/test.xml >$TEST_log
   expect_log "errors=\"0\""
   expect_log_once "testcase"
+  expect_log_once "duration=\"[0-9]\+\""
   expect_log "name=\"dir/success\""
   cat bazel-testlogs/dir/fail/test.xml >$TEST_log
   expect_log "errors=\"1\""
   expect_log_once "testcase"
+  expect_log_once "duration=\"[0-9]\+\""
   expect_log "name=\"dir/fail\""
 }
 
@@ -444,4 +477,4 @@ EOF
   assert_equals "fail" "$(sed -n '3p' < bazel-testlogs/fail/test.log)"
 }
 
-run_suite "test tests"
+run_suite "bazel test tests"

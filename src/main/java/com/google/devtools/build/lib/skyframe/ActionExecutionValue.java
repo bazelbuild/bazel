@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
@@ -132,7 +133,8 @@ public class ActionExecutionValue implements SkyValue {
   @ThreadSafe
   @VisibleForTesting
   public static SkyKey key(SkyKey lookupKey, int index) {
-    return SkyKey.create(SkyFunctions.ACTION_EXECUTION, new ActionLookupData(lookupKey, index));
+    return LegacySkyKey.create(
+        SkyFunctions.ACTION_EXECUTION, new ActionLookupData(lookupKey, index));
   }
 
   @Override

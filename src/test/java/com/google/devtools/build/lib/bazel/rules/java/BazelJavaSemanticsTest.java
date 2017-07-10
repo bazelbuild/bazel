@@ -14,10 +14,9 @@
 
 package com.google.devtools.build.lib.bazel.rules.java;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -30,21 +29,18 @@ public class BazelJavaSemanticsTest {
   @Test
   public void testFindingResources() {
     BazelJavaSemantics semantics = BazelJavaSemantics.INSTANCE;
-    assertEquals(
-        PathFragment.EMPTY_FRAGMENT,
-        semantics.getDefaultJavaResourcePath(PathFragment.create("x/y/src/main/resources")));
-    assertEquals(
-        PathFragment.create("foo"),
-        semantics.getDefaultJavaResourcePath(PathFragment.create("x/y/src/main/resources/foo")));
-    assertEquals(
-        PathFragment.create("foo"),
-        semantics.getDefaultJavaResourcePath(
-            PathFragment.create("java/x/y/src/main/resources/foo")));
-    assertEquals(
-        PathFragment.create("foo/java/bar"),
-        semantics.getDefaultJavaResourcePath(PathFragment.create("java/foo/java/bar")));
-    assertEquals(
-        PathFragment.create("foo/java/bar"),
-        semantics.getDefaultJavaResourcePath(PathFragment.create("javatests/foo/java/bar")));
+    assertThat(semantics.getDefaultJavaResourcePath(PathFragment.create("x/y/src/main/resources")))
+        .isEqualTo(PathFragment.EMPTY_FRAGMENT);
+    assertThat(
+            semantics.getDefaultJavaResourcePath(PathFragment.create("x/y/src/main/resources/foo")))
+        .isEqualTo(PathFragment.create("foo"));
+    assertThat(
+            semantics.getDefaultJavaResourcePath(
+                PathFragment.create("java/x/y/src/main/resources/foo")))
+        .isEqualTo(PathFragment.create("foo"));
+    assertThat(semantics.getDefaultJavaResourcePath(PathFragment.create("java/foo/java/bar")))
+        .isEqualTo(PathFragment.create("foo/java/bar"));
+    assertThat(semantics.getDefaultJavaResourcePath(PathFragment.create("javatests/foo/java/bar")))
+        .isEqualTo(PathFragment.create("foo/java/bar"));
   }
 }

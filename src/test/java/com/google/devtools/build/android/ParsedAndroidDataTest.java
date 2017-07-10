@@ -14,8 +14,8 @@
 package com.google.devtools.build.android;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.fail;
 
-import com.android.ide.common.res2.MergingException;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -24,6 +24,7 @@ import com.google.common.jimfs.Jimfs;
 import com.google.common.truth.FailureStrategy;
 import com.google.common.truth.SubjectFactory;
 import com.google.common.truth.Truth;
+import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.FullyQualifiedName.Factory;
 import com.google.devtools.build.android.xml.AttrXmlResourceValue;
 import com.google.devtools.build.android.xml.IdXmlResourceValue;
@@ -33,7 +34,6 @@ import com.google.devtools.build.android.xml.StyleableXmlResourceValue;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -101,7 +101,8 @@ public class ParsedAndroidDataTest {
                         key, DataValueFile.of(assetSource), DataValueFile.of(otherAssetSource))),
                 ImmutableMap.<DataKey, DataResource>of(),
                 ImmutableMap.<DataKey, DataResource>of(),
-                ImmutableMap.of(key, DataValueFile.of(otherAssetSource.overwrite(assetSource)))));
+                ImmutableMap.<DataKey, DataAsset>of(
+                    key, DataValueFile.of(otherAssetSource.overwrite(assetSource)))));
   }
 
   @Test
@@ -234,7 +235,7 @@ public class ParsedAndroidDataTest {
             attributeFoo, // key
             DataResourceXml.createWithNoNamespace(
                 root.resolve("res/values/attr.xml"),
-                ResourcesAttribute.of("foo", "fooVal")), // value
+                ResourcesAttribute.of(attributeFoo, "foo", "fooVal")), // value
             stringExit, // key
             DataResourceXml.createWithNoNamespace(
                 root.resolve("res/values/attr.xml"),
@@ -335,9 +336,9 @@ public class ParsedAndroidDataTest {
     DataSource rootValuesPath = DataSource.of(root.resolve("res/values/attr.xml"));
     DataSource otherRootValuesPath = DataSource.of(otherRoot.resolve("res/values/attr.xml"));
     FullyQualifiedName idSomeId = fqnFactory.parse("id/some_id");
-    
-    
-    
+
+
+
     Truth.assertAbout(parsedAndroidData)
         .that(dataSet)
         .isEqualTo(
@@ -360,24 +361,25 @@ public class ParsedAndroidDataTest {
                     MergeConflict.of(
                         attributeFoo,
                         DataResourceXml.createWithNoNamespace(
-                            rootValuesPath, ResourcesAttribute.of("foo", "fooVal")),
+                            rootValuesPath, ResourcesAttribute.of(attributeFoo, "foo", "fooVal")),
                         DataResourceXml.createWithNoNamespace(
-                            otherRootValuesPath, ResourcesAttribute.of("foo", "fooVal")))),
-                ImmutableMap.of(
+                            otherRootValuesPath,
+                            ResourcesAttribute.of(attributeFoo, "foo", "fooVal")))),
+                ImmutableMap.<DataKey, DataResource>of(
                     drawableMenu, // key
                     DataValueFile.of(
                         otherRootDrawableMenuPath.overwrite(rootDrawableMenuPath)), // value
                     attributeFoo, // key
                     DataResourceXml.createWithNoNamespace(
                         otherRootValuesPath.overwrite(rootValuesPath),
-                        ResourcesAttribute.of("foo", "fooVal")), // value
+                        ResourcesAttribute.of(attributeFoo, "foo", "fooVal")), // value
                     stringExit, // key
                     DataResourceXml.createWithNoNamespace(
                         otherRootValuesPath.overwrite(rootValuesPath),
                         SimpleXmlResourceValue.createWithValue(
                             SimpleXmlResourceValue.Type.STRING, "way out")) // value
                     ),
-                ImmutableMap.of(
+                ImmutableMap.<DataKey, DataResource>of(
                     idSomeId, // key
                     DataResourceXml.createWithNoNamespace(
                         rootValuesPath, IdXmlResourceValue.of()) // value
@@ -601,20 +603,20 @@ public class ParsedAndroidDataTest {
             .createManifest("AndroidManifest.xml", "com.xyz", "");
     try {
       builder.buildParsed();
-      Assert.fail("expected MergingException");
+      fail("expected MergingException");
     } catch (MergingException e) {
-      assertThat(e).hasMessageThat().isEqualTo("Error: 3 Parse Error(s)");
+      assertThat(e).hasMessageThat().isEqualTo("3 Parse Error(s)");
       String combinedSuberrors = Joiner.on('\n').join(e.getSuppressed());
       assertThat(combinedSuberrors)
-          .contains("values/unique_strings.xml: ParseError at [row,col]:[3,35]");
+          .contains(fs.getPath("values/unique_strings.xml") + ": ParseError at [row,col]:[3,35]");
       assertThat(combinedSuberrors)
           .contains("unrecognized resource type: <not_string name='invalid_string'>");
       assertThat(combinedSuberrors)
-          .contains("layout/unique_layout.xml: ParseError at [row,col]:[6,3]");
+          .contains(fs.getPath("layout/unique_layout.xml") + ": ParseError at [row,col]:[6,3]");
       assertThat(combinedSuberrors)
           .contains("must be terminated by the matching end-tag");
       assertThat(combinedSuberrors)
-          .contains("menu/unique_menu.xml: ParseError at [row,col]:[1,30]");
+          .contains(fs.getPath("menu/unique_menu.xml") + ": ParseError at [row,col]:[1,30]");
       assertThat(combinedSuberrors)
           .contains("XML version \"not_a_version\" is not supported, only XML 1.0 is supported");
     }
@@ -645,23 +647,23 @@ public class ParsedAndroidDataTest {
             .createManifest("AndroidManifest.xml", "com.carroll.lewis", "");
     try {
       builder.buildParsed();
-      Assert.fail("expected exception");
+      fail("expected MergingException");
     } catch (MergingException e) {
-      assertThat(e).hasMessageThat().isEqualTo("Error: 5 Parse Error(s)");
+      assertThat(e).hasMessageThat().isEqualTo("5 Parse Error(s)");
       String combinedSuberrors = Joiner.on('\n').join(e.getSuppressed());
-      assertThat(combinedSuberrors).contains("values/missing_name.xml");
+      assertThat(combinedSuberrors).contains(fs.getPath("values/missing_name.xml").toString());
       assertThat(combinedSuberrors).contains("resource name is required for public");
-      assertThat(combinedSuberrors).contains("values/missing_type.xml");
+      assertThat(combinedSuberrors).contains(fs.getPath("values/missing_type.xml").toString());
       assertThat(combinedSuberrors).contains("missing type attribute");
-      assertThat(combinedSuberrors).contains("values/bad_type.xml");
+      assertThat(combinedSuberrors).contains(fs.getPath("values/bad_type.xml").toString());
       assertThat(combinedSuberrors).contains("has invalid type attribute");
-      assertThat(combinedSuberrors).contains("values/invalid_id.xml");
+      assertThat(combinedSuberrors).contains(fs.getPath("values/invalid_id.xml").toString());
       assertThat(combinedSuberrors).contains("has invalid id number");
-      assertThat(combinedSuberrors).contains("values/overflow_id.xml");
+      assertThat(combinedSuberrors).contains(fs.getPath("values/overflow_id.xml").toString());
       assertThat(combinedSuberrors).contains("has invalid id number");
     }
   }
-  
+
   final SubjectFactory<ParsedAndroidDataSubject, ParsedAndroidData> parsedAndroidData =
       new SubjectFactory<ParsedAndroidDataSubject, ParsedAndroidData>() {
         @Override
@@ -669,5 +671,5 @@ public class ParsedAndroidDataTest {
           return new ParsedAndroidDataSubject(fs, that);
         }
       };
-  
+
 }

@@ -57,6 +57,17 @@ public class GitRepositoryRule implements RuleDefinition {
         <p>Currently, only cloning the top-level submodules is supported</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("init_submodules", BOOLEAN).value(false))
+        /* <!-- #BLAZE_RULE(git_repository).ATTRIBUTE(sha256) -->
+         The expected SHA-256 hash of the file downloaded. Specifying this forces the repository to
+         be downloaded as a tarball. Currently, this is only supported for public GitHub
+         repositories.
+
+         <p>This must match the SHA-256 hash of the file downloaded. <em>It is a security risk to
+         omit the SHA-256 as remote files can change.</em> At best omitting this field will make
+         your build non-hermetic. It is optional to make development easier but should be set
+         before shipping.</p>
+         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("sha256", STRING))
         .setWorkspaceOnly()
         .build();
   }
@@ -73,6 +84,41 @@ public class GitRepositoryRule implements RuleDefinition {
 }
 
 /*<!-- #BLAZE_RULE (NAME = git_repository, TYPE = OTHER, FAMILY = Workspace)[GENERIC_RULE] -->
+
+<em><p>Warning: this rule has several limitations. We recommend using
+<a href="#http_archive"><code>http_archive</code></a> instead for more robust and secure
+performance.</p>
+
+<p><code>git_repository</code> has several issues:
+
+<ul>
+<li>Security - <code>http_archive</code> allows a sha256 to be specified, which ensures that the
+downloaded code is exactly what was expected.
+<li>Reliability - <code>http_archive</code> allows the user to specify multiple URLs to attempt
+downloads from. Most services have downtime occasionally, so specifying multiple remotes decreases
+the chances of being unable to download a dependency.
+<li>Speed - <code>http_archive</code> multiplexes downloads to get the fastest possible rate.
+You can also generally download a tarball that is a "shallow clone" of the repository, which
+decreases the size of the download.
+<li>Library issues - This implementation uses jGit, which we've discovered
+<a href="https://github.com/bazelbuild/bazel/issues/2802">several issues</a> with. It also lacks
+support for some authentication types you might use with your system git.
+</ul>
+
+<p>Many git repository hosts serve tarballs of the repository, so depend on those if possible.
+For GitHub, this takes the form:
+
+<pre>
+http_archive(
+    name = "<name>",
+    urls = ["https://github.com/&lt;user&gt;/&lt;repo&gt;/archive/&lt;commit or tag&gt;.tar.gz"],
+)
+</pre>
+
+If you are using a private repository, prefer the
+<a href="https://github.com/bazelbuild/bazel/blob/master/tools/build_defs/repo/git.bzl">Skylark git
+repository rules</a>, which will use your system's git install (instead of jGit). These rules
+are built into Bazel and have the same API as the native rules.</p></em>
 
 <p>Clones a Git repository, checks out the specified tag, or commit, and makes its targets
 available for binding.</p>

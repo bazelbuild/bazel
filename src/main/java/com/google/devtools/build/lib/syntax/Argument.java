@@ -14,9 +14,8 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.devtools.build.lib.util.Preconditions;
-
+import java.io.IOException;
 import java.util.List;
-
 import javax.annotation.Nullable;
 
 /**
@@ -54,15 +53,20 @@ public abstract class Argument extends ASTNode {
     public boolean isPositional() {
       return false;
     }
+
     public boolean isKeyword() {
       return false;
     }
-    @Nullable public String getName() { // only for keyword arguments
+
+    @Nullable
+    public String getName() { // only for keyword arguments
       return null;
     }
+
     public Expression getValue() {
       return value;
     }
+
     @Override
     public void accept(SyntaxTreeVisitor visitor) {
       visitor.visit(this);
@@ -70,23 +74,25 @@ public abstract class Argument extends ASTNode {
   }
 
   /** positional argument: Expression */
-  public static class Positional extends Passed {
+  public static final class Positional extends Passed {
 
     public Positional(Expression value) {
       super(value);
     }
 
-    @Override public boolean isPositional() {
+    @Override
+    public boolean isPositional() {
       return true;
     }
+
     @Override
-    public String toString() {
-      return String.valueOf(value);
+    public void prettyPrint(Appendable buffer) throws IOException {
+      value.prettyPrint(buffer);
     }
   }
 
   /** keyword argument: K = Expression */
-  public static class Keyword extends Passed {
+  public static final class Keyword extends Passed {
 
     final String name;
 
@@ -95,47 +101,59 @@ public abstract class Argument extends ASTNode {
       this.name = name;
     }
 
-    @Override public String getName() {
+    @Override
+    public String getName() {
       return name;
     }
-    @Override public boolean isKeyword() {
+
+    @Override
+    public boolean isKeyword() {
       return true;
     }
+
     @Override
-    public String toString() {
-      return name + " = " + value;
+    public void prettyPrint(Appendable buffer) throws IOException {
+      buffer.append(name);
+      buffer.append(" = ");
+      value.prettyPrint(buffer);
     }
   }
 
   /** positional rest (starred) argument: *Expression */
-  public static class Star extends Passed {
+  public static final class Star extends Passed {
 
     public Star(Expression value) {
       super(value);
     }
 
-    @Override public boolean isStar() {
+    @Override
+    public boolean isStar() {
       return true;
     }
+
     @Override
-    public String toString() {
-      return "*" + value;
+    public void prettyPrint(Appendable buffer) throws IOException {
+      buffer.append('*');
+      value.prettyPrint(buffer);
     }
   }
 
   /** keyword rest (star_starred) parameter: **Expression */
-  public static class StarStar extends Passed {
+  public static final class StarStar extends Passed {
 
     public StarStar(Expression value) {
       super(value);
     }
 
-    @Override public boolean isStarStar() {
+    @Override
+    public boolean isStarStar() {
       return true;
     }
+
     @Override
-    public String toString() {
-      return "**" + value;
+    public void prettyPrint(Appendable buffer) throws IOException {
+      buffer.append("**");
+      value.prettyPrint(buffer);
     }
   }
 
@@ -179,4 +197,12 @@ public abstract class Argument extends ASTNode {
       }
     }
   }
+
+  @Override
+  public final void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
+    prettyPrint(buffer);
+  }
+
+  @Override
+  public abstract void prettyPrint(Appendable buffer) throws IOException;
 }

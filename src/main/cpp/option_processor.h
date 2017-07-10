@@ -99,6 +99,9 @@ class OptionProcessor {
   // executed in.
   void GetCommandArguments(std::vector<std::string>* result) const;
 
+  // Gets the arguments explicitly provided by the user's command line.
+  std::vector<std::string> GetExplicitCommandArguments() const;
+
   StartupOptions* GetParsedStartupOptions() const;
 
   virtual blaze_exit_code::ExitCode FindUserBlazerc(
@@ -156,9 +159,14 @@ class OptionProcessor {
   unsigned int startup_args_;
   // The command found in args, this field is initialized by ParseOptions.
   std::string command_;
+  // The list of command options. This is put together from the default
+  // options specified in the bazelrc file(s), the command line, and various
+  // bits and pieces of information about the environment the bazel binary is
+  // executed in. This field is initialized by ParseOptions.
+  std::vector<std::string> command_arguments_;
   // The list of command options found in args, this field is initialized by
   // ParseOptions.
-  std::vector<std::string> command_arguments_;
+  std::vector<std::string> explicit_command_arguments_;
   // Whether ParseOptions has been called.
   bool initialized_;
   const WorkspaceLayout* workspace_layout_;

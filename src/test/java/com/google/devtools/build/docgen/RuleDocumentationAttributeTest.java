@@ -13,8 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.docgen;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.docgen.testutil.TestData.BaseRule;
@@ -39,67 +38,68 @@ public class RuleDocumentationAttributeTest {
   public void testDirectChild() {
     RuleDocumentationAttribute attr1 = RuleDocumentationAttribute.create(
         IntermediateRule.class, "", "", 0, "", NO_FLAGS);
-    assertEquals(1, attr1.getDefinitionClassAncestryLevel(TestRule.class, null));
+    assertThat(attr1.getDefinitionClassAncestryLevel(TestRule.class, null)).isEqualTo(1);
   }
 
   @Test
   public void testTransitiveChild() {
     RuleDocumentationAttribute attr2 = RuleDocumentationAttribute.create(
         BaseRule.class, "", "", 0, "", NO_FLAGS);
-    assertEquals(2, attr2.getDefinitionClassAncestryLevel(TestRule.class, null));
+    assertThat(attr2.getDefinitionClassAncestryLevel(TestRule.class, null)).isEqualTo(2);
   }
 
   @Test
   public void testClassIsNotChild() {
     RuleDocumentationAttribute attr2 = RuleDocumentationAttribute.create(
         IntermediateRule.class, "", "", 0, "", NO_FLAGS);
-    assertEquals(-1, attr2.getDefinitionClassAncestryLevel(BaseRule.class, null));
+    assertThat(attr2.getDefinitionClassAncestryLevel(BaseRule.class, null)).isEqualTo(-1);
   }
 
   @Test
   public void testClassIsSame() {
     RuleDocumentationAttribute attr3 = RuleDocumentationAttribute.create(
         TestRule.class, "", "", 0, "", NO_FLAGS);
-    assertEquals(0, attr3.getDefinitionClassAncestryLevel(TestRule.class, null));
+    assertThat(attr3.getDefinitionClassAncestryLevel(TestRule.class, null)).isEqualTo(0);
   }
 
   @Test
   public void testHasFlags() {
     RuleDocumentationAttribute attr = RuleDocumentationAttribute.create(
         TestRule.class, "", "", 0, "", ImmutableSet.<String>of("SOME_FLAG"));
-    assertTrue(attr.hasFlag("SOME_FLAG"));
+    assertThat(attr.hasFlag("SOME_FLAG")).isTrue();
   }
 
   @Test
   public void testCompareTo() {
-    assertEquals(
-        -1,
-        RuleDocumentationAttribute.create(TestRule.class, "a", "", 0, "", NO_FLAGS).compareTo(
-            RuleDocumentationAttribute.create(TestRule.class, "b", "", 0, "", NO_FLAGS)));
+    assertThat(
+            RuleDocumentationAttribute.create(TestRule.class, "a", "", 0, "", NO_FLAGS)
+                .compareTo(
+                    RuleDocumentationAttribute.create(TestRule.class, "b", "", 0, "", NO_FLAGS)))
+        .isEqualTo(-1);
   }
 
   @Test
   public void testCompareToWithPriorityAttributeName() {
-    assertEquals(
-        1,
-        RuleDocumentationAttribute.create(TestRule.class, "a", "", 0, "", NO_FLAGS).compareTo(
-            RuleDocumentationAttribute.create(TestRule.class, "name", "", 0, "", NO_FLAGS)));
+    assertThat(
+            RuleDocumentationAttribute.create(TestRule.class, "a", "", 0, "", NO_FLAGS)
+                .compareTo(
+                    RuleDocumentationAttribute.create(TestRule.class, "name", "", 0, "", NO_FLAGS)))
+        .isEqualTo(1);
   }
 
   @Test
   public void testEquals() {
-    assertEquals(
-        RuleDocumentationAttribute.create(TestRule.class, "a", "", 0, "", NO_FLAGS),
-        RuleDocumentationAttribute.create(IntermediateRule.class, "a", "", 0, "", NO_FLAGS));
+    assertThat(RuleDocumentationAttribute.create(IntermediateRule.class, "a", "", 0, "", NO_FLAGS))
+        .isEqualTo(RuleDocumentationAttribute.create(TestRule.class, "a", "", 0, "", NO_FLAGS));
   }
 
   @Test
   public void testHashCode() {
-    assertEquals(
-        RuleDocumentationAttribute.create(TestRule.class, "a", "", 0, "", NO_FLAGS)
-        .hashCode(),
-        RuleDocumentationAttribute.create(IntermediateRule.class, "a", "", 0, "", NO_FLAGS)
-        .hashCode());
+    assertThat(
+            RuleDocumentationAttribute.create(IntermediateRule.class, "a", "", 0, "", NO_FLAGS)
+                .hashCode())
+        .isEqualTo(
+            RuleDocumentationAttribute.create(TestRule.class, "a", "", 0, "", NO_FLAGS).hashCode());
   }
 
   @Test
@@ -111,7 +111,7 @@ public class RuleDocumentationAttributeTest {
         TestRule.class, "testrule", "", 0, "", NO_FLAGS);
     attributeDoc.setAttribute(attribute);
     String doc = attributeDoc.getSynopsis();
-    assertEquals("String; optional; default is \"" + defaultValue + "\"", doc);
+    assertThat(doc).isEqualTo("String; optional; default is \"" + defaultValue + "\"");
   }
 
   @Test
@@ -123,7 +123,7 @@ public class RuleDocumentationAttributeTest {
         TestRule.class, "testrule", "", 0, "", NO_FLAGS);
     attributeDoc.setAttribute(attribute);
     String doc = attributeDoc.getSynopsis();
-    assertEquals("Integer; optional; default is " + defaultValue, doc);
+    assertThat(doc).isEqualTo("Integer; optional; default is " + defaultValue);
   }
 
   @Test
@@ -136,7 +136,7 @@ public class RuleDocumentationAttributeTest {
         TestRule.class, "testrule", "", 0, "", NO_FLAGS);
     attributeDoc.setAttribute(attribute);
     String doc = attributeDoc.getSynopsis();
-    assertEquals("List of <a href=\"../build-ref.html#labels\">labels</a>; optional", doc);
+    assertThat(doc).isEqualTo("List of <a href=\"../build-ref.html#labels\">labels</a>; optional");
   }
 
   @Test
@@ -149,6 +149,6 @@ public class RuleDocumentationAttributeTest {
         TestRule.class, "testrule", "", 0, "", NO_FLAGS);
     attributeDoc.setAttribute(attribute);
     String doc = attributeDoc.getSynopsis();
-    assertEquals("<a href=\"../build-ref.html#labels\">Label</a>; required", doc);
+    assertThat(doc).isEqualTo("<a href=\"../build-ref.html#labels\">Label</a>; required");
   }
 }

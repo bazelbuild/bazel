@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.syntax.Type;
@@ -30,6 +31,10 @@ public class PlatformRule implements RuleDefinition {
   public static final String RULE_NAME = "platform";
   public static final String CONSTRAINT_VALUES_ATTR = "constraint_values";
   public static final String REMOTE_EXECUTION_PROPS_ATTR = "remote_execution_properties";
+  static final String HOST_PLATFORM_ATTR = "host_platform";
+  static final String TARGET_PLATFORM_ATTR = "target_platform";
+  static final String CPU_CONSTRAINTS_ATTR = "cpu_constraints";
+  static final String OS_CONSTRAINTS_ATTR = "os_constraints";
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
@@ -41,11 +46,45 @@ public class PlatformRule implements RuleDefinition {
                 // No need to show up in ":all", etc. target patterns.
                 .value(ImmutableList.of("manual"))
                 .nonconfigurable("low-level attribute, used in platform configuration"))
+        /* <!-- #BLAZE_RULE(platform).ATTRIBUTE(constraint_values) -->
+        The constraint_values that define this platform.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr(CONSTRAINT_VALUES_ATTR, BuildType.LABEL_LIST)
                 .allowedFileTypes(FileTypeSet.NO_FILE)
-                .mandatoryProviders(ImmutableList.of(ConstraintValueInfo.SKYLARK_IDENTIFIER)))
+                .mandatoryProviders(ImmutableList.of(ConstraintValueInfo.SKYLARK_CONSTRUCTOR.id())))
+
+        /* <!-- #BLAZE_RULE(platform).ATTRIBUTE(remote_execution_properties) -->
+        A key/value dict of values that will be sent to a remote execution platform.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr(REMOTE_EXECUTION_PROPS_ATTR, Type.STRING_DICT))
+
+        // Undocumented. Indicates that this platform should auto-configure the platform constraints
+        // based on the current host OS and CPU settings.
+        .add(
+            attr(HOST_PLATFORM_ATTR, Type.BOOLEAN)
+                .value(false)
+                .undocumented("Should only be used by internal packages."))
+        // Undocumented. Indicates that this platform should auto-configure the platform constraints
+        // based on the current OS and CPU settings.
+        .add(
+            attr(TARGET_PLATFORM_ATTR, Type.BOOLEAN)
+                .value(false)
+                .undocumented("Should only be used by internal packages."))
+        // Undocumented. Indicates to the rule which constraint_values to use for automatic CPU
+        // mapping.
+        .add(
+            attr(CPU_CONSTRAINTS_ATTR, BuildType.LABEL_LIST)
+                .allowedFileTypes(FileTypeSet.NO_FILE)
+                .mandatoryProviders(ImmutableList.of(ConstraintValueInfo.SKYLARK_CONSTRUCTOR.id()))
+                .undocumented("Should only be used by internal packages."))
+        // Undocumented. Indicates to the rule which constraint_values to use for automatic CPU
+        // mapping.
+        .add(
+            attr(OS_CONSTRAINTS_ATTR, BuildType.LABEL_LIST)
+                .allowedFileTypes(FileTypeSet.NO_FILE)
+                .mandatoryProviders(ImmutableList.of(ConstraintValueInfo.SKYLARK_CONSTRUCTOR.id()))
+                .undocumented("Should only be used by internal packages."))
         .removeAttribute("deps")
         .removeAttribute("data")
         .exemptFromConstraintChecking("this rule is part of constraint definition")
@@ -79,12 +118,12 @@ constraint_value(
     constraint=":cpu")
 platform(
     name="mobile_device",
-    constraints = [
+    constraint_values = [
         ":arm64",
     ])
 platform(
     name="devel",
-    constraints = [
+    constraint_values = [
         ":k8",
     ])
 </pre>

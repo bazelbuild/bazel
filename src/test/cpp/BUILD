@@ -12,7 +12,6 @@ cc_test(
     name = "blaze_util_test",
     srcs = select({
         "//src:windows": [
-            "blaze_util_test.cc",
             "blaze_util_windows_test.cc",
         ],
         "//src:windows_msys": [
@@ -28,6 +27,43 @@ cc_test(
     }),
     deps = [
         "//src/main/cpp:blaze_util",
+        "//src/main/cpp/util",
+        "//third_party:gtest",
+    ],
+)
+
+cc_test(
+    name = "option_processor_test",
+    size = "small",
+    srcs = ["option_processor_test.cc"],
+    deps = [
+        "//src/main/cpp:blaze_util",
+        "//src/main/cpp:option_processor",
+        "//src/main/cpp:workspace_layout",
+        "//src/main/cpp/util",
+        "//third_party:gtest",
+    ],
+)
+
+cc_test(
+    name = "startup_options_test",
+    size = "small",
+    srcs = ["startup_options_test.cc"],
+    deps = [
+        "//src/main/cpp:blaze_util",
+        "//src/main/cpp:startup_options",
+        "//src/main/cpp:workspace_layout",
+        "//third_party:gtest",
+    ],
+)
+
+cc_test(
+    name = "workspace_layout_test",
+    size = "small",
+    srcs = ["workspace_layout_test.cc"],
+    deps = [
+        "//src/main/cpp:blaze_util",
+        "//src/main/cpp:workspace_layout",
         "//src/main/cpp/util",
         "//third_party:gtest",
     ],

@@ -39,16 +39,6 @@ final class ResourceSupport {
   }
 
   /**
-   * Adds common xcode settings to the given provider builder.
-   *
-   * @return this resource support
-   */
-  ResourceSupport addXcodeSettings(XcodeProvider.Builder xcodeProviderBuilder) {
-    xcodeProviderBuilder.addInputsToXcodegen(Xcdatamodel.inputsToXcodegen(attributes.datamodels()));
-    return this;
-  }
-
-  /**
    * Validates resource attributes on this rule.
    *
    * @return this resource support

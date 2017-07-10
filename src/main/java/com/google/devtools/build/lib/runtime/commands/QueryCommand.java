@@ -19,6 +19,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
+import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -56,6 +58,7 @@ import java.util.Set;
  */
 @Command(name = "query",
          options = { PackageCacheOptions.class,
+                     SkylarkSemanticsOptions.class,
                      QueryOptions.class },
          help = "resource:query.txt",
          shortDescription = "Executes a dependency graph query.",
@@ -66,7 +69,7 @@ import java.util.Set;
 public final class QueryCommand implements BlazeCommand {
 
   @Override
-  public void editOptions(CommandEnvironment env, OptionsParser optionsParser) { }
+  public void editOptions(OptionsParser optionsParser) { }
 
   /**
    * Exit codes:
@@ -137,7 +140,6 @@ public final class QueryCommand implements BlazeCommand {
           queryOptions.universeScope,
           queryOptions.loadingPhaseThreads,
           settings);
-    // 1. Parse and transform query:
     QueryExpression expr;
     try {
       expr = QueryExpression.parse(query, queryEnv);
@@ -146,21 +148,27 @@ public final class QueryCommand implements BlazeCommand {
           .handle(Event.error(null, "Error while parsing '" + query + "': " + e.getMessage()));
       return ExitCode.COMMAND_LINE_ERROR;
     }
+
+    try {
+      formatter.verifyCompatible(queryEnv, expr);
+    } catch (QueryException e) {
+      env.getReporter().handle(Event.error(e.getMessage()));
+      return ExitCode.COMMAND_LINE_ERROR;
+    }
+
     expr = queryEnv.transformParsedQuery(expr);
 
     OutputStream out = env.getReporter().getOutErr().getOutputStream();
     ThreadSafeOutputFormatterCallback<Target> callback;
     if (streamResults) {
       disableAnsiCharactersFiltering(env);
-
-      // 2. Evaluate expression:
       StreamedFormatter streamedFormatter = ((StreamedFormatter) formatter);
       streamedFormatter.setOptions(
           queryOptions,
           queryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()));
       callback = streamedFormatter.createStreamCallback(out, queryOptions, queryEnv);
     } else {
-      callback = QueryUtil.newOrderedAggregateAllOutputFormatterCallback();
+      callback = QueryUtil.newOrderedAggregateAllOutputFormatterCallback(queryEnv);
     }
     boolean catastrophe = true;
     try {
@@ -200,13 +208,12 @@ public final class QueryCommand implements BlazeCommand {
       }
     }
 
-    env.getEventBus().post(new NoBuildEvent());
+    env.getEventBus().post(new NoBuildEvent(env.getCommandName(), env.getCommandStartTime(), true));
     if (!streamResults) {
       disableAnsiCharactersFiltering(env);
-
-      // 3. Output results:
       try {
-        Set<Target> targets = ((AggregateAllOutputFormatterCallback<Target>) callback).getResult();
+        Set<Target> targets =
+            ((AggregateAllOutputFormatterCallback<Target, ?>) callback).getResult();
         QueryOutputUtils.output(
             queryOptions,
             result,
@@ -235,7 +242,10 @@ public final class QueryCommand implements BlazeCommand {
       env.getReporter().handle(Event.info("Empty results"));
     }
 
-    return result.getSuccess() ? ExitCode.SUCCESS : ExitCode.PARTIAL_ANALYSIS_FAILURE;
+    ExitCode exitCode = result.getSuccess() ? ExitCode.SUCCESS : ExitCode.PARTIAL_ANALYSIS_FAILURE;
+    env.getEventBus()
+        .post(new NoBuildRequestFinishedEvent(exitCode, runtime.getClock().currentTimeMillis()));
+    return exitCode;
   }
 
   /**

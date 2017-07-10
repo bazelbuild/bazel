@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.actions;
 
+import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.Executor.ActionContext;
 
 /**
  * The action context for {@link AbstractFileWriteAction} instances (technically instances of

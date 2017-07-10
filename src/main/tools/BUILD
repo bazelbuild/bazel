@@ -1,25 +1,47 @@
 package(default_visibility = ["//src:__subpackages__"])
 
+cc_library(
+    name = "logging",
+    srcs = ["logging.cc"],
+    hdrs = ["logging.h"],
+)
+
+cc_library(
+    name = "process-tools",
+    srcs = ["process-tools.cc"],
+    hdrs = ["process-tools.h"],
+    deps = [":logging"],
+)
+
 cc_binary(
     name = "process-wrapper",
     srcs = select({
+        "//src:windows": ["process-wrapper-windows.cc"],
         "//src:windows_msvc": ["process-wrapper-windows.cc"],
         "//conditions:default": [
-            "process-tools.c",
-            "process-tools.h",
-            "process-wrapper.c",
+            "process-wrapper.cc",
+            "process-wrapper.h",
+            "process-wrapper-legacy.cc",
+            "process-wrapper-legacy.h",
+            "process-wrapper-options.cc",
+            "process-wrapper-options.h",
         ],
     }),
-    copts = select({
-        "//src:windows_msvc": [],
-        "//conditions:default": ["-std=c99"],
-    }),
     linkopts = ["-lm"],
+    deps = select({
+        "//src:windows": [],
+        "//src:windows_msvc": [],
+        "//conditions:default": [
+            ":process-tools",
+            ":logging",
+        ],
+    }),
 )
 
 cc_binary(
     name = "build-runfiles",
     srcs = select({
+        "//src:windows": ["build-runfiles-windows.cc"],
         "//src:windows_msvc": ["build-runfiles-windows.cc"],
         "//conditions:default": ["build-runfiles.cc"],
     }),
@@ -41,10 +63,21 @@ cc_binary(
             "linux-sandbox-options.h",
             "linux-sandbox-pid1.cc",
             "linux-sandbox-pid1.h",
-            "linux-sandbox-utils.h",
         ],
     }),
     linkopts = ["-lm"],
+    deps = select({
+        "//src:darwin": [],
+        "//src:darwin_x86_64": [],
+        "//src:freebsd": [],
+        "//src:windows": [],
+        "//src:windows_msys": [],
+        "//src:windows_msvc": [],
+        "//conditions:default": [
+            ":logging",
+            ":process-tools",
+        ],
+    }),
 )
 
 filegroup(

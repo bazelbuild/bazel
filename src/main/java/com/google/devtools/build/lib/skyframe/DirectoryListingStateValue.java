@@ -19,9 +19,9 @@ import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Dirent.Type;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.Arrays;
@@ -30,7 +30,6 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.Objects;
-
 import javax.annotation.Nullable;
 
 /**
@@ -57,7 +56,7 @@ public final class DirectoryListingStateValue implements SkyValue {
 
   @ThreadSafe
   public static SkyKey key(RootedPath rootedPath) {
-    return SkyKey.create(SkyFunctions.DIRECTORY_LISTING_STATE, rootedPath);
+    return LegacySkyKey.create(SkyFunctions.DIRECTORY_LISTING_STATE, rootedPath);
   }
 
   /**

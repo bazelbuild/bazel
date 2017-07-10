@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import javax.annotation.Nullable;
@@ -32,10 +33,16 @@ public interface SpawnResult {
      * Subprocess executed successfully, but may have returned a non-zero exit code. See
      * {@link #exitCode} for the actual exit code.
      */
-    SUCCESS,
+    SUCCESS(true),
 
     /** Subprocess execution timed out. */
-    TIMEOUT,
+    TIMEOUT(true),
+
+    /**
+     * The subprocess ran out of memory. On Linux systems, the kernel may kill processes in
+     * low-memory situations, and this status is intended to report such a case back to Bazel.
+     */
+    OUT_OF_MEMORY(true),
 
     /**
      * Subprocess did not execute for an unknown reason - only use this if none of the more specific
@@ -44,7 +51,7 @@ public interface SpawnResult {
     EXECUTION_FAILED,
 
     /** The attempted subprocess was disallowed by a user setting. */
-    LOCAL_ACTION_NOT_ALLOWED,
+    LOCAL_ACTION_NOT_ALLOWED(true),
 
     /** The Spawn referred to an non-existent absolute or relative path. */
     COMMAND_NOT_FOUND,
@@ -54,25 +61,25 @@ public interface SpawnResult {
      * {@link SpawnRunner} implementations may attempt to run the subprocess anyway. Note that this
      * leads to incremental correctness issues, as Bazel does not track dependencies on directories.
      */
-    DIRECTORY_AS_INPUT_DISALLOWED,
+    DIRECTORY_AS_INPUT_DISALLOWED(true),
 
     /**
      * Too many input files - remote execution systems may refuse to execute subprocesses with an
      * excessive number of input files.
      */
-    TOO_MANY_INPUT_FILES,
+    TOO_MANY_INPUT_FILES(true),
 
     /**
      * Total size of inputs is too large - remote execution systems may refuse to execute
      * subprocesses if the total size of all inputs exceeds a limit.
      */
-    INPUTS_TOO_LARGE,
+    INPUTS_TOO_LARGE(true),
 
     /**
      * One of the input files to the Spawn was modified during the build - some {@link SpawnRunner}
      * implementations cache checksums and may detect such modifications on a best effort basis.
      */
-    FILE_MODIFIED_DURING_BUILD,
+    FILE_MODIFIED_DURING_BUILD(true),
 
     /**
      * The {@link SpawnRunner} was unable to establish a required network connection.
@@ -94,13 +101,27 @@ public interface SpawnResult {
      * The Spawn was malformed.
      */
     INVALID_ARGUMENT;
+
+    private final boolean isUserError;
+
+    private Status(boolean isUserError) {
+      this.isUserError = isUserError;
+    }
+
+    private Status() {
+      this(false);
+    }
+
+    public boolean isConsideredUserError() {
+      return isUserError;
+    }
   }
 
   /**
    * Returns whether the spawn was actually run, regardless of the exit code. I.e., returns if
-   * status == SUCCESS || status == TIMEOUT. Returns false if there were errors that prevented the
-   * spawn from being run, such as network errors, missing local files, errors setting up
-   * sandboxing, etc.
+   * status == SUCCESS || status == TIMEOUT || status == OUT_OF_MEMORY. Returns false if there were
+   * errors that prevented the spawn from being run, such as network errors, missing local files,
+   * errors setting up sandboxing, etc.
    */
   boolean setupSuccess();
 
@@ -122,6 +143,9 @@ public interface SpawnResult {
 
   long getWallTimeMillis();
 
+  /** Whether the spawn result was a cache hit. */
+  boolean isCacheHit();
+
   /**
    * Basic implementation of {@link SpawnResult}.
    */
@@ -131,17 +155,19 @@ public interface SpawnResult {
     private final Status status;
     private final String executorHostName;
     private final long wallTimeMillis;
+    private final boolean cacheHit;
 
     SimpleSpawnResult(Builder builder) {
       this.exitCode = builder.exitCode;
-      this.status = builder.status;
+      this.status = Preconditions.checkNotNull(builder.status);
       this.executorHostName = builder.executorHostName;
       this.wallTimeMillis = builder.wallTimeMillis;
+      this.cacheHit = builder.cacheHit;
     }
 
     @Override
     public boolean setupSuccess() {
-      return status == Status.SUCCESS || status == Status.TIMEOUT;
+      return status == Status.SUCCESS || status == Status.TIMEOUT || status == Status.OUT_OF_MEMORY;
     }
 
     @Override
@@ -163,6 +189,11 @@ public interface SpawnResult {
     public long getWallTimeMillis() {
       return wallTimeMillis;
     }
+
+    @Override
+    public boolean isCacheHit() {
+      return cacheHit;
+    }
   }
 
   /**
@@ -173,6 +204,7 @@ public interface SpawnResult {
     private Status status;
     private String executorHostName;
     private long wallTimeMillis;
+    private boolean cacheHit;
 
     public SpawnResult build() {
       return new SimpleSpawnResult(this);
@@ -195,6 +227,11 @@ public interface SpawnResult {
 
     public Builder setWallTimeMillis(long wallTimeMillis) {
       this.wallTimeMillis = wallTimeMillis;
+      return this;
+    }
+
+    public Builder setCacheHit(boolean cacheHit) {
+      this.cacheHit = cacheHit;
       return this;
     }
   }

@@ -1,0 +1,44 @@
+# This is the list of conformance tests that are known to fail for the C++
+# implementation right now.  These should be fixed.
+#
+# By listing them here we can keep tabs on which ones are failing and be sure
+# that we don't introduce regressions in other tests.
+#
+# TODO(haberman): insert links to corresponding bugs tracking the issue.
+# Should we use GitHub issues or the Google-internal bug tracker?
+
+Recommended.FieldMaskNumbersDontRoundTrip.JsonOutput
+Recommended.FieldMaskPathsDontRoundTrip.JsonOutput
+Recommended.FieldMaskTooManyUnderscore.JsonOutput
+Recommended.JsonInput.BoolFieldDoubleQuotedFalse
+Recommended.JsonInput.BoolFieldDoubleQuotedTrue
+Recommended.JsonInput.FieldMaskInvalidCharacter
+Recommended.JsonInput.FieldNameDuplicate
+Recommended.JsonInput.FieldNameDuplicateDifferentCasing1
+Recommended.JsonInput.FieldNameDuplicateDifferentCasing2
+Recommended.JsonInput.FieldNameNotQuoted
+Recommended.JsonInput.MapFieldValueIsNull
+Recommended.JsonInput.RepeatedFieldMessageElementIsNull
+Recommended.JsonInput.RepeatedFieldPrimitiveElementIsNull
+Recommended.JsonInput.RepeatedFieldTrailingComma
+Recommended.JsonInput.RepeatedFieldTrailingCommaWithNewlines
+Recommended.JsonInput.RepeatedFieldTrailingCommaWithSpace
+Recommended.JsonInput.RepeatedFieldTrailingCommaWithSpaceCommaSpace
+Recommended.JsonInput.StringFieldSingleQuoteBoth
+Recommended.JsonInput.StringFieldSingleQuoteKey
+Recommended.JsonInput.StringFieldSingleQuoteValue
+Recommended.JsonInput.StringFieldUppercaseEscapeLetter
+Recommended.JsonInput.TrailingCommaInAnObject
+Recommended.JsonInput.TrailingCommaInAnObjectWithNewlines
+Recommended.JsonInput.TrailingCommaInAnObjectWithSpace
+Recommended.JsonInput.TrailingCommaInAnObjectWithSpaceCommaSpace
+Required.ProtobufInput.PrematureEofInDelimitedDataForKnownNonRepeatedValue.MESSAGE
+Required.ProtobufInput.PrematureEofInDelimitedDataForKnownRepeatedValue.MESSAGE
+Required.ProtobufInput.PrematureEofInPackedField.BOOL
+Required.ProtobufInput.PrematureEofInPackedField.ENUM
+Required.ProtobufInput.PrematureEofInPackedField.INT32
+Required.ProtobufInput.PrematureEofInPackedField.INT64
+Required.ProtobufInput.PrematureEofInPackedField.SINT32
+Required.ProtobufInput.PrematureEofInPackedField.SINT64
+Required.ProtobufInput.PrematureEofInPackedField.UINT32
+Required.ProtobufInput.PrematureEofInPackedField.UINT64

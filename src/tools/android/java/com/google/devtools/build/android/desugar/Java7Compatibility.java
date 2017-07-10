@@ -27,7 +27,7 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.TypePath;
 
 /**
- * Visitor that ensures bytecode version <= 51 (Java 7) and that throws if it default or static
+ * Visitor that ensures bytecode version <= 51 (Java 7) and that throws if it sees default or static
  * interface methods (i.e., non-abstract interface methods), which don't exist in Java 7.
  */
 public class Java7Compatibility extends ClassVisitor {

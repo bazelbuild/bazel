@@ -13,16 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
+import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.packages.util.PackageFactoryApparatus;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -59,20 +57,20 @@ public class InputFileTest {
   }
 
   private static void checkPathMatches(InputFile input, Path expectedPath) {
-    assertEquals(expectedPath, input.getPath());
+    assertThat(input.getPath()).isEqualTo(expectedPath);
   }
 
   private static void checkName(InputFile input, String expectedName) {
-    assertEquals(expectedName, input.getName());
+    assertThat(input.getName()).isEqualTo(expectedName);
   }
 
   private static void checkLabel(InputFile input, String expectedLabelString) {
-    assertEquals(expectedLabelString, input.getLabel().toString());
+    assertThat(input.getLabel().toString()).isEqualTo(expectedLabelString);
   }
 
   @Test
   public void testGetAssociatedRule() throws Exception {
-    assertNull(null, pkg.getTarget("x").getAssociatedRule());
+    assertWithMessage(null).that(pkg.getTarget("x").getAssociatedRule()).isNull();
   }
 
   @Test
@@ -81,7 +79,7 @@ public class InputFileTest {
     checkPathMatches(inputFileX, pathX);
     checkName(inputFileX, "x");
     checkLabel(inputFileX, "//pkg:x");
-    assertEquals("source file", inputFileX.getTargetKind());
+    assertThat(inputFileX.getTargetKind()).isEqualTo("source file");
   }
 
   @Test
@@ -95,11 +93,12 @@ public class InputFileTest {
   @Test
   public void testEquivalenceRelation() throws NoSuchTargetException {
     InputFile inputFileX = (InputFile) pkg.getTarget("x");
-    assertSame(pkg.getTarget("x"), inputFileX);
+    assertThat(inputFileX).isSameAs(pkg.getTarget("x"));
     InputFile inputFileY = (InputFile) pkg.getTarget("subdir/y");
-    assertSame(pkg.getTarget("subdir/y"), inputFileY);
-    assertEquals(inputFileX, inputFileX);
-    assertFalse(inputFileX.equals(inputFileY));
-    assertFalse(inputFileY.equals(inputFileX));
+    assertThat(inputFileY).isSameAs(pkg.getTarget("subdir/y"));
+    new EqualsTester()
+        .addEqualityGroup(inputFileX)
+        .addEqualityGroup(inputFileY)
+        .testEquals();
   }
 }

@@ -15,8 +15,10 @@
 package com.google.devtools.build.lib.analysis.actions;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
@@ -28,6 +30,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -194,6 +197,21 @@ public final class CustomCommandLine extends CommandLine {
     }
   }
 
+  private static final class ParamFileArgument extends ArgvFragment {
+    private final String paramFilePrefix;
+    private final PathFragment path;
+
+    private ParamFileArgument(String paramFilePrefix, PathFragment path) {
+      this.paramFilePrefix = paramFilePrefix;
+      this.path = path;
+    }
+
+    @Override
+    void eval(ImmutableList.Builder<String> builder) {
+      builder.add(paramFilePrefix + path);
+    }
+  }
+
   /**
    * An argument object that evaluates to a formatted string for {@link TreeFileArtifact} exec
    * paths, enclosing the associated string format template and {@link TreeFileArtifact}s.
@@ -279,6 +297,34 @@ public final class CustomCommandLine extends CommandLine {
     @Override
     void eval(ImmutableList.Builder<String> builder) {
       builder.add(Joiner.on(delimiter).join(strings));
+    }
+  }
+
+  private static final class JoinValuesTransformed<T> extends ArgvFragment {
+
+    private final String delimiter;
+    private final Iterable<T> values;
+    private final Function<T, String> toString;
+
+    private JoinValuesTransformed(
+        String delimiter, Iterable<T> values, Function<T, String> toString) {
+      this.delimiter = delimiter;
+      this.values = CollectionUtils.makeImmutable(values);
+      this.toString = toString;
+    }
+
+    @Override
+    void eval(ImmutableList.Builder<String> builder) {
+      StringBuilder arg = new StringBuilder();
+      Iterator<T> parts = values.iterator();
+      if (parts.hasNext()) {
+        arg.append(toString.apply(parts.next()));
+        while (parts.hasNext()) {
+          arg.append(delimiter);
+          arg.append(toString.apply(parts.next()));
+        }
+      }
+      builder.add(arg.toString());
     }
   }
 
@@ -480,6 +526,27 @@ public final class CustomCommandLine extends CommandLine {
       }
       return this;
     }
+
+    /**
+     * Adds a list of values transformed by a function and delimited by a string.
+     *
+     * <p>Prefer this to transforming nested sets yourself as it is more memory-efficient. By using
+     * this class, expansion of the nested set is deferred until action execution instead of
+     * retained on the heap.
+     *
+     * @param arg The argument
+     * @param delimiter A delimiter string placed in between each transformed value
+     * @param values The values to expand into a list
+     * @param toString A function that transforms a value into a string
+     */
+    public <T> Builder addJoinValues(
+        String arg, String delimiter, Iterable<T> values, Function<T, String> toString) {
+      if (arg != null && arguments != null) {
+        arguments.add(arg);
+        arguments.add(new JoinValuesTransformed<T>(delimiter, values, toString));
+      }
+      return this;
+    }
  
     public Builder addJoinExecPaths(String arg, String delimiter, Iterable<Artifact> artifacts) {
       if (arg != null && artifacts != null) {
@@ -500,6 +567,17 @@ public final class CustomCommandLine extends CommandLine {
       if (template != null && path != null) {
         arguments.add(new PathWithTemplateArg(template, path));
       }
+      return this;
+    }
+
+    /**
+     * Adds a param file as an argument.
+     *
+     * @param paramFilePrefix The character that denotes a param file, commonly '@'
+     * @param paramFile The param file artifact
+     */
+    public Builder addParamFile(String paramFilePrefix, Artifact paramFile) {
+      arguments.add(new ParamFileArgument(paramFilePrefix, paramFile.getExecPath()));
       return this;
     }
 

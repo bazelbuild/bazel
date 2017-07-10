@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
@@ -21,6 +22,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIB
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE_SYSTEM;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_FILE;
+import static java.util.Comparator.naturalOrder;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
@@ -29,15 +31,16 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcLibraryHelper;
 import com.google.devtools.build.lib.rules.cpp.CcLibraryHelper.Info;
@@ -51,6 +54,7 @@ import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.FdoSupportProvider;
+import com.google.devtools.build.lib.rules.cpp.FeatureSpecification;
 import com.google.devtools.build.lib.rules.cpp.IncludeProcessing;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
@@ -60,6 +64,8 @@ import com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag;
 import com.google.devtools.build.lib.rules.objc.ObjcVariablesExtension.VariableCategory;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
+import java.util.Map;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -75,11 +81,6 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
   private static final String OBJC_MODULE_FEATURE_NAME = "use_objc_modules";
   private static final String NO_ENABLE_MODULES_FEATURE_NAME = "no_enable_modules";
   private static final String DEAD_STRIP_FEATURE_NAME = "dead_strip";
-  private static final String RUN_COVERAGE_FEATURE_NAME = "run_coverage";
-  /** Produce artifacts for coverage in llvm coverage mapping format. */
-  private static final String LLVM_COVERAGE_MAP_FORMAT = "llvm_coverage_map_format";
-  /** Produce artifacts for coverage in gcc coverage mapping format. */
-  private static final String GCC_COVERAGE_MAP_FORMAT = "gcc_coverage_map_format";
   /**
    * Enabled if this target's rule is not a test rule.  Binary stripping should not be applied in
    * the link step. TODO(b/36562173): Replace this behavior with a condition on bundle creation.
@@ -100,6 +101,8 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
    */
   private static final String NO_GENERATE_DEBUG_SYMBOLS_FEATURE_NAME = "no_generate_debug_symbols";
 
+  private static final String GENERATE_LINKMAP_FEATURE_NAME = "generate_linkmap";
+
   private static final ImmutableList<String> ACTIVATED_ACTIONS =
       ImmutableList.of(
           "objc-compile",
@@ -117,14 +120,21 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
    * Creates a new CompilationSupport instance that uses the c++ rule backend
    *
    * @param ruleContext the RuleContext for the calling target
+   * @param outputGroupCollector a map that will be updated with output groups produced by compile
+   *     action generation.
    */
-  public CrosstoolCompilationSupport(RuleContext ruleContext) {
+  public CrosstoolCompilationSupport(
+      RuleContext ruleContext, Map<String, NestedSet<Artifact>> outputGroupCollector) {
     this(
         ruleContext,
         ruleContext.getConfiguration(),
         ObjcRuleClasses.intermediateArtifacts(ruleContext),
         CompilationAttributes.Builder.fromRuleContext(ruleContext).build(),
-        /*useDeps=*/true);
+        /*useDeps=*/ true,
+        outputGroupCollector,
+        null,
+        /*isTestRule=*/ false,
+        /*usePch=*/ true);
   }
 
   /**
@@ -135,13 +145,29 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
    * @param intermediateArtifacts IntermediateArtifacts for deriving artifact paths
    * @param compilationAttributes attributes of the calling target
    * @param useDeps true if deps should be used
+   * @param toolchain if not null overrides the default toolchain from the ruleContext.
+   * @param usePch true if pch should be used
    */
-  public CrosstoolCompilationSupport(RuleContext ruleContext,
+  public CrosstoolCompilationSupport(
+      RuleContext ruleContext,
       BuildConfiguration buildConfiguration,
       IntermediateArtifacts intermediateArtifacts,
       CompilationAttributes compilationAttributes,
-      boolean useDeps) {
-    super(ruleContext, buildConfiguration, intermediateArtifacts, compilationAttributes, useDeps);
+      boolean useDeps,
+      Map<String, NestedSet<Artifact>> outputGroupCollector,
+      CcToolchainProvider toolchain,
+      boolean isTestRule,
+      boolean usePch) {
+    super(
+        ruleContext,
+        buildConfiguration,
+        intermediateArtifacts,
+        compilationAttributes,
+        useDeps,
+        outputGroupCollector,
+        toolchain,
+        isTestRule,
+        usePch);
   }
 
   @Override
@@ -167,21 +193,34 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
 
       // TODO(b/30783125): Signal the need for this action in the CROSSTOOL.
       registerObjFilelistAction(getObjFiles(compilationArtifacts, intermediateArtifacts), objList);
-  
+
       extension.addVariableCategory(VariableCategory.ARCHIVE_VARIABLES);
-      
+
       helper =
           createCcLibraryHelper(
-                  objcProvider, compilationArtifacts, extension.build(), ccToolchain, fdoSupport)
+                  objcProvider,
+                  compilationArtifacts,
+                  extension.build(),
+                  ccToolchain,
+                  fdoSupport,
+                  priorityHeaders)
               .setLinkType(LinkTargetType.OBJC_ARCHIVE)
               .addLinkActionInput(objList);
     } else {
       helper =
           createCcLibraryHelper(
-              objcProvider, compilationArtifacts, extension.build(), ccToolchain, fdoSupport);
+              objcProvider,
+              compilationArtifacts,
+              extension.build(),
+              ccToolchain,
+              fdoSupport,
+              priorityHeaders);
     }
 
-    registerHeaderScanningActions(helper.build(), objcProvider, compilationArtifacts);
+    Info info = helper.build();
+    outputGroupCollector.putAll(info.getOutputGroups());
+
+    registerHeaderScanningActions(info, objcProvider, compilationArtifacts);
 
     return this;
   }
@@ -209,7 +248,12 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
             .addVariableCategory(VariableCategory.FULLY_LINK_VARIABLES)
             .build();
     CppLinkAction fullyLinkAction =
-        new CppLinkActionBuilder(ruleContext, outputArchive, ccToolchain, fdoSupport)
+        new CppLinkActionBuilder(
+                ruleContext,
+                outputArchive,
+                ccToolchain,
+                fdoSupport,
+                getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration))
             .addActionInputs(objcProvider.getObjcLibraries())
             .addActionInputs(objcProvider.getCcLibraries())
             .addActionInputs(objcProvider.get(IMPORTED_LIBRARY).toSet())
@@ -218,7 +262,6 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
             .setLinkStaticness(LinkStaticness.FULLY_STATIC)
             .setLibraryIdentifier(libraryIdentifier)
             .addVariablesExtension(extension)
-            .setFeatureConfiguration(getFeatureConfiguration(ruleContext, buildConfiguration))
             .build();
     ruleContext.registerAction(fullyLinkAction);
 
@@ -278,9 +321,15 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
             .addVariableCategory(VariableCategory.EXECUTABLE_LINKING_VARIABLES);
 
     Artifact binaryToLink = getBinaryToLink();
-    FdoSupportProvider fdoSupport = CppHelper.getFdoSupport(ruleContext, ":cc_toolchain");
+    FdoSupportProvider fdoSupport =
+        CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext);
     CppLinkActionBuilder executableLinkAction =
-        new CppLinkActionBuilder(ruleContext, binaryToLink, toolchain, fdoSupport)
+        new CppLinkActionBuilder(
+                ruleContext,
+                binaryToLink,
+                toolchain,
+                fdoSupport,
+                getFeatureConfiguration(ruleContext, toolchain, buildConfiguration))
             .setMnemonic("ObjcLink")
             .addActionInputs(bazelBuiltLibraries)
             .addActionInputs(objcProvider.getCcLibraries())
@@ -293,17 +342,31 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
             .addActionInput(inputFileList)
             .setLinkType(linkType)
             .setLinkStaticness(LinkStaticness.FULLY_STATIC)
-            .addLinkopts(ImmutableList.copyOf(extraLinkArgs))
-            .setFeatureConfiguration(getFeatureConfiguration(ruleContext, buildConfiguration));
+            .addLinkopts(ImmutableList.copyOf(extraLinkArgs));
 
     if (objcConfiguration.generateDsym()) {
       Artifact dsymBundleZip = intermediateArtifacts.tempDsymBundleZip(dsymOutputType);
       extensionBuilder
           .setDsymBundleZip(dsymBundleZip)
-          .addVariableCategory(VariableCategory.DSYM_VARIABLES)
-          .setDsymOutputType(dsymOutputType);
+          .addVariableCategory(VariableCategory.DSYM_VARIABLES);
       registerDsymActions(dsymOutputType);
       executableLinkAction.addActionOutput(dsymBundleZip);
+    }
+
+    if (objcConfiguration.generateLinkmap()) {
+      Artifact linkmap = intermediateArtifacts.linkmap();
+      extensionBuilder
+          .setLinkmap(linkmap)
+          .addVariableCategory(VariableCategory.LINKMAP_VARIABLES);
+      executableLinkAction.addActionOutput(linkmap);
+    }
+
+    if (appleConfiguration.getBitcodeMode() == AppleBitcodeMode.EMBEDDED) {
+      Artifact bitcodeSymbolMap = intermediateArtifacts.bitcodeSymbolMap();
+      extensionBuilder
+          .setBitcodeSymbolMap(bitcodeSymbolMap)
+          .addVariableCategory(VariableCategory.BITCODE_VARIABLES);
+      executableLinkAction.addActionOutput(bitcodeSymbolMap);
     }
 
     executableLinkAction.addVariablesExtension(extensionBuilder.build());
@@ -339,30 +402,33 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
       CompilationArtifacts compilationArtifacts,
       VariablesExtension extension,
       CcToolchainProvider ccToolchain,
-      FdoSupportProvider fdoSupport) {
+      FdoSupportProvider fdoSupport,
+      Iterable<PathFragment> priorityHeaders) {
     PrecompiledFiles precompiledFiles = new PrecompiledFiles(ruleContext);
     Collection<Artifact> arcSources = ImmutableSortedSet.copyOf(compilationArtifacts.getSrcs());
     Collection<Artifact> nonArcSources =
         ImmutableSortedSet.copyOf(compilationArtifacts.getNonArcSrcs());
     Collection<Artifact> privateHdrs =
         ImmutableSortedSet.copyOf(compilationArtifacts.getPrivateHdrs());
-    Collection<Artifact> publicHdrs = ImmutableSortedSet.copyOf(attributes.hdrs());
-    Artifact pchHdr = null;
-    if (ruleContext.attributes().has("pch", BuildType.LABEL)) {
-      pchHdr = ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET);
-    }
+    Collection<Artifact> publicHdrs =
+        Stream.concat(
+                Streams.stream(attributes.hdrs()),
+                Streams.stream(compilationArtifacts.getAdditionalHdrs()))
+            .collect(toImmutableSortedSet(naturalOrder()));
+    Artifact pchHdr = getPchFile().orNull();
     ObjcCppSemantics semantics =
         new ObjcCppSemantics(
             objcProvider,
             createIncludeProcessing(privateHdrs, objcProvider, pchHdr),
             ruleContext.getFragment(ObjcConfiguration.class),
             isHeaderThinningEnabled(),
-            intermediateArtifacts);
+            intermediateArtifacts,
+            buildConfiguration);
     CcLibraryHelper result =
         new CcLibraryHelper(
                 ruleContext,
                 semantics,
-                getFeatureConfiguration(ruleContext, buildConfiguration),
+                getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration),
                 CcLibraryHelper.SourceCategory.CC_AND_OBJC,
                 ccToolchain,
                 fdoSupport,
@@ -380,6 +446,7 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
             // generate C++ protos.
             .setCheckDepsGenerateCpp(false)
             .addCopts(getCompileRuleCopts())
+            .addIncludeDirs(priorityHeaders)
             .addIncludeDirs(objcProvider.get(INCLUDE))
             .addCopts(ruleContext.getFragment(ObjcConfiguration.class).getCoptsForCompilationMode())
             .addSystemIncludeDirs(objcProvider.get(INCLUDE_SYSTEM))
@@ -398,10 +465,12 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
     return result;
   }
 
-  private static FeatureConfiguration getFeatureConfiguration(RuleContext ruleContext,
-      BuildConfiguration configuration) {
-    ImmutableList.Builder<String> activatedCrosstoolSelectables =
-        ImmutableList.<String>builder()
+  private FeatureConfiguration getFeatureConfiguration(RuleContext ruleContext,
+      CcToolchainProvider ccToolchain, BuildConfiguration configuration) {
+    boolean isHost = ruleContext.getConfiguration().isHostConfiguration();
+    ImmutableSet.Builder<String> activatedCrosstoolSelectables =
+        ImmutableSet.<String>builder()
+            .addAll(ccToolchain.getFeatures().getDefaultFeatures())
             .addAll(ACTIVATED_ACTIONS)
             .addAll(
                 ruleContext
@@ -416,6 +485,7 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
             .add(CppRuleClasses.COMPILE_ACTION_FLAGS_IN_FLAG_SET)
             .add(CppRuleClasses.DEPENDENCY_FILE)
             .add(CppRuleClasses.INCLUDE_PATHS)
+            .add(isHost ? "host" : "nonhost")
             .add(configuration.getCompilationMode().toString());
 
     if (configuration.getFragment(ObjcConfiguration.class).moduleMapsEnabled()) {
@@ -427,19 +497,10 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
     if (configuration.getFragment(ObjcConfiguration.class).shouldStripBinary()) {
       activatedCrosstoolSelectables.add(DEAD_STRIP_FEATURE_NAME);
     }
-    if (ruleContext.attributes().has("pch", BuildType.LABEL)
-        && ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET) != null) {
+    if (getPchFile().isPresent()) {
       activatedCrosstoolSelectables.add("pch");
     }
-    if (configuration.isCodeCoverageEnabled()) {
-      activatedCrosstoolSelectables.add(RUN_COVERAGE_FEATURE_NAME);
-    }
-    if (configuration.isLLVMCoverageMapFormatEnabled()) {
-      activatedCrosstoolSelectables.add(LLVM_COVERAGE_MAP_FORMAT);
-    } else {
-      activatedCrosstoolSelectables.add(GCC_COVERAGE_MAP_FORMAT);
-    }
-    if (!TargetUtils.isTestRule(ruleContext.getRule())) {
+    if (!isTestRule) {
       activatedCrosstoolSelectables.add(IS_NOT_TEST_TARGET_FEATURE_NAME);
     }
     if (configuration.getFragment(ObjcConfiguration.class).generateDsym()) {
@@ -447,12 +508,22 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
     } else {
       activatedCrosstoolSelectables.add(NO_GENERATE_DEBUG_SYMBOLS_FEATURE_NAME);
     }
+    if (configuration.getFragment(ObjcConfiguration.class).generateLinkmap()) {
+      activatedCrosstoolSelectables.add(GENERATE_LINKMAP_FEATURE_NAME);
+    }
+    AppleBitcodeMode bitcodeMode =
+        configuration.getFragment(AppleConfiguration.class).getBitcodeMode();
+    if (bitcodeMode != AppleBitcodeMode.NONE) {
+      activatedCrosstoolSelectables.addAll(bitcodeMode.getFeatureNames());
+    }
 
     activatedCrosstoolSelectables.addAll(ruleContext.getFeatures());
     return configuration
         .getFragment(CppConfiguration.class)
         .getFeatures()
-        .getFeatureConfiguration(activatedCrosstoolSelectables.build());
+        .getFeatureConfiguration(
+            FeatureSpecification.create(
+                activatedCrosstoolSelectables.build(), ImmutableSet.<String>of()));
   }
 
   private static ImmutableList<Artifact> getObjFiles(
@@ -464,6 +535,7 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
     for (Artifact nonArcSourceFile : compilationArtifacts.getNonArcSrcs()) {
       result.add(intermediateArtifacts.objFile(nonArcSourceFile));
     }
+    result.addAll(compilationArtifacts.getPrecompiledSrcs());
     return result.build();
   }
 

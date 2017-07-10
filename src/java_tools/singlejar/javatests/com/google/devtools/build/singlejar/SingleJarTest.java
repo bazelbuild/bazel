@@ -16,7 +16,6 @@ package com.google.devtools.build.singlejar;
 
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
@@ -65,8 +64,8 @@ public class SingleJarTest {
       Collections.sort(expectedBuildInfos);
       String[] actualBuildInfos = actualBuildInfo.split("\n");
       Arrays.sort(actualBuildInfos);
-      assertEquals(LINEFEED_JOINER.join(expectedBuildInfos),
-          LINEFEED_JOINER.join(actualBuildInfos));
+      assertThat(LINEFEED_JOINER.join(actualBuildInfos))
+          .isEqualTo(LINEFEED_JOINER.join(expectedBuildInfos));
     }
 
   }
@@ -91,7 +90,8 @@ public class SingleJarTest {
       String actualManifest = new String(content, StandardCharsets.UTF_8);
       String[] actualManifestLines = actualManifest.trim().split("\r\n");
       Arrays.sort(actualManifestLines);
-      assertEquals(LINEFEED_JOINER.join(manifestLines), LINEFEED_JOINER.join(actualManifestLines));
+      assertThat(LINEFEED_JOINER.join(actualManifestLines))
+          .isEqualTo(LINEFEED_JOINER.join(manifestLines));
     }
 
   }
@@ -145,7 +145,7 @@ public class SingleJarTest {
 
   private void assertStripFirstLine(String expected, String testCase) {
     byte[] result = SingleJar.stripFirstLine(testCase.getBytes(StandardCharsets.UTF_8));
-    assertEquals(expected, new String(result, UTF_8));
+    assertThat(new String(result, UTF_8)).isEqualTo(expected);
   }
 
   @Test
@@ -596,7 +596,7 @@ public class SingleJarTest {
           "--resources", "a/b/c", "a/b/c"));
       fail();
     } catch (IllegalArgumentException e) {
-      assertThat(e.getMessage()).contains("already contains a file named 'a/b/c'.");
+      assertThat(e).hasMessageThat().contains("already contains a file named 'a/b/c'.");
     }
   }
 

@@ -174,9 +174,9 @@ public class AndroidDataWriterTest {
         .that(actual.getResourceDir().resolve("values/values.xml"))
         .xmlContentsIsEqualTo(
             START_RESOURCES + ">",
-            "<!-- source/res/values/stubs.xml --><eat-comment/>",
+            "<!-- " + fs.getPath("source/res/values/stubs.xml") + " --><eat-comment/>",
             "<item name='walrus' type='drawable'/>",
-            "<!-- source/res/values/ids.xml --><eat-comment/>",
+            "<!-- " + fs.getPath("source/res/values/ids.xml") + " --><eat-comment/>",
             "<item name='id' type='id'/>",
             "<item name='id1' type='id'/>",
             END_RESOURCES);
@@ -210,14 +210,18 @@ public class AndroidDataWriterTest {
         .that(actual.getResourceDir().resolve("values/values.xml"))
         .xmlContentsIsEqualTo(
             START_RESOURCES + ">",
-            "<!-- source/res/values/ids.xml --><eat-comment/><item name='id1' type='id'/>",
+            "<!-- "
+                + fs.getPath("source/res/values/ids.xml")
+                + " --><eat-comment/><item name='id1' type='id'/>",
             END_RESOURCES);
     assertAbout(paths).that(actual.getResourceDir().resolve("values-en/values.xml")).exists();
     assertAbout(paths)
         .that(actual.getResourceDir().resolve("values-en/values.xml"))
         .xmlContentsIsEqualTo(
             START_RESOURCES + ">",
-            "<!-- source/res/values-en/ids.xml --><eat-comment/><item name='id1' type='id'/>",
+            "<!-- "
+                + fs.getPath("source/res/values-en/ids.xml")
+                + " --><eat-comment/><item name='id1' type='id'/>",
             END_RESOURCES);
   }
 
@@ -253,12 +257,12 @@ public class AndroidDataWriterTest {
         .that(actual.getResourceDir().resolve("values/values.xml"))
         .xmlContentsIsEqualTo(
             START_RESOURCES + ">",
-            "<!-- source/res/values/integers.xml --><eat-comment/>",
+            "<!-- " + fs.getPath("source/res/values/integers.xml") + " --><eat-comment/>",
             "<integer name='foo'>12345</integer>",
             "<integer name='zoo'>54321</integer>",
-            "<!-- source/res/values/strings.xml --><eat-comment/>",
+            "<!-- " + fs.getPath("source/res/values/strings.xml") + " --><eat-comment/>",
             "<string name='foo'>meow</string>",
-            "<!-- source/res/values/integers.xml --><eat-comment/>",
+            "<!-- " + fs.getPath("source/res/values/integers.xml") + " --><eat-comment/>",
             "<public name='foo' type='integer' id='0x7f040000'/>",
             "<public name='foo' type='string' id='0x7f050000'/>",
             "<public name='zoo' type='integer' />",
@@ -322,10 +326,10 @@ public class AndroidDataWriterTest {
         .that(actual.getResourceDir().resolve("values/values.xml"))
         .xmlContentsIsEqualTo(
             START_RESOURCES + ">",
-            "<!-- source/res/values/ids.xml --><eat-comment/>",
+            "<!-- " + fs.getPath("source/res/values/ids.xml") + " --><eat-comment/>",
             "<item name='MyTextView' type='id'/>",
             "<item name='OtherId' type='id'/>",
-            "<!-- source/res/values/strings.xml --><eat-comment/>",
+            "<!-- " + fs.getPath("source/res/values/strings.xml") + " --><eat-comment/>",
             "<string name='walrus'>I has a bucket</string>",
             END_RESOURCES);
   }
@@ -359,9 +363,9 @@ public class AndroidDataWriterTest {
         .that(actual.getResourceDir().resolve("values/values.xml"))
         .xmlContentsIsEqualTo(
             START_RESOURCES + " foo=\"fooVal\" bar=\"barVal\" baz=\"bazVal\">",
-            "<!-- source/res/values/stubs.xml --><eat-comment/>",
+            "<!-- " + fs.getPath("source/res/values/stubs.xml") + " --><eat-comment/>",
             "<item name='walrus' type='drawable'/>",
-            "<!-- source/res/values/ids.xml --><eat-comment/>",
+            "<!-- " + fs.getPath("source/res/values/ids.xml") + " --><eat-comment/>",
             "<item name='id' type='id'/>",
             "<item name='id1' type='id'/>",
             END_RESOURCES);

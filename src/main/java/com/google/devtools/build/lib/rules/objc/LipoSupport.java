@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.apple.Platform;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 
 /**
  * Support for registering actions using the Apple tool "lipo", which combines artifacts of
@@ -43,8 +43,8 @@ public class LipoSupport {
    *
    * @return this object
    */
-  public LipoSupport registerCombineArchitecturesAction(NestedSet<Artifact> inputBinaries,
-      Artifact outputBinary, Platform platform) {
+  public LipoSupport registerCombineArchitecturesAction(
+      NestedSet<Artifact> inputBinaries, Artifact outputBinary, ApplePlatform platform) {
     if (inputBinaries.toList().size() > 1) {
       ruleContext.registerAction(ObjcRuleClasses.spawnAppleEnvActionBuilder(
               ruleContext.getFragment(AppleConfiguration.class), platform)

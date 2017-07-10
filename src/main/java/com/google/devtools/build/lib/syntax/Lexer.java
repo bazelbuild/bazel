@@ -252,7 +252,8 @@ public final class Lexer {
       } else if (c == '\r') {
         pos++;
       } else if (c == '\t') {
-        indentLen += 8 - indentLen % 8;
+        error("Tabulations are not allowed for identation. Use spaces instead.");
+        indentLen++;
         pos++;
       } else if (c == '\n') { // entirely blank line: discard
         indentLen = 0;
@@ -296,7 +297,7 @@ public final class Lexer {
    * delimiter (3 x quot), and advances 'pos' by two if so.
    */
   private boolean skipTripleQuote(char quot) {
-    if (pos + 1 < buffer.length && buffer[pos] == quot && buffer[pos + 1] == quot) {
+    if (lookaheadIs(0, quot) && lookaheadIs(1, quot)) {
       pos += 2;
       return true;
     } else {
@@ -340,7 +341,7 @@ public final class Lexer {
             // Insert \ and the following character.
             // As in Python, it means that a raw string can never end with a single \.
             literal.append('\\');
-            if (pos + 1 < buffer.length && buffer[pos] == '\r' && buffer[pos + 1] == '\n') {
+            if (lookaheadIs(0, '\r') && lookaheadIs(1, '\n')) {
               literal.append("\n");
               pos += 2;
             } else if (buffer[pos] == '\r' || buffer[pos] == '\n') {
@@ -356,7 +357,7 @@ public final class Lexer {
           pos++;
           switch (c) {
             case '\r':
-              if (pos < buffer.length && buffer[pos] == '\n') {
+              if (lookaheadIs(0, '\n')) {
                 pos += 1;
                 break;
               } else {
@@ -399,6 +400,9 @@ public final class Lexer {
                     }
                   }
                 }
+              }
+              if (octal > 0xff) {
+                error("octal escape sequence out of range (maximum is \\377)");
               }
               literal.append((char) (octal & 0xff));
               break;
@@ -466,7 +470,7 @@ public final class Lexer {
           return t;
         case '\\':
           if (isRaw) {
-            if (pos + 1 < buffer.length && buffer[pos] == '\r' && buffer[pos + 1] == '\n') {
+            if (lookaheadIs(0, '\r') && lookaheadIs(1, '\n')) {
               // There was a CRLF after the newline. No shortcut possible, since it needs to be
               // transformed into a single LF.
               pos = oldPos + 1;
@@ -483,9 +487,10 @@ public final class Lexer {
         case '"':
           if (c == quot) {
             // close-quote, all done.
-            return new Token(TokenKind.STRING, oldPos, pos,
-                             bufferSlice(oldPos + 1, pos - 1));
+            return new Token(TokenKind.STRING, oldPos, pos, bufferSlice(oldPos + 1, pos - 1));
           }
+          break;
+        default: // fall out
       }
     }
 
@@ -523,6 +528,7 @@ public final class Lexer {
     keywordMap.put("in", TokenKind.IN);
     keywordMap.put("is", TokenKind.IS);
     keywordMap.put("lambda", TokenKind.LAMBDA);
+    keywordMap.put("load", TokenKind.LOAD);
     keywordMap.put("nonlocal", TokenKind.NONLOCAL);
     keywordMap.put("not", TokenKind.NOT);
     keywordMap.put("or", TokenKind.OR);
@@ -583,7 +589,8 @@ public final class Lexer {
     while (pos < buffer.length) {
       char c = buffer[pos];
       switch (c) {
-        case 'X': case 'x':
+        case 'X': case 'x': // for hexadecimal prefix
+        case 'O': case 'o': // for octal prefix
         case 'a': case 'A':
         case 'b': case 'B':
         case 'c': case 'C':
@@ -625,6 +632,9 @@ public final class Lexer {
     if (literal.startsWith("0x") || literal.startsWith("0X")) {
       radix = 16;
       substring = literal.substring(2);
+    } else if (literal.startsWith("0o") || literal.startsWith("0O")) {
+      radix = 8;
+      substring = literal.substring(2);
     } else if (literal.startsWith("0") && literal.length() > 1) {
       radix = 8;
       substring = literal.substring(1);
@@ -665,6 +675,11 @@ public final class Lexer {
       addToken(new Token(tok, pos, pos + 2));
       return true;
     }
+  }
+
+  /** Test if the character at pos+p is c. */
+  private boolean lookaheadIs(int p, char c) {
+    return pos + p < buffer.length && buffer[pos + p] == c;
   }
 
   /**
@@ -747,7 +762,16 @@ public final class Lexer {
         break;
       }
       case '/': {
-        addToken(new Token(TokenKind.SLASH, pos - 1, pos));
+        if (lookaheadIs(0, '/') && lookaheadIs(1, '=')) {
+          addToken(new Token(TokenKind.SLASH_SLASH_EQUALS, pos - 1, pos + 2));
+          pos += 2;
+        } else if (lookaheadIs(0, '/')) {
+          addToken(new Token(TokenKind.SLASH_SLASH, pos - 1, pos + 1));
+          pos += 1;
+        } else {
+          // /= is handled by tokenizeTwoChars.
+          addToken(new Token(TokenKind.SLASH, pos - 1, pos));
+        }
         break;
       }
       case ';': {
@@ -770,9 +794,9 @@ public final class Lexer {
       }
       case '\\': {
         // Backslash character is valid only at the end of a line (or in a string)
-        if (pos + 1 < buffer.length && buffer[pos] == '\n') {
+        if (lookaheadIs(0, '\n')) {
           pos += 1;  // skip the end of line character
-        } else if (pos + 2 < buffer.length && buffer[pos] == '\r' && buffer[pos + 1] == '\n') {
+        } else if (lookaheadIs(0, '\r') && lookaheadIs(1, '\n')) {
           pos += 2;  // skip the CRLF at the end of line
         } else {
           addToken(new Token(TokenKind.ILLEGAL, pos - 1, pos, Character.toString(c)));

@@ -14,36 +14,34 @@
 package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.MutableMap;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 /**
- * A tests(x) filter expression, which returns all the tests in set x,
- * expanding test_suite rules into their constituents.
+ * A tests(x) filter expression, which returns all the tests in set x, expanding test_suite rules
+ * into their constituents.
  *
- * <p>Unfortunately this class reproduces a substantial amount of logic from
- * {@code TestSuiteConfiguredTarget}, albeit in a somewhat simplified form.
- * This is basically inevitable since the expansion of test_suites cannot be
- * done during the loading phase, because it involves inter-package references.
- * We make no attempt to validate the input, or report errors or warnings other
- * than missing target.
+ * <p>Unfortunately this class reproduces a substantial amount of logic from {@code
+ * TestSuiteConfiguredTarget}, albeit in a somewhat simplified form. This is basically inevitable
+ * since the expansion of test_suites cannot be done during the loading phase, because it involves
+ * inter-package references. We make no attempt to validate the input, or report errors or warnings
+ * other than missing target.
  *
  * <pre>expr ::= TESTS '(' expr ')'</pre>
  */
-class TestsFunction implements QueryFunction {
+public class TestsFunction implements QueryFunction {
   TestsFunction() {
   }
 
@@ -146,7 +144,7 @@ class TestsFunction implements QueryFunction {
   private static final class Closure<T> {
     private final QueryExpression expression;
     /** A dynamically-populated mapping from test_suite rules to their tests. */
-    private final Map<T, Set<T>> testsInSuite = new HashMap<>();
+    private final MutableMap<T, ThreadSafeMutableSet<T>> testsInSuite;
 
     /** The environment in which this query is being evaluated. */
     private final QueryEnvironment<T> env;
@@ -157,6 +155,7 @@ class TestsFunction implements QueryFunction {
       this.expression = expression;
       this.env = env;
       this.strict = env.isSettingEnabled(Setting.TESTS_EXPRESSION_STRICT);
+      this.testsInSuite = env.createMutableMap();
     }
 
     /**
@@ -165,11 +164,11 @@ class TestsFunction implements QueryFunction {
      *
      * @precondition env.getAccessor().isTestSuite(testSuite)
      */
-    private synchronized Set<T> getTestsInSuite(T testSuite)
+    private synchronized ThreadSafeMutableSet<T> getTestsInSuite(T testSuite)
         throws QueryException, InterruptedException {
-      Set<T> tests = testsInSuite.get(testSuite);
+      ThreadSafeMutableSet<T> tests = testsInSuite.get(testSuite);
       if (tests == null) {
-        tests = Sets.newHashSet();
+        tests = env.createThreadSafeMutableSet();
         testsInSuite.put(testSuite, tests); // break cycles by inserting empty set early.
         computeTestsInSuite(testSuite, tests);
       }
@@ -184,7 +183,7 @@ class TestsFunction implements QueryFunction {
      *
      * @precondition env.getAccessor().isTestSuite(testSuite)
      */
-    private void computeTestsInSuite(T testSuite, Set<T> result)
+    private void computeTestsInSuite(T testSuite, ThreadSafeMutableSet<T> result)
         throws QueryException, InterruptedException {
       List<T> testsAndSuites = new ArrayList<>();
       // Note that testsAndSuites can contain input file targets; the test_suite rule does not
@@ -245,7 +244,7 @@ class TestsFunction implements QueryFunction {
      * @precondition {@code env.getAccessor().isTestSuite(testSuite)}
      * @precondition {@code env.getAccessor().isTestRule(test)} for all test in tests
      */
-    private void filterTests(T testSuite, Set<T> tests) {
+    private void filterTests(T testSuite, ThreadSafeMutableSet<T> tests) {
       List<String> tagsAttribute = env.getAccessor().getStringListAttr(testSuite, "tags");
       // Split the tags list into positive and negative tags
       Set<String> requiredTags = new HashSet<>();

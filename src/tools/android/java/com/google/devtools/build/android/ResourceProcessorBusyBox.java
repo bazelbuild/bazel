@@ -16,8 +16,10 @@ package com.google.devtools.build.android;
 
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.nio.file.FileSystems;
 
 /**
@@ -71,6 +73,12 @@ public class ResourceProcessorBusyBox {
         LibraryRClassGeneratorAction.main(args);
       }
     },
+    GENERATE_ROBOLECTRIC_R() {
+      @Override
+      void call(String[] args) throws Exception {
+        GenerateRobolectricResourceSymbolsAction.main(args);
+      }
+    },
     PARSE() {
       @Override
       void call(String[] args) throws Exception {
@@ -120,6 +128,8 @@ public class ResourceProcessorBusyBox {
       defaultValue = "null",
       converter = ToolConverter.class,
       category = "input",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "The processing tool to execute. "
               + "Valid tools: PACKAGE, VALIDATE, GENERATE_BINARY_R, GENERATE_LIBRARY_R, PARSE, "

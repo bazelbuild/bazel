@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 /**
- *  Generic base class for primitive literals.
+ * Generic base class for primitive literals.
  */
 public abstract class Literal<T> extends Expression {
 
@@ -30,11 +30,6 @@ public abstract class Literal<T> extends Expression {
    */
   public T getValue() {
     return value;
-  }
-
-  @Override
-  public String toString() {
-    return value.toString();
   }
 
   @Override

@@ -33,8 +33,8 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -152,12 +152,12 @@ public final class Runfiles {
     }
 
     @Override
-    public void write(Appendable buffer, char quotationMark) {
-      Printer.append(buffer, "SymlinkEntry(path = ");
-      Printer.write(buffer, getPath().toString(), quotationMark);
-      Printer.append(buffer, ", artifact = ");
-      getArtifact().write(buffer, quotationMark);
-      Printer.append(buffer, ")");
+    public void repr(SkylarkPrinter printer) {
+      printer.append("SymlinkEntry(path = ");
+      printer.repr(getPath().toString());
+      printer.append(", artifact = ");
+      getArtifact().repr(printer);
+      printer.append(")");
     }
   }
 

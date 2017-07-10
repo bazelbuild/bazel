@@ -77,7 +77,13 @@ function get_release_notes_commits() {
 #   RELNOTES_NEW for new features changes
 #   RELNOTES for other changes
 function extract_release_note() {
-  local relnote="$(git show -s $1 --pretty=format:%B | awk '/^RELNOTES(\[[^\]]+\])?:/,/^$/')"
+  local find_relnote_awk_script="
+    BEGIN { in_relnote = 0 }
+    /^$/ { in_relnote = 0 }
+    /^PiperOrigin-RevId:.*$/ { in_relnote = 0 }
+    /^RELNOTES(\[[^\]]+\])?:/ { in_relnote = 1 }
+    { if (in_relnote) { print } }"
+  local relnote="$(git show -s $1 --pretty=format:%B | awk "${find_relnote_awk_script}")"
   local regex="^RELNOTES(\[([a-zA-Z]*)\])?:[[:space:]]*([^[:space:]].*[^[:space:]])[[:space:]]*$"
   if [[ "$relnote" =~ $regex ]]; then
       local relnote_kind=${BASH_REMATCH[2]}

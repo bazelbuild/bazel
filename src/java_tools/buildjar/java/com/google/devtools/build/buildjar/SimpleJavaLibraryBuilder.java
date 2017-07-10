@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.buildjar;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.buildjar.instrumentation.JacocoInstrumentationProcessor;
 import com.google.devtools.build.buildjar.jarhelper.JarCreator;
 import com.google.devtools.build.buildjar.javac.BlazeJavacArguments;
@@ -23,7 +22,6 @@ import com.google.devtools.build.buildjar.javac.BlazeJavacResult;
 import com.google.devtools.build.buildjar.javac.JavacRunner;
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
-import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.FileSystem;
@@ -34,9 +32,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /** An implementation of the JavaBuilder that uses in-process javac to compile java files. */
@@ -47,62 +43,6 @@ public class SimpleJavaLibraryBuilder implements Closeable {
 
   /** Cache of opened zip filesystems for srcjars. */
   private final Map<Path, FileSystem> filesystems = new HashMap<>();
-
-  /**
-   * Adds a collection of resource entries. Each entry is a string composed of a pair of parts
-   * separated by a colon ':'. The name of the resource comes from the second part, and the path to
-   * the resource comes from the whole string with the colon replaced by a slash '/'.
-   *
-   * <pre>
-   * prefix:name => (name, prefix/name)
-   * </pre>
-   */
-  private static void addResourceEntries(JarCreator jar, Collection<String> resources)
-      throws IOException {
-    for (String resource : resources) {
-      int colon = resource.indexOf(':');
-      if (colon < 0) {
-        throw new IOException("" + resource + ": Illegal resource entry.");
-      }
-      String prefix = resource.substring(0, colon);
-      String name = resource.substring(colon + 1);
-      String path = colon > 0 ? prefix + "/" + name : name;
-      addEntryWithParents(jar, name, path);
-    }
-  }
-
-  private static void addMessageEntries(JarCreator jar, List<String> messages) throws IOException {
-    for (String message : messages) {
-      int colon = message.indexOf(':');
-      if (colon < 0) {
-        throw new IOException("" + message + ": Illegal message entry.");
-      }
-      String prefix = message.substring(0, colon);
-      String name = message.substring(colon + 1);
-      String path = colon > 0 ? prefix + "/" + name : name;
-      File messageFile = new File(path);
-      // Ignore empty messages. They get written by the translation importer
-      // when there is no translation for a particular language.
-      if (messageFile.length() != 0L) {
-        addEntryWithParents(jar, name, path);
-      }
-    }
-  }
-
-  /**
-   * Adds an entry to the jar, making sure that all the parent dirs up to the base of {@code entry}
-   * are also added.
-   *
-   * @param entry the PathFragment of the entry going into the Jar file
-   * @param file the PathFragment of the input file for the entry
-   */
-  @VisibleForTesting
-  static void addEntryWithParents(JarCreator creator, String entry, String file) {
-    while ((entry != null) && creator.addEntry(entry, file)) {
-      entry = new File(entry).getParent();
-      file = new File(file).getParent();
-    }
-  }
 
   BlazeJavacResult compileSources(JavaLibraryBuildRequest build, JavacRunner javacRunner)
       throws IOException {
@@ -199,37 +139,7 @@ public class SimpleJavaLibraryBuilder implements Closeable {
     try {
       jar.setNormalize(true);
       jar.setCompression(build.compressJar());
-
-      for (String resourceJar : build.getResourceJars()) {
-        for (Path root : getJarFileSystem(Paths.get(resourceJar)).getRootDirectories()) {
-          Files.walkFileTree(
-              root,
-              new SimpleFileVisitor<Path>() {
-                @Override
-                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
-                    throws IOException {
-                  // TODO(b/28452451): omit directories entries from jar files
-                  if (dir.getNameCount() > 0) {
-                    jar.addEntry(root.relativize(dir).toString(), dir);
-                  }
-                  return FileVisitResult.CONTINUE;
-                }
-
-                @Override
-                public FileVisitResult visitFile(Path path, BasicFileAttributes attrs)
-                    throws IOException {
-                  jar.addEntry(root.relativize(path).toString(), path);
-                  return FileVisitResult.CONTINUE;
-                }
-              });
-        }
-      }
-
       jar.addDirectory(build.getClassDir());
-
-      jar.addRootEntries(build.getRootResourceFiles());
-      addResourceEntries(jar, build.getResourceFiles());
-      addMessageEntries(jar, build.getMessageFiles());
     } finally {
       jar.execute();
     }

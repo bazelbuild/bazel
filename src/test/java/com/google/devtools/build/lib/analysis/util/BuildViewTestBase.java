@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis.util;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -41,7 +40,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.DeterministicHelper;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.NotifyingHelper.Listener;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -120,7 +118,8 @@ public abstract class BuildViewTestBase extends AnalysisTestCase {
       eventCollector.clear();
     }
     update(defaultFlags().with(Flag.KEEP_GOING), "//parent:foo");
-    assertEquals(1, getFrequencyOfErrorsWithLocation(badpkgBuildFile.asFragment(), eventCollector));
+    assertThat(getFrequencyOfErrorsWithLocation(badpkgBuildFile.asFragment(), eventCollector))
+        .isEqualTo(1);
     // TODO(nharmata): This test currently only works because each BuildViewTest#update call
     // dirties all FileNodes that are in error. There is actually a skyframe bug with cycle
     // reporting on incremental builds (see b/14622820).
@@ -155,7 +154,7 @@ public abstract class BuildViewTestBase extends AnalysisTestCase {
     AnalysisResult result = getAnalysisResult();
     assertThat(result.getTargetsToBuild()).hasSize(1);
     ConfiguredTarget targetA = Iterables.get(result.getTargetsToBuild(), 0);
-    assertEquals(goodCpu, targetA.getConfiguration().getCpu());
+    assertThat(targetA.getConfiguration().getCpu()).isEqualTo(goodCpu);
     // Unfortunately, we get the same error twice - we can't distinguish the configurations.
     assertContainsEvent("if genrules produce executables, they are allowed only one output");
   }

@@ -117,8 +117,8 @@ public final class SymlinkTreeHelper {
     if (enableRunfiles) {
       List<String> args =
           getSpawnArgumentList(
-              actionExecutionContext.getExecutor().getExecRoot(), binTools);
-      actionExecutionContext.getExecutor().getSpawnActionContext(action.getMnemonic()).exec(
+              actionExecutionContext.getExecRoot(), binTools);
+      actionExecutionContext.getSpawnActionContext(action.getMnemonic()).exec(
           new BaseSpawn.Local(args, shellEnvironment, action, RESOURCE_SET),
           actionExecutionContext);
     } else {
@@ -140,7 +140,7 @@ public final class SymlinkTreeHelper {
     Preconditions.checkNotNull(path, BUILD_RUNFILES + " not found in embedded tools");
 
     List<String> args = Lists.newArrayList();
-    args.add(execRoot.getRelative(path).getPathString());
+    args.add(path.getPathString());
 
     if (filesetTree) {
       args.add("--allow_relative");

@@ -13,17 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.actions;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import org.junit.Before;
@@ -47,7 +46,8 @@ public class SymlinkActionTest extends BuildViewTestCase {
   public final void setUp() throws Exception  {
     input = scratch.file("input.txt", "Hello, world.");
     inputArtifact = getSourceArtifact("input.txt");
-    Path linkedInput = directories.getExecRoot().getRelative("input.txt");
+    Path linkedInput =
+        directories.getExecRoot(TestConstants.WORKSPACE_NAME).getRelative("input.txt");
     FileSystemUtils.createDirectoryAndParents(linkedInput.getParentDirectory());
     linkedInput.createSymbolicLink(input);
     outputArtifact = getBinArtifactWithNoOwner("destination.txt");
@@ -60,13 +60,13 @@ public class SymlinkActionTest extends BuildViewTestCase {
   @Test
   public void testInputArtifactIsInput() {
     Iterable<Artifact> inputs = action.getInputs();
-    assertEquals(Sets.newHashSet(inputArtifact), Sets.newHashSet(inputs));
+    assertThat(inputs).containsExactly(inputArtifact);
   }
 
   @Test
   public void testDestinationArtifactIsOutput() {
     Iterable<Artifact> outputs = action.getOutputs();
-    assertEquals(Sets.newHashSet(outputArtifact), Sets.newHashSet(outputs));
+    assertThat(outputs).containsExactly(outputArtifact);
   }
 
   @Test
@@ -74,9 +74,9 @@ public class SymlinkActionTest extends BuildViewTestCase {
     Executor executor = new TestExecutorBuilder(directories, null).build();
     action.execute(new ActionExecutionContext(executor, null, null, null,
         ImmutableMap.<String, String>of(), null));
-    assertTrue(output.isSymbolicLink());
-    assertEquals(input, output.resolveSymbolicLinks());
-    assertEquals(inputArtifact, action.getPrimaryInput());
-    assertEquals(outputArtifact, action.getPrimaryOutput());
+    assertThat(output.isSymbolicLink()).isTrue();
+    assertThat(output.resolveSymbolicLinks()).isEqualTo(input);
+    assertThat(action.getPrimaryInput()).isEqualTo(inputArtifact);
+    assertThat(action.getPrimaryOutput()).isEqualTo(outputArtifact);
   }
 }

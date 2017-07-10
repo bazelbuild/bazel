@@ -76,6 +76,7 @@ import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -104,7 +105,8 @@ import org.junit.Before;
 public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   protected static final ActionLookupValue.ActionLookupKey ALL_OWNER =
       new SingletonActionLookupKey();
-  protected static final SkyKey OWNER_KEY = SkyKey.create(SkyFunctions.ACTION_LOOKUP, ALL_OWNER);
+  protected static final SkyKey OWNER_KEY =
+      LegacySkyKey.create(SkyFunctions.ACTION_LOOKUP, ALL_OWNER);
   protected static final Predicate<Action> ALWAYS_EXECUTE_FILTER = Predicates.alwaysTrue();
   protected static final String CYCLE_MSG = "Yarrrr, there be a cycle up in here";
 
@@ -203,7 +205,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                     SkyFunctions.WORKSPACE_FILE,
                     new WorkspaceFileFunction(
                         TestRuleClassProvider.getRuleClassProvider(),
-                        TestConstants.PACKAGE_FACTORY_FACTORY_FOR_TESTING.create(
+                        TestConstants.PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING.builder().build(
                             TestRuleClassProvider.getRuleClassProvider(), scratch.getFileSystem()),
                         directories))
                 .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())
@@ -438,6 +440,11 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     public long save() {
       // safe to ignore
       return 0;
+    }
+
+    @Override
+    public void clear() {
+      // safe to ignore
     }
 
     @Override

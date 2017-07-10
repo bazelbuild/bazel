@@ -102,10 +102,12 @@ function create_release_commit() {
   trap "rm -f ${tmpfile}" EXIT
   echo -n "## ${infos}" >${tmpfile}
   if [ -f "${changelog_path}" ]; then
-    echo >>${tmpfile}
-    echo >>${tmpfile}
-    cat "${changelog_path}" >>${tmpfile}
-    echo >>${tmpfile}
+    {
+      echo
+      echo
+      cat "${changelog_path}"
+      echo
+    } >> ${tmpfile}
   fi
   cat "${tmpfile}" > ${changelog_path}
   git add ${changelog_path}
@@ -297,7 +299,7 @@ function cleanup_branches() {
   local tag_name=$1
   local i
   echo "Destroying the release branches for release ${tag_name}"
-  # Destroy branch, ignoring if it doesn't exists.
+  # Destroy branch, ignoring if it doesn't exist.
   git branch -D release-${tag_name} &>/dev/null || true
   for i in $RELEASE_REPOSITORIES; do
     git push -f $i :release-${tag_name} &>/dev/null || true
@@ -313,7 +315,7 @@ function do_release() {
 
   echo -n "You are about to release branch ${branch} in tag ${tag_name}, confirm? [y/N] "
   read answer
-  if [ "$answer" = "y" -o "$answer" = "Y" ]; then
+  if [ "$answer" = "y" ] || [ "$answer" = "Y" ]; then
     echo "Creating the release commit"
     create_release_commit "${tag_name}"
     set_release_name "${tag_name}"
@@ -352,7 +354,7 @@ function abandon_release() {
   local tag_name=$(get_release_name)
   echo -n "You are about to abandon release ${tag_name}, confirm? [y/N] "
   read answer
-  if [ "$answer" = "y" -o "$answer" = "Y" ]; then
+  if [ "$answer" = "y" ] || [ "$answer" = "Y" ]; then
     git notes --ref=release remove 2>/dev/null || true
     git notes --ref=release-candidate remove 2>/dev/null || true
     git checkout -q master >/dev/null

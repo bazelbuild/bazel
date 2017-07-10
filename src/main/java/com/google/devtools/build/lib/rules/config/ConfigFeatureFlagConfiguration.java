@@ -28,6 +28,9 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.Map;
 import java.util.SortedMap;
 import javax.annotation.Nullable;
@@ -56,10 +59,13 @@ public final class ConfigFeatureFlagConfiguration extends BuildConfiguration.Fra
   public static final class Options extends FragmentOptions {
     /** The mapping from config_feature_flag rules to their values. */
     @Option(
-        name = "config_feature_flag values (private)",
-        category = "internal",
-        converter = EmptyImmutableSortedMapConverter.class,
-        defaultValue = "{}")
+      name = "config_feature_flag values (private)",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      optionUsageRestrictions = OptionUsageRestrictions.INTERNAL,
+      converter = EmptyImmutableSortedMapConverter.class,
+      defaultValue = "{}"
+    )
     public ImmutableSortedMap<Label, String> flagValues = ImmutableSortedMap.of();
 
     /** Retrieves the set of flag-value pairs. */
@@ -117,7 +123,9 @@ public final class ConfigFeatureFlagConfiguration extends BuildConfiguration.Fra
 
     for (Map.Entry<Label, String> flag : flagValues.entrySet()) {
       hasher.putUnencodedChars(flag.getKey().toString());
+      hasher.putByte((byte) 0);
       hasher.putUnencodedChars(flag.getValue());
+      hasher.putByte((byte) 0);
     }
     return hasher.hash().toString();
   }

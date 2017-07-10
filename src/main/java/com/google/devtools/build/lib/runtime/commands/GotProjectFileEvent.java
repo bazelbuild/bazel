@@ -13,10 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
+
 /**
  * An event describing a project file which has been parsed.
  */
-public class GotProjectFileEvent {
+public class GotProjectFileEvent implements Postable {
   private final String projectFile;
 
   /**

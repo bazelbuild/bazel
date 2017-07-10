@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
@@ -72,7 +73,8 @@ abstract class FileTransport implements BuildEventTransport {
   synchronized void writeData(byte[] data) {
     checkNotNull(data);
     if (!ch.isOpen()) {
-      close();
+      @SuppressWarnings({"unused", "nullness"})
+      Future<?> possiblyIgnoredError = close();
       return;
     }
     if (closing()) {
@@ -87,7 +89,7 @@ abstract class FileTransport implements BuildEventTransport {
   }
 
   @Override
-  public synchronized Future<Void> close() {
+  public synchronized ListenableFuture<Void> close() {
     if (closing()) {
       return closeFuture;
     }
@@ -134,7 +136,8 @@ abstract class FileTransport implements BuildEventTransport {
       log.log(Level.SEVERE, exc.getMessage(), exc);
       countWriteAndTryClose();
       // There is no point in trying to continue. Close the transport.
-      close();
+      @SuppressWarnings({"unused", "nullness"})
+      Future<?> possiblyIgnoredError = close();
     }
 
     private void countWriteAndTryClose() {

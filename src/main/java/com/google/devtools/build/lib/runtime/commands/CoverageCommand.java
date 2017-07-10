@@ -13,35 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
-import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestTimeout;
-import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
-import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
-import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
-import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.ExitCode;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionPriority;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.devtools.common.options.OptionsProvider;
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.Set;
-import java.util.SortedSet;
 
 /**
  * Handles the 'coverage' command on the Bazel command line.
@@ -136,17 +113,14 @@ import java.util.SortedSet;
          help = "resource:coverage.txt",
          allowResidue = true)
 public class CoverageCommand extends TestCommand {
-  private boolean wasInterrupted = false;
-
   @Override
   protected String commandName() {
     return "coverage";
   }
 
   @Override
-  public void editOptions(CommandEnvironment env, OptionsParser optionsParser)
-      throws AbruptExitException {
-    super.editOptions(env, optionsParser);
+  public void editOptions(OptionsParser optionsParser) {
+    super.editOptions(optionsParser);
     try {
       optionsParser.parse(OptionPriority.SOFTWARE_REQUIREMENT,
           "Options required by the coverage command",
@@ -154,165 +128,9 @@ public class CoverageCommand extends TestCommand {
       optionsParser.parse(OptionPriority.COMPUTED_DEFAULT,
           "Options suggested for the coverage command",
           ImmutableList.of(TestTimeout.COVERAGE_CMD_TIMEOUT));
-      if (!optionsParser.containsExplicitOption("instrumentation_filter")) {
-        setDefaultInstrumentationFilter(env, optionsParser);
-      }
     } catch (OptionsParsingException e) {
       // Should never happen.
       throw new IllegalStateException("Unexpected exception", e);
-    }
-  }
-
-  @Override
-  public ExitCode exec(CommandEnvironment env, OptionsProvider options) {
-    if (wasInterrupted) {
-      wasInterrupted = false;
-      env.getReporter().handle(Event.error("Interrupted"));
-      return ExitCode.INTERRUPTED;
-    }
-
-    return super.exec(env, options);
-  }
-
-  /**
-   * Method implements a heuristic used to set default value of the
-   * --instrumentation_filter option. Following algorithm is used:
-   * 1) Identify all test targets on the command line.
-   * 2) Expand all test suites into the individual test targets
-   * 3) Calculate list of package names containing all test targets above.
-   * 4) Replace all "javatests/" substrings in package names with "java/".
-   * 5) If two packages reside in the same directory, use filter based on
-   *    the parent directory name instead. Doing so significantly simplifies
-   *    instrumentation filter in majority of real-life scenarios (in
-   *    particular when dealing with my/package/... wildcards).
-   * 6) Set --instrumentation_filter default value to instrument everything
-   *    in those packages.
-   */
-  private void setDefaultInstrumentationFilter(CommandEnvironment env,
-      OptionsParser optionsProvider)
-      throws OptionsParsingException, AbruptExitException {
-    try {
-      BlazeRuntime runtime = env.getRuntime();
-      // Initialize package cache, since it is used by the TargetPatternEvaluator.
-      // TODO(bazel-team): Don't allow commands to setup the package cache more than once per build.
-      // We'll have to move it earlier in the process to allow this. Possibly: Move it to
-      // the command dispatcher and allow commands to annotate "need-packages".
-      env.setupPackageCache(optionsProvider, runtime.getDefaultsPackageContent(optionsProvider));
-
-      // Collect all possible test targets. We don't really care whether there will be parsing
-      // errors here - they will be reported during actual build.
-      TargetPatternEvaluator targetPatternEvaluator = env.newTargetPatternEvaluator();
-      Set<Target> testTargets =
-          targetPatternEvaluator.parseTargetPatternList(
-              env.getReporter(),
-              optionsProvider.getResidue(),
-              FilteringPolicies.FILTER_TESTS,
-              /*keep_going=*/true).getTargets();
-
-      SortedSet<String> packageFilters = Sets.newTreeSet();
-      collectInstrumentedPackages(env, testTargets, packageFilters);
-      optimizeFilterSet(packageFilters);
-
-      String instrumentationFilter = "//" + Joiner.on(",//").join(packageFilters);
-      final String instrumentationFilterOptionName = "instrumentation_filter";
-      if (!packageFilters.isEmpty()) {
-        env.getReporter().handle(
-            Event.info("Using default value for --instrumentation_filter: \""
-                + instrumentationFilter + "\"."));
-
-        env.getReporter().handle(Event.info("Override the above default with --"
-            + instrumentationFilterOptionName));
-        optionsProvider.parse(OptionPriority.COMPUTED_DEFAULT,
-                      "Instrumentation filter heuristic",
-                      ImmutableList.of("--" + instrumentationFilterOptionName
-                                       + "=" + instrumentationFilter));
-      }
-    } catch (TargetParsingException e) {
-      // We can't compute heuristic - just use default filter.
-    } catch (InterruptedException e) {
-      // We cannot quit now because AbstractCommand does not have the
-      // infrastructure to do that. Just set a flag and return from exec() as
-      // early as possible. We can do this because there is always an exec()
-      // after an editOptions().
-      wasInterrupted = true;
-    }
-  }
-
-  private void collectInstrumentedPackages(CommandEnvironment env,
-      Collection<Target> targets, Set<String> packageFilters) throws InterruptedException {
-    for (Target target : targets) {
-      // Add package-based filters for every test target.
-      String prefix = getInstrumentedPrefix(target.getLabel().getPackageName());
-      if (!prefix.isEmpty()) {
-        packageFilters.add(prefix);
-      }
-      if (TargetUtils.isTestSuiteRule(target)) {
-        AttributeMap attributes = NonconfigurableAttributeMapper.of((Rule) target);
-        // We don't need to handle $implicit_tests attribute since we already added
-        // test_suite package to the set.
-        for (Label label : attributes.get("tests", BuildType.LABEL_LIST)) {
-          // Add package-based filters for all tests in the test suite.
-          packageFilters.add(getInstrumentedPrefix(label.getPackageName()));
-        }
-      }
-    }
-  }
-
-  /**
-   * Returns prefix string that should be instrumented for a given package. Input string should
-   * be formatted like the output of Label.getPackageName().
-   * Generally, package name will be used as such string with two modifications.
-   * - "javatests/ directories will be substituted with "java/", since we do
-   * not want to instrument java test code. "java/" directories in "test/" will
-   * be replaced by the same in "main/".
-   * - "/internal", "/public", and "tests/" package suffix will be dropped, since usually we would
-   * want to instrument code in the parent package as well
-   */
-  public static String getInstrumentedPrefix(String packageName) {
-    if (packageName.endsWith("/internal")) {
-      packageName = packageName.substring(0, packageName.length() - "/internal".length());
-    } else if (packageName.endsWith("/public")) {
-      packageName = packageName.substring(0, packageName.length() - "/public".length());
-    } else if (packageName.endsWith("/tests")) {
-      packageName = packageName.substring(0, packageName.length() - "/tests".length());
-    }
-    return packageName
-        .replaceFirst("(?<=^|/)javatests/", "java/")
-        .replaceFirst("(?<=^|/)test/java/", "main/java/");
-  }
-
-  private static void optimizeFilterSet(SortedSet<String> packageFilters) {
-    Iterator<String> iterator = packageFilters.iterator();
-    if (iterator.hasNext()) {
-      // Find common parent filters to reduce number of filter expressions. In practice this
-      // still produces nicely constrained instrumentation filter while making final
-      // filter value much more user-friendly - especially in case of /my/package/... wildcards.
-      Set<String> parentFilters = Sets.newTreeSet();
-      String filterString = iterator.next();
-      PathFragment parent = PathFragment.create(filterString).getParentDirectory();
-      while (iterator.hasNext()) {
-        String current = iterator.next();
-        if (parent != null && parent.getPathString().length() > 0
-            && !current.startsWith(filterString) && current.startsWith(parent.getPathString())) {
-          parentFilters.add(parent.getPathString());
-        } else {
-          filterString = current;
-          parent = PathFragment.create(filterString).getParentDirectory();
-        }
-      }
-      packageFilters.addAll(parentFilters);
-
-      // Optimize away nested filters.
-      iterator = packageFilters.iterator();
-      String prev = iterator.next();
-      while (iterator.hasNext()) {
-        String current = iterator.next();
-        if (current.startsWith(prev)) {
-          iterator.remove();
-        } else {
-          prev = current;
-        }
-      }
     }
   }
 }

@@ -54,6 +54,22 @@ public final class JavaConfiguration extends Fragment {
     BLAZE
   }
 
+  /** Values for the --experimental_one_version_enforcement option */
+  public enum OneVersionEnforcementLevel {
+    /** Don't attempt to check for one version violations (the default) */
+    OFF,
+    /**
+     * Check for one version violations, emit warnings to stderr if any are found, but don't break
+     * the binary.
+     */
+    WARNING,
+    /**
+     * Check for one version violations, emit warnings to stderr if any are found, and break the
+     * rule if it's found.
+     */
+    ERROR
+  }
+
   /**
    * Values for the --java_optimization_mode option, which controls how Proguard is run over binary
    * and test targets.  Note that for the moment this has no effect when building library targets.
@@ -130,11 +146,10 @@ public final class JavaConfiguration extends Fragment {
   private final Label javaLauncherLabel;
   private final boolean useIjars;
   private final boolean useHeaderCompilation;
-  private final boolean headerCompilationDirectClasspath;
-  private final boolean headerCompilationDirectClasspathFallbackError;
+  private final boolean headerCompilationDisableJavacFallback;
   private final boolean generateJavaDeps;
   private final boolean strictDepsJavaProtos;
-  private final boolean enforceOneVersion;
+  private final OneVersionEnforcementLevel enforceOneVersion;
   private final JavaClasspathMode javaClasspath;
   private final ImmutableList<String> defaultJvmFlags;
   private final ImmutableList<String> checkedConstraints;
@@ -163,9 +178,7 @@ public final class JavaConfiguration extends Fragment {
     this.javaLauncherLabel = javaOptions.javaLauncher;
     this.useIjars = javaOptions.useIjars;
     this.useHeaderCompilation = javaOptions.headerCompilation;
-    this.headerCompilationDirectClasspath = javaOptions.headerCompilationDirectClasspath;
-    this.headerCompilationDirectClasspathFallbackError =
-        javaOptions.headerCompilationDirectClasspathFallbackError;
+    this.headerCompilationDisableJavacFallback = javaOptions.headerCompilationDisableJavacFallback;
     this.generateJavaDeps = generateJavaDeps;
     this.javaClasspath = javaOptions.javaClasspath;
     this.defaultJvmFlags = ImmutableList.copyOf(defaultJvmFlags);
@@ -213,6 +226,15 @@ public final class JavaConfiguration extends Fragment {
     return commandLineJavacFlags;
   }
 
+  @SkylarkCallable(
+      name = "strict_java_deps",
+      structField = true,
+      doc = "The value of the strict_java_deps flag."
+  )
+  public String getStrictJavaDepsName() {
+    return strictJavaDeps.name().toLowerCase();
+  }
+
   @Override
   public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions) {
     if ((bundleTranslations == TriState.YES) && translationTargets.isEmpty()) {
@@ -246,17 +268,12 @@ public final class JavaConfiguration extends Fragment {
     return useHeaderCompilation;
   }
 
-  /** Returns true if header compilations should use direct dependencies only. */
-  public boolean headerCompilationDirectClasspath() {
-    return headerCompilationDirectClasspath;
-  }
-
   /**
-   * Returns true if transitive classpath fallback should be an error when {@link
-   * #headerCompilationDirectClasspath} is enabled.
+   * If --java_header_compilation is set, report diagnostics from turbine instead of falling back to
+   * javac. Diagnostics will be produced more quickly, but may be less helpful.
    */
-  public boolean headerCompilationDirectClasspathFallbackError() {
-    return headerCompilationDirectClasspathFallbackError;
+  public boolean headerCompilationDisableJavacFallback() {
+    return headerCompilationDisableJavacFallback;
   }
 
   /**
@@ -384,12 +401,13 @@ public final class JavaConfiguration extends Fragment {
   }
 
   /**
-   * Returns true if Bazel should attempt to enforce one-version correctness on java_binary rules
-   * using the 'oneversion' tool in the java_toolchain. One-version correctness will inspect for
-   * multiple non-identical versions of java classes in the transitive dependencies for a
-   * java_binary.
+   * Returns an enum representing whether or not Bazel should attempt to enforce one-version
+   * correctness on java_binary rules using the 'oneversion' tool in the java_toolchain.
+   *
+   * One-version correctness will inspect for multiple non-identical versions of java classes in the
+   * transitive dependencies for a java_binary.
    */
-  public boolean isEnforceOneVersion() {
+  public OneVersionEnforcementLevel oneVersionEnforcementLevel() {
     return enforceOneVersion;
   }
 

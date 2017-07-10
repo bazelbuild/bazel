@@ -14,15 +14,15 @@
 """Rules for cloning external git repositories."""
 
 def _clone_or_update(ctx):
-  if ((ctx.attr.tag == "" and ctx.attr.commit == "") or
-      (ctx.attr.tag != "" and ctx.attr.commit != "")):
-    ctx.fail("Exactly one of commit and tag must be provided")
-  if ctx.attr.commit != "":
+  if ((not ctx.attr.tag and not ctx.attr.commit) or
+      (ctx.attr.tag and ctx.attr.commit)):
+    fail('Exactly one of commit and tag must be provided')
+  if ctx.attr.commit:
     ref = ctx.attr.commit
   else:
-    ref = "tags/" + ctx.attr.tag
+    ref = 'tags/' + ctx.attr.tag
 
-  st = ctx.execute(["bash", '-c', """
+  st = ctx.execute(['bash', '-c', """
 set -ex
 ( cd {working_dir} &&
     if ! ( cd '{dir}' && git rev-parse --git-dir ) >/dev/null 2>&1; then
@@ -33,54 +33,54 @@ set -ex
     git reset --hard {ref} || (git fetch && git reset --hard {ref})
     git clean -xdf )
   """.format(
-    working_dir=ctx.path(".").dirname,
-    dir=ctx.path("."),
-    remote=ctx.attr.remote,
-    ref=ref,
+      working_dir=ctx.path('.').dirname,
+      dir=ctx.path('.'),
+      remote=ctx.attr.remote,
+      ref=ref,
   )])
-  if st.return_code != 0:
-    fail("error cloning %s:\n%s" % (ctx.name, st.stderr))
+  if st.return_code:
+    fail('error cloning %s:\n%s' % (ctx.name, st.stderr))
   if ctx.attr.init_submodules:
-    st = ctx.execute(["bash", '-c', """
+    st = ctx.execute(['bash', '-c', """
 set -ex
 (   cd '{dir}'
     git submodule update --init --checkout --force )
   """.format(
-    dir=ctx.path("."),
-    )])
-    if st.return_code != 0:
-      fail("error updating submodules %s:\n%s" % (ctx.name, st.stderr))
+      dir=ctx.path('.'),
+  )])
+  if st.return_code:
+    fail('error updating submodules %s:\n%s' % (ctx.name, st.stderr))
 
 
 def _new_git_repository_implementation(ctx):
-  if ((ctx.attr.build_file == None and ctx.attr.build_file_content == '') or
-      (ctx.attr.build_file != None and ctx.attr.build_file_content != '')):
-    ctx.fail("Exactly one of build_file and build_file_content must be provided.")
+  if ((not ctx.attr.build_file and not ctx.attr.build_file_content) or
+      (ctx.attr.build_file and ctx.attr.build_file_content)):
+    fail('Exactly one of build_file and build_file_content must be provided.')
   _clone_or_update(ctx)
-  ctx.file('WORKSPACE', "workspace(name = \"{name}\")\n".format(name=ctx.name))
+  ctx.file('WORKSPACE', 'workspace(name = \'{name}\')\n'.format(name=ctx.name))
   if ctx.attr.build_file:
-    ctx.symlink(ctx.attr.build_file, 'BUILD')
+    ctx.symlink(ctx.attr.build_file, 'BUILD.bazel')
   else:
-    ctx.file('BUILD', ctx.attr.build_file_content)
+    ctx.file('BUILD.bazel', ctx.attr.build_file_content)
 
 def _git_repository_implementation(ctx):
   _clone_or_update(ctx)
 
 
 _common_attrs = {
-  "remote": attr.string(mandatory=True),
-  "commit": attr.string(default=""),
-  "tag": attr.string(default=""),
-  "init_submodules": attr.bool(default=False),
+    'remote': attr.string(mandatory=True),
+    'commit': attr.string(default=''),
+    'tag': attr.string(default=''),
+    'init_submodules': attr.bool(default=False),
 }
 
 
 new_git_repository = repository_rule(
-  implementation=_new_git_repository_implementation,
-  attrs=_common_attrs + {
-    "build_file": attr.label(),
-    "build_file_content": attr.string(),
-  }
+    implementation=_new_git_repository_implementation,
+    attrs=_common_attrs + {
+        'build_file': attr.label(),
+        'build_file_content': attr.string(),
+    }
 )
 """Clone an external git repository.
 
@@ -107,8 +107,8 @@ Args:
 """
 
 git_repository = repository_rule(
-  implementation=_git_repository_implementation,
-  attrs=_common_attrs,
+    implementation=_git_repository_implementation,
+    attrs=_common_attrs,
 )
 """Clone an external git repository.
 

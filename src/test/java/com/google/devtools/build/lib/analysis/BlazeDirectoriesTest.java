@@ -13,12 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -36,17 +35,17 @@ public class BlazeDirectoriesTest extends FoundationTestCase {
     Path outputBase = fs.getPath("/my/output");
     Path workspace = fs.getPath("/my/ws");
     BlazeDirectories directories = new BlazeDirectories(installBase, outputBase, workspace, "foo");
-    assertEquals(directories.getExecRoot(), outputBase.getChild("ws"));
+    assertThat(outputBase.getChild("ws")).isEqualTo(directories.getExecRoot());
 
     workspace = null;
     directories = new BlazeDirectories(installBase, outputBase, workspace, "foo");
-    assertEquals(directories.getExecRoot(),
-        outputBase.getChild(BlazeDirectories.DEFAULT_EXEC_ROOT));
+    assertThat(outputBase.getChild(BlazeDirectories.DEFAULT_EXEC_ROOT))
+        .isEqualTo(directories.getExecRoot());
 
     workspace = fs.getPath("/");
     directories = new BlazeDirectories(installBase, outputBase, workspace, "foo");
-    assertEquals(directories.getExecRoot(),
-        outputBase.getChild(BlazeDirectories.DEFAULT_EXEC_ROOT));
+    assertThat(outputBase.getChild(BlazeDirectories.DEFAULT_EXEC_ROOT))
+        .isEqualTo(directories.getExecRoot());
   }
 
 }

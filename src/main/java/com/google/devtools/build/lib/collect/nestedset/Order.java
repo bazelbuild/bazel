@@ -23,11 +23,11 @@ import java.util.HashMap;
  *
  *
  * <p>STABLE_ORDER: an unspecified traversal order. Use when the order of elements does not matter.
- * Called "default" or "stable" (deprecated) in Skylark.
+ * In Skylark it is called "default"; its older deprecated name is "stable".
  *
  *
- * <p>COMPILE_ORDER: left-to-right postorder. Called "postorder" or "compile" (deprecated) in
- * Skylark.
+ * <p>COMPILE_ORDER: left-to-right postorder. In Skylark it is called "postorder"; its older
+ * deprecated name is "compile".
  *
  * <p>For example, for the nested set {B, D, {A, C}}, the iteration order is "A C B D"
  * (child-first).
@@ -36,8 +36,8 @@ import java.util.HashMap;
  * the direct members of a set, for example in the case of Javascript dependencies.
  *
  *
- * <p>LINK_ORDER: a variation of left-to-right preorder that enforces topological sorting. Called
- * "topological" or "link" (deprecated) in Skylark.
+ * <p>LINK_ORDER: a variation of left-to-right preorder that enforces topological sorting. In
+ * Skylark it is called "topological"; its older deprecated name is "link".
  *
  * <p>For example, for the nested set {A, C, {B, D}}, the iteration order is "A C B D"
  * (parent-first).
@@ -89,8 +89,8 @@ import java.util.HashMap;
  * scenes, so the ordering in the final enumeration will be "E D".
  *
  *
- * <p>NAIVE_LINK_ORDER: a left-to-right preordering. Called "preorder" or "naive_link" (deprecated)
- * in Skylark.
+ * <p>NAIVE_LINK_ORDER: a left-to-right preordering. In Skylark it is called "preorder"; its older
+ * deprecated name is "naive_link".
  *
  * <p>For example, for the nested set {B, D, {A, C}}, the iteration order is "B D A C".
  *

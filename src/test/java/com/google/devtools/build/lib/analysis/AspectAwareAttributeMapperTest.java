@@ -84,7 +84,8 @@ public class AspectAwareAttributeMapperTest extends BuildViewTestCase {
       mapper.get("fromaspect", BuildType.LABEL_LIST);
       fail("Expected failure on wrong-typed attribute");
     } catch (IllegalArgumentException e) {
-      assertThat(e.getMessage())
+      assertThat(e)
+          .hasMessageThat()
           .isEqualTo("attribute fromaspect has type label, not expected type list(label)");
     }
   }
@@ -95,7 +96,8 @@ public class AspectAwareAttributeMapperTest extends BuildViewTestCase {
       mapper.get("noexist", BuildType.LABEL);
       fail("Expected failure on non-existent attribute");
     } catch (IllegalArgumentException e) {
-      assertThat(e.getMessage())
+      assertThat(e)
+          .hasMessageThat()
           .isEqualTo("no attribute 'noexist' in either //foo:myrule or its aspects");
     }
   }

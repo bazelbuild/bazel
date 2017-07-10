@@ -30,12 +30,10 @@ public interface PackageRootResolver {
    *     start with the path's parent directory, since the path is assumed to be a file.
    * @return mappings from {@code execPath} to {@link Root}, or null if for some reason we cannot
    *     determine the result at this time (such as when used within a SkyFunction)
-   * @throws PackageRootResolutionException if unable to determine package roots or lack thereof,
-   *     typically caused by exceptions encountered while attempting to locate BUILD files
    */
   @Nullable
   Map<PathFragment, Root> findPackageRootsForFiles(Iterable<PathFragment> execPaths)
-      throws PackageRootResolutionException, InterruptedException;
+      throws InterruptedException;
 
   /**
    * Returns mapping from execPath to Root. Root will be null if the path has no containing package.
@@ -46,11 +44,9 @@ public interface PackageRootResolver {
    *     start with the path's parent directory, since the path is assumed to be a file.
    * @return mappings from {@code execPath} to {@link Root}, or null if for some reason we cannot
    *     determine the result at this time (such as when used within a SkyFunction)
-   * @throws PackageRootResolutionException if unable to determine package roots or lack thereof,
-   *     typically caused by exceptions encountered while attempting to locate BUILD files
    */
   // TODO(bazel-team): Remove this once we don't need to find package roots for directories.
   @Nullable
   Map<PathFragment, Root> findPackageRoots(Iterable<PathFragment> execPaths)
-      throws PackageRootResolutionException, InterruptedException;
+      throws InterruptedException;
 }

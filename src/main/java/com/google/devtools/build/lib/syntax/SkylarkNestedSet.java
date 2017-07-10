@@ -19,11 +19,10 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -300,14 +299,6 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
     return (Collection<T>) toCollection();
   }
 
-  @SkylarkCallable(
-      name = "to_list",
-      doc = "Returns a frozen list of the elements, without duplicates, in the depset's traversal "
-          + "order.")
-  public MutableList<Object> skylarkToList() {
-    return new MutableList<Object>(set, null);
-  }
-
   public boolean isEmpty() {
     return set.isEmpty();
   }
@@ -331,14 +322,15 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
   }
 
   @Override
-  public void write(Appendable buffer, char quotationMark) {
-    Printer.append(buffer, "depset(");
-    Printer.printList(buffer, set, "[", ", ", "]", null, quotationMark);
+  public void repr(SkylarkPrinter printer) {
+    printer.append("depset(");
+    printer.printList(set, "[", ", ", "]", null);
     Order order = getOrder();
     if (order != Order.STABLE_ORDER) {
-      Printer.append(buffer, ", order = \"" + order.getSkylarkName() + "\"");
+      printer.append(", order = ");
+      printer.repr(order.getSkylarkName());
     }
-    Printer.append(buffer, ")");
+    printer.append(")");
   }
 
   @Override

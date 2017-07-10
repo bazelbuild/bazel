@@ -45,11 +45,17 @@ public class CcProtoLibrary implements RuleConfiguredTargetFactory {
         checkNotNull(ruleContext.getPrerequisite("deps", TARGET))
             .getProvider(CcProtoLibraryProviders.class);
 
-    return new RuleConfiguredTargetBuilder(ruleContext)
+    RuleConfiguredTargetBuilder ruleConfiguredTargetBuilder = new RuleConfiguredTargetBuilder(
+        ruleContext)
         .setFilesToBuild(depProviders.filesBuilder)
         .addProvider(
             RunfilesProvider.class, RunfilesProvider.withData(Runfiles.EMPTY, Runfiles.EMPTY))
-        .addProviders(depProviders.providerMap)
+        .addProviders(depProviders.providerMap);
+    for (String groupName : depProviders.outputGroupProvider) {
+      ruleConfiguredTargetBuilder.addOutputGroup(groupName,
+          depProviders.outputGroupProvider.getOutputGroup(groupName));
+    }
+    return ruleConfiguredTargetBuilder
         .addSkylarkTransitiveInfo(CcSkylarkApiProvider.NAME, new CcSkylarkApiProvider())
         .build();
   }

@@ -260,17 +260,11 @@ public final class BuildConfigurationCollection {
      * in which they must co-exist. Once dynamic configurations are production-ready, we'll remove
      * the static configuration code entirely.
      */
-    protected Transition getDynamicTransition(Transition transition) {
-      Preconditions.checkState(configuration.useDynamicConfigurations());
-      if (transition == Attribute.ConfigurationTransition.NONE) {
-        return transition;
-      } else if (transition == Attribute.ConfigurationTransition.NULL) {
-        return transition;
-      } else if (transition == Attribute.ConfigurationTransition.HOST) {
-        return HostTransition.INSTANCE;
-      } else {
-        throw new UnsupportedOperationException("No dynamic mapping for " + transition.toString());
-      }
+    @Deprecated
+    public Transition getDynamicTransition(Transition transition) {
+      // Keep this interface for now because some other dead code is still calling it.
+      throw new UnsupportedOperationException(
+          "This interface is no longer supported and will be removed soon.");
     }
 
     /**

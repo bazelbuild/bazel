@@ -74,10 +74,10 @@ bool InputJar::Open(const std::string &path) {
    */
 
   // First, sanity checks.
-  uint64_t cen_position = ecd->cen_offset32();
+  uint32_t cen_position = ecd->cen_offset32();
   if (!ziph::zfield_has_ext64(cen_position)) {
     if (!mapped_file_.mapped(mapped_file_.address(cen_position))) {
-      diag_warnx("%s:%d: %s is corrupt: Central Directory location 0x%" PRIx64
+      diag_warnx("%s:%d: %s is corrupt: Central Directory location 0x%" PRIx32
                  " is invalid",
                  __FILE__, __LINE__, path.c_str(), cen_position);
       mapped_file_.Close();
@@ -85,17 +85,17 @@ bool InputJar::Open(const std::string &path) {
     }
     if (mapped_file_.offset(ecd) < cen_position) {
       diag_warnx("%s:%d: %s is corrupt: End of Central Directory at 0x%" PRIx64
-                 " precedes Central Directory at 0x%" PRIx64,
+                 " precedes Central Directory at 0x%" PRIx32,
                  __FILE__, __LINE__, path.c_str(), mapped_file_.offset(ecd),
                  cen_position);
       mapped_file_.Close();
       return false;
     }
   }
-  uint64_t cen_size = ecd->cen_size32();
+  uint32_t cen_size = ecd->cen_size32();
   if (!ziph::zfield_has_ext64(cen_size)) {
     if (cen_size > mapped_file_.offset(ecd)) {
-      diag_warnx("%s:%d: %s is corrupt: Central Directory size 0x%" PRIx64
+      diag_warnx("%s:%d: %s is corrupt: Central Directory size 0x%" PRIx32
                  " is too large",
                  __FILE__, __LINE__, path.c_str(), cen_size);
       mapped_file_.Close();

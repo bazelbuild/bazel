@@ -76,6 +76,10 @@ mkdir -p "$(dirname "$XML_OUTPUT_FILE")" \
     "$TEST_UNDECLARED_OUTPUTS_DIR" \
     "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR"
 
+# Create the test temp directory, which may not exist on the remote host when
+# doing a remote build.
+mkdir -p "$TEST_TMPDIR"
+
 # Unexport environment variables related to undeclared test outputs that are
 # only supposed to be used in this script.
 export -n TEST_UNDECLARED_OUTPUTS_MANIFEST
@@ -157,11 +161,13 @@ fi
 [[ -n "$RUNTEST_PRESERVE_CWD" ]] && EXE="${TEST_NAME}"
 
 exitCode=0
+start=$(date +%s)
 if [ -z "$COVERAGE_DIR" ]; then
   "${TEST_PATH}" "$@" || exitCode=$?
 else
   "$1" "$TEST_PATH" "${@:3}" || exitCode=$?
 fi
+duration=$(expr $(date +%s) - $start)
 
 
 if [ -n "${XML_OUTPUT_FILE-}" -a ! -f "${XML_OUTPUT_FILE-}" ]; then
@@ -173,11 +179,16 @@ if [ -n "${XML_OUTPUT_FILE-}" -a ! -f "${XML_OUTPUT_FILE-}" ]; then
     errors=0
     error_msg=
   fi
+  # Ensure that test shards have unique names in the xml output.
+  if [[ -n "${TEST_TOTAL_SHARDS+x}" ]] && ((TEST_TOTAL_SHARDS != 0)); then
+    ((shard_num=TEST_SHARD_INDEX+1))
+    TEST_NAME="$TEST_NAME"_shard_"$shard_num"/"$TEST_TOTAL_SHARDS"
+  fi
   cat <<EOF >${XML_OUTPUT_FILE}
 <?xml version="1.0" encoding="UTF-8"?>
 <testsuites>
   <testsuite name="$TEST_NAME" tests="1" failures="0" errors="$errors">
-    <testcase name="$TEST_NAME" status="run">$error_msg</testcase>
+    <testcase name="$TEST_NAME" status="run" duration="$duration">$error_msg</testcase>
   </testsuite>
 </testsuites>
 EOF

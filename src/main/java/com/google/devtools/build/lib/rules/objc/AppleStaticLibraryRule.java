@@ -82,7 +82,7 @@ public class AppleStaticLibraryRule implements RuleDefinition {
         .add(
             attr(AVOID_DEPS_ATTR_NAME, LABEL_LIST)
                 .direct_compile_time_input()
-                .allowedRuleClasses(ObjcRuleClasses.CompilingRule.ALLOWED_DEPS_RULE_CLASSES)
+                .allowedRuleClasses(ObjcRuleClasses.CompilingRule.ALLOWED_CC_DEPS_RULE_CLASSES)
                 .mandatoryNativeProviders(
                     ImmutableList.<Class<? extends TransitiveInfoProvider>>of(ObjcProvider.class))
                 .cfg(splitTransitionProvider)

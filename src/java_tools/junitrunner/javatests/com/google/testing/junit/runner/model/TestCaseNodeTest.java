@@ -14,10 +14,7 @@
 
 package com.google.testing.junit.runner.model;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -44,7 +41,7 @@ public class TestCaseNodeTest {
 
   @Test
   public void assertIsTestCase() {
-    assertTrue(new TestCaseNode(testCase, new TestSuiteNode(suite)).isTestCase());
+    assertThat(new TestCaseNode(testCase, new TestSuiteNode(suite)).isTestCase()).isTrue();
   }
 
   @Test
@@ -144,16 +141,16 @@ public class TestCaseNodeTest {
   private void assertStatusAndTiming(
       TestCaseNode testCase, TestResult.Status status, long start, long duration) {
     TestResult result = testCase.getResult();
-    assertEquals(status, result.getStatus());
-    assertNotNull(result.getRunTimeInterval());
-    assertEquals(start, result.getRunTimeInterval().getStartMillis());
-    assertEquals(duration, result.getRunTimeInterval().toDurationMillis());
+    assertThat(result.getStatus()).isEqualTo(status);
+    assertThat(result.getRunTimeInterval()).isNotNull();
+    assertThat(result.getRunTimeInterval().getStartMillis()).isEqualTo(start);
+    assertThat(result.getRunTimeInterval().toDurationMillis()).isEqualTo(duration);
   }
 
   private void assertStatusWithoutTiming(TestCaseNode testCase, TestResult.Status status) {
     TestResult result = testCase.getResult();
-    assertEquals(status, result.getStatus());
-    assertNull(result.getRunTimeInterval());
+    assertThat(result.getStatus()).isEqualTo(status);
+    assertThat(result.getRunTimeInterval()).isNull();
   }
 
   static class TestSuite {

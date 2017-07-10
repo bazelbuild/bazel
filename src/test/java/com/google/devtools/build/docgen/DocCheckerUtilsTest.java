@@ -13,8 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.docgen;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
+import static com.google.common.truth.Truth.assertThat;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -28,17 +27,19 @@ public class DocCheckerUtilsTest {
 
   @Test
   public void testUnclosedTags() {
-    assertNull(DocCheckerUtils.getFirstUnclosedTag("<html></html>"));
-    assertEquals("ol", DocCheckerUtils.getFirstUnclosedTag("<html><ol></html>"));
-    assertEquals("ol", DocCheckerUtils.getFirstUnclosedTag("<html><ol><li>foo</li></html>"));
-    assertEquals("ol", DocCheckerUtils.getFirstUnclosedTag("<html><ol><li/>foo<li/>bar</html>"));
+    assertThat(DocCheckerUtils.getFirstUnclosedTag("<html></html>")).isNull();
+    assertThat(DocCheckerUtils.getFirstUnclosedTag("<html><ol></html>")).isEqualTo("ol");
+    assertThat(DocCheckerUtils.getFirstUnclosedTag("<html><ol><li>foo</li></html>"))
+        .isEqualTo("ol");
+    assertThat(DocCheckerUtils.getFirstUnclosedTag("<html><ol><li/>foo<li/>bar</html>"))
+        .isEqualTo("ol");
   }
 
   @Test
   public void testUncheckedTagsDontFire() {
-    assertNull(DocCheckerUtils.getFirstUnclosedTag("<html><br></html>"));
-    assertNull(DocCheckerUtils.getFirstUnclosedTag("<html><li></html>"));
-    assertNull(DocCheckerUtils.getFirstUnclosedTag("<html><ul></html>"));
-    assertNull(DocCheckerUtils.getFirstUnclosedTag("<html><p></html>"));
+    assertThat(DocCheckerUtils.getFirstUnclosedTag("<html><br></html>")).isNull();
+    assertThat(DocCheckerUtils.getFirstUnclosedTag("<html><li></html>")).isNull();
+    assertThat(DocCheckerUtils.getFirstUnclosedTag("<html><ul></html>")).isNull();
+    assertThat(DocCheckerUtils.getFirstUnclosedTag("<html><p></html>")).isNull();
   }
 }

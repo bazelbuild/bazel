@@ -14,9 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
@@ -64,11 +62,12 @@ public class DiffAwarenessManagerTest {
     Path pathEntry = root.getRelative("pathEntry");
     DiffAwarenessFactoryStub factory = new DiffAwarenessFactoryStub();
     DiffAwarenessManager manager = new DiffAwarenessManager(ImmutableList.of(factory));
-    assertEquals(
-        "Expected EVERYTHING_MODIFIED since there are no factories",
-        ModifiedFileSet.EVERYTHING_MODIFIED,
-        manager.getDiff(events.reporter(), pathEntry, OptionsClassProvider.EMPTY)
-            .getModifiedFileSet());
+    assertWithMessage("Expected EVERYTHING_MODIFIED since there are no factories")
+        .that(
+            manager
+                .getDiff(events.reporter(), pathEntry, OptionsClassProvider.EMPTY)
+                .getModifiedFileSet())
+        .isEqualTo(ModifiedFileSet.EVERYTHING_MODIFIED);
     events.assertNoWarningsOrErrors();
   }
 
@@ -82,12 +81,18 @@ public class DiffAwarenessManagerTest {
     factory.inject(pathEntry, diffAwareness1);
     DiffAwarenessManager manager = new DiffAwarenessManager(ImmutableList.of(factory));
     manager.getDiff(events.reporter(), pathEntry, OptionsClassProvider.EMPTY);
-    assertFalse("diffAwareness1 shouldn't have been closed yet", diffAwareness1.closed());
+    assertWithMessage("diffAwareness1 shouldn't have been closed yet")
+        .that(diffAwareness1.closed())
+        .isFalse();
     manager.reset();
-    assertTrue("diffAwareness1 should have been closed by reset", diffAwareness1.closed());
+    assertWithMessage("diffAwareness1 should have been closed by reset")
+        .that(diffAwareness1.closed())
+        .isTrue();
     factory.inject(pathEntry, diffAwareness2);
     manager.getDiff(events.reporter(), pathEntry, OptionsClassProvider.EMPTY);
-    assertFalse("diffAwareness2 shouldn't have been closed yet", diffAwareness2.closed());
+    assertWithMessage("diffAwareness2 shouldn't have been closed yet")
+        .that(diffAwareness2.closed())
+        .isFalse();
     events.assertNoWarningsOrErrors();
   }
 
@@ -104,25 +109,26 @@ public class DiffAwarenessManagerTest {
     DiffAwarenessManager manager = new DiffAwarenessManager(ImmutableList.of(factory));
     ProcessableModifiedFileSet firstProcessableDiff =
         manager.getDiff(events.reporter(), pathEntry, OptionsClassProvider.EMPTY);
-    assertEquals(
-        "Expected EVERYTHING_MODIFIED on first call to getDiff",
-        ModifiedFileSet.EVERYTHING_MODIFIED,
-        firstProcessableDiff.getModifiedFileSet());
+    assertWithMessage("Expected EVERYTHING_MODIFIED on first call to getDiff")
+        .that(firstProcessableDiff.getModifiedFileSet())
+        .isEqualTo(ModifiedFileSet.EVERYTHING_MODIFIED);
     firstProcessableDiff.markProcessed();
     ProcessableModifiedFileSet processableDiff1 =
         manager.getDiff(events.reporter(), pathEntry, OptionsClassProvider.EMPTY);
-    assertEquals(diff1, processableDiff1.getModifiedFileSet());
+    assertThat(processableDiff1.getModifiedFileSet()).isEqualTo(diff1);
     ProcessableModifiedFileSet processableDiff2 =
         manager.getDiff(events.reporter(), pathEntry, OptionsClassProvider.EMPTY);
-    assertEquals(ModifiedFileSet.union(diff1, diff2), processableDiff2.getModifiedFileSet());
+    assertThat(processableDiff2.getModifiedFileSet())
+        .isEqualTo(ModifiedFileSet.union(diff1, diff2));
     processableDiff2.markProcessed();
     ProcessableModifiedFileSet processableDiff3 =
         manager.getDiff(events.reporter(), pathEntry, OptionsClassProvider.EMPTY);
-    assertEquals(diff3, processableDiff3.getModifiedFileSet());
+    assertThat(processableDiff3.getModifiedFileSet()).isEqualTo(diff3);
     events.assertNoWarningsOrErrors();
     ProcessableModifiedFileSet processableDiff4 =
         manager.getDiff(events.reporter(), pathEntry, OptionsClassProvider.EMPTY);
-    assertEquals(ModifiedFileSet.EVERYTHING_MODIFIED, processableDiff4.getModifiedFileSet());
+    assertThat(processableDiff4.getModifiedFileSet())
+        .isEqualTo(ModifiedFileSet.EVERYTHING_MODIFIED);
     events.assertContainsWarning("error");
   }
 
@@ -148,50 +154,45 @@ public class DiffAwarenessManagerTest {
     ProcessableModifiedFileSet processableDiff =
         manager.getDiff(events.reporter(), pathEntry, OptionsClassProvider.EMPTY);
     events.assertNoWarningsOrErrors();
-    assertEquals(
-        "Expected EVERYTHING_MODIFIED on first call to getDiff for diffAwareness1",
-        ModifiedFileSet.EVERYTHING_MODIFIED,
-        processableDiff.getModifiedFileSet());
+    assertWithMessage("Expected EVERYTHING_MODIFIED on first call to getDiff for diffAwareness1")
+        .that(processableDiff.getModifiedFileSet())
+        .isEqualTo(ModifiedFileSet.EVERYTHING_MODIFIED);
     processableDiff.markProcessed();
 
     processableDiff = manager.getDiff(events.reporter(), pathEntry, OptionsClassProvider.EMPTY);
     events.assertContainsEventWithFrequency("error in getCurrentView", 1);
-    assertEquals(
-        "Expected EVERYTHING_MODIFIED because of broken getCurrentView",
-        ModifiedFileSet.EVERYTHING_MODIFIED,
-        processableDiff.getModifiedFileSet());
+    assertWithMessage("Expected EVERYTHING_MODIFIED because of broken getCurrentView")
+        .that(processableDiff.getModifiedFileSet())
+        .isEqualTo(ModifiedFileSet.EVERYTHING_MODIFIED);
     processableDiff.markProcessed();
     factory1.remove(pathEntry);
 
     processableDiff = manager.getDiff(events.reporter(), pathEntry, OptionsClassProvider.EMPTY);
-    assertEquals(
-        "Expected EVERYTHING_MODIFIED on first call to getDiff for diffAwareness2",
-        ModifiedFileSet.EVERYTHING_MODIFIED,
-        processableDiff.getModifiedFileSet());
+    assertWithMessage("Expected EVERYTHING_MODIFIED on first call to getDiff for diffAwareness2")
+        .that(processableDiff.getModifiedFileSet())
+        .isEqualTo(ModifiedFileSet.EVERYTHING_MODIFIED);
     processableDiff.markProcessed();
 
     processableDiff = manager.getDiff(events.reporter(), pathEntry, OptionsClassProvider.EMPTY);
-    assertEquals(diff2, processableDiff.getModifiedFileSet());
+    assertThat(processableDiff.getModifiedFileSet()).isEqualTo(diff2);
     processableDiff.markProcessed();
 
     processableDiff = manager.getDiff(events.reporter(), pathEntry, OptionsClassProvider.EMPTY);
     events.assertContainsEventWithFrequency("error in getDiff", 1);
-    assertEquals(
-        "Expected EVERYTHING_MODIFIED because of broken getDiff",
-        ModifiedFileSet.EVERYTHING_MODIFIED,
-        processableDiff.getModifiedFileSet());
+    assertWithMessage("Expected EVERYTHING_MODIFIED because of broken getDiff")
+        .that(processableDiff.getModifiedFileSet())
+        .isEqualTo(ModifiedFileSet.EVERYTHING_MODIFIED);
     processableDiff.markProcessed();
     factory2.remove(pathEntry);
 
     processableDiff = manager.getDiff(events.reporter(), pathEntry, OptionsClassProvider.EMPTY);
-    assertEquals(
-        "Expected EVERYTHING_MODIFIED on first call to getDiff for diffAwareness3",
-        ModifiedFileSet.EVERYTHING_MODIFIED,
-        processableDiff.getModifiedFileSet());
+    assertWithMessage("Expected EVERYTHING_MODIFIED on first call to getDiff for diffAwareness3")
+        .that(processableDiff.getModifiedFileSet())
+        .isEqualTo(ModifiedFileSet.EVERYTHING_MODIFIED);
     processableDiff.markProcessed();
 
     processableDiff = manager.getDiff(events.reporter(), pathEntry, OptionsClassProvider.EMPTY);
-    assertEquals(diff3, processableDiff.getModifiedFileSet());
+    assertThat(processableDiff.getModifiedFileSet()).isEqualTo(diff3);
     processableDiff.markProcessed();
   }
 

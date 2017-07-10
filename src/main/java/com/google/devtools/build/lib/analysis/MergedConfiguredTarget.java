@@ -13,16 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.packages.ClassObjectConstructor;
+import com.google.devtools.build.lib.packages.ClassObjectConstructor.Key;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import javax.annotation.Nullable;
+import java.util.function.Consumer;
 
 /**
  * A single dependency with its configured target and aspects merged together.
@@ -51,18 +50,6 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
     this.providers = providers;
   }
 
-  /** Returns a value provided by this target. Only meant to use from Skylark. */
-  @Override
-  public Object get(String providerKey) {
-    return getProvider(SkylarkProviders.class).getValue(providerKey);
-  }
-
-  @Nullable
-  @Override
-  public SkylarkClassObject get(ClassObjectConstructor.Key providerKey) {
-    return getProvider(SkylarkProviders.class).getDeclaredProvider(providerKey);
-  }
-
   @Override
   public <P extends TransitiveInfoProvider> P getProvider(Class<P> providerClass) {
     AnalysisUtils.checkProvider(providerClass);
@@ -76,13 +63,35 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @Override
-  public ImmutableCollection<String> getKeys() {
-    return ImmutableList.<String>builder()
-        .addAll(super.getKeys())
-        .addAll(getProvider(SkylarkProviders.class).getKeys())
-        .build();
+  protected void addExtraSkylarkKeys(Consumer<String> result) {
+    if (base instanceof AbstractConfiguredTarget) {
+      ((AbstractConfiguredTarget) base).addExtraSkylarkKeys(result);
+    }
+    for (int i = 0; i < providers.getProviderCount(); i++) {
+      Object classAt = providers.getProviderKeyAt(i);
+      if (classAt instanceof String) {
+        result.accept((String) classAt);
+      }
+    }
   }
 
+  @Override
+  protected SkylarkClassObject rawGetSkylarkProvider(ClassObjectConstructor.Key providerKey) {
+    SkylarkClassObject provider = providers.getProvider(providerKey);
+    if (provider == null) {
+      provider = base.get(providerKey);
+    }
+    return provider;
+  }
+
+  @Override
+  protected Object rawGetSkylarkProvider(String providerKey) {
+    Object provider = providers.getProvider(providerKey);
+    if (provider == null) {
+      provider = base.get(providerKey);
+    }
+    return provider;
+  }
 
   /** Creates an instance based on a configured target and a set of aspects. */
   public static ConfiguredTarget of(ConfiguredTarget base, Iterable<ConfiguredAspect> aspects)
@@ -94,52 +103,73 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
 
     // Merge output group providers.
     OutputGroupProvider mergedOutputGroupProvider =
-        OutputGroupProvider.merge(getAllProviders(base, aspects, OutputGroupProvider.class));
-
-    // Merge Skylark providers.
-    ImmutableMap<String, Object> premergedProviders =
-        mergedOutputGroupProvider == null
-        ? ImmutableMap.<String, Object>of()
-        : ImmutableMap.<String, Object>of(
-            OutputGroupProvider.SKYLARK_NAME, mergedOutputGroupProvider);
-    SkylarkProviders mergedSkylarkProviders =
-        SkylarkProviders.merge(
-            premergedProviders,
-            getAllProviders(base, aspects, SkylarkProviders.class));
+        OutputGroupProvider.merge(getAllOutputGroupProviders(base, aspects));
 
     // Merge extra-actions provider.
     ExtraActionArtifactsProvider mergedExtraActionProviders = ExtraActionArtifactsProvider.merge(
         getAllProviders(base, aspects, ExtraActionArtifactsProvider.class));
 
-    TransitiveInfoProviderMap.Builder aspectProviders = TransitiveInfoProviderMap.builder();
+    TransitiveInfoProviderMapBuilder aspectProviders = new TransitiveInfoProviderMapBuilder();
     if (mergedOutputGroupProvider != null) {
       aspectProviders.add(mergedOutputGroupProvider);
-    }
-    if (mergedSkylarkProviders != null) {
-      aspectProviders.add(mergedSkylarkProviders);
     }
     if (mergedExtraActionProviders != null) {
       aspectProviders.add(mergedExtraActionProviders);
     }
 
     for (ConfiguredAspect aspect : aspects) {
-      for (Map.Entry<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> entry :
-          aspect.getProviders().entrySet()) {
-        Class<? extends TransitiveInfoProvider> providerClass = entry.getKey();
-        if (OutputGroupProvider.class.equals(providerClass)
-            || SkylarkProviders.class.equals(providerClass)
-            || ExtraActionArtifactsProvider.class.equals(providerClass)) {
+      TransitiveInfoProviderMap providers = aspect.getProviders();
+      for (int i = 0; i < providers.getProviderCount(); ++i) {
+        Object providerKey = providers.getProviderKeyAt(i);
+        if (OutputGroupProvider.class.equals(providerKey)
+            || ExtraActionArtifactsProvider.class.equals(providerKey)) {
           continue;
         }
 
-        if (base.getProvider(providerClass) != null || aspectProviders.contains(providerClass)) {
-          throw new IllegalStateException("Provider " + providerClass + " provided twice");
+        if (providerKey instanceof Class<?>) {
+          @SuppressWarnings("unchecked")
+          Class<? extends TransitiveInfoProvider> providerClass =
+              (Class<? extends TransitiveInfoProvider>) providerKey;
+          if (base.getProvider(providerClass) != null
+              || aspectProviders.contains(providerClass)) {
+            throw new DuplicateException("Provider " + providerKey + " provided twice");
+          }
+          aspectProviders.put(
+              providerClass, (TransitiveInfoProvider) providers.getProviderInstanceAt(i));
+        } else if (providerKey instanceof String) {
+          String legacyId = (String) providerKey;
+          if (base.get(legacyId) != null || aspectProviders.contains(legacyId)) {
+            throw new DuplicateException("Provider " + legacyId + " provided twice");
+          }
+          aspectProviders.put(legacyId, providers.getProviderInstanceAt(i));
+        } else if (providerKey instanceof ClassObjectConstructor.Key) {
+          ClassObjectConstructor.Key key = (Key) providerKey;
+          if (base.get(key) != null || aspectProviders.contains(key)) {
+            throw new DuplicateException("Provider " + key + " provided twice");
+          }
+          aspectProviders.put((SkylarkClassObject) providers.getProviderInstanceAt(i));
         }
-
-        aspectProviders.add(entry.getValue());
       }
     }
     return new MergedConfiguredTarget(base, aspectProviders.build());
+  }
+
+  private static ImmutableList<OutputGroupProvider> getAllOutputGroupProviders(
+      ConfiguredTarget base, Iterable<ConfiguredAspect> aspects) {
+    OutputGroupProvider baseProvider = OutputGroupProvider.get(base);
+    ImmutableList.Builder<OutputGroupProvider> providers = ImmutableList.builder();
+    if (baseProvider != null) {
+      providers.add(baseProvider);
+    }
+
+    for (ConfiguredAspect configuredAspect : aspects) {
+      OutputGroupProvider aspectProvider = OutputGroupProvider.get(configuredAspect);;
+      if (aspectProvider == null) {
+        continue;
+      }
+      providers.add(aspectProvider);
+    }
+    return providers.build();
   }
 
   private static <T extends TransitiveInfoProvider> List<T> getAllProviders(
@@ -158,5 +188,10 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
       providers.add(aspectProvider);
     }
     return providers;
+  }
+
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    printer.append("<merged target " + getLabel() + ">");
   }
 }

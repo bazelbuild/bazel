@@ -29,11 +29,11 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Interners;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MutableClassToInstanceMap;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -42,6 +42,11 @@ import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection.Transitions;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
+import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -63,10 +68,8 @@ import com.google.devtools.build.lib.rules.test.TestActionBuilder;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.util.CPU;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.Path;
@@ -75,8 +78,12 @@ import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
+import com.google.devtools.common.options.proto.OptionFilters.OptionMetadataTag;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -118,7 +125,7 @@ import javax.annotation.Nullable;
     category = SkylarkModuleCategory.BUILTIN,
     doc = "Data required for the analysis of a target that comes from targets that "
         + "depend on it and not targets that it depends on.")
-public final class BuildConfiguration {
+public final class BuildConfiguration implements BuildEvent {
   /**
    * An interface for language-specific configurations.
    *
@@ -160,10 +167,11 @@ public final class BuildConfiguration {
     }
 
     /**
-     * Add items to the shell environment.
+     * Add items to the action environment.
+     *
+     * @param builder the map to add environment variables to
      */
-    @SuppressWarnings("unused")
-    public void setupShellEnvironment(ImmutableMap.Builder<String, String> builder) {
+    public void setupActionEnvironment(Map<String, String> builder) {
     }
 
     /**
@@ -198,6 +206,32 @@ public final class BuildConfiguration {
      */
     public boolean compatibleWithStrategy(String strategyName) {
       return true;
+    }
+
+    /**
+     * Returns the transition that produces the "artifact owner" for this configuration, or null
+     * if this configuration is its own owner.
+     *
+     * <p>If multiple fragments return the same transition, that transition is only applied
+     * once. Multiple fragments may not return different non-null transitions.
+     */
+    @Nullable
+    public PatchTransition getArtifactOwnerTransition() {
+      return null;
+    }
+
+    /**
+     * Returns an extra transition that should apply to top-level targets in this
+     * configuration. Returns null if no transition is needed.
+     *
+     * <p>Overriders should not change {@link FragmentOptions} not associated with their fragment.
+     *
+     * <p>If multiple fragments specify a transition, they're composed together in a
+     * deterministic but undocumented order (so don't write code expecting a specific order).
+     */
+    @Nullable
+    public PatchTransition topLevelConfigurationHook(Target toTarget) {
+      return null;
     }
   }
 
@@ -410,59 +444,6 @@ public final class BuildConfiguration {
   }
 
   /**
-   * Converter to auto-detect the cpu of the machine on which Bazel runs.
-   *
-   * <p>If the compilation happens remotely then the cpu of the remote machine might be different
-   * from the auto-detected one and the --cpu and --host_cpu options must be set explicitly.
-   */
-  public static class AutoCpuConverter implements Converter<String> {
-    @Override
-    public String convert(String input) throws OptionsParsingException {
-      if (input.isEmpty()) {
-        // TODO(philwo) - replace these deprecated names with more logical ones (e.g. k8 becomes
-        // linux-x86_64, darwin includes the CPU architecture, ...).
-        switch (OS.getCurrent()) {
-          case DARWIN:
-            return "darwin";
-          case FREEBSD:
-            return "freebsd";
-          case WINDOWS:
-            switch (CPU.getCurrent()) {
-              case X86_64:
-                return "x64_windows";
-              default:
-                // We only support x64 Windows for now.
-                return "unknown";
-            }
-          case LINUX:
-            switch (CPU.getCurrent()) {
-              case X86_32:
-                return "piii";
-              case X86_64:
-                return "k8";
-              case PPC:
-                return "ppc";
-              case ARM:
-                return "arm";
-              case S390X:
-                return "s390x";
-              default:
-                return "unknown";
-            }
-          default:
-            return "unknown";
-        }
-      }
-      return input;
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "a string";
-    }
-  }
-
-  /**
    * Options that affect the value of a BuildConfiguration instance.
    *
    * <p>(Note: any client that creates a view will also need to declare
@@ -479,123 +460,181 @@ public final class BuildConfiguration {
    */
   public static class Options extends FragmentOptions implements Cloneable {
     @Option(
-        name = "define",
-        converter = Converters.AssignmentConverter.class,
-        defaultValue = "",
-        category = "semantics",
-        allowMultiple = true,
-        help = "Each --define option specifies an assignment for a build variable."
+      name = "define",
+      converter = Converters.AssignmentConverter.class,
+      defaultValue = "",
+      category = "semantics",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Each --define option specifies an assignment for a build variable."
     )
     public List<Map.Entry<String, String>> commandLineBuildVariables;
 
-    @Option(name = "cpu",
-        defaultValue = "",
-        category = "semantics",
-        converter = AutoCpuConverter.class,
-        help = "The target CPU.")
+    @Option(
+      name = "cpu",
+      defaultValue = "",
+      category = "semantics",
+      converter = AutoCpuConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "The target CPU."
+    )
     public String cpu;
 
     /**
      * Allows a configuration to record if --experimental_multi_cpu was used to set a cpu value.
-     * This is necessary to ensure that a configuration transition that sets cpu does not erase
-     * the difference between a pair of configurations created by --experimental_multi_cpu, leading
-     * to a crash when the configurations are treated as the same.
+     * This is necessary to ensure that a configuration transition that sets cpu does not erase the
+     * difference between a pair of configurations created by --experimental_multi_cpu, leading to a
+     * crash when the configurations are treated as the same.
      *
      * <p>TODO(b/33780512): Remove once dynamic configurations are used.
      */
-    @Option(name = "experimental multi cpu distinguisher",
-        defaultValue = "",
-        category = "internal")
+    @Option(
+      name = "experimental multi cpu distinguisher",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      optionUsageRestrictions = OptionUsageRestrictions.INTERNAL
+    )
     public String experimentalMultiCpuDistinguisher;
 
-    @Option(name = "min_param_file_size",
-        defaultValue = "32768",
-        category = "undocumented",
-        help = "Minimum command line length before creating a parameter file.")
+    @Option(
+      name = "min_param_file_size",
+      defaultValue = "32768",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Minimum command line length before creating a parameter file."
+    )
     public int minParamFileSize;
 
-    @Option(name = "experimental_extended_sanity_checks",
-        defaultValue = "false",
-        category = "undocumented",
-        help  = "Enables internal validation checks to make sure that configured target "
-            + "implementations only access things they should. Causes a performance hit.")
+    @Option(
+      name = "experimental_extended_sanity_checks",
+      defaultValue = "false",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Enables internal validation checks to make sure that configured target "
+              + "implementations only access things they should. Causes a performance hit."
+    )
     public boolean extendedSanityChecks;
 
-    @Option(name = "experimental_allow_runtime_deps_on_neverlink",
-        defaultValue = "true",
-        category = "undocumented",
-        help = "Flag to help transition from allowing to disallowing runtime_deps on neverlink"
-            + " Java archives. The depot needs to be cleaned up to roll this out by default.")
+    @Option(
+      name = "experimental_allow_runtime_deps_on_neverlink",
+      defaultValue = "true",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Flag to help transition from allowing to disallowing runtime_deps on neverlink"
+              + " Java archives. The depot needs to be cleaned up to roll this out by default."
+    )
     public boolean allowRuntimeDepsOnNeverLink;
 
-    @Option(name = "strict_filesets",
-        defaultValue = "false",
-        category = "semantics",
-        help = "If this option is enabled, filesets crossing package boundaries are reported "
-            + "as errors. It does not work when check_fileset_dependencies_recursively is "
-            + "disabled.")
+    @Option(
+      name = "strict_filesets",
+      defaultValue = "false",
+      category = "semantics",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If this option is enabled, filesets crossing package boundaries are reported "
+              + "as errors. It does not work when check_fileset_dependencies_recursively is "
+              + "disabled."
+    )
     public boolean strictFilesets;
 
     // Plugins are build using the host config. To avoid cycles we just don't propagate
     // this option to the host config. If one day we decide to use plugins when building
     // host tools, we can improve this by (for example) creating a compiler configuration that is
     // used only for building plugins.
-    @Option(name = "plugin",
-        converter = LabelConverter.class,
-        allowMultiple = true,
-        defaultValue = "",
-        category = "flags",
-        help = "Plugins to use in the build. Currently works with java_plugin.")
+    @Option(
+      name = "plugin",
+      converter = LabelListConverter.class,
+      allowMultiple = true,
+      defaultValue = "",
+      category = "flags",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Plugins to use in the build. Currently works with java_plugin."
+    )
     public List<Label> pluginList;
 
-    @Option(name = "plugin_copt",
-        converter = PluginOptionConverter.class,
-        allowMultiple = true,
-        category = "flags",
-        defaultValue = ":",
-        help = "Plugin options")
+    @Option(
+      name = "plugin_copt",
+      converter = PluginOptionConverter.class,
+      allowMultiple = true,
+      category = "flags",
+      defaultValue = ":",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Plugin options"
+    )
     public List<Map.Entry<String, String>> pluginCoptList;
 
-    @Option(name = "stamp",
-        defaultValue = "false",
-        category = "semantics",
-        help = "Stamp binaries with the date, username, hostname, workspace information, etc.")
+    @Option(
+      name = "stamp",
+      defaultValue = "false",
+      category = "semantics",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Stamp binaries with the date, username, hostname, workspace information, etc."
+    )
     public boolean stampBinaries;
 
     // This default value is always overwritten in the case of "bazel coverage" by
     // CoverageCommand.setDefaultInstrumentationFilter().
-    @Option(name = "instrumentation_filter",
-        converter = RegexFilter.RegexFilterConverter.class,
-        defaultValue = "-/javatests[/:]",
-        category = "semantics",
-        help = "When coverage is enabled, only rules with names included by the "
-            + "specified regex-based filter will be instrumented. Rules prefixed "
-            + "with '-' are excluded instead. Note that only non-test rules are "
-            + "instrumented unless --instrument_test_targets is enabled.")
+    @Option(
+      name = "instrumentation_filter",
+      converter = RegexFilter.RegexFilterConverter.class,
+      defaultValue = "-/javatests[/:]",
+      category = "semantics",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "When coverage is enabled, only rules with names included by the "
+              + "specified regex-based filter will be instrumented. Rules prefixed "
+              + "with '-' are excluded instead. Note that only non-test rules are "
+              + "instrumented unless --instrument_test_targets is enabled."
+    )
     public RegexFilter instrumentationFilter;
 
-    @Option(name = "instrument_test_targets",
-        defaultValue = "false",
-        category = "semantics",
-        help = "When coverage is enabled, specifies whether to consider instrumenting test rules. "
-            + "When set, test rules included by --instrumentation_filter are instrumented. "
-            + "Otherwise, test rules are always excluded from coverage instrumentation.")
+    @Option(
+      name = "instrument_test_targets",
+      defaultValue = "false",
+      category = "semantics",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "When coverage is enabled, specifies whether to consider instrumenting test rules. "
+              + "When set, test rules included by --instrumentation_filter are instrumented. "
+              + "Otherwise, test rules are always excluded from coverage instrumentation."
+    )
     public boolean instrumentTestTargets;
 
-    @Option(name = "host_cpu",
-        defaultValue = "",
-        category = "semantics",
-        converter = AutoCpuConverter.class,
-        help = "The host CPU.")
+    @Option(
+      name = "host_cpu",
+      defaultValue = "",
+      category = "semantics",
+      converter = AutoCpuConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "The host CPU."
+    )
     public String hostCpu;
 
-    @Option(name = "compilation_mode",
-        abbrev = 'c',
-        converter = CompilationMode.Converter.class,
-        defaultValue = "fastbuild",
-        category = "semantics", // Should this be "flags"?
-        help = "Specify the mode the binary will be built in. "
-            + "Values: 'fastbuild', 'dbg', 'opt'.")
+    @Option(
+      name = "compilation_mode",
+      abbrev = 'c',
+      converter = CompilationMode.Converter.class,
+      defaultValue = "fastbuild",
+      category = "semantics", // Should this be "flags"?
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Specify the mode the binary will be built in. " + "Values: 'fastbuild', 'dbg', 'opt'."
+    )
     public CompilationMode compilationMode;
 
     /**
@@ -603,31 +642,42 @@ public final class BuildConfiguration {
      * to a constant, so that the output files for the host are completely independent of those for
      * the target, no matter what options are in force (k8/piii, opt/dbg, etc).
      */
-    @Option(name = "output directory name",
-        defaultValue = "null",
-        category = "internal")
+    @Option(
+      name = "output directory name",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      optionUsageRestrictions = OptionUsageRestrictions.INTERNAL
+    )
     public String outputDirectoryName;
 
-    @Option(name = "platform_suffix",
-        defaultValue = "null",
-        category = "misc",
-        help = "Specifies a suffix to be added to the configuration directory.")
+    @Option(
+      name = "platform_suffix",
+      defaultValue = "null",
+      category = "misc",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Specifies a suffix to be added to the configuration directory."
+    )
     public String platformSuffix;
 
     // TODO(bazel-team): The test environment is actually computed in BlazeRuntime and this option
     // is not read anywhere else. Thus, it should be in a different options class, preferably one
     // specific to the "test" command or maybe in its own configuration fragment.
-    // BlazeRuntime, though.
-    @Option(name = "test_env",
-        converter = Converters.OptionalAssignmentConverter.class,
-        allowMultiple = true,
-        defaultValue = "",
-        category = "testing",
-        help = "Specifies additional environment variables to be injected into the test runner "
-            + "environment. Variables can be either specified by name, in which case its value "
-            + "will be read from the Bazel client environment, or by the name=value pair. "
-            + "This option can be used multiple times to specify several variables. "
-            + "Used only by the 'bazel test' command."
+    @Option(
+      name = "test_env",
+      converter = Converters.OptionalAssignmentConverter.class,
+      allowMultiple = true,
+      defaultValue = "",
+      category = "testing",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specifies additional environment variables to be injected into the test runner "
+              + "environment. Variables can be either specified by name, in which case its value "
+              + "will be read from the Bazel client environment, or by the name=value pair. "
+              + "This option can be used multiple times to specify several variables. "
+              + "Used only by the 'bazel test' command."
     )
     public List<Map.Entry<String, String>> testEnvironment;
 
@@ -640,6 +690,8 @@ public final class BuildConfiguration {
       allowMultiple = true,
       defaultValue = "",
       category = "semantics",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Specifies the set of environment variables available to actions. "
               + "Variables can be either specified by name, in which case the value will be "
@@ -650,226 +702,299 @@ public final class BuildConfiguration {
     )
     public List<Map.Entry<String, String>> actionEnvironment;
 
-    @Option(name = "collect_code_coverage",
-        defaultValue = "false",
-        category = "testing",
-        help = "If specified, Bazel will instrument code (using offline instrumentation where "
-            + "possible) and will collect coverage information during tests. Only targets that "
-            + " match --instrumentation_filter will be affected. Usually this option should "
-            + " not be specified directly - 'bazel coverage' command should be used instead."
+    @Option(
+      name = "collect_code_coverage",
+      defaultValue = "false",
+      category = "testing",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If specified, Bazel will instrument code (using offline instrumentation where "
+              + "possible) and will collect coverage information during tests. Only targets that "
+              + " match --instrumentation_filter will be affected. Usually this option should "
+              + " not be specified directly - 'bazel coverage' command should be used instead."
     )
     public boolean collectCodeCoverage;
 
-    @Option(name = "microcoverage",
-        defaultValue = "false",
-        category = "testing",
-        help = "If specified with coverage, Blaze will collect microcoverage (per test method "
-            + "coverage) information during tests. Only targets that match "
-            + "--instrumentation_filter will be affected. Usually this option should not be "
-            + "specified directly - 'blaze coverage --microcoverage' command should be used "
-            + "instead."
+    @Option(
+      name = "coverage_support",
+      converter = LabelConverter.class,
+      defaultValue = "@bazel_tools//tools/test:coverage_support",
+      category = "testing",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Location of support files that are required on the inputs of every test action "
+              + "that collects code coverage. Defaults to '//tools/test:coverage_support'."
     )
-    public boolean collectMicroCoverage;
-
-    @Option(name = "coverage_support",
-        converter = LabelConverter.class,
-        defaultValue = "@bazel_tools//tools/test:coverage_support",
-        category = "testing",
-        help = "Location of support files that are required on the inputs of every test action "
-            + "that collects code coverage. Defaults to '//tools/test:coverage_support'.")
     public Label coverageSupport;
 
-    @Option(name = "coverage_report_generator",
-        converter = LabelConverter.class,
-        defaultValue = "@bazel_tools//tools/test:coverage_report_generator",
-        category = "testing",
-        help = "Location of the binary that is used to generate coverage reports. This must "
-            + "currently be a filegroup that contains a single file, the binary. Defaults to "
-            + "'//tools/test:coverage_report_generator'.")
+    @Option(
+      name = "coverage_report_generator",
+      converter = LabelConverter.class,
+      defaultValue = "@bazel_tools//tools/test:coverage_report_generator",
+      category = "testing",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Location of the binary that is used to generate coverage reports. This must "
+              + "currently be a filegroup that contains a single file, the binary. Defaults to "
+              + "'//tools/test:coverage_report_generator'."
+    )
     public Label coverageReportGenerator;
 
-    @Option(name = "experimental_use_llvm_covmap",
-        defaultValue = "false",
-        category = "experimental",
-        help = "If specified, Bazel will generate llvm-cov coverage map information rather than "
-            + "gcov when collect_code_coverage is enabled."
+    @Option(
+      name = "experimental_use_llvm_covmap",
+      defaultValue = "false",
+      category = "experimental",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If specified, Bazel will generate llvm-cov coverage map information rather than "
+              + "gcov when collect_code_coverage is enabled."
     )
     public boolean useLLVMCoverageMapFormat;
 
-    @Option(name = "cache_test_results",
-        defaultValue = "auto",
-        category = "testing",
-        abbrev = 't', // it's useful to toggle this on/off quickly
-        help = "If 'auto', Bazel will only rerun a test if any of the following conditions apply: "
-            + "(1) Bazel detects changes in the test or its dependencies "
-            + "(2) the test is marked as external "
-            + "(3) multiple test runs were requested with --runs_per_test "
-            + "(4) the test failed "
-            + "If 'yes', the caching behavior will be the same as 'auto' except that "
-            + "it may cache test failures and test runs with --runs_per_test. "
-            + "If 'no', all tests will be always executed.")
+    @Option(
+      name = "cache_test_results",
+      defaultValue = "auto",
+      category = "testing",
+      abbrev = 't', // it's useful to toggle this on/off quickly
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If set to 'auto', Bazel reruns a test if and only if: "
+              + "(1) Bazel detects changes in the test or its dependencies, "
+              + "(2) the test is marked as external, "
+              + "(3) multiple test runs were requested with --runs_per_test, or"
+              + "(4) the test previously failed. "
+              + "If set to 'yes', Bazel caches all test results except for tests marked as "
+              + "external. If set to 'no', Bazel does not cache any test results."
+    )
     public TriState cacheTestResults;
 
     @Deprecated
-    @Option(name = "test_result_expiration",
-        defaultValue = "-1", // No expiration by defualt.
-        category = "testing",
-        help = "This option is deprecated and has no effect.")
+    @Option(
+      name = "test_result_expiration",
+      defaultValue = "-1", // No expiration by defualt.
+      category = "testing",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "This option is deprecated and has no effect."
+    )
     public int testResultExpiration;
 
-    @Option(name = "test_sharding_strategy",
-        defaultValue = "explicit",
-        category = "testing",
-        converter = TestActionBuilder.ShardingStrategyConverter.class,
-        help = "Specify strategy for test sharding: "
-            + "'explicit' to only use sharding if the 'shard_count' BUILD attribute is present. "
-            + "'disabled' to never use test sharding. "
-            + "'experimental_heuristic' to enable sharding on remotely executed tests without an "
-            + "explicit  'shard_count' attribute which link in a supported framework. Considered "
-            + "experimental.")
+    @Option(
+      name = "test_sharding_strategy",
+      defaultValue = "explicit",
+      category = "testing",
+      converter = TestActionBuilder.ShardingStrategyConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specify strategy for test sharding: "
+              + "'explicit' to only use sharding if the 'shard_count' BUILD attribute is present. "
+              + "'disabled' to never use test sharding. "
+              + "'experimental_heuristic' to enable sharding on remotely executed tests without an "
+              + "explicit  'shard_count' attribute which link in a supported framework. Considered "
+              + "experimental."
+    )
     public TestActionBuilder.TestShardingStrategy testShardingStrategy;
 
-    @Option(name = "runs_per_test",
-        allowMultiple = true,
-        defaultValue = "1",
-        category = "testing",
-        converter = RunsPerTestConverter.class,
-        help = "Specifies number of times to run each test. If any of those attempts "
-            + "fail for any reason, the whole test would be considered failed. "
-            + "Normally the value specified is just an integer. Example: --runs_per_test=3 "
-            + "will run all tests 3 times. "
-            + "Alternate syntax: regex_filter@runs_per_test. Where runs_per_test stands for "
-            + "an integer value and regex_filter stands "
-            + "for a list of include and exclude regular expression patterns (Also see "
-            + "--instrumentation_filter). Example: "
-            + "--runs_per_test=//foo/.*,-//foo/bar/.*@3 runs all tests in //foo/ "
-            + "except those under foo/bar three times. "
-            + "This option can be passed multiple times. ")
+    @Option(
+      name = "runs_per_test",
+      allowMultiple = true,
+      defaultValue = "1",
+      category = "testing",
+      converter = RunsPerTestConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specifies number of times to run each test. If any of those attempts "
+              + "fail for any reason, the whole test would be considered failed. "
+              + "Normally the value specified is just an integer. Example: --runs_per_test=3 "
+              + "will run all tests 3 times. "
+              + "Alternate syntax: regex_filter@runs_per_test. Where runs_per_test stands for "
+              + "an integer value and regex_filter stands "
+              + "for a list of include and exclude regular expression patterns (Also see "
+              + "--instrumentation_filter). Example: "
+              + "--runs_per_test=//foo/.*,-//foo/bar/.*@3 runs all tests in //foo/ "
+              + "except those under foo/bar three times. "
+              + "This option can be passed multiple times. "
+    )
     public List<PerLabelOptions> runsPerTest;
 
-    @Option(name = "build_runfile_links",
-        defaultValue = "true",
-        category = "strategy",
-        help = "If true, build runfiles symlink forests for all targets.  "
-            + "If false, write only manifests when possible.")
+    @Option(
+      name = "build_runfile_links",
+      defaultValue = "true",
+      category = "strategy",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If true, build runfiles symlink forests for all targets.  "
+              + "If false, write only manifests when possible."
+    )
     public boolean buildRunfiles;
 
-    @Option(name = "legacy_external_runfiles",
-        defaultValue = "true",
-        category = "strategy",
-        help = "If true, build runfiles symlink forests for external repositories under "
-            + ".runfiles/wsname/external/repo (in addition to .runfiles/repo).")
+    @Option(
+      name = "legacy_external_runfiles",
+      defaultValue = "true",
+      category = "strategy",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If true, build runfiles symlink forests for external repositories under "
+              + ".runfiles/wsname/external/repo (in addition to .runfiles/repo)."
+    )
     public boolean legacyExternalRunfiles;
 
-    @Option(name = "test_arg",
-        allowMultiple = true,
-        defaultValue = "",
-        category = "testing",
-        help = "Specifies additional options and arguments that should be passed to the test "
-            + "executable. Can be used multiple times to specify several arguments. "
-            + "If multiple tests are executed, each of them will receive identical arguments. "
-            + "Used only by the 'bazel test' command."
+    @Option(
+      name = "test_arg",
+      allowMultiple = true,
+      defaultValue = "",
+      category = "testing",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specifies additional options and arguments that should be passed to the test "
+              + "executable. Can be used multiple times to specify several arguments. "
+              + "If multiple tests are executed, each of them will receive identical arguments. "
+              + "Used only by the 'bazel test' command."
     )
     public List<String> testArguments;
 
-    @Option(name = "test_filter",
-        allowMultiple = false,
-        defaultValue = "null",
-        category = "testing",
-        help = "Specifies a filter to forward to the test framework.  Used to limit "
-            + "the tests run. Note that this does not affect which targets are built.")
+    @Option(
+      name = "test_filter",
+      allowMultiple = false,
+      defaultValue = "null",
+      category = "testing",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specifies a filter to forward to the test framework.  Used to limit "
+              + "the tests run. Note that this does not affect which targets are built."
+    )
     public String testFilter;
 
-    @Option(name = "check_fileset_dependencies_recursively",
-        defaultValue = "true",
-        category = "semantics",
-        help = "If false, fileset targets will, whenever possible, create "
-            + "symlinks to directories instead of creating one symlink for each "
-            + "file inside the directory. Disabling this will significantly "
-            + "speed up fileset builds, but targets that depend on filesets will "
-            + "not be rebuilt if files are added, removed or modified in a "
-            + "subdirectory which has not been traversed.")
+    @Option(
+      name = "check_fileset_dependencies_recursively",
+      defaultValue = "true",
+      category = "semantics",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If false, fileset targets will, whenever possible, create "
+              + "symlinks to directories instead of creating one symlink for each "
+              + "file inside the directory. Disabling this will significantly "
+              + "speed up fileset builds, but targets that depend on filesets will "
+              + "not be rebuilt if files are added, removed or modified in a "
+              + "subdirectory which has not been traversed."
+    )
     public boolean checkFilesetDependenciesRecursively;
 
     @Option(
-        name = "experimental_skyframe_native_filesets",
-        defaultValue = "false",
-        category = "experimental",
-        help =
-            "If true, Blaze will use the skyframe-native implementation of the Fileset rule."
-                + " This offers improved performance in incremental builds of Filesets as well as"
-                + " correct incremental behavior, but is not yet stable. The default is false,"
-                + " meaning Blaze uses the legacy impelementation of Fileset."
+      name = "experimental_skyframe_native_filesets",
+      defaultValue = "false",
+      category = "experimental",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If true, Blaze will use the skyframe-native implementation of the Fileset rule."
+              + " This offers improved performance in incremental builds of Filesets as well as"
+              + " correct incremental behavior, but is not yet stable. The default is false,"
+              + " meaning Blaze uses the legacy impelementation of Fileset."
     )
     public boolean skyframeNativeFileset;
 
     @Option(
-        name = "run_under",
-        category = "run",
-        defaultValue = "null",
-        converter = RunUnderConverter.class,
-        help =
-            "Prefix to insert in front of command before running. "
-                + "Examples:\n"
-                + "\t--run_under=valgrind\n"
-                + "\t--run_under=strace\n"
-                + "\t--run_under='strace -c'\n"
-                + "\t--run_under='valgrind --quiet --num-callers=20'\n"
-                + "\t--run_under=//package:target\n"
-                + "\t--run_under='//package:target --options'\n"
+      name = "run_under",
+      category = "run",
+      defaultValue = "null",
+      converter = RunUnderConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Prefix to insert in front of command before running. "
+              + "Examples:\n"
+              + "\t--run_under=valgrind\n"
+              + "\t--run_under=strace\n"
+              + "\t--run_under='strace -c'\n"
+              + "\t--run_under='valgrind --quiet --num-callers=20'\n"
+              + "\t--run_under=//package:target\n"
+              + "\t--run_under='//package:target --options'\n"
     )
     public RunUnder runUnder;
 
-    @Option(name = "distinct_host_configuration",
-        defaultValue = "true",
-        category = "strategy",
-        help = "Build all the tools used during the build for a distinct configuration from "
-            + "that used for the target program. When this is disabled, the same configuration "
-            + "is used for host and target programs. This may cause undesirable rebuilds of tools "
-            + "such as the protocol compiler (and then everything downstream) whenever a minor "
-            + "change is made to the target configuration, such as setting the linker options. "
-            + "When this enabled (the default), a distinct configuration will be used to build the "
-            + "tools, preventing undesired rebuilds. However, certain libraries will then "
-            + "need to be compiled twice, once for each configuration, which may cause some "
-            + "builds to be slower. As a rule of thumb, this option is likely to benefit "
-            + "users that make frequent changes in configuration (e.g. opt/dbg).  "
-            + "Please read the user manual for the full explanation.")
+    @Option(
+      name = "distinct_host_configuration",
+      defaultValue = "true",
+      category = "strategy",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Build all the tools used during the build for a distinct configuration from that used "
+              + "for the target program. When this is disabled, the same configuration is used for "
+              + "host and target programs. This may cause undesirable rebuilds of tools such as "
+              + "the protocol compiler (and then everything downstream) whenever a minor change "
+              + "is made to the target configuration, such as setting the linker options. When "
+              + "this is enabled (the default), a distinct configuration will be used to build the "
+              + "tools, preventing undesired rebuilds. However, certain libraries will then need "
+              + "to be compiled twice, once for each configuration, which may cause some builds "
+              + "to be slower. As a rule of thumb, this option is likely to benefit users that "
+              + "make frequent changes in configuration (e.g. opt/dbg).  "
+              + "Please read the user manual for the full explanation."
+    )
     public boolean useDistinctHostConfiguration;
 
-    @Option(name = "check_visibility",
-        defaultValue = "true",
-        category = "checking",
-        help = "If disabled, visibility errors are demoted to warnings.")
+    @Option(
+      name = "check_visibility",
+      defaultValue = "true",
+      category = "checking",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "If disabled, visibility errors are demoted to warnings."
+    )
     public boolean checkVisibility;
 
     // Moved from viewOptions to here because license information is very expensive to serialize.
     // Having it here allows us to skip computation of transitive license information completely
     // when the setting is disabled.
-    @Option(name = "check_licenses",
-        defaultValue = "false",
-        category = "checking",
-        help = "Check that licensing constraints imposed by dependent packages "
-            + "do not conflict with distribution modes of the targets being built. "
-            + "By default, licenses are not checked.")
+    @Option(
+      name = "check_licenses",
+      defaultValue = "false",
+      category = "checking",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Check that licensing constraints imposed by dependent packages "
+              + "do not conflict with distribution modes of the targets being built. "
+              + "By default, licenses are not checked."
+    )
     public boolean checkLicenses;
 
     @Option(
-        name = "enforce_constraints",
-        defaultValue = "true",
-        category = "undocumented",
-        help =
-            "Checks the environments each target is compatible with and reports errors if any "
-                + "target has dependencies that don't support the same environments",
-        oldName = "experimental_enforce_constraints"
+      name = "enforce_constraints",
+      defaultValue = "true",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Checks the environments each target is compatible with and reports errors if any "
+              + "target has dependencies that don't support the same environments",
+      oldName = "experimental_enforce_constraints"
     )
     public boolean enforceConstraints;
 
-    @Option(name = "experimental_action_listener",
-        allowMultiple = true,
-        defaultValue = "",
-        category = "experimental",
-        converter = LabelConverter.class,
-        help = "Use action_listener to attach an extra_action to existing build actions.")
+    @Option(
+      name = "experimental_action_listener",
+      allowMultiple = true,
+      defaultValue = "",
+      category = "experimental",
+      converter = LabelListConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Use action_listener to attach an extra_action to existing build actions."
+    )
     public List<Label> actionListeners;
 
     // TODO(bazel-team): Either remove this flag once transparent compression is shown to not
@@ -878,40 +1003,70 @@ public final class BuildConfiguration {
     @Option(
       name = "experimental_transparent_compression",
       defaultValue = "true",
-      category = "undocumented",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Enables gzip compression for the contents of FileWriteActions, which reduces "
               + "memory usage in the analysis phase at the expense of additional time overhead."
     )
     public boolean transparentCompression;
 
-    @Option(name = "is host configuration",
-        defaultValue = "false",
-        category = "internal",
-        help = "Shows whether these options are set for host configuration.")
+    @Option(
+      name = "is host configuration",
+      defaultValue = "false",
+      optionUsageRestrictions = OptionUsageRestrictions.INTERNAL,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Shows whether these options are set for host configuration."
+    )
     public boolean isHost;
 
-    @Option(name = "features",
-        allowMultiple = true,
-        defaultValue = "",
-        category = "flags",
-        help = "The given features will be enabled or disabled by default for all packages. "
-            + "Specifying -<feature> will disable the feature globally. "
-            + "Negative features always override positive ones. "
-            + "This flag is used to enable rolling out default feature changes without a "
-            + "Blaze release.")
+    @Option(
+      name = "features",
+      allowMultiple = true,
+      defaultValue = "",
+      category = "flags",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "The given features will be enabled or disabled by default for all packages. "
+              + "Specifying -<feature> will disable the feature globally. "
+              + "Negative features always override positive ones. "
+              + "This flag is used to enable rolling out default feature changes without a "
+              + "Blaze release."
+    )
     public List<String> defaultFeatures;
 
-    @Option(name = "target_environment",
-        converter = LabelConverter.class,
-        allowMultiple = true,
-        defaultValue = "",
-        category = "flags",
-        help = "Declares this build's target environment. Must be a label reference to an "
-            + "\"environment\" rule. If specified, all top-level targets must be "
-            + "compatible with this environment."
+    @Option(
+      name = "target_environment",
+      converter = LabelListConverter.class,
+      allowMultiple = true,
+      defaultValue = "",
+      category = "flags",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "Declares this build's target environment. Must be a label reference to an "
+              + "\"environment\" rule. If specified, all top-level targets must be "
+              + "compatible with this environment."
     )
     public List<Label> targetEnvironments;
+
+    @Option(
+      name = "experimental_auto_cpu_environment_group",
+      converter = EmptyToNullLabelConverter.class,
+      defaultValue = "",
+      category = "flags",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      help =
+          "Declare the environment_group to use for automatically mapping cpu values to "
+              + "target_environment values."
+    )
+    public Label autoCpuEnvironmentGroup;
 
     /**
      * Values for --experimental_dynamic_configs.
@@ -941,27 +1096,36 @@ public final class BuildConfiguration {
       }
     }
 
-    @Option(name = "experimental_dynamic_configs",
-        defaultValue = "notrim_partial",
-        category = "undocumented",
-        converter = DynamicConfigsConverter.class,
-        help = "Dynamically instantiates build configurations instead of using the default "
-            + "static globally defined ones")
+    @Option(
+      name = "experimental_dynamic_configs",
+      defaultValue = "notrim",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      converter = DynamicConfigsConverter.class,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Dynamically instantiates build configurations instead of using the default "
+              + "static globally defined ones"
+    )
     public DynamicConfigsMode useDynamicConfigurations;
 
     @Option(
-        name = "experimental_enable_runfiles",
-        defaultValue = "auto",
-        category = "undocumented",
-        help = "Enable runfiles; off on Windows, on on other platforms"
+      name = "experimental_enable_runfiles",
+      defaultValue = "auto",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Enable runfiles; off on Windows, on on other platforms"
     )
     public TriState enableRunfiles;
 
     @Option(
-        name = "build_python_zip",
-        defaultValue = "auto",
-        category = "undocumented",
-        help = "Build python executable zip; on on Windows, off on other platforms"
+      name = "build_python_zip",
+      defaultValue = "auto",
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Build python executable zip; on on Windows, off on other platforms"
     )
     public TriState buildPythonZip;
 
@@ -1015,14 +1179,6 @@ public final class BuildConfiguration {
     }
 
     @Override
-    public void addAllLabels(Multimap<String, Label> labelMap) {
-      labelMap.putAll("action_listener", actionListeners);
-      labelMap.putAll("plugins", pluginList);
-      if ((runUnder != null) && (runUnder.getLabel() != null)) {
-        labelMap.put("RunUnder", runUnder.getLabel());
-      }
-    }
-    @Override
     public Map<String, Set<Label>> getDefaultsLabels(BuildConfiguration.Options commonOptions) {
       return ImmutableMap.<String, Set<Label>>of(
           "coverage_support", ImmutableSet.of(coverageSupport),
@@ -1037,6 +1193,8 @@ public final class BuildConfiguration {
 
   private final ImmutableMap<Class<? extends Fragment>, Fragment> fragments;
   private final ImmutableMap<String, Class<? extends Fragment>> skylarkVisibleFragments;
+  private final RepositoryName mainRepositoryName;
+  private final DynamicTransitionMapper dynamicTransitionMapper;
 
   /**
    * Directories in the output tree.
@@ -1087,7 +1245,7 @@ public final class BuildConfiguration {
     INCLUDE(BlazeDirectories.RELATIVE_INCLUDE_DIR),
     OUTPUT(false);
 
-    private final String name;
+    private final PathFragment nameFragment;
     private final boolean middleman;
 
     /**
@@ -1096,38 +1254,52 @@ public final class BuildConfiguration {
      * @param isMiddleman whether the root should be a middleman root or a "normal" derived root.
      */
     OutputDirectory(boolean isMiddleman) {
-      this.name = "";
+      this.nameFragment = PathFragment.EMPTY_FRAGMENT;
       this.middleman = isMiddleman;
     }
 
     OutputDirectory(String name) {
-      this.name = name;
+      this.nameFragment = PathFragment.create(name);
       this.middleman = false;
     }
 
     Root getRoot(
-        RepositoryName repositoryName, String outputDirName, BlazeDirectories directories) {
+        RepositoryName repositoryName, String outputDirName, BlazeDirectories directories,
+        RepositoryName mainRepositoryName) {
       // e.g., execroot/repo1
-      Path execRoot = directories.getExecRoot();
+      Path execRoot = directories.getExecRoot(mainRepositoryName.strippedName());
       // e.g., execroot/repo1/bazel-out/config/bin
       Path outputDir = execRoot.getRelative(directories.getRelativeOutputPath())
           .getRelative(outputDirName);
       if (middleman) {
-        return INTERNER.intern(Root.middlemanRoot(execRoot, outputDir, repositoryName.isMain()));
+        return INTERNER.intern(Root.middlemanRoot(execRoot, outputDir,
+            repositoryName.equals(mainRepositoryName)));
       }
       // e.g., [[execroot/repo1]/bazel-out/config/bin]
       return INTERNER.intern(
-          Root.asDerivedRoot(execRoot, outputDir.getRelative(name), repositoryName.isMain()));
+          Root.asDerivedRoot(execRoot, outputDir.getRelative(nameFragment),
+              repositoryName.equals(mainRepositoryName)));
     }
   }
-
-  // "Cache" of roots, so we don't keep around thousands of copies of the same root.
-  private static Interner<Root> INTERNER = Interners.newWeakInterner();
 
   private final BlazeDirectories directories;
   private final String outputDirName;
 
-  /** If false, AnalysisEnviroment doesn't register any actions created by the ConfiguredTarget. */
+  // We intern the roots for non-main repositories, so we don't keep around thousands of copies of
+  // the same root.
+  private static Interner<Root> INTERNER = Interners.newWeakInterner();
+
+  // We precompute the roots for the main repository, since that's the common case.
+  private final Root outputDirectoryForMainRepository;
+  private final Root binDirectoryForMainRepository;
+  private final Root includeDirectoryForMainRepository;
+  private final Root genfilesDirectoryForMainRepository;
+  private final Root coverageDirectoryForMainRepository;
+  private final Root testlogsDirectoryForMainRepository;
+  private final Root middlemanDirectoryForMainRepository;
+
+  // Cache this value for quicker access. We don't cache it inside BuildOptions because BuildOptions
+  // is mutable, so a cached value there could fall out of date when it's updated.
   private final boolean actionsEnabled;
 
   // TODO(bazel-team): Move this to a configuration fragment.
@@ -1139,15 +1311,15 @@ public final class BuildConfiguration {
    */
   private final ImmutableMap<String, String> globalMakeEnv;
 
-  private final ImmutableMap<String, String> localShellEnvironment;
-  private final ImmutableSet<String> envVariables;
+  private final ActionEnvironment actionEnv;
+  private final ActionEnvironment testEnv;
+
   private final BuildOptions buildOptions;
   private final Options options;
 
   private final String mnemonic;
   private final String platformName;
 
-  private final ImmutableMap<String, String> testEnvironment;
   private final ImmutableMap<String, String> commandLineBuildVariables;
 
   private final int hashCode; // We can precompute the hash code as all its inputs are immutable.
@@ -1210,7 +1382,7 @@ public final class BuildConfiguration {
   }
 
   private int computeHashCode() {
-    return Objects.hash(actionsEnabled, fragments, buildOptions.getOptions());
+    return Objects.hash(isActionsEnabled(), fragments, buildOptions.getOptions());
   }
 
   @Override
@@ -1290,28 +1462,34 @@ public final class BuildConfiguration {
    * statically set environment variables with their values and the set of environment variables to
    * be inherited from the client environment.
    */
-  private Pair<ImmutableMap<String, String>, ImmutableSet<String>> setupShellEnvironment() {
-    ImmutableMap.Builder<String, String> builder = new ImmutableMap.Builder<>();
+  private ActionEnvironment setupActionEnvironment() {
+    // We make a copy first to remove duplicate entries; last one wins.
+    Map<String, String> actionEnv = new HashMap<>();
+    // TODO(ulfjack): Remove all env variables from configuration fragments.
     for (Fragment fragment : fragments.values()) {
-      fragment.setupShellEnvironment(builder);
+      fragment.setupActionEnvironment(actionEnv);
     }
     // Shell environment variables specified via options take precedence over the
     // ones inherited from the fragments. In the long run, these fragments will
     // be replaced by appropriate default rc files anyway.
-    Map<String, String> shellEnv = new TreeMap<>(builder.build());
     for (Map.Entry<String, String> entry : options.actionEnvironment) {
-      shellEnv.put(entry.getKey(), entry.getValue());
+      actionEnv.put(entry.getKey(), entry.getValue());
     }
-    Map<String, String> fixedShellEnv = new TreeMap<>(shellEnv);
-    Set<String> variableShellEnv = new HashSet<>();
-    for (Map.Entry<String, String> entry : shellEnv.entrySet()) {
-      if (entry.getValue() == null) {
-        String key = entry.getKey();
-        fixedShellEnv.remove(key);
-        variableShellEnv.add(key);
-      }
+    return ActionEnvironment.split(actionEnv);
+  }
+
+  /**
+   * Compute the test environment, which, at configuration level, is a pair consisting of the
+   * statically set environment variables with their values and the set of environment variables to
+   * be inherited from the client environment.
+   */
+  private ActionEnvironment setupTestEnvironment() {
+    // We make a copy first to remove duplicate entries; last one wins.
+    Map<String, String> testEnv = new HashMap<>();
+    for (Map.Entry<String, String> entry : options.testEnvironment) {
+      testEnv.put(entry.getKey(), entry.getValue());
     }
-    return Pair.of(ImmutableMap.copyOf(fixedShellEnv), ImmutableSet.copyOf(variableShellEnv));
+    return ActionEnvironment.split(testEnv);
   }
 
   /**
@@ -1328,28 +1506,25 @@ public final class BuildConfiguration {
 
   /**
    * Constructs a new BuildConfiguration instance.
+   *
+   * <p>Callers that pass null for {@code dynamicTransitionMapper} should not use dynamic
+   * configurations.
    */
   public BuildConfiguration(BlazeDirectories directories,
       Map<Class<? extends Fragment>, Fragment> fragmentsMap,
       BuildOptions buildOptions,
-      boolean actionsDisabled) {
+      String repositoryName,
+      @Nullable DynamicTransitionMapper dynamicTransitionMapper) {
     this.directories = directories;
-    this.actionsEnabled = !actionsDisabled;
     this.fragments = ImmutableSortedMap.copyOf(fragmentsMap, lexicalFragmentSorter);
 
     this.skylarkVisibleFragments = buildIndexOfSkylarkVisibleFragments();
 
-    this.buildOptions = buildOptions;
+    this.buildOptions = buildOptions.clone();
+    this.actionsEnabled = buildOptions.enableActions();
     this.options = buildOptions.get(Options.class);
-
-    Map<String, String> testEnv = new TreeMap<>();
-    for (Map.Entry<String, String> entry : this.options.testEnvironment) {
-      if (entry.getValue() != null) {
-        testEnv.put(entry.getKey(), entry.getValue());
-      }
-    }
-
-    this.testEnvironment = ImmutableMap.copyOf(testEnv);
+    this.mainRepositoryName = RepositoryName.createFromValidStrippedName(repositoryName);
+    this.dynamicTransitionMapper = dynamicTransitionMapper;
 
     // We can't use an ImmutableMap.Builder here; we need the ability to add entries with keys that
     // are already in the map so that the same define can be specified on the command line twice,
@@ -1363,14 +1538,36 @@ public final class BuildConfiguration {
     this.mnemonic = buildMnemonic();
     this.outputDirName = (options.outputDirectoryName != null)
         ? options.outputDirectoryName : mnemonic;
+
+    this.outputDirectoryForMainRepository =
+        OutputDirectory.OUTPUT.getRoot(
+            RepositoryName.MAIN, outputDirName, directories, mainRepositoryName);
+    this.binDirectoryForMainRepository =
+        OutputDirectory.BIN.getRoot(
+            RepositoryName.MAIN, outputDirName, directories, mainRepositoryName);
+    this.includeDirectoryForMainRepository =
+        OutputDirectory.INCLUDE.getRoot(
+            RepositoryName.MAIN, outputDirName, directories, mainRepositoryName);
+    this.genfilesDirectoryForMainRepository =
+        OutputDirectory.GENFILES.getRoot(
+            RepositoryName.MAIN, outputDirName, directories, mainRepositoryName);
+    this.coverageDirectoryForMainRepository =
+        OutputDirectory.COVERAGE.getRoot(
+            RepositoryName.MAIN, outputDirName, directories, mainRepositoryName);
+    this.testlogsDirectoryForMainRepository =
+        OutputDirectory.TESTLOGS.getRoot(
+            RepositoryName.MAIN, outputDirName, directories, mainRepositoryName);
+    this.middlemanDirectoryForMainRepository =
+        OutputDirectory.MIDDLEMAN.getRoot(
+            RepositoryName.MAIN, outputDirName, directories, mainRepositoryName);
+
     this.platformName = buildPlatformName();
 
     this.shellExecutable = computeShellExecutable();
 
-    Pair<ImmutableMap<String, String>, ImmutableSet<String>> shellEnvironment =
-        setupShellEnvironment();
-    this.localShellEnvironment = shellEnvironment.getFirst();
-    this.envVariables = shellEnvironment.getSecond();
+    this.actionEnv = setupActionEnvironment();
+
+    this.testEnv = setupTestEnvironment();
 
     this.transitiveOptionDetails = computeOptionsMap(buildOptions, fragments.values());
 
@@ -1411,7 +1608,12 @@ public final class BuildConfiguration {
     BuildOptions options = buildOptions.trim(
         getOptionsClasses(fragmentsMap.keySet(), ruleClassProvider));
     BuildConfiguration newConfig =
-        new BuildConfiguration(directories, fragmentsMap, options, !actionsEnabled);
+        new BuildConfiguration(
+            directories,
+            fragmentsMap,
+            options,
+            mainRepositoryName.strippedName(),
+            dynamicTransitionMapper);
     newConfig.setConfigurationTransitions(this.transitions);
     return newConfig;
   }
@@ -1575,12 +1777,6 @@ public final class BuildConfiguration {
    */
   public interface TransitionApplier {
     /**
-     * Creates a new instance of this transition applier bound to the specified source
-     * configuration.
-     */
-    TransitionApplier create(BuildConfiguration config);
-
-    /**
      * Accepts the given configuration transition. The implementation decides how to turn
      * this into an actual configuration. This may be called multiple times (representing a
      * request for a sequence of transitions).
@@ -1633,11 +1829,6 @@ public final class BuildConfiguration {
 
     private StaticTransitionApplier(BuildConfiguration originalConfiguration) {
       this.toConfigurations = ImmutableList.<BuildConfiguration>of(originalConfiguration);
-    }
-
-    @Override
-    public TransitionApplier create(BuildConfiguration configuration) {
-      return new StaticTransitionApplier(configuration);
     }
 
     @Override
@@ -1720,8 +1911,7 @@ public final class BuildConfiguration {
    * transitions that the caller subsequently creates configurations from.
    */
   private static class DynamicTransitionApplier implements TransitionApplier {
-    private final BuildOptions originalOptions;
-    private final Transitions transitionsManager;
+    private final DynamicTransitionMapper dynamicTransitionMapper;
     private boolean splitApplied = false;
 
     // The transition this applier applies to dep rules. When multiple transitions are requested,
@@ -1729,14 +1919,8 @@ public final class BuildConfiguration {
     // so calling code doesn't need special logic to support combinations.
     private Transition currentTransition = Attribute.ConfigurationTransition.NONE;
 
-    private DynamicTransitionApplier(BuildConfiguration originalConfiguration) {
-      this.originalOptions = originalConfiguration.getOptions();
-      this.transitionsManager = originalConfiguration.getTransitions();
-    }
-
-    @Override
-    public TransitionApplier create(BuildConfiguration configuration) {
-      return new DynamicTransitionApplier(configuration);
+    private DynamicTransitionApplier(DynamicTransitionMapper dynamicTransitionMapper) {
+      this.dynamicTransitionMapper = dynamicTransitionMapper;
     }
 
     /**
@@ -1771,10 +1955,9 @@ public final class BuildConfiguration {
         // in the last segment of a ComposingSplitTransition, those optimizations wouldn't trigger.
         return HostTransition.INSTANCE;
       }
+
       // TODO(gregce): remove this dynamic transition mapping when static configs are removed.
-      Transition dynamicTransition = (transition2 instanceof PatchTransition)
-          ? transition2
-          : transitionsManager.getDynamicTransition(transition2);
+      Transition dynamicTransition = dynamicTransitionMapper.map(transition2);
       return transition1 == Attribute.ConfigurationTransition.NONE
           ? dynamicTransition
           : new ComposingSplitTransition(transition1, dynamicTransition);
@@ -1845,28 +2028,34 @@ public final class BuildConfiguration {
       if (isFinal(currentTransition)) {
         return;
       }
-      transitionsManager.configurationHook(fromRule, attribute, toTarget, this);
-
       Rule associatedRule = toTarget.getAssociatedRule();
       RuleTransitionFactory transitionFactory =
           associatedRule.getRuleClassObject().getTransitionFactory();
       if (transitionFactory != null) {
+        // dynamicTransitionMapper is only needed because of Attribute.ConfigurationTransition.DATA:
+        // this is C++-specific but non-C++ rules declare it. So they can't directly provide the
+        // C++-specific patch transition that implements it.
         PatchTransition ruleClassTransition = (PatchTransition)
-            transitionFactory.buildTransitionFor(associatedRule);
+            dynamicTransitionMapper.map(transitionFactory.buildTransitionFor(associatedRule));
         if (ruleClassTransition != null) {
           if (currentTransition == ConfigurationTransition.NONE) {
             currentTransition = ruleClassTransition;
           } else {
-            currentTransition = new ComposingSplitTransition(ruleClassTransition,
-                currentTransition);
+            currentTransition = new ComposingSplitTransition(currentTransition,
+                ruleClassTransition);
           }
         }
       }
 
-      // We don't support rule class configurators (which may need intermediate configurations to
-      // apply). The only current use of that is LIPO, which can't currently be invoked with dynamic
-      // configurations (e.g. this code can never get called for LIPO builds). So check that
-      // if there is a configurator, it's for LIPO, in which case we can ignore it.
+      /**
+       * Dynamic configurations don't support rule class configurators (which may need intermediate
+       * configurations to apply). The only current use of that is LIPO, which dynamic
+       * configurations have a different code path for:
+       * {@link com.google.devtools.build.lib.rules.cpp.CppRuleClasses.LIPO_ON_DEMAND}.
+       *
+       * So just check that if there is a configurator, it's for LIPO, in which case we can ignore
+       * it.
+       */
       if (associatedRule != null) {
         @SuppressWarnings("unchecked")
         RuleClass.Configurator<?, ?> func =
@@ -1894,7 +2083,7 @@ public final class BuildConfiguration {
    */
   public TransitionApplier getTransitionApplier() {
     return useDynamicConfigurations()
-        ? new DynamicTransitionApplier(this)
+        ? new DynamicTransitionApplier(dynamicTransitionMapper)
         : new StaticTransitionApplier(this);
   }
 
@@ -1987,7 +2176,10 @@ public final class BuildConfiguration {
    * Returns the output directory for this build configuration.
    */
   public Root getOutputDirectory(RepositoryName repositoryName) {
-    return OutputDirectory.OUTPUT.getRoot(repositoryName, outputDirName, directories);
+    return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
+        ? outputDirectoryForMainRepository
+        : OutputDirectory.OUTPUT.getRoot(
+            repositoryName, outputDirName, directories, mainRepositoryName);
   }
 
   /**
@@ -2006,7 +2198,10 @@ public final class BuildConfiguration {
    * repositories (external) but will need to be fixed.
    */
   public Root getBinDirectory(RepositoryName repositoryName) {
-    return OutputDirectory.BIN.getRoot(repositoryName, outputDirName, directories);
+    return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
+        ? binDirectoryForMainRepository
+        : OutputDirectory.BIN.getRoot(
+            repositoryName, outputDirName, directories, mainRepositoryName);
   }
 
   /**
@@ -2020,7 +2215,10 @@ public final class BuildConfiguration {
    * Returns the include directory for this build configuration.
    */
   public Root getIncludeDirectory(RepositoryName repositoryName) {
-    return OutputDirectory.INCLUDE.getRoot(repositoryName, outputDirName, directories);
+    return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
+        ? includeDirectoryForMainRepository
+        : OutputDirectory.INCLUDE.getRoot(
+            repositoryName, outputDirName, directories, mainRepositoryName);
   }
 
   /**
@@ -2033,7 +2231,10 @@ public final class BuildConfiguration {
   }
 
   public Root getGenfilesDirectory(RepositoryName repositoryName) {
-    return OutputDirectory.GENFILES.getRoot(repositoryName, outputDirName, directories);
+    return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
+        ? genfilesDirectoryForMainRepository
+        : OutputDirectory.GENFILES.getRoot(
+            repositoryName, outputDirName, directories, mainRepositoryName);
   }
 
   /**
@@ -2042,14 +2243,20 @@ public final class BuildConfiguration {
    * needed for Jacoco's coverage reporting tools.
    */
   public Root getCoverageMetadataDirectory(RepositoryName repositoryName) {
-    return OutputDirectory.COVERAGE.getRoot(repositoryName, outputDirName, directories);
+    return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
+        ? coverageDirectoryForMainRepository
+        : OutputDirectory.COVERAGE.getRoot(
+            repositoryName, outputDirName, directories, mainRepositoryName);
   }
 
   /**
    * Returns the testlogs directory for this build configuration.
    */
   public Root getTestLogsDirectory(RepositoryName repositoryName) {
-    return OutputDirectory.TESTLOGS.getRoot(repositoryName, outputDirName, directories);
+    return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
+        ? testlogsDirectoryForMainRepository
+        : OutputDirectory.TESTLOGS.getRoot(
+            repositoryName, outputDirName, directories, mainRepositoryName);
   }
 
   /**
@@ -2076,7 +2283,10 @@ public final class BuildConfiguration {
    * Returns the internal directory (used for middlemen) for this build configuration.
    */
   public Root getMiddlemanDirectory(RepositoryName repositoryName) {
-    return OutputDirectory.MIDDLEMAN.getRoot(repositoryName, outputDirName, directories);
+    return repositoryName.isMain() || repositoryName.equals(mainRepositoryName)
+        ? middlemanDirectoryForMainRepository
+        : OutputDirectory.MIDDLEMAN.getRoot(
+            repositoryName, outputDirName, directories, mainRepositoryName);
   }
 
   public boolean getAllowRuntimeDepsOnNeverLink() {
@@ -2091,6 +2301,10 @@ public final class BuildConfiguration {
     return options.pluginList;
   }
 
+  public String getMainRepositoryName() {
+    return mainRepositoryName.strippedName();
+  }
+
   /**
    * Returns the configuration-dependent string for this configuration. This is also the name of the
    * configuration's base output directory unless {@link Options#outputDirectoryName} overrides it.
@@ -2102,6 +2316,10 @@ public final class BuildConfiguration {
   @Override
   public String toString() {
     return checksum();
+  }
+
+  public ActionEnvironment getActionEnvironment() {
+    return actionEnv;
   }
 
   @SkylarkCallable(
@@ -2122,8 +2340,9 @@ public final class BuildConfiguration {
    * <p>Since values of the "fixed" variables are already known at analysis phase, it is returned
    * here as a map.
    */
+  @Deprecated // Use getActionEnvironment instead.
   public ImmutableMap<String, String> getLocalShellEnvironment() {
-    return localShellEnvironment;
+    return actionEnv.getFixedEnv();
   }
 
   /**
@@ -2140,8 +2359,9 @@ public final class BuildConfiguration {
    * environment. (Variables where the name is not returned in this set should not be taken from the
    * client environment.)
    */
+  @Deprecated // Use getActionEnvironment instead.
   public ImmutableSet<String> getVariableShellEnvironment() {
-    return envVariables;
+    return actionEnv.getInheritedEnv();
   }
 
   /**
@@ -2191,14 +2411,14 @@ public final class BuildConfiguration {
    * (Fragments, in particular the Google C++ support, can set variables through the
    * command line.)
    */
-  public Map<String, String> getCommandLineBuildVariables() {
+  public ImmutableMap<String, String> getCommandLineBuildVariables() {
     return commandLineBuildVariables;
   }
 
   /**
    * Returns the global defaults for this configuration for the Make environment.
    */
-  public Map<String, String> getGlobalMakeEnvironment() {
+  public ImmutableMap<String, String> getGlobalMakeEnvironment() {
     return globalMakeEnv;
   }
 
@@ -2291,15 +2511,27 @@ public final class BuildConfiguration {
    * Returns user-specified test environment variables and their values, as set by the --test_env
    * options.
    */
+  @Deprecated
   @SkylarkCallable(
     name = "test_env",
     structField = true,
     doc =
         "A dictionary containing user-specified test environment variables and their values, "
-            + "as set by the --test_env options."
+            + "as set by the --test_env options. DO NOT USE! This is not the complete environment!"
   )
   public ImmutableMap<String, String> getTestEnv() {
-    return testEnvironment;
+    return testEnv.getFixedEnv();
+  }
+
+  /**
+   * Returns user-specified test environment variables and their values, as set by the
+   * {@code --test_env} options. It is incomplete in that it is not a superset of the
+   * {@link #getActionEnvironment}, but both have to be applied, with this one being applied after
+   * the other, such that {@code --test_env} settings can override {@code --action_env} settings.
+   */
+  // TODO(ulfjack): Just return the merged action and test action environment here?
+  public ActionEnvironment getTestActionEnvironment() {
+    return testEnv;
   }
 
   public TriState cacheTestResults() {
@@ -2319,14 +2551,11 @@ public final class BuildConfiguration {
     return options.collectCodeCoverage;
   }
 
-  public boolean isMicroCoverageEnabled() {
-    return options.collectMicroCoverage;
-  }
-
   public boolean isLLVMCoverageMapFormatEnabled() {
     return options.useLLVMCoverageMapFormat;
   }
 
+  /** If false, AnalysisEnviroment doesn't register any actions created by the ConfiguredTarget. */
   public boolean isActionsEnabled() {
     return actionsEnabled;
   }
@@ -2372,7 +2601,7 @@ public final class BuildConfiguration {
   }
 
   public List<Label> getActionListeners() {
-    return actionsEnabled ? options.actionListeners : ImmutableList.<Label>of();
+    return isActionsEnabled() ? options.actionListeners : ImmutableList.<Label>of();
   }
 
   /**
@@ -2432,10 +2661,6 @@ public final class BuildConfiguration {
     return buildOptions;
   }
 
-  public ListMultimap<String, Label> getAllLabels() {
-    return buildOptions.getAllLabels();
-  }
-
   public String getCpu() {
     return options.cpu;
   }
@@ -2484,15 +2709,38 @@ public final class BuildConfiguration {
   }
 
   /**
+   * Returns the transition that produces the "artifact owner" for this configuration, or null
+   * if this configuration is its own owner.
+   *
+   * <p>This is the dynamic configuration version of {@link #getArtifactOwnerConfiguration}.
+   */
+  @Nullable
+  public PatchTransition getArtifactOwnerTransition() {
+    Preconditions.checkState(useDynamicConfigurations());
+    PatchTransition ownerTransition = null;
+    for (Fragment fragment : fragments.values()) {
+      PatchTransition fragmentTransition = fragment.getArtifactOwnerTransition();
+      if (fragmentTransition != null) {
+        if (ownerTransition != null) {
+          Verify.verify(ownerTransition == fragmentTransition,
+              String.format(
+                  "cannot determine owner transition: fragments returning both %s and %s",
+                  ownerTransition.toString(), fragmentTransition.toString()));
+        }
+        ownerTransition = fragmentTransition;
+      }
+    }
+    return ownerTransition;
+  }
+
+  /**
    * See {@code BuildConfigurationCollection.Transitions.getArtifactOwnerConfiguration()}.
+   *
+   * <p>This is the static configuration version of {@link #getArtifactOwnerTransition}.
    */
   public BuildConfiguration getArtifactOwnerConfiguration() {
-    // Dynamic configurations inherit transitions objects from other configurations exclusively
-    // for use of Transitions.getDynamicTransition. No other calls to transitions should be
-    // made for dynamic configurations.
-    // TODO(bazel-team): enforce the above automatically (without having to explicitly check
-    // for dynamic configuration mode).
-    return useDynamicConfigurations() ? this : transitions.getArtifactOwnerConfiguration();
+    Preconditions.checkState(!useDynamicConfigurations());
+    return transitions.getArtifactOwnerConfiguration();
   }
 
   /**
@@ -2510,11 +2758,60 @@ public final class BuildConfiguration {
     return options.targetEnvironments;
   }
 
+  /**
+   * Returns the {@link Label} of the {@code environment_group} target that will be used to find the
+   * target environment during auto-population.
+   */
+  public Label getAutoCpuEnvironmentGroup() {
+    return options.autoCpuEnvironmentGroup;
+  }
+
   public Class<? extends Fragment> getSkylarkFragmentByName(String name) {
     return skylarkVisibleFragments.get(name);
   }
 
   public ImmutableCollection<String> getSkylarkFragmentNames() {
     return skylarkVisibleFragments.keySet();
+  }
+
+  /**
+   * Returns an extra transition that should apply to top-level targets in this
+   * configuration. Returns null if no transition is needed.
+   */
+  @Nullable
+  public PatchTransition topLevelConfigurationHook(Target toTarget) {
+    PatchTransition currentTransition = null;
+    for (Fragment fragment : fragments.values()) {
+      PatchTransition fragmentTransition = fragment.topLevelConfigurationHook(toTarget);
+      if (fragmentTransition == null) {
+        continue;
+      } else if (currentTransition == null) {
+        currentTransition = fragmentTransition;
+      } else {
+        currentTransition = new ComposingPatchTransition(currentTransition, fragmentTransition);
+      }
+    }
+    return currentTransition;
+  }
+
+  @Override
+  public BuildEventId getEventId() {
+    return BuildEventId.configurationId(checksum());
+  }
+
+  @Override
+  public Collection<BuildEventId> getChildrenEvents() {
+    return ImmutableList.of();
+  }
+
+  @Override
+  public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
+    BuildEventStreamProtos.Configuration.Builder builder =
+        BuildEventStreamProtos.Configuration.newBuilder()
+            .setMnemonic(getMnemonic())
+            .setPlatformName(getPlatformName())
+            .putAllMakeVariable(getMakeEnvironment())
+            .setCpu(getCpu());
+    return GenericBuildEvent.protoChaining(this).setConfiguration(builder.build()).build();
   }
 }

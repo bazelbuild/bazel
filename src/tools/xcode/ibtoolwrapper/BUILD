@@ -10,6 +10,6 @@ sh_binary(
     srcs = ["ibtoolwrapper.sh"],
     data = [
         "//src/tools/xcode/realpath",
-        "//src/tools/xcode/xcrunwrapper",
+        "//tools/objc:xcrunwrapper",
     ],
 )

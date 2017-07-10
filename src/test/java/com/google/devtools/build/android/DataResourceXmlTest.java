@@ -16,7 +16,6 @@ package com.google.devtools.build.android;
 import static com.google.common.truth.Truth.assertAbout;
 import static com.google.common.truth.Truth.assertThat;
 
-import com.android.ide.common.res2.MergingException;
 import com.android.resources.ResourceType;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
@@ -24,11 +23,10 @@ import com.google.common.base.Optional;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.MoreFiles;
-import com.google.common.io.RecursiveDeleteOption;
 import com.google.common.jimfs.Jimfs;
 import com.google.common.truth.FailureStrategy;
 import com.google.common.truth.SubjectFactory;
+import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.xml.ArrayXmlResourceValue;
 import com.google.devtools.build.android.xml.ArrayXmlResourceValue.ArrayType;
 import com.google.devtools.build.android.xml.AttrXmlResourceValue;
@@ -43,16 +41,21 @@ import com.google.devtools.build.android.xml.AttrXmlResourceValue.IntegerResourc
 import com.google.devtools.build.android.xml.AttrXmlResourceValue.ReferenceResourceXmlAttrValue;
 import com.google.devtools.build.android.xml.AttrXmlResourceValue.StringResourceXmlAttrValue;
 import com.google.devtools.build.android.xml.IdXmlResourceValue;
+import com.google.devtools.build.android.xml.Namespaces;
 import com.google.devtools.build.android.xml.PluralXmlResourceValue;
 import com.google.devtools.build.android.xml.PublicXmlResourceValue;
+import com.google.devtools.build.android.xml.ResourcesAttribute;
 import com.google.devtools.build.android.xml.SimpleXmlResourceValue;
 import com.google.devtools.build.android.xml.StyleXmlResourceValue;
 import com.google.devtools.build.android.xml.StyleableXmlResourceValue;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -652,6 +655,41 @@ public class DataResourceXmlTest {
   }
 
   @Test
+  public void resourcesAttribute() throws Exception {
+    Namespaces namespaces = Namespaces.from(
+        ImmutableMap.of("tools", "http://schemas.android.com/tools"));
+
+    Path path = writeResourceXml(
+        namespaces.asMap(),
+        ImmutableMap.of("tools:foo", "fooVal", "tools:ignore", "ignoreVal"));
+
+    final Map<DataKey, DataResource> toOverwrite = new HashMap<>();
+    final Map<DataKey, DataResource> toCombine = new HashMap<>();
+    parseResourcesFrom(path, toOverwrite, toCombine);
+
+    FullyQualifiedName fooFqn = fqn("<resources>/{http://schemas.android.com/tools}foo");
+    assertThat(toOverwrite)
+        .containsExactly(
+            fooFqn,
+            DataResourceXml.createWithNamespaces(
+                path,
+                ResourcesAttribute.of(fooFqn, "tools:foo", "fooVal"),
+                namespaces)
+            );
+
+    FullyQualifiedName ignoreFqn = fqn("<resources>/{http://schemas.android.com/tools}ignore");
+    assertThat(toCombine)
+        .containsExactly(
+            ignoreFqn,
+            DataResourceXml.createWithNamespaces(
+                path,
+                ResourcesAttribute.of(ignoreFqn, "tools:ignore", "ignoreVal"),
+                namespaces)
+            );
+
+  }
+
+  @Test
   public void writeSimpleXmlResources() throws Exception {
     Path source =
         writeResourceXml(
@@ -986,8 +1024,9 @@ public class DataResourceXmlTest {
     Path source = writeResourceXml(
         ImmutableMap.of("tools", "http://schemas.android.com/tools"),
         ImmutableMap.of("tools:foo", "fooVal"));
+
     assertAbout(resourcePaths)
-        .that(parsedAndWritten(source, fqn("<resources>/tools:foo")))
+        .that(parsedAndWritten(source, fqn("<resources>/{http://schemas.android.com/tools}foo")))
         .xmlContentsIsEqualTo(
             resourcesXmlFrom(
                 ImmutableMap.of("tools", "http://schemas.android.com/tools"),
@@ -1286,7 +1325,26 @@ public class DataResourceXmlTest {
     parseResourcesFrom(path, toOverwrite, toCombine);
     Path out = fs.getPath("out");
     if (Files.exists(out)) {
-      MoreFiles.deleteRecursively(out, RecursiveDeleteOption.ALLOW_INSECURE);
+      Files.walkFileTree(
+          out,
+          new SimpleFileVisitor<Path>() {
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
+                throws IOException {
+              Files.delete(file);
+              return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult postVisitDirectory(Path directory, IOException e)
+                throws IOException {
+              if (e != null) {
+                throw e;
+              }
+              Files.delete(directory);
+              return FileVisitResult.CONTINUE;
+            }
+          });
     }
     // find and write the resource -- the categorization is tested during parsing.
     AndroidDataWriter mergedDataWriter = AndroidDataWriter.createWithDefaults(out);

@@ -9,7 +9,6 @@
 #include <google/protobuf/compiler/code_generator.h>
 #include <google/protobuf/compiler/plugin.h>
 #include <google/protobuf/descriptor.h>
-#include <google/protobuf/descriptor.pb.h>
 #include <google/protobuf/io/zero_copy_stream.h>
 
 static string JavaPackageToDir(const string& package_name) {
@@ -32,16 +31,20 @@ class JavaGrpcGenerator : public google::protobuf::compiler::CodeGenerator {
                         const string& parameter,
                         google::protobuf::compiler::GeneratorContext* context,
                         string* error) const {
-    vector<pair<string, string> > options;
+    std::vector<std::pair<string, string> > options;
     google::protobuf::compiler::ParseGeneratorParameter(parameter, &options);
 
     java_grpc_generator::ProtoFlavor flavor =
         java_grpc_generator::ProtoFlavor::NORMAL;
+
+    bool enable_deprecated = false;
     for (int i = 0; i < options.size(); i++) {
       if (options[i].first == "nano") {
         flavor = java_grpc_generator::ProtoFlavor::NANO;
       } else if (options[i].first == "lite") {
         flavor = java_grpc_generator::ProtoFlavor::LITE;
+      } else if (options[i].first == "enable_deprecated") {
+        enable_deprecated = options[i].second == "true";
       }
     }
 
@@ -54,7 +57,7 @@ class JavaGrpcGenerator : public google::protobuf::compiler::CodeGenerator {
           + java_grpc_generator::ServiceClassName(service) + ".java";
       std::unique_ptr<google::protobuf::io::ZeroCopyOutputStream> output(
           context->Open(filename));
-      java_grpc_generator::GenerateService(service, output.get(), flavor);
+      java_grpc_generator::GenerateService(service, output.get(), flavor, enable_deprecated);
     }
     return true;
   }

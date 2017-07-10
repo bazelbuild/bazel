@@ -16,9 +16,8 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
-
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -79,8 +78,13 @@ public final class SelectorValue implements SkylarkValue {
   }
 
   @Override
-  public void write(Appendable buffer, char quotationMark) {
-    Printer.formatTo(buffer, "selector(%r)", Tuple.of(dictionary));
+  public void repr(SkylarkPrinter printer) {
+    printer.format("select(%r)", dictionary);
+  }
+
+  @Override
+  public void reprLegacy(SkylarkPrinter printer) {
+    printer.format("selector(%r)", dictionary);
   }
 
   @Override

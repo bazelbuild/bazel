@@ -17,13 +17,13 @@ package com.google.devtools.build.lib.exec;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closeables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.rules.test.TestActionContext;
 import com.google.devtools.build.lib.rules.test.TestResult;
 import com.google.devtools.build.lib.rules.test.TestRunnerAction;
 import com.google.devtools.build.lib.rules.test.TestTargetExecutionSettings;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileWatcher;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -42,7 +43,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
 import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.EnumConverter;
-import com.google.devtools.common.options.OptionsClassProvider;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.io.Closeable;
 import java.io.IOException;
@@ -132,17 +132,12 @@ public abstract class TestStrategy implements TestActionContext {
   // Used for generating unique temporary directory names. Contains the next numeric index for every
   // executable base name.
   private final Map<String, Integer> tmpIndex = new HashMap<>();
-  protected final ImmutableMap<String, String> clientEnv;
   protected final ExecutionOptions executionOptions;
   protected final BinTools binTools;
 
-  public TestStrategy(
-      OptionsClassProvider requestOptionsProvider,
-      BinTools binTools,
-      Map<String, String> clientEnv) {
-    this.executionOptions = requestOptionsProvider.getOptions(ExecutionOptions.class);
+  public TestStrategy(ExecutionOptions executionOptions, BinTools binTools) {
+    this.executionOptions = executionOptions;
     this.binTools = binTools;
-    this.clientEnv = ImmutableMap.copyOf(clientEnv);
   }
 
   @Override
@@ -187,7 +182,7 @@ public abstract class TestStrategy implements TestActionContext {
 
     // Execute the test using the alias in the runfiles tree, as mandated by the Test Encyclopedia.
     args.add(execSettings.getExecutable().getRootRelativePath().getCallablePathString());
-    args.addAll(execSettings.getArgs());
+    Iterables.addAll(args, execSettings.getArgs().arguments());
     return ImmutableList.copyOf(args);
   }
 
@@ -239,9 +234,10 @@ public abstract class TestStrategy implements TestActionContext {
   /*
    * Finalize test run: persist the result, and post on the event bus.
    */
-  protected void postTestResult(Executor executor, TestResult result) throws IOException {
+  protected void postTestResult(ActionExecutionContext actionExecutionContext, TestResult result)
+      throws IOException {
     result.getTestAction().saveCacheStatus(result.getData());
-    executor.getEventBus().post(result);
+    actionExecutionContext.getEventBus().post(result);
   }
 
   /**
@@ -260,6 +256,14 @@ public abstract class TestStrategy implements TestActionContext {
       tmpIndex.put(basename, index + 1);
       return basename + "_" + index;
     }
+  }
+
+  protected String getTmpDirName(PathFragment execPath, int shard, int run) {
+    Fingerprint digest = new Fingerprint();
+    digest.addPath(execPath);
+    digest.addInt(shard);
+    digest.addInt(run);
+    return digest.hexDigestAndReset();
   }
 
   /** Parse a test result XML file into a {@link TestCase}. */
@@ -361,8 +365,6 @@ public abstract class TestStrategy implements TestActionContext {
       ImmutableMap<String, String> shellEnvironment,
       boolean enableRunfiles)
       throws ExecException, InterruptedException {
-    Executor executor = actionExecutionContext.getExecutor();
-
     TestTargetExecutionSettings execSettings = testAction.getExecutionSettings();
     Path outputManifest = runfilesDir.getRelative("MANIFEST");
     try {
@@ -379,7 +381,7 @@ public abstract class TestStrategy implements TestActionContext {
       // Ignore it - we will just try to create runfiles directory.
     }
 
-    executor
+    actionExecutionContext
         .getEventHandler()
         .handle(
             Event.progress(
@@ -391,7 +393,8 @@ public abstract class TestStrategy implements TestActionContext {
         .createSymlinks(
             testAction, actionExecutionContext, binTools, shellEnvironment, enableRunfiles);
 
-    executor.getEventHandler().handle(Event.progress(testAction.getProgressMessage()));
+    actionExecutionContext.getEventHandler()
+        .handle(Event.progress(testAction.getProgressMessage()));
   }
 
   /** In rare cases, we might write something to stderr. Append it to the real test.log. */

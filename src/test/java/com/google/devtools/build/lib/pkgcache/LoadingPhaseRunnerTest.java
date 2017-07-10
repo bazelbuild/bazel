@@ -14,10 +14,6 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Functions;
@@ -42,16 +38,14 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
-import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
-import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.syntax.SkylarkSemanticsOptions;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -111,7 +105,7 @@ public class LoadingPhaseRunnerTest {
         "filegroup(name = 'hello', srcs = ['foo.txt'])");
     LoadingResult loadingResult = assertNoErrors(tester.load("//base:hello"));
     assertThat(loadingResult.getTargets()).containsExactlyElementsIn(getTargets("//base:hello"));
-    assertNull(loadingResult.getTestsToRun());
+    assertThat(loadingResult.getTestsToRun()).isNull();
   }
 
   @Test
@@ -156,10 +150,10 @@ public class LoadingPhaseRunnerTest {
   public void testBadTargetPatternWithTest() throws Exception {
     tester.addFile("base/BUILD");
     LoadingResult loadingResult = tester.loadTestsKeepGoing("//base:missing");
-    assertTrue(loadingResult.hasTargetPatternError());
-    assertFalse(loadingResult.hasLoadingError());
-    assertThat(loadingResult.getTargets()).containsExactlyElementsIn(ImmutableList.<Target>of());
-    assertThat(loadingResult.getTestsToRun()).containsExactlyElementsIn(ImmutableList.<Target>of());
+    assertThat(loadingResult.hasTargetPatternError()).isTrue();
+    assertThat(loadingResult.hasLoadingError()).isFalse();
+    assertThat(loadingResult.getTargets()).isEmpty();
+    assertThat(loadingResult.getTestsToRun()).isEmpty();
     tester.assertContainsError("Skipping '//base:missing': no such target '//base:missing'");
     tester.assertContainsWarning("Target pattern parsing failed.");
   }
@@ -313,8 +307,8 @@ public class LoadingPhaseRunnerTest {
         "test_suite(name = 'tests', tests = ['//nonexistent:my_test'])");
     tester.useLoadingOptions("--build_tests_only");
     LoadingResult loadingResult = tester.loadTestsKeepGoing("//ts:tests");
-    assertTrue(loadingResult.hasTargetPatternError());
-    assertFalse(loadingResult.hasLoadingError());
+    assertThat(loadingResult.hasTargetPatternError()).isTrue();
+    assertThat(loadingResult.hasLoadingError()).isFalse();
     tester.assertContainsError("no such package 'nonexistent'");
   }
 
@@ -323,8 +317,8 @@ public class LoadingPhaseRunnerTest {
     tester.addFile("ts/BUILD",
         "test_suite(name = 'tests', tests = [':nonexistent_test'])");
     LoadingResult loadingResult = tester.loadKeepGoing("//ts:tests");
-    assertFalse(loadingResult.hasTargetPatternError());
-    assertTrue(loadingResult.hasLoadingError());
+    assertThat(loadingResult.hasTargetPatternError()).isFalse();
+    assertThat(loadingResult.hasLoadingError()).isTrue();
     tester.assertContainsError(
         "expecting a test or a test_suite rule but '//ts:nonexistent_test' is not one");
   }
@@ -335,8 +329,8 @@ public class LoadingPhaseRunnerTest {
     tester.addFile("ts/BUILD",
         "test_suite(name = 'tests', tests = ['//other:no_such_test'])");
     LoadingResult loadingResult = tester.loadTestsKeepGoing("//ts:tests");
-    assertTrue(loadingResult.hasTargetPatternError());
-    assertTrue(loadingResult.hasLoadingError());
+    assertThat(loadingResult.hasTargetPatternError()).isTrue();
+    assertThat(loadingResult.hasLoadingError()).isTrue();
     tester.assertContainsError("no such target '//other:no_such_test'");
   }
 
@@ -347,8 +341,8 @@ public class LoadingPhaseRunnerTest {
         "test_suite(name = 'a', tests = ['//other:no_such_test'])",
         "test_suite(name = 'b', tests = [])");
     LoadingResult loadingResult = tester.loadTestsKeepGoing("//ts:all");
-    assertTrue(loadingResult.hasTargetPatternError());
-    assertTrue(loadingResult.hasLoadingError());
+    assertThat(loadingResult.hasTargetPatternError()).isTrue();
+    assertThat(loadingResult.hasLoadingError()).isTrue();
     tester.assertContainsError("no such target '//other:no_such_test'");
   }
 
@@ -421,8 +415,8 @@ public class LoadingPhaseRunnerTest {
         "filegroup(name = 'hello', srcs = ['foo.txt'])");
     LoadingResult firstResult = assertNoErrors(tester.load("//base:hello"));
     LoadingResult secondResult = assertNoErrors(tester.load("//base:hello"));
-    assertEquals(firstResult.getTargets(), secondResult.getTargets());
-    assertEquals(firstResult.getTestsToRun(), secondResult.getTestsToRun());
+    assertThat(secondResult.getTargets()).isEqualTo(firstResult.getTargets());
+    assertThat(secondResult.getTestsToRun()).isEqualTo(firstResult.getTestsToRun());
   }
 
   /**
@@ -554,7 +548,7 @@ public class LoadingPhaseRunnerTest {
         "cc_library(name = 'hello', srcs = ['hello.cc', '//bad:bad.cc'])");
     tester.useLoadingOptions("--compile_one_dependency");
     LoadingResult loadingResult = tester.loadKeepGoing("base/hello.cc");
-    assertFalse(loadingResult.hasLoadingError());
+    assertThat(loadingResult.hasLoadingError()).isFalse();
   }
 
   private void assertCircularSymlinksDuringTargetParsing(String targetPattern) throws Exception {
@@ -568,8 +562,8 @@ public class LoadingPhaseRunnerTest {
   }
 
   private LoadingResult assertNoErrors(LoadingResult loadingResult) {
-    assertFalse(loadingResult.hasTargetPatternError());
-    assertFalse(loadingResult.hasLoadingError());
+    assertThat(loadingResult.hasTargetPatternError()).isFalse();
+    assertThat(loadingResult.hasLoadingError()).isFalse();
     tester.assertNoEvents();
     return loadingResult;
   }
@@ -604,7 +598,7 @@ public class LoadingPhaseRunnerTest {
 
       ConfiguredRuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
       PackageFactory pkgFactory =
-          analysisMock.getPackageFactoryForTesting().create(ruleClassProvider, fs);
+          analysisMock.getPackageFactoryBuilderForTesting().build(ruleClassProvider, fs);
       PackageCacheOptions options = Options.getDefaults(PackageCacheOptions.class);
       storedErrors = new StoredEventHandler();
       BlazeDirectories directories =
@@ -614,7 +608,7 @@ public class LoadingPhaseRunnerTest {
               workspace,
               analysisMock.getProductName());
       skyframeExecutor =
-          SequencedSkyframeExecutor.create(
+          SequencedSkyframeExecutor.createForTesting(
               pkgFactory,
               directories,
               null, /* binTools -- not used */
@@ -622,13 +616,10 @@ public class LoadingPhaseRunnerTest {
               ruleClassProvider.getBuildInfoFactories(),
               ImmutableList.<DiffAwareness.Factory>of(),
               Predicates.<PathFragment>alwaysFalse(),
-              Preprocessor.Factory.Supplier.NullSupplier.INSTANCE,
               analysisMock.getSkyFunctions(),
               ImmutableList.<PrecomputedValue.Injected>of(),
               ImmutableList.<SkyValueDirtinessChecker>of(),
-              analysisMock.getProductName(),
-              CrossRepositoryLabelViolationStrategy.ERROR,
-              ImmutableList.of(BuildFileName.BUILD_DOT_BAZEL, BuildFileName.BUILD));
+              analysisMock.getProductName());
       PathPackageLocator pkgLocator = PathPackageLocator.create(
           null, options.packagePath, storedErrors, workspace, workspace);
       PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
@@ -638,6 +629,7 @@ public class LoadingPhaseRunnerTest {
       skyframeExecutor.preparePackageLoading(
           pkgLocator,
           packageCacheOptions,
+          Options.getDefaults(SkylarkSemanticsOptions.class),
           analysisMock.getDefaultsPackageContent(),
           UUID.randomUUID(),
           ImmutableMap.<String, String>of(),
@@ -699,7 +691,7 @@ public class LoadingPhaseRunnerTest {
         throw e;
       }
       if (!keepGoing) {
-        assertFalse(storedErrors.hasErrors());
+        assertThat(storedErrors.hasErrors()).isFalse();
       }
       return result;
     }
@@ -755,7 +747,7 @@ public class LoadingPhaseRunnerTest {
       StoredEventHandler eventHandler = new StoredEventHandler();
       Target target = getPkgManager().getTarget(
           eventHandler, Label.parseAbsoluteUnchecked(targetName));
-      assertFalse(eventHandler.hasErrors());
+      assertThat(eventHandler.hasErrors()).isFalse();
       return target;
     }
 

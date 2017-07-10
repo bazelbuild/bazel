@@ -14,10 +14,6 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableSet;
@@ -26,6 +22,8 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment
 import com.google.devtools.build.lib.analysis.util.ConfigurationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
@@ -50,18 +48,19 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
 
     BuildConfiguration config = create("--cpu=piii");
     String outputDirPrefix = outputBase
-        + "/workspace/blaze-out/gcc-4.4.0-glibc-2.3.6-grte-piii-fastbuild";
+        + "/" + config.getMainRepositoryName()
+        + "/blaze-out/gcc-4.4.0-glibc-2.3.6-grte-piii-fastbuild";
 
-    assertEquals(outputDirPrefix,
-                 config.getOutputDirectory(RepositoryName.MAIN).getPath().toString());
-    assertEquals(outputDirPrefix + "/bin",
-                 config.getBinDirectory(RepositoryName.MAIN).getPath().toString());
-    assertEquals(outputDirPrefix + "/include",
-                 config.getIncludeDirectory(RepositoryName.MAIN).getPath().toString());
-    assertEquals(outputDirPrefix + "/genfiles",
-                 config.getGenfilesDirectory(RepositoryName.MAIN).getPath().toString());
-    assertEquals(outputDirPrefix + "/testlogs",
-                 config.getTestLogsDirectory(RepositoryName.MAIN).getPath().toString());
+    assertThat(config.getOutputDirectory(RepositoryName.MAIN).getPath().toString())
+        .isEqualTo(outputDirPrefix);
+    assertThat(config.getBinDirectory(RepositoryName.MAIN).getPath().toString())
+        .isEqualTo(outputDirPrefix + "/bin");
+    assertThat(config.getIncludeDirectory(RepositoryName.MAIN).getPath().toString())
+        .isEqualTo(outputDirPrefix + "/include");
+    assertThat(config.getGenfilesDirectory(RepositoryName.MAIN).getPath().toString())
+        .isEqualTo(outputDirPrefix + "/genfiles");
+    assertThat(config.getTestLogsDirectory(RepositoryName.MAIN).getPath().toString())
+        .isEqualTo(outputDirPrefix + "/testlogs");
   }
 
   @Test
@@ -71,8 +70,12 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
     }
 
     BuildConfiguration config = create("--platform_suffix=-test");
-    assertEquals(outputBase + "/workspace/blaze-out/gcc-4.4.0-glibc-2.3.6-grte-k8-fastbuild-test",
-        config.getOutputDirectory(RepositoryName.MAIN).getPath().toString());
+    assertThat(config.getOutputDirectory(RepositoryName.MAIN).getPath().toString())
+        .isEqualTo(
+            outputBase
+                + "/"
+                + config.getMainRepositoryName()
+                + "/blaze-out/gcc-4.4.0-glibc-2.3.6-grte-k8-fastbuild-test");
   }
 
   @Test
@@ -97,7 +100,7 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
   public void testHostCpu() throws Exception {
     for (String cpu : new String[] { "piii", "k8" }) {
       BuildConfiguration hostConfig = createHost("--host_cpu=" + cpu);
-      assertEquals(cpu, hostConfig.getFragment(CppConfiguration.class).getTargetCpu());
+      assertThat(hostConfig.getFragment(CppConfiguration.class).getTargetCpu()).isEqualTo(cpu);
     }
   }
 
@@ -109,12 +112,12 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
 
     BuildConfigurationCollection configs = createCollection("--cpu=piii");
     BuildConfiguration config = Iterables.getOnlyElement(configs.getTargetConfigurations());
-    assertEquals(Label.parseAbsoluteUnchecked("//third_party/crosstool/mock:cc-compiler-piii"),
-        config.getFragment(CppConfiguration.class).getCcToolchainRuleLabel());
+    assertThat(config.getFragment(CppConfiguration.class).getCcToolchainRuleLabel())
+        .isEqualTo(Label.parseAbsoluteUnchecked("//third_party/crosstool/mock:cc-compiler-piii"));
 
     BuildConfiguration hostConfig = configs.getHostConfiguration();
-    assertEquals(Label.parseAbsoluteUnchecked("//third_party/crosstool/mock:cc-compiler-k8"),
-        hostConfig.getFragment(CppConfiguration.class).getCcToolchainRuleLabel());
+    assertThat(hostConfig.getFragment(CppConfiguration.class).getCcToolchainRuleLabel())
+        .isEqualTo(Label.parseAbsoluteUnchecked("//third_party/crosstool/mock:cc-compiler-k8"));
   }
 
   @Test
@@ -129,8 +132,8 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
     BuildConfiguration.Options b = Options.getDefaults(BuildConfiguration.Options.class);
     // The String representations of the BuildConfiguration.Options must be equal even if these are
     // different objects, if they were created with the same options (no options in this case).
-    assertEquals(a.toString(), b.toString());
-    assertEquals(a.cacheKey(), b.cacheKey());
+    assertThat(b.toString()).isEqualTo(a.toString());
+    assertThat(b.cacheKey()).isEqualTo(a.cacheKey());
   }
 
   @Test
@@ -141,8 +144,11 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
       create("--cpu=bogus", "--experimental_disable_jvm");
       fail();
     } catch (InvalidConfigurationException e) {
-      assertThat(e.getMessage()).matches(Pattern.compile(
-              "No toolchain found for cpu 'bogus'. Valid cpus are: \\[\n(  [\\w-]+,\n)+]"));
+      assertThat(e)
+          .hasMessageThat()
+          .matches(
+              Pattern.compile(
+                  "No toolchain found for cpu 'bogus'. Valid cpus are: \\[\n(  [\\w-]+,\n)+]"));
     }
   }
 
@@ -161,8 +167,8 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
     BuildConfigurationCollection master = createCollection("--multi_cpu=k8", "--multi_cpu=piii");
     assertThat(master.getTargetConfigurations()).hasSize(2);
     // Note: the cpus are sorted alphabetically.
-    assertEquals("k8", master.getTargetConfigurations().get(0).getCpu());
-    assertEquals("piii", master.getTargetConfigurations().get(1).getCpu());
+    assertThat(master.getTargetConfigurations().get(0).getCpu()).isEqualTo("k8");
+    assertThat(master.getTargetConfigurations().get(1).getCpu()).isEqualTo("piii");
   }
 
   /**
@@ -183,8 +189,8 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
         master = createCollection("--multi_cpu=piii", "--multi_cpu=k8");
       }
       assertThat(master.getTargetConfigurations()).hasSize(2);
-      assertEquals("k8", master.getTargetConfigurations().get(0).getCpu());
-      assertEquals("piii", master.getTargetConfigurations().get(1).getCpu());
+      assertThat(master.getTargetConfigurations().get(0).getCpu()).isEqualTo("k8");
+      assertThat(master.getTargetConfigurations().get(1).getCpu()).isEqualTo("piii");
     }
   }
 
@@ -268,29 +274,24 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
   @Test
   public void testGetTransitiveOptionDetails() throws Exception {
     // Directly defined options:
-    assertEquals(
-        CompilationMode.DBG,
-        create("-c", "dbg").getTransitiveOptionDetails().getOptionValue("compilation_mode"));
-    assertEquals(
-        CompilationMode.OPT,
-        create("-c", "opt").getTransitiveOptionDetails().getOptionValue("compilation_mode"));
+    assertThat(create("-c", "dbg").getTransitiveOptionDetails().getOptionValue("compilation_mode"))
+        .isEqualTo(CompilationMode.DBG);
+    assertThat(create("-c", "opt").getTransitiveOptionDetails().getOptionValue("compilation_mode"))
+        .isEqualTo(CompilationMode.OPT);
 
     // Options defined in a fragment:
-    assertEquals(
-        Boolean.TRUE,
-        create("--force_pic").getTransitiveOptionDetails().getOptionValue("force_pic"));
-    assertEquals(
-        Boolean.FALSE,
-        create("--noforce_pic").getTransitiveOptionDetails().getOptionValue("force_pic"));
+    assertThat(create("--force_pic").getTransitiveOptionDetails().getOptionValue("force_pic"))
+        .isEqualTo(Boolean.TRUE);
+    assertThat(create("--noforce_pic").getTransitiveOptionDetails().getOptionValue("force_pic"))
+        .isEqualTo(Boolean.FALSE);
 
     // Late-bound default option:
     BuildConfiguration config = create();
-    assertEquals(
-        config.getTransitiveOptionDetails().getOptionValue("compiler"),
-        config.getFragment(CppConfiguration.class).getCompiler());
+    assertThat(config.getFragment(CppConfiguration.class).getCompiler())
+        .isEqualTo(config.getTransitiveOptionDetails().getOptionValue("compiler"));
 
     // Legitimately null option:
-    assertNull(create().getTransitiveOptionDetails().getOptionValue("test_filter"));
+    assertThat(create().getTransitiveOptionDetails().getOptionValue("test_filter")).isNull();
   }
 
   @Test
@@ -311,9 +312,9 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
             analysisMock.createRuleClassProvider());
     BuildConfiguration hostConfig = createHost();
 
-    assertTrue(config.equalsOrIsSupersetOf(trimmedConfig));
-    assertFalse(config.equalsOrIsSupersetOf(hostConfig));
-    assertFalse(trimmedConfig.equalsOrIsSupersetOf(config));
+    assertThat(config.equalsOrIsSupersetOf(trimmedConfig)).isTrue();
+    assertThat(config.equalsOrIsSupersetOf(hostConfig)).isFalse();
+    assertThat(trimmedConfig.equalsOrIsSupersetOf(config)).isFalse();
   }
 
   @Test
@@ -371,5 +372,61 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
   public void testHostDefine() throws Exception {
     BuildConfiguration cfg = createHost("--define=foo=bar");
     assertThat(cfg.getCommandLineBuildVariables().get("foo")).isEqualTo("bar");
+  }
+
+  /**
+   * Returns a mock config fragment that loads the given label and does nothing else.
+   */
+  private static ConfigurationFragmentFactory createMockFragmentWithLabelDep(final String label) {
+    return new ConfigurationFragmentFactory() {
+      @Override
+      public Fragment create(ConfigurationEnvironment env, BuildOptions buildOptions)
+          throws InvalidConfigurationException, InterruptedException {
+        try {
+          env.getTarget(Label.parseAbsoluteUnchecked(label));
+        } catch (NoSuchPackageException e) {
+          fail("cannot load mock fragment's dep label " + label + ": " + e.getMessage());
+        } catch (NoSuchTargetException e) {
+          fail("cannot load mock fragment's dep label " + label + ": " + e.getMessage());
+        }
+        return new Fragment() {};
+      }
+
+      @Override
+      public Class<? extends Fragment> creates() {
+        return CppConfiguration.class;
+      }
+
+      @Override
+      public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
+        return ImmutableSet.<Class<? extends FragmentOptions>>of();
+      }
+    };
+  }
+
+  @Test
+  public void depLabelCycleOnConfigurationLoading() throws Exception {
+    configurationFactory =
+        new ConfigurationFactory(
+            analysisMock.createConfigurationCollectionFactory(),
+            createMockFragmentWithLabelDep("//foo"));
+    getScratch().file("foo/BUILD",
+        "load('//skylark:one.bzl', 'one')",
+        "cc_library(name = 'foo')");
+    getScratch().file("skylark/BUILD");
+    getScratch().file("skylark/one.bzl",
+        "load('//skylark:two.bzl', 'two')",
+        "def one():",
+        "  pass");
+    getScratch().file("skylark/two.bzl",
+        "load('//skylark:one.bzl', 'one')",
+        "def two():",
+        "  pass");
+    checkError(String.join("\n",
+        "ERROR <no location>: cycle detected in extension files: ",
+        "    foo/BUILD",
+        ".-> //skylark:one.bzl",
+        "|   //skylark:two.bzl",
+        "`-- //skylark:one.bzl"));
   }
 }

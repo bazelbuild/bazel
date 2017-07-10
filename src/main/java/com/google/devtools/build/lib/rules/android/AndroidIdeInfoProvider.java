@@ -16,21 +16,22 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.Collection;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -127,6 +128,7 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
     private Artifact manifest = null;
     private Artifact generatedManifest = null;
     private Artifact apk = null;
+    private Artifact resourceApk = null;
     private Artifact idlClassJar = null;
     private Artifact idlSourceJar = null;
     private OutputJar resourceJar = null;
@@ -140,6 +142,7 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
     private final Set<Artifact> apksUnderTest = new LinkedHashSet<>();
     private boolean definesAndroidResources;
     private Artifact aar = null;
+    private Map<String, NestedSet<Artifact>> nativeLibs = null;
 
     public AndroidIdeInfoProvider build() {
       return new AndroidIdeInfoProvider(
@@ -158,7 +161,11 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
           ImmutableList.copyOf(idlDirs),
           ImmutableList.copyOf(idlSrcs),
           ImmutableList.copyOf(idlGeneratedJavaFiles),
-          ImmutableList.copyOf(apksUnderTest));
+          ImmutableList.copyOf(apksUnderTest),
+          nativeLibs != null
+              ? ImmutableMap.copyOf(nativeLibs)
+              : ImmutableMap.<String, NestedSet<Artifact>>of(),
+          resourceApk);
     }
 
     public Builder setJavaPackage(String javaPackage) {
@@ -206,10 +213,21 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
       return this;
     }
 
+    public Builder setResourceApk(Artifact resourceApk) {
+      this.resourceApk = resourceApk;
+      return this;
+    }
+
     public Builder setAar(Artifact aar) {
       this.aar = aar;
       return this;
     }
+
+    public Builder setNativeLibs(Map<String, NestedSet<Artifact>> nativeLibs) {
+      this.nativeLibs = nativeLibs;
+      return this;
+    }
+
 
     public Builder addIdlImportRoot(String idlImportRoot) {
       this.idlImportRoot = idlImportRoot;
@@ -293,7 +311,6 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
       Iterables.addAll(apksUnderTest, apks);
       return this;
     }
-
   }
 
   private final String javaPackage;
@@ -304,6 +321,7 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
   @Nullable private final Artifact idlClassJar;
   @Nullable private final Artifact idlSourceJar;
   @Nullable private final OutputJar resourceJar;
+  @Nullable private final Artifact resourceApk;
   private final ImmutableCollection<SourceDirectory> resourceDirs;
   private final boolean definesAndroidResources;
   private final Artifact aar;
@@ -312,6 +330,7 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
   private final ImmutableCollection<Artifact> idlSrcs;
   private final ImmutableCollection<Artifact> idlGeneratedJavaFiles;
   private final ImmutableCollection<Artifact> apksUnderTest;
+  private final ImmutableMap<String, NestedSet<Artifact>> nativeLibs;
 
   AndroidIdeInfoProvider(
       String javaPackage,
@@ -329,7 +348,9 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
       ImmutableCollection<SourceDirectory> idlImports,
       ImmutableCollection<Artifact> idlSrcs,
       ImmutableCollection<Artifact> idlGeneratedJavaFiles,
-      ImmutableCollection<Artifact> apksUnderTest) {
+      ImmutableCollection<Artifact> apksUnderTest,
+      ImmutableMap<String, NestedSet<Artifact>> nativeLibs,
+      Artifact resourceApk) {
     this.javaPackage = javaPackage;
     this.idlImportRoot = idlImportRoot;
     this.manifest = manifest;
@@ -346,6 +367,8 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
     this.idlSrcs = idlSrcs;
     this.idlGeneratedJavaFiles = idlGeneratedJavaFiles;
     this.apksUnderTest = apksUnderTest;
+    this.nativeLibs = nativeLibs;
+    this.resourceApk = resourceApk;
   }
 
   /** Returns java package for this target. */
@@ -404,6 +427,11 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
     return aar;
   }
 
+  @Nullable
+  public Artifact getResourceApk() {
+    return resourceApk;
+  }
+
   /** A list of the direct Resource directories. */
   public ImmutableCollection<SourceDirectory> getResourceDirs() {
     return resourceDirs;
@@ -432,5 +460,10 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
   /** A list of the APKs related to the app under test, if any. */
   public ImmutableCollection<Artifact> getApksUnderTest() {
     return apksUnderTest;
+  }
+
+  /** A map, keyed on architecture, of the native libs for the app, if any. */
+  public ImmutableMap<String, NestedSet<Artifact>> getNativeLibs() {
+    return nativeLibs;
   }
 }

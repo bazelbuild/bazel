@@ -21,6 +21,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -32,13 +33,14 @@ import com.google.devtools.build.lib.syntax.Runtime.NoneType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringUtilities;
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -249,17 +251,34 @@ public final class FuncallExpression extends Expression {
     return numPositionalArgs;
   }
 
+   @Override
+   public void prettyPrint(Appendable buffer) throws IOException {
+     if (obj != null) {
+       obj.prettyPrint(buffer);
+       buffer.append('.');
+     }
+     func.prettyPrint(buffer);
+     buffer.append('(');
+     String sep = "";
+     for (Argument.Passed arg : args) {
+       buffer.append(sep);
+       arg.prettyPrint(buffer);
+       sep = ", ";
+     }
+     buffer.append(')');
+   }
+
   @Override
   public String toString() {
-    StringBuilder sb = new StringBuilder();
+    Printer.LengthLimitedPrinter printer = new Printer.LengthLimitedPrinter();
     if (obj != null) {
-      sb.append(obj).append(".");
+      printer.append(obj.toString()).append(".");
     }
-    sb.append(func);
-    Printer.printList(sb, args, "(", ", ", ")", /* singletonTerminator */ null,
+    printer.append(func.toString());
+    printer.printAbbreviatedList(args, "(", ", ", ")", null,
         Printer.SUGGESTED_CRITICAL_LIST_ELEMENTS_COUNT,
         Printer.SUGGESTED_CRITICAL_LIST_ELEMENTS_STRING_LENGTH);
-    return sb.toString();
+    return printer.toString();
   }
 
   /**
@@ -308,7 +327,8 @@ public final class FuncallExpression extends Expression {
               loc,
               "method invocation returned None, please file a bug report: "
                   + methodName
-                  + Printer.listString(ImmutableList.copyOf(args), "(", ", ", ")", null));
+                  + Printer.printAbbreviatedList(
+                      ImmutableList.copyOf(args), "(", ", ", ")", null));
         }
       }
       // TODO(bazel-team): get rid of this, by having everyone use the Skylark data structures
@@ -442,7 +462,7 @@ public final class FuncallExpression extends Expression {
     }
 
     // Then the parameters specified in callable.parameters()
-    Set<String> keys = new HashSet<>(kwargs.keySet());
+    Set<String> keys = new LinkedHashSet<>(kwargs.keySet());
     for (Param param : callable.parameters()) {
       SkylarkType type = getType(param);
       if (param.noneable()) {
@@ -482,8 +502,14 @@ public final class FuncallExpression extends Expression {
             String.format("parameter '%s' cannot be None", param.name()));
       }
     }
-    if (i < args.size() || !keys.isEmpty()) {
+    if (i < args.size()) {
       return ArgumentListConversionResult.fromError("too many arguments");
+    }
+    if (!keys.isEmpty()) {
+      return ArgumentListConversionResult.fromError(
+          String.format("unexpected keyword%s %s",
+          keys.size() > 1 ? "s" : "",
+          Joiner.on(",").join(Iterables.transform(keys, s -> "'" + s + "'"))));
     }
     return ArgumentListConversionResult.fromArgumentList(builder.build());
   }

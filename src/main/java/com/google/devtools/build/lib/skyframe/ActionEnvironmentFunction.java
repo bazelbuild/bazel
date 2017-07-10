@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.skyframe.LegacySkyKey;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -44,12 +45,12 @@ public final class ActionEnvironmentFunction implements SkyFunction {
     if (actionEnv.containsKey(key) && actionEnv.get(key) != null) {
       return new ClientEnvironmentValue(actionEnv.get(key));
     }
-    return env.getValue(SkyKey.create(SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE, key));
+    return env.getValue(LegacySkyKey.create(SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE, key));
   }
 
   /** @return the SkyKey to invoke this function for the environment variable {@code variable}. */
   public static SkyKey key(String variable) {
-    return SkyKey.create(SkyFunctions.ACTION_ENVIRONMENT_VARIABLE, variable);
+    return LegacySkyKey.create(SkyFunctions.ACTION_ENVIRONMENT_VARIABLE, variable);
   }
 
   /**

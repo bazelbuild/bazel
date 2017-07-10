@@ -44,6 +44,34 @@ public class ValidationTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testLoadAfterStatement() throws Exception {
+    env = newEnvironmentWithSkylarkOptions("--incompatible_bzl_disallow_load_after_statement=true");
+    checkError(
+        "load() statements must be called before any other statement",
+        "a = 5",
+        "load(':b.bzl', 'c')");
+  }
+
+  @Test
+  public void testAllowLoadAfterStatement() throws Exception {
+    env =
+        newEnvironmentWithSkylarkOptions("--incompatible_bzl_disallow_load_after_statement=false");
+    parse("a = 5", "load(':b.bzl', 'c')");
+  }
+
+  @Test
+  public void testForbiddenToplevelIfStatement() throws Exception {
+    env = newEnvironmentWithSkylarkOptions("--incompatible_disallow_toplevel_if_statement=true");
+    checkError("if statements are not allowed at the top level", "if True: a = 2");
+  }
+
+  @Test
+  public void testAllowedToplevelIfStatement() throws Exception {
+    env = newEnvironmentWithSkylarkOptions("--incompatible_disallow_toplevel_if_statement=false");
+    parse("if True: a = 5");
+  }
+
+  @Test
   public void testTwoFunctionsWithTheSameName() throws Exception {
     checkError(
         "Variable foo is read only", "def foo():", "  return 1", "def foo(x, y):", "  return 1");
@@ -276,9 +304,11 @@ public class ValidationTest extends EvaluationTestCase {
       EvalUtils.getSkylarkType(ClassObject.class);
       throw new Exception("Should have raised IllegalArgumentException exception");
     } catch (IllegalArgumentException e) {
-      assertThat(e.getMessage()).contains(
-          "interface com.google.devtools.build.lib.syntax.ClassObject is not allowed "
-          + "as a Skylark value");
+      assertThat(e)
+          .hasMessageThat()
+          .contains(
+              "interface com.google.devtools.build.lib.syntax.ClassObject is not allowed "
+                  + "as a Skylark value");
     }
   }
 
@@ -297,9 +327,11 @@ public class ValidationTest extends EvaluationTestCase {
       SkylarkType.of(ClassObject.class);
       throw new Exception("foo");
     } catch (Exception e) {
-      assertThat(e.getMessage()).contains(
-          "interface com.google.devtools.build.lib.syntax.ClassObject "
-          + "is not allowed as a Skylark value");
+      assertThat(e)
+          .hasMessageThat()
+          .contains(
+              "interface com.google.devtools.build.lib.syntax.ClassObject "
+                  + "is not allowed as a Skylark value");
     }
 
     // Also test for these bazel classes, to avoid some regression.

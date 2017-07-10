@@ -28,9 +28,12 @@ public abstract class SkylarkApiProvider {
     return info;
   }
 
-  /** Must be called once (and only once). */
-  public void init(TransitiveInfoCollection info) {
-    Preconditions.checkState(this.info == null);
+  public final void init(TransitiveInfoCollection info) {
+    if (this.info != null) {
+      // Allow multiple calls, but only consistent ones.
+      Preconditions.checkState(info == this.info);
+      return;
+    }
     this.info = Preconditions.checkNotNull(info);
   }
 }

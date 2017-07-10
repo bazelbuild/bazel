@@ -13,11 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
-
 import java.io.IOException;
-
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -45,26 +44,7 @@ public interface ActionInputFileCache {
    *
    */
   @Nullable
-  byte[] getDigest(ActionInput input) throws IOException;
-
-  /**
-   * Retrieves whether or not the input Artifact is a file or symlink to an existing file.
-   *
-   * @param input the input
-   * @return true if input is a file or symlink to an existing file, otherwise false
-   */
-  boolean isFile(Artifact input);
-
-  /**
-   * Retrieve the size of the file at the given path. Will usually return 0 on failure instead of
-   * throwing an IOException. Returns 0 for files inaccessible to user, but available to the
-   * execution environment.
-   *
-   * @param input the input.
-   * @return the file size in bytes.
-   * @throws IOException on failure.
-   */
-  long getSizeInBytes(ActionInput input) throws IOException;
+  Metadata getMetadata(ActionInput input) throws IOException;
 
   /**
    * Checks if the file is available locally, based on the assumption that previous operations on

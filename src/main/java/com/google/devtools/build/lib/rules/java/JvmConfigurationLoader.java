@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -124,11 +125,19 @@ public final class JvmConfigurationLoader implements ConfigurationFragmentFactor
           String.format("Expected a java_runtime rule, was '%s'", javaRuntimeRule.getRuleClass()));
     }
     RawAttributeMapper attributes = RawAttributeMapper.of(javaRuntimeRule);
-    PathFragment javaHomePath = defaultJavaHome(javaRuntimeLabel);
+    PathFragment javaHomePath = JavaRuntime.defaultJavaHome(javaRuntimeLabel);
     if (attributes.isAttributeValueExplicitlySpecified("java_home")) {
       javaHomePath = javaHomePath.getRelative(attributes.get("java_home", Type.STRING));
+      List<Label> srcs = attributes.get("srcs", BuildType.LABEL_LIST);
+      if (javaHomePath.isAbsolute() && !srcs.isEmpty()) {
+        throw new InvalidConfigurationException(
+            String.format(
+                "'java_home' with an absolute path requires 'srcs' to be empty. "
+                    + "'java_home' was %s, 'srcs' was %s",
+                javaHomePath, srcs.toString()));
+      }
     }
-    return new Jvm(javaHomePath, javaRuntimeLabel);
+    return new Jvm(javaHomePath, javaRuntimeSuite.getLabel());
   }
 
   private static Label selectRuntime(Rule javaRuntimeSuite, String cpu)
@@ -143,13 +152,6 @@ public final class JvmConfigurationLoader implements ConfigurationFragmentFactor
     }
     throw new InvalidConfigurationException(
         "No JVM target found under " + javaRuntimeSuite + " that would work for " + cpu);
-  }
-
-  private static PathFragment defaultJavaHome(Label javaBase) {
-    if (javaBase.getPackageIdentifier().getRepository().isDefault()) {
-      return javaBase.getPackageFragment();
-    }
-    return javaBase.getPackageIdentifier().getSourceRoot();
   }
 
   private static Jvm createLegacy(String javaHome) throws InvalidConfigurationException {

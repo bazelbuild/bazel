@@ -22,7 +22,7 @@
 #include "gtest/gtest.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
-#include "src/main/native/windows_file_operations.h"
+#include "src/main/native/windows/file.h"
 #include "src/test/cpp/util/test_util.h"
 #include "src/test/cpp/util/windows_test_util.h"
 
@@ -32,6 +32,7 @@
 
 namespace blaze_util {
 
+using bazel::windows::CreateJunction;
 using std::string;
 using std::unique_ptr;
 using std::wstring;
@@ -61,7 +62,7 @@ class FileWindowsTest : public ::testing::Test {
     wstring wtarget;                                                          \
     EXPECT_TRUE(AsWindowsPath(name, &wname));                                 \
     EXPECT_TRUE(AsWindowsPath(target, &wtarget));                             \
-    EXPECT_EQ("", windows_util::CreateJunction(wname, wtarget));              \
+    EXPECT_EQ("", CreateJunction(wname, wtarget));                            \
   }
 
 // Asserts that dir1 can be created with some content, and dir2 doesn't exist.

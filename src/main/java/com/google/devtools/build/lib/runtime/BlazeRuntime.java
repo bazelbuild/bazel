@@ -33,8 +33,6 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.OutputFilter;
-import com.google.devtools.build.lib.flags.CommandNameCache;
-import com.google.devtools.build.lib.flags.InvocationPolicyParser;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
@@ -75,6 +73,8 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.windows.WindowsFileSystem;
 import com.google.devtools.build.lib.windows.WindowsSubprocessFactory;
+import com.google.devtools.common.options.CommandNameCache;
+import com.google.devtools.common.options.InvocationPolicyParser;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionPriority;
 import com.google.devtools.common.options.OptionsBase;
@@ -103,6 +103,7 @@ import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
@@ -115,7 +116,7 @@ import javax.annotation.Nullable;
  */
 public final class BlazeRuntime {
   private static final Pattern suppressFromLog =
-      Pattern.compile("(auth|pass|cookie)", Pattern.CASE_INSENSITIVE);
+      Pattern.compile("--client_env=([^=]*(?:auth|pass|cookie)[^=]*)=", Pattern.CASE_INSENSITIVE);
 
   private static final Logger LOG = Logger.getLogger(BlazeRuntime.class.getName());
 
@@ -194,15 +195,16 @@ public final class BlazeRuntime {
     this.pathToUriConverter = pathToUriConverter;
   }
 
-  public void initWorkspace(BlazeDirectories directories, BinTools binTools)
+  public BlazeWorkspace initWorkspace(BlazeDirectories directories, BinTools binTools)
       throws AbruptExitException {
     Preconditions.checkState(this.workspace == null);
     WorkspaceBuilder builder = new WorkspaceBuilder(directories, binTools);
     for (BlazeModule module : blazeModules) {
-      module.workspaceInit(directories, builder);
+      module.workspaceInit(this, directories, builder);
     }
     this.workspace = builder.build(
         this, packageFactory, ruleClassProvider, getProductName(), eventBusExceptionHandler);
+    return workspace;
   }
 
   @Nullable public CoverageReportActionFactory getCoverageReportActionFactory(
@@ -237,16 +239,6 @@ public final class BlazeRuntime {
     for (BlazeCommand command : commands) {
       addCommand(command);
     }
-  }
-
-  /**
-   * Initializes a CommandEnvironment to execute a command in this server.
-   *
-   * <p>This method should be called from the "main" thread on which the command will execute;
-   * that thread will receive interruptions if a module requests an early exit.
-   */
-  public CommandEnvironment initCommand() {
-    return workspace.initCommand();
   }
 
   @Nullable
@@ -299,10 +291,6 @@ public final class BlazeRuntime {
    */
   private Path getServerDirectory() {
     return getWorkspace().getDirectories().getOutputBase().getChild("server");
-  }
-
-  public boolean writeCommandLog() {
-    return startupOptionsProvider.getOptions(BlazeServerStartupOptions.class).writeCommandLog;
   }
 
   /**
@@ -593,32 +581,25 @@ public final class BlazeRuntime {
   }
 
   /**
-   * Generates a string form of a request to be written to the logs,
-   * filtering the user environment to remove anything that looks private.
-   * The current filter criteria removes any variable whose name includes
-   * "auth", "pass", or "cookie".
+   * Generates a string form of a request to be written to the logs, filtering the user environment
+   * to remove anything that looks private. The current filter criteria removes any variable whose
+   * name includes "auth", "pass", or "cookie".
    *
    * @param requestStrings
    * @return the filtered request to write to the log.
    */
   @VisibleForTesting
-  public static String getRequestLogString(List<String> requestStrings) {
+  static String getRequestLogString(List<String> requestStrings) {
     StringBuilder buf = new StringBuilder();
     buf.append('[');
     String sep = "";
+    Matcher m = suppressFromLog.matcher("");
     for (String s : requestStrings) {
       buf.append(sep);
-      if (s.startsWith("--client_env")) {
-        int varStart = "--client_env=".length();
-        int varEnd = s.indexOf('=', varStart);
-        String varName = s.substring(varStart, varEnd);
-        if (suppressFromLog.matcher(varName).find()) {
-          buf.append("--client_env=");
-          buf.append(varName);
-          buf.append("=__private_value_removed__");
-        } else {
-          buf.append(s);
-        }
+      m.reset(s);
+      if (m.lookingAt()) {
+        buf.append(m.group());
+        buf.append("__private_value_removed__");
       } else {
         buf.append(s);
       }
@@ -700,19 +681,17 @@ public final class BlazeRuntime {
     final Thread mainThread = Thread.currentThread();
     final AtomicInteger numInterrupts = new AtomicInteger();
 
-    final Runnable interruptWatcher = new Runnable() {
-      @Override
-      public void run() {
-        int count = 0;
-        // Not an actual infinite loop because it's run in a daemon thread.
-        while (true) {
-          count++;
-          Uninterruptibles.sleepUninterruptibly(10, TimeUnit.SECONDS);
-          LOG.warning("Slow interrupt number " + count + " in batch mode");
-          ThreadUtils.warnAboutSlowInterrupt();
-        }
-      }
-    };
+    final Runnable interruptWatcher =
+        () -> {
+          int count = 0;
+          // Not an actual infinite loop because it's run in a daemon thread.
+          while (true) {
+            count++;
+            Uninterruptibles.sleepUninterruptibly(10, TimeUnit.SECONDS);
+            LOG.warning("Slow interrupt number " + count + " in batch mode");
+            ThreadUtils.warnAboutSlowInterrupt();
+          }
+        };
 
     new InterruptSignalHandler() {
       @Override
@@ -840,12 +819,7 @@ public final class BlazeRuntime {
       Iterable<BlazeModule> modules, List<String> args)
       throws IOException, OptionsParsingException, AbruptExitException {
     final RPCServer[] rpcServer = new RPCServer[1];
-    Runnable prepareForAbruptShutdown = new Runnable() {
-      @Override
-      public void run() {
-        rpcServer[0].prepareForAbruptShutdown();
-      }
-    };
+    Runnable prepareForAbruptShutdown = () -> rpcServer[0].prepareForAbruptShutdown();
 
     BlazeRuntime runtime = newRuntime(modules, args, prepareForAbruptShutdown);
     BlazeCommandDispatcher dispatcher = new BlazeCommandDispatcher(runtime);
@@ -871,23 +845,6 @@ public final class BlazeRuntime {
 
   }
 
-  private static Function<String, String> sourceFunctionForMap(final Map<String, String> map) {
-    return new Function<String, String>() {
-      @Override
-      public String apply(String input) {
-        if (!map.containsKey(input)) {
-          return "default";
-        }
-
-        if (map.get(input).isEmpty()) {
-          return "command line";
-        }
-
-        return map.get(input);
-      }
-    };
-  }
-
   /**
    * Parses the command line arguments into a {@link OptionsParser} object.
    *
@@ -904,8 +861,12 @@ public final class BlazeRuntime {
     OptionsParser parser = OptionsParser.newOptionsParser(optionClasses);
     parser.setAllowResidue(false);
     parser.parse(OptionPriority.COMMAND_LINE, null, args);
-    Function<? super String, String> sourceFunction =
-        sourceFunctionForMap(parser.getOptions(BlazeServerStartupOptions.class).optionSources);
+    Map<String, String> optionSources =
+        parser.getOptions(BlazeServerStartupOptions.class).optionSources;
+    Function<String, String> sourceFunction = option ->
+        !optionSources.containsKey(option) ? "default"
+            : optionSources.get(option).isEmpty() ? "command line"
+            : optionSources.get(option);
 
     // Then parse the command line again, this time with the correct option sources
     parser = OptionsParser.newOptionsParser(optionClasses);
@@ -1003,6 +964,7 @@ public final class BlazeRuntime {
     }
 
     runtimeBuilder.addBlazeModule(new BuiltinCommandModule());
+    runtimeBuilder.addBlazeModule(new CommandLogModule());
     for (BlazeModule blazeModule : blazeModules) {
       runtimeBuilder.addBlazeModule(blazeModule);
     }
@@ -1106,12 +1068,7 @@ public final class BlazeRuntime {
    */
   private static void setupUncaughtHandler(final String[] args) {
     Thread.setDefaultUncaughtExceptionHandler(
-        new Thread.UncaughtExceptionHandler() {
-          @Override
-          public void uncaughtException(Thread thread, Throwable throwable) {
-            BugReport.handleCrash(throwable, args);
-          }
-        });
+        (thread, throwable) -> BugReport.handleCrash(throwable, args));
   }
 
   public String getProductName() {

@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.actions;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -31,13 +31,12 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
+import java.util.Collection;
+import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.Collection;
 
 /**
  * Tests for CustomCommandLine.
@@ -61,74 +60,94 @@ public class CustomCommandLineTest {
   @Test
   public void testStringArgs() {
     CustomCommandLine cl = CustomCommandLine.builder().add("--arg1").add("--arg2").build();
-    assertEquals(ImmutableList.of("--arg1", "--arg2"), cl.arguments());
+    assertThat(cl.arguments()).isEqualTo(ImmutableList.of("--arg1", "--arg2"));
   }
 
   @Test
   public void testLabelArgs() throws LabelSyntaxException {
     CustomCommandLine cl = CustomCommandLine.builder().add(Label.parseAbsolute("//a:b")).build();
-    assertEquals(ImmutableList.of("//a:b"), cl.arguments());
+    assertThat(cl.arguments()).isEqualTo(ImmutableList.of("//a:b"));
   }
 
   @Test
   public void testStringsArgs() {
     CustomCommandLine cl = CustomCommandLine.builder().add("--arg",
         ImmutableList.of("a", "b")).build();
-    assertEquals(ImmutableList.of("--arg", "a", "b"), cl.arguments());
+    assertThat(cl.arguments()).isEqualTo(ImmutableList.of("--arg", "a", "b"));
   }
 
   @Test
   public void testArtifactJoinStringArgs() {
     CustomCommandLine cl = CustomCommandLine.builder().addJoinStrings("--path", ":",
         ImmutableList.of("foo", "bar")).build();
-    assertEquals(ImmutableList.of("--path", "foo:bar"), cl.arguments());
+    assertThat(cl.arguments()).isEqualTo(ImmutableList.of("--path", "foo:bar"));
+  }
+
+  @Test
+  public void testJoinValues() {
+    CustomCommandLine cl =
+        CustomCommandLine.builder()
+            .addJoinValues(
+                "--path",
+                ":",
+                ImmutableList.of("foo", "bar", "baz"),
+                new Function<String, String>() {
+                  @Nullable
+                  @Override
+                  public String apply(@Nullable String s) {
+                    return s.toUpperCase();
+                  }
+                })
+            .build();
+    assertThat(cl.arguments()).isEqualTo(ImmutableList.of("--path", "FOO:BAR:BAZ"));
   }
 
   @Test
   public void testArtifactExecPathArgs() {
     CustomCommandLine cl = CustomCommandLine.builder().addExecPath("--path", artifact1).build();
-    assertEquals(ImmutableList.of("--path", "dir/file1.txt"), cl.arguments());
+    assertThat(cl.arguments()).isEqualTo(ImmutableList.of("--path", "dir/file1.txt"));
   }
 
   @Test
   public void testArtifactExecPathsArgs() {
     CustomCommandLine cl = CustomCommandLine.builder().addExecPaths("--path",
         ImmutableList.of(artifact1, artifact2)).build();
-    assertEquals(ImmutableList.of("--path", "dir/file1.txt", "dir/file2.txt"), cl.arguments());
+    assertThat(cl.arguments())
+        .isEqualTo(ImmutableList.of("--path", "dir/file1.txt", "dir/file2.txt"));
   }
 
   @Test
   public void testNestedSetArtifactExecPathsArgs() {
     CustomCommandLine cl = CustomCommandLine.builder().addExecPaths(
         NestedSetBuilder.<Artifact>stableOrder().add(artifact1).add(artifact2).build()).build();
-    assertEquals(ImmutableList.of("dir/file1.txt", "dir/file2.txt"), cl.arguments());
+    assertThat(cl.arguments()).isEqualTo(ImmutableList.of("dir/file1.txt", "dir/file2.txt"));
   }
 
   @Test
   public void testArtifactJoinExecPathArgs() {
     CustomCommandLine cl = CustomCommandLine.builder().addJoinExecPaths("--path", ":",
         ImmutableList.of(artifact1, artifact2)).build();
-    assertEquals(ImmutableList.of("--path", "dir/file1.txt:dir/file2.txt"), cl.arguments());
+    assertThat(cl.arguments()).isEqualTo(ImmutableList.of("--path", "dir/file1.txt:dir/file2.txt"));
   }
 
   @Test
   public void testPathArgs() {
     CustomCommandLine cl = CustomCommandLine.builder().addPath(artifact1.getExecPath()).build();
-    assertEquals(ImmutableList.of("dir/file1.txt"), cl.arguments());
+    assertThat(cl.arguments()).isEqualTo(ImmutableList.of("dir/file1.txt"));
   }
 
   @Test
   public void testJoinPathArgs() {
     CustomCommandLine cl = CustomCommandLine.builder().addJoinPaths(":",
         ImmutableList.of(artifact1.getExecPath(), artifact2.getExecPath())).build();
-    assertEquals(ImmutableList.of("dir/file1.txt:dir/file2.txt"), cl.arguments());
+    assertThat(cl.arguments()).isEqualTo(ImmutableList.of("dir/file1.txt:dir/file2.txt"));
   }
 
   @Test
   public void testPathsArgs() {
     CustomCommandLine cl = CustomCommandLine.builder().addPaths("%s:%s",
         artifact1.getExecPath(), artifact1.getRootRelativePath()).build();
-    assertEquals(ImmutableList.of("dir/file1.txt:dir/file1.txt"), cl.arguments());
+    assertThat(cl.arguments()).isEqualTo(ImmutableList.of("dir/file1.txt:dir/file1.txt"));
   }
 
   @Test
@@ -139,7 +158,7 @@ public class CustomCommandLineTest {
         return "--arg";
       }
     }).build();
-    assertEquals(ImmutableList.of("--arg"), cl.arguments());
+    assertThat(cl.arguments()).isEqualTo(ImmutableList.of("--arg"));
   }
 
   @Test
@@ -150,7 +169,7 @@ public class CustomCommandLineTest {
         return ImmutableList.of("--arg1", "--arg2");
       }
     }).build();
-    assertEquals(ImmutableList.of("--arg1", "--arg2"), cl.arguments());
+    assertThat(cl.arguments()).isEqualTo(ImmutableList.of("--arg1", "--arg2"));
   }
 
   @Test
@@ -161,8 +180,10 @@ public class CustomCommandLineTest {
         .addExecPaths("--path1", ImmutableList.of(artifact1))
         .addExecPath("--path2", artifact2)
         .build();
-    assertEquals(ImmutableList.of("--arg", "--args", "abc", "--path1", "dir/file1.txt", "--path2",
-        "dir/file2.txt"), cl.arguments());
+    assertThat(cl.arguments())
+        .isEqualTo(
+            ImmutableList.of(
+                "--arg", "--args", "abc", "--path1", "dir/file1.txt", "--path2", "dir/file2.txt"));
   }
 
   @Test
@@ -172,7 +193,7 @@ public class CustomCommandLineTest {
         .addExecPaths(null, ImmutableList.of(artifact1))
         .addExecPath(null, null)
         .build();
-    assertEquals(ImmutableList.of(), cl.arguments());
+    assertThat(cl.arguments()).isEqualTo(ImmutableList.of());
   }
 
   @Test

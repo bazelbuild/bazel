@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
@@ -154,7 +153,6 @@ public final class PopulateTreeArtifactAction extends AbstractAction {
   @Override
   public void execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    Executor executor = actionExecutionContext.getExecutor();
     Spawn spawn;
 
     // Create a spawn to unzip the archive file into the output TreeArtifact.
@@ -191,11 +189,11 @@ public final class PopulateTreeArtifactAction extends AbstractAction {
 
     // Execute the spawn.
     try {
-      getContext(executor).exec(spawn, actionExecutionContext);
+      getContext(actionExecutionContext).exec(spawn, actionExecutionContext);
     } catch (ExecException e) {
       throw e.toActionExecutionException(
           getMnemonic() + " action failed for target: " + getOwner().getLabel(),
-          executor.getVerboseFailures(),
+          actionExecutionContext.getVerboseFailures(),
           this);
     }
 
@@ -231,8 +229,8 @@ public final class PopulateTreeArtifactAction extends AbstractAction {
     return true;
   }
 
-  private SpawnActionContext getContext(Executor executor) {
-    return executor.getSpawnActionContext(getMnemonic());
+  private SpawnActionContext getContext(ActionExecutionContext actionExecutionContext) {
+    return actionExecutionContext.getSpawnActionContext(getMnemonic());
   }
 
   /**

@@ -15,11 +15,14 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Function;
 import com.google.common.collect.Collections2;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Collection;
 
@@ -36,12 +39,13 @@ import java.util.Collection;
 @Immutable
 @ThreadSafe
 public final class ArtifactSkyKey {
+  private static final Interner<OwnedArtifact> INTERNER = BlazeInterners.newWeakInterner();
+
   private ArtifactSkyKey() {}
 
   @ThreadSafe
   public static SkyKey key(Artifact artifact, boolean isMandatory) {
-    return SkyKey.create(
-        SkyFunctions.ARTIFACT,
+    return INTERNER.intern(
         artifact.isSourceArtifact()
             ? new OwnedArtifact(artifact, isMandatory)
             : new OwnedArtifact(artifact));
@@ -98,10 +102,16 @@ public final class ArtifactSkyKey {
    * since outside of Skyframe it is quite crucial that Artifacts with different owners be able to
    * compare equal.
    */
-  static class OwnedArtifact {
+  static class OwnedArtifact implements SkyKey {
     private final Artifact artifact;
     // Always true for derived artifacts.
     private final boolean isMandatory;
+    // TODO(janakr): we may want to remove this field in the future. The expensive hash computation
+    // is already cached one level down (in the Artifact), so the CPU overhead here may not be
+    // worth the memory. However, when running with +CompressedOops, this field is free, so we leave
+    // it. When running with -CompressedOops, we might be able to save memory by using polymorphism
+    // for isMandatory and dropping this field.
+    private int hashCode = 0;
 
     /** Constructs an OwnedArtifact wrapper for a source artifact. */
     private OwnedArtifact(Artifact sourceArtifact, boolean mandatory) {
@@ -124,7 +134,41 @@ public final class ArtifactSkyKey {
     }
 
     @Override
+    public SkyFunctionName functionName() {
+      return SkyFunctions.ARTIFACT;
+    }
+
+    @Override
+    public OwnedArtifact argument() {
+      return this;
+    }
+
+    @Override
     public int hashCode() {
+      // We use the hash code caching strategy employed by java.lang.String. There are three subtle
+      // things going on here:
+      //
+      // (1) We use a value of 0 to indicate that the hash code hasn't been computed and cached yet.
+      // Yes, this means that if the hash code is really 0 then we will "recompute" it each time.
+      // But this isn't a problem in practice since a hash code of 0 should be rare.
+      //
+      // (2) Since we have no synchronization, multiple threads can race here thinking there are the
+      // first one to compute and cache the hash code.
+      //
+      // (3) Moreover, since 'hashCode' is non-volatile, the cached hash code value written from one
+      // thread may not be visible by another. Note that we probably don't need to worry about
+      // multiple inefficient reads of 'hashCode' on the same thread since it's non-volatile.
+      //
+      // All three of these issues are benign from a correctness perspective; in the end we have no
+      // overhead from synchronization, at the cost of potentially computing the hash code more than
+      // once.
+      if (hashCode == 0) {
+        hashCode = computeHashCode();
+      }
+      return hashCode;
+    }
+
+    private int computeHashCode() {
       int initialHash = artifact.hashCode() + artifact.getArtifactOwner().hashCode();
       return isMandatory ? initialHash : 47 * initialHash + 1;
     }

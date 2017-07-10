@@ -56,8 +56,8 @@
 #include "src/main/cpp/util/md5.h"
 #include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/strings.h"
-#include "src/main/native/windows_file_operations.h"
-#include "src/main/native/windows_util.h"
+#include "src/main/native/windows/file.h"
+#include "src/main/native/windows/util.h"
 
 namespace blaze {
 
@@ -69,6 +69,9 @@ static_assert(sizeof(wchar_t) == sizeof(WCHAR),
 // When using widechar Win32 API functions the maximum path length is 32K.
 // Add 4 characters for potential UNC prefix and a couple more for safety.
 static const size_t kWindowsPathBufferSize = 0x8010;
+
+using bazel::windows::AutoHandle;
+using bazel::windows::CreateJunction;
 
 // TODO(bazel-team): get rid of die/pdie, handle errors on the caller side.
 // die/pdie are exit points in the code and they make it difficult to follow the
@@ -447,11 +450,6 @@ static void CreateCommandLine(CmdLine* result, const string& exe,
       cmdline << '\"';
     }
 
-    // TODO(bazel-team): get rid of the code to append character by character,
-    // because each time a new buffer is allocated and the old one copied, so
-    // this means N allocations (of O(N) size each) and N copies.
-    // If possible, get rid of the whole CreateCommandLine method and do the
-    // logic on the caller side.
     std::string::const_iterator it = s.begin();
     while (it != s.end()) {
       char ch = *it++;
@@ -497,11 +495,10 @@ static void CreateCommandLine(CmdLine* result, const string& exe,
 }  // namespace
 
 string GetJvmVersion(const string& java_exe) {
-  // TODO(bazel-team): implement IPipe for Windows and use that here.
   HANDLE pipe_read, pipe_write;
 
   SECURITY_ATTRIBUTES sa = {sizeof(SECURITY_ATTRIBUTES), NULL, TRUE};
-  if (!CreatePipe(&pipe_read, &pipe_write, &sa, 0)) {
+  if (!::CreatePipe(&pipe_read, &pipe_write, &sa, 0)) {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "CreatePipe");
   }
 
@@ -634,16 +631,6 @@ static HANDLE CreateJvmOutputFile(const wstring& path,
     HANDLE handle = ::CreateFileW(
         /* lpFileName */ path.c_str(),
         /* dwDesiredAccess */ GENERIC_READ | GENERIC_WRITE,
-        // TODO(laszlocsomor): add FILE_SHARE_DELETE, that allows deleting
-        // jvm.out and maybe fixes
-        // https://github.com/bazelbuild/bazel/issues/2326 . Unfortunately
-        // however if a file that we opened with FILE_SHARE_DELETE is deleted
-        // while its still open, write operations will still succeed but have no
-        // effect, the file won't be recreated. (I haven't tried what happens
-        // with read operations.)
-        //
-        // FILE_SHARE_READ: So that the file can be read while the server is
-        // running
         /* dwShareMode */ FILE_SHARE_READ,
         /* lpSecurityAttributes */ sa,
         /* dwCreationDisposition */ CREATE_ALWAYS,
@@ -672,6 +659,24 @@ static HANDLE CreateJvmOutputFile(const wstring& path,
   return INVALID_HANDLE_VALUE;
 }
 
+#ifdef COMPILER_MSVC
+
+class ProcessHandleBlazeServerStartup : public BlazeServerStartup {
+ public:
+  ProcessHandleBlazeServerStartup(HANDLE _proc) : proc(_proc) {}
+
+  bool IsStillAlive() override {
+    FILETIME dummy1, exit_time, dummy2, dummy3;
+    return GetProcessTimes(proc, &dummy1, &exit_time, &dummy2, &dummy3) &&
+           exit_time.dwHighDateTime == 0 && exit_time.dwLowDateTime == 0;
+  }
+
+ private:
+  AutoHandle proc;
+};
+
+#else  // COMPILER_MSVC
+
 // Keeping an eye on the server process on Windows is not implemented yet.
 // TODO(lberki): Implement this, because otherwise if we can't start up a server
 // process, the client will hang until it times out.
@@ -682,18 +687,18 @@ class DummyBlazeServerStartup : public BlazeServerStartup {
   virtual bool IsStillAlive() { return true; }
 };
 
+#endif  // COMPILER_MSVC
+
 void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
                    const string& daemon_output, const string& server_dir,
                    BlazeServerStartup** server_startup) {
-#ifdef COMPILER_MSVC
-  *server_startup = new DummyBlazeServerStartup();
-#else   // not COMPILER_MSVC
+#ifndef COMPILER_MSVC
   if (DaemonizeOnWindows()) {
     // We are the client process
     *server_startup = new DummyBlazeServerStartup();
     return;
   }
-#endif  // COMPILER_MSVC
+#endif  // not COMPILER_MSVC
 
   wstring wdaemon_output;
   if (!blaze_util::AsWindowsPathWithUncPrefix(daemon_output, &wdaemon_output)) {
@@ -703,39 +708,53 @@ void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
 
   SECURITY_ATTRIBUTES sa;
   sa.nLength = sizeof(SECURITY_ATTRIBUTES);
-  // We redirect stdout and stderr by telling CreateProcess to use a file handle
-  // we open below and these handles must be inheriatable
+  // We redirect stdin to the NUL device, and redirect stdout and stderr to
+  // `stdout_file` and `stderr_file` (opened below) by telling CreateProcess to
+  // use these file handles, so they must be inheritable.
   sa.bInheritHandle = TRUE;
   sa.lpSecurityDescriptor = NULL;
 
-  HANDLE output_file = CreateJvmOutputFile(wdaemon_output.c_str(), &sa);
-
-  if (output_file == INVALID_HANDLE_VALUE) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "CreateJvmOutputFile %ls",
-         wdaemon_output.c_str());
+  AutoHandle devnull(::CreateFileA("NUL", GENERIC_READ, FILE_SHARE_READ, NULL,
+                                   OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL));
+  if (!devnull.IsValid()) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "ExecuteDaemon: Could not open NUL device");
   }
 
-  HANDLE pipe_read, pipe_write;
-  if (!CreatePipe(&pipe_read, &pipe_write, &sa, 0)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "CreatePipe");
+  AutoHandle stdout_file(CreateJvmOutputFile(wdaemon_output.c_str(), &sa));
+  if (!stdout_file.IsValid()) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "ExecuteDaemon: CreateJvmOutputFile %ls", wdaemon_output.c_str());
   }
-
-  if (!SetHandleInformation(pipe_write, HANDLE_FLAG_INHERIT, 0)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "SetHandleInformation");
+  HANDLE stderr_handle;
+  // We must duplicate the handle to stdout, otherwise "bazel clean --expunge"
+  // won't work, because when it tries to close stdout then stderr, the former
+  // will succeed but the latter will appear to be valid yet still fail to
+  // close.
+  if (!DuplicateHandle(
+          /* hSourceProcessHandle */ GetCurrentProcess(),
+          /* hSourceHandle */ stdout_file,
+          /* hTargetProcessHandle */ GetCurrentProcess(),
+          /* lpTargetHandle */ &stderr_handle,
+          /* dwDesiredAccess */ 0,
+          /* bInheritHandle */ TRUE,
+          /* dwOptions */ DUPLICATE_SAME_ACCESS)) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "ExecuteDaemon: DuplicateHandle %ls", wdaemon_output.c_str());
   }
+  AutoHandle stderr_file(stderr_handle);
 
   PROCESS_INFORMATION processInfo = {0};
   STARTUPINFOA startupInfo = {0};
 
-  startupInfo.hStdInput = pipe_read;
-  startupInfo.hStdError = output_file;
-  startupInfo.hStdOutput = output_file;
+  startupInfo.hStdInput = devnull;
+  startupInfo.hStdError = stdout_file;
+  startupInfo.hStdOutput = stderr_handle;
   startupInfo.dwFlags |= STARTF_USESTDHANDLES;
   CmdLine cmdline;
   CreateCommandLine(&cmdline, exe, args_vector);
-
   // Propagate BAZEL_SH environment variable to a sub-process.
-  // todo(dslomov): More principled approach to propagating
+  // TODO(dslomov): More principled approach to propagating
   // environment variables.
   SetEnvironmentVariableA("BAZEL_SH", getenv("BAZEL_SH"));
 
@@ -759,9 +778,10 @@ void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
 
   WriteProcessStartupTime(server_dir, processInfo.hProcess);
 
-  CloseHandle(output_file);
-  CloseHandle(pipe_write);
-  CloseHandle(pipe_read);
+#ifdef COMPILER_MSVC
+  // Pass ownership of processInfo.hProcess
+  *server_startup = new ProcessHandleBlazeServerStartup(processInfo.hProcess);
+#endif
 
   string pid_string = ToString(processInfo.dwProcessId);
   string pid_file = blaze_util::JoinPath(server_dir, kServerPidFile);
@@ -770,7 +790,8 @@ void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
     fprintf(stderr, "Cannot write PID file %s\n", pid_file.c_str());
   }
 
-  CloseHandle(processInfo.hProcess);
+  // Don't close processInfo.hProcess here, it's now owned by the
+  // ProcessHandleBlazeServerStartup instance.
   CloseHandle(processInfo.hThread);
 
 #ifndef COMPILER_MSVC
@@ -904,7 +925,7 @@ void ExecuteProgram(const string& exe, const std::vector<string>& args_vector) {
   exit(exit_code);
 }
 
-string ListSeparator() { return ";"; }
+const char kListSeparator = ';';
 
 string PathAsJvmFlag(const string& path) {
   string spath;
@@ -977,7 +998,7 @@ bool SymlinkDirectories(const string &posix_target, const string &posix_name) {
                posix_target + ")");
     return false;
   }
-  string error(windows_util::CreateJunction(name, target));
+  string error(CreateJunction(name, target));
   if (!error.empty()) {
     PrintError("SymlinkDirectories(name=" + posix_name +
                ", target=" + posix_target + "): " + error);
@@ -999,7 +1020,7 @@ bool CompareAbsolutePaths(const string& a, const string& b) {
 // processes than there are PIDs available within a single jiffy.
 bool VerifyServerProcess(
     int pid, const string& output_base, const string& install_base) {
-  windows_util::AutoHandle process(
+  AutoHandle process(
       ::OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid));
   if (!process.IsValid()) {
     // Cannot find the server process. Can happen if the PID file is stale.
@@ -1026,7 +1047,7 @@ bool VerifyServerProcess(
 }
 
 bool KillServerProcess(int pid) {
-  windows_util::AutoHandle process(::OpenProcess(
+  AutoHandle process(::OpenProcess(
       PROCESS_TERMINATE | PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid));
   DWORD exitcode = 0;
   if (!process.IsValid() || !::GetExitCodeProcess(process, &exitcode) ||
@@ -1255,93 +1276,74 @@ uint64_t WindowsClock::GetProcessMilliseconds() const {
 
 uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
                      BlazeLock* blaze_lock) {
-#ifdef COMPILER_MSVC
-  // TODO(bazel-team): implement this.
-  return 0;
-#else  // not COMPILER_MSVC
   string lockfile = blaze_util::JoinPath(output_base, "lock");
-  int lockfd = open(lockfile.c_str(), O_CREAT|O_RDWR, 0644);
-
-  if (lockfd < 0) {
+  wstring wlockfile;
+  if (!blaze_util::AsWindowsPathWithUncPrefix(lockfile, &wlockfile)) {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "cannot open lockfile '%s' for writing", lockfile.c_str());
+         "AcquireLock, lockfile=(%s)", lockfile.c_str());
   }
 
-  // Keep server from inheriting a useless fd if we are not in batch mode
-  if (!batch_mode) {
-    if (fcntl(lockfd, F_SETFD, FD_CLOEXEC) == -1) {
+  blaze_lock->handle = INVALID_HANDLE_VALUE;
+  bool first_lock_attempt = true;
+  uint64_t st = GetMillisecondsMonotonic();
+  while (true) {
+    blaze_lock->handle = ::CreateFileW(
+        /* lpFileName */ wlockfile.c_str(),
+        /* dwDesiredAccess */ GENERIC_READ | GENERIC_WRITE,
+        /* dwShareMode */ FILE_SHARE_READ,
+        /* lpSecurityAttributes */ NULL,
+        /* dwCreationDisposition */ CREATE_ALWAYS,
+        /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
+        /* hTemplateFile */ NULL);
+    if (blaze_lock->handle != INVALID_HANDLE_VALUE) {
+      // We could open the file, so noone else holds a lock on it.
+      break;
+    }
+    if (GetLastError() == ERROR_SHARING_VIOLATION) {
+      // Someone else has the lock.
+      if (!block) {
+        die(blaze_exit_code::BAD_ARGV,
+            "Another command is running. Exiting immediately.");
+      }
+      if (first_lock_attempt) {
+        first_lock_attempt = false;
+        fprintf(stderr,
+                "Another command is running. Waiting for it to complete...");
+        fflush(stderr);
+      }
+      Sleep(/* dwMilliseconds */ 200);
+    } else {
       pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-           "fcntl(F_SETFD) failed for lockfile");
+           "cannot open lockfile '%s', and not because it's held",
+           lockfile.c_str());
     }
   }
+  uint64_t wait_time = GetMillisecondsMonotonic() - st;
 
-  struct flock lock;
-  lock.l_type = F_WRLCK;
-  lock.l_whence = SEEK_SET;
-  lock.l_start = 0;
-  // This doesn't really matter now, but allows us to subdivide the lock
-  // later if that becomes meaningful.  (Ranges beyond EOF can be locked.)
-  lock.l_len = 4096;
-
-  uint64_t wait_time = 0;
-  // Try to take the lock, without blocking.
-  if (fcntl(lockfd, F_SETLK, &lock) == -1) {
-    if (errno != EACCES && errno != EAGAIN) {
-      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-           "unexpected result from F_SETLK");
-    }
-
-    // We didn't get the lock.  Find out who has it.
-    struct flock probe = lock;
-    probe.l_pid = 0;
-    if (fcntl(lockfd, F_GETLK, &probe) == -1) {
-      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-           "unexpected result from F_GETLK");
-    }
-    if (!block) {
-      die(blaze_exit_code::BAD_ARGV,
-          "Another command is running (pid=%d). Exiting immediately.",
-          probe.l_pid);
-    }
-    fprintf(stderr, "Another command is running (pid = %d).  "
-            "Waiting for it to complete...", probe.l_pid);
-    fflush(stderr);
-
-    // Take a clock sample for that start of the waiting time
-    uint64_t st = GetMillisecondsMonotonic();
-    // Try to take the lock again (blocking).
-    int r;
-    do {
-      r = fcntl(lockfd, F_SETLKW, &lock);
-    } while (r == -1 && errno == EINTR);
-    fprintf(stderr, "\n");
-    if (r == -1) {
-      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-           "couldn't acquire file lock");
-    }
-    // Take another clock sample, calculate elapsed
-    uint64_t et = GetMillisecondsMonotonic();
-    wait_time = et - st;
+  // We have the lock.
+  OVERLAPPED overlapped = {0};
+  if (!LockFileEx(
+          /* hFile */ blaze_lock->handle,
+          /* dwFlags */ LOCKFILE_EXCLUSIVE_LOCK | LOCKFILE_FAIL_IMMEDIATELY,
+          /* dwReserved */ 0,
+          /* nNumberOfBytesToLockLow */ 1,
+          /* nNumberOfBytesToLockHigh */ 0,
+          /* lpOverlapped */ &overlapped)) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "cannot lock the lockfile '%s'", lockfile.c_str());
   }
+  // On other platforms we write some info about this process into the lock file
+  // such as the server PID. On Windows we don't do that because the file is
+  // locked exclusively, meaning other processes may not open the file even for
+  // reading.
 
-  // Identify ourselves in the lockfile.
-  (void) ftruncate(lockfd, 0);
-  const char *tty = ttyname(STDIN_FILENO);  // NOLINT (single-threaded)
-  string msg = "owner=launcher\npid="
-      + ToString(getpid()) + "\ntty=" + (tty ? tty : "") + "\n";
-  // The contents are currently meant only for debugging.
-  (void) write(lockfd, msg.data(), msg.size());
-  blaze_lock->lockfd = lockfd;
   return wait_time;
-#endif  // COMPILER_MSVC
 }
 
 void ReleaseLock(BlazeLock* blaze_lock) {
-#ifdef COMPILER_MSVC
-  // TODO(bazel-team): implement this.
-#else  // not COMPILER_MSVC
-  close(blaze_lock->lockfd);
-#endif  // COMPILER_MSVC
+  OVERLAPPED overlapped = {0};
+  UnlockFileEx(blaze_lock->handle, 0, 1, 0, &overlapped);
+  CloseHandle(blaze_lock->handle);
 }
 
 #ifdef GetUserName
@@ -1370,22 +1372,20 @@ bool IsEmacsTerminal() {
   return emacs == "t" || !inside_emacs.empty();
 }
 
-// Returns true iff both stdout and stderr are connected to a
-// terminal, and it can support color and cursor movement
-// (this is computed heuristically based on the values of
-// environment variables).
-bool IsStandardTerminal() {
+// Returns true if stderr is connected to a terminal, and it can support color
+// and cursor movement (this is computed heuristically based on the values of
+// environment variables).  Blaze only outputs control characters into stderr,
+// we only care for the stderr descriptor type.
+bool IsStderrStandardTerminal() {
 #ifdef COMPILER_MSVC
-  for (DWORD i : {STD_OUTPUT_HANDLE, STD_ERROR_HANDLE}) {
-    DWORD mode = 0;
-    HANDLE handle = ::GetStdHandle(i);
-    // handle may be invalid when std{out,err} is redirected
-    if (handle == INVALID_HANDLE_VALUE || !::GetConsoleMode(handle, &mode) ||
-        !(mode & ENABLE_PROCESSED_OUTPUT) ||
-        !(mode & ENABLE_WRAP_AT_EOL_OUTPUT) ||
-        !(mode & ENABLE_VIRTUAL_TERMINAL_PROCESSING)) {
-      return false;
-    }
+  DWORD mode = 0;
+  HANDLE handle = ::GetStdHandle(STD_ERROR_HANDLE);
+  // handle may be invalid when stderr is redirected
+  if (handle == INVALID_HANDLE_VALUE || !::GetConsoleMode(handle, &mode) ||
+      !(mode & ENABLE_PROCESSED_OUTPUT) ||
+      !(mode & ENABLE_WRAP_AT_EOL_OUTPUT) ||
+      !(mode & ENABLE_VIRTUAL_TERMINAL_PROCESSING)) {
+    return false;
   }
   return true;
 #else  // not COMPILER_MSVC
@@ -1395,16 +1395,18 @@ bool IsStandardTerminal() {
       IsEmacsTerminal()) {
     return false;
   }
-  return isatty(STDOUT_FILENO) && isatty(STDERR_FILENO);
+  return isatty(STDERR_FILENO);
 #endif  // COMPILER_MSVC
 }
 
-// Returns the number of columns of the terminal to which stdout is
-// connected, or $COLUMNS (default 80) if there is no such terminal.
-int GetTerminalColumns() {
+// Returns the number of columns of the terminal to which stderr is connected,
+// or $COLUMNS (default 80) if there is no such terminal.  Blaze only outputs
+// formatted messages to stderr, so we only care for width of a terminal
+// connected to the stderr descriptor.
+int GetStderrTerminalColumns() {
 #ifndef COMPILER_MSVC
   struct winsize ws;
-  if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) != -1) {
+  if (ioctl(STDERR_FILENO, TIOCGWINSZ, &ws) != -1) {
     return ws.ws_col;
   }
 #endif  // not COMPILER_MSVC
@@ -1418,7 +1420,7 @@ int GetTerminalColumns() {
     }
   }
 
-  HANDLE stdout_handle = ::GetStdHandle(STD_OUTPUT_HANDLE);
+  HANDLE stdout_handle = ::GetStdHandle(STD_ERROR_HANDLE);
   if (stdout_handle != INVALID_HANDLE_VALUE) {
     // stdout_handle may be invalid when stdout is redirected.
     CONSOLE_SCREEN_BUFFER_INFO screen_info;

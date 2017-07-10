@@ -15,7 +15,10 @@
 package com.google.devtools.build.remote;
 
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
+import java.util.List;
 
 /** Options for remote worker. */
 public class RemoteWorkerOptions extends OptionsBase {
@@ -23,6 +26,8 @@ public class RemoteWorkerOptions extends OptionsBase {
     name = "listen_port",
     defaultValue = "8080",
     category = "build_worker",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "Listening port for the netty server."
   )
   public int listenPort;
@@ -31,14 +36,29 @@ public class RemoteWorkerOptions extends OptionsBase {
     name = "work_path",
     defaultValue = "null",
     category = "build_worker",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "A directory for the build worker to do work."
   )
   public String workPath;
 
   @Option(
+    name = "cas_path",
+    defaultValue = "null",
+    category = "build_worker",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "A directory for the build worker to store it's files in. If left unset, and if no "
+        + "other store is set, the worker falls back to an in-memory store."
+  )
+  public String casPath;
+
+  @Option(
     name = "debug",
     defaultValue = "false",
     category = "build_worker",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Turn this on for debugging remote job failures. There will be extra messages and the "
             + "work directory will be preserved in the case of failure."
@@ -49,7 +69,51 @@ public class RemoteWorkerOptions extends OptionsBase {
     name = "pid_file",
     defaultValue = "null",
     category = "build_worker",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
     help = "File for writing the process id for this worker when it is fully started."
   )
   public String pidFile;
+
+  @Option(
+    name = "sandboxing",
+    defaultValue = "false",
+    category = "build_worker",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "If supported on this platform, use sandboxing for increased hermeticity."
+  )
+  public boolean sandboxing;
+
+  @Option(
+    name = "sandboxing_writable_path",
+    defaultValue = "",
+    category = "build_worker",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    allowMultiple = true,
+    help = "When using sandboxing, allow running actions to write to this path."
+  )
+  public List<String> sandboxingWritablePaths;
+
+  @Option(
+    name = "sandboxing_tmpfs_dir",
+    defaultValue = "",
+    category = "build_worker",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    allowMultiple = true,
+    help = "When using sandboxing, mount an empty tmpfs onto this path for each running action."
+  )
+  public List<String> sandboxingTmpfsDirs;
+
+  @Option(
+    name = "sandboxing_block_network",
+    defaultValue = "false",
+    category = "build_worker",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help = "When using sandboxing, block network access for running actions."
+  )
+  public boolean sandboxingBlockNetwork;
 }

@@ -14,11 +14,12 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import static java.util.stream.Collectors.joining;
+
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -183,7 +184,7 @@ public class MethodLibrary {
         "Returns a copy of the string where trailing characters that appear in <code>chars</code>"
             + "are removed."
             + "<pre class=\"language-python\">"
-            + "\"abcba\".rstrip(\"ba\") == \"abc\""
+            + "\"abcbaa\".rstrip(\"ab\") == \"abc\""
             + "</pre>",
     parameters = {
       @Param(name = "self", type = String.class, doc = "This string."),
@@ -212,7 +213,7 @@ public class MethodLibrary {
         "Returns a copy of the string where trailing characters that appear in <code>chars</code>"
             + "are removed."
             + "<pre class=\"language-python\">"
-            + "\"abcba\".strip(\"ba\") == \"abc\""
+            + "\"aabcbcbaa\".strip(\"ab\") == \"cbc\""
             + "</pre>",
     parameters = {
       @Param(name = "self", type = String.class, doc = "This string."),
@@ -949,15 +950,20 @@ public class MethodLibrary {
           defaultValue = "{}",
           doc = "Dictionary of arguments."
         ),
-    useLocation = true
+    useLocation = true,
+    useEnvironment = true
   )
   private static final BuiltinFunction format =
       new BuiltinFunction("format") {
         @SuppressWarnings("unused")
         public String invoke(
-            String self, SkylarkList<Object> args, SkylarkDict<?, ?> kwargs, Location loc)
+            String self,
+            SkylarkList<Object> args,
+            SkylarkDict<?, ?> kwargs,
+            Location loc,
+            Environment env)
             throws EvalException {
-          return new FormatParser(loc)
+          return new FormatParser(env, loc)
               .format(
                   self,
                   args.getImmutableList(),
@@ -992,14 +998,16 @@ public class MethodLibrary {
             + "If only one argument is provided, it must be a non-empty iterable.",
     extraPositionals =
         @Param(name = "args", type = SkylarkList.class, doc = "The elements to be checked."),
-    useLocation = true
+    useLocation = true,
+    useEnvironment = true
   )
   private static final BuiltinFunction min =
       new BuiltinFunction("min") {
         @SuppressWarnings("unused") // Accessed via Reflection.
-        public Object invoke(SkylarkList<?> args, Location loc) throws EvalException {
+        public Object invoke(SkylarkList<?> args, Location loc, Environment env)
+            throws EvalException {
           try {
-            return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR.reverse(), loc);
+            return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR.reverse(), loc, env);
           } catch (ComparisonException e) {
             throw new EvalException(loc, e);
           }
@@ -1014,29 +1022,30 @@ public class MethodLibrary {
             + "If only one argument is provided, it must be a non-empty iterable.",
     extraPositionals =
         @Param(name = "args", type = SkylarkList.class, doc = "The elements to be checked."),
-    useLocation = true
+    useLocation = true,
+    useEnvironment = true
   )
   private static final BuiltinFunction max =
       new BuiltinFunction("max") {
         @SuppressWarnings("unused") // Accessed via Reflection.
-        public Object invoke(SkylarkList<?> args, Location loc) throws EvalException {
+        public Object invoke(SkylarkList<?> args, Location loc, Environment env)
+            throws EvalException {
           try {
-            return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR, loc);
+            return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR, loc, env);
           } catch (ComparisonException e) {
             throw new EvalException(loc, e);
           }
         }
       };
 
-  /**
-   * Returns the maximum element from this list, as determined by maxOrdering.
-   */
-  private static Object findExtreme(SkylarkList<?> args, Ordering<Object> maxOrdering, Location loc)
+  /** Returns the maximum element from this list, as determined by maxOrdering. */
+  private static Object findExtreme(
+      SkylarkList<?> args, Ordering<Object> maxOrdering, Location loc, Environment env)
       throws EvalException {
     // Args can either be a list of items to compare, or a singleton list whose element is an
     // iterable of items to compare. In either case, there must be at least one item to compare.
     try {
-      Iterable<?> items = (args.size() == 1) ? EvalUtils.toIterable(args.get(0), loc) : args;
+      Iterable<?> items = (args.size() == 1) ? EvalUtils.toIterable(args.get(0), loc, env) : args;
       return maxOrdering.max(items);
     } catch (NoSuchElementException ex) {
       throw new EvalException(loc, "expected at least one item");
@@ -1050,13 +1059,15 @@ public class MethodLibrary {
     parameters = {
       @Param(name = "elements", type = Object.class, doc = "A string or a collection of elements.")
     },
-    useLocation = true
+    useLocation = true,
+    useEnvironment = true
   )
   private static final BuiltinFunction all =
       new BuiltinFunction("all") {
         @SuppressWarnings("unused") // Accessed via Reflection.
-        public Boolean invoke(Object collection, Location loc) throws EvalException {
-          return !hasElementWithBooleanValue(collection, false, loc);
+        public Boolean invoke(Object collection, Location loc, Environment env)
+            throws EvalException {
+          return !hasElementWithBooleanValue(collection, false, loc, env);
         }
       };
 
@@ -1067,19 +1078,21 @@ public class MethodLibrary {
     parameters = {
       @Param(name = "elements", type = Object.class, doc = "A string or a collection of elements.")
     },
-    useLocation = true
+    useLocation = true,
+    useEnvironment = true
   )
   private static final BuiltinFunction any =
       new BuiltinFunction("any") {
         @SuppressWarnings("unused") // Accessed via Reflection.
-        public Boolean invoke(Object collection, Location loc) throws EvalException {
-          return hasElementWithBooleanValue(collection, true, loc);
+        public Boolean invoke(Object collection, Location loc, Environment env)
+            throws EvalException {
+          return hasElementWithBooleanValue(collection, true, loc, env);
         }
       };
 
-  private static boolean hasElementWithBooleanValue(Object collection, boolean value, Location loc)
-      throws EvalException {
-    Iterable<?> iterable = EvalUtils.toIterable(collection, loc);
+  private static boolean hasElementWithBooleanValue(
+      Object collection, boolean value, Location loc, Environment env) throws EvalException {
+    Iterable<?> iterable = EvalUtils.toIterable(collection, loc, env);
     for (Object obj : iterable) {
       if (EvalUtils.toBoolean(obj) == value) {
         return true;
@@ -1105,7 +1118,8 @@ public class MethodLibrary {
             throws EvalException {
           try {
             return new MutableList(
-                EvalUtils.SKYLARK_COMPARATOR.sortedCopy(EvalUtils.toCollection(self, loc)), env);
+                EvalUtils.SKYLARK_COMPARATOR.sortedCopy(EvalUtils.toCollection(self, loc, env)),
+                env);
           } catch (EvalUtils.ComparisonException e) {
             throw new EvalException(loc, e);
           }
@@ -1140,7 +1154,7 @@ public class MethodLibrary {
                 loc, "Argument to reversed() must be a sequence, not a depset.");
           }
           LinkedList<Object> tmpList = new LinkedList<>();
-          for (Object element : EvalUtils.toIterable(sequence, loc)) {
+          for (Object element : EvalUtils.toIterable(sequence, loc, env)) {
             tmpList.addFirst(element);
           }
           return new MutableList(tmpList, env);
@@ -1534,23 +1548,6 @@ public class MethodLibrary {
     }
   };
 
-  // unary minus
-  @SkylarkSignature(
-    name = "-",
-    returnType = Integer.class,
-    documented = false,
-    doc = "Unary minus operator.",
-    parameters = {
-      @Param(name = "num", type = Integer.class, doc = "The number to negate.")
-    }
-  )
-  private static final BuiltinFunction minus =
-      new BuiltinFunction("-") {
-        public Integer invoke(Integer num) throws ConversionException {
-          return -num;
-        }
-      };
-
   @SkylarkSignature(
     name = "tuple",
     returnType = Tuple.class,
@@ -1560,12 +1557,13 @@ public class MethodLibrary {
             + "tuple((2, 3, 2)) == (2, 3, 2)\n"
             + "tuple({5: \"a\", 2: \"b\", 4: \"c\"}) == (5, 2, 4)</pre>",
     parameters = {@Param(name = "x", doc = "The object to convert.")},
-    useLocation = true
+    useLocation = true,
+    useEnvironment = true
   )
   private static final BuiltinFunction tuple =
       new BuiltinFunction("tuple") {
-        public Tuple<?> invoke(Object x, Location loc) throws EvalException {
-          return Tuple.create(ImmutableList.copyOf(EvalUtils.toCollection(x, loc)));
+        public Tuple<?> invoke(Object x, Location loc, Environment env) throws EvalException {
+          return Tuple.create(ImmutableList.copyOf(EvalUtils.toCollection(x, loc, env)));
         }
       };
 
@@ -1584,7 +1582,7 @@ public class MethodLibrary {
   private static final BuiltinFunction list =
       new BuiltinFunction("list") {
         public MutableList<?> invoke(Object x, Location loc, Environment env) throws EvalException {
-          return new MutableList(EvalUtils.toCollection(x, loc), env);
+          return new MutableList(EvalUtils.toCollection(x, loc, env), env);
         }
       };
 
@@ -1593,11 +1591,20 @@ public class MethodLibrary {
     returnType = Integer.class,
     doc = "Returns the length of a string, list, tuple, depset, or dictionary.",
     parameters = {@Param(name = "x", doc = "The object to check length of.")},
-    useLocation = true
+    useLocation = true,
+    useEnvironment = true
   )
   private static final BuiltinFunction len =
       new BuiltinFunction("len") {
-        public Integer invoke(Object x, Location loc) throws EvalException {
+        public Integer invoke(Object x, Location loc, Environment env) throws EvalException {
+          if (env.getSemantics().incompatibleDepsetIsNotIterable && x instanceof SkylarkNestedSet) {
+            throw new EvalException(
+                loc,
+                EvalUtils.getDataTypeName(x)
+                    + " is not iterable. You may use `len(<depset>.to_list())` instead. Use "
+                    + "--incompatible_depset_is_not_iterable=false to temporarily disable this "
+                    + "check.");
+          }
           int l = EvalUtils.size(x);
           if (l == -1) {
             throw new EvalException(loc, EvalUtils.getDataTypeName(x) + " is not iterable");
@@ -1606,25 +1613,37 @@ public class MethodLibrary {
         }
       };
 
-  @SkylarkSignature(name = "str", returnType = String.class, doc =
-      "Converts any object to string. This is useful for debugging."
-      + "<pre class=\"language-python\">str(\"ab\") == \"ab\"</pre>",
-      parameters = {@Param(name = "x", doc = "The object to convert.")})
-  private static final BuiltinFunction str = new BuiltinFunction("str") {
-    public String invoke(Object x) {
-      return Printer.str(x);
-    }
-  };
+  @SkylarkSignature(
+    name = "str",
+    returnType = String.class,
+    doc =
+        "Converts any object to string. This is useful for debugging."
+            + "<pre class=\"language-python\">str(\"ab\") == \"ab\"</pre>",
+    parameters = {@Param(name = "x", doc = "The object to convert.")},
+    useEnvironment = true
+  )
+  private static final BuiltinFunction str =
+      new BuiltinFunction("str") {
+        public String invoke(Object x, Environment env) {
+          return Printer.getPrinter(env).str(x).toString();
+        }
+      };
 
-  @SkylarkSignature(name = "repr", returnType = String.class, doc =
-      "Converts any object to a string representation. This is useful for debugging.<br>"
-      + "<pre class=\"language-python\">str(\"ab\") == \\\"ab\\\"</pre>",
-      parameters = {@Param(name = "x", doc = "The object to convert.")})
-  private static final BuiltinFunction repr = new BuiltinFunction("repr") {
-    public String invoke(Object x) {
-      return Printer.repr(x);
-    }
-  };
+  @SkylarkSignature(
+    name = "repr",
+    returnType = String.class,
+    doc =
+        "Converts any object to a string representation. This is useful for debugging.<br>"
+            + "<pre class=\"language-python\">str(\"ab\") == \\\"ab\\\"</pre>",
+    parameters = {@Param(name = "x", doc = "The object to convert.")},
+    useEnvironment = true
+  )
+  private static final BuiltinFunction repr =
+      new BuiltinFunction("repr") {
+        public String invoke(Object x, Environment env) {
+          return Printer.getPrinter(env).repr(x).toString();
+        }
+      };
 
   @SkylarkSignature(name = "bool", returnType = Boolean.class,
       doc = "Constructor for the bool type. "
@@ -2001,7 +2020,7 @@ public class MethodLibrary {
     name = "dir",
     returnType = MutableList.class,
     doc =
-        "Returns a list strings: the names of the attributes and "
+        "Returns a list of strings: the names of the attributes and "
             + "methods of the parameter object.",
     parameters = {@Param(name = "x", doc = "The object to check.")},
     useLocation = true,
@@ -2057,33 +2076,51 @@ public class MethodLibrary {
         }
       };
 
-  @SkylarkSignature(name = "print", returnType = Runtime.NoneType.class,
-      doc = "Prints <code>args</code> as output. It will be prefixed with the string <code>"
-          + "\"WARNING\"</code> and the location (file and line number) of this call. It can be "
-          + "used for debugging."
-          + "<p>Using <code>print</code> in production code is discouraged due to the spam it "
-          + "creates for users. For deprecations, prefer a hard error using <a href=\"#fail\">"
-          + "fail()</a> when possible.",
-      parameters = {
-        @Param(name = "sep", type = String.class, defaultValue = "' '",
-            named = true, positional = false,
-            doc = "The separator string between the objects, default is space (\" \").")},
-      // NB: as compared to Python3, we're missing optional named-only arguments 'end' and 'file'
-      extraPositionals = @Param(name = "args", doc = "The objects to print."),
-      useLocation = true, useEnvironment = true)
-  private static final BuiltinFunction print = new BuiltinFunction("print") {
-    public Runtime.NoneType invoke(String sep, SkylarkList<?> starargs,
-        Location loc, Environment env) throws EvalException {
-      String msg = Joiner.on(sep).join(Iterables.transform(starargs,
-              new com.google.common.base.Function<Object, String>() {
-                @Override
-                public String apply(Object input) {
-                  return Printer.str(input);
-                }}));
-      env.handleEvent(Event.warn(loc, msg));
-      return Runtime.NONE;
-    }
-  };
+  @SkylarkSignature(
+    name = "print",
+    returnType = Runtime.NoneType.class,
+    doc =
+        "Prints <code>args</code> as output. It will be prefixed with the string <code>"
+            + "\"WARNING\"</code> and the location (file and line number) of this call. It can be "
+            + "used for debugging."
+            + "<p>Using <code>print</code> in production code is discouraged due to the spam it "
+            + "creates for users. For deprecations, prefer a hard error using <a href=\"#fail\">"
+            + "fail()</a> when possible.",
+    parameters = {
+      @Param(
+        name = "sep",
+        type = String.class,
+        defaultValue = "' '",
+        named = true,
+        positional = false,
+        doc = "The separator string between the objects, default is space (\" \")."
+      )
+    },
+    // NB: as compared to Python3, we're missing optional named-only arguments 'end' and 'file'
+    extraPositionals = @Param(name = "args", doc = "The objects to print."),
+    useLocation = true,
+    useEnvironment = true
+  )
+  private static final BuiltinFunction print =
+      new BuiltinFunction("print") {
+        public Runtime.NoneType invoke(
+            String sep, SkylarkList<?> starargs, Location loc, Environment env)
+            throws EvalException {
+          String msg =
+              starargs
+                  .stream()
+                  .map((Object o) -> Printer.getPrinter(env).str(o).toString())
+                  .collect(joining(sep));
+          // As part of the integration test "skylark_flag_test.sh", if the
+          // "--internal_skylark_flag_test_canary" flag is enabled, append an extra marker string to
+          // the output.
+          if (env.getSemantics().skylarkFlagTestCanary) {
+            msg += "<== skylark flag test ==>";
+          }
+          env.handleEvent(Event.warn(loc, msg));
+          return Runtime.NONE;
+        }
+      };
 
   @SkylarkSignature(
     name = "zip",
@@ -2108,7 +2145,7 @@ public class MethodLibrary {
             throws EvalException {
           Iterator<?>[] iterators = new Iterator<?>[args.size()];
           for (int i = 0; i < args.size(); i++) {
-            iterators[i] = EvalUtils.toIterable(args.get(i), loc).iterator();
+            iterators[i] = EvalUtils.toIterable(args.get(i), loc, env).iterator();
           }
           List<Tuple<?>> result = new ArrayList<>();
           boolean allHasNext;
@@ -2192,7 +2229,7 @@ public class MethodLibrary {
   static final List<BaseFunction> defaultGlobalFunctions =
       ImmutableList.<BaseFunction>of(
           all, any, bool, dict, dir, fail, getattr, hasattr, hash, enumerate, int_, len, list, max,
-          min, minus, print, range, repr, reversed, sorted, str, tuple, zip);
+          min, print, range, repr, reversed, sorted, str, tuple, zip);
 
   static {
     SkylarkSignatureProcessor.configureSkylarkFunctions(MethodLibrary.class);

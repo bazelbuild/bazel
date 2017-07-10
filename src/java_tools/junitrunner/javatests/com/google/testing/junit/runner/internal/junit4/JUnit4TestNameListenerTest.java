@@ -15,8 +15,7 @@
 package com.google.testing.junit.runner.internal.junit4;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.testing.junit.runner.util.TestNameProvider;
 import java.util.concurrent.ExecutorService;
@@ -53,26 +52,26 @@ public class JUnit4TestNameListenerTest {
 
   @Test
   public void testJUnit4Listener_normalUsage() throws Exception {
-    assertNull(testNameProviderForTesting);
+    assertThat(testNameProviderForTesting).isNull();
 
     Description description = Description.createSuiteDescription(FakeTest.class);
     testNameListener.testRunStarted(description);
-    assertNull(testNameProviderForTesting.get());
+    assertThat(testNameProviderForTesting.get()).isNull();
 
     description = Description.createTestDescription(FakeTest.class, "methodName");
     testNameListener.testStarted(description);
-    assertEquals(description, testNameProviderForTesting.get());
+    assertThat(testNameProviderForTesting.get()).isEqualTo(description);
     testNameListener.testFinished(description);
-    assertNull(testNameProviderForTesting.get());
+    assertThat(testNameProviderForTesting.get()).isNull();
 
     description = Description.createTestDescription(FakeTest.class, "anotherMethodName");
     testNameListener.testStarted(description);
-    assertEquals(description, testNameProviderForTesting.get());
+    assertThat(testNameProviderForTesting.get()).isEqualTo(description);
     testNameListener.testFinished(description);
-    assertNull(testNameProviderForTesting.get());
+    assertThat(testNameProviderForTesting.get()).isNull();
 
     testNameListener.testRunFinished(null);
-    assertNull(testNameProviderForTesting.get());
+    assertThat(testNameProviderForTesting.get()).isNull();
   }
 
   @Test
@@ -82,9 +81,11 @@ public class JUnit4TestNameListenerTest {
 
     description = Description.createTestDescription(this.getClass(), name.getMethodName());
     testNameListener.testStarted(description);
-    assertEquals("testJUnit4Listener_hasExpectedDisplayName("
-        + JUnit4TestNameListenerTest.class.getCanonicalName() + ")",
-        testNameProviderForTesting.get().getDisplayName());
+    assertThat(testNameProviderForTesting.get().getDisplayName())
+        .isEqualTo(
+            "testJUnit4Listener_hasExpectedDisplayName("
+                + JUnit4TestNameListenerTest.class.getCanonicalName()
+                + ")");
   }
 
   @Test
@@ -96,49 +97,49 @@ public class JUnit4TestNameListenerTest {
         Description.createTestDescription(FakeTest.class, "anotherMethodName");
 
     testNameListener.testRunStarted(Description.createSuiteDescription(FakeTest.class));
-    assertNull(testNameProviderForTesting.get());
+    assertThat(testNameProviderForTesting.get()).isNull();
     testNameListener.testStarted(description1);
-    assertEquals(description1, testNameProviderForTesting.get());
+    assertThat(testNameProviderForTesting.get()).isEqualTo(description1);
 
     Future<?> startSecondTestFuture =
         executorService.submit(
             new Runnable() {
               @Override
               public void run() {
-                assertNull(testNameProviderForTesting.get());
+                assertThat(testNameProviderForTesting.get()).isNull();
                 try {
                   testNameListener.testStarted(description2);
                 } catch (Exception e) {
                   throwIfUnchecked(e);
                   throw new RuntimeException(e);
                 }
-                assertEquals(description2, testNameProviderForTesting.get());
+                assertThat(testNameProviderForTesting.get()).isEqualTo(description2);
               }
             });
     startSecondTestFuture.get();
 
-    assertEquals(description1, testNameProviderForTesting.get());
+    assertThat(testNameProviderForTesting.get()).isEqualTo(description1);
     testNameListener.testFinished(description1);
-    assertNull(testNameProviderForTesting.get());
+    assertThat(testNameProviderForTesting.get()).isNull();
 
     Future<?> endSecondTestFuture =
         executorService.submit(
             new Runnable() {
               @Override
               public void run() {
-                assertEquals(description2, testNameProviderForTesting.get());
+                assertThat(testNameProviderForTesting.get()).isEqualTo(description2);
                 try {
                   testNameListener.testFinished(description2);
                 } catch (Exception e) {
                   throwIfUnchecked(e);
                   throw new RuntimeException(e);
                 }
-                assertNull(testNameProviderForTesting.get());
+                assertThat(testNameProviderForTesting.get()).isNull();
               }
             });
     endSecondTestFuture.get();
 
-    assertNull(testNameProviderForTesting.get());
+    assertThat(testNameProviderForTesting.get()).isNull();
   }
 
   /**
@@ -158,16 +159,16 @@ public class JUnit4TestNameListenerTest {
 
     testNameListener.testStarted(description1);
     testNameListener.testStarted(description1);
-    assertEquals(description1, testNameProviderForTesting.get());
+    assertThat(testNameProviderForTesting.get()).isEqualTo(description1);
 
     testNameListener.testStarted(description2);
-    assertEquals(description2, testNameProviderForTesting.get());
+    assertThat(testNameProviderForTesting.get()).isEqualTo(description2);
 
     testNameListener.testFinished(description1);
-    assertNull(testNameProviderForTesting.get());
+    assertThat(testNameProviderForTesting.get()).isNull();
 
     testNameListener.testFinished(description2);
-    assertNull(testNameProviderForTesting.get());
+    assertThat(testNameProviderForTesting.get()).isNull();
   }
 
 

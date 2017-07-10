@@ -62,36 +62,6 @@ cc_binary(
     ],
 )
 
-cc_library(
-    name = "windows_jni_lib",
-    srcs = [
-        "windows_file_operations.cc",
-        "windows_util.cc",
-    ],
-    hdrs = [
-        "windows_file_operations.h",
-        "windows_util.h",
-    ],
-    visibility = [
-        "//src/main/cpp:__subpackages__",
-        "//src/test/cpp:__subpackages__",
-        "//src/test/native:__pkg__",
-    ],
-)
-
-genrule(
-    name = "windows_jni",
-    srcs = glob([
-        "windows_*.cc",
-        "windows_*.h",
-    ]),
-    outs = ["windows_jni.dll"],
-    cmd = "$(location build_windows_jni.sh) $@ $(SRCS)",
-    output_to_bindir = 1,
-    tools = ["build_windows_jni.sh"],
-    visibility = ["//src:__subpackages__"],
-)
-
 # TODO(bazel-team): Come up with a way to support platform-specific dynamic
 # library extensions.  This is issue #914.
 genrule(
@@ -105,6 +75,20 @@ genrule(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + [
+        "//src/main/native/windows:srcs",
+    ],
     visibility = ["//src:__pkg__"],
+)
+
+# TODO(laszlocsomor): move the common parts needed both by the Windows JNI lib
+# and the Bazel client into a separate library, and only copy those to the
+# embedded tools folder.
+filegroup(
+    name = "embedded_tools",
+    srcs = glob(["*.cc"]) + glob(["*.h"]) + [
+        "BUILD",
+        "//src/main/native/windows:embedded_tools",
+    ],
+    visibility = ["//visibility:public"],
 )

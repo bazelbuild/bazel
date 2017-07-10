@@ -186,7 +186,7 @@ filegroup(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]) + ["//tools/cpp/test:srcs"],
+    srcs = glob(["**"]),
 )
 
 filegroup(

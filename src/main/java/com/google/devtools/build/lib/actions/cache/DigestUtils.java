@@ -313,13 +313,12 @@ public class DigestUtils {
 
     if (md == null) {
       // Move along, nothing to see here.
-    } else if (md.digest == null) {
-      // Use the timestamp if the digest is not present, but not both.
-      // Modifying a timestamp while keeping the contents of a file the
-      // same should not cause rebuilds.
-      fp.addLong(md.mtime);
+    } else if (md.isFile()) {
+      fp.addBytes(md.getDigest());
     } else {
-      fp.addBytes(md.digest);
+      // Use the timestamp if the digest is not present, but not both. Modifying a timestamp while
+      // keeping the contents of a file the same should not cause rebuilds.
+      fp.addLong(md.getModifiedTime());
     }
     return fp.digestAndReset();
   }

@@ -14,21 +14,17 @@
 package com.google.devtools.build.lib.util.io;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
 
 import com.google.common.io.ByteStreams;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.util.Arrays;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Test for {@link StreamMultiplexer}.
@@ -55,7 +51,7 @@ public class StreamMultiplexerTest {
     out.flush();
     err.flush();
     ctl.flush();
-    assertEquals(0, multiplexed.toByteArray().length);
+    assertThat(multiplexed.toByteArray()).isEmpty();
   }
 
   private static byte[] getLatin(String string)
@@ -98,13 +94,13 @@ public class StreamMultiplexerTest {
       throws Exception {
     out.write(getLatin("There are no newline characters in here, so it won't" +
         " get written just yet."));
-    assertArrayEquals(multiplexed.toByteArray(), new byte[0]);
+    assertThat(new byte[0]).isEqualTo(multiplexed.toByteArray());
   }
 
   @Test
   public void testNewlineTriggersFlush() throws Exception {
     out.write(getLatin("No newline just yet, so no flushing. "));
-    assertArrayEquals(multiplexed.toByteArray(), new byte[0]);
+    assertThat(new byte[0]).isEqualTo(multiplexed.toByteArray());
     out.write(getLatin("OK, here we go:\nAnd more to come."));
     assertMessage(
         multiplexed.toByteArray(), 0, "No newline just yet, so no flushing. OK, here we go:\n");
@@ -116,7 +112,7 @@ public class StreamMultiplexerTest {
   @Test
   public void testFlush() throws Exception {
     out.write(getLatin("Don't forget to flush!"));
-    assertArrayEquals(new byte[0], multiplexed.toByteArray());
+    assertThat(multiplexed.toByteArray()).isEqualTo(new byte[0]);
     out.flush(); // now the output will appear in multiplexed.
     assertStartsWith(multiplexed.toByteArray(), 1, 0, 0, 0);
     assertMessage(multiplexed.toByteArray(), 0, "Don't forget to flush!");

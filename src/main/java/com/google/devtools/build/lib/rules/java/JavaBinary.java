@@ -24,7 +24,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -45,6 +44,7 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.rules.java.ProguardHelper.ProguardOutput;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.syntax.Type;
@@ -229,8 +229,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     // Collect the action inputs for the runfiles collector here because we need to access the
     // analysis environment, and that may no longer be safe when the runfiles collector runs.
     Iterable<Artifact> dynamicRuntimeActionInputs =
-        CppHelper.getToolchain(ruleContext, ":cc_toolchain").getDynamicRuntimeLinkInputs();
-
+        CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext)
+            .getDynamicRuntimeLinkInputs();
 
     Iterables.addAll(jvmFlags,
         semantics.getJvmFlags(ruleContext, common.getSrcsArtifacts(), userJvmFlags));
@@ -286,7 +286,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     boolean runProguard = applyProguardIfRequested(
         ruleContext, deployJar, common.getBootClasspath(), mainClass, semantics, filesBuilder);
 
-    if (javaConfig.isEnforceOneVersion()) {
+    if (javaConfig.oneVersionEnforcementLevel() != OneVersionEnforcementLevel.OFF) {
       Artifact oneVersionOutput =
           ruleContext
               .getAnalysisEnvironment()
@@ -300,7 +300,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       OneVersionCheckActionBuilder.build(
           ruleContext,
           transitiveDependencies,
-          oneVersionOutput);
+          oneVersionOutput,
+          javaConfig.oneVersionEnforcementLevel());
     }
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
 
@@ -397,17 +398,14 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     }
 
     JavaRuleOutputJarsProvider ruleOutputJarsProvider = ruleOutputJarsProviderBuilder.build();
-    JavaSkylarkApiProvider.Builder skylarkApiProvider =
-        JavaSkylarkApiProvider.builder()
-            .setRuleOutputJarsProvider(ruleOutputJarsProvider)
-            .setSourceJarsProvider(sourceJarsProvider);
 
-    common.addTransitiveInfoProviders(builder, skylarkApiProvider, filesToBuild, classJar);
-    common.addGenJarsProvider(builder, skylarkApiProvider, genClassJar, genSourceJar);
+    common.addTransitiveInfoProviders(builder, filesToBuild, classJar);
+    common.addGenJarsProvider(builder, genClassJar, genSourceJar);
 
     return builder
         .setFilesToBuild(filesToBuild)
-        .addSkylarkTransitiveInfo(JavaSkylarkApiProvider.NAME, skylarkApiProvider.build())
+        .addSkylarkTransitiveInfo(
+            JavaSkylarkApiProvider.NAME, JavaSkylarkApiProvider.fromRuleContext())
         .add(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
         .add(RunfilesProvider.class, runfilesProvider)
         // The executable to run (below) may be different from the executable for runfiles (the one
@@ -509,9 +507,10 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     // Add the JDK files if it comes from the source repository (see java_stub_template.txt).
     TransitiveInfoCollection javabaseTarget = ruleContext.getPrerequisite(":jvm", Mode.TARGET);
+    JavaRuntimeProvider javaRuntime = null;
     if (javabaseTarget != null) {
-      builder.addArtifacts(
-          (Iterable<Artifact>) javabaseTarget.getProvider(FileProvider.class).getFilesToBuild());
+      javaRuntime = javabaseTarget.getProvider(JavaRuntimeProvider.class);
+      builder.addTransitiveArtifacts(javaRuntime.javaBaseInputs());
 
       // Add symlinks to the C++ runtime libraries under a path that can be built
       // into the Java binary without having to embed the crosstool, gcc, and grte

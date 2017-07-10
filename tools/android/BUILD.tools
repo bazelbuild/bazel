@@ -42,36 +42,37 @@ alias(
 
 alias(
     name = "desugar_java8",
-    actual = "//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar",
+    actual = "//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar_embedded",
 )
 
 # Bazel puts this on the bootclasspath of android_* targets to support Java 8
 # if requested.
 filegroup(
     name = "desugar_java8_extra_bootclasspath",
-    srcs = ["java_lang_invoke.jar"],
+    srcs = ["java_lang_extras.jar"],
     visibility = ["//visibility:public"],
 )
 
-# javac needs this Jar to compile lambdas and method references. It contains
-# java.lang.invoke.* which is not part of the android.jar.
+# javac needs this Jar to compile lambdas, method references, and type annotations.
+# These classes are not part of the android.jar.
 genrule(
-    name = "gen_java_lang_invoke_jar",
+    name = "gen_java_lang_extras_jar",
     srcs = [
         "@local_jdk//:bootclasspath"
     ],
     tools = [
-        "@bazel_tools//tools/jdk:SingleJar_binary",
+        "@bazel_tools//tools/jdk:singlejar",
     ],
-    outs = ["java_lang_invoke.jar"],
+    outs = ["java_lang_extras.jar"],
     cmd = """
           for jar in $(locations @local_jdk//:bootclasspath); do
             if [[ "$${jar}" == *"/rt.jar" ]]; then
-              $(location @bazel_tools//tools/jdk:SingleJar_binary) \
+              $(location @bazel_tools//tools/jdk:singlejar) \
                   --exclude_build_data \
                   --dont_change_compression \
                   --sources $${jar} \
                   --include_prefixes "java/lang/invoke/" \
+                  --include_prefixes "java/lang/annotation/" \
                   --output $@
               break
             fi
@@ -79,8 +80,6 @@ genrule(
           """,
     visibility = ["//visibility:private"],
 )
-
-
 
 alias(
     name = "IdlClass",
@@ -204,4 +203,66 @@ alias(
 filegroup(
     name = "debug_keystore",
     srcs = ["bazel_debug.keystore"],
+)
+
+alias(
+    name = "databinding_annotation_processor",
+    actual = "@android_databinding//:annotation_processor",
+)
+
+# This is the default binding of //external:android/sdk. If someone attempts to
+# build a rule that depends on //external:android/sdk without setting up
+# android_sdk_repository in their WORKSPACE, the genrule will fail with a
+# helpful error message.
+android_sdk(
+    name = "poison_pill_android_sdk",
+    proguard = ":error_message",
+    aapt = ":error_message",
+    dx = ":error_message",
+    main_dex_list_creator = ":error_message",
+    adb = ":error_message",
+    framework_aidl = ":error_message",
+    aidl = ":error_message",
+    android_jar = ":error_message.jar",
+    shrinked_android_jar = ":error_message.jar",
+    annotations_jar = ":error_message.jar",
+    main_dex_classes = ":error_message",
+    apksigner = ":error_message",
+    zipalign = ":error_message",
+    resource_extractor = "error_message",
+)
+
+genrule(
+    name = "no_android_sdk_repository_error",
+    outs = ["error_message", "error_message.jar"],
+    cmd = """echo \
+    This build requires an Android SDK. Please add the android_sdk_repository \
+    rule to your WORKSPACE. ; \
+    exit 1 """,
+)
+
+# //external:has_androidsdk is bound to either
+# @bazel_tools//tools/android:always_true or
+# @bazel_tools//tools/android:always_false depending on whether
+# android_sdk_repository has run. This allows targets to depend on targets from
+# @androidsdk if and only if the user has an android_sdk_repository set up.
+
+config_feature_flag(
+    name = "true",
+    default_value = "true",
+    allowed_values = ["true", "false"],
+)
+
+config_setting(
+    name = "always_true",
+    flag_values = {
+        ":true": "true"
+    },
+)
+
+config_setting(
+    name = "always_false",
+    flag_values = {
+        ":true": "false",
+    },
 )

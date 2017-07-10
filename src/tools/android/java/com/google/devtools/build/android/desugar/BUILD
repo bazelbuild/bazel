@@ -5,7 +5,7 @@ filegroup(
     name = "embedded_tools",
     srcs = [
         "BUILD.tools",
-        "desugar_bin_deploy.jar",
+        "Desugar_deploy.jar",
     ],
     visibility = ["//src/tools/android/java/com/google/devtools/build/android:__pkg__"],
 )
@@ -13,8 +13,10 @@ filegroup(
 java_library(
     name = "desugar",
     srcs = glob(["*.java"]),
+    runtime_deps = ["//src/tools/android/java/com/google/devtools/build/android/desugar/runtime:throwable_extension"],
     deps = [
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:option_filters_java_proto",
         "//src/main/protobuf:worker_protocol_java_proto",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//third_party:asm",
@@ -27,13 +29,15 @@ java_library(
 )
 
 java_binary(
-    name = "desugar_bin",
-    main_class = "does.not.exist",
+    name = "Desugar",
+    main_class = "com.google.devtools.build.android.desugar.Desugar",
     runtime_deps = [":desugar"],
 )
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + [
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/runtime:srcs",
+    ],
     visibility = ["//src/tools/android/java/com/google/devtools/build/android:__pkg__"],
 )

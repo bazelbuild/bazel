@@ -97,7 +97,7 @@ bool ReadFile(const std::string &filename, void *data, size_t size);
 // Writes `size` bytes from `data` into file `filename` and chmods it to `perm`.
 // Returns false on failure, sets errno.
 bool WriteFile(const void *data, size_t size, const std::string &filename,
-               unsigned int perm = 0755);
+               unsigned int perm = 0644);
 
 // Result of a `WriteToStdOutErr` operation.
 //

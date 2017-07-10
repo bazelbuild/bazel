@@ -96,6 +96,9 @@ public class ExampleWorker {
           System.setErr(ps);
 
           if (poisoned) {
+            if (workerOptions.hardPoison) {
+              throw new IllegalStateException("I'm a very poisoned worker and will just crash.");
+            }
             System.out.println("I'm a poisoned worker and this is not a protobuf.");
             System.out.println("Here's a fake stack trace for you:");
             System.out.println("    at com.example.Something(Something.java:83)");

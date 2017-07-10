@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -32,14 +31,21 @@ import com.google.devtools.build.lib.util.Preconditions;
   category = SkylarkModuleCategory.PROVIDER,
   doc = "A provider for XCTest apps for testing."
 )
-public final class XcTestAppProvider extends SkylarkClassObject implements TransitiveInfoProvider {
+public final class XcTestAppProvider extends SkylarkClassObject
+    implements TransitiveInfoProvider, TransitiveInfoProvider.WithLegacySkylarkName {
   /**
    * The skylark struct key name for a rule implementation to use when exporting an ObjcProvider.
    */
   public static final String XCTEST_APP_SKYLARK_PROVIDER_NAME = "xctest_app";
 
-  private static final ClassObjectConstructor XCTEST_APP_PROVIDER =
-      new NativeClassObjectConstructor("xctest_app_provider") {
+  @Override
+  public String getSkylarkName() {
+    return XCTEST_APP_SKYLARK_PROVIDER_NAME;
+  }
+
+  private static final NativeClassObjectConstructor<XcTestAppProvider> XCTEST_APP_PROVIDER =
+      new NativeClassObjectConstructor<XcTestAppProvider>(
+          XcTestAppProvider.class, "xctest_app_provider") {
         @Override
         public String getErrorMessageFormatForInstances() {
           return "XcTestAppProvider field %s could not be instantiated";

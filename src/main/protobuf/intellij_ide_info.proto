@@ -62,6 +62,8 @@ message CIdeInfo {
   repeated string target_copt = 7;
   repeated string target_define = 8;
   repeated string target_include = 9;
+  repeated ArtifactLocation header = 10;
+  repeated ArtifactLocation textual_header = 11;
 }
 
 message AndroidIdeInfo {
@@ -120,6 +122,7 @@ message TestInfo {
 message JavaToolchainIdeInfo {
   string source_version = 1;
   string target_version = 2;
+  ArtifactLocation javac_jar = 3;
 }
 
 message TargetKey {
@@ -170,5 +173,9 @@ message TargetIdeInfo {
 
   AndroidSdkIdeInfo android_sdk_ide_info = 22;
 
-  // Next available: 23
+  reserved 23;
+
+  repeated string features = 24;
+
+  // Next available: 25
 }

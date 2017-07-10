@@ -36,21 +36,9 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoLibrary;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
-import javax.annotation.Nullable;
 
 /** Declaration of the {@code java_lite_proto_library} rule. */
 public class BazelJavaLiteProtoLibraryRule implements RuleDefinition {
-
-  private static final Function<Rule, AspectParameters> ASPECT_PARAMETERS =
-      new Function<Rule, AspectParameters>() {
-        @Nullable
-        @Override
-        public AspectParameters apply(@Nullable Rule rule) {
-          return new AspectParameters.Builder()
-              .addAttribute(INJECTING_RULE_KIND_PARAMETER_KEY, "java_lite_proto_library")
-              .build();
-        }
-      };
 
   private final BazelJavaLiteProtoAspect javaProtoAspect;
 
@@ -60,6 +48,12 @@ public class BazelJavaLiteProtoLibraryRule implements RuleDefinition {
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
+    Function<Rule, AspectParameters> aspectParameters =
+        rule ->
+            new AspectParameters.Builder()
+                .addAttribute(INJECTING_RULE_KIND_PARAMETER_KEY, "java_lite_proto_library")
+                .build();
+
     return builder
         .requiresConfigurationFragments(JavaConfiguration.class)
         /* <!-- #BLAZE_RULE(java_lite_proto_library).ATTRIBUTE(deps) -->
@@ -70,7 +64,7 @@ public class BazelJavaLiteProtoLibraryRule implements RuleDefinition {
             attr("deps", LABEL_LIST)
                 .allowedRuleClasses("proto_library")
                 .allowedFileTypes()
-                .aspect(javaProtoAspect, ASPECT_PARAMETERS))
+                .aspect(javaProtoAspect, aspectParameters))
         .add(attr("strict_deps", BOOLEAN).value(true).undocumented("for migration"))
         .add(
             attr(PROTO_TOOLCHAIN_ATTR, LABEL)

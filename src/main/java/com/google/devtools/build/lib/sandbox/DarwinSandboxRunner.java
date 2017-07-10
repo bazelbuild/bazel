@@ -18,11 +18,9 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
-import com.google.devtools.build.lib.shell.KillableObserver;
-import com.google.devtools.build.lib.shell.TimeoutKillableObserver;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -42,39 +40,25 @@ final class DarwinSandboxRunner extends SandboxRunner {
   private static final String SANDBOX_EXEC = "/usr/bin/sandbox-exec";
 
   private final Path sandboxExecRoot;
-  private final Path argumentsFilePath;
+  private final Path sandboxConfigPath;
   private final Set<Path> writableDirs;
-  private final Path runUnderPath;
+  private final Set<Path> inaccessiblePaths;
 
   DarwinSandboxRunner(
       Path sandboxPath,
       Path sandboxExecRoot,
       Set<Path> writableDirs,
-      Path runUnderPath,
+      Set<Path> inaccessiblePaths,
       boolean verboseFailures) {
     super(verboseFailures);
     this.sandboxExecRoot = sandboxExecRoot;
-    this.argumentsFilePath = sandboxPath.getRelative("sandbox.sb");
+    this.sandboxConfigPath = sandboxPath.getRelative("sandbox.sb");
     this.writableDirs = writableDirs;
-    this.runUnderPath = runUnderPath;
+    this.inaccessiblePaths = inaccessiblePaths;
   }
 
-  static boolean isSupported() {
-    // Check osx version, only >=10.11 is supported.
-    // And we should check if sandbox still work when it gets 11.x
-    String osxVersion = OS.getVersion();
-    String[] parts = osxVersion.split("\\.");
-    if (parts.length < 2 || parts.length > 3) {
-      // Can be 10.xx or 10.xx.yy format
-      return false;
-    }
-    try {
-      int v0 = Integer.parseInt(parts[0]);
-      int v1 = Integer.parseInt(parts[1]);
-      if (v0 != 10 || v1 < 11) {
-        return false;
-      }
-    } catch (NumberFormatException e) {
+  static boolean isSupported(CommandEnvironment cmdEnv) {
+    if (!ProcessWrapperRunner.isSupported(cmdEnv)) {
       return false;
     }
 
@@ -104,8 +88,9 @@ final class DarwinSandboxRunner extends SandboxRunner {
 
   @Override
   protected Command getCommand(
+      CommandEnvironment cmdEnv,
       List<String> arguments,
-      Map<String, String> environment,
+      Map<String, String> env,
       int timeout,
       boolean allowNetwork,
       boolean useFakeHostname,
@@ -116,17 +101,16 @@ final class DarwinSandboxRunner extends SandboxRunner {
     List<String> commandLineArgs = new ArrayList<>();
     commandLineArgs.add(SANDBOX_EXEC);
     commandLineArgs.add("-f");
-    commandLineArgs.add(argumentsFilePath.getPathString());
-    commandLineArgs.addAll(arguments);
-    return new Command(
-        commandLineArgs.toArray(new String[0]), environment, sandboxExecRoot.getPathFile());
+    commandLineArgs.add(sandboxConfigPath.getPathString());
+    commandLineArgs.addAll(ProcessWrapperRunner.getCommandLine(cmdEnv, arguments, timeout));
+    return new Command(commandLineArgs.toArray(new String[0]), env, sandboxExecRoot.getPathFile());
   }
 
   private void writeConfig(boolean allowNetwork) throws IOException {
     try (PrintWriter out =
         new PrintWriter(
             new BufferedWriter(
-                new OutputStreamWriter(argumentsFilePath.getOutputStream(), UTF_8)))) {
+                new OutputStreamWriter(sandboxConfigPath.getOutputStream(), UTF_8)))) {
       // Note: In Apple's sandbox configuration language, the *last* matching rule wins.
       out.println("(version 1)");
       out.println("(debug deny)");
@@ -134,40 +118,28 @@ final class DarwinSandboxRunner extends SandboxRunner {
 
       if (!allowNetwork) {
         out.println("(deny network*)");
+        out.println("(allow network* (local ip \"localhost:*\"))");
+        out.println("(allow network* (remote ip \"localhost:*\"))");
       }
 
-      out.println("(allow network* (local ip \"localhost:*\"))");
-      out.println("(allow network* (remote ip \"localhost:*\"))");
+      // By default, everything is read-only.
+      out.println("(deny file-write*)");
 
-      if (runUnderPath != null) {
-        out.println("(allow file-read* (subpath \"" + runUnderPath + "\"))");
-      }
-
-      // Almost everything else is read-only.
-      out.println("(deny file-write* (subpath \"/\"))");
-
-      allowWriteSubpath(out, sandboxExecRoot);
+      out.println("(allow file-write*");
       for (Path path : writableDirs) {
-        allowWriteSubpath(out, path);
+        out.println("    (subpath \"" + path.getPathString() + "\")");
+      }
+      out.println(")");
+
+      if (!inaccessiblePaths.isEmpty()) {
+        out.println("(deny file-read*");
+        // The sandbox configuration file is not part of a cache key and sandbox-exec doesn't care
+        // about ordering of paths in expressions, so it's fine if the iteration order is random.
+        for (Path inaccessiblePath : inaccessiblePaths) {
+          out.println("    (subpath \"" + inaccessiblePath + "\")");
+        }
+        out.println(")");
       }
     }
-  }
-
-  private void allowWriteSubpath(PrintWriter out, Path path) throws IOException {
-    out.println("(allow file-write* (subpath \"" + path.getPathString() + "\"))");
-    Path resolvedPath = path.resolveSymbolicLinks();
-    if (!resolvedPath.equals(path)) {
-      out.println("(allow file-write* (subpath \"" + resolvedPath.getPathString() + "\"))");
-    }
-  }
-
-  @Override
-  protected KillableObserver getCommandObserver(int timeout) {
-    return (timeout >= 0) ? new TimeoutKillableObserver(timeout * 1000) : Command.NO_OBSERVER;
-  }
-
-  @Override
-  protected int getSignalOnTimeout() {
-    return 15; /* SIGTERM */
   }
 }

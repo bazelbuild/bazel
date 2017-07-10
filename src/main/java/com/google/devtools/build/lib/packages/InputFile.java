@@ -109,7 +109,7 @@ public final class InputFile extends FileTarget {
 
   @Override
   public String getTargetKind() {
-    return "source file";
+    return targetKind();
   }
 
   @Override
@@ -120,5 +120,10 @@ public final class InputFile extends FileTarget {
   @Override
   public Location getLocation() {
     return location;
+  }
+
+  /** Returns the target kind for all input files. */
+  public static String targetKind() {
+    return "source file";
   }
 }

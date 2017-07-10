@@ -14,3 +14,6 @@
 /bazel-*
 # Ignore outputs generated during Bazel bootstrapping.
 /output/
+# Ignore jekyll build output.
+/production
+/.sass-cache

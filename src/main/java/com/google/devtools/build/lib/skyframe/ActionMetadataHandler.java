@@ -135,15 +135,6 @@ public class ActionMetadataHandler implements MetadataHandler {
     this.tsgm = tsgm;
   }
 
-  @Override
-  public Metadata getMetadataMaybe(Artifact artifact) {
-    try {
-      return getMetadata(artifact);
-    } catch (IOException e) {
-      return null;
-    }
-  }
-
   /**
    * Gets the {@link TimestampGranularityMonitor} to use for a given artifact.
    *
@@ -162,16 +153,7 @@ public class ActionMetadataHandler implements MetadataHandler {
         || value == FileArtifactValue.OMITTED_FILE_MARKER) {
       throw new FileNotFoundException();
     }
-    // If the file is a directory, we need to return the mtime because the action cache uses mtime
-    // to determine if this artifact has changed. We want this code path to go away somehow
-    // for directories (maybe by implementing FileSet in Skyframe).
-    return value.isFile() ? new Metadata(value.getDigest()) : new Metadata(value.getModifiedTime());
-  }
-
-  @Override
-  public Metadata getMetadata(Artifact artifact) throws IOException {
-    Metadata metadata = getRealMetadata(artifact);
-    return artifact.isConstantMetadata() ? Metadata.CONSTANT_METADATA : metadata;
+    return value;
   }
 
   @Nullable
@@ -187,18 +169,8 @@ public class ActionMetadataHandler implements MetadataHandler {
     return Preconditions.checkNotNull(inputArtifactData.get(input), input);
   }
 
-  /**
-   * Get the real (viz. on-disk) metadata for an Artifact.
-   * A key assumption is that getRealMetadata() will be called for every Artifact in this
-   * ActionMetadataHandler, to populate additionalOutputData and outputTreeArtifactData.
-   *
-   * <p>We cache data for constant-metadata artifacts, even though it is technically unnecessary,
-   * because the data stored in this cache is consumed by various parts of Blaze via the {@link
-   * ActionExecutionValue} (for now, {@link FilesystemValueChecker} and {@link ArtifactFunction}).
-   * It is simpler for those parts if every output of the action is present in the cache. However,
-   * we must not return the actual metadata for a constant-metadata artifact.
-   */
-  private Metadata getRealMetadata(Artifact artifact) throws IOException {
+  @Override
+  public Metadata getMetadata(Artifact artifact) throws IOException {
     FileArtifactValue value = getInputFileArtifactValue(artifact);
     if (value != null) {
       return metadataFromValue(value);
@@ -243,7 +215,7 @@ public class ActionMetadataHandler implements MetadataHandler {
       if (!fileValue.exists()) {
         throw new FileNotFoundException(artifact.prettyPrint() + " does not exist");
       }
-      return new Metadata(Preconditions.checkNotNull(fileValue.getDigest(), artifact));
+      return FileArtifactValue.createNormalFile(fileValue);
     }
     // We do not cache exceptions besides nonexistence here, because it is unlikely that the file
     // will be requested from this cache too many times.
@@ -281,7 +253,7 @@ public class ActionMetadataHandler implements MetadataHandler {
     if (isFile && !artifact.hasParent() && data.getDigest() != null) {
       // We do not need to store the FileArtifactValue separately -- the digest is in the file value
       // and that is all that is needed for this file's metadata.
-      return new Metadata(data.getDigest());
+      return FileArtifactValue.createNormalFile(data);
     }
     // Unfortunately, the FileValue does not contain enough information for us to calculate the
     // corresponding FileArtifactValue -- either the metadata must use the modified time, which we

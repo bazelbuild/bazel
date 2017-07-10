@@ -44,7 +44,8 @@ function set_up() {
   BINS=$(bazel info $PRODUCT_NAME-bin)/${WORKSPACE_SUBDIR}
 
   # This causes Bazel to shut down all running workers.
-  bazel build --worker_quit_after_build &> $TEST_log
+  bazel build --worker_quit_after_build &> $TEST_log \
+    || fail "'bazel build --worker_quit_after_build' during test set_up failed"
 }
 
 function write_hello_library_files() {
@@ -109,6 +110,7 @@ def _impl(ctx):
     for arg in ["--output_file=" + output.path] + ctx.attr.args:
       argfile = ctx.new_file(ctx.bin_dir, "%s_worker_input_%s" % (ctx.label.name, idx))
       ctx.file_action(output=argfile, content=arg)
+      ctx.actions.write(output=argfile, content=arg)
       argfile_inputs.append(argfile)
       flagfile_prefix = "@" if (idx % 2 == 0) else "--flagfile="
       argfile_arguments.append(flagfile_prefix + argfile.path)
@@ -117,11 +119,11 @@ def _impl(ctx):
     # Generate the "@"-file containing the command-line args for the unit of work.
     argfile = ctx.new_file(ctx.bin_dir, "%s_worker_input" % ctx.label.name)
     argfile_contents = "\n".join(["--output_file=" + output.path] + ctx.attr.args)
-    ctx.file_action(output=argfile, content=argfile_contents)
+    ctx.actions.write(output=argfile, content=argfile_contents)
     argfile_inputs.append(argfile)
     argfile_arguments.append("@" + argfile.path)
 
-  ctx.action(
+  ctx.actions.run(
       inputs=argfile_inputs + ctx.files.srcs,
       outputs=[output],
       executable=worker,
@@ -227,41 +229,24 @@ EOF
   assert_equals "1" $work_count
 }
 
-function test_worker_restarts_after_exit() {
+function test_build_fails_when_worker_exits() {
   prepare_example_worker
   cat >>BUILD <<'EOF'
 [work(
   name = "hello_world_%s" % idx,
   worker = ":worker",
-  worker_args = ["--exit_after=2"],
+  worker_args = ["--exit_after=1"],
   args = ["--write_uuid", "--write_counter"],
 ) for idx in range(10)]
 EOF
 
   bazel build :hello_world_1 &> $TEST_log \
     || fail "build failed"
-  worker_uuid_1=$(cat $BINS/hello_world_1.out | grep UUID | cut -d' ' -f2)
-  work_count=$(cat $BINS/hello_world_1.out | grep COUNTER | cut -d' ' -f2)
-  assert_equals "1" $work_count
 
   bazel build :hello_world_2 &> $TEST_log \
-    || fail "build failed"
-  worker_uuid_2=$(cat $BINS/hello_world_2.out | grep UUID | cut -d' ' -f2)
-  work_count=$(cat $BINS/hello_world_2.out | grep COUNTER | cut -d' ' -f2)
-  assert_equals "2" $work_count
+    && fail "expected build to failed" || true
 
-  # Check that the same worker was used twice.
-  assert_equals "$worker_uuid_1" "$worker_uuid_2"
-
-  bazel build :hello_world_3 &> $TEST_log \
-    || fail "build failed"
-  worker_uuid_3=$(cat $BINS/hello_world_3.out | grep UUID | cut -d' ' -f2)
-  work_count=$(cat $BINS/hello_world_3.out | grep COUNTER | cut -d' ' -f2)
-  assert_equals "1" $work_count
-  expect_log "worker .* can no longer be used, because its process terminated itself or got killed"
-
-  # Check that we used a new worker.
-  assert_not_equals "$worker_uuid_2" "$worker_uuid_3"
+  expect_log "Worker process quit or closed its stdin stream when we tried to send a WorkRequest"
 }
 
 function test_worker_restarts_when_worker_binary_changes() {
@@ -349,9 +334,8 @@ EOF
 }
 
 # When a worker does not conform to the protocol and returns a response that is not a parseable
-# protobuf, it must be killed, the output thrown away, a new worker restarted and Bazel has to retry
-# the action without struggling.
-function test_bazel_recovers_from_worker_returning_junk() {
+# protobuf, it must be killed and a helpful error message should be printed.
+function test_build_fails_when_worker_returns_junk() {
   prepare_example_worker
   cat >>BUILD <<'EOF'
 [work(
@@ -364,16 +348,14 @@ EOF
 
   bazel build :hello_world_1 &> $TEST_log \
     || fail "build failed"
-  worker_uuid_1=$(cat $BINS/hello_world_1.out | grep UUID | cut -d' ' -f2)
 
+  # A failing worker should cause the build to fail.
   bazel build :hello_world_2 &> $TEST_log \
-    || fail "build failed"
-  worker_uuid_2=$(cat $BINS/hello_world_2.out | grep UUID | cut -d' ' -f2)
-  expect_log "I'm a poisoned worker and this is not a protobuf."
+    && fail "expected build to fail" || true
 
-  # Check that the worker failed & was restarted.
-  expect_log "invalidating and retrying with new worker"
-  assert_not_equals "$worker_uuid_1" "$worker_uuid_2"
+  # Check that a helpful error message was printed.
+  expect_log "Worker process returned an unparseable WorkResponse:"
+  expect_log "I'm a poisoned worker and this is not a protobuf."
 }
 
 function test_input_digests() {
@@ -501,4 +483,47 @@ EOF
     && fail "environment variable leaked into worker env" || true
 }
 
+function test_workers_quit_on_clean() {
+  prepare_example_worker
+  cat >>BUILD <<EOF
+work(
+  name = "hello_clean",
+  worker = ":worker",
+  args = ["hello clean"],
+)
+EOF
+
+  bazel build :hello_clean &> $TEST_log \
+    || fail "build failed"
+  assert_equals "hello clean" "$(cat $BINS/hello_clean.out)"
+  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Work worker (id [0-9]\+)"
+
+  bazel clean &> $TEST_log \
+    || fail "clean failed"
+  expect_log "Clean command is running, shutting down worker pool..."
+  expect_log "Destroying Work worker (id [0-9]\+)"
+}
+
+function test_crashed_worker_causes_log_dump() {
+  prepare_example_worker
+  cat >>BUILD <<'EOF'
+[work(
+  name = "hello_world_%s" % idx,
+  worker = ":worker",
+  worker_args = ["--poison_after=1", "--hard_poison"],
+  args = ["--write_uuid", "--write_counter"],
+) for idx in range(10)]
+EOF
+
+  bazel build :hello_world_1 &> $TEST_log \
+    || fail "build failed"
+
+  bazel build :hello_world_2 &> $TEST_log \
+    && fail "expected build to fail" || true
+
+  expect_log "^---8<---8<--- Start of log, file at /"
+  expect_log "Worker process did not return a WorkResponse:"
+  expect_log "I'm a very poisoned worker and will just crash."
+  expect_log "^---8<---8<--- End of log ---8<---8<---"
+}
 run_suite "Worker integration tests"

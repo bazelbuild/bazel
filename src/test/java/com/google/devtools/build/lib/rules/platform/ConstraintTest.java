@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.platform;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import org.junit.Before;
@@ -45,22 +46,22 @@ public class ConstraintTest extends BuildViewTestCase {
   public void testConstraint() throws Exception {
     ConfiguredTarget setting = getConfiguredTarget("//constraint:basic");
     assertThat(setting).isNotNull();
-    assertThat(ConstraintSettingInfo.fromTarget(setting)).isNotNull();
-    assertThat(ConstraintSettingInfo.fromTarget(setting)).isNotNull();
-    assertThat(ConstraintSettingInfo.fromTarget(setting).label())
+    assertThat(PlatformProviderUtils.constraintSetting(setting)).isNotNull();
+    assertThat(PlatformProviderUtils.constraintSetting(setting)).isNotNull();
+    assertThat(PlatformProviderUtils.constraintSetting(setting).label())
         .isEqualTo(Label.parseAbsolute("//constraint:basic"));
     ConfiguredTarget fooValue = getConfiguredTarget("//constraint:foo");
     assertThat(fooValue).isNotNull();
-    assertThat(ConstraintValueInfo.fromTarget(fooValue)).isNotNull();
-    assertThat(ConstraintValueInfo.fromTarget(fooValue).constraint().label())
+    assertThat(PlatformProviderUtils.constraintValue(fooValue)).isNotNull();
+    assertThat(PlatformProviderUtils.constraintValue(fooValue).constraint().label())
         .isEqualTo(Label.parseAbsolute("//constraint:basic"));
-    assertThat(ConstraintValueInfo.fromTarget(fooValue).label())
+    assertThat(PlatformProviderUtils.constraintValue(fooValue).label())
         .isEqualTo(Label.parseAbsolute("//constraint:foo"));
     ConfiguredTarget barValue = getConfiguredTarget("//constraint:bar");
     assertThat(barValue).isNotNull();
-    assertThat(ConstraintValueInfo.fromTarget(barValue).constraint().label())
+    assertThat(PlatformProviderUtils.constraintValue(barValue).constraint().label())
         .isEqualTo(Label.parseAbsolute("//constraint:basic"));
-    assertThat(ConstraintValueInfo.fromTarget(barValue).label())
+    assertThat(PlatformProviderUtils.constraintValue(barValue).label())
         .isEqualTo(Label.parseAbsolute("//constraint:bar"));
   }
 
@@ -75,7 +76,7 @@ public class ConstraintTest extends BuildViewTestCase {
         "    setting = constraint_value.constraint.label,",
         "    value = constraint_value.label)",
         "my_rule = rule(",
-        "  _impl,",
+        "  implementation = _impl,",
         "  attrs = { 'constraint': attr.label(providers = [platform_common.ConstraintValueInfo])},",
         ")");
 

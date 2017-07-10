@@ -103,6 +103,14 @@ function disable_errexit() {
 # Enable errexit with pretty stack traces.
 enable_errexit
 
+cat_jvm_log () {
+  if [[ "$log_content" =~ "(error code:".*", error message: '".*"', log file: '"(.*)"')" ]]; then
+    echo >&2
+    echo "Content of ${BASH_REMATCH[1]}:" >&2
+    cat "${BASH_REMATCH[1]}" >&2
+  fi
+}
+
 # Print message in "$1" then exit with status "$2"
 die () {
     # second argument is optional, defaulting to 1
@@ -116,6 +124,7 @@ die () {
         fi
         if [ "$CAPTURED_STD_ERR" -ne 0 ]; then
             cat "${TEST_TMPDIR}/captured.err" 1>&2
+            cat_jvm_log "$(cat "${TEST_TMPDIR}/captured.err")"
             CAPTURED_STD_ERR=0
         fi
     fi

@@ -26,12 +26,14 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.rules.SkylarkModules;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext;
+import com.google.devtools.build.lib.rules.platform.PlatformCommon;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Phase;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import java.util.List;
 import org.junit.Before;
 
 /**
@@ -52,10 +54,15 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
     return new EvaluationTestCase() {
       @Override
       public Environment newEnvironment() throws Exception {
+        List<Class<?>> modules =
+            new ImmutableList.Builder<Class<?>>()
+                .addAll(SkylarkModules.MODULES)
+                .add(PlatformCommon.class)
+                .build();
         Environment env =
             Environment.builder(mutability)
                 .setEventHandler(getEventHandler())
-                .setGlobals(SkylarkModules.getGlobals(SkylarkModules.MODULES))
+                .setGlobals(SkylarkModules.getGlobals(modules))
                 .setPhase(Phase.LOADING)
                 .build()
                 .setupDynamic(
@@ -94,7 +101,8 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
   }
 
   protected SkylarkRuleContext createRuleContext(String label) throws Exception {
-    return new SkylarkRuleContext(getRuleContextForSkylark(getConfiguredTarget(label)), null);
+    return new SkylarkRuleContext(getRuleContextForSkylark(getConfiguredTarget(label)), null,
+        getSkylarkSemantics());
   }
 
   protected Object evalRuleContextCode(String... lines) throws Exception {
@@ -144,7 +152,7 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
       evalRuleContextCode(ruleContext, lines);
       fail();
     } catch (EvalException e) {
-      assertThat(e.getMessage()).startsWith(errorMsg);
+      assertThat(e).hasMessageThat().startsWith(errorMsg);
     }
   }
 
@@ -154,7 +162,7 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
       eval(lines);
       fail("checkErrorContains(String, String...): There was no error");
     } catch (EvalException e) {
-      assertThat(e.getMessage()).contains(errorMsg);
+      assertThat(e).hasMessageThat().contains(errorMsg);
     }
   }
 
@@ -164,7 +172,7 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
       evalRuleContextCode(ruleContext, lines);
       fail("checkErrorContains(SkylarkRuleContext, String, String...): There was no error");
     } catch (EvalException e) {
-      assertThat(e.getMessage()).contains(errorMsg);
+      assertThat(e).hasMessageThat().contains(errorMsg);
     }
   }
 }

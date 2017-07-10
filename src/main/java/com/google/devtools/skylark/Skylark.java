@@ -15,8 +15,10 @@ package com.google.devtools.skylark;
 
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Printer;
 import java.io.BufferedReader;
@@ -39,7 +41,11 @@ class Skylark {
       new EventHandler() {
         @Override
         public void handle(Event event) {
-          System.out.println(event.getMessage());
+          if (event.getKind() == EventKind.ERROR) {
+            System.err.println(event.getMessage());
+          } else {
+            System.out.println(event.getMessage());
+          }
         }
       };
 
@@ -95,6 +101,9 @@ class Skylark {
       content = new String(Files.readAllBytes(Paths.get(path)), StandardCharsets.UTF_8);
       BuildFileAST.eval(env, content);
       return 0;
+    } catch (EvalException e) {
+      System.err.println(e.print());
+      return 1;
     } catch (Exception e) {
       System.err.println(e);
       return 1;

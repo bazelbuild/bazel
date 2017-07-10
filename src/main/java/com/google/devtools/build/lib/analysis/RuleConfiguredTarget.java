@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.collect.ImmutableCollection;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
@@ -23,7 +21,10 @@ import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.rules.SkylarkApiProvider;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.util.Preconditions;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /**
@@ -49,21 +50,24 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   private final TransitiveInfoProviderMap providers;
   private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
 
-  RuleConfiguredTarget(
-      RuleContext ruleContext,
-      TransitiveInfoProviderMap providers,
-      SkylarkProviders skylarkProviders1) {
+  RuleConfiguredTarget(RuleContext ruleContext, TransitiveInfoProviderMap providers) {
     super(ruleContext);
     // We don't use ImmutableMap.Builder here to allow augmenting the initial list of 'default'
     // providers by passing them in.
-    TransitiveInfoProviderMap.Builder providerBuilder = providers.toBuilder();
+    TransitiveInfoProviderMapBuilder providerBuilder =
+        new TransitiveInfoProviderMapBuilder().addAll(providers);
     Preconditions.checkState(providerBuilder.contains(RunfilesProvider.class));
     Preconditions.checkState(providerBuilder.contains(FileProvider.class));
     Preconditions.checkState(providerBuilder.contains(FilesToRunProvider.class));
 
     // Initialize every SkylarkApiProvider
-    skylarkProviders1.init(this);
-    providerBuilder.add(skylarkProviders1);
+    for (int i = 0; i < providers.getProviderCount(); i++) {
+      Object obj = providers.getProviderInstanceAt(i);
+      if (obj instanceof SkylarkApiProvider) {
+        ((SkylarkApiProvider) obj).init(this);
+      }
+    }
+
 
     this.providers = providerBuilder.build();
     this.configConditions = ruleContext.getConfigConditions();
@@ -102,23 +106,6 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     return providers.getProvider(providerClass);
   }
 
-  /**
-   * Returns a value provided by this target. Only meant to use from Skylark.
-   */
-  @Override
-  public Object get(String providerKey) {
-    return getProvider(SkylarkProviders.class).getValue(providerKey);
-  }
-
-  /**
-   * Returns a declared provider provided by this target. Only meant to use from Skylark.
-   */
-  @Override
-  public SkylarkClassObject get(ClassObjectConstructor.Key providerKey) {
-    return getProvider(SkylarkProviders.class).getDeclaredProvider(providerKey);
-  }
-
-
   @Override
   public final Rule getTarget() {
     return (Rule) super.getTarget();
@@ -131,8 +118,27 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @Override
-  public ImmutableCollection<String> getKeys() {
-    return ImmutableList.<String>builder().addAll(super.getKeys())
-        .addAll(getProvider(SkylarkProviders.class).getKeys()).build();
+  protected void addExtraSkylarkKeys(Consumer<String> result) {
+    for (int i = 0; i < providers.getProviderCount(); i++) {
+      Object classAt = providers.getProviderKeyAt(i);
+      if (classAt instanceof String) {
+        result.accept((String) classAt);
+      }
+    }
+  }
+
+  @Override
+  protected SkylarkClassObject rawGetSkylarkProvider(ClassObjectConstructor.Key providerKey) {
+    return providers.getProvider(providerKey);
+  }
+
+  @Override
+  protected Object rawGetSkylarkProvider(String providerKey) {
+    return providers.getProvider(providerKey);
+  }
+
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    printer.append("<target " + getLabel() + ">");
   }
 }

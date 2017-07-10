@@ -13,6 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+def create_config_setting_rules():
+  """Create config_setting rules for windows_msvc, windows_msys, windows.
+
+  These represent the matching --host_cpu values.
+  """
+  for suffix in ["", "_msvc", "_msys"]:
+    name = "windows" + suffix
+    if not native.existing_rule(name):
+      native.config_setting(
+          name = name,
+          values = {"host_cpu": "x64_" + name},
+      )
+
 def create_android_sdk_rules(
     name,
     build_tools_version,
@@ -31,6 +44,8 @@ def create_android_sdk_rules(
     default_api_level: int, the API level to alias the default sdk to if
         --android_sdk is not specified on the command line.
   """
+
+  create_config_setting_rules()
 
   # This filegroup is used to pass the contents of the SDK to the Android
   # integration tests. We need to glob because not all of these folders ship
@@ -66,18 +81,38 @@ def create_android_sdk_rules(
         name = "sdk-%d" % api_level,
         build_tools_version = build_tools_version,
         proguard = ":proguard_binary",
-        aapt = ":aapt_binary",
+        aapt = select({
+            ":windows": "build-tools/%s/aapt.exe" % build_tools_directory,
+            ":windows_msvc": "build-tools/%s/aapt.exe" % build_tools_directory,
+            ":windows_msys": "build-tools/%s/aapt.exe" % build_tools_directory,
+            "//conditions:default": ":aapt_binary",
+        }),
         dx = ":dx_binary",
         main_dex_list_creator = ":main_dex_list_creator",
-        adb = "platform-tools/adb",
+        adb = select({
+            ":windows": "platform-tools/adb.exe",
+            ":windows_msvc": "platform-tools/adb.exe",
+            ":windows_msys": "platform-tools/adb.exe",
+            "//conditions:default": "platform-tools/adb",
+        }),
         framework_aidl = "platforms/android-%d/framework.aidl" % api_level,
-        aidl = ":aidl_binary",
+        aidl = select({
+            ":windows": "build-tools/%s/aidl.exe" % build_tools_directory,
+            ":windows_msvc": "build-tools/%s/aidl.exe" % build_tools_directory,
+            ":windows_msys": "build-tools/%s/aidl.exe" % build_tools_directory,
+            "//conditions:default": ":aidl_binary",
+        }),
         android_jar = "platforms/android-%d/android.jar" % api_level,
         shrinked_android_jar = "platforms/android-%d/android.jar" % api_level,
         annotations_jar = "tools/support/annotations.jar",
         main_dex_classes = "build-tools/%s/mainDexClasses.rules" % build_tools_directory,
         apksigner = ":apksigner",
-        zipalign = ":zipalign_binary",
+        zipalign = select({
+            ":windows": "build-tools/%s/zipalign.exe" % build_tools_directory,
+            ":windows_msvc": "build-tools/%s/zipalign.exe" % build_tools_directory,
+            ":windows_msys": "build-tools/%s/zipalign.exe" % build_tools_directory,
+            "//conditions:default": ":zipalign_binary",
+        }),
         resource_extractor = "@bazel_tools//tools/android:resource_extractor",
     )
 
@@ -126,8 +161,12 @@ def create_android_sdk_rules(
             "cat > $@ << 'EOF'",
             "#!/bin/bash",
             "set -eu",
-            # The tools under build-tools/VERSION require the libraries under build-tools/VERSION/lib,
-            # so we can't simply depend on them as a file like we do with aapt.
+            # The tools under build-tools/VERSION require the libraries under
+            # build-tools/VERSION/lib, so we can't simply depend on them as a
+            # file like we do with aapt.
+            # On Windows however we can use these binaries directly because
+            # there's no runfiles support so Bazel just creates a junction to
+            # {SDK}/build-tools.
             "SDK=$${0}.runfiles/%s" % name,
             "exec $${SDK}/build-tools/%s/%s $$*" % (build_tools_directory, tool),
             "EOF\n"]),
@@ -144,13 +183,26 @@ def create_android_sdk_rules(
 
   native.sh_binary(
       name = "fail",
-      srcs = ["fail.sh"])
+      srcs = select({
+          ":windows": [":generate_fail_cmd"],
+          ":windows_msvc": [":generate_fail_cmd"],
+          ":windows_msys": [":generate_fail_cmd"],
+          "//conditions:default": [":generate_fail_sh"],
+      }),
+  )
 
   native.genrule(
       name = "generate_fail_sh",
-      srcs = [],
+      executable = 1,
       outs = ["fail.sh"],
       cmd = "echo -e '#!/bin/bash\\nexit 1' >> $@; chmod +x $@",
+  )
+
+  native.genrule(
+      name = "generate_fail_cmd",
+      executable = 1,
+      outs = ["fail.cmd"],
+      cmd = "echo @exit /b 1 > $@",
   )
 
 
@@ -201,25 +253,99 @@ def create_android_sdk_rules(
       jars = [":dx_jar"],
   )
 
-def create_android_device_rules(system_image_dirs):
-  """Generate android_device rules for the system images in the Android SDK.
+
+TAGDIR_TO_TAG_MAP = {
+    "google_apis": "google",
+    "default": "android",
+    "android-tv": "tv",
+    "android-wear": "wear",
+}
+
+
+ARCHDIR_TO_ARCH_MAP = {
+    "x86": "x86",
+    "armeabi-v7a": "arm",
+}
+
+
+def create_system_images_filegroups(system_image_dirs):
+  """Generate filegroups for the system images in the Android SDK.
 
   Args:
     system_image_dirs: list of strings, the directories containing system image
         files to be used to create android_device rules.
   """
 
+  # These images will need to be updated as Android releases new system images.
+  # We are intentionally not adding future releases because there is no
+  # guarantee that they will work out of the box. Supported system images should
+  # be added here once they have been confirmed to work with the Bazel Android
+  # testing infrastructure.
+  system_images = [(tag, api, arch)
+                   for tag in ["android", "google"]
+                   for api in [10] + range(15, 20) + range(21, 27)
+                   for arch in ("x86", "arm")]
+  tv_images = [("tv", api, arch)
+               for api in range(21, 25) for arch in ("x86", "arm")]
+  wear_images = [("wear", api, "x86")
+                 for api in range(20, 26)] + [("wear", api, "arm")
+                                              for api in range(24, 26)]
+  supported_system_images = system_images + tv_images + wear_images
+
+  installed_system_images_dirs = {}
   for system_image_dir in system_image_dirs:
-    name = "_".join(system_image_dir.split("/")[1:])
+    apidir, tagdir, archdir = system_image_dir.split("/")[1:]
+    api = int(apidir.split("-")[1])  # "android-24" --> 24
+    if tagdir not in TAGDIR_TO_TAG_MAP:
+      continue
+    tag = TAGDIR_TO_TAG_MAP[tagdir]
+    if archdir not in ARCHDIR_TO_ARCH_MAP:
+      continue
+    arch = ARCHDIR_TO_ARCH_MAP[archdir]
+    if (tag, api, arch) in supported_system_images:
+      name = "emulator_images_%s_%s_%s" % (tag, api, arch)
+      installed_system_images_dirs[name] = system_image_dir
+    else:
+      # TODO(bazel-team): If the user has an unsupported system image installed,
+      # should we print a warning? This includes all 64-bit system-images.
+      pass
 
-    # TODO(ajmichael): Remove this target after unified_launcher's tests are
-    # updated to use the emulator_images_%s filegroups instead.
-    native.filegroup(
-        name = "%s_files" % name,
-        srcs = native.glob(["%s/**" % system_image_dir]),
-    )
-
-    native.filegroup(
-        name = "emulator_images_%s" % name,
-        srcs = native.glob(["%s/**" % system_image_dir]),
-    )
+  for (tag, api, arch) in supported_system_images:
+    name = "emulator_images_%s_%s_%s" % (tag, api, arch)
+    if name in installed_system_images_dirs:
+      system_image_dir = installed_system_images_dirs[name]
+      # For supported system images that exist in /sdk/system-images/, we
+      # create a filegroup with their contents.
+      native.filegroup(
+          name = name,
+          srcs = native.glob([
+              "%s/**" % system_image_dir,
+          ]),
+      )
+      native.filegroup(
+          name = "%s_qemu2_extra" % name,
+          srcs = native.glob(["%s/kernel-ranchu" % system_image_dir]),
+      )
+    else:
+      # For supported system images that are not installed in the SDK, we
+      # create a "poison pill" genrule to display a helpful error message to
+      # a user who attempts to run a test against an android_device that
+      # they don't have the system image for installed.
+      native.genrule(
+          name = name,
+          outs = [
+              # Necessary so that the build doesn't fail in analysis because
+              # android_device expects a file named source.properties.
+              "poison_pill_for_%s/source.properties" % name,
+          ],
+          cmd = """echo \
+          This rule requires that the Android SDK used by Bazel has the \
+          following system image installed: %s. Please install this system \
+          image through the Android SDK Manager and try again. ; \
+          exit 1
+          """ % name,
+      )
+      native.filegroup(
+          name = "%s_qemu2_extra" % name,
+          srcs = [],
+      )

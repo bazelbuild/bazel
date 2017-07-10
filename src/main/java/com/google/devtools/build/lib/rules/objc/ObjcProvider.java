@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
@@ -42,7 +41,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.TargetControl;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -57,12 +55,18 @@ import java.util.Map;
   category = SkylarkModuleCategory.PROVIDER,
   doc = "A provider for compilation and linking of objc."
 )
-public final class ObjcProvider extends SkylarkClassObject implements TransitiveInfoProvider {
+public final class ObjcProvider extends SkylarkClassObject
+    implements TransitiveInfoProvider, TransitiveInfoProvider.WithLegacySkylarkName {
 
   /**
    * The skylark struct key name for a rule implementation to use when exporting an ObjcProvider.
    */
   public static final String OBJC_SKYLARK_PROVIDER_NAME = "objc";
+
+  @Override
+  public String getSkylarkName() {
+    return OBJC_SKYLARK_PROVIDER_NAME;
+  }
 
   /**
    * Represents one of the things this provider can provide transitively. Things are provided as
@@ -130,17 +134,6 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
    */
   public static final Key<Artifact> FORCE_LOAD_LIBRARY =
       new Key<>(LINK_ORDER, "force_load_library", Artifact.class);
-
-  /**
-   * Libraries to pass with -force_load flags when setting the linkopts in Xcodegen. This is needed
-   * in addition to {@link #FORCE_LOAD_LIBRARY} because that one, contains a mixture of import
-   * archives (which are not built by Xcode) and built-from-source library archives (which are built
-   * by Xcode). Archives that are built by Xcode are placed directly under
-   * {@code BUILT_PRODUCTS_DIR} while those not built by Xcode appear somewhere in the Bazel
-   * workspace under {@code WORKSPACE_ROOT}.
-   */
-  public static final Key<String> FORCE_LOAD_FOR_XCODEGEN =
-      new Key<>(LINK_ORDER, "force_load_for_xcodegen", String.class);
 
   /**
    * Contains all header files. These may be either public or private headers.
@@ -220,6 +213,13 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
   public static final Key<Artifact> XCDATAMODEL =
       new Key<>(STABLE_ORDER, "xcdatamodel", Artifact.class);
   public static final Key<Flag> FLAG = new Key<>(STABLE_ORDER, "flag", Flag.class);
+
+  /**
+   * Clang umbrella header. Public headers are #included in umbrella headers to be compatible with
+   * J2ObjC segmented headers.
+   */
+  public static final Key<Artifact> UMBRELLA_HEADER =
+      new Key<>(STABLE_ORDER, "umbrella_header", Artifact.class);
 
   /**
    * Clang module maps, used to enforce proper use of private header files.
@@ -440,6 +440,7 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
           STATIC_FRAMEWORK_FILE,
           STORYBOARD,
           STRINGS,
+          UMBRELLA_HEADER,
           WEAK_SDK_FRAMEWORK,
           XCASSETS_DIR,
           XCDATAMODEL,
@@ -455,8 +456,6 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
   static final ImmutableList<Key<?>> KEYS_NOT_IN_SKYLARK = ImmutableList.<Key<?>>of(
       // LibraryToLink not exposed to skylark.
       CC_LIBRARY,
-      // Xcodegen is deprecated.
-      FORCE_LOAD_FOR_XCODEGEN,
       // Flag enum is not exposed to skylark.
       FLAG,
       // Bundle not exposed to skylark.
@@ -485,6 +484,7 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
           HEADER,
           INCLUDE,
           INCLUDE_SYSTEM,
+          IQUOTE,
           LINKOPT,
           SDK_DYLIB,
           SDK_FRAMEWORK,
@@ -506,8 +506,8 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
   // Items which should be passed to strictly direct dependers, but not transitive dependers.
   private final ImmutableMap<Key<?>, NestedSet<?>> strictDependencyItems;
 
-  private static final ClassObjectConstructor OBJC_PROVIDER =
-      new NativeClassObjectConstructor("objc_provider") {
+  private static final NativeClassObjectConstructor<ObjcProvider> OBJC_PROVIDER =
+      new NativeClassObjectConstructor<ObjcProvider>(ObjcProvider.class, "objc_provider") {
         @Override
         public String getErrorMessageFormatForInstances() {
           return "ObjcProvider field %s could not be instantiated";
@@ -671,13 +671,7 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
    */
   private static Predicate<Artifact> notContainedIn(
       final HashSet<Artifact> linkedLibraryArtifacts) {
-    return new Predicate<Artifact>() {
-
-      @Override
-      public boolean apply(Artifact libraryToLink) {
-        return !linkedLibraryArtifacts.contains(libraryToLink);
-      }
-    };
+    return libraryToLink -> !linkedLibraryArtifacts.contains(libraryToLink);
   }
 
   /**
@@ -689,13 +683,7 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
    */
   private static Predicate<LibraryToLink> ccLibraryNotYetLinked(
       final HashSet<Artifact> linkedLibraryArtifacts) {
-    return new Predicate<LibraryToLink>() {
-
-      @Override
-      public boolean apply(LibraryToLink libraryToLink) {
-        return !linkedLibraryArtifacts.contains(libraryToLink.getArtifact());
-      }
-    };
+    return libraryToLink -> !linkedLibraryArtifacts.contains(libraryToLink.getArtifact());
   }
 
   @SuppressWarnings("unchecked")
@@ -739,9 +727,7 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
     private final Map<Key<?>, NestedSetBuilder<?>> strictDependencyItems = new HashMap<>();
 
     private static void maybeAddEmptyBuilder(Map<Key<?>, NestedSetBuilder<?>> set, Key<?> key) {
-      if (!set.containsKey(key)) {
-        set.put(key, new NestedSetBuilder<>(key.order));
-      }
+      set.computeIfAbsent(key, k -> new NestedSetBuilder<>(k.order));
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
@@ -995,27 +981,19 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
 
       ImmutableMap.Builder<String, Object> skylarkFields = new ImmutableMap.Builder<>();
       for (Key<?> key : KEYS_FOR_SKYLARK) {
-        if (propagated.containsKey(key) && strictDependency.containsKey(key)) {
-          NestedSet<?> union = new NestedSetBuilder(STABLE_ORDER)
-              .addTransitive(propagated.get(key))
-              .addTransitive(strictDependency.get(key))
-              .build();
-          skylarkFields.put(
-              key.getSkylarkKeyName(), ObjcProviderSkylarkConverters.convertToSkylark(key, union));
-        } else if (items.containsKey(key)) {
-          skylarkFields.put(
-              key.getSkylarkKeyName(),
-              ObjcProviderSkylarkConverters.convertToSkylark(key, propagated.get(key)));
-        } else if (strictDependency.containsKey(key)) {
-          skylarkFields.put(
-              key.getSkylarkKeyName(),
-              ObjcProviderSkylarkConverters.convertToSkylark(key, strictDependency.get(key)));
-        } else {
-          skylarkFields.put(
-              key.getSkylarkKeyName(),
-              ObjcProviderSkylarkConverters.convertToSkylark(
-                  key, new NestedSetBuilder(STABLE_ORDER).build()));
+        NestedSetBuilder union = new NestedSetBuilder(key.order);
+        if (propagated.containsKey(key)) {
+          union.addTransitive((NestedSet<?>) propagated.get(key));
         }
+        if (strictDependency.containsKey(key)) {
+          union.addTransitive(strictDependency.get(key));
+        }
+        if (nonPropagated.containsKey(key)) {
+          union.addTransitive(nonPropagated.get(key));
+        }
+        skylarkFields.put(
+            key.getSkylarkKeyName(),
+            ObjcProviderSkylarkConverters.convertToSkylark(key, union.build()));
       }
 
       return new ObjcProvider(propagated, nonPropagated, strictDependency, skylarkFields.build());

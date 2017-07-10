@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.buildjar.javac.plugins.errorprone;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.buildjar.InvalidCommandLineException;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
@@ -41,20 +42,22 @@ import java.util.List;
 public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
 
   private final ScannerSupplier scannerSupplier;
+  private final boolean testOnly;
 
   /**
    * Constructs an {@link ErrorPronePlugin} instance with the set of checks that are enabled as
    * errors in open-source Error Prone.
    */
-  public ErrorPronePlugin() {
-    this.scannerSupplier = BuiltInCheckerSuppliers.errorChecks();
+  public ErrorPronePlugin(boolean testOnly) {
+    this(testOnly, BuiltInCheckerSuppliers.errorChecks());
   }
 
   /**
    * Constructs an {@link ErrorPronePlugin} with the set of checks that are enabled in {@code
    * scannerSupplier}.
    */
-  public ErrorPronePlugin(ScannerSupplier scannerSupplier) {
+  public ErrorPronePlugin(boolean testOnly, ScannerSupplier scannerSupplier) {
+    this.testOnly = testOnly;
     this.scannerSupplier = scannerSupplier;
   }
 
@@ -105,5 +108,10 @@ public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
       // terminate with Result.ABNORMAL
       throw e;
     }
+  }
+  
+  @VisibleForTesting
+  public boolean testOnly() {
+    return testOnly;
   }
 }

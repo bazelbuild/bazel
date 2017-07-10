@@ -21,7 +21,6 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
@@ -32,7 +31,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
@@ -90,13 +88,13 @@ public final class BaselineCoverageAction extends AbstractFileWriteAction
   }
 
   @Override
-  protected void afterWrite(Executor executor) {
-    notifyAboutBaselineCoverage(executor.getEventBus());
+  protected void afterWrite(ActionExecutionContext actionExecutionContext) {
+    notifyAboutBaselineCoverage(actionExecutionContext.getEventBus());
   }
 
   @Override
-  public void actionCacheHit(Executor executor) {
-    notifyAboutBaselineCoverage(executor.getEventBus());
+  public void actionCacheHit(ActionCachedContext context) {
+    notifyAboutBaselineCoverage(context.getEventBus());
   }
 
   /**

@@ -118,17 +118,12 @@ public class AndroidResourceMergingActionBuilder {
 
   public ResourceContainer build(ActionConstructionContext context) {
     CustomCommandLine.Builder builder = new CustomCommandLine.Builder();
-    
+
     // Set the busybox tool.
     builder.add("--tool").add("MERGE").add("--");
 
     // Use a FluentIterable to avoid flattening the NestedSets
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.naiveLinkOrder();
-    inputs.addAll(
-        ruleContext
-            .getExecutablePrerequisite("$android_resources_busybox", Mode.HOST)
-            .getRunfilesSupport()
-            .getRunfilesArtifactsWithoutMiddlemen());
 
     builder.addExecPath("--androidJar", sdk.getAndroidJar());
     inputs.add(sdk.getAndroidJar());
@@ -168,6 +163,8 @@ public class AndroidResourceMergingActionBuilder {
       builder.add("--packageForR").add(customJavaPackage);
     }
 
+    // TODO(corysmith): Move the data binding parsing out of the merging pass to enable faster
+    // aapt2 builds.
     if (dataBindingInfoZip != null) {
       builder.addExecPath("--dataBindingInfoOut", dataBindingInfoZip);
       outs.add(dataBindingInfoZip);
@@ -190,7 +187,8 @@ public class AndroidResourceMergingActionBuilder {
     // Return the full set of processed transitive dependencies.
     ResourceContainer.Builder result = primary.toBuilder();
     if (classJarOut != null) {
-      // ensure the classJar is propgated if it exists. Otherwise, AndroidCommon tries to make it.
+      // ensure the classJar is propagated if it exists. Otherwise, AndroidCommon tries to make it.
+      // TODO(corysmith): Centralize the class jar generation.
       result.setJavaClassJar(classJarOut);
     }
     if (manifestOut != null) {

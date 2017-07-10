@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.syntax.Type;
@@ -39,7 +40,7 @@ public class ConstraintValueRule implements RuleDefinition {
                 .value(ImmutableList.of("manual"))
                 .nonconfigurable("low-level attribute, used in platform configuration"))
 
-        /* <!-- #BLAZE_RULE(constraint_value).ATTRIBUTE(constraint) -->
+        /* <!-- #BLAZE_RULE(constraint_value).ATTRIBUTE(constraint_setting) -->
         The constraint_setting rule this value is applied to.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
@@ -47,7 +48,8 @@ public class ConstraintValueRule implements RuleDefinition {
                 .mandatory()
                 .allowedRuleClasses(ConstraintSettingRule.RULE_NAME)
                 .allowedFileTypes(FileTypeSet.NO_FILE)
-                .mandatoryProviders(ImmutableList.of(ConstraintSettingInfo.SKYLARK_IDENTIFIER)))
+                .mandatoryProviders(
+                    ImmutableList.of(ConstraintSettingInfo.SKYLARK_CONSTRUCTOR.id())))
         .removeAttribute("deps")
         .removeAttribute("data")
         .exemptFromConstraintChecking("this rule *defines* a constraint")

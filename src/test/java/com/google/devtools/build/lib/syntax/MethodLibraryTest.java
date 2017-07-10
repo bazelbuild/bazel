@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
@@ -398,8 +397,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
     // only one built-in function.
     new BothModesTest()
         .testIfExactError(
-            "method string.index(sub: string, start: int, end: int or NoneType) is not applicable "
-                + "for arguments (int, int, NoneType): 'sub' is 'int', but should be 'string'",
+            "argument 'sub' has type 'int', but should be 'string'\n"
+                + "in call to builtin method string.index(sub, start, end)",
             "'test'.index(1)");
   }
 
@@ -423,9 +422,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
                 + LINE_SEPARATOR
                 + "\t\t\"test\".index(x)"
                 + LINE_SEPARATOR
-                + "method string.index(sub: string, start: int, end: int or NoneType) "
-                + "is not applicable "
-                + "for arguments (int, int, NoneType): 'sub' is 'int', but should be 'string'",
+                + "argument 'sub' has type 'int', but should be 'string'\n"
+                + "in call to builtin method string.index(sub, start, end)",
             "def foo():",
             "  bar(1)",
             "def bar(x):",
@@ -437,13 +435,10 @@ public class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testBuiltinFunctionErrorMessage() throws Exception {
     new BothModesTest()
+        .testIfErrorContains("substring \"z\" not found in \"abc\"", "'abc'.index('z')")
         .testIfErrorContains(
-            "substring \"z\" not found in \"abc\"",
-            "'abc'.index('z')")
-        .testIfErrorContains(
-            "method string.startswith(sub: string, start: int, end: int or NoneType) is not "
-                + "applicable for arguments (int, int, NoneType): 'sub' is 'int', "
-                + "but should be 'string'",
+            "argument 'sub' has type 'int', but should be 'string'\n"
+                + "in call to builtin method string.startswith(sub, start, end)",
             "'test'.startswith(1)")
         .testIfErrorContains(
             "expected value of type 'list(object)' for parameter args in dict(), "
@@ -1123,11 +1118,6 @@ public class MethodLibraryTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testDictionaryWithMultipleKeys() throws Exception {
-    new BothModesTest().testStatement("{0: 'a', 1: 'b', 0: 'c'}[0]", "c");
-  }
-
-  @Test
   public void testDictionaryKeyNotFound() throws Exception {
     new BothModesTest()
         .testIfErrorContains("key \"0\" not found in dictionary", "{}['0']")
@@ -1446,8 +1436,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testStatement("hash('skylark')", "skylark".hashCode())
         .testStatement("hash('google')", "google".hashCode())
         .testIfErrorContains(
-            "method hash(value: string) is not applicable for arguments (NoneType): "
-                + "'value' is 'NoneType', but should be 'string'",
+            "argument 'value' has type 'NoneType', but should be 'string'\n"
+                + "in call to builtin function hash(value)",
             "hash(None)");
   }
 
@@ -1485,8 +1475,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
   public void testEnumerateBadArg() throws Exception {
     new BothModesTest()
         .testIfErrorContains(
-            "method enumerate(list: sequence) is not applicable for arguments (string): "
-                + "'list' is 'string', but should be 'sequence'",
+            "argument 'list' has type 'string', but should be 'sequence'\n"
+                + "in call to builtin function enumerate(list)",
             "enumerate('a')");
   }
 
@@ -1521,8 +1511,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testLookup("FOO", MutableList.of(env, "a", "b", "c", "d", "e", "f"))
         .testIfErrorContains("type 'tuple' has no method extend(list)", "(1, 2).extend([3, 4])")
         .testIfErrorContains(
-            "method list.extend(items: sequence) is not applicable for arguments "
-                + "(int): 'items' is 'int', but should be 'sequence'",
+            "argument 'items' has type 'int', but should be 'sequence'\n"
+                + "in call to builtin method list.extend(items)",
             "[1, 2].extend(3)");
   }
 
@@ -1700,7 +1690,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
     eval("a = select({'a': 1})");
     SelectorList result = (SelectorList) lookup("a");
     assertThat(((SelectorValue) Iterables.getOnlyElement(result.getElements())).getDictionary())
-        .isEqualTo(ImmutableMap.of("a", 1));
+        .containsExactly("a", 1);
   }
 
   @Test

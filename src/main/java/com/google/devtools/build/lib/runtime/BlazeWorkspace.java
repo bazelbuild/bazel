@@ -91,6 +91,10 @@ public final class BlazeWorkspace {
     this.outputBaseFilesystemTypeName = FileSystemUtils.getFileSystem(getOutputBase());
   }
 
+  public BlazeRuntime getRuntime() {
+    return runtime;
+  }
+
   /**
    * Returns the Blaze directories object for this runtime.
    */
@@ -150,15 +154,6 @@ public final class BlazeWorkspace {
   }
 
   /**
-   * Returns the execution root directory associated with this Blaze server
-   * process. This is where all input and output files visible to the actual
-   * build reside.
-   */
-  public Path getExecRoot() {
-    return directories.getExecRoot();
-  }
-
-  /**
    * Returns path to the cache directory. Path must be inside output base to
    * ensure that users can run concurrent instances of blaze in different
    * clients without attempting to concurrently write to the same action cache
@@ -190,9 +185,9 @@ public final class BlazeWorkspace {
    * <p>This method should be called from the "main" thread on which the command will execute;
    * that thread will receive interruptions if a module requests an early exit.
    */
-  public CommandEnvironment initCommand() {
+  public CommandEnvironment initCommand(Command command) {
     CommandEnvironment env = new CommandEnvironment(
-        runtime, this, new EventBus(eventBusExceptionHandler), Thread.currentThread(), null, null);
+        runtime, this, new EventBus(eventBusExceptionHandler), Thread.currentThread(), command);
     skyframeExecutor.setClientEnv(env.getClientEnv());
     return env;
   }
@@ -202,10 +197,10 @@ public final class BlazeWorkspace {
    * those values are set by {@code CommandEnvironment#beforeCommand()} which is not called for
    * testing. Use ONLY for testing purposes.
    */
-  public CommandEnvironment initCommandForTesting(String commandName, OptionsProvider options) {
+  public CommandEnvironment initCommandForTesting(Command command, OptionsProvider options) {
     CommandEnvironment env = new CommandEnvironment(
         runtime, this, new EventBus(eventBusExceptionHandler), Thread.currentThread(),
-        commandName, options);
+        command, options);
     skyframeExecutor.setClientEnv(env.getClientEnv());
     return env;
   }
@@ -217,10 +212,19 @@ public final class BlazeWorkspace {
   }
 
   /**
+   * Reinitializes the Skyframe evaluator.
+   */
+  public void resetEvaluator() throws IOException {
+    skyframeExecutor.resetEvaluator();
+  }
+
+  /**
    * Removes in-memory caches.
    */
   public void clearCaches() throws IOException {
-    skyframeExecutor.resetEvaluator();
+    if (actionCache != null) {
+      actionCache.clear();
+    }
     actionCache = null;
     FileSystemUtils.deleteTree(getCacheDirectory());
   }

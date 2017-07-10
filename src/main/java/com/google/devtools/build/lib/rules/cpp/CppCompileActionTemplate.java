@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -28,6 +29,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * An {@link ActionTemplate} that expands into {@link CppCompileAction}s at execution time.
@@ -73,7 +76,8 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
 
   @Override
   public Iterable<CppCompileAction> generateActionForInputArtifacts(
-      Iterable<TreeFileArtifact> inputTreeFileArtifacts, ArtifactOwner artifactOwner) {
+      Iterable<TreeFileArtifact> inputTreeFileArtifacts, ArtifactOwner artifactOwner)
+      throws ActionTemplateExpansionException {
     ImmutableList.Builder<CppCompileAction> expandedActions = new ImmutableList.Builder<>();
     for (TreeFileArtifact inputTreeFileArtifact : inputTreeFileArtifacts) {
       String outputName = outputTreeFileArtifactName(inputTreeFileArtifact);
@@ -89,7 +93,8 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
   }
 
   private CppCompileAction createAction(
-      Artifact sourceTreeFileArtifact, Artifact outputTreeFileArtifact) {
+      Artifact sourceTreeFileArtifact, Artifact outputTreeFileArtifact)
+      throws ActionTemplateExpansionException {
     CppCompileActionBuilder builder = new CppCompileActionBuilder(cppCompileActionBuilder);
     builder.setSourceFile(sourceTreeFileArtifact);
     builder.setOutputs(outputTreeFileArtifact, null);
@@ -105,7 +110,14 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
 
     builder.setVariables(buildVariables.build());
 
-    return builder.build();
+    List<String> errors = new ArrayList<>();
+    CppCompileAction result =
+        builder.buildAndVerify((String errorMessage) -> errors.add(errorMessage));
+    if (!errors.isEmpty()) {
+      throw new ActionTemplateExpansionException(Joiner.on(".\n").join(errors));
+    }
+
+    return result;
   }
 
   private String outputTreeFileArtifactName(TreeFileArtifact inputTreeFileArtifact) {

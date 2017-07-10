@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskCallable;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -57,9 +58,9 @@ public class AllPathsFunction implements QueryFunction {
       final QueryExpression expression,
       List<Argument> args,
       final Callback<T> callback) {
-    final QueryTaskFuture<Set<T>> fromValueFuture =
+    final QueryTaskFuture<ThreadSafeMutableSet<T>> fromValueFuture =
         QueryUtil.evalAll(env, context, args.get(0).getExpression());
-    final QueryTaskFuture<Set<T>> toValueFuture =
+    final QueryTaskFuture<ThreadSafeMutableSet<T>> toValueFuture =
         QueryUtil.evalAll(env, context, args.get(1).getExpression());
 
     return env.whenAllSucceedCall(
@@ -73,8 +74,8 @@ public class AllPathsFunction implements QueryFunction {
             // closure and intersection operations are interleaved for efficiency.
             // "result" holds the intersection.
 
-            Set<T> fromValue = fromValueFuture.getIfSuccessful();
-            Set<T> toValue = toValueFuture.getIfSuccessful();
+            ThreadSafeMutableSet<T> fromValue = fromValueFuture.getIfSuccessful();
+            ThreadSafeMutableSet<T> toValue = toValueFuture.getIfSuccessful();
 
             env.buildTransitiveClosure(expression, fromValue, Integer.MAX_VALUE);
 
@@ -85,7 +86,7 @@ public class AllPathsFunction implements QueryFunction {
             callback.process(result);
             Collection<T> worklist = result;
             while (!worklist.isEmpty()) {
-              Collection<T> reverseDeps = env.getReverseDeps(worklist);
+              Iterable<T> reverseDeps = env.getReverseDeps(worklist);
               worklist = uniquifier.unique(Iterables.filter(reverseDeps, reachable));
               callback.process(worklist);
             }

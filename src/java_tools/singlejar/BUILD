@@ -1,3 +1,6 @@
+# Description:
+#   SingleJar combines multiple zip files and additional files
+#   into a single zip file.
 package(default_visibility = ["//src:__subpackages__"])
 
 filegroup(

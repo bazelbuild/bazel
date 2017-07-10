@@ -1,6 +1,6 @@
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + ["//src/test/java/com/google/devtools/build/lib/skyframe/packages:srcs"],
     visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )
 
@@ -26,6 +26,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/test/java/com/google/devtools/build/lib:actions_testutil",
         "//src/test/java/com/google/devtools/build/lib:foundations_testutil",
         "//src/test/java/com/google/devtools/build/lib:packages_testutil",
@@ -49,6 +50,7 @@ java_test(
             exclude = ["MacOSXFsEventsDiffAwarenessTest.java"],
         ),
     }),
+    flaky = 1,
     tags = ["skyframe"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
@@ -70,6 +72,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/test/java/com/google/devtools/build/lib:actions_testutil",
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
         "//src/test/java/com/google/devtools/build/lib:foundations_testutil",

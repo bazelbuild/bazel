@@ -15,7 +15,6 @@
 package com.google.testing.junit.runner.sharding;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.when;
 
 import com.google.testing.junit.runner.sharding.api.ShardingFilterFactory;
@@ -51,9 +50,9 @@ public class ShardingFiltersTest {
 
     assertThat(filter).isInstanceOf(RoundRobinShardingFilter.class);
     RoundRobinShardingFilter shardingFilter = (RoundRobinShardingFilter) filter;
-    assertEquals(expectedFilter.testToShardMap, shardingFilter.testToShardMap);
-    assertEquals(expectedFilter.shardIndex, shardingFilter.shardIndex);
-    assertEquals(expectedFilter.totalShards, shardingFilter.totalShards);
+    assertThat(shardingFilter.testToShardMap).isEqualTo(expectedFilter.testToShardMap);
+    assertThat(shardingFilter.shardIndex).isEqualTo(expectedFilter.shardIndex);
+    assertThat(shardingFilter.totalShards).isEqualTo(expectedFilter.totalShards);
   }
 
   @Test
@@ -68,8 +67,8 @@ public class ShardingFiltersTest {
     ShardingFilters shardingFilters = new ShardingFilters(mockShardingEnvironment);
     Filter filter = shardingFilters.createShardingFilter(descriptions);
 
-    assertEquals("com.google.testing.junit.runner.sharding.ShardingFiltersTest.TestFilter",
-        filter.getClass().getCanonicalName());
+    assertThat(filter.getClass().getCanonicalName())
+        .isEqualTo("com.google.testing.junit.runner.sharding.ShardingFiltersTest.TestFilter");
   }
 
   public static class TestFilterFactory implements ShardingFilterFactory {

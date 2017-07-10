@@ -16,9 +16,6 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.SkylarkIndexable;
@@ -44,21 +41,25 @@ import javax.annotation.Nullable;
   category = SkylarkModuleCategory.BUILTIN,
   doc =
       "A BUILD target. It is essentially a <code>struct</code> with the following fields:"
-    + "<ul>"
-    + "<li><h3 id=\"modules.Target.label\">label</h3><code><a class=\"anchor\" "
-    + "href=\"Label.html\">Label</a> Target.label</code><br>The identifier of the target.</li>"
-    + "<li><h3 id=\"modules.Target.files\">files</h3><code><a class=\"anchor\" "
-    + "href=\"depset.html\">depset</a> Target.files </code><br>The set of <a class=\"anchor\" "
-    + "href=\"File.html\">File</a>s produced directly by this target.</li>"
-    + "<li><h3 id=\"modules.Target.aspect_ids\">aspect_ids</h3><code><a class=\"anchor\""
-    + "href=\"list.html\">list</a> Target.aspect_ids </code><br>The list of <a class=\"anchor\" "
-    + "href=\"ctx.html#aspect_id\">aspect_id</a>s applied to this target.</li>"
-    + "<li><h3 id=\"modules.Target.extraproviders\">Extra providers</h3>For rule targets all "
-    + "additional providers provided by this target are accessible as <code>struct</code> fields. "
-    + "These extra providers are defined in the <code>struct</code> returned by the rule "
-    + "implementation function.</li>"
-    + "</ul>")
-public interface TransitiveInfoCollection extends SkylarkIndexable {
+          + "<ul>"
+          + "<li><h3 id=\"modules.Target.label\">label</h3><code><a class=\"anchor\" "
+          + "href=\"Label.html\">Label</a> Target.label</code><br>The identifier of the "
+          + "target.</li>"
+          + "<li><h3 id=\"modules.Target.files\">files</h3><code><a class=\"anchor\" "
+          + "href=\"depset.html\">depset</a> Target.files </code><br>The set of "
+          + "<a class=\"anchor\" href=\"File.html\">File</a>s produced directly by this "
+          + "target.</li>"
+          + "<li><h3 id=\"modules.Target.aspect_ids\">aspect_ids</h3><code><a class=\"anchor\""
+          + "href=\"list.html\">list</a> Target.aspect_ids </code><br>The list of "
+          + "<a class=\"anchor\" href=\"ctx.html#aspect_id\">aspect_id</a>s applied to this "
+          + "target.</li>"
+          + "<li><h3 id=\"modules.Target.extraproviders\">Extra providers</h3>For rule targets all "
+          + "additional providers provided by this target are accessible as <code>struct</code> "
+          + "fields. These extra providers are defined in the <code>struct</code> returned by the "
+          + "rule implementation function.</li>"
+          + "</ul>"
+)
+public interface TransitiveInfoCollection extends SkylarkIndexable, SkylarkProviderCollection {
 
   /**
    * Returns the transitive information provider requested, or null if the provider is not found.
@@ -78,26 +79,4 @@ public interface TransitiveInfoCollection extends SkylarkIndexable {
    * <b>null</b>.</p>
    */
   @Nullable BuildConfiguration getConfiguration();
-
-  /**
-   * Returns the transitive information requested or null, if the information is not found.
-   * The transitive information has to have been added using the Skylark framework.
-   */
-  @Nullable Object get(String providerKey);
-
-  /**
-   * Returns the declared provider requested, or null, if the information is not found.
-   * The transitive information has to have been added using the Skylark framework.
-   */
-  @Nullable SkylarkClassObject get(ClassObjectConstructor.Key providerKey);
-
-  /**
-   * Returns the provider defined in Skylark, or null, if the information is not found.
-   * The transitive information has to have been added using the Skylark framework.
-   *
-   * This method dispatches to either {@link #get(ClassObjectConstructor.Key)} or
-   * {@link #get(String)} depending on whether {@link SkylarkProviderIdentifier} is for
-   * legacy or for declared provider.
-   */
-  @Nullable Object get(SkylarkProviderIdentifier id);
 }

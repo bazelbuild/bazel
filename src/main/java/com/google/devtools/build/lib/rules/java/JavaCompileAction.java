@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
@@ -78,6 +79,10 @@ public final class JavaCompileAction extends SpawnAction {
   static final ImmutableMap<String, String> UTF8_ENVIRONMENT =
       ImmutableMap.of("LC_CTYPE", "en_US.UTF-8");
 
+  // TODO(#3320): This is missing the configuration's action environment!
+  static final ActionEnvironment UTF8_ACTION_ENVIRONMENT =
+      ActionEnvironment.create(UTF8_ENVIRONMENT);
+
   private final CommandLine javaCompileCommandLine;
   private final CommandLine commandLine;
 
@@ -105,28 +110,19 @@ public final class JavaCompileAction extends SpawnAction {
    */
   private final ImmutableList<Artifact> extdirInputs;
 
-  /**
-   * The list of classpath entries to search for annotation processors.
-   */
-  private final ImmutableList<Artifact> processorPath;
+  /** The list of classpath entries to search for annotation processors. */
+  private final NestedSet<Artifact> processorPath;
 
   /**
    * The list of annotation processor classes to run.
    */
   private final ImmutableList<String> processorNames;
 
-  /**
-   * The list of custom javac flags to pass to annotation processors.
-   */
-  private final ImmutableList<String> processorFlags;
-
   /** Set of additional Java source files to compile. */
   private final ImmutableList<Artifact> sourceJars;
 
-  /**
-   * The set of explicit Java source files to compile.
-   */
-  private final ImmutableList<Artifact> sourceFiles;
+  /** The set of explicit Java source files to compile. */
+  private final ImmutableSet<Artifact> sourceFiles;
 
   /**
    * The compiler options to pass to javac.
@@ -141,10 +137,8 @@ public final class JavaCompileAction extends SpawnAction {
    */
   private final BuildConfiguration.StrictDepsMode strictJavaDeps;
 
-  /**
-   * The set of .jdeps artifacts provided by direct dependencies.
-   */
-  private final ImmutableList<Artifact> compileTimeDependencyArtifacts;
+  /** The set of .jdeps artifacts provided by direct dependencies. */
+  private final NestedSet<Artifact> compileTimeDependencyArtifacts;
 
   /**
    * Constructs an action to compile a set of Java source files to class files.
@@ -164,7 +158,6 @@ public final class JavaCompileAction extends SpawnAction {
    * @param extdirInputs the compile-time extclasspath entries
    * @param processorPath the classpath to search for annotation processors
    * @param processorNames the annotation processors to run
-   * @param processorFlags custom annotation processor flags to pass to javac
    * @param sourceJars jars of sources to compile
    * @param sourceFiles source files to compile
    * @param javacOpts the javac options for the compilation
@@ -187,16 +180,15 @@ public final class JavaCompileAction extends SpawnAction {
       ImmutableList<Artifact> bootclasspathEntries,
       ImmutableList<Artifact> sourcePathEntries,
       ImmutableList<Artifact> extdirInputs,
-      List<Artifact> processorPath,
+      NestedSet<Artifact> processorPath,
       List<String> processorNames,
-      List<String> processorFlags,
       Collection<Artifact> sourceJars,
-      Collection<Artifact> sourceFiles,
+      ImmutableSet<Artifact> sourceFiles,
       List<String> javacOpts,
       NestedSet<Artifact> directJars,
       Map<String, String> executionInfo,
       StrictDepsMode strictJavaDeps,
-      Collection<Artifact> compileTimeDependencyArtifacts,
+      NestedSet<Artifact> compileTimeDependencyArtifacts,
       String progressMessage) {
     super(
         owner,
@@ -205,8 +197,9 @@ public final class JavaCompileAction extends SpawnAction {
         outputs,
         LOCAL_RESOURCES,
         commandLine,
-        ImmutableMap.copyOf(UTF8_ENVIRONMENT),
-        ImmutableSet.copyOf(ImmutableSet.<String>of()),
+        false,
+        // TODO(#3320): This is missing the configuration's action environment!
+        UTF8_ACTION_ENVIRONMENT,
         ImmutableMap.copyOf(executionInfo),
         progressMessage,
         EmptyRunfilesSupplier.INSTANCE,
@@ -222,22 +215,19 @@ public final class JavaCompileAction extends SpawnAction {
     this.bootclasspathEntries = ImmutableList.copyOf(bootclasspathEntries);
     this.sourcePathEntries = ImmutableList.copyOf(sourcePathEntries);
     this.extdirInputs = extdirInputs;
-    this.processorPath = ImmutableList.copyOf(processorPath);
+    this.processorPath = processorPath;
     this.processorNames = ImmutableList.copyOf(processorNames);
-    this.processorFlags = ImmutableList.copyOf(processorFlags);
     this.sourceJars = ImmutableList.copyOf(sourceJars);
-    this.sourceFiles = ImmutableList.copyOf(sourceFiles);
+    this.sourceFiles = sourceFiles;
     this.javacOpts = ImmutableList.copyOf(javacOpts);
     this.directJars = checkNotNull(directJars, "directJars must not be null");
     this.strictJavaDeps = strictJavaDeps;
-    this.compileTimeDependencyArtifacts = ImmutableList.copyOf(compileTimeDependencyArtifacts);
+    this.compileTimeDependencyArtifacts = compileTimeDependencyArtifacts;
   }
 
-  /**
-   * Returns the given (passed to constructor) source files.
-   */
+  /** Returns the given (passed to constructor) source files. */
   @VisibleForTesting
-  Collection<Artifact> getSourceFiles() {
+  ImmutableSet<Artifact> getSourceFiles() {
     return sourceFiles;
   }
 
@@ -277,11 +267,9 @@ public final class JavaCompileAction extends SpawnAction {
     return sourceJars;
   }
 
-  /**
-   * Returns the list of paths that represents the processor path.
-   */
+  /** Returns the list of paths that represents the processor path. */
   @VisibleForTesting
-  public List<Artifact> getProcessorpath() {
+  public NestedSet<Artifact> getProcessorpath() {
     return processorPath;
   }
 
@@ -296,7 +284,7 @@ public final class JavaCompileAction extends SpawnAction {
   }
 
   @VisibleForTesting
-  public Collection<Artifact> getCompileTimeDependencyArtifacts() {
+  public NestedSet<Artifact> getCompileTimeDependencyArtifacts() {
     return compileTimeDependencyArtifacts;
   }
 
@@ -316,10 +304,6 @@ public final class JavaCompileAction extends SpawnAction {
   @VisibleForTesting
   public List<String> getProcessorNames() {
     return processorNames;
-  }
-
-  private List<String> getProcessorFlags() {
-    return processorFlags;
   }
 
   /**
@@ -506,12 +490,13 @@ public final class JavaCompileAction extends SpawnAction {
     private Collection<Artifact> additionalOutputs;
     private Artifact paramFile;
     private Artifact metadata;
-    private final Collection<Artifact> sourceFiles = new ArrayList<>();
+    private ImmutableSet<Artifact> sourceFiles = ImmutableSet.of();
     private final Collection<Artifact> sourceJars = new ArrayList<>();
     private BuildConfiguration.StrictDepsMode strictJavaDeps =
         BuildConfiguration.StrictDepsMode.OFF;
     private NestedSet<Artifact> directJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
-    private final Collection<Artifact> compileTimeDependencyArtifacts = new ArrayList<>();
+    private NestedSet<Artifact> compileTimeDependencyArtifacts =
+        NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     private List<String> javacOpts = new ArrayList<>();
     private ImmutableList<String> javacJvmOpts = ImmutableList.of();
     private ImmutableMap<String, String> executionInfo = ImmutableMap.of();
@@ -527,11 +512,13 @@ public final class JavaCompileAction extends SpawnAction {
     private PathFragment sourceGenDirectory;
     private PathFragment tempDirectory;
     private PathFragment classDirectory;
-    private final List<Artifact> processorPath = new ArrayList<>();
+    private NestedSet<Artifact> processorPath = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
     private final List<String> processorNames = new ArrayList<>();
+    /** The list of custom javac flags to pass to annotation processors. */
     private final List<String> processorFlags = new ArrayList<>();
     private String ruleKind;
     private Label targetLabel;
+    private boolean testOnly = false;
 
     /**
      * Creates a Builder from an owner and a build configuration.
@@ -574,13 +561,13 @@ public final class JavaCompileAction extends SpawnAction {
       // dependencyArtifacts are ignored
       if (strictJavaDeps == BuildConfiguration.StrictDepsMode.OFF) {
         directJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
-        compileTimeDependencyArtifacts.clear();
+        compileTimeDependencyArtifacts = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
       }
 
       // Invariant: if java_classpath is set to 'off', dependencyArtifacts are ignored
       JavaConfiguration javaConfiguration = configuration.getFragment(JavaConfiguration.class);
       if (javaConfiguration.getReduceJavaClasspath() == JavaClasspathMode.OFF) {
-        compileTimeDependencyArtifacts.clear();
+        compileTimeDependencyArtifacts = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
       }
 
       if (paramFile == null) {
@@ -590,8 +577,6 @@ public final class JavaCompileAction extends SpawnAction {
       }
 
       Preconditions.checkState(javaExecutable != null, owner);
-      Preconditions.checkState(javaExecutable.isAbsolute() ^ !javabaseInputs.isEmpty(),
-          javaExecutable);
 
       ImmutableList.Builder<Artifact> outputsBuilder = ImmutableList.<Artifact>builder()
           .addAll(
@@ -636,8 +621,8 @@ public final class JavaCompileAction extends SpawnAction {
       NestedSet<Artifact> inputs =
           NestedSetBuilder.<Artifact>stableOrder()
               .addTransitive(classpathEntries)
-              .addAll(compileTimeDependencyArtifacts)
-              .addAll(processorPath)
+              .addTransitive(compileTimeDependencyArtifacts)
+              .addTransitive(processorPath)
               .addAll(sourceJars)
               .addAll(sourceFiles)
               .addAll(javabaseInputs)
@@ -663,7 +648,6 @@ public final class JavaCompileAction extends SpawnAction {
           extdirInputs,
           processorPath,
           processorNames,
-          processorFlags,
           sourceJars,
           sourceFiles,
           internedJcopts,
@@ -677,8 +661,6 @@ public final class JavaCompileAction extends SpawnAction {
     private CustomCommandLine buildParamFileContents(Collection<String> javacOpts) {
       checkNotNull(classDirectory, "classDirectory should not be null");
       checkNotNull(tempDirectory, "tempDirectory should not be null");
-
-      final String pathSeparator = configuration.getHostPathSeparator();
 
       CustomCommandLine.Builder result = CustomCommandLine.builder();
 
@@ -703,20 +685,16 @@ public final class JavaCompileAction extends SpawnAction {
         result.addExecPath("--output_deps_proto", outputDepsProto);
       }
       if (!extdirInputs.isEmpty()) {
-        result.addJoinExecPaths("--extdir", pathSeparator, extdirInputs);
+        result.addExecPaths("--extclasspath", extdirInputs);
       }
       if (!bootclasspathEntries.isEmpty()) {
-        result.addJoinExecPaths(
-            "--bootclasspath", pathSeparator, bootclasspathEntries);
+        result.addExecPaths("--bootclasspath", bootclasspathEntries);
       }
       if (!sourcePathEntries.isEmpty()) {
-        result.addJoinExecPaths("--sourcepath", pathSeparator, sourcePathEntries);
+        result.addExecPaths("--sourcepath", sourcePathEntries);
       }
       if (!processorPath.isEmpty()) {
-        ImmutableList.Builder<String> execPathStrings = ImmutableList.<String>builder();
-        execPathStrings.addAll(Artifact.toExecPaths(processorPath));
-        result.addJoinStrings(
-            "--processorpath", pathSeparator, execPathStrings.build());
+        result.addExecPaths("--processorpath", processorPath);
       }
       if (!processorNames.isEmpty()) {
         result.add("--processors", processorNames);
@@ -748,10 +726,12 @@ public final class JavaCompileAction extends SpawnAction {
           result.add("@" + targetLabel);
         }
       }
+      if (testOnly) {
+        result.add("--testonly");
+      }
 
       if (!classpathEntries.isEmpty()) {
-        result.addJoinExecPaths(
-            "--classpath", pathSeparator, classpathEntries);
+        result.addExecPaths("--classpath", classpathEntries);
       }
 
       // strict_java_deps controls whether the mapping from jars to targets is
@@ -858,13 +838,8 @@ public final class JavaCompileAction extends SpawnAction {
       return this;
     }
 
-    public Builder addSourceFile(Artifact sourceFile) {
-      sourceFiles.add(sourceFile);
-      return this;
-    }
-
-    public Builder addSourceFiles(Collection<Artifact> sourceFiles) {
-      this.sourceFiles.addAll(sourceFiles);
+    public Builder setSourceFiles(ImmutableSet<Artifact> sourceFiles) {
+      this.sourceFiles = sourceFiles;
       return this;
     }
 
@@ -888,8 +863,9 @@ public final class JavaCompileAction extends SpawnAction {
       return this;
     }
 
-    public Builder addCompileTimeDependencyArtifacts(Collection<Artifact> dependencyArtifacts) {
-      this.compileTimeDependencyArtifacts.addAll(dependencyArtifacts);
+    public Builder setCompileTimeDependencyArtifacts(NestedSet<Artifact> dependencyArtifacts) {
+      checkNotNull(compileTimeDependencyArtifacts, "dependencyArtifacts must not be null");
+      this.compileTimeDependencyArtifacts = dependencyArtifacts;
       return this;
     }
 
@@ -951,8 +927,8 @@ public final class JavaCompileAction extends SpawnAction {
       return this;
     }
 
-    public Builder addProcessorPaths(Collection<Artifact> processorPaths) {
-      this.processorPath.addAll(processorPaths);
+    public Builder setProcessorPaths(NestedSet<Artifact> processorPaths) {
+      this.processorPath = processorPaths;
       return this;
     }
 
@@ -988,6 +964,11 @@ public final class JavaCompileAction extends SpawnAction {
 
     public Builder setTargetLabel(Label targetLabel) {
       this.targetLabel = targetLabel;
+      return this;
+    }
+    
+    public Builder setTestOnly(boolean testOnly) {
+      this.testOnly = testOnly;
       return this;
     }
   }

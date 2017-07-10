@@ -40,7 +40,7 @@ local curcontext="$curcontext" state line
 
 : ${BAZEL_COMPLETION_PACKAGE_PATH:=%workspace%}
 : ${BAZEL:=bazel}
-b() { ${BAZEL} --noblock_for_lock "$@"; }
+b() { ${BAZEL} --noblock_for_lock "$@" 2>/dev/null; }
 
 # Default cache lifetime is 1 week
 zstyle -s ":completion:${curcontext}:" cache-lifetime lifetime

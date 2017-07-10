@@ -17,16 +17,21 @@ package com.google.devtools.build.lib.bazel.rules.python;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
-import javax.annotation.Nullable;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 
 /**
  * Bazel-specific Python configuration.
@@ -56,10 +61,15 @@ public class BazelPythonConfiguration extends BuildConfiguration.Fragment {
    * Bazel-specific Python configuration options.
    */
   public static final class Options extends FragmentOptions {
-    @Option(name = "python2_path",
+    @Option(
+      name = "python2_path",
       defaultValue = "python",
       category = "version",
-      help = "Local path to the Python2 executable.")
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Local path to the Python2 executable. "
+                + "Deprecated, please use python_path or python_top instead."
+    )
     public String python2Path;
 
     @Option(
@@ -67,26 +77,72 @@ public class BazelPythonConfiguration extends BuildConfiguration.Fragment {
       converter = Python3PathConverter.class,
       defaultValue = "auto",
       category = "version",
-      help = "Local path to the Python3 executable."
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Local path to the Python3 executable. "
+                + "Deprecated, please use python_path or python_top instead."
     )
     public String python3Path;
 
-    @Option(name = "experimental_python_import_all_repositories",
+    @Option(
+        name = "python_top",
+        converter = LabelConverter.class,
+        defaultValue = "null",
+        category = "version",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "The label of py_runtime rule used for the Python interpreter invoked by Bazel."
+    )
+    public Label pythonTop;
+
+    @Option(
+        name = "python_path",
+        defaultValue = "python",
+        category = "version",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "The absolute path of the Python interpreter invoked by Bazel."
+    )
+    public String pythonPath;
+
+    @Option(
+      name = "experimental_python_import_all_repositories",
       defaultValue = "true",
-      category = "undocumented",
-      help = "Do not use.")
+      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Do not use."
+    )
     public boolean experimentalPythonImportAllRepositories;
+
+     /**
+     * Make Python configuration options available for host configurations as well
+     */
+    @Override
+    public FragmentOptions getHost(boolean fallback) {
+      return clone(); // host options are the same as target options
+    }
   }
 
   /**
    * Loader for the Bazel-specific Python configuration.
    */
   public static final class Loader implements ConfigurationFragmentFactory {
-    @Nullable
     @Override
     public Fragment create(ConfigurationEnvironment env, BuildOptions buildOptions)
         throws InvalidConfigurationException {
-      return new BazelPythonConfiguration(buildOptions.get(Options.class));
+      BazelPythonConfiguration pythonConfiguration
+          = new BazelPythonConfiguration(buildOptions.get(Options.class));
+
+      String pythonPath = pythonConfiguration.getPythonPath();
+      if (!pythonPath.equals("python") && !PathFragment.create(pythonPath).isAbsolute()) {
+        throw new InvalidConfigurationException(
+            "python_path must be an absolute path when it is set.");
+      }
+
+      return pythonConfiguration;
     }
 
     @Override
@@ -114,7 +170,16 @@ public class BazelPythonConfiguration extends BuildConfiguration.Fragment {
     return options.python3Path;
   }
 
+  public Label getPythonTop() {
+    return options.pythonTop;
+  }
+
+  public String getPythonPath() {
+    return options.pythonPath;
+  }
+
   public boolean getImportAllRepositories() {
     return options.experimentalPythonImportAllRepositories;
   }
+
 }

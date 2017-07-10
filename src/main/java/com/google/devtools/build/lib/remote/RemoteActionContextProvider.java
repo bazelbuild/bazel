@@ -11,40 +11,111 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.remote;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
-import com.google.devtools.build.lib.actions.Executor.ActionContext;
-import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.actions.ActionContext;
+import com.google.devtools.build.lib.actions.ActionInputFileCache;
+import com.google.devtools.build.lib.actions.ResourceManager;
+import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.exec.ActionContextProvider;
+import com.google.devtools.build.lib.exec.ActionInputPrefetcher;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.SpawnRunner;
+import com.google.devtools.build.lib.exec.apple.XCodeLocalEnvProvider;
+import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
+import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
+import com.google.devtools.build.lib.exec.local.LocalSpawnRunner;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.util.OS;
 
 /**
  * Provide a remote execution context.
  */
 final class RemoteActionContextProvider extends ActionContextProvider {
-  private final ImmutableList<ActionContext> strategies;
+  private final CommandEnvironment env;
+  private RemoteSpawnRunner spawnRunner;
+  private RemoteSpawnStrategy spawnStrategy;
 
-  RemoteActionContextProvider(
-      CommandEnvironment env,
-      BuildRequest buildRequest) {
-    boolean verboseFailures = buildRequest.getOptions(ExecutionOptions.class).verboseFailures;
-    Builder<ActionContext> strategiesBuilder = ImmutableList.builder();
-    strategiesBuilder.add(
-        new RemoteSpawnStrategy(
-            env.getClientEnv(),
-            env.getExecRoot(),
-            buildRequest.getOptions(RemoteOptions.class),
-            verboseFailures,
-            env.getRuntime().getProductName()));
-    this.strategies = strategiesBuilder.build();
+  RemoteActionContextProvider(CommandEnvironment env) {
+    this.env = env;
   }
 
   @Override
-  public Iterable<ActionContext> getActionContexts() {
-    return strategies;
+  public void init(
+      ActionInputFileCache actionInputFileCache, ActionInputPrefetcher actionInputPrefetcher) {
+    ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);
+    RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
+    AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
+    ChannelOptions channelOptions = ChannelOptions.create(authAndTlsOptions);
+
+    // Initialize remote cache and execution handlers. We use separate handlers for every
+    // action to enable server-side parallelism (need a different gRPC channel per action).
+    RemoteActionCache remoteCache;
+    if (SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions)) {
+      remoteCache = new SimpleBlobStoreActionCache(SimpleBlobStoreFactory.create(remoteOptions));
+    } else if (GrpcRemoteCache.isRemoteCacheOptions(remoteOptions)) {
+      remoteCache =
+          new GrpcRemoteCache(
+              GrpcUtils.createChannel(remoteOptions.remoteCache, channelOptions),
+              channelOptions,
+              remoteOptions);
+    } else {
+      remoteCache = null;
+    }
+
+    // Otherwise remoteCache remains null and remote caching/execution are disabled.
+    GrpcRemoteExecutor remoteExecutor;
+    if (remoteCache != null && GrpcRemoteExecutor.isRemoteExecutionOptions(remoteOptions)) {
+      remoteExecutor =
+          new GrpcRemoteExecutor(
+              GrpcUtils.createChannel(remoteOptions.remoteExecutor, channelOptions),
+              channelOptions,
+              remoteOptions);
+    } else {
+      remoteExecutor = null;
+    }
+    spawnRunner = new RemoteSpawnRunner(
+        env.getExecRoot(),
+        remoteOptions,
+        createFallbackRunner(actionInputPrefetcher),
+        remoteCache,
+        remoteExecutor);
+    spawnStrategy =
+        new RemoteSpawnStrategy(
+            "remote",
+            spawnRunner,
+            executionOptions.verboseFailures);
+  }
+
+  private SpawnRunner createFallbackRunner(ActionInputPrefetcher actionInputPrefetcher) {
+    LocalExecutionOptions localExecutionOptions =
+        env.getOptions().getOptions(LocalExecutionOptions.class);
+    LocalEnvProvider localEnvProvider = OS.getCurrent() == OS.DARWIN
+        ? new XCodeLocalEnvProvider()
+        : LocalEnvProvider.UNMODIFIED;
+    return
+        new LocalSpawnRunner(
+            env.getExecRoot(),
+            actionInputPrefetcher,
+            localExecutionOptions,
+            ResourceManager.instance(),
+            env.getRuntime().getProductName(),
+            localEnvProvider);
+  }
+
+  @Override
+  public Iterable<? extends ActionContext> getActionContexts() {
+    return ImmutableList.of(Preconditions.checkNotNull(spawnStrategy));
+  }
+
+  @Override
+  public void executionPhaseEnding() {
+    if (spawnRunner != null) {
+      spawnRunner.close();
+    }
+    spawnRunner = null;
+    spawnStrategy = null;
   }
 }

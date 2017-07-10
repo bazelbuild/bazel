@@ -69,6 +69,9 @@ public abstract class CompressedTarFunction implements Decompressor {
               // even if the prefix is not set
               linkName = descriptor.repositoryPath().getRelative(linkName).asFragment();
             }
+            if (filename.exists()) {
+              filename.delete();
+            }
             if (entry.isSymbolicLink()) {
               FileSystemUtils.ensureSymbolicLink(filename, linkName);
             } else {

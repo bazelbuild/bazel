@@ -13,13 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import com.android.ide.common.res2.MergingException;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
 import com.google.devtools.build.android.ParsedAndroidData.Builder;
 import com.google.devtools.build.android.ParsedAndroidData.KeyValueConsumer;
 import com.google.devtools.build.android.proto.SerializeFormat;
@@ -149,8 +149,10 @@ public class AndroidDataDeserializer {
     for (Entry<DataKey, KeyValueConsumer<DataKey, ?>> entry : keys.entrySet()) {
       SerializeFormat.DataValue protoValue = SerializeFormat.DataValue.parseDelimitedFrom(in);
       DataSource source = sourceTable.sourceFromId(protoValue.getSourceId());
-      int nameCount = source.getPath().getNameCount();
-      String shortPath = source.getPath().subpath(nameCount - 2, nameCount).toString();
+      // Compose the `shortPath` manually to ensure it uses a forward slash.
+      // Using Path.subpath would return a backslash-using path on Windows.
+      String shortPath =
+          source.getPath().getParent().getFileName() + "/" + source.getPath().getFileName();
       if (filteredResources.contains(shortPath)) {
         // Skip files that were filtered out during analysis.
         // TODO(asteinb): Properly filter out these files from android_library symbol files during

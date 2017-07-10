@@ -102,7 +102,9 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     // breaking changes.
     Map<String, Metadata> digestBuilder = new HashMap<>();
     for (PathFragment child : children) {
-      Metadata subdigest = new Metadata(tree.getPath().getRelative(child).getMD5Digest());
+      Metadata subdigest = FileArtifactValue.createNormalFile(
+          tree.getPath().getRelative(child).getDigest(),
+          tree.getPath().getRelative(child).getFileSize());
       digestBuilder.put(child.getPathString(), subdigest);
     }
     assertThat(DigestUtils.fromMetadata(digestBuilder).getDigestBytesUnsafe())
@@ -115,7 +117,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     TreeArtifactValue value = doTestTreeArtifacts(ImmutableList.<PathFragment>of());
     // Additional test, only for this test method: we expect the Metadata is equal to
     // the digest [0, 0, ...]
-    assertThat(value.getMetadata().digest).isEqualTo(value.getDigest());
+    assertThat(value.getMetadata().getDigest()).isEqualTo(value.getDigest());
     // Java zero-fills arrays.
     assertThat(value.getDigest()).isEqualTo(new byte[16]);
   }
@@ -191,7 +193,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
           ImmutableList.of(PathFragment.create("one")));
       fail("MissingInputFileException expected, got " + value);
     } catch (Exception e) {
-      assertThat(Throwables.getRootCause(e).getMessage()).contains(exception.getMessage());
+      assertThat(Throwables.getRootCause(e)).hasMessageThat().contains(exception.getMessage());
     }
   }
 

@@ -14,6 +14,7 @@
 
 package com.google.testing.junit.runner.internal.junit4;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.RETURNS_MOCKS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -21,7 +22,6 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.verifyZeroInteractions;
 
 import junit.framework.TestCase;
-
 import org.junit.runner.Request;
 import org.junit.runner.Runner;
 
@@ -49,7 +49,7 @@ public class MemoizingRequestTest extends TestCase {
     Runner firstRunner = memoizingRequest.getRunner();
     Runner secondRunner = memoizingRequest.getRunner();
 
-    assertSame(firstRunner, secondRunner);
+    assertThat(secondRunner).isSameAs(firstRunner);
     verify(mockRequestDelegate).getRunner();
     verifyNoMoreInteractions(mockRequestDelegate);
   }
@@ -66,8 +66,8 @@ public class MemoizingRequestTest extends TestCase {
     Runner firstRunner = memoizingRequest.getRunner();
     Runner secondRunner = memoizingRequest.getRunner();
 
-    assertSame(stubRunner, firstRunner);
-    assertSame(firstRunner, secondRunner);
+    assertThat(firstRunner).isSameAs(stubRunner);
+    assertThat(secondRunner).isSameAs(firstRunner);
     verifyZeroInteractions(mockRequestDelegate);
   }
 }

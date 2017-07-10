@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTran
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
@@ -26,8 +27,8 @@ import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -36,7 +37,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.analysis.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -45,16 +45,20 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain.RequiresXcodeConfigRule;
-import com.google.devtools.build.lib.rules.apple.Platform;
-import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
+import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppModuleMap.UmbrellaHeaderStrategy;
 import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
@@ -117,9 +121,14 @@ public class ObjcRuleClasses {
     // We need to append "_j2objc" to the name of the generated archive file to distinguish it from
     // the C/C++ archive file created by proto_library targets with attribute cc_api_version
     // specified.
+    // Generate an umbrella header for the module map. The headers declared in module maps are
+    // compiled using the #import directives which are incompatible with J2ObjC segmented headers.
+    // We need to #iclude all the headers in an umbrella header and then declare the umbrella header
+    // in the module map.
     return new IntermediateArtifacts(
         ruleContext,
-        /*archiveFileNameSuffix=*/"_j2objc");
+        /*archiveFileNameSuffix=*/"_j2objc",
+        UmbrellaHeaderStrategy.GENERATE);
   }
 
   public static Artifact artifactByAppendingToBaseName(RuleContext context, String suffix) {
@@ -182,17 +191,15 @@ public class ObjcRuleClasses {
    * order to run, require both a darwin architecture and a collection of environment variables
    * which contain information about the target and host architectures.
    */
-  static SpawnAction.Builder spawnAppleEnvActionBuilder(AppleConfiguration appleConfiguration,
-      Platform targetPlatform) {
+  static SpawnAction.Builder spawnAppleEnvActionBuilder(
+      AppleConfiguration appleConfiguration, ApplePlatform targetPlatform) {
     return spawnOnDarwinActionBuilder()
         .setEnvironment(appleToolchainEnvironment(appleConfiguration, targetPlatform));
   }
 
-  /**
-   * Returns apple environment variables that are typically needed by the apple toolchain.
-   */
+  /** Returns apple environment variables that are typically needed by the apple toolchain. */
   static ImmutableMap<String, String> appleToolchainEnvironment(
-      AppleConfiguration appleConfiguration, Platform targetPlatform) {
+      AppleConfiguration appleConfiguration, ApplePlatform targetPlatform) {
     return ImmutableMap.<String, String>builder()
         .putAll(appleConfiguration.getTargetAppleEnvironment(targetPlatform))
         .putAll(appleConfiguration.getAppleHostSystemEnv())
@@ -524,28 +531,6 @@ public class ObjcRuleClasses {
   }
 
   /**
-   * Common attributes for {@code objc_*} rules that export an xcode project.
-   */
-  public static class XcodegenRule implements RuleDefinition {
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .add(attr("$xcodegen", LABEL).cfg(HOST).exec()
-              .value(env.getToolsLabel("//tools/objc:xcodegen")))
-          .add(attr("$dummy_source", LABEL)
-              .value(env.getToolsLabel("//tools/objc:objc_dummy.mm")))
-          .build();
-    }
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("$objc_xcodegen_rule")
-          .type(RuleClassType.ABSTRACT)
-          .build();
-    }
-  }
-
-  /**
    * Common attributes for {@code objc_*} rules that depend on a crosstool.
    */
   public static class CrosstoolRule implements RuleDefinition {
@@ -553,7 +538,7 @@ public class ObjcRuleClasses {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .add(attr(":cc_toolchain", LABEL).value(APPLE_TOOLCHAIN))
+          .add(attr(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL).value(APPLE_TOOLCHAIN))
           .add(
               attr(":lipo_context_collector", LABEL)
                   .value(NULL_LIPO_CONTEXT_COLLECTOR)
@@ -637,20 +622,13 @@ public class ObjcRuleClasses {
    * Common attributes for {@code objc_*} rules that contain compilable content.
    */
   public static class CompilingRule implements RuleDefinition {
-    
+
     /**
      * Rule class names for cc rules which are allowed as targets of the 'deps' attribute of this
      * rule.
      */
     static final ImmutableSet<String> ALLOWED_CC_DEPS_RULE_CLASSES =
         ImmutableSet.of("cc_library", "cc_inc_library");
-    /**
-     * Rule class names which are allowed as targets of the 'deps' attribute of this rule.
-     */
-    static final Iterable<String> ALLOWED_DEPS_RULE_CLASSES =
-        Iterables.<String>concat(
-            ALLOWED_CC_DEPS_RULE_CLASSES,
-            ImmutableList.of("experimental_objc_library"));
 
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -694,7 +672,7 @@ public class ObjcRuleClasses {
           .override(
               attr("deps", LABEL_LIST)
                   .direct_compile_time_input()
-                  .allowedRuleClasses(ALLOWED_DEPS_RULE_CLASSES)
+                  .allowedRuleClasses(ALLOWED_CC_DEPS_RULE_CLASSES)
                   .mandatoryNativeProviders(
                       ImmutableList.<Class<? extends TransitiveInfoProvider>>of(ObjcProvider.class))
                   .allowedFileTypes())
@@ -718,7 +696,7 @@ public class ObjcRuleClasses {
           .add(
               attr("non_propagated_deps", LABEL_LIST)
                   .direct_compile_time_input()
-                  .allowedRuleClasses(ALLOWED_DEPS_RULE_CLASSES)
+                  .allowedRuleClasses(ALLOWED_CC_DEPS_RULE_CLASSES)
                   .mandatoryNativeProviders(
                       ImmutableList.<Class<? extends TransitiveInfoProvider>>of(ObjcProvider.class))
                   .allowedFileTypes())
@@ -750,7 +728,8 @@ public class ObjcRuleClasses {
                   .cfg(HOST)
                   .value(
                       new LateBoundLabel<BuildConfiguration>(
-                          "//tools/objc:header_scanner", ObjcConfiguration.class) {
+                          env.getToolsLabel("//tools/objc:header_scanner"),
+                          ObjcConfiguration.class) {
                         @Override
                         public Label resolve(
                             Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
@@ -852,6 +831,12 @@ public class ObjcRuleClasses {
   static final String PROTOBUF_WELL_KNOWN_TYPES = "$protobuf_well_known_types";
 
   /**
+   * Template for the fat binary output (using Apple's "lipo" tool to combine binaries of multiple
+   * architectures).
+   */
+  static final SafeImplicitOutputsFunction LIPOBIN_OUTPUT = fromTemplates("%{name}_lipobin");
+
+  /**
    * Common attributes for {@code objc_*} rules that link sources and dependencies.
    */
   public static class LinkingRule implements RuleDefinition {
@@ -906,15 +891,77 @@ public class ObjcRuleClasses {
   }
 
   /**
-   * Common attributes for apple rules that build multi-architecture outputs for a given platform
-   * type (such as ios or watchos).
+   * Common attributes for apple rules that produce outputs for a given platform type (such as ios
+   * or watchos).
    */
-  public static class MultiArchPlatformRule implements RuleDefinition {
+  public static class PlatformRule implements RuleDefinition {
 
     /**
      * Attribute name for apple platform type (e.g. ios or watchos).
      */
     static final String PLATFORM_TYPE_ATTR_NAME = "platform_type";
+
+    /**
+     * Attribute name for the minimum OS version (e.g. "7.3").
+     */
+    static final String MINIMUM_OS_VERSION = "minimum_os_version";
+
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+      return builder
+          /* <!-- #BLAZE_RULE($apple_platform_rule).ATTRIBUTE(platform_type) -->
+          The type of platform for which to create artifacts in this rule.
+
+          This dictates which Apple platform SDK is used for compilation/linking and which flag is
+          used to determine the architectures for which to build. For example, if <code>ios</code>
+          is selected, then the output binaries/libraries will be created combining all
+          architectures specified in <code>--ios_multi_cpus</code>.
+
+          Options are:
+          <ul>
+            <li>
+              <code>ios</code>: architectures gathered from <code>--ios_multi_cpus</code>.
+            </li>
+            <li>
+              <code>macos</code>: architectures gathered from <code>--macos_cpus</code>.
+            </li>
+            <li>
+              <code>tvos</code>: architectures gathered from <code>--tvos_cpus</code>.
+            </li>
+            <li>
+              <code>watchos</code>: architectures gathered from <code>--watchos_cpus</code>.
+            </li>
+          </ul>
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(
+              attr(PLATFORM_TYPE_ATTR_NAME, STRING)
+                  .mandatory()
+                  .nonconfigurable("Determines the configuration transition on deps"))
+          /* <!-- #BLAZE_RULE($apple_platform_rule).ATTRIBUTE(minimum_os) -->
+          The minimum OS version that this target and its dependencies should be built for.
+
+          This should be a dotted version string such as "7.3".
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(
+              attr(MINIMUM_OS_VERSION, STRING)
+                  .nonconfigurable("Determines the configuration transition on deps"))
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("$apple_platform_rule")
+          .type(RuleClassType.ABSTRACT)
+          .build();
+    }
+  }
+
+  /**
+   * Common attributes for apple rules that build multi-architecture outputs for a given platform
+   * type (such as ios or watchos).
+   */
+  public static class MultiArchPlatformRule implements RuleDefinition {
 
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -924,27 +971,10 @@ public class ObjcRuleClasses {
           // This is currently a hack to obtain all child configurations regardless of the attribute
           // values of this rule -- this rule does not currently use the actual info provided by
           // this attribute.
-          .add(attr(CHILD_CONFIG_ATTR, LABEL)
-              .cfg(splitTransitionProvider)
-              .value(ObjcRuleClasses.APPLE_TOOLCHAIN))
-          /* <!-- #BLAZE_RULE($apple_multiarch_rule).ATTRIBUTE(platform_type) -->
-          The type of platform for which to create artifacts in this rule.
-          For example, if <code>ios</code> is selected, then the output binaries/libraries will
-          be created combining all architectures specified in <code>--ios_multi_cpus</code>.
-
-          Options are:
-          <ul>
-            <li>
-              <code>ios</code> (default): architectures gathered from <code>--ios_multi_cpus</code>.
-            </li>
-            <li>
-              <code>watchos</code>: architectures gathered from <code>--watchos_multi_cpus</code>
-            </li>
-          </ul>
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr(PLATFORM_TYPE_ATTR_NAME, STRING)
-              .value(PlatformType.IOS.toString())
-              .nonconfigurable("Determines the configuration transition on deps"))
+          .add(
+              attr(CHILD_CONFIG_ATTR, LABEL)
+                  .cfg(splitTransitionProvider)
+                  .value(ObjcRuleClasses.APPLE_TOOLCHAIN))
           .build();
     }
 
@@ -953,7 +983,7 @@ public class ObjcRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$apple_multiarch_rule")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(CrosstoolRule.class)
+          .ancestors(PlatformRule.class, CrosstoolRule.class)
           .build();
     }
   }
@@ -977,22 +1007,17 @@ public class ObjcRuleClasses {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          // TODO(b/32411441): Restrict the dylibs attribute to take only dylib dependencies.
-          // This will require refactoring ObjcProvider into alternate providers.
           /* <!-- #BLAZE_RULE($apple_dylib_depending_rule).ATTRIBUTE(dylibs) -->
           <p>A list of dynamic library targets to be linked against in this rule and included
           in the final bundle. Libraries which are transitive dependencies of any such dylibs will
           not be statically linked in this target (even if they are otherwise
           transitively depended on via the <code>deps</code> attribute) to avoid duplicate symbols.
-
-          <p>Please note: this attribute should only accept apple dynamic library targets, but
-          currently accepts many other objc or apple targets. This is a bug, so do not rely on this
-          behavior.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr(DYLIBS_ATTR_NAME, LABEL_LIST)
               .direct_compile_time_input()
-              .mandatoryNativeProviders(
-                  ImmutableList.<Class<? extends TransitiveInfoProvider>>of(ObjcProvider.class))
+              .mandatoryProviders(ImmutableList.of(
+                  SkylarkProviderIdentifier.forKey(
+                      AppleDynamicFrameworkProvider.SKYLARK_CONSTRUCTOR.getKey())))
               .allowedFileTypes()
               .aspect(objcProtoAspect))
           .build();
@@ -1117,41 +1142,41 @@ public class ObjcRuleClasses {
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
           /* <!-- #BLAZE_RULE($objc_release_bundling_rule).ATTRIBUTE(entitlements) -->
-          The entitlements file required for device builds of this application.
+            The entitlements file required for device builds of this application.
 
-          See
-          <a href="https://developer.apple.com/library/mac/documentation/Miscellaneous/Reference/EntitlementKeyReference/Chapters/AboutEntitlements.html">the apple documentation</a>
-          for more information. If absent, the default entitlements from the
-          provisioning profile will be used.
-          <p>
-          The following variables are substituted: <code>$(CFBundleIdentifier)</code> with the
-          bundle id and <code>$(AppIdentifierPrefix)</code> with the value of the
-          <code>ApplicationIdentifierPrefix</code> key from this target's provisioning profile (or
-          the default provisioning profile, if none is specified).
-          <p>
-          Bazel does not currently support adding entitlements to simulator builds. This
-          means that if you rely on behavior which must be specified in entitlements (like App
-          Groups) it will only work on a device. You can work around this by inlining the
-          entitlements into your binary. e.g.
-        <pre><code>
-          #if TARGET_OS_SIMULATOR
-          __asm(&quot;.section __TEXT,__entitlements&quot;);
-          __asm(&quot;.ascii \&quot;&quot;
-          &quot;&lt;?xml version=\\\&quot;1.0\\\&quot; encoding=\\\&quot;UTF-8\\\&quot;?&gt;\n&quot;
-          &quot;&lt;!DOCTYPE plist PUBLIC \\\&quot;-//Apple//DTD PLIST 1.0//EN\\\&quot; &quot;
-              &quot;\\\&quot;http://www.apple.com/DTDs/PropertyList-1.0.dtd\\\&quot;&gt;&quot;
-           &quot;&lt;plist version=\\\&quot;1.0\\\&quot;&gt;&quot;
-          &quot;&lt;dict&gt;&quot;
-          &quot;&lt;key&gt;com.apple.security.application-groups&lt;/key&gt;&quot;
-          &quot;&lt;array&gt;&quot;
-          &quot;&lt;string&gt;group.com.your.company&lt;/string&gt;&quot;
-          &quot;&lt;/array&gt;&quot;
-          &quot;&lt;/dict&gt;&quot;
-          &quot;&lt;/plist&gt;&quot;
-          &quot;\&quot;
-          #endif
-        </code></pre>
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+            See
+            <a href="https://developer.apple.com/library/mac/documentation/Miscellaneous/Reference/EntitlementKeyReference/Chapters/AboutEntitlements.html">the apple documentation</a>
+            for more information. If absent, the default entitlements from the
+            provisioning profile will be used.
+            <p>
+            The following variables are substituted: <code>$(CFBundleIdentifier)</code> with the
+            bundle id and <code>$(AppIdentifierPrefix)</code> with the value of the
+            <code>ApplicationIdentifierPrefix</code> key from this target's provisioning profile (or
+            the default provisioning profile, if none is specified).
+            <p>
+            Bazel does not currently support adding entitlements to simulator builds. This
+            means that if you rely on behavior which must be specified in entitlements (like App
+            Groups) it will only work on a device. You can work around this by inlining the
+            entitlements into your binary. e.g.
+          <pre><code>
+            #if TARGET_OS_SIMULATOR
+            __asm(&quot;.section __TEXT,__entitlements&quot;);
+            __asm(&quot;.ascii \&quot;&quot;
+            &quot;&lt;?xml version=\\\&quot;1.0\\\&quot; encoding=\\\&quot;UTF-8\\\&quot;?&gt;\n&quot;
+            &quot;&lt;!DOCTYPE plist PUBLIC \\\&quot;-//Apple//DTD PLIST 1.0//EN\\\&quot; &quot;
+                &quot;\\\&quot;http://www.apple.com/DTDs/PropertyList-1.0.dtd\\\&quot;&gt;&quot;
+             &quot;&lt;plist version=\\\&quot;1.0\\\&quot;&gt;&quot;
+            &quot;&lt;dict&gt;&quot;
+            &quot;&lt;key&gt;com.apple.security.application-groups&lt;/key&gt;&quot;
+            &quot;&lt;array&gt;&quot;
+            &quot;&lt;string&gt;group.com.your.company&lt;/string&gt;&quot;
+            &quot;&lt;/array&gt;&quot;
+            &quot;&lt;/dict&gt;&quot;
+            &quot;&lt;/plist&gt;&quot;
+            &quot;\&quot;
+            #endif
+          </code></pre>
+            <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr(ENTITLEMENTS_ATTR, LABEL).allowedFileTypes(ENTITLEMENTS_TYPE))
           .add(
               attr(EXTRA_ENTITLEMENTS_ATTR, LABEL)
@@ -1196,7 +1221,7 @@ public class ObjcRuleClasses {
                           AppleConfiguration appleConfiguration =
                               configuration.getFragment(AppleConfiguration.class);
                           if (appleConfiguration.getMultiArchPlatform(PlatformType.IOS)
-                              != Platform.IOS_DEVICE) {
+                              != ApplePlatform.IOS_DEVICE) {
                             return null;
                           }
                           if (rule.isAttributeValueExplicitlySpecified(PROVISIONING_PROFILE_ATTR)) {
@@ -1442,8 +1467,7 @@ public class ObjcRuleClasses {
           <a href="https://developer.apple.com/library/ios/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html">their definitions in Apple's documentation</a>:
           $(AppIdentifierPrefix) and $(CFBundleIdentifier).
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr(WATCH_EXT_ENTITLEMENTS_ATTR, LABEL)
-              .allowedFileTypes(ENTITLEMENTS_TYPE))
+          .add(attr(WATCH_EXT_ENTITLEMENTS_ATTR, LABEL).allowedFileTypes(ENTITLEMENTS_TYPE))
           /* <!-- #BLAZE_RULE($watch_extension_bundle_rule).ATTRIBUTE(ext_infoplists) -->
            Infoplist files to be merged. The merged output corresponds to <i>appname</i>-Info.plist
            in Xcode projects.  Duplicate keys between infoplist files will cause an error if
@@ -1477,12 +1501,12 @@ public class ObjcRuleClasses {
                   .value(
                       new LateBoundLabel<BuildConfiguration>(ObjcConfiguration.class) {
                         @Override
-                        public Label resolve(Rule rule, AttributeMap attributes,
-                            BuildConfiguration configuration) {
+                        public Label resolve(
+                            Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
                           AppleConfiguration appleConfiguration =
                               configuration.getFragment(AppleConfiguration.class);
                           if (appleConfiguration.getMultiArchPlatform(PlatformType.IOS)
-                              != Platform.IOS_DEVICE) {
+                              != ApplePlatform.IOS_DEVICE) {
                             return null;
                           }
                           if (rule.isAttributeValueExplicitlySpecified(
@@ -1502,8 +1526,10 @@ public class ObjcRuleClasses {
           directory called *.lproj), they will be placed in a directory of the
           same name in the app bundle.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr(WATCH_EXT_RESOURCES_ATTR, LABEL_LIST).legacyAllowAnyFileType()
-              .direct_compile_time_input())
+          .add(
+              attr(WATCH_EXT_RESOURCES_ATTR, LABEL_LIST)
+                  .legacyAllowAnyFileType()
+                  .direct_compile_time_input())
           /* <!-- #BLAZE_RULE($watch_extension_bundle_rule).ATTRIBUTE(ext_structured_resources)-->
           Files to include in the final watch extension bundle.
 
@@ -1518,9 +1544,10 @@ public class ObjcRuleClasses {
           specifying <code>["res/foo.png"]</code> will lead to the inclusion of all files in
           directory <code>res</code>.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr(WATCH_EXT_STRUCTURED_RESOURCES_ATTR, LABEL_LIST)
-              .legacyAllowAnyFileType()
-              .direct_compile_time_input())
+          .add(
+              attr(WATCH_EXT_STRUCTURED_RESOURCES_ATTR, LABEL_LIST)
+                  .legacyAllowAnyFileType()
+                  .direct_compile_time_input())
           /* <!-- #BLAZE_RULE($watch_extension_bundle_rule).ATTRIBUTE(ext_strings) -->
           Files which are plists of strings, often localizable to be added to watch extension.
 
@@ -1530,10 +1557,11 @@ public class ObjcRuleClasses {
           Base.lproj), it will be placed under a directory of that name in the
           final bundle. This allows for localizable strings.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr(WATCH_EXT_STRINGS_ATTR, LABEL_LIST)
-              .allowedFileTypes(STRINGS_TYPE)
-              .direct_compile_time_input())
-            .build();
+          .add(
+              attr(WATCH_EXT_STRINGS_ATTR, LABEL_LIST)
+                  .allowedFileTypes(STRINGS_TYPE)
+                  .direct_compile_time_input())
+          .build();
     }
 
     @Override
@@ -1598,8 +1626,7 @@ public class ObjcRuleClasses {
           <a href="https://developer.apple.com/library/ios/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html">their definitions in Apple's documentation</a>:
           $(AppIdentifierPrefix) and $(CFBundleIdentifier).
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr(WATCH_APP_ENTITLEMENTS_ATTR, LABEL)
-              .allowedFileTypes(ENTITLEMENTS_TYPE))
+          .add(attr(WATCH_APP_ENTITLEMENTS_ATTR, LABEL).allowedFileTypes(ENTITLEMENTS_TYPE))
           /* <!-- #BLAZE_RULE($watch_application_bundle_rule).ATTRIBUTE(app_asset_catalogs) -->
           Files that comprise the asset catalogs of the final linked binary.
 
@@ -1608,8 +1635,10 @@ public class ObjcRuleClasses {
           linked with any binary that depends directly or indirectly on this
           target.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr(WATCH_APP_ASSET_CATALOGS_ATTR, LABEL_LIST).legacyAllowAnyFileType()
-              .direct_compile_time_input())
+          .add(
+              attr(WATCH_APP_ASSET_CATALOGS_ATTR, LABEL_LIST)
+                  .legacyAllowAnyFileType()
+                  .direct_compile_time_input())
           /* <!-- #BLAZE_RULE($watch_application_bundle_rule).ATTRIBUTE(app_bundle_id) -->
           The bundle ID (reverse-DNS path followed by app name) of the watch application binary.
 
@@ -1661,12 +1690,12 @@ public class ObjcRuleClasses {
                   .value(
                       new LateBoundLabel<BuildConfiguration>(ObjcConfiguration.class) {
                         @Override
-                        public Label resolve(Rule rule, AttributeMap attributes,
-                            BuildConfiguration configuration) {
+                        public Label resolve(
+                            Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
                           AppleConfiguration appleConfiguration =
                               configuration.getFragment(AppleConfiguration.class);
                           if (appleConfiguration.getMultiArchPlatform(PlatformType.IOS)
-                              != Platform.IOS_DEVICE) {
+                              != ApplePlatform.IOS_DEVICE) {
                             return null;
                           }
                           if (rule.isAttributeValueExplicitlySpecified(
@@ -1682,8 +1711,7 @@ public class ObjcRuleClasses {
 
           These files are compiled and placed in the bundle root of the final package.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr(WATCH_APP_STORYBOARDS_ATTR, LABEL_LIST)
-              .allowedFileTypes(STORYBOARD_TYPE))
+          .add(attr(WATCH_APP_STORYBOARDS_ATTR, LABEL_LIST).allowedFileTypes(STORYBOARD_TYPE))
           /* <!-- #BLAZE_RULE($watch_application_bundle_rule).ATTRIBUTE(app_resources) -->
           Files to include in the final watch application bundle.
 
@@ -1694,8 +1722,10 @@ public class ObjcRuleClasses {
           directory called *.lproj), they will be placed in a directory of the
           same name in the app bundle.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr(WATCH_APP_RESOURCES_ATTR, LABEL_LIST).legacyAllowAnyFileType()
-              .direct_compile_time_input())
+          .add(
+              attr(WATCH_APP_RESOURCES_ATTR, LABEL_LIST)
+                  .legacyAllowAnyFileType()
+                  .direct_compile_time_input())
           /* <!-- #BLAZE_RULE($watch_application_bundle_rule).ATTRIBUTE(app_structured_resources)-->
           Files to include in the final watch application bundle.
 
@@ -1710,9 +1740,10 @@ public class ObjcRuleClasses {
           specifying <code>["res/foo.png"]</code> will lead to the inclusion of all files in
           directory <code>res</code>.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr(WATCH_APP_STRUCTURED_RESOURCES_ATTR, LABEL_LIST)
-              .legacyAllowAnyFileType()
-              .direct_compile_time_input())
+          .add(
+              attr(WATCH_APP_STRUCTURED_RESOURCES_ATTR, LABEL_LIST)
+                  .legacyAllowAnyFileType()
+                  .direct_compile_time_input())
           /* <!-- #BLAZE_RULE($watch_application_bundle_rule).ATTRIBUTE(app_strings) -->
           Files which are plists of strings, often localizable to be added to watch application.
 
@@ -1722,9 +1753,10 @@ public class ObjcRuleClasses {
           Base.lproj), it will be placed under a directory of that name in the
           final bundle. This allows for localizable strings.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr(WATCH_APP_STRINGS_ATTR, LABEL_LIST)
-              .allowedFileTypes(STRINGS_TYPE)
-              .direct_compile_time_input())
+          .add(
+              attr(WATCH_APP_STRINGS_ATTR, LABEL_LIST)
+                  .allowedFileTypes(STRINGS_TYPE)
+                  .direct_compile_time_input())
           .build();
     }
     @Override

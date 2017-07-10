@@ -14,12 +14,9 @@
 package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertSame;
 
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.MultidexMode;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -91,14 +88,14 @@ public class AndroidCommonTest extends BuildViewTestCase {
   public void testMultidexModeEnum() throws Exception {
     assertThat(MultidexMode.getValidValues()).containsExactly("native", "legacy", "manual_main_dex",
         "off");
-    assertSame(MultidexMode.NATIVE, MultidexMode.fromValue("native"));
-    assertEquals("native", MultidexMode.NATIVE.getAttributeValue());
-    assertSame(MultidexMode.LEGACY, MultidexMode.fromValue("legacy"));
-    assertEquals("legacy", MultidexMode.LEGACY.getAttributeValue());
-    assertSame(MultidexMode.MANUAL_MAIN_DEX, MultidexMode.fromValue("manual_main_dex"));
-    assertEquals("manual_main_dex", MultidexMode.MANUAL_MAIN_DEX.getAttributeValue());
-    assertSame(MultidexMode.OFF, MultidexMode.fromValue("off"));
-    assertEquals("off", MultidexMode.OFF.getAttributeValue());
+    assertThat(MultidexMode.fromValue("native")).isSameAs(MultidexMode.NATIVE);
+    assertThat(MultidexMode.NATIVE.getAttributeValue()).isEqualTo("native");
+    assertThat(MultidexMode.fromValue("legacy")).isSameAs(MultidexMode.LEGACY);
+    assertThat(MultidexMode.LEGACY.getAttributeValue()).isEqualTo("legacy");
+    assertThat(MultidexMode.fromValue("manual_main_dex")).isSameAs(MultidexMode.MANUAL_MAIN_DEX);
+    assertThat(MultidexMode.MANUAL_MAIN_DEX.getAttributeValue()).isEqualTo("manual_main_dex");
+    assertThat(MultidexMode.fromValue("off")).isSameAs(MultidexMode.OFF);
+    assertThat(MultidexMode.OFF.getAttributeValue()).isEqualTo("off");
   }
 
   /**
@@ -106,8 +103,8 @@ public class AndroidCommonTest extends BuildViewTestCase {
    */
   @Test
   public void testOutputDexforMultidexModes() throws Exception {
-    assertEquals("classes.dex", MultidexMode.OFF.getOutputDexFilename());
-    assertEquals("classes.dex.zip", MultidexMode.LEGACY.getOutputDexFilename());
-    assertEquals("classes.dex.zip", MultidexMode.NATIVE.getOutputDexFilename());
+    assertThat(MultidexMode.OFF.getOutputDexFilename()).isEqualTo("classes.dex");
+    assertThat(MultidexMode.LEGACY.getOutputDexFilename()).isEqualTo("classes.dex.zip");
+    assertThat(MultidexMode.NATIVE.getOutputDexFilename()).isEqualTo("classes.dex.zip");
   }
 }

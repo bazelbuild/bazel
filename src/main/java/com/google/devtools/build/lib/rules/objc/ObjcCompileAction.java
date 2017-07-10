@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -29,7 +30,6 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -43,7 +43,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.apple.Platform;
+import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery;
@@ -113,7 +113,8 @@ public class ObjcCompileAction extends SpawnAction {
       Iterable<Artifact> outputs,
       ResourceSet resourceSet,
       CommandLine argv,
-      ImmutableMap<String, String> environment,
+      boolean isShellCommand,
+      ActionEnvironment env,
       ImmutableMap<String, String> executionInfo,
       String progressMessage,
       RunfilesSupplier runfilesSupplier,
@@ -133,8 +134,8 @@ public class ObjcCompileAction extends SpawnAction {
         outputs,
         resourceSet,
         argv,
-        environment,
-        ImmutableSet.<String>of(),
+        isShellCommand,
+        env,
         executionInfo,
         progressMessage,
         runfilesSupplier,
@@ -191,7 +192,7 @@ public class ObjcCompileAction extends SpawnAction {
       } catch (ExecException e) {
         throw e.toActionExecutionException(
             "Header thinning of rule '" + getOwner().getLabel() + "'",
-            actionExecutionContext.getExecutor().getVerboseFailures(),
+            actionExecutionContext.getVerboseFailures(),
             this);
       }
     } else {
@@ -211,11 +212,11 @@ public class ObjcCompileAction extends SpawnAction {
     super.execute(actionExecutionContext);
 
     if (dotdPruningPlan == HeaderDiscovery.DotdPruningMode.USE) {
-      Executor executor = actionExecutionContext.getExecutor();
-      IncludeScanningContext scanningContext = executor.getContext(IncludeScanningContext.class);
+      IncludeScanningContext scanningContext =
+          actionExecutionContext.getContext(IncludeScanningContext.class);
       NestedSet<Artifact> discoveredInputs =
           discoverInputsFromDotdFiles(
-              executor.getExecRoot(), scanningContext.getArtifactResolver());
+              actionExecutionContext.getExecRoot(), scanningContext.getArtifactResolver());
 
       updateActionInputs(discoveredInputs);
     } else {
@@ -236,12 +237,11 @@ public class ObjcCompileAction extends SpawnAction {
     return new HeaderDiscovery.Builder()
         .setAction(this)
         .setSourceFile(sourceFile)
-        .setDotdFile(dotdFile)
-        .setDependencySet(processDepset(execRoot))
+        .setDependencies(processDepset(execRoot).getDependencies())
         .setPermittedSystemIncludePrefixes(ImmutableList.<Path>of())
         .setAllowedDerivedinputsMap(getAllowedDerivedInputsMap(true))
         .build()
-        .discoverInputsFromDotdFiles(execRoot, artifactResolver);
+        .discoverInputsFromDependencies(execRoot, artifactResolver);
   }
 
   private DependencySet processDepset(Path execRoot) throws ActionExecutionException {
@@ -337,7 +337,7 @@ public class ObjcCompileAction extends SpawnAction {
      * needed by the apple toolchain.
      */
     public static ObjcCompileAction.Builder createObjcCompileActionBuilderWithAppleEnv(
-        AppleConfiguration appleConfiguration, Platform targetPlatform) {
+        AppleConfiguration appleConfiguration, ApplePlatform targetPlatform) {
       return (Builder)
           new ObjcCompileAction.Builder()
               .setExecutionInfo(ObjcRuleClasses.darwinActionExecutionRequirement())
@@ -349,6 +349,13 @@ public class ObjcCompileAction extends SpawnAction {
     public Builder addTools(Iterable<Artifact> artifacts) {
       super.addTools(artifacts);
       mandatoryInputs.addAll(artifacts);
+      return this;
+    }
+
+    @Override
+    public Builder addTransitiveTools(NestedSet<Artifact> artifacts) {
+      super.addTransitiveTools(artifacts);
+      mandatoryInputs.addTransitive(artifacts);
       return this;
     }
 
@@ -432,8 +439,8 @@ public class ObjcCompileAction extends SpawnAction {
         ImmutableList<Artifact> outputs,
         ResourceSet resourceSet,
         CommandLine actualCommandLine,
-        ImmutableMap<String, String> env,
-        ImmutableSet<String> clientEnvironmentVariables,
+        boolean isShellCommand,
+        ActionEnvironment env,
         ImmutableMap<String, String> executionInfo,
         String progressMessage,
         RunfilesSupplier runfilesSupplier,
@@ -445,7 +452,9 @@ public class ObjcCompileAction extends SpawnAction {
           outputs,
           resourceSet,
           actualCommandLine,
-          env,
+          isShellCommand,
+          // TODO(#3320): This is missing the inherited action env from --action_env.
+          ActionEnvironment.create(env.getFixedEnv()),
           executionInfo,
           progressMessage,
           runfilesSupplier,

@@ -27,7 +27,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class CyclesReporterTest {
 
-  private static final SkyKey DUMMY_KEY = SkyKey.create(SkyFunctionName.create("func"), "key");
+  private static final SkyKey DUMMY_KEY =
+      LegacySkyKey.create(SkyFunctionName.create("func"), "key");
 
   @Test
   public void nullEventHandler() {

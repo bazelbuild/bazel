@@ -145,7 +145,26 @@ public abstract class JavaHelper {
   /** Returns the artifacts required to invoke {@code javahome} relative binary in the action. */
   public static NestedSet<Artifact> getHostJavabaseInputs(
       RuleContext ruleContext, String implicitAttributesSuffix) {
-    return AnalysisUtils.getMiddlemanFor(ruleContext, ":host_jdk" + implicitAttributesSuffix);
+    return AnalysisUtils.getMiddlemanFor(
+        ruleContext, ":host_jdk" + implicitAttributesSuffix, Mode.HOST);
+  }
+
+  public static JavaRuntimeProvider getJavaRuntime(RuleContext ruleContext) {
+    if (!ruleContext.attributes().has(":jvm", BuildType.LABEL)) {
+      return null;
+    }
+
+    TransitiveInfoCollection jvm = ruleContext.getPrerequisite(":jvm", Mode.TARGET);
+    return jvm == null ? null :  jvm.getProvider(JavaRuntimeProvider.class);
+  }
+
+  public static JavaRuntimeProvider getHostJavaRuntime(RuleContext ruleContext) {
+    if (!ruleContext.attributes().has(":host_jdk", BuildType.LABEL)) {
+      return null;
+    }
+
+    TransitiveInfoCollection jvm = ruleContext.getPrerequisite(":host_jdk", Mode.HOST);
+    return jvm == null ? null :  jvm.getProvider(JavaRuntimeProvider.class);
   }
 
   /**

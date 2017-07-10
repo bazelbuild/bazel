@@ -44,12 +44,14 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CcLibraryHelper;
+import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
+import com.google.devtools.build.lib.rules.cpp.FeatureSpecification;
 import com.google.devtools.build.lib.rules.proto.ProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ToolchainInvocation;
@@ -118,7 +120,9 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
                         ImmutableList.<Class<? extends TransitiveInfoProvider>>of(
                             ProtoLangToolchainProvider.class))
                     .value(PROTO_TOOLCHAIN_LABEL))
-            .add(attr(":cc_toolchain", LABEL).value(ccToolchainAttrValue))
+            .add(
+                attr(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL)
+                    .value(ccToolchainAttrValue))
             .add(
                 attr(":lipo_context_collector", LABEL)
                     .cfg(CppRuleClasses.LipoTransition.LIPO_COLLECTOR)
@@ -214,8 +218,7 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
       FeatureConfiguration featureConfiguration =
           CcCommon.configureFeatures(
               ruleContext,
-              requestedFeatures.build(),
-              unsupportedFeatures.build(),
+              FeatureSpecification.create(requestedFeatures.build(), unsupportedFeatures.build()),
               CcLibraryHelper.SourceCategory.CC,
               ccToolchain(ruleContext));
       return featureConfiguration;
@@ -228,7 +231,7 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
               cppSemantics,
               featureConfiguration,
               ccToolchain(ruleContext),
-              CppHelper.getFdoSupport(ruleContext, ":cc_toolchain"));
+              CppHelper.getFdoSupportUsingDefaultCcToolchainAttribute(ruleContext));
       helper.enableCcSpecificLinkParamsProvider();
       helper.enableCcNativeLibrariesProvider();
       // TODO(dougk): Configure output artifact with action_config
@@ -245,7 +248,8 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
 
     private static CcToolchainProvider ccToolchain(RuleContext ruleContext) {
       return CppHelper.getToolchain(
-          ruleContext, ruleContext.getPrerequisite(":cc_toolchain", TARGET));
+          ruleContext,
+          ruleContext.getPrerequisite(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, TARGET));
     }
 
     private ImmutableSet<Artifact> getOutputFiles(
@@ -317,11 +321,12 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
     }
 
     public void addProviders(ConfiguredAspect.Builder builder) {
+      OutputGroupProvider outputGroupProvider = new OutputGroupProvider(outputGroups);
       builder.addProvider(
           new CcProtoLibraryProviders(
-              filesBuilder.build(),
-              ccLibraryProviders.toBuilder().add(new OutputGroupProvider(outputGroups)).build()));
+              filesBuilder.build(), ccLibraryProviders, outputGroupProvider));
       builder.addProviders(ccLibraryProviders);
+      builder.addNativeDeclaredProvider(outputGroupProvider);
       if (headerProvider != null) {
         builder.addProvider(headerProvider);
       }

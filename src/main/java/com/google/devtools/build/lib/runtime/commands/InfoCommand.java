@@ -28,9 +28,11 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -61,10 +63,14 @@ import java.util.TreeMap;
 public class InfoCommand implements BlazeCommand {
 
   public static class Options extends OptionsBase {
-    @Option(name = "show_make_env",
-            defaultValue = "false",
-            category = "misc",
-            help = "Include the \"Make\" environment in the output.")
+    @Option(
+      name = "show_make_env",
+      defaultValue = "false",
+      category = "misc",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Include the \"Make\" environment in the output."
+    )
     public boolean showMakeEnvironment;
   }
 
@@ -91,7 +97,7 @@ public class InfoCommand implements BlazeCommand {
   }
 
   @Override
-  public void editOptions(CommandEnvironment env, OptionsParser optionsParser) { }
+  public void editOptions(OptionsParser optionsParser) { }
 
   @Override
   public ExitCode exec(final CommandEnvironment env, final OptionsProvider optionsProvider) {
@@ -115,10 +121,9 @@ public class InfoCommand implements BlazeCommand {
           env.setupPackageCache(
               optionsProvider, runtime.getDefaultsPackageContent(optionsProvider));
           // TODO(bazel-team): What if there are multiple configurations? [multi-config]
-          configuration = env
-              .getConfigurations(optionsProvider)
-              .getTargetConfigurations().get(0);
-          return configuration;
+          env.getSkyframeExecutor().setConfigurationFactory(runtime.getConfigurationFactory());
+          return env.getSkyframeExecutor().getConfiguration(
+              env.getReporter(), runtime.createBuildOptions(optionsProvider));
         } catch (InvalidConfigurationException e) {
           env.getReporter().handle(Event.error(e.getMessage()));
           throw new ExitCausingRuntimeException(ExitCode.COMMAND_LINE_ERROR);
@@ -202,7 +207,6 @@ public class InfoCommand implements BlazeCommand {
             new InfoItem.BlazeBinInfoItem(productName),
             new InfoItem.BlazeGenfilesInfoItem(productName),
             new InfoItem.BlazeTestlogsInfoItem(productName),
-            new InfoItem.CommandLogInfoItem(),
             new InfoItem.MessageLogInfoItem(),
             new InfoItem.ReleaseInfoItem(productName),
             new InfoItem.ServerPidInfoItem(productName),

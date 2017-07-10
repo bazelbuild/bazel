@@ -29,5 +29,5 @@ public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postabl
    * <p>Provide a presentation of the event according to the specified binary format, as appropriate
    * protocol buffer.
    */
-  BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters pathConverter);
+  BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters);
 }

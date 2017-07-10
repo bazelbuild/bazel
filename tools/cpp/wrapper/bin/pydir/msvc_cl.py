@@ -43,7 +43,6 @@ GCCPATTERNS = [
 
     # This is unneeded for Windows.
     (('-include', '(.+)'), ['/FI$PATH0']),
-    (('/DEPENDENCY_FILE', '(.+)'), ['$GENERATE_DEPS0']),
     ('-w', ['/w']),
     ('-Wall', ['/Wall']),
     ('-Wsign-compare', ['/we4018']),
@@ -70,24 +69,13 @@ GCCPATTERNS = [
 ]
 
 
-def _IsLink(args):
+def _IsLink():
   """Determines whether we need to link rather than compile.
 
-  A set of arguments is for linking if they contain -static, -shared, are adding
-  adding library search paths through -L, or libraries via -l.
-
-  Args:
-    args: List of arguments
-
   Returns:
-    Boolean whether this is a link operation or not.
+    True if USE_LINKER is set to 1.
   """
-  for arg in args:
-    # Certain flags indicate we are linking.
-    if (arg in ['-shared', '-static'] or arg[:2] in ['-l', '-L'] or
-        arg[:3] == '-Wl'):
-      return True
-  return False
+  return 'USE_LINKER' in os.environ and os.environ['USE_LINKER'] == '1'
 
 
 class MsvcCompiler(msvc_tools.WindowsRunner):
@@ -106,18 +94,40 @@ class MsvcCompiler(msvc_tools.WindowsRunner):
       ValueError: if target architecture isn't specified
     """
     parser = msvc_tools.ArgParser(self, argv, GCCPATTERNS)
-    if not parser.target_arch:
-      raise ValueError('Must specify target architecture (-m32 or -m64)')
+
+    # Select runtime option
+    # Find the last runtime option passed
+    rt = None
+    rt_idx = -1
+    for i, opt in enumerate(reversed(parser.options)):
+      if opt in ['/MT', '/MTd', '/MD', '/MDd']:
+        if opt[-1] == 'd':
+          parser.enforce_debug_rt = True
+        rt = opt[:3]
+        rt_idx = len(parser.options) - i - 1
+        break
+    rt = rt or '/MT'  # Default to static runtime
+    # Add debug if necessary
+    if parser.enforce_debug_rt:
+      rt += 'd'
+    # Include runtime option
+    if rt_idx >= 0:
+      parser.options[rt_idx] = rt
+    else:
+      if parser.is_cuda_compilation:
+        parser.options.append('--compiler-options="%s"' % rt)
+      else:
+        parser.options.append(rt)
 
     compiler = 'cl'
     if parser.is_cuda_compilation:
       compiler = 'nvcc'
-    return self.RunBinary(compiler, parser.options, parser.target_arch, parser)
+    return self.RunBinary(compiler, parser.options, parser)
 
 
 def main(argv):
   # If we are supposed to link create a static library.
-  if _IsLink(argv[1:]):
+  if _IsLink():
     return msvc_link.main(argv)
   else:
     return MsvcCompiler().Run(argv[1:])

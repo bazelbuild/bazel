@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import java.io.IOException;
 
 /**
  * Syntax node for an assignment statement.
@@ -27,8 +28,8 @@ public final class AssignmentStatement extends Statement {
   /**
    *  Constructs an assignment: "lvalue := value".
    */
-  AssignmentStatement(Expression lvalue, Expression expression) {
-    this.lvalue = new LValue(lvalue);
+  public AssignmentStatement(LValue lvalue, Expression expression) {
+    this.lvalue = lvalue;
     this.expression = expression;
   }
 
@@ -47,8 +48,12 @@ public final class AssignmentStatement extends Statement {
   }
 
   @Override
-  public String toString() {
-    return lvalue + " = " + expression + '\n';
+  public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
+    printIndent(buffer, indentLevel);
+    lvalue.prettyPrint(buffer, indentLevel);
+    buffer.append(" = ");
+    expression.prettyPrint(buffer, indentLevel);
+    buffer.append('\n');
   }
 
   @Override

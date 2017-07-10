@@ -78,7 +78,7 @@ class SimpleCycleDetector implements CycleDetector {
    * ArrayDeque does not permit null elements.
    */
   private static final SkyKey CHILDREN_FINISHED =
-      SkyKey.create(SkyFunctionName.create("MARKER"), "MARKER");
+      LegacySkyKey.create(SkyFunctionName.create("MARKER"), "MARKER");
 
   /** The max number of cycles we will report to the user for a given root, to avoid OOMing. */
   private static final int MAX_CYCLES = 20;
@@ -160,8 +160,7 @@ class SimpleCycleDetector implements CycleDetector {
                 directDeps,
                 Sets.difference(entry.getAllRemainingDirtyDirectDeps(), removedDeps),
                 evaluatorContext);
-        env.setError(
-            entry, ErrorInfo.fromChildErrors(key, errorDeps), /*isDirectlyTransient=*/ false);
+        env.setError(entry, ErrorInfo.fromChildErrors(key, errorDeps));
         env.commit(entry, EnqueueParentBehavior.SIGNAL);
       } else {
         entry = evaluatorContext.getGraph().get(null, Reason.CYCLE_CHECKING, key);
@@ -220,7 +219,7 @@ class SimpleCycleDetector implements CycleDetector {
           CycleInfo cycleInfo = new CycleInfo(cycle);
           // Add in this cycle.
           allErrors.add(ErrorInfo.fromCycle(cycleInfo));
-          env.setError(entry, ErrorInfo.fromChildErrors(key, allErrors), /*isTransient=*/ false);
+          env.setError(entry, ErrorInfo.fromChildErrors(key, allErrors));
           env.commit(entry, EnqueueParentBehavior.SIGNAL);
           continue;
         } else {

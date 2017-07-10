@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
-import static com.google.devtools.build.lib.rules.cpp.Link.LINK_LIBRARY_FILETYPES;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.ASSET_CATALOG;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_IMPORT_DIR;
@@ -26,7 +25,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FLAG;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_FOR_XCODEGEN;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.GENERAL_RESOURCE_DIR;
@@ -50,11 +48,11 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAME
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STORYBOARD;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STRINGS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.TOP_LEVEL_MODULE_MAP;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.UMBRELLA_HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCDATAMODEL;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XIB;
-import static com.google.devtools.build.lib.vfs.PathFragment.TO_PATH_FRAGMENT;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
@@ -74,8 +72,6 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
-import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -161,7 +157,6 @@ public final class ObjcCommon {
     private Iterable<String> defines = ImmutableList.of();
     private Iterable<PathFragment> includes = ImmutableList.of();
     private Iterable<PathFragment> directDependencyIncludes = ImmutableList.of();
-    private Iterable<PathFragment> userHeaderSearchPaths = ImmutableList.of();
     private IntermediateArtifacts intermediateArtifacts;
     private boolean alwayslink;
     private boolean hasModuleMap;
@@ -333,13 +328,6 @@ public final class ObjcCommon {
       return this;
     }
 
-    /** Adds user header search paths to be passed into compile actions with {@code -iquote}. */
-    public Builder addUserHeaderSearchPaths(Iterable<PathFragment> userHeaderSearchPaths) {
-      this.userHeaderSearchPaths =
-          Iterables.concat(this.userHeaderSearchPaths, userHeaderSearchPaths);
-      return this;
-    }
-
     public Builder addDefines(Iterable<String> defines) {
       this.defines = Iterables.concat(this.defines, defines);
       return this;
@@ -422,7 +410,6 @@ public final class ObjcCommon {
                   DYNAMIC_FRAMEWORK_DIR,
                   uniqueContainers(dynamicFrameworkImports, FRAMEWORK_CONTAINER_TYPE))
               .addAll(INCLUDE, includes)
-              .addAll(IQUOTE, userHeaderSearchPaths)
               .add(IQUOTE, buildConfiguration.getGenfilesFragment())
               .addAllForDirectDependents(INCLUDE, directDependencyIncludes)
               .addAll(DEFINE, defines)
@@ -465,15 +452,6 @@ public final class ObjcCommon {
             .addAll(SDK_FRAMEWORK, frameworkLinkOpts.build())
             .addAll(LINKOPT, nonFrameworkLinkOpts.build())
             .addTransitiveAndPropagate(CC_LIBRARY, params.getLibraries());
-
-        for (LinkerInputs.LibraryToLink library : params.getLibraries()) {
-          Artifact artifact = library.getArtifact();
-          if (LINK_LIBRARY_FILETYPES.matches(artifact.getFilename())) {
-            objcProvider.add(
-                FORCE_LOAD_FOR_XCODEGEN,
-                "$(WORKSPACE_ROOT)/" + artifact.getExecPath().getSafePathString());
-          }
-        }
       }
 
       if (compilationAttributes.isPresent()) {
@@ -483,7 +461,7 @@ public final class ObjcCommon {
                 Interspersing.prependEach(
                     AppleToolchain.sdkDir() + "/usr/include/",
                     PathFragment.safePathStrings(attributes.sdkIncludes())),
-                TO_PATH_FRAGMENT);
+                PathFragment::create);
         objcProvider
             .addAll(HEADER, filterFileset(attributes.hdrs()))
             .addAll(HEADER, filterFileset(attributes.textualHdrs()))
@@ -558,23 +536,19 @@ public final class ObjcCommon {
         for (CompilationArtifacts artifacts : compilationArtifacts.asSet()) {
           for (Artifact archive : artifacts.getArchive().asSet()) {
             objcProvider.add(FORCE_LOAD_LIBRARY, archive);
-            objcProvider.add(
-                FORCE_LOAD_FOR_XCODEGEN,
-                String.format(
-                    "$(BUILT_PRODUCTS_DIR)/lib%s.a",
-                    XcodeProvider.xcodeTargetName(context.getLabel())));
           }
         }
         for (Artifact archive : extraImportLibraries) {
           objcProvider.add(FORCE_LOAD_LIBRARY, archive);
-          objcProvider.add(
-              FORCE_LOAD_FOR_XCODEGEN,
-              "$(WORKSPACE_ROOT)/" + archive.getExecPath().getSafePathString());
         }
       }
 
       if (hasModuleMap) {
         CppModuleMap moduleMap = intermediateArtifacts.moduleMap();
+        Optional<Artifact> umbrellaHeader = moduleMap.getUmbrellaHeader();
+        if (umbrellaHeader.isPresent()) {
+          objcProvider.add(UMBRELLA_HEADER, umbrellaHeader.get());
+        }
         objcProvider.add(MODULE_MAP, moduleMap.getArtifact());
         objcProvider.add(TOP_LEVEL_MODULE_MAP, moduleMap);
       }
@@ -664,25 +638,6 @@ public final class ObjcCommon {
         ruleContext.getTokenizedStringListAttr("copts"));
   }
 
-  static boolean shouldUseObjcModules(RuleContext ruleContext) {
-    for (String copt : getNonCrosstoolCopts(ruleContext)) {
-      if (copt.contains("-fmodules")) {
-        return true;
-      }
-    }
-
-    if (ruleContext.attributes().has("enable_modules", Type.BOOLEAN)
-        && ruleContext.attributes().get("enable_modules", Type.BOOLEAN)) {
-      return true;
-    }
-
-    if (ruleContext.getFragment(ObjcConfiguration.class).moduleMapsEnabled()) {
-      return true;
-    }
-
-    return false;
-  }
-
   static ImmutableSet<PathFragment> userHeaderSearchPaths(
       ObjcProvider provider, BuildConfiguration config) {
     return ImmutableSet.<PathFragment>builder()
@@ -750,7 +705,8 @@ public final class ObjcCommon {
   static Iterable<PathFragment> xcodeStructuredResourceDirs(Iterable<Artifact> artifacts) {
     ImmutableSet.Builder<PathFragment> containers = new ImmutableSet.Builder<>();
     for (Artifact artifact : artifacts) {
-      PathFragment ownerRuleDirectory = artifact.getArtifactOwner().getLabel().getPackageFragment();
+      PathFragment ownerRuleDirectory =
+          artifact.getArtifactOwner().getLabel().getPackageIdentifier().getSourceRoot();
       String containerName =
           artifact.getRootRelativePath().relativeTo(ownerRuleDirectory).getSegment(0);
       PathFragment rootExecPath = artifact.getRoot().getExecPath();

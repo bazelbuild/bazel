@@ -48,7 +48,7 @@ public class OrderTest {
       Order.parse(invalidName);
       fail();
     } catch (IllegalArgumentException ex) {
-      assertThat(ex.getMessage()).startsWith("Invalid order");
+      assertThat(ex).hasMessageThat().startsWith("Invalid order");
     }
   }
 }

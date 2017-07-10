@@ -14,68 +14,58 @@
 
 package com.google.devtools.build.lib.rules.config;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.util.Preconditions;
 
 /** Provider for exporting value and valid value predicate of feature flags to consuming targets. */
 @SkylarkModule(
   name = "FeatureFlagInfo",
   doc = "A provider used to access information about config_feature_flag rules."
 )
-@AutoValue
 @Immutable
-public abstract class ConfigFeatureFlagProvider extends SkylarkClassObject
+public class ConfigFeatureFlagProvider extends SkylarkClassObject
     implements TransitiveInfoProvider {
 
   /** Name used in Skylark for accessing ConfigFeatureFlagProvider. */
   static final String SKYLARK_NAME = "FeatureFlagInfo";
 
   /** Skylark constructor and identifier for ConfigFeatureFlagProvider. */
-  static final ClassObjectConstructor SKYLARK_CONSTRUCTOR =
-      new NativeClassObjectConstructor(SKYLARK_NAME) {};
+  public static final NativeClassObjectConstructor<ConfigFeatureFlagProvider> SKYLARK_CONSTRUCTOR =
+      new NativeClassObjectConstructor<ConfigFeatureFlagProvider>(
+          ConfigFeatureFlagProvider.class, SKYLARK_NAME) {};
 
-  /** Identifier used to retrieve this provider from rules which export it. */
-  private static final SkylarkProviderIdentifier SKYLARK_IDENTIFIER =
-      SkylarkProviderIdentifier.forKey(SKYLARK_CONSTRUCTOR.getKey());
+  private final String value;
+  private final Predicate<String> validityPredicate;
 
-  ConfigFeatureFlagProvider() {
-    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of());
+  private ConfigFeatureFlagProvider(String value, Predicate<String> validityPredicate) {
+    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of("value", value));
+
+    this.value = value;
+    this.validityPredicate = validityPredicate;
   }
 
   /** Creates a new ConfigFeatureFlagProvider with the given value and valid value predicate. */
   public static ConfigFeatureFlagProvider create(String value, Predicate<String> isValidValue) {
-    return new AutoValue_ConfigFeatureFlagProvider(value, isValidValue);
+    return new ConfigFeatureFlagProvider(value, isValidValue);
   }
 
   /** Retrieves and casts the provider from the given target. */
   public static ConfigFeatureFlagProvider fromTarget(TransitiveInfoCollection target) {
-    Object provider = target.get(SKYLARK_IDENTIFIER);
-    if (provider == null) {
-      return null;
-    }
-    Preconditions.checkState(provider instanceof ConfigFeatureFlagProvider);
-    return (ConfigFeatureFlagProvider) provider;
+    return target.get(SKYLARK_CONSTRUCTOR);
   }
 
   /** Gets the current value of the flag in the flag's current configuration. */
-  @SkylarkCallable(
-    name = "value",
-    structField = true,
-    doc = "The value of the flag in the configuration used by the flag rule."
-  )
-  public abstract String getValue();
+  public String getValue() {
+    return value;
+  }
 
   /** Returns whether this value is valid for this flag. */
   @SkylarkCallable(
@@ -90,9 +80,18 @@ public abstract class ConfigFeatureFlagProvider extends SkylarkClassObject
     }
   )
   public boolean isValidValue(String value) {
-    return getIsValidValue().apply(value);
+    return validityPredicate.apply(value);
   }
 
-  /** Gets the predicate which determines valid values for this flag. */
-  abstract Predicate<String> getIsValidValue();
+  // ConfigFeatureFlagProvider instances should all be unique, so we override the default
+  // equals and hashCode from SkylarkClassObject to ensure that. SCO's toString is fine, however.
+  @Override
+  public boolean equals(Object other) {
+    return other == this;
+  }
+
+  @Override
+  public int hashCode() {
+    return System.identityHashCode(this);
+  }
 }

@@ -22,16 +22,21 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.Builder;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.CustomMultiArgv;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 
 /** Utility for generating a call to the one-version binary. */
 public class OneVersionCheckActionBuilder {
 
   public static void build(
-      RuleContext ruleContext, NestedSet<Artifact> jarsToCheck, Artifact oneVersionOutput) {
+      RuleContext ruleContext,
+      NestedSet<Artifact> jarsToCheck,
+      Artifact oneVersionOutput,
+      OneVersionEnforcementLevel enforcementLevel) {
     JavaToolchainProvider javaToolchain = JavaToolchainProvider.fromRuleContext(ruleContext);
     Artifact oneVersionTool = javaToolchain.getOneVersionBinary();
     Artifact oneVersionWhitelist = javaToolchain.getOneVersionWhitelist();
@@ -45,21 +50,26 @@ public class OneVersionCheckActionBuilder {
       return;
     }
 
-    ruleContext.registerAction(new SpawnAction.Builder()
-        .addOutput(oneVersionOutput)
-        .addInput(oneVersionWhitelist)
-        .addTransitiveInputs(jarsToCheck)
-        .setExecutable(oneVersionTool)
-        .setCommandLine(
-            CustomCommandLine.builder()
-                .addExecPath("--output", oneVersionOutput)
-                .addExecPath("--whitelist", oneVersionWhitelist)
-                .add(new OneVersionJarMapArgv(jarsToCheck))
-                .build())
-        .alwaysUseParameterFile(ParameterFileType.SHELL_QUOTED)
-        .setMnemonic("JavaOneVersion")
-        .setProgressMessage("Checking for one-version violations in " + ruleContext.getLabel())
-        .build(ruleContext));
+    Builder oneVersionArgsBuilder =
+        CustomCommandLine.builder()
+            .addExecPath("--output", oneVersionOutput)
+            .addExecPath("--whitelist", oneVersionWhitelist);
+    if (enforcementLevel == OneVersionEnforcementLevel.WARNING) {
+      oneVersionArgsBuilder.add("--succeed_on_found_violations");
+    }
+    oneVersionArgsBuilder.add(new OneVersionJarMapArgv(jarsToCheck));
+    CustomCommandLine oneVersionArgs = oneVersionArgsBuilder.build();
+    ruleContext.registerAction(
+        new SpawnAction.Builder()
+            .addOutput(oneVersionOutput)
+            .addInput(oneVersionWhitelist)
+            .addTransitiveInputs(jarsToCheck)
+            .setExecutable(oneVersionTool)
+            .setCommandLine(oneVersionArgs)
+            .alwaysUseParameterFile(ParameterFileType.SHELL_QUOTED)
+            .setMnemonic("JavaOneVersion")
+            .setProgressMessage("Checking for one-version violations in " + ruleContext.getLabel())
+            .build(ruleContext));
   }
 
   private static class OneVersionJarMapArgv extends CustomMultiArgv {

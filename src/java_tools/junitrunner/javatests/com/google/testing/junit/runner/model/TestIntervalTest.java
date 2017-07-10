@@ -14,7 +14,7 @@
 
 package com.google.testing.junit.runner.model;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
 
 import java.util.Date;
 import java.util.TimeZone;
@@ -31,12 +31,12 @@ public class TestIntervalTest {
   @Test
   public void testCreation() {
     TestInterval interval = new TestInterval(123456, 234567);
-    assertEquals(123456, interval.getStartMillis());
-    assertEquals(234567, interval.getEndMillis());
+    assertThat(interval.getStartMillis()).isEqualTo(123456);
+    assertThat(interval.getEndMillis()).isEqualTo(234567);
 
     interval = new TestInterval(123456, 123456);
-    assertEquals(123456, interval.getStartMillis());
-    assertEquals(123456, interval.getEndMillis());
+    assertThat(interval.getStartMillis()).isEqualTo(123456);
+    assertThat(interval.getEndMillis()).isEqualTo(123456);
   }
 
   @Test
@@ -48,18 +48,17 @@ public class TestIntervalTest {
 
   @Test
   public void testToDuration() {
-    assertEquals(100, new TestInterval(50, 150).toDurationMillis());
-    assertEquals(0, new TestInterval(100, 100).toDurationMillis());
+    assertThat(new TestInterval(50, 150).toDurationMillis()).isEqualTo(100);
+    assertThat(new TestInterval(100, 100).toDurationMillis()).isEqualTo(0);
   }
 
   @Test
   public void testDateFormat() {
     Date date = new Date(1471709734000L);
     TestInterval interval = new TestInterval(date.getTime(), date.getTime() + 100);
-    assertEquals(
-        "2016-08-20T12:15:34.000-04:00",
-        interval.startInstantToString(TimeZone.getTimeZone("America/New_York")));
-    assertEquals(
-        "2016-08-20T16:15:34.000Z", interval.startInstantToString(TimeZone.getTimeZone("GMT")));
+    assertThat(interval.startInstantToString(TimeZone.getTimeZone("America/New_York")))
+        .isEqualTo("2016-08-20T12:15:34.000-04:00");
+    assertThat(interval.startInstantToString(TimeZone.getTimeZone("GMT")))
+        .isEqualTo("2016-08-20T16:15:34.000Z");
   }
 }

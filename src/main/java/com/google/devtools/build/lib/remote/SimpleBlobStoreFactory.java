@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.remote;
 
+import com.google.devtools.build.lib.remote.blobstore.ConcurrentMapBlobStore;
+import com.google.devtools.build.lib.remote.blobstore.RestBlobStore;
+import com.google.devtools.build.lib.remote.blobstore.SimpleBlobStore;
 import com.hazelcast.client.HazelcastClient;
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.client.config.ClientNetworkConfig;
@@ -21,19 +24,8 @@ import com.hazelcast.client.config.XmlClientConfigBuilder;
 import com.hazelcast.config.Config;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.concurrent.ConcurrentMap;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.HttpStatus;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpHead;
-import org.apache.http.client.methods.HttpPut;
-import org.apache.http.entity.ByteArrayEntity;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.util.EntityUtils;
 
 /**
  * A factory class for providing a {@link SimpleBlobStore} to be used with {@link
@@ -44,30 +36,6 @@ public final class SimpleBlobStoreFactory {
   private static final String HAZELCAST_CACHE_NAME = "hazelcast-build-cache";
 
   private SimpleBlobStoreFactory() {}
-
-  /** A {@link SimpleBlobStore} implementation using a {@link ConcurrentMap}. */
-  public static class ConcurrentMapBlobStore implements SimpleBlobStore {
-    private final ConcurrentMap<String, byte[]> map;
-
-    public ConcurrentMapBlobStore(ConcurrentMap<String, byte[]> map) {
-      this.map = map;
-    }
-
-    @Override
-    public boolean containsKey(String key) {
-      return map.containsKey(key);
-    }
-
-    @Override
-    public byte[] get(String key) {
-      return map.get(key);
-    }
-
-    @Override
-    public void put(String key, byte[] value) {
-      map.put(key, value);
-    }
-  }
 
   /** Construct a {@link SimpleBlobStore} using Hazelcast's version of {@link ConcurrentMap} */
   public static SimpleBlobStore createHazelcast(RemoteOptions options) {
@@ -102,92 +70,8 @@ public final class SimpleBlobStoreFactory {
     return new ConcurrentMapBlobStore(instance.<String, byte[]>getMap(HAZELCAST_CACHE_NAME));
   }
 
-  /**
-   * Implementation of {@link SimpleBlobStore} with a REST service. The REST service needs to
-   * support the following HTTP methods.
-   *
-   * <p>PUT /cache/1234 HTTP/1.1 PUT method is used to upload a blob with a base16 key. In this
-   * example the key is 1234. Valid status codes are 200, 201, 202 and 204.
-   *
-   * <p>GET /cache/1234 HTTP/1.1 GET method fetches a blob with the specified key. In this example
-   * the key is 1234. A status code of 200 should be followed by the content of blob. Status code of
-   * 404 or 204 means the key cannot be found.
-   *
-   * <p>HEAD /cache/1234 HTTP/1.1 HEAD method checks to see if the specified key exists in the blob
-   * store. A status code of 200 indicates the key is found in the blob store. A status code of 404
-   * indicates the key is not found in the blob store.
-   */
-  private static class RestBlobStore implements SimpleBlobStore {
-
-    private final String baseUrl;
-
-    RestBlobStore(String baseUrl) {
-      this.baseUrl = baseUrl;
-    }
-
-    @Override
-    public boolean containsKey(String key) {
-      try {
-        HttpClient client = new DefaultHttpClient();
-        HttpHead head = new HttpHead(baseUrl + "/" + key);
-        HttpResponse response = client.execute(head);
-        int statusCode = response.getStatusLine().getStatusCode();
-        return HttpStatus.SC_OK == statusCode;
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
-    }
-
-    @Override
-    public byte[] get(String key) {
-      try {
-        HttpClient client = new DefaultHttpClient();
-        HttpGet get = new HttpGet(baseUrl + "/" + key);
-        HttpResponse response = client.execute(get);
-        int statusCode = response.getStatusLine().getStatusCode();
-        if (HttpStatus.SC_NOT_FOUND == statusCode || HttpStatus.SC_NO_CONTENT == statusCode) {
-          return null;
-        }
-        if (HttpStatus.SC_OK != statusCode) {
-          throw new RuntimeException("GET failed with status code " + statusCode);
-        }
-        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-        HttpEntity entity = response.getEntity();
-        entity.writeTo(buffer);
-        buffer.flush();
-        EntityUtils.consume(entity);
-
-        return buffer.toByteArray();
-
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
-    }
-
-    @Override
-    public void put(String key, byte[] value) {
-      try {
-        HttpClient client = new DefaultHttpClient();
-        HttpPut put = new HttpPut(baseUrl + "/" + key);
-        put.setEntity(new ByteArrayEntity(value));
-        HttpResponse response = client.execute(put);
-        int statusCode = response.getStatusLine().getStatusCode();
-
-        // Accept more than SC_OK to be compatible with Nginx WebDav module.
-        if (HttpStatus.SC_OK != statusCode
-            && HttpStatus.SC_ACCEPTED != statusCode
-            && HttpStatus.SC_CREATED != statusCode
-            && HttpStatus.SC_NO_CONTENT != statusCode) {
-          throw new RuntimeException("PUT failed with status code " + statusCode);
-        }
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
-    }
-  }
-
   public static SimpleBlobStore createRest(RemoteOptions options) {
-    return new RestBlobStore(options.restCacheUrl);
+    return new RestBlobStore(options.remoteRestCache, options.restCachePoolSize);
   }
 
   public static SimpleBlobStore create(RemoteOptions options) {
@@ -213,6 +97,6 @@ public final class SimpleBlobStoreFactory {
   }
 
   private static boolean isRestUrlOptions(RemoteOptions options) {
-    return options.restCacheUrl != null;
+    return options.remoteRestCache != null;
   }
 }

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -61,8 +62,8 @@ public final class Runtime {
     }
 
     @Override
-    public void write(Appendable buffer, char quotationMark) {
-      Printer.append(buffer, "None");
+    public void repr(SkylarkPrinter printer) {
+      printer.append("None");
     }
   }
 
@@ -82,8 +83,8 @@ public final class Runtime {
     }
 
     @Override
-    public void write(Appendable buffer, char quotationMark) {
-      Printer.append(buffer, "<unbound>");
+    public void repr(SkylarkPrinter printer) {
+      printer.append("<unbound>");
     }
   }
 
@@ -146,9 +147,7 @@ public final class Runtime {
     Preconditions.checkArgument(nameSpace.equals(getCanonicalRepresentation(nameSpace)));
     Preconditions.checkArgument(
         getCanonicalRepresentation(function.getObjectType()).equals(nameSpace));
-    if (!functions.containsKey(nameSpace)) {
-      functions.put(nameSpace, new HashMap<String, BaseFunction>());
-    }
+    functions.computeIfAbsent(nameSpace, k -> new HashMap<String, BaseFunction>());
     functions.get(nameSpace).put(function.getName(), function);
   }
 

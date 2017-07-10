@@ -21,9 +21,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -132,7 +132,7 @@ public final class GlobList<E> extends ForwardingList<E> implements SkylarkValue
   }
 
   @Override
-  public void write(Appendable buffer, char quotationMark) {
-    Printer.printList(buffer, this, false, quotationMark);
+  public void repr(SkylarkPrinter printer) {
+    printer.printList(this, false);
   }
 }

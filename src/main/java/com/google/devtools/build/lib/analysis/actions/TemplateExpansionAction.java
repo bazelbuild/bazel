@@ -30,8 +30,8 @@ import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.protobuf.ByteString;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
@@ -353,13 +353,8 @@ public final class TemplateExpansionAction extends AbstractFileWriteAction {
 
   @Override
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) throws IOException {
-    final byte[] bytes = getFileContents().getBytes(Template.DEFAULT_CHARSET);
-    return new DeterministicWriter() {
-      @Override
-      public void writeOutputFile(OutputStream out) throws IOException {
-        out.write(bytes);
-      }
-    };
+    return new ByteStringDeterministicWriter(
+        ByteString.copyFrom(getFileContents().getBytes(Template.DEFAULT_CHARSET)));
   }
 
   @Override

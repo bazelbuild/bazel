@@ -108,8 +108,8 @@ public class AndroidSkylarkSplitTransitionTest extends BuildViewTestCase {
     for (ConfiguredTarget ct : attrDeps) {
       attrDepsMap.put(ct.getConfiguration().getCpu(), target);
     }
-    assertThat(attrDepsMap.get("k8")).hasSize(2);
-    assertThat(attrDepsMap.get("armeabi-v7a")).hasSize(2);
+    assertThat(attrDepsMap).valuesForKey("k8").hasSize(2);
+    assertThat(attrDepsMap).valuesForKey("armeabi-v7a").hasSize(2);
 
     // Check that even though my_rule.dep is defined as a single label, ctx.attr.dep is still a list
     // with multiple ConfiguredTarget objects because of the two different CPUs. 
@@ -120,8 +120,8 @@ public class AndroidSkylarkSplitTransitionTest extends BuildViewTestCase {
     for (ConfiguredTarget ct : attrDep) {
       attrDepMap.put(ct.getConfiguration().getCpu(), target);
     }
-    assertThat(attrDepMap.get("k8")).hasSize(1);
-    assertThat(attrDepMap.get("armeabi-v7a")).hasSize(1);
+    assertThat(attrDepMap).valuesForKey("k8").hasSize(1);
+    assertThat(attrDepMap).valuesForKey("armeabi-v7a").hasSize(1);
 
     // Check that the deps were correctly accessed from within Skylark.
     @SuppressWarnings("unchecked")

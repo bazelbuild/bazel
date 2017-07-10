@@ -13,38 +13,39 @@
 // limitations under the License.
 package com.google.devtools.build.android.resources;
 
+import com.google.common.base.MoreObjects;
 import java.io.IOException;
 import java.io.Writer;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.commons.InstructionAdapter;
 
-/**
- * Models an int field initializer.
- */
+/** Models an int field initializer. */
 public final class IntFieldInitializer implements FieldInitializer {
 
-  private final String fieldName;
   private final int value;
   private static final String DESC = "I";
 
-  public IntFieldInitializer(String fieldName, int value) {
-    this.fieldName = fieldName;
+  private IntFieldInitializer(int value) {
     this.value = value;
   }
 
-  public static FieldInitializer of(String name, String value) {
-    return new IntFieldInitializer(name, Integer.decode(value));
+  public static FieldInitializer of(String value) {
+    return of(Integer.decode(value));
+  }
+
+  public static IntFieldInitializer of(int value) {
+    return new IntFieldInitializer(value);
   }
 
   @Override
-  public boolean writeFieldDefinition(ClassWriter cw, int accessLevel, boolean isFinal) {
-    cw.visitField(accessLevel, fieldName, DESC, null, isFinal ? value : null)
-        .visitEnd();
+  public boolean writeFieldDefinition(
+      String fieldName, ClassWriter cw, int accessLevel, boolean isFinal) {
+    cw.visitField(accessLevel, fieldName, DESC, null, isFinal ? value : null).visitEnd();
     return !isFinal;
   }
 
   @Override
-  public int writeCLInit(InstructionAdapter insts, String className) {
+  public int writeCLInit(String fieldName, InstructionAdapter insts, String className) {
     insts.iconst(value);
     insts.putstatic(className, fieldName, DESC);
     // Just needs one stack slot for the iconst.
@@ -52,8 +53,30 @@ public final class IntFieldInitializer implements FieldInitializer {
   }
 
   @Override
-  public void writeInitSource(Writer writer) throws IOException {
-    writer.write(String.format("        public static int %s = 0x%x;\n",
-        fieldName, value));
+  public void writeInitSource(String fieldName, Writer writer, boolean finalFields)
+      throws IOException {
+    writer.write(
+        String.format(
+            "        public static %sint %s = 0x%x;\n",
+            finalFields ? "final " : "", fieldName, value));
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(getClass()).add("value", value).toString();
+  }
+
+  @Override
+  public int hashCode() {
+    return value;
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (obj instanceof IntFieldInitializer) {
+      IntFieldInitializer other = (IntFieldInitializer) obj;
+      return value == other.value;
+    }
+    return false;
   }
 }
