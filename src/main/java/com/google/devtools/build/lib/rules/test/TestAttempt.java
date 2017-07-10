@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import java.util.Collection;
+import java.util.List;
 
 /** This event is raised whenever an individual test attempt is completed. */
 public class TestAttempt implements BuildEvent {
@@ -37,6 +38,7 @@ public class TestAttempt implements BuildEvent {
   private final int attempt;
   private final boolean lastAttempt;
   private final Collection<Pair<String, Path>> files;
+  private final List<String> testWarnings;
   private final long durationMillis;
   private final long startTimeMillis;
 
@@ -55,6 +57,7 @@ public class TestAttempt implements BuildEvent {
       long startTimeMillis,
       long durationMillis,
       Collection<Pair<String, Path>> files,
+      List<String> testWarnings,
       boolean lastAttempt) {
     this.testAction = testAction;
     this.attempt = attempt;
@@ -63,6 +66,7 @@ public class TestAttempt implements BuildEvent {
     this.startTimeMillis = startTimeMillis;
     this.durationMillis = durationMillis;
     this.files = files;
+    this.testWarnings = testWarnings;
     this.lastAttempt = lastAttempt;
   }
 
@@ -73,8 +77,10 @@ public class TestAttempt implements BuildEvent {
       long startTimeMillis,
       long durationMillis,
       Collection<Pair<String, Path>> files,
+      List<String> testWarnings,
       boolean lastAttempt) {
-    this(false, testAction, attempt, status, startTimeMillis, durationMillis, files, lastAttempt);
+    this(false, testAction, attempt, status, startTimeMillis, durationMillis, files, testWarnings,
+        lastAttempt);
   }
 
   public static TestAttempt fromCachedTestResult(TestResult result) {
@@ -87,6 +93,7 @@ public class TestAttempt implements BuildEvent {
         data.getStartTimeMillisEpoch(),
         data.getRunDurationMillis(),
         result.getFiles(),
+        result.getData().getWarningList(),
         true);
   }
 
@@ -124,6 +131,7 @@ public class TestAttempt implements BuildEvent {
     builder.setCachedLocally(cachedLocally);
     builder.setTestAttemptStartMillisEpoch(startTimeMillis);
     builder.setTestAttemptDurationMillis(durationMillis);
+    builder.addAllWarning(testWarnings);
     for (Pair<String, Path> file : files) {
       builder.addTestActionOutput(
           BuildEventStreamProtos.File.newBuilder()

@@ -179,6 +179,7 @@ public class StandaloneTestStrategy extends TestStrategy {
                   data.getStartTimeMillisEpoch(),
                   data.getRunDurationMillis(),
                   testOutputsBuilder.build(),
+                  data.getWarningList(),
                   true));
       finalizeTest(actionExecutionContext, action, dataBuilder.build());
     } catch (IOException e) {
@@ -227,6 +228,7 @@ public class StandaloneTestStrategy extends TestStrategy {
                 data.getStartTimeMillisEpoch(),
                 data.getRunDurationMillis(),
                 testOutputsBuilder.build(),
+                data.getWarningList(),
                 false));
     processTestOutput(actionExecutionContext, new TestResult(action, data, false), testLog);
   }
