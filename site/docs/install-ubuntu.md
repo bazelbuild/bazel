@@ -8,7 +8,6 @@ title: Installing Bazel on Ubuntu
 Supported Ubuntu Linux platforms:
 
 *   16.04 (LTS)
-*   15.10
 *   14.04 (LTS)
 
 Install Bazel on Ubuntu using one of the following methods:
@@ -24,9 +23,24 @@ Bazel comes with two completion scripts. After installing Bazel, you can:
 
 ## <a name="install-on-ubuntu"></a> Using Bazel custom APT repository (recommended)
 
-### 1. Add Bazel distribution URI as a package source (one time setup)
+### 1. Install JDK 8
 
+Install JDK 8 by using:
+
+```bash
+sudo apt-get install openjdk-8-jdk
 ```
+
+On Ubuntu 14.04 LTS you'll have to use a PPA:
+
+```bash
+sudo add-apt-repository ppa:webupd8team/java
+sudo apt-get update && sudo apt-get install oracle-java8-installer
+```
+
+### 2. Add Bazel distribution URI as a package source (one time setup)
+
+```bash
 echo "deb [arch=amd64] http://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
 curl https://bazel.build/bazel-release.pub.gpg | sudo apt-key add -
 ```
@@ -34,7 +48,7 @@ curl https://bazel.build/bazel-release.pub.gpg | sudo apt-key add -
 If you want to install the testing version of Bazel, replace `stable` with
 `testing`.
 
-### 2. Install and update Bazel
+### 3. Install and update Bazel
 
 ```bash
 sudo apt-get update && sudo apt-get install bazel
@@ -55,7 +69,7 @@ libraries must also be installed for Bazel to work.
 
 ### 1. Install required packages
 
-```
+```bash
 sudo apt-get install pkg-config zip g++ zlib1g-dev unzip
 ```
 
