@@ -397,6 +397,7 @@ function test_query() {
 function test_command_whitelisting() {
   # We expect the "help" command to not generate a build-event stream,
   # but the "build" command to do.
+  bazel shutdown
   rm -f bep.txt
   bazel help --build_event_text_file=bep.txt || fail "bazel help failed"
   ( [ -f bep.txt ] && fail "bazel help generated a build-event file" ) || :
@@ -405,7 +406,7 @@ function test_command_whitelisting() {
   bazel build --build_event_text_file=bep.txt //pkg:true \
       || fail "bazel build failed"
   [ -f bep.txt ] || fail "build did not generate requested build-event file"
-  rm -f bep.txt
+  bazel shutdown
 }
 
 function test_multiple_transports() {
