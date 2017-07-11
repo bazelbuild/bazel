@@ -28,9 +28,6 @@ import java.util.Objects;
  * the WORKSPACE file.
  */
 public class WorkspaceNameValue implements SkyValue {
-  private static final SkyKey KEY =
-      LegacySkyKey.create(SkyFunctions.WORKSPACE_NAME, DummyArgument.INSTANCE);
-
   private final String workspaceName;
 
   private WorkspaceNameValue(String workspaceName) {
@@ -44,9 +41,21 @@ public class WorkspaceNameValue implements SkyValue {
     return workspaceName;
   }
 
-  /** Returns the (singleton) {@link SkyKey} for {@link WorkspaceNameValue}s. */
+  /** Returns the {@link SkyKey} for {@link WorkspaceNameValue}s. */
   public static SkyKey key() {
-    return KEY;
+    return createKey(false);
+  }
+
+  /**
+   * Returns the {@link SkyKey} for a less-aggressive {@link WorkspaceNameValue} query, when
+   * we don't want to parse the whole WORKSPACE file.
+   */
+  public static SkyKey firstChunk() {
+    return createKey(true);
+  }
+
+  private static SkyKey createKey(boolean firstChunk) {
+    return LegacySkyKey.create(SkyFunctions.WORKSPACE_NAME, firstChunk);
   }
 
   /** Returns a {@link WorkspaceNameValue} for a workspace with the given name. */
@@ -71,29 +80,5 @@ public class WorkspaceNameValue implements SkyValue {
   @Override
   public String toString() {
     return String.format("WorkspaceNameValue[name=%s]", workspaceName);
-  }
-
-  /** Singleton class used as the {@link SkyKey#argument} for {@link WorkspaceNameValue#key}. */
-  public static final class DummyArgument {
-    static final int HASHCODE = DummyArgument.class.getCanonicalName().hashCode();
-    public static final DummyArgument INSTANCE = new DummyArgument();
-
-    private DummyArgument() {
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      return obj instanceof DummyArgument;
-    }
-
-    @Override
-    public int hashCode() {
-      return HASHCODE;
-    }
-
-    @Override
-    public String toString() {
-      return "#";
-    }
   }
 }

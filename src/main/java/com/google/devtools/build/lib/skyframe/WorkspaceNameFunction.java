@@ -14,9 +14,11 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -34,16 +36,45 @@ public class WorkspaceNameFunction implements SkyFunction {
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, WorkspaceNameFunctionException {
+    boolean firstChunk = (boolean) skyKey.argument();
+    Package externalPackage = firstChunk ? firstChunk(env) : parseFullPackage(env);
+    if (externalPackage == null) {
+      return null;
+    }
+    if (externalPackage.containsErrors()) {
+      Event.replayEventsOn(env.getListener(), externalPackage.getEvents());
+      throw new WorkspaceNameFunctionException();
+    }
+    return WorkspaceNameValue.withName(externalPackage.getWorkspaceName());
+  }
+
+  /**
+   * This just examines the first chunk of the WORKSPACE file to avoid circular dependencies and
+   * overeager invalidation during package loading.
+   */
+  private Package firstChunk(Environment env) throws InterruptedException {
+    SkyKey packageLookupKey = PackageLookupValue.key(Label.EXTERNAL_PACKAGE_IDENTIFIER);
+    PackageLookupValue packageLookupValue = (PackageLookupValue) env.getValue(packageLookupKey);
+    if (packageLookupValue == null) {
+      return null;
+    }
+    RootedPath workspacePath = packageLookupValue.getRootedPath(Label.EXTERNAL_PACKAGE_IDENTIFIER);
+
+    SkyKey workspaceKey = WorkspaceFileValue.key(workspacePath);
+    WorkspaceFileValue value = (WorkspaceFileValue) env.getValue(workspaceKey);
+    if (value == null) {
+      return null;
+    }
+    return value.getPackage();
+  }
+
+  private Package parseFullPackage(Environment env) throws InterruptedException {
     SkyKey externalPackageKey = PackageValue.key(Label.EXTERNAL_PACKAGE_IDENTIFIER);
     PackageValue externalPackageValue = (PackageValue) env.getValue(externalPackageKey);
     if (externalPackageValue == null) {
       return null;
     }
-    Package externalPackage = externalPackageValue.getPackage();
-    if (externalPackage.containsErrors()) {
-      throw new WorkspaceNameFunctionException();
-    }
-    return WorkspaceNameValue.withName(externalPackage.getWorkspaceName());
+    return externalPackageValue.getPackage();
   }
 
   @Override

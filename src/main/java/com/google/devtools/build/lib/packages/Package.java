@@ -207,9 +207,13 @@ public class Package {
    * @precondition {@code name} must be a suffix of
    * {@code filename.getParentDirectory())}.
    */
-  protected Package(PackageIdentifier packageId, String runfilesPrefix) {
-    this.packageIdentifier = packageId;
-    this.workspaceName = runfilesPrefix;
+  protected Package(PackageIdentifier packageId, String workspaceName) {
+    this.workspaceName = workspaceName;
+    if (workspaceName.equals(packageId.getRepository().strippedName())) {
+      this.packageIdentifier = PackageIdentifier.createInMainRepo(packageId.getPackageFragment());
+    } else {
+      this.packageIdentifier = packageId;
+    }
     this.nameFragment = Canonicalizer.fragments().intern(packageId.getPackageFragment());
     this.name = nameFragment.getPathString();
   }
@@ -300,7 +304,6 @@ public class Package {
       throw new IllegalArgumentException(
           "Invalid BUILD file name for package '" + packageIdentifier + "': " + filename);
     }
-
     this.makeEnv = builder.makeEnv.build();
     this.targets = ImmutableSortedKeyMap.copyOf(builder.targets);
     this.defaultVisibility = builder.defaultVisibility;

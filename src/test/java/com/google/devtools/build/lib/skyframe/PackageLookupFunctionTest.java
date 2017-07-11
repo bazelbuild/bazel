@@ -123,6 +123,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
                     ruleClassProvider,
                     scratch.getFileSystem()),
             directories));
+    skyFunctions.put(SkyFunctions.WORKSPACE_NAME, new WorkspaceNameFunction());
     skyFunctions.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction());
     skyFunctions.put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction());
     skyFunctions.put(

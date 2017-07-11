@@ -297,7 +297,7 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
 
     invalidatePackages();
     try {
-      getTarget("@//:git_repo");
+      getTarget("@git_repo//:whatever");
       fail();
     } catch (AssertionError expected) {
       assertThat(expected)
@@ -332,7 +332,7 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
       fail();
     } catch (NoSuchPackageException e) {
       // This is expected
-      assertThat(e).hasMessageThat().contains("Could not load //external package");
+      assertThat(e).hasMessageThat().contains("Package 'external' contains errors");
     }
     assertContainsEvent("missing value for mandatory attribute 'path' in 'local_repository' rule");
   }
