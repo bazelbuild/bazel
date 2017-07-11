@@ -100,7 +100,6 @@ public class ConfigFeatureFlag implements RuleConfiguredTargetFactory {
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
-        .addProvider(ConfigFeatureFlagProvider.class, provider)
         .addNativeDeclaredProvider(provider)
         .build();
   }
