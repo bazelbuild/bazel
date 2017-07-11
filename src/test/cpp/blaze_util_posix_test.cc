@@ -17,6 +17,7 @@
 #include <sys/wait.h>
 
 #include <inttypes.h>
+#include <string.h>
 #include <unistd.h>
 
 #include <cerrno>
@@ -87,7 +88,7 @@ class UnlimitResourcesTest : public testing::Test {
   static struct rlimit GetrlimitOrDie(const int resource) {
     struct rlimit rl;
     if (getrlimit(resource, &rl) == -1) {
-      Die("getrlimit(%d) failed: %s\n", resource, std::strerror(errno));
+      Die("getrlimit(%d) failed: %s\n", resource, strerror(errno));
     }
     return rl;
   }
@@ -98,7 +99,7 @@ class UnlimitResourcesTest : public testing::Test {
     if (setrlimit(resource, &rl) == -1) {
       Die("setrlimit(%d) failed with cur=%" PRIdMAX ", max=%" PRIdMAX ": %s\n",
           resource, static_cast<intmax_t>(rl.rlim_cur),
-          static_cast<intmax_t>(rl.rlim_max), std::strerror(errno));
+          static_cast<intmax_t>(rl.rlim_max), strerror(errno));
     }
   }
 
