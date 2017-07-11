@@ -19,6 +19,7 @@ import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.profiler.Profiler.ProfiledTaskKinds;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.BlazeClock;
@@ -47,10 +48,17 @@ public class ProfilerTest extends FoundationTestCase {
 
   private Path cacheDir;
   private Profiler profiler = Profiler.instance();
+  private ManualClock clock;
 
   @Before
   public final void createCacheDirectory() throws Exception {
     cacheDir = scratch.dir("/tmp");
+  }
+
+  @Before
+  public final void setManualClock() {
+    clock = new ManualClock();
+    BlazeClock.setClock(clock);
   }
 
   @Test
@@ -93,16 +101,16 @@ public class ProfilerTest extends FoundationTestCase {
     Path cacheFile = cacheDir.getRelative("profile1.dat");
     profiler.start(ProfiledTaskKinds.ALL, cacheFile.getOutputStream(), "basic test", false,
         BlazeClock.instance(), BlazeClock.instance().nanoTime());
-    profiler.logSimpleTask(getTestClock().nanoTime(),
+    profiler.logSimpleTask(BlazeClock.instance().nanoTime(),
                            ProfilerTask.PHASE, "profiler start");
     profiler.startTask(ProfilerTask.ACTION, "complex task");
     profiler.logEvent(ProfilerTask.PHASE, "event1");
     profiler.startTask(ProfilerTask.ACTION_CHECK, "complex subtask");
     // next task takes less than 10 ms and should be only aggregated
-    profiler.logSimpleTask(getTestClock().nanoTime(),
+    profiler.logSimpleTask(BlazeClock.instance().nanoTime(),
                            ProfilerTask.VFS_STAT, "stat1");
-    long startTime = getTestClock().nanoTime();
-    Thread.sleep(20);
+    long startTime = BlazeClock.instance().nanoTime();
+    clock.advanceMillis(20);
     // this one will take at least 20 ms and should be present
     profiler.logSimpleTask(startTime, ProfilerTask.VFS_STAT, "stat2");
     profiler.completeTask(ProfilerTask.ACTION_CHECK);
@@ -154,7 +162,8 @@ public class ProfilerTest extends FoundationTestCase {
         BlazeClock.instance(), BlazeClock.instance().nanoTime());
     profiler.startTask(ProfilerTask.ACTION, "action task");
     // Next task takes less than 10 ms but should be recorded anyway.
-    profiler.logSimpleTask(getTestClock().nanoTime(), ProfilerTask.VFS_STAT, "stat1");
+    clock.advanceMillis(1);
+    profiler.logSimpleTask(BlazeClock.instance().nanoTime(), ProfilerTask.VFS_STAT, "stat1");
     profiler.completeTask(ProfilerTask.ACTION);
     profiler.stop();
     ProfileInfo info = ProfileInfo.loadProfile(cacheFile);
@@ -296,7 +305,7 @@ public class ProfilerTest extends FoundationTestCase {
     profiler.markPhase(ProfilePhase.LOAD);
     thread1.start();
     thread1.join();
-    Thread.sleep(1);
+    clock.advanceMillis(1);
     profiler.markPhase(ProfilePhase.ANALYZE);
     Thread thread2 = new Thread() {
       @Override public void run() {
@@ -314,7 +323,7 @@ public class ProfilerTest extends FoundationTestCase {
     thread2.start();
     thread2.join();
     profiler.logEvent(ProfilerTask.TEST, "last task");
-    Thread.sleep(1);
+    clock.advanceMillis(1);
     profiler.stop();
 
     ProfileInfo info = ProfileInfo.loadProfile(cacheFile);
@@ -345,6 +354,7 @@ public class ProfilerTest extends FoundationTestCase {
         BlazeClock.instance(), BlazeClock.instance().nanoTime());
     for (int i = 0; i < 100; i++) {
       profiler.startTask(ProfilerTask.TEST, "outer task " + i);
+      clock.advanceMillis(1);
       profiler.logEvent(ProfilerTask.TEST, "inner task " + i);
       profiler.completeTask(ProfilerTask.TEST);
     }
@@ -361,8 +371,8 @@ public class ProfilerTest extends FoundationTestCase {
     info.calculateStats();
     assertThat(info.isCorruptedOrIncomplete()).isTrue();
     // Since root tasks will appear after nested tasks in the profile file and
-    // we have exactly one nested task for each root task, then following will be
-    // always true for our corrupted file:
+    // we have exactly one nested task for each root task, the following will always
+    // be true for our corrupted file:
     // 0 <= number_of_all_tasks - 2*number_of_root_tasks <= 1
     assertThat(info.allTasksById.size() / 2).isEqualTo(info.rootTasksById.size());
   }
@@ -433,9 +443,4 @@ public class ProfilerTest extends FoundationTestCase {
     profiler.logSimpleTask(badClock.nanoTime(), ProfilerTask.TEST, "some task");
     profiler.stop();
   }
-
-  private Clock getTestClock() {
-    return BlazeClock.instance();
-  }
-
 }
