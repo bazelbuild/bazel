@@ -26,6 +26,8 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration.Configuratio
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
@@ -406,7 +408,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
             + "\"embedded\", and \"embedded_markers\""
   )
   @Immutable
-  public enum AppleBitcodeMode {
+  public enum AppleBitcodeMode implements SkylarkValue {
 
     /** Do not compile bitcode. */
     NONE("none", ImmutableList.<String>of()),
@@ -433,6 +435,11 @@ public class AppleCommandLineOptions extends FragmentOptions {
     @Override
     public String toString() {
       return mode;
+    }
+
+    @Override
+    public void repr(SkylarkPrinter printer) {
+      printer.append(mode);
     }
 
     /** Returns the names of any crosstool features that correspond to this bitcode mode. */

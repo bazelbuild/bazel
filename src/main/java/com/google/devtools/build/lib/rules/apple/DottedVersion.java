@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import java.util.ArrayList;
 import java.util.Objects;
 import java.util.regex.Matcher;
@@ -38,7 +40,9 @@ import java.util.regex.Pattern;
  *
  * <p>Dotted versions are ordered using natural integer sorting on components in order from first to
  * last where any missing element is considered to have the value 0 if they don't contain any
- * non-numeric characters. For example: <pre>
+ * non-numeric characters. For example:
+ *
+ * <pre>
  *   3.1.25 > 3.1.1
  *   3.1.20 > 3.1.2
  *   3.1.1 > 3.1
@@ -51,7 +55,9 @@ import java.util.regex.Pattern;
  * component with a smaller integer. If the integers are the same, the alphabetic sequences are
  * compared lexicographically, and if <i>they</i> turn out to be the same, the final (optional)
  * integer is compared. As with the leading integer, this final integer is considered to be 0 if not
- * present. For example: <pre>
+ * present. For example:
+ *
+ * <pre>
  *   3.1.1 > 3.1.1beta3
  *   3.1.1beta1 > 3.1.0
  *   3.1 > 3.1.0alpha1
@@ -72,7 +78,7 @@ import java.util.regex.Pattern;
           + "1.2.3.4."
 )
 @Immutable
-public final class DottedVersion implements Comparable<DottedVersion> {
+public final class DottedVersion implements Comparable<DottedVersion>, SkylarkValue {
   private static final Splitter DOT_SPLITTER = Splitter.on('.');
   private static final Pattern COMPONENT_PATTERN = Pattern.compile("(\\d+)(?:([a-z]+)(\\d*))?");
   private static final String ILLEGAL_VERSION =
@@ -236,6 +242,11 @@ public final class DottedVersion implements Comparable<DottedVersion> {
       return components.get(groupIndex);
     }
     return ZERO_COMPONENT;
+  }
+
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    printer.append(stringRepresentation);
   }
 
   private static final class Component implements Comparable<Component> {

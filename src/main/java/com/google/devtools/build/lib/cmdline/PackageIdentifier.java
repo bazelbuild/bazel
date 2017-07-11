@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.cmdline;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrinter;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Canonicalizer;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -27,12 +29,13 @@ import javax.annotation.concurrent.Immutable;
 /**
  * Uniquely identifies a package, given a repository name and a package's path fragment.
  *
- * <p>The repository the build is happening in is the <i>default workspace</i>, and is identified
- * by the workspace name "". Other repositories can be named in the WORKSPACE file.  These
- * workspaces are prefixed by {@literal @}.</p>
+ * <p>The repository the build is happening in is the <i>default workspace</i>, and is identified by
+ * the workspace name "". Other repositories can be named in the WORKSPACE file. These workspaces
+ * are prefixed by {@literal @}.
  */
 @Immutable
-public final class PackageIdentifier implements Comparable<PackageIdentifier>, Serializable {
+public final class PackageIdentifier
+    implements Comparable<PackageIdentifier>, Serializable, SkylarkValue {
 
   private static final Interner<PackageIdentifier> INTERNER = BlazeInterners.newWeakInterner();
 
@@ -215,5 +218,10 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
         .compare(repository.toString(), that.repository.toString())
         .compare(pkgName, that.pkgName)
         .result();
+  }
+
+  @Override
+  public void repr(SkylarkPrinter printer) {
+    printer.repr(toString());
   }
 }
