@@ -637,6 +637,87 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     assertThat(((String) skylarkClassObject.getValue("strict_java_deps"))).isEqualTo("error");
   }
 
+  @Test
+  public void javaToolchainFlag_default() throws Exception {
+    writeBuildFileForJavaToolchain();
+    scratch.file(
+        "foo/rule.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "  return [result(java_toolchain_label=ctx.attr._java_toolchain.label)]",
+        "myrule = rule(",
+        "  implementation=_impl,",
+        "  fragments = ['java'],",
+        "  attrs = { '_java_toolchain': java_common.java_toolchain_attr }",
+        ")"
+    );
+    scratch.file(
+        "foo/BUILD",
+        "load(':rule.bzl', 'myrule')",
+        "myrule(name='myrule')"
+    );
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:myrule");
+    SkylarkClassObject skylarkClassObject =
+        configuredTarget.get(new SkylarkKey(Label.parseAbsolute("//foo:rule.bzl"), "result"));
+    Label javaToolchainLabel = ((Label) skylarkClassObject.getValue("java_toolchain_label"));
+    assertThat(javaToolchainLabel.toString()).endsWith("jdk:toolchain");
+  }
+
+  @Test
+  public void javaToolchainFlag_set() throws Exception {
+    writeBuildFileForJavaToolchain();
+    scratch.file(
+        "foo/rule.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "  return [result(java_toolchain_label=ctx.attr._java_toolchain.label)]",
+        "myrule = rule(",
+        "  implementation=_impl,",
+        "  fragments = ['java'],",
+        "  attrs = { '_java_toolchain': java_common.java_toolchain_attr }",
+        ")"
+    );
+    scratch.file(
+        "foo/BUILD",
+        "load(':rule.bzl', 'myrule')",
+        "myrule(name='myrule')"
+    );
+    useConfiguration("--java_toolchain=//java/com/google/test:toolchain");
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//foo:myrule");
+    SkylarkClassObject skylarkClassObject =
+        configuredTarget.get(new SkylarkKey(Label.parseAbsolute("//foo:rule.bzl"), "result"));
+    Label javaToolchainLabel = ((Label) skylarkClassObject.getValue("java_toolchain_label"));
+    assertThat(javaToolchainLabel.toString()).isEqualTo("//java/com/google/test:toolchain");
+  }
+
+  private void writeBuildFileForJavaToolchain() throws Exception  {
+    scratch.file("java/com/google/test/turbine_canary_deploy.jar");
+    scratch.file("java/com/google/test/tzdata.jar");
+    scratch.overwriteFile(
+        "java/com/google/test/BUILD",
+        "java_toolchain(name = 'toolchain',",
+        "    source_version = '6',",
+        "    target_version = '6',",
+        "    bootclasspath = ['rt.jar'],",
+        "    extclasspath = ['ext/lib.jar'],",
+        "    encoding = 'ISO-8859-1',",
+        "    xlint = [ 'toto' ],",
+        "    misc = [ '-Xmaxerrs 500' ],",
+        "    compatible_javacopts = {",
+        "        'appengine': [ '-XDappengineCompatible' ],",
+        "        'android': [ '-XDandroidCompatible' ],",
+        "    },",
+        "    javac = [':javac_canary.jar'],",
+        "    javabuilder = [':JavaBuilderCanary_deploy.jar'],",
+        "    header_compiler = [':turbine_canary_deploy.jar'],",
+        "    singlejar = ['SingleJar_deploy.jar'],",
+        "    ijar = ['ijar'],",
+        "    genclass = ['GenClass_deploy.jar'],",
+        "    timezone_data = 'tzdata.jar',",
+        ")"
+    );
+  }
+
   private static boolean javaCompilationArgsHaveTheSameParent(
       JavaCompilationArgs args, JavaCompilationArgs otherArgs) {
     if (!nestedSetsOfArtifactHaveTheSameParent(
