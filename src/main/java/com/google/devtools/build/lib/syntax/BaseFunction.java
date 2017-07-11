@@ -158,7 +158,7 @@ public abstract class BaseFunction implements SkylarkValue {
    * @param signature the signature, without default values or types
    */
   public BaseFunction(String name, FunctionSignature signature) {
-    this(name, FunctionSignature.WithValues.<Object, SkylarkType>create(signature), null);
+    this(name, FunctionSignature.WithValues.create(signature), null);
   }
 
   /**
@@ -285,8 +285,7 @@ public abstract class BaseFunction implements SkylarkValue {
       arguments[kwParamIndex] = SkylarkDict.copyOf(env, kwargs);
     } else {
       // Hard general case (2c): some keyword arguments may correspond to named parameters
-      SkylarkDict<String, Object> kwArg = hasKwParam
-          ? SkylarkDict.<String, Object>of(env) : SkylarkDict.<String, Object>empty();
+      SkylarkDict<String, Object> kwArg = hasKwParam ? SkylarkDict.of(env) : SkylarkDict.empty();
 
       // For nicer stabler error messages, start by checking against
       // an argument being provided both as positional argument and as keyword argument.

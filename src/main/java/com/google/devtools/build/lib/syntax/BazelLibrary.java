@@ -223,8 +223,7 @@ public class BazelLibrary {
       };
 
   private static Environment.Frame createGlobals() {
-    List<BaseFunction> bazelGlobalFunctions =
-        ImmutableList.<BaseFunction>of(select, depset, set, type);
+    List<BaseFunction> bazelGlobalFunctions = ImmutableList.of(select, depset, set, type);
 
     try (Mutability mutability = Mutability.create("BUILD")) {
       Environment env = Environment.builder(mutability).build();

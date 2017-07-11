@@ -176,7 +176,7 @@ public abstract class SkylarkList<E> extends MutableCollection<E>
    */
   public void set(Object key, E value, Location loc, Environment env) throws EvalException {
     checkMutable(loc, env);
-    List list = getContentsUnsafe();
+    List<E> list = getContentsUnsafe();
     int index = EvalUtils.getSequenceIndex(key, list.size(), loc);
     list.set(index, value);
   }
@@ -255,7 +255,7 @@ public abstract class SkylarkList<E> extends MutableCollection<E>
    * Creates immutable SkylarkList with given elements.
    */
   public static <E> SkylarkList<E> createImmutable(Iterable<? extends E> contents) {
-    return new MutableList<E>(contents, Mutability.IMMUTABLE);
+    return new MutableList<>(contents, Mutability.IMMUTABLE);
   }
 
   /** A class for mutable lists. */
@@ -293,7 +293,6 @@ public abstract class SkylarkList<E> extends MutableCollection<E>
      * Creates a MutableList from contents and a Mutability.
      * @param contents the contents of the list
      * @param mutability a Mutability context
-     * @return a MutableList containing the elements
      */
     @SuppressWarnings("unchecked")
     private MutableList(Iterable<? extends E> contents, Mutability mutability) {
@@ -321,7 +320,6 @@ public abstract class SkylarkList<E> extends MutableCollection<E>
      * Creates a MutableList from contents and an Environment.
      * @param contents the contents of the list
      * @param env an Environment from which to inherit Mutability, or null for immutable
-     * @return a MutableList containing the elements
      */
     public MutableList(Iterable<? extends E> contents, @Nullable Environment env) {
       this(contents, env == null ? Mutability.IMMUTABLE : env.mutability());
@@ -341,7 +339,7 @@ public abstract class SkylarkList<E> extends MutableCollection<E>
      * @return a Skylark list containing the specified arguments as elements.
      */
     public static <E> MutableList<E> of(@Nullable Environment env, E... contents) {
-      return new MutableList(ImmutableList.copyOf(contents), env);
+      return new MutableList<>(ImmutableList.copyOf(contents), env);
     }
 
     /**
@@ -404,8 +402,11 @@ public abstract class SkylarkList<E> extends MutableCollection<E>
       if (left.getGlobList() == null && right.getGlobList() == null) {
         return new MutableList<>(left, right, env);
       }
-      return new MutableList(GlobList.concat(
-          left.getGlobListOrContentsUnsafe(), right.getGlobListOrContentsUnsafe()), env);
+      return new MutableList<>(
+          GlobList.concat(
+              left.getGlobListOrContentsUnsafe(),
+              right.getGlobListOrContentsUnsafe()),
+          env);
     }
 
     /**
@@ -419,7 +420,7 @@ public abstract class SkylarkList<E> extends MutableCollection<E>
     public static <E> MutableList<E> duplicate(
         final MutableList<? extends E> list, final int times, final Environment env) {
       if (times <= 0) {
-        return new MutableList<E>(ImmutableList.<E>of(), env);
+        return new MutableList<>(ImmutableList.of(), env);
       }
 
       if (list.getGlobList() == null) {
@@ -427,7 +428,7 @@ public abstract class SkylarkList<E> extends MutableCollection<E>
         for (int i = 1; i < times; i++) {
           iterable = Iterables.concat(iterable, list);
         }
-        return new MutableList<E>(iterable, env);
+        return new MutableList<>(iterable, env);
       }
 
       List<? extends E> globs = list.getGlobListOrContentsUnsafe();
@@ -435,7 +436,7 @@ public abstract class SkylarkList<E> extends MutableCollection<E>
       for (int i = 1; i < times; i++) {
         globs = GlobList.concat(globs, original);
       }
-      return new MutableList<E>(globs, env);
+      return new MutableList<>(globs, env);
     }
 
     /**
@@ -496,7 +497,7 @@ public abstract class SkylarkList<E> extends MutableCollection<E>
     /**
      * An empty IMMUTABLE MutableList.
      */
-    public static final MutableList EMPTY = new MutableList(Tuple.EMPTY, Mutability.IMMUTABLE);
+    public static final MutableList<?> EMPTY = new MutableList<>(Tuple.EMPTY, Mutability.IMMUTABLE);
   }
 
   /** An immutable tuple, e.g. in (1, 2, 3) */
@@ -538,7 +539,7 @@ public abstract class SkylarkList<E> extends MutableCollection<E>
     private static final Tuple<?> EMPTY = new Tuple<>(ImmutableList.of());
 
     @SuppressWarnings("unchecked")
-    public static final <E> Tuple<E> empty() {
+    public static <E> Tuple<E> empty() {
       return (Tuple<E>) EMPTY;
     }
 
@@ -549,7 +550,7 @@ public abstract class SkylarkList<E> extends MutableCollection<E>
       if (contents.isEmpty()) {
         return empty();
       }
-      return new Tuple(contents);
+      return new Tuple<>(contents);
     }
 
     /**

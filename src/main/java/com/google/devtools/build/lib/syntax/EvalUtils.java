@@ -583,6 +583,6 @@ public final class EvalUtils {
         b.put(key, value);
       }
     }
-    return SkylarkDict.<K, V>copyOf(env, b.build());
+    return SkylarkDict.copyOf(env, b.build());
   }
 }

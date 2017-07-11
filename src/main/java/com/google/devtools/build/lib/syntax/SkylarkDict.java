@@ -87,7 +87,7 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
     return this;
   }
 
-  private <KK extends K, VV extends V> SkylarkDict putAllUnsafe(Map<KK, VV> m) {
+  private <KK extends K, VV extends V> SkylarkDict<K, V> putAllUnsafe(Map<KK, VV> m) {
     for (Map.Entry<KK, VV> e : m.entrySet()) {
       contents.put(e.getKey(), e.getValue());
     }
@@ -235,7 +235,7 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
       SkylarkDict<? extends K, ? extends V> left,
       SkylarkDict<? extends K, ? extends V> right,
       @Nullable Environment env) {
-    SkylarkDict<K, V> result = SkylarkDict.<K, V>of(env);
+    SkylarkDict<K, V> result = SkylarkDict.of(env);
     result.putAllUnsafe(left);
     result.putAllUnsafe(right);
     return result;
@@ -243,6 +243,8 @@ public final class SkylarkDict<K, V> extends MutableMap<K, V>
 
   private static final SkylarkDict<?, ?> EMPTY = of(null);
 
+  // Safe because the empty singleton is immutable.
+  @SuppressWarnings("unchecked")
   public static <K, V> SkylarkDict<K, V> empty() {
     return (SkylarkDict<K, V>) EMPTY;
   }

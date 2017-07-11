@@ -77,7 +77,7 @@ public abstract class Type<T> {
   // this over selectableConvert.
 
   /**
-   * Equivalent to {@link #convert(Object, String, Object)} where the label is {@code null}.
+   * Equivalent to {@link #convert(Object, Object, Object)} where the label is {@code null}.
    * Useful for converting values to types that do not involve the type {@code LABEL}
    * and hence do not require the label of the current package.
    */
@@ -86,7 +86,7 @@ public abstract class Type<T> {
   }
 
   /**
-   * Like {@link #convert(Object, String, Object)}, but converts skylark {@code None}
+   * Like {@link #convert(Object, Object, Object)}, but converts skylark {@code None}
    * to given {@code defaultValue}.
    */
   @Nullable public final T convertOptional(Object x,
@@ -99,7 +99,7 @@ public abstract class Type<T> {
   }
 
   /**
-   * Like {@link #convert(Object, String, Object)}, but converts skylark {@code None}
+   * Like {@link #convert(Object, Object, Object)}, but converts skylark {@code None}
    * to java {@code null}.
    */
   @Nullable public final T convertOptional(Object x, String what, @Nullable Object context)
@@ -108,7 +108,7 @@ public abstract class Type<T> {
   }
 
   /**
-   * Like {@link #convert(Object, String)}, but converts skylark {@code NONE} to java {@code null}.
+   * Like {@link #convert(Object, Object)}, but converts skylark {@code NONE} to java {@code null}.
    */
   @Nullable public final T convertOptional(Object x, String what) throws ConversionException {
     return convertOptional(x, what, null);
@@ -129,7 +129,7 @@ public abstract class Type<T> {
    * Function accepting a (potentially null) {@link Label} and an arbitrary context object. Used by
    * {@link #visitLabels}.
    */
-  public static interface LabelVisitor<C> {
+  public interface LabelVisitor<C> {
     void visit(@Nullable Label label, @Nullable C context) throws InterruptedException;
   }
 
@@ -691,8 +691,7 @@ public abstract class Type<T> {
       } else if (x instanceof List) {
         return (List<Object>) x;
       } else if (x instanceof Iterable) {
-        // Do not remove <Object>: workaround for Java 7 type inference.
-        return ImmutableList.<Object>copyOf((Iterable<?>) x);
+        return ImmutableList.copyOf((Iterable<?>) x);
       } else {
         throw new ConversionException(this, x, what);
       }

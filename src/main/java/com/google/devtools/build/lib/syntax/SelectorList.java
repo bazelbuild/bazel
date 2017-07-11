@@ -74,7 +74,7 @@ public final class SelectorList implements SkylarkValue {
    * Creates a "wrapper" list that consists of a single select.
    */
   public static SelectorList of(SelectorValue selector) {
-    return new SelectorList(selector.getType(), ImmutableList.<Object>of(selector));
+    return new SelectorList(selector.getType(), ImmutableList.of(selector));
   }
 
   /**
