@@ -97,7 +97,7 @@ class OptionProcessor {
   // Gets the arguments explicitly provided by the user's command line.
   std::vector<std::string> GetExplicitCommandArguments() const;
 
-  StartupOptions* GetParsedStartupOptions() const;
+  virtual StartupOptions* GetParsedStartupOptions() const;
 
   virtual blaze_exit_code::ExitCode FindUserBlazerc(
       const char* cmdLineRcFile,
