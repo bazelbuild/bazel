@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildEventWithConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
@@ -42,6 +41,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.NamedSetOfFilesId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransportClosedEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventWithConfiguration;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
@@ -206,18 +206,16 @@ public class BuildEventStreamerTest extends FoundationTestCase {
   private static class GenericConfigurationEvent implements BuildEventWithConfiguration {
     private final BuildEventId id;
     private final Collection<BuildEventId> children;
-    private final Collection<BuildConfiguration> configurations;
+    private final Collection<BuildEvent> configurations;
 
     GenericConfigurationEvent(
-        BuildEventId id,
-        Collection<BuildEventId> children,
-        Collection<BuildConfiguration> configurations) {
+        BuildEventId id, Collection<BuildEventId> children, Collection<BuildEvent> configurations) {
       this.id = id;
       this.children = children;
       this.configurations = configurations;
     }
 
-    GenericConfigurationEvent(BuildEventId id, BuildConfiguration configuration) {
+    GenericConfigurationEvent(BuildEventId id, BuildEvent configuration) {
       this(id, ImmutableSet.<BuildEventId>of(), ImmutableSet.of(configuration));
     }
 
@@ -232,7 +230,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
     }
 
     @Override
-    public Collection<BuildConfiguration> getConfigurations() {
+    public Collection<BuildEvent> getConfigurations() {
       return configurations;
     }
 

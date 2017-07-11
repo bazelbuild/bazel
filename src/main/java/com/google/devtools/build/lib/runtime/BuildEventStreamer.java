@@ -32,8 +32,6 @@ import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.analysis.BuildInfoEvent;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildEventWithConfiguration;
 import com.google.devtools.build.lib.buildeventstream.AbortedEvent;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
@@ -43,6 +41,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Abo
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.NamedSetOfFilesId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransportClosedEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventWithConfiguration;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.LastBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
@@ -351,7 +350,7 @@ public class BuildEventStreamer implements EventHandler {
     maybeReportArtifactSet(new NestedSetView<Artifact>(set));
   }
 
-  private void maybeReportConfiguration(BuildConfiguration configuration) {
+  private void maybeReportConfiguration(BuildEvent configuration) {
     BuildEvent event = configuration;
     if (configuration == null) {
       event = new NullConfiguration();
@@ -392,8 +391,7 @@ public class BuildEventStreamer implements EventHandler {
     }
 
     if (event instanceof BuildEventWithConfiguration) {
-      for (BuildConfiguration configuration :
-          ((BuildEventWithConfiguration) event).getConfigurations()) {
+      for (BuildEvent configuration : ((BuildEventWithConfiguration) event).getConfigurations()) {
         maybeReportConfiguration(configuration);
       }
     }
