@@ -14,9 +14,12 @@
 
 package com.google.devtools.build.remote;
 
+import com.google.devtools.build.lib.actions.LocalHostCapacity;
+import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.List;
 
@@ -116,4 +119,42 @@ public class RemoteWorkerOptions extends OptionsBase {
     help = "When using sandboxing, block network access for running actions."
   )
   public boolean sandboxingBlockNetwork;
+
+  @Option(
+    name = "jobs",
+    defaultValue = "auto",
+    converter = JobsConverter.class,
+    category = "build_worker",
+    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    effectTags = {OptionEffectTag.UNKNOWN},
+    help =
+        "The maximum number of concurrent jobs to run. \"auto\" means to use a reasonable value"
+            + " derived from the machine's hardware profile (e.g. the number of processors)."
+            + " Values above " + MAX_JOBS + " are not allowed."
+  )
+  public int jobs;
+
+  private static final int MAX_JOBS = 16384;
+
+  /** Converter for jobs: [0, MAX_JOBS] or "auto". */
+  public static class JobsConverter extends RangeConverter {
+    public JobsConverter() {
+      super(0, MAX_JOBS);
+    }
+
+    @Override
+    public Integer convert(String input) throws OptionsParsingException {
+      if (input.equals("auto")) {
+        int autoJobs = (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage());
+        return Math.min(autoJobs, MAX_JOBS);
+      } else {
+        return super.convert(input);
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "\"auto\" or " + super.getTypeDescription();
+    }
+  }
 }

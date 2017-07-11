@@ -85,9 +85,7 @@ final class ExecutionServer extends ExecutionImplBase {
   private final RemoteWorkerOptions workerOptions;
   private final SimpleBlobStoreActionCache cache;
   private final ConcurrentHashMap<String, ListenableFuture<ActionResult>> operationsCache;
-  private final ListeningExecutorService executorService =
-      MoreExecutors.listeningDecorator(
-          new ThreadPoolExecutor(0, 8, 1000, TimeUnit.SECONDS, new LinkedBlockingQueue<>()));
+  private final ListeningExecutorService executorService;
 
   public ExecutionServer(
       Path workPath,
@@ -100,6 +98,13 @@ final class ExecutionServer extends ExecutionImplBase {
     this.workerOptions = workerOptions;
     this.cache = cache;
     this.operationsCache = operationsCache;
+    this.executorService =
+        MoreExecutors.listeningDecorator(
+            new ThreadPoolExecutor(
+                1, workerOptions.jobs,  // always have one thread available, and use at most jobs
+                1000, TimeUnit.SECONDS, // shut down idle threads after 1000 seconds
+                // TODO(ulfjack): We need to reject work eventually.
+                new LinkedBlockingQueue<>())); // no blocking, we can always take more
   }
 
   @Override
