@@ -28,7 +28,7 @@ public class ToolchainTypeTest extends BuildViewTestCase {
   public void testSmoke() throws Exception {
     ConfiguredTarget cc = getConfiguredTarget(getRuleClassProvider().getToolsRepository()
         + "//tools/cpp:toolchain_type");
-    assertThat(cc.getProvider(MakeVariableProvider.class).getMakeVariables())
+    assertThat(cc.get(MakeVariableProvider.SKYLARK_CONSTRUCTOR).getMakeVariables())
         .containsKey("TARGET_CPU");
   }
 }

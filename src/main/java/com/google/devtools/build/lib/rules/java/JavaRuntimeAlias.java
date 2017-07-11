@@ -48,13 +48,9 @@ public class JavaRuntimeAlias implements RuleConfiguredTargetFactory {
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
 
     if (runtime != null) {
-      MakeVariableProvider makeVariableProvider = runtime.getProvider(MakeVariableProvider.class);
-      JavaRuntimeProvider javaRuntimeProvider = runtime.getProvider(JavaRuntimeProvider.class);
       builder
-          .addProvider(javaRuntimeProvider)
-          .addNativeDeclaredProvider(javaRuntimeProvider)
-          .addProvider(makeVariableProvider)
-          .addNativeDeclaredProvider(makeVariableProvider)
+          .addNativeDeclaredProvider(runtime.get(JavaRuntimeProvider.SKYLARK_CONSTRUCTOR))
+          .addNativeDeclaredProvider(runtime.get(MakeVariableProvider.SKYLARK_CONSTRUCTOR))
           .addProvider(RunfilesProvider.class, runtime.getProvider(RunfilesProvider.class))
           .addProvider(MiddlemanProvider.class, runtime.getProvider(MiddlemanProvider.class))
           .setFilesToBuild(runtime.getProvider(FileProvider.class).getFilesToBuild());

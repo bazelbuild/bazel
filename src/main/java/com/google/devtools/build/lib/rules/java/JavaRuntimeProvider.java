@@ -16,10 +16,8 @@ package com.google.devtools.build.lib.rules.java;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -32,12 +30,12 @@ import com.google.devtools.build.lib.vfs.PathFragment;
     doc = "Information about the Java runtime being used."
 )
 @Immutable
-public class JavaRuntimeProvider extends SkylarkClassObject
-    implements TransitiveInfoProvider {
+public class JavaRuntimeProvider extends SkylarkClassObject {
   public static final String SKYLARK_NAME = "JavaRuntimeInfo";
 
-  public static final ClassObjectConstructor SKYLARK_CONSTRUCTOR =
-      new NativeClassObjectConstructor(JavaToolchainProvider.class, SKYLARK_NAME) {};
+  public static final NativeClassObjectConstructor<JavaRuntimeProvider> SKYLARK_CONSTRUCTOR =
+      new NativeClassObjectConstructor<JavaRuntimeProvider>(
+          JavaRuntimeProvider.class, SKYLARK_NAME) {};
 
   private final NestedSet<Artifact> javaBaseInputs;
   private final PathFragment javaHome;

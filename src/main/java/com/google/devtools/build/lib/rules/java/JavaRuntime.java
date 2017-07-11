@@ -83,10 +83,8 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .setFilesToBuild(filesToBuild)
-        .addProvider(JavaRuntimeProvider.class, javaRuntime)
         .addNativeDeclaredProvider(javaRuntime)
         .addProvider(MiddlemanProvider.class, new MiddlemanProvider(middleman))
-        .addProvider(makeVariableProvider)
         .addNativeDeclaredProvider(makeVariableProvider)
         .build();
   }

@@ -489,7 +489,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
         create(loader, "--cpu=piii", "--host_cpu=piii", "--android_cpu=", "--fat_apk_cpu=");
     ConfiguredTarget ccToolchainA = getCcToolchainTarget(toolchainA);
     CcToolchainProvider ccProviderA = ccToolchainA.getProvider(CcToolchainProvider.class);
-    MakeVariableProvider makeProviderA = ccToolchainA.getProvider(MakeVariableProvider.class);
+    MakeVariableProvider makeProviderA = ccToolchainA.get(MakeVariableProvider.SKYLARK_CONSTRUCTOR);
     assertThat(toolchainA.getToolchainIdentifier()).isEqualTo("toolchain-identifier-A");
     assertThat(toolchainA.getHostSystemName()).isEqualTo("host-system-name-A");
     assertThat(toolchainA.getTargetGnuSystemName()).isEqualTo("target-system-name-A");

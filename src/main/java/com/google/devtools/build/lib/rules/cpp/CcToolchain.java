@@ -388,7 +388,6 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
         new RuleConfiguredTargetBuilder(ruleContext)
             .addProvider(ccProvider)
             .addNativeDeclaredProvider(ccProvider)
-            .addProvider(makeVariableProvider)
             .addNativeDeclaredProvider(makeVariableProvider)
             .addProvider(
                 fdoSupport.getFdoSupport().createFdoSupportProvider(ruleContext, profileArtifact))
