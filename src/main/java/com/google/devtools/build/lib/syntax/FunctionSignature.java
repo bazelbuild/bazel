@@ -589,6 +589,10 @@ public abstract class FunctionSignature implements Serializable {
     }
   }
 
+  /** A ready-made signature to allow only positional arguments and put them in a star parameter */
+  public static final FunctionSignature POSITIONALS =
+      FunctionSignature.of(0, 0, 0, true, false, "star");
+
   /** A ready-made signature to allow only keyword arguments and put them in a kwarg parameter */
   public static final FunctionSignature KWARGS =
       FunctionSignature.of(0, 0, 0, false, true, "kwargs");

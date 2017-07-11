@@ -453,7 +453,9 @@ public class PackageFunction implements SkyFunction {
       env.getListener().post(post);
     }
 
-    packageFactory.afterDoneLoadingPackage(pkg);
+    if (packageFactory != null) {
+      packageFactory.afterDoneLoadingPackage(pkg);
+    }
     return new PackageValue(pkg);
   }
 
