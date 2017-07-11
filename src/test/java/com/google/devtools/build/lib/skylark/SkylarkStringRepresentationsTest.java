@@ -64,6 +64,55 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
   }
 
   /**
+   * Evaluates {@code code} in the loading phase in a BUILD file. {@code code} must return a string.
+   *
+   * @param code The code to execute
+   */
+  private Object skylarkLoadingEvalInBuildFile(String code) throws Exception {
+    scratch.overwriteFile("eval/BUILD",
+        "load(':eval.bzl', 'eval')",
+        String.format("eval(name='eval', param = %s)", code));
+    scratch.overwriteFile(
+        "eval/eval.bzl",
+        "def _impl(ctx):",
+        "  return struct(result = ctx.attr.param)",
+        "eval = rule(implementation = _impl, attrs = {'param': attr.string()})");
+    skyframeExecutor.invalidateFilesUnderPathForTesting(
+        reporter,
+        new ModifiedFileSet.Builder()
+            .modify(PathFragment.create("eval/BUILD"))
+            .modify(PathFragment.create("eval/eval.bzl"))
+            .build(),
+        rootDirectory);
+
+    ConfiguredTarget target = getConfiguredTarget("//eval");
+    return target.get("result");
+  }
+
+  /**
+   * Asserts that all 5 different ways to convert an object to a string of {@code expression}
+   * ({@code str}, {@code repr}, {@code '%s'}, {@code '%r'}, {@code '{}'.format} return the correct
+   * {@code representation}. Not applicable for objects that have different {@code str} and {@code
+   * repr} representations.
+   *
+   * @param expression the expression to evaluate a string representation of
+   * @param representation desired string representation
+   */
+  private void assertStringRepresentationInBuildFile(
+      String expression, String representation) throws Exception {
+    assertThat(skylarkLoadingEvalInBuildFile(String.format("str(%s)", expression)))
+        .isEqualTo(representation);
+    assertThat(skylarkLoadingEvalInBuildFile(String.format("repr(%s)", expression)))
+        .isEqualTo(representation);
+    assertThat(skylarkLoadingEvalInBuildFile(String.format("'%%s' %% (%s,)", expression)))
+        .isEqualTo(representation);
+    assertThat(skylarkLoadingEvalInBuildFile(String.format("'%%r' %% (%s,)", expression)))
+        .isEqualTo(representation);
+    assertThat(skylarkLoadingEvalInBuildFile(String.format("'{}'.format(%s)", expression)))
+        .isEqualTo(representation);
+  }
+
+  /**
    * Asserts that all 5 different ways to convert an object to a string of {@code expression}
    * ({@code str}, {@code repr}, {@code '%s'}, {@code '%r'}, {@code '{}'.format} return the correct
    * {@code representation}. Not applicable for objects that have different {@code str} and {@code
@@ -283,6 +332,19 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
       assertThat(target.get("generated_file" + suffix))
           .isEqualTo("<generated file test/skylark/output.txt>");
     }
+  }
+
+  @Test
+  public void testStringRepresentations_Glob() throws Exception {
+    setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=true");
+
+    scratch.file("eval/one.txt");
+    scratch.file("eval/two.txt");
+    scratch.file("eval/three.txt");
+
+    assertStringRepresentationInBuildFile(
+        "glob(['*.txt'])",
+        "[\"one.txt\", \"three.txt\", \"two.txt\"]");
   }
 
   @Test
