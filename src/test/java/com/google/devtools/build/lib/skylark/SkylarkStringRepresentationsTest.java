@@ -389,17 +389,6 @@ public class SkylarkStringRepresentationsTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testStringRepresentationsOfUnknownObjects() throws Exception {
-    update("mock", new Object());
-
-    assertThat(eval("str(mock)")).isEqualTo("<unknown object java.lang.Object>");
-    assertThat(eval("repr(mock)")).isEqualTo("<unknown object java.lang.Object>");
-    assertThat(eval("'{}'.format(mock)")).isEqualTo("<unknown object java.lang.Object>");
-    assertThat(eval("'%s' % mock")).isEqualTo("<unknown object java.lang.Object>");
-    assertThat(eval("'%r' % mock")).isEqualTo("<unknown object java.lang.Object>");
-  }
-
-  @Test
   public void testLegacyStringRepresentations_Labels() throws Exception {
     setSkylarkSemanticsOptions("--incompatible_descriptive_string_representations=false");
 

@@ -611,6 +611,15 @@ public class EvaluationTest extends EvaluationTestCase {
     };
   }
 
+  private Object createUnknownObj() {
+    return new Object() {
+      @Override
+      public String toString() {
+        return "<unknown object>";
+      }
+    };
+  }
+
   @Test
   public void testPercOnObject() throws Exception {
     newTest("--incompatible_descriptive_string_representations=true")
@@ -620,8 +629,8 @@ public class EvaluationTest extends EvaluationTestCase {
         .update("obj", createObjWithStr())
         .testStatement("'%s' % obj", "<str legacy marker>");
     newTest()
-        .update("unknown", new Object())
-        .testStatement("'%s' % unknown", "<unknown object java.lang.Object>");
+        .update("unknown", createUnknownObj())
+        .testStatement("'%s' % unknown", "<unknown object>");
   }
 
   @Test
@@ -633,10 +642,8 @@ public class EvaluationTest extends EvaluationTestCase {
         .update("obj", createObjWithStr())
         .testStatement("'%s %s' % (obj, obj)", "<str legacy marker> <str legacy marker>");
     newTest()
-        .update("unknown", new Object())
-        .testStatement(
-            "'%s %s' % (unknown, unknown)",
-            "<unknown object java.lang.Object> <unknown object java.lang.Object>");
+        .update("unknown", createUnknownObj())
+        .testStatement("'%s %s' % (unknown, unknown)", "<unknown object> <unknown object>");
   }
 
   @Test

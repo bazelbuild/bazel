@@ -387,10 +387,8 @@ public class Printer {
         this.append(o.toString());
 
       } else {
-        // Other types of objects shouldn't be leaked to Skylark, but if happens, their
-        // .toString method shouldn't be used because their return values are likely to contain
-        // memory addresses or other nondeterministic information.
-        this.append("<unknown object " + o.getClass().getName() + ">");
+        // TODO(bazel-team): change to a special representation for unknown objects
+        this.append(o.toString());
       }
 
       return this;
