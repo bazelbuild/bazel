@@ -59,7 +59,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
   // The marker file version is inject in the rule key digest so the rule key is always different
   // when we decide to update the format.
-  private static final int MARKER_FILE_VERSION = 2;
+  private static final int MARKER_FILE_VERSION = 3;
 
   // A special repository delegate used to handle Skylark remote repositories if present.
   public static final String SKYLARK_DELEGATE_NAME = "$skylark";
