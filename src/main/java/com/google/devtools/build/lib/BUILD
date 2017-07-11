@@ -913,6 +913,7 @@ java_library(
         "rules/java/JavaPrimaryClassProvider.java",
         "rules/java/JavaProvider.java",
         "rules/java/JavaRuntime.java",
+        "rules/java/JavaRuntimeAlias.java",
         "rules/java/JavaRuntimeClasspathProvider.java",
         "rules/java/JavaRuntimeJarProvider.java",
         "rules/java/JavaRuntimeRule.java",
