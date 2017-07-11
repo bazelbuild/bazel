@@ -379,4 +379,17 @@ public final class CcToolchainProvider
   public ImmutableList<String> getLinkOptions() {
     return cppConfiguration.getLinkOptions(sysroot);
   }
+
+  // Not all of CcToolchainProvider is exposed to Skylark, which makes implementing deep equality
+  // impossible: if Java-only parts are considered, the behavior is surprising in Skylark, if they
+  // are not, the behavior is surprising in Java. Thus, object identity it is.
+  @Override
+  public boolean equals(Object other) {
+    return other == this;
+  }
+
+  @Override
+  public int hashCode() {
+    return System.identityHashCode(this);
+  }
 }
