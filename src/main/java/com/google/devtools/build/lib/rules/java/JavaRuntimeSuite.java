@@ -35,14 +35,17 @@ public class JavaRuntimeSuite implements RuleConfiguredTargetFactory {
     if (runtime == null) {
       runtime = ruleContext.getPrerequisite("default", Mode.TARGET);
     }
+
     if (runtime == null) {
       ruleContext.throwWithRuleError(
           "could not resolve runtime for cpu " + ruleContext.getConfiguration().getCpu());
     }
 
     MakeVariableProvider makeVariableProvider = runtime.getProvider(MakeVariableProvider.class);
+
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(JavaRuntimeProvider.class, runtime.getProvider(JavaRuntimeProvider.class))
+        .addNativeDeclaredProvider(runtime.get(JavaRuntimeProvider.SKYLARK_CONSTRUCTOR.getKey()))
         .addProvider(RunfilesProvider.class, runtime.getProvider(RunfilesProvider.class))
         .addProvider(MiddlemanProvider.class, runtime.getProvider(MiddlemanProvider.class))
         .addProvider(makeVariableProvider)

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.java;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.MiddlemanProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -24,7 +25,10 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDe
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ClassObjectConstructor;
+import com.google.devtools.build.lib.rules.SkylarkAttr;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext;
 import com.google.devtools.build.lib.rules.java.proto.StrictDepsUtils;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -40,9 +44,11 @@ import java.util.List;
 @SkylarkModule(name = "java_common", doc = "Utilities for Java compilation support in Skylark.")
 public class JavaSkylarkCommon {
   private final JavaSemantics javaSemantics;
+  private final String toolsRepository;
 
-  public JavaSkylarkCommon(JavaSemantics javaSemantics) {
+  public JavaSkylarkCommon(JavaSemantics javaSemantics, String toolsrepository) {
     this.javaSemantics = javaSemantics;
+    this.toolsRepository = toolsrepository;
   }
 
   @SkylarkCallable(
@@ -451,5 +457,31 @@ public class JavaSkylarkCommon {
                 + " not allowed."
                 + " Only OFF and ERROR values are accepted.");
     }
+  }
+
+  @SkylarkCallable(
+      name = JavaRuntimeProvider.SKYLARK_NAME,
+      doc = "The key used to retrieve the provider that contains information about the Java "
+          + "runtime being used.",
+      structField = true
+  )
+  public static ClassObjectConstructor getJavaRuntimeProvider() {
+    return JavaRuntimeProvider.SKYLARK_CONSTRUCTOR;
+  }
+
+  @SkylarkCallable(
+      name = "java_runtime_attr",
+      doc = "A value that, when passed as a value in the attribute dictionary of a rule "
+          + "definition, will yield a dependency that describes the current Java runtime in use.",
+      documented = false,
+      structField = true
+  )
+  public SkylarkAttr.Descriptor getJvmAttribute() {
+    ConfiguredRuleClassProvider.Builder env = new ConfiguredRuleClassProvider.Builder();
+    env.setToolsRepository(toolsRepository);
+    return new SkylarkAttr.Descriptor(
+        "java_runtime_attr",
+        new Attribute.Builder<>("", BuildType.LABEL)
+            .value(JavaSemantics.jvmAttribute(env)));
   }
 }

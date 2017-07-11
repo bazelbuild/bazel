@@ -73,6 +73,9 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
             .addTransitiveArtifacts(filesToBuild)
             .build();
 
+    JavaRuntimeProvider javaRuntime = new JavaRuntimeProvider(
+        filesToBuild, javaHome, javaBinaryExecPath, javaBinaryRunfilesPath);
+
     MakeVariableProvider makeVariableProvider = new MakeVariableProvider(ImmutableMap.of(
         "JAVA", javaBinaryExecPath.getPathString(),
         "JAVABASE", javaHome.getPathString()));
@@ -80,8 +83,8 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .setFilesToBuild(filesToBuild)
-        .addProvider(JavaRuntimeProvider.class, JavaRuntimeProvider.create(
-            filesToBuild, javaHome, javaBinaryExecPath, javaBinaryRunfilesPath))
+        .addProvider(JavaRuntimeProvider.class, javaRuntime)
+        .addNativeDeclaredProvider(javaRuntime)
         .addProvider(MiddlemanProvider.class, new MiddlemanProvider(middleman))
         .addProvider(makeVariableProvider)
         .addNativeDeclaredProvider(makeVariableProvider)

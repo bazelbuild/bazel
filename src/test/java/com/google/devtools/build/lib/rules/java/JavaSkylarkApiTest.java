@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor.Skyl
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -41,6 +42,30 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class JavaSkylarkApiTest extends BuildViewTestCase {
+
+  @Test
+  public void testJavaRuntimeProvider() throws Exception {
+    scratch.file("a/BUILD",
+        "load(':rule.bzl', 'jrule')",
+        "java_runtime(name='jvm', srcs=[], java_home='/foo/bar/')",
+        "java_runtime_suite(name='suite', default=':jvm')",
+        "jrule(name='r')");
+
+    scratch.file(
+        "a/rule.bzl",
+        "def _impl(ctx):",
+        "  provider = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]",
+        "  return struct(",
+        "    java_executable = provider.java_executable_exec_path,",
+        ")",
+        "jrule = rule(_impl, attrs = { '_java_runtime': java_common.java_runtime_attr})");
+
+    useConfiguration("--javabase=//a:suite");
+    ConfiguredTarget ct = getConfiguredTarget("//a:r");
+    @SuppressWarnings("unchecked") PathFragment javaExecutable =
+        (PathFragment) ct.get("java_executable");
+    assertThat(javaExecutable.getPathString()).startsWith("/foo/bar/bin/java");
+  }
 
   @Test
   public void testExposesJavaSkylarkApiProvider() throws Exception {
