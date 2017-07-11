@@ -107,7 +107,7 @@ environment and the flags the C++ compiler supports.
   uses several `repository_rule` to defines the list of dependencies
   needed to use the Go rules.
 -
-  [maven_jar](https://github.com/bazelbuild/bazel/a110ac400190c90a45856f15482c8d0952c542f5/master/tools/build_defs/repo/maven_rules.bzl#L276)
+  [maven_jar](https://github.com/bazelbuild/bazel/blob/master/tools/build_defs/repo/maven_rules.bzl#L281)
   is a reimplementation of the native `maven_jar` rule using the
   `maven` tool.
 
