@@ -194,8 +194,10 @@ final class ExecutionServer extends ExecutionImplBase {
       // an IOException from the underlying Subprocess.Factory.
       cmdResult = null;
     }
-    long timeoutMillis = TimeUnit.MINUTES.toMillis(15);
-    // TODO(ulfjack): Timeout is specified in ExecuteRequest, but not passed in yet.
+    long timeoutMillis =
+        action.hasTimeout()
+            ? Durations.toMillis(action.getTimeout())
+            : TimeUnit.MINUTES.toMillis(15);
     boolean wasTimeout =
         (cmdResult != null && cmdResult.getTerminationStatus().timedout())
         || wasTimeout(timeoutMillis, System.currentTimeMillis() - startTime);
