@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
+import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.BaseFunction;
@@ -315,6 +316,25 @@ public class WorkspaceFactory {
                   throw new EvalException(ast.getLocation(), errorMessage);
                 }
                 PackageFactory.getContext(env, ast).pkgBuilder.setWorkspaceName(name);
+                Package.Builder builder = PackageFactory.getContext(env, ast).pkgBuilder;
+                RuleClass localRepositoryRuleClass = ruleFactory.getRuleClass("local_repository");
+                RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");
+                Map<String, Object> kwargs = ImmutableMap.<String, Object>of(
+                    "name", name, "path", ".");
+                try {
+                  // This effectively adds a "local_repository(name = "<ws>", path = ".")"
+                  // definition to the WORKSPACE file.
+                  builder
+                      .externalPackageData()
+                      .createAndAddRepositoryRule(
+                          builder,
+                          localRepositoryRuleClass,
+                          bindRuleClass,
+                          kwargs,
+                          ast);
+                } catch (InvalidRuleException | NameConflictException | LabelSyntaxException e) {
+                  throw new EvalException(ast.getLocation(), e.getMessage());
+                }
                 return NONE;
               }
             };

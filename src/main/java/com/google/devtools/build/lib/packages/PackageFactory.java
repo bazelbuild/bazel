@@ -1667,7 +1667,7 @@ public final class PackageFactory {
       ImmutableList<Label> skylarkFileDependencies)
       throws InterruptedException {
     Package.Builder pkgBuilder = new Package.Builder(packageBuilderHelper.createFreshPackage(
-        packageId, workspaceName));
+        packageId, ruleClassProvider.getRunfilesPrefix()));
     StoredEventHandler eventHandler = new StoredEventHandler();
 
     try (Mutability mutability = Mutability.create("package %s", packageId)) {
@@ -1687,7 +1687,8 @@ public final class PackageFactory {
           // "defaultVisibility" comes from the command line. Let's give the BUILD file a chance to
           // set default_visibility once, be reseting the PackageBuilder.defaultVisibilitySet flag.
           .setDefaultVisibilitySet(false)
-          .setSkylarkFileDependencies(skylarkFileDependencies);
+          .setSkylarkFileDependencies(skylarkFileDependencies)
+          .setWorkspaceName(workspaceName);
 
       Event.replayEventsOn(eventHandler, pastEvents);
       for (Postable post : pastPosts) {

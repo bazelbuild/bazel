@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.ErrorDeterminingRepositoryException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -295,20 +294,8 @@ public class PackageLookupFunction implements SkyFunction {
   private PackageLookupValue computeExternalPackageLookupValue(
       SkyKey skyKey, Environment env, PackageIdentifier packageIdentifier)
       throws PackageLookupFunctionException, InterruptedException {
-    // Check if this is the main repository.
     PackageIdentifier id = (PackageIdentifier) skyKey.argument();
-    RepositoryName repositoryName = id.getRepository();
-    WorkspaceNameValue workspaceNameValue = (WorkspaceNameValue)
-        env.getValue(WorkspaceNameValue.firstChunk());
-    if (workspaceNameValue == null) {
-      return null;
-    }
-    if (repositoryName.strippedName().equals(workspaceNameValue.getName())) {
-      return (PackageLookupValue) env.getValue(PackageLookupValue.key(
-          PackageIdentifier.createInMainRepo(id.getPackageFragment())));
-    }
-    // Otherwise look up the repository.
-    SkyKey repositoryKey = RepositoryValue.key(repositoryName);
+    SkyKey repositoryKey = RepositoryValue.key(id.getRepository());
     RepositoryValue repositoryValue;
     try {
       repositoryValue = (RepositoryValue) env.getValueOrThrow(
