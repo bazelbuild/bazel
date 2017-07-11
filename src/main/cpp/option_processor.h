@@ -84,11 +84,6 @@ class OptionProcessor {
                                          const std::string& cwd,
                                          std::string* error);
 
-  blaze_exit_code::ExitCode ParseOptions(int argc, const char* argv[],
-                                         const std::string& workspace,
-                                         const std::string& cwd,
-                                         std::string* error);
-
   // Get the Blaze command to be executed.
   // Returns an empty string if no command was found on the command line.
   std::string GetCommand() const;

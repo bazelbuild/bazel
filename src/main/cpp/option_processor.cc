@@ -386,20 +386,6 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
   return blaze_exit_code::SUCCESS;
 }
 
-blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
-    int argc,
-    const char* argv[],
-    const string& workspace,
-    const string& cwd,
-    string* error) {
-  vector<string> args(argc);
-  for (int arg = 0; arg < argc; arg++) {
-    args[arg] = argv[arg];
-  }
-
-  return ParseOptions(args, workspace, cwd, error);
-}
-
 blaze_exit_code::ExitCode OptionProcessor::ParseStartupOptions(
     std::string *error) {
   std::vector<RcStartupFlag> rcstartup_flags;

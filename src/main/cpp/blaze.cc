@@ -1155,10 +1155,13 @@ static ATTRIBUTE_NORETURN void SendServerRequest(
 
 // Parse the options, storing parsed values in globals.
 static void ParseOptions(int argc, const char *argv[]) {
-  string error;
-  blaze_exit_code::ExitCode parse_exit_code =
-      globals->option_processor->ParseOptions(argc, argv, globals->workspace,
-                                              globals->cwd, &error);
+  std::string error;
+  std::vector<std::string> args;
+  args.insert(args.end(), argv, argv + argc);
+  const blaze_exit_code::ExitCode parse_exit_code =
+      globals->option_processor->ParseOptions(
+          args, globals->workspace, globals->cwd, &error);
+
   if (parse_exit_code != blaze_exit_code::SUCCESS) {
     die(parse_exit_code, "%s", error.c_str());
   }
