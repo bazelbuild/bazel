@@ -163,7 +163,7 @@ public class ByteStreamUploaderTest {
     // This test should not have triggered any retries.
     Mockito.verifyZeroInteractions(mockBackoff);
 
-    assertThat(uploader.uploadsInProgress()).isFalse();
+    blockUntilInternalStateConsistent(uploader);
   }
 
   @Test(timeout = 20000)
@@ -251,7 +251,7 @@ public class ByteStreamUploaderTest {
 
     uploader.uploadBlobs(builders);
 
-    assertThat(uploader.uploadsInProgress()).isFalse();
+    blockUntilInternalStateConsistent(uploader);
   }
 
   @Test(timeout = 10000)
@@ -383,7 +383,7 @@ public class ByteStreamUploaderTest {
     assertThat(f1.isCancelled()).isTrue();
     assertThat(f2.isCancelled()).isTrue();
 
-    assertThat(uploader.uploadsInProgress()).isFalse();
+    blockUntilInternalStateConsistent(uploader);
   }
 
   @Test(timeout = 10000)
@@ -519,6 +519,14 @@ public class ByteStreamUploaderTest {
     @Override
     public int getRetryAttempts() {
       return retries;
+    }
+  }
+
+  private void blockUntilInternalStateConsistent(ByteStreamUploader uploader) throws Exception {
+    // Poll until all upload futures have been removed from the internal hash map. The polling is
+    // necessary, as listeners are executed after Future.get() calls are notified about completion.
+    while (uploader.uploadsInProgress()) {
+      Thread.sleep(1);
     }
   }
 }
