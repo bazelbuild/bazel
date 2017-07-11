@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.CompilationHelper;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.rules.MakeVariableProvider;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.OsUtils;
@@ -70,12 +72,19 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
         new Runfiles.Builder(ruleContext.getWorkspaceName())
             .addTransitiveArtifacts(filesToBuild)
             .build();
+
+    MakeVariableProvider makeVariableProvider = new MakeVariableProvider(ImmutableMap.of(
+        "JAVA", javaBinaryExecPath.getPathString(),
+        "JAVABASE", javaHome.getPathString()));
+
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .setFilesToBuild(filesToBuild)
         .addProvider(JavaRuntimeProvider.class, JavaRuntimeProvider.create(
             filesToBuild, javaHome, javaBinaryExecPath, javaBinaryRunfilesPath))
         .addProvider(MiddlemanProvider.class, new MiddlemanProvider(middleman))
+        .addProvider(makeVariableProvider)
+        .addNativeDeclaredProvider(makeVariableProvider)
         .build();
   }
 
