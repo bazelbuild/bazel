@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
@@ -1022,72 +1021,6 @@ public class IosApplicationTest extends ObjcRuleTestCase {
   @Test
   public void testTargetHasDsymPlist() throws Exception {
     checkTargetHasDsymPlist(RULE_TYPE);
-  }
-
-  @Test
-  public void testPropagatesDebugSymbolsFromExtensions() throws Exception {
-    useConfiguration("--ios_multi_cpus=i386,x86_64", "--apple_generate_dsym");
-    scratch.file(
-        "x/BUILD",
-        "ios_extension_binary(",
-        "    name = 'ext2_bin',",
-        "    srcs = ['ebin.m'],",
-        ")",
-        "",
-        "ios_extension(",
-        "    name = 'ext2',",
-        "    binary = ':ext2_bin',",
-        ")",
-        "",
-        "ios_extension_binary(",
-        "    name = 'ext_bin',",
-        "    srcs = ['ebin.m'],",
-        ")",
-        "",
-        "ios_extension(",
-        "    name = 'ext',",
-        "    binary = ':ext_bin',",
-        ")",
-        "",
-        "apple_watch_extension_binary(",
-        "    name = 'watch_bin',",
-        "    srcs = ['a.m'],",
-        ")",
-        "",
-        "apple_watch1_extension(",
-        "    name = 'watch_ext',",
-        "    app_name = 'y',",
-        "    binary = ':watch_bin',",
-        ")",
-        "",
-        "objc_binary(",
-        "    name = 'bin',",
-        "    srcs = ['bin.m'],",
-        ")",
-        "",
-        "ios_application(",
-        "    name = 'app',",
-        "    binary = ':bin',",
-        "    extensions = [':ext', ':ext2', ':watch_ext'],",
-        ")");
-
-    Iterable<Artifact> filesToBuild =
-        getConfiguredTarget("//x:app").getProvider(FileProvider.class).getFilesToBuild();
-    assertThat(filesToBuild)
-        .containsAllOf(
-            getBinArtifact("app.app.dSYM/Contents/Resources/DWARF/app_i386", "//x:app"),
-            getBinArtifact("app.app.dSYM/Contents/Resources/DWARF/app_x86_64", "//x:app"),
-            getBinArtifact("app.app.dSYM/Contents/Info.plist", "//x:app"),
-            getBinArtifact("ext.app.dSYM/Contents/Resources/DWARF/ext_i386", "//x:app"),
-            getBinArtifact("ext.app.dSYM/Contents/Resources/DWARF/ext_x86_64", "//x:app"),
-            getBinArtifact("ext.app.dSYM/Contents/Info.plist", "//x:app"),
-            getBinArtifact("ext2.app.dSYM/Contents/Resources/DWARF/ext2_i386", "//x:app"),
-            getBinArtifact("ext2.app.dSYM/Contents/Resources/DWARF/ext2_x86_64", "//x:app"),
-            getBinArtifact("ext2.app.dSYM/Contents/Info.plist", "//x:app"),
-            getBinArtifact("watch_ext.app.dSYM/Contents/Resources/DWARF/watch_ext_i386", "//x:app"),
-            getBinArtifact(
-                "watch_ext.app.dSYM/Contents/Resources/DWARF/watch_ext_x86_64", "//x:app"),
-            getBinArtifact("watch_ext.app.dSYM/Contents/Info.plist", "//x:app"));
   }
 
   @Test

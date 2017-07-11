@@ -710,8 +710,6 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     IOS_APPLICATION("ios_application"),
     /** Split transition distinguisher for {@code ios_framework} rule. */
     FRAMEWORK("framework"),
-    /** Split transition distinguisher for {@code apple_watch1_extension} rule. */
-    WATCH_OS1_EXTENSION("watch_os1_extension"),
     /** Distinguisher for {@code apple_binary} rule with "ios" platform_type. */
     APPLEBIN_IOS("applebin_ios"),
     /** Distinguisher for {@code apple_binary} rule with "watchos" platform_type. */

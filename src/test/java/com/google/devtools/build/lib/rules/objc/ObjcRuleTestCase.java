@@ -198,7 +198,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         return String.format("blaze-out/ios_%s-fastbuild/", arch);
       case IOS_EXTENSION: // Intentional fall-through.
       case IOS_APPLICATION:
-      case WATCH_OS1_EXTENSION:
       case APPLEBIN_IOS:
         return String.format("blaze-out/ios-%1$s-min%3$s-%2$s-ios_%1$s-fastbuild/",
             arch, configurationDistinguisher.toString().toLowerCase(Locale.US), minOsVersion);
@@ -234,7 +233,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
       String arch, ConfigurationDistinguisher configurationDistinguisher) {
     switch (configurationDistinguisher) {
       case IOS_EXTENSION:
-      case WATCH_OS1_EXTENSION:
       case APPLEBIN_IOS:
         return String.format("blaze-out/%s-ios_%s-fastbuild/bin/",
             configurationDistinguisher.toString().toLowerCase(Locale.US), arch);
@@ -259,8 +257,6 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
       case IOS_APPLICATION:
       case APPLEBIN_IOS:
         return DEFAULT_IOS_SDK_VERSION;
-      case WATCH_OS1_EXTENSION:
-        return WatchUtils.MINIMUM_OS_VERSION;
       case APPLEBIN_WATCHOS:
         return DottedVersion.fromString(XcodeVersionProperties.DEFAULT_WATCHOS_SDK_VERSION);
       default:
