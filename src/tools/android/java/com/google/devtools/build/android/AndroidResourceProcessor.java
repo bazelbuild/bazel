@@ -42,6 +42,9 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.RevisionConverter;
 import com.google.devtools.build.android.SplitConfigurationFilter.UnrecognizedSplitsException;
+import com.google.devtools.build.android.junctions.JunctionCreator;
+import com.google.devtools.build.android.junctions.NoopJunctionCreator;
+import com.google.devtools.build.android.junctions.WindowsJunctionCreator;
 import com.google.devtools.build.android.resources.ResourceSymbols;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
@@ -284,6 +287,7 @@ public class AndroidResourceProcessor {
   // TODO(bazel-team): Clean up this method call -- 13 params is too many.
   /** Processes resources for generated sources, configs and packaging resources. */
   public void processResources(
+      Path tempRoot,
       Path aapt,
       Path androidJar,
       @Nullable Revision buildToolsVersion,
@@ -310,7 +314,9 @@ public class AndroidResourceProcessor {
     if (publicResourcesOut != null) {
       prepareOutputPath(publicResourcesOut.getParent());
     }
-    runAapt(aapt,
+    runAapt(
+        tempRoot,
+        aapt,
         androidJar,
         buildToolsVersion,
         variantType,
@@ -355,6 +361,7 @@ public class AndroidResourceProcessor {
   }
 
   public void runAapt(
+      Path tempRoot,
       Path aapt,
       Path androidJar,
       @Nullable Revision buildToolsVersion,
@@ -373,59 +380,75 @@ public class AndroidResourceProcessor {
       @Nullable Path mainDexProguardOut,
       @Nullable Path publicResourcesOut)
       throws InterruptedException, LoggedErrorException, IOException {
-    AaptCommandBuilder commandBuilder =
-        new AaptCommandBuilder(aapt)
-        .forBuildToolsVersion(buildToolsVersion)
-        .forVariantType(variantType)
-        // first argument is the command to be executed, "package"
-        .add("package")
-        // If the logger is verbose, set aapt to be verbose
-        .when(stdLogger.getLevel() == StdLogger.Level.VERBOSE).thenAdd("-v")
-        // Overwrite existing files, if they exist.
-        .add("-f")
-        // Resources are precrunched in the merge process.
-        .add("--no-crunch")
-        // Do not automatically generate versioned copies of vector XML resources.
-        .whenVersionIsAtLeast(new Revision(23)).thenAdd("--no-version-vectors")
-        // Add the android.jar as a base input.
-        .add("-I", androidJar)
-        // Add the manifest for validation.
-        .add("-M", androidManifest.toAbsolutePath())
-        // Maybe add the resources if they exist
-        .when(Files.isDirectory(resourceDir)).thenAdd("-S", resourceDir)
-        // Maybe add the assets if they exist
-        .when(Files.isDirectory(assetsDir)).thenAdd("-A", assetsDir)
-        // Outputs
-        .when(sourceOut != null).thenAdd("-m")
-        .add("-J", prepareOutputPath(sourceOut))
-        .add("--output-text-symbols", prepareOutputPath(sourceOut))
-        .add("-F", packageOut)
-        .add("-G", proguardOut)
-        .whenVersionIsAtLeast(new Revision(24)).thenAdd("-D", mainDexProguardOut)
-        .add("-P", publicResourcesOut)
-        .when(debug).thenAdd("--debug-mode")
-        .add("--custom-package", customPackageForR)
-        // If it is a library, do not generate final java ids.
-        .whenVariantIs(VariantType.LIBRARY).thenAdd("--non-constant-id")
-        .add("--ignore-assets", aaptOptions.getIgnoreAssets())
-        .when(aaptOptions.getFailOnMissingConfigEntry()).thenAdd("--error-on-missing-config-entry")
-        // Never compress apks.
-        .add("-0", "apk")
-        // Add custom no-compress extensions.
-        .addRepeated("-0", aaptOptions.getNoCompress())
-        // Filter by resource configuration type.
-        .add("-c", Joiner.on(',').join(resourceConfigs))
-        // Split APKs if any splits were specified.
-        .whenVersionIsAtLeast(new Revision(23)).thenAddRepeated("--split", splits);
-    for (String additional : aaptOptions.getAdditionalParameters()) {
-      commandBuilder.add(additional);
-    }
-    try {
-      new CommandLineRunner(stdLogger).runCmdLine(commandBuilder.build(), null);
-    } catch (LoggedErrorException e) {
-      // Add context and throw the error to resume processing.
-      throw new LoggedErrorException(
-          e.getCmdLineError(), getOutputWithSourceContext(aapt, e.getOutput()), e.getCmdLine());
+    try (JunctionCreator junctions =
+        System.getProperty("os.name").toLowerCase().startsWith("windows")
+            ? new WindowsJunctionCreator(Files.createDirectories(tempRoot.resolve("juncts")))
+            : new NoopJunctionCreator()) {
+      sourceOut = junctions.create(sourceOut);
+      AaptCommandBuilder commandBuilder =
+          new AaptCommandBuilder(junctions.create(aapt))
+              .forBuildToolsVersion(buildToolsVersion)
+              .forVariantType(variantType)
+              // first argument is the command to be executed, "package"
+              .add("package")
+              // If the logger is verbose, set aapt to be verbose
+              .when(stdLogger.getLevel() == StdLogger.Level.VERBOSE)
+              .thenAdd("-v")
+              // Overwrite existing files, if they exist.
+              .add("-f")
+              // Resources are precrunched in the merge process.
+              .add("--no-crunch")
+              // Do not automatically generate versioned copies of vector XML resources.
+              .whenVersionIsAtLeast(new Revision(23))
+              .thenAdd("--no-version-vectors")
+              // Add the android.jar as a base input.
+              .add("-I", junctions.create(androidJar))
+              // Add the manifest for validation.
+              .add("-M", junctions.create(androidManifest.toAbsolutePath()))
+              // Maybe add the resources if they exist
+              .when(Files.isDirectory(resourceDir))
+              .thenAdd("-S", junctions.create(resourceDir))
+              // Maybe add the assets if they exist
+              .when(Files.isDirectory(assetsDir))
+              .thenAdd("-A", junctions.create(assetsDir))
+              // Outputs
+              .when(sourceOut != null)
+              .thenAdd("-m")
+              .add("-J", prepareOutputPath(sourceOut))
+              .add("--output-text-symbols", prepareOutputPath(sourceOut))
+              .add("-F", junctions.create(packageOut))
+              .add("-G", junctions.create(proguardOut))
+              .whenVersionIsAtLeast(new Revision(24))
+              .thenAdd("-D", junctions.create(mainDexProguardOut))
+              .add("-P", junctions.create(publicResourcesOut))
+              .when(debug)
+              .thenAdd("--debug-mode")
+              .add("--custom-package", customPackageForR)
+              // If it is a library, do not generate final java ids.
+              .whenVariantIs(VariantType.LIBRARY)
+              .thenAdd("--non-constant-id")
+              .add("--ignore-assets", aaptOptions.getIgnoreAssets())
+              .when(aaptOptions.getFailOnMissingConfigEntry())
+              .thenAdd("--error-on-missing-config-entry")
+              // Never compress apks.
+              .add("-0", "apk")
+              // Add custom no-compress extensions.
+              .addRepeated("-0", aaptOptions.getNoCompress())
+              // Filter by resource configuration type.
+              .add("-c", Joiner.on(',').join(resourceConfigs))
+              // Split APKs if any splits were specified.
+              .whenVersionIsAtLeast(new Revision(23))
+              .thenAddRepeated("--split", splits);
+      for (String additional : aaptOptions.getAdditionalParameters()) {
+        commandBuilder.add(additional);
+      }
+      try {
+        new CommandLineRunner(stdLogger).runCmdLine(commandBuilder.build(), null);
+      } catch (LoggedErrorException e) {
+        // Add context and throw the error to resume processing.
+        throw new LoggedErrorException(
+            e.getCmdLineError(), getOutputWithSourceContext(aapt, e.getOutput()), e.getCmdLine());
+      }
     }
   }
 

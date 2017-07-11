@@ -390,6 +390,7 @@ public class AndroidResourceProcessingAction {
       }
 
       resourceProcessor.processResources(
+          tmp,
           aaptConfigOptions.aapt,
           aaptConfigOptions.androidJar,
           aaptConfigOptions.buildToolsVersion,

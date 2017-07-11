@@ -138,6 +138,7 @@ public class AndroidResourceValidatorAction {
       resourceProcessor.writeDummyManifestForAapt(dummyManifest, options.packageForR);
 
       resourceProcessor.runAapt(
+          tmp,
           aaptConfigOptions.aapt,
           aaptConfigOptions.androidJar,
           aaptConfigOptions.buildToolsVersion,

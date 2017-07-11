@@ -287,6 +287,7 @@ public class ResourceShrinkerAction {
 
       // Build ap_ with shrunk resources.
       resourceProcessor.processResources(
+          working,
           aaptConfigOptions.aapt,
           aaptConfigOptions.androidJar,
           aaptConfigOptions.buildToolsVersion,
@@ -303,8 +304,8 @@ public class ResourceShrinkerAction {
           options.shrunkApk,
           null /* proguardOutput */,
           null /* mainDexProguardOutput */,
-         null /* publicResourcesOut */,
-         null /* dataBindingInfoOut */);
+          null /* publicResourcesOut */,
+          null /* dataBindingInfoOut */);
       if (options.shrunkResources != null) {
         AndroidResourceOutputs.createResourcesZip(
             shrunkResources,
