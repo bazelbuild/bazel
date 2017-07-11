@@ -60,4 +60,7 @@ message BuildStatus {
 
   // The end result.
   Result result = 1;
+
+  // Fine-grained diagnostic information to complement the status.
+  google.protobuf.Any details = 2;
 }
