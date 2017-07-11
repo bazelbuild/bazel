@@ -1,5 +1,7 @@
 #!/usr/bin/env python
-# Copyright 2014 Google Inc. All Rights Reserved.
+
+# Copyright (c) 2010, Google Inc.
+# All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
@@ -29,21 +31,15 @@
 
 """Module to enforce different constraints on flags.
 
-Instead of importing this module directly, it's preferable to import the
-flags package and use the aliases defined at the package level.
-
 A validator represents an invariant, enforced over a one or more flags.
-See 'FLAGS VALIDATORS' in the flags module's docstring for a usage manual.
+See 'FLAGS VALIDATORS' in gflags.py's docstring for a usage manual.
 """
 
 __author__ = 'olexiy@google.com (Olexiy Oryeshko)'
 
 
-import exceptions
-
-
-# TODO(yileiyang): Remove this.
-Error = exceptions.ValidationError  # pylint: disable=invalid-name
+class Error(Exception):
+  """Thrown If validator constraint is not satisfied."""
 
 
 class Validator(object):
@@ -61,8 +57,8 @@ class Validator(object):
 
     Args:
       checker: function to verify the constraint.
-        Input of this method varies, see SingleFlagValidator and
-          multi_flags_validator for a detailed description.
+        Input of this method varies, see SimpleValidator and
+          DictionaryValidator for a detailed description.
       message: string, error message to be shown to the user
     """
     self.checker = checker
@@ -71,7 +67,7 @@ class Validator(object):
     # Used to assert validators in the order they were registered (CL/18694236)
     self.insertion_index = Validator.validators_count
 
-  def verify(self, flag_values):
+  def Verify(self, flag_values):
     """Verify that constraint is satisfied.
 
     flags library calls this method to verify Validator's constraint.
@@ -80,11 +76,11 @@ class Validator(object):
     Raises:
       Error: if constraint is not satisfied.
     """
-    param = self._get_input_to_checker_function(flag_values)
+    param = self._GetInputToCheckerFunction(flag_values)
     if not self.checker(param):
-      raise exceptions.ValidationError(self.message)
+      raise Error(self.message)
 
-  def get_flags_names(self):
+  def GetFlagsNames(self):
     """Return the names of the flags checked by this validator.
 
     Returns:
@@ -92,10 +88,10 @@ class Validator(object):
     """
     raise NotImplementedError('This method should be overloaded')
 
-  def print_flags_with_values(self, flag_values):
+  def PrintFlagsWithValues(self, flag_values):
     raise NotImplementedError('This method should be overloaded')
 
-  def _get_input_to_checker_function(self, flag_values):
+  def _GetInputToCheckerFunction(self, flag_values):
     """Given flag values, construct the input to be given to checker.
 
     Args:
@@ -106,14 +102,12 @@ class Validator(object):
     raise NotImplementedError('This method should be overloaded')
 
 
-class SingleFlagValidator(Validator):
-  """Validator behind register_validator() method.
+class SimpleValidator(Validator):
+  """Validator behind RegisterValidator() method.
 
   Validates that a single flag passes its checker function. The checker function
   takes the flag value and returns True (if value looks fine) or, if flag value
-  is not valid, either returns False or raises an Exception.
-  """
-
+  is not valid, either returns False or raises an Exception."""
   def __init__(self, flag_name, checker, message):
     """Constructor.
 
@@ -127,16 +121,16 @@ class SingleFlagValidator(Validator):
       message: string, error message to be shown to the user if validator's
         condition is not satisfied
     """
-    super(SingleFlagValidator, self).__init__(checker, message)
+    super(SimpleValidator, self).__init__(checker, message)
     self.flag_name = flag_name
 
-  def get_flags_names(self):
+  def GetFlagsNames(self):
     return [self.flag_name]
 
-  def print_flags_with_values(self, flag_values):
+  def PrintFlagsWithValues(self, flag_values):
     return 'flag --%s=%s' % (self.flag_name, flag_values[self.flag_name].value)
 
-  def _get_input_to_checker_function(self, flag_values):
+  def _GetInputToCheckerFunction(self, flag_values):
     """Given flag values, construct the input to be given to checker.
 
     Args:
@@ -147,14 +141,13 @@ class SingleFlagValidator(Validator):
     return flag_values[self.flag_name].value
 
 
-class MultiFlagsValidator(Validator):
-  """Validator behind register_multi_flags_validator method.
+class DictionaryValidator(Validator):
+  """Validator behind RegisterDictionaryValidator method.
 
   Validates that flag values pass their common checker function. The checker
   function takes flag values and returns True (if values look fine) or,
   if values are not valid, either returns False or raises an Exception.
   """
-
   def __init__(self, flag_names, checker, message):
     """Constructor.
 
@@ -169,10 +162,10 @@ class MultiFlagsValidator(Validator):
       message: string, error message to be shown to the user if validator's
         condition is not satisfied
     """
-    super(MultiFlagsValidator, self).__init__(checker, message)
+    super(DictionaryValidator, self).__init__(checker, message)
     self.flag_names = flag_names
 
-  def _get_input_to_checker_function(self, flag_values):
+  def _GetInputToCheckerFunction(self, flag_values):
     """Given flag values, construct the input to be given to checker.
 
     Args:
@@ -183,12 +176,12 @@ class MultiFlagsValidator(Validator):
     """
     return dict([key, flag_values[key].value] for key in self.flag_names)
 
-  def print_flags_with_values(self, flag_values):
+  def PrintFlagsWithValues(self, flag_values):
     prefix = 'flags '
     flags_with_values = []
     for key in self.flag_names:
       flags_with_values.append('%s=%s' % (key, flag_values[key].value))
     return prefix + ', '.join(flags_with_values)
 
-  def get_flags_names(self):
+  def GetFlagsNames(self):
     return self.flag_names

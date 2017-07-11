@@ -1,5 +1,7 @@
 #!/usr/bin/env python
-# Copyright 2014 Google Inc. All Rights Reserved.
+
+# Copyright (c) 2009, Google Inc.
+# All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
@@ -36,8 +38,9 @@ sure the unit tests for gflags.py involve more than one module.
 
 __author__ = 'salcianu@google.com (Alex Salcianu)'
 
+__pychecker__ = 'no-local'  # for unittest
+
 import gflags
-import _helpers
 
 FLAGS = gflags.FLAGS
 
@@ -105,14 +108,16 @@ def RemoveFlags(flag_values=FLAGS):
 
 
 def GetModuleName():
-  """Uses GetCallingModule() to return the name of this module.
+  """Uses gflags._GetCallingModule() to return the name of this module.
 
   For checking that _GetCallingModule works as expected.
 
   Returns:
     A string, the name of this module.
   """
-  return _helpers.GetCallingModule()
+  # Calling the protected _GetCallingModule generates a lint warning,
+  # but we do not have any other alternative to test that function.
+  return gflags._GetCallingModule()
 
 
 def ExecuteCode(code, global_dict):
@@ -127,9 +132,4 @@ def ExecuteCode(code, global_dict):
   """
   # Indeed, using exec generates a lint warning.  But some user code
   # actually uses exec, and we have to test for it ...
-  exec(code, global_dict)  # pylint: disable=exec-used
-
-
-def DisclaimKeyFlags():
-  """Disclaims flags declared in this module."""
-  gflags.DISCLAIM_key_flags()
+  exec code in global_dict
