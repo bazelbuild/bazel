@@ -77,6 +77,10 @@ message RunResponse {
   // as soon as possible. This is not required to be set (non-empty) on every
   // response.
   string command_id = 6;
+
+  // Whether the command has shut down the server; if set, the client should
+  // wait until the server process dies before finishing.
+  bool termination_expected = 7;
 }
 
 // Passed to CommandServer.cancel to initiate graceful cancellation of an

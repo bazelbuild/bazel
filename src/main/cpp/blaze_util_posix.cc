@@ -72,7 +72,9 @@ static void handler(int signum) {
             "\n%s caught third interrupt signal; killed.\n\n",
             SignalHandler::Get().GetGlobals()->options->product_name.c_str());
         if (SignalHandler::Get().GetGlobals()->server_pid != -1) {
-          KillServerProcess(SignalHandler::Get().GetGlobals()->server_pid);
+          KillServerProcess(
+              SignalHandler::Get().GetGlobals()->server_pid,
+              SignalHandler::Get().GetGlobals()->options->output_base);
         }
         _exit(1);
       }
@@ -628,6 +630,26 @@ uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
 
 void ReleaseLock(BlazeLock* blaze_lock) {
   close(blaze_lock->lockfd);
+}
+
+bool KillServerProcess(int pid, const string& output_base) {
+  // Kill the process and make sure it's dead before proceeding.
+  killpg(pid, SIGKILL);
+  if (!AwaitServerProcessTermination(pid, output_base,
+                                     kPostKillGracePeriodSeconds)) {
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "Attempted to kill stale server process (pid=%d) using "
+        "SIGKILL, but it did not die in a timely fashion.",
+        pid);
+  }
+  return true;
+}
+
+void TrySleep(unsigned int milliseconds) {
+  unsigned int seconds_part = milliseconds / 1000;
+  unsigned int nanoseconds_part = (milliseconds % 1000) * 1000 * 1000;
+  struct timespec sleeptime = {seconds_part, nanoseconds_part};
+  nanosleep(&sleeptime, NULL);
 }
 
 string GetUserName() {

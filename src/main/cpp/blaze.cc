@@ -731,9 +731,8 @@ static void StartServerAndConnect(const WorkspaceLayout *workspace_layout,
   // disaster.
   int server_pid = GetServerPid(server_dir);
   if (server_pid > 0) {
-    if (VerifyServerProcess(server_pid, globals->options->output_base,
-                            globals->options->install_base)) {
-      if (KillServerProcess(server_pid)) {
+    if (VerifyServerProcess(server_pid, globals->options->output_base)) {
+      if (KillServerProcess(server_pid, globals->options->output_base)) {
         fprintf(stderr, "Killed non-responsive server process (pid=%d)\n",
                 server_pid);
         SetRestartReasonIfNotSet(SERVER_UNRESPONSIVE);
@@ -1458,8 +1457,7 @@ bool GrpcBlazeServer::Connect() {
     return false;
   }
 
-  if (!VerifyServerProcess(server_pid, globals->options->output_base,
-      globals->options->install_base)) {
+  if (!VerifyServerProcess(server_pid, globals->options->output_base)) {
     return false;
   }
 
@@ -1587,11 +1585,13 @@ void GrpcBlazeServer::KillRunningServer() {
   while (reader->Read(&response)) {
   }
 
-  // Kill the server process for good measure (if we know the server PID)
+  // Wait for the server process to terminate (if we know the server PID).
+  // If it does not terminate itself gracefully within 1m, terminate it.
   if (globals->server_pid > 0 &&
-      VerifyServerProcess(globals->server_pid, globals->options->output_base,
-                          globals->options->install_base)) {
-    KillServerProcess(globals->server_pid);
+      !AwaitServerProcessTermination(globals->server_pid,
+                                     globals->options->output_base,
+                                     kPostShutdownGracePeriodSeconds)) {
+    KillServerProcess(globals->server_pid, globals->options->output_base);
   }
 
   connected_ = false;
@@ -1599,6 +1599,7 @@ void GrpcBlazeServer::KillRunningServer() {
 
 unsigned int GrpcBlazeServer::Communicate() {
   assert(connected_);
+  assert(globals->server_pid > 0);
 
   vector<string> arg_vector;
   string command = globals->option_processor->GetCommand();
@@ -1643,6 +1644,7 @@ unsigned int GrpcBlazeServer::Communicate() {
   int exit_code = -1;
   bool finished = false;
   bool finished_warning_emitted = false;
+  bool termination_expected = false;
 
   while (reader->Read(&response)) {
     if (finished && !finished_warning_emitted) {
@@ -1659,6 +1661,7 @@ unsigned int GrpcBlazeServer::Communicate() {
 
     if (response.finished()) {
       exit_code = response.exit_code();
+      termination_expected = response.termination_expected();
       finished = true;
     }
 
@@ -1692,6 +1695,15 @@ unsigned int GrpcBlazeServer::Communicate() {
       command_id_set = true;
       SendAction(CancelThreadAction::COMMAND_ID_RECEIVED);
     }
+  }
+
+  // If the server has shut down, but does not terminate itself within a 1m
+  // grace period, terminate it.
+  if (termination_expected &&
+      !AwaitServerProcessTermination(globals->server_pid,
+                                     globals->options->output_base,
+                                     kPostShutdownGracePeriodSeconds)) {
+    KillServerProcess(globals->server_pid, globals->options->output_base);
   }
 
   SendAction(CancelThreadAction::JOIN);

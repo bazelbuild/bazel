@@ -860,12 +860,17 @@ public class GrpcServerImpl implements RPCServer {
     // the cancel request won't find the thread to interrupt)
     Thread.interrupted();
 
+    boolean shutdown = commandExecutor.shutdown();
+    if (shutdown) {
+      server.shutdown();
+    }
     RunResponse response =
         RunResponse.newBuilder()
             .setCookie(responseCookie)
             .setCommandId(commandId)
             .setFinished(true)
             .setExitCode(exitCode)
+            .setTerminationExpected(shutdown)
             .build();
 
     try {
@@ -875,11 +880,6 @@ public class GrpcServerImpl implements RPCServer {
       // The client cancelled the call. Log an error and go on.
       log.info(String.format("Client cancelled command %s just right before its end: %s",
           commandId, e.getMessage()));
-    }
-
-    if (commandExecutor.shutdown()) {
-      pidFileWatcherThread.signalShutdown();
-      server.shutdown();
     }
   }
 

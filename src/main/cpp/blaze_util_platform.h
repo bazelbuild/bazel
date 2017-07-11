@@ -168,13 +168,17 @@ uint64_t AcquireLock(const std::string& output_base, bool batch_mode,
 void ReleaseLock(BlazeLock* blaze_lock);
 
 // Verifies whether the server process still exists. Returns true if it does.
-bool VerifyServerProcess(int pid, const std::string& output_base,
-                         const std::string& install_base);
+bool VerifyServerProcess(int pid, const std::string& output_base);
 
 // Kills a server process based on its PID.
 // Returns true if the server process was found and killed.
 // WARNING! This function can be called from a signal handler!
-bool KillServerProcess(int pid);
+bool KillServerProcess(int pid, const std::string& output_base);
+
+// Wait for approximately the specified number of milliseconds. The actual
+// amount of time waited may be more or less because of interrupts or system
+// clock resolution.
+void TrySleep(unsigned int milliseconds);
 
 // Mark path as being excluded from backups (if supported by operating system).
 void ExcludePathFromBackup(const std::string& path);
