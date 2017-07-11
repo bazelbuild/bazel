@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.BatchStat;
@@ -63,7 +64,7 @@ public interface OutputService {
    * @throws BuildFailedException if build preparation failed
    * @throws InterruptedException
    */
-  ModifiedFileSet startBuild(UUID buildId, boolean finalizeActions)
+  ModifiedFileSet startBuild(EventHandler eventHandler, UUID buildId, boolean finalizeActions)
       throws BuildFailedException, AbruptExitException, InterruptedException;
 
   /**
