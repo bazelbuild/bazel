@@ -77,7 +77,7 @@ public class SyntaxTreeVisitor {
   public void visit(ForStatement node) {
     visit(node.getVariable().getExpression());
     visit(node.getCollection());
-    visitAll(node.block());
+    visitAll(node.getBlock());
   }
 
   public void visit(LoadStatement node) {
@@ -117,11 +117,11 @@ public class SyntaxTreeVisitor {
 
   public void visit(ConditionalStatements node) {
     visit(node.getCondition());
-    visitAll(node.getStmts());
+    visitAll(node.getStatements());
   }
 
   public void visit(FunctionDefStatement node) {
-    visit(node.getIdent());
+    visit(node.getIdentifier());
     visitAll(node.getParameters());
     visitAll(node.getStatements());
   }
@@ -144,7 +144,7 @@ public class SyntaxTreeVisitor {
   }
 
   public void visit(DotExpression node) {
-    visit(node.getObj());
+    visit(node.getObject());
     visit(node.getField());
   }
 

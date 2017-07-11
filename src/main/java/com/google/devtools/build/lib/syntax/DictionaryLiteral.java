@@ -63,12 +63,12 @@ public final class DictionaryLiteral extends Expression {
 
   /** A new literal for an empty dictionary, onto which a new location can be specified */
   public static DictionaryLiteral emptyDict() {
-    return new DictionaryLiteral(ImmutableList.<DictionaryEntryLiteral>of());
+    return new DictionaryLiteral(ImmutableList.of());
   }
 
   @Override
   Object doEval(Environment env) throws EvalException, InterruptedException {
-    SkylarkDict<Object, Object> dict = SkylarkDict.<Object, Object>of(env);
+    SkylarkDict<Object, Object> dict = SkylarkDict.of(env);
     Location loc = getLocation();
     for (DictionaryEntryLiteral entry : entries) {
       Object key = entry.key.eval(env);

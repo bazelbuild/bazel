@@ -48,7 +48,7 @@ public final class ForStatement extends Statement {
     return collection;
   }
 
-  public ImmutableList<Statement> block() {
+  public ImmutableList<Statement> getBlock() {
     return block;
   }
 

@@ -389,7 +389,7 @@ public final class BinaryOperatorExpression extends Expression {
   /**
    * Throws an exception signifying incorrect types for the given operator.
    */
-  private static final EvalException typeException(
+  private static EvalException typeException(
       Object lval, Object rval, Operator operator, Location location) {
     // NB: this message format is identical to that used by CPython 2.7.6 or 3.4.0,
     // though python raises a TypeError.

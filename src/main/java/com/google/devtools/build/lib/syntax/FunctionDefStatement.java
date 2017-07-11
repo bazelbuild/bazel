@@ -23,16 +23,16 @@ import java.util.List;
  */
 public final class FunctionDefStatement extends Statement {
 
-  private final Identifier ident;
+  private final Identifier identifier;
   private final FunctionSignature.WithValues<Expression, Expression> signature;
   private final ImmutableList<Statement> statements;
   private final ImmutableList<Parameter<Expression, Expression>> parameters;
 
-  public FunctionDefStatement(Identifier ident,
+  public FunctionDefStatement(Identifier identifier,
       Iterable<Parameter<Expression, Expression>> parameters,
       FunctionSignature.WithValues<Expression, Expression> signature,
       Iterable<Statement> statements) {
-    this.ident = ident;
+    this.identifier = identifier;
     this.parameters = ImmutableList.copyOf(parameters);
     this.signature = signature;
     this.statements = ImmutableList.copyOf(statements);
@@ -42,7 +42,6 @@ public final class FunctionDefStatement extends Statement {
   void doExec(Environment env) throws EvalException, InterruptedException {
     List<Expression> defaultExpressions = signature.getDefaultValues();
     ArrayList<Object> defaultValues = null;
-    ArrayList<SkylarkType> types = null;
 
     if (defaultExpressions != null) {
       defaultValues = new ArrayList<>(defaultExpressions.size());
@@ -61,10 +60,10 @@ public final class FunctionDefStatement extends Statement {
     }
 
     env.update(
-        ident.getName(),
+        identifier.getName(),
         new UserDefinedFunction(
-            ident,
-            FunctionSignature.WithValues.<Object, SkylarkType>create(sig, defaultValues, types),
+            identifier,
+            FunctionSignature.WithValues.create(sig, defaultValues, /*types=*/null),
             statements,
             env.getGlobals()));
   }
@@ -73,7 +72,7 @@ public final class FunctionDefStatement extends Statement {
   public void prettyPrint(Appendable buffer, int indentLevel) throws IOException {
     printIndent(buffer, indentLevel);
     buffer.append("def ");
-    ident.prettyPrint(buffer);
+    identifier.prettyPrint(buffer);
     buffer.append('(');
     String sep = "";
     for (Parameter<?, ?> param : parameters) {
@@ -87,11 +86,11 @@ public final class FunctionDefStatement extends Statement {
 
   @Override
   public String toString() {
-    return "def " + ident + "(" + signature + "): ...\n";
+    return "def " + identifier + "(" + signature + "): ...\n";
   }
 
-  public Identifier getIdent() {
-    return ident;
+  public Identifier getIdentifier() {
+    return identifier;
   }
 
   public ImmutableList<Statement> getStatements() {

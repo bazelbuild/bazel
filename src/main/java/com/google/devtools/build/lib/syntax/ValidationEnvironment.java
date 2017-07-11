@@ -197,7 +197,7 @@ public final class ValidationEnvironment {
     for (Statement statement : statements) {
       if (statement instanceof FunctionDefStatement) {
         FunctionDefStatement fct = (FunctionDefStatement) statement;
-        declare(fct.getIdent().getName(), fct.getLocation());
+        declare(fct.getIdentifier().getName(), fct.getLocation());
       }
     }
 
