@@ -107,10 +107,6 @@ public class SimpleJavaLibraryBuilder implements Closeable {
           }
         };
     BlazeJavacResult result = compileSources(build, javacRunner);
-    JacocoInstrumentationProcessor processor = build.getJacocoInstrumentationProcessor();
-    if (processor != null) {
-      processor.processRequest(build);
-    }
     return result;
   }
 
@@ -140,6 +136,10 @@ public class SimpleJavaLibraryBuilder implements Closeable {
       jar.setNormalize(true);
       jar.setCompression(build.compressJar());
       jar.addDirectory(build.getClassDir());
+      JacocoInstrumentationProcessor processor = build.getJacocoInstrumentationProcessor();
+      if (processor != null) {
+        processor.processRequest(build, processor.isNewCoverageImplementation() ? jar : null);
+      }
     } finally {
       jar.execute();
     }
