@@ -99,7 +99,6 @@ import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.ArrayList;
@@ -241,8 +240,7 @@ public class BuildView {
     @Option(
       name = "version_window_for_dirty_node_gc",
       defaultValue = "0",
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Nodes that have been dirty for more than this many versions will be deleted"

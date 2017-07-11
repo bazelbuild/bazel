@@ -23,10 +23,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.OptionsParser.ConstructionException;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.OptionsParser.OptionValueDescription;
 import com.google.devtools.common.options.OptionsParser.UnparsedOptionValueDescription;
 import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
+import com.google.devtools.common.options.proto.OptionFilters.OptionMetadataTag;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -125,8 +125,7 @@ public class OptionsParserTest {
 
     @Option(
       name = "nodoc",
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "",
       allowMultiple = false
@@ -179,8 +178,8 @@ public class OptionsParserTest {
   public static class ExampleInternalOptions extends OptionsBase {
     @Option(
       name = "internal_boolean",
-      optionUsageRestrictions = OptionUsageRestrictions.INTERNAL,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      metadataTags = {OptionMetadataTag.INTERNAL},
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "true"
     )
@@ -188,8 +187,8 @@ public class OptionsParserTest {
 
     @Option(
       name = "internal_string",
-      optionUsageRestrictions = OptionUsageRestrictions.INTERNAL,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      metadataTags = {OptionMetadataTag.INTERNAL},
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "super secret"
     )
@@ -197,8 +196,7 @@ public class OptionsParserTest {
 
     @Option(
       name = "public string",
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "not a secret"
     )
@@ -658,9 +656,8 @@ public class OptionsParserTest {
   public static class CategoryTest extends OptionsBase {
     @Option(
       name = "swiss_bank_account_number",
-      optionUsageRestrictions =
-          OptionUsageRestrictions.UNDOCUMENTED, // Not printed in usage messages!
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory =
+          OptionDocumentationCategory.UNDOCUMENTED, // Not printed in usage messages!
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "123456789"
     )
@@ -1495,8 +1492,7 @@ public class OptionsParserTest {
 
     @Option(
       name = "gamma",
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "gamma"
     )
@@ -1504,8 +1500,7 @@ public class OptionsParserTest {
 
     @Option(
       name = "delta",
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "delta"
     )
@@ -1513,8 +1508,8 @@ public class OptionsParserTest {
 
     @Option(
       name = "echo",
-      optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "echo"
     )

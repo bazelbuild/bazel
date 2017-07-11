@@ -30,8 +30,8 @@ import com.google.devtools.common.options.Converters.CommaSeparatedOptionListCon
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
+import com.google.devtools.common.options.proto.OptionFilters.OptionMetadataTag;
 import java.util.List;
 
 /**
@@ -189,9 +189,8 @@ public class AppleCommandLineOptions extends FragmentOptions {
   @Option(
     name = "apple_platform_type",
     defaultValue = "IOS",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     converter = PlatformTypeConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Don't set this value from the command line - it is derived from other flags and "
@@ -202,8 +201,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
   @Option(
     name = "apple_split_cpu",
     defaultValue = "",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Don't set this value from the command line - it is derived from other flags and "
@@ -221,9 +219,9 @@ public class AppleCommandLineOptions extends FragmentOptions {
     name = "apple configuration distinguisher",
     defaultValue = "UNKNOWN",
     converter = ConfigurationDistinguisherConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
-    optionUsageRestrictions = OptionUsageRestrictions.INTERNAL
+    metadataTags = {OptionMetadataTag.INTERNAL}
   )
   public ConfigurationDistinguisher configurationDistinguisher;
 
@@ -276,8 +274,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
   @Option(
     name = "default_ios_provisioning_profile",
     defaultValue = "",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     converter = DefaultProvisioningProfileConverter.class
   )
@@ -286,9 +283,8 @@ public class AppleCommandLineOptions extends FragmentOptions {
   @Option(
     name = "xcode_version_config",
     defaultValue = "@local_config_xcode//:host_xcodes",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     converter = LabelConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "The label of the xcode_config rule to be used for selecting the Xcode version "
@@ -341,8 +337,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
   @Option(
     name = "apple_crosstool_transition",
     defaultValue = "true",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "If true, the apple crosstool is used for all apple rules."
   )
@@ -351,8 +346,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
   @Option(
     name = "target_uses_apple_crosstool",
     defaultValue = "false",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "If true, this target uses the apple crosstool.  Do not set this flag manually."
   )

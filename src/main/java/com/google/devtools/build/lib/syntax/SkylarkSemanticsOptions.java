@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.syntax;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.UsesOnlyCoreTypes;
 import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import com.google.devtools.common.options.proto.OptionFilters.OptionMetadataTag;
@@ -42,9 +41,8 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
   @Option(
     name = "internal_skylark_flag_test_canary",
     defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    effectTags = {OptionEffectTag.UNKNOWN}
   )
   public boolean skylarkFlagTestCanary;
 
@@ -200,10 +198,9 @@ public class SkylarkSemanticsOptions extends OptionsBase implements Serializable
     name = "incompatible_descriptive_string_representations",
     defaultValue = "false",
     category = "incompatible changes",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     help =
         "If set to true, objects are converted to strings by `str` and `repr` functions using the "
             + "new style representations that are designed to be more descriptive and not to leak "

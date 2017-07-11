@@ -34,7 +34,6 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import com.google.errorprone.annotations.MustBeClosed;
 import java.io.IOError;
@@ -113,20 +112,18 @@ class Desugar {
     @Option(
       name = "allow_empty_bootclasspath",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN}
     )
     public boolean allowEmptyBootclasspath;
 
     @Option(
       name = "only_desugar_javac9_for_lint",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "A temporary flag specifically for android lint, subject to removal anytime (DO NOT USE)",
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED
+          "A temporary flag specifically for android lint, subject to removal anytime (DO NOT USE)"
     )
     public boolean onlyDesugarJavac9ForLint;
 
@@ -226,9 +223,8 @@ class Desugar {
     @Option(
       name = "core_library",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       implicitRequirements = "--allow_empty_bootclasspath",
       help = "Enables rewriting to desugar java.* classes."
     )

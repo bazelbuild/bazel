@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.List;
 
@@ -35,8 +34,7 @@ public final class FeaturePolicyOptions extends FragmentOptions {
             + "//package:__pkg__ or //visibility:public). Can be repeated to specify multiple "
             + "features, but each feature must be specified only once.",
     valueHelp = "a feature=label pair",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     converter = PolicyEntryConverter.class,
     defaultValue = "n/a (default ignored for allowMultiple)",

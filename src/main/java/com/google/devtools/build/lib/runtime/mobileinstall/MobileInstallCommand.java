@@ -43,7 +43,6 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionPriority;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
@@ -135,15 +134,14 @@ public class MobileInstallCommand implements BlazeCommand {
       category = "mobile-install",
       defaultValue = "classic",
       converter = ModeConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "Select how to run mobile-install. \"classic\" runs the current version of "
               + "mobile-install. \"skylark\" uses the new skylark version, which has support for "
               + "android_test. \"skylark_incremental_res\" is the same as \"skylark\" plus "
               + "incremental resource processing. \"skylark_incremental_res\" requires a device "
-              + "with root access.",
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED
+              + "with root access."
     )
     public Mode mode;
 
@@ -151,10 +149,9 @@ public class MobileInstallCommand implements BlazeCommand {
       name = "mobile_install_aspect",
       category = "mobile-install",
       defaultValue = "@android_test_support//tools/android/mobile_install:mobile-install.bzl",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "The aspect to use for mobile-install.",
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED
+      help = "The aspect to use for mobile-install."
     )
     public String mobileInstallAspect;
   }

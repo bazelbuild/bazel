@@ -34,7 +34,6 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -148,9 +147,8 @@ class DexFileMerger {
     @Option(
       name = "set-max-idx-number",
       defaultValue = "" + (DexFormat.MAX_MEMBER_IDX + 1),
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       help = "Limit on fields and methods in a single dex file."
     )
     public int maxNumberOfIdxPerDex;

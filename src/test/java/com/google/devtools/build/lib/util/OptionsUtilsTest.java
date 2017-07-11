@@ -24,8 +24,8 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionPriority;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
+import com.google.devtools.common.options.proto.OptionFilters.OptionMetadataTag;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.Test;
@@ -59,8 +59,7 @@ public class OptionsUtilsTest {
 
     @Option(
       name = "gamma",
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "gamma"
     )
@@ -68,8 +67,7 @@ public class OptionsUtilsTest {
 
     @Option(
       name = "delta",
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "delta"
     )
@@ -77,8 +75,8 @@ public class OptionsUtilsTest {
 
     @Option(
       name = "echo",
-      optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "echo"
     )

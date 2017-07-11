@@ -14,10 +14,11 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
+import com.google.devtools.common.options.proto.OptionFilters.OptionMetadataTag;
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.util.Map;
@@ -44,7 +45,7 @@ public final class TransitiveOptionDetails implements Serializable {
         for (Field field : options.getClass().getFields()) {
           if (field.isAnnotationPresent(Option.class)) {
             Option option = field.getAnnotation(Option.class);
-            if (option.optionUsageRestrictions() == OptionUsageRestrictions.INTERNAL) {
+            if (ImmutableList.copyOf(option.metadataTags()).contains(OptionMetadataTag.INTERNAL)) {
               // ignore internal options
               continue;
             }

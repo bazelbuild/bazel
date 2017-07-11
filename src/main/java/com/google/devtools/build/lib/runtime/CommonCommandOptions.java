@@ -20,7 +20,6 @@ import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import com.google.devtools.common.options.proto.OptionFilters.OptionMetadataTag;
@@ -146,8 +145,8 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "client_env",
     defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    metadataTags = {OptionMetadataTag.HIDDEN},
     effectTags = {OptionEffectTag.CHANGES_INPUTS},
     converter = Converters.AssignmentConverter.class,
     allowMultiple = true,
@@ -159,10 +158,9 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "ignore_client_env",
     defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    metadataTags = {OptionMetadataTag.HIDDEN, OptionMetadataTag.DEPRECATED},
     effectTags = {OptionEffectTag.NO_OP},
-    metadataTags = OptionMetadataTag.DEPRECATED,
     deprecationWarning = "Deprecated, no-op.",
     help = "Deprecated, no-op."
   )
@@ -173,8 +171,8 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "client_cwd",
     defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+    metadataTags = {OptionMetadataTag.HIDDEN},
     effectTags = {OptionEffectTag.CHANGES_INPUTS},
     converter = OptionsUtils.PathFragmentConverter.class,
     help = "A system-generated parameter which specifies the client's working directory"
@@ -200,9 +198,9 @@ public class CommonCommandOptions extends OptionsBase {
     name = "default_override",
     defaultValue = "",
     allowMultiple = true,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.CHANGES_INPUTS},
-    optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    metadataTags = {OptionMetadataTag.HIDDEN},
     converter = OptionOverrideConverter.class,
     help = ""
   )
@@ -213,9 +211,9 @@ public class CommonCommandOptions extends OptionsBase {
     name = "rc_source",
     defaultValue = "",
     allowMultiple = true,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.CHANGES_INPUTS},
-    optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    metadataTags = {OptionMetadataTag.HIDDEN},
     help = ""
   )
   public List<String> rcSource;
@@ -223,9 +221,8 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "always_profile_slow_operations",
     defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     help = "Whether profiling slow operations is always turned on"
   )
   public boolean alwaysProfileSlowOperations;
@@ -256,9 +253,8 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "record_full_profiler_data",
     defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     help =
         "By default, Blaze profiler will record only aggregated data for fast but numerous "
             + "events (such as statting the file). If this option is enabled, profiler will record "
@@ -270,9 +266,8 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "memory_profile",
     defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     converter = OptionsUtils.PathFragmentConverter.class,
     help = "If set, write memory usage data to the specified file at phase ends."
   )
@@ -282,10 +277,9 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "gc_watchdog",
     defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.NO_OP},
     metadataTags = {OptionMetadataTag.DEPRECATED},
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     deprecationWarning = "Ignoring: this option is no longer supported",
     help = "Deprecated."
   )
@@ -294,9 +288,9 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "startup_time",
     defaultValue = "0",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-    optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    metadataTags = {OptionMetadataTag.HIDDEN},
     help = "The time in ms the launcher spends before sending the request to the blaze server."
   )
   public long startupTime;
@@ -304,9 +298,9 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "extract_data_time",
     defaultValue = "0",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-    optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    metadataTags = {OptionMetadataTag.HIDDEN},
     help = "The time in ms spent on extracting the new blaze version."
   )
   public long extractDataTime;
@@ -314,9 +308,9 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "command_wait_time",
     defaultValue = "0",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-    optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    metadataTags = {OptionMetadataTag.HIDDEN},
     help = "The time in ms a command had to wait on a busy Blaze server process."
   )
   public long waitTime;
@@ -334,9 +328,9 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "restart_reason",
     defaultValue = "no_restart",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-    optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    metadataTags = {OptionMetadataTag.HIDDEN},
     help = "The reason for the server restart."
   )
   public String restartReason;
@@ -344,9 +338,9 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "binary_path",
     defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-    optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    metadataTags = {OptionMetadataTag.HIDDEN},
     help = "The absolute path of the blaze binary."
   )
   public String binaryPath;
@@ -354,10 +348,9 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "experimental_allow_project_files",
     defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.CHANGES_INPUTS},
-    metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-    optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.HIDDEN},
     help = "Enable processing of +<file> parameters."
   )
   public boolean allowProjectFiles;
@@ -365,9 +358,9 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
     name = "block_for_lock",
     defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-    optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
+    metadataTags = {OptionMetadataTag.HIDDEN},
     help =
         "If set (the default), a command will block if there is another one running. If "
             + "unset, these commands will immediately return with an error."

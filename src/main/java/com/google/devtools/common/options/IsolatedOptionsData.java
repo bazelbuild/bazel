@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
 import com.google.devtools.common.options.OptionsParser.ConstructionException;
 import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
+import com.google.devtools.common.options.proto.OptionFilters.OptionMetadataTag;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -390,6 +391,23 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
     }
   }
 
+  private static void checkMetadataTagAndCategoryRationality(
+      String optionName, OptionMetadataTag[] metadataTags, OptionDocumentationCategory category) {
+    for (OptionMetadataTag tag : metadataTags) {
+      if (tag == OptionMetadataTag.HIDDEN || tag == OptionMetadataTag.INTERNAL) {
+        if (category != OptionDocumentationCategory.UNDOCUMENTED) {
+          throw new ConstructionException(
+              "Option "
+                  + optionName
+                  + " has metadata tag "
+                  + tag
+                  + " but does not have category UNDOCUMENTED. "
+                  + "Please fix.");
+        }
+      }
+    }
+  }
+
   /**
    * Constructs an {@link IsolatedOptionsData} object for a parser that knows about the given
    * {@link OptionsBase} classes. No inter-option analysis is done. Performs basic sanity checking
@@ -438,6 +456,8 @@ public class IsolatedOptionsData extends OpaqueOptionsData {
         }
 
         checkEffectTagRationality(optionName, annotation.effectTags());
+        checkMetadataTagAndCategoryRationality(
+            optionName, annotation.metadataTags(), annotation.documentationCategory());
 
         Type fieldType = getFieldSingularType(field, annotation);
         // For simple, static expansions, don't accept non-Void types.

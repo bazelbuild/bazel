@@ -32,8 +32,8 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
+import com.google.devtools.common.options.proto.OptionFilters.OptionMetadataTag;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -93,10 +93,10 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
     @Option(
       name = "internal_option",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
       defaultValue = "super secret",
-      optionUsageRestrictions = OptionUsageRestrictions.INTERNAL
+      metadataTags = {OptionMetadataTag.INTERNAL}
     )
     public String optwithDefault;
   }

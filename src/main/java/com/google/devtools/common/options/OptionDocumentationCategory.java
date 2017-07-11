@@ -29,6 +29,12 @@ public enum OptionDocumentationCategory {
   UNCATEGORIZED,
 
   /**
+   * A category for flags that are intended to not be listed, and for whom a documentation category
+   * does not make sense.
+   */
+  UNDOCUMENTED,
+
+  /**
    * Startup options appear before the command and are parsed by the client. Changing them may cause
    * a server restart, see OptionEffectTag.LOSES_INCREMENTAL_STATE.
    */

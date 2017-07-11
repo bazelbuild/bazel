@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.io.IOException;
 import java.util.HashMap;
@@ -72,8 +71,7 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
     @Option(
       name = "experimental_embed_timestamp_epoch",
       defaultValue = "-1",
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Alternative timestamp to be used in stamping the binary"
     )

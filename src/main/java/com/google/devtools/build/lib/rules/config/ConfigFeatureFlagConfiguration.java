@@ -29,8 +29,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
+import com.google.devtools.common.options.proto.OptionFilters.OptionMetadataTag;
 import java.util.Map;
 import java.util.SortedMap;
 import javax.annotation.Nullable;
@@ -60,9 +60,9 @@ public final class ConfigFeatureFlagConfiguration extends BuildConfiguration.Fra
     /** The mapping from config_feature_flag rules to their values. */
     @Option(
       name = "config_feature_flag values (private)",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      optionUsageRestrictions = OptionUsageRestrictions.INTERNAL,
+      metadataTags = {OptionMetadataTag.INTERNAL},
       converter = EmptyImmutableSortedMapConverter.class,
       defaultValue = "{}"
     )

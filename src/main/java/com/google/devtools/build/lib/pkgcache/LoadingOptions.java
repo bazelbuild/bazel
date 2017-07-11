@@ -19,7 +19,6 @@ import com.google.devtools.common.options.Converters.CommaSeparatedOptionListCon
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.List;
 import java.util.Set;
@@ -156,8 +155,7 @@ public class LoadingOptions extends OptionsBase {
   @Option(
     name = "experimental_skyframe_target_pattern_evaluator",
     defaultValue = "false",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Use the Skyframe-based target pattern evaluator; implies "

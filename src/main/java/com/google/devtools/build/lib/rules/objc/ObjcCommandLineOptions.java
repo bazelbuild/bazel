@@ -23,7 +23,6 @@ import com.google.devtools.common.options.Converters.CommaSeparatedOptionListCon
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import java.util.List;
 
@@ -139,8 +138,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   @Option(
     name = "experimental_enable_objc_cc_deps",
     defaultValue = "true",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Allows objc_* rules to depend on cc_library and causes any objc dependencies to be "
@@ -151,9 +149,8 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   @Option(
     name = "experimental_objc_fastbuild_options",
     defaultValue = "-O0,-DDEBUG=1",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     converter = CommaSeparatedOptionListConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "Uses these strings as objc fastbuild compiler options."
   )
@@ -162,8 +159,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   @Option(
     name = "experimental_objc_enable_module_maps",
     defaultValue = "false",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "Enables module map generation and interpretation."
   )
@@ -208,8 +204,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   @Option(
     name = "objc_debug_with_GLIBCXX",
     defaultValue = "true",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "If set, and compilation mode is set to 'dbg', define GLIBCXX_DEBUG, "
@@ -278,8 +273,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   @Option(
     name = "experimental_objc_crosstool",
     defaultValue = "off",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     converter = ObjcCrosstoolUsageConverter.class
   )
@@ -322,8 +316,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   @Option(
     name = "objc_header_thinning_partition_size",
     defaultValue = "120",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help = "The maximum number of source files to process within in each header scanning action."
   )
@@ -332,9 +325,8 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   @Option(
     name = "objc_header_scanner_tool",
     defaultValue = "@bazel_tools//tools/objc:header_scanner",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     converter = LabelConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Location of tool to scan Objective-C code for inclusions and output a .headers_list "
@@ -345,9 +337,8 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   @Option(
     name = "apple_sdk",
     defaultValue = "null",
-    optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
     converter = LabelConverter.class,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
         "Location of target that will provide the appropriate Apple SDK for the current build "

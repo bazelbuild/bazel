@@ -30,7 +30,6 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
@@ -103,18 +102,16 @@ public final class CanonicalizeCommand implements BlazeCommand {
     @Option(
       name = "flag_clash_canary",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN}
     )
     public boolean flagClashCanary;
 
     @Option(
       name = "flag_clash_canary_expander1",
       defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       expansion = {"--flag_clash_canary=1"}
     )
     public Void flagClashCanaryExpander1;
@@ -122,9 +119,8 @@ public final class CanonicalizeCommand implements BlazeCommand {
     @Option(
       name = "flag_clash_canary_expander2",
       defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
       expansion = {"--flag_clash_canary=0"}
     )
     public Void flagClashCanaryExpander2;

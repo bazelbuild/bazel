@@ -27,9 +27,9 @@ import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.devtools.common.options.OptionsParser.OptionDescription;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.OptionsParser.OptionValueDescription;
 import com.google.devtools.common.options.OptionsParser.UnparsedOptionValueDescription;
+import com.google.devtools.common.options.proto.OptionFilters.OptionMetadataTag;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -670,7 +670,7 @@ class OptionsParserImpl {
     Option option = field == null ? null : field.getAnnotation(Option.class);
 
     if (option == null
-        || option.optionUsageRestrictions() == OptionUsageRestrictions.INTERNAL) {
+        || ImmutableList.copyOf(option.metadataTags()).contains(OptionMetadataTag.INTERNAL)) {
       // This also covers internal options, which are treated as if they did not exist.
       throw new OptionsParsingException("Unrecognized option: " + arg, arg);
     }

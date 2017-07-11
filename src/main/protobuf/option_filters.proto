@@ -139,4 +139,13 @@ enum OptionMetadataTag {
   // This flag is deprecated. It might either no longer have any effect, or
   // might no longer be supported.
   DEPRECATED = 2;
+
+  // These are flags that should never be set by a user. This tag is used to
+  // make sure that options that form the protocol between the client and the
+  // server are not logged. These should have category UNDOCUMENTED.
+  HIDDEN = 3;
+
+  // Options which are INTERNAL are not recognized by the parser at all, and
+  // so cannot be used as flags. These should have category UNDOCUMENTED.
+  INTERNAL = 4;
 }

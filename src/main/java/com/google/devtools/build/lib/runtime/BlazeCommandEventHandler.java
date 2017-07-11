@@ -22,8 +22,8 @@ import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
+import com.google.devtools.common.options.proto.OptionFilters.OptionMetadataTag;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
@@ -114,8 +114,8 @@ public class BlazeCommandEventHandler implements EventHandler {
     @Option(
       name = "terminal_columns",
       defaultValue = "80",
-      optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "A system-generated parameter which specifies the terminal width in columns."
     )
@@ -124,8 +124,8 @@ public class BlazeCommandEventHandler implements EventHandler {
     @Option(
       name = "isatty",
       defaultValue = "false",
-      optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "A system-generated parameter which is used to notify the "
@@ -141,8 +141,7 @@ public class BlazeCommandEventHandler implements EventHandler {
     @Option(
       name = "emacs",
       defaultValue = "false",
-      optionUsageRestrictions = OptionUsageRestrictions.UNDOCUMENTED,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "A system-generated parameter which is true iff EMACS=t or INSIDE_EMACS is set "
@@ -208,8 +207,8 @@ public class BlazeCommandEventHandler implements EventHandler {
     @Option(
       name = "experimental_ui_debug_all_events",
       defaultValue = "false",
-      optionUsageRestrictions = OptionUsageRestrictions.HIDDEN,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Report all events known to the experimental new Bazel UI."
     )

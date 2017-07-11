@@ -34,9 +34,9 @@ import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
+import com.google.devtools.common.options.proto.OptionFilters.OptionMetadataTag;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -585,9 +585,9 @@ public class CppOptions extends FragmentOptions {
   @Option(
     name = "lipo configuration state",
     defaultValue = "apply_lipo",
-    optionUsageRestrictions = OptionUsageRestrictions.INTERNAL,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
     effectTags = {OptionEffectTag.UNKNOWN},
+    metadataTags = {OptionMetadataTag.INTERNAL},
     converter = LipoConfigurationStateConverter.class
   )
   public LipoConfigurationState lipoConfigurationState;

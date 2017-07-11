@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
-import com.google.devtools.common.options.OptionsParser.OptionUsageRestrictions;
 import com.google.devtools.common.options.proto.OptionFilters.OptionEffectTag;
 import com.google.devtools.common.options.proto.OptionFilters.OptionMetadataTag;
 import java.lang.annotation.ElementType;
@@ -90,20 +89,18 @@ public @interface Option {
   /**
    * Grouping categories used for usage documentation. See the enum's definition for details.
    *
-   * <p>For undocumented flags that aren't listed anywhere, this is currently a no-op. Feel free to
-   * set the value that it would have if it were documented, which might be helpful if a flag is
-   * part of an experimental feature that might become documented in the future, or just leave it as
-   * OptionDocumentationCategory.UNCATEGORIZED.
+   * <p>For undocumented flags that aren't listed anywhere, set this to
+   * OptionDocumentationCategory.UNDOCUMENTED.
    *
-   * <p>For hidden or internal options, use the category field only if it is helpful for yourself or
-   * other Bazel developers.
+   * <p>For hidden or internal options, please set this as UNDOCUMENTED and set the specific reason
+   * for this state in the metadataTags() field.
    */
   OptionDocumentationCategory documentationCategory();
 
   /**
    * Tag about the intent or effect of this option. Unless this option is a no-op (and the reason
    * for this should be documented) all options should have some effect, so this needs to have at
-   * least one value.
+   * least one value, and as many as apply.
    *
    * <p>No option should list NO_OP or UNKNOWN with other effects listed, but all other combinations
    * are allowed.
@@ -111,45 +108,13 @@ public @interface Option {
   OptionEffectTag[] effectTags();
 
   /**
-   * Tag about the state of this option, such as if it gates an experimental feature, or is
-   * deprecated.
+   * Tag about the option itself, not its effect, such as option state (experimental) or intended
+   * use (a value that isn't a flag but is used internally, for example, is "internal")
    *
    * <p>If one or more of the OptionMetadataTag values apply, please include, but otherwise, this
    * list can be left blank.
    */
   OptionMetadataTag[] metadataTags() default {};
-
-  /**
-   * Options have multiple uses, some flags, some not. For user-visible flags, they are
-   * "documented," but otherwise, there are 3 types of undocumented options.
-   *
-   * <ul>
-   *   <li>{@code UNDOCUMENTED}: undocumented but user-usable flags. These options are useful for
-   *       (some subset of) users, but not meant to be publicly advertised. For example,
-   *       experimental options which are only meant to be used by specific testers or team members.
-   *       These options will not be listed in the usage info displayed for the {@code --help}
-   *       option. They are otherwise normal - {@link
-   *       OptionsParser.UnparsedOptionValueDescription#isHidden()} returns {@code false} for them,
-   *       and they can be parsed normally from the command line or RC files.
-   *   <li>{@code HIDDEN}: flags which users should not pass or know about, but which are used by
-   *       the program (e.g., communication between a command-line client and a backend server).
-   *       Like {@code "undocumented"} options, these options will not be listed in the usage info
-   *       displayed for the {@code --help} option. However, in addition to this, calling {@link
-   *       OptionsParser.UnparsedOptionValueDescription#isHidden()} on these options will return
-   *       {@code true} - for example, this can be checked to strip out such secret options when
-   *       logging or otherwise reporting the command line to the user. This category does not
-   *       affect the option in any other way; it can still be parsed normally from the command line
-   *       or an RC file.
-   *   <li>{@code INTERNAL}: these are not flags, but options which are purely for internal use
-   *       within the JVM, and should never be shown to the user, nor be parsed by the options
-   *       parser. Like {@code "hidden"} options, these options will not be listed in the usage info
-   *       displayed for the --help option, and are considered hidden by {@link
-   *       OptionsParser.UnparsedOptionValueDescription#isHidden()}. Unlike those, this type of
-   *       option cannot be parsed by any call to {@link OptionsParser#parse} - it will be treated
-   *       as if it was not defined.
-   * </ul>
-   */
-  OptionUsageRestrictions optionUsageRestrictions() default OptionUsageRestrictions.DOCUMENTED;
 
   /**
    * The converter that we'll use to convert the string representation of this option's value into
