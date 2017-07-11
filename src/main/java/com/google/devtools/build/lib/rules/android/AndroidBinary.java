@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -818,7 +819,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .addOutputGroup("mobile_install_split" + INTERNAL_SUFFIX, splitInstallOutputGroup)
         .addOutputGroup("apk_manifest", apkManifest)
         .addOutputGroup("apk_manifest_text", apkManifestText)
-        .addOutputGroup("android_deploy_info", deployInfo);
+        .addOutputGroup("android_deploy_info", deployInfo)
+        .addOutputGroup("android_incremental_deploy_info", incrementalDeployInfo);
   }
 
   private static void createSplitInstallAction(RuleContext ruleContext,

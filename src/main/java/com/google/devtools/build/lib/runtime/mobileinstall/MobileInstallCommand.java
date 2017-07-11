@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.rules.android.WriteAdbArgsAction.StartType;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.commands.BuildCommand;
 import com.google.devtools.build.lib.runtime.commands.ProjectFileSupport;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
@@ -163,9 +164,9 @@ public class MobileInstallCommand implements BlazeCommand {
   @Override
   public ExitCode exec(CommandEnvironment env, OptionsProvider options) {
     Options mobileInstallOptions = options.getOptions(Options.class);
+    WriteAdbArgsAction.Options adbOptions = options.getOptions(WriteAdbArgsAction.Options.class);
 
     if (mobileInstallOptions.mode == Mode.CLASSIC) {
-      WriteAdbArgsAction.Options adbOptions = options.getOptions(WriteAdbArgsAction.Options.class);
       if (adbOptions.start == StartType.WARM && !mobileInstallOptions.incremental) {
         env.getReporter().handle(Event.warn(
            "Warm start is enabled, but will have no effect on a non-incremental build"));
@@ -233,6 +234,23 @@ public class MobileInstallCommand implements BlazeCommand {
             + "_launcher");
     cmdLine.addAll(runTargetArgs);
 
+    // Make mobile-install v2 understand relevant v1 flags for ASwB compatibility.
+    CommonCommandOptions commonCommandOptions = options.getOptions(CommonCommandOptions.class);
+    if (commonCommandOptions != null && !"".equals(commonCommandOptions.toolTag)) {
+      cmdLine.add("--tool_tag");
+      cmdLine.add(commonCommandOptions.toolTag);
+    }
+    cmdLine.add("--start_type");
+    cmdLine.add(adbOptions.start.toString());
+    if (!"".equals(adbOptions.adb)) {
+      cmdLine.add("--adb_path");
+      cmdLine.add(adbOptions.adb);
+    }
+    for (String adbArg : adbOptions.adbArgs) {
+      cmdLine.add("--adb_arg");
+      cmdLine.add(adbArg);
+    }
+
     Path workingDir = env.getBlazeWorkspace().getOutputPath().getParentDirectory();
     com.google.devtools.build.lib.shell.Command command =
         new CommandBuilder()
@@ -297,6 +315,7 @@ public class MobileInstallCommand implements BlazeCommand {
             "Options required by the skylark implementation of mobile-install command",
             ImmutableList.of(
                 "--aspects=" + options.mobileInstallAspect + "%" + options.mode.getAspectName(),
+                "--output_groups=android_incremental_deploy_info",
                 "--output_groups=mobile_install" + INTERNAL_SUFFIX,
                 "--output_groups=mobile_install_launcher" + INTERNAL_SUFFIX));
       }
