@@ -17,7 +17,6 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
@@ -654,7 +653,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       Options host = (Options) super.getHost(fallback);
       host.androidCrosstoolTop = androidCrosstoolTop;
       host.sdk = sdk;
-      host.fatApkCpus = ImmutableList.<String>of(); // Fat APK archs don't apply to the host.
+      host.fatApkCpus = ImmutableList.of(); // Fat APK archs don't apply to the host.
 
       host.desugarJava8 = desugarJava8;
       host.incrementalDexing = incrementalDexing;
@@ -687,9 +686,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     @Override
     public Fragment create(ConfigurationEnvironment env, BuildOptions buildOptions)
         throws InvalidConfigurationException, InterruptedException {
-      AndroidConfiguration.Options androidOptions =
-          buildOptions.get(AndroidConfiguration.Options.class);
-      return new AndroidConfiguration(buildOptions.get(Options.class), androidOptions.sdk);
+      return new AndroidConfiguration(buildOptions.get(Options.class));
     }
 
     @Override
@@ -699,7 +696,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
     @Override
     public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
-      return ImmutableSet.<Class<? extends FragmentOptions>>of(Options.class);
+      return ImmutableSet.of(Options.class);
     }
   }
 
@@ -730,8 +727,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean generateRobolectricRClass;
   private final boolean useParallelDex2Oat;
 
-  AndroidConfiguration(Options options, Label androidSdk) throws InvalidConfigurationException {
-    this.sdk = androidSdk;
+  AndroidConfiguration(Options options) throws InvalidConfigurationException {
+    this.sdk = options.sdk;
     this.incrementalNativeLibs = options.incrementalNativeLibs;
     this.cpu = options.cpu;
     this.configurationDistinguisher = options.configurationDistinguisher;
@@ -884,7 +881,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     return useNocompressExtensionsOnApk;
   }
 
-  boolean getExportsManifestDefault(RuleContext ruleContext) {
+  boolean getExportsManifestDefault() {
     return exportsManifestDefault;
   }
 

@@ -111,18 +111,6 @@ public class AndroidCommon {
     return builder.build();
   }
 
-
-  public static final Iterable<TransitiveInfoCollection> collectTransitiveInfo(
-      RuleContext ruleContext, Mode mode) {
-    ImmutableList.Builder<TransitiveInfoCollection> builder = ImmutableList.builder();
-    for (String attr : TRANSITIVE_ATTRIBUTES) {
-      if (ruleContext.attributes().has(attr, BuildType.LABEL_LIST)) {
-        builder.addAll(ruleContext.getPrerequisites(attr, mode));
-      }
-    }
-    return builder.build();
-  }
-
   private final RuleContext ruleContext;
   private final JavaCommon javaCommon;
   private final boolean asNeverLink;
@@ -402,9 +390,7 @@ public class AndroidCommon {
     // If the rule does not have the Android configuration fragment, we default to false.
     boolean exportsManifestDefault =
         ruleContext.isLegalFragment(AndroidConfiguration.class)
-            && ruleContext
-                .getFragment(AndroidConfiguration.class)
-                .getExportsManifestDefault(ruleContext);
+            && ruleContext.getFragment(AndroidConfiguration.class).getExportsManifestDefault();
     return attributeValue == TriState.YES
         || (attributeValue == TriState.AUTO && exportsManifestDefault);
   }
