@@ -611,10 +611,8 @@ public class BuildView {
     Collection<ConfiguredTarget> allTargetsToTest = null;
     if (testsToRun != null) {
       // Determine the subset of configured targets that are meant to be run as tests.
-      // Do not remove <ConfiguredTarget>: workaround for Java 7 type inference.
       allTargetsToTest =
-          Lists.<ConfiguredTarget>newArrayList(
-              filterTestsByTargets(configuredTargets, Sets.newHashSet(testsToRun)));
+          Lists.newArrayList(filterTestsByTargets(configuredTargets, Sets.newHashSet(testsToRun)));
     }
 
     Set<Artifact> artifactsToBuild = new HashSet<>();

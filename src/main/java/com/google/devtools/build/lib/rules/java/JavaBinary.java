@@ -108,9 +108,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     JavaCompilationHelper helper = new JavaCompilationHelper(
         ruleContext, semantics, common.getJavacOpts(), attributesBuilder);
     List<TransitiveInfoCollection> deps =
-        // Do not remove <TransitiveInfoCollection>: workaround for Java 7 type inference.
-        Lists.<TransitiveInfoCollection>newArrayList(
-            common.targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY));
+        Lists.newArrayList(common.targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY));
     helper.addLibrariesToAttributes(deps);
     attributesBuilder.addNativeLibraries(
         collectNativeLibraries(common.targetsTreatedAsDeps(ClasspathType.BOTH)));
