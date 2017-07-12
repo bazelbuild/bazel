@@ -28,8 +28,8 @@ public class SwiftCommandLineOptions extends FragmentOptions {
     allowMultiple = true,
     defaultValue = "",
     category = "flags",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+    effectTags = {OptionEffectTag.ACTION_OPTIONS},
     help = "Additional options to pass to Swift compilation."
   )
   public List<String> copts;
@@ -38,8 +38,8 @@ public class SwiftCommandLineOptions extends FragmentOptions {
     name = "swift_whole_module_optimization",
     defaultValue = "false",
     category = "flags",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
+    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+    effectTags = {OptionEffectTag.ACTION_OPTIONS},
     help = "Whether to enable Whole Module Optimization"
   )
   public boolean enableWholeModuleOptimization;

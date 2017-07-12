@@ -114,6 +114,13 @@ enum OptionEffectTag {
   // This option affects Bazel's terminal output, but should not affect its
   // operations. Verbosity and formatting options should have this tag.
   TERMINAL_OUTPUT = 12;
+
+  // This option is used to change command line arguments of one or more
+  // actions during the build.
+  ACTION_OPTIONS = 13;
+
+  // This option is used to change the testrunner environment of the build.
+  TEST_RUNNER = 14;
 }
 
 // On top of categorizing options by their intended purpose, these tags should

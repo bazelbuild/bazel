@@ -46,6 +46,9 @@ public enum OptionDocumentationCategory {
   /** This option deals with how to go about executing the build. */
   EXECUTION_STRATEGY,
 
+  /** This option deals with build time optimizations. */
+  BUILD_TIME_OPTIMIZATION,
+
   /**
    * This option lets a user specify WHICH output they wish the command to have. It might be a
    * selective filter on the outputs, or a blanket on/off switch.
@@ -57,4 +60,23 @@ public enum OptionDocumentationCategory {
    * or not an output is built, this specifies qualities of the output.
    */
   OUTPUT_PARAMETERS,
+
+  /**
+   * This option provides information about signing outputs of the build. (For example, signing
+   * an iOS application with a certificate.)
+   */
+  SIGNING,
+
+  /**
+   * This option dictates information about the test environment or test runner.
+   */
+  TESTING,
+
+  /**
+   * This option lets a user configure the toolchain used to execute actions in the build. This is
+   * not to be used for parameters to a toolchain, which are more likely to fall into another
+   * category; options in this category are for selecting between available toolchains, for example
+   * based on execution-environment requirements.
+   */
+  TOOLCHAIN,
 }
