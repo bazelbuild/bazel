@@ -861,6 +861,11 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testObjcProviderLinkInputsInLinkAction() throws Exception {
+    checkObjcProviderLinkInputsInLinkAction(RULE_TYPE);
+  }
+
+  @Test
   public void testAppleSdkVersionEnv() throws Exception {
     checkAppleSdkVersionEnv(RULE_TYPE);
   }
