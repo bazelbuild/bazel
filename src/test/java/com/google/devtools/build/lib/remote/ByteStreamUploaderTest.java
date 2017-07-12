@@ -263,11 +263,18 @@ public class ByteStreamUploaderTest {
     Chunker chunker = new Chunker(blob, CHUNK_SIZE);
 
     AtomicInteger numWriteCalls = new AtomicInteger();
+    CountDownLatch blocker = new CountDownLatch(1);
 
     serviceRegistry.addService(new ByteStreamImplBase() {
       @Override
       public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> response) {
         numWriteCalls.incrementAndGet();
+        try {
+          // Ensures that the first upload does not finish, before the second upload is started.
+          blocker.await();
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+        }
 
         return new StreamObserver<WriteRequest>() {
 
@@ -294,6 +301,8 @@ public class ByteStreamUploaderTest {
 
     Future<?> upload1 = uploader.uploadBlobAsync(chunker);
     Future<?> upload2 = uploader.uploadBlobAsync(chunker);
+
+    blocker.countDown();
 
     assertThat(upload1).isSameAs(upload2);
 
